@@ -198,6 +198,25 @@ def is_studio_job_event(value: object) -> bool:
     return value.get("type") == "studio_job_event" and isinstance(value.get("job_id"), str) and isinstance(value.get("status"), str)
 
 
+class StudioEventIds(TypedDict, total=False):
+    projectId: NotRequired[str | None]
+    chapterId: NotRequired[str | None]
+    jobId: NotRequired[str | None]
+    segmentId: NotRequired[str | None]
+
+
+class StudioEventEnvelope(TypedDict, total=False):
+    type: Literal["studio_event"]
+    version: int
+    topic: str
+    eventKind: str
+    source: str
+    emittedAt: float
+    pluginId: NotRequired[str | None]
+    ids: StudioEventIds
+    payload: dict
+
+
 # --- Phase 1 Studio Event Broadcaster Helper Builders ---
 
 CORE_TOPICS = {

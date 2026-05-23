@@ -870,3 +870,90 @@ def test_build_plugin_event_validations():
     # so it naturally cannot equal "queue.items" (since "queue.items" doesn't start with "plugins.").
     # But what if topic is passed manually, or what if we check f"plugins.{plugin_id}.{area}" prefix?
     # Let's verify that the topic derived cannot conflict with core topics.
+
+
+def test_broadcast_studio_event_sends_exact_event(monkeypatch):
+    from app.api.ws import broadcast_studio_event
+
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    sample_event = {
+        "type": "studio_event",
+        "version": 1,
+        "topic": "queue.items",
+        "eventKind": "queue_item_status",
+        "source": "test_src",
+        "emittedAt": 12345.67,
+        "pluginId": None,
+        "ids": {
+            "projectId": "p1",
+            "chapterId": "c1",
+            "jobId": "j1",
+            "segmentId": "s1"
+        },
+        "payload": {"status": "running"}
+    }
+
+    broadcast_studio_event(sample_event)
+
+    assert len(messages) == 1
+    assert messages[0] == sample_event
+
+
+def test_broadcast_studio_event_does_not_mutate(monkeypatch):
+    from app.api.ws import broadcast_studio_event
+
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    sample_event = {
+        "type": "studio_event",
+        "version": 1,
+        "topic": "tts.logs",
+        "eventKind": "tts_log",
+        "source": "test_src",
+        "emittedAt": 999.0,
+        "pluginId": "xtts",
+        "ids": {
+            "projectId": None,
+            "chapterId": None,
+            "jobId": None,
+            "segmentId": None
+        },
+        "payload": {"line": "hello"}
+    }
+
+    # Deep copy the original to assert no mutation
+    import copy
+    original_event = copy.deepcopy(sample_event)
+
+    broadcast_studio_event(sample_event)
+
+    assert sample_event == original_event
+
+
+def test_legacy_broadcasters_remain_unchanged(monkeypatch):
+    from app.api.ws import broadcast_queue_update
+
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_queue_update(reason="test")
+
+    assert len(messages) == 1
+    # Check that legacy emitter sends legacy type, not "studio_event"
+    assert messages[0]["type"] == "queue_updated"
+    assert messages[0]["type"] != "studio_event"

@@ -327,3 +327,19 @@ def broadcast_test_progress(name: str, progress: float, started_at: float = None
         "started_at": started_at,
         "source": source or _resolve_source("app.api.ws.broadcast_test_progress"),
     })
+
+
+def broadcast_studio_event(event: dict) -> None:
+    """Websocket transport facade for canonical studio_event envelopes."""
+    ids = event.get("ids", {})
+    trace(
+        "ws.broadcast_studio_event",
+        topic=event.get("topic"),
+        event_kind=event.get("eventKind"),
+        job_id=ids.get("jobId"),
+        project_id=ids.get("projectId"),
+        chapter_id=ids.get("chapterId"),
+        segment_id=ids.get("segmentId"),
+        plugin_id=event.get("pluginId"),
+    )
+    manager.broadcast(event)

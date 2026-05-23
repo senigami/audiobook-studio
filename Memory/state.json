@@ -1,18 +1,18 @@
 {
-  "snapshot_version": 109,
-  "updated_at": "2026-05-22T20:35:00-04:00",
+  "snapshot_version": 110,
+  "updated_at": "2026-05-22T20:40:00-04:00",
   "branch": "studio2/phase-12",
-  "current_task": "Implement Phase 1 of the Studio Event Broadcaster: add the canonical studio_event envelope and backend helper builders without rewiring existing producers yet.",
-  "status": "event_broadcaster_phase_1_implemented",
+  "current_task": "Add a non-invasive broadcast_studio_event facade for canonical studio_event envelopes.",
+  "status": "broadcaster_facade_implemented",
   "last_committed_milestone": {
-    "title": "Implement Phase 1 of the Studio Event Broadcaster: envelope and helper builders",
+    "title": "Add a non-invasive broadcast_studio_event facade for canonical studio_event envelopes",
     "commit": "pending",
     "notes": [
-      "Defined `build_studio_event` for canonical `studio_event` version 1 envelopes in `app/api/contracts/events.py`.",
-      "Implemented strict topic-specific builders for `queue.items`, `chapters.lifecycle`, `chapters.progress`, `segments.lifecycle`, `segments.progress`, `tts.logs`, `voice.test`, and `system.events`.",
-      "Added validation constraints for plugin-private namespaces to reject core topic mappings and verify valid `plugin_id`/`area` formats.",
-      "Authored comprehensive unit tests in `tests/api/test_websocket_broadcast.py` following TDD cycle.",
-      "Verified that all unit tests and Ruff linter checks pass cleanly."
+      "Implemented `broadcast_studio_event` in `app/api/ws.py` to route prebuilt envelopes to client WebSockets without mutation or duplicate wrapping.",
+      "Added detailed `trace` telemetry logging that captures topic, eventKind, and contextual identifiers (jobId, projectId, etc.).",
+      "Exposed the facade and canonical builder APIs cleanly from `app/api/contracts/__init__.py`.",
+      "Wrote new TDD unit tests in `tests/api/test_websocket_broadcast.py` asserting exact envelope transmittal and proving legacy emitters remain unchanged.",
+      "Verified with the full backend test suite, Ruff linter, and `git diff --check`."
     ]
   },
   "active_constraints": [

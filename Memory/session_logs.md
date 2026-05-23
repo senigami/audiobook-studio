@@ -1,3 +1,11 @@
+# 2026-05-22 - Add transport facade for canonical websocket events
+
+- Implemented `broadcast_studio_event` in `app/api/ws.py` to transmit prebuilt canonical envelopes over the ConnectionManager WebSocket without double-wrapping or payload modifications.
+- Integrated `trace` logging into `broadcast_studio_event` to output key routing identifiers (topic, eventKind, jobId, etc.).
+- Cleanly exposed the `broadcast_studio_event` facade and `StudioEventEnvelope` TypedDict shape in `app/api/contracts/__init__.py`.
+- Added unit tests in `tests/api/test_websocket_broadcast.py` asserting exact transmittal and verifying legacy websocket emitters are not impacted.
+- Verified backend pytest, Ruff, and `git diff --check` are 100% clean.
+
 # 2026-05-22 - Implement Phase 1 of the Studio Event Broadcaster
 
 - Defined the canonical `studio_event` version 1 envelope schema in `app/api/contracts/events.py`.
@@ -5,6 +13,7 @@
 - Implemented `build_plugin_event` with validation controls for plugin-private namespaces, preventing plugins from writing to core topics and ensuring valid alphanumeric format structures.
 - Wrote full unit test coverage for the helpers and validation logic in `tests/api/test_websocket_broadcast.py` following TDD.
 - Verified all backend tests pass and both Ruff linter and `git diff --check` are clean.
+
 
 # 2026-05-22 - Create durable Studio Event Broadcaster contract plan document
 
