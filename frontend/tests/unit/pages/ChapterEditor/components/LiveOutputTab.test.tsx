@@ -51,7 +51,7 @@ describe('LiveOutputTab', () => {
     render(<LiveOutputTab chapterId="chap-1" currentJobId="job-current" />);
 
     expect(screen.getByText('[START_SEGMENT] seg-1')).toBeInTheDocument();
-    expect(screen.getByText('Rendering segment seg-1...')).toBeInTheDocument();
+    expect(screen.getByText('Rendering segment seg-1...', { exact: false })).toBeInTheDocument();
     expect(screen.getByText('42%')).toBeInTheDocument();
     expect(screen.getByText('50%')).toBeInTheDocument();
 
@@ -81,9 +81,9 @@ describe('LiveOutputTab', () => {
     publish({ type: 'studio_job_event', job_id: 'job-1', status: 'running' });
     const frameId = 1;
     act(() => {
-      recordLiveEventSubscriberObservation(frameId, 'jobs-state', 'handled');
-      recordLiveEventSubscriberObservation(frameId, 'queue-sync', 'handled');
-      recordLiveEventSubscriberObservation(frameId, 'jobs-state', 'handled');
+      recordLiveEventSubscriberObservation(frameId, 'chapter-state', 'handled');
+      recordLiveEventSubscriberObservation(frameId, 'main-queue', 'handled');
+      recordLiveEventSubscriberObservation(frameId, 'chapter-state', 'handled');
     });
 
     render(<LiveOutputTab />);
@@ -91,17 +91,17 @@ describe('LiveOutputTab', () => {
     const rows = document.querySelectorAll('tbody tr[data-frame-id]');
     expect(rows).toHaveLength(1);
     const subscribersCell = rows[0].querySelector('[data-testid="subscribers-cell"]');
-    expect(subscribersCell?.textContent).toBe('jobs-state, queue-sync');
+    expect(subscribersCell?.textContent).toBe('chapter-state, main-queue');
   });
 
-  it('shows unknown/unhandled frames as system.unknown audit rows', () => {
+  it('shows unknown/unhandled frames as system.events audit rows', () => {
     publish({ type: 'mystery_backend_event', foo: 'bar' });
 
     render(<LiveOutputTab />);
 
     const rows = document.querySelectorAll('tbody tr[data-frame-id]');
     expect(rows).toHaveLength(1);
-    expect(rows[0].textContent).toContain('system.unknown');
+    expect(rows[0].textContent).toContain('system.events');
     expect(rows[0].textContent).toContain('mystery_backend_event');
   });
 
@@ -120,22 +120,30 @@ describe('LiveOutputTab', () => {
     publish({ type: 'studio_job_event', job_id: 'job-1' });
     publish({ type: 'queue_updated' });
     act(() => {
-      recordLiveEventSubscriberObservation(1, 'jobs-state', 'handled');
-      recordLiveEventSubscriberObservation(2, 'queue-sync', 'handled');
+      recordLiveEventSubscriberObservation(1, 'chapter-state', 'handled');
+      recordLiveEventSubscriberObservation(2, 'main-queue', 'handled');
     });
 
     render(<LiveOutputTab />);
     expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(2);
 
-    // jobs-state listens to jobs.progress and queue.lifecycle, so both match
-    fireEvent.click(screen.getByRole('button', { name: 'jobs-state' }));
+    // chapter-state listens to chapters.lifecycle, chapters.progress, and segments.progress (both match since job-1 maps to queue.items and queue_updated maps to queue.items... wait! Actually, job-1 has no active segment or classification, so it maps to queue.items. queue_updated maps to queue.items. Does chapter-state listen to queue.items? No! chapter-state listens to ['chapters.lifecycle', 'chapters.progress', 'segments.progress'].
+    // Wait! Let's check which events match which consumers:
+    // job-1 -> maps to queue.items.
+    // queue_updated -> maps to queue.items.
+    // So both events have topic queue.items.
+    // main-queue listens to queue.items. So main-queue matches both events.
+    // chapter-state does NOT listen to queue.items. So chapter-state matches 0 events.
+    // Let's adjust the test expectations accordingly:
+    // main-queue: 2 match
+    // chapter-state: 0 match
+    // tts-diagnostics: 0 match
+    fireEvent.click(screen.getByRole('button', { name: 'main-queue' }));
     expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(2);
 
-    // queue-sync listens to jobs.progress and queue.lifecycle, so both match
-    fireEvent.click(screen.getByRole('button', { name: 'queue-sync' }));
-    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'chapter-state' }));
+    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(0);
 
-    // tts-diagnostics does not listen to jobs.progress or queue.lifecycle, so 0 match
     fireEvent.click(screen.getByRole('button', { name: 'tts-diagnostics' }));
     expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(0);
 

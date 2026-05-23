@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import type { LiveEvent, LiveEventRecord, JobProgressPayload } from '@/api/contracts/liveEvents';
+import type { LiveEvent, LiveEventRecord } from '@/api/contracts/liveEvents';
 import {
   clearLiveEventAudit,
   getLiveEventAuditSnapshot,
   subscribeLiveEventAudit,
 } from '@/store/liveEventAuditStore';
-import { LIVE_EVENT_CONSUMERS } from '@/config/liveEventConsumers';
+import { LIVE_EVENT_CONSUMERS, getLiveEventConsumer } from '@/config/liveEventConsumers';
 
 
-type LiveOutputFilter = 'all' | 'jobs-state' | 'queue-sync' | 'tts-diagnostics';
+type LiveOutputFilter = 'all' | 'main-queue' | 'chapter-state' | 'segment-state' | 'tts-diagnostics' | 'voice-test-state' | string;
 
 interface LiveOutputTableProps {
   chapterId?: string | null;
@@ -38,7 +38,7 @@ const formatProgress = (value?: number | null) => {
   return `${Math.round(value * 1000) / 10}%`;
 };
 
-const formatGroup = (payload: JobProgressPayload | undefined) => {
+const formatGroup = (payload: any | undefined) => {
   if (!payload) return '-';
   if (typeof payload.active_render_group_index !== 'number' && typeof payload.render_group_count !== 'number') {
     return '-';
@@ -46,25 +46,55 @@ const formatGroup = (payload: JobProgressPayload | undefined) => {
   return `${payload.active_render_group_index ?? '-'}/${payload.render_group_count ?? '-'}`;
 };
 
-const jobProgressPayloadFor = (event: LiveEvent): JobProgressPayload | undefined =>
-  event.topic === 'jobs.progress' ? event.payload : undefined;
+const jobProgressPayloadFor = (event: LiveEvent): any => {
+  if (
+    event.topic === 'queue.items' ||
+    event.topic === 'chapters.progress' ||
+    event.topic === 'segments.progress'
+  ) {
+    const payload = event.payload as any;
+    const hasActiveSegmentProgress = payload.activeSegmentProgress !== undefined || payload.active_segment_progress !== undefined;
+    return {
+      progress: event.topic === 'segments.progress' ? (hasActiveSegmentProgress ? payload.progress : null) : payload.progress,
+      active_segment_progress: event.topic === 'segments.progress' ? (payload.activeSegmentProgress ?? payload.active_segment_progress ?? payload.progress) : null,
+      active_render_group_index: payload.segmentIndex ?? payload.completedRenderGroups ?? payload.active_render_group_index ?? payload.completed_render_groups,
+      render_group_count: payload.segmentCount ?? payload.renderGroupCount ?? payload.render_group_count,
+      reason_code: payload.reasonCode ?? payload.reason_code,
+      message: payload.message,
+      status: payload.status,
+    };
+  }
+  if (event.topic === 'jobs.progress') {
+    return event.payload;
+  }
+  return undefined;
+};
 
 const messageFor = (event: LiveEvent): string => {
-  if (event.topic === 'tts.logs') return event.payload.line ?? '';
-  if (event.topic === 'jobs.progress') {
-    const message = event.payload.message ?? '';
-    const status = event.payload.status ?? '';
+  if (event.topic === 'tts.logs') return (event.payload as any).line ?? '';
+  if (
+    event.topic === 'queue.items' ||
+    event.topic === 'chapters.progress' ||
+    event.topic === 'segments.progress' ||
+    event.topic === 'jobs.progress'
+  ) {
+    const payload = event.payload as any;
+    const message = payload.message ?? '';
+    const status = payload.status ?? '';
     if (message && status) return `[${status}] ${message}`;
     return message || status;
   }
   if (
-    event.topic === 'queue.lifecycle'
-    || event.topic === 'chapter.invalidate'
-    || event.topic === 'segments.invalidate'
+    event.topic === 'queue.lifecycle' ||
+    event.topic === 'chapter.invalidate' ||
+    event.topic === 'segments.invalidate' ||
+    event.topic === 'chapters.lifecycle' ||
+    event.topic === 'segments.lifecycle'
   ) {
-    return event.payload.reason ?? '';
+    const payload = event.payload as any;
+    return payload.reason ?? '';
   }
-  if (event.topic === 'system.unknown') {
+  if (event.topic === 'system.events' || event.topic === 'system.unknown') {
     try {
       return JSON.stringify(event.payload);
     } catch {
@@ -75,13 +105,24 @@ const messageFor = (event: LiveEvent): string => {
 };
 
 const reasonFor = (event: LiveEvent): string => {
-  if (event.topic === 'jobs.progress') return event.payload.reason_code ?? '-';
   if (
-    event.topic === 'queue.lifecycle'
-    || event.topic === 'chapter.invalidate'
-    || event.topic === 'segments.invalidate'
+    event.topic === 'queue.items' ||
+    event.topic === 'chapters.progress' ||
+    event.topic === 'segments.progress' ||
+    event.topic === 'jobs.progress'
   ) {
-    return event.payload.reason ?? '-';
+    const payload = event.payload as any;
+    return payload.reasonCode ?? payload.reason_code ?? '-';
+  }
+  if (
+    event.topic === 'queue.lifecycle' ||
+    event.topic === 'chapter.invalidate' ||
+    event.topic === 'segments.invalidate' ||
+    event.topic === 'chapters.lifecycle' ||
+    event.topic === 'segments.lifecycle'
+  ) {
+    const payload = event.payload as any;
+    return payload.reason ?? '-';
   }
   return '-';
 };
@@ -116,7 +157,7 @@ export const LiveOutputTable: React.FC<LiveOutputTableProps> = (_props) => {
 
   const filteredRecords = useMemo(() => {
     if (filter === 'all') return records;
-    const consumer = LIVE_EVENT_CONSUMERS.find(c => c.id === filter);
+    const consumer = getLiveEventConsumer(filter);
     if (!consumer) return records;
     return records.filter(record => consumer.listensTo(record.event));
   }, [filter, records]);
