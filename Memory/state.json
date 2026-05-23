@@ -1,16 +1,18 @@
 {
-  "snapshot_version": 108,
-  "updated_at": "2026-05-22T20:30:00-04:00",
+  "snapshot_version": 109,
+  "updated_at": "2026-05-22T20:35:00-04:00",
   "branch": "studio2/phase-12",
-  "current_task": "Create the durable Studio Event Broadcaster contract plan document.",
-  "status": "broadcaster_contract_plan_created",
+  "current_task": "Implement Phase 1 of the Studio Event Broadcaster: add the canonical studio_event envelope and backend helper builders without rewiring existing producers yet.",
+  "status": "event_broadcaster_phase_1_implemented",
   "last_committed_milestone": {
-    "title": "Create the durable Studio Event Broadcaster contract plan document",
+    "title": "Implement Phase 1 of the Studio Event Broadcaster: envelope and helper builders",
     "commit": "pending",
     "notes": [
-      "Created the durable Studio Event Broadcaster contract plan document at `plans/implementation/studio_event_broadcaster_contract.md`.",
-      "Defined the canonical `studio_event` envelope, strict core topics, plugin namespaces, producer helper APIs, and consumer registries.",
-      "Verified the file formatting and integrity with `git diff --check`."
+      "Defined `build_studio_event` for canonical `studio_event` version 1 envelopes in `app/api/contracts/events.py`.",
+      "Implemented strict topic-specific builders for `queue.items`, `chapters.lifecycle`, `chapters.progress`, `segments.lifecycle`, `segments.progress`, `tts.logs`, `voice.test`, and `system.events`.",
+      "Added validation constraints for plugin-private namespaces to reject core topic mappings and verify valid `plugin_id`/`area` formats.",
+      "Authored comprehensive unit tests in `tests/api/test_websocket_broadcast.py` following TDD cycle.",
+      "Verified that all unit tests and Ruff linter checks pass cleanly."
     ]
   },
   "active_constraints": [

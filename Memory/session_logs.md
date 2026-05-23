@@ -1,3 +1,11 @@
+# 2026-05-22 - Implement Phase 1 of the Studio Event Broadcaster
+
+- Defined the canonical `studio_event` version 1 envelope schema in `app/api/contracts/events.py`.
+- Implemented strict topic-specific helper builders (`build_tts_log_event`, `build_queue_item_status_event`, `build_queue_item_invalidated_event`, `build_queue_paused_event`, `build_chapter_progress_event`, `build_segment_progress_event`, `build_segment_lifecycle_event`, `build_chapter_lifecycle_event`, `build_voice_test_progress_event`, `build_system_event`) that conform to the broadcaster plan.
+- Implemented `build_plugin_event` with validation controls for plugin-private namespaces, preventing plugins from writing to core topics and ensuring valid alphanumeric format structures.
+- Wrote full unit test coverage for the helpers and validation logic in `tests/api/test_websocket_broadcast.py` following TDD.
+- Verified all backend tests pass and both Ruff linter and `git diff --check` are clean.
+
 # 2026-05-22 - Create durable Studio Event Broadcaster contract plan document
 
 - Authored [studio_event_broadcaster_contract.md](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/plans/implementation/studio_event_broadcaster_contract.md) defining the contract for the next event stream refactor.

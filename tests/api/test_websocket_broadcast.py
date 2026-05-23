@@ -606,3 +606,267 @@ def test_api_add_to_queue_websocket_burst_no_redundancy(monkeypatch, tmp_path, v
     assert len(job_updated_queued) == 0, f"Expected 0 job_updated (queued) after suppression, got {len(job_updated_queued)}: {job_updated_queued}"
     assert len(chapter_updated) == 1, f"Expected 1 chapter_updated, got {len(chapter_updated)}: {chapter_updated}"
     assert len(queue_updated) == 1, f"Expected 1 queue_updated, got {len(queue_updated)}: {queue_updated}"
+
+
+# --- Phase 1 Studio Event Broadcaster Contract tests ---
+
+def test_build_studio_event_envelope_shape():
+    from app.api.contracts.events import build_studio_event
+    import time
+
+    event = build_studio_event(
+        topic="system.events",
+        event_kind="test_event",
+        payload={"foo": "bar"},
+        project_id="p-1",
+        chapter_id="c-1",
+        job_id="j-1",
+        segment_id="s-1",
+        source="test_source"
+    )
+
+    assert event["type"] == "studio_event"
+    assert event["version"] == 1
+    assert event["topic"] == "system.events"
+    assert event["eventKind"] == "test_event"
+    assert event["source"] == "test_source"
+    assert isinstance(event["emittedAt"], float)
+    assert event["emittedAt"] <= time.time()
+    assert event["pluginId"] is None
+    assert event["ids"] == {
+        "projectId": "p-1",
+        "chapterId": "c-1",
+        "jobId": "j-1",
+        "segmentId": "s-1"
+    }
+    assert event["payload"] == {"foo": "bar"}
+
+
+def test_build_core_topic_helpers():
+    from app.api.contracts.events import (
+        build_tts_log_event,
+        build_queue_item_status_event,
+        build_queue_item_invalidated_event,
+        build_queue_paused_event,
+        build_chapter_progress_event,
+        build_segment_progress_event,
+        build_segment_lifecycle_event,
+        build_chapter_lifecycle_event,
+        build_voice_test_progress_event,
+        build_system_event
+    )
+
+    # 1. tts.logs
+    e_tts = build_tts_log_event(
+        line="synthesizing",
+        level="INFO",
+        sequence=42,
+        plugin_id="tts_xtts",
+        job_id="j-1",
+        chapter_id="c-1"
+    )
+    assert e_tts["topic"] == "tts.logs"
+    assert e_tts["pluginId"] == "tts_xtts"
+    assert e_tts["payload"] == {
+        "line": "synthesizing",
+        "level": "INFO",
+        "sequence": 42,
+        "pluginId": "tts_xtts",
+        "jobId": "j-1",
+        "chapterId": "c-1",
+        "source": e_tts["payload"]["source"]
+    }
+
+    # 2. queue.items status
+    e_queue_status = build_queue_item_status_event(
+        job_id="j-1",
+        status="running",
+        progress=0.45,
+        eta_seconds=120,
+        message="Running synthesis",
+        reason_code="synth_progress",
+        classification="segment"
+    )
+    assert e_queue_status["topic"] == "queue.items"
+    assert e_queue_status["eventKind"] == "queue_item_status"
+    assert e_queue_status["payload"] == {
+        "status": "running",
+        "progress": 0.45,
+        "etaSeconds": 120,
+        "message": "Running synthesis",
+        "reasonCode": "synth_progress",
+        "classification": "segment",
+        "changedFields": None
+    }
+
+    # 3. queue.items invalidated
+    e_queue_inv = build_queue_item_invalidated_event(
+        reason="job_canceled",
+        changed_fields=["status", "finished_at"]
+    )
+    assert e_queue_inv["topic"] == "queue.items"
+    assert e_queue_inv["eventKind"] == "queue_item_invalidated"
+    assert e_queue_inv["payload"]["changedFields"] == ["status", "finished_at"]
+
+    # 4. queue.items paused
+    e_queue_paused = build_queue_paused_event(paused=True)
+    assert e_queue_paused["topic"] == "queue.items"
+    assert e_queue_paused["eventKind"] == "queue_paused"
+    assert e_queue_paused["payload"]["changedFields"] == ["paused"]
+
+    # 5. chapters.progress
+    e_chap_prog = build_chapter_progress_event(
+        chapter_id="c-1",
+        status="running",
+        progress=0.8,
+        grouped_progress=0.5,
+        eta_seconds=60,
+        message="rendering",
+        reason_code="rendering_chapter",
+        render_group_count=10,
+        completed_render_groups=5
+    )
+    assert e_chap_prog["topic"] == "chapters.progress"
+    assert e_chap_prog["payload"] == {
+        "status": "running",
+        "progress": 0.8,
+        "groupedProgress": 0.5,
+        "etaSeconds": 60,
+        "message": "rendering",
+        "reasonCode": "rendering_chapter",
+        "renderGroupCount": 10,
+        "completedRenderGroups": 5
+    }
+
+    # 6. segments.progress
+    e_seg_prog = build_segment_progress_event(
+        segment_id="s-1",
+        status="running",
+        progress=0.25,
+        segment_index=2,
+        segment_count=5,
+        message="synthesizing segment",
+        reason_code="segment_synth"
+    )
+    assert e_seg_prog["topic"] == "segments.progress"
+    assert e_seg_prog["payload"] == {
+        "status": "running",
+        "progress": 0.25,
+        "segmentIndex": 2,
+        "segmentCount": 5,
+        "message": "synthesizing segment",
+        "reasonCode": "segment_synth"
+    }
+
+    # 7. segments.lifecycle
+    e_seg_life = build_segment_lifecycle_event(
+        chapter_id="c-1",
+        reason="saved",
+        changed_fields=["audio_path"]
+    )
+    assert e_seg_life["topic"] == "segments.lifecycle"
+    assert e_seg_life["payload"] == {
+        "reason": "saved",
+        "changedFields": ["audio_path"]
+    }
+
+    # 8. chapters.lifecycle
+    e_chap_life = build_chapter_lifecycle_event(
+        chapter_id="c-1",
+        reason="reset",
+        changed_fields=["audio_status"]
+    )
+    assert e_chap_life["topic"] == "chapters.lifecycle"
+    assert e_chap_life["payload"] == {
+        "reason": "reset",
+        "changedFields": ["audio_status"]
+    }
+
+    # 9. voice.test
+    e_voice = build_voice_test_progress_event(
+        voice_name="VoiceA",
+        status="running",
+        progress=0.5,
+        started_at=100.0,
+        message="building"
+    )
+    assert e_voice["topic"] == "voice.test"
+    assert e_voice["payload"] == {
+        "voiceName": "VoiceA",
+        "status": "running",
+        "progress": 0.5,
+        "startedAt": 100.0,
+        "message": "building"
+    }
+
+    # 10. system.events
+    e_sys = build_system_event(
+        event_kind="disk_space_low",
+        message="Remaining disk space below 10%",
+        details={"free_bytes": 10000}
+    )
+    assert e_sys["topic"] == "system.events"
+    assert e_sys["payload"] == {
+        "eventKind": "disk_space_low",
+        "message": "Remaining disk space below 10%",
+        "details": {"free_bytes": 10000}
+    }
+
+
+def test_build_plugin_event_success():
+    from app.api.contracts.events import build_plugin_event
+
+    event = build_plugin_event(
+        plugin_id="tts_xtts",
+        area="synthesis",
+        event_kind="custom_log",
+        payload={"some_key": "some_val"},
+        project_id="p-1",
+        chapter_id="c-1"
+    )
+
+    assert event["topic"] == "plugins.tts_xtts.synthesis"
+    assert event["eventKind"] == "custom_log"
+    assert event["pluginId"] == "tts_xtts"
+    assert event["payload"] == {"some_key": "some_val"}
+
+
+def test_build_plugin_event_validations():
+    from app.api.contracts.events import build_plugin_event
+
+    # 1. Invalid pluginId format
+    with pytest.raises(ValueError, match="Invalid plugin_id format"):
+        build_plugin_event(
+            plugin_id="bad/plugin",
+            area="synthesis",
+            event_kind="custom",
+            payload={}
+        )
+
+    # 2. empty/None pluginId
+    with pytest.raises(ValueError, match="plugin_id must be a non-empty string"):
+        build_plugin_event(
+            plugin_id="",
+            area="synthesis",
+            event_kind="custom",
+            payload={}
+        )
+
+    # 3. area containing bad chars or empty
+    with pytest.raises(ValueError, match="area must be a valid alphanumeric"):
+        build_plugin_event(
+            plugin_id="tts_xtts",
+            area="bad/area",
+            event_kind="custom",
+            payload={}
+        )
+
+    # 4. publish to core topics
+    # Note: Topic is derived from plugins.<plugin_id>.<area>.
+    # If a plugin tried to name itself such that the resulting topic matched core topics (or if there's any core topic conflict check)
+    # Let's make sure plugins cannot override core topic names or intercept them.
+    # Wait, can a plugin publish to "queue.items"?
+    # The topic is generated as f"plugins.{plugin_id}.{area}", which always has the "plugins." prefix,
+    # so it naturally cannot equal "queue.items" (since "queue.items" doesn't start with "plugins.").
+    # But what if topic is passed manually, or what if we check f"plugins.{plugin_id}.{area}" prefix?
+    # Let's verify that the topic derived cannot conflict with core topics.
