@@ -313,22 +313,22 @@ class ProgressService:
             self.broadcaster(payload=chap_event, channel="jobs")
             emitted_any = True
 
-            # Emit queue.items status on status change or terminal status transitions
-            if status_changed or status in ("done", "failed", "cancelled"):
-                from app.api.contracts.events import build_queue_item_status_event  # noqa: PLC0415
-                queue_event = build_queue_item_status_event(
-                    job_id=job_id,
-                    status=status,
-                    progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
-                    eta_seconds=payload.get("eta_seconds"),
-                    message=payload.get("message"),
-                    reason_code=payload.get("reason_code"),
-                    classification="chapter",
-                    project_id=parent_job_id,
-                    chapter_id=chapter_id,
-                    source=payload.get("source"),
-                )
-                self.broadcaster(payload=queue_event, channel="jobs")
+            # Emit queue.items status alongside chapter progress update
+            from app.api.contracts.events import build_queue_item_status_event  # noqa: PLC0415
+            queue_event = build_queue_item_status_event(
+                job_id=job_id,
+                status=status,
+                progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
+                eta_seconds=payload.get("eta_seconds"),
+                message=payload.get("message"),
+                reason_code=payload.get("reason_code"),
+                classification="chapter",
+                project_id=parent_job_id,
+                chapter_id=chapter_id,
+                source=payload.get("source"),
+            )
+            self.broadcaster(payload=queue_event, channel="jobs")
+
 
         # 3. Fallback queue status event
         if not emitted_any:

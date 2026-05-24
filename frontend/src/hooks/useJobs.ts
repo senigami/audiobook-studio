@@ -246,6 +246,41 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
             };
             setSegmentProgress(prev => ({ ...prev, [next.segment_id]: next }));
           }
+          if (event.jobId) {
+            recordLiveEventSubscriberObservation(envelope?.frameId, 'chapter-state', 'handled');
+
+            const getVal = (keyCamel: string, keySnake: string) => {
+              if (payload[keyCamel] !== undefined) return payload[keyCamel];
+              if (payload[keySnake] !== undefined) return payload[keySnake];
+              return undefined;
+            };
+
+            const rawStatus = getVal('status', 'status');
+            const projectedStatus = (rawStatus && rawStatus !== 'done' && rawStatus !== 'failed' && rawStatus !== 'cancelled')
+              ? rawStatus
+              : undefined;
+
+            const projectedUpdates: any = {
+              active_segment_id: event.segmentId,
+              active_segment_progress: getVal('activeSegmentProgress', 'active_segment_progress') ?? payload.progress,
+              status: projectedStatus,
+              eta_seconds: getVal('etaSeconds', 'eta_seconds'),
+              reason_code: getVal('reasonCode', 'reason_code'),
+              log: payload.message || payload.log,
+            };
+
+            // Remove undefined keys so we don't clear existing job keys unless intended
+            Object.keys(projectedUpdates).forEach(key => {
+              if (projectedUpdates[key] === undefined) {
+                delete projectedUpdates[key];
+              }
+            });
+
+            applyJobUpdatedEvent({
+              job_id: event.jobId,
+              updates: projectedUpdates,
+            });
+          }
           break;
         }
 

@@ -176,4 +176,105 @@ describe('ChapterEditor - Core Orchestration', () => {
 
     expect(screen.queryByPlaceholderText(/Start typing your chapter text/i)).not.toBeInTheDocument();
   });
+
+  it('switches active highlighting and progress to the second segment/render batch when active_segment_id updates', async () => {
+    const { Job } = await import('@/types');
+    const twoSegmentScriptView = {
+      chapter_id: mockChapterId,
+      base_revision_id: 'rev-1',
+      paragraphs: [
+        { id: 'para-1', span_ids: ['seg-1', 'seg-2'] }
+      ],
+      spans: [
+        {
+          id: 'seg-1',
+          order_index: 0,
+          text: 'Sentence one.',
+          sanitized_text: 'Sentence one.',
+          character_id: null,
+          speaker_profile_name: null,
+          status: 'draft',
+          audio_file_path: null,
+          audio_generated_at: null,
+          char_count: 13,
+          sanitized_char_count: 13
+        },
+        {
+          id: 'seg-2',
+          order_index: 1,
+          text: 'Sentence two.',
+          sanitized_text: 'Sentence two.',
+          character_id: null,
+          speaker_profile_name: null,
+          status: 'draft',
+          audio_file_path: null,
+          audio_generated_at: null,
+          char_count: 13,
+          sanitized_char_count: 13
+        }
+      ],
+      render_batches: [
+        { id: 'batch-1', span_ids: ['seg-1'], status: 'draft', estimated_work_weight: 1 },
+        { id: 'batch-2', span_ids: ['seg-2'], status: 'draft', estimated_work_weight: 1 }
+      ]
+    };
+
+    (api.fetchScriptView as any).mockResolvedValue(twoSegmentScriptView);
+
+    const firstJob: any = {
+      id: 'job-123',
+      project_id: mockProjectId,
+      chapter_id: mockChapterId,
+      status: 'running',
+      progress: 0.1,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.45,
+      classification: 'chapter'
+    };
+
+    const { rerender } = render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={[]}
+        speakers={[]}
+        job={firstJob}
+        chapterJobs={[firstJob]}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    // Assert that batch-1 is rendering and Sentence one has render styling
+    const span1 = screen.getByTestId('script-span-seg-1');
+    const span2 = screen.getByTestId('script-span-seg-2');
+    expect(span1).toHaveClass('is-book-rendering');
+    expect(span2).not.toHaveClass('is-book-rendering');
+
+    // Now update job to seg-2 and rerender
+    const secondJob: any = {
+      ...firstJob,
+      active_segment_id: 'seg-2',
+      active_segment_progress: 0.75
+    };
+
+    rerender(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={[]}
+        speakers={[]}
+        job={secondJob}
+        chapterJobs={[secondJob]}
+      />
+    );
+
+    // Re-query spans to get the current mounted elements
+    const updatedSpan1 = screen.getByTestId('script-span-seg-1');
+    const updatedSpan2 = screen.getByTestId('script-span-seg-2');
+
+    // Assert highlighting switched to batch-2 / seg-2
+    expect(updatedSpan1).not.toHaveClass('is-book-rendering');
+    expect(updatedSpan2).toHaveClass('is-book-rendering');
+  });
 });

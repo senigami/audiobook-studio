@@ -165,6 +165,9 @@ def build_queue_item_status_event(
     paused: bool | None = None,
 ) -> dict:
     """Build a queue.items status envelope."""
+    if reason_code in ("segment_start", "segment_saved"):
+        message = None
+
     payload = {
         "status": status,
         "progress": round(float(progress), 2),

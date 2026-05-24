@@ -109,6 +109,34 @@ def test_broadcast_job_updated_uses_phase4_progress_rounding(monkeypatch):
     assert messages[0]["source"].endswith("test_broadcast_job_updated_uses_phase4_progress_rounding")
 
 
+def test_broadcast_job_updated_chapter_progress_emits_queue_item_status(monkeypatch):
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    # Update progress without status change for a chapter-classified job
+    broadcast_job_updated(
+        "job-chap-progress",
+        {"progress": 0.52, "eta_seconds": 30},
+        {"status": "running", "progress": 0.10, "chapter_id": "chap-123", "project_id": "proj-123", "classification": "chapter"},
+    )
+
+    # We expect BOTH chapters.progress and queue.items to be broadcast
+    topics = [m["topic"] for m in messages]
+    assert "chapters.progress" in topics
+    assert "queue.items" in topics
+
+    queue_events = [m for m in messages if m["topic"] == "queue.items"]
+    assert len(queue_events) == 1
+    assert queue_events[0]["payload"]["progress"] == 0.52
+    assert queue_events[0]["payload"]["status"] == "running"
+    assert queue_events[0]["payload"]["classification"] == "chapter"
+
+
 def test_broadcast_tts_log_line_sends_canonical_envelope(monkeypatch):
     messages = []
 
@@ -697,6 +725,18 @@ def test_build_core_topic_helpers():
         "reason_code": "synth_progress"
     }
 
+    # Test message filtering on segment_start and segment_saved
+    for reason in ("segment_start", "segment_saved"):
+        e_queue_filtered = build_queue_item_status_event(
+            job_id="j-1",
+            status="running",
+            progress=0.45,
+            message="Some message",
+            reason_code=reason
+        )
+        assert e_queue_filtered["payload"]["message"] is None
+
+
     # 3. queue.items invalidated
     e_queue_inv = build_queue_item_invalidated_event(
         reason="job_canceled",
@@ -1115,9 +1155,12 @@ def test_broadcast_job_updated_chapter_progress_sends_canonical_envelope(monkeyp
         {"status": "running", "progress": 0.77, "chapter_id": "chap-1", "project_id": "proj-1"},
     )
 
-    # We expect only one broadcast: the canonical chapters.progress studio_event
-    assert len(messages) == 1
-    event = messages[0]
+    # We expect two broadcasts: the canonical chapters.progress studio_event and the queue.items queue_item_status event
+    assert len(messages) == 2
+
+    chap_events = [m for m in messages if m["topic"] == "chapters.progress"]
+    assert len(chap_events) == 1
+    event = chap_events[0]
     assert event["type"] == "studio_event"
     assert event["version"] == 1
     assert event["topic"] == "chapters.progress"
@@ -1258,8 +1301,8 @@ def test_broadcast_job_updated_segment_completion(monkeypatch):
         current_job={"status": "running", "active_segment_id": "seg-1", "active_segment_progress": 0.8, "chapter_id": "chap-1", "project_id": "proj-1"}
     )
 
-    # We expect segment completion for seg-1 (first), segment progress for seg-2 (second), and chapter progress (third)
-    assert len(messages) == 3
+    # We expect segment completion for seg-1 (first), segment progress for seg-2 (second), chapter progress (third), and queue.items status event (fourth)
+    assert len(messages) == 4
     assert messages[0]["topic"] == "segments.progress"
     assert messages[0]["ids"]["segmentId"] == "seg-1"
     assert messages[0]["payload"]["status"] == "done"
@@ -1273,6 +1316,10 @@ def test_broadcast_job_updated_segment_completion(monkeypatch):
     assert messages[2]["topic"] == "chapters.progress"
     assert messages[2]["ids"]["chapterId"] == "chap-1"
     assert messages[2]["payload"]["status"] == "running"
+
+    assert messages[3]["topic"] == "queue.items"
+    assert messages[3]["eventKind"] == "queue_item_status"
+    assert messages[3]["payload"]["status"] == "running"
 
 
 def test_broadcast_tts_log_line_includes_plugin_metadata(monkeypatch):
@@ -1433,8 +1480,45 @@ def test_rebuild_emits_minimum_necessary_queue_state_transitions(monkeypatch):
         if m.get("topic") == "queue.items" and m.get("eventKind") == "queue_item_status"
     ]
 
-    # Verify we got exactly 3 status transitions: preparing, running, done
-    assert len(queue_status_events) == 3
+    # Verify we got exactly 4 status events: preparing, running (0.0), running (0.5), done
+    assert len(queue_status_events) == 4
     assert queue_status_events[0]["payload"]["status"] == "preparing"
     assert queue_status_events[1]["payload"]["status"] == "running"
-    assert queue_status_events[2]["payload"]["status"] == "done"
+    assert queue_status_events[2]["payload"]["status"] == "running"
+    assert queue_status_events[2]["payload"]["progress"] == 0.5
+    assert queue_status_events[3]["payload"]["status"] == "done"
+
+
+def test_put_job_broadcasts_queue_item_status_on_queued(monkeypatch):
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+    monkeypatch.setattr("app.db.state_jobs._atomic_write_text", lambda *args, **kwargs: None)
+
+    from app.db.models import Job
+    from app.db.state_jobs import put_job
+
+    job = Job(
+        id="job-queued-test",
+        project_id="proj-1",
+        chapter_id="chap-1",
+        status="queued",
+        created_at=1.0,
+        engine="xtts",
+    )
+
+    put_job(job)
+
+    queue_item_status_events = [
+        m for m in messages
+        if m.get("type") == "studio_event"
+        and m.get("topic") == "queue.items"
+        and m.get("eventKind") == "queue_item_status"
+    ]
+    assert len(queue_item_status_events) == 1
+    event = queue_item_status_events[0]
+    assert event["payload"]["status"] == "queued"

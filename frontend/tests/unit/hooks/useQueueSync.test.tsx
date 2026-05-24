@@ -384,7 +384,8 @@ describe('useQueueSync', () => {
 
   it('refreshes on queue_item_invalidated without reading status or progress from it', async () => {
     (api.getProcessingQueue as any).mockClear();
-    renderHook(() => useQueueSync());
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     // Send minimal queue_item_invalidated event
     emitEvent('queue.items', 'queue_item_invalidated', {
@@ -393,6 +394,59 @@ describe('useQueueSync', () => {
     });
 
     // Verify it triggers getProcessingQueue refresh call
-    expect(api.getProcessingQueue).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(api.getProcessingQueue).toHaveBeenCalled();
+    });
+  });
+
+  it('triggers queue snapshot refresh and renders the queued item after queue invalidation', async () => {
+    const queuedJob = {
+      id: 'job-enqueue-test',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'queued',
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any)
+      .mockResolvedValueOnce([]) // bootstrap
+      .mockResolvedValueOnce([queuedJob]); // refresh
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.queue).toHaveLength(0);
+
+    // Emit queue_item_invalidated
+    emitEvent('queue.items', 'queue_item_invalidated', {
+      reasonCode: 'job_enqueued',
+      changedFields: ['status'],
+    });
+
+    await waitFor(() => {
+      expect(api.getProcessingQueue).toHaveBeenCalledTimes(2);
+      const job = result.current.queue.find((q: any) => q.id === 'job-enqueue-test');
+      expect(job).toBeDefined();
+      expect(job?.status).toBe('queued');
+    });
+  });
+
+
+  it('renders queue row from queue.items status event without chapters.progress', async () => {
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Emit queue_item_status event on queue.items topic
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'queued',
+      progress: 0.0,
+      classification: 'chapter',
+    }, { jobId: 'job-123', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    // The queue row should appear in the queue list using the overlay state
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'job-123');
+      expect(job).toBeDefined();
+      expect(job?.status).toBe('queued');
+    });
   });
 });

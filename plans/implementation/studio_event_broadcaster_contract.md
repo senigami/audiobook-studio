@@ -1,47 +1,35 @@
 # Studio Event Broadcaster Contract
 
-This document is the source of truth for the Studio Event Broadcaster contract refactor. It defines the unified backend event envelope, the strict core topics, the plugin-private namespace boundaries, the producer helper APIs, and the frontend consumer registry that will replace legacy websocket payloads.
+This document is the backend-facing source of truth for Studio Event
+Broadcaster behavior. It defines the canonical websocket envelope, core topic
+ownership, producer helper APIs, plugin-private namespace, and frontend
+consumer registry expectations.
 
----
+The executable backend contract lives in `app/api/contracts/events.py`. The
+frontend executable contract lives in `frontend/src/api/contracts/liveEvents.ts`.
 
-## 1. Rationale: In-Process Broadcaster vs. External Broker
+## 1. Rationale
 
-Studio is an interactive desktop/server application running as a single-host Python FastAPI server with background thread orchestration. 
+Studio is a single-host FastAPI application with in-process orchestration. The
+event broadcaster remains in-process and emits over the existing browser
+websocket. No external broker is part of the Studio 2.0 contract.
 
-### Why No External Broker?
-1. **Zero Operational Overhead**: Introducing external message brokers like Redis, Kafka, RabbitMQ, or NATS would require users to install, configure, and maintain additional system daemons. This violates the self-contained desktop installation model of Audiobook Studio.
-2. **Simplified Memory and Threading**: An in-process broadcaster leveraging Python's `asyncio.Queue` or callback registries is lightweight, resides entirely within the application's memory space, and incurs minimal resource overhead.
-3. **No External Library Dependencies**: Introducing complex third-party event libraries (such as FastStream, PyPubSub, abxbus, etc.) adds dependency risk and maintenance debt. An explicit Python class utilizing FastAPI's existing WebSocket ConnectionManager matches Studio's modular style.
-4. **Single Network Transport**: The browser-facing WebSocket remains the unified client transport. Clients do not need multiplexed connections; a single socket receives the serialized stream and routes it via the frontend's topic router.
+This keeps the desktop/server install self-contained, avoids extra services,
+and lets the browser consume one websocket stream that is routed by topic.
 
----
+## 2. Canonical Envelope
 
-## 2. Canonical `studio_event` Envelope
+Every backend websocket frame should use the canonical `studio_event` envelope:
 
-Every event transmitted over the WebSocket MUST be wrapped in the canonical `studio_event` envelope. This guarantees a uniform schema for metadata parsing, subscription matching, and audit tracking.
-
-### Data Flow Diagram
-
-```mermaid
-graph TD
-    A[Core Services / Plugins] -->|Typed Helpers| B(Studio Event Broadcaster)
-    B -->|Canonical studio_event Envelope| C[Websocket Connection Manager]
-    C -->|JSON Frame| D[Client transport: useStudioSocketTransport]
-    D -->|Topic Matcher / Filter| E[Frontend Consumer Registry]
-    E -->|Handled by| F[main-queue / chapter-state / segment-state / etc.]
-    D -->|All Events| G[live-output Audit Store]
-```
-
-### TypeScript Envelope Schema
 ```typescript
-export interface StudioEventEnvelope<TTopic extends string = string, TPayload = unknown> {
+export interface StudioEventEnvelope<TPayload = unknown> {
   type: 'studio_event';
   version: 1;
-  topic: TTopic;
+  topic: string;
   eventKind: string;
-  source: string; // Emitter code module/function path
-  emittedAt: number; // Unix epoch float
-  pluginId: string | null; // Null if core app event
+  source: string;
+  emittedAt: number;
+  pluginId: string | null;
   ids: {
     projectId: string | null;
     chapterId: string | null;
@@ -52,530 +40,225 @@ export interface StudioEventEnvelope<TTopic extends string = string, TPayload = 
 }
 ```
 
-### Python Types (Envelope)
-```python
-from typing import TypedDict, Literal, Optional
+`topic` is the routing key. `eventKind` is the action on that topic. `source`
+identifies the backend producer path for debugging and audit.
 
-class StudioEventIds(TypedDict):
-    projectId: Optional[str]
-    chapterId: Optional[str]
-    jobId: Optional[str]
-    segmentId: Optional[str]
+## 3. Core Topics
 
-class StudioEventEnvelope(TypedDict):
-    type: Literal["studio_event"]
-    version: int  # Fixed at 1
-    topic: str
-    eventKind: str
-    source: str
-    emittedAt: float  # Unix timestamp
-    pluginId: Optional[str]
-    ids: StudioEventIds
-    payload: dict
+Core topics are strict app-owned channels. They should be produced through
+helpers in `app/api/contracts/events.py`, not by hand-built dictionaries.
+
+| Topic | Producer helper | Event kinds | Owner |
+| --- | --- | --- | --- |
+| `queue.items` | `build_queue_item_status_event`, `build_queue_item_invalidated_event`, `build_queue_paused_event` | `queue_item_status`, `queue_item_invalidated`, `queue_paused` | Main queue state and refresh. |
+| `chapters.lifecycle` | `build_chapter_lifecycle_event` | `chapter_lifecycle` | Chapter invalidation and reload. |
+| `chapters.progress` | `build_chapter_progress_event` | `chapter_progress` | Chapter render progress and terminal chapter status. |
+| `segments.lifecycle` | `build_segment_lifecycle_event` | `segment_lifecycle` | Segment invalidation and reload. |
+| `segments.progress` | `build_segment_progress_event` | `segment_progress`, `segment_started`, `segment_saved` | Active segment progress and completion. |
+| `tts.logs` | `build_tts_log_event` | `tts_log` | Diagnostic TTS/plugin output. |
+| `voice.test` | `build_voice_test_progress_event` | `voice_test_progress` | Voice test/preview progress. |
+| `projects.lifecycle` | `build_project_lifecycle_event` | `project_invalidated` | Project invalidation and reload. |
+| `system.events` | `build_system_event` | variable | Administrative/debug events. |
+
+## 4. Queue Payload Contract
+
+`queue.items` has multiple event kinds with different payload meanings.
+
+### `queue_item_status`
+
+This is the authoritative queue row state.
+
+```typescript
+interface QueueItemStatusPayload {
+  status: 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled';
+  progress: number;
+  etaSeconds: number | null;
+  message: string | null;
+  reasonCode: string | null;
+  classification: 'job' | 'chapter' | 'segment';
+  changedFields: string[] | null;
+  paused?: boolean | null;
+}
 ```
 
----
+### `queue_item_invalidated`
 
-## 3. Strict Core App Topics & Payloads
+This is a refresh signal only. It must not contain fake row state.
 
-Core topics define the stable communication channels for main application features. Their schemas are strictly typed and must not be bypassed or extended arbitrarily.
-
-### 3.1 Topic: `queue.items`
-* **Purpose**: Tracks the main queue item lifecycle, ordering, pause/resume state, and queue invalidation.
-* **Producer API**: `events.queue_item_status`, `events.queue_item_invalidated`, `events.queue_paused`
-* **Payload Fields**:
-  ```typescript
-  interface QueueItemsPayload {
-    status: 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled';
-    progress: number; // 0.0 to 1.0
-    etaSeconds: number | null;
-    message: string | null;
-    reasonCode: string | null;
-    classification: 'job' | 'chapter' | 'segment';
-    changedFields: string[] | null;
-  }
-  ```
-
-### 3.2 Topic: `chapters.lifecycle`
-* **Purpose**: Forces durable chapter state invalidation (e.g., audio reset, text change, manual completion, generation trigger).
-* **Producer API**: `events.chapter_lifecycle`
-* **Payload Fields**:
-  ```typescript
-  interface ChapterLifecyclePayload {
-    reason: string;
-    changedFields: string[];
-  }
-  ```
-
-### 3.3 Topic: `chapters.progress`
-* **Purpose**: Emits chapter-level render progress, grouped progress, ETA, and terminal status. Feed main queue items for chapter-level renders.
-* **Producer API**: `events.chapter_progress`
-* **Payload Fields**:
-  ```typescript
-  interface ChapterProgressPayload {
-    status: 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled';
-    progress: number; // 0.0 to 1.0
-    groupedProgress: number | null; // Grouped progress across batch
-    etaSeconds: number | null;
-    message: string | null;
-    reasonCode: string | null;
-    renderGroupCount: number | null;
-    completedRenderGroups: number | null;
-  }
-  ```
-
-### 3.4 Topic: `segments.lifecycle`
-* **Purpose**: Notifies that the segment list or segment status has changed, requiring a data reload.
-* **Producer API**: `events.segment_lifecycle`
-* **Payload Fields**:
-  ```typescript
-  interface SegmentLifecyclePayload {
-    reason: string;
-    changedFields: string[];
-  }
-  ```
-
-### 3.5 Topic: `segments.progress`
-* **Purpose**: Active segment progress bar updates, start events, and segment save/done events.
-* **Producer API**: `events.segment_progress`
-* **Payload Fields**:
-  ```typescript
-  interface SegmentProgressPayload {
-    status: 'preparing' | 'running' | 'processing' | 'finalizing' | 'done' | 'failed';
-    progress: number; // 0.0 to 1.0
-    segmentIndex: number | null;
-    segmentCount: number | null;
-    message: string | null;
-    reasonCode: string | null;
-  }
-  ```
-
-### 3.6 Topic: `tts.logs`
-* **Purpose**: Diagnostic log lines from TTS engines/synthesis bridges.
-* **Producer API**: `events.tts_log`
-* **Payload Fields**:
-  ```typescript
-  interface TtsLogsPayload {
-    line: string;
-    level: 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR';
-    sequence: number;
-    pluginId: string;
-    jobId: string | null;
-    chapterId: string | null;
-    source: string;
-  }
-  ```
-
-### 3.7 Topic: `voice.test`
-* **Purpose**: Diagnostics and progress during voice tests, preview generation, and fine-tuning builds.
-* **Producer API**: `events.voice_test_progress`
-* **Payload Fields**:
-  ```typescript
-  interface VoiceTestPayload {
-    voiceName: string;
-    status: 'preparing' | 'running' | 'done' | 'failed';
-    progress: number; // 0.0 to 1.0
-    startedAt: number; // Unix timestamp
-    message: string | null;
-  }
-  ```
-
-### 3.8 Topic: `system.events`
-* **Purpose**: Administrative, auditing, and system debug events that do not mutate application domain state.
-* **Producer API**: General broadcaster direct calls
-* **Payload Fields**:
-  ```typescript
-  interface SystemEventsPayload {
-    eventKind: string;
-    message: string;
-    details: Record<string, unknown>;
-  }
-  ```
-
-### 3.9 Topic: `projects.lifecycle`
-* **Purpose**: Project-level lifecycles, configuration changes, metadata updates, and cache invalidation.
-* **Producer API**: `events.project_lifecycle`
-* **Payload Fields**:
-  ```typescript
-  interface ProjectLifecyclePayload {
-    reason: string;
-    changedFields: string[];
-  }
-  ```
-
----
-
-## 4. Plugin-Private Namespaced Topics
-
-To prevent engine-specific logic from leaking into core application code, plugins can emit namespaced events for their custom UI surfaces.
-
-### 4.1 Namespace Convention
-All plugin-private topics MUST use the following string hierarchy:
+```typescript
+interface QueueItemInvalidatedPayload {
+  reasonCode: string;
+  changedFields: string[];
+}
 ```
+
+### `queue_paused`
+
+```typescript
+interface QueuePausedPayload {
+  reasonCode: 'queue_paused';
+  changedFields: ['paused'];
+  paused: boolean;
+}
+```
+
+## 5. Progress Payload Contracts
+
+### `chapters.progress`
+
+```typescript
+interface ChapterProgressPayload {
+  status: 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled';
+  progress: number;
+  groupedProgress: number | null;
+  etaSeconds: number | null;
+  message: string | null;
+  reasonCode: string | null;
+  renderGroupCount: number | null;
+  completedRenderGroups: number | null;
+}
+```
+
+### `segments.progress`
+
+```typescript
+interface SegmentProgressPayload {
+  status: 'preparing' | 'running' | 'processing' | 'finalizing' | 'done' | 'failed';
+  progress: number;
+  segmentIndex: number | null;
+  segmentCount: number | null;
+  message: string | null;
+  reasonCode: string | null;
+  activeSegmentId?: string | null;
+  activeSegmentProgress?: number | null;
+  etaSeconds?: number | null;
+}
+```
+
+When one backend update contains both segment and chapter progress, emit
+`segments.progress` first and `chapters.progress` second.
+
+## 6. Lifecycle Payload Contract
+
+Lifecycle topics are reload/invalidation signals. Use `reasonCode`, not
+human-readable `reason`, for machine-readable semantics.
+
+```typescript
+interface LifecyclePayload {
+  reasonCode: string;
+  changedFields: string[];
+}
+```
+
+This applies to:
+
+- `chapters.lifecycle`
+- `segments.lifecycle`
+- `projects.lifecycle`
+
+## 7. TTS Logs
+
+```typescript
+interface TtsLogsPayload {
+  line: string;
+  level?: 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR';
+  sequence?: number | null;
+  pluginId?: string | null;
+  pluginShortName?: string | null;
+  jobId?: string | null;
+  chapterId?: string | null;
+  source?: string | null;
+  backendReceivedAt?: number | null;
+  marker?: string | null;
+}
+```
+
+TTS logs are diagnostic output. They are not queue state, chapter state, or
+segment state.
+
+## 8. Plugin-Private Topics
+
+Plugins may emit flexible plugin-private events under:
+
+```text
 plugins.<plugin_id>.<area>
 ```
-*Example*: `plugins.tts_xtts.diagnostics` or `plugins.voxtral.custom_cache`.
 
-### 4.2 Flexibility Boundaries
-* **Payload Flexibility**: The broadcaster accepts any JSON-serializable payload on plugin-private namespaces.
-* **Zero Core Mutation**: Plugin-private events **must not** mutate core application stores (like Queue, Projects, Chapters, or Segments stores).
-* **Isolation**: These events should only be consumed by custom plugin-owned panels, settings drawers, or dev pages.
-* **Auditing**: All plugin-private events are recorded in the client's `liveEventAuditStore` and displayed on the `/event-stream` interface.
+Plugin-private events must not mutate core app stores such as Queue, Projects,
+Chapters, or Segments. They are for plugin-owned panels, plugin diagnostics, or
+audit output.
 
----
+## 9. Frontend Consumer Registry
 
-## 5. Backend Producer Helper APIs
+The frontend consumer registry lives in
+`frontend/src/config/liveEventConsumers.ts`.
 
-The backend exposes a structured `events` module containing explicit helper functions. This ensures callers do not construct envelopes manually.
+| Consumer surface | Listened topics | Target surfaces |
+| --- | --- | --- |
+| `main-queue` | `queue.items` | Queue row state and queue refresh. |
+| `chapter-state` | `chapters.lifecycle`, `chapters.progress`, `segments.progress` | Chapter Editor and chapter render state. |
+| `segment-state` | `segments.lifecycle`, `segments.progress` | Segment state and segment progress surfaces. |
+| `project-state` | `projects.lifecycle` | Project/dashboard refresh. |
+| `tts-diagnostics` | `tts.logs` | Engine diagnostics console. |
+| `voice-test-state` | `voice.test` | Voice test UI. |
+| `plugin:<plugin_id>:<area>` | exact `plugins.<plugin_id>.<area>` | Plugin-owned UI. |
+| `plugin-private` | any `plugins.*` topic | Plugin-private audit filtering. |
 
-```python
-# app/api/contracts/events.py
+The browser receives the stream and matches on `event.topic`; the server does
+not maintain per-topic browser subscriptions.
 
-from typing import List, Optional
-import time
-import sys
+## 10. `/event-stream` Display
 
-def _resolve_source_path() -> str:
-    """Helper to walk the stack and extract calling function namespace."""
-    try:
-        frame = sys._getframe(2)
-        module = frame.f_globals.get("__name__", "")
-        function = frame.f_code.co_name
-        return f"{module}.{function}"
-    except Exception:
-        return "app.api.contracts.events"
+`/event-stream` is an audit page. It currently displays:
 
-def broadcast_studio_event(
-    topic: str,
-    event_kind: str,
-    payload: dict,
-    plugin_id: Optional[str] = None,
-    project_id: Optional[str] = None,
-    chapter_id: Optional[str] = None,
-    job_id: Optional[str] = None,
-    segment_id: Optional[str] = None,
-) -> None:
-    """Canonical broadcast function wrapping payload in studio_event envelope."""
-    envelope = {
-        "type": "studio_event",
-        "version": 1,
-        "topic": topic,
-        "eventKind": event_kind,
-        "source": _resolve_source_path(),
-        "emittedAt": time.time(),
-        "pluginId": plugin_id,
-        "ids": {
-            "projectId": project_id,
-            "chapterId": chapter_id,
-            "jobId": job_id,
-            "segmentId": segment_id
-        },
-        "payload": payload
-    }
-    # Hand off to WebSocket connection manager for routing
-    from app.api.ws import manager
-    manager.broadcast(envelope)
+- `Time`
+- `Topic`
+- `Event`
+- `Job`
+- `Chapter`
+- `Segment`
+- `Job %`
+- `Segment %`
+- `Group`
+- `Reason`
+- `Source`
+- `Message`
 
-# Typed Producer Helpers
+`Reason` is `reasonCode` / `reason_code`. `Category` is derived client-side
+from topic and is not shown as a transport field. Subscriber observations
+(`Handled by`) are browser-local audit metadata and are not shown as transport
+fields.
 
-def tts_log(
-    line: str,
-    level: str,
-    sequence: int,
-    plugin_id: str,
-    job_id: Optional[str] = None,
-    chapter_id: Optional[str] = None,
-) -> None:
-    """Plugins emit structured log lines directly instead of stdout scraping."""
-    payload = {
-        "line": line.rstrip("\n"),
-        "level": level,
-        "sequence": sequence,
-        "pluginId": plugin_id,
-        "jobId": job_id,
-        "chapterId": chapter_id,
-        "source": _resolve_source_path()
-    }
-    broadcast_studio_event(
-        topic="tts.logs",
-        event_kind="tts_log",
-        payload=payload,
-        plugin_id=plugin_id,
-        chapter_id=chapter_id,
-        job_id=job_id
-    )
+## 11. Lifecycle Audit Matrix
 
-def queue_item_status(
-    job_id: str,
-    status: str,
-    progress: float,
-    eta_seconds: Optional[int] = None,
-    message: Optional[str] = None,
-    reason_code: Optional[str] = None,
-    classification: str = "job",
-) -> None:
-    payload = {
-        "status": status,
-        "progress": round(progress, 2),
-        "etaSeconds": eta_seconds,
-        "message": message,
-        "reasonCode": reason_code,
-        "classification": classification,
-        "changedFields": None
-    }
-    broadcast_studio_event(
-        topic="queue.items",
-        event_kind="queue_item_status",
-        payload=payload,
-        job_id=job_id
-    )
+| Lifecycle step | Producer | Durable state write | Topic | eventKind | Required IDs | Payload fields |
+| --- | --- | --- | --- | --- | --- | --- |
+| Browser enqueue | Queue API / orchestrator submit | Queue/job row is created as queued | `queue.items` | `queue_item_status` or `queue_item_invalidated` plus snapshot refresh | `projectId`, `chapterId`, `jobId` when known | `status: "queued"` for status events; `reasonCode`, `changedFields` for invalidation. |
+| Processor pickup | Orchestrator / ProgressService | Job status becomes preparing | `queue.items`, `chapters.progress` | `queue_item_status`, `chapter_progress` | `projectId`, `chapterId`, `jobId` | `status: "preparing"`, `progress`, `message`, `reasonCode`. |
+| Plugin receipt/ack | Orchestrator / ProgressService | Job status becomes running | `queue.items`, `chapters.progress` | `queue_item_status`, `chapter_progress` | `projectId`, `chapterId`, `jobId` | `status: "running"`, `progress`, `etaSeconds`. |
+| Segment render start | ProgressService / plugin progress parser | Active segment metadata is updated | `segments.progress` | `segment_progress` or `segment_started` | `projectId`, `chapterId`, `jobId`, `segmentId` | `status`, `progress`, `segmentIndex`, `segmentCount`, `reasonCode`. |
+| Segment render progress | ProgressService / plugin progress parser | Active segment progress is updated | `segments.progress` | `segment_progress` | `projectId`, `chapterId`, `jobId`, `segmentId` | `progress`, `activeSegmentProgress`, `etaSeconds`. |
+| Chapter render progress | ProgressService | Job progress/grouped progress is updated | `chapters.progress` | `chapter_progress` | `projectId`, `chapterId`, `jobId` | `progress`, `groupedProgress`, `renderGroupCount`, `completedRenderGroups`, `etaSeconds`. |
+| Segment completion | Orchestrator helper / segment persistence | Segment audio status/path is saved | `segments.progress`, `segments.lifecycle` | `segment_progress`, `segment_lifecycle` | `projectId`, `chapterId`, `jobId`, `segmentId` | `status: "done"`, `progress: 1.0`, or lifecycle `reasonCode`, `changedFields`. |
+| Chapter/job completion | ProgressService / orchestrator helper | Job status becomes terminal | `chapters.progress`, `queue.items` | `chapter_progress`, `queue_item_status` | `projectId`, `chapterId`, `jobId` | `status: "done"`, `progress: 1.0`, `message`, `reasonCode`. |
+| Queue invalidation | Queue API / state jobs | None directly | `queue.items` | `queue_item_invalidated` | `projectId` / `jobId` when known | `reasonCode`, `changedFields`. |
+| Queue pause status | Websocket pause broadcaster | Queue pause state | `queue.items` | `queue_paused` | None | `paused`, `reasonCode: "queue_paused"`, `changedFields: ["paused"]`. |
+| TTS logs | Watchdog/orchestrator log listener | In-memory log buffer only | `tts.logs` | `tts_log` | `projectId`, `chapterId`, `jobId` when known | `line`, `level`, `sequence`, `pluginId`, `pluginShortName`. |
 
-def queue_item_invalidated(reason: str, changed_fields: List[str]) -> None:
-    payload = {
-        "reasonCode": reason,
-        "changedFields": changed_fields
-    }
-    broadcast_studio_event(
-        topic="queue.items",
-        event_kind="queue_item_invalidated",
-        payload=payload
-    )
+## 12. Migration Status
 
-def queue_paused(paused: bool) -> None:
-    payload = {
-        "reasonCode": "queue_paused",
-        "changedFields": ["paused"],
-        "paused": paused
-    }
-    broadcast_studio_event(
-        topic="queue.items",
-        event_kind="queue_paused",
-        payload=payload
-    )
+The legacy-to-canonical frontend normalizer and topic router are retired. New
+work should not add support for legacy websocket frames. If a non-canonical
+frame is observed, treat it as a bug in the producer path or a `system.events`
+diagnostic, not as a contract to preserve.
 
-def chapter_progress(
-    chapter_id: str,
-    status: str,
-    progress: float,
-    grouped_progress: Optional[float] = None,
-    eta_seconds: Optional[int] = None,
-    message: Optional[str] = None,
-    reason_code: Optional[str] = None,
-    render_group_count: Optional[int] = None,
-    completed_render_groups: Optional[int] = None,
-) -> None:
-    payload = {
-        "status": status,
-        "progress": round(progress, 2),
-        "groupedProgress": round(grouped_progress, 2) if grouped_progress is not None else None,
-        "etaSeconds": eta_seconds,
-        "message": message,
-        "reasonCode": reason_code,
-        "renderGroupCount": render_group_count,
-        "completedRenderGroups": completed_render_groups
-    }
-    broadcast_studio_event(
-        topic="chapters.progress",
-        event_kind="chapter_progress",
-        payload=payload,
-        chapter_id=chapter_id
-    )
+## 13. Verification
 
-def segment_progress(
-    segment_id: str,
-    status: str,
-    progress: float,
-    segment_index: Optional[int] = None,
-    segment_count: Optional[int] = None,
-    message: Optional[str] = None,
-    reason_code: Optional[str] = None,
-) -> None:
-    payload = {
-        "status": status,
-        "progress": round(progress, 2),
-        "segmentIndex": segment_index,
-        "segmentCount": segment_count,
-        "message": message,
-        "reasonCode": reason_code
-    }
-    broadcast_studio_event(
-        topic="segments.progress",
-        event_kind="segment_progress",
-        payload=payload,
-        segment_id=segment_id
-    )
+Docs-only updates should at minimum pass:
 
-def segment_lifecycle(chapter_id: str, reason: str, changed_fields: List[str]) -> None:
-    payload = {
-        "reason": reason,
-        "changedFields": changed_fields
-    }
-    broadcast_studio_event(
-        topic="segments.lifecycle",
-        event_kind="segment_lifecycle",
-        payload=payload,
-        chapter_id=chapter_id
-    )
-
-def chapter_lifecycle(chapter_id: str, reason: str, changed_fields: List[str]) -> None:
-    payload = {
-        "reason": reason,
-        "changedFields": changed_fields
-    }
-    broadcast_studio_event(
-        topic="chapters.lifecycle",
-        event_kind="chapter_lifecycle",
-        payload=payload,
-        chapter_id=chapter_id
-    )
-
-def voice_test_progress(
-    voice_name: str,
-    status: str,
-    progress: float,
-    started_at: float,
-    message: Optional[str] = None,
-) -> None:
-    payload = {
-        "voiceName": voice_name,
-        "status": status,
-        "progress": round(progress, 2),
-        "startedAt": started_at,
-        "message": message
-    }
-    broadcast_studio_event(
-        topic="voice.test",
-        event_kind="voice_test_progress",
-        payload=payload
-    )
-
-def plugin_event(
-    plugin_id: str,
-    area: str,
-    event_kind: str,
-    payload: dict,
-    project_id: Optional[str] = None,
-    chapter_id: Optional[str] = None,
-    job_id: Optional[str] = None,
-    segment_id: Optional[str] = None,
-) -> None:
-    """Emit namespaced, flexible custom plugin metrics or telemetry."""
-    broadcast_studio_event(
-        topic=f"plugins.{plugin_id}.{area}",
-        event_kind=event_kind,
-        payload=payload,
-        plugin_id=plugin_id,
-        project_id=project_id,
-        chapter_id=chapter_id,
-        job_id=job_id,
-        segment_id=segment_id
-    )
-```
-
----
-
-## 6. Frontend Consumer Registry (Surface Names)
-
-The frontend maps incoming topics to logical consumer surfaces. The registry must use explicit surface names to decouple presentation surfaces from hook definitions.
-
-### Registry Mapping Table
-
-| Consumer Surface | Listened Topics | Target UI Components / States |
-| :--- | :--- | :--- |
-| **`main-queue`** | `queue.items`, `chapters.progress` | Queue manager state, Queue files overlays |
-| **`chapter-state`** | `chapters.lifecycle`, `chapters.progress`, `segments.progress` | ChapterEditor workspace, chapter status badges |
-| **`segment-state`** | `segments.lifecycle`, `segments.progress` | ChapterEditor script view, segment progress bars |
-| **`project-state`** | `projects.lifecycle` | Project settings page, project dashboard state |
-| **`tts-diagnostics`** | `tts.logs` | Settings -> Engine Diagnostics console panel |
-| **`voice-test-state`** | `voice.test` | Voice management drawer, preview modals |
-| **`plugin:<plugin_id>:<area>`** | `plugins.<plugin_id>.<area>` | Dedicated plugin UI components, custom metrics views |
-| **`live-output`** | *All topics* | `/event-stream` audit timeline |
-
----
-
-## 7. Live Output Display & Telemetry
-
-The Live Output route `/event-stream` lists WebSocket frames to enable visual auditing.
-
-### UI Columns & Layout
-* **Time**: Local client receive time (`HH:MM:SS.mmm`).
-* **Topic**: Topic hierarchy (e.g., `queue.items`).
-* **Category**: Derived classification for readability (e.g., `Queue`, `Chapter`, `Segment`, `Log`, `Voice`, `Plugin`).
-* **Event**: Envelope `eventKind` (e.g., `queue_item_status`).
-* **Handled by**: Telemetry list of matched consumer surfaces (e.g., `main-queue, chapter-state`). Derived by running the consumer registry matches.
-* **Job / Chapter / Segment**: Entity IDs displayed if present in the `ids` object.
-* **Message**: Display representation of payload text (e.g., diagnostic log lines, progress status messages).
-
-### Filter Controls
-Provide toggles at the top of the timeline:
-* **All**: Default showing everything.
-* **Main Queue**: Shows only events matched by `main-queue` consumer.
-* **Chapter State**: Shows only events matched by `chapter-state`.
-* **Segment State**: Shows only events matched by `segment-state`.
-* **TTS Logs**: Shows only events matched by `tts-diagnostics`.
-* **Plugin Private**: Shows topics matching `plugins.*`.
-
----
-
-## 8. Migration Steps (Strangler Pattern)
-
-To avoid breaking existing websocket features during cutover, we will execute a staged rollout.
-
-### Phase 1: Dual Broadcast & Frontend Normalization
-1. **Backend Integration**: 
-   * Modify the legacy emitters (e.g., `broadcast_job_updated`) to broadcast both the legacy JSON format and the new `studio_event` envelope format.
-   * Add the new `events` helpers. Callers can progressively migrate to calling `events.tts_log()` or `events.queue_item_status()` instead of old-style constructs.
-2. **Frontend Adaptation**:
-   * Update the frontend normalizer (`normalizeStudioSocketEnvelope` in `frontend/src/api/contracts/liveEvents.ts`) to accept the new `studio_event` envelope.
-   * For any incoming frame that does *not* contain the `studio_event` envelope, run client-side transformation to map the legacy payload fields into a temporary `studio_event` envelope structure. This shields consumer surfaces from raw legacy payloads.
-
-### Phase 2: Complete Cutover
-1. **Backend Cleanup**:
-   * Migrate remaining backend references to only emit through the new `events` module functions.
-   * Remove legacy formatting handlers (`build_studio_job_event`, `build_tts_log_line_event`) and legacy broadcast methods from `app/api/ws.py`.
-2. **Frontend Finalization**:
-   * Clean up the client-side legacy-to-canonical normalizer code.
-   * Make receiving a non-`studio_event` envelope trigger a `system.events` warning.
-
----
-
-## 9. Verification & Test Plan
-
-### Backend Tests
-* **Envelope Validation**: Test that any payload emitted matches `StudioEventEnvelope` structure (validate with unit test schemas).
-* **Helper Isolation**: Test that calling `events.plugin_event` broadcasts to `plugins.<plugin_id>.<area>` and does not trigger side-effects on core tables.
-* **Source Resolution**: Verify that the stack frames helper (`_resolve_source_path`) correctly extracts calling function names in the envelope.
-
-### Frontend Tests
-* **Normalizer Assertions**: Write unit tests in `liveEvents.test.ts` to assert that:
-  - Canonical `studio_event` inputs pass through unaltered.
-  - Legacy payloads (e.g., `type: "tts_log_line"`, `type: "queue_updated"`) map cleanly to target envelopes.
-* **Registry Matching**: Assert that `LIVE_EVENT_CONSUMERS` maps the correct topics to the designated consumer surfaces (`main-queue`, `chapter-state`, etc.).
-* **Telemetry Verification**: Test that `/event-stream` renders the correct "Handled by" telemetry arrays depending on which registry items match the event's topic.
-
-### Execution Command Baseline
 ```bash
-# Backend pytest suite
-./venv/bin/python -m pytest tests/test_websocket_broadcast.py
-
-# Frontend Vitest suite
-cd frontend && /opt/homebrew/bin/npx vitest run tests/unit/store/studioSocketBus.test.ts tests/unit/pages/LiveOutput/LiveOutputPage.test.tsx
+git diff --check
 ```
 
----
-
-## 10. Studio Event Lifecycle Audit Matrix
-
-| Lifecycle Step | Producer | Durable State Write | Topic | eventKind | Required IDs | Payload Fields |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Browser enqueue** | `processing_queue.py` / `TaskOrchestrator.submit` | `put_job()` writes `status: "queued"`, `progress: 0.0` | `queue.items` | `queue_item_status` | `projectId`, `chapterId`, `jobId` | `status: "queued"`, `progress: 0.0`, `etaSeconds: null`, `classification: "chapter" \| "segment"` |
-| **Processor pickup** | `TaskOrchestrator._publish` / `ProgressService.publish` | `update_job()` writes `status: "preparing"` | `queue.items` / `chapters.progress` | `queue_item_status` / `chapter_progress` | `projectId`, `chapterId`, `jobId` | `status: "preparing"`, `progress: 0.0`, `etaSeconds: null`, `classification: "chapter"` |
-| **Plugin receipt/ack** | `TaskOrchestrator._publish` / `ProgressService.publish` | `update_job()` writes `status: "running"` | `chapters.progress` | `chapter_progress` | `projectId`, `chapterId`, `jobId` | `status: "running"`, `progress: 0.0` \| prev, `etaSeconds: ...` |
-| **Segment render start** | `TaskOrchestrator._publish` (triggered by log parser) | `update_job()` writes `active_segment_id`, `active_segment_progress: 0.0` | `segments.progress` | `segment_progress` | `projectId`, `chapterId`, `jobId`, `segmentId` | `status: "running"`, `progress: 0.0`, `segmentIndex: ...`, `segmentCount: ...` |
-| **Chapter render progress** | `TaskOrchestrator._publish` / `ProgressService.publish` | `update_job()` writes overall `progress`, `grouped_progress` | `chapters.progress` | `chapter_progress` | `projectId`, `chapterId`, `jobId` | `status: "running"`, `progress: ...`, `groupedProgress: ...`, `etaSeconds: ...`, `renderGroupCount: ...`, `completedRenderGroups: ...` |
-| **Segment render progress** | `TaskOrchestrator._publish` / `ProgressService.publish` | `update_job()` writes `active_segment_progress` | `segments.progress` | `segment_progress` | `projectId`, `chapterId`, `jobId`, `segmentId` | `status: "running"`, `progress: ...`, `segmentIndex: ...`, `segmentCount: ...` |
-| **Segment completion** | `TaskOrchestrator._publish` (triggered by log parser) | `update_segment()` writes `audio_status: "done"`, `audio_file_path: ...` | `segments.progress` / `segments.lifecycle` | `segment_progress` / `segment_lifecycle` | `projectId`, `chapterId`, `jobId`, `segmentId` | `status: "done"`, `progress: 1.0` (for segments.progress) \| `reason: "saved"`, `changedFields: ["audio_status", ...]` (for segments.lifecycle) |
-| **Chapter/job completion** | `TaskOrchestrator._publish` / `ProgressService.publish` | `update_job()` writes `status: "done"`, `progress: 1.0`, `finished_at` | `chapters.progress` / `queue.items` | `chapter_progress` / `queue_item_status` | `projectId`, `chapterId`, `jobId` | `status: "done"`, `progress: 1.0` (for both) |
-| **Queue invalidation** | `state_jobs.py` / `broadcast_queue_update` | None | `queue.items` | `queue_item_invalidated` | `projectId` \| None, `jobId` \| None | `reasonCode: ...`, `changedFields: [...]` |
-| **Queue pause status** | `ws.py` / `broadcast_pause_state` | None | `queue.items` | `queue_paused` | None | `reasonCode: "queue_paused"`, `changedFields: ["paused"]`, `paused: ...` |
-| **TTS logs** | `broadcast_tts_log_line` | None (watchdog log buffer updated in-memory) | `tts.logs` | `tts_log` | `projectId`, `chapterId`, `jobId` | `line: ...`, `level: "INFO"`, `sequence: ...`, `pluginId: ...`, `pluginShortName: ...` |
+Runtime event changes should additionally run the focused backend websocket
+tests and affected frontend live-event tests.

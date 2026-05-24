@@ -560,4 +560,89 @@ describe('useJobs', () => {
       log: 'New chapter progress message',
     });
   });
+
+  it('projects segments.progress active segment metadata onto matching chapter job', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-seg', status: 'running', progress: 0.35 }] });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-abc', jobId: 'job-seg', chapterId: 'chap-1' },
+        payload: {
+          status: 'running',
+          progress: 0.85,
+          segmentIndex: 1,
+          segmentCount: 10,
+          message: 'active segment progress log',
+          reasonCode: 'segment_progress_tick',
+          etaSeconds: 15,
+        },
+      });
+    });
+
+    // 1. segmentProgress is updated correctly
+    expect(result.current.segmentProgress['seg-abc']).toEqual({
+      job_id: 'job-seg',
+      chapter_id: 'chap-1',
+      segment_id: 'seg-abc',
+      progress: 0.85,
+    });
+
+    // 2. Projected active segment metadata is placed on the chapter job
+    const job = result.current.jobs['job-seg'];
+    expect(job).toBeDefined();
+    expect(job.active_segment_id).toBe('seg-abc');
+    expect(job.active_segment_progress).toBe(0.85);
+    expect(job.status).toBe('running');
+    expect(job.eta_seconds).toBe(15);
+    expect(job.log).toBe('active segment progress log');
+    expect(job.reason_code).toBe('segment_progress_tick');
+
+    // 3. Do not overwrite chapter-level job.progress with segment-local progress!
+    expect(job.progress).toBe(0.35);
+
+    // 4. Record both relevant subscriber observations: chapter-state and segment-state
+    const { getLiveEventAuditSnapshot } = await import('@/store/liveEventAuditStore');
+    const records = getLiveEventAuditSnapshot();
+    const segmentFrame = records.find(r => r.event.topic === 'segments.progress');
+    expect(segmentFrame).toBeDefined();
+    const subs = segmentFrame!.subscribers.map(s => s.subscriber);
+    expect(subs).toContain('segment-state');
+    expect(subs).toContain('chapter-state');
+  });
+
+  it('does not project done status from segments.progress onto matching chapter job', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-seg', status: 'running', progress: 0.35 }] });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-abc', jobId: 'job-seg', chapterId: 'chap-1' },
+        payload: {
+          status: 'done',
+          progress: 1.0,
+          segmentIndex: 1,
+          segmentCount: 10,
+          message: 'segment synthesis done',
+          reasonCode: 'segment_saved',
+        },
+      });
+    });
+
+    // Segment progress is updated
+    expect(result.current.segmentProgress['seg-abc'].progress).toBe(1.0);
+
+    // Chapter job status is NOT changed to done
+    const job = result.current.jobs['job-seg'];
+    expect(job).toBeDefined();
+    expect(job.status).toBe('running');
+  });
 });

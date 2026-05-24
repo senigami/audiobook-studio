@@ -337,21 +337,21 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
             )
             broadcast_studio_event(event)
 
-            if status_changed or status in ("done", "failed", "cancelled"):
-                queue_event = build_queue_item_status_event(
-                    job_id=job_id,
-                    status=status,
-                    progress=merged.get("progress") or 0.0,
-                    eta_seconds=updates.get("eta_seconds") or merged.get("eta_seconds"),
-                    message=message,
-                    reason_code=merged.get("reason_code"),
-                    classification=classification,
-                    project_id=merged.get("project_id"),
-                    chapter_id=merged.get("chapter_id"),
-                    source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
-                    paused=merged.get("paused"),
-                )
-                broadcast_studio_event(queue_event)
+            # Emit queue.items status alongside chapter progress update
+            queue_event = build_queue_item_status_event(
+                job_id=job_id,
+                status=status,
+                progress=merged.get("progress") or 0.0,
+                eta_seconds=updates.get("eta_seconds") or merged.get("eta_seconds"),
+                message=message,
+                reason_code=merged.get("reason_code"),
+                classification=classification,
+                project_id=merged.get("project_id"),
+                chapter_id=merged.get("chapter_id"),
+                source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
+                paused=merged.get("paused"),
+            )
+            broadcast_studio_event(queue_event)
         return
 
     if classification == "segment":

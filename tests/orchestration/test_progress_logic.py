@@ -459,8 +459,8 @@ def test_progress_service_segment_completion_matching_outcome():
         active_segment_id=None,
     )
 
-    # Expect segment completion event with status 'done' and progress 1.0, plus chapter progress
-    assert len(broadcast_events) == 2
+    # Expect segment completion event with status 'done' and progress 1.0, plus chapter progress and queue status event
+    assert len(broadcast_events) == 3
     seg_event = broadcast_events[0][0]
     assert seg_event["topic"] == "segments.progress"
     assert seg_event["ids"]["segmentId"] == "seg-1"
@@ -505,3 +505,89 @@ def test_progress_service_segment_completion_matching_outcome():
     queue_event = broadcast_events[2][0]
     assert queue_event["topic"] == "queue.items"
     assert queue_event["payload"]["status"] == "failed"
+
+
+def test_meaningful_chapter_progress_emits_queue_item_status():
+    from app.orchestration.progress.service import ProgressService
+    broadcast_events = []
+
+    def dummy_broadcaster(*, payload: dict, channel: str):
+        broadcast_events.append((payload, channel))
+
+    service = ProgressService(
+        reconcile_fn=lambda **kwargs: kwargs,
+        eta_fn=lambda **kwargs: 10,
+        broadcaster=dummy_broadcaster
+    )
+
+    # 1. First emission: goes from None to running (status change)
+    service.publish(
+        job_id="job-chap-1",
+        status="running",
+        scope="chapter",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        progress=0.10,
+    )
+    broadcast_events.clear()
+
+    # 2. Second emission: status is still running, but progress changes to 0.52 (meaningful progress tick)
+    service.publish(
+        job_id="job-chap-1",
+        status="running",
+        scope="chapter",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        progress=0.52,
+    )
+
+    # We expect BOTH chapters.progress and queue.items (queue_item_status) events to be emitted with progress 0.52
+    events_by_topic = {e[0]["topic"]: e[0] for e in broadcast_events}
+    assert "chapters.progress" in events_by_topic
+    assert "queue.items" in events_by_topic
+
+    queue_event = events_by_topic["queue.items"]
+    assert queue_event["eventKind"] == "queue_item_status"
+    assert queue_event["payload"]["progress"] == 0.52
+    assert queue_event["payload"]["status"] == "running"
+    assert queue_event["payload"]["classification"] == "chapter"
+
+
+def test_segment_progress_does_not_emit_queue_item_status():
+    from app.orchestration.progress.service import ProgressService
+    broadcast_events = []
+
+    def dummy_broadcaster(*, payload: dict, channel: str):
+        broadcast_events.append((payload, channel))
+
+    service = ProgressService(
+        reconcile_fn=lambda **kwargs: kwargs,
+        eta_fn=lambda **kwargs: 10,
+        broadcaster=dummy_broadcaster
+    )
+
+    # 1. First emission: running status
+    service.publish(
+        job_id="job-chap-1",
+        status="running",
+        scope="chapter",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        progress=0.10,
+    )
+    broadcast_events.clear()
+
+    # 2. Segment progress update (scope="segment")
+    service.publish(
+        job_id="job-seg-1",
+        status="running",
+        scope="segment",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        progress=0.25,
+    )
+
+    # Segment progress should emit segments.progress, but NOT queue.items status updates
+    events_by_topic = {e[0]["topic"]: e[0] for e in broadcast_events}
+    assert "segments.progress" in events_by_topic
+    assert "queue.items" not in events_by_topic
