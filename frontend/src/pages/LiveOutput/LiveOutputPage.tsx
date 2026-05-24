@@ -1,6 +1,19 @@
 import React from 'react';
-import { Terminal } from 'lucide-react';
+import { ChevronDown, Terminal } from 'lucide-react';
 import { LiveOutputTable } from '@/components/LiveOutputTable';
+import { LIVE_EVENT_CONSUMERS } from '@/config/liveEventConsumers';
+
+const consumerTopicLabel = (id: string) => {
+  if (id === 'main-queue') return 'queue.items, chapters.progress';
+  if (id === 'chapter-state') return 'chapters.lifecycle, chapters.progress, segments.progress';
+  if (id === 'segment-state') return 'segments.lifecycle, segments.progress';
+  if (id === 'tts-diagnostics') return 'tts.logs';
+  if (id === 'voice-test-state') return 'voice.test';
+  if (id === 'project-state') return 'projects.lifecycle';
+  if (id === 'plugin-private') return 'plugins.*';
+  if (id.startsWith('plugin:')) return id.replace(/^plugin:/, 'plugins.').replace(/:/g, '.');
+  return id;
+};
 
 export const LiveOutputPage: React.FC = () => {
   return (
@@ -20,6 +33,34 @@ export const LiveOutputPage: React.FC = () => {
         <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
           Internal audit log of normalized websocket events received by the client.
         </p>
+        <details style={{ marginTop: '0.9rem', borderTop: '1px solid var(--border)', paddingTop: '0.85rem' }}>
+          <summary style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.92rem', fontWeight: 600, listStyle: 'none' }}>
+            <ChevronDown size={16} />
+            Event map
+          </summary>
+          <div style={{ marginTop: '0.85rem', display: 'grid', gap: '0.5rem' }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.5 }}>
+              `topic` is the routing key. `eventKind` is the event action, and `source` stays visible for provenance.
+              The buttons below mirror the same listener map used by the page.
+            </div>
+            <div style={{ display: 'grid', gap: '0.35rem' }}>
+              {LIVE_EVENT_CONSUMERS.map(consumer => (
+                <div key={consumer.id} style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '0.75rem', alignItems: 'start', fontSize: '0.82rem' }}>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{consumer.label}</div>
+                  <div style={{ color: 'var(--text-secondary)' }}>{consumerTopicLabel(consumer.id)}</div>
+                </div>
+              ))}
+              <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '0.75rem', alignItems: 'start', fontSize: '0.82rem' }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>plugin:&lt;plugin_id&gt;:&lt;area&gt;</div>
+                <div style={{ color: 'var(--text-secondary)' }}>exact match on `plugins.&lt;plugin_id&gt;.&lt;area&gt;`</div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '0.75rem', alignItems: 'start', fontSize: '0.82rem' }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>plugin-private</div>
+                <div style={{ color: 'var(--text-secondary)' }}>any topic beginning with `plugins.`</div>
+              </div>
+            </div>
+          </div>
+        </details>
       </section>
 
       <div style={{ flex: 1, minHeight: 0 }}>

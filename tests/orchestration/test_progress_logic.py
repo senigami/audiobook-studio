@@ -285,9 +285,13 @@ def test_progress_service_chapter_progress_sends_canonical_envelope():
         message="Synthesizing...",
     )
 
-    # Verify that the broadcaster received a canonical studio_event envelope for chapters.progress
-    assert len(broadcast_events) == 1
-    event, channel = broadcast_events[0]
+    # Verify that the broadcaster received a canonical studio_event envelope for chapters.progress (and a queue status event)
+    assert len(broadcast_events) == 2
+    events_by_topic = {e[0]["topic"]: (e[0], e[1]) for e in broadcast_events}
+    assert "chapters.progress" in events_by_topic
+    assert "queue.items" in events_by_topic
+
+    event, channel = events_by_topic["chapters.progress"]
     assert channel == "jobs"
     assert event["type"] == "studio_event"
     assert event["version"] == 1
@@ -389,8 +393,8 @@ def test_progress_service_dual_progress_emission():
         active_render_group_index=2,
     )
 
-    # We expect TWO events: segments.progress first, chapters.progress second
-    assert len(broadcast_events) == 2
+    # We expect THREE events: segments.progress first, chapters.progress second, queue.items status event third
+    assert len(broadcast_events) == 3
 
     # 1. Segment progress event
     seg_event, seg_channel = broadcast_events[0]
@@ -411,6 +415,13 @@ def test_progress_service_dual_progress_emission():
     assert chap_event["ids"]["chapterId"] == "chap-1"
     assert chap_event["payload"]["status"] == "running"
     assert chap_event["payload"]["progress"] == 0.45
+
+    # 3. Queue status event
+    queue_event, queue_channel = broadcast_events[2]
+    assert queue_channel == "jobs"
+    assert queue_event["topic"] == "queue.items"
+    assert queue_event["eventKind"] == "queue_item_status"
+    assert queue_event["payload"]["status"] == "running"
 
 
 def test_progress_service_segment_completion_matching_outcome():

@@ -154,13 +154,13 @@ describe('useQueueSync', () => {
         type: 'studio_event',
         version: 1,
         topic: 'queue.items',
-        eventKind: 'queue_invalidated',
+        eventKind: 'queue_item_invalidated',
         payload: {
           status: 'queued',
           progress: 0,
           etaSeconds: null,
           message: 'refresh',
-          reasonCode: 'queue_invalidated',
+          reasonCode: 'queue_item_invalidated',
           classification: 'job',
           changedFields: [],
         },
@@ -174,7 +174,7 @@ describe('useQueueSync', () => {
     expect(timeline[0].audience).toBe('queue');
   });
 
-  it('records queue consumer path for studio_job_event messages', async () => {
+  it('ignores chapters.progress event and does not record timeline entries', async () => {
     const { result } = renderHook(() => useQueueSync());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -200,8 +200,7 @@ describe('useQueueSync', () => {
 
     const timeline = (window as any).__ttsCommunicationTimeline ?? [];
     const queueEntries = timeline.filter((e: any) => e.listener === 'useQueueSync');
-    expect(queueEntries).toHaveLength(1);
-    expect(queueEntries[0].audience).toBe('both');
+    expect(queueEntries).toHaveLength(0);
   });
 
   it('records queue consumer path for job_updated messages', async () => {
@@ -352,5 +351,48 @@ describe('useQueueSync', () => {
 
     const job = result.current.queue.find((q: any) => q.id === 'job-reconnect');
     expect(job?.progress).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it('ignores chapters.progress events completely', async () => {
+    const jobItem = {
+      id: 'job-ignore-test',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'queued',
+      progress: 0,
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Emit chapters.progress event
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.5,
+    }, { jobId: 'job-ignore-test' });
+
+    // Wait short delay to verify no changes applied
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // The job progress/status in useQueueSync should remain unchanged
+    const job = result.current.queue.find((q: any) => q.id === 'job-ignore-test');
+    expect(job?.progress).toBe(0);
+    expect(job?.status).toBe('queued');
+  });
+
+  it('refreshes on queue_item_invalidated without reading status or progress from it', async () => {
+    (api.getProcessingQueue as any).mockClear();
+    renderHook(() => useQueueSync());
+
+    // Send minimal queue_item_invalidated event
+    emitEvent('queue.items', 'queue_item_invalidated', {
+      reasonCode: 'some_invalidation_reason',
+      changedFields: ['status'],
+    });
+
+    // Verify it triggers getProcessingQueue refresh call
+    expect(api.getProcessingQueue).toHaveBeenCalled();
   });
 });

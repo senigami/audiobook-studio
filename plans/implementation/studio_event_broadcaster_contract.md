@@ -332,29 +332,20 @@ def queue_item_status(
 
 def queue_item_invalidated(reason: str, changed_fields: List[str]) -> None:
     payload = {
-        "status": "queued", # fallback
-        "progress": 0.0,
-        "etaSeconds": None,
-        "message": reason,
-        "reasonCode": "queue_invalidated",
-        "classification": "job",
+        "reasonCode": reason,
         "changedFields": changed_fields
     }
     broadcast_studio_event(
         topic="queue.items",
-        event_kind="queue_invalidated",
+        event_kind="queue_item_invalidated",
         payload=payload
     )
 
 def queue_paused(paused: bool) -> None:
     payload = {
-        "status": "queued",
-        "progress": 0.0,
-        "etaSeconds": None,
-        "message": "Queue pause status changed",
         "reasonCode": "queue_paused",
-        "classification": "job",
-        "changedFields": ["paused"]
+        "changedFields": ["paused"],
+        "paused": paused
     }
     broadcast_studio_event(
         topic="queue.items",
@@ -585,4 +576,6 @@ cd frontend && /opt/homebrew/bin/npx vitest run tests/unit/store/studioSocketBus
 | **Segment render progress** | `TaskOrchestrator._publish` / `ProgressService.publish` | `update_job()` writes `active_segment_progress` | `segments.progress` | `segment_progress` | `projectId`, `chapterId`, `jobId`, `segmentId` | `status: "running"`, `progress: ...`, `segmentIndex: ...`, `segmentCount: ...` |
 | **Segment completion** | `TaskOrchestrator._publish` (triggered by log parser) | `update_segment()` writes `audio_status: "done"`, `audio_file_path: ...` | `segments.progress` / `segments.lifecycle` | `segment_progress` / `segment_lifecycle` | `projectId`, `chapterId`, `jobId`, `segmentId` | `status: "done"`, `progress: 1.0` (for segments.progress) \| `reason: "saved"`, `changedFields: ["audio_status", ...]` (for segments.lifecycle) |
 | **Chapter/job completion** | `TaskOrchestrator._publish` / `ProgressService.publish` | `update_job()` writes `status: "done"`, `progress: 1.0`, `finished_at` | `chapters.progress` / `queue.items` | `chapter_progress` / `queue_item_status` | `projectId`, `chapterId`, `jobId` | `status: "done"`, `progress: 1.0` (for both) |
+| **Queue invalidation** | `state_jobs.py` / `broadcast_queue_update` | None | `queue.items` | `queue_item_invalidated` | `projectId` \| None, `jobId` \| None | `reasonCode: ...`, `changedFields: [...]` |
+| **Queue pause status** | `ws.py` / `broadcast_pause_state` | None | `queue.items` | `queue_paused` | None | `reasonCode: "queue_paused"`, `changedFields: ["paused"]`, `paused: ...` |
 | **TTS logs** | `broadcast_tts_log_line` | None (watchdog log buffer updated in-memory) | `tts.logs` | `tts_log` | `projectId`, `chapterId`, `jobId` | `line: ...`, `level: "INFO"`, `sequence: ...`, `pluginId: ...`, `pluginShortName: ...` |

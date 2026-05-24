@@ -86,7 +86,7 @@ const messageFor = (event: LiveEvent): string => {
     event.topic === 'projects.lifecycle'
   ) {
     const payload = event.payload as any;
-    return payload.reason ?? '';
+    return payload.message ?? '';
   }
   if (event.topic === 'system.events' || event.topic === 'system.unknown') {
     try {
@@ -99,31 +99,14 @@ const messageFor = (event: LiveEvent): string => {
 };
 
 const reasonFor = (event: LiveEvent): string => {
-  if (
-    event.topic === 'queue.items' ||
-    event.topic === 'chapters.progress' ||
-    event.topic === 'segments.progress'
-  ) {
-    const payload = event.payload as any;
-    return payload.reasonCode ?? payload.reason_code ?? '-';
-  }
-  if (
-    event.topic === 'chapters.lifecycle' ||
-    event.topic === 'segments.lifecycle' ||
-    event.topic === 'projects.lifecycle'
-  ) {
-    const payload = event.payload as any;
-    return payload.reason ?? '-';
-  }
-  return '-';
+  const payload = event.payload as any;
+  return payload?.reasonCode ?? payload?.reason_code ?? '-';
 };
 
 const COLUMNS = [
   'Time',
   'Topic',
-  'Category',
   'Event',
-  'Handled by',
   'Job',
   'Chapter',
   'Segment',
@@ -232,24 +215,15 @@ export const LiveOutputTable: React.FC<LiveOutputTableProps> = (_props) => {
             {filteredRecords.map((record: LiveEventRecord) => {
               const event = record.event;
               const jobPayload = jobProgressPayloadFor(event);
-              const subscribers = record.subscribers.map(s => s.subscriber).join(', ');
               return (
                 <tr
                   key={event.frameId}
                   data-frame-id={event.frameId}
                   data-topic={event.topic}
-                  data-category={event.category}
                 >
                   <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatTime(event.receivedAt)}</td>
                   <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{event.topic}</td>
-                  <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{event.category}</td>
                   <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{event.eventKind}</td>
-                  <td
-                    data-testid="subscribers-cell"
-                    style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', opacity: 0.85, fontSize: '0.72rem' }}
-                  >
-                    {subscribers || '-'}
-                  </td>
                   <td title={event.jobId ?? ''} style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{shortId(event.jobId)}</td>
                   <td title={event.chapterId ?? ''} style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{shortId(event.chapterId)}</td>
                   <td title={event.segmentId ?? ''} style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{shortId(event.segmentId)}</td>

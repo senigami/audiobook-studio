@@ -231,6 +231,8 @@ class ProgressService:
 
         # Capture the previous active segment state before mutating self._last_payload_by_job
         previous = self._last_payload_by_job.get(job_id)
+        prev_status = previous.get("status") if previous else None
+        status_changed = (prev_status != status)
         prev_active_segment_id = previous.get("active_segment_id") if previous else None
         new_active_segment_id = payload.get("active_segment_id")
 
@@ -311,8 +313,8 @@ class ProgressService:
             self.broadcaster(payload=chap_event, channel="jobs")
             emitted_any = True
 
-            # Terminal Chapter Progress also emits queue.items status
-            if status in ("done", "failed", "cancelled"):
+            # Emit queue.items status on status change or terminal status transitions
+            if status_changed or status in ("done", "failed", "cancelled"):
                 from app.api.contracts.events import build_queue_item_status_event  # noqa: PLC0415
                 queue_event = build_queue_item_status_event(
                     job_id=job_id,

@@ -316,7 +316,7 @@ def update_job(job_id: str, force_broadcast: bool = False, source: str | None = 
 
                 try:
                     from ..api.ws import broadcast_chapter_updated, broadcast_queue_update
-                    # Gate invalidation broadcasts to terminal status transitions (done, failed, cancelled) or explicit force_broadcast.
+                    # Gate chapter invalidation broadcasts to terminal status transitions or explicit force_broadcast.
                     if new_status in ("done", "failed", "cancelled") or terminal_reset or force_broadcast:
                         chapter_id = j.get("chapter_id")
                         if chapter_id:
@@ -327,8 +327,10 @@ def update_job(job_id: str, force_broadcast: bool = False, source: str | None = 
                                 project_id=project_id,
                                 changed_fields=["status"]
                             )
+                    # For terminal updates, do not emit queue invalidation. Only emit on reset or explicit force_broadcast for non-terminal statuses.
+                    if (terminal_reset or force_broadcast) and new_status not in ("done", "failed", "cancelled"):
                         broadcast_queue_update(
-                            reason="job_terminal_status" if new_status in ("done", "failed", "cancelled") else "job_reset_to_active",
+                            reason="job_reset_to_active",
                             job_id=job_id,
                             project_id=project_id,
                             changed_fields=["status"]

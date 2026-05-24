@@ -140,7 +140,7 @@ describe('useJobs', () => {
     });
   });
 
-  it('does not attribute tts.logs frames to jobs-state', async () => {
+  it('does not attribute tts.logs frames to main-queue', async () => {
     renderHook(() => useJobs());
 
     emitEvent('tts.logs', 'tts_log', {
@@ -151,7 +151,7 @@ describe('useJobs', () => {
     const records = getLiveEventAuditSnapshot();
     expect(records).toHaveLength(1);
     expect(records[0].event.topic).toBe('tts.logs');
-    expect(records[0].subscribers.map(s => s.subscriber)).not.toContain('jobs-state');
+    expect(records[0].subscribers.map(s => s.subscriber)).not.toContain('main-queue');
   });
 
   it('does not fall back to fetchJobs when a new websocket job appears', async () => {
@@ -192,11 +192,11 @@ describe('useJobs', () => {
     expect(result.current.jobs.job1.status).toBe('done');
   });
 
-  it('handles queue_invalidated by requesting a new snapshot', async () => {
+  it('handles queue_item_invalidated by requesting a new snapshot', async () => {
     const onQueueUpdate = vi.fn();
     renderHook(() => useJobs(undefined, onQueueUpdate));
 
-    emitEvent('queue.items', 'queue_invalidated', { reason: 'test', changedFields: [] });
+    emitEvent('queue.items', 'queue_item_invalidated', { reason: 'test', changedFields: [] });
 
     expect(onQueueUpdate).toHaveBeenCalled();
     expect(sendMessage).toHaveBeenCalledTimes(2);
@@ -204,29 +204,29 @@ describe('useJobs', () => {
   });
 
   it('does not require an onQueueUpdate callback (queue.lifecycle is useQueueSync\'s domain)', async () => {
-    // App.tsx intentionally passes undefined for onQueueUpdate so a queue_updated frame
+    // App.tsx intentionally passes undefined for onQueueUpdate so a queue_item_invalidated frame
     // does not trigger a redundant ProjectDetailPage reload on top of useQueueSync's refresh.
     renderHook(() => useJobs(undefined, undefined));
-    expect(() => emitEvent('queue.items', 'queue_invalidated', { reason: 'test', changedFields: [] })).not.toThrow();
+    expect(() => emitEvent('queue.items', 'queue_item_invalidated', { reason: 'test', changedFields: [] })).not.toThrow();
     expect(sendMessage).toHaveBeenLastCalledWith({ type: 'jobs_snapshot_request' });
   });
 
-  it('routes a single queue.lifecycle frame to both queue-sync and jobs-state subscriber observations exactly once each', async () => {
+  it('routes a single queue.items status frame to main-queue subscriber observations exactly once each', async () => {
     renderHook(() => useJobs());
     // Re-import audit store on demand to avoid extra top-level imports in this large file.
     const { getLiveEventAuditSnapshot } = await import('@/store/liveEventAuditStore');
 
-    emitEvent('queue.items', 'queue_invalidated', { reason: 'test', changedFields: [] });
+    emitEvent('queue.items', 'queue_item_status', { progress: 0.1, status: 'running' }, { jobId: 'job-1' });
 
     const records = getLiveEventAuditSnapshot();
     const queueFrame = records.find(r => r.event.topic === 'queue.items');
     expect(queueFrame).toBeDefined();
     const subs = queueFrame!.subscribers.map(s => s.subscriber);
-    // jobs-state is observed once for this frame. queue-sync would also appear here in
+    // main-queue is observed once for this frame. queue-sync would also appear here in
     // the full app, but is not present because this isolated useJobs render does not mount
     // useQueueSync. The point of this assertion is to guard against double-observation by
-    // jobs-state for the same frame.
-    expect(subs.filter(s => s === 'jobs-state')).toHaveLength(1);
+    // main-queue for the same frame.
+    expect(subs.filter(s => s === 'main-queue')).toHaveLength(1);
   });
 
   it('handles queue_paused, segments_lifecycle, and chapter_lifecycle', async () => {
@@ -481,6 +481,83 @@ describe('useJobs', () => {
       log: 'chapter rendering',
       render_group_count: 10,
       completed_render_groups: 4,
+    });
+  });
+
+  it('does not overwrite row logs with segment progress narration on chapters.progress', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-msg', status: 'running', progress: 0.1, log: 'Stable chapter progress message' } as any] });
+
+    // Send chapters.progress with reasonCode segment_start
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'chapters.progress',
+        eventKind: 'chapter_progress',
+        ids: { jobId: 'job-msg', chapterId: 'chap-1' },
+        payload: {
+          status: 'running',
+          progress: 0.2,
+          reasonCode: 'segment_start',
+          message: 'Segment synthesis log line',
+        },
+      });
+    });
+
+    // Check progress is updated, but log/message is NOT updated to segment log line
+    expect(result.current.jobs['job-msg']).toMatchObject({
+      status: 'running',
+      progress: 0.2,
+      log: 'Stable chapter progress message',
+    });
+
+    // Send chapters.progress with reasonCode segment_saved
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'chapters.progress',
+        eventKind: 'chapter_progress',
+        ids: { jobId: 'job-msg', chapterId: 'chap-1' },
+        payload: {
+          status: 'running',
+          progress: 0.3,
+          reasonCode: 'segment_saved',
+          message: 'Saved segment log line',
+        },
+      });
+    });
+
+    // Check progress is updated, but log/message is still NOT updated
+    expect(result.current.jobs['job-msg']).toMatchObject({
+      status: 'running',
+      progress: 0.3,
+      log: 'Stable chapter progress message',
+    });
+
+    // Send a normal update without segment reasonCode
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'chapters.progress',
+        eventKind: 'chapter_progress',
+        ids: { jobId: 'job-msg', chapterId: 'chap-1' },
+        payload: {
+          status: 'running',
+          progress: 0.4,
+          reasonCode: 'normal_update',
+          message: 'New chapter progress message',
+        },
+      });
+    });
+
+    // Both progress and log should be updated
+    expect(result.current.jobs['job-msg']).toMatchObject({
+      status: 'running',
+      progress: 0.4,
+      log: 'New chapter progress message',
     });
   });
 });

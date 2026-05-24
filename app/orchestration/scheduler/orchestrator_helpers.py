@@ -783,6 +783,7 @@ class OrchestratorHelpersMixin:
             self.progress_service.publish(
                 job_id=context.task_id,
                 status=state_status,
+                scope="segment" if (context.payload and context.payload.get("segment_ids")) else "chapter",
                 parent_job_id=context.project_id,
                 chapter_id=context.chapter_id,
                 progress=state_progress,

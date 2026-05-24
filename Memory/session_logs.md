@@ -1430,3 +1430,21 @@
 - Renamed the column header `'Subscribers'` to `'Handled by'` to be more descriptive of actual observations.
 - Updated Vitest unit tests in `LiveOutputPage.test.tsx` and `LiveOutputTab.test.tsx` to assert correct filtering based on consumer registry topic subscription rules.
 - Verified that all unit tests, eslint, production build, and git diff checks are green.
+
+# 2026-05-23 - Websocket payloads human-readable reason removal
+
+- Removed the redundant human-readable 'reason' key from the backend websocket payloads for `segments.lifecycle`, `chapters.lifecycle`, and `projects.lifecycle` events built in `app/api/contracts/events.py`.
+- Mapped the reason parameter to the canonical machine-readable `reasonCode` and legacy `reason_code` fields in the lifecycle payloads instead.
+- Updated the frontend types in `frontend/src/api/contracts/liveEvents.ts` to replace `reason` with `reasonCode` and `reason_code` in `ChapterLifecyclePayload`, `SegmentLifecyclePayload`, and `ProjectLifecyclePayload`.
+- Simplified the `reasonFor` helper in `LiveOutputTable.tsx` to read `reasonCode`/`reason_code` globally for all event types, and updated `messageFor` to use `message` instead of `reason` for lifecycle events.
+- Updated all affected frontend and backend tests in `tests/api/test_websocket_broadcast.py`, `liveEvents.test.ts`, `LiveOutputPage.test.tsx`, and `LiveOutputTab.test.tsx` to align with the payload contract updates.
+- Verified that all 902 backend pytest tests and 579 frontend Vitest tests pass cleanly.
+
+# 2026-05-23 - Queue Event Path Audit and Tightened State Ownership
+
+- Refactored `useQueueSync.ts` to remove the `'chapters.progress'` topic subscription, ensuring the queue overlay store is driven only by authoritative `'queue.items'` events (`queue_item_status`, `queue_paused`, `queue_item_invalidated`).
+- Updated `main-queue` consumer definition in `liveEventConsumers.ts` to listen only to the `'queue.items'` topic.
+- Reverted status derivation in `QueueItem.tsx` to use `job.status` directly, which is strictly updated by the authoritative `'queue_item_status'` event and hydration snapshot queue items.
+- Fixed `ProgressService` initialization in backend websocket broadcast tests by providing required `reconcile_fn` and `eta_fn` parameters.
+- Updated progress service tests in `test_progress_logic.py` and live output tests in `LiveOutputPage.test.tsx` to align with the new progress broadcasting contract and filter rules.
+- Verified that all 905 backend pytest tests and 584 frontend Vitest tests pass cleanly, and both the frontend build and linter are successful.

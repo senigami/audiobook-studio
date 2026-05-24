@@ -207,12 +207,7 @@ def test_broadcast_queue_update_sends_canonical_envelope(monkeypatch):
         "segmentId": None
     }
     assert event["payload"] == {
-        "status": "queued",
-        "progress": 0.0,
-        "etaSeconds": None,
-        "message": "job_status_change",
-        "reasonCode": "queue_invalidated",
-        "classification": "job",
+        "reasonCode": "job_status_change",
         "changedFields": ["status"],
         "changed_fields": ["status"]  # Legacy compatibility
     }
@@ -247,8 +242,10 @@ def test_broadcast_segments_updated_sends_canonical_envelope(monkeypatch):
         "jobId": "job-123",
         "segmentId": None
     }
+    assert "reason" not in event["payload"]
     assert event["payload"] == {
-        "reason": "segments_rebuilt",
+        "reasonCode": "segments_rebuilt",
+        "reason_code": "segments_rebuilt",  # Legacy compatibility
         "changedFields": ["audio_status"],
         "changed_fields": ["audio_status"]  # Legacy compatibility
     }
@@ -283,8 +280,10 @@ def test_broadcast_chapter_updated_sends_canonical_envelope(monkeypatch):
         "jobId": "job-123",
         "segmentId": None
     }
+    assert "reason" not in event["payload"]
     assert event["payload"] == {
-        "reason": "chapter_metadata_change",
+        "reasonCode": "chapter_metadata_change",
+        "reason_code": "chapter_metadata_change",  # Legacy compatibility
         "changedFields": ["title"],
         "changed_fields": ["title"]  # Legacy compatibility
     }
@@ -318,8 +317,10 @@ def test_broadcast_project_updated_sends_canonical_envelope(monkeypatch):
         "jobId": "job-123",
         "segmentId": None
     }
+    assert "reason" not in event["payload"]
     assert event["payload"] == {
-        "reason": "project_membership_change",
+        "reasonCode": "project_membership_change",
+        "reason_code": "project_membership_change",  # Legacy compatibility
         "changedFields": ["status"],
         "changed_fields": ["status"]  # Legacy compatibility
     }
@@ -327,14 +328,14 @@ def test_broadcast_project_updated_sends_canonical_envelope(monkeypatch):
 
 def test_status_only_job_updates_do_not_emit_chapter_or_queue_updates(monkeypatch):
     """
-    Backend test: status-only job updates do not emit chapter_updated or queue_updated.
+    Backend test: status-only job updates do not emit chapter_updated or queue_item_invalidated.
     Real metadata/terminal changes still emit the appropriate invalidation broadcast.
     """
     broadcasts = []
 
     # Mock the ws functions
     monkeypatch.setattr("app.api.ws.broadcast_chapter_updated", lambda *args, **kwargs: broadcasts.append(("chapter_updated", args, kwargs)))
-    monkeypatch.setattr("app.api.ws.broadcast_queue_update", lambda *args, **kwargs: broadcasts.append(("queue_updated", args, kwargs)))
+    monkeypatch.setattr("app.api.ws.broadcast_queue_update", lambda *args, **kwargs: broadcasts.append(("queue_item_invalidated", args, kwargs)))
 
     # Mock SQLite sync function
     monkeypatch.setattr("app.db.update_queue_item", lambda *args, **kwargs: None)
@@ -357,23 +358,23 @@ def test_status_only_job_updates_do_not_emit_chapter_or_queue_updates(monkeypatc
     from app.db.state_jobs import update_job
     update_job("job-test-1", status="preparing")
 
-    # We expect status-only transitions NOT to broadcast chapter_updated or queue_updated
+    # We expect status-only transitions NOT to broadcast chapter_updated or queue_item_invalidated
     assert broadcasts == []
 
     # 2. Update to done (terminal state)
     update_job("job-test-1", status="done")
 
-    # We expect terminal transitions TO broadcast both
+    # We expect terminal transitions TO broadcast chapter_updated but NOT queue_item_invalidated
     assert len(broadcasts) > 0
     assert any(b[0] == "chapter_updated" for b in broadcasts)
-    assert any(b[0] == "queue_updated" for b in broadcasts)
+    assert not any(b[0] == "queue_item_invalidated" for b in broadcasts)
 
 
 def test_terminal_job_reset_to_active_emits_invalidation_broadcasts(monkeypatch):
     broadcasts = []
 
     monkeypatch.setattr("app.api.ws.broadcast_chapter_updated", lambda *args, **kwargs: broadcasts.append(("chapter_updated", args, kwargs)))
-    monkeypatch.setattr("app.api.ws.broadcast_queue_update", lambda *args, **kwargs: broadcasts.append(("queue_updated", args, kwargs)))
+    monkeypatch.setattr("app.api.ws.broadcast_queue_update", lambda *args, **kwargs: broadcasts.append(("queue_item_invalidated", args, kwargs)))
     monkeypatch.setattr("app.db.update_queue_item", lambda *args, **kwargs: None)
 
     state_mock = {"jobs": {
@@ -397,7 +398,7 @@ def test_terminal_job_reset_to_active_emits_invalidation_broadcasts(monkeypatch)
     update_job("job-test-reset", status="queued")
 
     assert any(b[0] == "chapter_updated" for b in broadcasts)
-    assert any(b[0] == "queue_updated" for b in broadcasts)
+    assert any(b[0] == "queue_item_invalidated" for b in broadcasts)
 
 
 def test_update_job_with_force_broadcast_emits_chapter_and_queue_updates(monkeypatch):
@@ -408,7 +409,7 @@ def test_update_job_with_force_broadcast_emits_chapter_and_queue_updates(monkeyp
 
     # Mock the ws functions
     monkeypatch.setattr("app.api.ws.broadcast_chapter_updated", lambda *args, **kwargs: broadcasts.append(("chapter_updated", args, kwargs)))
-    monkeypatch.setattr("app.api.ws.broadcast_queue_update", lambda *args, **kwargs: broadcasts.append(("queue_updated", args, kwargs)))
+    monkeypatch.setattr("app.api.ws.broadcast_queue_update", lambda *args, **kwargs: broadcasts.append(("queue_item_invalidated", args, kwargs)))
 
     # Mock SQLite sync function
     monkeypatch.setattr("app.db.update_queue_item", lambda *args, **kwargs: None)
@@ -434,7 +435,7 @@ def test_update_job_with_force_broadcast_emits_chapter_and_queue_updates(monkeyp
     # We expect forced/metadata transitions TO broadcast both
     assert len(broadcasts) > 0
     assert any(b[0] == "chapter_updated" for b in broadcasts)
-    assert any(b[0] == "queue_updated" for b in broadcasts)
+    assert any(b[0] == "queue_item_invalidated" for b in broadcasts)
 
 
 def test_update_job_propagates_source(monkeypatch):
@@ -583,7 +584,7 @@ def test_api_add_to_queue_websocket_burst_no_redundancy(monkeypatch, tmp_path, v
         and m.get("topic") == "chapters.lifecycle"
         and m.get("eventKind") == "chapter_lifecycle"
     ]
-    queue_updated = [
+    queue_item_invalidated = [
         m for m in messages
         if m.get("type") == "studio_event"
         and m.get("topic") == "queue.items"
@@ -593,7 +594,7 @@ def test_api_add_to_queue_websocket_burst_no_redundancy(monkeypatch, tmp_path, v
     assert len(chapter_progress_queued) == 1, f"Expected 1 chapters.progress (queued), got {len(chapter_progress_queued)}: {chapter_progress_queued}"
     assert len(job_updated_queued) == 0, f"Expected 0 job_updated (queued) after suppression, got {len(job_updated_queued)}: {job_updated_queued}"
     assert len(chapter_updated) == 1, f"Expected 1 chapter_updated studio_event, got {len(chapter_updated)}: {chapter_updated}"
-    assert len(queue_updated) == 1, f"Expected 1 queue_updated studio_event, got {len(queue_updated)}: {queue_updated}"
+    assert len(queue_item_invalidated) == 1, f"Expected 1 queue_item_invalidated studio_event, got {len(queue_item_invalidated)}: {queue_item_invalidated}"
 
 
 
@@ -776,8 +777,10 @@ def test_build_core_topic_helpers():
         changed_fields=["audio_path"]
     )
     assert e_seg_life["topic"] == "segments.lifecycle"
+    assert "reason" not in e_seg_life["payload"]
     assert e_seg_life["payload"] == {
-        "reason": "saved",
+        "reasonCode": "saved",
+        "reason_code": "saved",  # Legacy compatibility
         "changedFields": ["audio_path"],
         "changed_fields": ["audio_path"]  # Legacy compatibility
     }
@@ -789,8 +792,10 @@ def test_build_core_topic_helpers():
         changed_fields=["audio_status"]
     )
     assert e_chap_life["topic"] == "chapters.lifecycle"
+    assert "reason" not in e_chap_life["payload"]
     assert e_chap_life["payload"] == {
-        "reason": "reset",
+        "reasonCode": "reset",
+        "reason_code": "reset",  # Legacy compatibility
         "changedFields": ["audio_status"],
         "changed_fields": ["audio_status"]  # Legacy compatibility
     }
@@ -842,8 +847,10 @@ def test_build_core_topic_helpers():
         "jobId": "job-123",
         "segmentId": None
     }
+    assert "reason" not in e_proj["payload"]
     assert e_proj["payload"] == {
-        "reason": "project_membership_change",
+        "reasonCode": "project_membership_change",
+        "reason_code": "project_membership_change",  # Legacy compatibility
         "changedFields": ["status"],
         "changed_fields": ["status"]  # Legacy compatibility
     }
@@ -1002,12 +1009,7 @@ def test_broadcast_pause_state_sends_canonical_envelope(monkeypatch):
         "segmentId": None
     }
     assert event["payload"] == {
-        "status": "queued",
-        "progress": 0.0,
-        "etaSeconds": None,
-        "message": "Queue pause status changed",
         "reasonCode": "queue_paused",
-        "classification": "job",
         "changedFields": ["paused"],
         "paused": True,
         "changed_fields": ["paused"]  # Legacy compatibility
@@ -1298,3 +1300,141 @@ def test_broadcast_tts_log_line_includes_plugin_metadata(monkeypatch):
     assert event["topic"] == "tts.logs"
     assert event["payload"]["pluginId"] == "tts_xtts"
     assert event["payload"]["pluginShortName"] == "XTTS"
+
+
+def test_build_queue_item_invalidated_minimal_payload():
+    from app.api.contracts.events import build_queue_item_invalidated_event
+    event = build_queue_item_invalidated_event(
+        reason="some_reason",
+        changed_fields=["status"]
+    )
+    assert event["topic"] == "queue.items"
+    assert event["eventKind"] == "queue_item_invalidated"
+    # Verify absence of status, progress, classification, message
+    assert "status" not in event["payload"]
+    assert "progress" not in event["payload"]
+    assert "classification" not in event["payload"]
+    assert "message" not in event["payload"]
+    assert event["payload"]["reasonCode"] == "some_reason"
+    assert event["payload"]["changedFields"] == ["status"]
+
+
+def test_update_job_terminal_status_does_not_emit_queue_invalidation(monkeypatch):
+    broadcasts = []
+    monkeypatch.setattr("app.api.ws.broadcast_queue_update", lambda *args, **kwargs: broadcasts.append(("queue_item_invalidated", args, kwargs)))
+    monkeypatch.setattr("app.db.update_queue_item", lambda *args, **kwargs: None)
+
+    state_mock = {"jobs": {
+        "job-test-terminal": {
+            "id": "job-test-terminal",
+            "status": "running",
+            "chapter_id": "chap-1",
+            "project_id": "proj-1",
+            "created_at": 100.0,
+            "engine": "xtts"
+        }
+    }}
+    monkeypatch.setattr("app.db.state_jobs._load_state_no_lock", lambda: state_mock)
+    monkeypatch.setattr("app.db.state_jobs._atomic_write_text", lambda *args, **kwargs: None)
+
+    from app.db.state_jobs import update_job
+    update_job("job-test-terminal", status="done")
+
+    # verify queue invalidation was NOT called
+    assert len(broadcasts) == 0
+
+
+def test_terminal_job_completion_path_emits_exactly_one_queue_item_status(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    from app.api.ws import broadcast_job_updated
+    # Simulate orchestrator/websockets broadcast_job_updated for terminal status
+    broadcast_job_updated(
+        "job-terminal-complete",
+        {"status": "done", "progress": 1.0},
+        {"status": "done", "progress": 1.0, "chapter_id": "chap-1", "project_id": "proj-1"},
+    )
+
+    # Filter messages for queue.items topic
+    queue_messages = [m for m in messages if m.get("topic") == "queue.items"]
+    assert len(queue_messages) == 1
+    assert queue_messages[0]["eventKind"] == "queue_item_status"
+    assert queue_messages[0]["payload"]["status"] == "done"
+
+
+def test_rebuild_emits_minimum_necessary_queue_state_transitions(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    from app.orchestration.progress.service import ProgressService
+
+    broadcaster = lambda payload, channel: DummyManager().broadcast(payload)
+    progress_service = ProgressService(
+        reconcile_fn=lambda **kwargs: kwargs,
+        eta_fn=lambda **kwargs: 0.0,
+        broadcaster=broadcaster,
+    )
+
+    # 1. Transition: queued -> preparing
+    progress_service.publish(
+        job_id="job-rebuild-1",
+        status="preparing",
+        chapter_id="chap-1",
+        parent_job_id="proj-1",
+        progress=0.0
+    )
+
+    # 2. Duplicate state (no change): preparing -> preparing
+    progress_service.publish(
+        job_id="job-rebuild-1",
+        status="preparing",
+        chapter_id="chap-1",
+        parent_job_id="proj-1",
+        progress=0.0
+    )
+
+    # 3. Transition: preparing -> running
+    progress_service.publish(
+        job_id="job-rebuild-1",
+        status="running",
+        chapter_id="chap-1",
+        parent_job_id="proj-1",
+        progress=0.0
+    )
+
+    # 4. Progress tick (no status change): running -> running (0.5)
+    progress_service.publish(
+        job_id="job-rebuild-1",
+        status="running",
+        chapter_id="chap-1",
+        parent_job_id="proj-1",
+        progress=0.5
+    )
+
+    # 5. Transition: running -> done
+    progress_service.publish(
+        job_id="job-rebuild-1",
+        status="done",
+        chapter_id="chap-1",
+        parent_job_id="proj-1",
+        progress=1.0
+    )
+
+    # Filter out queue_item_status events
+    queue_status_events = [
+        m for m in messages
+        if m.get("topic") == "queue.items" and m.get("eventKind") == "queue_item_status"
+    ]
+
+    # Verify we got exactly 3 status transitions: preparing, running, done
+    assert len(queue_status_events) == 3
+    assert queue_status_events[0]["payload"]["status"] == "preparing"
+    assert queue_status_events[1]["payload"]["status"] == "running"
+    assert queue_status_events[2]["payload"]["status"] == "done"

@@ -1,19 +1,19 @@
 {
-  "snapshot_version": 115,
-  "updated_at": "2026-05-23T10:23:00-04:00",
+  "snapshot_version": 117,
+  "updated_at": "2026-05-23T19:04:00-04:00",
   "branch": "studio2/phase-12",
-  "current_task": "Audit and clean up the backend websocket layer after frontend canonicalization is complete.",
-  "status": "backend_websocket_cleanup_complete",
+  "current_task": "Audit and tighten the actual queue item event path so queue rows are driven only by authoritative queue state.",
+  "status": "queue_event_path_audit_and_tightening_complete",
   "last_committed_milestone": {
-    "title": "Audit and clean up the backend websocket layer after frontend canonicalization",
+    "title": "Audit and tighten the actual queue item event path",
     "commit": "pending",
     "notes": [
-      "Refactored broadcast_job_updated in app/api/ws.py to remove legacy studio_job_event and job_updated frames.",
-      "Canonicalized fallback generic job updates to queue.items / queue_item_status events.",
-      "Honored skip_studio_job_event as a full suppression signal on the generic path to avoid duplicate broadcasts.",
-      "Updated tests/api/test_websocket_broadcast.py and tests/orchestration/test_progress_logic.py assertions to check canonical envelopes.",
-      "Removed obsolete legacy context propagation tests.",
-      "Verified all 893 backend tests, ruff, and git diff check passed successfully."
+      "Refactored useQueueSync.ts to remove the 'chapters.progress' topic subscription, ensuring the queue overlay store is driven only by authoritative 'queue.items' events.",
+      "Updated 'main-queue' consumer in liveEventConsumers.ts to listen only to the 'queue.items' topic.",
+      "Reverted status derivation in QueueItem.tsx to use job.status directly, strictly driven by the 'queue_item_status' event.",
+      "Fixed ProgressService mock instantiation in test_websocket_broadcast.py to supply reconcile_fn and eta_fn arguments.",
+      "Updated progress service and live output unit tests to align with the new progress broadcasting contract and filter rules.",
+      "Verified that all 905 backend pytest tests and 584 frontend Vitest tests pass cleanly, and the frontend builds and lints successfully."
     ]
   },
   "active_constraints": [

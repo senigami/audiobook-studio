@@ -44,7 +44,7 @@ describe('live event contract', () => {
         emittedAt: 1234567,
         pluginId: null,
         ids: { projectId: null, chapterId: null, jobId: null, segmentId: null },
-        payload: { reason: 'test', changedFields: [] }
+        payload: { reasonCode: 'test', changedFields: [] }
       }, 6)),
       subscribers: [],
     };
@@ -270,7 +270,8 @@ describe('live event contract', () => {
           segmentId: null,
         },
         payload: {
-          reason: 'project_membership_change',
+          reasonCode: 'project_membership_change',
+          reason_code: 'project_membership_change',
           changedFields: ['status'],
         },
       };

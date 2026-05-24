@@ -80,7 +80,7 @@ export const wsAudienceForType = (type: string | undefined, data?: Record<string
     const topic = data.topic;
     const eventKind = data.eventKind;
     if (topic === 'queue.items') {
-      if (eventKind === 'queue_invalidated' || eventKind === 'queue_paused') {
+      if (eventKind === 'queue_item_invalidated' || eventKind === 'queue_invalidated' || eventKind === 'queue_paused') {
         return 'queue';
       }
       return 'both';
@@ -91,6 +91,7 @@ export const wsAudienceForType = (type: string | undefined, data?: Record<string
     return 'chapter';
   }
   switch (type) {
+    case 'queue_item_invalidated':
     case 'queue_updated':
     case 'pause_updated':
       return 'queue';

@@ -49,7 +49,10 @@ const adaptEventToJobUpdates = (event: any) => {
     return undefined;
   };
 
-  return {
+  const rCode = getVal('reasonCode', 'reason_code');
+  const shouldOmitMessage = event.topic === 'chapters.progress' && (rCode === 'segment_start' || rCode === 'segment_saved');
+
+  const updates: any = {
     job_id: event.jobId,
     project_id: event.projectId,
     chapter_id: event.chapterId,
@@ -63,8 +66,7 @@ const adaptEventToJobUpdates = (event: any) => {
     started_at: getVal('startedAt', 'started_at'),
     updated_at: getVal('updatedAt', 'updated_at'),
     estimated_end_at: getVal('estimatedEndAt', 'estimated_end_at'),
-    log: payload.message || payload.log,
-    reason_code: getVal('reasonCode', 'reason_code'),
+    reason_code: rCode,
     render_group_count: getVal('renderGroupCount', 'render_group_count'),
     completed_render_groups: getVal('completedRenderGroups', 'completed_render_groups'),
     active_render_group_index: getVal('activeRenderGroupIndex', 'active_render_group_index'),
@@ -77,6 +79,12 @@ const adaptEventToJobUpdates = (event: any) => {
     active_render_batch_id: getVal('activeRenderBatchId', 'active_render_batch_id'),
     active_render_batch_progress: getVal('activeRenderBatchProgress', 'active_render_batch_progress'),
   };
+
+  if (!shouldOmitMessage) {
+    updates.log = payload.message || payload.log;
+  }
+
+  return updates;
 };
 
 export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, onPauseUpdate?: (paused: boolean) => void, onSegmentsUpdate?: (chapterId: string) => void, onChapterUpdate?: (chapterId: string) => void) => {
@@ -189,17 +197,19 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
 
         case 'queue.items': {
           recordWebsocketDebugMessage('useJobs', data, raw, envelope);
-          recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
-          if (event.eventKind === 'queue_invalidated') {
+          if (event.eventKind === 'queue_item_invalidated') {
             refreshJobs();
             if (onQueueUpdate) onQueueUpdate();
-          } else if (event.eventKind === 'queue_paused') {
-            if (onPauseUpdate) onPauseUpdate(payload.paused ?? data.paused);
-          } else if (event.jobId) {
-            applyJobUpdatedEvent({
-              job_id: event.jobId,
-              updates: adaptEventToJobUpdates(event),
-            });
+          } else {
+            recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
+            if (event.eventKind === 'queue_paused') {
+              if (onPauseUpdate) onPauseUpdate(payload.paused ?? data.paused);
+            } else if (event.jobId) {
+              applyJobUpdatedEvent({
+                job_id: event.jobId,
+                updates: adaptEventToJobUpdates(event),
+              });
+            }
           }
           break;
         }

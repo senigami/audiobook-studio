@@ -200,12 +200,7 @@ def build_queue_item_invalidated_event(
 ) -> dict:
     """Build a queue.items invalidated envelope."""
     payload = {
-        "status": "queued",
-        "progress": 0.0,
-        "etaSeconds": None,
-        "message": reason,
-        "reasonCode": "queue_invalidated",
-        "classification": "job",
+        "reasonCode": reason,
         "changedFields": changed_fields,
         "changed_fields": changed_fields,  # Legacy compatibility
     }
@@ -222,12 +217,7 @@ def build_queue_item_invalidated_event(
 def build_queue_paused_event(paused: bool, source: str | None = None) -> dict:
     """Build a queue.items paused envelope."""
     payload = {
-        "status": "queued",
-        "progress": 0.0,
-        "etaSeconds": None,
-        "message": "Queue pause status changed",
         "reasonCode": "queue_paused",
-        "classification": "job",
         "changedFields": ["paused"],
         "paused": paused,
         "changed_fields": ["paused"],  # Legacy compatibility
@@ -337,7 +327,8 @@ def build_segment_lifecycle_event(
 ) -> dict:
     """Build a segments.lifecycle topic envelope."""
     payload = {
-        "reason": reason,
+        "reasonCode": reason,
+        "reason_code": reason,  # Legacy compatibility
         "changedFields": changed_fields,
         "changed_fields": changed_fields,  # Legacy compatibility
     }
@@ -362,7 +353,8 @@ def build_chapter_lifecycle_event(
 ) -> dict:
     """Build a chapters.lifecycle topic envelope."""
     payload = {
-        "reason": reason,
+        "reasonCode": reason,
+        "reason_code": reason,  # Legacy compatibility
         "changedFields": changed_fields,
         "changed_fields": changed_fields,  # Legacy compatibility
     }
@@ -386,7 +378,8 @@ def build_project_lifecycle_event(
 ) -> dict:
     """Build a projects.lifecycle topic envelope."""
     payload = {
-        "reason": reason,
+        "reasonCode": reason,
+        "reason_code": reason,  # Legacy compatibility
         "changedFields": changed_fields,
         "changed_fields": changed_fields,  # Legacy compatibility
     }

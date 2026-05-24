@@ -74,13 +74,13 @@ export interface LiveEventBase<TPayload = unknown> {
 }
 
 export interface QueueItemPayload {
-  status: 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled';
-  progress: number;
-  etaSeconds: number | null;
-  message: string | null;
-  reasonCode: string | null;
-  classification: 'job' | 'chapter' | 'segment';
-  changedFields: string[] | null;
+  status?: 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled';
+  progress?: number;
+  etaSeconds?: number | null;
+  message?: string | null;
+  reasonCode?: string | null;
+  classification?: 'job' | 'chapter' | 'segment';
+  changedFields?: string[] | null;
   paused?: boolean | null;
   // Legacy duplicate fields for backward compatibility
   eta_seconds?: number | null;
@@ -95,7 +95,8 @@ export interface QueueItemLiveEvent extends LiveEventBase<QueueItemPayload> {
 }
 
 export interface ChapterLifecyclePayload {
-  reason: string;
+  reasonCode: string;
+  reason_code?: string;
   changedFields: string[];
   // Legacy compatibility
   changed_fields?: string[];
@@ -131,7 +132,8 @@ export interface ChapterProgressLiveEvent extends LiveEventBase<ChapterProgressP
 }
 
 export interface SegmentLifecyclePayload {
-  reason: string;
+  reasonCode: string;
+  reason_code?: string;
   changedFields: string[];
   // Legacy compatibility
   changed_fields?: string[];
@@ -222,7 +224,8 @@ export interface PluginLiveEvent extends LiveEventBase<unknown> {
 }
 
 export interface ProjectLifecyclePayload {
-  reason: string;
+  reasonCode: string;
+  reason_code?: string;
   changedFields: string[];
   // Legacy compatibility
   changed_fields?: string[];

@@ -86,51 +86,31 @@ export const useQueueSync = () => {
 
       if (event.topic === 'queue.items') {
         recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
-        recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-        if (event.eventKind === 'queue_item_invalidated' || event.eventKind === 'queue_paused') {
+        if (event.eventKind === 'queue_item_invalidated') {
           refreshQueue('refresh');
-        } else if (event.jobId) {
-          const updates = {
-            job_id: event.jobId,
-            project_id: event.projectId,
-            chapter_id: event.chapterId,
-            classification: payload.classification,
-            status: payload.status,
-            progress: payload.progress,
-            eta_seconds: payload.etaSeconds !== undefined ? payload.etaSeconds : payload.eta_seconds,
-            started_at: payload.startedAt !== undefined ? payload.startedAt : payload.started_at,
-            updated_at: payload.updatedAt !== undefined ? payload.updatedAt : payload.updated_at,
-            estimated_end_at: payload.estimatedEndAt !== undefined ? payload.estimatedEndAt : payload.estimated_end_at,
-            reason_code: payload.reasonCode !== undefined ? payload.reasonCode : payload.reason_code,
-            message: payload.message,
-            paused: payload.paused,
-          };
-          storeRef.current.applyJobUpdated(event.jobId, updates);
-          updateDerivedState();
-        }
-      } else if (event.topic === 'chapters.progress') {
-        recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
-        recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-        if (event.jobId) {
-          const updates = {
-            job_id: event.jobId,
-            project_id: event.projectId,
-            chapter_id: event.chapterId,
-            classification: 'chapter',
-            status: payload.status,
-            progress: payload.progress,
-            eta_seconds: payload.etaSeconds !== undefined ? payload.etaSeconds : payload.eta_seconds,
-            started_at: payload.startedAt !== undefined ? payload.startedAt : payload.started_at,
-            updated_at: payload.updatedAt !== undefined ? payload.updatedAt : payload.updated_at,
-            estimated_end_at: payload.estimatedEndAt !== undefined ? payload.estimatedEndAt : payload.estimated_end_at,
-            reason_code: payload.reasonCode !== undefined ? payload.reasonCode : payload.reason_code,
-            message: payload.message,
-            grouped_progress: payload.groupedProgress !== undefined ? payload.groupedProgress : payload.grouped_progress,
-            render_group_count: payload.renderGroupCount !== undefined ? payload.renderGroupCount : payload.render_group_count,
-            completed_render_groups: payload.completedRenderGroups !== undefined ? payload.completedRenderGroups : payload.completed_render_groups,
-          };
-          storeRef.current.applyJobUpdated(event.jobId, updates);
-          updateDerivedState();
+        } else {
+          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
+          if (event.eventKind === 'queue_paused') {
+            refreshQueue('refresh');
+          } else if (event.jobId) {
+            const updates = {
+              job_id: event.jobId,
+              project_id: event.projectId,
+              chapter_id: event.chapterId,
+              classification: payload.classification,
+              status: payload.status,
+              progress: payload.progress,
+              eta_seconds: payload.etaSeconds !== undefined ? payload.etaSeconds : payload.eta_seconds,
+              started_at: payload.startedAt !== undefined ? payload.startedAt : payload.started_at,
+              updated_at: payload.updatedAt !== undefined ? payload.updatedAt : payload.updated_at,
+              estimated_end_at: payload.estimatedEndAt !== undefined ? payload.estimatedEndAt : payload.estimated_end_at,
+              reason_code: payload.reasonCode !== undefined ? payload.reasonCode : payload.reason_code,
+              message: payload.message,
+              paused: payload.paused,
+            };
+            storeRef.current.applyJobUpdated(event.jobId, updates);
+            updateDerivedState();
+          }
         }
       }
     });

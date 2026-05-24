@@ -5,10 +5,7 @@ import {
   publishStudioSocketMessage,
   resetStudioSocketBusForTests,
 } from '@/store/studioSocketBus';
-import {
-  recordLiveEventSubscriberObservation,
-  resetLiveEventAuditForTests,
-} from '@/store/liveEventAuditStore';
+import { resetLiveEventAuditForTests } from '@/store/liveEventAuditStore';
 
 const publishEvent = (topic: string, eventKind: string, payload: any, ids: any = {}) => {
   act(() => {
@@ -59,9 +56,8 @@ describe('LiveOutputTab', () => {
 
     const headers = Array.from(document.querySelectorAll('th')).map(th => th.textContent);
     expect(headers).toEqual(expect.arrayContaining([
-      'Time', 'Topic', 'Category', 'Event', 'Handled by',
-      'Job', 'Chapter', 'Segment', 'Job %', 'Segment %',
-      'Reason', 'Source', 'Message',
+      'Time', 'Topic', 'Event', 'Job', 'Chapter', 'Segment', 'Job %',
+      'Segment %', 'Group', 'Reason', 'Source', 'Message',
     ]));
   });
 
@@ -79,23 +75,6 @@ describe('LiveOutputTab', () => {
     expect(rows[1].textContent).toContain('running');
   });
 
-  it('merges subscriber observations on the same frame into one row without duplicating subscriber names', () => {
-    publishEvent('queue.items', 'queue_item_status', { status: 'running' }, { jobId: 'job-1' });
-    const frameId = 1;
-    act(() => {
-      recordLiveEventSubscriberObservation(frameId, 'chapter-state', 'handled');
-      recordLiveEventSubscriberObservation(frameId, 'main-queue', 'handled');
-      recordLiveEventSubscriberObservation(frameId, 'chapter-state', 'handled');
-    });
-
-    render(<LiveOutputTab />);
-
-    const rows = document.querySelectorAll('tbody tr[data-frame-id]');
-    expect(rows).toHaveLength(1);
-    const subscribersCell = rows[0].querySelector('[data-testid="subscribers-cell"]');
-    expect(subscribersCell?.textContent).toBe('chapter-state, main-queue');
-  });
-
   it('shows unknown/unhandled frames as system.events audit rows', () => {
     publishEvent('system.events', 'mystery_backend_event', { foo: 'bar' });
 
@@ -105,6 +84,7 @@ describe('LiveOutputTab', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].textContent).toContain('system.events');
     expect(rows[0].textContent).toContain('mystery_backend_event');
+    expect(rows[0].textContent).toContain('foo');
   });
 
   it('updates the table live as new frames arrive after mount', () => {
@@ -120,26 +100,11 @@ describe('LiveOutputTab', () => {
 
   it('filters by consumer when toggle buttons are clicked', () => {
     publishEvent('queue.items', 'queue_item_status', { status: 'running' }, { jobId: 'job-1' });
-    publishEvent('queue.items', 'queue_item_invalidated', { reason: 'test-reason', changedFields: [] });
-    act(() => {
-      recordLiveEventSubscriberObservation(1, 'chapter-state', 'handled');
-      recordLiveEventSubscriberObservation(2, 'main-queue', 'handled');
-    });
+    publishEvent('queue.items', 'queue_item_invalidated', { reasonCode: 'test-reason', changedFields: [] });
 
     render(<LiveOutputTab />);
     expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(2);
 
-    // chapter-state listens to chapters.lifecycle, chapters.progress, and segments.progress (both match since job-1 maps to queue.items and queue_updated maps to queue.items... wait! Actually, job-1 has no active segment or classification, so it maps to queue.items. queue_updated maps to queue.items. Does chapter-state listen to queue.items? No! chapter-state listens to ['chapters.lifecycle', 'chapters.progress', 'segments.progress'].
-    // Wait! Let's check which events match which consumers:
-    // job-1 -> maps to queue.items.
-    // queue_updated -> maps to queue.items.
-    // So both events have topic queue.items.
-    // main-queue listens to queue.items. So main-queue matches both events.
-    // chapter-state does NOT listen to queue.items. So chapter-state matches 0 events.
-    // Let's adjust the test expectations accordingly:
-    // main-queue: 2 match
-    // chapter-state: 0 match
-    // tts-diagnostics: 0 match
     fireEvent.click(screen.getByRole('button', { name: 'main-queue' }));
     expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(2);
 

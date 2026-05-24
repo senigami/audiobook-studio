@@ -79,7 +79,7 @@ def _classify_job_payload(job: dict | None) -> str:
     explicit = job.get("classification")
     if explicit in {"job", "chapter", "segment"}:
         return str(explicit)
-    if job.get("parent_job_id"):
+    if job.get("parent_job_id") or job.get("segment_ids"):
         return "segment"
     if job.get("chapter_id"):
         return "chapter"
@@ -258,7 +258,11 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
     classification = _classify_job_payload(merged)
     merged["classification"] = classification
 
-    # Detect segment completion transition
+    # Detect status changes and segment completion transition
+    prev_status = current_job.get("status") if current_job else None
+    new_status = updates.get("status", merged.get("status")) if updates else merged.get("status")
+    status_changed = (prev_status != new_status)
+
     prev_active_segment_id = current_job.get("active_segment_id") if current_job else None
     new_active_segment_id = updates.get("active_segment_id", merged.get("active_segment_id")) if updates else merged.get("active_segment_id")
 
@@ -333,7 +337,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
             )
             broadcast_studio_event(event)
 
-            if status in ("done", "failed", "cancelled"):
+            if status_changed or status in ("done", "failed", "cancelled"):
                 queue_event = build_queue_item_status_event(
                     job_id=job_id,
                     status=status,
