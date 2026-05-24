@@ -1,19 +1,18 @@
 {
-  "snapshot_version": 117,
-  "updated_at": "2026-05-23T19:04:00-04:00",
+  "snapshot_version": 118,
+  "updated_at": "2026-05-24T00:08:30-04:00",
   "branch": "studio2/phase-12",
-  "current_task": "Audit and tighten the actual queue item event path so queue rows are driven only by authoritative queue state.",
-  "status": "queue_event_path_audit_and_tightening_complete",
+  "current_task": "Fix chapter editor initial-load rendering so completed sections display all sentences/spans as ready, not just the first sentence in each block.",
+  "status": "chapter_editor_completed_group_rendering_fix_complete",
   "last_committed_milestone": {
-    "title": "Audit and tighten the actual queue item event path",
+    "title": "Fix Chapter Editor completed group initial-load rendering and controls",
     "commit": "pending",
     "notes": [
-      "Refactored useQueueSync.ts to remove the 'chapters.progress' topic subscription, ensuring the queue overlay store is driven only by authoritative 'queue.items' events.",
-      "Updated 'main-queue' consumer in liveEventConsumers.ts to listen only to the 'queue.items' topic.",
-      "Reverted status derivation in QueueItem.tsx to use job.status directly, strictly driven by the 'queue_item_status' event.",
-      "Fixed ProgressService mock instantiation in test_websocket_broadcast.py to supply reconcile_fn and eta_fn arguments.",
-      "Updated progress service and live output unit tests to align with the new progress broadcasting contract and filter rules.",
-      "Verified that all 905 backend pytest tests and 584 frontend Vitest tests pass cleanly, and the frontend builds and lints successfully."
+      "Updated ScriptView.tsx to derive span readiness and playability using parent audioGroup metadata, ensuring completed groups render all member spans ready/black.",
+      "Fixed play button disabled state, play icon fill, and generate/rebuild button toggles in ScriptView.tsx to align with the new derived states.",
+      "Refactored useChapterPlayback.ts to resolve audio playback source from the parent group's audio path when individual segment audio files are not completed in the database.",
+      "Added frontend regression tests in ScriptView.test.tsx and useChapterPlayback.test.tsx to assert correct rendering, rebuild toggles, play controls, and audio path resolution for non-leader segments in completed groups.",
+      "Verified all 581 Vitest tests, backend pytest suite, eslint checks, and production builds pass cleanly."
     ]
   },
   "active_constraints": [

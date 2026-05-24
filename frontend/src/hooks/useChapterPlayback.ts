@@ -56,7 +56,10 @@ export function useChapterPlayback(
     setPlayingSegmentId(currentId);
     setPlayingSegmentIds(new Set(getGroupSegmentIds(idx, queue)));
 
-    if (!seg.audio_file_path || seg.audio_status !== 'done') {
+    const audioGroup = audioGroupsRef.current.find(g => g.span_ids.includes(currentId));
+    const isReady = (seg.audio_file_path && seg.audio_status === 'done') || !!(audioGroup && (audioGroup.status === 'rendered' || audioGroup.audio_file_path || audioGroup.asset_url));
+
+    if (!isReady) {
       const groupIds = getGroupSegmentIds(idx, queue);
       const missingInGroup = groupIds.filter(id => {
         const s = segmentsRef.current.find(seg => seg.id === id);
@@ -73,7 +76,12 @@ export function useChapterPlayback(
 
     pendingPlaybackRef.current = null;
 
-    const audioPath = seg.audio_file_path;
+    let audioPath: string | null | undefined = seg.audio_file_path || audioGroup?.audio_file_path;
+    if (!audioPath && audioGroup?.asset_url) {
+      const parts = audioGroup.asset_url.split('/');
+      audioPath = parts[parts.length - 1] || undefined;
+    }
+    if (!audioPath) return;
     const wavPath = audioPath.replace(/\.[^.]+$/, '.wav');
     const mp3Path = audioPath.replace(/\.[^.]+$/, '.mp3');
 

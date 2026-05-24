@@ -373,4 +373,39 @@ describe('useChapterPlayback', () => {
     expect(mockAudioInstance.currentTime).toBe(10.0); // Should not change after stop
   });
 
+  it('plays a non-leader segment in a completed audio group using the group audio path', async () => {
+    const groupedSegments: ChapterSegment[] = [
+      { id: 's1', text_content: 'One', audio_status: 'done', audio_file_path: 'a.wav', chapter_id: 'chap1' },
+      { id: 's2', text_content: 'Two', audio_status: 'unprocessed', audio_file_path: null, chapter_id: 'chap1' },
+    ] as any;
+
+    const audioGroups = [
+      { id: 'g1', span_ids: ['s1', 's2'], status: 'draft', audio_file_path: 'a.wav', asset_url: '/api/assets/a.wav', order_index: 0, estimated_work_weight: 1 }
+    ];
+
+    const { result } = renderHook(() =>
+      useChapterPlayback('proj1', 'chap1', groupedSegments, [], new Set(), onGenerate, audioGroups)
+    );
+
+    let mockAudioInstance: any;
+    (global.Audio as any).mockImplementation((src: string) => {
+      mockAudioInstance = {
+        play: vi.fn().mockResolvedValue(undefined),
+        pause: vi.fn(),
+        src,
+      };
+      return mockAudioInstance;
+    });
+
+    await act(async () => {
+      await result.current.playSegment('s2', ['s1', 's2']);
+    });
+
+    // Playback should resolve audioPath to 'a.wav' from audioGroups and play it
+    expect(result.current.playingSegmentId).toBe('s2');
+    expect(mockAudioInstance.src).toContain('a.wav');
+    expect(mockAudioInstance.play).toHaveBeenCalled();
+    expect(onGenerate).not.toHaveBeenCalled();
+  });
+
 });

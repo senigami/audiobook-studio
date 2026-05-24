@@ -337,7 +337,8 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       ? getRenderingTextProgress(batch, span)
       : { litCount: 0, showCursor: false };
     const isPlaying = isPlayingSpan(span.id);
-    const isReady = span.status === 'rendered' || (audioGroup && audioGroup.status === 'rendered');
+    const isReady = span.status === 'rendered' || !!(audioGroup && (audioGroup.status === 'rendered' || audioGroup.audio_file_path || audioGroup.asset_url));
+    const canPlay = span.status === 'rendered' || !!(audioGroup && (audioGroup.audio_file_path || audioGroup.asset_url));
     const displayText = getDisplayText(span);
     const batchStatus = batch ? batchEngineStatus(batch.span_ids) : { canGenerate: false, unavailableEngine: null as string | null };
 
@@ -401,9 +402,9 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
               onPlaySpan?.(span.id);
             }}
             title="Play Audio"
-            disabled={span.status !== 'rendered'}
+            disabled={!canPlay}
           >
-            <Play size={14} fill={span.status === 'rendered' ? 'currentColor' : 'none'} />
+            <Play size={14} fill={canPlay ? 'currentColor' : 'none'} />
           </button>
           <button
             className="span-control-btn"
@@ -416,10 +417,10 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
               ? (batchStatus.unavailableEngine
                   ? `Engine ${formatVoiceEngineLabel(batchStatus.unavailableEngine)} is disabled in Settings`
                   : 'All engines disabled')
-              : (!anyEnginesEnabled ? 'All engines disabled' : (span.status === 'rendered' ? 'Rebuild' : 'Generate'))}
+              : (!anyEnginesEnabled ? 'All engines disabled' : (isReady ? 'Rebuild' : 'Generate'))}
             disabled={isPending || !batchStatus.canGenerate || !onGenerateBatch}
           >
-            {span.status === 'rendered' ? <RotateCcw size={14} /> : <WandSparkles size={14} />}
+            {isReady ? <RotateCcw size={14} /> : <WandSparkles size={14} />}
           </button>
         </div>
       </span>

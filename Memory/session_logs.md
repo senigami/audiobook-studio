@@ -1,3 +1,11 @@
+# 2026-05-24 - Fix Chapter Editor completed group initial-load rendering and controls
+
+- Updated `ScriptView.tsx` to derive span readiness and playability using parent `audioGroup` metadata, ensuring completed groups render all member spans ready/black.
+- Fixed play button disabled state, play icon fill, and generate/rebuild button toggles in `ScriptView.tsx` to align with the new derived states.
+- Refactored `useChapterPlayback.ts` to resolve audio playback source from the parent group's audio path when individual segment audio files are not completed in the database.
+- Added frontend regression tests in `ScriptView.test.tsx` and `useChapterPlayback.test.tsx` to assert correct rendering, rebuild toggles, play controls, and audio path resolution for non-leader segments in completed groups.
+- Verified all 581 Vitest tests, backend pytest suite, eslint checks, and production builds pass cleanly.
+
 # 2026-05-23 - Audit and clean up backend websocket layer after frontend canonicalization
 
 - Removed legacy `studio_job_event` and `job_updated` websocket frame emissions from `broadcast_job_updated` in `app/api/ws.py`.
