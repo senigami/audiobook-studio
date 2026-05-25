@@ -1495,6 +1495,23 @@
 # 2026-05-25 - Queue debug button retention and active diagnostics ref stabilization
 
 - In `GlobalQueue.tsx`, introduced `timeoutsRef` to manage completion retention timeouts across component renders. This prevents completion retention timeouts from being prematurely cleared on every render dependency change, ensuring jobs are unmounted only after 30 seconds.
+- In `GlobalQueue.tsx`, hardened completion tracking by clearing timeouts and completion markers if a previously terminal job goes active again (retried/re-run).
 - In `QueueItem.tsx`, wrapped the active diagnostics ref assignment (`lastActiveDiagnosticsRef.current`) inside a `useEffect` block to satisfy React hook rules about mutating refs during render.
 - In `GlobalQueueFiles.test.tsx`, imported `act` and wrapped fake timer advancement (`vi.advanceTimersByTime`) in `act` to correctly flush state updates scheduled by timeouts.
+- In `GlobalQueueFiles.test.tsx`, added a unit test verifying that retried/re-run jobs correctly cancel and clear completion tracking.
 - Verified that all 626 tests in the frontend test suite pass cleanly, along with the linter and production build.
+
+# 2026-05-25 - Fix QueueItem ETA Source/Anchor Timestamp Selection
+
+- In `QueueItem.tsx`, introduced an explicit `etaSource` selection function to unify the selected ETA source selection (`'liveJob'`, `'job'`, or `'fallback'`).
+- Co-aligned `rawEtaSeconds`, `etaBasis`, and `updatedAt` anchor computation with the selected `etaSource` to guarantee they are derived from the exact same source.
+- In the stabilization `useEffect` hook inside `QueueItem.tsx`, added a safety comparison check (`nextUpdated > stableUpdatedAt`) to prevent overwriting newer live websocket update timestamps with stale database/persisted timestamps when the live overlay runs out of ETA frames and we fall back to database values.
+- Verified that all 626 Vitest tests, lint checks, and Vite production builds pass successfully.
+
+
+# 2026-05-25 - Queue Component Adversarial Review & Refinements
+
+- In `GlobalQueue.tsx`, implemented removal cleanup logic in the completion effect to detect when a job is removed/cancelled from the queue. This immediately clears its scheduled retention timeout and deletes its completion entry to prevent dangling timeouts or leaking state.
+- In `QueueItem.tsx`, refactored `stableUpdatedAt` updates to use the functional updater form (`prev => nextUpdated > prev ? nextUpdated : prev`) and removed `stableUpdatedAt` from the effect's dependency array. This satisfies React hook best practices by removing a self-referencing state dependency cycle.
+- In `GlobalQueueFiles.test.tsx`, updated the completion retention unit tests to space out queue updates and verify correct timer clearance on retry and removal.
+- Verified that all 625 tests in the frontend test suite pass successfully, the linter reports zero errors, and the production client compiles cleanly.

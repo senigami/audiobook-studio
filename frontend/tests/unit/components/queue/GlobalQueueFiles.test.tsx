@@ -838,5 +838,239 @@ describe('Global Queue Components', () => {
             // Job is now cleaned up from active list and moved to history, so QueueItem is unmounted
             expect(screen.queryByTestId('debug-copy-btn-job-1')).not.toBeInTheDocument();
         });
+
+        it('clears completion retention timer and entry if a job is retried/goes active again', () => {
+            const initialQueue = [
+                {
+                    id: 'job-1',
+                    status: 'running',
+                    progress: 0.5,
+                    project_name: 'Test Project',
+                    started_at: 1000,
+                    eta_seconds: 30,
+                    type: 'chapter_generation',
+                    engine: 'xtts',
+                }
+            ];
+
+            const { rerender } = render(
+                <GlobalQueue
+                    paused={false}
+                    queue={initialQueue as any}
+                />
+            );
+
+            // Transition to done
+            const updatedQueue = [
+                {
+                    id: 'job-1',
+                    status: 'done',
+                    progress: 1.0,
+                    project_name: 'Test Project',
+                    started_at: 1000,
+                    eta_seconds: 0,
+                    type: 'chapter_generation',
+                    engine: 'xtts',
+                }
+            ];
+
+            rerender(
+                <GlobalQueue
+                    paused={false}
+                    queue={updatedQueue as any}
+                />
+            );
+
+            // Retrying the job, transitions to running again at t = 5000
+            act(() => {
+                vi.advanceTimersByTime(5000);
+            });
+
+            const runningAgainQueue = [
+                {
+                    id: 'job-1',
+                    status: 'running',
+                    progress: 0.1,
+                    project_name: 'Test Project',
+                    started_at: 1100,
+                    eta_seconds: 40,
+                    type: 'chapter_generation',
+                    engine: 'xtts',
+                }
+            ];
+
+            rerender(
+                <GlobalQueue
+                    paused={false}
+                    queue={runningAgainQueue as any}
+                />
+            );
+
+            // Transition to done again (starts retention timer 2) at t = 10000
+            act(() => {
+                vi.advanceTimersByTime(5000);
+            });
+
+            const updatedQueue2 = [
+                {
+                    id: 'job-1',
+                    status: 'done',
+                    progress: 1.0,
+                    project_name: 'Test Project',
+                    started_at: 1100,
+                    eta_seconds: 0,
+                    type: 'chapter_generation',
+                    engine: 'xtts',
+                }
+            ];
+
+            rerender(
+                <GlobalQueue
+                    paused={false}
+                    queue={updatedQueue2 as any}
+                />
+            );
+
+            // Advance time by 25 seconds (virtual time is now 35000)
+            // If timer 1 (scheduled for t = 30000) was NOT cleared, it would have fired at t = 30000 and unmounted the job.
+            // If timer 1 WAS cleared, the job should still be present because timer 2 doesn't fire until t = 40000.
+            act(() => {
+                vi.advanceTimersByTime(25000);
+            });
+
+            // Job must still be in the active list
+            expect(screen.getByTestId('debug-copy-btn-job-1')).toBeInTheDocument();
+
+            // Advance time by another 10 seconds (virtual time is now 45000)
+            // Now retention timer 2 should fire, and the job should be unmounted.
+            act(() => {
+                vi.advanceTimersByTime(10000);
+            });
+
+            expect(screen.queryByTestId('debug-copy-btn-job-1')).not.toBeInTheDocument();
+        });
+
+        it('clears completion retention timer and entry if a job is removed/cancelled from the queue', () => {
+            const initialQueue = [
+                {
+                    id: 'job-1',
+                    status: 'running',
+                    progress: 0.5,
+                    project_name: 'Test Project',
+                    started_at: 1000,
+                    eta_seconds: 30,
+                    type: 'chapter_generation',
+                    engine: 'xtts',
+                }
+            ];
+
+            const { rerender } = render(
+                <GlobalQueue
+                    paused={false}
+                    queue={initialQueue as any}
+                />
+            );
+
+            // Transition to done
+            const updatedQueue = [
+                {
+                    id: 'job-1',
+                    status: 'done',
+                    progress: 1.0,
+                    project_name: 'Test Project',
+                    started_at: 1000,
+                    eta_seconds: 0,
+                    type: 'chapter_generation',
+                    engine: 'xtts',
+                }
+            ];
+
+            rerender(
+                <GlobalQueue
+                    paused={false}
+                    queue={updatedQueue as any}
+                />
+            );
+
+            // Job is done and retained. Remove the job from the queue completely at t = 5000
+            act(() => {
+                vi.advanceTimersByTime(5000);
+            });
+
+            rerender(
+                <GlobalQueue
+                    paused={false}
+                    queue={[]}
+                />
+            );
+
+            // Add the job back as running at t = 10000
+            act(() => {
+                vi.advanceTimersByTime(5000);
+            });
+
+            const runningAgainQueue = [
+                {
+                    id: 'job-1',
+                    status: 'running',
+                    progress: 0.1,
+                    project_name: 'Test Project',
+                    started_at: 1100,
+                    eta_seconds: 40,
+                    type: 'chapter_generation',
+                    engine: 'xtts',
+                }
+            ];
+
+            rerender(
+                <GlobalQueue
+                    paused={false}
+                    queue={runningAgainQueue as any}
+                />
+            );
+
+            // Transition to done again (starts retention timer 2) at t = 15000
+            act(() => {
+                vi.advanceTimersByTime(5000);
+            });
+
+            const updatedQueue2 = [
+                {
+                    id: 'job-1',
+                    status: 'done',
+                    progress: 1.0,
+                    project_name: 'Test Project',
+                    started_at: 1100,
+                    eta_seconds: 0,
+                    type: 'chapter_generation',
+                    engine: 'xtts',
+                }
+            ];
+
+            rerender(
+                <GlobalQueue
+                    paused={false}
+                    queue={updatedQueue2 as any}
+                />
+            );
+
+            // Advance time by 20 seconds (virtual time is now 35000)
+            // If timer 1 (scheduled for t = 30000) was NOT cleared, it would have fired at t = 30000 and unmounted the job.
+            // If timer 1 WAS cleared, the job should still be present because timer 2 doesn't fire until t = 45000.
+            act(() => {
+                vi.advanceTimersByTime(20000);
+            });
+
+            // Job must still be in the active list
+            expect(screen.getByTestId('debug-copy-btn-job-1')).toBeInTheDocument();
+
+            // Advance time by another 15 seconds (virtual time is now 50000)
+            // Now retention timer 2 should fire, and the job should be unmounted.
+            act(() => {
+                vi.advanceTimersByTime(15000);
+            });
+
+            expect(screen.queryByTestId('debug-copy-btn-job-1')).not.toBeInTheDocument();
+        });
     });
 });

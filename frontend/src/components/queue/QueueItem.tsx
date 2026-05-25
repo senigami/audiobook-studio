@@ -36,24 +36,39 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const isTrulyActive = ['preparing', 'running', 'processing', 'finalizing'].includes(status);
     const rawStarted = job.started_at ?? liveJob?.started_at;
     const preferLiveEta = (isTrulyActive && typeof liveJob?.eta_seconds === 'number' && liveJob.eta_seconds > 0);
-    const rawEtaSeconds = preferLiveEta ? liveJob.eta_seconds : (job.eta_seconds ?? liveJob?.eta_seconds);
-    const etaBasis = preferLiveEta
+    const selectEtaSource = (): 'liveJob' | 'job' | 'fallback' => {
+        if (isTrulyActive && typeof liveJob?.eta_seconds === 'number' && liveJob.eta_seconds > 0) {
+            return 'liveJob';
+        }
+        if (job.eta_seconds !== undefined && job.eta_seconds !== null) {
+            return 'job';
+        }
+        if (typeof liveJob?.eta_seconds === 'number' && liveJob.eta_seconds > 0) {
+            return 'liveJob';
+        }
+        return 'fallback';
+    };
+    const etaSource = selectEtaSource();
+
+    const rawEtaSeconds = etaSource === 'liveJob'
+        ? liveJob?.eta_seconds
+        : (etaSource === 'job' ? job.eta_seconds : (job.eta_seconds ?? liveJob?.eta_seconds));
+
+    const etaBasis = etaSource === 'liveJob'
         ? (liveJob?.eta_basis ?? 'remaining_from_update')
-        : (job.eta_seconds !== undefined && job.eta_seconds !== null)
+        : (etaSource === 'job'
             ? (job.eta_basis ?? 'remaining_from_update')
-            : (liveJob?.eta_basis ?? (rawEtaSeconds != null ? 'remaining_from_update' : undefined));
+            : (job.eta_basis ?? liveJob?.eta_basis ?? (rawEtaSeconds != null ? 'remaining_from_update' : undefined)));
+
     const estimatedEndAt = isTrulyActive && typeof rawEtaSeconds === 'number' && rawEtaSeconds > 0
         ? undefined
         : (job.estimated_end_at ?? liveJob?.estimated_end_at);
     const selectEtaSourceTimestamp = (): number | null | undefined => {
-        if (preferLiveEta) {
+        if (etaSource === 'liveJob') {
             return liveJob?.updated_at ?? job.updated_at;
         }
-        if (job.eta_seconds !== undefined && job.eta_seconds !== null) {
+        if (etaSource === 'job') {
             return job.updated_at ?? liveJob?.updated_at;
-        }
-        if (liveJob?.eta_seconds !== undefined && liveJob?.eta_seconds !== null) {
-            return liveJob.updated_at ?? job.updated_at;
         }
         return job.updated_at ?? liveJob?.updated_at;
     };
@@ -103,16 +118,28 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     }, [rawStarted, displayStatus]);
 
     React.useEffect(() => {
-        if (liveJob) {
-            if (typeof liveJob.eta_seconds === 'number' && liveJob.eta_seconds > 0) {
+        if (etaSource === 'liveJob') {
+            if (typeof liveJob?.eta_seconds === 'number' && liveJob.eta_seconds > 0) {
                 setStableEta(liveJob.eta_seconds);
-                setStableUpdatedAt(liveJob.updated_at ?? job.updated_at);
+                const nextUpdated = liveJob.updated_at ?? job.updated_at;
+                setStableUpdatedAt(prev => {
+                    if (typeof nextUpdated === 'number' && (typeof prev !== 'number' || nextUpdated > prev)) {
+                        return nextUpdated;
+                    }
+                    return prev;
+                });
                 setStableEtaBasis(liveJob.eta_basis ?? 'remaining_from_update');
             }
-        } else {
+        } else if (etaSource === 'job') {
             if (typeof job.eta_seconds === 'number' && job.eta_seconds > 0) {
                 setStableEta(job.eta_seconds);
-                setStableUpdatedAt(job.updated_at);
+                const nextUpdated = job.updated_at;
+                setStableUpdatedAt(prev => {
+                    if (typeof nextUpdated === 'number' && (typeof prev !== 'number' || nextUpdated > prev)) {
+                        return nextUpdated;
+                    }
+                    return prev;
+                });
                 setStableEtaBasis(job.eta_basis ?? 'remaining_from_update');
             }
         }
@@ -122,7 +149,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
             setStableUpdatedAt(updatedAt);
             setStableEtaBasis(etaBasis);
         }
-    }, [rawEtaSeconds, displayStatus, updatedAt, etaBasis, liveJob, job.eta_seconds, job.updated_at, job.eta_basis]);
+    }, [rawEtaSeconds, displayStatus, updatedAt, etaBasis, liveJob, job.eta_seconds, job.updated_at, job.eta_basis, etaSource]);
 
     // Original start and ETA values (may be undefined for non-active statuses)
     const started = ['running', 'processing', 'finalizing'].includes(displayStatus)
@@ -153,21 +180,13 @@ export const QueueItem: React.FC<QueueItemProps> = ({
 
     const lastActiveDiagnosticsRef = React.useRef<any>(null);
 
-    const etaSourcePath = preferLiveEta
+    const etaSourcePath = etaSource === 'liveJob'
         ? 'live_overlay'
-        : (job.eta_seconds !== undefined && job.eta_seconds !== null)
-            ? 'persisted_snapshot'
-            : (liveJob?.eta_seconds !== undefined && liveJob?.eta_seconds !== null)
-                ? 'live_overlay'
-                : 'default_fallback';
+        : (etaSource === 'job' ? 'persisted_snapshot' : 'default_fallback');
 
-    const etaSourceReason = (isTrulyActive && typeof liveJob?.eta_seconds === 'number' && liveJob.eta_seconds > 0)
-        ? 'positive_live_job_eta'
-        : (job.eta_seconds !== undefined && job.eta_seconds !== null)
-            ? 'job_eta'
-            : (liveJob?.eta_seconds !== undefined && liveJob?.eta_seconds !== null)
-                ? 'live_job_eta_fallback'
-                : 'default_fallback';
+    const etaSourceReason = etaSource === 'liveJob'
+        ? (preferLiveEta ? 'positive_live_job_eta' : 'live_job_eta_fallback')
+        : (etaSource === 'job' ? 'job_eta' : 'default_fallback');
 
     const isActive = ['running', 'processing', 'finalizing'].includes(displayStatus);
 
@@ -288,14 +307,6 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     ]);
 
     React.useEffect(() => {
-        const reason = (isTrulyActive && typeof liveJob?.eta_seconds === 'number' && liveJob.eta_seconds > 0)
-            ? 'positive_live_job_eta'
-            : (job.eta_seconds !== undefined && job.eta_seconds !== null)
-                ? 'job_eta'
-                : (liveJob?.eta_seconds !== undefined && liveJob?.eta_seconds !== null)
-                    ? 'live_job_eta_fallback'
-                    : 'default_fallback';
-
         recordStudioDebugSnapshot(`queue-item-progress-${job.id}`, {
             jobId: job.id,
             jobEtaSeconds: job.eta_seconds,
@@ -310,12 +321,12 @@ export const QueueItem: React.FC<QueueItemProps> = ({
             status,
             progress,
             displayStatus,
-            etaReason: reason,
+            etaReason: etaSourceReason,
         });
     }, [
         job.id, job.eta_seconds, liveJob?.eta_seconds, rawEtaSeconds, stableEta,
         derivedEtaSeconds, estimatedEndAt, derivedEstimatedEndAt, derivedUpdatedAt,
-        derivedEtaBasis, etaBasis, status, progress, displayStatus, isTrulyActive
+        derivedEtaBasis, etaBasis, status, progress, displayStatus, isTrulyActive, etaSourceReason
     ]);
 
     return (

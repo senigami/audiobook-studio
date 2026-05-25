@@ -104,11 +104,39 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
         const newCompletions = { ...recentlyCompleted };
         let changed = false;
 
+        // Clean up timeouts and completions for any removed/cancelled jobs
+        prevQueueRef.current.forEach(prevJob => {
+            const stillExists = queue.some(j => j.id === prevJob.id);
+            if (!stillExists) {
+                if (timeoutsRef.current[prevJob.id]) {
+                    clearTimeout(timeoutsRef.current[prevJob.id]);
+                    delete timeoutsRef.current[prevJob.id];
+                }
+                if (newCompletions[prevJob.id]) {
+                    delete newCompletions[prevJob.id];
+                    changed = true;
+                }
+            }
+        });
+
         queue.forEach(job => {
             const prevJob = prevQueueRef.current.find(j => j.id === job.id);
             if (prevJob) {
                 const wasActive = ['running', 'preparing', 'finalizing'].includes(prevJob.status);
                 const isTerminal = ['done', 'failed', 'cancelled'].includes(job.status);
+                const wentActiveAgain = ['done', 'failed', 'cancelled'].includes(prevJob.status) && ['running', 'preparing', 'finalizing', 'queued'].includes(job.status);
+
+                if (wentActiveAgain) {
+                    if (timeoutsRef.current[job.id]) {
+                        clearTimeout(timeoutsRef.current[job.id]);
+                        delete timeoutsRef.current[job.id];
+                    }
+                    if (newCompletions[job.id]) {
+                        delete newCompletions[job.id];
+                        changed = true;
+                    }
+                }
+
                 if (wasActive && isTerminal && !newCompletions[job.id]) {
                     newCompletions[job.id] = now;
                     changed = true;

@@ -1,17 +1,15 @@
 {
   "snapshot_version": 121,
-  "updated_at": "2026-05-25T03:34:00Z",
-  "branch": "studio2/phase-12",
-  "current_task": "Keep queue row debug button visible and stabilize active diagnostics ref",
-  "status": "queue_row_debug_button_retention_and_diagnostics_ref_stabilization_complete",
+  "current_task": "Perform adversarial review on queue components and implement refinements",
+  "status": "adversarial_review_and_queue_refinements_complete",
   "last_committed_milestone": {
-    "title": "Keep queue row debug button visible and stabilize active diagnostics ref",
+    "title": "Adversarial review and refinements of queue and progress components complete",
     "commit": "pending",
     "notes": [
-      "In GlobalQueue.tsx, introduced timeoutsRef to manage completion retention timeouts across component renders and prevent premature clearance of timeouts.",
-      "In QueueItem.tsx, wrapped the lastActiveDiagnosticsRef mutation in a useEffect hook to comply with React hook rules.",
-      "In GlobalQueueFiles.test.tsx, imported act and wrapped vi.advanceTimersByTime in act to correctly flush state updates scheduled by timeouts.",
-      "Verified all 626 tests in the test suite pass cleanly, along with build and eslint checks."
+      "In GlobalQueue.tsx, implemented removal cleanup logic to clear retention timeouts and completion entries for removed/cancelled jobs.",
+      "In QueueItem.tsx, refactored stableUpdatedAt state updates to use functional state updates, breaking the self-referencing dependency cycle.",
+      "In GlobalQueueFiles.test.tsx, updated completion retention unit tests to space out queue updates and verify correct timer clearance.",
+      "Verified all 625 tests pass, production client builds cleanly, and eslint check is green."
     ]
   },
   "active_constraints": [
@@ -69,7 +67,8 @@
     "The diagnostics log viewport auto-scrolls to the bottom so new live lines remain visible without manual scrolling.",
     "QueueItem active ETA source selection now prefers a positive live job ETA over stale/non-positive persisted job ETAs, and records guarded debug progress snapshots to recordStudioDebugSnapshot.",
     "QueueItem and store-level overlays now cleanly propagate and select the correct eta_basis matching the active ETA source (remaining_from_update for live websocket updates).",
-    "QueueItem debug button is retained for 30 seconds after completion via timeoutsRef in GlobalQueue, and the diagnostics payload captures stabilized active ETA/updatedAt states."
+    "QueueItem debug button is retained for 30 seconds after completion via timeoutsRef in GlobalQueue, and the diagnostics payload captures stabilized active ETA/updatedAt states.",
+    "QueueItem ETA source and updatedAt anchor selection is unified via explicit etaSource derivation, and the stabilization effect guards against overwriting live timestamps with older database values."
   ],
   "phase_13_guidance": [
     "Phase 13 plan is plans/phases/phase_13_release_documentation_and_distribution.md.",
