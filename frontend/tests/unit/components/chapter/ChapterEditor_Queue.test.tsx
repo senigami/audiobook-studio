@@ -806,7 +806,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
             make_mp3: false,
             progress: 0.22,
             active_segment_id: 'seg-1',
-            active_segment_progress: 1,
+            active_segment_progress: 0.5,
             active_render_batch_progress: 0.25,
             render_group_count: 1,
             total_render_weight: 8,

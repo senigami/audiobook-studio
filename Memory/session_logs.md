@@ -1,3 +1,38 @@
+# 2026-05-25 - Fix QueueItem ETA basis propagation and selection
+
+- In `useQueueSync.ts`, mapped and propagated `eta_basis` from the socket payload, defaulting to `'remaining_from_update'` if any ETA seconds are present in the payload.
+- In `live-jobs.ts` (`applyJobUpdated`), defaulted `eta_basis` to `'remaining_from_update'` when `eta_seconds` is being updated but `eta_basis` is absent, preventing the preservation of stale bases.
+- In `QueueItem.tsx`, selected the `etaBasis` matching the chosen ETA source to ensure the basis matches the selected ETA value 100% of the time.
+- Added unit tests in `GlobalQueueFiles.test.tsx` and `useQueueSync.test.tsx` verifying basis propagation, updating, and source selection precedence.
+- Verified that all 616 Vitest tests, lint checks, and production builds pass cleanly.
+
+# 2026-05-25 - Fix QueueItem ETA precedence and add diagnostics
+
+- In `QueueItem.tsx`, updated the `rawEtaSeconds` selection logic to prefer a positive live job ETA (`liveJob.eta_seconds > 0`) over a stale/non-positive persisted job ETA (`0` or `null`) for active queue rows.
+- In `QueueItem.tsx`, added a `useEffect` hook that logs guided progress and ETA diagnostics to `recordStudioDebugSnapshot` upon updates.
+- Added unit tests in `GlobalQueueFiles.test.tsx` and `useQueueSync.test.tsx` to verify the ETA selection precedence, `queue.items` parsing logic, and `tts.logs` isolation.
+- Verified that all 613 Vitest tests, lint checks, and production builds pass cleanly.
+
+# 2026-05-24 - Fix remaining progress display: queue ETA 0 and segment highlighting coordination
+
+- In `QueueItem.tsx`, cleared `estimatedEndAt` (set to `undefined`) if the job is active and has a fresh positive ETA (`rawEtaSeconds > 0`) to prevent stale db end-time clamping.
+- In `PredictiveProgressBar.tsx`'s `resolveEndAtMs`, prioritized positive `etaSeconds` over `estimatedEndAt` when `etaBasis === 'remaining_from_update'`.
+- In `useJobs.ts`'s `applyJobUpdatedEvent`, refined the rollback check (`isNewerRun`) to support live socket updates that lack database timestamps, using the event emitted time.
+- In `useJobs.ts`'s `applyJobUpdatedEvent`, prevented blocking of active segment updates (`active_segment_id`, `active_segment_progress`) during terminal status priority checks, ensuring segment highlighting works even if the status rollback is blocked.
+- Added unit tests in `PredictiveProgressBarTiming.test.tsx`, `GlobalQueueFiles.test.tsx`, `useJobs.test.tsx`, and updated `ChapterEditorPage.test.tsx` to verify correct ETA calculation under stale end times and correct script view highlighting propagation.
+- Verified that all 596 Vitest tests, eslint checks, and production builds pass cleanly.
+
+# 2026-05-24 - Coordinate live progress and script view highlighting with strict timestamp authority
+
+- Normalized update timestamps across the websocket subscriber and adapted events using a new `resolveEventUpdatedAt` helper.
+- Added extraction of database-backed timestamps (`db_updated_at`, `db_started_at`) from websocket payloads.
+- Gated status rollbacks and progress regressions in `useJobs.ts` so they are only applied if the event has database-backed timestamps proving it is a newer run than the job's current `updated_at`/`finished_at` state.
+- Updated `mergeQueueWithOverlays` in `hydration/index.ts` to only merge active overlays over terminal snapshot items when `delta.updated_at` or `delta.started_at` proves it is from a newer run, or the snapshot lacks comparable timestamps.
+- Trusted the active overlay progress `delta.progress ?? 0` exclusively when it represents a newer run, avoiding clamping with `Math.max`.
+- Added unit tests in `useJobs.test.tsx` and `useQueueSync.test.tsx` verifying status rollback constraints and snapshot progress merging.
+- Added an integration test in `ChapterEditorPage.test.tsx` verifying that a `segments.progress` event rolls back a completed chapter job status and highlights the corresponding script view span.
+- Verified that all 593 Vitest tests, 908 pytest tests, eslint check, and production build pass cleanly.
+
 # 2026-05-24 - Fix Chapter Editor completed group initial-load rendering and controls
 
 - Updated `ScriptView.tsx` to derive span readiness and playability using parent `audioGroup` metadata, ensuring completed groups render all member spans ready/black.
@@ -1456,3 +1491,10 @@
 - Fixed `ProgressService` initialization in backend websocket broadcast tests by providing required `reconcile_fn` and `eta_fn` parameters.
 - Updated progress service tests in `test_progress_logic.py` and live output tests in `LiveOutputPage.test.tsx` to align with the new progress broadcasting contract and filter rules.
 - Verified that all 905 backend pytest tests and 584 frontend Vitest tests pass cleanly, and both the frontend build and linter are successful.
+
+# 2026-05-25 - Queue debug button retention and active diagnostics ref stabilization
+
+- In `GlobalQueue.tsx`, introduced `timeoutsRef` to manage completion retention timeouts across component renders. This prevents completion retention timeouts from being prematurely cleared on every render dependency change, ensuring jobs are unmounted only after 30 seconds.
+- In `QueueItem.tsx`, wrapped the active diagnostics ref assignment (`lastActiveDiagnosticsRef.current`) inside a `useEffect` block to satisfy React hook rules about mutating refs during render.
+- In `GlobalQueueFiles.test.tsx`, imported `act` and wrapped fake timer advancement (`vi.advanceTimersByTime`) in `act` to correctly flush state updates scheduled by timeouts.
+- Verified that all 626 tests in the frontend test suite pass cleanly, along with the linter and production build.

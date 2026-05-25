@@ -32,6 +32,7 @@ interface ScriptViewProps {
   renderingSpanIds?: Set<string>;
   queuedSpanIds?: Set<string>;
   renderingBatchProgressById?: Record<string, number>;
+  activeSegmentId?: string | null;
   playingSpanId?: string | null;
   playingSpanIds?: Set<string>;
   onPlaySpan?: (spanId: string) => void;
@@ -85,6 +86,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   renderingSpanIds = new Set<string>(),
   queuedSpanIds = new Set<string>(),
   renderingBatchProgressById = {},
+  activeSegmentId = null,
   playingSpanId = null,
   playingSpanIds,
   onPlaySpan,
@@ -144,6 +146,27 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
 
   useEffect(() => {
     if (!shouldLogRenderDebug) return;
+
+    const activeBatchesDebug = data.render_batches
+      ?.filter(batch => batch.span_ids.some(id => renderingSpanIds.has(id)))
+      .map(batch => {
+        const batchSpans = batch.span_ids
+          .map(spanId => spanMap.get(spanId))
+          .filter((candidate): candidate is ScriptSpan => !!candidate && renderingSpanIds.has(candidate.id));
+        const progress = renderingBatchProgressById[batch.id] ?? 0;
+        const lengths = batchSpans.map(candidate => Array.from(getDisplayText(candidate)).length);
+        const totalChars = lengths.reduce((sum, length) => sum + length, 0);
+        const globalLitCount = Math.floor(progress * totalChars);
+        return {
+          batchId: batch.id,
+          spanIds: batch.span_ids,
+          textLengths: lengths,
+          totalChars,
+          litCount: globalLitCount,
+          progressValueUsed: progress,
+        };
+      }) ?? [];
+
     const debugSnapshot = {
       chapterId: data.chapter_id,
       totalSpans: data.spans?.length ?? 0,
@@ -153,6 +176,9 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       renderedAudioGroupCount: data.audio_groups?.filter(group => group.status === 'rendered').length ?? 0,
       renderBatchCount: data.render_batches?.length ?? 0,
       readySpanCount: data.spans?.filter(span => span.status === 'rendered').length ?? 0,
+      renderingSpanIds: Array.from(renderingSpanIds),
+      renderingBatchProgressById,
+      activeBatches: activeBatchesDebug,
     };
     const nextSignature = JSON.stringify(debugSnapshot);
     if (nextSignature !== renderDebugSignatureRef.current) {
@@ -166,6 +192,10 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     data.audio_groups,
     data.render_batches,
     pendingSpanIds,
+    renderingSpanIds,
+    renderingBatchProgressById,
+    spanMap,
+    showSafeText,
   ]);
 
   const engineIsEnabled = (engineId: string | null | undefined) => {
@@ -208,6 +238,23 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       .filter((candidate): candidate is ScriptSpan => !!candidate && renderingSpanIds.has(candidate.id));
 
     const progress = clamp01(renderingBatchProgressById[batch.id] ?? 0);
+    const activeIndex = activeSegmentId ? batch.span_ids.indexOf(activeSegmentId) : -1;
+
+    if (activeIndex !== -1) {
+      const spanIndex = batch.span_ids.indexOf(span.id);
+      const displayTextLength = Array.from(getDisplayText(span)).length;
+      if (spanIndex < activeIndex) {
+        return { litCount: displayTextLength, showCursor: false };
+      }
+      if (spanIndex > activeIndex) {
+        return { litCount: 0, showCursor: false };
+      }
+      // spanIndex === activeIndex
+      const litCount = Math.floor(progress * displayTextLength);
+      const showCursor = litCount < displayTextLength;
+      return { litCount, showCursor };
+    }
+
     const lengths = batchSpans.map(candidate => Array.from(getDisplayText(candidate)).length);
     const totalChars = lengths.reduce((sum, length) => sum + length, 0);
     const globalLitCount = Math.floor(progress * totalChars);

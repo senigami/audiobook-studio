@@ -35,7 +35,7 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
     expect(screen.getByText(/Internal audit log of normalized websocket events/)).toBeInTheDocument();
     expect(screen.getByText('Event map')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'main-queue' })).toBeInTheDocument();
-    expect(screen.getByText('queue.items, chapters.progress')).toBeInTheDocument();
+    expect(screen.getByText('queue.items')).toBeInTheDocument();
   });
 
   it('renders filter toggle buttons for all plus the consumer names', () => {
@@ -135,5 +135,28 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
     const chapterRows = document.querySelectorAll('tbody tr[data-frame-id]');
     expect(chapterRows).toHaveLength(1);
     expect(chapterRows[0].getAttribute('data-frame-id')).toBe('2');
+  });
+
+  it('displays ETA from queue.items etaSeconds or eta_seconds, accepting 0 as 0s', () => {
+    publishEvent('queue.items', 'queue_item_status', { status: 'running', etaSeconds: 42 }, { jobId: 'job-1' }); // frameId 1
+    publishEvent('queue.items', 'queue_item_status', { status: 'running', eta_seconds: 0 }, { jobId: 'job-2' }); // frameId 2
+
+    render(<LiveOutputPage />);
+
+    const rows = document.querySelectorAll('tbody tr[data-frame-id]');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].textContent).toContain('42s');
+    expect(rows[1].textContent).toContain('0s');
+  });
+
+  it('proves tts.logs does not display or derive ETA', () => {
+    publishEvent('tts.logs', 'tts_log', { line: '[PROGRESS] 80% job-1, ETA 12 seconds' }); // frameId 1
+
+    render(<LiveOutputPage />);
+
+    const rows = document.querySelectorAll('tbody tr[data-frame-id]');
+    expect(rows).toHaveLength(1);
+    // Should display '-' for ETA, and not derive '12s'
+    expect(rows[0].textContent).not.toContain('12s');
   });
 });

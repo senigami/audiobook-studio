@@ -1,0 +1,423 @@
+{
+  "job": {
+    "id": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
+    "project_id": "5a7b020b-dd06-43cd-8b29-880865646d63",
+    "chapter_id": "684ce461-9e2c-41af-877e-17ee74a0358e",
+    "split_part": 0,
+    "status": "done",
+    "created_at": 1779682476.5229151,
+    "started_at": 1779682494.088417,
+    "completed_at": null,
+    "custom_title": "chapter 1",
+    "engine": "xtts",
+    "error": "Task completed successfully.",
+    "project_name": "Dracula",
+    "chapter_title": "chapter 1",
+    "predicted_audio_length": 57,
+    "char_count": 962,
+    "chapter_audio_status": "processing",
+    "chapter_audio_file_path": null,
+    "audio_length_seconds": null,
+    "produced_audio_length": null,
+    "produced_chars": null,
+    "produced_word_count": null,
+    "produced_segment_count": null,
+    "progress": 1,
+    "updated_at": 1779682494.106035,
+    "eta_seconds": 4,
+    "active_segment_id": "1776192577192134000_0",
+    "render_group_count": 2,
+    "completed_render_groups": 0,
+    "active_render_group_index": 0,
+    "total_render_weight": 949,
+    "completed_render_weight": 0,
+    "active_render_group_weight": 466,
+    "grouped_progress": 0,
+    "reason_code": "segment_start",
+    "classification": "chapter",
+    "eta_basis": "remaining_from_update",
+    "log": "Task completed successfully."
+  },
+  "liveJob": {
+    "id": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
+    "job_id": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
+    "project_id": "5a7b020b-dd06-43cd-8b29-880865646d63",
+    "chapter_id": "684ce461-9e2c-41af-877e-17ee74a0358e",
+    "classification": "chapter",
+    "status": "done",
+    "progress": 1,
+    "eta_seconds": null,
+    "updated_at": 1779682527.308,
+    "reason_code": "synthesis_ok",
+    "log": "Task completed successfully."
+  },
+  "displayStatus": "done",
+  "selectedProgress": 0,
+  "jobProgress": 1,
+  "rawStarted": 1779682494.088417,
+  "stableStarted": 1779682494.088417,
+  "jobEtaSeconds": 4,
+  "liveJobEtaSeconds": null,
+  "selectedRawEtaSeconds": 4,
+  "stableEta": 4,
+  "jobEtaBasis": "remaining_from_update",
+  "selectedEtaBasis": "remaining_from_update",
+  "updatedAt": 1779682494.106035,
+  "derivedUpdatedAt": 1779682494.106035,
+  "stableUpdatedAt": 1779682494.106035,
+  "stableEtaBasis": "remaining_from_update",
+  "etaSourcePath": "persisted_snapshot",
+  "etaSourceReason": "job_eta",
+  "persistenceKey": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
+  "checkpointMode": "queue",
+  "evidenceWeightFraction": 1,
+  "transitionTickCount": 12,
+  "tickMs": 250,
+  "latestProgressBarSnapshot": {
+    "memoryKey": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33:0",
+    "resolvedCheckpointMode": "queue",
+    "status": "done",
+    "progress": 0,
+    "predictive": true,
+    "tickLoopActive": false,
+    "preserveMountedProgress": true,
+    "preserveActiveVisualState": true,
+    "memoryFloor": 0.0003827708247845712,
+    "displayProgress": 0.0003827708247845712,
+    "localProgress": 1,
+    "currentLane": {
+      "startedAtMs": 1779682527275,
+      "startProgress": 0.0003827708247845712,
+      "endAtMs": null
+    },
+    "desiredLane": {
+      "startedAtMs": 1779682527275,
+      "startProgress": 0.0003827708247845712,
+      "endAtMs": null
+    },
+    "migrationProgress": 0,
+    "displayedRemaining": null,
+    "remainingTicks": null,
+    "launchEtaOnly": false,
+    "allowBackwardProgress": false,
+    "lastDisplayWriteSource": "prop-sync",
+    "lastDisplayWriteValue": 0.0003827708247845712,
+    "transitionTickCount": 12,
+    "backwardTransitionTickCount": 2,
+    "activeTransitionTickCount": 12,
+    "isBackwardMigration": false,
+    "tickMs": 250,
+    "migrationDurationMs": 3000,
+    "migrationElapsedMs": 0,
+    "migrationTicksTotal": 12,
+    "migrationTicksElapsed": 0,
+    "evidenceWeightFraction": 1,
+    "incomingProgress": 0,
+    "effectiveTargetProgress": 0.0003827708247845712,
+    "currentVisualAtUpdate": 0.0003827708247845712
+  },
+  "recentAuditFrames": [
+    {
+      "frameId": 2,
+      "receivedAt": "2026-05-25T04:14:36.637Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "queued",
+        "progress": 0,
+        "etaSeconds": null,
+        "eta_seconds": null
+      },
+      "reasonCode": null,
+      "source": "app.db.state_jobs.put_job"
+    },
+    {
+      "frameId": 6,
+      "receivedAt": "2026-05-25T04:14:36.671Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "queued",
+        "progress": 0,
+        "etaSeconds": null,
+        "eta_seconds": null
+      },
+      "reasonCode": "submitted",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 8,
+      "receivedAt": "2026-05-25T04:14:36.679Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "preparing",
+        "progress": 0,
+        "etaSeconds": null,
+        "eta_seconds": null
+      },
+      "reasonCode": "new_work",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 10,
+      "receivedAt": "2026-05-25T04:14:36.685Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "preparing",
+        "progress": 0,
+        "etaSeconds": null,
+        "eta_seconds": null
+      },
+      "reasonCode": null,
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 12,
+      "receivedAt": "2026-05-25T04:14:36.692Z",
+      "eventKind": "queue_item_invalidated",
+      "payload": {},
+      "reasonCode": "job_reset_to_active",
+      "source": "app.db.state_jobs.update_job"
+    },
+    {
+      "frameId": 18,
+      "receivedAt": "2026-05-25T04:14:54.096Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0,
+        "etaSeconds": 39,
+        "eta_seconds": 39
+      },
+      "reasonCode": null,
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 20,
+      "receivedAt": "2026-05-25T04:14:54.104Z",
+      "eventKind": "queue_item_invalidated",
+      "payload": {},
+      "reasonCode": "job_reset_to_active",
+      "source": "app.db.state_jobs.update_job"
+    },
+    {
+      "frameId": 24,
+      "receivedAt": "2026-05-25T04:14:54.119Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0,
+        "etaSeconds": null,
+        "eta_seconds": null
+      },
+      "reasonCode": "segment_start",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 28,
+      "receivedAt": "2026-05-25T04:14:59.529Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0.09,
+        "etaSeconds": 49,
+        "eta_seconds": 49
+      },
+      "reasonCode": "synthesis_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 32,
+      "receivedAt": "2026-05-25T04:15:01.897Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0.18,
+        "etaSeconds": 36,
+        "eta_seconds": 36
+      },
+      "reasonCode": "synthesis_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 36,
+      "receivedAt": "2026-05-25T04:15:06.525Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0.27,
+        "etaSeconds": 34,
+        "eta_seconds": 34
+      },
+      "reasonCode": "synthesis_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 40,
+      "receivedAt": "2026-05-25T04:15:08.889Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0.35,
+        "etaSeconds": 27,
+        "eta_seconds": 27
+      },
+      "reasonCode": "synthesis_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 44,
+      "receivedAt": "2026-05-25T04:15:10.257Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0.44,
+        "etaSeconds": 20,
+        "eta_seconds": 20
+      },
+      "reasonCode": "synthesis_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 49,
+      "receivedAt": "2026-05-25T04:15:10.278Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0.44,
+        "etaSeconds": null,
+        "eta_seconds": null
+      },
+      "reasonCode": "segment_saved",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 53,
+      "receivedAt": "2026-05-25T04:15:10.295Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0.44,
+        "etaSeconds": null,
+        "eta_seconds": null
+      },
+      "reasonCode": "segment_start",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 57,
+      "receivedAt": "2026-05-25T04:15:14.863Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0.52,
+        "etaSeconds": 20,
+        "eta_seconds": 20
+      },
+      "reasonCode": "synthesis_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 61,
+      "receivedAt": "2026-05-25T04:15:15.775Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0.59,
+        "etaSeconds": 15,
+        "eta_seconds": 15
+      },
+      "reasonCode": "synthesis_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 65,
+      "receivedAt": "2026-05-25T04:15:20.710Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0.67,
+        "etaSeconds": 13,
+        "eta_seconds": 13
+      },
+      "reasonCode": "synthesis_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 69,
+      "receivedAt": "2026-05-25T04:15:22.634Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0.74,
+        "etaSeconds": 10,
+        "eta_seconds": 10
+      },
+      "reasonCode": "synthesis_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 73,
+      "receivedAt": "2026-05-25T04:15:24.661Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0.82,
+        "etaSeconds": 7,
+        "eta_seconds": 7
+      },
+      "reasonCode": "synthesis_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 77,
+      "receivedAt": "2026-05-25T04:15:26.513Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0.9,
+        "etaSeconds": 4,
+        "eta_seconds": 4
+      },
+      "reasonCode": "synthesis_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 82,
+      "receivedAt": "2026-05-25T04:15:26.541Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "running",
+        "progress": 0.9,
+        "etaSeconds": null,
+        "eta_seconds": null
+      },
+      "reasonCode": "segment_saved",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    },
+    {
+      "frameId": 111,
+      "receivedAt": "2026-05-25T04:15:27.267Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "done",
+        "progress": 1,
+        "etaSeconds": 4,
+        "eta_seconds": 4
+      },
+      "reasonCode": "segment_saved",
+      "source": "plugins.tts_xtts.plugin.studio.handler.handle_xtts_job"
+    },
+    {
+      "frameId": 113,
+      "receivedAt": "2026-05-25T04:15:27.308Z",
+      "eventKind": "queue_item_status",
+      "payload": {
+        "status": "done",
+        "progress": 1,
+        "etaSeconds": null,
+        "eta_seconds": null
+      },
+      "reasonCode": "synthesis_ok",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish"
+    }
+  ]
+}

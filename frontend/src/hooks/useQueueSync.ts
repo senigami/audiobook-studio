@@ -101,6 +101,9 @@ export const useQueueSync = () => {
               status: payload.status,
               progress: payload.progress,
               eta_seconds: payload.etaSeconds !== undefined ? payload.etaSeconds : payload.eta_seconds,
+              eta_basis: (payload.etaSeconds !== undefined || payload.eta_seconds !== undefined)
+                ? (payload.etaBasis ?? payload.eta_basis ?? 'remaining_from_update')
+                : (payload.etaBasis ?? payload.eta_basis),
               started_at: payload.startedAt !== undefined ? payload.startedAt : payload.started_at,
               updated_at: payload.updatedAt !== undefined ? payload.updatedAt : payload.updated_at,
               estimated_end_at: payload.estimatedEndAt !== undefined ? payload.estimatedEndAt : payload.estimated_end_at,

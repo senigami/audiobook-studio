@@ -20,7 +20,6 @@ import { useChapterPlayback } from '@/hooks/useChapterPlayback';
 import { useChapterEditor } from '@/hooks/useChapterEditor';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '@/utils/voiceProfiles';
 import { buildChunkGroups } from '@/utils/chunkGroups';
-import { getRawActiveRenderProgress } from '@/utils/chapterRenderProgress';
 
 import {
   resolveVoiceEngineStatus,
@@ -53,6 +52,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   engines = [],
   job: propJob,
   chapterJobs = [],
+  segmentProgress = {},
   selectedVoice: externalVoice,
   onNext,
   onPrev,
@@ -252,6 +252,22 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     return new Set(queuedBatchSpanIds.filter(id => !chapterRenderRenderingSegmentIds.has(id)));
   }, [job, chapterRenderActiveSegmentId, chapterRenderRenderingSegmentIds, scriptViewData?.render_batches]);
 
+  const canonicalActiveSegmentProgress = useMemo(() => {
+    if (!chapterRenderActiveSegmentId) return 0;
+    const progressObj = segmentProgress?.[chapterRenderActiveSegmentId];
+    if (progressObj !== undefined) {
+      return progressObj.progress;
+    }
+    // Fall back to job active segment progress
+    const activeJob = generatingSegmentJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingSegmentJob.status)
+      ? generatingSegmentJob
+      : (job && ['queued', 'preparing', 'running', 'finalizing'].includes(job.status) ? job : null);
+    if (activeJob?.active_segment_id === chapterRenderActiveSegmentId && typeof activeJob.active_segment_progress === 'number') {
+      return activeJob.active_segment_progress;
+    }
+    return 0;
+  }, [chapterRenderActiveSegmentId, segmentProgress, job, generatingSegmentJob]);
+
   const chapterRenderRenderingBatchProgressById = useMemo(() => {
     const progressById: Record<string, number> = {};
     const activeJob = generatingSegmentJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingSegmentJob.status)
@@ -265,10 +281,9 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     );
     if (!activeBatch) return progressById;
 
-    const rawProgress = getRawActiveRenderProgress(activeJob, 0);
-    progressById[activeBatch.id] = liveBarSegmentProgress > 0 ? liveBarSegmentProgress : rawProgress;
+    progressById[activeBatch.id] = canonicalActiveSegmentProgress;
     return progressById;
-  }, [chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans, liveBarSegmentProgress]);
+  }, [chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, canonicalActiveSegmentProgress]);
 
 
   const {
@@ -528,6 +543,26 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
           chapterRenderQueuedSegmentIds: Array.from(chapterRenderQueuedSegmentIds),
           chapterRenderPendingSegmentIds: Array.from(chapterRenderPendingSegmentIds),
           chapterRenderRenderingBatchProgressById,
+          segmentProgress: Object.values(segmentProgress || {}).filter(p => (
+            p.segment_id === chapterRenderActiveSegmentId ||
+            chapterRenderActiveBatchSegmentIds.has(p.segment_id) ||
+            chapterRenderRenderingSegmentIds.has(p.segment_id)
+          )),
+          activeRenderBatchId: scriptViewData?.render_batches?.find(batch =>
+            batch.span_ids.includes(chapterRenderActiveSegmentId || '')
+          )?.id || null,
+          activeRenderBatchSpanIds: scriptViewData?.render_batches?.find(batch =>
+            batch.span_ids.includes(chapterRenderActiveSegmentId || '')
+          )?.span_ids || [],
+          canonicalActiveSegmentProgress,
+          jobActiveSegmentProgress: job?.active_segment_progress ?? null,
+          generatingSegmentJobActiveSegmentProgress: generatingSegmentJob?.active_segment_progress ?? null,
+          liveBarSegmentProgress,
+          renderingSourceUsed: !chapterRenderActiveSegmentId ? 'no_active_segment' : (
+            segmentProgress?.[chapterRenderActiveSegmentId] !== undefined ? 'segmentProgress_map' : (
+              job?.active_segment_id === chapterRenderActiveSegmentId && typeof job.active_segment_progress === 'number' ? 'job_active_segment_progress' : 'fallback_0'
+            )
+          ),
         },
         websocket: {
           recentMessages: typeof window !== 'undefined' ? (window as any).__websocketRecentMessages ?? [] : [],
@@ -677,6 +712,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     renderingSpanIds={chapterRenderRenderingSegmentIds}
                     queuedSpanIds={chapterRenderQueuedSegmentIds}
                     renderingBatchProgressById={chapterRenderRenderingBatchProgressById}
+                    activeSegmentId={chapterRenderActiveSegmentId}
                     playingSpanId={playingSegmentId}
                     playingSpanIds={playingSegmentIds}
                     onPlaySpan={(sid) => playSegment(sid, playbackQueue)}

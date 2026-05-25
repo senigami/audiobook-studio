@@ -98,8 +98,8 @@ def cleanup_chapter_audio_files(
         for root, f_path, f_name in list(known_files):
             if any(f_name.startswith(prefix) for prefix in prefixes):
                 try:
-                    if f_path.startswith(root + os.sep):
-                        os.remove(f_path)
+                    if storage.is_safe(f_path) and f_path.resolve().is_relative_to(root.resolve()):
+                        f_path.unlink(missing_ok=True)
                         known_files = [item for item in known_files if item[1] != f_path]
                 except Exception:
                     logger.warning("Failed to delete segment audio file %s", f_path, exc_info=True)

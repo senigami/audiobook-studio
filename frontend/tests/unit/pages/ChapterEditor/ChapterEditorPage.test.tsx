@@ -57,6 +57,12 @@ vi.mock('framer-motion', () => ({
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ChapterEditor } from '@/pages/ChapterEditor/ChapterEditorPage';
 import { api } from '@/api';
+import { useJobs } from '@/hooks/useJobs';
+import {
+  publishStudioSocketMessage,
+  resetStudioSocketBusForTests,
+  setStudioSocketConnected,
+} from '@/store/studioSocketBus';
 import { 
   mockChapterId, 
   mockProjectId, 
@@ -71,6 +77,8 @@ describe('ChapterEditor - Core Orchestration', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
+    resetStudioSocketBusForTests();
+    setStudioSocketConnected(true);
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     (api.fetchChapters as any).mockResolvedValue([mockChapter]);
     (api.fetchSegments as any).mockResolvedValue(mockSegments);
@@ -276,5 +284,310 @@ describe('ChapterEditor - Core Orchestration', () => {
     // Assert highlighting switched to batch-2 / seg-2
     expect(updatedSpan1).not.toHaveClass('is-book-rendering');
     expect(updatedSpan2).toHaveClass('is-book-rendering');
+  });
+
+  it('highlights the corresponding segment/batch span when segments.progress websocket event is received', async () => {
+    const customScriptView = {
+      chapter_id: mockChapterId,
+      base_revision_id: 'rev-1',
+      paragraphs: [
+        { id: 'para-1', span_ids: ['seg-1', 'seg-2'] }
+      ],
+      spans: [
+        {
+          id: 'seg-1',
+          order_index: 0,
+          text: 'Sentence one.',
+          sanitized_text: 'Sentence one.',
+          character_id: null,
+          speaker_profile_name: null,
+          status: 'draft',
+          audio_file_path: null,
+          audio_generated_at: null,
+          char_count: 13,
+          sanitized_char_count: 13
+        },
+        {
+          id: 'seg-2',
+          order_index: 1,
+          text: 'Sentence two.',
+          sanitized_text: 'Sentence two.',
+          character_id: null,
+          speaker_profile_name: null,
+          status: 'draft',
+          audio_file_path: null,
+          audio_generated_at: null,
+          char_count: 13,
+          sanitized_char_count: 13
+        }
+      ],
+      render_batches: [
+        { id: 'batch-1', span_ids: ['seg-1'], status: 'draft', estimated_work_weight: 1 },
+        { id: 'batch-2', span_ids: ['seg-2'], status: 'draft', estimated_work_weight: 1 }
+      ],
+      audio_groups: [
+        { id: 'g-1', span_ids: ['seg-1'], status: 'draft', audio_file_path: null, asset_url: null, order_index: 0, estimated_work_weight: 1 },
+        { id: 'g-2', span_ids: ['seg-2'], status: 'draft', audio_file_path: null, asset_url: null, order_index: 1, estimated_work_weight: 1 }
+      ]
+    };
+    (api.fetchScriptView as any).mockResolvedValue(customScriptView);
+
+    const Wrapper = () => {
+      const { jobs } = useJobs();
+      const job = jobs['job-123'];
+      return (
+        <ChapterEditor
+          chapterId={mockChapterId}
+          projectId={mockProjectId}
+          speakerProfiles={[]}
+          speakers={[]}
+          job={job}
+          chapterJobs={job ? [job] : []}
+        />
+      );
+    };
+
+    render(<Wrapper />);
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'jobs_snapshot',
+        jobs: [{
+          id: 'job-123',
+          project_id: mockProjectId,
+          chapter_id: mockChapterId,
+          status: 'done',
+          progress: 1.0,
+          segment_ids: ['seg-1', 'seg-2'],
+          updated_at: 100,
+        } as any]
+      });
+    });
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    // Initially seg-2 is not rendering (job is done)
+    const initialSpan2 = screen.getByTestId('script-span-seg-2');
+    expect(initialSpan2.getAttribute('data-render-status')).not.toBe('rendering');
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        source: 'backend',
+        emittedAt: 150,
+        ids: { jobId: 'job-123', chapterId: mockChapterId, segmentId: 'seg-2' },
+        payload: {
+          status: 'running',
+          progress: 0.5,
+          activeSegmentProgress: 0.5,
+        }
+      });
+    });
+
+    await waitFor(() => {
+      const span2 = screen.getByTestId('script-span-seg-2');
+      expect(span2.getAttribute('data-render-status')).toBe('rendering');
+    });
+
+    const span1 = screen.getByTestId('script-span-seg-1');
+    expect(span1.getAttribute('data-render-status')).not.toBe('rendering');
+  });
+
+  it('uses canonical segment progress activeSegmentProgress 0.83 for renderingBatchProgressById, not chapter progress or visual progress', async () => {
+    const customScriptView = {
+      chapter_id: mockChapterId,
+      base_revision_id: 'rev-1',
+      paragraphs: [
+        { id: 'para-1', span_ids: ['seg-1', 'seg-2'] }
+      ],
+      spans: [
+        {
+          id: 'seg-1',
+          order_index: 0,
+          text: 'Sentence one.',
+          sanitized_text: 'Sentence one.',
+          character_id: null,
+          speaker_profile_name: null,
+          status: 'draft',
+          audio_file_path: null,
+          audio_generated_at: null,
+          char_count: 13,
+          sanitized_char_count: 13
+        },
+        {
+          id: 'seg-2',
+          order_index: 1,
+          text: 'Sentence two.',
+          sanitized_text: 'Sentence two.',
+          character_id: null,
+          speaker_profile_name: null,
+          status: 'draft',
+          audio_file_path: null,
+          audio_generated_at: null,
+          char_count: 13,
+          sanitized_char_count: 13
+        }
+      ],
+      render_batches: [
+        { id: 'batch-1', span_ids: ['seg-1'], status: 'draft', estimated_work_weight: 1 },
+        { id: 'batch-2', span_ids: ['seg-2'], status: 'draft', estimated_work_weight: 1 }
+      ],
+      audio_groups: [
+        { id: 'g-1', span_ids: ['seg-1'], status: 'draft', audio_file_path: null, asset_url: null, order_index: 0, estimated_work_weight: 1 },
+        { id: 'g-2', span_ids: ['seg-2'], status: 'draft', audio_file_path: null, asset_url: null, order_index: 1, estimated_work_weight: 1 }
+      ]
+    };
+    (api.fetchScriptView as any).mockResolvedValue(customScriptView);
+
+    const Wrapper = ({ segmentProgress = {} }) => {
+      const { jobs } = useJobs();
+      const job = jobs['job-123'];
+      return (
+        <ChapterEditor
+          chapterId={mockChapterId}
+          projectId={mockProjectId}
+          speakerProfiles={[]}
+          speakers={[]}
+          job={job}
+          chapterJobs={job ? [job] : []}
+          segmentProgress={segmentProgress}
+        />
+      );
+    };
+
+    const { rerender } = render(<Wrapper segmentProgress={{}} />);
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'jobs_snapshot',
+        jobs: [{
+          id: 'job-123',
+          project_id: mockProjectId,
+          chapter_id: mockChapterId,
+          status: 'running',
+          progress: 0.35,
+          active_segment_id: 'seg-2',
+          active_segment_progress: 0.1,
+          segment_ids: ['seg-1', 'seg-2'],
+          updated_at: 100,
+        } as any]
+      });
+    });
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    // Passing segment progress 0.83 for seg-2 should override job active_segment_progress 0.1
+    rerender(<Wrapper segmentProgress={{
+      'seg-2': {
+        job_id: 'job-123',
+        chapter_id: mockChapterId,
+        segment_id: 'seg-2',
+        progress: 0.83
+      }
+    }} />);
+
+    await waitFor(() => {
+      const span2 = screen.getByTestId('script-span-seg-2');
+      const litLetters = span2.querySelectorAll('.script-progress-letter.is-lit');
+      expect(litLetters.length).toBe(10); // Math.floor(13 * 0.83) = 10
+    });
+  });
+
+  it('includes targeted rendering diagnostics in copy debug state output', async () => {
+    const customScriptView = {
+      chapter_id: mockChapterId,
+      base_revision_id: 'rev-1',
+      paragraphs: [{ id: 'para-1', span_ids: ['seg-1'] }],
+      spans: [{
+        id: 'seg-1',
+        order_index: 0,
+        text: 'Sentence one.',
+        sanitized_text: 'Sentence one.',
+        character_id: null,
+        speaker_profile_name: null,
+        status: 'draft',
+        audio_file_path: null,
+        audio_generated_at: null,
+        char_count: 13,
+        sanitized_char_count: 13
+      }],
+      render_batches: [{ id: 'batch-1', span_ids: ['seg-1'], status: 'draft', estimated_work_weight: 1 }],
+      audio_groups: []
+    };
+    (api.fetchScriptView as any).mockResolvedValue(customScriptView);
+
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: writeTextMock },
+      configurable: true,
+      writable: true
+    });
+
+    const activeJob: any = {
+      id: 'job-123',
+      project_id: mockProjectId,
+      chapter_id: mockChapterId,
+      status: 'running',
+      progress: 0.35,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.77,
+      classification: 'chapter'
+    };
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={[]}
+        speakers={[]}
+        job={activeJob}
+        chapterJobs={[activeJob]}
+        segmentProgress={{
+          'seg-1': {
+            job_id: 'job-123',
+            chapter_id: mockChapterId,
+            segment_id: 'seg-1',
+            progress: 0.83
+          },
+          'seg-unrelated': {
+            job_id: 'job-123',
+            chapter_id: mockChapterId,
+            segment_id: 'seg-unrelated',
+            progress: 0.5
+          }
+        }}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    // Trigger copy debug state
+    const debugButton = screen.getByTitle('Copy debug state');
+    fireEvent.click(debugButton);
+
+    await waitFor(() => {
+      expect(writeTextMock).toHaveBeenCalled();
+    });
+
+    const debugState = JSON.parse(writeTextMock.mock.calls[0][0]);
+    expect(debugState.frontend.render).toMatchObject({
+      chapterRenderActiveSegmentId: 'seg-1',
+      activeRenderBatchId: 'batch-1',
+      activeRenderBatchSpanIds: ['seg-1'],
+      canonicalActiveSegmentProgress: 0.83,
+      jobActiveSegmentProgress: 0.77,
+      liveBarSegmentProgress: 0.77,
+      renderingSourceUsed: 'segmentProgress_map'
+    });
+
+    // Check relevant segmentProgress entries contains only: active segment id, active batch span ids, and current rendering segment ids
+    expect(debugState.frontend.render.segmentProgress).toHaveLength(1);
+    expect(debugState.frontend.render.segmentProgress[0]).toMatchObject({
+      segment_id: 'seg-1',
+      progress: 0.83
+    });
   });
 });

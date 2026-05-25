@@ -1,18 +1,17 @@
 {
-  "snapshot_version": 118,
-  "updated_at": "2026-05-24T00:08:30-04:00",
+  "snapshot_version": 121,
+  "updated_at": "2026-05-25T03:34:00Z",
   "branch": "studio2/phase-12",
-  "current_task": "Fix chapter editor initial-load rendering so completed sections display all sentences/spans as ready, not just the first sentence in each block.",
-  "status": "chapter_editor_completed_group_rendering_fix_complete",
+  "current_task": "Keep queue row debug button visible and stabilize active diagnostics ref",
+  "status": "queue_row_debug_button_retention_and_diagnostics_ref_stabilization_complete",
   "last_committed_milestone": {
-    "title": "Fix Chapter Editor completed group initial-load rendering and controls",
+    "title": "Keep queue row debug button visible and stabilize active diagnostics ref",
     "commit": "pending",
     "notes": [
-      "Updated ScriptView.tsx to derive span readiness and playability using parent audioGroup metadata, ensuring completed groups render all member spans ready/black.",
-      "Fixed play button disabled state, play icon fill, and generate/rebuild button toggles in ScriptView.tsx to align with the new derived states.",
-      "Refactored useChapterPlayback.ts to resolve audio playback source from the parent group's audio path when individual segment audio files are not completed in the database.",
-      "Added frontend regression tests in ScriptView.test.tsx and useChapterPlayback.test.tsx to assert correct rendering, rebuild toggles, play controls, and audio path resolution for non-leader segments in completed groups.",
-      "Verified all 581 Vitest tests, backend pytest suite, eslint checks, and production builds pass cleanly."
+      "In GlobalQueue.tsx, introduced timeoutsRef to manage completion retention timeouts across component renders and prevent premature clearance of timeouts.",
+      "In QueueItem.tsx, wrapped the lastActiveDiagnosticsRef mutation in a useEffect hook to comply with React hook rules.",
+      "In GlobalQueueFiles.test.tsx, imported act and wrapped vi.advanceTimersByTime in act to correctly flush state updates scheduled by timeouts.",
+      "Verified all 626 tests in the test suite pass cleanly, along with build and eslint checks."
     ]
   },
   "active_constraints": [
@@ -62,12 +61,15 @@
     "Composite renaming (mixed.py -> composite.py) is explicitly deferred to Phase 13.",
     "The TTS Server synth endpoint now allows synthesis while verification is still pending, but still blocks failed verification and setup errors.",
     "Chapter Editor progress bar key is reverted to the segment-level key (`${job.id}:${active_segment_id}`) of commit 3e44973. This ensures the progress bar remounts per segment and progress/highlighting updates are aligned perfectly on a per-segment basis.",
-    "Chapter Editor progress bar now animates smoothly under finalizing status instead of hardcoding to 100% width. A 1500ms terminal job bridging window was added to useChapterStatus to let the green 100% Complete bar render fully before clean unmounting."
-    ,"Global Queue now filters only true segment-scoped overlay jobs; grouped chapter jobs with active_segment_id stay visible so overall chapter progress does not disappear once rendering starts.",
+    "Chapter Editor progress bar now animates smoothly under finalizing status instead of hardcoding to 100% width. A 1500ms terminal job bridging window was added to useChapterStatus to let the green 100% Complete bar render fully before clean unmounting.",
+    "Global Queue now filters only true segment-scoped overlay jobs; grouped chapter jobs with active_segment_id stay visible so overall chapter progress does not disappear once rendering starts.",
     "The frontend live event stream contract now defines topics, concrete event kinds, audit records, consumer ownership, diagnostics reconciliation, queue/segment progress absorption rules, and an executable TypeScript schema module before the next implementation pass.",
     "Live Output now reads from the bus-level liveEventAuditStore instead of the legacy runtimeDebug timeline. Every websocket frame receives one normalized audit record, and useJobs/useQueueSync attach unique subscriber observations by frameId.",
     "Settings -> Engines diagnostics now loads historical logs once via View Diagnostics, then appends live tts.logs frames from liveEventAuditStore without requiring Refresh Logs.",
-    "The diagnostics log viewport auto-scrolls to the bottom so new live lines remain visible without manual scrolling."
+    "The diagnostics log viewport auto-scrolls to the bottom so new live lines remain visible without manual scrolling.",
+    "QueueItem active ETA source selection now prefers a positive live job ETA over stale/non-positive persisted job ETAs, and records guarded debug progress snapshots to recordStudioDebugSnapshot.",
+    "QueueItem and store-level overlays now cleanly propagate and select the correct eta_basis matching the active ETA source (remaining_from_update for live websocket updates).",
+    "QueueItem debug button is retained for 30 seconds after completion via timeoutsRef in GlobalQueue, and the diagnostics payload captures stabilized active ETA/updatedAt states."
   ],
   "phase_13_guidance": [
     "Phase 13 plan is plans/phases/phase_13_release_documentation_and_distribution.md.",

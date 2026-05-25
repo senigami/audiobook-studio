@@ -57,7 +57,7 @@ describe('LiveOutputTab', () => {
     const headers = Array.from(document.querySelectorAll('th')).map(th => th.textContent);
     expect(headers).toEqual(expect.arrayContaining([
       'Time', 'Topic', 'Event', 'Job', 'Chapter', 'Segment', 'Job %',
-      'Segment %', 'Group', 'Reason', 'Source', 'Message',
+      'Segment %', 'Group', 'ETA', 'Reason', 'Source', 'Message',
     ]));
   });
 
@@ -141,6 +141,25 @@ describe('LiveOutputTab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Pause autoscroll' }));
     expect(screen.getByRole('button', { name: 'Resume autoscroll' })).toBeInTheDocument();
     expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(1);
+  });
+
+  it('renders ETA from segments.progress etaSeconds or eta_seconds', () => {
+    publishEvent('segments.progress', 'segment_progress', {
+      progress: 0.1,
+      etaSeconds: 15,
+    }, { jobId: 'job-1', segmentId: 'seg-1' });
+
+    publishEvent('segments.progress', 'segment_progress', {
+      progress: 0.2,
+      eta_seconds: 10,
+    }, { jobId: 'job-1', segmentId: 'seg-1' });
+
+    render(<LiveOutputTab />);
+
+    const rows = document.querySelectorAll('tbody tr[data-frame-id]');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].textContent).toContain('15s');
+    expect(rows[1].textContent).toContain('10s');
   });
 
 });

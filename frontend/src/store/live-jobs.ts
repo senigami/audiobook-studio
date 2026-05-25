@@ -266,7 +266,7 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       started_at: typeof jobUpdated.started_at === 'number' ? jobUpdated.started_at : existing?.started_at,
       updated_at: typeof jobUpdated.updated_at === 'number' ? jobUpdated.updated_at : existing?.updated_at,
       estimated_end_at: typeof jobUpdated.estimated_end_at === 'number' ? jobUpdated.estimated_end_at : existing?.estimated_end_at,
-      eta_basis: jobUpdated.eta_basis ?? existing?.eta_basis,
+      eta_basis: jobUpdated.eta_basis ?? (typeof jobUpdated.eta_seconds === 'number' ? 'remaining_from_update' : existing?.eta_basis),
       active_render_batch_id: jobUpdated.active_render_batch_id !== undefined
         ? jobUpdated.active_render_batch_id
         : existing?.active_render_batch_id,

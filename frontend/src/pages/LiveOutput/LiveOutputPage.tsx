@@ -4,7 +4,7 @@ import { LiveOutputTable } from '@/components/LiveOutputTable';
 import { LIVE_EVENT_CONSUMERS } from '@/config/liveEventConsumers';
 
 const consumerTopicLabel = (id: string) => {
-  if (id === 'main-queue') return 'queue.items, chapters.progress';
+  if (id === 'main-queue') return 'queue.items';
   if (id === 'chapter-state') return 'chapters.lifecycle, chapters.progress, segments.progress';
   if (id === 'segment-state') return 'segments.lifecycle, segments.progress';
   if (id === 'tts-diagnostics') return 'tts.logs';

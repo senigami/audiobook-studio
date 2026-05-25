@@ -46,6 +46,11 @@ const formatGroup = (payload: any | undefined) => {
   return `${payload.active_render_group_index ?? '-'}/${payload.render_group_count ?? '-'}`;
 };
 
+const formatEta = (value?: number | null) => {
+  if (typeof value !== 'number') return '-';
+  return `${value}s`;
+};
+
 const jobProgressPayloadFor = (event: LiveEvent): any => {
   if (
     event.topic === 'queue.items' ||
@@ -62,6 +67,7 @@ const jobProgressPayloadFor = (event: LiveEvent): any => {
       reason_code: payload.reasonCode ?? payload.reason_code,
       message: payload.message,
       status: payload.status,
+      eta_seconds: payload.etaSeconds ?? payload.eta_seconds,
     };
   }
   return undefined;
@@ -113,6 +119,7 @@ const COLUMNS = [
   'Job %',
   'Segment %',
   'Group',
+  'ETA',
   'Reason',
   'Source',
   'Message',
@@ -230,6 +237,7 @@ export const LiveOutputTable: React.FC<LiveOutputTableProps> = (_props) => {
                   <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatProgress(jobPayload?.progress)}</td>
                   <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatProgress(jobPayload?.active_segment_progress)}</td>
                   <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatGroup(jobPayload)}</td>
+                  <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatEta(jobPayload?.eta_seconds)}</td>
                   <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{reasonFor(event)}</td>
                   <td title={event.source ?? ''} style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{event.source ?? '-'}</td>
                   <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', minWidth: 320, whiteSpace: 'pre-wrap' }}>{messageFor(event)}</td>

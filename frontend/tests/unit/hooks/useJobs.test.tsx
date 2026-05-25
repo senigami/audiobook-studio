@@ -129,6 +129,7 @@ describe('useJobs', () => {
     }, { jobId: 'job1', chapterId: 'chap1' });
 
     expect(result.current.jobs.job1).toMatchObject({ status: 'running', progress: 0.2 });
+    expect(result.current.segmentProgress).toEqual({});
     expect((window as any).__ttsCommunicationTimeline).toHaveLength(1);
     expect((window as any).__ttsCommunicationTimeline[0]).toMatchObject({
       kind: 'tts_log',
@@ -449,6 +450,88 @@ describe('useJobs', () => {
     });
   });
 
+  it('drives segment progress and chapter job active_segment_progress from segments.progress using activeSegmentProgress payload field', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-seg', status: 'running', progress: 0 }] });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-abc', jobId: 'job-seg', chapterId: 'chap-1' },
+        payload: {
+          status: 'running',
+          progress: 0.1,
+          activeSegmentProgress: 0.83,
+          segmentIndex: 1,
+          segmentCount: 10,
+          message: 'active',
+          reasonCode: null,
+        },
+      });
+    });
+
+    expect(result.current.segmentProgress['seg-abc']).toEqual({
+      job_id: 'job-seg',
+      chapter_id: 'chap-1',
+      segment_id: 'seg-abc',
+      progress: 0.83,
+    });
+
+    expect(result.current.jobs['job-seg']?.active_segment_progress).toBe(0.83);
+  });
+
+  it('replaces prior progress with latest segments.progress for the same segment', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-seg', status: 'running', progress: 0 }] });
+
+    // Initial progress event: 0.4
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-abc', jobId: 'job-seg', chapterId: 'chap-1' },
+        payload: {
+          status: 'running',
+          progress: 0.4,
+          segmentIndex: 1,
+          segmentCount: 10,
+          message: 'active',
+          reasonCode: null,
+        },
+      });
+    });
+
+    expect(result.current.segmentProgress['seg-abc'].progress).toBe(0.4);
+
+    // Latest progress event: 0.8
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-abc', jobId: 'job-seg', chapterId: 'chap-1' },
+        payload: {
+          status: 'running',
+          progress: 0.8,
+          segmentIndex: 1,
+          segmentCount: 10,
+          message: 'active',
+          reasonCode: null,
+        },
+      });
+    });
+
+    expect(result.current.segmentProgress['seg-abc'].progress).toBe(0.8);
+  });
+
+
+
   it('drives chapter progress directly from chapters.progress topic', async () => {
     const { result } = renderHook(() => useJobs());
     emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-chap', status: 'running', progress: 0.1 }] });
@@ -598,7 +681,7 @@ describe('useJobs', () => {
     expect(job.active_segment_id).toBe('seg-abc');
     expect(job.active_segment_progress).toBe(0.85);
     expect(job.status).toBe('running');
-    expect(job.eta_seconds).toBe(15);
+    expect(job.eta_seconds).toBeUndefined();
     expect(job.log).toBe('active segment progress log');
     expect(job.reason_code).toBe('segment_progress_tick');
 
@@ -644,5 +727,68 @@ describe('useJobs', () => {
     const job = result.current.jobs['job-seg'];
     expect(job).toBeDefined();
     expect(job.status).toBe('running');
+  });
+
+  it('allows a terminal done job to roll back to running when receiving a newer active event', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-rollback', status: 'done', progress: 1.0, updated_at: 100 } as any] });
+
+    expect(result.current.jobs['job-rollback']?.status).toBe('done');
+
+    // Emit event with newer updatedAt and status running
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      progress: 0.15,
+      updatedAt: 150,
+    }, { jobId: 'job-rollback' });
+
+    expect(result.current.jobs['job-rollback']?.status).toBe('running');
+    expect(result.current.jobs['job-rollback']?.progress).toBe(0.15);
+  });
+
+  it('ignores older active events and does not revive/rollback a terminal done job', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-rollback-ignore', status: 'done', progress: 1.0, updated_at: 200 } as any] });
+
+    expect(result.current.jobs['job-rollback-ignore']?.status).toBe('done');
+
+    // Emit event with older updatedAt and status running
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      progress: 0.15,
+      updatedAt: 150,
+    }, { jobId: 'job-rollback-ignore' });
+
+    expect(result.current.jobs['job-rollback-ignore']?.status).toBe('done');
+    expect(result.current.jobs['job-rollback-ignore']?.progress).toBe(1.0);
+  });
+
+  it('updates active_segment_id and active_segment_progress from segments.progress even when the current job status is done and database timestamps are absent', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-seg-done', status: 'done', progress: 1.0, updated_at: 100 } as any] });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        emittedAt: 150,
+        ids: { segmentId: 'seg-abc', jobId: 'job-seg-done', chapterId: 'chap-1' },
+        payload: {
+          status: 'running',
+          progress: 0.85,
+          segmentIndex: 1,
+          segmentCount: 10,
+          message: 'active segment progress log',
+          reasonCode: 'segment_progress_tick',
+        },
+      });
+    });
+
+    const job = result.current.jobs['job-seg-done'];
+    expect(job).toBeDefined();
+    expect(job.active_segment_id).toBe('seg-abc');
+    expect(job.active_segment_progress).toBe(0.85);
   });
 });

@@ -103,6 +103,11 @@ const resolveEndAtMs = ({
     estimatedEndAt?: number;
     updatedAt?: number;
 }) => {
+    if (etaBasis === 'remaining_from_update' && typeof etaSeconds === 'number' && etaSeconds >= 0) {
+        const anchorSeconds = updatedAt ?? (nowMs / 1000);
+        return (anchorSeconds + etaSeconds) * 1000;
+    }
+
     if (typeof estimatedEndAt === 'number' && estimatedEndAt > 0) {
         return estimatedEndAt * 1000;
     }

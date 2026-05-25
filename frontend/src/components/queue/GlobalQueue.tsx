@@ -88,9 +88,67 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
     }, []);
 
     const chapterJobs = React.useMemo(() => queue.filter(q => !isSegmentScopedJob(q)), [queue]);
-    const activeJobs = React.useMemo(() => chapterJobs.filter(q => q.status === 'running' || q.status === 'preparing' || q.status === 'finalizing'), [chapterJobs]);
+    const [recentlyCompleted, setRecentlyCompleted] = React.useState<Record<string, number>>({});
+    const prevQueueRef = React.useRef<ProcessingQueueItem[]>([]);
+    const timeoutsRef = React.useRef<Record<string, NodeJS.Timeout>>({});
+
+    React.useEffect(() => {
+        return () => {
+            // Clean up all timeouts on unmount
+            Object.values(timeoutsRef.current).forEach(clearTimeout);
+        };
+    }, []);
+
+    React.useEffect(() => {
+        const now = Date.now();
+        const newCompletions = { ...recentlyCompleted };
+        let changed = false;
+
+        queue.forEach(job => {
+            const prevJob = prevQueueRef.current.find(j => j.id === job.id);
+            if (prevJob) {
+                const wasActive = ['running', 'preparing', 'finalizing'].includes(prevJob.status);
+                const isTerminal = ['done', 'failed', 'cancelled'].includes(job.status);
+                if (wasActive && isTerminal && !newCompletions[job.id]) {
+                    newCompletions[job.id] = now;
+                    changed = true;
+
+                    if (timeoutsRef.current[job.id]) {
+                        clearTimeout(timeoutsRef.current[job.id]);
+                    }
+
+                    timeoutsRef.current[job.id] = setTimeout(() => {
+                        setRecentlyCompleted(prev => {
+                            const next = { ...prev };
+                            delete next[job.id];
+                            return next;
+                        });
+                        delete timeoutsRef.current[job.id];
+                    }, 30000);
+                }
+            }
+        });
+
+        if (changed) {
+            setRecentlyCompleted(newCompletions);
+        }
+        prevQueueRef.current = queue;
+    }, [queue, recentlyCompleted]);
+
+    const activeJobs = React.useMemo(() => {
+        const active = chapterJobs.filter(q => q.status === 'running' || q.status === 'preparing' || q.status === 'finalizing');
+        const now = Date.now();
+        const retained = chapterJobs.filter(q => {
+            const completedAt = recentlyCompleted[q.id];
+            return completedAt && (now - completedAt < 30000);
+        });
+        const activeIds = new Set(active.map(j => j.id));
+        return [...active, ...retained.filter(j => !activeIds.has(j.id))];
+    }, [chapterJobs, recentlyCompleted]);
+
     const pendingJobs = React.useMemo(() => chapterJobs.filter(q => q.status === 'queued'), [chapterJobs]);
-    const pastJobs = React.useMemo(() => chapterJobs.filter(q => q.status === 'done' || q.status === 'failed' || q.status === 'cancelled'), [chapterJobs]);
+    const activeIds = React.useMemo(() => new Set(activeJobs.map(j => j.id)), [activeJobs]);
+    const pastJobs = React.useMemo(() => chapterJobs.filter(q => (q.status === 'done' || q.status === 'failed' || q.status === 'cancelled') && !activeIds.has(q.id)), [chapterJobs, activeIds]);
     if (loading) return <div style={{ padding: '2rem' }}>Loading Queue...</div>;
 
     return (

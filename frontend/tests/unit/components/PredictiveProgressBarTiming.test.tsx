@@ -135,4 +135,22 @@ describe('PredictiveProgressBar - Timing', () => {
         expect(screen.getByText(/2[5-9]%|3[0-9]%/)).toBeTruthy()
         vi.useRealTimers()
     })
+
+    it('prioritizes positive etaSeconds over estimatedEndAt when etaBasis is remaining_from_update', () => {
+        const now = 100_000
+        vi.spyOn(Date, 'now').mockReturnValue(now * 1000)
+        render(
+            <PredictiveProgressBar
+                progress={0.5}
+                startedAt={now - 200}
+                etaSeconds={30}
+                etaBasis="remaining_from_update"
+                estimatedEndAt={now - 100}
+                updatedAt={now}
+                status="running"
+            />
+        )
+        expect(screen.getByText(/ETA: 0:30/i)).toBeTruthy()
+        vi.restoreAllMocks()
+    })
 })

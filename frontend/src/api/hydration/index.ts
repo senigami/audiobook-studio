@@ -184,28 +184,53 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
         return item;
       }
 
+      const isSnapshotTerminal = ['done', 'failed', 'cancelled'].includes(item.status);
+      const isOverlayActive = ['queued', 'preparing', 'running', 'finalizing'].includes(delta.status || '');
+
+      const hasSnapshotTimestamps = typeof item.updated_at === 'number' || typeof item.started_at === 'number' || typeof item.created_at === 'number';
+
+      let isOverlayNewer = true;
+
+      if (isOverlayActive && isSnapshotTerminal) {
+        isOverlayNewer = false;
+        if (typeof delta.updated_at === 'number' && typeof item.updated_at === 'number' && delta.updated_at > item.updated_at) {
+          isOverlayNewer = true;
+        } else if (typeof delta.started_at === 'number' && typeof item.started_at === 'number' && delta.started_at > item.started_at) {
+          isOverlayNewer = true;
+        } else if (!hasSnapshotTimestamps) {
+          isOverlayNewer = true;
+        }
+      }
+
+      const status = isOverlayNewer ? ((delta.status as LegacyStatus) ?? item.status) : item.status;
+      const progress = (isOverlayActive && isSnapshotTerminal && isOverlayNewer)
+        ? (delta.progress ?? 0)
+        : (isOverlayActive && isSnapshotTerminal && !isOverlayNewer)
+          ? (item.progress ?? 0)
+          : Math.max(delta.progress ?? 0, item.progress ?? 0);
+
       // Merge trusted fields from overlay
       const merged: ProcessingQueueItem = {
         ...item,
         classification: delta.classification ?? item.classification,
         parent_job_id: delta.parent_job_id ?? item.parent_job_id,
-        status: (delta.status as LegacyStatus) ?? item.status,
-        progress: Math.max(delta.progress ?? 0, item.progress ?? 0),
-        eta_seconds: delta.eta_seconds !== undefined ? (delta.eta_seconds ?? undefined) : item.eta_seconds,
-        eta_basis: delta.eta_basis ?? item.eta_basis,
-        estimated_end_at: delta.estimated_end_at !== undefined ? (delta.estimated_end_at ?? undefined) : item.estimated_end_at,
-        started_at: delta.started_at !== undefined ? (delta.started_at ?? undefined) : item.started_at,
-        log: delta.message ?? item.log,
-        error: delta.error ?? delta.message ?? item.error,
-        render_group_count: delta.render_group_count !== undefined ? delta.render_group_count ?? undefined : item.render_group_count,
-        completed_render_groups: delta.completed_render_groups !== undefined ? delta.completed_render_groups ?? undefined : item.completed_render_groups,
-        active_render_group_index: delta.active_render_group_index !== undefined ? delta.active_render_group_index ?? undefined : item.active_render_group_index,
-        total_render_weight: delta.total_render_weight !== undefined ? delta.total_render_weight ?? undefined : item.total_render_weight,
-        completed_render_weight: delta.completed_render_weight !== undefined ? delta.completed_render_weight ?? undefined : item.completed_render_weight,
-        active_render_group_weight: delta.active_render_group_weight !== undefined ? delta.active_render_group_weight ?? undefined : item.active_render_group_weight,
-        grouped_progress: delta.grouped_progress !== undefined ? delta.grouped_progress ?? undefined : item.grouped_progress,
-        active_segment_id: delta.active_segment_id !== undefined ? delta.active_segment_id ?? undefined : item.active_segment_id,
-        active_segment_progress: delta.active_segment_progress !== undefined ? delta.active_segment_progress ?? undefined : item.active_segment_progress,
+        status,
+        progress,
+        eta_seconds: isOverlayNewer ? (delta.eta_seconds !== undefined ? (delta.eta_seconds ?? undefined) : item.eta_seconds) : item.eta_seconds,
+        eta_basis: isOverlayNewer ? (delta.eta_basis ?? item.eta_basis) : item.eta_basis,
+        estimated_end_at: isOverlayNewer ? (delta.estimated_end_at !== undefined ? (delta.estimated_end_at ?? undefined) : item.estimated_end_at) : item.estimated_end_at,
+        started_at: isOverlayNewer ? (delta.started_at !== undefined ? (delta.started_at ?? undefined) : item.started_at) : item.started_at,
+        log: isOverlayNewer ? (delta.message ?? item.log) : item.log,
+        error: isOverlayNewer ? (delta.error ?? delta.message ?? item.error) : item.error,
+        render_group_count: isOverlayNewer ? (delta.render_group_count !== undefined ? delta.render_group_count ?? undefined : item.render_group_count) : item.render_group_count,
+        completed_render_groups: isOverlayNewer ? (delta.completed_render_groups !== undefined ? delta.completed_render_groups ?? undefined : item.completed_render_groups) : item.completed_render_groups,
+        active_render_group_index: isOverlayNewer ? (delta.active_render_group_index !== undefined ? delta.active_render_group_index ?? undefined : item.active_render_group_index) : item.active_render_group_index,
+        total_render_weight: isOverlayNewer ? (delta.total_render_weight !== undefined ? delta.total_render_weight ?? undefined : item.total_render_weight) : item.total_render_weight,
+        completed_render_weight: isOverlayNewer ? (delta.completed_render_weight !== undefined ? delta.completed_render_weight ?? undefined : item.completed_render_weight) : item.completed_render_weight,
+        active_render_group_weight: isOverlayNewer ? (delta.active_render_group_weight !== undefined ? delta.active_render_group_weight ?? undefined : item.active_render_group_weight) : item.active_render_group_weight,
+        grouped_progress: isOverlayNewer ? (delta.grouped_progress !== undefined ? delta.grouped_progress ?? undefined : item.grouped_progress) : item.grouped_progress,
+        active_segment_id: isOverlayNewer ? (delta.active_segment_id !== undefined ? delta.active_segment_id ?? undefined : item.active_segment_id) : item.active_segment_id,
+        active_segment_progress: isOverlayNewer ? (delta.active_segment_progress !== undefined ? delta.active_segment_progress ?? undefined : item.active_segment_progress) : item.active_segment_progress,
       };
 
       // Apply Finalizing Hold heuristic

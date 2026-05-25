@@ -40,6 +40,22 @@ const copyRenderGroupFields = (target: Record<string, any>, source: Record<strin
   }
 };
 
+const resolveEventUpdatedAt = (event: any, payload: any): number => {
+  if (typeof payload?.updatedAt === 'number') return payload.updatedAt;
+  if (typeof payload?.updated_at === 'number') return payload.updated_at;
+  if (typeof payload?.updatedAt === 'string') {
+    const val = Date.parse(payload.updatedAt) / 1000;
+    if (!isNaN(val)) return val;
+  }
+  if (typeof payload?.updated_at === 'string') {
+    const val = Date.parse(payload.updated_at) / 1000;
+    if (!isNaN(val)) return val;
+  }
+  if (typeof event?.emittedAt === 'number') return event.emittedAt;
+  if (typeof event?.emitted_at === 'number') return event.emitted_at;
+  return Date.now() / 1000;
+};
+
 const adaptEventToJobUpdates = (event: any) => {
   const payload = event.payload || {};
 
@@ -64,7 +80,9 @@ const adaptEventToJobUpdates = (event: any) => {
     progress: getVal('progress', 'progress'),
     eta_seconds: getVal('etaSeconds', 'eta_seconds'),
     started_at: getVal('startedAt', 'started_at'),
-    updated_at: getVal('updatedAt', 'updated_at'),
+    updated_at: resolveEventUpdatedAt(event, payload),
+    db_updated_at: typeof (getVal('updatedAt', 'updated_at')) === 'number' ? getVal('updatedAt', 'updated_at') : (typeof (getVal('updatedAt', 'updated_at')) === 'string' ? Date.parse(getVal('updatedAt', 'updated_at') as string) / 1000 : undefined),
+    db_started_at: typeof (getVal('startedAt', 'started_at')) === 'number' ? getVal('startedAt', 'started_at') : (typeof (getVal('startedAt', 'started_at')) === 'string' ? Date.parse(getVal('startedAt', 'started_at') as string) / 1000 : undefined),
     estimated_end_at: getVal('estimatedEndAt', 'estimated_end_at'),
     reason_code: rCode,
     render_group_count: getVal('renderGroupCount', 'render_group_count'),
@@ -122,27 +140,68 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
       copyRenderGroupFields(nextUpdates, updates as Record<string, any>);
       const incomingStatus = typeof nextUpdates.status === 'string' ? nextUpdates.status : undefined;
       const currentStatus = typeof oldJob.status === 'string' ? oldJob.status : undefined;
+
+      const dbUpdatedAt = updates.db_updated_at;
+      const dbStartedAt = updates.db_started_at;
+
+      const oldUpdatedAt = oldJob.updated_at;
+      const oldFinishedAt = oldJob.finished_at;
+      const oldStartedAt = oldJob.started_at;
+
+      const hasOldTimestamps = typeof oldUpdatedAt === 'number' || typeof oldFinishedAt === 'number' || typeof oldStartedAt === 'number';
+      const hasIncomingDbTimestamps = typeof dbUpdatedAt === 'number' || typeof dbStartedAt === 'number';
+
+      const isRollbackStatus = ['queued', 'preparing', 'running'].includes(incomingStatus || '');
+
+      const isNewerRun = isRollbackStatus && (
+        (hasIncomingDbTimestamps && (
+          !hasOldTimestamps ||
+          (typeof dbUpdatedAt === 'number' && (
+            (typeof oldUpdatedAt !== 'number' || dbUpdatedAt > oldUpdatedAt) &&
+            (typeof oldFinishedAt !== 'number' || dbUpdatedAt > oldFinishedAt)
+          )) ||
+          (typeof dbStartedAt === 'number' && (
+            (typeof oldStartedAt !== 'number' || dbStartedAt > oldStartedAt)
+          ))
+        )) ||
+        (!hasIncomingDbTimestamps && (
+          (!['done', 'failed', 'cancelled'].includes(currentStatus || '') || hasOldTimestamps) &&
+          (typeof updates.updated_at === 'number' && (
+            (typeof oldUpdatedAt !== 'number' || updates.updated_at > oldUpdatedAt) &&
+            (typeof oldFinishedAt !== 'number' || updates.updated_at > oldFinishedAt)
+          ))
+        ))
+      );
+
       if (incomingStatus && currentStatus) {
         const incomingPriority = STATUS_PRIORITY[incomingStatus] ?? 0;
         const currentPriority = STATUS_PRIORITY[currentStatus] ?? 0;
-        if (currentPriority >= 5 && incomingPriority < currentPriority) {
-          return prev;
-        }
-        if (incomingPriority < currentPriority) {
-          delete nextUpdates.status;
+
+        if (!isNewerRun) {
+          if (currentPriority >= 5 && incomingPriority < currentPriority) {
+            if (nextUpdates.active_segment_id !== undefined || nextUpdates.active_segment_progress !== undefined) {
+              delete nextUpdates.status;
+              delete nextUpdates.progress;
+            } else {
+              return prev;
+            }
+          } else if (incomingPriority < currentPriority) {
+            delete nextUpdates.status;
+          }
         }
       }
 
       if (typeof nextUpdates.progress === 'number') {
         const currentProgress = typeof oldJob.progress === 'number' ? oldJob.progress : 0;
         const effectiveStatus = (nextUpdates.status as string | undefined) ?? currentStatus;
-        if (!['queued', 'preparing'].includes(effectiveStatus || '') && nextUpdates.progress < currentProgress) {
+        if (!isNewerRun && !['queued', 'preparing'].includes(effectiveStatus || '') && nextUpdates.progress < currentProgress) {
           delete nextUpdates.progress;
         }
       }
 
       const effectiveStatus = (nextUpdates.status as string | undefined) ?? currentStatus;
       if (
+        !isNewerRun &&
         typeof oldJob.started_at === 'number'
         && typeof nextUpdates.started_at === 'number'
         && ['running', 'processing', 'finalizing', 'done'].includes(effectiveStatus || '')
@@ -237,36 +296,44 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         case 'segments.progress': {
           recordWebsocketDebugMessage('useJobs', data, raw, envelope);
           recordLiveEventSubscriberObservation(envelope?.frameId, 'segment-state', 'handled');
+
+          const getVal = (keyCamel: string, keySnake: string) => {
+            if (payload[keyCamel] !== undefined) return payload[keyCamel];
+            if (payload[keySnake] !== undefined) return payload[keySnake];
+            return undefined;
+          };
+
+          const segmentProg = getVal('activeSegmentProgress', 'active_segment_progress') ?? payload.progress;
+
           if (event.segmentId) {
             const next: SegmentProgress = {
               job_id: event.jobId || '',
               chapter_id: event.chapterId || '',
               segment_id: event.segmentId,
-              progress: payload.progress,
+              progress: segmentProg,
             };
             setSegmentProgress(prev => ({ ...prev, [next.segment_id]: next }));
           }
           if (event.jobId) {
             recordLiveEventSubscriberObservation(envelope?.frameId, 'chapter-state', 'handled');
 
-            const getVal = (keyCamel: string, keySnake: string) => {
-              if (payload[keyCamel] !== undefined) return payload[keyCamel];
-              if (payload[keySnake] !== undefined) return payload[keySnake];
-              return undefined;
-            };
-
             const rawStatus = getVal('status', 'status');
             const projectedStatus = (rawStatus && rawStatus !== 'done' && rawStatus !== 'failed' && rawStatus !== 'cancelled')
               ? rawStatus
               : undefined;
 
+            const rawUpdatedAt = getVal('updatedAt', 'updated_at');
+            const rawStartedAt = getVal('startedAt', 'started_at');
+
             const projectedUpdates: any = {
               active_segment_id: event.segmentId,
-              active_segment_progress: getVal('activeSegmentProgress', 'active_segment_progress') ?? payload.progress,
+              active_segment_progress: segmentProg,
               status: projectedStatus,
-              eta_seconds: getVal('etaSeconds', 'eta_seconds'),
               reason_code: getVal('reasonCode', 'reason_code'),
               log: payload.message || payload.log,
+              updated_at: resolveEventUpdatedAt(event, payload),
+              db_updated_at: typeof rawUpdatedAt === 'number' ? rawUpdatedAt : (typeof rawUpdatedAt === 'string' ? Date.parse(rawUpdatedAt) / 1000 : undefined),
+              db_started_at: typeof rawStartedAt === 'number' ? rawStartedAt : (typeof rawStartedAt === 'string' ? Date.parse(rawStartedAt) / 1000 : undefined),
             };
 
             // Remove undefined keys so we don't clear existing job keys unless intended

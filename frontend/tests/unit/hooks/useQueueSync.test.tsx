@@ -449,4 +449,179 @@ describe('useQueueSync', () => {
       expect(job?.status).toBe('queued');
     });
   });
+
+  it('does not clamp progress of a newer active overlay to 1.0 when merging with a stale done snapshot item', async () => {
+    const jobItem = {
+      id: 'job-stale',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'done' as const,
+      progress: 1.0,
+      updated_at: 100,
+      created_at: 50,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      progress: 0.44,
+      updatedAt: 200,
+      classification: 'job',
+    }, { jobId: 'job-stale' });
+
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'job-stale');
+      expect(job).toBeDefined();
+      expect(job?.status).toBe('running');
+      expect(job?.progress).toBe(0.44);
+    });
+  });
+
+  it('clamps/ignores overlay status when the overlay is not provably newer than the done snapshot', async () => {
+    const jobItem = {
+      id: 'job-stale-older',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'done' as const,
+      progress: 1.0,
+      updated_at: 200,
+      created_at: 50,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      progress: 0.44,
+      updatedAt: 100,
+      classification: 'job',
+    }, { jobId: 'job-stale-older' });
+
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const job = result.current.queue.find((q: any) => q.id === 'job-stale-older');
+    expect(job?.status).toBe('done');
+    expect(job?.progress).toBe(1.0);
+  });
+
+  it('confirms queue.items positive etaSeconds is stored from the socket payload', async () => {
+    const jobItem = {
+      id: 'job-eta-test',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'running',
+      progress: 0.1,
+      eta_seconds: 0,
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      progress: 0.2,
+      etaSeconds: 15,
+      classification: 'job',
+    }, { jobId: 'job-eta-test' });
+
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'job-eta-test');
+      expect(job).toBeDefined();
+      expect(job?.eta_seconds).toBe(15);
+    });
+  });
+
+  it('proves tts.logs does not update queue ETA', async () => {
+    const jobItem = {
+      id: 'job-tts-ignore',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'running',
+      progress: 0.1,
+      eta_seconds: 30,
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('tts.logs', 'tts_log', {
+      line: '[PROGRESS] 50% job-tts-ignore, ETA 10 seconds',
+    }, { jobId: 'job-tts-ignore' });
+
+    // Wait small delay to ensure it is ignored
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    const job = result.current.queue.find((q: any) => q.id === 'job-tts-ignore');
+    expect(job?.eta_seconds).toBe(30);
+  });
+
+  it('confirms queue.items positive etaSeconds stores eta_seconds and eta_basis="remaining_from_update" by default', async () => {
+    const jobItem = {
+      id: 'job-basis-default',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'running',
+      progress: 0.1,
+      eta_seconds: 0,
+      eta_basis: 'total_from_start',
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      progress: 0.2,
+      etaSeconds: 15,
+      classification: 'job',
+    }, { jobId: 'job-basis-default' });
+
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'job-basis-default');
+      expect(job).toBeDefined();
+      expect(job?.eta_seconds).toBe(15);
+      expect(job?.eta_basis).toBe('remaining_from_update');
+    });
+  });
+
+  it('replaces total_from_start with remaining_from_update on a later queue.items positive update', async () => {
+    const jobItem = {
+      id: 'job-basis-update',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'running',
+      progress: 0.1,
+      eta_seconds: 40,
+      eta_basis: 'total_from_start',
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      progress: 0.3,
+      etaSeconds: 20,
+      classification: 'job',
+    }, { jobId: 'job-basis-update' });
+
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'job-basis-update');
+      expect(job).toBeDefined();
+      expect(job?.eta_seconds).toBe(20);
+      expect(job?.eta_basis).toBe('remaining_from_update');
+    });
+  });
 });
