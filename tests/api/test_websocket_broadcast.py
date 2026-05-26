@@ -1422,7 +1422,9 @@ def test_rebuild_emits_minimum_necessary_queue_state_transitions(monkeypatch):
 
     from app.orchestration.progress.service import ProgressService
 
-    broadcaster = lambda payload, channel: DummyManager().broadcast(payload)
+    def broadcaster(payload, channel):
+        DummyManager().broadcast(payload)
+
     progress_service = ProgressService(
         reconcile_fn=lambda **kwargs: kwargs,
         eta_fn=lambda **kwargs: 0.0,
