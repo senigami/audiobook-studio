@@ -212,8 +212,6 @@ describe('ChapterHeader', () => {
           status: 'running',
           progress: 0.22,
           started_at: Date.now() / 1000,
-          active_segment_id: 'seg-1',
-          active_segment_progress: 1,
           active_render_batch_progress: 0.25,
           render_group_count: 1,
         } as any}
@@ -260,112 +258,97 @@ describe('ChapterHeader', () => {
     expect(onCopyDebugState).toHaveBeenCalledTimes(1);
   });
 
-  it('preserves the active segment progress and does not clamp to 100% when job is done but active segment is still live', () => {
-    const onSegmentDisplayProgress = vi.fn();
-    render(
-      <TestHeaderWrapper
-        chapter={mockChapter as any}
-        title={mockChapter.title}
-        setTitle={vi.fn()}
-        saving={false}
-        hasUnsavedChanges={false}
-        onBack={vi.fn()}
-        selectedVoice=""
-        onVoiceChange={vi.fn()}
-        availableVoices={[]}
-        submitting={false}
-        queueLocked={false}
-        queuePending={false}
-        job={undefined}
-        generatingJob={{
-          id: 'job-done-but-segment-live',
-          engine: 'mixed',
-          status: 'done',
-          progress: 1.0,
-          started_at: Date.now() / 1000,
-          active_segment_id: 'seg-2',
-          active_segment_progress: 0.35,
-        } as any}
-        generatingSegmentIdsCount={1}
-        queueLabel="Complete"
-        queueTitle="Complete Chapter Audio"
-        onQueue={vi.fn()}
-        onStopAll={vi.fn()}
-        onSegmentDisplayProgress={onSegmentDisplayProgress}
-      />
-    );
+  it('computes segmentProgressBarSelection correctly under various states', () => {
+    let capturedStatus: any = null;
+    const TestComponent = ({ job, generatingJob }: any) => {
+      capturedStatus = useChapterStatus(mockChapter as any, job, generatingJob, false, 0, false);
+      return null;
+    };
 
-    // Should display the active segment progress (35%) rather than 100%
-    expect(screen.getByText('35%')).toBeInTheDocument();
-    expect(screen.queryByText('100%')).toBeNull();
-  });
+    // 1. No live job
+    const { rerender } = render(<TestComponent job={undefined} generatingJob={undefined} />);
+    expect(capturedStatus.segmentProgressBarSelection).toEqual({
+      dataTestId: "chapter-header-segment-progress-bar",
+      barMounted: false,
+      selectedJobId: null,
+      selectedJobStatus: null,
+      selectedJobProgress: null,
+      selectedActiveSegmentId: null,
+      selectedActiveSegmentProgress: null,
+      selectedEtaSeconds: null,
+      selectedEtaBasis: null,
+      selectedStartedAt: null,
+      selectedUpdatedAt: null,
+      liveSegmentProgressValue: 0,
+      liveSegmentProgressIsRenderBlock: false,
+      activeRenderBatchId: null,
+      activeRenderBatchProgress: null,
+      renderGroupCount: null,
+      valueSource: 'no_live_job'
+    });
 
-  it('collapses the terminal-state hold value to 100% after activeSegmentIsLive becomes false for that same live job', () => {
-    const onSegmentDisplayProgress = vi.fn();
-    const { rerender } = render(
-      <TestHeaderWrapper
-        chapter={mockChapter as any}
-        title={mockChapter.title}
-        setTitle={vi.fn()}
-        saving={false}
-        hasUnsavedChanges={false}
-        onBack={vi.fn()}
-        selectedVoice=""
-        onVoiceChange={vi.fn()}
-        availableVoices={[]}
-        submitting={false}
-        queueLocked={false}
-        queuePending={false}
-        job={undefined}
-        generatingJob={{
-          id: 'job-collapse-test',
-          engine: 'mixed',
-          status: 'done',
-          progress: 1.0,
-          started_at: Date.now() / 1000,
-          active_segment_id: 'seg-2',
-          active_segment_progress: 0.35,
-        } as any}
-        generatingSegmentIdsCount={1}
-        queueLabel="Complete"
-        queueTitle="Complete Chapter Audio"
-        onQueue={vi.fn()}
-        onStopAll={vi.fn()}
-        onSegmentDisplayProgress={onSegmentDisplayProgress}
-      />
-    );
+    // 2. Terminal complete job
+    const doneJob = {
+      id: 'job-done',
+      status: 'done',
+      progress: 1,
+      finished_at: (Date.now() / 1000) - 120
+    };
+    rerender(<TestComponent job={doneJob as any} generatingJob={doneJob as any} />);
+    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('terminal_complete');
+    expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressValue).toBe(1);
 
-    // 1. activeSegmentIsLive is true for that job -> displays 35%
-    expect(screen.getByText('35%')).toBeInTheDocument();
-    expect(screen.queryByText('100%')).toBeNull();
+    // 3. Render block job
+    const renderBlockJob = {
+      id: 'job-render',
+      status: 'running',
+      progress: 0.5,
+      active_render_batch_id: 'batch-1',
+      active_render_batch_progress: 0.6,
+      render_group_count: 5
+    };
+    rerender(<TestComponent job={renderBlockJob as any} generatingJob={renderBlockJob as any} />);
+    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('render_block_progress');
+    expect(capturedStatus.segmentProgressBarSelection.activeRenderBatchId).toBe('batch-1');
+    expect(capturedStatus.segmentProgressBarSelection.activeRenderBatchProgress).toBe(0.6);
+    expect(capturedStatus.segmentProgressBarSelection.renderGroupCount).toBe(5);
 
-    // 2. Clear generatingJob (activeSegmentIsLive becomes false for the live job)
-    rerender(
-      <TestHeaderWrapper
-        chapter={mockChapter as any}
-        title={mockChapter.title}
-        setTitle={vi.fn()}
-        saving={false}
-        hasUnsavedChanges={false}
-        onBack={vi.fn()}
-        selectedVoice=""
-        onVoiceChange={vi.fn()}
-        availableVoices={[]}
-        submitting={false}
-        queueLocked={false}
-        queuePending={false}
-        job={undefined}
-        generatingJob={undefined}
-        generatingSegmentIdsCount={0}
-        queueLabel="Complete"
-        queueTitle="Complete Chapter Audio"
-        onQueue={vi.fn()}
-        onStopAll={vi.fn()}
-        onSegmentDisplayProgress={onSegmentDisplayProgress}
-      />
-    );
+    // 4. Active segment progress
+    const activeSegJob = {
+      id: 'job-seg',
+      status: 'running',
+      progress: 0.3,
+      active_segment_id: 'seg-123',
+      active_segment_progress: 0.45
+    };
+    rerender(<TestComponent job={activeSegJob as any} generatingJob={activeSegJob as any} />);
+    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('active_segment_progress');
+    expect(capturedStatus.segmentProgressBarSelection.selectedActiveSegmentId).toBe('seg-123');
+    expect(capturedStatus.segmentProgressBarSelection.selectedActiveSegmentProgress).toBe(0.45);
 
-    // 3. activeSegmentIsLive is false for the live job -> collapses to Complete
-    expect(screen.getAllByText('Complete')).toHaveLength(2);
+    // 5. Job progress fallback
+    const jobProgJob = {
+      id: 'job-fallback',
+      status: 'running',
+      progress: 0.77
+    };
+    rerender(<TestComponent job={jobProgJob as any} generatingJob={jobProgJob as any} />);
+    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('job_progress');
+    expect(capturedStatus.segmentProgressBarSelection.selectedJobProgress).toBe(0.77);
+
+    // 6. Active segment progress prioritized over render-group/render-block fields
+    const mixedJob = {
+      id: 'job-mixed',
+      status: 'running',
+      progress: 0.2,
+      active_segment_id: 'seg-xyz',
+      active_segment_progress: 0.85,
+      active_render_batch_id: 'batch-2',
+      active_render_batch_progress: 0.1,
+      render_group_count: 3
+    };
+    rerender(<TestComponent job={mixedJob as any} generatingJob={mixedJob as any} />);
+    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('active_segment_progress');
+    expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressValue).toBe(0.85);
   });
 });

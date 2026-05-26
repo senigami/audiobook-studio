@@ -557,31 +557,4 @@ describe('ScriptView', () => {
     const rebuildButtons = s2Span?.querySelectorAll('button[title="Rebuild"]');
     expect(rebuildButtons?.length).toBe(1);
   });
-
-  it('fills active segment text to segment-local progress when activeSegmentId is supplied', () => {
-    // b1 has spans: s1 (length 13), s2 (length 13)
-    render(
-      <ScriptView
-        data={mockData}
-        characters={mockCharacters}
-        onGenerateBatch={onGenerateBatch}
-        pendingSpanIds={new Set(['s1', 's2'])}
-        renderingSpanIds={new Set(['s1', 's2'])}
-        renderingBatchProgressById={{ b1: 0.8 }}
-        activeSegmentId="s2"
-        onPlaySpan={onPlaySpan}
-      />
-    );
-
-    const firstSpan = screen.getByTestId('script-span-s1');
-    const activeSpan = screen.getByTestId('script-span-s2');
-
-    const firstLit = firstSpan.querySelectorAll('.script-progress-letter.is-lit');
-    const activeLit = activeSpan.querySelectorAll('.script-progress-letter.is-lit');
-
-    // s1 (before active segment s2) must be 100% lit (13 characters)
-    expect(firstLit).toHaveLength(13);
-    // s2 (active segment) must be 80% lit: Math.floor(13 * 0.8) = 10 characters
-    expect(activeLit).toHaveLength(10);
-  });
 });

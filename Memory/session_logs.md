@@ -1571,3 +1571,9 @@
 - Returned the persisted telemetry snapshot from `segmentProgressBarDebug` when the progress bar unmounts (setting `isActiveNow: false`, `persistedAfterUnmount: true`, and `mismatch: true`), ensuring the clipboard copy debug payload remains fully populated and doesn't drop to null.
 - Added `isActiveNow` and `persistedAfterUnmount` fields to the contract test suite in [ChapterHeaderProgressContract.test.tsx](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/tests/unit/pages/ChapterEditor/components/ChapterHeaderProgressContract.test.tsx) and integration tests in [ChapterEditorPage.test.tsx](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/tests/unit/pages/ChapterEditor/ChapterEditorPage.test.tsx) to verify correct flag state toggles before and after unmount.
 - Verified that all 639 frontend Vitest tests, lint checks, production builds, and git diff checks are clean.
+
+# 2026-05-26 - Backend segment-start ETA seeding
+
+- Added `eta_seconds` to the `[START_SEGMENT]` publish path in [app/orchestration/scheduler/orchestrator_helpers.py](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/app/orchestration/scheduler/orchestrator_helpers.py) so the first visible segment tick can carry the backend's historical ETA estimate instead of starting at null.
+- Extended [tests/orchestration/test_watchdog_progress_logic.py](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/tests/orchestration/test_watchdog_progress_logic.py) to emit `[START_SYNTHESIS]` and `[START_SEGMENT]` in sequence and assert that the segment-running publish keeps a non-null ETA seed.
+- Verified the focused backend regression tests passed and `git diff --check` stayed clean.

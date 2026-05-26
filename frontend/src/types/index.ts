@@ -285,6 +285,7 @@ export interface Job {
   grouped_progress?: number;
   active_render_batch_id?: string | null;
   active_render_batch_progress?: number;
+  segmentProgressUpdates?: any[];
 }
 
 export interface SegmentProgress {

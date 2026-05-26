@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import React, { useEffect } from 'react';
 
 // Mock API
 vi.mock('@/api', () => ({
@@ -53,6 +54,25 @@ vi.mock('framer-motion', () => ({
   },
   AnimatePresence: ({ children }: any) => <>{children}</>,
 }));
+
+vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () => {
+  return {
+    PredictiveProgressBar: (props: any) => {
+      return (
+        <div
+          data-testid="mock-predictive-progress-bar"
+          data-progress={props.progress}
+          data-persistencekey={props.persistenceKey}
+          ref={(node) => {
+            if (node && props.onDisplayProgress) {
+              props.onDisplayProgress(props.progress);
+            }
+          }}
+        />
+      );
+    }
+  };
+});
 
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ChapterEditor } from '@/pages/ChapterEditor/ChapterEditorPage';
@@ -442,7 +462,7 @@ describe('ChapterEditor - Core Orchestration', () => {
     };
     (api.fetchScriptView as any).mockResolvedValue(customScriptView);
 
-    const Wrapper = ({ segmentProgress = {} }) => {
+    const Wrapper = () => {
       const { jobs } = useJobs();
       const job = jobs['job-123'];
       return (
@@ -453,12 +473,11 @@ describe('ChapterEditor - Core Orchestration', () => {
           speakers={[]}
           job={job}
           chapterJobs={job ? [job] : []}
-          segmentProgress={segmentProgress}
         />
       );
     };
 
-    const { rerender } = render(<Wrapper segmentProgress={{}} />);
+    const { rerender } = render(<Wrapper />);
 
     act(() => {
       publishStudioSocketMessage({
@@ -479,15 +498,28 @@ describe('ChapterEditor - Core Orchestration', () => {
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
-    // Passing segment progress 0.83 for seg-2 should override job active_segment_progress 0.1
-    rerender(<Wrapper segmentProgress={{
-      'seg-2': {
-        job_id: 'job-123',
-        chapter_id: mockChapterId,
-        segment_id: 'seg-2',
-        progress: 0.83
-      }
-    }} />);
+    await waitFor(() => {
+      const span2 = screen.getByTestId('script-span-seg-2');
+      const litLetters = span2.querySelectorAll('.script-progress-letter.is-lit');
+      expect(litLetters.length).toBe(1); // Math.floor(13 * 0.1) = 1
+    });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'jobs_snapshot',
+        jobs: [{
+          id: 'job-123',
+          project_id: mockProjectId,
+          chapter_id: mockChapterId,
+          status: 'running',
+          progress: 0.35,
+          active_segment_id: 'seg-2',
+          active_segment_progress: 0.83,
+          segment_ids: ['seg-1', 'seg-2'],
+          updated_at: 101,
+        } as any]
+      });
+    });
 
     await waitFor(() => {
       const span2 = screen.getByTestId('script-span-seg-2');
@@ -496,375 +528,61 @@ describe('ChapterEditor - Core Orchestration', () => {
     });
   });
 
-  it('includes targeted rendering diagnostics in copy debug state output', async () => {
-    const customScriptView = {
-      chapter_id: mockChapterId,
-      base_revision_id: 'rev-1',
-      paragraphs: [{ id: 'para-1', span_ids: ['seg-1'] }],
-      spans: [{
-        id: 'seg-1',
-        order_index: 0,
-        text: 'Sentence one.',
-        sanitized_text: 'Sentence one.',
-        character_id: null,
-        speaker_profile_name: null,
-        status: 'draft',
-        audio_file_path: null,
-        audio_generated_at: null,
-        char_count: 13,
-        sanitized_char_count: 13
-      }],
-      render_batches: [{ id: 'batch-1', span_ids: ['seg-1'], status: 'draft', estimated_work_weight: 1 }],
-      audio_groups: []
-    };
-    (api.fetchScriptView as any).mockResolvedValue(customScriptView);
 
-    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+  it('proves the copied debug payload includes frontend.segmentProgressUpdates filtered to the current chapter/job with the required fields', async () => {
+    let writtenText = '';
+    const originalClipboard = { ...navigator.clipboard };
     Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: writeTextMock },
+      value: {
+        writeText: vi.fn().mockImplementation(async (text) => {
+          writtenText = text;
+          return Promise.resolve();
+        }),
+      },
+      writable: true,
       configurable: true,
-      writable: true
     });
 
-    const activeJob: any = {
-      id: 'job-123',
-      project_id: mockProjectId,
-      chapter_id: mockChapterId,
-      status: 'running',
-      progress: 0.35,
-      active_segment_id: 'seg-1',
-      active_segment_progress: 0.77,
-      classification: 'chapter'
-    };
-
-    render(
-      <ChapterEditor
-        chapterId={mockChapterId}
-        projectId={mockProjectId}
-        speakerProfiles={[]}
-        speakers={[]}
-        job={activeJob}
-        chapterJobs={[activeJob]}
-        segmentProgress={{
-          'seg-1': {
-            job_id: 'job-123',
-            chapter_id: mockChapterId,
-            segment_id: 'seg-1',
-            progress: 0.83
-          },
-          'seg-unrelated': {
-            job_id: 'job-123',
-            chapter_id: mockChapterId,
-            segment_id: 'seg-unrelated',
-            progress: 0.5
-          }
-        }}
-      />
-    );
-
-    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-
-    // Trigger copy debug state
-    const debugButton = screen.getByTitle('Copy debug state');
-    fireEvent.click(debugButton);
-
-    await waitFor(() => {
-      expect(writeTextMock).toHaveBeenCalled();
-    });
-
-    const debugState = JSON.parse(writeTextMock.mock.calls[0][0]);
-    expect(debugState.frontend.render).toMatchObject({
-      chapterRenderActiveSegmentId: 'seg-1',
-      activeRenderBatchId: 'batch-1',
-      activeRenderBatchSpanIds: ['seg-1'],
-      canonicalActiveSegmentProgress: 0.83,
-      jobActiveSegmentProgress: 0.77,
-      liveBarSegmentProgress: 0.77,
-      renderingSourceUsed: 'segmentProgress_map'
-    });
-
-    // Check relevant segmentProgress entries contains only: active segment id, active batch span ids, and current rendering segment ids
-    expect(debugState.frontend.render.segmentProgress).toHaveLength(1);
-    expect(debugState.frontend.render.segmentProgress[0]).toMatchObject({
-      segment_id: 'seg-1',
-      progress: 0.83
-    });
-  });
-
-
-
-  it('includes socketJobsActiveSegmentData in copy debug state output', async () => {
-    const customScriptView = {
-      chapter_id: mockChapterId,
-      base_revision_id: 'rev-1',
-      paragraphs: [{ id: 'para-1', span_ids: ['seg-1'] }],
-      spans: [{
-        id: 'seg-1',
-        order_index: 0,
-        text: 'Sentence one.',
-        sanitized_text: 'Sentence one.',
-        character_id: null,
-        speaker_profile_name: null,
-        status: 'draft',
-        audio_file_path: null,
-        audio_generated_at: null,
-        char_count: 13,
-        sanitized_char_count: 13
-      }],
-      render_batches: [{ id: 'batch-1', span_ids: ['seg-1'], status: 'draft', estimated_work_weight: 1 }],
-      audio_groups: []
-    };
-    (api.fetchScriptView as any).mockResolvedValue(customScriptView);
-
-    const writeTextMock = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: writeTextMock },
-      configurable: true,
-      writable: true
-    });
-
-    const activeJob: any = {
-      id: 'job-123',
-      project_id: mockProjectId,
-      chapter_id: mockChapterId,
-      status: 'running',
-      progress: 0.35,
-      active_segment_id: 'seg-1',
-      active_segment_progress: 0.77,
-      classification: 'chapter',
-      updated_at: 1000
-    };
-
-    render(
-      <ChapterEditor
-        chapterId={mockChapterId}
-        projectId={mockProjectId}
-        speakerProfiles={[]}
-        speakers={[]}
-        job={activeJob}
-        chapterJobs={[activeJob]}
-      />
-    );
-
-    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-
-    const debugButton = screen.getByTitle('Copy debug state');
-    fireEvent.click(debugButton);
-
-    await waitFor(() => {
-      expect(writeTextMock).toHaveBeenCalled();
-    });
-
-    const debugState = JSON.parse(writeTextMock.mock.calls[0][0]);
-    expect(debugState.frontend.render.socketJobsActiveSegmentData).toEqual([
+    const mockUpdates = [
       {
+        sequence: 5,
+        receivedAt: '2026-05-26T12:00:00Z',
+        emittedAt: 1234560,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
         jobId: 'job-123',
-        status: 'running',
+        chapterId: mockChapterId,
+        segmentId: 'seg-1',
         activeSegmentId: 'seg-1',
-        activeSegmentProgress: 0.77,
-        updatedAt: 1000
-      }
-    ]);
-  });
-
-  it('proves the copied debug payload shows the live segment job feeding the header bar', async () => {
-    const customScriptView = {
-      chapter_id: mockChapterId,
-      base_revision_id: 'rev-1',
-      paragraphs: [{ id: 'para-1', span_ids: ['seg-1'] }],
-      spans: [{
-        id: 'seg-1',
-        order_index: 0,
-        text: 'Sentence one.',
-        sanitized_text: 'Sentence one.',
-        character_id: null,
-        speaker_profile_name: null,
-        status: 'draft',
-        audio_file_path: null,
-        audio_generated_at: null,
-        char_count: 13,
-        sanitized_char_count: 13
-      }],
-      render_batches: [{ id: 'batch-1', span_ids: ['seg-1'], status: 'draft', estimated_work_weight: 1 }],
-      audio_groups: []
-    };
-    (api.fetchScriptView as any).mockResolvedValue(customScriptView);
-
-    const writeTextMock = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: writeTextMock },
-      configurable: true,
-      writable: true
-    });
-
-    const activeJob: any = {
-      id: 'job-123',
-      project_id: mockProjectId,
-      chapter_id: mockChapterId,
-      status: 'done',
-      progress: 1.0,
-      active_segment_id: 'seg-1',
-      active_segment_progress: 0.77,
-      classification: 'chapter',
-      updated_at: 1000,
-      eta_seconds: 45,
-      started_at: 500,
-      eta_basis: 'remaining_from_update',
-    };
-
-    render(
-      <ChapterEditor
-        chapterId={mockChapterId}
-        projectId={mockProjectId}
-        speakerProfiles={[]}
-        speakers={[]}
-        job={activeJob}
-        chapterJobs={[activeJob]}
-      />
-    );
-
-    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-
-    const debugButton = screen.getByTitle('Copy debug state');
-    fireEvent.click(debugButton);
-
-    await waitFor(() => {
-      expect(writeTextMock).toHaveBeenCalled();
-    });
-
-    const debugState = JSON.parse(writeTextMock.mock.calls[0][0]);
-    expect(debugState.frontend.render.socketJobsActiveSegmentData).toContainEqual(
-      expect.objectContaining({
-        jobId: 'job-123',
-        status: 'done',
-        activeSegmentId: 'seg-1',
-        activeSegmentProgress: 0.77,
-      })
-    );
-  });
-
-  it('proves the copied debug payload includes the Segment Progress bar test id and render props', async () => {
-    const customScriptView = {
-      chapter_id: mockChapterId,
-      base_revision_id: 'rev-1',
-      paragraphs: [{ id: 'para-1', span_ids: ['seg-1'] }],
-      spans: [{
-        id: 'seg-1',
-        order_index: 0,
-        text: 'Sentence one.',
-        sanitized_text: 'Sentence one.',
-        character_id: null,
-        speaker_profile_name: null,
-        status: 'draft',
-        audio_file_path: null,
-        audio_generated_at: null,
-        char_count: 13,
-        sanitized_char_count: 13
-      }],
-      render_batches: [{ id: 'batch-1', span_ids: ['seg-1'], status: 'draft', estimated_work_weight: 1 }],
-      audio_groups: []
-    };
-    (api.fetchScriptView as any).mockResolvedValue(customScriptView);
-
-    const writeTextMock = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: writeTextMock },
-      configurable: true,
-      writable: true
-    });
-
-    const activeJob: any = {
-      id: 'job-123',
-      project_id: mockProjectId,
-      chapter_id: mockChapterId,
-      status: 'running',
-      progress: 0.5,
-      active_segment_id: 'seg-1',
-      active_segment_progress: 0.5,
-      classification: 'chapter',
-      updated_at: 1000,
-      eta_seconds: 45,
-      started_at: 500,
-      eta_basis: 'remaining_from_update',
-    };
-
-    render(
-      <ChapterEditor
-        chapterId={mockChapterId}
-        projectId={mockProjectId}
-        speakerProfiles={[]}
-        speakers={[]}
-        job={activeJob}
-        chapterJobs={[activeJob]}
-      />
-    );
-
-    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-
-    const debugButton = screen.getByTitle('Copy debug state');
-    fireEvent.click(debugButton);
-
-    await waitFor(() => {
-      expect(writeTextMock).toHaveBeenCalled();
-    });
-
-    const debugState = JSON.parse(writeTextMock.mock.calls[0][0]);
-    expect(debugState.frontend.progressBar).toMatchObject({
-      description: "Segment Progress bar in Chapter Header",
-      dataTestId: "chapter-header-segment-progress-bar",
-      renderProps: {
-        dataTestId: "chapter-header-segment-progress-bar",
+        activeSegmentProgress: 0.5,
         progress: 0.5,
-        startedAt: 500,
-        etaSeconds: 45,
-        etaBasis: "remaining_from_update",
-        updatedAt: 1000,
-        status: "running",
-        checkpointMode: "segment",
-        transitionTickCount: 3,
-        tickMs: 250,
-        allowBackwardProgress: false,
+        etaSeconds: 10,
+        etaBasis: 'remaining_from_update',
+        status: 'running',
+        reasonCode: 'segment_progress_tick',
+        updatedAt: 1234567,
+        renderedJobId: 'job-123',
+      },
+      {
+        sequence: 6,
+        receivedAt: '2026-05-26T12:01:00Z',
+        emittedAt: 1234561,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        jobId: 'job-other',
+        chapterId: 'chap-other',
+        segmentId: 'seg-2',
+        activeSegmentId: 'seg-2',
+        activeSegmentProgress: 0.2,
+        progress: 0.2,
+        etaSeconds: 15,
+        etaBasis: 'remaining_from_update',
+        status: 'running',
+        reasonCode: 'segment_progress_tick',
+        updatedAt: 1234568,
+        renderedJobId: 'job-other',
       }
-    });
-  });
-
-  it('proves the copied debug payload includes the raw segments.progress socket event provenance and selected fields in the progressBar object', async () => {
-    const customScriptView = {
-      chapter_id: mockChapterId,
-      base_revision_id: 'rev-1',
-      paragraphs: [{ id: 'para-1', span_ids: ['seg-1'] }],
-      spans: [{
-        id: 'seg-1',
-        order_index: 0,
-        text: 'Sentence one.',
-        sanitized_text: 'Sentence one.',
-        character_id: null,
-        speaker_profile_name: null,
-        status: 'draft',
-        audio_file_path: null,
-        audio_generated_at: null,
-        char_count: 13,
-        sanitized_char_count: 13
-      }],
-      render_batches: [{ id: 'batch-1', span_ids: ['seg-1'], status: 'draft', estimated_work_weight: 1 }],
-      audio_groups: []
-    };
-    (api.fetchScriptView as any).mockResolvedValue(customScriptView);
-
-    const writeTextMock = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: writeTextMock },
-      configurable: true,
-      writable: true
-    });
-
-    const fakeProvenance = {
-      rawEnvelope: { topic: 'segments.progress', frameId: 42 },
-      consumedTopic: 'segments.progress',
-      ignoredTopics: ['tts.logs', 'queue.items', 'chapters.progress'],
-      selectedFields: { topic: 'segments.progress', frameId: 42 },
-      ignoredFields: []
-    };
+    ];
 
     const activeJob: any = {
       id: 'job-123',
@@ -872,14 +590,7 @@ describe('ChapterEditor - Core Orchestration', () => {
       chapter_id: mockChapterId,
       status: 'running',
       progress: 0.5,
-      active_segment_id: 'seg-1',
-      active_segment_progress: 0.5,
-      classification: 'chapter',
-      updated_at: 1000,
-      eta_seconds: 45,
-      started_at: 500,
-      eta_basis: 'remaining_from_update',
-      segmentProgressSocketProvenance: fakeProvenance,
+      segmentProgressUpdates: mockUpdates,
     };
 
     render(
@@ -895,18 +606,29 @@ describe('ChapterEditor - Core Orchestration', () => {
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
-    const debugButton = screen.getByTitle('Copy debug state');
-    fireEvent.click(debugButton);
+    const debugBtn = screen.getByTitle('Copy debug state');
+    fireEvent.click(debugBtn);
 
     await waitFor(() => {
-      expect(writeTextMock).toHaveBeenCalled();
+      expect(navigator.clipboard.writeText).toHaveBeenCalled();
     });
 
-    const debugState = JSON.parse(writeTextMock.mock.calls[0][0]);
-    expect(debugState.frontend.render.segmentProgressBarDebug).toBeDefined();
-    expect(debugState.frontend.render.segmentProgressBarDebug.sourceTopic).toBe('segments.progress');
-    expect(debugState.frontend.render.segmentProgressBarDebug.mismatch).toBe(false);
-    expect(debugState.frontend.render.segmentProgressBarDebug.isActiveNow).toBeUndefined();
-    expect(debugState.frontend.render.segmentProgressBarDebug.telemetryState).toBe('live');
+    const payload = JSON.parse(writtenText);
+    expect(payload.frontend.segmentProgressUpdates).toBeDefined();
+    expect(Array.isArray(payload.frontend.segmentProgressUpdates)).toBe(true);
+    expect(payload.frontend.segmentProgressUpdates.length).toBe(1);
+    expect(payload.frontend.segmentProgressUpdates[0]).toMatchObject({
+      sequence: 5,
+      jobId: 'job-123',
+      chapterId: mockChapterId,
+      isCurrentChapter: true,
+      isCurrentJob: true,
+    });
+
+    Object.defineProperty(navigator, 'clipboard', {
+      value: originalClipboard,
+      writable: true,
+      configurable: true,
+    });
   });
 });

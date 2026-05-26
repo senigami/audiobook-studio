@@ -1306,7 +1306,7 @@ def test_broadcast_job_updated_segment_completion(monkeypatch):
     assert messages[0]["topic"] == "segments.progress"
     assert messages[0]["ids"]["segmentId"] == "seg-1"
     assert messages[0]["payload"]["status"] == "done"
-    assert messages[0]["payload"]["progress"] == 1.0
+    assert messages[0]["payload"]["progress"] == 0.99
 
     assert messages[1]["topic"] == "segments.progress"
     assert messages[1]["ids"]["segmentId"] == "seg-2"

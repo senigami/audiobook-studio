@@ -270,13 +270,14 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
         if not skip_studio_job_event:
             status = str(merged.get("status") or "running")
             seg_status = status if status in ("failed", "cancelled") else "done"
+            seg_progress = 1.0 if status in ("done", "failed", "cancelled") else 0.99
             seg_index = current_job.get("active_render_group_index") or current_job.get("segment_index")
             seg_count = current_job.get("render_group_count") or current_job.get("segment_count")
 
             event = build_segment_progress_event(
                 segment_id=prev_active_segment_id,
                 status=seg_status,
-                progress=1.0,
+                progress=seg_progress,
                 segment_index=seg_index,
                 segment_count=seg_count,
                 message=updates.get("message") or updates.get("log") or merged.get("message"),

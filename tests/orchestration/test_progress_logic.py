@@ -459,13 +459,14 @@ def test_progress_service_segment_completion_matching_outcome():
         active_segment_id=None,
     )
 
-    # Expect segment completion event with status 'done' and progress 1.0, plus chapter progress and queue status event
+    # Expect segment completion event with status 'done' and a near-complete progress value,
+    # plus chapter progress and queue status event.
     assert len(broadcast_events) == 3
     seg_event = broadcast_events[0][0]
     assert seg_event["topic"] == "segments.progress"
     assert seg_event["ids"]["segmentId"] == "seg-1"
     assert seg_event["payload"]["status"] == "done"
-    assert seg_event["payload"]["progress"] == 1.0
+    assert seg_event["payload"]["progress"] == 0.99
 
     # 3. Start another segment
     service.publish(

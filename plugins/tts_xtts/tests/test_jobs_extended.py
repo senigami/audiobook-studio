@@ -238,6 +238,19 @@ def test_handle_xtts_job_standard_ignores_orphan_progress_before_start_segment(m
     ]
     assert active_progress_calls
 
+    pre_start_progress_calls = []
+    for call in mock_update_job.call_args_list:
+        if call.kwargs.get("active_segment_id") == "s1":
+            break
+        progress = call.kwargs.get("progress")
+        if (
+            isinstance(progress, (int, float))
+            and progress > 0
+            and call.kwargs.get("active_segment_id") is None
+        ):
+            pre_start_progress_calls.append(call)
+    assert pre_start_progress_calls == []
+
     for call in mock_update_job.call_args_list:
         status = call.kwargs.get("status")
         if status in {"done", "failed", "cancelled"}:

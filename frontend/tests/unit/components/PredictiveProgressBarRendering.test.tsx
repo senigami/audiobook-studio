@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
 describe('PredictiveProgressBar - Rendering', () => {
     it('renders correctly with given progress', () => {
@@ -212,4 +212,5 @@ describe('PredictiveProgressBar - Rendering', () => {
         )
         expect(screen.getByTestId('custom-test-id-bar')).toBeInTheDocument()
     })
+
 })

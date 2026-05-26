@@ -253,8 +253,13 @@ def test_started_at_marker_driven():
     wd = TtsServerWatchdog()
     with patch("app.engines.watchdog.get_watchdog", return_value=wd):
         def side_effect(*args, **kwargs):
-            # Emit START_SYNTHESIS
-            wd._drain_stream(None, "stdout", MockStream(["[START_SYNTHESIS] job-1\n"]))
+            # Emit START_SYNTHESIS followed by START_SEGMENT to verify the
+            # segment handoff carries the same predicted ETA seed.
+            wd._drain_stream(
+                None,
+                "stdout",
+                MockStream(["[START_SYNTHESIS] job-1\n", "[START_SEGMENT] seg-1\n"]),
+            )
             return {"status": "ok"}
 
         bridge.synthesize.side_effect = side_effect
@@ -275,6 +280,13 @@ def test_started_at_marker_driven():
     assert running_event["started_at"] is not None
     assert running_event["started_at"] > 0
     assert running_event["eta_seconds"] == 25
+
+    segment_running_event = next(
+        e for e in orc.published
+        if e["status"] == "running" and e.get("active_segment_id") == "seg-1"
+    )
+    assert segment_running_event["eta_seconds"] == 25
+    assert segment_running_event["started_at"] is not None
 
 
 class MockScriptedTask(StudioTask):
@@ -359,4 +371,3 @@ def test_watchdog_uses_readline_to_avoid_buffering():
     # We want it to have called readline, not __iter__
     assert stream.readline_called > 0
     assert stream.iter_called == 0
-

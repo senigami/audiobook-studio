@@ -211,6 +211,31 @@ def test_handle_xtts_segments_mode(mock_job, mock_params):
         assert call.kwargs.get("skip_studio_job_event") is True
         assert call.kwargs.get("skip_job_updated") is True
 
+
+def test_handle_xtts_segments_clamps_full_progress_before_save(mock_job, mock_params):
+    """A raw 100% progress marker should not surface as a terminal-looking segment bar blip."""
+    mock_job.segment_ids = ["seg1"]
+    segs = [{"id": "seg1", "text_content": "T1", "character_id": "c1", "speaker_profile_name": "S1"}]
+
+    def generate_with_full_progress(**kwargs):
+        on_output = kwargs["on_output"]
+        on_output("[START_SEGMENT] seg1")
+        on_output("[PROGRESS] 100%")
+        return 0
+
+    with patch("app.db.get_chapter_segments", return_value=segs), \
+         patch("plugins.tts_xtts.plugin.studio.segments.generate_via_bridge", side_effect=generate_with_full_progress), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update_job, \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value="spk.wav"):
+        handle_xtts_job(j=mock_job, **mock_params)
+
+    progress_calls = [
+        call for call in mock_update_job.call_args_list
+        if call.kwargs.get("active_segment_id") == "seg1" and call.kwargs.get("active_segment_progress") is not None
+    ]
+    assert progress_calls
+    assert all(call.kwargs.get("active_segment_progress") < 1.0 for call in progress_calls)
+
 def test_handle_xtts_cancel(mock_job, mock_params):
     """Test cancellation check."""
     mock_params["cancel_check"].return_value = True

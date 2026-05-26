@@ -11,6 +11,14 @@ import {
 } from '@/store/studioSocketBus';
 import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
 
+const globalSegmentProgressUpdates: any[] = [];
+let nextSequenceNumber = 1;
+
+export const resetGlobalSegmentProgressUpdates = () => {
+  globalSegmentProgressUpdates.length = 0;
+  nextSequenceNumber = 1;
+};
+
 const STATUS_PRIORITY: Record<string, number> = {
   done: 5,
   failed: 5,
@@ -128,24 +136,65 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         return { ...prev, [job_id]: { id: job_id, ...updates } as Job };
       }
 
+      const prov = updates.segmentProgressSocketProvenance;
+      const nextUpdates = { ...updates } as Record<string, any>;
+
+      Object.keys(nextUpdates).forEach(key => {
+        if (nextUpdates[key] === undefined) {
+          delete nextUpdates[key];
+        }
+      });
+
+      if (prov) {
+        const entry = {
+          sequence: nextSequenceNumber++,
+          receivedAt: prov.rawEnvelope?.receivedAt || new Date().toISOString(),
+          emittedAt: prov.rawEnvelope?.emittedAt || prov.rawEnvelope?.emitted_at || null,
+          topic: prov.consumedTopic,
+          eventKind: prov.rawEnvelope?.eventKind || null,
+          jobId: prov.rawEnvelope?.jobId || null,
+          chapterId: prov.rawEnvelope?.chapterId || null,
+          segmentId: prov.rawEnvelope?.segmentId || null,
+          activeSegmentId: prov.selectedFields?.activeSegmentId || null,
+          activeSegmentProgress: prov.selectedFields?.activeSegmentProgress ?? null,
+          progress: prov.selectedFields?.progress ?? null,
+          etaSeconds: prov.selectedFields?.etaSeconds ?? null,
+          etaBasis: prov.selectedFields?.eta_basis || prov.selectedFields?.etaBasis || null,
+          status: prov.selectedFields?.status || null,
+          reasonCode: prov.selectedFields?.reasonCode || null,
+          updatedAt: prov.selectedFields?.updatedAt || null,
+          renderedJobId: prov.rawEnvelope?.jobId || null,
+        };
+
+        const oldHistory = (oldJob as any).segmentProgressUpdates || [];
+        const newHistory = [entry, ...oldHistory].slice(0, 20);
+
+        globalSegmentProgressUpdates.push(entry);
+        if (globalSegmentProgressUpdates.length > 20) {
+          globalSegmentProgressUpdates.shift();
+        }
+
+        nextUpdates.segmentProgressUpdates = newHistory;
+      }
+
       if (
         typeof oldJob.updated_at === 'number'
         && typeof updates?.updated_at === 'number'
         && updates.updated_at < oldJob.updated_at
       ) {
         if (updates.active_segment_id !== undefined || updates.active_segment_progress !== undefined) {
-          const nextUpdates: Record<string, any> = {};
-          if (updates.active_segment_id !== undefined) nextUpdates.active_segment_id = updates.active_segment_id;
-          if (updates.active_segment_progress !== undefined) nextUpdates.active_segment_progress = updates.active_segment_progress;
-          if (updates.project_id !== undefined) nextUpdates.project_id = updates.project_id;
-          if (updates.chapter_id !== undefined) nextUpdates.chapter_id = updates.chapter_id;
-          if (updates.segmentProgressSocketProvenance !== undefined) nextUpdates.segmentProgressSocketProvenance = updates.segmentProgressSocketProvenance;
-          return { ...prev, [job_id]: { ...oldJob, ...nextUpdates } };
+          const nextUpdatesStale: Record<string, any> = {};
+          if (updates.active_segment_id !== undefined) nextUpdatesStale.active_segment_id = updates.active_segment_id;
+          if (updates.active_segment_progress !== undefined) nextUpdatesStale.active_segment_progress = updates.active_segment_progress;
+          if (updates.project_id !== undefined) nextUpdatesStale.project_id = updates.project_id;
+          if (updates.chapter_id !== undefined) nextUpdatesStale.chapter_id = updates.chapter_id;
+          if (updates.segmentProgressSocketProvenance !== undefined) nextUpdatesStale.segmentProgressSocketProvenance = updates.segmentProgressSocketProvenance;
+          if (nextUpdates.segmentProgressUpdates !== undefined) nextUpdatesStale.segmentProgressUpdates = nextUpdates.segmentProgressUpdates;
+          return { ...prev, [job_id]: { ...oldJob, ...nextUpdatesStale } };
         }
         return prev;
       }
 
-      const nextUpdates = { ...updates } as Record<string, any>;
       copyRenderGroupFields(nextUpdates, updates as Record<string, any>);
       const incomingStatus = typeof nextUpdates.status === 'string' ? nextUpdates.status : undefined;
       const currentStatus = typeof oldJob.status === 'string' ? oldJob.status : undefined;
@@ -481,5 +530,5 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
     return () => clearInterval(timer);
   }, [refreshJobs, connected]);
 
-  return { jobs, loading, refreshJobs, testProgress, segmentProgress };
+  return { jobs, loading, refreshJobs, testProgress, segmentProgress, segmentProgressUpdates: globalSegmentProgressUpdates };
 };

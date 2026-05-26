@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useJobs } from '@/hooks/useJobs';
+import { useJobs, resetGlobalSegmentProgressUpdates } from '@/hooks/useJobs';
 import {
   publishStudioSocketMessage,
   resetStudioSocketBusForTests,
@@ -19,6 +19,7 @@ describe('useJobs', () => {
     vi.clearAllMocks();
     resetStudioSocketBusForTests();
     resetLiveEventAuditForTests();
+    resetGlobalSegmentProgressUpdates();
     setStudioSocketConnected(true);
     sendMessage = vi.fn();
     setStudioSocketSender(sendMessage);
@@ -985,5 +986,91 @@ describe('useJobs', () => {
     expect(job.segmentProgressSocketProvenance).toBeDefined();
     expect(job.segmentProgressSocketProvenance.consumedTopic).toBe('segments.progress');
     expect(job.segmentProgressSocketProvenance.selectedFields.segmentId).toBe('seg-new');
+  });
+
+  it('proves one compact history row is appended for each segments.progress event and not for unrelated topics', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-h1', status: 'running', progress: 0 }] });
+
+    // 1. Emit queue.items event, should NOT append to segmentProgressUpdates
+    emitEvent('queue.items', 'queue_item_status', { progress: 0.1, status: 'running' }, { jobId: 'job-h1' });
+    expect(result.current.jobs['job-h1']?.segmentProgressUpdates).toBeUndefined();
+
+    // 2. Emit segments.progress event, should append to segmentProgressUpdates
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-h1', jobId: 'job-h1', chapterId: 'chap-h1', projectId: 'proj-h1' },
+        payload: {
+          status: 'running',
+          progress: 0.8,
+        },
+      });
+    });
+
+    const job = result.current.jobs['job-h1'];
+    expect(job?.segmentProgressUpdates).toBeDefined();
+    expect(job?.segmentProgressUpdates.length).toBe(1);
+    expect(job?.segmentProgressUpdates[0]).toMatchObject({
+      topic: 'segments.progress',
+      jobId: 'job-h1',
+      chapterId: 'chap-h1',
+      segmentId: 'seg-h1',
+    });
+  });
+
+  it('proves the history is bounded to the last 20 entries', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-h2', status: 'running', progress: 0 }] });
+
+    for (let i = 0; i < 25; i++) {
+      act(() => {
+        publishStudioSocketMessage({
+          type: 'studio_event',
+          version: 1,
+          topic: 'segments.progress',
+          eventKind: 'segment_progress',
+          ids: { segmentId: `seg-${i}`, jobId: 'job-h2', chapterId: 'chap-h2', projectId: 'proj-h2' },
+          payload: {
+            status: 'running',
+            progress: 0.1,
+          },
+        });
+      });
+    }
+
+    const job = result.current.jobs['job-h2'];
+    expect(job?.segmentProgressUpdates.length).toBe(20);
+    // The first element is the newest (index 24) since we unshift or put to front
+    expect(job?.segmentProgressUpdates[0].segmentId).toBe('seg-24');
+    expect(job?.segmentProgressUpdates[19].segmentId).toBe('seg-5');
+  });
+
+  it('proves segments.progress updates do not lose active segment fields on later non-segment updates', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-h3', status: 'running', progress: 0 }] });
+
+    // 1. Emit segment progress update
+    emitEvent(
+      'segments.progress',
+      'segment_progress',
+      { status: 'running', progress: 0.77 },
+      { segmentId: 'seg-active-1', jobId: 'job-h3', chapterId: 'chap-h3', projectId: 'proj-h3' }
+    );
+
+    let job = result.current.jobs['job-h3'];
+    expect(job.active_segment_id).toBe('seg-active-1');
+    expect(job.active_segment_progress).toBe(0.77);
+
+    // 2. Emit later non-segment update
+    emitEvent('queue.items', 'queue_item_status', { progress: 0.8, status: 'running' }, { jobId: 'job-h3' });
+
+    job = result.current.jobs['job-h3'];
+    // Confirm it did not lose active_segment_id / active_segment_progress
+    expect(job.active_segment_id).toBe('seg-active-1');
+    expect(job.active_segment_progress).toBe(0.77);
   });
 });

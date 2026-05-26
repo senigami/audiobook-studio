@@ -329,6 +329,7 @@ class OrchestratorHelpersMixin:
                         context=context,
                         status="running",
                         progress=_get_grouped_progress(),
+                        eta_seconds=self._duration_to_eta_seconds(expected_duration),
                         reason_code="segment_start",
                         message=f"Rendering segment {sid}...",
                         started_at=timing["render_started_at"],
