@@ -407,6 +407,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     </div>
                 </div>
                 <PredictiveProgressBar
+                    dataTestId="queue-item-progress-bar"
                     progress={progress}
                     startedAt={started}
                     etaSeconds={derivedEtaSeconds}

@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.4] - 2026-05-26
+
+### Highlights
+
+- **Expanded Chapter Editor Segment Progress debug payload**: Expanded the Segment Progress bar debug telemetry in useChapterStatus to capture the exact raw socket event kind, raw envelope frames, ignore lists, mismatched job flags, and exact render props passed to PredictiveProgressBar.
+- **Improved Clipboard Copy Debug Payload**: Exposed `segmentProgressBarDebug` directly inside the `render` section of the clipboard copy JSON payload.
+- **Persistent Segment Progress Telemetry**: Added `lastTelemetryRef` to ensure the debug state survives unmounting of the visual progress bar, clearly marking whether the telemetry is currently active or persisted after unmount.
+
+## [2.0.3] - 2026-05-25
+
+### Highlights
+
+- **Fixed Chapter Editor Segment Progress Highlights**: Resolved the segment progress highlighting mismatch by tying progress calculations strictly to the canonical segment progress source (without `liveBarSegmentProgress` fallback).
+- **Added Standalone Rendering Span Support**: Enabled rendering of segment-local progress for standalone spans (spans not belonging to any batch) by mapping progress directly to the active span ID.
+- **Prevented Silent Batch-Wide Progress Fallback**: Prevented rendering spans from silently falling back to batch-wide progress when `activeSegmentId` is provided but is not part of the active batch (ensuring mismatching spans remain 0% lit).
+- **Expanded Clipboard Copy Diagnostics**: Added `activeSegmentRenderSource`, `activeSegmentResolvedToBatch`, `activeSegmentResolvedBatch`, and `canonicalSegmentProgressSource` to the copied debug snapshot in `ChapterEditorPage`.
+- **Added ScriptView Debug Diagnostics**: Expanded the debug snapshot `useEffect` hook in `ScriptView` to record detailed per-span diagnostics (`spanId`, `spanIndex`, `textLength`, `litCount`, `showCursor`, `progressValueUsed`, `activeSegmentId`, `resolvedSource`) for both batched spans and standalone rendering spans.
+
 ## [2.0.2] - 2026-05-20
 
 ### Highlights

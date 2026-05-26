@@ -133,6 +133,15 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         && typeof updates?.updated_at === 'number'
         && updates.updated_at < oldJob.updated_at
       ) {
+        if (updates.active_segment_id !== undefined || updates.active_segment_progress !== undefined) {
+          const nextUpdates: Record<string, any> = {};
+          if (updates.active_segment_id !== undefined) nextUpdates.active_segment_id = updates.active_segment_id;
+          if (updates.active_segment_progress !== undefined) nextUpdates.active_segment_progress = updates.active_segment_progress;
+          if (updates.project_id !== undefined) nextUpdates.project_id = updates.project_id;
+          if (updates.chapter_id !== undefined) nextUpdates.chapter_id = updates.chapter_id;
+          if (updates.segmentProgressSocketProvenance !== undefined) nextUpdates.segmentProgressSocketProvenance = updates.segmentProgressSocketProvenance;
+          return { ...prev, [job_id]: { ...oldJob, ...nextUpdates } };
+        }
         return prev;
       }
 
@@ -325,7 +334,13 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
             const rawUpdatedAt = getVal('updatedAt', 'updated_at');
             const rawStartedAt = getVal('startedAt', 'started_at');
 
+            const rawEta = getVal('etaSeconds', 'eta_seconds');
+            const rawEtaBasis = getVal('etaBasis', 'eta_basis');
+            const rawStarted = getVal('startedAt', 'started_at');
+
             const projectedUpdates: any = {
+              project_id: event.projectId,
+              chapter_id: event.chapterId,
               active_segment_id: event.segmentId,
               active_segment_progress: segmentProg,
               status: projectedStatus,
@@ -335,6 +350,69 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
               db_updated_at: typeof rawUpdatedAt === 'number' ? rawUpdatedAt : (typeof rawUpdatedAt === 'string' ? Date.parse(rawUpdatedAt) / 1000 : undefined),
               db_started_at: typeof rawStartedAt === 'number' ? rawStartedAt : (typeof rawStartedAt === 'string' ? Date.parse(rawStartedAt) / 1000 : undefined),
             };
+
+            if (rawEta !== undefined) {
+              projectedUpdates.eta_seconds = typeof rawEta === 'number' ? rawEta : Number(rawEta);
+              projectedUpdates.eta_basis = rawEtaBasis || 'remaining_from_update';
+            } else if (rawEtaBasis !== undefined) {
+              projectedUpdates.eta_basis = rawEtaBasis;
+            }
+
+            if (rawStarted !== undefined) {
+              projectedUpdates.started_at = typeof rawStarted === 'number'
+                ? rawStarted
+                : (typeof rawStarted === 'string' ? Date.parse(rawStarted) / 1000 : rawStarted);
+            }
+
+            const trace = {
+              rawEnvelope: {
+                frameId: envelope?.frameId || null,
+                receivedAt: envelope?.receivedAt || null,
+                topic: event.topic,
+                eventKind: event.eventKind,
+                projectId: event.projectId,
+                chapterId: event.chapterId,
+                jobId: event.jobId,
+                segmentId: event.segmentId,
+                raw: raw || null,
+                payload: payload,
+              },
+              consumedTopic: "segments.progress",
+              ignoredTopics: ["tts.logs", "queue.items", "chapters.progress"],
+              selectedFields: {
+                topic: event.topic,
+                eventKind: event.eventKind,
+                frameId: envelope?.frameId || null,
+                receivedAt: envelope?.receivedAt || null,
+                projectId: event.projectId,
+                chapterId: event.chapterId,
+                jobId: event.jobId,
+                segmentId: event.segmentId,
+                activeSegmentId: event.segmentId || null,
+                activeSegmentProgress: segmentProg ?? null,
+                etaSeconds: projectedUpdates.eta_seconds !== undefined ? projectedUpdates.eta_seconds : null,
+                eta_basis: projectedUpdates.eta_basis || null,
+                started_at: projectedUpdates.started_at || null,
+                status: projectedStatus || null,
+                progress: payload.progress ?? null,
+                reasonCode: getVal('reasonCode', 'reason_code') || null,
+                updatedAt: projectedUpdates.updated_at,
+              },
+              ignoredFields: Object.keys(payload).filter(
+                k => ![
+                  'activeSegmentId', 'active_segment_id',
+                  'activeSegmentProgress', 'active_segment_progress',
+                  'etaSeconds', 'eta_seconds',
+                  'etaBasis', 'eta_basis',
+                  'startedAt', 'started_at',
+                  'status',
+                  'progress',
+                  'reasonCode', 'reason_code',
+                  'updatedAt', 'updated_at'
+                ].includes(k)
+              )
+            };
+            projectedUpdates.segmentProgressSocketProvenance = trace;
 
             // Remove undefined keys so we don't clear existing job keys unless intended
             Object.keys(projectedUpdates).forEach(key => {

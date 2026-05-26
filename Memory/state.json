@@ -1,15 +1,15 @@
 {
-  "snapshot_version": 121,
-  "current_task": "Perform adversarial review on queue components and implement refinements",
-  "status": "adversarial_review_and_queue_refinements_complete",
+  "snapshot_version": 129,
+  "current_task": "Make the ChapterEditor Segment Progress debug persistent across bar unmounts",
+  "status": "chapter_editor_segment_progress_bar_telemetry_persistent",
   "last_committed_milestone": {
-    "title": "Adversarial review and refinements of queue and progress components complete",
+    "title": "Persistent ChapterEditor Segment Progress bar debug telemetry implemented",
     "commit": "pending",
     "notes": [
-      "In GlobalQueue.tsx, implemented removal cleanup logic to clear retention timeouts and completion entries for removed/cancelled jobs.",
-      "In QueueItem.tsx, refactored stableUpdatedAt state updates to use functional state updates, breaking the self-referencing dependency cycle.",
-      "In GlobalQueueFiles.test.tsx, updated completion retention unit tests to space out queue updates and verify correct timer clearance.",
-      "Verified all 625 tests pass, production client builds cleanly, and eslint check is green."
+      "Added lastTelemetryRef inside useChapterStatus to capture the latest valid segments.progress telemetry snapshot.",
+      "Returned the persisted snapshot from segmentProgressBarDebug when the bar has unmounted, setting isActiveNow: false, persistedAfterUnmount: true, and mismatch: true.",
+      "Added expect assertions for isActiveNow and persistedAfterUnmount in the hook contract tests, verifying they flip correctly across unmounting.",
+      "Verified all 639 frontend Vitest tests, lint checks, production builds, and git diff checks are clean."
     ]
   },
   "active_constraints": [
@@ -68,7 +68,8 @@
     "QueueItem active ETA source selection now prefers a positive live job ETA over stale/non-positive persisted job ETAs, and records guarded debug progress snapshots to recordStudioDebugSnapshot.",
     "QueueItem and store-level overlays now cleanly propagate and select the correct eta_basis matching the active ETA source (remaining_from_update for live websocket updates).",
     "QueueItem debug button is retained for 30 seconds after completion via timeoutsRef in GlobalQueue, and the diagnostics payload captures stabilized active ETA/updatedAt states.",
-    "QueueItem ETA source and updatedAt anchor selection is unified via explicit etaSource derivation, and the stabilization effect guards against overwriting live timestamps with older database values."
+    "QueueItem ETA source and updatedAt anchor selection is unified via explicit etaSource derivation, and the stabilization effect guards against overwriting live timestamps with older database values.",
+    "DevProgressBar test harness is subscribed to segments.progress websocket events, displaying active source badges, full raw frame inspector JSON, and explicit ignored topics set (queue.items, chapters.progress, tts.logs) along with the last ignored event."
   ],
   "phase_13_guidance": [
     "Phase 13 plan is plans/phases/phase_13_release_documentation_and_distribution.md.",

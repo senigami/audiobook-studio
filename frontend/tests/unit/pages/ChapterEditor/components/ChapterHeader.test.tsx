@@ -259,4 +259,113 @@ describe('ChapterHeader', () => {
     fireEvent.click(screen.getByTitle('Copy debug state'));
     expect(onCopyDebugState).toHaveBeenCalledTimes(1);
   });
+
+  it('preserves the active segment progress and does not clamp to 100% when job is done but active segment is still live', () => {
+    const onSegmentDisplayProgress = vi.fn();
+    render(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        job={undefined}
+        generatingJob={{
+          id: 'job-done-but-segment-live',
+          engine: 'mixed',
+          status: 'done',
+          progress: 1.0,
+          started_at: Date.now() / 1000,
+          active_segment_id: 'seg-2',
+          active_segment_progress: 0.35,
+        } as any}
+        generatingSegmentIdsCount={1}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+        onSegmentDisplayProgress={onSegmentDisplayProgress}
+      />
+    );
+
+    // Should display the active segment progress (35%) rather than 100%
+    expect(screen.getByText('35%')).toBeInTheDocument();
+    expect(screen.queryByText('100%')).toBeNull();
+  });
+
+  it('collapses the terminal-state hold value to 100% after activeSegmentIsLive becomes false for that same live job', () => {
+    const onSegmentDisplayProgress = vi.fn();
+    const { rerender } = render(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        job={undefined}
+        generatingJob={{
+          id: 'job-collapse-test',
+          engine: 'mixed',
+          status: 'done',
+          progress: 1.0,
+          started_at: Date.now() / 1000,
+          active_segment_id: 'seg-2',
+          active_segment_progress: 0.35,
+        } as any}
+        generatingSegmentIdsCount={1}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+        onSegmentDisplayProgress={onSegmentDisplayProgress}
+      />
+    );
+
+    // 1. activeSegmentIsLive is true for that job -> displays 35%
+    expect(screen.getByText('35%')).toBeInTheDocument();
+    expect(screen.queryByText('100%')).toBeNull();
+
+    // 2. Clear generatingJob (activeSegmentIsLive becomes false for the live job)
+    rerender(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        job={undefined}
+        generatingJob={undefined}
+        generatingSegmentIdsCount={0}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+        onSegmentDisplayProgress={onSegmentDisplayProgress}
+      />
+    );
+
+    // 3. activeSegmentIsLive is false for the live job -> collapses to Complete
+    expect(screen.getAllByText('Complete')).toHaveLength(2);
+  });
 });

@@ -231,6 +231,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                 {activeJob ? (
                     <div style={{ width: '100%', maxWidth: '600px' }}>
                         <PredictiveProgressBar 
+                          dataTestId="chapter-list-progress-bar"
                           progress={progressValue} 
                           startedAt={activeJob.started_at}
                           etaSeconds={activeJob.eta_seconds}

@@ -23,7 +23,10 @@ export const ProgressBarTestPage: React.FC = () => {
     resetPreview,
     nudgeProgress,
     setStatus,
-    setConfigStartedAtToNow
+    setConfigStartedAtToNow,
+    updateSource,
+    lastSocketEnvelope,
+    lastIgnoredEnvelope
   } = useProgressBarTest();
 
   return (
@@ -86,6 +89,7 @@ export const ProgressBarTestPage: React.FC = () => {
           <div style={{ padding: '1rem', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--surface)' }}>
               <PredictiveProgressBar
                 key={renderToken}
+                dataTestId="dev-progress-bar-preview"
                 progress={activeConfig.progress}
                 startedAt={activeConfig.startedAt}
                 etaSeconds={activeConfig.etaSeconds}
@@ -112,6 +116,9 @@ export const ProgressBarTestPage: React.FC = () => {
             debugSnapshot={debugSnapshot}
             debugHistory={debugHistory}
             eventLog={eventLog}
+            updateSource={updateSource}
+            lastSocketEnvelope={lastSocketEnvelope}
+            lastIgnoredEnvelope={lastIgnoredEnvelope}
           />
         </section>
       </div>

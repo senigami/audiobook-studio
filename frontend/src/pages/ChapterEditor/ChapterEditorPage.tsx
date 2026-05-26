@@ -527,7 +527,11 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
           } : null,
           generatingSegmentIdsCount: status.generatingSegmentIdsCount,
         },
-        progressBar: {
+         progressBar: {
+          description: "Segment Progress bar in Chapter Header",
+          dataTestId: (status as any).segmentProgressBarProps?.dataTestId || null,
+          segmentProgressBarDebug: (status as any).segmentProgressBarDebug || null,
+          renderProps: (status as any).segmentProgressBarProps || null,
           latestSnapshot: lastProgressBarSnapshotRef.current,
           recentHistory: progressBarSnapshotHistoryRef.current,
         },
@@ -538,6 +542,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
           audioGroupCount: scriptViewData?.audio_groups?.length ?? 0,
         },
         render: {
+          segmentProgressBarDebug: status.segmentProgressBarDebug || null,
           chapterRenderActiveSegmentId,
           chapterRenderRenderingSegmentIds: Array.from(chapterRenderRenderingSegmentIds),
           chapterRenderQueuedSegmentIds: Array.from(chapterRenderQueuedSegmentIds),
@@ -563,6 +568,13 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
               job?.active_segment_id === chapterRenderActiveSegmentId && typeof job.active_segment_progress === 'number' ? 'job_active_segment_progress' : 'fallback_0'
             )
           ),
+          socketJobsActiveSegmentData: chapterJobs.map(j => ({
+            jobId: j.id,
+            status: j.status,
+            activeSegmentId: j.active_segment_id,
+            activeSegmentProgress: j.active_segment_progress,
+            updatedAt: j.updated_at,
+          })),
         },
         websocket: {
           recentMessages: typeof window !== 'undefined' ? (window as any).__websocketRecentMessages ?? [] : [],

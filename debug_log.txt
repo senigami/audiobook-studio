@@ -1,869 +1,720 @@
 [
   {
     "event": {
-      "frameId": 2,
-      "receivedAt": "2026-05-25T04:14:36.637Z",
+      "frameId": 23,
+      "receivedAt": "2026-05-26T13:47:06.243Z",
       "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
-      "source": "app.db.state_jobs.put_job",
+      "topic": "segments.progress",
+      "category": "segment",
+      "eventKind": "segment_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
       "pluginId": null,
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
+      "jobId": "job-3263e9af-52cb-45f6-a70e-1387f27ef10e",
+      "segmentId": "1776192577192134000_0",
       "payload": {
-        "status": "queued",
+        "status": "running",
         "progress": 0,
+        "segmentIndex": 0,
+        "segmentCount": 2,
+        "message": "Rendering segment 1776192577192134000_0...",
+        "reasonCode": "segment_start",
+        "reason_code": "segment_start",
+        "activeSegmentId": "1776192577192134000_0",
+        "activeSegmentProgress": 0,
+        "active_segment_id": "1776192577192134000_0",
+        "active_segment_progress": 0,
         "etaSeconds": null,
-        "message": null,
-        "reasonCode": null,
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": null,
-        "reason_code": null
+        "eta_seconds": null
       },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.db.state_jobs.put_job\",\"emittedAt\":1779682476.627407,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"queued\",\"progress\":0.0,\"etaSeconds\":null,\"message\":null,\"reasonCode\":null,\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":null,\"reason_code\":null}}"
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.progress\",\"eventKind\":\"segment_progress\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779803226.240758,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-3263e9af-52cb-45f6-a70e-1387f27ef10e\",\"segmentId\":\"1776192577192134000_0\"},\"payload\":{\"status\":\"running\",\"progress\":0.0,\"segmentIndex\":0,\"segmentCount\":2,\"message\":\"Rendering segment 1776192577192134000_0...\",\"reasonCode\":\"segment_start\",\"reason_code\":\"segment_start\",\"activeSegmentId\":\"1776192577192134000_0\",\"activeSegmentProgress\":0.0,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":0.0,\"etaSeconds\":null,\"eta_seconds\":null}}"
     },
     "subscribers": [
       {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:14:36.637Z",
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:06.243Z",
+        "action": "handled"
+      },
+      {
+        "subscriber": "chapter-state",
+        "observedAt": "2026-05-26T13:47:06.244Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 4,
-      "receivedAt": "2026-05-25T04:14:36.663Z",
+      "frameId": 27,
+      "receivedAt": "2026-05-26T13:47:11.836Z",
       "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_invalidated",
-      "source": "app.api.routers.generation.api_add_to_queue",
+      "topic": "segments.progress",
+      "category": "segment",
+      "eventKind": "segment_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
+      "pluginId": null,
+      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
+      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
+      "jobId": "job-3263e9af-52cb-45f6-a70e-1387f27ef10e",
+      "segmentId": "1776192577192134000_0",
+      "payload": {
+        "status": "running",
+        "progress": 0.2,
+        "segmentIndex": 0,
+        "segmentCount": 2,
+        "message": "Synthesizing...",
+        "reasonCode": "synthesis_progress",
+        "reason_code": "synthesis_progress",
+        "activeSegmentId": "1776192577192134000_0",
+        "activeSegmentProgress": 0.2,
+        "active_segment_id": "1776192577192134000_0",
+        "active_segment_progress": 0.2,
+        "etaSeconds": 49,
+        "eta_seconds": 49
+      },
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.progress\",\"eventKind\":\"segment_progress\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779803231.830831,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-3263e9af-52cb-45f6-a70e-1387f27ef10e\",\"segmentId\":\"1776192577192134000_0\"},\"payload\":{\"status\":\"running\",\"progress\":0.2,\"segmentIndex\":0,\"segmentCount\":2,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"reason_code\":\"synthesis_progress\",\"activeSegmentId\":\"1776192577192134000_0\",\"activeSegmentProgress\":0.2,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":0.2,\"etaSeconds\":49,\"eta_seconds\":49}}"
+    },
+    "subscribers": [
+      {
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:11.836Z",
+        "action": "handled"
+      },
+      {
+        "subscriber": "chapter-state",
+        "observedAt": "2026-05-26T13:47:11.836Z",
+        "action": "handled"
+      }
+    ]
+  },
+  {
+    "event": {
+      "frameId": 31,
+      "receivedAt": "2026-05-26T13:47:13.946Z",
+      "rawType": "studio_event",
+      "topic": "segments.progress",
+      "category": "segment",
+      "eventKind": "segment_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
+      "pluginId": null,
+      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
+      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
+      "jobId": "job-3263e9af-52cb-45f6-a70e-1387f27ef10e",
+      "segmentId": "1776192577192134000_0",
+      "payload": {
+        "status": "running",
+        "progress": 0.4,
+        "segmentIndex": 0,
+        "segmentCount": 2,
+        "message": "Synthesizing...",
+        "reasonCode": "synthesis_progress",
+        "reason_code": "synthesis_progress",
+        "activeSegmentId": "1776192577192134000_0",
+        "activeSegmentProgress": 0.4,
+        "active_segment_id": "1776192577192134000_0",
+        "active_segment_progress": 0.4,
+        "etaSeconds": 36,
+        "eta_seconds": 36
+      },
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.progress\",\"eventKind\":\"segment_progress\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779803233.9425862,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-3263e9af-52cb-45f6-a70e-1387f27ef10e\",\"segmentId\":\"1776192577192134000_0\"},\"payload\":{\"status\":\"running\",\"progress\":0.4,\"segmentIndex\":0,\"segmentCount\":2,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"reason_code\":\"synthesis_progress\",\"activeSegmentId\":\"1776192577192134000_0\",\"activeSegmentProgress\":0.4,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":0.4,\"etaSeconds\":36,\"eta_seconds\":36}}"
+    },
+    "subscribers": [
+      {
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:13.946Z",
+        "action": "handled"
+      },
+      {
+        "subscriber": "chapter-state",
+        "observedAt": "2026-05-26T13:47:13.946Z",
+        "action": "handled"
+      }
+    ]
+  },
+  {
+    "event": {
+      "frameId": 35,
+      "receivedAt": "2026-05-26T13:47:18.751Z",
+      "rawType": "studio_event",
+      "topic": "segments.progress",
+      "category": "segment",
+      "eventKind": "segment_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
+      "pluginId": null,
+      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
+      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
+      "jobId": "job-3263e9af-52cb-45f6-a70e-1387f27ef10e",
+      "segmentId": "1776192577192134000_0",
+      "payload": {
+        "status": "running",
+        "progress": 0.6,
+        "segmentIndex": 0,
+        "segmentCount": 2,
+        "message": "Synthesizing...",
+        "reasonCode": "synthesis_progress",
+        "reason_code": "synthesis_progress",
+        "activeSegmentId": "1776192577192134000_0",
+        "activeSegmentProgress": 0.6,
+        "active_segment_id": "1776192577192134000_0",
+        "active_segment_progress": 0.6,
+        "etaSeconds": 35,
+        "eta_seconds": 35
+      },
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.progress\",\"eventKind\":\"segment_progress\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779803238.749355,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-3263e9af-52cb-45f6-a70e-1387f27ef10e\",\"segmentId\":\"1776192577192134000_0\"},\"payload\":{\"status\":\"running\",\"progress\":0.6,\"segmentIndex\":0,\"segmentCount\":2,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"reason_code\":\"synthesis_progress\",\"activeSegmentId\":\"1776192577192134000_0\",\"activeSegmentProgress\":0.6,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":0.6,\"etaSeconds\":35,\"eta_seconds\":35}}"
+    },
+    "subscribers": [
+      {
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:18.751Z",
+        "action": "handled"
+      },
+      {
+        "subscriber": "chapter-state",
+        "observedAt": "2026-05-26T13:47:18.751Z",
+        "action": "handled"
+      }
+    ]
+  },
+  {
+    "event": {
+      "frameId": 39,
+      "receivedAt": "2026-05-26T13:47:21.141Z",
+      "rawType": "studio_event",
+      "topic": "segments.progress",
+      "category": "segment",
+      "eventKind": "segment_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
+      "pluginId": null,
+      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
+      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
+      "jobId": "job-3263e9af-52cb-45f6-a70e-1387f27ef10e",
+      "segmentId": "1776192577192134000_0",
+      "payload": {
+        "status": "running",
+        "progress": 0.8,
+        "segmentIndex": 0,
+        "segmentCount": 2,
+        "message": "Synthesizing...",
+        "reasonCode": "synthesis_progress",
+        "reason_code": "synthesis_progress",
+        "activeSegmentId": "1776192577192134000_0",
+        "activeSegmentProgress": 0.8,
+        "active_segment_id": "1776192577192134000_0",
+        "active_segment_progress": 0.8,
+        "etaSeconds": 27,
+        "eta_seconds": 27
+      },
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.progress\",\"eventKind\":\"segment_progress\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779803241.138721,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-3263e9af-52cb-45f6-a70e-1387f27ef10e\",\"segmentId\":\"1776192577192134000_0\"},\"payload\":{\"status\":\"running\",\"progress\":0.8,\"segmentIndex\":0,\"segmentCount\":2,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"reason_code\":\"synthesis_progress\",\"activeSegmentId\":\"1776192577192134000_0\",\"activeSegmentProgress\":0.8,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":0.8,\"etaSeconds\":27,\"eta_seconds\":27}}"
+    },
+    "subscribers": [
+      {
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:21.141Z",
+        "action": "handled"
+      },
+      {
+        "subscriber": "chapter-state",
+        "observedAt": "2026-05-26T13:47:21.141Z",
+        "action": "handled"
+      }
+    ]
+  },
+  {
+    "event": {
+      "frameId": 43,
+      "receivedAt": "2026-05-26T13:47:22.413Z",
+      "rawType": "studio_event",
+      "topic": "segments.progress",
+      "category": "segment",
+      "eventKind": "segment_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
+      "pluginId": null,
+      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
+      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
+      "jobId": "job-3263e9af-52cb-45f6-a70e-1387f27ef10e",
+      "segmentId": "1776192577192134000_0",
+      "payload": {
+        "status": "running",
+        "progress": 1,
+        "segmentIndex": 0,
+        "segmentCount": 2,
+        "message": "Synthesizing...",
+        "reasonCode": "synthesis_progress",
+        "reason_code": "synthesis_progress",
+        "activeSegmentId": "1776192577192134000_0",
+        "activeSegmentProgress": 1,
+        "active_segment_id": "1776192577192134000_0",
+        "active_segment_progress": 1,
+        "etaSeconds": 20,
+        "eta_seconds": 20
+      },
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.progress\",\"eventKind\":\"segment_progress\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779803242.4081569,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-3263e9af-52cb-45f6-a70e-1387f27ef10e\",\"segmentId\":\"1776192577192134000_0\"},\"payload\":{\"status\":\"running\",\"progress\":1.0,\"segmentIndex\":0,\"segmentCount\":2,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"reason_code\":\"synthesis_progress\",\"activeSegmentId\":\"1776192577192134000_0\",\"activeSegmentProgress\":1.0,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":1.0,\"etaSeconds\":20,\"eta_seconds\":20}}"
+    },
+    "subscribers": [
+      {
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:22.413Z",
+        "action": "handled"
+      },
+      {
+        "subscriber": "chapter-state",
+        "observedAt": "2026-05-26T13:47:22.413Z",
+        "action": "handled"
+      }
+    ]
+  },
+  {
+    "event": {
+      "frameId": 47,
+      "receivedAt": "2026-05-26T13:47:22.426Z",
+      "rawType": "studio_event",
+      "topic": "segments.lifecycle",
+      "category": "segment",
+      "eventKind": "segment_lifecycle",
+      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
       "pluginId": null,
       "projectId": null,
-      "chapterId": null,
+      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
       "jobId": null,
       "segmentId": null,
       "payload": {
-        "reasonCode": "Queue update",
+        "reasonCode": "segments_updated",
+        "reason_code": "segments_updated",
         "changedFields": [],
         "changed_fields": []
       },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_invalidated\",\"source\":\"app.api.routers.generation.api_add_to_queue\",\"emittedAt\":1779682476.6605299,\"pluginId\":null,\"ids\":{\"projectId\":null,\"chapterId\":null,\"jobId\":null,\"segmentId\":null},\"payload\":{\"reasonCode\":\"Queue update\",\"changedFields\":[],\"changed_fields\":[]}}"
-    },
-    "subscribers": []
-  },
-  {
-    "event": {
-      "frameId": 6,
-      "receivedAt": "2026-05-25T04:14:36.671Z",
-      "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
-      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "pluginId": null,
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
-      "payload": {
-        "status": "queued",
-        "progress": 0,
-        "etaSeconds": null,
-        "message": "Task accepted, reconciling batches.",
-        "reasonCode": "submitted",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": null,
-        "reason_code": "submitted"
-      },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682476.6617558,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"queued\",\"progress\":0.0,\"etaSeconds\":null,\"message\":\"Task accepted, reconciling batches.\",\"reasonCode\":\"submitted\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":null,\"reason_code\":\"submitted\"}}"
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.lifecycle\",\"eventKind\":\"segment_lifecycle\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\",\"emittedAt\":1779803242.4238431,\"pluginId\":null,\"ids\":{\"projectId\":null,\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":null,\"segmentId\":null},\"payload\":{\"reasonCode\":\"segments_updated\",\"reason_code\":\"segments_updated\",\"changedFields\":[],\"changed_fields\":[]}}"
     },
     "subscribers": [
       {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:14:36.671Z",
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:22.426Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 8,
-      "receivedAt": "2026-05-25T04:14:36.679Z",
+      "frameId": 48,
+      "receivedAt": "2026-05-26T13:47:22.430Z",
       "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
+      "topic": "segments.progress",
+      "category": "segment",
+      "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
       "pluginId": null,
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
+      "jobId": "job-3263e9af-52cb-45f6-a70e-1387f27ef10e",
+      "segmentId": "1776192577192134000_0",
       "payload": {
-        "status": "preparing",
-        "progress": 0,
-        "etaSeconds": null,
-        "message": "Preparing synthesis resources.",
-        "reasonCode": "new_work",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": null,
-        "reason_code": "new_work"
-      },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682476.664292,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"preparing\",\"progress\":0.0,\"etaSeconds\":null,\"message\":\"Preparing synthesis resources.\",\"reasonCode\":\"new_work\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":null,\"reason_code\":\"new_work\"}}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:14:36.679Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 10,
-      "receivedAt": "2026-05-25T04:14:36.685Z",
-      "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
-      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "pluginId": null,
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
-      "payload": {
-        "status": "preparing",
-        "progress": 0,
-        "etaSeconds": null,
-        "message": "Preparing synthesis resources...",
-        "reasonCode": null,
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": null,
-        "reason_code": null
-      },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682476.673558,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"preparing\",\"progress\":0.0,\"etaSeconds\":null,\"message\":\"Preparing synthesis resources...\",\"reasonCode\":null,\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":null,\"reason_code\":null}}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:14:36.685Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 12,
-      "receivedAt": "2026-05-25T04:14:36.692Z",
-      "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_invalidated",
-      "source": "app.db.state_jobs.update_job",
-      "pluginId": null,
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": null,
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
-      "payload": {
-        "reasonCode": "job_reset_to_active",
-        "changedFields": [
-          "status"
-        ],
-        "changed_fields": [
-          "status"
-        ]
-      },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_invalidated\",\"source\":\"app.db.state_jobs.update_job\",\"emittedAt\":1779682476.676703,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":null,\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"reasonCode\":\"job_reset_to_active\",\"changedFields\":[\"status\"],\"changed_fields\":[\"status\"]}}"
-    },
-    "subscribers": []
-  },
-  {
-    "event": {
-      "frameId": 18,
-      "receivedAt": "2026-05-25T04:14:54.096Z",
-      "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
-      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "pluginId": null,
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
-      "payload": {
-        "status": "running",
-        "progress": 0,
-        "etaSeconds": 39,
-        "message": "Synthesis in progress...",
-        "reasonCode": null,
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": 39,
-        "reason_code": null
-      },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682494.08948,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.0,\"etaSeconds\":39,\"message\":\"Synthesis in progress...\",\"reasonCode\":null,\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":39,\"reason_code\":null}}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:14:54.096Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 20,
-      "receivedAt": "2026-05-25T04:14:54.104Z",
-      "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_invalidated",
-      "source": "app.db.state_jobs.update_job",
-      "pluginId": null,
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": null,
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
-      "payload": {
-        "reasonCode": "job_reset_to_active",
-        "changedFields": [
-          "status"
-        ],
-        "changed_fields": [
-          "status"
-        ]
-      },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_invalidated\",\"source\":\"app.db.state_jobs.update_job\",\"emittedAt\":1779682494.092296,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":null,\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"reasonCode\":\"job_reset_to_active\",\"changedFields\":[\"status\"],\"changed_fields\":[\"status\"]}}"
-    },
-    "subscribers": []
-  },
-  {
-    "event": {
-      "frameId": 24,
-      "receivedAt": "2026-05-25T04:14:54.119Z",
-      "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
-      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "pluginId": null,
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
-      "payload": {
-        "status": "running",
-        "progress": 0,
-        "etaSeconds": null,
-        "message": null,
-        "reasonCode": "segment_start",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": null,
-        "reason_code": "segment_start"
-      },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682494.107191,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.0,\"etaSeconds\":null,\"message\":null,\"reasonCode\":\"segment_start\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":null,\"reason_code\":\"segment_start\"}}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:14:54.119Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 28,
-      "receivedAt": "2026-05-25T04:14:59.529Z",
-      "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
-      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "pluginId": null,
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
-      "payload": {
-        "status": "running",
-        "progress": 0.09,
-        "etaSeconds": 49,
-        "message": "Synthesizing...",
-        "reasonCode": "synthesis_progress",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": 49,
-        "reason_code": "synthesis_progress"
-      },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682499.518687,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.09,\"etaSeconds\":49,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":49,\"reason_code\":\"synthesis_progress\"}}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:14:59.529Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 32,
-      "receivedAt": "2026-05-25T04:15:01.897Z",
-      "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
-      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "pluginId": null,
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
-      "payload": {
-        "status": "running",
-        "progress": 0.18,
-        "etaSeconds": 36,
-        "message": "Synthesizing...",
-        "reasonCode": "synthesis_progress",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": 36,
-        "reason_code": "synthesis_progress"
-      },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682501.8831658,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.18,\"etaSeconds\":36,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":36,\"reason_code\":\"synthesis_progress\"}}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:15:01.897Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 36,
-      "receivedAt": "2026-05-25T04:15:06.525Z",
-      "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
-      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "pluginId": null,
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
-      "payload": {
-        "status": "running",
-        "progress": 0.27,
-        "etaSeconds": 34,
-        "message": "Synthesizing...",
-        "reasonCode": "synthesis_progress",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": 34,
-        "reason_code": "synthesis_progress"
-      },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682506.512674,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.27,\"etaSeconds\":34,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":34,\"reason_code\":\"synthesis_progress\"}}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:15:06.525Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 40,
-      "receivedAt": "2026-05-25T04:15:08.889Z",
-      "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
-      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "pluginId": null,
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
-      "payload": {
-        "status": "running",
-        "progress": 0.35,
-        "etaSeconds": 27,
-        "message": "Synthesizing...",
-        "reasonCode": "synthesis_progress",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": 27,
-        "reason_code": "synthesis_progress"
-      },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682508.870672,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.35,\"etaSeconds\":27,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":27,\"reason_code\":\"synthesis_progress\"}}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:15:08.889Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 44,
-      "receivedAt": "2026-05-25T04:15:10.257Z",
-      "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
-      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "pluginId": null,
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
-      "payload": {
-        "status": "running",
-        "progress": 0.44,
-        "etaSeconds": 20,
-        "message": "Synthesizing...",
-        "reasonCode": "synthesis_progress",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": 20,
-        "reason_code": "synthesis_progress"
-      },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682510.2400231,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.44,\"etaSeconds\":20,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":20,\"reason_code\":\"synthesis_progress\"}}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:15:10.257Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 49,
-      "receivedAt": "2026-05-25T04:15:10.278Z",
-      "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
-      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "pluginId": null,
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
-      "payload": {
-        "status": "running",
-        "progress": 0.44,
-        "etaSeconds": null,
-        "message": null,
+        "status": "done",
+        "progress": 1,
+        "segmentIndex": 0,
+        "segmentCount": 2,
+        "message": "Completed segment 1776192577192134000_0",
         "reasonCode": "segment_saved",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": null,
-        "reason_code": "segment_saved"
-      },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682510.254291,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.44,\"etaSeconds\":null,\"message\":null,\"reasonCode\":\"segment_saved\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":null,\"reason_code\":\"segment_saved\"}}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:15:10.278Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 53,
-      "receivedAt": "2026-05-25T04:15:10.295Z",
-      "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
-      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "pluginId": null,
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
-      "payload": {
-        "status": "running",
-        "progress": 0.44,
+        "reason_code": "segment_saved",
+        "activeSegmentId": "1776192577192134000_0",
+        "activeSegmentProgress": 1,
+        "active_segment_id": "1776192577192134000_0",
+        "active_segment_progress": 1,
         "etaSeconds": null,
-        "message": null,
+        "eta_seconds": null
+      },
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.progress\",\"eventKind\":\"segment_progress\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779803242.42475,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-3263e9af-52cb-45f6-a70e-1387f27ef10e\",\"segmentId\":\"1776192577192134000_0\"},\"payload\":{\"status\":\"done\",\"progress\":1.0,\"segmentIndex\":0,\"segmentCount\":2,\"message\":\"Completed segment 1776192577192134000_0\",\"reasonCode\":\"segment_saved\",\"reason_code\":\"segment_saved\",\"activeSegmentId\":\"1776192577192134000_0\",\"activeSegmentProgress\":1.0,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":1.0,\"etaSeconds\":null,\"eta_seconds\":null}}"
+    },
+    "subscribers": [
+      {
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:22.430Z",
+        "action": "handled"
+      },
+      {
+        "subscriber": "chapter-state",
+        "observedAt": "2026-05-26T13:47:22.430Z",
+        "action": "handled"
+      }
+    ]
+  },
+  {
+    "event": {
+      "frameId": 52,
+      "receivedAt": "2026-05-26T13:47:22.442Z",
+      "rawType": "studio_event",
+      "topic": "segments.progress",
+      "category": "segment",
+      "eventKind": "segment_progress",
+      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
+      "pluginId": null,
+      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
+      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
+      "jobId": "job-3263e9af-52cb-45f6-a70e-1387f27ef10e",
+      "segmentId": "1777057465137731000_5",
+      "payload": {
+        "status": "running",
+        "progress": 0,
+        "segmentIndex": 1,
+        "segmentCount": 2,
+        "message": "Rendering segment 1777057465137731000_5...",
         "reasonCode": "segment_start",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": null,
-        "reason_code": "segment_start"
+        "reason_code": "segment_start",
+        "activeSegmentId": "1777057465137731000_5",
+        "activeSegmentProgress": 0,
+        "active_segment_id": "1777057465137731000_5",
+        "active_segment_progress": 0,
+        "etaSeconds": null,
+        "eta_seconds": null
       },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682510.267295,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.44,\"etaSeconds\":null,\"message\":null,\"reasonCode\":\"segment_start\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":null,\"reason_code\":\"segment_start\"}}"
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.progress\",\"eventKind\":\"segment_progress\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779803242.437012,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-3263e9af-52cb-45f6-a70e-1387f27ef10e\",\"segmentId\":\"1777057465137731000_5\"},\"payload\":{\"status\":\"running\",\"progress\":0.0,\"segmentIndex\":1,\"segmentCount\":2,\"message\":\"Rendering segment 1777057465137731000_5...\",\"reasonCode\":\"segment_start\",\"reason_code\":\"segment_start\",\"activeSegmentId\":\"1777057465137731000_5\",\"activeSegmentProgress\":0.0,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.0,\"etaSeconds\":null,\"eta_seconds\":null}}"
     },
     "subscribers": [
       {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:15:10.295Z",
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:22.442Z",
+        "action": "handled"
+      },
+      {
+        "subscriber": "chapter-state",
+        "observedAt": "2026-05-26T13:47:22.442Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 57,
-      "receivedAt": "2026-05-25T04:15:14.863Z",
+      "frameId": 56,
+      "receivedAt": "2026-05-26T13:47:26.209Z",
       "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
+      "topic": "segments.progress",
+      "category": "segment",
+      "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
       "pluginId": null,
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
+      "jobId": "job-3263e9af-52cb-45f6-a70e-1387f27ef10e",
+      "segmentId": "1777057465137731000_5",
       "payload": {
         "status": "running",
-        "progress": 0.52,
-        "etaSeconds": 20,
+        "progress": 0.16,
+        "segmentIndex": 1,
+        "segmentCount": 2,
         "message": "Synthesizing...",
         "reasonCode": "synthesis_progress",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": 20,
-        "reason_code": "synthesis_progress"
+        "reason_code": "synthesis_progress",
+        "activeSegmentId": "1777057465137731000_5",
+        "activeSegmentProgress": 0.16,
+        "active_segment_id": "1777057465137731000_5",
+        "active_segment_progress": 0.16,
+        "etaSeconds": 19,
+        "eta_seconds": 19
       },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682514.8422909,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.52,\"etaSeconds\":20,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":20,\"reason_code\":\"synthesis_progress\"}}"
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.progress\",\"eventKind\":\"segment_progress\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779803246.200526,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-3263e9af-52cb-45f6-a70e-1387f27ef10e\",\"segmentId\":\"1777057465137731000_5\"},\"payload\":{\"status\":\"running\",\"progress\":0.16,\"segmentIndex\":1,\"segmentCount\":2,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"reason_code\":\"synthesis_progress\",\"activeSegmentId\":\"1777057465137731000_5\",\"activeSegmentProgress\":0.16,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.16,\"etaSeconds\":19,\"eta_seconds\":19}}"
     },
     "subscribers": [
       {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:15:14.863Z",
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:26.209Z",
+        "action": "handled"
+      },
+      {
+        "subscriber": "chapter-state",
+        "observedAt": "2026-05-26T13:47:26.209Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 61,
-      "receivedAt": "2026-05-25T04:15:15.775Z",
+      "frameId": 60,
+      "receivedAt": "2026-05-26T13:47:27.163Z",
       "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
+      "topic": "segments.progress",
+      "category": "segment",
+      "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
       "pluginId": null,
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
+      "jobId": "job-3263e9af-52cb-45f6-a70e-1387f27ef10e",
+      "segmentId": "1777057465137731000_5",
       "payload": {
         "status": "running",
-        "progress": 0.59,
-        "etaSeconds": 15,
+        "progress": 0.33,
+        "segmentIndex": 1,
+        "segmentCount": 2,
         "message": "Synthesizing...",
         "reasonCode": "synthesis_progress",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": 15,
-        "reason_code": "synthesis_progress"
+        "reason_code": "synthesis_progress",
+        "activeSegmentId": "1777057465137731000_5",
+        "activeSegmentProgress": 0.33,
+        "active_segment_id": "1777057465137731000_5",
+        "active_segment_progress": 0.33,
+        "etaSeconds": 14,
+        "eta_seconds": 14
       },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682515.7534158,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.59,\"etaSeconds\":15,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":15,\"reason_code\":\"synthesis_progress\"}}"
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.progress\",\"eventKind\":\"segment_progress\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779803247.1604679,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-3263e9af-52cb-45f6-a70e-1387f27ef10e\",\"segmentId\":\"1777057465137731000_5\"},\"payload\":{\"status\":\"running\",\"progress\":0.33,\"segmentIndex\":1,\"segmentCount\":2,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"reason_code\":\"synthesis_progress\",\"activeSegmentId\":\"1777057465137731000_5\",\"activeSegmentProgress\":0.33,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.33,\"etaSeconds\":14,\"eta_seconds\":14}}"
     },
     "subscribers": [
       {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:15:15.775Z",
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:27.163Z",
+        "action": "handled"
+      },
+      {
+        "subscriber": "chapter-state",
+        "observedAt": "2026-05-26T13:47:27.163Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 65,
-      "receivedAt": "2026-05-25T04:15:20.710Z",
+      "frameId": 64,
+      "receivedAt": "2026-05-26T13:47:32.760Z",
       "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
+      "topic": "segments.progress",
+      "category": "segment",
+      "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
       "pluginId": null,
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
+      "jobId": "job-3263e9af-52cb-45f6-a70e-1387f27ef10e",
+      "segmentId": "1777057465137731000_5",
       "payload": {
         "status": "running",
-        "progress": 0.67,
+        "progress": 0.5,
+        "segmentIndex": 1,
+        "segmentCount": 2,
+        "message": "Synthesizing...",
+        "reasonCode": "synthesis_progress",
+        "reason_code": "synthesis_progress",
+        "activeSegmentId": "1777057465137731000_5",
+        "activeSegmentProgress": 0.5,
+        "active_segment_id": "1777057465137731000_5",
+        "active_segment_progress": 0.5,
         "etaSeconds": 13,
-        "message": "Synthesizing...",
-        "reasonCode": "synthesis_progress",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": 13,
-        "reason_code": "synthesis_progress"
+        "eta_seconds": 13
       },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682520.684993,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.67,\"etaSeconds\":13,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":13,\"reason_code\":\"synthesis_progress\"}}"
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.progress\",\"eventKind\":\"segment_progress\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779803252.757893,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-3263e9af-52cb-45f6-a70e-1387f27ef10e\",\"segmentId\":\"1777057465137731000_5\"},\"payload\":{\"status\":\"running\",\"progress\":0.5,\"segmentIndex\":1,\"segmentCount\":2,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"reason_code\":\"synthesis_progress\",\"activeSegmentId\":\"1777057465137731000_5\",\"activeSegmentProgress\":0.5,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.5,\"etaSeconds\":13,\"eta_seconds\":13}}"
     },
     "subscribers": [
       {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:15:20.710Z",
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:32.760Z",
+        "action": "handled"
+      },
+      {
+        "subscriber": "chapter-state",
+        "observedAt": "2026-05-26T13:47:32.760Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 69,
-      "receivedAt": "2026-05-25T04:15:22.634Z",
+      "frameId": 68,
+      "receivedAt": "2026-05-26T13:47:34.744Z",
       "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
+      "topic": "segments.progress",
+      "category": "segment",
+      "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
       "pluginId": null,
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
+      "jobId": "job-3263e9af-52cb-45f6-a70e-1387f27ef10e",
+      "segmentId": "1777057465137731000_5",
       "payload": {
         "status": "running",
-        "progress": 0.74,
+        "progress": 0.66,
+        "segmentIndex": 1,
+        "segmentCount": 2,
+        "message": "Synthesizing...",
+        "reasonCode": "synthesis_progress",
+        "reason_code": "synthesis_progress",
+        "activeSegmentId": "1777057465137731000_5",
+        "activeSegmentProgress": 0.66,
+        "active_segment_id": "1777057465137731000_5",
+        "active_segment_progress": 0.66,
         "etaSeconds": 10,
-        "message": "Synthesizing...",
-        "reasonCode": "synthesis_progress",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": 10,
-        "reason_code": "synthesis_progress"
+        "eta_seconds": 10
       },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682522.616082,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.74,\"etaSeconds\":10,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":10,\"reason_code\":\"synthesis_progress\"}}"
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.progress\",\"eventKind\":\"segment_progress\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779803254.737916,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-3263e9af-52cb-45f6-a70e-1387f27ef10e\",\"segmentId\":\"1777057465137731000_5\"},\"payload\":{\"status\":\"running\",\"progress\":0.66,\"segmentIndex\":1,\"segmentCount\":2,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"reason_code\":\"synthesis_progress\",\"activeSegmentId\":\"1777057465137731000_5\",\"activeSegmentProgress\":0.66,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.66,\"etaSeconds\":10,\"eta_seconds\":10}}"
     },
     "subscribers": [
       {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:15:22.634Z",
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:34.744Z",
+        "action": "handled"
+      },
+      {
+        "subscriber": "chapter-state",
+        "observedAt": "2026-05-26T13:47:34.744Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 73,
-      "receivedAt": "2026-05-25T04:15:24.661Z",
+      "frameId": 72,
+      "receivedAt": "2026-05-26T13:47:36.564Z",
       "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
+      "topic": "segments.progress",
+      "category": "segment",
+      "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
       "pluginId": null,
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
+      "jobId": "job-3263e9af-52cb-45f6-a70e-1387f27ef10e",
+      "segmentId": "1777057465137731000_5",
       "payload": {
         "status": "running",
-        "progress": 0.82,
+        "progress": 0.83,
+        "segmentIndex": 1,
+        "segmentCount": 2,
+        "message": "Synthesizing...",
+        "reasonCode": "synthesis_progress",
+        "reason_code": "synthesis_progress",
+        "activeSegmentId": "1777057465137731000_5",
+        "activeSegmentProgress": 0.83,
+        "active_segment_id": "1777057465137731000_5",
+        "active_segment_progress": 0.83,
         "etaSeconds": 7,
-        "message": "Synthesizing...",
-        "reasonCode": "synthesis_progress",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": 7,
-        "reason_code": "synthesis_progress"
+        "eta_seconds": 7
       },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682524.635839,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.82,\"etaSeconds\":7,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":7,\"reason_code\":\"synthesis_progress\"}}"
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.progress\",\"eventKind\":\"segment_progress\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779803256.5578518,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-3263e9af-52cb-45f6-a70e-1387f27ef10e\",\"segmentId\":\"1777057465137731000_5\"},\"payload\":{\"status\":\"running\",\"progress\":0.83,\"segmentIndex\":1,\"segmentCount\":2,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"reason_code\":\"synthesis_progress\",\"activeSegmentId\":\"1777057465137731000_5\",\"activeSegmentProgress\":0.83,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.83,\"etaSeconds\":7,\"eta_seconds\":7}}"
     },
     "subscribers": [
       {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:15:24.661Z",
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:36.564Z",
+        "action": "handled"
+      },
+      {
+        "subscriber": "chapter-state",
+        "observedAt": "2026-05-26T13:47:36.564Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 77,
-      "receivedAt": "2026-05-25T04:15:26.513Z",
+      "frameId": 76,
+      "receivedAt": "2026-05-26T13:47:38.691Z",
       "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
+      "topic": "segments.progress",
+      "category": "segment",
+      "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
       "pluginId": null,
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
+      "jobId": "job-3263e9af-52cb-45f6-a70e-1387f27ef10e",
+      "segmentId": "1777057465137731000_5",
       "payload": {
         "status": "running",
-        "progress": 0.9,
+        "progress": 1,
+        "segmentIndex": 1,
+        "segmentCount": 2,
+        "message": "Synthesizing...",
+        "reasonCode": "synthesis_progress",
+        "reason_code": "synthesis_progress",
+        "activeSegmentId": "1777057465137731000_5",
+        "activeSegmentProgress": 1,
+        "active_segment_id": "1777057465137731000_5",
+        "active_segment_progress": 1,
         "etaSeconds": 4,
-        "message": "Synthesizing...",
-        "reasonCode": "synthesis_progress",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": 4,
-        "reason_code": "synthesis_progress"
+        "eta_seconds": 4
       },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682526.48693,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.9,\"etaSeconds\":4,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":4,\"reason_code\":\"synthesis_progress\"}}"
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.progress\",\"eventKind\":\"segment_progress\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779803258.6882718,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-3263e9af-52cb-45f6-a70e-1387f27ef10e\",\"segmentId\":\"1777057465137731000_5\"},\"payload\":{\"status\":\"running\",\"progress\":1.0,\"segmentIndex\":1,\"segmentCount\":2,\"message\":\"Synthesizing...\",\"reasonCode\":\"synthesis_progress\",\"reason_code\":\"synthesis_progress\",\"activeSegmentId\":\"1777057465137731000_5\",\"activeSegmentProgress\":1.0,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":1.0,\"etaSeconds\":4,\"eta_seconds\":4}}"
     },
     "subscribers": [
       {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:15:26.513Z",
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:38.691Z",
+        "action": "handled"
+      },
+      {
+        "subscriber": "chapter-state",
+        "observedAt": "2026-05-26T13:47:38.691Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 82,
-      "receivedAt": "2026-05-25T04:15:26.541Z",
+      "frameId": 80,
+      "receivedAt": "2026-05-26T13:47:38.710Z",
       "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
+      "topic": "segments.lifecycle",
+      "category": "segment",
+      "eventKind": "segment_lifecycle",
+      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
+      "pluginId": null,
+      "projectId": null,
+      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
+      "jobId": null,
+      "segmentId": null,
+      "payload": {
+        "reasonCode": "segments_updated",
+        "reason_code": "segments_updated",
+        "changedFields": [],
+        "changed_fields": []
+      },
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.lifecycle\",\"eventKind\":\"segment_lifecycle\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\",\"emittedAt\":1779803258.699997,\"pluginId\":null,\"ids\":{\"projectId\":null,\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":null,\"segmentId\":null},\"payload\":{\"reasonCode\":\"segments_updated\",\"reason_code\":\"segments_updated\",\"changedFields\":[],\"changed_fields\":[]}}"
+    },
+    "subscribers": [
+      {
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:38.710Z",
+        "action": "handled"
+      }
+    ]
+  },
+  {
+    "event": {
+      "frameId": 81,
+      "receivedAt": "2026-05-26T13:47:38.715Z",
+      "rawType": "studio_event",
+      "topic": "segments.progress",
+      "category": "segment",
+      "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
       "pluginId": null,
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
-      "payload": {
-        "status": "running",
-        "progress": 0.9,
-        "etaSeconds": null,
-        "message": null,
-        "reasonCode": "segment_saved",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": null,
-        "reason_code": "segment_saved"
-      },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682526.497568,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"running\",\"progress\":0.9,\"etaSeconds\":null,\"message\":null,\"reasonCode\":\"segment_saved\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":null,\"reason_code\":\"segment_saved\"}}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:15:26.541Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 111,
-      "receivedAt": "2026-05-25T04:15:27.267Z",
-      "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
-      "source": "plugins.tts_xtts.plugin.studio.handler.handle_xtts_job",
-      "pluginId": null,
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
+      "jobId": "job-3263e9af-52cb-45f6-a70e-1387f27ef10e",
+      "segmentId": "1777057465137731000_5",
       "payload": {
         "status": "done",
         "progress": 1,
-        "etaSeconds": 4,
-        "message": null,
+        "segmentIndex": 1,
+        "segmentCount": 2,
+        "message": "Completed segment 1777057465137731000_5",
         "reasonCode": "segment_saved",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": 4,
-        "reason_code": "segment_saved"
-      },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"plugins.tts_xtts.plugin.studio.handler.handle_xtts_job\",\"emittedAt\":1779682527.2575219,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"done\",\"progress\":1.0,\"etaSeconds\":4,\"message\":null,\"reasonCode\":\"segment_saved\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":4,\"reason_code\":\"segment_saved\"}}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:15:27.267Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 113,
-      "receivedAt": "2026-05-25T04:15:27.308Z",
-      "rawType": "studio_event",
-      "topic": "queue.items",
-      "category": "queue",
-      "eventKind": "queue_item_status",
-      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "pluginId": null,
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "jobId": "job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33",
-      "segmentId": null,
-      "payload": {
-        "status": "done",
-        "progress": 1,
+        "reason_code": "segment_saved",
+        "activeSegmentId": "1777057465137731000_5",
+        "activeSegmentProgress": 1,
+        "active_segment_id": "1777057465137731000_5",
+        "active_segment_progress": 1,
         "etaSeconds": null,
-        "message": "Task completed successfully.",
-        "reasonCode": "synthesis_ok",
-        "classification": "chapter",
-        "changedFields": null,
-        "paused": null,
-        "eta_seconds": null,
-        "reason_code": "synthesis_ok"
+        "eta_seconds": null
       },
-      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"queue.items\",\"eventKind\":\"queue_item_status\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779682527.3023229,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-baa55346-f2ba-4e3e-9f9b-bd55b6032c33\",\"segmentId\":null},\"payload\":{\"status\":\"done\",\"progress\":1.0,\"etaSeconds\":null,\"message\":\"Task completed successfully.\",\"reasonCode\":\"synthesis_ok\",\"classification\":\"chapter\",\"changedFields\":null,\"paused\":null,\"eta_seconds\":null,\"reason_code\":\"synthesis_ok\"}}"
+      "raw": "{\"type\":\"studio_event\",\"version\":1,\"topic\":\"segments.progress\",\"eventKind\":\"segment_progress\",\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"emittedAt\":1779803258.703105,\"pluginId\":null,\"ids\":{\"projectId\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapterId\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"jobId\":\"job-3263e9af-52cb-45f6-a70e-1387f27ef10e\",\"segmentId\":\"1777057465137731000_5\"},\"payload\":{\"status\":\"done\",\"progress\":1.0,\"segmentIndex\":1,\"segmentCount\":2,\"message\":\"Completed segment 1777057465137731000_5\",\"reasonCode\":\"segment_saved\",\"reason_code\":\"segment_saved\",\"activeSegmentId\":\"1777057465137731000_5\",\"activeSegmentProgress\":1.0,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":1.0,\"etaSeconds\":null,\"eta_seconds\":null}}"
     },
     "subscribers": [
       {
-        "subscriber": "main-queue",
-        "observedAt": "2026-05-25T04:15:27.308Z",
+        "subscriber": "segment-state",
+        "observedAt": "2026-05-26T13:47:38.715Z",
+        "action": "handled"
+      },
+      {
+        "subscriber": "chapter-state",
+        "observedAt": "2026-05-26T13:47:38.715Z",
         "action": "handled"
       }
     ]

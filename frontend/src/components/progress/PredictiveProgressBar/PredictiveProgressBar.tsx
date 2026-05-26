@@ -54,6 +54,7 @@ interface PredictiveProgressBarProps {
     onDebugSnapshot?: (snapshot: PredictiveProgressDebugSnapshot) => void;
     /** Fires every animation tick with the bar's live interpolated progress (0–1). */
     onDisplayProgress?: (progress: number) => void;
+    dataTestId?: string;
 }
 
 const progressMemory = new Map<string, number>();
@@ -170,6 +171,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     state,
     onDebugSnapshot,
     onDisplayProgress,
+    dataTestId,
 }) => {
     const presentationState = state ?? status;
     const effectiveAllowBackward = allowBackwardProgress ?? !authoritativeFloor;
@@ -423,7 +425,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         console.log('barOnly');
 
         return (
-            <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden' }} data-testid="progress-bar-tiny">
+            <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden' }} data-testid={dataTestId ?? "progress-bar-tiny"}>
                 <div
                     key={stablePhaseKey}
                     className={visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName}
@@ -441,7 +443,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     }
 
     return (
-        <div style={{ width: '100%' }} data-testid="progress-bar">
+        <div style={{ width: '100%' }} data-testid={dataTestId ?? "progress-bar"}>
             {(showLabel || showPercent || showEta) && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>

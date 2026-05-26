@@ -42,8 +42,8 @@ export const useChapterStatus = (
                 : null;
   const [heldQueueStatus, setHeldQueueStatus] = React.useState<string | null>(null);
   const releaseHoldTimerRef = React.useRef<number | null>(null);
-  const lastActiveQueueStatusRef = React.useRef<string | null>(null);
   const holdUntilRef = React.useRef<number>(0);
+  const lastActiveQueueStatusRef = React.useRef<string | null>(null);
   const queueStatus = heldQueueStatus ?? rawQueueStatus;
   const effectiveQueueLocked = queueLocked || !!queueStatus || chapter.audio_status === 'processing';
   const isQueued = queueStatus === 'Queued';
@@ -52,8 +52,11 @@ export const useChapterStatus = (
   const heldLiveJobTimerRef = React.useRef<number | null>(null);
   const terminalJobIdBridgedRef = React.useRef<string | null>(null);
 
+  const activeSegmentIsLive = !!generatingJob && !!generatingJob.active_segment_id && (generatingJob.active_segment_progress ?? 0) < 1;
+  const isJobActive = generatingJob && ['preparing', 'running', 'finalizing'].includes(generatingJob.status);
+
   React.useEffect(() => {
-    if (generatingJob && ['preparing', 'running', 'finalizing'].includes(generatingJob.status)) {
+    if (isJobActive || activeSegmentIsLive) {
       if (heldLiveJobTimerRef.current !== null) {
         window.clearTimeout(heldLiveJobTimerRef.current);
         heldLiveJobTimerRef.current = null;
@@ -80,7 +83,7 @@ export const useChapterStatus = (
         }, 1500);
       }
     }
-  }, [generatingJob, heldLiveJob]);
+  }, [generatingJob, heldLiveJob, isJobActive, activeSegmentIsLive]);
 
   React.useEffect(() => {
     return () => {
@@ -90,7 +93,7 @@ export const useChapterStatus = (
     };
   }, []);
 
-  const liveSegmentProgressJob = generatingJob && !['done', 'failed', 'cancelled'].includes(generatingJob.status)
+  const liveSegmentProgressJob = generatingJob && (!['done', 'failed', 'cancelled'].includes(generatingJob.status) || activeSegmentIsLive)
     ? generatingJob
     : (heldLiveJob && ['done', 'failed', 'cancelled'].includes(heldLiveJob.status) && !(recentlyFinishedDoneJob && !hasChapterAudio) ? heldLiveJob : undefined);
 
@@ -100,7 +103,8 @@ export const useChapterStatus = (
     typeof liveSegmentProgressJob.active_render_batch_id === 'string'
   );
   const liveSegmentProgressValue = liveSegmentProgressJob
-    ? (['finalizing', 'done', 'failed', 'cancelled'].includes(liveSegmentProgressJob.status)
+    ? (['finalizing', 'done', 'failed', 'cancelled'].includes(liveSegmentProgressJob.status) &&
+       !(liveSegmentProgressJob.id === generatingJob?.id && activeSegmentIsLive)
         ? 1
         : (liveProgressIsRenderBlock
             ? deriveActiveBatchProgress(liveSegmentProgressJob, liveSegmentProgressJob.active_render_group_weight ?? 1, Date.now())
@@ -153,10 +157,100 @@ export const useChapterStatus = (
     }
   }, []);
 
+  const segmentProgressBarProps = liveSegmentProgressJob ? {
+    dataTestId: 'chapter-header-segment-progress-bar',
+    progress: liveSegmentProgressValue,
+    startedAt: liveSegmentProgressJob.started_at,
+    etaSeconds: liveSegmentProgressJob.eta_seconds,
+    etaBasis: liveSegmentProgressJob.eta_basis ?? (liveSegmentProgressJob.eta_seconds != null ? 'remaining_from_update' : undefined),
+    updatedAt: liveSegmentProgressJob.updated_at,
+    status: activeSegmentIsLive ? 'running' : liveSegmentProgressJob.status,
+    state: activeSegmentIsLive
+      ? (liveSegmentProgressIsRenderBlock ? 'running' : 'processing')
+      : (liveSegmentProgressJob.status === 'preparing'
+          ? 'preparing'
+          : liveSegmentProgressJob.status === 'finalizing'
+              ? 'finalizing'
+              : liveSegmentProgressJob.status === 'running'
+                  ? (liveSegmentProgressIsRenderBlock ? 'running' : 'processing')
+                  : (liveSegmentProgressJob.status === 'error' ? 'failed' : liveSegmentProgressJob.status as any)),
+    checkpointMode: (liveSegmentProgressJob.segment_ids?.length || liveSegmentProgressJob.active_segment_id)
+      ? 'segment' as const
+      : (liveSegmentProgressJob.render_group_count ?? 0) > 0
+      ? 'queue' as const
+      : 'default' as const,
+    transitionTickCount: (liveSegmentProgressJob.segment_ids?.length || liveSegmentProgressJob.active_segment_id)
+      ? 3
+      : (liveSegmentProgressJob.render_group_count ?? 0) > 0
+      ? 12
+      : 8,
+    tickMs: 250,
+    allowBackwardProgress: false,
+    evidenceWeightFraction: undefined,
+    persistenceKey: `${liveSegmentProgressJob.id}:${liveSegmentProgressJob.active_segment_id || 'none'}`,
+    segmentProgressSocketProvenance: (liveSegmentProgressJob as any).segmentProgressSocketProvenance || null,
+  } : null;
+
   return {
     queueStatus, heldQueueStatus, effectiveQueueLocked, isQueued,
     liveSegmentProgressJob, liveSegmentProgressValue, hasChapterAudio,
-    generatingSegmentIdsCount, liveSegmentProgressIsRenderBlock
+    generatingSegmentIdsCount, liveSegmentProgressIsRenderBlock,
+    activeSegmentIsLive,
+    segmentProgressBarProps,
+    get segmentProgressBarDebug() {
+      const debugJob = liveSegmentProgressJob || generatingJob;
+      const isLive = !!(liveSegmentProgressJob && segmentProgressBarProps);
+      const prov = (debugJob as any)?.segmentProgressSocketProvenance || null;
+      const mismatch = !isLive || !prov || !!(prov.rawEnvelope?.jobId && debugJob?.id !== prov.rawEnvelope.jobId);
+      const renderProps = segmentProgressBarProps ? {
+        ...segmentProgressBarProps,
+        persistenceKey: `${liveSegmentProgressJob!.id}:${liveSegmentProgressJob!.active_segment_id || 'none'}`,
+        label: "Segment Progress",
+        predictive: true,
+        backwardTransitionTickCount: 2,
+        showEta: false,
+      } : (debugJob ? {
+        progress: debugJob.active_segment_progress ?? debugJob.progress ?? 0,
+        startedAt: debugJob.started_at,
+        etaSeconds: debugJob.eta_seconds,
+        updatedAt: debugJob.updated_at,
+        status: debugJob.status,
+        persistenceKey: `${debugJob.id}:${debugJob.active_segment_id || 'none'}`,
+        label: "Segment Progress",
+        predictive: true,
+        backwardTransitionTickCount: 2,
+        showEta: false,
+      } : null);
+      return {
+        dataTestId: 'chapter-header-segment-progress-bar',
+        telemetryState: isLive ? 'live' : (debugJob ? 'last-rendered' : 'idle'),
+        sourceTopic: prov?.rawEnvelope?.topic || null,
+        eventKind: prov?.rawEnvelope?.eventKind || null,
+        frameId: prov?.rawEnvelope?.frameId || null,
+        receivedAt: prov?.rawEnvelope?.receivedAt || null,
+        projectId: prov?.rawEnvelope?.projectId || null,
+        chapterId: prov?.rawEnvelope?.chapterId || null,
+        jobId: prov?.rawEnvelope?.jobId || null,
+        segmentId: prov?.rawEnvelope?.segmentId || null,
+        activeSegmentId: prov?.selectedFields?.activeSegmentId || null,
+        activeSegmentProgress: prov?.selectedFields?.activeSegmentProgress ?? null,
+        etaSeconds: prov?.selectedFields?.etaSeconds ?? null,
+        eta_basis: prov?.selectedFields?.eta_basis || null,
+        started_at: prov?.selectedFields?.started_at || null,
+        updated_at: prov?.selectedFields?.updatedAt || null,
+        status: prov?.selectedFields?.status || null,
+        progress: prov?.selectedFields?.progress ?? null,
+        reasonCode: prov?.selectedFields?.reasonCode || null,
+        ignoredFields: prov?.ignoredFields || [],
+        checkpointMode: segmentProgressBarProps?.checkpointMode || null,
+        transitionTickCount: segmentProgressBarProps?.transitionTickCount || null,
+        tickMs: segmentProgressBarProps?.tickMs || null,
+        allowBackwardProgress: segmentProgressBarProps?.allowBackwardProgress ?? null,
+        evidenceWeightFraction: segmentProgressBarProps?.evidenceWeightFraction ?? null,
+        renderProps,
+        mismatch,
+      };
+    }
   };
 };
 
@@ -396,52 +490,20 @@ export const ChapterScriptToolbar: React.FC<{
             </div>
         )}
 
-        {status.liveSegmentProgressJob && (
+        {status.liveSegmentProgressJob && status.segmentProgressBarProps && (
             <div style={{ width: '180px', minWidth: '180px' }}>
                 <PredictiveProgressBar
-                    key={`${status.liveSegmentProgressJob.id}:${status.liveSegmentProgressJob.active_segment_id || 'none'}`}
-                    progress={status.liveSegmentProgressValue}
-                    startedAt={status.liveSegmentProgressJob.started_at}
-                    etaSeconds={status.liveSegmentProgressJob.eta_seconds}
-                    etaBasis={status.liveSegmentProgressJob.eta_basis ?? (status.liveSegmentProgressJob.eta_seconds != null ? 'remaining_from_update' : undefined)}
-                    updatedAt={status.liveSegmentProgressJob.updated_at}
-                    persistenceKey={`${status.liveSegmentProgressJob.id}:${status.liveSegmentProgressJob.active_segment_id || 'none'}`}
-                    status={status.liveSegmentProgressJob.status}
-                    state={
-                        status.liveSegmentProgressJob.status === 'preparing'
-                            ? 'preparing'
-                            : status.liveSegmentProgressJob.status === 'finalizing'
-                                ? 'finalizing'
-                                : status.liveSegmentProgressJob.status === 'running'
-                                    ? (status.liveSegmentProgressIsRenderBlock ? 'running' : 'processing')
-                                    : (status.liveSegmentProgressJob.status === 'error' ? 'failed' : status.liveSegmentProgressJob.status as any)
-                    }
+                    key={status.segmentProgressBarProps.persistenceKey}
+                    {...status.segmentProgressBarProps}
                     label="Segment Progress"
                     predictive={true}
-                    allowBackwardProgress={false}
-                    checkpointMode={
-                        (status.liveSegmentProgressJob.segment_ids?.length || status.liveSegmentProgressJob.active_segment_id)
-                            ? 'segment'
-                            : (status.liveSegmentProgressJob.render_group_count ?? 0) > 0
-                            ? 'queue'
-                            : 'default'
-                    }
-                    transitionTickCount={
-                        (status.liveSegmentProgressJob.segment_ids?.length || status.liveSegmentProgressJob.active_segment_id)
-                            ? 3
-                            : (status.liveSegmentProgressJob.render_group_count ?? 0) > 0
-                            ? 12
-                            : 8
-                    }
                     backwardTransitionTickCount={2}
-                    tickMs={250}
                     showEta={false}
                     onDisplayProgress={onSegmentDisplayProgress}
                     onDebugSnapshot={onProgressBarDebugSnapshot}
                 />
             </div>
         )}
-
         {(status.generatingSegmentIdsCount > 0 || chapter?.audio_status === 'processing') && (
             <button
                 onClick={onStopAll}

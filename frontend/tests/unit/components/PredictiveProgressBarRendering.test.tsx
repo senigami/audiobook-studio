@@ -201,4 +201,15 @@ describe('PredictiveProgressBar - Rendering', () => {
         // 0.2192458603132432 * 100 = 21.92458603132432. toFixed(1) should be "21.9"
         expect(fill().style.width).toBe('21.9%')
     })
+
+    it('uses the provided dataTestId prop for the data-testid attribute', () => {
+        render(
+            <PredictiveProgressBar
+                progress={0.5}
+                dataTestId="custom-test-id-bar"
+                status="running"
+            />
+        )
+        expect(screen.getByTestId('custom-test-id-bar')).toBeInTheDocument()
+    })
 })

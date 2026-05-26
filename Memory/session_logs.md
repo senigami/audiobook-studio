@@ -1,3 +1,29 @@
+# 2026-05-26 - Add socket event provenance tracing to Segment Progress bar debug payload
+
+- Modified `useJobs.ts` under the `segments.progress` topic handler to capture a detailed debug trace (`segmentProgressSocketProvenance`) for each event, recording the raw envelope and the specific consumed fields (such as `etaSeconds`, `eta_basis`, `started_at`, `status`, `progress`, etc.).
+- Attached `segmentProgressSocketProvenance` to `segmentProgressBarProps` in `ChapterHeader.tsx`'s `useChapterStatus` hook.
+- Exposed `segmentProgressSocketProvenance` in the `progressBar` section of the clipboard debug copy payload in `ChapterEditorPage.tsx`, explicitly listing the consumed topic and the set of ignored fields.
+- Added unit tests in `useJobs.test.tsx` (proving trace generation and isolation from unrelated topics), `ChapterHeaderProgressContract.test.tsx` (proving prop forwarding to the bar), and `ChapterEditorPage.test.tsx` (proving clipboard payload containment).
+- Verified all unit tests, build, lint, and git checks pass cleanly.
+
+# 2026-05-26 - Add unique PredictiveProgressBar test IDs and surface Segment Progress bar metadata in ChapterEditor debug payload
+
+- Added an optional `dataTestId` prop to `PredictiveProgressBar` and bound it to the root elements, falling back to `"progress-bar"` or `"progress-bar-tiny"`.
+- Assigned unique stable test IDs to all progress bar instances across the app: `'chapter-header-segment-progress-bar'`, `'queue-item-progress-bar'`, `'chapter-list-progress-bar'`, and `'dev-progress-bar-preview'`.
+- Surfaced the exact Segment Progress bar test ID and the 11 render props passed to it in the ChapterEditor clipboard debug copy output under `progressBar.dataTestId` and `progressBar.renderProps`.
+- Fixed a syntax error and restored the width rounding test in `PredictiveProgressBarRendering.test.tsx`, and added a test case asserting correct custom `dataTestId` propagation.
+- Added a unit test in `ChapterEditorPage.test.tsx` verifying that the copied debug payload includes the correct Segment Progress bar `dataTestId` and render props.
+- Verified that all 72 unit tests across `PredictiveProgressBarRendering`, `ChapterEditorPage`, `ChapterHeaderProgressContract`, `GlobalQueueFiles`, and `DevProgressBarPage` pass cleanly, and the build & lint checks are successful.
+
+# 2026-05-25 - Fix socket-to-DevProgressBar feed path and add diagnostics inspector
+
+- In `useProgressBarTest.ts`, added state variables `updateSource`, `lastSocketEnvelope`, and `lastIgnoredEnvelope` to capture live progress updates and ignored socket events, and wired them up to unsubscribe cleanly on hook unmount.
+- In `DevProgressBarPage.tsx`, passed `lastIgnoredEnvelope` down to `<ProgressBarDebugPanel />`.
+- In `ProgressBarDebugPanel.tsx`, rendered a status badge showing the active source, a grid displaying raw fields from the socket event envelope, and a new **Raw Frame Inspector** textarea displaying the raw envelope JSON.
+- Added a dedicated **Ignored Topics** section explicitly listing the set of ignored topics (`queue.items`, `chapters.progress`, and `tts.logs`) and displaying the topic of the "Last ignored event" using `lastIgnoredEnvelope` when an ignored socket event is received.
+- Added unit tests in `DevProgressBarPage.test.tsx` verifying raw frame inspector, source badge transitions, manual updates, and ignored topics.
+- Verified all 631 Vitest tests, lint checks, and production builds pass cleanly.
+
 # 2026-05-25 - Fix QueueItem ETA basis propagation and selection
 
 - In `useQueueSync.ts`, mapped and propagated `eta_basis` from the socket payload, defaulting to `'remaining_from_update'` if any ETA seconds are present in the payload.
@@ -1515,3 +1541,33 @@
 - In `QueueItem.tsx`, refactored `stableUpdatedAt` updates to use the functional updater form (`prev => nextUpdated > prev ? nextUpdated : prev`) and removed `stableUpdatedAt` from the effect's dependency array. This satisfies React hook best practices by removing a self-referencing state dependency cycle.
 - In `GlobalQueueFiles.test.tsx`, updated the completion retention unit tests to space out queue updates and verify correct timer clearance on retry and removal.
 - Verified that all 625 tests in the frontend test suite pass successfully, the linter reports zero errors, and the production client compiles cleanly.
+
+# 2026-05-26 - ChapterEditor segment progress bar feed path and terminal hold refinements
+
+- In `useJobs.ts`, mapped and propagated `eta_seconds`, `eta_basis`, and `started_at` in the `'segments.progress'` subscriber block only when they are actually present on the socket payload, keeping the default basis constrained to the segment update path.
+- In `ChapterHeader.tsx`'s `useChapterStatus` hook, introduced `activeSegmentIsLive` to prevent Done status clamping for progress values and override status/state props passed to `<PredictiveProgressBar>` to keep the segment bar presenting as active when segment generation is still active.
+- Refined the terminal-state hold collapse check in `ChapterHeader.tsx` so progress collapses to 1 (100%/Complete) only when `activeSegmentIsLive` is false for that same live job.
+- Added TDD unit and integration tests in `useJobs.test.tsx`, `ChapterHeader.test.tsx`, and `ChapterEditorPage.test.tsx` verifying metrics propagation, terminal status bypass, and debug payload presence.
+- Verified that all 635 frontend Vitest tests pass, the linter reports zero errors, and the production client compiles successfully.
+
+# 2026-05-26 - ChapterEditor segment progress bar debug payload expansion
+
+- Added `eventKind`, `renderProps`, `mismatch`, and `ignoredFields` to the `segmentProgressBarDebug` object constructed in `useChapterStatus` in `ChapterHeader.tsx`.
+- Moved `segmentProgressBarDebug` to the `render` block of the clipboard copy debug payload in `ChapterEditorPage.tsx` under the `frontend.render` key.
+- Updated `ChapterHeaderProgressContract.test.tsx` and `ChapterEditorPage.test.tsx` to assert correct presence and values of the expanded fields, and corrected the TDD assertions.
+- Verified that all 638 Vitest tests, lint checks, production builds, and git diff checks are green.
+
+# 2026-05-26 - ChapterEditor segment progress bar debug feed path fix
+
+- Fixed the `segmentProgressBarDebug` and `debugProgressBarProps` construction in `useChapterStatus` hook in [ChapterHeader.tsx](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx) to read from the target active/generating job (`generatingJob || liveSegmentProgressJob`) instead of just `liveSegmentProgressJob`.
+- This ensures the Segment Progress bar debug state telemetry and render props are correctly populated and preserved when the job is done/terminal and the visual bar has unmounted, resolving the issue where the clipboard debug payload fell through to null socket-derived fields.
+- Implemented an expanded `mismatch` flag checking if `generatingJob` is present but either the bar is inactive (`!liveSegmentProgressJob`), the socket provenance is absent, or the jobId mismatches.
+- Added a focused unit test to [ChapterHeaderProgressContract.test.tsx](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/tests/unit/pages/ChapterEditor/components/ChapterHeaderProgressContract.test.tsx) asserting that the bar unmounts after 1500ms but retains full telemetry in the debug state and flags `mismatch: true` correctly.
+- Verified that all 639 Vitest tests, lint checks, production builds, and git diff checks are clean.
+
+# 2026-05-26 - Persistent ChapterEditor Segment Progress bar debug telemetry
+
+- Implemented `lastTelemetryRef` inside `useChapterStatus` in [ChapterHeader.tsx](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx) to cache the latest valid socket provenance and PredictiveProgressBar props whenever they are active.
+- Returned the persisted telemetry snapshot from `segmentProgressBarDebug` when the progress bar unmounts (setting `isActiveNow: false`, `persistedAfterUnmount: true`, and `mismatch: true`), ensuring the clipboard copy debug payload remains fully populated and doesn't drop to null.
+- Added `isActiveNow` and `persistedAfterUnmount` fields to the contract test suite in [ChapterHeaderProgressContract.test.tsx](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/tests/unit/pages/ChapterEditor/components/ChapterHeaderProgressContract.test.tsx) and integration tests in [ChapterEditorPage.test.tsx](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/tests/unit/pages/ChapterEditor/ChapterEditorPage.test.tsx) to verify correct flag state toggles before and after unmount.
+- Verified that all 639 frontend Vitest tests, lint checks, production builds, and git diff checks are clean.

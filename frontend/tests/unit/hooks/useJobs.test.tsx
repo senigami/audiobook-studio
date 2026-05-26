@@ -681,7 +681,8 @@ describe('useJobs', () => {
     expect(job.active_segment_id).toBe('seg-abc');
     expect(job.active_segment_progress).toBe(0.85);
     expect(job.status).toBe('running');
-    expect(job.eta_seconds).toBeUndefined();
+    expect(job.eta_seconds).toBe(15);
+    expect(job.eta_basis).toBe('remaining_from_update');
     expect(job.log).toBe('active segment progress log');
     expect(job.reason_code).toBe('segment_progress_tick');
 
@@ -790,5 +791,199 @@ describe('useJobs', () => {
     expect(job).toBeDefined();
     expect(job.active_segment_id).toBe('seg-abc');
     expect(job.active_segment_progress).toBe(0.85);
+  });
+
+  it('preserves project_id and chapter_id on segments.progress updates in the jobs store', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [] });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-abc', jobId: 'job-seg-1', chapterId: 'chap-1', projectId: 'proj-1' },
+        payload: {
+          status: 'running',
+          progress: 0.85,
+          segmentIndex: 1,
+          segmentCount: 10,
+          message: 'active segment progress log',
+          reasonCode: 'segment_progress_tick',
+        },
+      });
+    });
+
+    const job = result.current.jobs['job-seg-1'];
+    expect(job).toBeDefined();
+    expect(job.project_id).toBe('proj-1');
+    expect(job.chapter_id).toBe('chap-1');
+  });
+
+  it('does not discard active_segment_id and active_segment_progress when updates have an older timestamp', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({
+      type: 'jobs_snapshot',
+      jobs: [{
+        id: 'job-timestamp-ignore',
+        status: 'running',
+        progress: 0.5,
+        updated_at: 200,
+        active_segment_id: 'seg-old',
+        active_segment_progress: 0.2
+      } as any]
+    });
+
+    // Emit event with older updatedAt (150 < 200)
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      progress: 0.3,
+      updatedAt: 150,
+      activeSegmentId: 'seg-new',
+      activeSegmentProgress: 0.77,
+    }, { jobId: 'job-timestamp-ignore' });
+
+    // Job progress and status should be ignored (status remains running, progress remains 0.5)
+    // BUT active_segment_id and active_segment_progress must be updated!
+    const job = result.current.jobs['job-timestamp-ignore'];
+    expect(job).toBeDefined();
+    expect(job.progress).toBe(0.5);
+    expect(job.active_segment_id).toBe('seg-new');
+    expect(job.active_segment_progress).toBe(0.77);
+  });
+
+  it('propagates eta_seconds, eta_basis, and started_at from segments.progress only when present on socket payload', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-seg-metrics', status: 'running', progress: 0 }] });
+
+    // 1. Emit without metrics, should not propagate
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-abc', jobId: 'job-seg-metrics', chapterId: 'chap-1' },
+        payload: {
+          status: 'running',
+          progress: 0.5,
+        },
+      });
+    });
+
+    let job = result.current.jobs['job-seg-metrics'];
+    expect(job.eta_seconds).toBeUndefined();
+    expect(job.eta_basis).toBeUndefined();
+    expect(job.started_at).toBeUndefined();
+
+    // 2. Emit with metrics, should propagate
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-abc', jobId: 'job-seg-metrics', chapterId: 'chap-1' },
+        payload: {
+          status: 'running',
+          progress: 0.65,
+          etaSeconds: 45,
+          etaBasis: 'custom_basis',
+          startedAt: 1234567,
+        },
+      });
+    });
+
+    job = result.current.jobs['job-seg-metrics'];
+    expect(job.eta_seconds).toBe(45);
+    expect(job.eta_basis).toBe('custom_basis');
+    expect(job.started_at).toBe(1234567);
+  });
+
+  it('populates segmentProgressSocketProvenance only for segments.progress events and includes raw/selected fields', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-trace', status: 'running', progress: 0 }] });
+
+    // 1. Emit queue.items event, should NOT populate segmentProgressSocketProvenance
+    emitEvent('queue.items', 'queue_item_status', { progress: 0.1, status: 'running' }, { jobId: 'job-trace' });
+    expect(result.current.jobs['job-trace']?.segmentProgressSocketProvenance).toBeUndefined();
+
+    // 2. Emit segments.progress event, should populate segmentProgressSocketProvenance
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-trace', jobId: 'job-trace', chapterId: 'chap-trace', projectId: 'proj-trace' },
+        payload: {
+          status: 'running',
+          progress: 0.8,
+          etaSeconds: 30,
+        },
+      });
+    });
+
+    const job = result.current.jobs['job-trace'];
+    expect(job?.segmentProgressSocketProvenance).toBeDefined();
+    expect(job?.segmentProgressSocketProvenance.consumedTopic).toBe('segments.progress');
+    expect(job?.segmentProgressSocketProvenance.ignoredTopics).toEqual(["tts.logs", "queue.items", "chapters.progress"]);
+    expect(job?.segmentProgressSocketProvenance.selectedFields).toMatchObject({
+      topic: 'segments.progress',
+      eventKind: 'segment_progress',
+      projectId: 'proj-trace',
+      chapterId: 'chap-trace',
+      jobId: 'job-trace',
+      segmentId: 'seg-trace',
+      activeSegmentId: 'seg-trace',
+      activeSegmentProgress: 0.8,
+      etaSeconds: 30,
+    });
+  });
+
+  it('preserves segmentProgressSocketProvenance through the stale-timestamp fast path', async () => {
+    const { result } = renderHook(() => useJobs());
+    // Seed job with a newer updated_at so the segments.progress event takes the stale-timestamp guard
+    emit({
+      type: 'jobs_snapshot',
+      jobs: [{
+        id: 'job-stale-prov',
+        status: 'running',
+        progress: 0.5,
+        updated_at: 300,
+        active_segment_id: 'seg-old',
+        active_segment_progress: 0.2,
+      } as any],
+    });
+
+    // Emit segments.progress with older updated_at (150 < 300) — triggers stale-timestamp guard
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        emittedAt: 150,
+        ids: { segmentId: 'seg-new', jobId: 'job-stale-prov', chapterId: 'chap-1', projectId: 'proj-1' },
+        payload: {
+          status: 'running',
+          progress: 0.65,
+          activeSegmentProgress: 0.88,
+          etaSeconds: 20,
+          updatedAt: 150,
+        },
+      });
+    });
+
+    const job = result.current.jobs['job-stale-prov'];
+    expect(job).toBeDefined();
+    // active_segment fields should still be updated (existing behavior)
+    expect(job.active_segment_id).toBe('seg-new');
+    expect(job.active_segment_progress).toBe(0.88);
+    // segmentProgressSocketProvenance MUST survive the stale-timestamp fast path
+    expect(job.segmentProgressSocketProvenance).toBeDefined();
+    expect(job.segmentProgressSocketProvenance.consumedTopic).toBe('segments.progress');
+    expect(job.segmentProgressSocketProvenance.selectedFields.segmentId).toBe('seg-new');
   });
 });

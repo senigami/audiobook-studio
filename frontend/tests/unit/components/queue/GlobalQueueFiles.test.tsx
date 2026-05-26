@@ -15,7 +15,8 @@ import { recordLiveEventEnvelope, resetLiveEventAuditForTests } from '@/store/li
     evidenceWeightFraction,
     persistenceKey,
     checkpointMode,
-    updatedAt
+    updatedAt,
+    dataTestId
   }: {
     progress: number;
     predictive?: boolean;
@@ -28,9 +29,10 @@ import { recordLiveEventEnvelope, resetLiveEventAuditForTests } from '@/store/li
     persistenceKey?: string;
     checkpointMode?: string;
     updatedAt?: number;
+    dataTestId?: string;
   }) => (
     <div
-      data-testid="progress-bar"
+      data-testid={dataTestId || "progress-bar"}
       data-progress={progress}
       data-predictive={String(!!predictive)}
       data-started-at={startedAt ?? ''}
@@ -100,7 +102,7 @@ describe('Global Queue Components', () => {
             expect(screen.getByText('Title for job-1')).toBeInTheDocument();
             expect(screen.getByText('Test Project')).toBeInTheDocument();
             expect(screen.getByText('Started Time 1000')).toBeInTheDocument();
-            expect(screen.getByTestId('progress-bar')).toBeInTheDocument();
+            expect(screen.getByTestId('queue-item-progress-bar')).toBeInTheDocument();
         });
 
         it('shows part numbering only for continued split jobs', () => {
@@ -129,10 +131,10 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.15');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-started-at', '1000');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '30');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-progress', '0.15');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-predictive', 'true');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-started-at', '1000');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-eta-seconds', '30');
         });
 
         it('uses indeterminate working state for indeterminate jobs while keeping predictive mode enabled', () => {
@@ -148,8 +150,8 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'preparing');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-predictive', 'true');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-status', 'preparing');
         });
 
         it('uses live segment progress for running voice build jobs', () => {
@@ -172,8 +174,8 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.66');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-progress', '0.66');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-predictive', 'true');
         });
 
         it('keeps voice build progress tied to the active segment instead of the overall job lane', () => {
@@ -196,8 +198,8 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.66');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-progress', '0.66');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-predictive', 'true');
         });
 
         it('proves the main queue is not driven by chapter/segment live overlays (uses overall progress for chapter jobs)', () => {
@@ -221,10 +223,10 @@ describe('Global Queue Components', () => {
             />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.52');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-persistence-key', 'job-1');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-checkpoint-mode', 'default');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-progress', '0.52');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-predictive', 'true');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-persistence-key', 'job-1');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-checkpoint-mode', 'default');
         });
 
         it('does not render ETA 0 or negative ETA for active jobs', () => {
@@ -239,7 +241,7 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-eta-seconds', '');
         });
 
         it('does not render ETA 0 when an active job has positive eta_seconds but a stale estimated_end_at from the past', () => {
@@ -271,7 +273,7 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            const progressBar = screen.getByTestId('progress-bar');
+            const progressBar = screen.getByTestId('queue-item-progress-bar');
             expect(progressBar).toHaveAttribute('data-eta-seconds', '12');
         });
 
@@ -296,9 +298,9 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.75');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-persistence-key', 'job-1:seg-2');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-checkpoint-mode', 'segment');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-progress', '0.75');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-persistence-key', 'job-1:seg-2');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-checkpoint-mode', 'segment');
         });
 
         it('preserves grouped progress evidence for mixed chapter jobs while keeping the preparing label', () => {
@@ -328,13 +330,13 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'preparing');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.3');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'false');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-persistence-key', 'job-1');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-checkpoint-mode', 'queue');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-started-at', '');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-status', 'preparing');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-progress', '0.3');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-allow-backward', 'false');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-persistence-key', 'job-1');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-checkpoint-mode', 'queue');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-started-at', '');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-eta-seconds', '');
         });
 
         it('shows pause icon when paused', () => {
@@ -386,7 +388,7 @@ describe('Global Queue Components', () => {
             );
 
             // Even if liveJob is missing, it should detect grouped progress and disable backward movement
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'false');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-allow-backward', 'false');
         });
 
         it('prefers positive liveJob.eta_seconds over job.eta_seconds = 0 when running', () => {
@@ -409,7 +411,7 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '14');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-eta-seconds', '14');
         });
 
         it('uses job.eta_seconds when only job.eta_seconds is positive', () => {
@@ -432,7 +434,7 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '42');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-eta-seconds', '42');
         });
 
         it('associates the ETA basis with the selected ETA source', () => {
@@ -457,7 +459,7 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            const progressBar = screen.getByTestId('progress-bar');
+            const progressBar = screen.getByTestId('queue-item-progress-bar');
             expect(progressBar).toHaveAttribute('data-eta-seconds', '14');
             expect(progressBar).toHaveAttribute('data-eta-basis', 'remaining_from_update');
         });
@@ -571,7 +573,7 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-updated-at', '2000');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-updated-at', '2000');
         });
 
         it('falls back to job.updated_at when live overlay does not provide a fresher ETA/timestamp pair', () => {
@@ -591,7 +593,7 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-updated-at', '1000');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-updated-at', '1000');
         });
 
         it('keeps the ETA timestamp anchor stable when a subsequent update lacks a positive live ETA', () => {
@@ -618,7 +620,7 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-updated-at', '2000');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-updated-at', '2000');
 
             rerender(
                 <QueueItem
@@ -643,7 +645,7 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-updated-at', '2000');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-updated-at', '2000');
         });
 
         it('keeps the debug button visible after a job reaches done', () => {
