@@ -292,18 +292,19 @@ def build_segment_progress_event(
     eta_seconds: int | None = None,
 ) -> dict:
     """Build a segments.progress topic envelope."""
+    rounded_progress = round(float(progress), 2)
     payload = {
         "status": status,
-        "progress": round(float(progress), 2),
+        "progress": rounded_progress,
         "segmentIndex": segment_index,
         "segmentCount": segment_count,
         "message": message,
         "reasonCode": reason_code,
         "reason_code": reason_code,  # Legacy compatibility
         "activeSegmentId": segment_id,
-        "activeSegmentProgress": round(float(progress), 2),
+        "activeSegmentProgress": rounded_progress,
         "active_segment_id": segment_id,
-        "active_segment_progress": round(float(progress), 2),
+        "active_segment_progress": rounded_progress,
         "etaSeconds": eta_seconds,
         "eta_seconds": eta_seconds,
     }

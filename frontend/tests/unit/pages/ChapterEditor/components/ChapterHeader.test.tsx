@@ -336,7 +336,7 @@ describe('ChapterHeader', () => {
     expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('job_progress');
     expect(capturedStatus.segmentProgressBarSelection.selectedJobProgress).toBe(0.77);
 
-    // 6. Active segment progress prioritized over render-group/render-block fields
+    // 6. Render-block progress should win when both render-group and active-segment fields exist
     const mixedJob = {
       id: 'job-mixed',
       status: 'running',
@@ -348,7 +348,84 @@ describe('ChapterHeader', () => {
       render_group_count: 3
     };
     rerender(<TestComponent job={mixedJob as any} generatingJob={mixedJob as any} />);
-    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('active_segment_progress');
-    expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressValue).toBe(0.85);
+    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('render_block_progress');
+    expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressIsRenderBlock).toBe(true);
+  });
+  it('proves grouping/source order matches known-good: render_block_progress wins over active_segment_progress when render_group_count or active_render_batch_* fields exist', () => {
+    let capturedStatus: any = null;
+    const TestComponent = ({ job, generatingJob }: any) => {
+      capturedStatus = useChapterStatus(mockChapter as any, job, generatingJob, false, 0, false);
+      return null;
+    };
+
+    const mixedJob = {
+      id: 'job-mixed-priority',
+      status: 'running',
+      progress: 0.2,
+      active_segment_id: 'seg-xyz',
+      active_segment_progress: 0.85,
+      active_render_batch_id: 'batch-2',
+      active_render_batch_progress: 0.65,
+      render_group_count: 3
+    };
+
+    render(<TestComponent job={mixedJob as any} generatingJob={mixedJob as any} />);
+    expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressIsRenderBlock).toBe(true);
+    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('render_block_progress');
+    expect(capturedStatus.liveSegmentProgressValue).not.toBe(0.85);
+  });
+
+  it('proves that the progress value/grouping stays known-good while etaSeconds/etaBasis/updatedAt come from active_segment_eta_* when active_segment_id is present', () => {
+    let capturedStatus: any = null;
+    const TestComponent = ({ job, generatingJob }: any) => {
+      capturedStatus = useChapterStatus(mockChapter as any, job, generatingJob, false, 0, false);
+      return null;
+    };
+
+    const job = {
+      id: 'job-eta-test',
+      status: 'running',
+      progress: 0.22,
+      active_segment_id: 'seg-123',
+      active_segment_progress: 0.45,
+      eta_seconds: 125,
+      eta_basis: 'remaining_from_update',
+      updated_at: 1000,
+      active_segment_eta_seconds: 15,
+      active_segment_eta_basis: 'segment_remaining',
+      active_segment_updated_at: 1050,
+    };
+
+    render(<TestComponent job={job as any} generatingJob={job as any} />);
+
+    expect(capturedStatus.liveSegmentProgressValue).toBe(0.45);
+    expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressIsRenderBlock).toBe(true);
+
+    expect(capturedStatus.segmentProgressBarSelection.selectedEtaSeconds).toBe(15);
+    expect(capturedStatus.segmentProgressBarSelection.selectedEtaBasis).toBe('segment_remaining');
+    expect(capturedStatus.segmentProgressBarSelection.selectedUpdatedAt).toBe(1050);
+  });
+
+  it('proves that if active_segment_id is present but segment-local ETA is absent, it does not fall back to chapter ETA', () => {
+    let capturedStatus: any = null;
+    const TestComponent = ({ job, generatingJob }: any) => {
+      capturedStatus = useChapterStatus(mockChapter as any, job, generatingJob, false, 0, false);
+      return null;
+    };
+
+    const job = {
+      id: 'job-eta-test-absent',
+      status: 'running',
+      progress: 0.22,
+      active_segment_id: 'seg-123',
+      active_segment_progress: 0.45,
+      eta_seconds: 125,
+      eta_basis: 'remaining_from_update',
+    };
+
+    render(<TestComponent job={job as any} generatingJob={job as any} />);
+
+    expect(capturedStatus.segmentProgressBarSelection.selectedEtaSeconds).toBeNull();
+    expect(capturedStatus.segmentProgressBarSelection.selectedEtaBasis).toBeNull();
   });
 });

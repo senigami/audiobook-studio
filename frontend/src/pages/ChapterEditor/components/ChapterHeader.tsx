@@ -12,7 +12,8 @@ export const useChapterStatus = (
   generatingJob?: Job,
   queuePending: boolean = false,
   generatingSegmentIdsCount: number = 0,
-  queueLocked: boolean = false
+  queueLocked: boolean = false,
+  activeRenderBatchIdFromPage?: string | null
 ) => {
   const hasChapterAudio = !!(chapter.has_wav || chapter.has_mp3 || chapter.has_m4a);
   const recentlyFinishedDoneJob = !!(job?.status === 'done' && job?.finished_at && ((Date.now() / 1000) - job.finished_at) <= RECENT_DONE_WINDOW_SECONDS);
@@ -102,10 +103,10 @@ export const useChapterStatus = (
   const liveSegmentProgressValue = liveSegmentProgressJob
     ? (['finalizing', 'done', 'failed', 'cancelled'].includes(liveSegmentProgressJob.status)
         ? 1
-        : ((liveSegmentProgressJob.active_segment_id && typeof liveSegmentProgressJob.active_segment_progress === 'number')
-            ? liveSegmentProgressJob.active_segment_progress
-            : liveProgressIsRenderBlock
+        : (liveProgressIsRenderBlock
             ? deriveActiveBatchProgress(liveSegmentProgressJob, liveSegmentProgressJob.active_render_group_weight ?? 1, Date.now())
+            : liveSegmentProgressJob.active_segment_id
+            ? (liveSegmentProgressJob.active_segment_progress ?? 0)
             : (liveSegmentProgressJob.progress ?? 0)))
     : 0;
 
@@ -157,10 +158,10 @@ export const useChapterStatus = (
     ? 'no_live_job'
     : ['finalizing', 'done', 'failed', 'cancelled'].includes(liveSegmentProgressJob.status)
       ? 'terminal_complete'
-      : (liveSegmentProgressJob.active_segment_id && typeof liveSegmentProgressJob.active_segment_progress === 'number')
-        ? 'active_segment_progress'
-        : liveProgressIsRenderBlock
-          ? 'render_block_progress'
+      : liveProgressIsRenderBlock
+        ? 'render_block_progress'
+        : (liveSegmentProgressJob.active_segment_id && typeof liveSegmentProgressJob.active_segment_progress === 'number')
+          ? 'active_segment_progress'
           : 'job_progress';
 
   const segmentProgressBarSelection = {
@@ -171,14 +172,20 @@ export const useChapterStatus = (
     selectedJobProgress: liveSegmentProgressJob?.progress ?? null,
     selectedActiveSegmentId: liveSegmentProgressJob?.active_segment_id ?? null,
     selectedActiveSegmentProgress: liveSegmentProgressJob?.active_segment_progress ?? null,
-    selectedEtaSeconds: liveSegmentProgressJob?.eta_seconds ?? null,
-    selectedEtaBasis: liveSegmentProgressJob?.eta_basis ?? (liveSegmentProgressJob?.eta_seconds != null ? 'remaining_from_update' : null),
+    selectedEtaSeconds: liveSegmentProgressJob?.active_segment_id
+      ? (liveSegmentProgressJob.active_segment_eta_seconds ?? null)
+      : (liveSegmentProgressJob?.eta_seconds ?? null),
+    selectedEtaBasis: liveSegmentProgressJob?.active_segment_id
+      ? (liveSegmentProgressJob.active_segment_eta_basis ?? (liveSegmentProgressJob.active_segment_eta_seconds != null ? 'remaining_from_update' : null))
+      : (liveSegmentProgressJob?.eta_basis ?? (liveSegmentProgressJob?.eta_seconds != null ? 'remaining_from_update' : null)),
     selectedStartedAt: liveSegmentProgressJob?.started_at ?? null,
-    selectedUpdatedAt: liveSegmentProgressJob?.updated_at ?? null,
+    selectedUpdatedAt: liveSegmentProgressJob?.active_segment_id
+      ? (liveSegmentProgressJob.active_segment_updated_at ?? null)
+      : (liveSegmentProgressJob?.updated_at ?? null),
     liveSegmentProgressValue,
     liveSegmentProgressIsRenderBlock,
-    activeRenderBatchId: liveSegmentProgressJob?.active_render_batch_id ?? null,
-    activeRenderBatchProgress: liveSegmentProgressJob?.active_render_batch_progress ?? null,
+    activeRenderBatchId: activeRenderBatchIdFromPage || liveSegmentProgressJob?.active_render_batch_id || liveSegmentProgressJob?.active_segment_id || null,
+    activeRenderBatchProgress: liveSegmentProgressJob?.active_render_batch_progress ?? liveSegmentProgressJob?.active_segment_progress ?? null,
     renderGroupCount: liveSegmentProgressJob?.render_group_count ?? null,
     valueSource
   };
@@ -434,9 +441,9 @@ export const ChapterScriptToolbar: React.FC<{
                     dataTestId="chapter-header-segment-progress-bar"
                     progress={status.liveSegmentProgressValue}
                     startedAt={status.liveSegmentProgressJob.started_at}
-                    etaSeconds={status.liveSegmentProgressJob.eta_seconds}
-                    etaBasis={status.liveSegmentProgressJob.eta_basis ?? (status.liveSegmentProgressJob.eta_seconds != null ? 'remaining_from_update' : undefined)}
-                    updatedAt={status.liveSegmentProgressJob.updated_at}
+                    etaSeconds={status.segmentProgressBarSelection.selectedEtaSeconds}
+                    etaBasis={status.segmentProgressBarSelection.selectedEtaBasis ?? undefined}
+                    updatedAt={status.segmentProgressBarSelection.selectedUpdatedAt ?? undefined}
                     persistenceKey={`${status.liveSegmentProgressJob.id}:${status.liveSegmentProgressJob.active_segment_id || 'none'}`}
                     status={status.liveSegmentProgressJob.status}
                     state={

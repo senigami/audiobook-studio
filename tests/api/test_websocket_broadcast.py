@@ -1524,3 +1524,40 @@ def test_put_job_broadcasts_queue_item_status_on_queued(monkeypatch):
     assert len(queue_item_status_events) == 1
     event = queue_item_status_events[0]
     assert event["payload"]["status"] == "queued"
+
+
+def test_broadcast_job_updated_preserves_active_segment_eta_seconds(monkeypatch):
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-segment-eta-test",
+        {
+            "active_segment_id": "seg-1",
+            "active_segment_progress": 0.5,
+            "active_segment_eta_seconds": 12,
+            "eta_seconds": 100, # chapter ETA
+        },
+        {
+            "status": "running",
+            "progress": 0.2,
+            "active_segment_id": "seg-1",
+            "active_segment_progress": 0.5,
+            "active_segment_eta_seconds": 12,
+            "eta_seconds": 100,
+            "classification": "chapter",
+        },
+    )
+
+    # We expect a segment progress event
+    segment_events = [m for m in messages if m.get("topic") == "segments.progress"]
+    assert len(segment_events) == 1
+    event = segment_events[0]
+    assert event["payload"]["activeSegmentId"] == "seg-1"
+    assert event["payload"]["etaSeconds"] == 12
+    assert event["payload"]["eta_seconds"] == 12

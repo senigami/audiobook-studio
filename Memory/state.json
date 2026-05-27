@@ -1,14 +1,16 @@
 {
-  "snapshot_version": 130,
-  "current_task": "Seed segment-start ETA for ChapterEditor progress and prune the redundant no-ETA follow-up",
-  "status": "chapter_editor_segment_progress_eta_seeded",
+  "snapshot_version": 137,
+  "current_task": "Verify end-to-end segment-local ETA propagation",
+  "status": "segment_eta_propagation_verified",
   "last_committed_milestone": {
-    "title": "Segment-start ETA seeded for ChapterEditor progress",
+    "title": "Segment ETA propagated end-to-end",
     "commit": "pending",
     "notes": [
-      "Added eta_seconds to the START_SEGMENT publish path in app/orchestration/scheduler/orchestrator_helpers.py so the first visible segment tick can carry a predicted ETA from the backend estimate.",
-      "Updated the watchdog progress regression test to cover START_SYNTHESIS followed by START_SEGMENT and assert that the segment-running publish keeps a non-null ETA seed.",
-      "Verified the focused backend regression tests and git diff check are clean."
+      "ProgressService now supports a separate active_segment_eta_seconds field so segments.progress and chapters.progress can emit different ETA values for the same job.",
+      "The orchestrator marker listener computes active segment ETA from the active render group's character weight and progress, using the same ETA helper while preserving chapter-level ETA separately.",
+      "ProgressService no longer falls back to chapter eta_seconds for active segment events; segment ETA must come from the active segment ETA calculation, naturally reaching 0 at 100 percent.",
+      "Backend Job state and websocket broadcast now preserve active_segment_eta_seconds through the state update path.",
+      "Ran the scoped Python suite, focused frontend header/useJobs tests, and git diff check successfully."
     ]
   },
   "active_constraints": [
@@ -59,6 +61,7 @@
     "The TTS Server synth endpoint now allows synthesis while verification is still pending, but still blocks failed verification and setup errors.",
     "Chapter Editor progress bar key is reverted to the segment-level key (`${job.id}:${active_segment_id}`) of commit 3e44973. This ensures the progress bar remounts per segment and progress/highlighting updates are aligned perfectly on a per-segment basis.",
     "Chapter Editor progress bar now animates smoothly under finalizing status instead of hardcoding to 100% width. A 1500ms terminal job bridging window was added to useChapterStatus to let the green 100% Complete bar render fully before clean unmounting.",
+    "Live active segment jobs now preserve their segment ETA when later chapter-level or queue-level updates arrive, so the Segment Progress bar does not inherit chapter ETA while a segment is still active.",
     "Global Queue now filters only true segment-scoped overlay jobs; grouped chapter jobs with active_segment_id stay visible so overall chapter progress does not disappear once rendering starts.",
     "The frontend live event stream contract now defines topics, concrete event kinds, audit records, consumer ownership, diagnostics reconciliation, queue/segment progress absorption rules, and an executable TypeScript schema module before the next implementation pass.",
     "Live Output now reads from the bus-level liveEventAuditStore instead of the legacy runtimeDebug timeline. Every websocket frame receives one normalized audit record, and useJobs/useQueueSync attach unique subscriber observations by frameId.",

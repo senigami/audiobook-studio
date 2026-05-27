@@ -93,6 +93,9 @@ def update_job(job_id: str, force_broadcast: bool = False, source: str | None = 
         effective_active_seg_id = updates.get("active_segment_id") if "active_segment_id" in updates else j.get("active_segment_id")
         if effective_active_seg_id is None:
             updates["active_segment_progress"] = 0.0
+            updates["active_segment_eta_seconds"] = None
+            updates["active_segment_eta_basis"] = None
+            updates["active_segment_updated_at"] = None
 
         effective_active_batch_id = updates.get("active_render_batch_id") if "active_render_batch_id" in updates else j.get("active_render_batch_id")
         if effective_active_batch_id is None:
@@ -131,7 +134,7 @@ def update_job(job_id: str, force_broadcast: bool = False, source: str | None = 
                         logger.debug("Preventing status regression for %s: %s -> %s", job_id, current_status, v)
                         continue
 
-            if terminal_reset and k in ("finished_at", "started_at", "eta_seconds", "eta_basis", "estimated_end_at", "active_segment_id", "active_segment_progress", "active_render_batch_id", "active_render_batch_progress", "reason_code", "error"):
+            if terminal_reset and k in ("finished_at", "started_at", "eta_seconds", "eta_basis", "estimated_end_at", "active_segment_id", "active_segment_progress", "active_render_batch_id", "active_render_batch_progress", "active_segment_eta_seconds", "active_segment_eta_basis", "active_segment_updated_at", "reason_code", "error"):
                 # A rerun of a terminal job should come back as a clean active job record.
                 if j.get(k) is not None:
                     j[k] = None

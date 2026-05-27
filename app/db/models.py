@@ -58,6 +58,9 @@ class Job:
     grouped_progress: float = 0.0
     active_render_batch_id: Optional[str] = None
     active_render_batch_progress: Optional[float] = None
+    active_segment_eta_seconds: Optional[int] = None
+    active_segment_eta_basis: Optional[str] = None
+    active_segment_updated_at: Optional[float] = None
 
     @property
     def classification(self) -> str:

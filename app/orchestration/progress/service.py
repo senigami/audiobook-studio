@@ -159,6 +159,7 @@ class ProgressService:
         updated_at: float | None = None,
         active_render_batch_id: str | None = None,
         active_render_batch_progress: float | None = None,
+        active_segment_eta_seconds: int | None = None,
         active_segment_id: str | None = None,
         active_segment_progress: float | None = None,
         render_group_count: int | None = None,
@@ -215,6 +216,7 @@ class ProgressService:
             updated_at=updated_at,
             active_render_batch_id=active_render_batch_id,
             active_render_batch_progress=active_render_batch_progress,
+            active_segment_eta_seconds=active_segment_eta_seconds,
             active_segment_id=active_segment_id,
             active_segment_progress=active_segment_progress,
             render_group_count=render_group_count,
@@ -273,6 +275,11 @@ class ProgressService:
             seg_p = payload.get("active_segment_progress") if new_active_segment_id is not None else payload.get("progress")
             if seg_p is None:
                 seg_p = 0.0
+            segment_eta_seconds = (
+                payload.get("active_segment_eta_seconds")
+                if new_active_segment_id is not None
+                else payload.get("eta_seconds")
+            )
             seg_event = build_segment_progress_event(
                 segment_id=new_active_segment_id or job_id,
                 status=status,
@@ -285,7 +292,7 @@ class ProgressService:
                 chapter_id=chapter_id,
                 project_id=parent_job_id,
                 source=payload.get("source"),
-                eta_seconds=payload.get("eta_seconds"),
+                eta_seconds=segment_eta_seconds,
             )
             self.broadcaster(payload=seg_event, channel="jobs")
             emitted_any = True
@@ -407,6 +414,7 @@ class ProgressService:
         updated_at: float | None,
         active_render_batch_id: str | None,
         active_render_batch_progress: float | None,
+        active_segment_eta_seconds: int | None = None,
         active_segment_id: str | None = None,
         active_segment_progress: float | None = None,
         render_group_count: int | None = None,
@@ -481,6 +489,8 @@ class ProgressService:
             payload["active_segment_id"] = active_segment_id
             if active_segment_progress is not None:
                 payload["active_segment_progress"] = round(max(0.0, min(float(active_segment_progress), 1.0)), 2)
+            if active_segment_eta_seconds is not None:
+                payload["active_segment_eta_seconds"] = max(0, int(active_segment_eta_seconds))
         if render_group_count is not None:
             payload["render_group_count"] = int(render_group_count)
         if completed_render_groups is not None:

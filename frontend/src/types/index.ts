@@ -276,6 +276,9 @@ export interface Job {
   segment_ids?: string[];
   active_segment_id?: string | null;
   active_segment_progress?: number;
+  active_segment_eta_seconds?: number | null;
+  active_segment_eta_basis?: string | null;
+  active_segment_updated_at?: number | null;
   render_group_count?: number;
   completed_render_groups?: number;
   active_render_group_index?: number;

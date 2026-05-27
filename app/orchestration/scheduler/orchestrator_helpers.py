@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+from app.orchestration.progress.eta import estimate_eta_seconds
 from app.orchestration.tasks.base import TaskResult
 from app.utils.render_trace import trace
 from app.jobs.registry import get_handler_registry, initialize_default_handlers
@@ -330,6 +331,13 @@ class OrchestratorHelpersMixin:
                         status="running",
                         progress=_get_grouped_progress(),
                         eta_seconds=self._duration_to_eta_seconds(expected_duration),
+                        active_segment_eta_seconds=self._estimate_active_segment_eta_seconds(
+                            expected_duration=expected_duration,
+                            total_weight=total_weight,
+                            active_weight=id_to_weight.get(sid, 0),
+                            active_progress=0.0,
+                            started_at=timing["render_started_at"],
+                        ),
                         reason_code="segment_start",
                         message=f"Rendering segment {sid}...",
                         started_at=timing["render_started_at"],
@@ -367,6 +375,13 @@ class OrchestratorHelpersMixin:
                         progress=p,
                         expected_duration=expected_duration,
                     )
+                    active_segment_eta_seconds = self._estimate_active_segment_eta_seconds(
+                        expected_duration=expected_duration,
+                        total_weight=total_weight,
+                        active_weight=id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0,
+                        active_progress=raw_progress if (total_weight > 0 and active_seg_id[0] is not None) else p,
+                        started_at=timing["render_started_at"],
+                    )
                     trace(
                         "orchestrator.marker_progress",
                         job_id=context.task_id,
@@ -374,6 +389,7 @@ class OrchestratorHelpersMixin:
                         raw_segment_progress=raw_progress,
                         published_progress=p,
                         eta_seconds=eta_seconds,
+                        active_segment_eta_seconds=active_segment_eta_seconds,
                         completed_weight=completed_weight[0],
                         total_weight=total_weight,
                         active_weight=id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0,
@@ -385,6 +401,7 @@ class OrchestratorHelpersMixin:
                         status="running",
                         progress=p,
                         eta_seconds=eta_seconds,
+                        active_segment_eta_seconds=active_segment_eta_seconds,
                         eta_confidence="recomputing" if eta_seconds is not None else None,
                         reason_code="synthesis_progress",
                         started_at=timing["render_started_at"],
@@ -703,6 +720,40 @@ class OrchestratorHelpersMixin:
 
         return max(1, int(round(remaining)))
 
+    @staticmethod
+    def _estimate_active_segment_eta_seconds(
+        *,
+        expected_duration: float | None,
+        total_weight: int | float,
+        active_weight: int | float,
+        active_progress: float,
+        started_at: float | None = None,
+    ) -> int | None:
+        """Estimate ETA for the active render group, not the whole chapter."""
+        active_total = max(int(active_weight), 0)
+        if active_total <= 0:
+            return OrchestratorHelpersMixin._duration_to_eta_seconds(expected_duration)
+
+        progress = max(0.0, min(float(active_progress), 1.0))
+        completed_units = max(0, min(int(round(active_total * progress)), active_total))
+
+        baseline_cps = None
+        if expected_duration is not None and expected_duration > 0 and total_weight > 0:
+            baseline_cps = float(total_weight) / float(expected_duration)
+
+        observed_cps = None
+        if started_at is not None and progress > 0:
+            elapsed = max(0.0, time.time() - started_at)
+            if elapsed > 0:
+                observed_cps = (active_total * progress) / elapsed
+
+        return estimate_eta_seconds(
+            completed_units=completed_units,
+            total_units=active_total,
+            observed_cps=observed_cps,
+            baseline_cps=baseline_cps,
+        )
+
     def _publish(
         self,
         *,
@@ -710,6 +761,7 @@ class OrchestratorHelpersMixin:
         status: str,
         progress: float | None = None,
         eta_seconds: int | None = None,
+        active_segment_eta_seconds: int | None = None,
         eta_confidence: str | None = None,
         message: str | None = None,
         reason_code: str | None = None,
@@ -760,6 +812,7 @@ class OrchestratorHelpersMixin:
             status=state_status,
             progress=state_progress,
             eta_seconds=eta_seconds,
+            active_segment_eta_seconds=active_segment_eta_seconds,
             eta_confidence=eta_confidence,
             reason_code=reason_code,
             message=message,
@@ -796,6 +849,7 @@ class OrchestratorHelpersMixin:
                 started_at=started_at,
                 active_segment_id=active_segment_id,
                 active_segment_progress=active_segment_progress,
+                active_segment_eta_seconds=active_segment_eta_seconds,
                 render_group_count=render_group_count,
                 completed_render_groups=completed_render_groups,
                 active_render_group_index=active_render_group_index,
@@ -827,6 +881,9 @@ class OrchestratorHelpersMixin:
                     eta_confidence=eta_confidence,
                     active_segment_id=active_segment_id,
                     active_segment_progress=active_segment_progress,
+                    active_segment_eta_seconds=active_segment_eta_seconds,
+                    active_segment_eta_basis="remaining_from_update" if active_segment_eta_seconds is not None else None,
+                    active_segment_updated_at=updated_at if active_segment_eta_seconds is not None else None,
                     render_group_count=render_group_count,
                     completed_render_groups=completed_render_groups,
                     active_render_group_index=active_render_group_index,
@@ -845,6 +902,9 @@ class OrchestratorHelpersMixin:
                     "updated_at": updated_at,
                     "active_segment_id": active_segment_id,
                     "active_segment_progress": active_segment_progress,
+                    "active_segment_eta_seconds": active_segment_eta_seconds,
+                    "active_segment_eta_basis": "remaining_from_update" if active_segment_eta_seconds is not None else None,
+                    "active_segment_updated_at": updated_at if active_segment_eta_seconds is not None else None,
                     "render_group_count": render_group_count,
                     "completed_render_groups": completed_render_groups,
                     "active_render_group_index": active_render_group_index,

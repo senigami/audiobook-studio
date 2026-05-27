@@ -77,6 +77,7 @@ const adaptEventToJobUpdates = (event: any) => {
   const shouldOmitMessage = event.topic === 'chapters.progress' && (rCode === 'segment_start' || rCode === 'segment_saved');
 
   const updates: any = {
+    source_topic: event.topic,
     job_id: event.jobId,
     project_id: event.projectId,
     chapter_id: event.chapterId,
@@ -102,6 +103,9 @@ const adaptEventToJobUpdates = (event: any) => {
     grouped_progress: getVal('groupedProgress', 'grouped_progress'),
     active_segment_id: getVal('activeSegmentId', 'active_segment_id'),
     active_segment_progress: getVal('activeSegmentProgress', 'active_segment_progress'),
+    active_segment_eta_seconds: getVal('activeSegmentEtaSeconds', 'active_segment_eta_seconds'),
+    active_segment_eta_basis: getVal('activeSegmentEtaBasis', 'active_segment_eta_basis'),
+    active_segment_updated_at: getVal('activeSegmentUpdatedAt', 'active_segment_updated_at'),
     active_render_batch_id: getVal('activeRenderBatchId', 'active_render_batch_id'),
     active_render_batch_progress: getVal('activeRenderBatchProgress', 'active_render_batch_progress'),
   };
@@ -138,6 +142,8 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
 
       const prov = updates.segmentProgressSocketProvenance;
       const nextUpdates = { ...updates } as Record<string, any>;
+      const sourceTopic = typeof nextUpdates.source_topic === 'string' ? nextUpdates.source_topic : undefined;
+      delete nextUpdates.source_topic;
 
       Object.keys(nextUpdates).forEach(key => {
         if (nextUpdates[key] === undefined) {
@@ -193,6 +199,20 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           return { ...prev, [job_id]: { ...oldJob, ...nextUpdatesStale } };
         }
         return prev;
+      }
+
+      const isNotSegmentProgress = sourceTopic !== 'segments.progress';
+      if (isNotSegmentProgress) {
+        delete nextUpdates.active_segment_progress;
+        delete nextUpdates.active_segment_eta_seconds;
+        delete nextUpdates.active_segment_eta_basis;
+        delete nextUpdates.active_segment_updated_at;
+
+        if (oldJob.active_segment_id) {
+          delete nextUpdates.eta_seconds;
+          delete nextUpdates.eta_basis;
+          delete nextUpdates.estimated_end_at;
+        }
       }
 
       copyRenderGroupFields(nextUpdates, updates as Record<string, any>);
@@ -388,10 +408,14 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
             const rawStarted = getVal('startedAt', 'started_at');
 
             const projectedUpdates: any = {
+              source_topic: 'segments.progress',
               project_id: event.projectId,
               chapter_id: event.chapterId,
-              active_segment_id: event.segmentId,
-              active_segment_progress: segmentProg,
+              active_segment_id: event.segmentId || null,
+              active_segment_progress: segmentProg ?? null,
+              active_segment_eta_seconds: segmentProg != null && rawEta !== undefined ? (typeof rawEta === 'number' ? rawEta : Number(rawEta)) : null,
+              active_segment_eta_basis: segmentProg != null ? (rawEtaBasis || 'remaining_from_update') : null,
+              active_segment_updated_at: segmentProg != null ? resolveEventUpdatedAt(event, payload) : null,
               status: projectedStatus,
               reason_code: getVal('reasonCode', 'reason_code'),
               log: payload.message || payload.log,

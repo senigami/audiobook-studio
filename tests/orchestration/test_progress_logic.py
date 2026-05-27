@@ -424,6 +424,87 @@ def test_progress_service_dual_progress_emission():
     assert queue_event["payload"]["status"] == "running"
 
 
+def test_progress_service_segment_eta_isolated_from_chapter_eta():
+    from app.orchestration.progress.service import ProgressService
+    broadcast_events = []
+
+    def dummy_broadcaster(*, payload: dict, channel: str):
+        broadcast_events.append((payload, channel))
+
+    service = ProgressService(
+        reconcile_fn=lambda **kwargs: kwargs,
+        eta_fn=lambda **kwargs: 10,
+        broadcaster=dummy_broadcaster
+    )
+
+    service.publish(
+        job_id="job-dual-eta",
+        status="running",
+        scope="chapter",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        progress=0.44,
+        eta_seconds=22,
+        active_segment_id="seg-1",
+        active_segment_progress=1.0,
+        active_segment_eta_seconds=0,
+        render_group_count=2,
+        completed_render_groups=0,
+        active_render_group_index=0,
+    )
+
+    seg_event = broadcast_events[0][0]
+    chap_event = broadcast_events[1][0]
+
+    assert seg_event["topic"] == "segments.progress"
+    assert seg_event["payload"]["progress"] == 1.0
+    assert seg_event["payload"]["eta_seconds"] == 0
+
+    assert chap_event["topic"] == "chapters.progress"
+    assert chap_event["payload"]["progress"] == 0.44
+    assert chap_event["payload"]["eta_seconds"] == 22
+
+
+def test_progress_service_completed_segment_does_not_inherit_chapter_eta():
+    from app.orchestration.progress.service import ProgressService
+    broadcast_events = []
+
+    def dummy_broadcaster(*, payload: dict, channel: str):
+        broadcast_events.append((payload, channel))
+
+    service = ProgressService(
+        reconcile_fn=lambda **kwargs: kwargs,
+        eta_fn=lambda **kwargs: 10,
+        broadcaster=dummy_broadcaster
+    )
+
+    service.publish(
+        job_id="job-complete-segment",
+        status="running",
+        scope="chapter",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        progress=0.44,
+        eta_seconds=22,
+        active_segment_id="seg-1",
+        active_segment_progress=1.0,
+        render_group_count=2,
+        completed_render_groups=0,
+        active_render_group_index=0,
+    )
+
+    seg_event = broadcast_events[0][0]
+    chap_event = broadcast_events[1][0]
+
+    assert seg_event["topic"] == "segments.progress"
+    assert seg_event["payload"]["progress"] == 1.0
+    assert seg_event["payload"]["eta_seconds"] is None
+
+    assert chap_event["topic"] == "chapters.progress"
+    assert chap_event["payload"]["progress"] == 0.44
+    assert chap_event["payload"]["eta_seconds"] == 22
+
+
 def test_progress_service_segment_completion_matching_outcome():
     from app.orchestration.progress.service import ProgressService
     broadcast_events = []
@@ -592,3 +673,48 @@ def test_segment_progress_does_not_emit_queue_item_status():
     events_by_topic = {e[0]["topic"]: e[0] for e in broadcast_events}
     assert "segments.progress" in events_by_topic
     assert "queue.items" not in events_by_topic
+
+
+def test_segment_block_eta_math():
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from unittest.mock import patch
+
+    # Test case 1: baseline CPS only
+    eta = OrchestratorHelpersMixin._estimate_active_segment_eta_seconds(
+        expected_duration=10.0,
+        total_weight=1000,
+        active_weight=200,
+        active_progress=0.5,
+        started_at=None
+    )
+    # total_weight = 1000, expected = 10 -> baseline_cps = 100
+    # active_weight = 200, progress = 0.5 -> completed = 100, remaining = 100
+    # remaining / baseline_cps = 100 / 100 = 1.0 -> 1s
+    assert eta == 1
+
+    # Test case 2: observed CPS only (no baseline)
+    with patch("time.time", return_value=1005.0):
+        started_at = 1000.0 # exactly 5 seconds elapsed
+        eta = OrchestratorHelpersMixin._estimate_active_segment_eta_seconds(
+            expected_duration=None,
+            total_weight=0,
+            active_weight=200,
+            active_progress=0.25,
+            started_at=started_at
+        )
+        # active_weight = 200, progress = 0.25 -> completed = 50, remaining = 150
+        # elapsed = 5s -> observed_cps = 50 / 5 = 10
+        # remaining / observed_cps = 150 / 10 = 15s
+        assert eta == 15
+
+
+def test_segment_block_eta_100_percent():
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    eta = OrchestratorHelpersMixin._estimate_active_segment_eta_seconds(
+        expected_duration=10.0,
+        total_weight=1000,
+        active_weight=200,
+        active_progress=1.0,
+        started_at=None
+    )
+    assert eta == 0

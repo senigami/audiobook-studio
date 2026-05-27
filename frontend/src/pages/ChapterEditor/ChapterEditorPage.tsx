@@ -433,13 +433,23 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     return () => clearTimeout(timer);
   }, [queueNotice]);
 
+  const activeBatch = useMemo(() => {
+    const activeSegId = job?.active_segment_id || generatingSegmentJob?.active_segment_id || null;
+    if (!activeSegId) return null;
+    return scriptViewData?.render_batches?.find(batch =>
+      batch.span_ids.includes(activeSegId)
+    );
+  }, [job?.active_segment_id, generatingSegmentJob?.active_segment_id, scriptViewData?.render_batches]);
+  const activeRenderBatchId = activeBatch?.id || null;
+
   const status = useChapterStatus(
     chapter || ({} as any),
     job,
     generatingSegmentJob,
     headerQueuePending,
     chapterRenderRenderingSegmentIds.size || chapterRenderPendingSegmentIds.size,
-    submitting || !anyEnginesEnabled
+    submitting || !anyEnginesEnabled,
+    activeRenderBatchId
   );
 
   const handleCopyDebugState = async () => {

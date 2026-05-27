@@ -318,7 +318,11 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                     chapter_id=merged.get("chapter_id"),
                     project_id=merged.get("project_id") or merged.get("parent_job_id"),
                     source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
-                    eta_seconds=updates.get("eta_seconds") or merged.get("eta_seconds"),
+                    eta_seconds=(
+                        updates.get("active_segment_eta_seconds")
+                        if updates.get("active_segment_eta_seconds") is not None
+                        else merged.get("active_segment_eta_seconds")
+                    ),
                 )
                 broadcast_studio_event(seg_event)
 
@@ -376,7 +380,15 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                 chapter_id=merged.get("chapter_id"),
                 project_id=merged.get("project_id") or merged.get("parent_job_id"),
                 source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
-                eta_seconds=updates.get("eta_seconds") or merged.get("eta_seconds"),
+                eta_seconds=(
+                    updates.get("active_segment_eta_seconds")
+                    if updates.get("active_segment_eta_seconds") is not None
+                    else (
+                        merged.get("active_segment_eta_seconds")
+                        if merged.get("active_segment_eta_seconds") is not None
+                        else (updates.get("eta_seconds") or merged.get("eta_seconds"))
+                    )
+                ),
             )
             broadcast_studio_event(event)
         return

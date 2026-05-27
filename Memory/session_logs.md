@@ -1577,3 +1577,46 @@
 - Added `eta_seconds` to the `[START_SEGMENT]` publish path in [app/orchestration/scheduler/orchestrator_helpers.py](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/app/orchestration/scheduler/orchestrator_helpers.py) so the first visible segment tick can carry the backend's historical ETA estimate instead of starting at null.
 - Extended [tests/orchestration/test_watchdog_progress_logic.py](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/tests/orchestration/test_watchdog_progress_logic.py) to emit `[START_SYNTHESIS]` and `[START_SEGMENT]` in sequence and assert that the segment-running publish keeps a non-null ETA seed.
 - Verified the focused backend regression tests passed and `git diff --check` stayed clean.
+
+# 2026-05-26 - Active segment ETA preservation
+
+- Added a source-aware ETA preservation guard in [frontend/src/hooks/useJobs.ts](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/hooks/useJobs.ts) so a live active segment job keeps its segment ETA when later `chapters.progress` or `queue.items` updates arrive.
+- Tagged `segments.progress` updates with `source_topic` so the job merge layer can distinguish live segment ETA from chapter-level ETA and avoid clobbering the segment bar.
+- Added a frontend regression test proving that a later chapter ETA does not overwrite the live segment ETA while `active_segment_id` is still present.
+- Verified the focused Vitest targets and `git diff --check` stayed clean.
+
+# 2026-05-26 - ChapterEditor render-block precedence restored
+
+- Restored the `ChapterHeader` source ordering so `render_block_progress` takes precedence over `active_segment_progress` when both are present on the same live job, matching the known-good audiobook-studio behavior.
+- Updated the ChapterEditor header contract test to assert that a mixed job with render-group and active-segment fields reports `render_block_progress` rather than segment-local progress.
+- Verified the focused ChapterHeader Vitest targets and `git diff --check` are clean after the change.
+
+# 2026-05-26 - Segment grouping and prediction input isolation verified
+
+- Verified the sentence-group regression was caused by chunk grouping treating unresolved engines as ungroupable, producing one render group per sentence.
+- Confirmed [app/domain/chunk_groups.py](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/app/domain/chunk_groups.py) now resolves unknown profiles with the `"unknown"` placeholder and groups compatible consecutive segments again.
+- Confirmed the ChapterEditor header keeps the known-good render-block progress source while feeding `active_segment_eta_*` timing fields to the Segment Progress bar, avoiding chapter ETA prediction.
+- Verified `tests/domain/test_chunk_groups.py`, the focused frontend `ChapterHeader`/`useJobs` Vitest targets, and `git diff --check`.
+
+# 2026-05-26 - Segment-local ETA computed from active render-block characters
+
+- Added `active_segment_eta_seconds` to the backend progress publish path so `segments.progress` can carry segment-local ETA independently from `chapters.progress`.
+- Updated the orchestrator marker listener to estimate active segment ETA from the active render group's character weight and local progress using the shared ETA helper/baseline model.
+- Verified completed segment frames now emit segment ETA `0` instead of inheriting chapter ETA, while chapter progress continues to emit chapter-level ETA.
+- Added backend regressions covering segment/chapter ETA isolation, start-segment ETA seeding from active block chars, and segment-complete ETA clamping.
+- Verified target backend orchestration tests, focused frontend `useJobs`/`ChapterHeader` Vitest targets, and `git diff --check`.
+
+# 2026-05-26 - Segment ETA kept computed instead of event-clamped
+
+- Reproduced the manual log failure where a `segments.progress` frame with `activeSegmentProgress: 1` inherited chapter ETA.
+- Added a regression proving active segment frames do not inherit chapter ETA when no explicit `active_segment_eta_seconds` was supplied.
+- Removed the artificial event-boundary ETA clamp; completed segment ETA now reaches `0` through the orchestrator's active segment ETA calculation.
+- ProgressService now uses only `active_segment_eta_seconds` for active segment events and does not fall back to chapter `eta_seconds`.
+- Verified target backend orchestration tests, focused frontend `useJobs`/`ChapterHeader` Vitest targets, and `git diff --check`.
+
+# 2026-05-26 - Segment ETA propagation verified end-to-end
+
+- Verified active segment ETA is now passed from `orchestrator_helpers._publish` into `ProgressService.publish`, stored on the backend `Job` dataclass, and preserved through `update_job`.
+- Verified `broadcast_job_updated` forwards `active_segment_eta_seconds` into `segments.progress` instead of falling back to chapter `eta_seconds`.
+- Verified `ChapterHeader` still uses the known-good render-block progress selection while selecting block-local ETA fields when an active segment is present.
+- Verified scoped Python tests passed (85/85), focused frontend Vitest passed (51/51), and `git diff --check` stayed clean.

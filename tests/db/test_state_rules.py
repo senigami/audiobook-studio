@@ -211,4 +211,81 @@ def test_active_segment_progress_forced_to_zero_when_id_is_none():
     assert state["jobs"]["test_active_seg"]["active_segment_progress"] == 0.0
 
 
+def test_active_segment_eta_fields():
+    job = Job(
+        id="test_active_seg_eta",
+        engine="xtts",
+        chapter_file="c1.txt",
+        status="running",
+        progress=0.0,
+        active_segment_id="some-id",
+        active_segment_progress=0.5,
+        created_at=time.time()
+    )
+    put_job(job)
+
+    # 1. Update job with active segment ETA fields
+    update_job(
+        "test_active_seg_eta",
+        active_segment_eta_seconds=15,
+        active_segment_eta_basis="remaining_from_update",
+        active_segment_updated_at=12345.6
+    )
+
+    state = load_state()
+    j_dict = state["jobs"]["test_active_seg_eta"]
+    # These assertions should fail because the fields are not yet defined on Job model or handled in state_jobs
+    assert j_dict.get("active_segment_eta_seconds") == 15
+    assert j_dict.get("active_segment_eta_basis") == "remaining_from_update"
+    assert j_dict.get("active_segment_updated_at") == 12345.6
+
+    # 2. Update job setting id to None, active segment ETA fields should be cleared
+    update_job("test_active_seg_eta", active_segment_id=None)
+    state = load_state()
+    j_dict = state["jobs"]["test_active_seg_eta"]
+    assert j_dict.get("active_segment_id") is None
+    assert j_dict.get("active_segment_eta_seconds") is None
+    assert j_dict.get("active_segment_eta_basis") is None
+    assert j_dict.get("active_segment_updated_at") is None
+
+
+def test_chapter_queue_updates_do_not_overwrite_active_segment_eta():
+    job = Job(
+        id="test_preserve_seg_eta",
+        engine="xtts",
+        chapter_file="c1.txt",
+        status="running",
+        progress=0.1,
+        active_segment_id="seg-123",
+        active_segment_progress=0.4,
+        active_segment_eta_seconds=15,
+        active_segment_eta_basis="remaining_from_update",
+        active_segment_updated_at=1000.0,
+        created_at=time.time()
+    )
+    put_job(job)
+
+    # Now simulate a chapter update (e.g. chapters.progress or queue update)
+    # which has progress=0.2 and chapter eta_seconds=120, but doesn't mention segments.
+    update_job(
+        "test_preserve_seg_eta",
+        progress=0.2,
+        eta_seconds=120,
+        eta_basis="remaining_from_update"
+    )
+
+    state = load_state()
+    j_dict = state["jobs"]["test_preserve_seg_eta"]
+    # Chapter fields should update
+    assert j_dict["progress"] == 0.2
+    assert j_dict["eta_seconds"] == 120
+
+    # Active segment fields must be preserved and untouched
+    assert j_dict["active_segment_id"] == "seg-123"
+    assert j_dict["active_segment_progress"] == 0.4
+    assert j_dict["active_segment_eta_seconds"] == 15
+    assert j_dict["active_segment_eta_basis"] == "remaining_from_update"
+    assert j_dict["active_segment_updated_at"] == 1000.0
+
+
 

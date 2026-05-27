@@ -568,6 +568,43 @@ describe('useJobs', () => {
     });
   });
 
+  it('preserves live segment ETA when a later chapters.progress update carries chapter-level ETA', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({
+      type: 'jobs_snapshot',
+      jobs: [{
+        id: 'job-seg-eta',
+        status: 'running',
+        progress: 0.2,
+        active_segment_id: 'seg-live',
+        active_segment_progress: 0.55,
+        eta_seconds: 18,
+        eta_basis: 'remaining_from_update',
+        estimated_end_at: 118,
+      } as any],
+    });
+
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.48,
+      groupedProgress: 0.46,
+      etaSeconds: 120,
+      message: 'chapter rendering',
+      reasonCode: null,
+      renderGroupCount: 10,
+      completedRenderGroups: 4,
+    }, { jobId: 'job-seg-eta', chapterId: 'chap-1' });
+
+    expect(result.current.jobs['job-seg-eta']).toMatchObject({
+      status: 'running',
+      progress: 0.48,
+      grouped_progress: 0.46,
+      eta_seconds: 18,
+      eta_basis: 'remaining_from_update',
+      estimated_end_at: 118,
+    });
+  });
+
   it('does not overwrite row logs with segment progress narration on chapters.progress', async () => {
     const { result } = renderHook(() => useJobs());
     emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-msg', status: 'running', progress: 0.1, log: 'Stable chapter progress message' } as any] });
@@ -1072,5 +1109,97 @@ describe('useJobs', () => {
     // Confirm it did not lose active_segment_id / active_segment_progress
     expect(job.active_segment_id).toBe('seg-active-1');
     expect(job.active_segment_progress).toBe(0.77);
+  });
+
+  it('proves chapter-level progress/ETA updates do not overwrite segment progress/ETA when active_segment_id is present', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-tdd-h', status: 'running', progress: 0 }] });
+
+    // 1. Emit segment progress update (sets segment-local progress and ETA fields)
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-active-tdd', jobId: 'job-tdd-h', chapterId: 'chap-1', projectId: 'proj-1' },
+        payload: {
+          status: 'running',
+          progress: 0.77,
+          etaSeconds: 15,
+          updatedAt: 300,
+        },
+      });
+    });
+
+    let job = result.current.jobs['job-tdd-h'];
+    expect(job.active_segment_id).toBe('seg-active-tdd');
+    expect(job.active_segment_progress).toBe(0.77);
+    expect(job.active_segment_eta_seconds).toBe(15);
+    expect(job.active_segment_eta_basis).toBe('remaining_from_update');
+    expect(job.active_segment_updated_at).toBe(300);
+
+    // 2. Emit chapter-level update (chapters.progress)
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.48,
+      groupedProgress: 0.46,
+      etaSeconds: 120,
+      updatedAt: 310,
+    }, { jobId: 'job-tdd-h', chapterId: 'chap-1' });
+
+    job = result.current.jobs['job-tdd-h'];
+    // Chapter progress is updated
+    expect(job.progress).toBe(0.48);
+    // Segment local fields must NOT be overwritten or lost
+    expect(job.active_segment_id).toBe('seg-active-tdd');
+    expect(job.active_segment_progress).toBe(0.77);
+    expect(job.active_segment_eta_seconds).toBe(15);
+    expect(job.active_segment_eta_basis).toBe('remaining_from_update');
+    expect(job.active_segment_updated_at).toBe(300);
+  });
+
+  it('proves queue.items updates cannot overwrite active_segment_eta_seconds while active_segment_id is present', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-queue-h', status: 'running', progress: 0 }] });
+
+    // 1. Emit segment progress update (sets segment-local progress and ETA fields)
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-active-queue', jobId: 'job-queue-h', chapterId: 'chap-1', projectId: 'proj-1' },
+        payload: {
+          status: 'running',
+          progress: 0.88,
+          etaSeconds: 22,
+          updatedAt: 400,
+        },
+      });
+    });
+
+    let job = result.current.jobs['job-queue-h'];
+    expect(job.active_segment_id).toBe('seg-active-queue');
+    expect(job.active_segment_progress).toBe(0.88);
+    expect(job.active_segment_eta_seconds).toBe(22);
+
+    // 2. Emit queue-level update (queue.items)
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      progress: 0.5,
+      etaSeconds: 999,
+      updatedAt: 410,
+    }, { jobId: 'job-queue-h' });
+
+    job = result.current.jobs['job-queue-h'];
+    // Job progress is updated
+    expect(job.progress).toBe(0.5);
+    // Segment local ETA must NOT be overwritten by the queue update
+    expect(job.active_segment_id).toBe('seg-active-queue');
+    expect(job.active_segment_progress).toBe(0.88);
+    expect(job.active_segment_eta_seconds).toBe(22);
+    expect(job.active_segment_updated_at).toBe(400);
   });
 });
