@@ -543,4 +543,32 @@ describe('ChapterHeader', () => {
     // Let's prove that passing the same inputs results in the same evidenceWeightFraction.
     expect(segmentConfidence).toBe(0.4);
   });
+
+  it('proves evidenceWeightFraction is 1.0 for segment_start at 0.0 progress', () => {
+    let capturedStatus: any = null;
+    const TestComponent = () => {
+      const mockJob = React.useMemo(() => ({
+        id: 'job-seg-start',
+        status: 'running' as const,
+        progress: 0.0,
+        active_segment_id: 'seg-1',
+        active_segment_progress: 0.0,
+        reason_code: 'segment_start',
+      }), []);
+      capturedStatus = useChapterStatus(
+        mockChapter as any,
+        undefined,
+        mockJob as any,
+        false,
+        1,
+        false,
+        null,
+        400
+      );
+      return null;
+    };
+
+    render(<TestComponent />);
+    expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBe(1.0);
+  });
 });

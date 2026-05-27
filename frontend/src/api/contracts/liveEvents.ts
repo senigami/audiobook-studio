@@ -337,20 +337,22 @@ import { CHUNK_CHAR_LIMIT } from '@/constants/audio';
 export const computeProgressConfidence = (
   status?: string | null,
   progress?: number | null,
-  activeRenderGroupWeight?: number | null
+  activeRenderGroupWeight?: number | null,
+  reasonCode?: string | null
 ): number | null => {
   if (!status) return null;
+  if (reasonCode === 'segment_start' && progress === 0) {
+    return 1.0;
+  }
   if (['done', 'failed', 'cancelled', 'finalizing'].includes(status)) {
     return 1.0;
   }
   if (typeof progress !== 'number') return null;
-  if (typeof activeRenderGroupWeight !== 'number') {
-    return null;
-  }
-
-  const blockCharCount = activeRenderGroupWeight;
   const clamp01 = (val: number) => Math.max(0, Math.min(val, 1));
-  const coverageRatio = blockCharCount > 0 ? clamp01(blockCharCount / CHUNK_CHAR_LIMIT) : 1.0;
+  const blockCharCount = typeof activeRenderGroupWeight === 'number' ? activeRenderGroupWeight : null;
+  const coverageRatio = blockCharCount !== null && blockCharCount > 0
+    ? clamp01(blockCharCount / CHUNK_CHAR_LIMIT)
+    : 1.0;
   return coverageRatio * clamp01(progress);
 };
 
@@ -378,7 +380,8 @@ export const normalizeStudioSocketEnvelope = (envelope: StudioSocketEnvelope): L
           payload.activeRenderGroupWeight ??
           payload.activeRenderBatchWeight ??
           payload.estimatedWorkWeight;
-        const conf = computeProgressConfidence(payload.status, progress, weight);
+        const reasonCode = payload.reasonCode ?? payload.reason_code;
+        const conf = computeProgressConfidence(payload.status, progress, weight, reasonCode);
         if (conf !== null) {
           payload.confidence = conf;
         }

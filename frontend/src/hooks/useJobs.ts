@@ -10,6 +10,7 @@ import {
   subscribeStudioSocketMessages,
 } from '@/store/studioSocketBus';
 import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
+import { isSegmentScopedJob } from '@/utils/jobSelection';
 
 const globalSegmentProgressUpdates: any[] = [];
 let nextSequenceNumber = 1;
@@ -208,10 +209,19 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         delete nextUpdates.active_segment_eta_basis;
         delete nextUpdates.active_segment_updated_at;
 
-        if (oldJob.active_segment_id) {
+        const isSegmentJob = isSegmentScopedJob(oldJob);
+        const isPreparingZeroProgress = oldJob.status === 'preparing' &&
+          (oldJob.active_segment_progress ?? 0) <= 0 &&
+          (oldJob.progress ?? 0) <= 0;
+
+        if (oldJob.active_segment_id || isSegmentJob) {
           delete nextUpdates.eta_seconds;
           delete nextUpdates.eta_basis;
           delete nextUpdates.estimated_end_at;
+
+          if (isPreparingZeroProgress) {
+            delete nextUpdates.status;
+          }
         }
       }
 
@@ -396,9 +406,13 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
             recordLiveEventSubscriberObservation(envelope?.frameId, 'chapter-state', 'handled');
 
             const rawStatus = getVal('status', 'status');
-            const projectedStatus = (rawStatus && rawStatus !== 'done' && rawStatus !== 'failed' && rawStatus !== 'cancelled')
-              ? rawStatus
-              : undefined;
+            const rawReasonCode = getVal('reasonCode', 'reason_code');
+            const isSegmentAtZero = (segmentProg ?? 0) <= 0;
+            const projectedStatus = isSegmentAtZero
+              ? 'preparing'
+              : (rawStatus && rawStatus !== 'done' && rawStatus !== 'failed' && rawStatus !== 'cancelled')
+                ? rawStatus
+                : undefined;
 
             const rawUpdatedAt = getVal('updatedAt', 'updated_at');
             const rawStartedAt = getVal('startedAt', 'started_at');
@@ -417,7 +431,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
               active_segment_eta_basis: segmentProg != null ? (rawEtaBasis || 'remaining_from_update') : null,
               active_segment_updated_at: segmentProg != null ? resolveEventUpdatedAt(event, payload) : null,
               status: projectedStatus,
-              reason_code: getVal('reasonCode', 'reason_code'),
+              reason_code: rawReasonCode,
               log: payload.message || payload.log,
               updated_at: resolveEventUpdatedAt(event, payload),
               db_updated_at: typeof rawUpdatedAt === 'number' ? rawUpdatedAt : (typeof rawUpdatedAt === 'string' ? Date.parse(rawUpdatedAt) / 1000 : undefined),
@@ -468,7 +482,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
                 started_at: projectedUpdates.started_at || null,
                 status: projectedStatus || null,
                 progress: payload.progress ?? null,
-                reasonCode: getVal('reasonCode', 'reason_code') || null,
+                reasonCode: rawReasonCode || null,
                 updatedAt: projectedUpdates.updated_at,
               },
               ignoredFields: Object.keys(payload).filter(

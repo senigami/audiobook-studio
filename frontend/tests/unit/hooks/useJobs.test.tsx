@@ -1159,6 +1159,36 @@ describe('useJobs', () => {
     expect(job.active_segment_updated_at).toBe(300);
   });
 
+  it('treats segment_start frames at 0 progress as preparing until real synthesis progress arrives', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-segment-start', status: 'running', progress: 0 }] });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-start', jobId: 'job-segment-start', chapterId: 'chap-start', projectId: 'proj-start' },
+        payload: {
+          status: 'running',
+          progress: 0,
+          reasonCode: 'segment_start',
+          etaSeconds: 19,
+          segmentIndex: 0,
+          segmentCount: 2,
+        },
+      });
+    });
+
+    const job = result.current.jobs['job-segment-start'];
+    expect(job).toBeDefined();
+    expect(job.status).toBe('preparing');
+    expect(job.active_segment_id).toBe('seg-start');
+    expect(job.active_segment_progress).toBe(0);
+    expect(job.eta_seconds).toBe(19);
+  });
+
   it('proves queue.items updates cannot overwrite active_segment_eta_seconds while active_segment_id is present', async () => {
     const { result } = renderHook(() => useJobs());
     emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-queue-h', status: 'running', progress: 0 }] });
@@ -1201,5 +1231,98 @@ describe('useJobs', () => {
     expect(job.active_segment_progress).toBe(0.88);
     expect(job.active_segment_eta_seconds).toBe(22);
     expect(job.active_segment_updated_at).toBe(400);
+  });
+
+  it('keeps status preparing for segment progress at zero and guards against queue.items overwriting it', async () => {
+    const { result } = renderHook(() => useJobs());
+
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-prep-test', status: 'preparing', progress: 0 }] });
+    expect(result.current.jobs['job-prep-test']?.status).toBe('preparing');
+
+    // 1. Emit segments.progress event with running status but progress 0 (sends active_segment_id = 'seg-1')
+    emitEvent('segments.progress', 'segment_progress', {
+      status: 'running',
+      progress: 0.0,
+      activeSegmentProgress: 0.0,
+      reasonCode: 'segment_start',
+    }, { jobId: 'job-prep-test', segmentId: 'seg-1' });
+
+    // Job status should stay preparing
+    expect(result.current.jobs['job-prep-test']?.status).toBe('preparing');
+
+    // 2. Emit queue.items status event with running status (should be ignored/prevented from overwriting)
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      progress: 0.0,
+    }, { jobId: 'job-prep-test' });
+
+    // Job status should still stay preparing
+    expect(result.current.jobs['job-prep-test']?.status).toBe('preparing');
+
+    // 3. Emit segments.progress event with non-zero progress
+    emitEvent('segments.progress', 'segment_progress', {
+      status: 'running',
+      progress: 0.05,
+      activeSegmentProgress: 0.05,
+    }, { jobId: 'job-prep-test', segmentId: 'seg-1' });
+
+    // Job status should now transition to running
+    expect(result.current.jobs['job-prep-test']?.status).toBe('running');
+  });
+
+  it('prevents queue.items/chapter updates at 0% from flipping a starting job out of preparing before the first segments.progress frame', async () => {
+    const { result } = renderHook(() => useJobs());
+
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-early-prep', status: 'preparing', progress: 0, classification: 'segment' }] });
+    expect(result.current.jobs['job-early-prep']?.status).toBe('preparing');
+
+    // Emit queue.items status running update before any segment progress frame has arrived (active_segment_id is not attached yet)
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      progress: 0.0,
+    }, { jobId: 'job-early-prep' });
+
+    // Job status should stay preparing
+    expect(result.current.jobs['job-early-prep']?.status).toBe('preparing');
+  });
+
+  it('keeps 0% segment_start frame preparing even if active_segment_id has not been attached yet', async () => {
+    const { result } = renderHook(() => useJobs());
+
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-early-prep-2', status: 'preparing', progress: 0, classification: 'segment' }] });
+
+    // Emit segments.progress segment_start event at 0% progress
+    emitEvent('segments.progress', 'segment_progress', {
+      status: 'running',
+      progress: 0.0,
+      activeSegmentProgress: 0.0,
+      reasonCode: 'segment_start',
+    }, { jobId: 'job-early-prep-2', segmentId: 'seg-2' });
+
+    // Job status should stay preparing
+    expect(result.current.jobs['job-early-prep-2']?.status).toBe('preparing');
+  });
+
+  it('transitions segment-scoped job out of preparing normally on first non-zero segments.progress frame', async () => {
+    const { result } = renderHook(() => useJobs());
+
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-early-prep-3', status: 'preparing', progress: 0, classification: 'segment' }] });
+
+    // Emit queue.items status running update (stays preparing)
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      progress: 0.0,
+    }, { jobId: 'job-early-prep-3' });
+    expect(result.current.jobs['job-early-prep-3']?.status).toBe('preparing');
+
+    // Emit segments.progress with non-zero progress
+    emitEvent('segments.progress', 'segment_progress', {
+      status: 'running',
+      progress: 0.12,
+      activeSegmentProgress: 0.12,
+    }, { jobId: 'job-early-prep-3', segmentId: 'seg-3' });
+
+    // Job status should transition to running
+    expect(result.current.jobs['job-early-prep-3']?.status).toBe('running');
   });
 });

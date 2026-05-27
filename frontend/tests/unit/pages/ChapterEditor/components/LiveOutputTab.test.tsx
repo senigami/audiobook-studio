@@ -70,7 +70,7 @@ describe('LiveOutputTab', () => {
       status: 'running',
     }, { jobId: 'job-1' });
 
-    // 2. Running segment progress event with NO weight (should fall back cleanly to '-')
+    // 2. Running segment progress event with NO weight (should fall back to progress itself)
     publishEvent('segments.progress', 'segment_progress', {
       message: 'Rendering segment...',
       progress: 0.6,
@@ -90,11 +90,26 @@ describe('LiveOutputTab', () => {
     expect(screen.getByText('80%')).toBeInTheDocument();
     expect(screen.getByText('⚠️ 40%')).toBeInTheDocument();
 
-    // Row 2: progress 60%, no weight -> confidence should fall back to '-' (clean fallback)
-    expect(screen.getByText('60%')).toBeInTheDocument();
+    // Row 2: progress 60%, no weight -> confidence should fall back to progress (60%)
+    expect(screen.getAllByText('60%')).toHaveLength(2);
 
     // Row 3: status 'done' -> confidence should be 100%
     expect(screen.getAllByText('100%')).toHaveLength(2);
+  });
+
+  it('renders confidence 100% for segment_start frame at 0% progress', () => {
+    publishEvent('segments.progress', 'segment_progress', {
+      message: 'Starting segment...',
+      progress: 0.0,
+      reasonCode: 'segment_start',
+      status: 'running',
+    }, { jobId: 'job-1' });
+
+    render(<LiveOutputTab />);
+
+    // progress 0% should show '0%', and confidence should be 100%
+    expect(screen.getByText('0%')).toBeInTheDocument();
+    expect(screen.getByText('100%')).toBeInTheDocument();
   });
 
   it('renders distinct same-job studio_job_event frames as separate rows in insertion order', () => {

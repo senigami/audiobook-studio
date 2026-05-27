@@ -170,7 +170,8 @@ export const useChapterStatus = (
   const progressVal = liveSegmentProgressValue;
   const clamp01 = (val: number) => Math.max(0, Math.min(val, 1));
   const coverageRatio = block_char_count > 0 ? clamp01(block_char_count / CHUNK_CHAR_LIMIT) : 1;
-  const evidenceWeightFraction = coverageRatio * clamp01(progressVal);
+  const isSegmentStartAtZero = liveSegmentProgressJob?.reason_code === 'segment_start' && progressVal === 0;
+  const evidenceWeightFraction = isSegmentStartAtZero ? 1.0 : coverageRatio * clamp01(progressVal);
 
   const segmentProgressBarSelection = {
     dataTestId: "chapter-header-segment-progress-bar",
