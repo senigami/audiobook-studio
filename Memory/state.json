@@ -1,16 +1,14 @@
 {
-  "snapshot_version": 139,
-  "current_task": "Fix queue/job merge regressions and unify live overlay ownership",
-  "status": "queue_merge_regressions_fixed",
+  "snapshot_version": 140,
+  "current_task": "Promote segment_start @ 0% to processing only for the ChapterEditor progress bar",
+  "status": "segment_start_animation_promoted",
   "last_committed_milestone": {
-    "title": "Queue/job merge regressions and live overlay ownership unified",
+    "title": "Segment start animation promoted to processing in ChapterEditor",
     "commit": "pending",
     "notes": [
-      "Rewrote applyJobUpdated in live-jobs.ts to delegate to applyEvent for unified store merge behavior.",
-      "Protected segment-specific progress/id fields from non-segment websocket events or partial sync updates.",
-      "Prevented stale progress resurrection in QueueItem and hydration coordinate paths when status is queued or preparing.",
-      "Replaced engine-name based chapter job checks with isSegmentScopedJob in QueueItem.",
-      "Added test coverage in hooks, stores, hydration, and queue component unit tests, and verified full 659 test suite passes."
+      "Mapped the state prop of PredictiveProgressBar to 'processing' in ChapterHeader.tsx when isSegmentStartAtZero is true.",
+      "Kept the underlying store status as 'preparing' to preserve correct job semantics.",
+      "Added unit and regression test coverage in ChapterHeader.test.tsx."
     ]
   },
   "active_constraints": [

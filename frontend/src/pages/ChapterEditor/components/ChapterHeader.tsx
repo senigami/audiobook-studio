@@ -197,7 +197,8 @@ export const useChapterStatus = (
     activeRenderBatchProgress: liveSegmentProgressJob?.active_render_batch_progress ?? liveSegmentProgressJob?.active_segment_progress ?? null,
     renderGroupCount: liveSegmentProgressJob?.render_group_count ?? null,
     valueSource,
-    evidenceWeightFraction
+    evidenceWeightFraction,
+    isSegmentStartAtZero
   };
 
   return {
@@ -458,7 +459,7 @@ export const ChapterScriptToolbar: React.FC<{
                     status={status.liveSegmentProgressJob.status}
                     state={
                         status.liveSegmentProgressJob.status === 'preparing'
-                            ? 'preparing'
+                            ? (status.segmentProgressBarSelection.isSegmentStartAtZero ? 'processing' : 'preparing')
                             : status.liveSegmentProgressJob.status === 'finalizing'
                                 ? 'finalizing'
                                 : status.liveSegmentProgressJob.status === 'running'

@@ -1,3 +1,11 @@
+# 2026-05-27 - Promote segment_start @ 0% to processing for ChapterEditor progress bar
+
+- Mapped the presentation `state` prop of `PredictiveProgressBar` in `ChapterHeader.tsx` to `'processing'` (instead of `'preparing'`) when `isSegmentStartAtZero` is true.
+- Returned `isSegmentStartAtZero` inside `segmentProgressBarSelection` from `useChapterStatus` in `ChapterHeader.tsx`.
+- This promotes the segment start frame to a determinate running state for rendering only, starting the tick loop and animation immediately from 0% without using fake progress sentinels or altering the underlying store's semantic `'preparing'` status.
+- Added test coverage in `ChapterHeader.test.tsx` proving segment_start @ 0% presents as `'processing'`, and non-segment-start preparing jobs stay as `'preparing'`.
+- Verified all 15 tests in `ChapterHeader.test.tsx` and 51 total targeted tests pass successfully.
+
 # 2026-05-27 - Fix queue/job merge regressions and unify live overlay ownership
 
 - Rewrote `applyJobUpdated` in `live-jobs.ts` to map incoming partial updates into the canonical `StudioJobEvent` shape and delegate to `applyEvent` to unify the merge logic across REST updates and websocket events.

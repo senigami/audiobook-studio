@@ -286,7 +286,8 @@ describe('ChapterHeader', () => {
       activeRenderBatchProgress: null,
       renderGroupCount: null,
       valueSource: 'no_live_job',
-      evidenceWeightFraction: 0
+      evidenceWeightFraction: 0,
+      isSegmentStartAtZero: false
     });
 
     // 2. Terminal complete job
@@ -570,5 +571,83 @@ describe('ChapterHeader', () => {
 
     render(<TestComponent />);
     expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBe(1.0);
+  });
+
+  it('promotes segment_start @ 0% to processing state for presentation in ChapterScriptToolbar', () => {
+    const mockJob = {
+      id: 'job-seg-start-test',
+      status: 'preparing' as const,
+      progress: 0.0,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.0,
+      reason_code: 'segment_start',
+    };
+
+    render(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        job={undefined}
+        generatingJob={mockJob as any}
+        generatingSegmentIdsCount={1}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    // The status badge inside the progress bar should show 'Processing' (or 'Processing' text is in document)
+    // while the underlying store status is 'preparing'
+    expect(screen.getByText('Processing')).toBeInTheDocument();
+    expect(screen.queryByText('Preparing')).toBeNull();
+  });
+
+  it('keeps non-segment-start preparing status as preparing in ChapterScriptToolbar', () => {
+    const mockJob = {
+      id: 'job-prep-only-test',
+      status: 'preparing' as const,
+      progress: 0.0,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.0,
+      reason_code: 'some_other_reason',
+    };
+
+    render(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        job={undefined}
+        generatingJob={mockJob as any}
+        generatingSegmentIdsCount={1}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Preparing')).toBeInTheDocument();
+    expect(screen.queryByText('Processing')).toBeNull();
   });
 });
