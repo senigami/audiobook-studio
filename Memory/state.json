@@ -1,16 +1,17 @@
 {
-  "snapshot_version": 137,
-  "current_task": "Verify end-to-end segment-local ETA propagation",
-  "status": "segment_eta_propagation_verified",
+  "snapshot_version": 138,
+  "current_task": "Remove synthetic 99 percent segment completion event",
+  "status": "segment_completion_marker_fixed",
   "last_committed_milestone": {
-    "title": "Segment ETA propagated end-to-end",
+    "title": "Segment ETA and completion events stabilized",
     "commit": "pending",
     "notes": [
       "ProgressService now supports a separate active_segment_eta_seconds field so segments.progress and chapters.progress can emit different ETA values for the same job.",
       "The orchestrator marker listener computes active segment ETA from the active render group's character weight and progress, using the same ETA helper while preserving chapter-level ETA separately.",
       "ProgressService no longer falls back to chapter eta_seconds for active segment events; segment ETA must come from the active segment ETA calculation, naturally reaching 0 at 100 percent.",
       "Backend Job state and websocket broadcast now preserve active_segment_eta_seconds through the state update path.",
-      "Ran the scoped Python suite, focused frontend header/useJobs tests, and git diff check successfully."
+      "Ran the scoped Python suite, focused frontend header/useJobs tests, and git diff check successfully.",
+      "Removed the legacy synthetic 0.99 previous-segment completion marker from ProgressService and websocket rebroadcast; segment_saved completion frames now emit 1.0 so completed segment events no longer create a 99 percent visual anomaly."
     ]
   },
   "active_constraints": [

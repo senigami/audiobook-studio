@@ -241,7 +241,7 @@ class ProgressService:
         if prev_active_segment_id and prev_active_segment_id != new_active_segment_id:
             from app.api.contracts.events import build_segment_progress_event  # noqa: PLC0415
             seg_status = status if status in ("failed", "cancelled") else "done"
-            seg_progress = 1.0 if status in ("done", "failed", "cancelled") else 0.99
+            seg_progress = 1.0
             seg_event = build_segment_progress_event(
                 segment_id=prev_active_segment_id,
                 status=seg_status,

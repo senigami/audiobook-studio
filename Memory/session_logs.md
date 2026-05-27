@@ -1620,3 +1620,10 @@
 - Verified `broadcast_job_updated` forwards `active_segment_eta_seconds` into `segments.progress` instead of falling back to chapter `eta_seconds`.
 - Verified `ChapterHeader` still uses the known-good render-block progress selection while selecting block-local ETA fields when an active segment is present.
 - Verified scoped Python tests passed (85/85), focused frontend Vitest passed (51/51), and `git diff --check` stayed clean.
+
+# 2026-05-26 - Synthetic 99 percent segment completion removed
+
+- Traced the post-completion 99 percent anomaly to legacy synthetic previous-segment completion events in `ProgressService` and websocket rebroadcast, not to plugin progress math.
+- Updated those synthetic completion events to emit `progress: 1.0` instead of `0.99`, matching the already-completed `segment_saved` status.
+- Updated backend regressions in `test_progress_logic.py` and `test_websocket_broadcast.py` to assert the completed segment event contract.
+- Verified focused completion tests, the scoped backend progress/websocket/state suite, Ruff for touched Python files, and `git diff --check`.

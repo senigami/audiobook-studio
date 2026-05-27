@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Highlights
 
+- **Removed Synthetic 99% Segment Completion Blip**: Previous-segment completion events now emit `progress: 1.0` instead of the legacy synthetic `0.99`, preventing a completed segment from visually dropping back to 99% after the real `segment_saved` frame.
 - **Expanded Chapter Editor Segment Progress debug payload**: Expanded the Segment Progress bar debug telemetry in useChapterStatus to capture the exact raw socket event kind, raw envelope frames, ignore lists, mismatched job flags, and exact render props passed to PredictiveProgressBar.
 - **Improved Clipboard Copy Debug Payload**: Exposed `segmentProgressBarDebug` directly inside the `render` section of the clipboard copy JSON payload.
 - **Persistent Segment Progress Telemetry**: Added `lastTelemetryRef` to ensure the debug state survives unmounting of the visual progress bar, clearly marking whether the telemetry is currently active or persisted after unmount.
