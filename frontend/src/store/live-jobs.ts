@@ -182,11 +182,13 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     if (event.active_render_batch_progress !== undefined) {
       nextDelta.active_render_batch_progress = event.active_render_batch_progress;
     }
-    if (event.active_segment_id !== undefined) {
-      nextDelta.active_segment_id = event.active_segment_id;
-    }
-    if (event.active_segment_progress !== undefined) {
-      nextDelta.active_segment_progress = event.active_segment_progress;
+    if (event.scope === 'segment') {
+      if (event.active_segment_id !== undefined) {
+        nextDelta.active_segment_id = event.active_segment_id;
+      }
+      if (event.active_segment_progress !== undefined) {
+        nextDelta.active_segment_progress = event.active_segment_progress;
+      }
     }
     if (event.render_group_count !== undefined) {
       nextDelta.render_group_count = event.render_group_count;
@@ -248,71 +250,49 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     // This allows useQueueSync to benefit from the same merging logic
     const jobUpdated = updates || {};
     const existing = state.eventsById[jobId];
-    state.eventsById[jobId] = {
-      ...existing,
-      project_id: jobUpdated.project_id ?? existing?.project_id,
-      chapter_id: jobUpdated.chapter_id ?? existing?.chapter_id,
-      engine: jobUpdated.engine ?? existing?.engine,
-      custom_title: jobUpdated.custom_title ?? existing?.custom_title,
-      chapter_file: jobUpdated.chapter_file ?? existing?.chapter_file,
-      parent_job_id: jobUpdated.parent_job_id ?? existing?.parent_job_id,
-      segment_ids: jobUpdated.segment_ids ?? existing?.segment_ids,
-      classification: jobUpdated.classification ?? existing?.classification,
-      created_at: jobUpdated.created_at ?? existing?.created_at,
-      completed_at: jobUpdated.completed_at ?? existing?.completed_at,
-      status: jobUpdated.status ?? existing?.status,
-      progress: typeof jobUpdated.progress === 'number' ? jobUpdated.progress : existing?.progress,
-      eta_seconds: typeof jobUpdated.eta_seconds === 'number' ? jobUpdated.eta_seconds : existing?.eta_seconds,
-      started_at: typeof jobUpdated.started_at === 'number' ? jobUpdated.started_at : existing?.started_at,
-      updated_at: typeof jobUpdated.updated_at === 'number' ? jobUpdated.updated_at : existing?.updated_at,
-      estimated_end_at: typeof jobUpdated.estimated_end_at === 'number' ? jobUpdated.estimated_end_at : existing?.estimated_end_at,
-      eta_basis: jobUpdated.eta_basis ?? (typeof jobUpdated.eta_seconds === 'number' ? 'remaining_from_update' : existing?.eta_basis),
-      active_render_batch_id: jobUpdated.active_render_batch_id !== undefined
-        ? jobUpdated.active_render_batch_id
-        : existing?.active_render_batch_id,
-      active_render_batch_progress: jobUpdated.active_render_batch_progress !== undefined
-        ? jobUpdated.active_render_batch_progress
-        : existing?.active_render_batch_progress,
-      active_segment_id: jobUpdated.active_segment_id !== undefined
-        ? jobUpdated.active_segment_id
-        : existing?.active_segment_id,
-      active_segment_progress: jobUpdated.active_segment_progress !== undefined
-        ? jobUpdated.active_segment_progress
-        : existing?.active_segment_progress,
-      render_group_count: jobUpdated.render_group_count !== undefined
-        ? jobUpdated.render_group_count
-        : existing?.render_group_count,
-      completed_render_groups: jobUpdated.completed_render_groups !== undefined
-        ? jobUpdated.completed_render_groups
-        : existing?.completed_render_groups,
-      active_render_group_index: jobUpdated.active_render_group_index !== undefined
-        ? jobUpdated.active_render_group_index
-        : existing?.active_render_group_index,
-      total_render_weight: jobUpdated.total_render_weight !== undefined
-        ? jobUpdated.total_render_weight
-        : existing?.total_render_weight,
-      completed_render_weight: jobUpdated.completed_render_weight !== undefined
-        ? jobUpdated.completed_render_weight
-        : existing?.completed_render_weight,
-      active_render_group_weight: jobUpdated.active_render_group_weight !== undefined
-        ? jobUpdated.active_render_group_weight
-        : existing?.active_render_group_weight,
-      grouped_progress: jobUpdated.grouped_progress !== undefined
-        ? jobUpdated.grouped_progress
-        : existing?.grouped_progress,
-      reason_code: jobUpdated.reason_code ?? existing?.reason_code,
-      message: jobUpdated.message ?? jobUpdated.log ?? jobUpdated.error ?? existing?.message,
-      error: jobUpdated.error ?? jobUpdated.message ?? jobUpdated.log ?? existing?.error,
+    const status = jobUpdated.status ?? existing?.status ?? 'queued';
+    const scope = jobUpdated.classification ||
+                  ((jobUpdated.active_segment_id !== undefined || jobUpdated.active_segment_progress !== undefined) ? 'segment' : 'job');
+    const event: StudioJobEvent = {
+      type: 'studio_job_event',
+      job_id: jobId,
+      scope: scope as any,
+      classification: jobUpdated.classification ?? null,
+      parent_job_id: jobUpdated.parent_job_id ?? null,
+      status: status,
+      progress: typeof jobUpdated.progress === 'number' ? jobUpdated.progress : undefined,
+      eta_seconds: typeof jobUpdated.eta_seconds === 'number' ? jobUpdated.eta_seconds : undefined,
+      started_at: typeof jobUpdated.started_at === 'number' ? jobUpdated.started_at : undefined,
+      updated_at: typeof jobUpdated.updated_at === 'number' ? jobUpdated.updated_at : undefined,
+      estimated_end_at: typeof jobUpdated.estimated_end_at === 'number' ? jobUpdated.estimated_end_at : undefined,
+      eta_basis: jobUpdated.eta_basis,
+      active_render_batch_id: jobUpdated.active_render_batch_id,
+      active_render_batch_progress: jobUpdated.active_render_batch_progress,
+      active_segment_id: jobUpdated.active_segment_id,
+      active_segment_progress: jobUpdated.active_segment_progress,
+      render_group_count: jobUpdated.render_group_count,
+      completed_render_groups: jobUpdated.completed_render_groups,
+      active_render_group_index: jobUpdated.active_render_group_index,
+      total_render_weight: jobUpdated.total_render_weight,
+      completed_render_weight: jobUpdated.completed_render_weight,
+      active_render_group_weight: jobUpdated.active_render_group_weight,
+      grouped_progress: jobUpdated.grouped_progress,
+      message: jobUpdated.message || jobUpdated.log || jobUpdated.error || undefined,
+      reason_code: jobUpdated.reason_code,
     };
 
+    applyEvent(event);
+
     const savedDelta = state.eventsById[jobId];
-    if (savedDelta && savedDelta.chapter_id && !isSegmentScopedJob({
-      segment_ids: savedDelta.segment_ids ?? undefined,
-      custom_title: savedDelta.custom_title,
-      classification: savedDelta.classification,
-      parent_job_id: savedDelta.parent_job_id,
-    })) {
-      pruneOlderOverlaysForChapter(jobId, savedDelta.chapter_id, savedDelta.updated_at ?? savedDelta.created_at ?? Date.now() / 1000);
+    if (savedDelta) {
+      if (jobUpdated.project_id !== undefined) savedDelta.project_id = jobUpdated.project_id;
+      if (jobUpdated.chapter_id !== undefined) savedDelta.chapter_id = jobUpdated.chapter_id;
+      if (jobUpdated.engine !== undefined) savedDelta.engine = jobUpdated.engine;
+      if (jobUpdated.custom_title !== undefined) savedDelta.custom_title = jobUpdated.custom_title;
+      if (jobUpdated.chapter_file !== undefined) savedDelta.chapter_file = jobUpdated.chapter_file;
+      if (jobUpdated.segment_ids !== undefined) savedDelta.segment_ids = jobUpdated.segment_ids;
+      if (jobUpdated.created_at !== undefined) savedDelta.created_at = jobUpdated.created_at;
+      if (jobUpdated.completed_at !== undefined) savedDelta.completed_at = jobUpdated.completed_at;
     }
   };
 

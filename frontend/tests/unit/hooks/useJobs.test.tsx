@@ -1325,4 +1325,21 @@ describe('useJobs', () => {
     // Job status should transition to running
     expect(result.current.jobs['job-early-prep-3']?.status).toBe('running');
   });
+
+  it('prevents non-segment updates from reintroducing active_segment_* fields', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-non-seg-reintro', status: 'running', progress: 0 }] });
+
+    // Emit chapters.progress event carrying activeSegmentProgress and activeSegmentId (non-segment topic)
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.5,
+      activeSegmentProgress: 0.99,
+      activeSegmentId: 'seg-should-not-exist',
+    }, { jobId: 'job-non-seg-reintro' });
+
+    const job = result.current.jobs['job-non-seg-reintro'];
+    expect(job.active_segment_progress).toBeUndefined();
+    expect(job.active_segment_id).toBeUndefined();
+  });
 });

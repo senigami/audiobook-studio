@@ -30,10 +30,7 @@ function shouldHoldCompletedIndeterminateJob(
 
   // We check if it's segment scoped using canonical data (segment_ids, custom_title)
   // Overlay doesn't usually change these.
-  if (isSegmentScopedJob({
-    segment_ids: item.segment_ids,
-    custom_title: item.custom_title,
-  })) return false;
+  if (isSegmentScopedJob(item)) return false;
 
   if (effectiveStatus !== 'done' || !item.chapter_id) return false;
   if (hasChapterAudioReady(item)) return false;
@@ -203,11 +200,15 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
       }
 
       const status = isOverlayNewer ? ((delta.status as LegacyStatus) ?? item.status) : item.status;
-      const progress = (isOverlayActive && isSnapshotTerminal && isOverlayNewer)
+      let progress = (isOverlayActive && isSnapshotTerminal && isOverlayNewer)
         ? (delta.progress ?? 0)
         : (isOverlayActive && isSnapshotTerminal && !isOverlayNewer)
           ? (item.progress ?? 0)
           : Math.max(delta.progress ?? 0, item.progress ?? 0);
+
+      if (status === 'queued' || status === 'preparing') {
+        progress = 0;
+      }
 
       // Merge trusted fields from overlay
       const merged: ProcessingQueueItem = {

@@ -15,6 +15,22 @@ vi.mock('@/api', () => ({
     }
 }))
 
+// Mock predictive progress bar
+vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () => ({
+  PredictiveProgressBar: ({
+    progress,
+    label,
+    dataTestId
+  }: any) => (
+    <div
+      data-testid={dataTestId || "progress-bar"}
+      data-progress={progress}
+    >
+      {label}
+    </div>
+  )
+}))
+
 describe('GlobalQueue', () => {
     const mockJobs = [
         { id: 'job-1', status: 'running', chapter_title: 'Chapter 1', project_name: 'Project A', split_part: 0, progress: 0.5 },
@@ -274,4 +290,38 @@ describe('GlobalQueue', () => {
         expect(screen.getByText(/Processing\.\.\./i)).toBeTruthy();
         expect(screen.queryByText(/Finalizing\.\.\./i)).toBeNull();
     })
+
+    it('does not resurrect stale progress from liveJob when the merged queue row is queued or preparing', () => {
+        const mergedQueue = [
+            { id: 'job-stale-progress', status: 'preparing', progress: 0, chapter_title: 'Preparing Chapter' } as any
+        ];
+        // liveJob says running and progress is 0.77 (stale)
+        const legacyJobs = {
+            'job-stale-progress': { id: 'job-stale-progress', status: 'running', progress: 0.77 } as any
+        };
+
+        render(<GlobalQueue queue={mergedQueue} jobs={legacyJobs} />);
+
+        // The job status is preparing, so its progress should be 0 (not 0.77)
+        // The display label should be "Preparing..."
+        expect(screen.getByText('Preparing...')).toBeTruthy();
+        expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-progress', '0');
+    });
+
+    it('identifies chapter jobs without engine-name heuristics', () => {
+        const queue = [
+            {
+                id: 'job-custom-engine',
+                status: 'running',
+                progress: 0.5,
+                chapter_title: 'Custom Engine Chapter',
+                engine: 'my-custom-plugin-tts', // Not xtts or mixed
+            } as any
+        ];
+        render(<GlobalQueue queue={queue} />);
+
+        // It should identify it as a chapter-scoped job and render it in the processing now section
+        expect(screen.getByText('Custom Engine Chapter')).toBeTruthy();
+        expect(screen.queryByText(/Queue is empty/i)).toBeNull();
+    });
 })

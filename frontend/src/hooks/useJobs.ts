@@ -30,7 +30,7 @@ const STATUS_PRIORITY: Record<string, number> = {
   queued: 1,
 };
 
-const copyRenderGroupFields = (target: Record<string, any>, source: Record<string, any>) => {
+const copyRenderGroupFields = (target: Record<string, any>, source: Record<string, any>, excludeSegmentFields = false) => {
   const fields = [
     'render_group_count',
     'completed_render_groups',
@@ -39,8 +39,7 @@ const copyRenderGroupFields = (target: Record<string, any>, source: Record<strin
     'completed_render_weight',
     'active_render_group_weight',
     'grouped_progress',
-    'active_segment_id',
-    'active_segment_progress',
+    ...(!excludeSegmentFields ? ['active_segment_id', 'active_segment_progress'] : []),
   ];
   for (const key of fields) {
     if (source[key] !== undefined) {
@@ -204,10 +203,13 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
 
       const isNotSegmentProgress = sourceTopic !== 'segments.progress';
       if (isNotSegmentProgress) {
-        delete nextUpdates.active_segment_progress;
-        delete nextUpdates.active_segment_eta_seconds;
-        delete nextUpdates.active_segment_eta_basis;
-        delete nextUpdates.active_segment_updated_at;
+        if (sourceTopic !== 'queue.items') {
+          delete nextUpdates.active_segment_id;
+          delete nextUpdates.active_segment_progress;
+          delete nextUpdates.active_segment_eta_seconds;
+          delete nextUpdates.active_segment_eta_basis;
+          delete nextUpdates.active_segment_updated_at;
+        }
 
         const isSegmentJob = isSegmentScopedJob(oldJob);
         const isPreparingZeroProgress = oldJob.status === 'preparing' &&
@@ -225,7 +227,8 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         }
       }
 
-      copyRenderGroupFields(nextUpdates, updates as Record<string, any>);
+      const excludeSegmentFields = sourceTopic !== 'segments.progress' && sourceTopic !== 'queue.items';
+      copyRenderGroupFields(nextUpdates, updates as Record<string, any>, excludeSegmentFields);
       const incomingStatus = typeof nextUpdates.status === 'string' ? nextUpdates.status : undefined;
       const currentStatus = typeof oldJob.status === 'string' ? oldJob.status : undefined;
 

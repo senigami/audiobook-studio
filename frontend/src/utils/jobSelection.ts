@@ -7,6 +7,7 @@ type SegmentScopedShape = {
   render_group_count?: number;
   parent_job_id?: string | null;
   classification?: 'job' | 'chapter' | 'segment' | null;
+  engine?: string | null;
 };
 
 const STATUS_RANK: Record<string, number> = {
@@ -23,6 +24,7 @@ const STATUS_RANK: Record<string, number> = {
 export function isSegmentScopedJob(job: SegmentScopedShape): boolean {
   if (job.classification === 'segment') return true;
   if (job.classification === 'chapter') return false;
+  if (job.engine === 'voice_build') return true;
   if (job.parent_job_id) return true;
   if ((job.segment_ids?.length ?? 0) > 0) return true;
   if ((job.render_group_count ?? 0) > 0) return false;

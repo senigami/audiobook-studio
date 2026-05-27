@@ -3,7 +3,7 @@ import { Play, Pause, XCircle, Terminal } from 'lucide-react';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import type { ProcessingQueueItem, Job } from '@/types';
 import { formatQueueContext } from '@/utils/queueLabels';
-import { shouldShowIndeterminateProgress } from '@/utils/jobSelection';
+import { shouldShowIndeterminateProgress, isSegmentScopedJob } from '@/utils/jobSelection';
 import { recordStudioDebugSnapshot } from '@/utils/runtimeDebug';
 import { getLiveEventAuditSnapshot } from '@/store/liveEventAuditStore';
 
@@ -74,15 +74,18 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     };
     const updatedAt = selectEtaSourceTimestamp();
     const rawUpdatedAt = job.updated_at ?? liveJob?.updated_at;
-    const isChapterJob = (job.classification === 'chapter' || liveJob?.classification === 'chapter' || (!job.classification && !liveJob?.classification && (job.engine === 'xtts' || job.engine === 'mixed' || (job as any).type === 'chapter_generation' || (liveJob as any)?.type === 'chapter_generation'))) && job.engine !== 'voice_build' && liveJob?.engine !== 'voice_build';
-    const isSegmentJob = !isChapterJob;
+    const isSegmentJob = isSegmentScopedJob(job) || (liveJob ? isSegmentScopedJob(liveJob) : false);
     const activeSegmentId = isSegmentJob ? (liveJob?.active_segment_id ?? job.active_segment_id) : undefined;
-    const activeSegmentProgress = isSegmentJob
+    const isGroupedJob = (job.render_group_count ?? 0) > 0 || (liveJob?.render_group_count ?? 0) > 0;
+    const isRunningOrProcessing = ['running', 'processing', 'finalizing'].includes(status) || (status === 'preparing' && isGroupedJob);
+    const activeSegmentProgress = isSegmentJob && isRunningOrProcessing
         ? (typeof liveJob?.active_segment_progress === 'number'
             ? liveJob.active_segment_progress
             : (typeof job.active_segment_progress === 'number' ? job.active_segment_progress : undefined))
-        : undefined;
-    const jobProgress = Math.max(job.progress ?? 0, liveJob?.progress ?? 0);
+        : (isSegmentJob ? (job.active_segment_progress ?? undefined) : undefined);
+    const jobProgress = isRunningOrProcessing
+        ? Math.max(job.progress ?? 0, liveJob?.progress ?? 0)
+        : (job.progress ?? 0);
     const progress = !isTrulyActive
         ? 0
         : (typeof activeSegmentProgress === 'number'

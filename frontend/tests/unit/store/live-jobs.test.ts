@@ -225,4 +225,33 @@ describe('LiveJobsStore', () => {
     expect(state.eventsById['job1'].active_segment_id).toBeNull();
     expect(state.eventsById['job1'].active_segment_progress).toBeNull();
   });
+
+  it('unifies merge rules: applyJobUpdated enforces monotonic progress and requeued resets', () => {
+    const store = createLiveJobsStore();
+
+    // 1. Initial active update
+    store.applyJobUpdated('job1', {
+      status: 'running',
+      progress: 0.5,
+      updated_at: 1000,
+    });
+    expect(store.getState().eventsById['job1'].progress).toBe(0.5);
+
+    // 2. Newer update with lower progress (should be ignored due to monotonic progress rule)
+    store.applyJobUpdated('job1', {
+      status: 'running',
+      progress: 0.4,
+      updated_at: 1100,
+    });
+    expect(store.getState().eventsById['job1'].progress).toBe(0.5);
+
+    // 3. Newer update with rollback status (queued) (should reset progress to 0)
+    store.applyJobUpdated('job1', {
+      status: 'queued',
+      progress: 0,
+      updated_at: 1200,
+    });
+    expect(store.getState().eventsById['job1'].status).toBe('queued');
+    expect(store.getState().eventsById['job1'].progress).toBe(0);
+  });
 });

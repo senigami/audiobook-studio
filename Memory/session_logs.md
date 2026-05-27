@@ -1,3 +1,13 @@
+# 2026-05-27 - Fix queue/job merge regressions and unify live overlay ownership
+
+- Rewrote `applyJobUpdated` in `live-jobs.ts` to map incoming partial updates into the canonical `StudioJobEvent` shape and delegate to `applyEvent` to unify the merge logic across REST updates and websocket events.
+- Restricted copying of active segment progress/id in `applyEvent` to segment-scoped events (`event.scope === 'segment'`).
+- Mapped `excludeSegmentFields = sourceTopic !== 'segments.progress' && sourceTopic !== 'queue.items'` in `useJobs.ts` to clear and block segment fields for non-segment updates (like `chapters.progress`).
+- Forced progress to `0` inside `hydration/index.ts` during overlay merges when the merged status is `'queued'` or `'preparing'`.
+- Protected progress properties in `QueueItem.tsx` from resurrecting stale progress from raw websocket overlays unless the status is active running/processing/finalizing (or preparing grouped).
+- Replaced legacy engine name heuristics with explicit `isSegmentScopedJob` in `QueueItem.tsx` and classified `engine === 'voice_build'` as segment-scoped in `jobSelection.ts`.
+- Verified all 659 frontend unit tests, production build compilation, and formatting constraints pass cleanly.
+
 # 2026-05-26 - Add socket event provenance tracing to Segment Progress bar debug payload
 
 - Modified `useJobs.ts` under the `segments.progress` topic handler to capture a detailed debug trace (`segmentProgressSocketProvenance`) for each event, recording the raw envelope and the specific consumed fields (such as `etaSeconds`, `eta_basis`, `started_at`, `status`, `progress`, etc.).

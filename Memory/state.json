@@ -1,17 +1,16 @@
 {
-  "snapshot_version": 138,
-  "current_task": "Remove synthetic 99 percent segment completion event",
-  "status": "segment_completion_marker_fixed",
+  "snapshot_version": 139,
+  "current_task": "Fix queue/job merge regressions and unify live overlay ownership",
+  "status": "queue_merge_regressions_fixed",
   "last_committed_milestone": {
-    "title": "Segment ETA and completion events stabilized",
+    "title": "Queue/job merge regressions and live overlay ownership unified",
     "commit": "pending",
     "notes": [
-      "ProgressService now supports a separate active_segment_eta_seconds field so segments.progress and chapters.progress can emit different ETA values for the same job.",
-      "The orchestrator marker listener computes active segment ETA from the active render group's character weight and progress, using the same ETA helper while preserving chapter-level ETA separately.",
-      "ProgressService no longer falls back to chapter eta_seconds for active segment events; segment ETA must come from the active segment ETA calculation, naturally reaching 0 at 100 percent.",
-      "Backend Job state and websocket broadcast now preserve active_segment_eta_seconds through the state update path.",
-      "Ran the scoped Python suite, focused frontend header/useJobs tests, and git diff check successfully.",
-      "Removed the legacy synthetic 0.99 previous-segment completion marker from ProgressService and websocket rebroadcast; segment_saved completion frames now emit 1.0 so completed segment events no longer create a 99 percent visual anomaly."
+      "Rewrote applyJobUpdated in live-jobs.ts to delegate to applyEvent for unified store merge behavior.",
+      "Protected segment-specific progress/id fields from non-segment websocket events or partial sync updates.",
+      "Prevented stale progress resurrection in QueueItem and hydration coordinate paths when status is queued or preparing.",
+      "Replaced engine-name based chapter job checks with isSegmentScopedJob in QueueItem.",
+      "Added test coverage in hooks, stores, hydration, and queue component unit tests, and verified full 659 test suite passes."
     ]
   },
   "active_constraints": [

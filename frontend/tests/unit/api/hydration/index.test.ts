@@ -240,4 +240,24 @@ describe('HydrationCoordinator', () => {
     expect(merged).toHaveLength(1);
     expect(merged[0].id).toBe('job-chapter-with-segs');
   });
+
+  it('does not resurrect progress from snapshot when merged status is queued or preparing', () => {
+    const snapshot = coordinator.createSnapshot([
+      { id: 'job-requeued', status: 'running', progress: 0.75 } as any
+    ]);
+
+    const overlays: LiveOverlayState = {
+      eventsById: {
+        'job-requeued': {
+          status: 'queued',
+          progress: 0,
+          updated_at: Date.now() / 1000,
+        }
+      }
+    };
+
+    const merged = coordinator.mergeQueueWithOverlays(snapshot, overlays);
+    expect(merged[0].status).toBe('queued');
+    expect(merged[0].progress).toBe(0); // Forced to 0, not Math.max(0, 0.75)
+  });
 });
