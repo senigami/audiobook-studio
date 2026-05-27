@@ -52,13 +52,49 @@ describe('LiveOutputTab', () => {
     expect(screen.getByText('[START_SEGMENT] seg-1')).toBeInTheDocument();
     expect(screen.getByText('Rendering segment seg-1...', { exact: false })).toBeInTheDocument();
     expect(screen.getByText('42%')).toBeInTheDocument();
-    expect(screen.getByText('50%')).toBeInTheDocument();
+    expect(screen.queryByText('50%')).not.toBeInTheDocument(); // Segment % should be gone/de-emphasized
 
     const headers = Array.from(document.querySelectorAll('th')).map(th => th.textContent);
     expect(headers).toEqual(expect.arrayContaining([
       'Time', 'Topic', 'Event', 'Job', 'Chapter', 'Segment', 'Job %',
-      'Segment %', 'Group', 'ETA', 'Reason', 'Source', 'Message',
+      'Confidence', 'Group', 'ETA', 'Reason', 'Source', 'Message',
     ]));
+  });
+
+  it('renders confidence column and formats confidence values correctly based on progress and active block weight', () => {
+    // 1. Running segment progress event with active render group weight
+    publishEvent('segments.progress', 'segment_progress', {
+      message: 'Rendering segment...',
+      progress: 0.8,
+      active_render_group_weight: 250,
+      status: 'running',
+    }, { jobId: 'job-1' });
+
+    // 2. Running segment progress event with NO weight (should fall back cleanly to '-')
+    publishEvent('segments.progress', 'segment_progress', {
+      message: 'Rendering segment...',
+      progress: 0.6,
+      status: 'running',
+    }, { jobId: 'job-2' });
+
+    // 3. Terminal segment progress event
+    publishEvent('segments.progress', 'segment_progress', {
+      message: 'Done rendering segment...',
+      progress: 1.0,
+      status: 'done',
+    }, { jobId: 'job-3' });
+
+    render(<LiveOutputTab />);
+
+    // Row 1: progress 80%, weight 250 -> confidence = (250/500) * 0.8 = 0.4 = 40% (low confidence warning)
+    expect(screen.getByText('80%')).toBeInTheDocument();
+    expect(screen.getByText('⚠️ 40%')).toBeInTheDocument();
+
+    // Row 2: progress 60%, no weight -> confidence should fall back to '-' (clean fallback)
+    expect(screen.getByText('60%')).toBeInTheDocument();
+
+    // Row 3: status 'done' -> confidence should be 100%
+    expect(screen.getAllByText('100%')).toHaveLength(2);
   });
 
   it('renders distinct same-job studio_job_event frames as separate rows in insertion order', () => {

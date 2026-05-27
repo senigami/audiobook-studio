@@ -332,6 +332,28 @@ const normalizeUnknown = (
   }) as any;
 };
 
+import { CHUNK_CHAR_LIMIT } from '@/constants/audio';
+
+export const computeProgressConfidence = (
+  status?: string | null,
+  progress?: number | null,
+  activeRenderGroupWeight?: number | null
+): number | null => {
+  if (!status) return null;
+  if (['done', 'failed', 'cancelled', 'finalizing'].includes(status)) {
+    return 1.0;
+  }
+  if (typeof progress !== 'number') return null;
+  if (typeof activeRenderGroupWeight !== 'number') {
+    return null;
+  }
+
+  const blockCharCount = activeRenderGroupWeight;
+  const clamp01 = (val: number) => Math.max(0, Math.min(val, 1));
+  const coverageRatio = blockCharCount > 0 ? clamp01(blockCharCount / CHUNK_CHAR_LIMIT) : 1.0;
+  return coverageRatio * clamp01(progress);
+};
+
 export const normalizeStudioSocketEnvelope = (envelope: StudioSocketEnvelope): LiveEvent => {
   if (!isRecord(envelope.data)) return normalizeUnknown(envelope, envelope.data);
 
@@ -340,6 +362,29 @@ export const normalizeStudioSocketEnvelope = (envelope: StudioSocketEnvelope): L
   if (type === 'studio_event') {
     const data = envelope.data as any;
     const ids = data.ids || {};
+    const payload = data.payload || {};
+
+    if (
+      data.topic === 'queue.items' ||
+      data.topic === 'chapters.progress' ||
+      data.topic === 'segments.progress'
+    ) {
+      if (payload.confidence === undefined) {
+        const progress = payload.progress ?? payload.activeSegmentProgress ?? payload.active_segment_progress;
+        const weight =
+          payload.active_render_group_weight ??
+          payload.active_render_batch_weight ??
+          payload.estimated_work_weight ??
+          payload.activeRenderGroupWeight ??
+          payload.activeRenderBatchWeight ??
+          payload.estimatedWorkWeight;
+        const conf = computeProgressConfidence(payload.status, progress, weight);
+        if (conf !== null) {
+          payload.confidence = conf;
+        }
+      }
+    }
+
     return {
       frameId: envelope.frameId,
       receivedAt: envelope.receivedAt,
@@ -353,7 +398,7 @@ export const normalizeStudioSocketEnvelope = (envelope: StudioSocketEnvelope): L
       chapterId: ids.chapterId || null,
       jobId: ids.jobId || null,
       segmentId: ids.segmentId || null,
-      payload: data.payload,
+      payload,
       raw: envelope.raw,
     } as any;
   }

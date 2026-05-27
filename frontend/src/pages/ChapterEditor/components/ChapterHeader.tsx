@@ -450,8 +450,8 @@ export const ChapterScriptToolbar: React.FC<{
                     dataTestId="chapter-header-segment-progress-bar"
                     progress={status.liveSegmentProgressValue}
                     startedAt={status.liveSegmentProgressJob.started_at}
-                    etaSeconds={status.segmentProgressBarSelection.selectedEtaSeconds}
-                    etaBasis={status.segmentProgressBarSelection.selectedEtaBasis ?? undefined}
+                    etaSeconds={status.segmentProgressBarSelection.selectedEtaSeconds ?? undefined}
+                    etaBasis={(status.segmentProgressBarSelection.selectedEtaBasis ?? undefined) as 'remaining_from_update' | 'total_from_start' | undefined}
                     updatedAt={status.segmentProgressBarSelection.selectedUpdatedAt ?? undefined}
                     persistenceKey={`${status.liveSegmentProgressJob.id}:${status.liveSegmentProgressJob.active_segment_id || 'none'}`}
                     status={status.liveSegmentProgressJob.status}

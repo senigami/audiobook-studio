@@ -58,19 +58,31 @@ const jobProgressPayloadFor = (event: LiveEvent): any => {
     event.topic === 'segments.progress'
   ) {
     const payload = event.payload as any;
-    const hasActiveSegmentProgress = payload.activeSegmentProgress !== undefined || payload.active_segment_progress !== undefined;
     return {
-      progress: event.topic === 'segments.progress' ? (hasActiveSegmentProgress ? payload.progress : null) : payload.progress,
-      active_segment_progress: event.topic === 'segments.progress' ? (payload.activeSegmentProgress ?? payload.active_segment_progress ?? payload.progress) : null,
+      progress: payload.progress,
       active_render_group_index: payload.segmentIndex ?? payload.completedRenderGroups ?? payload.active_render_group_index ?? payload.completed_render_groups,
       render_group_count: payload.segmentCount ?? payload.renderGroupCount ?? payload.render_group_count,
       reason_code: payload.reasonCode ?? payload.reason_code,
       message: payload.message,
       status: payload.status,
       eta_seconds: payload.etaSeconds ?? payload.eta_seconds,
+      confidence: payload.confidence ?? null,
     };
   }
   return undefined;
+};
+
+const formatConfidence = (value?: number | null) => {
+  if (typeof value !== 'number') return '-';
+  const pct = Math.round(value * 100);
+  if (pct < 50) {
+    return (
+      <span style={{ color: 'var(--text-warning, #d97706)', fontWeight: 600 }}>
+        ⚠️ {pct}%
+      </span>
+    );
+  }
+  return `${pct}%`;
 };
 
 const messageFor = (event: LiveEvent): string => {
@@ -117,7 +129,7 @@ const COLUMNS = [
   'Chapter',
   'Segment',
   'Job %',
-  'Segment %',
+  'Confidence',
   'Group',
   'ETA',
   'Reason',
@@ -235,7 +247,7 @@ export const LiveOutputTable: React.FC<LiveOutputTableProps> = (_props) => {
                   <td title={event.chapterId ?? ''} style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{shortId(event.chapterId)}</td>
                   <td title={event.segmentId ?? ''} style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{shortId(event.segmentId)}</td>
                   <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatProgress(jobPayload?.progress)}</td>
-                  <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatProgress(jobPayload?.active_segment_progress)}</td>
+                  <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatConfidence(jobPayload?.confidence)}</td>
                   <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatGroup(jobPayload)}</td>
                   <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatEta(jobPayload?.eta_seconds)}</td>
                   <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{reasonFor(event)}</td>
