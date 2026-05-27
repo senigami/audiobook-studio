@@ -449,7 +449,8 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     headerQueuePending,
     chapterRenderRenderingSegmentIds.size || chapterRenderPendingSegmentIds.size,
     submitting || !anyEnginesEnabled,
-    activeRenderBatchId
+    activeRenderBatchId,
+    activeBatch?.estimated_work_weight
   );
 
   const handleCopyDebugState = async () => {

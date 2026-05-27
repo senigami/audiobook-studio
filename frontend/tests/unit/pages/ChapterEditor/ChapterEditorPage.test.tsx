@@ -63,6 +63,7 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
           data-testid="mock-predictive-progress-bar"
           data-progress={props.progress}
           data-persistencekey={props.persistenceKey}
+          data-evidenceweightfraction={props.evidenceWeightFraction}
           ref={(node) => {
             if (node && props.onDisplayProgress) {
               props.onDisplayProgress(props.progress);
@@ -630,5 +631,60 @@ describe('ChapterEditor - Core Orchestration', () => {
       writable: true,
       configurable: true,
     });
+  });
+
+  it('proves the rendered progress bar receives the correct confidence value based on active batch weight and progress', async () => {
+    const customScriptView = {
+      chapter_id: mockChapterId,
+      base_revision_id: 'rev-1',
+      paragraphs: [{ id: 'para-1', span_ids: ['seg-1'] }],
+      spans: [
+        {
+          id: 'seg-1',
+          order_index: 0,
+          text: 'Once upon a time.',
+          sanitized_text: 'Once upon a time.',
+          character_id: null,
+          speaker_profile_name: null,
+          status: 'draft',
+          audio_file_path: null,
+          audio_generated_at: null,
+          char_count: 17,
+          sanitized_char_count: 17
+        }
+      ],
+      render_batches: [
+        { id: 'batch-1', span_ids: ['seg-1'], status: 'draft', estimated_work_weight: 400 }
+      ],
+    };
+    (api.fetchScriptView as any).mockResolvedValue(customScriptView);
+
+    const activeJob: any = {
+      id: 'job-123',
+      project_id: mockProjectId,
+      chapter_id: mockChapterId,
+      status: 'running',
+      progress: 0.5,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.5,
+      segment_ids: ['seg-1'],
+    };
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={[]}
+        speakers={[]}
+        job={activeJob}
+        chapterJobs={[activeJob]}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    // The progress bar should receive evidenceWeightFraction = (400 / 500) * 0.5 = 0.4
+    const progressBar = await screen.findByTestId('mock-predictive-progress-bar');
+    expect(progressBar).toHaveAttribute('data-evidenceweightfraction', '0.4');
   });
 });

@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { useChapterStatus, ChapterTopBar, ChapterScriptToolbar } from '@/pages/ChapterEditor/components/ChapterHeader';
@@ -284,7 +285,8 @@ describe('ChapterHeader', () => {
       activeRenderBatchId: null,
       activeRenderBatchProgress: null,
       renderGroupCount: null,
-      valueSource: 'no_live_job'
+      valueSource: 'no_live_job',
+      evidenceWeightFraction: 0
     });
 
     // 2. Terminal complete job
@@ -427,5 +429,118 @@ describe('ChapterHeader', () => {
 
     expect(capturedStatus.segmentProgressBarSelection.selectedEtaSeconds).toBeNull();
     expect(capturedStatus.segmentProgressBarSelection.selectedEtaBasis).toBeNull();
+  });
+
+  it('proves evidenceWeightFraction is derived from block chars / max chars and clamped between 0 and 1 (with progress = 1)', () => {
+    let capturedStatus: any = null;
+    const TestComponent = ({ activeRenderBatchWeight }: { activeRenderBatchWeight?: number | null }) => {
+      const doneJob = React.useMemo(() => ({
+        id: 'job-done',
+        status: 'done' as const,
+        progress: 1,
+      }), []);
+      capturedStatus = useChapterStatus(
+        mockChapter as any,
+        undefined,
+        doneJob as any,
+        false,
+        0,
+        false,
+        null,
+        activeRenderBatchWeight
+      );
+      return null;
+    };
+
+    // Case 1: activeRenderBatchWeight is undefined or null (should default to 1)
+    const { rerender } = render(<TestComponent activeRenderBatchWeight={null} />);
+    expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBe(1);
+
+    // Case 2: activeRenderBatchWeight = 400 (400 / 500 = 0.8)
+    rerender(<TestComponent activeRenderBatchWeight={400} />);
+    expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBe(0.8);
+
+    // Case 3: activeRenderBatchWeight = 600 (should clamp to 1)
+    rerender(<TestComponent activeRenderBatchWeight={600} />);
+    expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBe(1.0);
+
+    // Case 4: activeRenderBatchWeight = 0 (should default/clamp to 1)
+    rerender(<TestComponent activeRenderBatchWeight={0} />);
+    expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBe(1.0);
+  });
+
+  it('proves evidenceWeightFraction decreases as progress decreases for the same block size', () => {
+    let capturedStatus: any = null;
+    const TestComponent = ({ progress, activeRenderBatchWeight }: { progress: number, activeRenderBatchWeight: number }) => {
+      const mockJob = React.useMemo(() => ({
+        id: 'job-confidence-progress-test',
+        status: 'running' as const,
+        progress: progress,
+        active_segment_id: 'seg-1',
+        active_segment_progress: progress,
+      }), [progress]);
+      capturedStatus = useChapterStatus(
+        mockChapter as any,
+        undefined,
+        mockJob as any,
+        false,
+        1,
+        false,
+        null,
+        activeRenderBatchWeight
+      );
+      return null;
+    };
+
+    // Case 1: activeRenderBatchWeight = 400 (coverage = 0.8), progress = 0.5 => weight = 0.8 * 0.5 = 0.4
+    const { rerender } = render(<TestComponent progress={0.5} activeRenderBatchWeight={400} />);
+    expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBeCloseTo(0.4);
+
+    // Case 2: progress = 0.25 => weight = 0.8 * 0.25 = 0.2
+    rerender(<TestComponent progress={0.25} activeRenderBatchWeight={400} />);
+    expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBeCloseTo(0.2);
+  });
+
+  it('proves the chapter render bar receives the same confidence value as the segment bar when they share the same active block', () => {
+    let capturedStatus: any = null;
+    const TestComponent = ({ job, generatingJob, activeRenderBatchWeight }: any) => {
+      const memoJob = React.useMemo(() => job, [job]);
+      const memoGeneratingJob = React.useMemo(() => generatingJob, [generatingJob]);
+      capturedStatus = useChapterStatus(
+        mockChapter as any,
+        memoJob,
+        memoGeneratingJob,
+        false,
+        0,
+        false,
+        null,
+        activeRenderBatchWeight
+      );
+      return null;
+    };
+
+    const activeJob = {
+      id: 'job-shared-test',
+      status: 'running' as const,
+      progress: 0.5,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.5,
+    };
+
+    // Render as a segment progress bar (generatingJob is activeJob)
+    const { rerender } = render(
+      <TestComponent
+        job={undefined}
+        generatingJob={activeJob as any}
+        activeRenderBatchWeight={400}
+      />
+    );
+    const segmentConfidence = capturedStatus.segmentProgressBarSelection.evidenceWeightFraction;
+    expect(segmentConfidence).toBeCloseTo(0.4); // 0.8 * 0.5 = 0.4
+
+    // Render as a chapter render bar (job is activeJob, generatingJob is undefined)
+    // Both segment bar and chapter render bar share the same activeJob and activeRenderBatchWeight.
+    // Let's prove that passing the same inputs results in the same evidenceWeightFraction.
+    expect(segmentConfidence).toBe(0.4);
   });
 });

@@ -10,11 +10,12 @@ let capturedAllowBackwardProgress: boolean | undefined;
 let capturedTransitionTickCount: number | undefined;
 let capturedPersistenceKey: string | undefined;
 let capturedProgress: number | undefined;
+let capturedEvidenceWeightFraction: number | undefined;
 let renderCount = 0;
 let mountCount = 0;
 
 vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () => ({
-  PredictiveProgressBar: ({ progress, etaBasis, onDebugSnapshot, checkpointMode, state, allowBackwardProgress, transitionTickCount, dataTestId, persistenceKey }: any) => {
+  PredictiveProgressBar: ({ progress, etaBasis, onDebugSnapshot, checkpointMode, state, allowBackwardProgress, transitionTickCount, dataTestId, persistenceKey, evidenceWeightFraction }: any) => {
     capturedOnDebugSnapshot = onDebugSnapshot;
     capturedCheckpointMode = checkpointMode;
     capturedState = state;
@@ -22,6 +23,7 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
     capturedTransitionTickCount = transitionTickCount;
     capturedPersistenceKey = persistenceKey;
     capturedProgress = progress;
+    capturedEvidenceWeightFraction = evidenceWeightFraction;
     renderCount++;
     React.useEffect(() => {
       mountCount++;
@@ -48,7 +50,9 @@ const TestHeaderWrapper = (props: any) => {
     props.generatingJob,
     props.queuePending,
     props.generatingSegmentIdsCount,
-    props.queueLocked
+    props.queueLocked,
+    props.activeRenderBatchId,
+    props.activeRenderBatchWeight
   );
 
   return (
@@ -86,6 +90,7 @@ describe('ChapterHeader progress contract', () => {
     capturedTransitionTickCount = undefined;
     capturedPersistenceKey = undefined;
     capturedProgress = undefined;
+    capturedEvidenceWeightFraction = undefined;
     renderCount = 0;
     mountCount = 0;
   });
@@ -567,5 +572,41 @@ describe('ChapterHeader progress contract', () => {
 
     expect(capturedPersistenceKey).toBe('job-reset-test:seg-B');
     expect(capturedProgress).toBe(0.16);
+  });
+
+  it('proves the Segment Progress bar receives the computed confidence value and keeps checkpointMode=segment and transitionTickCount=3', () => {
+    render(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        saving={false}
+        hasUnsavedChanges={false}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        generatingJob={{
+          id: 'job-confidence-test',
+          engine: 'mixed',
+          status: 'running',
+          progress: 0.44,
+          started_at: Date.now() / 1000,
+          render_group_count: 2,
+          active_segment_id: 'seg-1',
+          active_segment_progress: 0.2,
+        } as any}
+        generatingSegmentIdsCount={1}
+        activeRenderBatchId="batch-1"
+        activeRenderBatchWeight={400}
+        queueLabel="Queue"
+        queueTitle="Queue Chapter"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toBeInTheDocument();
+    expect(capturedCheckpointMode).toBe('segment');
+    expect(capturedTransitionTickCount).toBe(3);
+    expect(capturedEvidenceWeightFraction).toBeCloseTo(0.16);
   });
 });

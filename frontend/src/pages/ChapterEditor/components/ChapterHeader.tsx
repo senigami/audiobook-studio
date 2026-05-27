@@ -13,7 +13,8 @@ export const useChapterStatus = (
   queuePending: boolean = false,
   generatingSegmentIdsCount: number = 0,
   queueLocked: boolean = false,
-  activeRenderBatchIdFromPage?: string | null
+  activeRenderBatchIdFromPage?: string | null,
+  activeRenderBatchWeight?: number | null
 ) => {
   const hasChapterAudio = !!(chapter.has_wav || chapter.has_mp3 || chapter.has_m4a);
   const recentlyFinishedDoneJob = !!(job?.status === 'done' && job?.finished_at && ((Date.now() / 1000) - job.finished_at) <= RECENT_DONE_WINDOW_SECONDS);
@@ -164,6 +165,13 @@ export const useChapterStatus = (
           ? 'active_segment_progress'
           : 'job_progress';
 
+  const CHUNK_CHAR_LIMIT = 500;
+  const block_char_count = activeRenderBatchWeight ?? 0;
+  const progressVal = liveSegmentProgressValue;
+  const clamp01 = (val: number) => Math.max(0, Math.min(val, 1));
+  const coverageRatio = block_char_count > 0 ? clamp01(block_char_count / CHUNK_CHAR_LIMIT) : 1;
+  const evidenceWeightFraction = coverageRatio * clamp01(progressVal);
+
   const segmentProgressBarSelection = {
     dataTestId: "chapter-header-segment-progress-bar",
     barMounted: !!liveSegmentProgressJob,
@@ -187,7 +195,8 @@ export const useChapterStatus = (
     activeRenderBatchId: activeRenderBatchIdFromPage || liveSegmentProgressJob?.active_render_batch_id || liveSegmentProgressJob?.active_segment_id || null,
     activeRenderBatchProgress: liveSegmentProgressJob?.active_render_batch_progress ?? liveSegmentProgressJob?.active_segment_progress ?? null,
     renderGroupCount: liveSegmentProgressJob?.render_group_count ?? null,
-    valueSource
+    valueSource,
+    evidenceWeightFraction
   };
 
   return {
@@ -458,6 +467,7 @@ export const ChapterScriptToolbar: React.FC<{
                     label="Segment Progress"
                     predictive={true}
                     allowBackwardProgress={false}
+                    evidenceWeightFraction={status.segmentProgressBarSelection.evidenceWeightFraction}
                     checkpointMode={
                         (status.liveSegmentProgressJob.segment_ids?.length || status.liveSegmentProgressJob.active_segment_id)
                             ? 'segment'
