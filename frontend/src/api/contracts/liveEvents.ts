@@ -6,6 +6,7 @@ export interface StudioSocketEnvelope<T = unknown> {
 }
 
 export type LiveEventTopic =
+  | 'jobs.lifecycle'
   | 'queue.items'
   | 'chapters.lifecycle'
   | 'chapters.progress'
@@ -40,6 +41,7 @@ export type LiveEventSubscriber =
   | string;
 
 export type LiveEventKind =
+  | 'job_lifecycle'
   | 'queue_item_status'
   | 'queue_item_invalidated'
   | 'queue_paused'
@@ -94,6 +96,27 @@ export interface QueueItemLiveEvent extends LiveEventBase<QueueItemPayload> {
   topic: 'queue.items';
   category: 'queue';
   eventKind: 'queue_item_status' | 'queue_item_invalidated' | 'queue_paused';
+}
+
+export interface JobLifecyclePayload {
+  status: 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled';
+  reasonCode: string | null;
+  message: string | null;
+  startedAt: number | null;
+  updatedAt: number | null;
+  hasSegmentSupport?: boolean;
+  has_segment_support?: boolean;
+  reason_code?: string | null;
+  started_at?: number | null;
+  updated_at?: number | null;
+  parentJobId?: string | null;
+  parent_job_id?: string | null;
+}
+
+export interface JobLifecycleLiveEvent extends LiveEventBase<JobLifecyclePayload> {
+  topic: 'jobs.lifecycle';
+  category: 'job';
+  eventKind: 'job_lifecycle';
 }
 
 export interface ChapterLifecyclePayload {
@@ -250,6 +273,7 @@ export interface UnknownLiveEvent extends LiveEventBase<unknown> {
 }
 
 export type LiveEvent =
+  | JobLifecycleLiveEvent
   | QueueItemLiveEvent
   | ChapterLifecycleLiveEvent
   | ChapterProgressLiveEvent
@@ -292,6 +316,7 @@ const segmentIdFromData = (data: Record<string, unknown>) =>
     : (data.segment_id as string | null | undefined);
 
 const categoryForTopic = (topic: string): LiveEventCategory => {
+  if (topic === 'jobs.lifecycle') return 'job';
   if (topic === 'queue.items') return 'queue';
   if (topic === 'projects.lifecycle') return 'project';
   if (topic === 'chapters.lifecycle' || topic === 'chapters.progress') return 'chapter';
@@ -373,6 +398,7 @@ export const normalizeStudioSocketEnvelope = (envelope: StudioSocketEnvelope): L
     const payload = data.payload || {};
 
     if (
+      data.topic === 'jobs.lifecycle' ||
       data.topic === 'queue.items' ||
       data.topic === 'chapters.progress' ||
       data.topic === 'segments.progress'

@@ -53,6 +53,7 @@ const formatEta = (value?: number | null) => {
 
 const jobProgressPayloadFor = (event: LiveEvent): any => {
   if (
+    event.topic === 'jobs.lifecycle' ||
     event.topic === 'queue.items' ||
     event.topic === 'chapters.progress' ||
     event.topic === 'segments.progress'
@@ -88,6 +89,7 @@ const formatConfidence = (value?: number | null) => {
 const messageFor = (event: LiveEvent): string => {
   if (event.topic === 'tts.logs') return (event.payload as any).line ?? '';
   if (
+    event.topic === 'jobs.lifecycle' ||
     event.topic === 'queue.items' ||
     event.topic === 'chapters.progress' ||
     event.topic === 'segments.progress'

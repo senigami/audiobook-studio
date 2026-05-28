@@ -35,7 +35,7 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
     expect(screen.getByText(/Internal audit log of normalized websocket events/)).toBeInTheDocument();
     expect(screen.getByText('Event map')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'main-queue' })).toBeInTheDocument();
-    expect(screen.getByText('queue.items')).toBeInTheDocument();
+    expect(screen.getByText('jobs.lifecycle')).toBeInTheDocument();
   });
 
   it('renders filter toggle buttons for all plus the consumer names', () => {
@@ -56,7 +56,7 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
   it('toggles active filter and filters rows by consumer listening definitions correctly', async () => {
     // 1. Publish some events
     publishEvent('chapters.progress', 'chapter_progress', { status: 'running', progress: 0.5 }, { jobId: 'job-1' }); // frameId 1 -> chapters.progress
-    publishEvent('queue.items', 'queue_item_invalidated', { reasonCode: 'test-reason', changedFields: [] });            // frameId 2 -> queue.items
+    publishEvent('jobs.lifecycle', 'job_lifecycle', { status: 'running', reasonCode: 'START_SYNTHESIS', message: 'Running synthesis' }, { jobId: 'job-2' }); // frameId 2 -> jobs.lifecycle
     publishEvent('tts.logs', 'tts_log', { line: 'Synthesizing line' });                                             // frameId 3 -> tts.logs
     publishEvent('system.events', 'unknown', { details: 'unobserved' });                                            // frameId 4 -> system.unknown
     publishEvent('projects.lifecycle', 'project_invalidated', { reasonCode: 'updated', changedFields: [] }, { projectId: 'proj-1' }); // frameId 5 -> projects.lifecycle
@@ -66,7 +66,7 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
     // Initially, 'All' should show all 5 frames
     expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(5);
 
-    // Filter to main-queue (listens to queue.items)
+    // Filter to main-queue (listens to jobs.lifecycle)
     fireEvent.click(screen.getByRole('button', { name: 'main-queue' }));
     const rowsQueue = document.querySelectorAll('tbody tr[data-frame-id]');
     expect(rowsQueue).toHaveLength(1);
@@ -74,11 +74,11 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
     expect(queueIds).not.toContain('1');
     expect(queueIds).toContain('2');
 
-    // Filter to chapter-state (listens to chapters.lifecycle, chapters.progress, and segments.progress)
+    // Filter to chapter-state (listens to jobs.lifecycle, chapters.lifecycle, chapters.progress, and segments.progress)
     fireEvent.click(screen.getByRole('button', { name: 'chapter-state' }));
     const rowsChapter = document.querySelectorAll('tbody tr[data-frame-id]');
-    expect(rowsChapter).toHaveLength(1);
-    expect(rowsChapter[0].getAttribute('data-frame-id')).toBe('1');
+    expect(rowsChapter).toHaveLength(2);
+    expect(Array.from(rowsChapter).map(r => r.getAttribute('data-frame-id'))).toEqual(expect.arrayContaining(['1', '2']));
 
     // Filter to tts-diagnostics (listens to tts.logs)
     fireEvent.click(screen.getByRole('button', { name: 'tts-diagnostics' }));
@@ -105,20 +105,20 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
   });
 
   it('filters based on explicit consumer-listening definitions rather than subscriber observations', () => {
-    // 1. Publish events: tts.logs, chapters.progress, queue.items. No subscriber observations!
+    // 1. Publish events: tts.logs, chapters.progress, jobs.lifecycle. No subscriber observations!
     publishEvent('tts.logs', 'tts_log', { line: 'Synthesizing line' });                                         // frameId 1, topic tts.logs
     publishEvent('chapters.progress', 'chapter_progress', { status: 'running', progress: 0.5 }, { jobId: 'job-1' }); // frameId 2, topic chapters.progress
-    publishEvent('queue.items', 'queue_item_invalidated', { reasonCode: 'test-reason', changedFields: [] });            // frameId 3, topic queue.items
+    publishEvent('jobs.lifecycle', 'job_lifecycle', { status: 'running', reasonCode: 'START_SYNTHESIS', message: 'Running synthesis' }, { jobId: 'job-2' }); // frameId 3, topic jobs.lifecycle
 
     render(<LiveOutputPage />);
 
     // Proves frames still appear under All without any subscriber observations
     expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(3);
 
-    // Proves main-queue matches queue.items
+    // Proves main-queue matches jobs.lifecycle
     fireEvent.click(screen.getByRole('button', { name: 'main-queue' }));
     const mainQueueRows = document.querySelectorAll('tbody tr[data-frame-id]');
-    expect(mainQueueRows).toHaveLength(1); // queue_updated only
+    expect(mainQueueRows).toHaveLength(1); // job_lifecycle only
     const mainQueueIds = Array.from(mainQueueRows).map(row => row.getAttribute('data-frame-id'));
     expect(mainQueueIds).not.toContain('2');
     expect(mainQueueIds).toContain('3');
@@ -133,8 +133,8 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
     // Proves chapter-state matches chapters.progress
     fireEvent.click(screen.getByRole('button', { name: 'chapter-state' }));
     const chapterRows = document.querySelectorAll('tbody tr[data-frame-id]');
-    expect(chapterRows).toHaveLength(1);
-    expect(chapterRows[0].getAttribute('data-frame-id')).toBe('2');
+    expect(chapterRows).toHaveLength(2);
+    expect(Array.from(chapterRows).map(row => row.getAttribute('data-frame-id'))).toEqual(expect.arrayContaining(['2', '3']));
   });
 
   it('displays ETA from queue.items etaSeconds or eta_seconds, accepting 0 as 0s', () => {

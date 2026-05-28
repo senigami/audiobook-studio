@@ -69,7 +69,7 @@ export type WebsocketDebugSnapshot = {
  * - `chapter` → only useJobs reads it for chapter/segment context
  *               (tts_log_line, segment_progress, segments_updated,
  *                chapter_updated, test_progress)
- * - `both`    → both hooks react to it (studio_job_event, job_updated)
+ * - `both`    → both hooks react to it (jobs.lifecycle, studio_job_event, job_updated)
  * - `other`   → unknown / unclassified type
  */
 export type WsAudience = 'queue' | 'chapter' | 'both' | 'other';
@@ -79,6 +79,9 @@ export const wsAudienceForType = (type: string | undefined, data?: Record<string
   if (type === 'studio_event' && data) {
     const topic = data.topic;
     const eventKind = data.eventKind;
+    if (topic === 'jobs.lifecycle') {
+      return 'both';
+    }
     if (topic === 'queue.items') {
       if (eventKind === 'queue_item_invalidated' || eventKind === 'queue_invalidated' || eventKind === 'queue_paused') {
         return 'queue';

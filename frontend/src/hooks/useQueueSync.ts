@@ -10,6 +10,7 @@ import { createLiveJobsStore } from '@/store/live-jobs';
 import { createHydrationCoordinator, selectActiveQueueCount } from '@/api/hydration';
 import { subscribeStudioSocketMessages } from '@/store/studioSocketBus';
 import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
+import { adaptEventToJobUpdates } from '@/utils/jobEventAdapters';
 
 const FALLBACK_POLL_MS = 60000;
 // Grace window for reconnect overlay pruning. Events that arrive on the websocket
@@ -84,35 +85,32 @@ export const useQueueSync = () => {
       const event = record.event;
       const payload = event.payload as any;
 
-      if (event.topic === 'queue.items') {
+      if (event.topic === 'jobs.lifecycle' || event.topic === 'segments.progress' || event.topic === 'queue.items') {
         recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
-        if (event.eventKind === 'queue_item_invalidated') {
+        if (event.topic === 'queue.items' && event.eventKind === 'queue_item_invalidated') {
           refreshQueue('refresh');
-        } else {
+        } else if (event.topic === 'queue.items' && event.eventKind === 'queue_paused') {
+          refreshQueue('refresh');
+        } else if (event.jobId) {
           recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-          if (event.eventKind === 'queue_paused') {
+          const updates = adaptEventToJobUpdates(event);
+          if (event.topic === 'jobs.lifecycle' && ['queued', 'preparing', 'finalizing', 'done', 'failed', 'cancelled'].includes((updates.status || '') as string)) {
+            updates.eta_seconds = null;
+            updates.eta_basis = null;
+            updates.estimated_end_at = null;
+            updates.active_segment_id = null;
+            updates.active_segment_progress = 0;
+            updates.active_segment_eta_seconds = null;
+            updates.active_segment_eta_basis = null;
+            updates.active_segment_updated_at = null;
+            updates.active_render_batch_id = null;
+            updates.active_render_batch_progress = null;
+          }
+          storeRef.current.applyJobUpdated(event.jobId, updates);
+          updateDerivedState();
+          const reasonCode = payload.reasonCode ?? payload.reason_code;
+          if (event.topic === 'jobs.lifecycle' && reasonCode === 'QUEUE_INVALIDATED') {
             refreshQueue('refresh');
-          } else if (event.jobId) {
-            const updates = {
-              job_id: event.jobId,
-              project_id: event.projectId,
-              chapter_id: event.chapterId,
-              classification: payload.classification,
-              status: payload.status,
-              progress: payload.progress,
-              eta_seconds: payload.etaSeconds !== undefined ? payload.etaSeconds : payload.eta_seconds,
-              eta_basis: (payload.etaSeconds !== undefined || payload.eta_seconds !== undefined)
-                ? (payload.etaBasis ?? payload.eta_basis ?? 'remaining_from_update')
-                : (payload.etaBasis ?? payload.eta_basis),
-              started_at: payload.startedAt !== undefined ? payload.startedAt : payload.started_at,
-              updated_at: payload.updatedAt !== undefined ? payload.updatedAt : payload.updated_at,
-              estimated_end_at: payload.estimatedEndAt !== undefined ? payload.estimatedEndAt : payload.estimated_end_at,
-              reason_code: payload.reasonCode !== undefined ? payload.reasonCode : payload.reason_code,
-              message: payload.message,
-              paused: payload.paused,
-            };
-            storeRef.current.applyJobUpdated(event.jobId, updates);
-            updateDerivedState();
           }
         }
       }

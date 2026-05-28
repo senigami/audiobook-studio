@@ -265,7 +265,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
             tickMs: 250,
             latestProgressBarSnapshot: latestSnapshotRef.current,
             recentAuditFrames: getLiveEventAuditSnapshot()
-                .filter(record => record.event.jobId === job.id && record.event.topic === 'queue.items')
+                .filter(record => record.event.jobId === job.id && (record.event.topic === 'jobs.lifecycle' || record.event.topic === 'queue.items'))
                 .map(record => {
                     const ev = record.event;
                     const p = ev.payload as any;

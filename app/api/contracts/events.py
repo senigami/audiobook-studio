@@ -26,7 +26,27 @@ class JobLifecycleCommand(str, Enum):
     JOB_FAILED = "JOB_FAILED"
     QUEUE_INVALIDATED = "QUEUE_INVALIDATED"
 
+JOB_LIFECYCLE_COMMANDS = {
+    JobLifecycleCommand.JOB_QUEUED,
+    JobLifecycleCommand.JOB_PREPARING,
+    JobLifecycleCommand.START_SYNTHESIS,
+    JobLifecycleCommand.JOB_RESET_TO_ACTIVE,
+    JobLifecycleCommand.JOB_FINALIZING,
+    JobLifecycleCommand.JOB_DONE,
+    JobLifecycleCommand.JOB_FAILED,
+    JobLifecycleCommand.QUEUE_INVALIDATED,
+    "JOB_QUEUED",
+    "JOB_PREPARING",
+    "START_SYNTHESIS",
+    "JOB_RESET_TO_ACTIVE",
+    "JOB_FINALIZING",
+    "JOB_DONE",
+    "JOB_FAILED",
+    "QUEUE_INVALIDATED",
+}
+
 COMMAND_TOPIC_SCOPES = {
+    "jobs.lifecycle": JOB_LIFECYCLE_COMMANDS,
     "queue.items": {
         JobLifecycleCommand.JOB_QUEUED,
         JobLifecycleCommand.JOB_PREPARING,
@@ -105,11 +125,10 @@ SEGMENT_SCOPED_COMMANDS = {
 def is_command_allowed_for_topic(command: str | None, topic: str) -> bool:
     if not command:
         return True
-    if topic == "segments.progress":
-        return command in SEGMENT_SCOPED_COMMANDS
-    if topic in ("queue.items", "chapters.progress"):
-        return command not in SEGMENT_SCOPED_COMMANDS
-    return True
+    allowed_commands = COMMAND_TOPIC_SCOPES.get(topic)
+    if allowed_commands is None:
+        return True
+    return command in allowed_commands
 
 def normalize_to_canonical_command(
     reason_code: str | None,
@@ -188,9 +207,31 @@ class StudioEventEnvelope(TypedDict, total=False):
     payload: dict
 
 
+class JobLifecyclePayload(TypedDict, total=False):
+    status: StudioJobStatus
+    reasonCode: NotRequired[str | None]
+    reason_code: NotRequired[str | None]
+    message: NotRequired[str | None]
+    startedAt: NotRequired[float | None]
+    started_at: NotRequired[float | None]
+    updatedAt: NotRequired[float | None]
+    updated_at: NotRequired[float | None]
+    hasSegmentSupport: NotRequired[bool | None]
+    has_segment_support: NotRequired[bool | None]
+    parentJobId: NotRequired[str | None]
+    parent_job_id: NotRequired[str | None]
+
+
+class JobLifecycleLiveEvent(TypedDict, total=False):
+    topic: Literal["jobs.lifecycle"]
+    category: Literal["job"]
+    eventKind: Literal["job_lifecycle"]
+
+
 # --- Phase 1 Studio Event Broadcaster Helper Builders ---
 
 CORE_TOPICS = {
+    "jobs.lifecycle",
     "queue.items",
     "chapters.lifecycle",
     "chapters.progress",
@@ -282,6 +323,62 @@ def build_tts_log_event(
         chapter_id=chapter_id,
         job_id=job_id,
         source=resolved_source
+    )
+
+
+def build_job_lifecycle_event(
+    job_id: str,
+    status: str,
+    reason_code: str | None = None,
+    message: str | None = None,
+    project_id: str | None = None,
+    chapter_id: str | None = None,
+    parent_job_id: str | None = None,
+    source: str | None = None,
+    started_at: float | None = None,
+    updated_at: float | None = None,
+    has_segment_support: bool | None = None,
+) -> dict:
+    """Build a jobs.lifecycle envelope with global job state only."""
+    canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
+    if canonical_command is None:
+        lifecycle_status_map = {
+            "queued": "JOB_QUEUED",
+            "preparing": "JOB_PREPARING",
+            "running": "START_SYNTHESIS",
+            "finalizing": "JOB_FINALIZING",
+            "done": "JOB_DONE",
+            "completed": "JOB_DONE",
+            "failed": "JOB_FAILED",
+            "cancelled": "JOB_FAILED",
+        }
+        canonical_command = lifecycle_status_map.get(status)
+    if not is_command_allowed_for_topic(canonical_command, "jobs.lifecycle"):
+        canonical_command = None
+
+    resolved_updated_at = float(updated_at if updated_at is not None else time.time())
+    payload = {
+        "status": status,
+        "reasonCode": canonical_command,
+        "reason_code": canonical_command,
+        "message": message,
+        "startedAt": started_at,
+        "started_at": started_at,
+        "updatedAt": resolved_updated_at,
+        "updated_at": resolved_updated_at,
+        "hasSegmentSupport": has_segment_support,
+        "has_segment_support": has_segment_support,
+        "parentJobId": parent_job_id,
+        "parent_job_id": parent_job_id,
+    }
+    return build_studio_event(
+        topic="jobs.lifecycle",
+        event_kind="job_lifecycle",
+        payload=payload,
+        project_id=project_id,
+        chapter_id=chapter_id,
+        job_id=job_id,
+        source=source or _resolve_source_path(),
     )
 
 

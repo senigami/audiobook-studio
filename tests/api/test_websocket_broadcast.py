@@ -45,23 +45,7 @@ def test_broadcast_job_updated_uses_current_job_status_for_normalized_event(monk
         {"status": "running", "progress": 0.5, "eta_seconds": 12},
     )
 
-    assert len(messages) == 1
-    event = messages[0]
-    assert event["type"] == "studio_event"
-    assert event["topic"] == "queue.items"
-    assert event["eventKind"] == "queue_item_status"
-    assert event["ids"] == {
-        "projectId": None,
-        "chapterId": None,
-        "jobId": "job-1",
-        "segmentId": None
-    }
-    assert event["payload"]["status"] == "running"
-    assert event["payload"]["progress"] == 0.5
-    assert event["payload"]["etaSeconds"] == 12
-    assert event["payload"]["eta_seconds"] == 12  # Legacy compatibility key
-    assert event["payload"]["classification"] == "job"
-    assert event["source"].endswith("test_broadcast_job_updated_uses_current_job_status_for_normalized_event")
+    assert messages == []
 
 
 def test_broadcast_job_updated_preserves_context_in_job_updated_payload(monkeypatch):
@@ -104,12 +88,10 @@ def test_broadcast_job_updated_uses_phase4_progress_rounding(monkeypatch):
         {"status": "running", "progress": 0.1234},
     )
 
-    assert len(messages) == 1
-    assert messages[0]["payload"]["progress"] == 0.12
-    assert messages[0]["source"].endswith("test_broadcast_job_updated_uses_phase4_progress_rounding")
+    assert messages == []
 
 
-def test_broadcast_job_updated_chapter_progress_emits_queue_item_status(monkeypatch):
+def test_broadcast_job_updated_chapter_progress_emits_chapter_progress_only(monkeypatch):
     messages = []
 
     class DummyManager:
@@ -125,16 +107,14 @@ def test_broadcast_job_updated_chapter_progress_emits_queue_item_status(monkeypa
         {"status": "running", "progress": 0.10, "chapter_id": "chap-123", "project_id": "proj-123", "classification": "chapter"},
     )
 
-    # We expect BOTH chapters.progress and queue.items to be broadcast
+    # We expect only the chapter-scoped progress event to be broadcast
     topics = [m["topic"] for m in messages]
     assert "chapters.progress" in topics
-    assert "queue.items" in topics
-
-    queue_events = [m for m in messages if m["topic"] == "queue.items"]
-    assert len(queue_events) == 1
-    assert queue_events[0]["payload"]["progress"] == 0.52
-    assert queue_events[0]["payload"]["status"] == "running"
-    assert queue_events[0]["payload"]["classification"] == "chapter"
+    assert "queue.items" not in topics
+    assert len(messages) == 1
+    assert messages[0]["topic"] == "chapters.progress"
+    assert messages[0]["payload"]["progress"] == 0.52
+    assert messages[0]["payload"]["status"] == "running"
 
 
 def test_broadcast_tts_log_line_sends_canonical_envelope(monkeypatch):
@@ -235,7 +215,7 @@ def test_broadcast_queue_update_sends_canonical_envelope(monkeypatch):
         "segmentId": None
     }
     assert event["payload"] == {
-        "reasonCode": "job_status_change",
+        "reasonCode": "QUEUE_INVALIDATED",
         "changedFields": ["status"],
         "changed_fields": ["status"]  # Legacy compatibility
     }
@@ -510,17 +490,14 @@ def test_broadcast_job_updated_respects_skip_job_updated(monkeypatch):
 
     monkeypatch.setattr("app.api.ws.manager", DummyManager())
 
-    # When skip_job_updated=True, the legacy job_updated message is skipped.
-    # We still expect the canonical queue.items status event.
+    # When skip_job_updated=True and the update is progress-only, we expect no broadcast.
     broadcast_job_updated(
         "job-1",
         {"progress": 0.5, "eta_seconds": 12, "skip_job_updated": True},
         {"status": "running", "progress": 0.5, "eta_seconds": 12},
     )
 
-    assert len(messages) == 1
-    assert messages[0]["type"] == "studio_event"
-    assert messages[0]["topic"] == "queue.items"
+    assert messages == []
 
 
 def test_update_job_respects_skip_job_updated(monkeypatch):
@@ -666,6 +643,7 @@ def test_build_core_topic_helpers():
         build_queue_item_status_event,
         build_queue_item_invalidated_event,
         build_queue_paused_event,
+        build_job_lifecycle_event,
         build_chapter_progress_event,
         build_segment_progress_event,
         build_segment_lifecycle_event,
@@ -716,14 +694,30 @@ def test_build_core_topic_helpers():
         "status": "running",
         "progress": 0.45,
         "etaSeconds": 120,
-        "message": "Running synthesis",
-        "reasonCode": "synth_progress",
+        "message": None,
+        "reasonCode": None,
         "classification": "segment",
         "changedFields": None,
         "paused": None,
+        "hasSegmentSupport": None,
+        "has_segment_support": None,
         "eta_seconds": 120,
-        "reason_code": "synth_progress"
+        "reason_code": None
     }
+
+    # 2b. jobs.lifecycle status
+    e_job_lifecycle = build_job_lifecycle_event(
+        job_id="j-1",
+        status="running",
+        message="Running synthesis",
+    )
+    assert e_job_lifecycle["topic"] == "jobs.lifecycle"
+    assert e_job_lifecycle["eventKind"] == "job_lifecycle"
+    assert e_job_lifecycle["payload"]["reasonCode"] == "START_SYNTHESIS"
+    assert e_job_lifecycle["payload"]["status"] == "running"
+    assert e_job_lifecycle["payload"]["message"] == "Running synthesis"
+    assert e_job_lifecycle["payload"]["hasSegmentSupport"] is None
+    assert e_job_lifecycle["payload"]["has_segment_support"] is None
 
     # Test message filtering on segment_start and segment_saved
     for reason in ("segment_start", "segment_saved"):
@@ -734,7 +728,12 @@ def test_build_core_topic_helpers():
             message="Some message",
             reason_code=reason
         )
-        assert e_queue_filtered["payload"]["message"] is None
+        if reason == "segment_start":
+            assert e_queue_filtered["payload"]["reasonCode"] == "START_SYNTHESIS"
+            assert e_queue_filtered["payload"]["message"] == "Some message"
+        else:
+            assert e_queue_filtered["payload"]["reasonCode"] is None
+            assert e_queue_filtered["payload"]["message"] == "Some message"
 
 
     # 3. queue.items invalidated
@@ -744,12 +743,14 @@ def test_build_core_topic_helpers():
     )
     assert e_queue_inv["topic"] == "queue.items"
     assert e_queue_inv["eventKind"] == "queue_item_invalidated"
+    assert e_queue_inv["payload"]["reasonCode"] == "QUEUE_INVALIDATED"
     assert e_queue_inv["payload"]["changedFields"] == ["status", "finished_at"]
 
     # 4. queue.items paused
     e_queue_paused = build_queue_paused_event(paused=True)
     assert e_queue_paused["topic"] == "queue.items"
     assert e_queue_paused["eventKind"] == "queue_paused"
+    assert e_queue_paused["payload"]["reasonCode"] == "QUEUE_INVALIDATED"
     assert e_queue_paused["payload"]["changedFields"] == ["paused"]
 
     # 5. chapters.progress
@@ -770,13 +771,15 @@ def test_build_core_topic_helpers():
         "progress": 0.8,
         "groupedProgress": 0.5,
         "etaSeconds": 60,
-        "message": "rendering",
-        "reasonCode": "rendering_chapter",
+        "message": None,
+        "reasonCode": None,
         "renderGroupCount": 10,
         "completedRenderGroups": 5,
+        "hasSegmentSupport": None,
+        "has_segment_support": None,
         "grouped_progress": 0.5,
         "eta_seconds": 60,
-        "reason_code": "rendering_chapter",
+        "reason_code": None,
         "render_group_count": 10,
         "completed_render_groups": 5,
     }
@@ -798,15 +801,17 @@ def test_build_core_topic_helpers():
         "progress": 0.25,
         "segmentIndex": 2,
         "segmentCount": 5,
-        "message": "synthesizing segment",
-        "reasonCode": "segment_synth",
-        "reason_code": "segment_synth",  # Legacy compatibility
+        "message": None,
+        "reasonCode": None,
+        "reason_code": None,
         "activeSegmentId": "s-1",
         "activeSegmentProgress": 0.25,
         "active_segment_id": "s-1",
         "active_segment_progress": 0.25,
         "etaSeconds": None,
         "eta_seconds": None,
+        "hasSegmentSupport": None,
+        "has_segment_support": None,
     }
 
 
@@ -1049,7 +1054,7 @@ def test_broadcast_pause_state_sends_canonical_envelope(monkeypatch):
         "segmentId": None
     }
     assert event["payload"] == {
-        "reasonCode": "queue_paused",
+        "reasonCode": "QUEUE_INVALIDATED",
         "changedFields": ["paused"],
         "paused": True,
         "changed_fields": ["paused"]  # Legacy compatibility
@@ -1136,6 +1141,8 @@ def test_broadcast_segment_progress_sends_canonical_envelope(monkeypatch):
         "active_segment_progress": 0.67,
         "etaSeconds": None,
         "eta_seconds": None,
+        "hasSegmentSupport": None,
+        "has_segment_support": None,
     }
     assert event["source"].endswith("test_broadcast_segment_progress_sends_canonical_envelope")
 
@@ -1155,8 +1162,8 @@ def test_broadcast_job_updated_chapter_progress_sends_canonical_envelope(monkeyp
         {"status": "running", "progress": 0.77, "chapter_id": "chap-1", "project_id": "proj-1"},
     )
 
-    # We expect two broadcasts: the canonical chapters.progress studio_event and the queue.items queue_item_status event
-    assert len(messages) == 2
+    # We expect a single scoped chapter progress broadcast for this status-stable update.
+    assert len(messages) == 1
 
     chap_events = [m for m in messages if m["topic"] == "chapters.progress"]
     assert len(chap_events) == 1
@@ -1254,15 +1261,16 @@ def test_broadcast_job_updated_chapter_completion_emits_both(monkeypatch):
     broadcast_job_updated(
         "job-chap-completed",
         {"status": "done", "progress": 1.0},
-        {"status": "done", "progress": 1.0, "chapter_id": "chap-1", "project_id": "proj-1"},
+        {"status": "running", "progress": 0.8, "chapter_id": "chap-1", "project_id": "proj-1"},
     )
 
-    # We expect TWO broadcasts: chapters.progress AND queue.items
+    # We expect a lifecycle transition plus the chapter-scoped progress update.
     assert len(messages) == 2
-    assert messages[0]["topic"] == "chapters.progress"
+    assert messages[0]["topic"] == "jobs.lifecycle"
     assert messages[0]["payload"]["status"] == "done"
+    assert messages[0]["payload"]["reasonCode"] == "JOB_DONE"
 
-    assert messages[1]["topic"] == "queue.items"
+    assert messages[1]["topic"] == "chapters.progress"
     assert messages[1]["payload"]["status"] == "done"
 
 
@@ -1301,8 +1309,8 @@ def test_broadcast_job_updated_segment_completion(monkeypatch):
         current_job={"status": "running", "active_segment_id": "seg-1", "active_segment_progress": 0.8, "chapter_id": "chap-1", "project_id": "proj-1"}
     )
 
-    # We expect segment completion for seg-1 (first), segment progress for seg-2 (second), chapter progress (third), and queue.items status event (fourth)
-    assert len(messages) == 4
+    # We expect segment completion for seg-1 (first), segment progress for seg-2 (second), and chapter progress (third)
+    assert len(messages) == 3
     assert messages[0]["topic"] == "segments.progress"
     assert messages[0]["ids"]["segmentId"] == "seg-1"
     assert messages[0]["payload"]["status"] == "done"
@@ -1317,9 +1325,6 @@ def test_broadcast_job_updated_segment_completion(monkeypatch):
     assert messages[2]["ids"]["chapterId"] == "chap-1"
     assert messages[2]["payload"]["status"] == "running"
 
-    assert messages[3]["topic"] == "queue.items"
-    assert messages[3]["eventKind"] == "queue_item_status"
-    assert messages[3]["payload"]["status"] == "running"
 
 
 def test_broadcast_tts_log_line_includes_plugin_metadata(monkeypatch):
@@ -1362,7 +1367,7 @@ def test_build_queue_item_invalidated_minimal_payload():
     assert "progress" not in event["payload"]
     assert "classification" not in event["payload"]
     assert "message" not in event["payload"]
-    assert event["payload"]["reasonCode"] == "some_reason"
+    assert event["payload"]["reasonCode"] == "QUEUE_INVALIDATED"
     assert event["payload"]["changedFields"] == ["status"]
 
 
@@ -1391,7 +1396,7 @@ def test_update_job_terminal_status_does_not_emit_queue_invalidation(monkeypatch
     assert len(broadcasts) == 0
 
 
-def test_terminal_job_completion_path_emits_exactly_one_queue_item_status(monkeypatch):
+def test_terminal_job_completion_path_emits_job_lifecycle_transition(monkeypatch):
     messages = []
     class DummyManager:
         def broadcast(self, message):
@@ -1403,17 +1408,17 @@ def test_terminal_job_completion_path_emits_exactly_one_queue_item_status(monkey
     broadcast_job_updated(
         "job-terminal-complete",
         {"status": "done", "progress": 1.0},
-        {"status": "done", "progress": 1.0, "chapter_id": "chap-1", "project_id": "proj-1"},
+        {"status": "running", "progress": 0.9, "chapter_id": "chap-1", "project_id": "proj-1"},
     )
 
-    # Filter messages for queue.items topic
-    queue_messages = [m for m in messages if m.get("topic") == "queue.items"]
-    assert len(queue_messages) == 1
-    assert queue_messages[0]["eventKind"] == "queue_item_status"
-    assert queue_messages[0]["payload"]["status"] == "done"
+    lifecycle_messages = [m for m in messages if m.get("topic") == "jobs.lifecycle"]
+    assert len(lifecycle_messages) == 1
+    assert lifecycle_messages[0]["eventKind"] == "job_lifecycle"
+    assert lifecycle_messages[0]["payload"]["status"] == "done"
+    assert lifecycle_messages[0]["payload"]["reasonCode"] == "JOB_DONE"
 
 
-def test_rebuild_emits_minimum_necessary_queue_state_transitions(monkeypatch):
+def test_rebuild_emits_minimum_necessary_lifecycle_and_progress_transitions(monkeypatch):
     messages = []
     class DummyManager:
         def broadcast(self, message):
@@ -1476,29 +1481,33 @@ def test_rebuild_emits_minimum_necessary_queue_state_transitions(monkeypatch):
         progress=1.0
     )
 
-    # Filter out queue_item_status events
-    queue_status_events = [
+    lifecycle_events = [
         m for m in messages
-        if m.get("topic") == "queue.items" and m.get("eventKind") == "queue_item_status"
+        if m.get("topic") == "jobs.lifecycle" and m.get("eventKind") == "job_lifecycle"
+    ]
+    chapter_progress_events = [
+        m for m in messages
+        if m.get("topic") == "chapters.progress" and m.get("eventKind") == "chapter_progress"
     ]
 
-    # Verify we got exactly 4 status events: preparing, running (0.0), running (0.5), done
-    assert len(queue_status_events) == 4
-    assert queue_status_events[0]["payload"]["status"] == "preparing"
-    assert queue_status_events[1]["payload"]["status"] == "running"
-    assert queue_status_events[2]["payload"]["status"] == "running"
-    assert queue_status_events[2]["payload"]["progress"] == 0.5
-    assert queue_status_events[3]["payload"]["status"] == "done"
+    # Verify we got lifecycle transitions for the state changes and scoped chapter progress events for each tick.
+    assert [event["payload"]["status"] for event in lifecycle_events] == ["preparing", "running", "done"]
+    assert [event["payload"]["reasonCode"] for event in lifecycle_events] == ["JOB_PREPARING", "START_SYNTHESIS", "JOB_DONE"]
+    assert len(chapter_progress_events) == 4
+    assert chapter_progress_events[0]["payload"]["status"] == "preparing"
+    assert chapter_progress_events[1]["payload"]["status"] == "running"
+    assert chapter_progress_events[2]["payload"]["status"] == "running"
+    assert chapter_progress_events[2]["payload"]["progress"] == 0.5
+    assert chapter_progress_events[3]["payload"]["status"] == "done"
 
 
-def test_put_job_broadcasts_queue_item_status_on_queued(monkeypatch):
-    messages = []
+def test_put_job_broadcasts_job_lifecycle_on_queued(monkeypatch):
+    broadcast_calls = []
 
-    class DummyManager:
-        def broadcast(self, message):
-            messages.append(message)
+    def dummy_broadcast_job_updated(job_id, updates, current_job=None, source=None):
+        broadcast_calls.append((job_id, dict(updates), dict(current_job or {}), source))
 
-    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+    monkeypatch.setattr("app.api.ws.broadcast_job_updated", dummy_broadcast_job_updated)
     monkeypatch.setattr("app.db.state_jobs._atomic_write_text", lambda *args, **kwargs: None)
 
     from app.db.models import Job
@@ -1515,15 +1524,13 @@ def test_put_job_broadcasts_queue_item_status_on_queued(monkeypatch):
 
     put_job(job)
 
-    queue_item_status_events = [
-        m for m in messages
-        if m.get("type") == "studio_event"
-        and m.get("topic") == "queue.items"
-        and m.get("eventKind") == "queue_item_status"
-    ]
-    assert len(queue_item_status_events) == 1
-    event = queue_item_status_events[0]
-    assert event["payload"]["status"] == "queued"
+    assert len(broadcast_calls) == 1
+    job_id, updates, current_job, _ = broadcast_calls[0]
+    assert job_id == "job-queued-test"
+    assert updates["reason_code"] is None
+    assert updates["previous_status"] is None
+    assert updates["status_changed"] is False
+    assert current_job["status"] == "queued"
 
 
 def test_broadcast_job_updated_preserves_active_segment_eta_seconds(monkeypatch):

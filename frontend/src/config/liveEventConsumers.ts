@@ -11,19 +11,19 @@ export const LIVE_EVENT_CONSUMERS: LiveEventConsumer[] = [
     id: 'main-queue',
     label: 'main-queue',
     listensTo: (event: LiveEvent) =>
-      ['queue.items'].includes(event.topic),
+      ['jobs.lifecycle'].includes(event.topic),
   },
   {
     id: 'chapter-state',
     label: 'chapter-state',
     listensTo: (event: LiveEvent) =>
-      ['chapters.lifecycle', 'chapters.progress', 'segments.progress'].includes(event.topic),
+      ['jobs.lifecycle', 'chapters.lifecycle', 'chapters.progress', 'segments.progress'].includes(event.topic),
   },
   {
     id: 'segment-state',
     label: 'segment-state',
     listensTo: (event: LiveEvent) =>
-      ['segments.lifecycle', 'segments.progress'].includes(event.topic),
+      ['jobs.lifecycle', 'segments.lifecycle', 'segments.progress'].includes(event.topic),
   },
   {
     id: 'tts-diagnostics',

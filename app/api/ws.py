@@ -8,7 +8,7 @@ from typing import List
 from fastapi import WebSocket
 
 from .contracts.events import (
-    build_queue_item_status_event,
+    build_job_lifecycle_event,
     build_tts_log_event,
     build_queue_item_invalidated_event,
     build_queue_paused_event,
@@ -243,10 +243,16 @@ def broadcast_pause_state(paused: bool, source: str | None = None):
 def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None = None, source: str | None = None):
     skip_studio_job_event = False
     skip_job_updated = False
+    terminal_reset = False
+    previous_status = None
+    status_changed_flag = None
     source_from_updates = None
     if updates:
         skip_studio_job_event = updates.pop("skip_studio_job_event", False)
         skip_job_updated = updates.pop("skip_job_updated", False)
+        terminal_reset = updates.pop("terminal_reset", False)
+        previous_status = updates.pop("previous_status", None)
+        status_changed_flag = updates.pop("status_changed", None)
         source_from_updates = updates.pop("source", None)
 
     source = source or source_from_updates
@@ -259,12 +265,37 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
     merged["classification"] = classification
 
     # Detect status changes and segment completion transition
-    prev_status = current_job.get("status") if current_job else None
+    prev_status = previous_status if previous_status is not None else (current_job.get("status") if current_job else None)
     new_status = updates.get("status", merged.get("status")) if updates else merged.get("status")
-    status_changed = (prev_status != new_status)
+    status_changed = bool(status_changed_flag) if status_changed_flag is not None else (prev_status != new_status)
 
     prev_active_segment_id = current_job.get("active_segment_id") if current_job else None
     new_active_segment_id = updates.get("active_segment_id", merged.get("active_segment_id")) if updates else merged.get("active_segment_id")
+
+    inferred_has_segment_support = any(
+        value is not None
+        for value in (
+            merged.get("active_segment_id"),
+            merged.get("active_segment_progress"),
+            merged.get("active_segment_eta_seconds"),
+        )
+    ) or classification == "segment"
+
+    if not skip_studio_job_event and (status_changed or prev_status is None or terminal_reset):
+        lifecycle_event = build_job_lifecycle_event(
+            job_id=job_id,
+            status=str(merged.get("status") or "queued"),
+            reason_code=merged.get("reason_code"),
+            message=merged.get("message") or updates.get("message") or updates.get("log"),
+            project_id=merged.get("project_id") or merged.get("parent_job_id"),
+            chapter_id=merged.get("chapter_id"),
+            parent_job_id=merged.get("parent_job_id"),
+            source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
+            started_at=merged.get("started_at"),
+            updated_at=merged.get("updated_at"),
+            has_segment_support=inferred_has_segment_support,
+        )
+        broadcast_studio_event(lifecycle_event)
 
     if prev_active_segment_id and prev_active_segment_id != new_active_segment_id:
         if not skip_studio_job_event:
@@ -341,22 +372,6 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                 source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
             )
             broadcast_studio_event(event)
-
-            # Emit queue.items status alongside chapter progress update
-            queue_event = build_queue_item_status_event(
-                job_id=job_id,
-                status=status,
-                progress=merged.get("progress") or 0.0,
-                eta_seconds=updates.get("eta_seconds") or merged.get("eta_seconds"),
-                message=message,
-                reason_code=merged.get("reason_code"),
-                classification=classification,
-                project_id=merged.get("project_id"),
-                chapter_id=merged.get("chapter_id"),
-                source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
-                paused=merged.get("paused"),
-            )
-            broadcast_studio_event(queue_event)
         return
 
     if classification == "segment":
@@ -392,38 +407,6 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
             )
             broadcast_studio_event(event)
         return
-
-
-
-    if not skip_studio_job_event:
-        status = str(merged.get("status") or "queued")
-        message = None
-        if status in ("failed", "cancelled"):
-            message = merged.get("error") or updates.get("error")
-        if not message:
-            message = updates.get("message") or updates.get("log")
-
-        event = build_queue_item_status_event(
-            job_id=job_id,
-            status=status,
-            progress=merged.get("progress") or 0.0,
-            eta_seconds=updates.get("eta_seconds") or merged.get("eta_seconds"),
-            message=message,
-            reason_code=merged.get("reason_code"),
-            classification=classification,
-            project_id=merged.get("project_id"),
-            chapter_id=merged.get("chapter_id"),
-            source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
-            paused=merged.get("paused"),
-        )
-        trace(
-            "ws.broadcast_job_updated",
-            job_id=job_id,
-            updates=updates,
-            current_job=current_job,
-            normalized_event=event,
-        )
-        broadcast_studio_event(event)
 
 
 def broadcast_segment_progress(job_id: str, chapter_id: str | None, segment_id: str, progress: float, source: str | None = None):

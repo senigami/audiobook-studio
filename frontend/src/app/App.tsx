@@ -59,10 +59,10 @@ function App() {
   const [chapterRouteData, setChapterRouteData] = useState<Chapter | null>(null);
   const [chapterRouteLoading, setChapterRouteLoading] = useState(false);
   // Topic ownership for queue refresh:
-  //   - useQueueSync owns queue.lifecycle: it refetches the queue array itself.
+  //   - useQueueSync owns jobs.lifecycle: it refetches the queue array itself.
   //   - Job completion (status=done) is the only signal that warrants a ProjectDetailPage
   //     reload via queueRefreshTrigger, because that is when chapter status actually changes.
-  //   - queue.lifecycle alone (e.g. position changes) carries no project-specific state and
+  //   - jobs.lifecycle alone carries no project-specific state and
   //     must NOT bump the trigger, otherwise every queue_updated frame triggers a 4-call
   //     fetchProject/Chapters/Characters/Audiobooks burst in ProjectDetailPage on top of the
   //     completion bump. That overlap is what inflates the live update count.

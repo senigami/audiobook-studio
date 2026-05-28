@@ -11,6 +11,11 @@ import {
 } from '@/store/studioSocketBus';
 import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
 import { isSegmentScopedJob } from '@/utils/jobSelection';
+import {
+  adaptEventToJobUpdates,
+  copyRenderGroupFields,
+  resolveEventUpdatedAt,
+} from '@/utils/jobEventAdapters';
 
 const globalSegmentProgressUpdates: any[] = [];
 let nextSequenceNumber = 1;
@@ -28,95 +33,6 @@ const STATUS_PRIORITY: Record<string, number> = {
   running: 3,
   preparing: 2,
   queued: 1,
-};
-
-const copyRenderGroupFields = (target: Record<string, any>, source: Record<string, any>, excludeSegmentFields = false) => {
-  const fields = [
-    'render_group_count',
-    'completed_render_groups',
-    'active_render_group_index',
-    'total_render_weight',
-    'completed_render_weight',
-    'active_render_group_weight',
-    'grouped_progress',
-    ...(!excludeSegmentFields ? ['active_segment_id', 'active_segment_progress'] : []),
-  ];
-  for (const key of fields) {
-    if (source[key] !== undefined) {
-      target[key] = source[key];
-    }
-  }
-};
-
-const resolveEventUpdatedAt = (event: any, payload: any): number => {
-  if (typeof payload?.updatedAt === 'number') return payload.updatedAt;
-  if (typeof payload?.updated_at === 'number') return payload.updated_at;
-  if (typeof payload?.updatedAt === 'string') {
-    const val = Date.parse(payload.updatedAt) / 1000;
-    if (!isNaN(val)) return val;
-  }
-  if (typeof payload?.updated_at === 'string') {
-    const val = Date.parse(payload.updated_at) / 1000;
-    if (!isNaN(val)) return val;
-  }
-  if (typeof event?.emittedAt === 'number') return event.emittedAt;
-  if (typeof event?.emitted_at === 'number') return event.emitted_at;
-  return Date.now() / 1000;
-};
-
-const adaptEventToJobUpdates = (event: any) => {
-  const payload = event.payload || {};
-
-  const getVal = (keyCamel: string, keySnake: string) => {
-    if (payload[keyCamel] !== undefined) return payload[keyCamel];
-    if (payload[keySnake] !== undefined) return payload[keySnake];
-    return undefined;
-  };
-
-  const rCode = getVal('reasonCode', 'reason_code');
-  const shouldOmitMessage = event.topic === 'chapters.progress' && (rCode === 'segment_start' || rCode === 'segment_saved' || rCode === 'START_SEGMENT' || rCode === 'SEGMENT_SAVED');
-
-  const updates: any = {
-    source_topic: event.topic,
-    job_id: event.jobId,
-    project_id: event.projectId,
-    chapter_id: event.chapterId,
-    classification: getVal('classification', 'classification'),
-    parent_job_id: getVal('parentJobId', 'parent_job_id'),
-    segment_ids: getVal('segmentIds', 'segment_ids'),
-    engine: getVal('engine', 'engine'),
-    status: getVal('status', 'status'),
-    progress: getVal('progress', 'progress'),
-    eta_seconds: getVal('etaSeconds', 'eta_seconds'),
-    started_at: getVal('startedAt', 'started_at'),
-    updated_at: resolveEventUpdatedAt(event, payload),
-    db_updated_at: typeof (getVal('updatedAt', 'updated_at')) === 'number' ? getVal('updatedAt', 'updated_at') : (typeof (getVal('updatedAt', 'updated_at')) === 'string' ? Date.parse(getVal('updatedAt', 'updated_at') as string) / 1000 : undefined),
-    db_started_at: typeof (getVal('startedAt', 'started_at')) === 'number' ? getVal('startedAt', 'started_at') : (typeof (getVal('startedAt', 'started_at')) === 'string' ? Date.parse(getVal('startedAt', 'started_at') as string) / 1000 : undefined),
-    estimated_end_at: getVal('estimatedEndAt', 'estimated_end_at'),
-    reason_code: rCode,
-    render_group_count: getVal('renderGroupCount', 'render_group_count'),
-    completed_render_groups: getVal('completedRenderGroups', 'completed_render_groups'),
-    active_render_group_index: getVal('activeRenderGroupIndex', 'active_render_group_index'),
-    total_render_weight: getVal('totalRenderWeight', 'total_render_weight'),
-    completed_render_weight: getVal('completedRenderWeight', 'completed_render_weight'),
-    active_render_group_weight: getVal('activeRenderGroupWeight', 'active_render_group_weight'),
-    grouped_progress: getVal('groupedProgress', 'grouped_progress'),
-    active_segment_id: getVal('activeSegmentId', 'active_segment_id'),
-    active_segment_progress: getVal('activeSegmentProgress', 'active_segment_progress'),
-    active_segment_eta_seconds: getVal('activeSegmentEtaSeconds', 'active_segment_eta_seconds'),
-    active_segment_eta_basis: getVal('activeSegmentEtaBasis', 'active_segment_eta_basis'),
-    active_segment_updated_at: getVal('activeSegmentUpdatedAt', 'active_segment_updated_at'),
-    active_render_batch_id: getVal('activeRenderBatchId', 'active_render_batch_id'),
-    active_render_batch_progress: getVal('activeRenderBatchProgress', 'active_render_batch_progress'),
-    has_segment_support: getVal('hasSegmentSupport', 'has_segment_support'),
-    hasSegmentSupport: getVal('hasSegmentSupport', 'has_segment_support'),
-  };
-
-  if (!shouldOmitMessage) {
-    updates.log = payload.message || payload.log;
-  }
-
-  return updates;
 };
 
 export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, onPauseUpdate?: (paused: boolean) => void, onSegmentsUpdate?: (chapterId: string) => void, onChapterUpdate?: (chapterId: string) => void) => {
@@ -346,6 +262,36 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         case 'tts.logs':
           recordWebsocketDebugMessage('useJobs', data, raw, envelope);
           break;
+
+        case 'jobs.lifecycle': {
+          recordWebsocketDebugMessage('useJobs', data, raw, envelope);
+          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
+          const lifecycleUpdates = adaptEventToJobUpdates(event);
+          if (['queued', 'preparing', 'finalizing', 'done', 'failed', 'cancelled'].includes(lifecycleUpdates.status || '')) {
+            lifecycleUpdates.eta_seconds = null;
+            lifecycleUpdates.eta_basis = null;
+            lifecycleUpdates.estimated_end_at = null;
+            lifecycleUpdates.active_segment_id = null;
+            lifecycleUpdates.active_segment_progress = 0;
+            lifecycleUpdates.active_segment_eta_seconds = null;
+            lifecycleUpdates.active_segment_eta_basis = null;
+            lifecycleUpdates.active_segment_updated_at = null;
+            lifecycleUpdates.active_render_batch_id = null;
+            lifecycleUpdates.active_render_batch_progress = null;
+          }
+          if (event.jobId) {
+            applyJobUpdatedEvent({
+              job_id: event.jobId,
+              updates: lifecycleUpdates,
+            });
+          }
+          const reasonCode = payload.reasonCode ?? payload.reason_code;
+          if (reasonCode === 'QUEUE_INVALIDATED') {
+            refreshJobs();
+            if (onQueueUpdate) onQueueUpdate();
+          }
+          break;
+        }
 
         case 'queue.items': {
           recordWebsocketDebugMessage('useJobs', data, raw, envelope);
