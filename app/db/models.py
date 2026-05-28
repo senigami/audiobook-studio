@@ -61,6 +61,7 @@ class Job:
     active_segment_eta_seconds: Optional[int] = None
     active_segment_eta_basis: Optional[str] = None
     active_segment_updated_at: Optional[float] = None
+    has_segment_support: bool = False
 
     @property
     def classification(self) -> str:

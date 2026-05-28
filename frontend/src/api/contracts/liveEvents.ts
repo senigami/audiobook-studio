@@ -82,6 +82,8 @@ export interface QueueItemPayload {
   classification?: 'job' | 'chapter' | 'segment';
   changedFields?: string[] | null;
   paused?: boolean | null;
+  hasSegmentSupport?: boolean;
+  has_segment_support?: boolean;
   // Legacy duplicate fields for backward compatibility
   eta_seconds?: number | null;
   reason_code?: string | null;
@@ -117,6 +119,8 @@ export interface ChapterProgressPayload {
   reasonCode: string | null;
   renderGroupCount: number | null;
   completedRenderGroups: number | null;
+  hasSegmentSupport?: boolean;
+  has_segment_support?: boolean;
   // Legacy duplicate fields
   eta_seconds?: number | null;
   grouped_progress?: number | null;
@@ -152,6 +156,8 @@ export interface SegmentProgressPayload {
   segmentCount: number | null;
   message: string | null;
   reasonCode: string | null;
+  hasSegmentSupport?: boolean;
+  has_segment_support?: boolean;
   // Legacy duplicate fields for active segment mapping
   etaSeconds?: number | null;
   eta_seconds?: number | null;
@@ -341,7 +347,7 @@ export const computeProgressConfidence = (
   reasonCode?: string | null
 ): number | null => {
   if (!status) return null;
-  if (reasonCode === 'segment_start' && progress === 0) {
+  if ((reasonCode === 'segment_start' || reasonCode === 'START_SEGMENT') && progress === 0) {
     return 1.0;
   }
   if (['done', 'failed', 'cancelled', 'finalizing'].includes(status)) {

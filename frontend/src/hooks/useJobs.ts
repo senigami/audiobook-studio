@@ -74,7 +74,7 @@ const adaptEventToJobUpdates = (event: any) => {
   };
 
   const rCode = getVal('reasonCode', 'reason_code');
-  const shouldOmitMessage = event.topic === 'chapters.progress' && (rCode === 'segment_start' || rCode === 'segment_saved');
+  const shouldOmitMessage = event.topic === 'chapters.progress' && (rCode === 'segment_start' || rCode === 'segment_saved' || rCode === 'START_SEGMENT' || rCode === 'SEGMENT_SAVED');
 
   const updates: any = {
     source_topic: event.topic,
@@ -108,6 +108,8 @@ const adaptEventToJobUpdates = (event: any) => {
     active_segment_updated_at: getVal('activeSegmentUpdatedAt', 'active_segment_updated_at'),
     active_render_batch_id: getVal('activeRenderBatchId', 'active_render_batch_id'),
     active_render_batch_progress: getVal('activeRenderBatchProgress', 'active_render_batch_progress'),
+    has_segment_support: getVal('hasSegmentSupport', 'has_segment_support'),
+    hasSegmentSupport: getVal('hasSegmentSupport', 'has_segment_support'),
   };
 
   if (!shouldOmitMessage) {

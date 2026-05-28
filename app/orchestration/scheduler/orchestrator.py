@@ -262,6 +262,16 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             task_id = context.task_id
             prior_status = context.payload.get("_recovered_from_status", "unknown")
 
+            # Resolve has_segment_support capability from engine
+            has_segment_support = False
+            if context.payload:
+                engine_id = context.payload.get("engine_id") or context.payload.get("engine")
+                if engine_id:
+                    from app.engines.behavior import uses_segment_orchestration, supports_segment_rendering
+                    has_segment_support = bool(
+                        uses_segment_orchestration(engine_id) or supports_segment_rendering(engine_id)
+                    )
+
             # Publish recovery reset event — allow progress regression because we
             # are explicitly resetting state from a previous run.
             self.progress_service.publish(
@@ -273,6 +283,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                 reason_code="recovery_resumed",
                 allow_progress_regression=True,
                 force=True,
+                has_segment_support=has_segment_support,
             )
 
             # Reconcile this job's work scope against current artifacts.
@@ -290,6 +301,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                     message="All artifacts already valid — recovery complete without re-synthesis.",
                     reason_code="recovery_reused",
                     force=True,
+                    has_segment_support=has_segment_support,
                 )
                 logger.info("Recovery: task %s — all artifacts valid, skipped.", task_id)
                 recovered_ids.append(task_id)
@@ -305,6 +317,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                 reason_code="recovery_requeued",
                 allow_progress_regression=True,
                 force=True,
+                has_segment_support=has_segment_support,
             )
             logger.info(
                 "Recovery: task %s — decision=%s, re-queued %d unresolved batch(es).",

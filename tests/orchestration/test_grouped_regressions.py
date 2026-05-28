@@ -74,12 +74,12 @@ def test_whole_job_eta_uses_weighted_group_progress(mock_state):
         orc._dispatch(task=task, context=context)
 
         # Check the published event
-        prog_events = [e for e in orc.published if e.get("reason_code") == "synthesis_progress"]
+        prog_events = [e for e in orc.published if e.get("reason_code") in ("synthesis_progress", "SEGMENT_PROGRESS")]
         if not prog_events:
              # Print published events to debug
              print(f"Published events: {orc.published}")
 
-        assert len(prog_events) > 0, "No synthesis_progress events were published"
+        assert len(prog_events) > 0, "No synthesis_progress/SEGMENT_PROGRESS events were published"
         last_event = prog_events[-1]
 
         eta = last_event.get("eta_seconds")

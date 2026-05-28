@@ -117,6 +117,7 @@ describe('ChapterHeader progress contract', () => {
           started_at: Date.now() / 1000,
           eta_seconds: 125,
           render_group_count: 1,
+          hasSegmentSupport: true,
         } as any}
         generatingSegmentIdsCount={2}
         queueLabel="Complete"
@@ -148,6 +149,7 @@ describe('ChapterHeader progress contract', () => {
           status: 'running',
           progress: 0.5,
           started_at: Date.now() / 1000,
+          hasSegmentSupport: true,
         } as any}
         generatingSegmentIdsCount={1}
         queueLabel="Queue"
@@ -189,6 +191,7 @@ describe('ChapterHeader progress contract', () => {
           status: 'running',
           progress: 0.3,
           started_at: Date.now() / 1000,
+          hasSegmentSupport: true,
         } as any}
         generatingSegmentIdsCount={1}
         queueLabel="Queue"
@@ -230,6 +233,7 @@ describe('ChapterHeader progress contract', () => {
           progress: 0.4,
           started_at: Date.now() / 1000,
           segment_ids: ['seg-1', 'seg-2'],
+          hasSegmentSupport: true,
         } as any}
         generatingSegmentIdsCount={2}
         queueLabel="Queue"
@@ -261,6 +265,7 @@ describe('ChapterHeader progress contract', () => {
           progress: 0.4,
           started_at: Date.now() / 1000,
           render_group_count: 5,
+          hasSegmentSupport: true,
         } as any}
         generatingSegmentIdsCount={0}
         queueLabel="Queue"
@@ -293,6 +298,7 @@ describe('ChapterHeader progress contract', () => {
           started_at: Date.now() / 1000,
           render_group_count: 3,
           completed_render_groups: 0,
+          hasSegmentSupport: true,
         } as any}
         generatingSegmentIdsCount={0}
         queueLabel="Queue"
@@ -326,6 +332,7 @@ describe('ChapterHeader progress contract', () => {
           render_group_count: 2,
           active_segment_id: 'seg-1',
           active_segment_progress: 0.2,
+          hasSegmentSupport: true,
         } as any}
         generatingSegmentIdsCount={1}
         queueLabel="Queue"
@@ -359,6 +366,7 @@ describe('ChapterHeader progress contract', () => {
           render_group_count: 2,
           active_segment_id: 'seg-1',
           active_segment_progress: 0.2,
+          hasSegmentSupport: true,
         } as any}
         generatingSegmentIdsCount={1}
         queueLabel="Queue"
@@ -382,6 +390,7 @@ describe('ChapterHeader progress contract', () => {
       progress: 0.4,
       started_at: Date.now() / 1000,
       active_segment_id: 'seg-1',
+      hasSegmentSupport: true,
     };
 
     const { rerender } = render(
@@ -436,6 +445,7 @@ describe('ChapterHeader progress contract', () => {
       status: 'running' as const,
       progress: 0.8,
       started_at: Date.now() / 1000,
+      hasSegmentSupport: true,
     };
 
     const { rerender } = render(
@@ -512,6 +522,7 @@ describe('ChapterHeader progress contract', () => {
           status: 'running',
           progress: 0.5,
           started_at: Date.now() / 1000,
+          hasSegmentSupport: true,
         } as any}
         generatingSegmentIdsCount={1}
         queueLabel="Queue"
@@ -533,6 +544,7 @@ describe('ChapterHeader progress contract', () => {
       active_segment_progress: 1.0,
       started_at: 1000,
       updated_at: 1100,
+      hasSegmentSupport: true,
     };
 
     const TestComponent: React.FC<{ job: any }> = ({ job }) => {
@@ -593,6 +605,7 @@ describe('ChapterHeader progress contract', () => {
           render_group_count: 2,
           active_segment_id: 'seg-1',
           active_segment_progress: 0.2,
+          hasSegmentSupport: true,
         } as any}
         generatingSegmentIdsCount={1}
         activeRenderBatchId="batch-1"
@@ -608,5 +621,94 @@ describe('ChapterHeader progress contract', () => {
     expect(capturedCheckpointMode).toBe('segment');
     expect(capturedTransitionTickCount).toBe(3);
     expect(capturedEvidenceWeightFraction).toBeCloseTo(0.16);
+  });
+
+  it('proves that when active_segment_id is present, liveSegmentProgressValue equals active_segment_progress exactly even when render_group_count > 0', () => {
+    let capturedStatus: any = null;
+    const TestComponent = ({ generatingJob }: any) => {
+      capturedStatus = useChapterStatus(mockChapter as any, undefined, generatingJob, false, 0, false);
+      return null;
+    };
+
+    const generatingJob = {
+      id: 'job-active-seg-pred-test',
+      status: 'running',
+      progress: 0.44,
+      render_group_count: 2,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.15,
+      eta_seconds: 60,
+      updated_at: (Date.now() - 10000) / 1000,
+      hasSegmentSupport: true,
+    };
+
+    render(<TestComponent generatingJob={generatingJob as any} />);
+
+    expect(capturedStatus.liveSegmentProgressValue).toBe(0.15);
+  });
+
+  it('proves 0.0 active_segment_progress remains 0.0 in ChapterHeader when capability is enabled', () => {
+    let capturedStatus: any = null;
+    const TestComponent = ({ generatingJob }: any) => {
+      capturedStatus = useChapterStatus(mockChapter as any, undefined, generatingJob, false, 0, false);
+      return null;
+    };
+
+    const generatingJob = {
+      id: 'job-zero-progress-test',
+      status: 'running',
+      progress: 0.44,
+      render_group_count: 2,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.0,
+      eta_seconds: 60,
+      updated_at: (Date.now() - 10000) / 1000,
+      hasSegmentSupport: true,
+    };
+
+    render(<TestComponent generatingJob={generatingJob as any} />);
+
+    expect(capturedStatus.segmentProgressBarSelection.selectedActiveSegmentProgress).toBe(0.0);
+    expect(capturedStatus.liveSegmentProgressValue).toBe(0.0);
+  });
+
+  it('proves existing legacy jobs are handled safely when the capability flag is absent or false', () => {
+    let capturedStatus: any = null;
+    const TestComponent = ({ generatingJob }: any) => {
+      capturedStatus = useChapterStatus(mockChapter as any, undefined, generatingJob, false, 0, false);
+      return null;
+    };
+
+    // When hasSegmentSupport is false
+    const jobWithFalse = {
+      id: 'job-false-capability',
+      status: 'running',
+      progress: 0.44,
+      render_group_count: 2,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.5,
+      eta_seconds: 60,
+      hasSegmentSupport: false,
+    };
+
+    render(<TestComponent generatingJob={jobWithFalse as any} />);
+    expect(capturedStatus.segmentProgressBarSelection.selectedActiveSegmentProgress).toBeNull();
+    expect(capturedStatus.segmentProgressBarSelection.selectedActiveSegmentId).toBeNull();
+
+    // When hasSegmentSupport is absent (undefined) but is segment-scoped (e.g. classification is segment)
+    const jobWithAbsent = {
+      id: 'job-absent-capability',
+      status: 'running',
+      progress: 0.44,
+      render_group_count: 2,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.5,
+      eta_seconds: 60,
+      classification: 'segment',
+    };
+
+    render(<TestComponent generatingJob={jobWithAbsent as any} />);
+    expect(capturedStatus.segmentProgressBarSelection.selectedActiveSegmentProgress).toBe(0.5);
+    expect(capturedStatus.segmentProgressBarSelection.selectedActiveSegmentId).toBe('seg-1');
   });
 });

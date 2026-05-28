@@ -23,10 +23,13 @@ ETA_PROJECTION_SKIP_REASONS = {
     "metadata_update",
     "segment_start",
     "segment_saved",
+    "START_SEGMENT",
+    "SEGMENT_PROGRESS",
+    "SEGMENT_SAVED",
 }
 
 
-def _resolve_caller(depth: int = 1) -> str | None:
+def _resolve_caller(depth: int = 1) -> Optional[str]:
     try:
         import sys
         while True:
@@ -65,8 +68,38 @@ def put_job(job: Job) -> None:
             job.status = "running"
         if job.updated_at is None:
             job.updated_at = job.created_at
+
+        # Check for terminal-to-active reset
+        existing_job = state["jobs"].get(job.id)
+        is_terminal_reset = False
+        if existing_job:
+            old_status = existing_job.get("status")
+            if old_status in ("done", "failed", "cancelled") and job.status in ("queued", "preparing"):
+                is_terminal_reset = True
+
         state["jobs"][job.id] = asdict(job)
         _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
+
+    if is_terminal_reset:
+        try:
+            from ..api.ws import broadcast_chapter_updated, broadcast_queue_update
+            chapter_id = job.chapter_id
+            if chapter_id:
+                broadcast_chapter_updated(
+                    chapter_id,
+                    reason="JOB_RESET_TO_ACTIVE",
+                    job_id=job.id,
+                    project_id=job.project_id,
+                    changed_fields=["status"]
+                )
+            broadcast_queue_update(
+                reason="JOB_RESET_TO_ACTIVE",
+                job_id=job.id,
+                project_id=job.project_id,
+                changed_fields=["status"]
+            )
+        except Exception:
+            logger.warning("Failed to broadcast terminal reset for %s", job.id, exc_info=True)
 
     try:
         from ..api.ws import broadcast_job_updated
@@ -75,7 +108,8 @@ def put_job(job: Job) -> None:
         pass
 
 
-def update_job(job_id: str, force_broadcast: bool = False, source: str | None = None, **updates) -> None:
+
+def update_job(job_id: str, force_broadcast: bool = False, source: Optional[str] = None, **updates) -> None:
     skip_studio_job_event = updates.pop("skip_studio_job_event", False)
     skip_job_updated = updates.pop("skip_job_updated", False)
     if source is None:
@@ -325,7 +359,7 @@ def update_job(job_id: str, force_broadcast: bool = False, source: str | None = 
                         if chapter_id:
                             broadcast_chapter_updated(
                                 chapter_id,
-                                reason="job_terminal_status" if new_status in ("done", "failed", "cancelled") else "job_reset_to_active",
+                                reason="job_terminal_status" if new_status in ("done", "failed", "cancelled") else ("JOB_RESET_TO_ACTIVE" if terminal_reset else "chapter_updated"),
                                 job_id=job_id,
                                 project_id=project_id,
                                 changed_fields=["status"]
@@ -333,7 +367,7 @@ def update_job(job_id: str, force_broadcast: bool = False, source: str | None = 
                     # For terminal updates, do not emit queue invalidation. Only emit on reset or explicit force_broadcast for non-terminal statuses.
                     if (terminal_reset or force_broadcast) and new_status not in ("done", "failed", "cancelled"):
                         broadcast_queue_update(
-                            reason="job_reset_to_active",
+                            reason="JOB_RESET_TO_ACTIVE" if terminal_reset else "QUEUE_INVALIDATED",
                             job_id=job_id,
                             project_id=project_id,
                             changed_fields=["status"]

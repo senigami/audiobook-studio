@@ -8,6 +8,8 @@ type SegmentScopedShape = {
   parent_job_id?: string | null;
   classification?: 'job' | 'chapter' | 'segment' | null;
   engine?: string | null;
+  has_segment_support?: boolean | null;
+  hasSegmentSupport?: boolean | null;
 };
 
 const STATUS_RANK: Record<string, number> = {
@@ -22,6 +24,9 @@ const STATUS_RANK: Record<string, number> = {
 };
 
 export function isSegmentScopedJob(job: SegmentScopedShape): boolean {
+  if (typeof job.has_segment_support === 'boolean') return job.has_segment_support;
+  if (typeof job.hasSegmentSupport === 'boolean') return job.hasSegmentSupport;
+
   if (job.classification === 'segment') return true;
   if (job.classification === 'chapter') return false;
   if (job.engine === 'voice_build') return true;

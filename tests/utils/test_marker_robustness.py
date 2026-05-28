@@ -71,7 +71,7 @@ def test_markers_publish_running_updates_after_start_synthesis():
     running_events = [e for e in orc.published if e.get("status") == "running"]
     assert len(running_events) >= 4
 
-    prog_event = next(e for e in running_events if e.get("reason_code") == "synthesis_progress")
+    prog_event = next(e for e in running_events if e.get("reason_code") == "SEGMENT_PROGRESS")
     assert prog_event.get("active_segment_id") == "s1"
     assert prog_event.get("active_segment_progress") == 0.5
 

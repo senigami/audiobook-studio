@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { useChapterStatus, ChapterTopBar, ChapterScriptToolbar } from '@/pages/ChapterEditor/components/ChapterHeader';
 import type { Job } from '@/types';
@@ -215,6 +215,7 @@ describe('ChapterHeader', () => {
           started_at: Date.now() / 1000,
           active_render_batch_progress: 0.25,
           render_group_count: 1,
+          hasSegmentSupport: true,
         } as any}
         generatingSegmentIdsCount={2}
         queueLabel="Complete"
@@ -308,7 +309,8 @@ describe('ChapterHeader', () => {
       progress: 0.5,
       active_render_batch_id: 'batch-1',
       active_render_batch_progress: 0.6,
-      render_group_count: 5
+      render_group_count: 5,
+      hasSegmentSupport: true,
     };
     rerender(<TestComponent job={renderBlockJob as any} generatingJob={renderBlockJob as any} />);
     expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('render_block_progress');
@@ -322,7 +324,8 @@ describe('ChapterHeader', () => {
       status: 'running',
       progress: 0.3,
       active_segment_id: 'seg-123',
-      active_segment_progress: 0.45
+      active_segment_progress: 0.45,
+      hasSegmentSupport: true,
     };
     rerender(<TestComponent job={activeSegJob as any} generatingJob={activeSegJob as any} />);
     expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('active_segment_progress');
@@ -348,7 +351,8 @@ describe('ChapterHeader', () => {
       active_segment_progress: 0.85,
       active_render_batch_id: 'batch-2',
       active_render_batch_progress: 0.1,
-      render_group_count: 3
+      render_group_count: 3,
+      hasSegmentSupport: true,
     };
     rerender(<TestComponent job={mixedJob as any} generatingJob={mixedJob as any} />);
     expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('render_block_progress');
@@ -369,7 +373,8 @@ describe('ChapterHeader', () => {
       active_segment_progress: 0.85,
       active_render_batch_id: 'batch-2',
       active_render_batch_progress: 0.65,
-      render_group_count: 3
+      render_group_count: 3,
+      hasSegmentSupport: true,
     };
 
     render(<TestComponent job={mixedJob as any} generatingJob={mixedJob as any} />);
@@ -397,6 +402,7 @@ describe('ChapterHeader', () => {
       active_segment_eta_seconds: 15,
       active_segment_eta_basis: 'segment_remaining',
       active_segment_updated_at: 1050,
+      hasSegmentSupport: true,
     };
 
     render(<TestComponent job={job as any} generatingJob={job as any} />);
@@ -424,6 +430,7 @@ describe('ChapterHeader', () => {
       active_segment_progress: 0.45,
       eta_seconds: 125,
       eta_basis: 'remaining_from_update',
+      hasSegmentSupport: true,
     };
 
     render(<TestComponent job={job as any} generatingJob={job as any} />);
@@ -555,6 +562,7 @@ describe('ChapterHeader', () => {
         active_segment_id: 'seg-1',
         active_segment_progress: 0.0,
         reason_code: 'segment_start',
+        hasSegmentSupport: true,
       }), []);
       capturedStatus = useChapterStatus(
         mockChapter as any,
@@ -581,6 +589,7 @@ describe('ChapterHeader', () => {
       active_segment_id: 'seg-1',
       active_segment_progress: 0.0,
       reason_code: 'segment_start',
+      hasSegmentSupport: true,
     };
 
     render(
@@ -621,6 +630,7 @@ describe('ChapterHeader', () => {
       active_segment_id: 'seg-1',
       active_segment_progress: 0.0,
       reason_code: 'some_other_reason',
+      hasSegmentSupport: true,
     };
 
     render(
@@ -649,5 +659,108 @@ describe('ChapterHeader', () => {
 
     expect(screen.getByText('Preparing')).toBeInTheDocument();
     expect(screen.queryByText('Processing')).toBeNull();
+  });
+
+  it('proves the segment bar still uses deriveActiveBatchProgress only when there is no active segment', () => {
+    let capturedStatus: any = null;
+    const TestComponent = ({ generatingJob }: any) => {
+      capturedStatus = useChapterStatus(mockChapter as any, undefined, generatingJob, false, 0, false);
+      return null;
+    };
+
+    // Case 1: Active segment is present, should bypass deriveActiveBatchProgress
+    const jobWithSegment = {
+      id: 'job-with-seg',
+      status: 'running',
+      progress: 0.2,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.35,
+      render_group_count: 5,
+      hasSegmentSupport: true,
+    };
+    const { rerender } = render(<TestComponent generatingJob={jobWithSegment as any} />);
+    expect(capturedStatus.liveSegmentProgressValue).toBe(0.35);
+
+    // Case 2: No active segment is present, should fallback to deriveActiveBatchProgress
+    const jobNoSegment = {
+      id: 'job-no-seg',
+      status: 'running',
+      progress: 0.2,
+      render_group_count: 5,
+      completed_render_groups: 1,
+      total_render_weight: 500,
+      completed_render_weight: 100,
+      active_render_group_weight: 100,
+      hasSegmentSupport: true,
+    };
+    rerender(<TestComponent generatingJob={jobNoSegment as any} />);
+    // Since total_render_weight > 0 and active_segment_id is absent, it uses deriveActiveBatchProgress
+    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('render_block_progress');
+  });
+
+  it('regression: proves the segment bar progress remains stable across multiple renders/ticks for the active segment path', () => {
+    vi.useFakeTimers();
+    let capturedStatus1: any = null;
+    let capturedStatus2: any = null;
+
+    const mockJob = {
+      id: 'job-stability-test',
+      status: 'running',
+      progress: 0.2,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.35,
+      render_group_count: 5,
+      hasSegmentSupport: true,
+    };
+
+    // First render
+    const { rerender } = render(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        generatingJob={mockJob as any}
+        generatingSegmentIdsCount={1}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    const firstVal = screen.getByTestId('chapter-header-segment-progress-bar').textContent;
+
+    // Simulate clock advancing and rerender
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    rerender(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        generatingJob={mockJob as any}
+        generatingSegmentIdsCount={1}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    const secondVal = screen.getByTestId('chapter-header-segment-progress-bar').textContent;
+    expect(firstVal).toBe(secondVal); // The progress value passed to PredictiveProgressBar must remain identical/stable
+    vi.useRealTimers();
   });
 });

@@ -192,7 +192,7 @@ def test_sample_build_receives_markers_live():
     assert any(pytest.approx(p["progress"]) == 0.35 for p in progress_events)
     marker_progress = next(p for p in progress_events if pytest.approx(p["progress"]) == 0.35)
     assert marker_progress["eta_seconds"] == 10
-    assert marker_progress["reason_code"] == "synthesis_progress"
+    assert marker_progress["reason_code"] == "SEGMENT_PROGRESS"
 
 # 4. Proving unrelated task_id markers are ignored.
 def test_log_listener_task_id_filtering():
@@ -372,7 +372,7 @@ def test_start_segment_eta_uses_active_block_chars():
 
     segment_start = next(
         e for e in orc.published
-        if e.get("reason_code") == "segment_start" and e.get("active_segment_id") == "segA"
+        if e.get("reason_code") == "START_SEGMENT" and e.get("active_segment_id") == "segA"
     )
     assert segment_start["eta_seconds"] == 24
     assert segment_start["active_segment_eta_seconds"] == 12
@@ -402,7 +402,7 @@ def test_segment_eta_uses_active_block_progress_not_chapter_progress():
 
     segment_complete = next(
         e for e in orc.published
-        if e.get("reason_code") == "synthesis_progress"
+        if e.get("reason_code") == "SEGMENT_PROGRESS"
         and e.get("active_segment_id") == "segA"
         and e.get("active_segment_progress") == 1.0
     )

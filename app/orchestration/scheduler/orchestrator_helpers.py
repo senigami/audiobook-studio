@@ -170,7 +170,7 @@ class OrchestratorHelpersMixin:
             progress=0.0,
             started_at=None,
             message="Preparing synthesis resources...",
-            force=True,
+            force=False,
         )
 
         # If the task exposes a bridge request, route through the injected bridge.
@@ -306,7 +306,7 @@ class OrchestratorHelpersMixin:
                     completed_render_weight=completed_weight[0],
                     active_render_group_weight=id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0,
                     grouped_progress=_get_grouped_progress(),
-                    force=True,
+                    force=False,
                 )
 
             if "[START_SEGMENT]" in line:
@@ -338,7 +338,7 @@ class OrchestratorHelpersMixin:
                             active_progress=0.0,
                             started_at=timing["render_started_at"],
                         ),
-                        reason_code="segment_start",
+                        reason_code="START_SEGMENT",
                         message=f"Rendering segment {sid}...",
                         started_at=timing["render_started_at"],
                         active_segment_id=sid,
@@ -403,7 +403,7 @@ class OrchestratorHelpersMixin:
                         eta_seconds=eta_seconds,
                         active_segment_eta_seconds=active_segment_eta_seconds,
                         eta_confidence="recomputing" if eta_seconds is not None else None,
-                        reason_code="synthesis_progress",
+                        reason_code="SEGMENT_PROGRESS",
                         started_at=timing["render_started_at"],
                         message="Synthesizing...",
                         active_segment_id=active_seg_id[0],
@@ -472,7 +472,7 @@ class OrchestratorHelpersMixin:
                             context=context,
                             status="running",
                             progress=_get_grouped_progress(),
-                            reason_code="segment_saved",
+                            reason_code="SEGMENT_SAVED",
                             message=f"Completed segment {leader_id}",
                             started_at=timing["render_started_at"],
                             active_segment_id=None,
@@ -783,6 +783,20 @@ class OrchestratorHelpersMixin:
         state_status = "done" if status == "completed" else status
         if state_status == "finalizing":
             state_status = "running"
+
+        # Resolve has_segment_support capability from engine
+        has_segment_support = False
+        if context.payload:
+            engine_id = context.payload.get("engine_id") or context.payload.get("engine")
+            if engine_id:
+                from app.engines.behavior import uses_segment_orchestration, supports_segment_rendering
+                has_segment_support = bool(
+                    uses_segment_orchestration(engine_id) or supports_segment_rendering(engine_id)
+                )
+
+        # Stop 0% synthesis_progress from flipping status to running prematurely
+        if state_status == "running" and reason_code in ("synthesis_progress", "SEGMENT_PROGRESS") and (progress is None or progress == 0.0):
+            state_status = "preparing"
         state_progress = progress
         if state_progress is None:
             if state_status == "done":
@@ -860,6 +874,7 @@ class OrchestratorHelpersMixin:
                 allow_progress_regression=allow_progress_regression,
                 force=force,
                 updated_at=updated_at,
+                has_segment_support=has_segment_support,
             )
 
             # Initialize job state if this is the first event (usually 'queued')
@@ -891,6 +906,7 @@ class OrchestratorHelpersMixin:
                     completed_render_weight=completed_render_weight,
                     active_render_group_weight=active_render_group_weight,
                     grouped_progress=grouped_progress,
+                    has_segment_support=has_segment_support,
                 )
                 put_job(job)
             else:
@@ -912,6 +928,7 @@ class OrchestratorHelpersMixin:
                     "completed_render_weight": completed_render_weight,
                     "active_render_group_weight": active_render_group_weight,
                     "grouped_progress": grouped_progress,
+                    "has_segment_support": has_segment_support,
                 }
                 if eta_seconds is not None:
                     updates["eta_seconds"] = eta_seconds
@@ -948,9 +965,14 @@ class OrchestratorHelpersMixin:
     def _context_to_job(self, context: TaskContext) -> Job:
         """Convert a TaskContext into a Job shim for the legacy handler registry."""
         payload = context.payload or {}
+        engine_id = str(payload.get("engine_id") or payload.get("engine") or "")
+        from app.engines.behavior import uses_segment_orchestration, supports_segment_rendering
+        has_segment_support = bool(
+            uses_segment_orchestration(engine_id) or supports_segment_rendering(engine_id)
+        )
         return Job(
             id=context.task_id,
-            engine=str(payload.get("engine_id") or payload.get("engine") or ""),
+            engine=engine_id,
             kind=str(context.task_type),
             status="running",
             created_at=context.submitted_at or time.time(),
@@ -967,6 +989,7 @@ class OrchestratorHelpersMixin:
             narrator_meta=payload.get("narrator") or payload.get("narrator_meta"),
             chapter_list=payload.get("chapters"),
             cover_path=str(payload.get("cover_path")) if payload.get("cover_path") else None,
+            has_segment_support=has_segment_support,
         )
 
     def _relay_output_wrapper(self, task: StudioTask) -> Callable[[str], None]:

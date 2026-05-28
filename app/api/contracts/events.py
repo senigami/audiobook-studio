@@ -5,12 +5,146 @@ from __future__ import annotations
 import re
 import sys
 import time
+from enum import Enum
 
 if sys.version_info >= (3, 11):
     from typing import Literal, NotRequired, TypedDict
 else:
     from typing import Literal, TypedDict
     from typing_extensions import NotRequired
+
+class JobLifecycleCommand(str, Enum):
+    JOB_QUEUED = "JOB_QUEUED"
+    JOB_PREPARING = "JOB_PREPARING"
+    START_SYNTHESIS = "START_SYNTHESIS"
+    START_SEGMENT = "START_SEGMENT"
+    SEGMENT_PROGRESS = "SEGMENT_PROGRESS"
+    SEGMENT_SAVED = "SEGMENT_SAVED"
+    JOB_RESET_TO_ACTIVE = "JOB_RESET_TO_ACTIVE"
+    JOB_FINALIZING = "JOB_FINALIZING"
+    JOB_DONE = "JOB_DONE"
+    JOB_FAILED = "JOB_FAILED"
+    QUEUE_INVALIDATED = "QUEUE_INVALIDATED"
+
+COMMAND_TOPIC_SCOPES = {
+    "queue.items": {
+        JobLifecycleCommand.JOB_QUEUED,
+        JobLifecycleCommand.JOB_PREPARING,
+        JobLifecycleCommand.START_SYNTHESIS,
+        JobLifecycleCommand.JOB_RESET_TO_ACTIVE,
+        JobLifecycleCommand.JOB_FINALIZING,
+        JobLifecycleCommand.JOB_DONE,
+        JobLifecycleCommand.JOB_FAILED,
+        JobLifecycleCommand.QUEUE_INVALIDATED,
+        # Allow string versions
+        "JOB_QUEUED",
+        "JOB_PREPARING",
+        "START_SYNTHESIS",
+        "JOB_RESET_TO_ACTIVE",
+        "JOB_FINALIZING",
+        "JOB_DONE",
+        "JOB_FAILED",
+        "QUEUE_INVALIDATED",
+    },
+    "chapters.progress": {
+        JobLifecycleCommand.JOB_PREPARING,
+        JobLifecycleCommand.START_SYNTHESIS,
+        JobLifecycleCommand.JOB_RESET_TO_ACTIVE,
+        JobLifecycleCommand.JOB_FINALIZING,
+        JobLifecycleCommand.JOB_DONE,
+        JobLifecycleCommand.JOB_FAILED,
+        # Allow string versions
+        "JOB_PREPARING",
+        "START_SYNTHESIS",
+        "JOB_RESET_TO_ACTIVE",
+        "JOB_FINALIZING",
+        "JOB_DONE",
+        "JOB_FAILED",
+    },
+    "segments.progress": {
+        JobLifecycleCommand.START_SEGMENT,
+        JobLifecycleCommand.SEGMENT_PROGRESS,
+        JobLifecycleCommand.SEGMENT_SAVED,
+        # Allow string versions
+        "START_SEGMENT",
+        "SEGMENT_PROGRESS",
+        "SEGMENT_SAVED",
+    },
+}
+
+LEGACY_TO_CANONICAL = {
+    "queued": "JOB_QUEUED",
+    "preparing": "JOB_PREPARING",
+    "synthesis_start": "START_SYNTHESIS",
+    "segment_start": "START_SEGMENT",
+    "synthesis_progress": "SEGMENT_PROGRESS",
+    "segment_saved": "SEGMENT_SAVED",
+    "job_reset_to_active": "JOB_RESET_TO_ACTIVE",
+    "finalizing": "JOB_FINALIZING",
+    "done": "JOB_DONE",
+    "completed": "JOB_DONE",
+    "failed": "JOB_FAILED",
+    "cancelled": "JOB_FAILED",
+    "queue_paused": "QUEUE_INVALIDATED",
+    "queue_update": "QUEUE_INVALIDATED",
+    "queue_item_invalidated": "QUEUE_INVALIDATED",
+}
+
+SEGMENT_SCOPED_COMMANDS = {
+    JobLifecycleCommand.START_SEGMENT,
+    JobLifecycleCommand.SEGMENT_PROGRESS,
+    JobLifecycleCommand.SEGMENT_SAVED,
+    "START_SEGMENT",
+    "SEGMENT_PROGRESS",
+    "SEGMENT_SAVED",
+    "segment_start",
+    "synthesis_progress",
+    "segment_saved",
+}
+
+def is_command_allowed_for_topic(command: str | None, topic: str) -> bool:
+    if not command:
+        return True
+    if topic == "segments.progress":
+        return command in SEGMENT_SCOPED_COMMANDS
+    if topic in ("queue.items", "chapters.progress"):
+        return command not in SEGMENT_SCOPED_COMMANDS
+    return True
+
+def normalize_to_canonical_command(
+    reason_code: str | None,
+    status: str | None = None,
+    has_segment_support: bool = False
+) -> str | None:
+    canonical = None
+    if reason_code:
+        try:
+            canonical = JobLifecycleCommand(reason_code).value
+        except ValueError:
+            pass
+        if not canonical:
+            canonical = LEGACY_TO_CANONICAL.get(reason_code)
+        if not canonical:
+            canonical = reason_code
+    elif status:
+        status_map = {
+            "queued": "JOB_QUEUED",
+            "preparing": "JOB_PREPARING",
+            "finalizing": "JOB_FINALIZING",
+            "done": "JOB_DONE",
+            "completed": "JOB_DONE",
+            "failed": "JOB_FAILED",
+            "cancelled": "JOB_FAILED",
+        }
+        canonical = status_map.get(status)
+
+    if not has_segment_support and canonical:
+        if canonical in ("START_SEGMENT", "segment_start"):
+            return "START_SYNTHESIS"
+        elif canonical in ("SEGMENT_PROGRESS", "synthesis_progress", "SEGMENT_SAVED", "segment_saved"):
+            return None
+
+    return canonical
 
 StudioJobStatus = Literal["queued", "preparing", "running", "finalizing", "done", "failed", "cancelled"]
 StudioJobClassification = Literal["job", "chapter", "segment"]
@@ -163,9 +297,12 @@ def build_queue_item_status_event(
     chapter_id: str | None = None,
     source: str | None = None,
     paused: bool | None = None,
+    has_segment_support: bool | None = None,
 ) -> dict:
     """Build a queue.items status envelope."""
-    if reason_code in ("segment_start", "segment_saved"):
+    canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
+    if not is_command_allowed_for_topic(canonical_command, "queue.items"):
+        canonical_command = None
         message = None
 
     payload = {
@@ -173,13 +310,15 @@ def build_queue_item_status_event(
         "progress": round(float(progress), 2),
         "etaSeconds": eta_seconds,
         "message": message,
-        "reasonCode": reason_code,
+        "reasonCode": canonical_command,
         "classification": classification,
         "changedFields": None,
         "paused": paused,
+        "hasSegmentSupport": has_segment_support,
+        "has_segment_support": has_segment_support,
         # Legacy compatibility duplicate fields
         "eta_seconds": eta_seconds,
-        "reason_code": reason_code,
+        "reason_code": canonical_command,
     }
     resolved_source = source or _resolve_source_path()
     return build_studio_event(
@@ -202,8 +341,11 @@ def build_queue_item_invalidated_event(
     source: str | None = None,
 ) -> dict:
     """Build a queue.items invalidated envelope."""
+    canonical_command = normalize_to_canonical_command(reason) or "QUEUE_INVALIDATED"
+    if canonical_command not in COMMAND_TOPIC_SCOPES["queue.items"]:
+        canonical_command = "QUEUE_INVALIDATED"
     payload = {
-        "reasonCode": reason,
+        "reasonCode": canonical_command,
         "changedFields": changed_fields,
         "changed_fields": changed_fields,  # Legacy compatibility
     }
@@ -220,7 +362,7 @@ def build_queue_item_invalidated_event(
 def build_queue_paused_event(paused: bool, source: str | None = None) -> dict:
     """Build a queue.items paused envelope."""
     payload = {
-        "reasonCode": "queue_paused",
+        "reasonCode": "QUEUE_INVALIDATED",
         "changedFields": ["paused"],
         "paused": paused,
         "changed_fields": ["paused"],  # Legacy compatibility
@@ -246,21 +388,29 @@ def build_chapter_progress_event(
     job_id: str | None = None,
     project_id: str | None = None,
     source: str | None = None,
+    has_segment_support: bool | None = None,
 ) -> dict:
     """Build a chapters.progress topic envelope."""
+    canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
+    if not is_command_allowed_for_topic(canonical_command, "chapters.progress"):
+        canonical_command = None
+        message = None
+
     payload = {
         "status": status,
         "progress": round(float(progress), 2),
         "groupedProgress": round(float(grouped_progress), 2) if grouped_progress is not None else None,
         "etaSeconds": eta_seconds,
         "message": message,
-        "reasonCode": reason_code,
+        "reasonCode": canonical_command,
         "renderGroupCount": render_group_count,
         "completedRenderGroups": completed_render_groups,
+        "hasSegmentSupport": has_segment_support,
+        "has_segment_support": has_segment_support,
         # Legacy compatibility duplicate fields
         "grouped_progress": round(float(grouped_progress), 2) if grouped_progress is not None else None,
         "eta_seconds": eta_seconds,
-        "reason_code": reason_code,
+        "reason_code": canonical_command,
         "render_group_count": render_group_count,
         "completed_render_groups": completed_render_groups,
     }
@@ -290,8 +440,14 @@ def build_segment_progress_event(
     project_id: str | None = None,
     source: str | None = None,
     eta_seconds: int | None = None,
+    has_segment_support: bool | None = None,
 ) -> dict:
     """Build a segments.progress topic envelope."""
+    canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
+    if not is_command_allowed_for_topic(canonical_command, "segments.progress"):
+        canonical_command = None
+        message = None
+
     rounded_progress = round(float(progress), 2)
     payload = {
         "status": status,
@@ -299,14 +455,16 @@ def build_segment_progress_event(
         "segmentIndex": segment_index,
         "segmentCount": segment_count,
         "message": message,
-        "reasonCode": reason_code,
-        "reason_code": reason_code,  # Legacy compatibility
+        "reasonCode": canonical_command,
+        "reason_code": canonical_command,  # Legacy compatibility
         "activeSegmentId": segment_id,
         "activeSegmentProgress": rounded_progress,
         "active_segment_id": segment_id,
         "active_segment_progress": rounded_progress,
         "etaSeconds": eta_seconds,
         "eta_seconds": eta_seconds,
+        "hasSegmentSupport": has_segment_support,
+        "has_segment_support": has_segment_support,
     }
     return build_studio_event(
         topic="segments.progress",
@@ -330,9 +488,10 @@ def build_segment_lifecycle_event(
     source: str | None = None,
 ) -> dict:
     """Build a segments.lifecycle topic envelope."""
+    canonical_command = normalize_to_canonical_command(reason) or reason
     payload = {
-        "reasonCode": reason,
-        "reason_code": reason,  # Legacy compatibility
+        "reasonCode": canonical_command,
+        "reason_code": canonical_command,  # Legacy compatibility
         "changedFields": changed_fields,
         "changed_fields": changed_fields,  # Legacy compatibility
     }
@@ -356,9 +515,10 @@ def build_chapter_lifecycle_event(
     source: str | None = None,
 ) -> dict:
     """Build a chapters.lifecycle topic envelope."""
+    canonical_command = normalize_to_canonical_command(reason) or reason
     payload = {
-        "reasonCode": reason,
-        "reason_code": reason,  # Legacy compatibility
+        "reasonCode": canonical_command,
+        "reason_code": canonical_command,  # Legacy compatibility
         "changedFields": changed_fields,
         "changed_fields": changed_fields,  # Legacy compatibility
     }
@@ -381,9 +541,10 @@ def build_project_lifecycle_event(
     source: str | None = None,
 ) -> dict:
     """Build a projects.lifecycle topic envelope."""
+    canonical_command = normalize_to_canonical_command(reason) or reason
     payload = {
-        "reasonCode": reason,
-        "reason_code": reason,  # Legacy compatibility
+        "reasonCode": canonical_command,
+        "reason_code": canonical_command,  # Legacy compatibility
         "changedFields": changed_fields,
         "changed_fields": changed_fields,  # Legacy compatibility
     }

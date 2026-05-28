@@ -42,7 +42,7 @@ Step-by-step documentation, concepts, troubleshooting, and workflow guides.
 
 [![Build Status](https://github.com/senigami/audiobook-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/senigami/audiobook-studio/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg)](https://nodejs.org/)
 
 **Audiobook Studio** is a local-first production app for turning manuscripts into polished audiobooks with AI voices you control.
@@ -195,7 +195,7 @@ If you want a fully local workflow, keep your voices on `XTTS (Local)`. If you w
 ### Requirements
 
 - macOS, Linux, or Windows
-- Python `3.10+`
+- Python `3.11+`
 - Node.js `18+`
 - `ffmpeg`
 - NVIDIA GPU recommended for faster local synthesis
