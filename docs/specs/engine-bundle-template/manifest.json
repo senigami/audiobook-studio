@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "engine_id": "exampletts",
+  "display_name": "Example TTS",
+  "engine_version": "1.0.0",
+  "min_app_version": "2.0.0",
+  "entry_class": "engine:ExampleTTSEngine",
+  "resource_profile": "cpu-light",
+  "supported_languages": ["en"],
+  "supported_voice_asset_types": ["reference_audio"],
+  "requires_network": false,
+  "capabilities": ["synthesis", "preview"],
+  "settings_schema_version": "1.0",
+  "author": "Your Name",
+  "license": "MIT",
+  "homepage": "https://gitlab.com/your-namespace/tts-exampletts",
+  "test_text": "This is an Example TTS verification test.",
+  "distribution": {
+    "host": "gitlab",
+    "base_url": "https://gitlab.com",
+    "project": "your-namespace/tts-exampletts",
+    "git_url": "https://gitlab.com/your-namespace/tts-exampletts.git",
+    "topic": "audiobook-studio-tts",
+    "pin_ref": null,
+    "official": false
+  }
+}

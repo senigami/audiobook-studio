@@ -125,9 +125,12 @@ A fresh clone always gets the latest code, so a new install is never stale.
 
 ## 7. Update (pull it)
 
+- **Alert in Settings → TTS Engines.** When updates are available, the TTS Engines settings
+  page shows a badge/notice listing which engines have updates (`2.0.0 → 2.1.0`), with an
+  **Update** button per engine and an **Update all** action — exactly the Stable Diffusion /
+  ComfyUI-Manager experience.
 - **Check:** on demand (and optionally on app start), `git fetch` each installed engine and
-  compare the local commit/`engine_version` against upstream. Show "Update available
-  2.0.0 → 2.1.0".
+  compare the local commit/`engine_version` against upstream to populate that alert.
 - **Apply:** `git pull` (or fetch + checkout the new tag), then re-validate the manifest and
   re-register; roll back the checkout on validation failure. Settings persist across updates
   (settings live in app config keyed by `engine_id`, not in the bundle).
@@ -171,13 +174,18 @@ Decided:
 - **Distribution = git clone / git pull** (Stable Diffusion / ComfyUI model). The repo is
   the package; no release-asset or package-registry step. Discovery via GitLab topic, plus
   paste-a-URL install. Heavy weights download separately on first run.
+- **Update UX:** Settings → TTS Engines shows an alert of available updates with per-engine
+  **Update** and **Update all** (SD-style).
+- **Two different identifiers, both `audiobook-studio`:** the discovery **topic** is
+  `audiobook-studio-tts` (what scanning filters on), and the official **group/namespace** is
+  `audiobook-studio/...` (who owns official repos, drives the "Official" badge). Only the
+  maintainer publishes engines for now, so the official-group trust check is effectively
+  moot until third parties publish.
 
 Still open (minor):
-1. **Official group path:** confirm the GitLab group/namespace for official engines
-   (assumed `audiobook-studio/...`).
-2. **Auto-update default:** check-and-notify (recommended) vs. silent auto-update vs.
-   manual-only?
-3. **Offline bundle:** confirm shipping a cached XTTS copy in the installer for offline
+1. **Auto-update default:** check-and-notify (recommended — matches the alert above) vs.
+   silent auto-update vs. manual-only.
+2. **Offline bundle:** confirm shipping a cached XTTS copy in the installer for offline
    first-run.
 
 ## 11. Sources
