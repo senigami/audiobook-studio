@@ -35,6 +35,7 @@ def table(headers, rows):
     body = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
     return f"<table><thead><tr>{th}</tr></thead><tbody>{body}</tbody></table>"
 def L(href, text): return f'<a href="@@{href}@@">{text}</a>'  # resolved to a #route at render
+def demo(demo_id): return f'<div class="hb-demo" data-demo="{demo_id}"></div>'  # SPA mounts the player
 
 SHELL = """<!doctype html>
 <html lang="en">
@@ -322,6 +323,7 @@ page("getting-started/quick-tour",
     "Build or pick a voice and assign it.",
     "Generate, review, and fix any lines.",
     "Assemble into an audiobook file."]),
+  demo("quick-tour"),
   h2("1. Create a project &amp; add a chapter"),
   p("<strong>Start with a project</strong> (title, author), then add a chapter by pasting text or uploading a <code>.txt</code> file."),
   h2("2. Build or assign a voice"),
@@ -811,6 +813,7 @@ page("user-guide/chapter-editor",
   glance(["Script tab: assign, batch-assign, generate, watch progress.",
           "VCR playback: play / pause / stop / next / previous.",
           "Edit tab: raw text with resync preview."]),
+  demo("chapter-editor"),
   h2("The Script tab"),
   p("<strong>Assign voices and generate from one place.</strong> Assign a line, a character, or all unassigned narration at once, then generate and watch progress inline."),
   h2("VCR playback"),
@@ -826,6 +829,7 @@ page("user-guide/voice-lab",
   glance(["Create a voice and pick an engine.",
           "Manage variants and samples.",
           "Test, preview, and import/export voices."]),
+  demo("voice-lab"),
   h2("Create a voice &amp; pick an engine"),
   p("<strong>Start a voice and choose the engine it builds for.</strong> The default local engine works out of the box."),
   h2("Variants &amp; samples"),
@@ -863,6 +867,7 @@ page("user-guide/processing-queue",
           "Per-job output metadata (duration).",
           "Reorder, pause/resume, and clear.",
           "Live updates over WebSocket."]),
+  demo("processing-queue"),
   h2("Watching progress"),
   p("<strong>See live stats and ETAs as jobs run.</strong> Progress comes from a central service, so the numbers are consistent across the app. See " + L("../architecture/progress.html", "Progress Services") + "."),
   h2("Controlling jobs"),

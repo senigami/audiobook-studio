@@ -1,0 +1,10 @@
+{
+ "title": "Assign, generate &amp; review a chapter",
+ "steps": [
+  { "screen": "Script tab", "caption": "Select a line — or a whole character.", "cursor": [40, 38], "hotspot": [14, 30, 60, 12] },
+  { "screen": "Assign a voice", "caption": "Assign it the narrator or a character voice.", "cursor": [72, 34], "hotspot": [60, 26, 26, 16] },
+  { "screen": "Generate", "caption": "Click <b>Generate</b> and watch progress inline.", "cursor": [76, 66], "hotspot": [64, 58, 22, 14] },
+  { "screen": "VCR playback", "caption": "Review with play / pause / next / previous.", "cursor": [50, 76], "hotspot": [30, 70, 40, 12] },
+  { "screen": "Fix a line", "caption": "Tweak the text and regenerate just that segment.", "cursor": [36, 46], "hotspot": [14, 40, 56, 14] }
+ ]
+}

@@ -1,0 +1,10 @@
+{
+ "title": "Create a voice in the Voice Lab",
+ "steps": [
+  { "screen": "Voice Lab", "caption": "Click <b>New Voice</b> and pick an engine (the local default works out of the box).", "cursor": [70, 26], "hotspot": [58, 16, 28, 16] },
+  { "screen": "Samples", "caption": "Upload a few clean voice samples.", "cursor": [40, 44], "hotspot": [16, 36, 50, 22] },
+  { "screen": "Build", "caption": "Build the samples into a variant.", "cursor": [74, 60], "hotspot": [62, 52, 24, 14] },
+  { "screen": "Test &amp; Preview", "caption": "Type test text and preview how it sounds.", "cursor": [50, 50], "hotspot": [16, 40, 68, 18] },
+  { "screen": "Icon &amp; Tags", "caption": "Give it a 1:1 icon and tags so it's easy to find later.", "cursor": [30, 34], "hotspot": [14, 24, 36, 26] }
+ ]
+}

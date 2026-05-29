@@ -51,6 +51,37 @@
 .doc-article th, .doc-article td { text-align: left; padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border); }
 .doc-article th { font-weight: 700; color: var(--text); background: var(--surface-alt); }
 
+/* ---- Reusable demo player ---- */
+.hb-demo { border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin: 1.6rem 0; box-shadow: var(--shadow-sm); background: var(--surface); }
+.hb-demo-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); }
+.hb-demo-head .pill { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background-image: var(--grad); padding: 0.25rem 0.6rem; border-radius: 99px; }
+.hb-demo-head .ttl { font-weight: 700; font-size: 0.98rem; }
+.hb-demo-stage { position: relative; aspect-ratio: 16 / 9; background:
+  radial-gradient(70% 90% at 30% 0%, rgb(109 94 252 / 0.16), transparent 60%),
+  radial-gradient(60% 80% at 100% 100%, rgb(255 122 89 / 0.14), transparent 60%), var(--surface-alt);
+  overflow: hidden; }
+.hb-demo-shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* placeholder mock "window" when a step has no screenshot */
+.hb-demo-screen { position: absolute; inset: 8%; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-md); display: flex; flex-direction: column; overflow: hidden; }
+.hb-demo-screen .bar { display: flex; gap: 6px; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+.hb-demo-screen .bar i { width: 10px; height: 10px; border-radius: 99px; background: var(--border); }
+.hb-demo-screen .label { flex: 1; display: grid; place-items: center; font-family: "Outfit", sans-serif; font-weight: 800; font-size: clamp(1rem, 2.4vw, 1.6rem); letter-spacing: -0.02em; color: var(--text-soft); }
+.hb-demo-hotspot { position: absolute; border: 2px solid var(--accent); border-radius: 8px; box-shadow: 0 0 0 4px rgb(109 94 252 / 0.18); transition: all 0.5s cubic-bezier(.4,0,.2,1); opacity: 0; }
+.hb-demo-cursor { position: absolute; width: 22px; height: 22px; margin: -6px 0 0 -6px; pointer-events: none; transition: left 0.6s cubic-bezier(.4,0,.2,1), top 0.6s cubic-bezier(.4,0,.2,1); z-index: 3; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.35)); }
+.hb-demo-cursor svg { display: block; }
+.hb-demo-cursor.click::after { content: ""; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 99px; border: 2px solid var(--accent); animation: hbpulse 0.5s ease-out; }
+@keyframes hbpulse { from { transform: scale(0.4); opacity: 0.9; } to { transform: scale(2.4); opacity: 0; } }
+.hb-demo-caption { padding: 0.9rem 1.1rem; font-size: 0.98rem; color: var(--text); border-top: 1px solid var(--border); min-height: 3.2rem; }
+.hb-demo-caption .step-n { font-weight: 800; color: var(--accent); margin-right: 0.4rem; }
+.hb-demo-controls { display: flex; align-items: center; gap: 0.5rem; padding: 0.7rem 1rem 1rem; flex-wrap: wrap; }
+.hb-demo-controls button { font: inherit; font-size: 0.86rem; font-weight: 700; padding: 0.45rem 0.9rem; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+.hb-demo-controls button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.hb-demo-controls button:disabled { opacity: 0.4; cursor: default; }
+.hb-demo-controls .play { background-image: var(--grad); color: #fff; border-color: transparent; }
+.hb-demo-controls .dots { display: flex; gap: 6px; margin-left: auto; }
+.hb-demo-controls .dots i { width: 8px; height: 8px; border-radius: 99px; background: var(--border); cursor: pointer; }
+.hb-demo-controls .dots i.on { background-image: var(--grad); }
+
 /* Next / related */
 .next-links { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 2.6rem; padding-top: 1.6rem; border-top: 1px solid var(--border); }
 .next-links a { display: block; padding: 1rem 1.2rem; border: 1px solid var(--border); border-radius: 14px; text-decoration: none; color: var(--text); transition: border-color 0.15s, transform 0.15s; }

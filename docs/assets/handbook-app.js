@@ -67,6 +67,7 @@
           d.body +
           '<div class="next-links">' + nx + "</div>";
         $("#hb-article").html(html);
+        mountDemos();
         $("#hb-sidebar").html(sidebar(dir, slug));
         document.title = decode(d.title) + " | Handbook";
         window.scrollTo(0, 0);
@@ -94,6 +95,54 @@
     $("#hb-sidebar").html(sidebar("", ""));
     document.title = "Handbook | Audiobook Studio 2.0";
     window.scrollTo(0, 0);
+  }
+
+  // ---- reusable demo player (data: content/demos/<id>.json) ----
+  var CURSOR = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 3l14 7-6 2-2 6-6-15z" fill="#6d5efc" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+  function buildDemo($el, d) {
+    var steps = (d && d.steps) || [];
+    if (!steps.length) { $el.html('<div class="hb-demo-caption">Demo unavailable.</div>'); return; }
+    var n = steps.length, cur = 0, timer = null;
+    $el.html(
+      '<div class="hb-demo-head"><span class="pill">Demo</span><span class="ttl">' + (d.title || "Walkthrough") + "</span></div>" +
+      '<div class="hb-demo-stage"><div class="hb-demo-frame"></div><div class="hb-demo-hotspot"></div><div class="hb-demo-cursor">' + CURSOR + "</div></div>" +
+      '<div class="hb-demo-caption"></div>' +
+      '<div class="hb-demo-controls"><button class="prev">‹ Prev</button><button class="play">▶ Play</button><button class="next">Next ›</button><button class="restart" title="Restart">⟲</button><span class="counter"></span><span class="dots"></span></div>'
+    );
+    var $frame = $el.find(".hb-demo-frame"), $hot = $el.find(".hb-demo-hotspot"), $cur = $el.find(".hb-demo-cursor"),
+        $cap = $el.find(".hb-demo-caption"), $cnt = $el.find(".counter"), $dots = $el.find(".dots"),
+        $prev = $el.find(".prev"), $next = $el.find(".next"), $play = $el.find(".play");
+    var dh = ""; for (var k = 0; k < n; k++) dh += '<i data-i="' + k + '"></i>'; $dots.html(dh);
+    function render(i) {
+      cur = i; var s = steps[i];
+      if (s.frame) { $frame.html('<img class="hb-demo-shot" src="' + s.frame + '" alt="" />'); }
+      else { $frame.html('<div class="hb-demo-screen"><div class="bar"><i></i><i></i><i></i></div><div class="label">' + esc(s.screen || "") + "</div></div>"); }
+      if (s.hotspot) { var h = s.hotspot; $hot.css({ left: h[0] + "%", top: h[1] + "%", width: h[2] + "%", height: h[3] + "%", opacity: 1 }); }
+      else { $hot.css("opacity", 0); }
+      var c = s.cursor || [50, 50]; $cur.css({ left: c[0] + "%", top: c[1] + "%" });
+      $cur.removeClass("click"); void $cur[0].offsetWidth; $cur.addClass("click");
+      $cap.html('<span class="step-n">' + (i + 1) + ".</span> " + (s.caption || ""));
+      $cnt.text((i + 1) + " / " + n);
+      $dots.find("i").removeClass("on").eq(i).addClass("on");
+      $prev.prop("disabled", i === 0); $next.prop("disabled", i === n - 1);
+    }
+    function stop() { if (timer) { clearInterval(timer); timer = null; } $play.html("▶ Play"); }
+    function play() { if (timer) { stop(); return; } $play.html("❚❚ Pause"); timer = setInterval(function () { if (cur >= n - 1) { stop(); return; } render(cur + 1); }, 3000); }
+    $prev.on("click", function () { stop(); if (cur > 0) render(cur - 1); });
+    $next.on("click", function () { stop(); if (cur < n - 1) render(cur + 1); });
+    $el.find(".restart").on("click", function () { stop(); render(0); });
+    $play.on("click", play);
+    $dots.on("click", "i", function () { stop(); render(+$(this).data("i")); });
+    render(0);
+  }
+  function mountDemos() {
+    $(".hb-demo[data-demo]").each(function () {
+      var $el = $(this), id = $el.attr("data-demo");
+      if ($el.data("mounted")) return; $el.data("mounted", true);
+      $.getJSON("content/demos/" + id + ".json")
+        .done(function (d) { buildDemo($el, d); })
+        .fail(function () { $el.html('<div class="hb-demo-caption">Demo unavailable.</div>'); });
+    });
   }
 
   function route() {

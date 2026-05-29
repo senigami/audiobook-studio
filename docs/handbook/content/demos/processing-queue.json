@@ -1,0 +1,9 @@
+{
+ "title": "Monitoring the queue",
+ "steps": [
+  { "screen": "Processing Queue", "caption": "Jobs line up with live progress and an ETA.", "cursor": [50, 32], "hotspot": [14, 24, 70, 16] },
+  { "screen": "Advancing", "caption": "Each job advances as audio renders — updated live over WebSocket.", "cursor": [60, 48], "hotspot": [14, 40, 70, 12] },
+  { "screen": "Control", "caption": "Reorder, pause, or resume jobs as needed.", "cursor": [78, 40], "hotspot": [66, 32, 20, 26] },
+  { "screen": "Done", "caption": "Finished jobs show their duration and are ready to assemble.", "cursor": [44, 60], "hotspot": [14, 52, 70, 12] }
+ ]
+}
