@@ -1,10 +1,10 @@
 {
- "title": "Assign, generate &amp; review a chapter",
+ "title": "Assign, generate & review a chapter",
  "steps": [
-  { "screen": "Script tab", "caption": "Select a line — or a whole character.", "cursor": [40, 38], "hotspot": [14, 30, 60, 12] },
-  { "screen": "Assign a voice", "caption": "Assign it the narrator or a character voice.", "cursor": [72, 34], "hotspot": [60, 26, 26, 16] },
-  { "screen": "Generate", "caption": "Click <b>Generate</b> and watch progress inline.", "cursor": [76, 66], "hotspot": [64, 58, 22, 14] },
-  { "screen": "VCR playback", "caption": "Review with play / pause / next / previous.", "cursor": [50, 76], "hotspot": [30, 70, 40, 12] },
-  { "screen": "Fix a line", "caption": "Tweak the text and regenerate just that segment.", "cursor": [36, 46], "hotspot": [14, 40, 56, 14] }
+  { "screen": "Script tab", "mock": "editor", "caption": "Select a line — or a whole character.", "cursor": [40, 41], "hotspot": [12, 35, 62, 11] },
+  { "screen": "Assign a voice", "mock": "editor", "caption": "Assign it the narrator or a character voice.", "cursor": [20, 41], "hotspot": [13, 35, 60, 11] },
+  { "screen": "Generate", "mock": "editor", "caption": "Click <b>Generate</b> and watch progress inline.", "cursor": [82, 21], "hotspot": [70, 14, 18, 12] },
+  { "screen": "VCR playback", "mock": "editor", "caption": "Review with play / pause / next / previous.", "cursor": [40, 80], "hotspot": [14, 74, 66, 12] },
+  { "screen": "Fix a line", "mock": "editor", "caption": "Tweak the text and regenerate just that segment.", "cursor": [44, 55], "hotspot": [12, 49, 62, 11] }
  ]
 }

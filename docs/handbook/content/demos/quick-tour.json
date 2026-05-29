@@ -1,11 +1,11 @@
 {
  "title": "The 5-minute workflow",
  "steps": [
-  { "screen": "Library", "caption": "Click <b>New Project</b> and name your book.", "cursor": [70, 24], "hotspot": [58, 14, 28, 16] },
-  { "screen": "Chapters", "caption": "Add a chapter — paste text or upload a <b>.txt</b> file.", "cursor": [50, 30], "hotspot": [16, 22, 68, 18] },
-  { "screen": "Voice Lab", "caption": "Build or pick a voice for your narrator.", "cursor": [32, 46], "hotspot": [14, 36, 40, 26] },
-  { "screen": "Chapter Editor", "caption": "Assign voices, then click <b>Generate</b>.", "cursor": [76, 70], "hotspot": [64, 62, 22, 14] },
-  { "screen": "Processing Queue", "caption": "Watch progress as your audio renders.", "cursor": [50, 55], "hotspot": [16, 44, 68, 22] },
-  { "screen": "Assemblies", "caption": "Assemble the chapters into an M4B. Done!", "cursor": [72, 72], "hotspot": [60, 64, 26, 14] }
+  { "screen": "Library", "mock": "library", "caption": "Click <b>New Project</b> and name your book.", "cursor": [82, 21], "hotspot": [66, 14, 22, 12] },
+  { "screen": "Chapters", "mock": "chapters", "caption": "Add a chapter — paste text or upload a <b>.txt</b> file.", "cursor": [80, 21], "hotspot": [63, 14, 25, 12] },
+  { "screen": "Voice Lab", "mock": "voicelab", "caption": "Build or pick a voice for your narrator.", "cursor": [30, 50], "hotspot": [12, 38, 30, 34] },
+  { "screen": "Chapter Editor", "mock": "editor", "caption": "Assign voices, then click <b>Generate</b>.", "cursor": [82, 21], "hotspot": [70, 14, 18, 12] },
+  { "screen": "Processing Queue", "mock": "queue", "caption": "Watch progress as your audio renders.", "cursor": [50, 46], "hotspot": [14, 32, 72, 26] },
+  { "screen": "Assemblies", "mock": "assemblies", "caption": "Assemble the chapters into an M4B. Done!", "cursor": [82, 21], "hotspot": [66, 14, 22, 12] }
  ]
 }

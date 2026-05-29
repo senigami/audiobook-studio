@@ -100,6 +100,50 @@
 
   // ---- reusable demo player (data: content/demos/<id>.json) ----
   var CURSOR = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 3l14 7-6 2-2 6-6-15z" fill="#6d5efc" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+
+  // CSS "page-view" mockups (no screenshots). Each returns the screen body HTML.
+  function rep(nn, h) { var s = ""; for (var i = 0; i < nn; i++) s += h; return s; }
+  var MOCKS = {
+    library: function () {
+      return '<div class="mk-head"><span class="mk-h">Library</span><span class="mk-btn">+ New Project</span></div>' +
+        '<div class="mk-grid">' + rep(6, '<div class="mk-card"><div class="mk-cover"></div><div class="mk-l1"></div><div class="mk-l2 short"></div></div>') + "</div>";
+    },
+    chapters: function () {
+      return '<div class="mk-head"><span class="mk-h">Chapters</span><span class="mk-btn">+ Add chapter</span></div>' +
+        '<div class="mk-rows">' + rep(4, '<div class="mk-row"><span class="mk-num">1</span><div class="mk-rowtext"><div class="mk-l1"></div><div class="mk-l2 short"></div></div><span class="mk-pill ok">Ready</span></div>') + "</div>";
+    },
+    voicelab: function () {
+      return '<div class="mk-head"><span class="mk-h">Voice Lab</span><span class="mk-btn">+ New Voice</span></div>' +
+        '<div class="mk-vgrid">' + rep(6, '<div class="mk-vcard"><div class="mk-ico"></div><div class="mk-l1" style="width:70%"></div><div class="mk-tags"><i></i><i></i></div></div>') + "</div>";
+    },
+    voicepanel: function () {
+      return '<div class="mk-head"><span class="mk-h">Gravel Road</span><span class="mk-btn">Build variant</span></div>' +
+        '<div class="mk-cols"><div class="mk-col"><div class="mk-sub">Samples</div>' +
+        rep(3, '<div class="mk-srow"><span class="mk-wave"></span><div class="mk-rowtext"><div class="mk-l2"></div></div></div>') +
+        '<div class="mk-drop">Drop audio to add a sample</div></div>' +
+        '<div class="mk-col"><div class="mk-sub">Test &amp; preview</div><div class="mk-field">The sun went down slow over the dry creek.</div><span class="mk-btn" style="align-self:flex-start">▶ Preview</span><div class="mk-wavebig"></div></div></div>';
+    },
+    editor: function () {
+      var lines = '<div class="mk-line"><span class="mk-dot nar"></span><div class="mk-l1"></div></div>' +
+        '<div class="mk-line sel"><span class="mk-dot ch1"></span><div class="mk-l1" style="width:80%"></div></div>' +
+        '<div class="mk-line"><span class="mk-dot nar"></span><div class="mk-l1" style="width:90%"></div></div>' +
+        '<div class="mk-line"><span class="mk-dot ch2"></span><div class="mk-l1" style="width:60%"></div></div>';
+      return '<div class="mk-head"><span class="mk-h">Chapter 1 · Script</span><span class="mk-btn">Generate</span></div>' +
+        '<div class="mk-script">' + lines + "</div>" +
+        '<div class="mk-vcr"><span>⏮</span><span class="big">▶</span><span>⏭</span><div class="mk-seek"><i></i></div></div>';
+    },
+    queue: function () {
+      function q(w, pct, done) { return '<div class="mk-qrow"><div class="mk-rowtext"><div class="mk-l1" style="width:' + w + '"></div></div><div class="mk-prog"><i style="width:' + pct + '"></i></div><span class="mk-pct">' + (done ? "✓" : pct) + "</span></div>"; }
+      return '<div class="mk-head"><span class="mk-h">Processing Queue</span><span class="mk-meta">ETA 3:20</span></div>' +
+        '<div class="mk-rows">' + q("70%", "100%", true) + q("85%", "80%") + q("60%", "45%") + q("75%", "0%") + "</div>" +
+        '<div class="mk-qctrls"><span class="mk-btn ghost">Pause</span><span class="mk-btn ghost">Reorder</span></div>';
+    },
+    assemblies: function () {
+      return '<div class="mk-head"><span class="mk-h">Assemblies</span><span class="mk-btn">Assemble</span></div>' +
+        '<div class="mk-rows"><div class="mk-row"><span class="mk-file">📕</span><div class="mk-rowtext"><div class="mk-l1" style="width:60%"></div><div class="mk-l2 short"></div></div><span class="mk-btn ghost">Download M4B</span></div>' +
+        rep(2, '<div class="mk-row"><span class="mk-file">📗</span><div class="mk-rowtext"><div class="mk-l1" style="width:50%"></div><div class="mk-l2 short"></div></div><span class="mk-pill ok">Done</span></div>') + "</div>";
+    }
+  };
   function buildDemo($el, d) {
     var steps = (d && d.steps) || [];
     if (!steps.length) { $el.html('<div class="hb-demo-caption">Demo unavailable.</div>'); return; }
@@ -117,7 +161,12 @@
     function render(i) {
       cur = i; var s = steps[i];
       if (s.frame) { $frame.html('<img class="hb-demo-shot" src="' + s.frame + '" alt="" />'); }
-      else { $frame.html('<div class="hb-demo-screen"><div class="bar"><i></i><i></i><i></i></div><div class="label">' + esc(s.screen || "") + "</div></div>"); }
+      else {
+        var inner = s.mock && MOCKS[s.mock]
+          ? '<div class="mk-body">' + MOCKS[s.mock]() + "</div>"
+          : '<div class="label">' + esc(s.screen || "") + "</div>";
+        $frame.html('<div class="hb-demo-screen"><div class="bar"><i></i><i></i><i></i><span class="ttl">' + esc(s.screen || "") + "</span></div>" + inner + "</div>");
+      }
       if (s.hotspot) { var h = s.hotspot; $hot.css({ left: h[0] + "%", top: h[1] + "%", width: h[2] + "%", height: h[3] + "%", opacity: 1 }); }
       else { $hot.css("opacity", 0); }
       var c = s.cursor || [50, 50]; $cur.css({ left: c[0] + "%", top: c[1] + "%" });
