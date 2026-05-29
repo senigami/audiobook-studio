@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Who It's For &amp; Use Cases | Handbook</title>
+    <meta name="description" content="Who Audiobook Studio is for — indie authors, narrators, hobbyists, and developers — and the production workflows it's built to handle." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../../assets/studio2.css" />
+    <link rel="stylesheet" href="../../assets/handbook.css" />
+  </head>
+  <body>
+    <nav class="site-nav">
+      <a class="brand" href="../../index.html"><img src="../../assets/logo.png" alt="Audiobook Studio" /><span>Audiobook&nbsp;Studio</span></a>
+      <div class="nav-links">
+        <a href="../index.html">Handbook</a>
+        <a href="../../index.html">Home</a>
+        <a href="https://github.com/senigami/audiobook-studio">GitHub</a>
+      </div>
+    </nav>
+
+    <div class="doc-shell">
+      <aside class="doc-sidebar">
+        <div class="group">
+          <div class="group-title">Overview</div>
+          <a href="what-is-audiobook-studio.html">What Is Audiobook Studio</a>
+          <a href="studio-2-at-a-glance.html">Studio 2.0 at a Glance</a>
+          <a class="active" href="use-cases.html">Who It's For &amp; Use Cases</a>
+          <a href="privacy-model.html">Local-First &amp; Privacy</a>
+          <a href="feature-highlights.html">Feature Highlights</a>
+        </div>
+        <div class="group">
+          <div class="group-title">More sections</div>
+          <a href="../index.html#users">Getting Started</a>
+          <a href="../index.html#users">Core Concepts</a>
+          <a href="../index.html#users">User Guide</a>
+          <a href="../index.html#users">Engines &amp; Voice Cloning</a>
+          <a href="../index.html#devs">For Developers</a>
+        </div>
+      </aside>
+
+      <article class="doc-article">
+        <div class="doc-breadcrumb"><a href="../index.html">Handbook</a> › Overview</div>
+        <h1>Who It's For &amp; Use Cases</h1>
+        <p class="lede">Audiobook Studio is for anyone producing long-form spoken audio locally — indie authors, narrators, hobbyists, and developers who want to build on top of it.</p>
+
+        <div class="at-glance">
+          <div class="at-title">At a glance</div>
+          <ul>
+            <li>Built for <strong>whole-book production</strong>, not one-off clips.</li>
+            <li>Iterate freely — fixing a line costs nothing to regenerate.</li>
+            <li>Handles <strong>multi-character</strong> dialogue with distinct voices.</li>
+            <li>Doubles as a local <strong>TTS backend</strong> you can automate.</li>
+          </ul>
+        </div>
+
+        <h2>Who it's for</h2>
+        <ul>
+          <li><strong>Indie authors &amp; self-publishers.</strong> Produce an audiobook of your own work at home, on your schedule, without studio time or per-word fees.</li>
+          <li><strong>Narrators &amp; voice artists.</strong> Build and reuse voices, scale narration, and keep your audio on your own machine.</li>
+          <li><strong>Hobbyists &amp; accessibility users.</strong> Turn fan fiction, web serials, notes, or documents into audio you can listen to anywhere.</li>
+          <li><strong>Developers &amp; integrators.</strong> Use the gateway API, write engine plugins, and publish voices for the ecosystem.</li>
+        </ul>
+
+        <h2>What it's built to do</h2>
+        <h3>Full-book production</h3>
+        <p><strong>The whole point is the long haul.</strong> Chapters, characters, a queue that survives restarts, and assembly into a finished file — Studio is designed to carry a complete book from text to audiobook.</p>
+
+        <h3>Iterative correction without per-edit cost</h3>
+        <p><strong>Revising is free.</strong> Because the default engine runs locally, you can re-record a clumsy line as many times as you like. Change the text, regenerate that segment, and move on — no credits, no meter.</p>
+
+        <h3>Multi-character dialogue</h3>
+        <p><strong>Every character can sound like themselves.</strong> Assign the narrator one voice and each character another; Studio reads each line in its assigned voice. <a href="../index.html#users">Core Concepts → Characters &amp; Narrators</a> covers casting in depth.</p>
+
+        <h3>Studio as a TTS backend</h3>
+        <p><strong>It's also a local speech engine for your own tools.</strong> Through the gateway API, scripts and apps can generate speech via the engines you've installed — no cloud account required.</p>
+        <div class="future"><b>Coming with 2.0 —</b> the documented gateway API and installable engines make the automation path first-class. See <a href="../index.html#devs">For Developers</a>.</div>
+
+        <h2>When it might not fit</h2>
+        <p>Studio is a production tool. If you only need a single short clip with no editing, a simpler text-to-speech utility may be faster. Studio shines when there's a <em>book's worth</em> of work to manage.</p>
+
+        <div class="next-links">
+          <a href="privacy-model.html"><span class="dir">Next ›</span><div class="ttl">Local-First &amp; Privacy</div></a>
+          <a href="feature-highlights.html"><span class="dir">Related</span><div class="ttl">Feature Highlights</div></a>
+        </div>
+      </article>
+    </div>
+
+    <footer class="site-footer">
+      &copy; 2026 Audiobook Studio · Local-first, professional audiobook production.<br />
+      <a href="../index.html">Handbook</a> · <a href="../../index.html">Home</a> · <a href="https://github.com/senigami/audiobook-studio">GitHub</a>
+    </footer>
+  </body>
+</html>

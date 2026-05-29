@@ -35,12 +35,13 @@
 .at-glance li { color: var(--text-soft); font-size: 0.97rem; }
 
 /* Callout chips inside prose */
-.note, .tip, .warning, .soon-note { border-radius: 12px; padding: 0.9rem 1.1rem; margin: 1.2rem 0; font-size: 0.96rem; border: 1px solid var(--border); }
+.note, .tip, .warning, .soon-note, .future { border-radius: 12px; padding: 0.9rem 1.1rem; margin: 1.2rem 0; font-size: 0.96rem; border: 1px solid var(--border); }
 .note { background: var(--surface-alt); }
 .tip { background: var(--violet-tint); border-color: transparent; }
 .warning { background: #fff6f3; border-color: #ffd9cc; }
 .soon-note { background: var(--coral-tint); border-color: transparent; color: #b5451f; font-weight: 600; }
-.note b, .tip b, .warning b, .soon-note b { font-weight: 800; }
+.future { background: linear-gradient(135deg, var(--violet-tint), #f3ecff); border-color: transparent; color: #5b3fd6; }
+.note b, .tip b, .warning b, .soon-note b, .future b { font-weight: 800; }
 
 /* Example/code blocks reuse studio2 <pre>. Tables: */
 .doc-article table { width: 100%; border-collapse: collapse; margin: 1.2rem 0; font-size: 0.95rem; }
