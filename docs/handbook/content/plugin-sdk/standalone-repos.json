@@ -1,0 +1,6 @@
+{
+ "title": "Portable Core &amp; Standalone Repos",
+ "desc": "First-party engines as standalone repos that also run from a CLI.",
+ "lede": "Engines are built to live as their own repos and even run outside Studio from a CLI.",
+ "body": "<div class=\"soon-note\"><b>In progress —</b> the standalone harness is firming up in Phase 12.</div>\n        <div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Engine repo layout (XTTS as the example).</li><li>A CLI entry point and dependency path.</li><li>A standalone builder harness.</li></ul></div>\n        <h2>Repo layout</h2>\n        <p><strong>Each engine is a self-contained repo</strong> (XTTS is the worked example) that Studio installs via git. The same folder runs in Studio and on its own.</p>\n        <h2>CLI &amp; harness</h2>\n        <p><strong>A CLI entry point lets an engine run without the app</strong>, which is handy for development and testing. A builder harness helps package and verify a standalone engine.</p>"
+}

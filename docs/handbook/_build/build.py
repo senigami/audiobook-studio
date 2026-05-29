@@ -920,6 +920,667 @@ page("user-guide/troubleshooting",
   h2("Long-sentence warnings"),
   p("<strong>Very long sentences may be split for the engine.</strong> If you see a warning, shortening or re-punctuating the sentence usually helps."))
 
+# ============================ PLUGIN SDK =======================================
+page("plugin-sdk/overview",
+  "Plugin Architecture",
+  "How engines plug into Studio through the managed TTS Server.",
+  "Engines are plugins. They run inside the managed TTS Server, behind one small contract, so Studio never has to know an engine's internals.",
+  glance([
+    "Engines are discovered as folder plugins.",
+    "They run in the <strong>TTS Server</strong>, isolated from the app.",
+    "Behavior is <strong>declared</strong>, not hard-coded into Studio.",
+    "Built-in and community engines use the same path."]),
+  h2("Folder plugins &amp; discovery"),
+  p("<strong>An engine is a self-contained folder.</strong> Studio discovers engines in the engines directory, validates each manifest, and registers it. Built-in engines go through the exact same discovery as community ones."),
+  h2("Studio-owns vs plugin-owns"),
+  p("<strong>Studio owns persistence and orchestration; the plugin owns synthesis.</strong> A plugin must not import app internals or write outside its folder and the requested output path. This keeps engines portable and safe."),
+  h2("The declared-hook model"),
+  p("<strong>What an engine can do is declared in its manifest.</strong> Chunk limits, progress parsing, resources, and settings come from metadata, so adding an engine never means adding engine-ID branches across the app. See " + L("manifest.html", "manifest.json Reference") + " and " + L("engine-contract.html", "Engine Contract &amp; Hooks") + "."))
+
+page("plugin-sdk/anatomy",
+  "Anatomy of a Plugin",
+  "The files that make up a self-contained plugin mini-repo.",
+  "A plugin is a small repo with a predictable layout. Here's what each part does.",
+  glance([
+    "<code>manifest.json</code> + the engine entry class.",
+    "<code>settings_schema.json</code> for the settings UI.",
+    "<code>requirements.txt</code> for dependencies.",
+    "<code>tests/</code> travels with the plugin."]),
+  h2("Layout"),
+  pre("tts_<engine_id>/\n"
+      "  manifest.json        # discovery + capabilities + distribution\n"
+      "  engine.py            # the StudioTTSEngine implementation\n"
+      "  settings_schema.json # JSON Schema -> settings form\n"
+      "  requirements.txt     # runtime dependencies\n"
+      "  README.md  icon.png  # shown in the engine browser\n"
+      "  tests/               # plugin-local tests + fixtures"),
+  h2("Why self-contained"),
+  p("<strong>Everything an engine needs lives in its folder</strong> so it can be published as its own GitLab repo and installed with a clone. See " + L("../api/overview.html", "the API") + " for driving Studio, and " + L("template.html", "Using the Template") + " to start."),
+  note("Heavy model weights are not committed to the repo — they download on first use, keeping the bundle small."))
+
+page("plugin-sdk/manifest",
+  "manifest.json Reference",
+  "Every manifest field and what it controls.",
+  "The manifest is the engine's contract with Studio. These fields drive discovery, capabilities, behavior, and distribution.",
+  glance([
+    "Identity: <code>engine_id</code>, <code>entry_class</code>, versions.",
+    "Capabilities, languages, and resource profile.",
+    "Behavior metadata (chunk limit, progress).",
+    "A <code>distribution</code> block for install/update."]),
+  h2("Core fields"),
+  table(["Field", "Purpose"], [
+    ["<code>engine_id</code>", "Stable id; also the <code>tts_&lt;id&gt;</code> folder name."],
+    ["<code>display_name</code>", "Shown in the UI and engine browser."],
+    ["<code>engine_version</code> / <code>min_app_version</code>", "Semver; gates updates."],
+    ["<code>entry_class</code>", "Path to the engine implementation."],
+    ["<code>resource_profile</code>", "GPU/VRAM/CPU needs for scheduling."],
+    ["<code>supported_languages</code> / <code>supported_voice_asset_types</code>", "What it can do."],
+    ["<code>requires_network</code>", "Cloud engines disclose off-machine calls."]]),
+  h2("Distribution block"),
+  p("<strong>Engines install from GitLab by git clone and update by git pull.</strong> The <code>distribution</code> block carries the <code>git_url</code>, <code>project</code>, discovery <code>topic</code>, and an optional <code>pin_ref</code>. See " + L("install-import.html", "Installing &amp; Updating Engines") + "."),
+  h2("Behavior metadata"),
+  p("Behavior fields (chunk limits, progress patterns, per-voice settings) let core behavior come from data — see " + L("behavior-metadata.html", "Behavior Metadata") + "."))
+
+page("plugin-sdk/engine-contract",
+  "Engine Contract &amp; Hooks",
+  "The callables Studio expects an engine to implement.",
+  "An engine implements a small, published contract — five required methods, two optional.",
+  glance([
+    "<code>info / check_env / check_request / synthesize / settings_schema</code>.",
+    "Optional: <code>preview</code>, <code>shutdown</code>.",
+    "Same contract for built-in and community engines."]),
+  h2("The five required methods"),
+  pre("def info(self): ...            # metadata for the registry\n"
+      "def check_env(self): ...       # can this engine run here?\n"
+      "def check_request(self, r): ...# pre-flight validation\n"
+      "def synthesize(self, r): ...   # write audio to r['output_path']\n"
+      "def settings_schema(self): ... # JSON Schema for the settings UI"),
+  h2("Optional overrides"),
+  ul([
+    "<code>preview(r)</code> — lightweight preview (defaults to synthesize).",
+    "<code>shutdown()</code> — cleanup on unload (defaults to no-op)."]),
+  h2("Rules"),
+  p("<strong>Engines run in the TTS Server, not the app.</strong> Don't import app modules, start background threads, or write outside the plugin folder and the requested output path. Voice-asset building goes through the same contract."))
+
+page("plugin-sdk/behavior-metadata",
+  "Behavior Metadata",
+  "Driving core behavior from manifest metadata instead of engine-ID branches.",
+  "Instead of special-casing engines in Studio's code, engines declare their behavior as metadata. Studio reads it and adapts.",
+  glance([
+    "Chunk limit and split target come from the manifest.",
+    "Progress is parsed from a declared pattern.",
+    "Settings render from a JSON Schema with UI hints.",
+    "Per-voice settings are declared, not hard-coded."]),
+  h2("Text chunking"),
+  p("<strong>Each engine declares its text chunk limit.</strong> Studio splits long segments accordingly, so chunking adapts per engine without code changes."),
+  h2("Progress parsing"),
+  p("<strong>Progress comes from a declared pattern.</strong> Studio turns engine output into normalized progress events using metadata, not engine-specific parsing scattered through the app."),
+  h2("Schema-driven settings"),
+  p("<strong>Settings forms are generated from <code>settings_schema.json</code></strong>, with optional UI hints. Engines can also declare per-voice settings. See " + L("manifest.html", "manifest.json Reference") + "."))
+
+page("plugin-sdk/compatibility",
+  "Compatibility &amp; Versioning",
+  "Verifying a plugin matches the Studio plugin contract before use.",
+  "Studio checks that a plugin matches the contract version it expects before trusting it.",
+  soon("contract-version checks are being finalized in Phase 12."),
+  glance([
+    "A contract version (v1) defines the expected surface.",
+    "Expected callables and signatures are verified.",
+    "Checks run at load, before synthesis."]),
+  h2("Contract version"),
+  p("<strong>The plugin contract is versioned.</strong> Studio knows which contract version it supports and validates plugins against it."),
+  h2("What's checked"),
+  p("<strong>Required callables must exist with the expected signatures.</strong> Validation happens at load, so an incompatible plugin fails fast with a clear reason instead of mid-job."))
+
+page("plugin-sdk/plugin-context",
+  "Plugin Context Contract",
+  "How plugins reach Studio services without importing app persistence.",
+  "Plugins get what they need through a context object — never by importing Studio's internals.",
+  soon("the context contract is being finalized in Phase 12."),
+  glance([
+    "<code>plugin/core</code> stays portable (no app imports).",
+    "A context is passed into Studio-facing adapters.",
+    "Persistence stays Studio-owned."]),
+  h2("Why portability matters"),
+  p("<strong>The engine core must run without Studio.</strong> Keeping it free of app imports is what lets engines be extracted and run standalone — see " + L("standalone-repos.html", "Portable Core &amp; Standalone Repos") + "."),
+  h2("The context"),
+  p("<strong>Studio passes a context into the plugin's adapter layer</strong> for the services it's allowed to use. Studio still owns persistence and state."))
+
+page("plugin-sdk/standalone-repos",
+  "Portable Core &amp; Standalone Repos",
+  "First-party engines as standalone repos that also run from a CLI.",
+  "Engines are built to live as their own repos and even run outside Studio from a CLI.",
+  soon("the standalone harness is firming up in Phase 12."),
+  glance([
+    "Engine repo layout (XTTS as the example).",
+    "A CLI entry point and dependency path.",
+    "A standalone builder harness."]),
+  h2("Repo layout"),
+  p("<strong>Each engine is a self-contained repo</strong> (XTTS is the worked example) that Studio installs via git. The same folder runs in Studio and on its own."),
+  h2("CLI &amp; harness"),
+  p("<strong>A CLI entry point lets an engine run without the app</strong>, which is handy for development and testing. A builder harness helps package and verify a standalone engine."))
+
+page("plugin-sdk/dev-mode",
+  "Studio Dev Mode Preview",
+  "The authoritative UI preview path for plugin development.",
+  "Dev Mode is how you preview a plugin's UI and behavior inside Studio while you build it.",
+  soon("Dev Mode is being finalized in Phase 12."),
+  glance([
+    "Preview the plugin's UI in Studio.",
+    "Drive it with scenario fixtures from the plugin.",
+    "Use it as you build."]),
+  h2("What it previews"),
+  p("<strong>Dev Mode renders your plugin's settings and flows</strong> the way users will see them, so you can iterate without a full release loop."),
+  h2("Scenario fixtures"),
+  p("<strong>Plugins ship fixtures that drive the preview</strong>, giving deterministic scenarios to check against while developing."))
+
+page("plugin-sdk/install-import",
+  "Installing &amp; Updating Engines",
+  "Installing engines from GitLab, importing by zip, and keeping them updated.",
+  "Engines install like Stable Diffusion extensions: browse, clone, and update with a click. You can also import a zip directly.",
+  soon("the in-app engine browser is part of the 2.0 rollout."),
+  glance([
+    "Browse the GitLab topic <code>audiobook-studio-tts</code>, or paste a repo URL.",
+    "Install = git clone; update = git pull.",
+    "Updates show as a notify-only alert in Settings → TTS Engines.",
+    "Import a zip or delete an engine from the UI."]),
+  h2("Install"),
+  p("<strong>Find an engine and clone it down.</strong> Studio validates the manifest and folder name before any code loads, then registers it. Heavy weights download on first use."),
+  h2("Update"),
+  p("<strong>Updates are notify-only.</strong> Settings → TTS Engines lists available updates with per-engine <em>Update</em> and <em>Update all</em>; Studio never updates without your click."),
+  h2("Import &amp; delete"),
+  p("<strong>You can also import an engine from a zip</strong> (for offline or private engines) and delete engines with a confirmation. Dependency installs show clear feedback."),
+  warn("third-party engines run code in the TTS Server. Studio shows a trust prompt naming the source before installing a community engine."))
+
+page("plugin-sdk/template",
+  "Using the Template",
+  "Start from the bundled engine template.",
+  "Don't start from scratch — copy the template and fill in the blanks.",
+  glance([
+    "Copy the engine bundle template.",
+    "Update the manifest and settings schema.",
+    "Implement the five contract methods."]),
+  h2("Steps"),
+  ol([
+    "Copy the engine bundle template into a new <code>tts_&lt;id&gt;</code> repo.",
+    "Edit <code>manifest.json</code> (id, entry class, capabilities, distribution).",
+    "Describe options in <code>settings_schema.json</code> and deps in <code>requirements.txt</code>.",
+    "Implement <code>info / check_env / check_request / synthesize / settings_schema</code>.",
+    "Add the GitLab topic <code>audiobook-studio-tts</code> so Studio's browser finds it."]),
+  p("See " + L("engine-contract.html", "Engine Contract &amp; Hooks") + " and " + L("testing.html", "Testing Your Plugin") + "."))
+
+page("plugin-sdk/testing",
+  "Testing Your Plugin",
+  "Keeping tests and fixtures inside the plugin folder.",
+  "Tests travel with the plugin, so an engine repo proves itself wherever it lives.",
+  glance([
+    "Plugin-local <code>tests/</code> are collected by pytest.",
+    "A contract test checks the required surface.",
+    "Fixtures and generated outputs live with the plugin."]),
+  h2("Plugin-local tests"),
+  p("<strong>Keep tests inside the plugin folder.</strong> They're collected alongside the app's tests, so the engine is verified in place."),
+  h2("The contract test"),
+  p("<strong>A contract test confirms the engine implements the required methods</strong> with the expected behavior — the fastest way to catch a broken plugin."),
+  h2("Fixtures"),
+  p("<strong>Ship fixtures (and any generated outputs) with the plugin</strong> so tests are deterministic and self-contained."))
+
+page("plugin-sdk/submission",
+  "Submission Guidelines",
+  "What a plugin needs to be accepted.",
+  "Sharing an engine for others? Here's the bar it should meet.",
+  glance([
+    "Passes a security &amp; safety review.",
+    "Is stable and performs reasonably.",
+    "Is self-contained and properly licensed."]),
+  h2("Security &amp; safety"),
+  p("<strong>Engines run code, so safety comes first.</strong> Respect the boundaries (no app imports, only write to allowed paths), and disclose any network use."),
+  h2("Stability &amp; performance"),
+  p("<strong>It should work reliably and not hog resources.</strong> Declare an honest resource profile so scheduling can do its job."),
+  h2("Self-contained &amp; licensed"),
+  p("<strong>Everything in the repo, with a clear license.</strong> Tests included, weights downloaded on first use, license stated in the manifest."))
+
+# ============================ TTS GATEWAY API ==================================
+page("api/overview",
+  "Gateway Overview &amp; Enabling",
+  "Use Studio as an external TTS backend over HTTP.",
+  "The gateway turns Studio into a local text-to-speech backend your own tools can call over HTTP, using the engines you've installed.",
+  glance([
+    "A local HTTP API for synthesis.",
+    "Enable it in Settings.",
+    "OpenAPI docs at <code>/api/v1/tts/docs</code>."]),
+  h2("What the gateway is"),
+  p("<strong>It exposes synthesis over HTTP</strong> so scripts and apps can generate speech through Studio's installed engines — no cloud account needed."),
+  h2("Enabling it"),
+  p("<strong>Turn the gateway on in " + L("../user-guide/settings.html", "Settings") + ".</strong> It's off by default. Once enabled, the interactive OpenAPI docs are served at <code>/api/v1/tts/docs</code>."),
+  note("This is for an AI/automation audience — the endpoint pages are precise enough to hand to your own assistant to integrate."))
+
+page("api/auth",
+  "Authentication &amp; Rate Limiting",
+  "Securing the gateway for LAN or shared use.",
+  "Before exposing the gateway beyond localhost, lock it down with a key and rate limits.",
+  glance([
+    "Bearer API-key auth.",
+    "Consider LAN binding carefully.",
+    "Per-IP rate limiting."]),
+  h2("API key (Bearer)"),
+  p("<strong>Authenticate requests with a Bearer token.</strong> Send <code>Authorization: Bearer &lt;key&gt;</code> on each call."),
+  pre("curl -H \"Authorization: Bearer $STUDIO_API_KEY\" \\\n     http://127.0.0.1:8123/api/v1/tts/engines"),
+  h2("LAN binding &amp; rate limits"),
+  p("<strong>Binding to a LAN address exposes the gateway to your network.</strong> Use the API key, apply per-IP rate limiting, and consider a reverse proxy. See " + L("../operations/headless-lan.html", "Headless &amp; LAN Exposure") + "."))
+
+page("api/endpoints",
+  "Endpoints Reference",
+  "The routes exposed under /api/v1/tts.",
+  "The gateway's surface is small. Here are the routes you'll use.",
+  glance([
+    "Discover engines.",
+    "Synthesize and preview.",
+    "Fetch job status and audio."]),
+  h2("Routes"),
+  table(["Method &amp; path", "Purpose"], [
+    ["<code>GET /api/v1/tts/engines</code>", "List installed engines."],
+    ["<code>GET /api/v1/tts/engines/{id}</code>", "Details for one engine."],
+    ["<code>POST /api/v1/tts/synthesize</code>", "Synthesize text (inline or queued)."],
+    ["<code>POST /api/v1/tts/preview</code>", "Quick preview synthesis."],
+    ["<code>GET /api/v1/tts/jobs/{id}</code>", "Poll a queued job's status."],
+    ["<code>GET /api/v1/tts/jobs/{id}/audio</code>", "Download a finished job's audio."]]),
+  p("See " + L("sync-vs-queued.html", "Inline vs Queued + Polling") + " for how short and long text differ, and " + L("examples.html", "Examples") + " for copy-paste calls."))
+
+page("api/sync-vs-queued",
+  "Inline vs Queued + Polling",
+  "Short text returns inline; long text queues a job you poll.",
+  "How a request behaves depends on length: short text comes back immediately; long text becomes a job you poll.",
+  glance([
+    "Short text → inline audio in the response.",
+    "Long text → a job id + poll URL.",
+    "Poll until complete, then fetch the audio."]),
+  h2("Inline"),
+  p("<strong>Below the inline threshold, synthesis returns audio directly.</strong> One request, one response — simplest for short snippets."),
+  h2("Queued + polling"),
+  p("<strong>Above the threshold, you get a job id and a poll URL.</strong> Poll <code>GET /api/v1/tts/jobs/{id}</code> until it's done, then download from <code>/jobs/{id}/audio</code>."),
+  pre("POST /api/v1/tts/synthesize  -> { \"job_id\": \"...\", \"poll\": \"/api/v1/tts/jobs/...\" }\nGET  /api/v1/tts/jobs/{id}    -> { \"status\": \"running\" | \"done\" | \"failed\" }\nGET  /api/v1/tts/jobs/{id}/audio -> the audio file"))
+
+page("api/priority",
+  "Priority Policies",
+  "How API jobs are scheduled relative to Studio's own work.",
+  "When the gateway and the app both want the engine, a priority policy decides who goes first.",
+  glance([
+    "<code>TTS_API_PRIORITY</code> sets the mode.",
+    "Modes: studio_first, equal, api_first.",
+    "Designed to avoid starvation."]),
+  h2("The modes"),
+  table(["Mode", "Behavior"], [
+    ["<code>studio_first</code>", "Studio's own jobs take precedence over API jobs."],
+    ["<code>equal</code>", "API and Studio jobs share the queue fairly."],
+    ["<code>api_first</code>", "API jobs take precedence (for backend-style use)."]]),
+  h2("Avoiding starvation"),
+  p("<strong>Whichever mode you pick, scheduling avoids starving the other side.</strong> Set the mode via the <code>TTS_API_PRIORITY</code> environment variable — see " + L("../operations/env-vars.html", "Environment Variables") + "."))
+
+page("api/examples",
+  "Examples",
+  "Copy-paste curl and automation snippets.",
+  "Concrete calls you can copy, paste, and hand to your own AI to wire up an integration.",
+  glance([
+    "Discover engines.",
+    "Synthesize inline and queued.",
+    "Poll and download audio."]),
+  h2("Discover engines"),
+  pre("curl -H \"Authorization: Bearer $KEY\" \\\n     http://127.0.0.1:8123/api/v1/tts/engines"),
+  h2("Synthesize"),
+  pre("curl -X POST http://127.0.0.1:8123/api/v1/tts/synthesize \\\n  -H \"Authorization: Bearer $KEY\" -H \"Content-Type: application/json\" \\\n  -d '{\"text\": \"Chapter one.\", \"voice\": \"gravel-road\"}'"),
+  h2("Poll &amp; download (long text)"),
+  pre("# returns {\"job_id\":\"abc\",\"poll\":\"/api/v1/tts/jobs/abc\"}\ncurl -H \"Authorization: Bearer $KEY\" http://127.0.0.1:8123/api/v1/tts/jobs/abc\ncurl -H \"Authorization: Bearer $KEY\" -o out.wav \\\n     http://127.0.0.1:8123/api/v1/tts/jobs/abc/audio"))
+
+page("api/llm-controllers",
+  "LLM / Controller Readiness",
+  "Forward-looking: the API surface for future LLM/controller plugins.",
+  "Looking ahead: what an LLM or external controller would need to drive Studio, and where the gaps are.",
+  future("this is planning only — not built yet. It captures the direction so the API can grow toward it."),
+  glance([
+    "What a controller would need from the API.",
+    "Gaps currently being verified.",
+    "Direction, not a shipped feature."]),
+  h2("What a controller would need"),
+  p("<strong>A controller needs to discover capabilities, submit work, and observe results</strong> — list engines/voices, synthesize, and poll jobs, all of which the gateway already covers in basic form."),
+  h2("Current gaps"),
+  p("<strong>Richer capability description and status detail are being verified</strong> as candidates for the controller surface. Nothing here is committed yet."))
+
+# ============================ ARCHITECTURE =====================================
+page("architecture/overview",
+  "Architecture Overview",
+  "The big-picture map of Studio 2.0 subsystems and ownership.",
+  "A map of the 2.0 subsystems and who owns what, plus how a request flows end to end.",
+  glance([
+    "Clear ownership: orchestrator, watchdog, voice bridge.",
+    "A request flows app → bridge → TTS Server → engine.",
+    "No import-time side effects."]),
+  h2("Ownership split"),
+  ul([
+    "<strong>Orchestrator</strong> — schedules and recovers work.",
+    "<strong>Watchdog</strong> — supervises the TTS Server process.",
+    "<strong>Voice bridge</strong> — the only route from a request to an engine."]),
+  h2("Request flow"),
+  p("<strong>A synthesis request travels app → voice bridge → TTS Server → engine, and results come back as normalized artifacts and progress.</strong> See " + L("voice-bridge.html", "VoiceBridge") + " and " + L("tts-server.html", "TTS Server &amp; Watchdog") + "."),
+  h2("No import-time side effects"),
+  p("<strong>Importing a module must not start servers, load models, or touch the filesystem.</strong> Startup happens in one explicit place — see " + L("boot.html", "Boot Sequence") + "."))
+
+page("architecture/tts-server",
+  "TTS Server &amp; Watchdog",
+  "The long-lived TTS Server subprocess and its supervisor.",
+  "Synthesis runs in a separate, supervised process. If it dies, the watchdog brings it back.",
+  glance([
+    "A long-lived subprocess hosts engines.",
+    "A READY signal marks it up.",
+    "A watchdog spawns, health-checks, and restarts it.",
+    "A circuit breaker prevents crash loops."]),
+  h2("The server process"),
+  p("<strong>The TTS Server hosts all engines and manages GPU memory.</strong> It signals readiness once up, and Studio talks to it over HTTP via the bridge."),
+  h2("The watchdog"),
+  p("<strong>Studio spawns and supervises the server.</strong> It polls health, restarts on failure, and uses a circuit breaker so a persistently broken engine doesn't spin in a restart loop."))
+
+page("architecture/voice-bridge",
+  "VoiceBridge",
+  "The single routing point from a voice request to an engine.",
+  "Every synthesis request goes through one place: the VoiceBridge. That's what keeps engine details out of the rest of the app.",
+  glance([
+    "Routes requests to engines over HTTP.",
+    "A remote bridge + client talk to the TTS Server.",
+    "Honors engine enablement and readiness."]),
+  h2("Routing"),
+  p("<strong>The bridge resolves the voice, validates readiness, builds the engine request, and normalizes the result.</strong> Nothing else calls engines directly."),
+  h2("Remote client"),
+  p("<strong>A bridge client speaks to the TTS Server over HTTP.</strong> Studio caches engine info from the server rather than importing engine code. See " + L("../plugin-sdk/overview.html", "Plugin Architecture") + "."))
+
+page("architecture/orchestration",
+  "Task Orchestration",
+  "How background work is scheduled and executed.",
+  "The orchestrator owns background work: it submits, schedules, cancels, and recovers tasks.",
+  glance([
+    "A <code>StudioTask</code> abstraction with task types.",
+    "Submit / cancel / recover operations.",
+    "Policies, resources, and recovery rules.",
+    "A job-handler registry."]),
+  h2("Tasks &amp; jobs"),
+  p("<strong>Work is modeled as tasks with explicit types.</strong> The orchestrator turns them into queued jobs and runs them under scheduling policies that respect engine resources."),
+  h2("Recovery"),
+  p("<strong>Recovery is built in.</strong> After a restart, the orchestrator reconciles what's done against what's expected and resumes. A job-handler registry maps job kinds to their handlers. See " + L("progress.html", "Progress Services") + " and " + L("../concepts/artifacts-recovery.html", "Artifacts, Reuse &amp; Recovery") + "."))
+
+page("architecture/progress",
+  "Progress Services",
+  "Centralized progress math, ETA, reconciliation, and broadcasting.",
+  "Progress is computed in one place and broadcast, so every screen shows the same numbers.",
+  glance([
+    "One source for progress math.",
+    "Rounded sensibly; broadcast on meaningful change.",
+    "ETA estimation and reconciliation as truth."]),
+  h2("Centralized math"),
+  p("<strong>Progress is calculated centrally and rounded</strong> (broadcasting only on meaningful change) to avoid noisy, inconsistent updates across screens."),
+  h2("ETA &amp; reconciliation"),
+  p("<strong>ETAs come from observed throughput; reconciliation is the source of truth.</strong> What actually exists as validated artifacts wins over optimistic in-memory state."))
+
+page("architecture/boot",
+  "Boot Sequence",
+  "The one explicit place startup side effects are allowed.",
+  "Startup is deliberate and idempotent — and it's the only place side effects live.",
+  glance([
+    "<code>boot_studio()</code> and <code>boot_tts_server()</code>.",
+    "Migrations run, then the watchdog starts.",
+    "Idempotent and off the request path."]),
+  h2("Explicit startup"),
+  p("<strong>Boot functions own all startup side effects.</strong> Migrations run first, then the watchdog brings up the TTS Server. Importing modules never triggers this."),
+  h2("Idempotent"),
+  p("<strong>Boot can run safely more than once</strong> and never happens as a side effect of handling a request — keeping requests fast and predictable."))
+
+page("architecture/state",
+  "State: state.json + SQLite",
+  "The live state store and the persistent database.",
+  "Studio keeps fast-changing runtime state in a JSON file and durable data in SQLite.",
+  glance([
+    "<code>state.json</code> — live jobs and settings.",
+    "SQLite — projects, chapters, segments, queue history.",
+    "Moving toward a StorageManager."]),
+  h2("Live vs durable"),
+  p("<strong><code>state.json</code> holds live runtime state</strong> (in-flight jobs, settings), while <strong>SQLite holds durable data</strong> (projects, chapters, segments, queue history)."),
+  h2("Direction"),
+  p("<strong>Storage access is consolidating behind a StorageManager</strong> so route handlers and tasks don't reach into paths directly. See " + L("../operations/storage-layout.html", "Storage Layout") + "."))
+
+page("architecture/web-api",
+  "Web &amp; API Layer",
+  "The FastAPI app, routers, WebSocket, and the gateway sub-app.",
+  "The web layer is a FastAPI app: domain routers for the UI, a WebSocket for live updates, and the gateway mounted as a sub-app.",
+  glance([
+    "<code>web.py</code> mounts and lifecycle.",
+    "Domain routers behind the UI.",
+    "<code>ws.py</code> broadcasts live updates.",
+    "Jobs moving from REST polling to WebSocket."]),
+  h2("App &amp; routers"),
+  p("<strong>FastAPI hosts domain routers</strong> (projects, chapters, voices, queue, and more) plus the external gateway as a mounted sub-app. See " + L("internal-api.html", "Internal HTTP API Reference") + " and " + L("../api/overview.html", "TTS Gateway API") + "."),
+  h2("Live updates"),
+  p("<strong>A WebSocket broadcasts progress and state</strong> so the UI updates without polling; queue updates are migrating from REST polling to the WebSocket."))
+
+page("architecture/paths-security",
+  "Paths &amp; Security",
+  "Treating filesystem paths as an untrusted security surface.",
+  "User-influenced paths are treated as hostile input. Studio contains them with dedicated helpers.",
+  glance([
+    "<code>safe_join</code> / <code>secure_join_flat</code> / <code>find_secure_file</code>.",
+    "A containment pattern for all path building.",
+    "Aligned with static analysis (CodeQL)."]),
+  h2("Containment"),
+  p("<strong>Never join user input into a path directly.</strong> The secure-join helpers keep resolved paths inside their intended root, blocking traversal."),
+  h2("Why it matters"),
+  p("<strong>Paths are an untrusted surface.</strong> Treating them consistently — and keeping aligned with CodeQL findings — prevents a whole class of vulnerabilities."))
+
+page("architecture/frontend",
+  "Frontend Architecture",
+  "How the React app is organized.",
+  "The UI is a React app with a clear split between canonical data and live overlays.",
+  glance([
+    "pages / components / hooks / store / theme.",
+    "Canonical data vs live overlays.",
+    "Tests under frontend/tests."]),
+  h2("Organization"),
+  p("<strong>The app is organized into pages, components, hooks, a store, and theme.</strong> The store holds UI state; it is not a second source of truth for canonical data."),
+  h2("Canonical vs live"),
+  p("<strong>Canonical data comes from the backend; live overlays show in-flight progress.</strong> Keeping them distinct avoids the frontend drifting from server truth. Tests live under <code>frontend/tests</code>."))
+
+page("architecture/internal-api",
+  "Internal HTTP API Reference",
+  "The internal domain route groups behind the UI.",
+  "The UI is backed by internal domain routes. These are grouped by area.",
+  glance([
+    "projects / chapters / voices / queue.",
+    "generation / jobs / settings / system.",
+    "analysis / migration / engines."]),
+  h2("Route groups"),
+  ul([
+    "<strong>Content</strong> — projects, chapters, voices.",
+    "<strong>Work</strong> — generation, jobs, queue.",
+    "<strong>System</strong> — settings, system, engines, analysis, migration."]),
+  note("These are internal routes for the UI. For the external, documented surface see the " + L("../api/overview.html", "TTS Gateway API") + "."))
+
+# ============================ OPERATIONS =======================================
+page("operations/launcher-options",
+  "Launcher Options",
+  "Running the app for different scenarios.",
+  "The launchers cover everyday running and a few special cases via flags.",
+  glance([
+    "<code>run.sh</code> / <code>run.ps1</code> flags.",
+    "A generic plugin setup loop.",
+    "Port and reload control."]),
+  h2("Flags"),
+  ul([
+    "<code>--setup-only</code> — provision without starting.",
+    "<code>--no-reload</code> — disable the dev auto-reload.",
+    "<code>--port &lt;n&gt;</code> — change the port (default 8123)."]),
+  h2("Setup loop"),
+  p("<strong>The launcher provisions the app and engine environments and installs plugin dependencies</strong> the first time. See " + L("../getting-started/launchers.html", "Launcher Scripts") + "."))
+
+page("operations/env-vars",
+  "Environment Variables",
+  "Configurable environment variables resolved in app config.",
+  "Studio reads a handful of environment variables for storage roots, plugin locations, and behavior.",
+  glance([
+    "Storage roots and base directory.",
+    "Plugin and plugin-data locations.",
+    "Engine env, ports, and test-mode flags."]),
+  h2("Common variables"),
+  table(["Variable", "Purpose"], [
+    ["<code>AUDIOBOOK_BASE_DIR</code>", "Base directory for storage roots."],
+    ["<code>PLUGINS_DIR</code> / <code>PLUGIN_DATA_DIR</code>", "Where engines and their data live."],
+    ["<code>XTTS_ENV_DIR</code>", "Location of the engine environment."],
+    ["<code>TTS_API_PRIORITY</code>", "Gateway vs Studio scheduling mode."]]),
+  note("Ports and test-mode flags are also configurable; see the app config for the full list."))
+
+page("operations/storage-layout",
+  "Storage Layout",
+  "Where Studio keeps projects, voices, uploads, and transient data.",
+  "Everything Studio writes has a place. Here's the layout.",
+  glance([
+    "Per-project folders for audio, text, output, and trash.",
+    "Voices and plugin data have their own roots.",
+    "Transient and trash areas are separate."]),
+  h2("Per-project"),
+  pre("projects/<id>/\n  audio/   text/   m4b/   cover/   trash/"),
+  h2("Shared roots"),
+  p("<strong>Voices and per-engine plugin data live in their own roots</strong>, with transient and trash areas kept apart from durable content. See " + L("../architecture/state.html", "State: state.json + SQLite") + "."))
+
+page("operations/xtts-env",
+  "The XTTS Environment",
+  "Maintaining the separate engine install.",
+  "The local engine lives in its own environment. Occasionally you'll update or rebuild it.",
+  glance([
+    "What lives in the engine environment.",
+    "An update script keeps it current.",
+    "Recreate it if dependencies go stale."]),
+  h2("What lives there"),
+  p("<strong>The local engine and its heavy dependencies</strong> live separately from the app to avoid conflicts. See " + L("../getting-started/environments.html", "The Two Environments") + "."),
+  h2("Updating &amp; recreating"),
+  p("<strong>An update script refreshes the engine environment.</strong> If dependencies get into a bad state, recreate it without touching the app."))
+
+page("operations/scripts",
+  "Maintenance Scripts",
+  "The helper scripts in scripts/.",
+  "A few scripts help with stats, recovery, and development.",
+  glance([
+    "Backfill stats and sync durations.",
+    "Recover projects from disk.",
+    "Install hooks and a dev helper."]),
+  h2("Data maintenance"),
+  ul([
+    "<strong>Backfill / sync</strong> — recompute stats and durations.",
+    "<strong>Recover</strong> — rebuild project state from files on disk."]),
+  h2("Development"),
+  p("<strong>Hook installers and a dev helper</strong> streamline local development. See " + L("../contributing/testing-verification.html", "Testing &amp; Verification") + "."))
+
+page("operations/backups-recovery",
+  "Backups &amp; Recovery",
+  "Protecting and restoring project data.",
+  "Two layers protect your work: project backups you take, and automatic reconciliation on startup.",
+  glance([
+    "Project backups (optionally with audio).",
+    "Disk-based project recovery.",
+    "Startup reconciliation."]),
+  h2("Backups"),
+  p("<strong>Snapshot a project and restore it later.</strong> See " + L("../user-guide/backups-tab.html", "Backups") + " for the in-app flow."),
+  h2("Recovery &amp; reconciliation"),
+  p("<strong>Studio can rebuild project state from disk</strong> and reconciles state on startup so a crash doesn't lose validated work. See " + L("../concepts/artifacts-recovery.html", "Artifacts, Reuse &amp; Recovery") + "."))
+
+page("operations/headless-lan",
+  "Headless &amp; LAN Exposure",
+  "Running without the UI in focus and exposing on a network.",
+  "You can run Studio on a machine and reach it from elsewhere — just secure it first.",
+  glance([
+    "Serve on a LAN address.",
+    "Secure the gateway with a key + rate limits.",
+    "Reverse-proxy notes."]),
+  h2("Serving on a LAN"),
+  p("<strong>Bind to a network address to reach Studio from other devices.</strong> Doing so exposes it beyond localhost, so treat security as mandatory."),
+  h2("Securing it"),
+  p("<strong>Require the API key, apply per-IP rate limits, and consider a reverse proxy with TLS.</strong> See " + L("../api/auth.html", "Authentication &amp; Rate Limiting") + "."))
+
+page("operations/performance",
+  "Performance &amp; GPU Tuning",
+  "Getting the most throughput from local synthesis.",
+  "A few levers make local synthesis faster and steadier.",
+  glance([
+    "GPU/VRAM considerations.",
+    "CPS auto-tuning and ETA.",
+    "Large-book load performance."]),
+  h2("GPU &amp; VRAM"),
+  p("<strong>A CUDA GPU dramatically speeds local synthesis.</strong> More VRAM lets heavier engines and longer chunks run comfortably."),
+  h2("Throughput &amp; scale"),
+  p("<strong>Studio auto-tunes characters-per-second estimates for accurate ETAs</strong> and is built to keep large books responsive. Declare honest engine resource profiles so scheduling avoids collisions."))
+
+# ============================ CONTRIBUTING =====================================
+page("contributing/workflow",
+  "Contribution Workflow",
+  "How to propose changes to the project.",
+  "Contributions follow a simple fork-and-PR flow with focused, reviewed changes.",
+  glance([
+    "Fork &amp; pull-request workflow.",
+    "Squash-merge, focused PRs.",
+    "Review expectations."]),
+  h2("The flow"),
+  p("<strong>Fork, branch, and open a pull request.</strong> Keep PRs focused on one change; they're squash-merged to keep history clean."),
+  h2("Review"),
+  p("<strong>Expect review on correctness, scope, and tests.</strong> See " + L("testing-verification.html", "Testing &amp; Verification") + " and " + L("agent-rules.html", "Repository Agent Rules") + "."))
+
+page("contributing/agent-rules",
+  "Repository Agent Rules",
+  "The .agent/rules router and what each rule set covers.",
+  "The repo encodes its conventions as agent rules, so both people and AI assistants follow the same constraints.",
+  glance([
+    "A rules router maps tasks to rule sets.",
+    "Key constraints like modular architecture.",
+    "Verification before calling work “done.”"]),
+  h2("The router"),
+  p("<strong>A rules file routes a task to the relevant rule sets</strong> (backend boundaries, frontend, paths, workflow, and more)."),
+  h2("Key constraints"),
+  p("<strong>Modular architecture and clear boundaries are enforced</strong>, and changes aren't “done” until verified. See " + L("testing-verification.html", "Testing &amp; Verification") + "."))
+
+page("contributing/testing-verification",
+  "Testing &amp; Verification",
+  "How to verify a change end to end.",
+  "Before a change is done, it's verified — backend, lint, and frontend.",
+  glance([
+    "pytest across <code>tests/</code> and plugins.",
+    "ruff for linting.",
+    "Frontend vitest / build.",
+    "Tests expected with changes."]),
+  h2("What to run"),
+  ul([
+    "<strong>pytest</strong> — backend and plugin-local tests.",
+    "<strong>ruff</strong> — Python linting.",
+    "<strong>vitest / build</strong> — frontend tests and build."]),
+  h2("Expectation"),
+  p("<strong>Changes ship with tests and a clean verification run.</strong> Plugin tests live with their plugin — see " + L("../plugin-sdk/testing.html", "Testing Your Plugin") + "."))
+
+page("contributing/security",
+  "Security Policy",
+  "Supported versions and how to report vulnerabilities.",
+  "Found a security issue? Report it privately. Here's how, and what to expect.",
+  glance([
+    "Supported versions.",
+    "Private reporting.",
+    "Response expectations."]),
+  h2("Reporting"),
+  p("<strong>Report vulnerabilities privately</strong> rather than in public issues, so they can be fixed before disclosure."),
+  h2("Scope &amp; response"),
+  p("<strong>Supported versions receive fixes</strong>, and reports get an acknowledgement and a path to resolution. Path handling is treated as a security surface — see " + L("../architecture/paths-security.html", "Paths &amp; Security") + "."))
+
+page("contributing/license",
+  "License",
+  "How the project is licensed.",
+  "Audiobook Studio is open source under a permissive license; engines and models carry their own terms.",
+  glance([
+    "MIT-licensed project code.",
+    "Third-party and engine licenses apply separately."]),
+  h2("Project license"),
+  p("<strong>The project code is MIT-licensed.</strong>"),
+  h2("Third-party &amp; engines"),
+  p("<strong>Engines, models, and voices carry their own licenses.</strong> When you install an engine or import a voice, its license applies — Studio surfaces those terms but doesn't override them."))
+
 # ---- render: emit unstyled content JSON; the SPA shell + CSS own all design ----
 def resolve(section, target):
     """Turn an in-handbook relative link into a #route the SPA router uses."""

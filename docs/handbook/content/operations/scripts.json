@@ -1,0 +1,6 @@
+{
+ "title": "Maintenance Scripts",
+ "desc": "The helper scripts in scripts/.",
+ "lede": "A few scripts help with stats, recovery, and development.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Backfill stats and sync durations.</li><li>Recover projects from disk.</li><li>Install hooks and a dev helper.</li></ul></div>\n        <h2>Data maintenance</h2>\n        <ul><li><strong>Backfill / sync</strong> — recompute stats and durations.</li><li><strong>Recover</strong> — rebuild project state from files on disk.</li></ul>\n        <h2>Development</h2>\n        <p><strong>Hook installers and a dev helper</strong> streamline local development. See <a href=\"#contributing/testing-verification\">Testing &amp; Verification</a>.</p>"
+}

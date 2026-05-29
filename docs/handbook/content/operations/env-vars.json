@@ -1,0 +1,6 @@
+{
+ "title": "Environment Variables",
+ "desc": "Configurable environment variables resolved in app config.",
+ "lede": "Studio reads a handful of environment variables for storage roots, plugin locations, and behavior.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Storage roots and base directory.</li><li>Plugin and plugin-data locations.</li><li>Engine env, ports, and test-mode flags.</li></ul></div>\n        <h2>Common variables</h2>\n        <table><thead><tr><th>Variable</th><th>Purpose</th></tr></thead><tbody><tr><td><code>AUDIOBOOK_BASE_DIR</code></td><td>Base directory for storage roots.</td></tr><tr><td><code>PLUGINS_DIR</code> / <code>PLUGIN_DATA_DIR</code></td><td>Where engines and their data live.</td></tr><tr><td><code>XTTS_ENV_DIR</code></td><td>Location of the engine environment.</td></tr><tr><td><code>TTS_API_PRIORITY</code></td><td>Gateway vs Studio scheduling mode.</td></tr></tbody></table>\n        <div class=\"note\"><b>Note —</b> Ports and test-mode flags are also configurable; see the app config for the full list.</div>"
+}

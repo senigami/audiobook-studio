@@ -1,0 +1,6 @@
+{
+ "title": "VoiceBridge",
+ "desc": "The single routing point from a voice request to an engine.",
+ "lede": "Every synthesis request goes through one place: the VoiceBridge. That's what keeps engine details out of the rest of the app.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Routes requests to engines over HTTP.</li><li>A remote bridge + client talk to the TTS Server.</li><li>Honors engine enablement and readiness.</li></ul></div>\n        <h2>Routing</h2>\n        <p><strong>The bridge resolves the voice, validates readiness, builds the engine request, and normalizes the result.</strong> Nothing else calls engines directly.</p>\n        <h2>Remote client</h2>\n        <p><strong>A bridge client speaks to the TTS Server over HTTP.</strong> Studio caches engine info from the server rather than importing engine code. See <a href=\"#plugin-sdk/overview\">Plugin Architecture</a>.</p>"
+}
