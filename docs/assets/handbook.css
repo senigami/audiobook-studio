@@ -1,0 +1,66 @@
+/* Audiobook Studio 2.0 — handbook (docs) layout.
+   Pairs with studio2.css (tokens, nav, buttons, footer). Adds the two-column
+   doc layout: sticky section sidebar + readable article column. */
+
+.doc-shell { display: grid; grid-template-columns: 264px minmax(0, 1fr); gap: 3rem; max-width: 1180px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+
+/* ---- Sidebar ---- */
+.doc-sidebar { position: sticky; top: 76px; align-self: start; max-height: calc(100vh - 96px); overflow-y: auto; padding-right: 0.5rem; }
+.doc-sidebar .group { margin-bottom: 1.4rem; }
+.doc-sidebar .group-title { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem; }
+.doc-sidebar a { display: block; padding: 0.32rem 0.7rem; border-radius: 8px; color: var(--text-soft); text-decoration: none; font-size: 0.92rem; line-height: 1.4; }
+.doc-sidebar a:hover { background: var(--surface-alt); color: var(--text); }
+.doc-sidebar a.active { background: var(--violet-tint); color: var(--accent); font-weight: 700; }
+
+/* ---- Article ---- */
+.doc-article { min-width: 0; }
+.doc-breadcrumb { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.8rem; }
+.doc-breadcrumb a { color: var(--text-soft); text-decoration: none; }
+.doc-article h1 { font-size: clamp(2rem, 4vw, 2.7rem); font-weight: 800; letter-spacing: -0.025em; line-height: 1.1; }
+.doc-article .lede { font-size: 1.18rem; color: var(--text-soft); margin: 0.9rem 0 0; }
+.doc-article h2 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin: 2.6rem 0 0.8rem; padding-top: 1.4rem; border-top: 1px solid var(--border); }
+.doc-article h3 { font-size: 1.15rem; font-weight: 700; margin: 1.6rem 0 0.5rem; }
+.doc-article p, .doc-article li { color: var(--text); font-size: 1.02rem; }
+.doc-article p { margin: 0.9rem 0; }
+.doc-article ul, .doc-article ol { margin: 0.6rem 0 0.6rem 1.3rem; }
+.doc-article li { margin: 0.35rem 0; }
+.doc-article strong { font-weight: 700; }
+.doc-article a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgb(109 94 252 / 0.25); }
+.doc-article a:hover { border-bottom-color: var(--accent); }
+
+/* "At a glance" panel */
+.at-glance { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 14px; padding: 1.2rem 1.4rem; margin: 1.6rem 0; box-shadow: var(--shadow-sm); }
+.at-glance .at-title { font-size: 0.74rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.4rem; }
+.at-glance ul { margin: 0 0 0 1.1rem; }
+.at-glance li { color: var(--text-soft); font-size: 0.97rem; }
+
+/* Callout chips inside prose */
+.note, .tip, .warning, .soon-note { border-radius: 12px; padding: 0.9rem 1.1rem; margin: 1.2rem 0; font-size: 0.96rem; border: 1px solid var(--border); }
+.note { background: var(--surface-alt); }
+.tip { background: var(--violet-tint); border-color: transparent; }
+.warning { background: #fff6f3; border-color: #ffd9cc; }
+.soon-note { background: var(--coral-tint); border-color: transparent; color: #b5451f; font-weight: 600; }
+.note b, .tip b, .warning b, .soon-note b { font-weight: 800; }
+
+/* Example/code blocks reuse studio2 <pre>. Tables: */
+.doc-article table { width: 100%; border-collapse: collapse; margin: 1.2rem 0; font-size: 0.95rem; }
+.doc-article th, .doc-article td { text-align: left; padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border); }
+.doc-article th { font-weight: 700; color: var(--text); background: var(--surface-alt); }
+
+/* Next / related */
+.next-links { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 2.6rem; padding-top: 1.6rem; border-top: 1px solid var(--border); }
+.next-links a { display: block; padding: 1rem 1.2rem; border: 1px solid var(--border); border-radius: 14px; text-decoration: none; color: var(--text); transition: border-color 0.15s, transform 0.15s; }
+.next-links a:hover { border-color: var(--accent); transform: translateY(-2px); }
+.next-links .dir { font-size: 0.74rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.next-links .ttl { font-weight: 700; color: var(--accent); }
+
+/* Handbook home section cards reuse .card/.grid from studio2.css */
+.hb-hero { text-align: center; padding: 3.5rem 1.5rem 1rem; }
+.hb-hero h1 { font-size: clamp(2.2rem, 4.5vw, 3.2rem); font-weight: 800; letter-spacing: -0.03em; }
+.hb-hero p { color: var(--text-soft); max-width: 620px; margin: 1rem auto 0; font-size: 1.1rem; }
+
+@media (max-width: 900px) {
+  .doc-shell { grid-template-columns: 1fr; gap: 1.5rem; }
+  .doc-sidebar { position: static; max-height: none; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+  .next-links { grid-template-columns: 1fr; }
+}
