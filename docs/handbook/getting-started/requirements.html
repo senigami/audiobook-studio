@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Requirements | Handbook</title>
+    <meta name="description" content="The hardware and software you need before installing Audiobook Studio." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../../assets/studio2.css" />
+    <link rel="stylesheet" href="../../assets/handbook.css" />
+  </head>
+  <body>
+    <nav class="site-nav" id="hb-top"></nav>
+    <div class="doc-shell">
+      <aside class="doc-sidebar" id="hb-sidebar"></aside>
+      <article class="doc-article">
+        <div class="doc-breadcrumb" id="hb-crumb"></div>
+        <h1>Requirements</h1>
+        <p class="lede">Before installing, make sure your machine meets a few basics. The local engine benefits from a GPU, but you can get started without one.</p>
+        <div class="at-glance"><div class="at-title">At a glance</div><ul><li>Works on <strong>macOS, Linux, and Windows</strong>.</li><li><strong>Python 3.11</strong>, Node 18+, and ffmpeg.</li><li>A CUDA GPU is recommended for fast local synthesis.</li><li>Disk space for models and your audio output.</li></ul></div>
+        <h2>Operating system</h2>
+        <p><strong>Studio runs on macOS, Linux, and Windows.</strong> The easiest install path (Pinokio) is available on all three; see <a href="installation.html">Installation Paths</a>.</p>
+        <h2>Software</h2>
+        <ul><li><strong>Python 3.11</strong> — the app and engine environments are built against it.</li><li><strong>Node 18+</strong> — to build the frontend from source.</li><li><strong>ffmpeg</strong> — for audio assembly and format conversion.</li></ul>
+        <div class="note"><b>Note —</b> If you install with Pinokio, it sets up most of this for you.</div>
+        <h2>Hardware</h2>
+        <p><strong>A CUDA-capable GPU makes local synthesis much faster</strong>, but isn't strictly required to try the app. More VRAM lets heavier engines run comfortably. See <a href="../operations/performance.html">Performance &amp; GPU Tuning</a>.</p>
+        <h2>Disk space</h2>
+        <p>Leave room for engine model downloads (fetched on first use) plus your projects and rendered audio.</p>
+        <div class="next-links" id="hb-next"></div>
+      </article>
+    </div>
+    <footer class="site-footer" id="hb-foot"></footer>
+    <script>window.HB_ROOT = "../"; window.HB_SECTION = "getting-started"; window.HB_PAGE = "requirements";</script>
+    <script src="../../assets/nav-data.js"></script>
+    <script src="../../assets/hb-nav.js"></script>
+  </body>
+</html>

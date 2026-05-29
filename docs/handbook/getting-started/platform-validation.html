@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Platform Support &amp; Validation | Handbook</title>
+    <meta name="description" content="Per-platform install and launch notes, plus the first-run smoke-test checklist." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../../assets/studio2.css" />
+    <link rel="stylesheet" href="../../assets/handbook.css" />
+  </head>
+  <body>
+    <nav class="site-nav" id="hb-top"></nav>
+    <div class="doc-shell">
+      <aside class="doc-sidebar" id="hb-sidebar"></aside>
+      <article class="doc-article">
+        <div class="doc-breadcrumb" id="hb-crumb"></div>
+        <h1>Platform Support &amp; Validation</h1>
+        <p class="lede">Studio targets macOS, Windows, and Linux. This page lists the per-platform notes and a quick smoke test to confirm a healthy install.</p>
+        <div class="at-glance"><div class="at-title">At a glance</div><ul><li>Install &amp; launch on macOS, Windows, and Linux.</li><li>Pinokio install &amp; launch flow.</li><li>First-run smoke test to confirm everything works.</li></ul></div>
+        <h2>Per-platform install &amp; launch</h2>
+        <p><strong>All three desktop platforms are supported.</strong> The launcher provides the equivalent flow on each (<code>run.sh</code> on macOS/Linux, <code>run.ps1</code> on Windows). Pinokio offers a guided install on each as well.</p>
+        <h2>First-run smoke test</h2>
+        <ol><li>App starts and loads at <code>http://127.0.0.1:8123</code>.</li><li>The TTS Server starts and the default engine reports ready.</li><li>Create the sample project, build/pick a test voice, and synthesize a short line.</li><li>Relaunch the app and confirm your work is still there.</li></ol>
+        <div class="warning"><b>Heads up —</b> If first-run model downloads stall, check your network and disk space — large models take time on the first run.</div>
+        <h2>Platform notes</h2>
+        <p>Platform-specific prerequisites (e.g. build tools, GPU drivers) and any known limitations are tracked alongside the install instructions in the repository.</p>
+        <div class="next-links" id="hb-next"></div>
+      </article>
+    </div>
+    <footer class="site-footer" id="hb-foot"></footer>
+    <script>window.HB_ROOT = "../"; window.HB_SECTION = "getting-started"; window.HB_PAGE = "platform-validation";</script>
+    <script src="../../assets/nav-data.js"></script>
+    <script src="../../assets/hb-nav.js"></script>
+  </body>
+</html>

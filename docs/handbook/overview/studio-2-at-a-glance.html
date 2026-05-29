@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Studio 2.0 at a Glance | Handbook</title>
-    <meta name="description" content="The headline of the Audiobook Studio 2.0 rearchitecture: a managed plugin-based TTS Server, a task orchestrator, and an engine registry with a voice bridge." />
+    <meta name="description" content="The headline of the 2.0 rearchitecture: a managed plugin-based TTS Server, a task orchestrator, and an engine registry with a voice bridge." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet" />
@@ -19,35 +19,19 @@
         <div class="doc-breadcrumb" id="hb-crumb"></div>
         <h1>Studio 2.0 at a Glance</h1>
         <p class="lede">Studio 2.0 is a ground-up rearchitecture. The big idea: move synthesis into a managed, crash-isolated <strong>TTS Server</strong>, and make engines and voices first-class, installable pieces.</p>
-
-        <div class="at-glance">
-          <div class="at-title">At a glance</div>
-          <ul>
-            <li><strong>Managed TTS Server</strong> runs engines in a separate, supervised process.</li>
-            <li>A <strong>task orchestrator</strong> replaces the old single worker loop.</li>
-            <li>An <strong>engine registry</strong> and <strong>voice bridge</strong> keep voices independent of engines.</li>
-            <li>Engines install from GitLab; voices come from a Hugging Face library.</li>
-          </ul>
-        </div>
-
+        <div class="at-glance"><div class="at-title">At a glance</div><ul><li><strong>Managed TTS Server</strong> runs engines in a separate, supervised process.</li><li>A <strong>task orchestrator</strong> replaces the old single worker loop.</li><li>An <strong>engine registry</strong> and <strong>voice bridge</strong> keep voices independent of engines.</li><li>Engines install from GitLab; voices come from a Hugging Face library.</li></ul></div>
         <h2>A managed TTS Server</h2>
-        <p><strong>Synthesis no longer runs inside the app.</strong> A dedicated TTS Server process hosts the voice engines, manages GPU memory, and exposes a clean internal API. Studio supervises it with a watchdog and restarts it if it stops responding.</p>
-        <p>The practical payoff: an engine can crash without taking down the app or losing your work.</p>
-
+        <p><strong>Synthesis no longer runs inside the app.</strong> A dedicated TTS Server process hosts the voice engines, manages GPU memory, and exposes a clean internal API. Studio supervises it with a watchdog and restarts it if it stops responding. An engine can crash without taking down the app or losing your work.</p>
         <h2>A task orchestrator</h2>
-        <p><strong>Work is scheduled, not improvised.</strong> Instead of one worker loop juggling everything, 2.0 uses an orchestrator that queues jobs, tracks progress centrally, and recovers cleanly after a restart. Completion is decided by validated artifacts rather than loose files on disk.</p>
-
+        <p><strong>Work is scheduled, not improvised.</strong> Instead of one worker loop juggling everything, 2.0 uses an orchestrator that queues jobs, tracks progress centrally, and recovers cleanly after a restart. Completion is decided by validated artifacts, not loose files.</p>
         <h2>Engine registry &amp; voice bridge</h2>
-        <p><strong>One boundary routes every synthesis request.</strong> The engine registry knows what engines are installed and what they can do; the voice bridge is the only path that hands a request to an engine. Because a voice's identity is kept separate from any engine's assets, the same voice can move between engines without being rebuilt.</p>
-        <div class="tip"><b>Why it matters —</b> you can add, update, or swap engines without rewrites rippling into the queue, the editor, or your projects.</div>
-
+        <p><strong>One boundary routes every synthesis request.</strong> The registry knows what engines are installed and what they can do; the voice bridge is the only path that hands a request to an engine. Because a voice's identity is kept separate from any engine's assets, the same voice can move between engines without being rebuilt.</p>
+        <div class="tip"><b>Tip —</b> You can add, update, or swap engines without rewrites rippling into the queue, the editor, or your projects.</div>
         <h2>Installable engines &amp; a voice library</h2>
         <p><strong>Engines and voices are bundles you can install and share.</strong> Engines are GitLab repos you install like Stable Diffusion extensions (clone to install, pull to update). Voices come from a Hugging Face library with icons, playable samples, and rich tags.</p>
         <div class="future"><b>Coming with 2.0 —</b> the engine browser, the Hugging Face voice library, and AI voice casting are part of the 2.0 rollout.</div>
-
         <h2>What stayed the same</h2>
         <p>The workflow you already know — projects, chapters, voices, generate, assemble — is intact. 2.0 changes the machinery underneath, not the shape of producing a book.</p>
-
         <div class="next-links" id="hb-next"></div>
       </article>
     </div>

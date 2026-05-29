@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Content Hierarchy | Handbook</title>
+    <meta name="description" content="How content nests in Studio: Library to Project to Chapter to Block/Segment to Chunk." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../../assets/studio2.css" />
+    <link rel="stylesheet" href="../../assets/handbook.css" />
+  </head>
+  <body>
+    <nav class="site-nav" id="hb-top"></nav>
+    <div class="doc-shell">
+      <aside class="doc-sidebar" id="hb-sidebar"></aside>
+      <article class="doc-article">
+        <div class="doc-breadcrumb" id="hb-crumb"></div>
+        <h1>Content Hierarchy</h1>
+        <p class="lede">Everything in Studio fits into a simple hierarchy. Knowing the levels makes the rest of the app click.</p>
+        <div class="at-glance"><div class="at-title">At a glance</div><ul><li><strong>Library → Project → Chapter → Segment → Chunk.</strong></li><li>Segments are lines/blocks; chunks are what the engine actually speaks.</li><li>Each level owns different settings.</li></ul></div>
+        <h2>The levels</h2>
+        <ul><li><strong>Library</strong> — all your projects in one place.</li><li><strong>Project</strong> — one book: chapters, characters, defaults, and output.</li><li><strong>Chapter</strong> — a unit of text you narrate and assemble.</li><li><strong>Segment / block</strong> — a line or passage, assigned to a voice.</li><li><strong>Chunk</strong> — the actual piece of text sent to the engine.</li></ul>
+        <h2>Why chunks exist</h2>
+        <p><strong>Engines work best on bounded pieces of text.</strong> Studio splits long segments into chunks under a character limit, synthesizes each, and stitches them back together. This keeps quality consistent and makes targeted re-generation cheap.</p>
+        <div class="note"><b>Note —</b> You mostly work at the project, chapter, and segment levels. Chunking happens automatically.</div>
+        <h2>What each level owns</h2>
+        <p>Projects hold defaults (like the narrator and output preset); chapters hold their text and assignments; segments hold per-line voice choices. See <a href="../user-guide/project-workspace.html">Project Workspace</a>.</p>
+        <div class="next-links" id="hb-next"></div>
+      </article>
+    </div>
+    <footer class="site-footer" id="hb-foot"></footer>
+    <script>window.HB_ROOT = "../"; window.HB_SECTION = "concepts"; window.HB_PAGE = "content-hierarchy";</script>
+    <script src="../../assets/nav-data.js"></script>
+    <script src="../../assets/hb-nav.js"></script>
+  </body>
+</html>

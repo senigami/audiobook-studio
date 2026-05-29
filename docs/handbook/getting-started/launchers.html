@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Launcher Scripts | Handbook</title>
+    <meta name="description" content="What the one-command launchers (run.sh / run.ps1) do and the flags they accept." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../../assets/studio2.css" />
+    <link rel="stylesheet" href="../../assets/handbook.css" />
+  </head>
+  <body>
+    <nav class="site-nav" id="hb-top"></nav>
+    <div class="doc-shell">
+      <aside class="doc-sidebar" id="hb-sidebar"></aside>
+      <article class="doc-article">
+        <div class="doc-breadcrumb" id="hb-crumb"></div>
+        <h1>Launcher Scripts</h1>
+        <p class="lede">The launchers are the one command that gets Studio running. They provision everything the first time, then start the app.</p>
+        <div class="at-glance"><div class="at-title">At a glance</div><ul><li><code>run.sh</code> (macOS/Linux) and <code>run.ps1</code> (Windows).</li><li>First run provisions the app venv, the engine environment, and the frontend build.</li><li>Flags control setup-only, reload, and the port.</li></ul></div>
+        <h2>What they do</h2>
+        <p><strong>On first run, the launcher provisions everything.</strong> It creates the app's virtual environment, sets up the separate engine environment, and builds the frontend. On later runs it just starts the server.</p>
+        <h2>Common flags</h2>
+        <ul><li><code>--setup-only</code> — provision dependencies without starting the server.</li><li><code>--no-reload</code> — run without the auto-reload dev watcher.</li><li><code>--port &lt;n&gt;</code> — serve on a different port (default 8123).</li></ul>
+        <p>On Windows, <code>run.ps1</code> exposes the same options. See <a href="../operations/launcher-options.html">Launcher Options</a> for the full list.</p>
+        <div class="note"><b>Note —</b> The two environments are separate on purpose — see <a href="environments.html">The Two Environments</a>.</div>
+        <div class="next-links" id="hb-next"></div>
+      </article>
+    </div>
+    <footer class="site-footer" id="hb-foot"></footer>
+    <script>window.HB_ROOT = "../"; window.HB_SECTION = "getting-started"; window.HB_PAGE = "launchers";</script>
+    <script src="../../assets/nav-data.js"></script>
+    <script src="../../assets/hb-nav.js"></script>
+  </body>
+</html>
