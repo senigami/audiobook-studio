@@ -654,7 +654,9 @@ window.NAV_DATA = {
             "behavior",
             "metadata",
             "chunk limit",
-            "progress pattern"
+            "progress pattern",
+            "settings schema",
+            "x-ui"
           ],
           "inProgress": false
         },

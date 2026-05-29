@@ -235,6 +235,7 @@ Open `index.html` to browse it. Legend: **[soon]** = landing in Phase 12 · **[f
 - [Behavior Metadata](plugin-sdk/behavior-metadata.html) — Driving core behavior from manifest metadata instead of engine-ID branches.
   - text_chunk_limit / split target
   - progress_pattern parsing
+  - settings_schema.json + x-ui rendering hints
   - Per-voice settings declaration
 - [Compatibility & Contract Versioning](plugin-sdk/compatibility.html) **[soon]** — Verifying a plugin matches the Studio plugin contract before use.
   - Contract version (v1)
