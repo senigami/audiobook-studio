@@ -91,7 +91,6 @@ window.NAV_DATA = {
           "keywords": [
             "install",
             "setup",
-            "pinokio",
             "source"
           ],
           "inProgress": false
@@ -162,7 +161,6 @@ window.NAV_DATA = {
           "url": "getting-started/platform-validation.html",
           "keywords": [
             "platform",
-            "pinokio",
             "macos",
             "windows",
             "linux",
