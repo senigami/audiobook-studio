@@ -68,8 +68,7 @@ subject; don't dumb down and don't write over anyone's head.
 - **Show, then tell:** example or screenshot close to the instruction it illustrates.
 - **No silent v1 behavior** described as current (per #111).
 
-## Page front-matter (authoring)
+## Authoring
 
-Each page in `_tools/generate.py` carries its `type` (concept / how-to / reference /
-tutorial) and a `demo` flag, so the generator can scaffold the right skeleton and we can
-keep the whole site consistent from one source of truth.
+Pages are authored in `_build/build.py` (compiled to content JSON) and listed in
+`docs/assets/nav-data.js`. See `AUTHORING.md` for the build, content, and demo formats.
