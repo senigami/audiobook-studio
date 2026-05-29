@@ -172,35 +172,47 @@ describe('useQueueSync', () => {
     expect(timeline).toHaveLength(1);
     expect(timeline[0].listener).toBe('useQueueSync');
     expect(timeline[0].audience).toBe('queue');
+
+    const records = getLiveEventAuditSnapshot();
+    const invalidation = records.find(r => r.event.topic === 'queue.items');
+    expect(invalidation?.subscribers.map(s => s.subscriber)).toContain('main-queue');
   });
 
-  it('ignores chapters.progress event and does not record timeline entries', async () => {
+  it('updates the queue overlay from chapters.progress frames', async () => {
+    const jobItem = {
+      id: 'j1',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'queued',
+      progress: 0,
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+
     const { result } = renderHook(() => useQueueSync());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    act(() => {
-      publishStudioSocketMessage({
-        type: 'studio_event',
-        version: 1,
-        topic: 'chapters.progress',
-        eventKind: 'chapter_progress',
-        ids: { jobId: 'j1' },
-        payload: {
-          status: 'running',
-          progress: 0.5,
-          groupedProgress: null,
-          etaSeconds: null,
-          message: 'running',
-          reasonCode: null,
-          renderGroupCount: null,
-          completedRenderGroups: null,
-        },
-      });
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.5,
+      groupedProgress: null,
+      etaSeconds: 25,
+      message: 'running',
+      reasonCode: null,
+      renderGroupCount: null,
+      completedRenderGroups: null,
+    }, { jobId: 'j1', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'j1');
+      expect(job?.status).toBe('running');
+      expect(job?.progress).toBe(0.5);
+      expect(job?.eta_seconds).toBe(25);
     });
 
-    const timeline = (window as any).__ttsCommunicationTimeline ?? [];
-    const queueEntries = timeline.filter((e: any) => e.listener === 'useQueueSync');
-    expect(queueEntries).toHaveLength(0);
+    const records = getLiveEventAuditSnapshot();
+    const observed = records.find(r => r.event.topic === 'chapters.progress');
+    expect(observed?.subscribers.map(s => s.subscriber)).toContain('main-queue');
   });
 
   it('records queue consumer path for job_updated messages', async () => {
@@ -353,11 +365,77 @@ describe('useQueueSync', () => {
     expect(job?.progress).toBeGreaterThanOrEqual(0.6);
   });
 
-  it('ignores chapters.progress events completely', async () => {
+  it('refreshes the queue from chapters.lifecycle frames', async () => {
     const jobItem = {
-      id: 'job-ignore-test',
+      id: 'job-lifecycle-test',
       project_id: 'proj-1',
       chapter_id: 'chap-1',
+      status: 'queued',
+      progress: 0,
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any)
+      .mockResolvedValueOnce([jobItem])
+      .mockResolvedValueOnce([{ ...jobItem, status: 'running', progress: 0.1 }]);
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('chapters.lifecycle', 'chapter_lifecycle', {
+      reasonCode: 'chapter_started',
+      changedFields: ['status'],
+    }, { jobId: 'job-lifecycle-test', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    await waitFor(() => expect(api.getProcessingQueue).toHaveBeenCalledTimes(2));
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'job-lifecycle-test');
+      expect(job?.status).toBe('running');
+      expect(job?.progress).toBe(0.1);
+    });
+
+    const records = getLiveEventAuditSnapshot();
+    const observed = records.find(r => r.event.topic === 'chapters.lifecycle');
+    expect(observed?.subscribers.map(s => s.subscriber)).toContain('main-queue');
+  });
+
+  it('ignores segments.progress frames for the main queue overlay', async () => {
+    const jobItem = {
+      id: 'job-segment-ignore',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'running',
+      progress: 0.2,
+      eta_seconds: 40,
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('segments.progress', 'segment_progress', {
+      status: 'running',
+      progress: 0.75,
+      etaSeconds: 10,
+      reasonCode: 'SEGMENT_PROGRESS',
+    }, { jobId: 'job-segment-ignore', projectId: 'proj-1', chapterId: 'chap-1', segmentId: 'seg-1' });
+
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    const job = result.current.queue.find((q: any) => q.id === 'job-segment-ignore');
+    expect(job?.progress).toBe(0.2);
+    expect(job?.eta_seconds).toBe(40);
+
+    const records = getLiveEventAuditSnapshot();
+    const observed = records.find(r => r.event.topic === 'segments.progress');
+    expect(observed?.subscribers.map(s => s.subscriber)).not.toContain('main-queue');
+  });
+
+  it('updates the queue overlay from voice.test frames when they carry a job id', async () => {
+    const jobItem = {
+      id: 'voice-job-1',
+      project_id: 'voice-preview',
+      chapter_id: 'voice-preview',
       status: 'queued',
       progress: 0,
       created_at: Date.now() / 1000,
@@ -367,19 +445,19 @@ describe('useQueueSync', () => {
     const { result } = renderHook(() => useQueueSync());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    // Emit chapters.progress event
-    emitEvent('chapters.progress', 'chapter_progress', {
+    emitEvent('voice.test', 'voice_test_progress', {
       status: 'running',
-      progress: 0.5,
-    }, { jobId: 'job-ignore-test' });
+      progress: 0.35,
+      voiceName: 'Narrator',
+      startedAt: Date.now() / 1000,
+      message: 'Generating preview',
+    }, { jobId: 'voice-job-1' });
 
-    // Wait short delay to verify no changes applied
-    await new Promise(resolve => setTimeout(resolve, 50));
-
-    // The job progress/status in useQueueSync should remain unchanged
-    const job = result.current.queue.find((q: any) => q.id === 'job-ignore-test');
-    expect(job?.progress).toBe(0);
-    expect(job?.status).toBe('queued');
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'voice-job-1');
+      expect(job?.status).toBe('running');
+      expect(job?.progress).toBe(0.35);
+    });
   });
 
   it('refreshes on queue_item_invalidated without reading status or progress from it', async () => {
@@ -447,6 +525,28 @@ describe('useQueueSync', () => {
       const job = result.current.queue.find((q: any) => q.id === 'job-123');
       expect(job).toBeDefined();
       expect(job?.status).toBe('queued');
+    });
+  });
+
+  it('keeps a chapter lifecycle overlay visible when parentJobId carries the project id', async () => {
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('jobs.lifecycle', 'job_lifecycle', {
+      status: 'queued',
+      reasonCode: 'JOB_QUEUED',
+      message: 'Task accepted, reconciling batches.',
+      parentJobId: 'proj-1',
+      parent_job_id: 'proj-1',
+      updatedAt: Date.now() / 1000,
+      hasSegmentSupport: true,
+    }, { jobId: 'job-chapter-parent-project', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'job-chapter-parent-project');
+      expect(job).toBeDefined();
+      expect(job?.status).toBe('queued');
+      expect(job?.chapter_id).toBe('chap-1');
     });
   });
 

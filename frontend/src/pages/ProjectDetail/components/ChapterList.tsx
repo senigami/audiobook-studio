@@ -6,7 +6,7 @@ import { ActionMenu } from '@/components/ui/ActionMenu';
 import { StatusOrb } from '@/components/ui/StatusOrb';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import type { Chapter, Job, TtsEngine } from '@/types';
-import { isSegmentScopedJob, shouldShowIndeterminateProgress } from '@/utils/jobSelection';
+import { isMainQueueSegmentItem, shouldShowIndeterminateProgress } from '@/utils/jobSelection';
 
 interface ChapterListProps {
   chapters: Chapter[];
@@ -61,7 +61,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
         if (liveStatuses.has(j.status)) return true;
         if (!includeRecentDone) return false;
         if (j.status !== 'done' || !j.finished_at || (now - j.finished_at) > RECENT_COMPLETION_WINDOW_SECONDS) return false;
-        return !isSegmentScopedJob(j);
+        return !isMainQueueSegmentItem(j);
       })
       .sort((a, b) => {
         const statusRank: Record<string, number> = { running: 5, finalizing: 4, preparing: 3, queued: 2, done: 1 };
@@ -118,7 +118,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           const activeGroupProgress = activeRenderGroupIndex > completedRenderGroups
             ? Math.max(0, Math.min(activeJob?.active_segment_progress ?? 0, 1))
             : 0;
-          const isGroupedChapterJob = !!activeJob && renderGroupCount > 0 && !isSegmentScopedJob(activeJob);
+          const isGroupedChapterJob = !!activeJob && renderGroupCount > 0 && !isMainQueueSegmentItem(activeJob);
           const weightedGroupedProgress = totalRenderWeight > 0
             ? (((completedRenderWeight + (activeRenderGroupWeight * activeGroupProgress)) / totalRenderWeight) * 0.9)
             : 0;
@@ -251,12 +251,12 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           label={displayStatus} 
                           predictive={true}
                           allowBackwardProgress={!isGroupedChapterJob}
-                          checkpointMode={isGroupedChapterJob ? 'queue' : (isSegmentScopedJob(activeJob) ? 'segment' : 'default')}
+                          checkpointMode={isGroupedChapterJob ? 'queue' : (isMainQueueSegmentItem(activeJob) ? 'segment' : 'default')}
                           evidenceWeightFraction={isGroupedChapterJob ? evidenceWeightFraction : 1}
                           transitionTickCount={
                             isGroupedChapterJob
                                 ? 12
-                                : isSegmentScopedJob(activeJob)
+                                : isMainQueueSegmentItem(activeJob)
                                 ? 3
                                 : 8
                           }

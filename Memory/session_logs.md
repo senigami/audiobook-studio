@@ -1645,3 +1645,20 @@
 - Updated those synthetic completion events to emit `progress: 1.0` instead of `0.99`, matching the already-completed `segment_saved` status.
 - Updated backend regressions in `test_progress_logic.py` and `test_websocket_broadcast.py` to assert the completed segment event contract.
 - Verified focused completion tests, the scoped backend progress/websocket/state suite, Ruff for touched Python files, and `git diff --check`.
+
+# 2026-05-28 - Event stream presets and queue/segment routing corrected
+
+- Reviewed `debug/debug_segment.txt` and `debug/debug_socket.txt`; confirmed canonical `START_SEGMENT` was arriving at 0% with ETA but the frontend projected it back to `preparing`.
+- Updated `useJobs` so canonical `START_SEGMENT` starts the segment timer path at 0%, while legacy lowercase `segment_start` still preserves the old preparing behavior.
+- Split main-queue segment filtering from segment-capability detection so segment-capable chapter jobs stay visible in Global Queue and ProjectDetail chapter rows, and QueueItem does not display active segment progress for normal chapter queue rows.
+- Added a short terminal overlay hold so completed/failed jobs synthesized from live events can reach queue history even when the refreshed queue snapshot is empty.
+- Added event-stream topic presets from the Event Map labels and removed the `All minus tts.logs` shortcut.
+- Verified focused queue/event/segment Vitest suites, targeted ESLint, frontend build, and `git diff --check`.
+
+# 2026-05-28 - Queue lifecycle overlay parent id classification fix
+
+- Reviewed the latest `debug/debug_queue.txt` and `debug/debug_socket.txt`; confirmed the active chapter job received `jobs.lifecycle` frames with `parentJobId` equal to the project id, then the queue overlay path classified it as a segment child and filtered it from the main queue.
+- Updated `jobEventAdapters` to infer `classification: "chapter"` from chapter-scoped topics/ids when the backend omits an explicit classification, preserving true segment routing for `segments.*` frames.
+- Updated `useQueueSync` to record `main-queue` subscriber observations for `queue.items` invalidation/pause frames so future event-stream captures show that refresh-only path explicitly.
+- Added a failing-first queue-sync regression proving a chapter lifecycle overlay remains visible when `parentJobId` carries the project id.
+- Verified the focused queue-sync test, adjacent queue/hydration/component/useJobs/event-stream Vitest suites, targeted ESLint, frontend build, and `git diff --check`.

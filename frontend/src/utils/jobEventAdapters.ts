@@ -20,6 +20,18 @@ const getPayloadValue = (payload: Record<string, any>, keyCamel: string, keySnak
   return undefined;
 };
 
+const resolveEventClassification = (event: any, payload: Record<string, any>) => {
+  const explicit = getPayloadValue(payload, 'classification', 'classification');
+  if (explicit !== undefined) return explicit;
+  if (event.topic === 'segments.lifecycle' || event.topic === 'segments.progress' || event.segmentId) {
+    return 'segment';
+  }
+  if (event.topic === 'chapters.lifecycle' || event.topic === 'chapters.progress' || event.chapterId) {
+    return 'chapter';
+  }
+  return undefined;
+};
+
 export const copyRenderGroupFields = (target: Record<string, any>, source: Record<string, any>, excludeSegmentFields = false) => {
   const fields = [
     'render_group_count',
@@ -53,7 +65,7 @@ export const adaptEventToJobUpdates = (event: any) => {
     job_id: event.jobId,
     project_id: event.projectId,
     chapter_id: event.chapterId,
-    classification: getPayloadValue(payload, 'classification', 'classification'),
+    classification: resolveEventClassification(event, payload),
     parent_job_id: getPayloadValue(payload, 'parentJobId', 'parent_job_id'),
     segment_ids: getPayloadValue(payload, 'segmentIds', 'segment_ids'),
     engine: getPayloadValue(payload, 'engine', 'engine'),

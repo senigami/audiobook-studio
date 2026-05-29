@@ -1,6 +1,6 @@
 import type { ProcessingQueueItem, Status as LegacyStatus } from '@/types';
 import type { LiveOverlayState, OverlayDelta } from '@/store/live-jobs';
-import { isSegmentScopedJob } from '@/utils/jobSelection';
+import { isMainQueueSegmentItem, isSegmentScopedJob } from '@/utils/jobSelection';
 
 export type HydrationSource = 'bootstrap' | 'reconnect' | 'refresh';
 
@@ -11,6 +11,7 @@ export interface HydrationSnapshot {
 }
 
 const COMPLETION_HOLD_SECONDS = 12;
+const TERMINAL_OVERLAY_HOLD_SECONDS = 30;
 
 function hasChapterAudioReady(item: ProcessingQueueItem): boolean {
   return item.chapter_audio_status === 'done' || !!item.chapter_audio_file_path;
@@ -58,6 +59,7 @@ export interface HydrationCoordinator {
 }
 
 const ACTIVE_STATUSES: ProcessingQueueItem['status'][] = ['queued', 'preparing', 'running', 'finalizing'];
+const TERMINAL_STATUSES: ProcessingQueueItem['status'][] = ['done', 'failed', 'cancelled'];
 
 function buildOverlayQueueItem(jobId: string, delta: OverlayDelta): ProcessingQueueItem | null {
   if (!delta.project_id || !delta.chapter_id || !delta.status) return null;
@@ -115,10 +117,14 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
         if (mergedIds.has(jobId)) return null;
         const item = buildOverlayQueueItem(jobId, delta);
         if (!item) return null;
-        const isChapterScoped = !isSegmentScopedJob(item);
+        const isChapterScoped = !isMainQueueSegmentItem(item);
         const hasSnapshotSibling = isChapterScoped && items.some(snapItem => snapItem.chapter_id === item.chapter_id);
-        if (!ACTIVE_STATUSES.includes(item.status) && !hasSnapshotSibling) return null;
-        if (isSegmentScopedJob(item)) return null;
+        const terminalTimestamp = item.completed_at ?? item.updated_at ?? item.created_at ?? 0;
+        const isRecentTerminalOverlay = TERMINAL_STATUSES.includes(item.status)
+          && terminalTimestamp > 0
+          && (nowSeconds - terminalTimestamp) <= TERMINAL_OVERLAY_HOLD_SECONDS;
+        if (!ACTIVE_STATUSES.includes(item.status) && !hasSnapshotSibling && !isRecentTerminalOverlay) return null;
+        if (isMainQueueSegmentItem(item)) return null;
         return item;
       })
       .filter((item): item is ProcessingQueueItem => !!item);
@@ -132,7 +138,7 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
           classification: delta.classification ?? item.classification,
         };
       })
-      .filter(item => !isSegmentScopedJob(item));
+      .filter(item => !isMainQueueSegmentItem(item));
 
     const STATUS_RANK: Record<string, number> = {
       running: 5,
@@ -254,6 +260,6 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
 
 export const selectActiveQueueCount = (queue: ProcessingQueueItem[]): number => {
   return queue.filter(item => 
-    ['queued', 'preparing', 'running', 'finalizing'].includes(item.status) && !isSegmentScopedJob(item)
+    ['queued', 'preparing', 'running', 'finalizing'].includes(item.status) && !isMainQueueSegmentItem(item)
   ).length;
 };

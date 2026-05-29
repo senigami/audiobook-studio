@@ -36,6 +36,14 @@ export function isSegmentScopedJob(job: SegmentScopedShape): boolean {
   return /segment\s*#/i.test(job.custom_title || '');
 }
 
+export function isMainQueueSegmentItem(job: SegmentScopedShape): boolean {
+  if (job.classification === 'segment') return true;
+  if (job.classification === 'chapter') return false;
+  if (job.parent_job_id) return true;
+  if ((job.segment_ids?.length ?? 0) > 0) return true;
+  return /segment\s*#/i.test(job.custom_title || '');
+}
+
 export function shouldShowIndeterminateProgress(job: SegmentScopedShape & { engine?: Engine; engineMeta?: import('@/types').TtsEngine }): boolean {
   if (job.engineMeta) {
     const caps = Array.isArray(job.engineMeta.capabilities) ? job.engineMeta.capabilities : [];

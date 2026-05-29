@@ -248,14 +248,14 @@ class ProgressService:
                 active_segment_progress,
             )
         ) or scope == "segment"
+        resolved_has_segment_support = (
+            inferred_has_segment_support
+            if has_segment_support is None
+            else bool(has_segment_support)
+        )
 
         if status_changed or previous is None:
             from app.api.contracts.events import build_job_lifecycle_event  # noqa: PLC0415
-            resolved_has_segment_support = (
-                inferred_has_segment_support
-                if has_segment_support is None
-                else bool(has_segment_support)
-            )
             lifecycle_event = build_job_lifecycle_event(
                 job_id=job_id,
                 status=lifecycle_status,
@@ -288,6 +288,7 @@ class ProgressService:
                 project_id=parent_job_id,
                 source=payload.get("source"),
                 eta_seconds=None,
+                has_segment_support=resolved_has_segment_support,
             )
             self.broadcaster(payload=seg_event, channel="jobs")
 
@@ -324,6 +325,7 @@ class ProgressService:
                 project_id=parent_job_id,
                 source=payload.get("source"),
                 eta_seconds=segment_eta_seconds,
+                has_segment_support=resolved_has_segment_support,
             )
             self.broadcaster(payload=seg_event, channel="jobs")
 
@@ -347,6 +349,7 @@ class ProgressService:
                 job_id=job_id,
                 project_id=parent_job_id,
                 source=payload.get("source"),
+                has_segment_support=resolved_has_segment_support,
             )
             self.broadcaster(payload=chap_event, channel="jobs")
 

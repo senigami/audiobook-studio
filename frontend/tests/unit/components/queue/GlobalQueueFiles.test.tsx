@@ -229,6 +229,33 @@ describe('Global Queue Components', () => {
             expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-checkpoint-mode', 'default');
         });
 
+        it('uses chapter progress for segment-capable chapter jobs in the main queue', () => {
+            render(
+                <QueueItem
+                    job={{ ...mockJob, engine: 'xtts', status: 'running', progress: 0.52, has_segment_support: true } as any}
+                    liveJob={{
+                        id: 'job-1',
+                        engine: 'xtts',
+                        status: 'running',
+                        progress: 0.52,
+                        has_segment_support: true,
+                        active_segment_progress: 0.75,
+                        active_segment_id: 'seg-2',
+                        started_at: 1000,
+                        eta_seconds: 30,
+                    } as any}
+                    localPaused={false}
+                    formatJobTitle={(j) => `Title for ${j.id}`}
+                    formatTime={(t) => `Time ${t}`}
+                    onRemove={vi.fn()}
+                />
+            );
+
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-progress', '0.52');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-persistence-key', 'job-1');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-checkpoint-mode', 'default');
+        });
+
         it('does not render ETA 0 or negative ETA for active jobs', () => {
             render(
                 <QueueItem

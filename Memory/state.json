@@ -1,14 +1,15 @@
 {
-  "snapshot_version": 140,
-  "current_task": "Promote segment_start @ 0% to processing only for the ChapterEditor progress bar",
-  "status": "segment_start_animation_promoted",
+  "snapshot_version": 142,
+  "current_task": "Fix main queue disappearance from chapter lifecycle overlay classification",
+  "status": "queue_lifecycle_overlay_classification_verified",
   "last_committed_milestone": {
-    "title": "Segment start animation promoted to processing in ChapterEditor",
+    "title": "Event stream and queue routing corrected",
     "commit": "pending",
     "notes": [
-      "Mapped the state prop of PredictiveProgressBar to 'processing' in ChapterHeader.tsx when isSegmentStartAtZero is true.",
-      "Kept the underlying store status as 'preparing' to preserve correct job semantics.",
-      "Added unit and regression test coverage in ChapterHeader.test.tsx."
+      "Canonical START_SEGMENT at 0% now promotes the active segment job to running so the segment timer can start from the command frame.",
+      "Main queue filtering now distinguishes true segment queue items from segment-capable chapter jobs.",
+      "Event-stream map labels now act as topic presets, and the All minus tts.logs shortcut was removed.",
+      "Chapter-scoped lifecycle/progress frames now infer chapter classification when explicit classification is omitted, preventing project-id parentJobId values from hiding chapter jobs in the main queue."
     ]
   },
   "active_constraints": [
@@ -61,6 +62,7 @@
     "Chapter Editor progress bar now animates smoothly under finalizing status instead of hardcoding to 100% width. A 1500ms terminal job bridging window was added to useChapterStatus to let the green 100% Complete bar render fully before clean unmounting.",
     "Live active segment jobs now preserve their segment ETA when later chapter-level or queue-level updates arrive, so the Segment Progress bar does not inherit chapter ETA while a segment is still active.",
     "Global Queue now filters only true segment-scoped overlay jobs; grouped chapter jobs with active_segment_id stay visible so overall chapter progress does not disappear once rendering starts.",
+    "Queue lifecycle overlays now infer chapter classification from chapter-scoped topics/ids before main-queue filtering, so `parentJobId` values that carry project ids do not make chapter jobs disappear.",
     "The frontend live event stream contract now defines topics, concrete event kinds, audit records, consumer ownership, diagnostics reconciliation, queue/segment progress absorption rules, and an executable TypeScript schema module before the next implementation pass.",
     "Live Output now reads from the bus-level liveEventAuditStore instead of the legacy runtimeDebug timeline. Every websocket frame receives one normalized audit record, and useJobs/useQueueSync attach unique subscriber observations by frameId.",
     "Settings -> Engines diagnostics now loads historical logs once via View Diagnostics, then appends live tts.logs frames from liveEventAuditStore without requiring Refresh Logs.",
@@ -91,7 +93,7 @@
   "verification": {
     "latest_backend_focus": "2026-05-21: Full pytest suite passed (879 passed, 2 skipped).",
     "latest_frontend_focus": "2026-05-20: Reverted progress bar and text highlighting in the chapter editor back to the working behavior of commit 3e44973; all 82 frontend test files (510 tests total) are passing.",
-    "latest_queue_focus": "2026-05-18: `frontend/src/utils/jobSelection.ts` now treats `active_segment_id` as chapter-render progress rather than segment scope, keeping grouped chapter jobs visible in the main queue while still hiding true segment jobs.",
+    "latest_queue_focus": "2026-05-28: `frontend/src/utils/jobEventAdapters.ts` infers chapter classification for chapter-scoped lifecycle/progress frames, keeping chapter jobs visible when backend `parentJobId` carries the project id.",
     "latest_websocket_focus": "2026-05-23: segment-classified render progress migrated to canonical studio_event on segments.progress; 45 backend tests pass, 50 frontend Vitest tests pass.",
     "latest_lint_focus": "2026-05-22: eslint passed on frontend with 7 existing warnings.",
     "latest_frontend_event_stream_focus": "2026-05-22: Live Output route renamed to /event-stream and consumer filter toggles implemented; focused Vitest passed, full frontend Vitest passed (580 tests), frontend build passed, frontend lint passed, and git diff --check passed.",

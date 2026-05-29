@@ -65,11 +65,13 @@ export type WebsocketDebugSnapshot = {
 /**
  * Which hook(s) consume a given websocket message type.
  *
- * - `queue`   → only useQueueSync reads it  (queue_updated, pause_updated)
+ * - `queue`   → only useQueueSync reads it (queue_updated, pause_updated)
  * - `chapter` → only useJobs reads it for chapter/segment context
  *               (tts_log_line, segment_progress, segments_updated,
  *                chapter_updated, test_progress)
- * - `both`    → both hooks react to it (jobs.lifecycle, studio_job_event, job_updated)
+ * - `both`    → both hooks react to it (jobs.lifecycle, queue.items status frames,
+ *               chapters.lifecycle, chapters.progress, voice.test,
+ *               studio_job_event, job_updated)
  * - `other`   → unknown / unclassified type
  */
 export type WsAudience = 'queue' | 'chapter' | 'both' | 'other';
@@ -89,6 +91,9 @@ export const wsAudienceForType = (type: string | undefined, data?: Record<string
       return 'both';
     }
     if (topic === 'chapters.progress' || topic === 'chapters.lifecycle') {
+      return 'both';
+    }
+    if (topic === 'voice.test') {
       return 'both';
     }
     return 'chapter';

@@ -73,6 +73,10 @@ class OrchestratorHelpersMixin:
         # Render start is separate from preparation. Marker-driven tasks anchor this
         # on engine markers so model loading does not pollute render duration metrics.
         timing = {"render_started_at": None}
+        marker_state = {
+            "start_synthesis_emitted": False,
+            "start_segment_ids": set(),
+        }
         marker_driven = bool(getattr(task, "is_marker_driven", False))
         expected_duration = self._estimate_task_duration(task=task, context=context)
 
@@ -283,6 +287,9 @@ class OrchestratorHelpersMixin:
                 logger.exception("Failed to broadcast TTS log line for task %s", context.task_id)
 
             if "[START_SYNTHESIS]" in line:
+                if marker_state["start_synthesis_emitted"]:
+                    return
+                marker_state["start_synthesis_emitted"] = True
                 if timing["render_started_at"] is None:
                     timing["render_started_at"] = time.time()
                 trace(
@@ -313,6 +320,9 @@ class OrchestratorHelpersMixin:
                 try:
                     # [START_SEGMENT] {segment_id}
                     sid = line.split("[START_SEGMENT]")[1].strip().split()[0]
+                    if sid in marker_state["start_segment_ids"]:
+                        return
+                    marker_state["start_segment_ids"].add(sid)
                     active_seg_id[0] = sid
                     active_seg_progress[0] = 0.0
                     active_render_group_index[0] = group_index_by_leader.get(sid, active_render_group_index[0])

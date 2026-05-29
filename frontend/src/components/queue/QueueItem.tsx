@@ -3,7 +3,7 @@ import { Play, Pause, XCircle, Terminal } from 'lucide-react';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import type { ProcessingQueueItem, Job } from '@/types';
 import { formatQueueContext } from '@/utils/queueLabels';
-import { shouldShowIndeterminateProgress, isSegmentScopedJob } from '@/utils/jobSelection';
+import { shouldShowIndeterminateProgress, isMainQueueSegmentItem } from '@/utils/jobSelection';
 import { recordStudioDebugSnapshot } from '@/utils/runtimeDebug';
 import { getLiveEventAuditSnapshot } from '@/store/liveEventAuditStore';
 
@@ -74,7 +74,8 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     };
     const updatedAt = selectEtaSourceTimestamp();
     const rawUpdatedAt = job.updated_at ?? liveJob?.updated_at;
-    const isSegmentJob = isSegmentScopedJob(job) || (liveJob ? isSegmentScopedJob(liveJob) : false);
+    const isVoiceBuildJob = job.engine === 'voice_build' || liveJob?.engine === 'voice_build';
+    const isSegmentJob = isVoiceBuildJob || isMainQueueSegmentItem(job) || (liveJob ? isMainQueueSegmentItem(liveJob) : false);
     const activeSegmentId = isSegmentJob ? (liveJob?.active_segment_id ?? job.active_segment_id) : undefined;
     const isGroupedJob = (job.render_group_count ?? 0) > 0 || (liveJob?.render_group_count ?? 0) > 0;
     const isRunningOrProcessing = ['running', 'processing', 'finalizing'].includes(status) || (status === 'preparing' && isGroupedJob);

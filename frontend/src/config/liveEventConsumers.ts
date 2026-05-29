@@ -11,7 +11,7 @@ export const LIVE_EVENT_CONSUMERS: LiveEventConsumer[] = [
     id: 'main-queue',
     label: 'main-queue',
     listensTo: (event: LiveEvent) =>
-      ['jobs.lifecycle'].includes(event.topic),
+      ['jobs.lifecycle', 'queue.items', 'chapters.lifecycle', 'chapters.progress', 'voice.test'].includes(event.topic),
   },
   {
     id: 'chapter-state',

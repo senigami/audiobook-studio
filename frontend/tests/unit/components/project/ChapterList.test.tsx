@@ -11,6 +11,7 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
     predictive,
     allowBackwardProgress,
     evidenceWeightFraction,
+    checkpointMode,
   }: {
     progress: number;
     status?: string;
@@ -18,6 +19,7 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
     predictive?: boolean;
     allowBackwardProgress?: boolean;
     evidenceWeightFraction?: number;
+    checkpointMode?: string;
   }) => (
     <div
       data-testid="progress-bar"
@@ -27,6 +29,7 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
       data-predictive={String(!!predictive)}
       data-allow-backward={String(!!allowBackwardProgress)}
       data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
+      data-checkpoint-mode={checkpointMode ?? ''}
     />
   ),
 }));
@@ -145,6 +148,32 @@ describe('ChapterList', () => {
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.63');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'false');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '0.4');
+  });
+
+  it('treats segment-capable grouped chapter jobs as chapter progress in the chapter list', () => {
+    const liveJob = {
+      id: 'job-segment-capable-chapter',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      status: 'running',
+      progress: 0.4,
+      has_segment_support: true,
+      started_at: Date.now() / 1000 - 30,
+      eta_seconds: 120,
+      render_group_count: 3,
+      completed_render_groups: 1,
+      active_render_group_index: 2,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.5,
+      total_render_weight: 1000,
+      completed_render_weight: 500,
+      active_render_group_weight: 400,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [liveJob.id]: liveJob }} />);
+
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.63');
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-checkpoint-mode', 'queue');
   });
 
   it('keeps a grouped running chapter in processing state until an active render block exists', () => {

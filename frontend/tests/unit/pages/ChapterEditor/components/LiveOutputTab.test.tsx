@@ -149,24 +149,23 @@ describe('LiveOutputTab', () => {
     expect(rows[0].textContent).toContain('running');
   });
 
-  it('filters by consumer when toggle buttons are clicked', () => {
+  it('filters by topic toggles when buttons are clicked', () => {
     publishEvent('queue.items', 'queue_item_status', { status: 'running' }, { jobId: 'job-1' });
-    publishEvent('queue.items', 'queue_item_invalidated', { reasonCode: 'test-reason', changedFields: [] });
+    publishEvent('tts.logs', 'tts_log', { line: 'noise line' });
 
     render(<LiveOutputTab />);
     expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(2);
 
-    fireEvent.click(screen.getByRole('button', { name: 'main-queue' }));
-    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'tts.logs' }));
+    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(1);
 
-    fireEvent.click(screen.getByRole('button', { name: 'chapter-state' }));
+    fireEvent.click(screen.getByRole('button', { name: 'queue.items' }));
     expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(0);
 
-    fireEvent.click(screen.getByRole('button', { name: 'tts-diagnostics' }));
-    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(0);
-
-    fireEvent.click(screen.getByRole('button', { name: /all/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'All' }));
     expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(2);
+
+    expect(screen.queryByRole('button', { name: 'All minus tts.logs' })).not.toBeInTheDocument();
   });
 
   it('clears the audit and copies the visible rows as JSON', async () => {

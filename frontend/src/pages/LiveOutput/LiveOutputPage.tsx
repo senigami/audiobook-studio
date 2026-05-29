@@ -2,20 +2,35 @@ import React from 'react';
 import { ChevronDown, Terminal } from 'lucide-react';
 import { LiveOutputTable } from '@/components/LiveOutputTable';
 import { LIVE_EVENT_CONSUMERS } from '@/config/liveEventConsumers';
+import { ALL_TOPIC_FILTER_IDS, type TopicFilterId } from '@/config/liveEventTopics';
+
+const consumerTopicIds = (id: string): TopicFilterId[] => {
+  if (id === 'main-queue') return ['jobs.lifecycle', 'queue.items', 'chapters.lifecycle', 'chapters.progress', 'voice.test'];
+  if (id === 'chapter-state') return ['jobs.lifecycle', 'chapters.lifecycle', 'chapters.progress', 'segments.progress'];
+  if (id === 'segment-state') return ['jobs.lifecycle', 'segments.lifecycle', 'segments.progress'];
+  if (id === 'tts-diagnostics') return ['tts.logs'];
+  if (id === 'voice-test-state') return ['voice.test'];
+  if (id === 'project-state') return ['projects.lifecycle'];
+  if (id === 'plugin-private') return ['plugins.*'];
+  return [];
+};
 
 const consumerTopicLabel = (id: string) => {
-  if (id === 'main-queue') return 'jobs.lifecycle';
-  if (id === 'chapter-state') return 'jobs.lifecycle, chapters.lifecycle, chapters.progress, segments.progress';
-  if (id === 'segment-state') return 'jobs.lifecycle, segments.lifecycle, segments.progress';
-  if (id === 'tts-diagnostics') return 'tts.logs';
-  if (id === 'voice-test-state') return 'voice.test';
-  if (id === 'project-state') return 'projects.lifecycle';
-  if (id === 'plugin-private') return 'plugins.*';
+  const topicIds = consumerTopicIds(id);
+  if (topicIds.length > 0) return topicIds.join(', ');
   if (id.startsWith('plugin:')) return id.replace(/^plugin:/, 'plugins.').replace(/:/g, '.');
   return id;
 };
 
 export const LiveOutputPage: React.FC = () => {
+  const [hiddenTopics, setHiddenTopics] = React.useState<TopicFilterId[]>([]);
+
+  const showConsumerTopics = (consumerId: string) => {
+    const visibleTopicIds = consumerTopicIds(consumerId);
+    if (visibleTopicIds.length === 0) return;
+    setHiddenTopics(ALL_TOPIC_FILTER_IDS.filter(id => !visibleTopicIds.includes(id)));
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - var(--header-height, 72px) - 2rem)', gap: '1rem', minHeight: 0 }}>
       <section style={{
@@ -46,7 +61,23 @@ export const LiveOutputPage: React.FC = () => {
             <div style={{ display: 'grid', gap: '0.35rem' }}>
               {LIVE_EVENT_CONSUMERS.map(consumer => (
                 <div key={consumer.id} style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '0.75rem', alignItems: 'start', fontSize: '0.82rem' }}>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{consumer.label}</div>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => showConsumerTopics(consumer.id)}
+                    style={{
+                      justifySelf: 'start',
+                      padding: 0,
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-primary)',
+                      fontWeight: 700,
+                      font: 'inherit',
+                      cursor: consumerTopicIds(consumer.id).length > 0 ? 'pointer' : 'default',
+                    }}
+                  >
+                    {consumer.label}
+                  </button>
                   <div style={{ color: 'var(--text-secondary)' }}>{consumerTopicLabel(consumer.id)}</div>
                 </div>
               ))}
@@ -64,7 +95,10 @@ export const LiveOutputPage: React.FC = () => {
       </section>
 
       <div style={{ flex: 1, minHeight: 0 }}>
-        <LiveOutputTable />
+        <LiveOutputTable
+          hiddenTopics={hiddenTopics}
+          onHiddenTopicsChange={setHiddenTopics}
+        />
       </div>
     </div>
   );

@@ -393,7 +393,7 @@ describe('useJobs', () => {
     expect(result.current.jobs['job-t']?.active_segment_progress).toBe(0.0);
   });
 
-  it('records chapter-state or segment-state subscriber observations on handled bus frames', async () => {
+  it('records main-queue and chapter-state subscriber observations on handled chapter progress frames', async () => {
     renderHook(() => useJobs());
 
     act(() => {
@@ -418,7 +418,56 @@ describe('useJobs', () => {
     const records = getLiveEventAuditSnapshot();
     expect(records).toHaveLength(1);
     const subscribers = records[0].subscribers.map(s => s.subscriber);
+    expect(subscribers).toContain('main-queue');
     expect(subscribers).toContain('chapter-state');
+  });
+
+  it('records main-queue and chapter-state subscriber observations on handled chapter lifecycle frames', async () => {
+    renderHook(() => useJobs());
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'chapters.lifecycle',
+        eventKind: 'chapter_lifecycle',
+        ids: { jobId: 'job-chap', chapterId: 'chap-1' },
+        payload: {
+          reasonCode: 'chapter_started',
+          changedFields: ['status'],
+        },
+      });
+    });
+
+    const records = getLiveEventAuditSnapshot();
+    expect(records).toHaveLength(1);
+    const subscribers = records[0].subscribers.map(s => s.subscriber);
+    expect(subscribers).toContain('main-queue');
+    expect(subscribers).toContain('chapter-state');
+  });
+
+  it('records main-queue and voice-test-state subscriber observations on voice.test frames', async () => {
+    renderHook(() => useJobs());
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'voice.test',
+        eventKind: 'voice_test_progress',
+        payload: {
+          voiceName: 'Narrator 1',
+          progress: 0.4,
+          startedAt: 1234,
+        },
+      });
+    });
+
+    const records = getLiveEventAuditSnapshot();
+    expect(records).toHaveLength(1);
+    const subscribers = records[0].subscribers.map(s => s.subscriber);
+    expect(subscribers).toContain('main-queue');
+    expect(subscribers).toContain('voice-test-state');
   });
 
   it('drives segment progress directly from segments.progress topic', async () => {
@@ -1301,6 +1350,28 @@ describe('useJobs', () => {
 
     // Job status should stay preparing
     expect(result.current.jobs['job-early-prep-2']?.status).toBe('preparing');
+  });
+
+  it('treats canonical START_SEGMENT at 0% as the segment timer start', async () => {
+    const { result } = renderHook(() => useJobs());
+
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-start-segment', status: 'preparing', progress: 0, classification: 'segment' }] });
+
+    emitEvent('segments.progress', 'segment_progress', {
+      status: 'running',
+      progress: 0.0,
+      activeSegmentProgress: 0.0,
+      etaSeconds: 20,
+      reasonCode: 'START_SEGMENT',
+      updatedAt: 500,
+    }, { jobId: 'job-start-segment', chapterId: 'chap-1', segmentId: 'seg-start' });
+
+    const job = result.current.jobs['job-start-segment'];
+    expect(job?.status).toBe('running');
+    expect(job?.active_segment_id).toBe('seg-start');
+    expect(job?.active_segment_progress).toBe(0);
+    expect(job?.active_segment_eta_seconds).toBe(20);
+    expect(job?.active_segment_updated_at).toBe(500);
   });
 
   it('transitions segment-scoped job out of preparing normally on first non-zero segments.progress frame', async () => {

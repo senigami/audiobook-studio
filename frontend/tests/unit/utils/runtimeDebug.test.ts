@@ -223,6 +223,10 @@ describe('wsAudienceForType', () => {
   it('classifies dual-audience message types as both', () => {
     expect(wsAudienceForType('studio_job_event')).toBe('both');
     expect(wsAudienceForType('job_updated')).toBe('both');
+    expect(wsAudienceForType('studio_event', {
+      topic: 'voice.test',
+      eventKind: 'voice_test_progress',
+    })).toBe('both');
   });
 
   it('classifies unknown types as other', () => {

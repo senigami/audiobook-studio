@@ -314,6 +314,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
 
         case 'chapters.progress': {
           recordWebsocketDebugMessage('useJobs', data, raw, envelope);
+          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
           recordLiveEventSubscriberObservation(envelope?.frameId, 'chapter-state', 'handled');
           if (event.jobId) {
             applyJobUpdatedEvent({
@@ -326,6 +327,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
 
         case 'chapters.lifecycle': {
           recordWebsocketDebugMessage('useJobs', data, raw, envelope);
+          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
           recordLiveEventSubscriberObservation(envelope?.frameId, 'chapter-state', 'handled');
           const chapterId = event.chapterId || data.chapter_id;
           if (onChapterUpdate && chapterId) onChapterUpdate(chapterId);
@@ -358,8 +360,9 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
 
             const rawStatus = getVal('status', 'status');
             const rawReasonCode = getVal('reasonCode', 'reason_code');
+            const isCanonicalSegmentStart = rawReasonCode === 'START_SEGMENT';
             const isSegmentAtZero = (segmentProg ?? 0) <= 0;
-            const projectedStatus = isSegmentAtZero
+            const projectedStatus = isSegmentAtZero && !isCanonicalSegmentStart
               ? 'preparing'
               : (rawStatus && rawStatus !== 'done' && rawStatus !== 'failed' && rawStatus !== 'cancelled')
                 ? rawStatus
@@ -477,6 +480,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
 
         case 'voice.test': {
           recordWebsocketDebugMessage('useJobs', data, raw, envelope);
+          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
           recordLiveEventSubscriberObservation(envelope?.frameId, 'voice-test-state', 'handled');
           const nameVal = payload.voiceName || data.name || '';
           const progVal = typeof payload.progress === 'number' ? payload.progress : (data.progress ?? 0);

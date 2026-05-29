@@ -85,11 +85,22 @@ export const useQueueSync = () => {
       const event = record.event;
       const payload = event.payload as any;
 
-      if (event.topic === 'jobs.lifecycle' || event.topic === 'segments.progress' || event.topic === 'queue.items') {
+      if (
+        event.topic === 'jobs.lifecycle' ||
+        event.topic === 'queue.items' ||
+        event.topic === 'chapters.lifecycle' ||
+        event.topic === 'chapters.progress' ||
+        event.topic === 'voice.test'
+      ) {
         recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
         if (event.topic === 'queue.items' && event.eventKind === 'queue_item_invalidated') {
+          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
           refreshQueue('refresh');
         } else if (event.topic === 'queue.items' && event.eventKind === 'queue_paused') {
+          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
+          refreshQueue('refresh');
+        } else if (event.topic === 'chapters.lifecycle') {
+          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
           refreshQueue('refresh');
         } else if (event.jobId) {
           recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');

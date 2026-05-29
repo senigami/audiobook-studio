@@ -5,14 +5,13 @@ import {
   getLiveEventAuditSnapshot,
   subscribeLiveEventAudit,
 } from '@/store/liveEventAuditStore';
-import { LIVE_EVENT_CONSUMERS, getLiveEventConsumer } from '@/config/liveEventConsumers';
+import { TOPIC_FILTERS, type TopicFilterId } from '@/config/liveEventTopics';
 
-
-type LiveOutputFilter = 'all' | 'main-queue' | 'chapter-state' | 'segment-state' | 'tts-diagnostics' | 'voice-test-state' | string;
-
-interface LiveOutputTableProps {
+export interface LiveOutputTableProps {
   chapterId?: string | null;
   currentJobId?: string | null;
+  hiddenTopics?: TopicFilterId[];
+  onHiddenTopicsChange?: React.Dispatch<React.SetStateAction<TopicFilterId[]>>;
 }
 
 const shortId = (value?: string | null) => {
@@ -55,7 +54,9 @@ const jobProgressPayloadFor = (event: LiveEvent): any => {
   if (
     event.topic === 'jobs.lifecycle' ||
     event.topic === 'queue.items' ||
+    event.topic === 'chapters.lifecycle' ||
     event.topic === 'chapters.progress' ||
+    event.topic === 'voice.test' ||
     event.topic === 'segments.progress'
   ) {
     const payload = event.payload as any;
@@ -91,13 +92,16 @@ const messageFor = (event: LiveEvent): string => {
   if (
     event.topic === 'jobs.lifecycle' ||
     event.topic === 'queue.items' ||
+    event.topic === 'chapters.lifecycle' ||
     event.topic === 'chapters.progress' ||
+    event.topic === 'voice.test' ||
     event.topic === 'segments.progress'
   ) {
     const payload = event.payload as any;
     const message = payload.message ?? '';
     const status = payload.status ?? '';
     if (message && status) return `[${status}] ${message}`;
+    if (event.topic === 'voice.test') return message || status || payload.voiceName || '';
     return message || status;
   }
   if (
@@ -139,23 +143,27 @@ const COLUMNS = [
   'Message',
 ];
 
-export const LiveOutputTable: React.FC<LiveOutputTableProps> = (_props) => {
+export const LiveOutputTable: React.FC<LiveOutputTableProps> = ({
+  hiddenTopics: controlledHiddenTopics,
+  onHiddenTopicsChange,
+}) => {
   const records = useSyncExternalStore(
     subscribeLiveEventAudit,
     getLiveEventAuditSnapshot,
     getLiveEventAuditSnapshot,
   );
 
-  const [filter, setFilter] = useState<LiveOutputFilter>('all');
+  const [localHiddenTopics, setLocalHiddenTopics] = useState<TopicFilterId[]>([]);
+  const hiddenTopics = controlledHiddenTopics ?? localHiddenTopics;
+  const setHiddenTopics = onHiddenTopicsChange ?? setLocalHiddenTopics;
   const [paused, setPaused] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
 
   const filteredRecords = useMemo(() => {
-    if (filter === 'all') return records;
-    const consumer = getLiveEventConsumer(filter);
-    if (!consumer) return records;
-    return records.filter(record => consumer.listensTo(record.event));
-  }, [filter, records]);
+    if (hiddenTopics.length === 0) return records;
+    const hidden = new Set(hiddenTopics);
+    return records.filter(record => !TOPIC_FILTERS.some(filter => hidden.has(filter.id) && filter.matches(record.event.topic)));
+  }, [hiddenTopics, records]);
 
   useEffect(() => {
     if (paused) return;
@@ -168,36 +176,64 @@ export const LiveOutputTable: React.FC<LiveOutputTableProps> = (_props) => {
     clearLiveEventAudit();
   };
 
+  const toggleTopic = (topicId: TopicFilterId) => {
+    setHiddenTopics(prev => (
+      prev.includes(topicId)
+        ? prev.filter(id => id !== topicId)
+        : [...prev, topicId]
+    ));
+  };
+
+  const showAllTopics = () => setHiddenTopics([]);
+
+  const isTopicHidden = (topicId: TopicFilterId) => hiddenTopics.includes(topicId);
+
   const handleCopy = async () => {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return;
     await navigator.clipboard.writeText(JSON.stringify(filteredRecords, null, 2));
   };
 
-  const filters = useMemo<{ value: LiveOutputFilter; label: string }[]>(() => [
-    { value: 'all', label: 'All' },
-    ...LIVE_EVENT_CONSUMERS.map(c => ({ value: c.id as LiveOutputFilter, label: c.label })),
-  ], []);
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%', gap: '0.75rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--border)', padding: '3px', borderRadius: 8 }}>
-          {filters.map(({ value, label }) => (
+        <div style={{ display: 'flex', gap: '0.35rem', background: 'var(--border)', padding: '3px', borderRadius: 8, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={showAllTopics}
+            aria-pressed={hiddenTopics.length === 0}
+            style={{
+              padding: '4px 12px',
+              fontSize: '0.85rem',
+              borderRadius: '6px',
+              height: '30px',
+              border: 'none',
+              background: hiddenTopics.length === 0 ? 'var(--accent)' : 'transparent',
+              color: hiddenTopics.length === 0 ? '#fff' : 'var(--text-primary)',
+              fontWeight: hiddenTopics.length === 0 ? 600 : 400,
+              cursor: 'pointer',
+            }}
+          >
+            All
+          </button>
+          {TOPIC_FILTERS.map(({ id, label }) => (
             <button
-              key={value}
+              key={id}
               type="button"
-              className={filter === value ? 'btn-primary' : 'btn-ghost'}
-              onClick={() => setFilter(value)}
+              className="btn-ghost"
+              onClick={() => toggleTopic(id)}
+              aria-pressed={!isTopicHidden(id)}
               style={{
                 padding: '4px 12px',
                 fontSize: '0.85rem',
                 borderRadius: '6px',
                 height: '30px',
                 border: 'none',
-                background: filter === value ? 'var(--accent)' : 'transparent',
-                color: filter === value ? '#fff' : 'var(--text-primary)',
-                fontWeight: filter === value ? 600 : 400,
+                background: isTopicHidden(id) ? 'transparent' : 'var(--accent)',
+                color: isTopicHidden(id) ? 'var(--text-primary)' : '#fff',
+                fontWeight: isTopicHidden(id) ? 400 : 600,
                 cursor: 'pointer',
+                opacity: isTopicHidden(id) ? 0.65 : 1,
               }}
             >
               {label}

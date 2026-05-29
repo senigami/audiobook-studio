@@ -9,7 +9,7 @@ import { ReorderableQueueItem } from '@/components/queue/ReorderableQueueItem';
 import { QueueStats } from '@/components/queue/QueueStats';
 import type { Job, ProcessingQueueItem } from '@/types';
 import { formatQueueContext } from '@/utils/queueLabels';
-import { isSegmentScopedJob } from '@/utils/jobSelection';
+import { isMainQueueSegmentItem } from '@/utils/jobSelection';
 
 interface GlobalQueueProps {
     paused?: boolean;
@@ -87,7 +87,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
         return base;
     }, []);
 
-    const chapterJobs = React.useMemo(() => queue.filter(q => !isSegmentScopedJob(q)), [queue]);
+    const chapterJobs = React.useMemo(() => queue.filter(q => !isMainQueueSegmentItem(q)), [queue]);
     const [recentlyCompleted, setRecentlyCompleted] = React.useState<Record<string, number>>({});
     const prevQueueRef = React.useRef<ProcessingQueueItem[]>([]);
     const timeoutsRef = React.useRef<Record<string, NodeJS.Timeout>>({});

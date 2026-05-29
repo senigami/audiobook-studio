@@ -136,6 +136,94 @@ describe('HydrationCoordinator', () => {
     expect(selectActiveQueueCount(merged)).toBe(0);
   });
 
+  it('keeps segment-capable chapter jobs visible in the main queue', () => {
+    const snapshot = coordinator.createSnapshot([
+      {
+        id: 'job-segment-capable-chapter',
+        project_id: 'proj-1',
+        chapter_id: 'chap-1',
+        status: 'running',
+        progress: 0.2,
+        has_segment_support: true,
+        classification: 'chapter',
+      } as any,
+    ]);
+
+    const merged = coordinator.mergeQueueWithOverlays(snapshot, { eventsById: {} });
+    expect(merged).toHaveLength(1);
+    expect(merged[0].id).toBe('job-segment-capable-chapter');
+    expect(selectActiveQueueCount(merged)).toBe(1);
+  });
+
+  it('hydrates a segment-capable chapter queue item from live overlay data', () => {
+    const snapshot = coordinator.createSnapshot([]);
+
+    const overlays: LiveOverlayState = {
+      eventsById: {
+        'job-live-segment-capable': {
+          project_id: 'proj-1',
+          chapter_id: 'chap-1',
+          classification: 'chapter',
+          status: 'running',
+          progress: 0,
+          updated_at: 1000,
+          created_at: 900,
+        },
+      },
+    };
+
+    const merged = coordinator.mergeQueueWithOverlays(snapshot, overlays);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].id).toBe('job-live-segment-capable');
+    expect(merged[0].status).toBe('running');
+  });
+
+  it('keeps a recent terminal overlay visible long enough for queue history', () => {
+    const now = 1713210000;
+    const snapshot = coordinator.createSnapshot([]);
+
+    const overlays: LiveOverlayState = {
+      eventsById: {
+        'job-terminal-overlay': {
+          project_id: 'proj-1',
+          chapter_id: 'chap-1',
+          classification: 'chapter',
+          status: 'done',
+          progress: 1,
+          updated_at: now - 3,
+          completed_at: now - 3,
+        },
+      },
+    };
+
+    const merged = coordinator.mergeQueueWithOverlays(snapshot, overlays, now * 1000);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].id).toBe('job-terminal-overlay');
+    expect(merged[0].status).toBe('done');
+  });
+
+  it('does not keep stale terminal overlays after the history handoff window', () => {
+    const now = 1713210000;
+    const snapshot = coordinator.createSnapshot([]);
+
+    const overlays: LiveOverlayState = {
+      eventsById: {
+        'job-stale-terminal-overlay': {
+          project_id: 'proj-1',
+          chapter_id: 'chap-1',
+          classification: 'chapter',
+          status: 'done',
+          progress: 1,
+          updated_at: now - 60,
+          completed_at: now - 60,
+        },
+      },
+    };
+
+    const merged = coordinator.mergeQueueWithOverlays(snapshot, overlays, now * 1000);
+    expect(merged).toHaveLength(0);
+  });
+
   it('stays stable when thinner live data arrives (Merge Rule Check)', () => {
     const snapshot = coordinator.createSnapshot([
       { id: 'job1', status: 'running', progress: 0.5, eta_seconds: 30 } as any
