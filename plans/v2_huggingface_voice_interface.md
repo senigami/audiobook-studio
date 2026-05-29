@@ -98,9 +98,10 @@ the metadata proposal):
 
 - **Token handling:** HF token is optional, stored like other secrets (never logged,
   never bundled into exported voices), used only for authenticated Hub calls.
-- **License surfacing:** never import without showing the source license; block or warn on
-  licenses incompatible with the user's intended use. _Assumption: we display, we don't
-  legally adjudicate._
+- **License surfacing (warn, don't block):** every voice on HF declares a license (who may
+  use it and how). Studio always **shows** that license before import and flags the
+  restrictive ones (e.g. non-commercial, no-derivatives), but does **not** block the
+  import — the user decides. Studio displays the facts; it doesn't act as a legal gate.
 - **Consent:** explicit cloning-consent acknowledgement recorded in `provenance`.
 - **Disclosure:** any download or off-machine call is shown in the UI, consistent with the
   cloud-engine disclosure rules.
@@ -123,9 +124,11 @@ Decided (this round):
 - **Token:** optional — public browse/import needs none; required only to upload or to read
   private repos.
 
+- **License handling = warn, don't block.** Studio shows each voice's license and flags
+  restrictive ones, but never blocks the import; the user decides (see §7).
+
 Still open (minor):
-1. License enforcement — warn-only (recommended) vs. hard-block certain licenses?
-2. In-app HF search UI vs. "paste a Hub ID / URL" for the very first version (full browse
+1. In-app HF search UI vs. "paste a Hub ID / URL" for the very first version (full browse
    is the target either way).
 
 ## 10. References

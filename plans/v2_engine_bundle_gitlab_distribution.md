@@ -65,80 +65,91 @@ comes from and how to update it:
     "host": "gitlab",
     "base_url": "https://gitlab.com",
     "project": "audiobook-studio/tts-xtts",
+    "git_url": "https://gitlab.com/audiobook-studio/tts-xtts.git",
     "topic": "audiobook-studio-tts",
-    "channel": "release",
+    "pin_ref": null,
     "official": true
   }
 }
 ```
 
 - `host` / `base_url` — `gitlab` and an instance URL (supports self-hosted GitLab).
-- `project` — `group/repo` path (or numeric project id).
+- `project` — `group/repo` path (or numeric project id), used for the discovery/API lookup.
+- `git_url` — the clone URL. **Install = `git clone` this; update = `git pull`** (the
+  Stable Diffusion / ComfyUI model — see §6).
 - `topic` — the GitLab topic used for discovery (anchor: **`audiobook-studio-tts`**).
-- `channel` — `release` (download a versioned release asset) or `branch` (clone a branch).
+- `pin_ref` — optional tag/branch to lock to; `null` tracks the default branch.
 - `official` — true only for engines under the official Audiobook Studio GitLab group;
   Studio shows third-party engines with a trust warning.
 
-`engine_version` is semver and is the version compared during updates.
+`engine_version` is semver, read from the cloned `manifest.json`, and compared during
+update checks.
 
-## 5. Discovery (browse by topic)
+> **Heavy model weights are not in the git repo.** The repo holds engine code + manifest
+> only. Multi-GB model weights are fetched by the engine itself on first run — exactly as
+> XTTS already downloads its base model from Hugging Face today. This keeps clones small
+> and updates fast (the SD ecosystem works the same way: extensions are git repos; models
+> are downloaded separately).
+
+## 5. Discovery (browse by topic, or paste a URL)
+
+The "registry" is just GitLab itself — no separate index file to maintain:
 
 - The engine browser queries GitLab's Projects API filtered by topic:
   `GET {base_url}/api/v4/projects?topic=audiobook-studio-tts&order_by=star_count`.
-- For each project, read its latest release (`/releases/permalink/latest`) and its
-  `manifest.json` + `README.md` + `icon.png` for card display (name, version, description,
-  resource profile, official badge).
+- For each project, read its `manifest.json` + `README.md` + `icon.png` (and latest tag)
+  for card display (name, version, description, resource profile, official badge).
 - Results render as cards (icon, description, version, "Official"/"Community" badge,
   Install button) — the ComfyUI-Manager / Civitai pattern.
+- **Install from URL:** the user can also paste any GitLab repo URL directly (like A1111's
+  "Install from URL"), bypassing search.
 - Self-hosted/alternate GitLab instances: user can add extra `base_url`s to search.
 
-## 6. Install
+## 6. Install (clone it down)
 
-1. **Resolve version.** `channel: release` → GitLab Releases API picks the latest release
-   compatible with the running app (`min_app_version` gate). `channel: branch` → use the
-   named branch HEAD.
-2. **Fetch.** Preferred: download the release's zipped asset from the **Generic Package
-   Registry** (`GET /api/v4/projects/:id/packages/generic/:name/:version/:file`) or release
-   assets. Fallback: `git`/archive download of the tag/branch.
-3. **Stage & validate (before running any code):** extract to a temp dir, enforce the
-   `tts_<name>` folder pattern, validate `manifest.json` against the SDK schema, check
-   `min_app_version`. Reject on failure.
-4. **Place** into `tts_engines/tts_<engine_id>/`.
-5. **Dependencies.** If `requirements.txt` has unmet deps, run the existing Install
+1. **Clone.** `git clone {git_url}` (at `pin_ref` if set, else default branch) into a temp
+   dir. This is the "pull it down" step.
+2. **Validate before running any code:** enforce the `tts_<name>` folder pattern, validate
+   `manifest.json` against the SDK schema, check `min_app_version`. Reject on failure.
+3. **Place** the cloned repo into `tts_engines/tts_<engine_id>/` (it stays a git checkout,
+   so updates are a simple `git pull`).
+4. **Dependencies.** If `requirements.txt` has unmet deps, run the existing Install
    Dependencies action (isolated to the TTS Server environment).
-6. **Register** through the engine registry; the TTS Server loads it (engine code runs in
+5. **Register** through the engine registry; the TTS Server loads it (engine code runs in
    the TTS Server subprocess, never the Studio process — `plans/v2_voice_system_interface.md`
    §10).
-7. **Record provenance:** host, project, resolved version, tag/commit, installed_at — for
+6. **Record provenance:** host, project, `git_url`, resolved commit/tag, installed_at — for
    reproducibility and update checks.
 
-"**Fetch updates on install**": install always resolves the latest compatible version, so a
-fresh install is never stale.
+A fresh clone always gets the latest code, so a new install is never stale.
 
-## 7. Update
+## 7. Update (pull it)
 
-- **Check:** on demand (and optionally on app start), compare each installed engine's
-  recorded version against the latest compatible GitLab release. Show "Update available
+- **Check:** on demand (and optionally on app start), `git fetch` each installed engine and
+  compare the local commit/`engine_version` against upstream. Show "Update available
   2.0.0 → 2.1.0".
-- **Apply:** same fetch→validate→stage→swap flow as install, atomically replacing the
-  folder; roll back on validation failure. Settings and any user data persist across
-  updates (settings live in app config keyed by `engine_id`, not in the bundle).
-- **Pinning:** a user can pin an engine to a version to opt out of auto-update.
-- **Compatibility:** never offer an update whose `min_app_version` exceeds the running app;
+- **Apply:** `git pull` (or fetch + checkout the new tag), then re-validate the manifest and
+  re-register; roll back the checkout on validation failure. Settings persist across updates
+  (settings live in app config keyed by `engine_id`, not in the bundle).
+- **Pinning:** set `pin_ref` to a tag to lock a version and opt out of auto-update.
+- **Compatibility:** never pull an update whose `min_app_version` exceeds the running app;
   surface "update Audiobook Studio first."
+- **Uninstall:** delete the `tts_engines/tts_<engine_id>/` folder.
 
 ## 8. XTTS default & built-ins
 
 - **XTTS is the default engine.** On first run, if `tts_engines/tts_xtts/` is absent,
-  Studio auto-installs it from the official GitLab repo (`audiobook-studio/tts-xtts`).
+  Studio auto-installs it by cloning the official GitLab repo
+  (`https://gitlab.com/audiobook-studio/tts-xtts.git`). Its model weights then download on
+  first synthesis, as they do today.
 - **Offline first-run fallback:** ship a cached copy of the default XTTS bundle inside the
   app installer so a no-network first run still works; the cached copy is treated as
-  "installed at version X" and updates normally once online.
+  installed and `git pull`s normally once online.
 - **Voxtral (cloud)** is also a GitLab bundle but cloud-backed (`requires_network: true`,
   hidden until a Mistral key is added — unchanged behavior).
 - **Migration:** the engines currently bundled in `plugins/` move to their own GitLab repos
-  and to `tts_engines/`; the in-app copies are removed in favor of installed bundles (XTTS
-  via auto-install/cached fallback).
+  and into `tts_engines/`; the in-app copies are removed in favor of cloned bundles (XTTS
+  via auto-clone / cached fallback).
 
 ## 9. Security & trust
 
@@ -154,25 +165,28 @@ fresh install is never stale.
 - **Token:** GitLab personal access token is optional (public read needs none); required
   only for private/self-hosted projects. Stored as a secret, never logged or bundled.
 
-## 10. Open questions (need Steven's answers)
+## 10. Decisions & remaining questions
 
-1. **Distribution artifact:** prefer release + Generic Package Registry zip (recommended,
-   version-clean) or plain git archive of a tag? (Spec supports both via `channel`.)
-2. **Official group path:** confirm the GitLab group/namespace for official engines
+Decided:
+- **Distribution = git clone / git pull** (Stable Diffusion / ComfyUI model). The repo is
+  the package; no release-asset or package-registry step. Discovery via GitLab topic, plus
+  paste-a-URL install. Heavy weights download separately on first run.
+
+Still open (minor):
+1. **Official group path:** confirm the GitLab group/namespace for official engines
    (assumed `audiobook-studio/...`).
-3. **Auto-update default:** check-and-notify (recommended) vs. silent auto-update vs.
+2. **Auto-update default:** check-and-notify (recommended) vs. silent auto-update vs.
    manual-only?
-4. **Offline bundle:** confirm shipping a cached XTTS copy in the installer for offline
+3. **Offline bundle:** confirm shipping a cached XTTS copy in the installer for offline
    first-run.
 
 ## 11. Sources
 
+- Stable Diffusion WebUI extensions (install from URL = git clone; update = git pull) —
+  https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Extensions
+- ComfyUI Manager (git-clone install model, node list) —
+  https://github.com/Comfy-Org/ComfyUI-Manager
 - GitLab Projects API (filter by topic) — https://docs.gitlab.com/api/projects/
 - GitLab Topics API — https://docs.gitlab.com/api/topics/
-- GitLab Releases API (incl. latest permalink) — https://docs.gitlab.com/api/releases/
-- GitLab Generic Package Registry — https://docs.gitlab.com/user/packages/generic_packages/
-- Distribution analogy (ComfyUI Manager / Civitai) —
-  https://civitai.com/models/71980/comfyui-manager ,
-  https://github.com/hayden-fr/ComfyUI-Model-Manager
 - Builds on: `plans/v2_plugin_sdk.md`, `plans/v2_voice_system_interface.md`,
   `plans/master_agnostic_tasks.md`.
