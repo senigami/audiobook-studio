@@ -7,6 +7,9 @@
 /* ---- Sidebar ---- */
 .doc-sidebar { position: sticky; top: 76px; align-self: start; max-height: calc(100vh - 96px); overflow-y: auto; padding-right: 0.5rem; }
 .doc-sidebar .group { margin-bottom: 1.4rem; }
+.doc-sidebar .group-part { font-family: "Outfit", sans-serif; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.02em; color: var(--text); margin: 1.4rem 0 0.7rem; padding-top: 0.9rem; border-top: 1px solid var(--border); }
+.doc-sidebar .group-part:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.doc-sidebar .group .tag { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent-2); }
 .doc-sidebar .group-title { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem; }
 .doc-sidebar a { display: block; padding: 0.32rem 0.7rem; border-radius: 8px; color: var(--text-soft); text-decoration: none; font-size: 0.92rem; line-height: 1.4; }
 .doc-sidebar a:hover { background: var(--surface-alt); color: var(--text); }

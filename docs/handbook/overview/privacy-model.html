@@ -12,37 +12,11 @@
     <link rel="stylesheet" href="../../assets/handbook.css" />
   </head>
   <body>
-    <nav class="site-nav">
-      <a class="brand" href="../../index.html"><img src="../../assets/logo.png" alt="Audiobook Studio" /><span>Audiobook&nbsp;Studio</span></a>
-      <div class="nav-links">
-        <a href="../index.html">Handbook</a>
-        <a href="../../index.html">Home</a>
-        <a href="https://github.com/senigami/audiobook-studio">GitHub</a>
-      </div>
-    </nav>
-
+    <nav class="site-nav" id="hb-top"></nav>
     <div class="doc-shell">
-      <aside class="doc-sidebar">
-        <div class="group">
-          <div class="group-title">Overview</div>
-          <a href="what-is-audiobook-studio.html">What Is Audiobook Studio</a>
-          <a href="studio-2-at-a-glance.html">Studio 2.0 at a Glance</a>
-          <a href="use-cases.html">Who It's For &amp; Use Cases</a>
-          <a class="active" href="privacy-model.html">Local-First &amp; Privacy</a>
-          <a href="feature-highlights.html">Feature Highlights</a>
-        </div>
-        <div class="group">
-          <div class="group-title">More sections</div>
-          <a href="../index.html#users">Getting Started</a>
-          <a href="../index.html#users">Core Concepts</a>
-          <a href="../index.html#users">User Guide</a>
-          <a href="../index.html#users">Engines &amp; Voice Cloning</a>
-          <a href="../index.html#devs">For Developers</a>
-        </div>
-      </aside>
-
+      <aside class="doc-sidebar" id="hb-sidebar"></aside>
       <article class="doc-article">
-        <div class="doc-breadcrumb"><a href="../index.html">Handbook</a> › Overview</div>
+        <div class="doc-breadcrumb" id="hb-crumb"></div>
         <h1>Local-First &amp; Privacy</h1>
         <p class="lede">Your manuscript, voice samples, and finished audio stay on your machine. Anything that leaves is optional, opt-in, and clearly disclosed.</p>
 
@@ -62,7 +36,7 @@
         <h2>What leaves the machine — only if you choose</h2>
         <p><strong>Cloud engines are opt-in.</strong> Studio supports optional cloud voice engines (enabled with an API key), but none are installed or active by default. If you turn one on, the text to be spoken — and any reference audio that engine needs — is sent to that provider to generate the audio.</p>
         <div class="warning"><b>Heads up —</b> a cloud engine means some data leaves your device. Studio surfaces this clearly before you use one, and shows which engines send data off-machine.</div>
-        <p>This is a deliberate trade-off you control, not a default. The <a href="../index.html#users">Engines &amp; Voice Cloning</a> section explains each engine's data behavior.</p>
+        <p>This is a deliberate trade-off you control, not a default. The <a href="../engines/voxtral.html">Cloud Engines</a> page explains each engine's data behavior.</p>
 
         <h2>No silent fallback</h2>
         <p><strong>Studio won't quietly route your work somewhere else.</strong> If a local engine can't do something, it tells you — it does not silently fall back to a cloud service. What runs where is always visible.</p>
@@ -76,16 +50,12 @@
 
         <div class="tip"><b>Tip —</b> For maximum privacy, simply don't enable any cloud engine. The local default covers full audiobook production on its own.</div>
 
-        <div class="next-links">
-          <a href="feature-highlights.html"><span class="dir">Next ›</span><div class="ttl">Feature Highlights</div></a>
-          <a href="../index.html#users"><span class="dir">Related</span><div class="ttl">Engines &amp; Voice Cloning</div></a>
-        </div>
+        <div class="next-links" id="hb-next"></div>
       </article>
     </div>
-
-    <footer class="site-footer">
-      &copy; 2026 Audiobook Studio · Local-first, professional audiobook production.<br />
-      <a href="../index.html">Handbook</a> · <a href="../../index.html">Home</a> · <a href="https://github.com/senigami/audiobook-studio">GitHub</a>
-    </footer>
+    <footer class="site-footer" id="hb-foot"></footer>
+    <script>window.HB_ROOT = "../"; window.HB_SECTION = "overview"; window.HB_PAGE = "privacy-model";</script>
+    <script src="../../assets/nav-data.js"></script>
+    <script src="../../assets/hb-nav.js"></script>
   </body>
 </html>

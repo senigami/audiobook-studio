@@ -12,37 +12,11 @@
     <link rel="stylesheet" href="../../assets/handbook.css" />
   </head>
   <body>
-    <nav class="site-nav">
-      <a class="brand" href="../../index.html"><img src="../../assets/logo.png" alt="Audiobook Studio" /><span>Audiobook&nbsp;Studio</span></a>
-      <div class="nav-links">
-        <a href="../index.html">Handbook</a>
-        <a href="../../index.html">Home</a>
-        <a href="https://github.com/senigami/audiobook-studio">GitHub</a>
-      </div>
-    </nav>
-
+    <nav class="site-nav" id="hb-top"></nav>
     <div class="doc-shell">
-      <aside class="doc-sidebar">
-        <div class="group">
-          <div class="group-title">Overview</div>
-          <a href="what-is-audiobook-studio.html">What Is Audiobook Studio</a>
-          <a href="studio-2-at-a-glance.html">Studio 2.0 at a Glance</a>
-          <a href="use-cases.html">Who It's For &amp; Use Cases</a>
-          <a href="privacy-model.html">Local-First &amp; Privacy</a>
-          <a class="active" href="feature-highlights.html">Feature Highlights</a>
-        </div>
-        <div class="group">
-          <div class="group-title">More sections</div>
-          <a href="../index.html#users">Getting Started</a>
-          <a href="../index.html#users">Core Concepts</a>
-          <a href="../index.html#users">User Guide</a>
-          <a href="../index.html#users">Engines &amp; Voice Cloning</a>
-          <a href="../index.html#devs">For Developers</a>
-        </div>
-      </aside>
-
+      <aside class="doc-sidebar" id="hb-sidebar"></aside>
       <article class="doc-article">
-        <div class="doc-breadcrumb"><a href="../index.html">Handbook</a> › Overview</div>
+        <div class="doc-breadcrumb" id="hb-crumb"></div>
         <h1>Feature Highlights</h1>
         <p class="lede">A quick, scannable tour of what Audiobook Studio can do. Each capability has its own deeper page later in the handbook.</p>
 
@@ -58,7 +32,7 @@
 
         <h2>Voices, variants &amp; cloning</h2>
         <p><strong>Build a voice once, reuse it everywhere.</strong> Create voices from audio samples, keep multiple variants, and identify them with icons and tags. Voices are independent of any one engine, so they travel with you.</p>
-        <p>See <a href="../index.html#users">Core Concepts → Voices</a> and the <a href="../index.html#users">User Guide → Voice Lab</a>.</p>
+        <p>See <a href="../concepts/voices.html">Voices, Variants &amp; Samples</a> and the <a href="../user-guide/voice-lab.html">Voice Lab</a>.</p>
 
         <h2>Queue, progress &amp; recovery</h2>
         <p><strong>Long jobs are handled gracefully.</strong> Generation and assembly run through a queue with live progress and ETAs. If the app restarts, work recovers — completion is judged by validated audio artifacts, not by whether a file happens to exist.</p>
@@ -71,21 +45,17 @@
           <li><strong>Plugin SDK.</strong> Wrap any TTS engine behind a small contract and publish it; built-in engines use the same path.</li>
           <li><strong>External API.</strong> Use Studio as a local text-to-speech backend for your own scripts and apps.</li>
         </ul>
-        <div class="future"><b>Coming with 2.0 —</b> installable engines from GitLab, a Hugging Face voice library, and AI voice casting. See <a href="../index.html#devs">For Developers</a>.</div>
+        <div class="future"><b>Coming with 2.0 —</b> installable engines from GitLab, a Hugging Face voice library, and AI voice casting. See <a href="../plugin-sdk/overview.html">Plugin SDK</a>.</div>
 
         <h2>Where to go next</h2>
-        <p>Ready to install? Head to <a href="../index.html#users">Getting Started</a>. Want the concepts first? Start with <a href="../index.html#users">Core Concepts</a>.</p>
+        <p>Ready to install? Head to <a href="../getting-started/requirements.html">Getting Started</a>. Want the concepts first? Start with <a href="../concepts/content-hierarchy.html">Core Concepts</a>.</p>
 
-        <div class="next-links">
-          <a href="../index.html#users"><span class="dir">Next ›</span><div class="ttl">Getting Started</div></a>
-          <a href="what-is-audiobook-studio.html"><span class="dir">Back to start</span><div class="ttl">What Is Audiobook Studio</div></a>
-        </div>
+        <div class="next-links" id="hb-next"></div>
       </article>
     </div>
-
-    <footer class="site-footer">
-      &copy; 2026 Audiobook Studio · Local-first, professional audiobook production.<br />
-      <a href="../index.html">Handbook</a> · <a href="../../index.html">Home</a> · <a href="https://github.com/senigami/audiobook-studio">GitHub</a>
-    </footer>
+    <footer class="site-footer" id="hb-foot"></footer>
+    <script>window.HB_ROOT = "../"; window.HB_SECTION = "overview"; window.HB_PAGE = "feature-highlights";</script>
+    <script src="../../assets/nav-data.js"></script>
+    <script src="../../assets/hb-nav.js"></script>
   </body>
 </html>

@@ -12,37 +12,11 @@
     <link rel="stylesheet" href="../../assets/handbook.css" />
   </head>
   <body>
-    <nav class="site-nav">
-      <a class="brand" href="../../index.html"><img src="../../assets/logo.png" alt="Audiobook Studio" /><span>Audiobook&nbsp;Studio</span></a>
-      <div class="nav-links">
-        <a href="../index.html">Handbook</a>
-        <a href="../../index.html">Home</a>
-        <a href="https://github.com/senigami/audiobook-studio">GitHub</a>
-      </div>
-    </nav>
-
+    <nav class="site-nav" id="hb-top"></nav>
     <div class="doc-shell">
-      <aside class="doc-sidebar">
-        <div class="group">
-          <div class="group-title">Overview</div>
-          <a href="what-is-audiobook-studio.html">What Is Audiobook Studio</a>
-          <a href="studio-2-at-a-glance.html">Studio 2.0 at a Glance</a>
-          <a class="active" href="use-cases.html">Who It's For &amp; Use Cases</a>
-          <a href="privacy-model.html">Local-First &amp; Privacy</a>
-          <a href="feature-highlights.html">Feature Highlights</a>
-        </div>
-        <div class="group">
-          <div class="group-title">More sections</div>
-          <a href="../index.html#users">Getting Started</a>
-          <a href="../index.html#users">Core Concepts</a>
-          <a href="../index.html#users">User Guide</a>
-          <a href="../index.html#users">Engines &amp; Voice Cloning</a>
-          <a href="../index.html#devs">For Developers</a>
-        </div>
-      </aside>
-
+      <aside class="doc-sidebar" id="hb-sidebar"></aside>
       <article class="doc-article">
-        <div class="doc-breadcrumb"><a href="../index.html">Handbook</a> › Overview</div>
+        <div class="doc-breadcrumb" id="hb-crumb"></div>
         <h1>Who It's For &amp; Use Cases</h1>
         <p class="lede">Audiobook Studio is for anyone producing long-form spoken audio locally — indie authors, narrators, hobbyists, and developers who want to build on top of it.</p>
 
@@ -72,25 +46,21 @@
         <p><strong>Revising is free.</strong> Because the default engine runs locally, you can re-record a clumsy line as many times as you like. Change the text, regenerate that segment, and move on — no credits, no meter.</p>
 
         <h3>Multi-character dialogue</h3>
-        <p><strong>Every character can sound like themselves.</strong> Assign the narrator one voice and each character another; Studio reads each line in its assigned voice. <a href="../index.html#users">Core Concepts → Characters &amp; Narrators</a> covers casting in depth.</p>
+        <p><strong>Every character can sound like themselves.</strong> Assign the narrator one voice and each character another; Studio reads each line in its assigned voice. <a href="../concepts/characters-narrators.html">Characters &amp; Narrators</a> covers casting in depth.</p>
 
         <h3>Studio as a TTS backend</h3>
         <p><strong>It's also a local speech engine for your own tools.</strong> Through the gateway API, scripts and apps can generate speech via the engines you've installed — no cloud account required.</p>
-        <div class="future"><b>Coming with 2.0 —</b> the documented gateway API and installable engines make the automation path first-class. See <a href="../index.html#devs">For Developers</a>.</div>
+        <div class="future"><b>Coming with 2.0 —</b> the documented gateway API and installable engines make the automation path first-class. See <a href="../api/overview.html">TTS Gateway API</a>.</div>
 
         <h2>When it might not fit</h2>
         <p>Studio is a production tool. If you only need a single short clip with no editing, a simpler text-to-speech utility may be faster. Studio shines when there's a <em>book's worth</em> of work to manage.</p>
 
-        <div class="next-links">
-          <a href="privacy-model.html"><span class="dir">Next ›</span><div class="ttl">Local-First &amp; Privacy</div></a>
-          <a href="feature-highlights.html"><span class="dir">Related</span><div class="ttl">Feature Highlights</div></a>
-        </div>
+        <div class="next-links" id="hb-next"></div>
       </article>
     </div>
-
-    <footer class="site-footer">
-      &copy; 2026 Audiobook Studio · Local-first, professional audiobook production.<br />
-      <a href="../index.html">Handbook</a> · <a href="../../index.html">Home</a> · <a href="https://github.com/senigami/audiobook-studio">GitHub</a>
-    </footer>
+    <footer class="site-footer" id="hb-foot"></footer>
+    <script>window.HB_ROOT = "../"; window.HB_SECTION = "overview"; window.HB_PAGE = "use-cases";</script>
+    <script src="../../assets/nav-data.js"></script>
+    <script src="../../assets/hb-nav.js"></script>
   </body>
 </html>

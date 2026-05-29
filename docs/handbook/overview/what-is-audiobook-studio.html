@@ -12,37 +12,11 @@
     <link rel="stylesheet" href="../../assets/handbook.css" />
   </head>
   <body>
-    <nav class="site-nav">
-      <a class="brand" href="../../index.html"><img src="../../assets/logo.png" alt="Audiobook Studio" /><span>Audiobook&nbsp;Studio</span></a>
-      <div class="nav-links">
-        <a href="../index.html">Handbook</a>
-        <a href="../../index.html">Home</a>
-        <a href="https://github.com/senigami/audiobook-studio">GitHub</a>
-      </div>
-    </nav>
-
+    <nav class="site-nav" id="hb-top"></nav>
     <div class="doc-shell">
-      <aside class="doc-sidebar">
-        <div class="group">
-          <div class="group-title">Overview</div>
-          <a class="active" href="what-is-audiobook-studio.html">What Is Audiobook Studio</a>
-          <a href="studio-2-at-a-glance.html">Studio 2.0 at a Glance</a>
-          <a href="use-cases.html">Who It's For &amp; Use Cases</a>
-          <a href="privacy-model.html">Local-First &amp; Privacy</a>
-          <a href="feature-highlights.html">Feature Highlights</a>
-        </div>
-        <div class="group">
-          <div class="group-title">More sections</div>
-          <a href="../index.html#users">Getting Started</a>
-          <a href="../index.html#users">Core Concepts</a>
-          <a href="../index.html#users">User Guide</a>
-          <a href="../index.html#users">Engines &amp; Voice Cloning</a>
-          <a href="../index.html#devs">For Developers</a>
-        </div>
-      </aside>
-
+      <aside class="doc-sidebar" id="hb-sidebar"></aside>
       <article class="doc-article">
-        <div class="doc-breadcrumb"><a href="../index.html">Handbook</a> › Overview</div>
+        <div class="doc-breadcrumb" id="hb-crumb"></div>
         <h1>What Is Audiobook Studio</h1>
         <p class="lede">Audiobook Studio is a local-first app that turns a manuscript into a finished, multi-voice audiobook using AI voice cloning — all on your own machine.</p>
 
@@ -80,7 +54,7 @@
           <li><strong>Generation</strong> — a managed engine turns assigned text into audio, with progress you can watch.</li>
           <li><strong>Assembly</strong> — finished chapters become a single audiobook file.</li>
         </ol>
-        <p>In 2.0, generation runs in a <strong>managed, crash-isolated TTS Server</strong> with installable engines — so the heavy lifting is separated from the app and an engine can fail without losing your work. See <a href="../index.html#users">Studio 2.0 at a Glance</a> for the bigger picture.</p>
+        <p>In 2.0, generation runs in a <strong>managed, crash-isolated TTS Server</strong> with installable engines — so the heavy lifting is separated from the app and an engine can fail without losing your work. See <a href="studio-2-at-a-glance.html">Studio 2.0 at a Glance</a> for the bigger picture.</p>
 
         <h2>Example: a children's book, two voices</h2>
         <p>Say you're producing a short picture book with a narrator and one talking fox:</p>
@@ -91,16 +65,12 @@
           <li>Assemble the chapter into an M4B and you're done.</li>
         </ol>
 
-        <div class="next-links">
-          <a href="studio-2-at-a-glance.html"><span class="dir">Next ›</span><div class="ttl">Studio 2.0 at a Glance</div></a>
-          <a href="privacy-model.html"><span class="dir">Related</span><div class="ttl">Local-First &amp; Privacy</div></a>
-        </div>
+        <div class="next-links" id="hb-next"></div>
       </article>
     </div>
-
-    <footer class="site-footer">
-      &copy; 2026 Audiobook Studio · Local-first, professional audiobook production.<br />
-      <a href="../index.html">Handbook</a> · <a href="../../index.html">Home</a> · <a href="https://github.com/senigami/audiobook-studio">GitHub</a>
-    </footer>
+    <footer class="site-footer" id="hb-foot"></footer>
+    <script>window.HB_ROOT = "../"; window.HB_SECTION = "overview"; window.HB_PAGE = "what-is-audiobook-studio";</script>
+    <script src="../../assets/nav-data.js"></script>
+    <script src="../../assets/hb-nav.js"></script>
   </body>
 </html>

@@ -12,37 +12,11 @@
     <link rel="stylesheet" href="../../assets/handbook.css" />
   </head>
   <body>
-    <nav class="site-nav">
-      <a class="brand" href="../../index.html"><img src="../../assets/logo.png" alt="Audiobook Studio" /><span>Audiobook&nbsp;Studio</span></a>
-      <div class="nav-links">
-        <a href="../index.html">Handbook</a>
-        <a href="../../index.html">Home</a>
-        <a href="https://github.com/senigami/audiobook-studio">GitHub</a>
-      </div>
-    </nav>
-
+    <nav class="site-nav" id="hb-top"></nav>
     <div class="doc-shell">
-      <aside class="doc-sidebar">
-        <div class="group">
-          <div class="group-title">Overview</div>
-          <a href="what-is-audiobook-studio.html">What Is Audiobook Studio</a>
-          <a class="active" href="studio-2-at-a-glance.html">Studio 2.0 at a Glance</a>
-          <a href="use-cases.html">Who It's For &amp; Use Cases</a>
-          <a href="privacy-model.html">Local-First &amp; Privacy</a>
-          <a href="feature-highlights.html">Feature Highlights</a>
-        </div>
-        <div class="group">
-          <div class="group-title">More sections</div>
-          <a href="../index.html#users">Getting Started</a>
-          <a href="../index.html#users">Core Concepts</a>
-          <a href="../index.html#users">User Guide</a>
-          <a href="../index.html#users">Engines &amp; Voice Cloning</a>
-          <a href="../index.html#devs">For Developers</a>
-        </div>
-      </aside>
-
+      <aside class="doc-sidebar" id="hb-sidebar"></aside>
       <article class="doc-article">
-        <div class="doc-breadcrumb"><a href="../index.html">Handbook</a> › Overview</div>
+        <div class="doc-breadcrumb" id="hb-crumb"></div>
         <h1>Studio 2.0 at a Glance</h1>
         <p class="lede">Studio 2.0 is a ground-up rearchitecture. The big idea: move synthesis into a managed, crash-isolated <strong>TTS Server</strong>, and make engines and voices first-class, installable pieces.</p>
 
@@ -74,16 +48,12 @@
         <h2>What stayed the same</h2>
         <p>The workflow you already know — projects, chapters, voices, generate, assemble — is intact. 2.0 changes the machinery underneath, not the shape of producing a book.</p>
 
-        <div class="next-links">
-          <a href="use-cases.html"><span class="dir">Next ›</span><div class="ttl">Who It's For &amp; Use Cases</div></a>
-          <a href="../index.html#devs"><span class="dir">Related</span><div class="ttl">Architecture (for developers)</div></a>
-        </div>
+        <div class="next-links" id="hb-next"></div>
       </article>
     </div>
-
-    <footer class="site-footer">
-      &copy; 2026 Audiobook Studio · Local-first, professional audiobook production.<br />
-      <a href="../index.html">Handbook</a> · <a href="../../index.html">Home</a> · <a href="https://github.com/senigami/audiobook-studio">GitHub</a>
-    </footer>
+    <footer class="site-footer" id="hb-foot"></footer>
+    <script>window.HB_ROOT = "../"; window.HB_SECTION = "overview"; window.HB_PAGE = "studio-2-at-a-glance";</script>
+    <script src="../../assets/nav-data.js"></script>
+    <script src="../../assets/hb-nav.js"></script>
   </body>
 </html>
