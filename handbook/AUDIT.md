@@ -20,7 +20,7 @@ destination in the new `handbook/`.
 | --- | --- | --- |
 | `docs/index.html` | keep+update | The public showcase. Handbook reuses its visual language; refresh copy/screenshots for v2 (live-demo refresh in #111). |
 | `docs/assets/*.png/.jpg` | reuse | Re-screenshot for current UI during content pass; keep audio samples (`*.mp3`). |
-| `docs/assets/pinokio*.png` | archive (for now) | Pinokio is out of current scope; revisit when Pinokio support lands. |
+| `docs/assets/pinokio*.png` | keep+update | Existing Pinokio install material is ~accurate; reuse as-is, refresh only if the flow changes. |
 
 ## Plugin & API docs (`docs/`)
 
@@ -66,3 +66,4 @@ the originals (don't keep stale 1.x behavior described as current).
 - No public doc may describe silent v1 fallback as normal behavior.
 - README, wiki successor (handbook), plugin docs, and API docs must agree with each other.
 - Don't keep obsolete v1 docs "for nostalgia" unless clearly archived.
+- Pinokio docs are carried over largely as-is (~99% accurate); reuse existing material and only refresh if the flow changes.
