@@ -28,6 +28,7 @@
 
   function topnav() {
     return '<a class="brand" href="index.html"><img src="../assets/logo.png" alt="Audiobook Studio" /><span>Audiobook&nbsp;Studio</span></a>' +
+      '<div class="hb-search"><input type="search" id="hb-q" placeholder="Search the handbook…" autocomplete="off" aria-label="Search the handbook" /><div class="hb-results" id="hb-results"></div></div>' +
       '<div class="nav-links"><a href="#">Handbook</a><a href="../index.html">Site</a><a href="' + GH + '">GitHub</a></div>';
   }
   function footer() {
@@ -145,6 +146,54 @@
     });
   }
 
+  // ---- search (index: content/search-index.json) ----
+  function sectionTitle(route) {
+    var dir = route.split("/")[0];
+    var f = flat.filter(function (x) { return x.dir === dir; })[0];
+    return f ? f.sectionTitle : "";
+  }
+  function snippet(text, q) {
+    var i = text.toLowerCase().indexOf(q);
+    if (i < 0) return text.slice(0, 130) + (text.length > 130 ? "…" : "");
+    var s = Math.max(0, i - 45);
+    return (s > 0 ? "…" : "") + text.slice(s, s + 130).trim() + "…";
+  }
+  function initSearch() {
+    var INDEX = [];
+    $.getJSON("content/search-index.json").done(function (d) { INDEX = d; });
+    var $q = $("#hb-q"), $r = $("#hb-results");
+    function run() {
+      var q = $.trim($q.val()).toLowerCase();
+      if (q.length < 2) { $r.removeClass("open").empty(); return; }
+      var res = [];
+      INDEX.forEach(function (p) {
+        var score = p.t.toLowerCase().indexOf(q) >= 0 ? 3
+          : (p.d || "").toLowerCase().indexOf(q) >= 0 ? 2
+          : (p.x || "").toLowerCase().indexOf(q) >= 0 ? 1 : 0;
+        if (score) res.push({ p: p, score: score });
+      });
+      res.sort(function (a, b) { return b.score - a.score; });
+      if (!res.length) { $r.html('<div class="hb-noresult">No matches for “' + esc(q) + '”.</div>').addClass("open"); return; }
+      var h = "";
+      res.slice(0, 8).forEach(function (o) {
+        var p = o.p;
+        h += '<a class="hb-result" href="#' + p.r + '">' +
+          '<div class="hb-result-ttl">' + esc(p.t) + "</div>" +
+          '<div class="hb-result-sec">' + esc(sectionTitle(p.r)) + "</div>" +
+          '<div class="hb-result-snip">' + esc(snippet(((p.d || "") + " " + (p.x || "")).trim(), q)) + "</div></a>";
+      });
+      $r.html(h).addClass("open");
+    }
+    $q.on("input focus", run);
+    $r.on("click", "a", function () { $r.removeClass("open").empty(); $q.val(""); });
+    $(document).on("click", function (e) { if (!$(e.target).closest(".hb-search").length) $r.removeClass("open"); });
+    $(document).on("keydown", function (e) {
+      var tag = (e.target.tagName || "").toLowerCase();
+      if (e.key === "/" && tag !== "input" && tag !== "textarea") { e.preventDefault(); $q.focus(); }
+      else if (e.key === "Escape") { $r.removeClass("open"); $q.blur(); }
+    });
+  }
+
   function route() {
     var r = location.hash.replace(/^#\/?/, "");
     var parts = r.split("/");
@@ -155,6 +204,7 @@
   $(function () {
     $("#hb-top").html(topnav());
     $("#hb-foot").html(footer());
+    initSearch();
     $(window).on("hashchange", route);
     route();
   });

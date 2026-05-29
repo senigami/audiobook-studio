@@ -1594,16 +1594,24 @@ def resolve(section, target):
     return "#" + t
 
 def render():
+    def strip(s):
+        s = re.sub(r"<[^>]+>", " ", s)
+        return re.sub(r"\s+", " ", html.unescape(s)).strip()
     n = 0
+    index = []
     for key, (title, desc, lede, body) in C.items():
         section, slug = key.split("/", 1)
         sub = lambda s: re.sub(r"@@(.*?)@@", lambda m: resolve(section, m.group(1)), s)
-        obj = {"title": title, "desc": desc, "lede": sub(lede), "body": sub(body)}
+        led, bod = sub(lede), sub(body)
+        obj = {"title": title, "desc": desc, "lede": led, "body": bod}
         out = ROOT / "content" / section / f"{slug}.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(obj, ensure_ascii=False, indent=1), encoding="utf-8")
+        index.append({"r": f"{section}/{slug}", "t": strip(title), "d": strip(led), "x": strip(bod)})
         n += 1
-    print(f"Wrote {n} content JSON files.")
+    (ROOT / "content" / "search-index.json").write_text(
+        json.dumps(index, ensure_ascii=False), encoding="utf-8")
+    print(f"Wrote {n} content JSON files + search index.")
 
 if __name__ == "__main__":
     render()
