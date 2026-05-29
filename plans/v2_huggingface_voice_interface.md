@@ -47,7 +47,7 @@ Engine plugins are **out of scope here** — they are hosted and installed from 
 - All network access respects the privacy disclosure rules in
   `v2_voice_system_interface.md` §8 (cloud/off-machine activity must be explicit).
 
-## 4. Phase A — voice sourcing flow
+## 4. Import flow
 
 1. **Search.** User searches the HF Hub (filtered to audio datasets / voice model cards).
    _Assumption: query the public HF API; no token needed for public, read-only search._
