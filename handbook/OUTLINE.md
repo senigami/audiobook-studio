@@ -439,10 +439,12 @@ _Extend Studio with engine plugins, drive it over the external API, and run it._
 Tracked here so they don't get lost; revisit before the content pass closes.
 
 - **IA review (#1)** — Steven to review this outline / section structure.
-- **Voice-creation + Hugging Face shape** — _[future]_ placeholder. The exact flow for
-  creating voices via Hugging Face isn't settled yet. Hold off documenting it; revisit
-  once the shape is defined. Likely lands on `user-guide/voice-lab` and/or the
-  `engines/*` pages. Page-model recommendation already agreed for when we get there.
+- **Voice-creation + Hugging Face shape** — _[future]_. Draft specs now exist for review:
+  `plans/v2_voice_metadata_and_casting.md` (ElevenLabs-style icon/description/attributes +
+  AI casting) and `plans/v2_huggingface_voice_interface.md` (importing voices from the HF
+  Hub). Both carry open questions awaiting Steven's sign-off; don't document the
+  user-facing pages until the specs are confirmed. Likely lands on `user-guide/voice-lab`,
+  `user-guide/voice-tags-icons`, and/or the `engines/*` pages.
 
 ---
 _12 sections · 90 topic pages._
