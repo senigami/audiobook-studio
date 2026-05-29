@@ -60,6 +60,12 @@ Open `index.html` to browse it. Legend: **[soon]** = landing in Phase 12 · **[f
   - Build/assign a voice
   - Generate & review
   - Assemble the audiobook
+- [Platform Support & Install Validation](getting-started/platform-validation.html) — Per-platform install/launch notes and the first-run smoke-test matrix.
+  - macOS / Windows / Linux install & launch
+  - Pinokio install & launch flow
+  - First-run: deps, TTS Server startup, plugin discovery, XTTS/Voxtral setup
+  - Smoke test: sample project, test voice, synthesis, relaunch
+  - Platform-specific prerequisites & known limitations
 
 ## 3. Core Concepts
 
@@ -417,4 +423,4 @@ Open `index.html` to browse it. Legend: **[soon]** = landing in Phase 12 · **[f
   - Keyboard shortcuts
 
 ---
-_12 sections · 89 topic pages._
+_12 sections · 90 topic pages._

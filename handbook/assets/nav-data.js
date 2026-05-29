@@ -155,6 +155,21 @@ window.NAV_DATA = {
             "getting started"
           ],
           "inProgress": false
+        },
+        {
+          "id": "platform-validation",
+          "title": "Platform Support & Install Validation",
+          "url": "getting-started/platform-validation.html",
+          "keywords": [
+            "platform",
+            "pinokio",
+            "macos",
+            "windows",
+            "linux",
+            "install validation",
+            "smoke test"
+          ],
+          "inProgress": false
         }
       ]
     },

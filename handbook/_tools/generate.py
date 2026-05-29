@@ -93,6 +93,13 @@ SECTIONS = [
           ["Create a project & add a chapter", "Build/assign a voice",
            "Generate & review", "Assemble the audiobook"],
           ["tour", "quickstart", "workflow", "getting started"]),
+        P("platform-validation", "Platform Support & Install Validation",
+          "Per-platform install/launch notes and the first-run smoke-test matrix.",
+          ["macOS / Windows / Linux install & launch", "Pinokio install & launch flow",
+           "First-run: deps, TTS Server startup, plugin discovery, XTTS/Voxtral setup",
+           "Smoke test: sample project, test voice, synthesis, relaunch",
+           "Platform-specific prerequisites & known limitations"],
+          ["platform", "pinokio", "macos", "windows", "linux", "install validation", "smoke test"]),
     ]),
 
     ("concepts", "Core Concepts", [
