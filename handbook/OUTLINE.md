@@ -433,4 +433,16 @@ _Extend Studio with engine plugins, drive it over the external API, and run it._
   - Third-party/engine licenses
 
 ---
+
+## Parked / open decisions
+
+Tracked here so they don't get lost; revisit before the content pass closes.
+
+- **IA review (#1)** — Steven to review this outline / section structure.
+- **Voice-creation + Hugging Face shape** — _[future]_ placeholder. The exact flow for
+  creating voices via Hugging Face isn't settled yet. Hold off documenting it; revisit
+  once the shape is defined. Likely lands on `user-guide/voice-lab` and/or the
+  `engines/*` pages. Page-model recommendation already agreed for when we get there.
+
+---
 _12 sections · 90 topic pages._

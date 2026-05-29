@@ -37,6 +37,26 @@ Demos go on **key workflow pages**, not every page. First-pass targets:
 Every page gets at least one **example**; demos are added (per `DEMOS.md`) only where
 motion clarifies a flow. Text + examples are written first; demos are a later pass.
 
+## Voice & register
+
+Write in **simple, natural language that flows and is easy to read** — short
+sentences, plain words, no filler. But match the register to the page's audience and
+subject; don't dumb down and don't write over anyone's head.
+
+- **Pitch to the reader of that page.** A reader on an **API / integration** page knows
+  what an endpoint, header, and JSON payload are — use those terms plainly, don't define
+  them. A reader on a **general User Guide** page may be a non-technical narrator —
+  explain in everyday terms and avoid jargon (or define it the first time).
+- **Integration & API pages must be AI-handoff-ready.** Write them precisely enough that
+  a reader can paste the page to their AI assistant and have it implement the integration:
+  exact routes, auth, request/response shapes, a complete worked example, and the
+  expected result. No "see the code" hand-waving.
+- **General how-tos must be everyday-simple.** Anyone should be able to follow the steps
+  without prior technical knowledge. Concrete, literal instructions ("Click **New
+  Project**, then…"), nothing assumed.
+- Use the term that's *correct for the subject*, then keep the surrounding prose plain.
+  Technical accuracy and easy reading are not in tension.
+
 ## Writing rules
 
 - **Bold the lead sentence** of a paragraph or step group so skimmers catch the point.
