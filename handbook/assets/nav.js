@@ -13,8 +13,13 @@
     var host = document.getElementById("sidebar");
     if (!host) return;
     var html = "";
+    var lastPart = null;
 
     data.sections.forEach(function (section, i) {
+      if (section.part && section.part !== lastPart) {
+        html += '<div class="nav-part">' + escapeHtml(section.part) + "</div>";
+        lastPart = section.part;
+      }
       var hasActive = section.pages.some(function (p) { return p.id === CURRENT; });
       html += '<div class="nav-section' + (hasActive ? " open" : "") + '" data-section="' + section.id + '">';
       html += '<button class="nav-section-btn" aria-expanded="' + (hasActive ? "true" : "false") + '">';

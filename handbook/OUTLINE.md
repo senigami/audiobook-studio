@@ -1,9 +1,13 @@
 # Audiobook Studio Handbook — Outline
 
 Master table of contents for the static documentation site in this folder.
-Open `index.html` to browse it. Legend: **[soon]** = landing in Phase 12 · **[future]** = planned/post-release.
+Open `index.html` to browse it. The handbook is split into two parts — **For Users** and **For Developers & Integrators**. Legend: **[soon]** = landing in Phase 12 · **[future]** = planned/post-release.
 
-## 1. Overview
+## For Users
+
+_Install, create projects, build voices, and produce finished audiobooks._
+
+### 1. Overview
 
 - [What Is Audiobook Studio](overview/what-is-audiobook-studio.html) — A local-first app that turns manuscripts into finished audiobooks with AI voice cloning.
   - The production-surface philosophy (not one-click TTS)
@@ -29,7 +33,7 @@ Open `index.html` to browse it. Legend: **[soon]** = landing in Phase 12 · **[f
   - Assembly/export to M4B/MP3
   - Plugin SDK & external API
 
-## 2. Getting Started
+### 2. Getting Started
 
 - [Requirements](getting-started/requirements.html) — Hardware and software you need before installing.
   - OS support (macOS / Linux / Windows)
@@ -68,7 +72,7 @@ Open `index.html` to browse it. Legend: **[soon]** = landing in Phase 12 · **[f
   - Smoke test: sample project, test voice, synthesis, relaunch
   - Platform-specific prerequisites & known limitations
 
-## 3. Core Concepts
+### 3. Core Concepts
 
 - [Content Hierarchy](concepts/content-hierarchy.html) — How content nests: Library -> Project -> Chapter -> Block/Segment -> Chunk.
   - What each level owns
@@ -98,7 +102,7 @@ Open `index.html` to browse it. Legend: **[soon]** = landing in Phase 12 · **[f
   - Restart recovery & reconciliation
   - Immutable shared cache
 
-## 4. User Guide
+### 4. User Guide
 
 - [Project Library](user-guide/project-library.html) **[soon]** — Browse, create, and manage your audiobook projects.
   - Grid & list view, sorting
@@ -162,7 +166,7 @@ Open `index.html` to browse it. Legend: **[soon]** = landing in Phase 12 · **[f
   - Enabling Voxtral
   - Long-sentence warnings
 
-## 5. Engines & Voice Cloning
+### 5. Engines & Voice Cloning
 
 - [XTTS (Local)](engines/xtts.html) — The private, local-default cloning engine.
   - What XTTS is & GPU needs
@@ -185,38 +189,55 @@ Open `index.html` to browse it. Legend: **[soon]** = landing in Phase 12 · **[f
   - Recording quality factors
   - Variant strategies
 
-## 6. TTS Gateway API
+### 6. What's New in 2.0
 
-- [Gateway Overview & Enabling](api/overview.html) — Use Studio as an external TTS backend over HTTP.
-  - What the gateway is
-  - Enabling it in Settings
-  - OpenAPI docs at /api/v1/tts/docs
-- [Authentication & Rate Limiting](api/auth.html) — Securing the gateway for LAN or shared use.
-  - API key (Bearer) auth
-  - LAN binding considerations
-  - Per-IP rate limiting
-- [Endpoints Reference](api/endpoints.html) — The routes exposed under /api/v1/tts.
-  - GET /engines, /engines/{id}
-  - POST /synthesize, /preview
-  - GET /jobs/{id}, /jobs/{id}/audio
-- [Inline vs Queued + Polling](api/sync-vs-queued.html) — Short text returns inline; long text queues a job you poll.
-  - Inline threshold
-  - Job response & poll URL
-  - Polling for completion
-- [Priority Policies](api/priority.html) — How API jobs are scheduled relative to Studio's own work.
-  - TTS_API_PRIORITY modes
-  - studio_first / equal / api_first
-  - Avoiding starvation
-- [Examples](api/examples.html) — Copy-paste curl and automation snippets.
-  - Discover engines
-  - Synthesize inline & queued
-  - Poll & download audio
-- [LLM / Controller Readiness](api/llm-controllers.html) **[future]** — Forward-looking: the API surface for future LLM/controller plugins.
-  - What a controller would need
-  - Current gaps being verified
-  - Not built yet — planning only
+- [1.x -> 2.0 at a Glance](whats-new/at-a-glance.html) — The short version of what changed and why it matters.
+  - Headline changes
+  - What users feel day-to-day
+  - What developers gain
+- [Architectural Shifts](whats-new/architectural-shifts.html) — The structural changes under the hood.
+  - One-shot subprocess -> managed TTS Server
+  - Worker loop -> orchestrator
+  - Engine-ID branches -> plugin manifests
+  - Raw-file checks -> validated artifacts
+- [New Capabilities](whats-new/new-capabilities.html) — Features that didn't exist in 1.x.
+  - Plugin SDK & external TTS API
+  - Composite engine, project backups
+  - Predictive progress, VCR playback
+  - Voice tags & icons
+- [Migration Notes](whats-new/migration.html) — What changes for existing 1.x workspaces.
+  - state.json -> SQLite migration
+  - Folder/compatibility notes
+  - What carries over
+- [PR Talking Points](whats-new/pr-talking-points.html) — Benefit-framed messaging for announcements and marketing.
+  - Reliability & recovery story
+  - Extensibility (plugins/API) story
+  - Polish (playback, progress, voices) story
+- [Changelog](whats-new/changelog.html) — Dated record of shipped behavior changes.
+  - 2.0 highlights
+  - Recent patch lines
+  - Pointer to wiki Changelog
 
-## 7. Plugin SDK
+### 7. Reference
+
+- [Glossary](reference/glossary.html) — Definitions for the terms used throughout the handbook.
+  - Project / chapter / segment / chunk
+  - Voice / variant / sample / engine
+  - Task / job / artifact
+- [File Formats](reference/file-formats.html) — Supported input/output formats in one place.
+  - Text inputs
+  - Audio inputs (samples)
+  - Outputs (WAV/MP3/M4B)
+- [UI Cheat Sheet](reference/ui-cheat-sheet.html) — Quick reference for navigation and shortcuts.
+  - Main navigation map
+  - Common actions
+  - Keyboard shortcuts
+
+## For Developers & Integrators
+
+_Extend Studio with engine plugins, drive it over the external API, and run it._
+
+### 8. Plugin SDK
 
 - [Plugin Architecture](plugin-sdk/overview.html) — How engines plug into Studio through the TTS Server.
   - Folder plugins & discovery
@@ -273,7 +294,38 @@ Open `index.html` to browse it. Legend: **[soon]** = landing in Phase 12 · **[f
   - Stability/performance
   - Self-contained & licensed
 
-## 8. Architecture
+### 9. TTS Gateway API
+
+- [Gateway Overview & Enabling](api/overview.html) — Use Studio as an external TTS backend over HTTP.
+  - What the gateway is
+  - Enabling it in Settings
+  - OpenAPI docs at /api/v1/tts/docs
+- [Authentication & Rate Limiting](api/auth.html) — Securing the gateway for LAN or shared use.
+  - API key (Bearer) auth
+  - LAN binding considerations
+  - Per-IP rate limiting
+- [Endpoints Reference](api/endpoints.html) — The routes exposed under /api/v1/tts.
+  - GET /engines, /engines/{id}
+  - POST /synthesize, /preview
+  - GET /jobs/{id}, /jobs/{id}/audio
+- [Inline vs Queued + Polling](api/sync-vs-queued.html) — Short text returns inline; long text queues a job you poll.
+  - Inline threshold
+  - Job response & poll URL
+  - Polling for completion
+- [Priority Policies](api/priority.html) — How API jobs are scheduled relative to Studio's own work.
+  - TTS_API_PRIORITY modes
+  - studio_first / equal / api_first
+  - Avoiding starvation
+- [Examples](api/examples.html) — Copy-paste curl and automation snippets.
+  - Discover engines
+  - Synthesize inline & queued
+  - Poll & download audio
+- [LLM / Controller Readiness](api/llm-controllers.html) **[future]** — Forward-looking: the API surface for future LLM/controller plugins.
+  - What a controller would need
+  - Current gaps being verified
+  - Not built yet — planning only
+
+### 10. Architecture
 
 - [Architecture Overview](architecture/overview.html) — The big-picture map of Studio 2.0 subsystems and ownership.
   - Ownership split: orchestrator / watchdog / bridge
@@ -322,7 +374,7 @@ Open `index.html` to browse it. Legend: **[soon]** = landing in Phase 12 · **[f
   - generation / jobs / settings / system
   - analysis / migration / engines
 
-## 9. Operations & Configuration
+### 11. Operations & Configuration
 
 - [Launcher Options](operations/launcher-options.html) — Running the app for different scenarios.
   - run.sh / run.ps1 flags
@@ -357,36 +409,7 @@ Open `index.html` to browse it. Legend: **[soon]** = landing in Phase 12 · **[f
   - CPS auto-tuning & ETA
   - Large-book load performance
 
-## 10. What's New in 2.0
-
-- [1.x -> 2.0 at a Glance](whats-new/at-a-glance.html) — The short version of what changed and why it matters.
-  - Headline changes
-  - What users feel day-to-day
-  - What developers gain
-- [Architectural Shifts](whats-new/architectural-shifts.html) — The structural changes under the hood.
-  - One-shot subprocess -> managed TTS Server
-  - Worker loop -> orchestrator
-  - Engine-ID branches -> plugin manifests
-  - Raw-file checks -> validated artifacts
-- [New Capabilities](whats-new/new-capabilities.html) — Features that didn't exist in 1.x.
-  - Plugin SDK & external TTS API
-  - Composite engine, project backups
-  - Predictive progress, VCR playback
-  - Voice tags & icons
-- [Migration Notes](whats-new/migration.html) — What changes for existing 1.x workspaces.
-  - state.json -> SQLite migration
-  - Folder/compatibility notes
-  - What carries over
-- [PR Talking Points](whats-new/pr-talking-points.html) — Benefit-framed messaging for announcements and marketing.
-  - Reliability & recovery story
-  - Extensibility (plugins/API) story
-  - Polish (playback, progress, voices) story
-- [Changelog](whats-new/changelog.html) — Dated record of shipped behavior changes.
-  - 2.0 highlights
-  - Recent patch lines
-  - Pointer to wiki Changelog
-
-## 11. Contributing & Project Info
+### 12. Contributing & Project Info
 
 - [Contribution Workflow](contributing/workflow.html) — How to propose changes to the project.
   - Fork & PR workflow
@@ -408,21 +431,6 @@ Open `index.html` to browse it. Legend: **[soon]** = landing in Phase 12 · **[f
 - [License](contributing/license.html) — How the project is licensed.
   - MIT license
   - Third-party/engine licenses
-
-## 12. Reference
-
-- [Glossary](reference/glossary.html) — Definitions for the terms used throughout the handbook.
-  - Project / chapter / segment / chunk
-  - Voice / variant / sample / engine
-  - Task / job / artifact
-- [File Formats](reference/file-formats.html) — Supported input/output formats in one place.
-  - Text inputs
-  - Audio inputs (samples)
-  - Outputs (WAV/MP3/M4B)
-- [UI Cheat Sheet](reference/ui-cheat-sheet.html) — Quick reference for navigation and shortcuts.
-  - Main navigation map
-  - Common actions
-  - Keyboard shortcuts
 
 ---
 _12 sections · 90 topic pages._

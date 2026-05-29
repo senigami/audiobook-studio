@@ -5,6 +5,8 @@ window.NAV_DATA = {
     {
       "id": "overview",
       "title": "Overview",
+      "part": "For Users",
+      "partStart": true,
       "pages": [
         {
           "id": "what-is-audiobook-studio",
@@ -69,6 +71,8 @@ window.NAV_DATA = {
     {
       "id": "getting-started",
       "title": "Getting Started",
+      "part": "For Users",
+      "partStart": false,
       "pages": [
         {
           "id": "requirements",
@@ -176,6 +180,8 @@ window.NAV_DATA = {
     {
       "id": "concepts",
       "title": "Core Concepts",
+      "part": "For Users",
+      "partStart": false,
       "pages": [
         {
           "id": "content-hierarchy",
@@ -261,6 +267,8 @@ window.NAV_DATA = {
     {
       "id": "user-guide",
       "title": "User Guide",
+      "part": "For Users",
+      "partStart": false,
       "pages": [
         {
           "id": "project-library",
@@ -436,6 +444,8 @@ window.NAV_DATA = {
     {
       "id": "engines",
       "title": "Engines & Voice Cloning",
+      "part": "For Users",
+      "partStart": false,
       "pages": [
         {
           "id": "xtts",
@@ -500,102 +510,134 @@ window.NAV_DATA = {
       ]
     },
     {
-      "id": "api",
-      "title": "TTS Gateway API",
+      "id": "whats-new",
+      "title": "What's New in 2.0",
+      "part": "For Users",
+      "partStart": false,
       "pages": [
         {
-          "id": "overview",
-          "title": "Gateway Overview & Enabling",
-          "url": "api/overview.html",
+          "id": "at-a-glance",
+          "title": "1.x -> 2.0 at a Glance",
+          "url": "whats-new/at-a-glance.html",
           "keywords": [
-            "tts api",
-            "gateway",
-            "external",
-            "http",
-            "openapi"
+            "whats new",
+            "changes",
+            "2.0",
+            "summary"
           ],
           "inProgress": false
         },
         {
-          "id": "auth",
-          "title": "Authentication & Rate Limiting",
-          "url": "api/auth.html",
+          "id": "architectural-shifts",
+          "title": "Architectural Shifts",
+          "url": "whats-new/architectural-shifts.html",
           "keywords": [
-            "auth",
-            "api key",
-            "bearer",
-            "rate limit",
-            "security"
+            "architecture",
+            "shifts",
+            "rearchitecture",
+            "changes"
           ],
           "inProgress": false
         },
         {
-          "id": "endpoints",
-          "title": "Endpoints Reference",
-          "url": "api/endpoints.html",
+          "id": "new-capabilities",
+          "title": "New Capabilities",
+          "url": "whats-new/new-capabilities.html",
           "keywords": [
-            "endpoints",
-            "synthesize",
-            "preview",
-            "engines",
-            "jobs"
+            "new features",
+            "capabilities",
+            "additions"
           ],
           "inProgress": false
         },
         {
-          "id": "sync-vs-queued",
-          "title": "Inline vs Queued + Polling",
-          "url": "api/sync-vs-queued.html",
+          "id": "migration",
+          "title": "Migration Notes",
+          "url": "whats-new/migration.html",
           "keywords": [
-            "inline",
-            "queued",
-            "polling",
-            "job status"
+            "migration",
+            "upgrade",
+            "1.x",
+            "state.json"
           ],
           "inProgress": false
         },
         {
-          "id": "priority",
-          "title": "Priority Policies",
-          "url": "api/priority.html",
+          "id": "pr-talking-points",
+          "title": "PR Talking Points",
+          "url": "whats-new/pr-talking-points.html",
           "keywords": [
-            "priority",
-            "scheduling",
-            "TTS_API_PRIORITY",
-            "fairness"
+            "pr",
+            "marketing",
+            "talking points",
+            "announcement",
+            "benefits"
           ],
           "inProgress": false
         },
         {
-          "id": "examples",
-          "title": "Examples",
-          "url": "api/examples.html",
+          "id": "changelog",
+          "title": "Changelog",
+          "url": "whats-new/changelog.html",
           "keywords": [
-            "examples",
-            "curl",
-            "automation",
-            "snippets"
+            "changelog",
+            "releases",
+            "versions",
+            "history"
+          ],
+          "inProgress": false
+        }
+      ]
+    },
+    {
+      "id": "reference",
+      "title": "Reference",
+      "part": "For Users",
+      "partStart": false,
+      "pages": [
+        {
+          "id": "glossary",
+          "title": "Glossary",
+          "url": "reference/glossary.html",
+          "keywords": [
+            "glossary",
+            "terms",
+            "definitions"
           ],
           "inProgress": false
         },
         {
-          "id": "llm-controllers",
-          "title": "LLM / Controller Readiness",
-          "url": "api/llm-controllers.html",
+          "id": "file-formats",
+          "title": "File Formats",
+          "url": "reference/file-formats.html",
           "keywords": [
-            "llm",
-            "controller",
-            "claude",
-            "automation",
-            "future"
+            "formats",
+            "file types",
+            "wav",
+            "mp3",
+            "m4b"
           ],
-          "inProgress": true
+          "inProgress": false
+        },
+        {
+          "id": "ui-cheat-sheet",
+          "title": "UI Cheat Sheet",
+          "url": "reference/ui-cheat-sheet.html",
+          "keywords": [
+            "cheat sheet",
+            "shortcuts",
+            "reference",
+            "ui"
+          ],
+          "inProgress": false
         }
       ]
     },
     {
       "id": "plugin-sdk",
       "title": "Plugin SDK",
+      "part": "For Developers & Integrators",
+      "partStart": true,
       "pages": [
         {
           "id": "overview",
@@ -764,8 +806,106 @@ window.NAV_DATA = {
       ]
     },
     {
+      "id": "api",
+      "title": "TTS Gateway API",
+      "part": "For Developers & Integrators",
+      "partStart": false,
+      "pages": [
+        {
+          "id": "overview",
+          "title": "Gateway Overview & Enabling",
+          "url": "api/overview.html",
+          "keywords": [
+            "tts api",
+            "gateway",
+            "external",
+            "http",
+            "openapi"
+          ],
+          "inProgress": false
+        },
+        {
+          "id": "auth",
+          "title": "Authentication & Rate Limiting",
+          "url": "api/auth.html",
+          "keywords": [
+            "auth",
+            "api key",
+            "bearer",
+            "rate limit",
+            "security"
+          ],
+          "inProgress": false
+        },
+        {
+          "id": "endpoints",
+          "title": "Endpoints Reference",
+          "url": "api/endpoints.html",
+          "keywords": [
+            "endpoints",
+            "synthesize",
+            "preview",
+            "engines",
+            "jobs"
+          ],
+          "inProgress": false
+        },
+        {
+          "id": "sync-vs-queued",
+          "title": "Inline vs Queued + Polling",
+          "url": "api/sync-vs-queued.html",
+          "keywords": [
+            "inline",
+            "queued",
+            "polling",
+            "job status"
+          ],
+          "inProgress": false
+        },
+        {
+          "id": "priority",
+          "title": "Priority Policies",
+          "url": "api/priority.html",
+          "keywords": [
+            "priority",
+            "scheduling",
+            "TTS_API_PRIORITY",
+            "fairness"
+          ],
+          "inProgress": false
+        },
+        {
+          "id": "examples",
+          "title": "Examples",
+          "url": "api/examples.html",
+          "keywords": [
+            "examples",
+            "curl",
+            "automation",
+            "snippets"
+          ],
+          "inProgress": false
+        },
+        {
+          "id": "llm-controllers",
+          "title": "LLM / Controller Readiness",
+          "url": "api/llm-controllers.html",
+          "keywords": [
+            "llm",
+            "controller",
+            "claude",
+            "automation",
+            "future"
+          ],
+          "inProgress": true
+        }
+      ]
+    },
+    {
       "id": "architecture",
       "title": "Architecture",
+      "part": "For Developers & Integrators",
+      "partStart": false,
       "pages": [
         {
           "id": "overview",
@@ -910,6 +1050,8 @@ window.NAV_DATA = {
     {
       "id": "operations",
       "title": "Operations & Configuration",
+      "part": "For Developers & Integrators",
+      "partStart": false,
       "pages": [
         {
           "id": "launcher-options",
@@ -1013,86 +1155,10 @@ window.NAV_DATA = {
       ]
     },
     {
-      "id": "whats-new",
-      "title": "What's New in 2.0",
-      "pages": [
-        {
-          "id": "at-a-glance",
-          "title": "1.x -> 2.0 at a Glance",
-          "url": "whats-new/at-a-glance.html",
-          "keywords": [
-            "whats new",
-            "changes",
-            "2.0",
-            "summary"
-          ],
-          "inProgress": false
-        },
-        {
-          "id": "architectural-shifts",
-          "title": "Architectural Shifts",
-          "url": "whats-new/architectural-shifts.html",
-          "keywords": [
-            "architecture",
-            "shifts",
-            "rearchitecture",
-            "changes"
-          ],
-          "inProgress": false
-        },
-        {
-          "id": "new-capabilities",
-          "title": "New Capabilities",
-          "url": "whats-new/new-capabilities.html",
-          "keywords": [
-            "new features",
-            "capabilities",
-            "additions"
-          ],
-          "inProgress": false
-        },
-        {
-          "id": "migration",
-          "title": "Migration Notes",
-          "url": "whats-new/migration.html",
-          "keywords": [
-            "migration",
-            "upgrade",
-            "1.x",
-            "state.json"
-          ],
-          "inProgress": false
-        },
-        {
-          "id": "pr-talking-points",
-          "title": "PR Talking Points",
-          "url": "whats-new/pr-talking-points.html",
-          "keywords": [
-            "pr",
-            "marketing",
-            "talking points",
-            "announcement",
-            "benefits"
-          ],
-          "inProgress": false
-        },
-        {
-          "id": "changelog",
-          "title": "Changelog",
-          "url": "whats-new/changelog.html",
-          "keywords": [
-            "changelog",
-            "releases",
-            "versions",
-            "history"
-          ],
-          "inProgress": false
-        }
-      ]
-    },
-    {
       "id": "contributing",
       "title": "Contributing & Project Info",
+      "part": "For Developers & Integrators",
+      "partStart": false,
       "pages": [
         {
           "id": "workflow",
@@ -1151,48 +1217,6 @@ window.NAV_DATA = {
             "license",
             "mit",
             "legal"
-          ],
-          "inProgress": false
-        }
-      ]
-    },
-    {
-      "id": "reference",
-      "title": "Reference",
-      "pages": [
-        {
-          "id": "glossary",
-          "title": "Glossary",
-          "url": "reference/glossary.html",
-          "keywords": [
-            "glossary",
-            "terms",
-            "definitions"
-          ],
-          "inProgress": false
-        },
-        {
-          "id": "file-formats",
-          "title": "File Formats",
-          "url": "reference/file-formats.html",
-          "keywords": [
-            "formats",
-            "file types",
-            "wav",
-            "mp3",
-            "m4b"
-          ],
-          "inProgress": false
-        },
-        {
-          "id": "ui-cheat-sheet",
-          "title": "UI Cheat Sheet",
-          "url": "reference/ui-cheat-sheet.html",
-          "keywords": [
-            "cheat sheet",
-            "shortcuts",
-            "reference",
-            "ui"
           ],
           "inProgress": false
         }

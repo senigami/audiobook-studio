@@ -201,6 +201,12 @@ a:hover { color: var(--accent-hover); }
   border-right: 1px solid var(--border);
   background: var(--bg);
 }
+.nav-part {
+  margin: 18px 12px 6px; padding-top: 14px;
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--text-muted); border-top: 1px solid var(--border);
+}
+.nav-part:first-child { margin-top: 2px; padding-top: 0; border-top: none; }
 .nav-section { margin-bottom: 4px; }
 .nav-section-btn {
   display: flex; align-items: center; gap: 8px; width: 100%;
@@ -297,6 +303,15 @@ article code {
 .hero .eyebrow { color: var(--accent); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.78rem; }
 .hero h1 { font-size: clamp(2.4rem, 1.6rem + 3vw, 3.8rem); letter-spacing: -0.03em; line-height: 1.05; margin: 10px 0 14px; }
 .hero p { font-size: 1.2rem; color: var(--text-secondary); max-width: 36rem; margin: 0 auto; }
+.part-head { max-width: 60rem; margin: 40px auto 4px; padding: 0 4px; }
+.part-head h2 {
+  font-size: 1.5rem; letter-spacing: -0.02em; margin: 0 0 4px;
+  display: flex; align-items: center; gap: 12px;
+}
+.part-head h2::after {
+  content: ""; flex: 1; height: 1px; background: var(--border);
+}
+.part-head p { color: var(--text-secondary); margin: 0; font-size: 0.98rem; }
 .card-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
   gap: 16px; max-width: 60rem; margin: 36px auto 0;

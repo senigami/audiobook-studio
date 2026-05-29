@@ -476,6 +476,40 @@ SECTIONS = [
 ]
 
 # ---------------------------------------------------------------------------
+# Parts: top-level split between user-facing and developer-facing docs.
+# Each part lists the section ids (defined above) in display order.
+# ---------------------------------------------------------------------------
+
+PARTS = [
+    ("For Users",
+     "Install, create projects, build voices, and produce finished audiobooks.",
+     ["overview", "getting-started", "concepts", "user-guide", "engines",
+      "whats-new", "reference"]),
+    ("For Developers & Integrators",
+     "Extend Studio with engine plugins, drive it over the external API, and run it.",
+     ["plugin-sdk", "api", "architecture", "operations", "contributing"]),
+]
+
+
+def ordered_sections():
+    """Yield (global_index, part_title, part_blurb, is_part_start, section)
+    in display order defined by PARTS."""
+    by_id = {sid: (sid, title, pages) for sid, title, pages in SECTIONS}
+    seen = set()
+    i = 0
+    for part_title, part_blurb, ids in PARTS:
+        for j, sid in enumerate(ids):
+            if sid not in by_id:
+                raise KeyError(f"PARTS references unknown section id: {sid!r}")
+            i += 1
+            seen.add(sid)
+            yield i, part_title, part_blurb, (j == 0), by_id[sid]
+    missing = [sid for sid, _, _ in SECTIONS if sid not in seen]
+    if missing:
+        raise KeyError(f"Sections missing from PARTS layout: {missing}")
+
+
+# ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
 
@@ -554,15 +588,23 @@ def page_html(section, page):
 
 def index_html():
     cards = ""
-    for i, (sid, title, pages) in enumerate(SECTIONS, 1):
+    for i, part_title, part_blurb, part_start, (sid, title, pages) in ordered_sections():
+        if part_start:
+            if cards:
+                cards += "</div>"  # close previous part's grid
+            cards += (
+                f'<div class="part-head"><h2>{escape(part_title)}</h2>'
+                f"<p>{escape(part_blurb)}</p></div>"
+                '<div class="card-grid">'
+            )
         first = pages[0]["slug"]
-        # short blurb per section = its first page lede, trimmed
         blurb = escape(pages[0]["lede"])
         cards += (
             f'<a class="card" href="{sid}/{first}.html">'
             f'<span class="card-num">{i}</span>'
             f"<h3>{escape(title)}</h3><p>{blurb}</p></a>"
         )
+    cards += "</div>"  # close final part's grid
     return f"""<!doctype html>
 <html lang="en" data-theme="auto">
 <head>
@@ -591,9 +633,7 @@ def index_html():
         <p>Everything from first launch to building engine plugins &mdash; for creators, developers,
            integrators, and operators. This is a living outline; sections fill in over time.</p>
       </section>
-      <div class="card-grid">
-        {cards}
-      </div>
+      {cards}
     </main>
   </div>
   <script>window.HANDBOOK_ROOT = ""; window.HANDBOOK_PAGE = "";</script>
@@ -607,10 +647,12 @@ def index_html():
 
 def nav_data_js():
     tree = {"sections": []}
-    for sid, title, pages in SECTIONS:
+    for _, part_title, _, part_start, (sid, title, pages) in ordered_sections():
         tree["sections"].append({
             "id": sid,
             "title": title,
+            "part": part_title,
+            "partStart": part_start,
             "pages": [{
                 "id": p["slug"],
                 "title": p["title"],
@@ -629,12 +671,18 @@ def outline_md():
         "# Audiobook Studio Handbook — Outline",
         "",
         "Master table of contents for the static documentation site in this folder.",
-        "Open `index.html` to browse it. Legend: **[soon]** = landing in Phase 12 · "
-        "**[future]** = planned/post-release.",
+        "Open `index.html` to browse it. The handbook is split into two parts — "
+        "**For Users** and **For Developers & Integrators**. "
+        "Legend: **[soon]** = landing in Phase 12 · **[future]** = planned/post-release.",
         "",
     ]
-    for i, (sid, title, pages) in enumerate(SECTIONS, 1):
-        lines.append(f"## {i}. {title}")
+    for i, part_title, part_blurb, part_start, (sid, title, pages) in ordered_sections():
+        if part_start:
+            lines.append(f"## {part_title}")
+            lines.append("")
+            lines.append(f"_{part_blurb}_")
+            lines.append("")
+        lines.append(f"### {i}. {title}")
         lines.append("")
         for p in pages:
             tag = " **[soon]**" if p["flag"] == "progress" else (" **[future]**" if p["flag"] == "future" else "")

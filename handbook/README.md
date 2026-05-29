@@ -26,6 +26,7 @@ plain JS globals rather than `fetch()`ed JSON.
 | --- | --- |
 | `OUTLINE.md` | Human-readable master table of contents (the primary deliverable). |
 | `AUDIT.md` | Documentation audit: classifies every existing doc/wiki page and maps it into the handbook (#111). |
+| `DEMOS.md` | Direction for in-doc demo/walkthrough assets (scripted fake-cursor walkthroughs over GIFs). |
 | `index.html` | Landing page with the section grid + shared shell. |
 | `<section>/<topic>.html` | One stub page per topic, wired into the sidebar + search. |
 | `assets/style.css` | Apple/HIG-inspired theme (system fonts, frosted glass, light/dark, responsive). |
