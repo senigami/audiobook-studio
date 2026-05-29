@@ -144,12 +144,21 @@ A fresh clone always gets the latest code, so a new install is never stale.
 - **XTTS is the default engine.** On first run, if `tts_engines/tts_xtts/` is absent,
   Studio auto-installs it by cloning the official GitLab repo
   (`https://gitlab.com/audiobook-studio/tts-xtts.git`). Its model weights then download on
-  first synthesis, as they do today.
+  first synthesis, as they do today. _(The XTTS GitLab repo does not exist yet — it must be
+  created before release.)_
+- **The included copy is a real repo install, just pre-seeded.** When XTTS ships bundled
+  (offline fallback below), it still carries its full `distribution` block (the repo
+  reference) and engine card content. That means:
+  - the user can **uninstall** it like any other engine, after which it **reappears in the
+    browser as downloadable** from its own repo;
+  - it **updates from its own repo** via `git pull` exactly like a freshly installed engine.
+  A bundled engine is never a second-class, un-updatable special case.
 - **Offline first-run fallback:** ship a cached copy of the default XTTS bundle inside the
   app installer so a no-network first run still works; the cached copy is treated as
-  installed and `git pull`s normally once online.
-- **Voxtral (cloud)** is also a GitLab bundle but cloud-backed (`requires_network: true`,
-  hidden until a Mistral key is added — unchanged behavior).
+  installed (with its repo metadata intact) and `git pull`s normally once online.
+- **Voxtral (cloud)** is an optional, opt-in cloud engine (an example, not pre-installed),
+  distributed as a GitLab bundle but cloud-backed (`requires_network: true`, hidden until a
+  Mistral key is added).
 - **Migration:** the engines currently bundled in `plugins/` move to their own GitLab repos
   and into `tts_engines/`; the in-app copies are removed in favor of cloned bundles (XTTS
   via auto-clone / cached fallback).
@@ -181,12 +190,13 @@ Decided:
   `audiobook-studio/...` (who owns official repos, drives the "Official" badge). Only the
   maintainer publishes engines for now, so the official-group trust check is effectively
   moot until third parties publish.
+- **Auto-update = notify only.** Studio checks and surfaces the Settings → TTS Engines
+  alert, but never updates an engine without the user clicking Update / Update all.
+- **Offline bundle = yes.** Ship a cached XTTS copy in the installer for offline first-run.
+  It carries its repo metadata so it uninstalls, re-downloads, and updates like any other
+  engine (see §8). _(Depends on the XTTS GitLab repo being created — not yet made.)_
 
-Still open (minor):
-1. **Auto-update default:** check-and-notify (recommended — matches the alert above) vs.
-   silent auto-update vs. manual-only.
-2. **Offline bundle:** confirm shipping a cached XTTS copy in the installer for offline
-   first-run.
+No open distribution questions remain.
 
 ## 11. Sources
 
