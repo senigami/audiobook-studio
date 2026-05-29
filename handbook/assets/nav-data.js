@@ -228,10 +228,14 @@ window.NAV_DATA = {
           "url": "concepts/engines-overview.html",
           "keywords": [
             "engine",
+            "local",
+            "cloud",
+            "default",
             "xtts",
             "voxtral",
             "composite",
-            "mixed"
+            "plugin",
+            "api key"
           ],
           "inProgress": false
         },
@@ -449,12 +453,13 @@ window.NAV_DATA = {
       "pages": [
         {
           "id": "xtts",
-          "title": "XTTS (Local)",
+          "title": "Local Engine (XTTS Default)",
           "url": "engines/xtts.html",
           "keywords": [
+            "local engine",
+            "default",
             "xtts",
             "coqui",
-            "local",
             "gpu",
             "latent"
           ],
@@ -462,13 +467,14 @@ window.NAV_DATA = {
         },
         {
           "id": "voxtral",
-          "title": "Voxtral (Cloud)",
+          "title": "Cloud Engines (e.g. Voxtral)",
           "url": "engines/voxtral.html",
           "keywords": [
+            "cloud engine",
+            "optional",
+            "api key",
             "voxtral",
-            "mistral",
-            "cloud",
-            "api key"
+            "mistral"
           ],
           "inProgress": false
         },

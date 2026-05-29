@@ -24,8 +24,8 @@ _Install, create projects, build voices, and produce finished audiobooks._
   - Multi-character dialogue
   - Studio-as-a-TTS-backend for automation
 - [Local-First & Privacy](overview/privacy-model.html) — Your manuscript, samples, and output stay on your machine; cloud is explicit and opt-in.
-  - What stays local (XTTS path)
-  - What leaves the machine if Voxtral is enabled
+  - What stays local (the default local engine)
+  - What leaves the machine only if you enable an optional cloud engine
   - Data ownership & no recurring usage cost
 - [Feature Highlights](overview/feature-highlights.html) — A scannable tour of the capabilities documented in this handbook.
   - Voices, variants & cloning
@@ -37,8 +37,8 @@ _Install, create projects, build voices, and produce finished audiobooks._
 
 - [Requirements](getting-started/requirements.html) — Hardware and software you need before installing.
   - OS support (macOS / Linux / Windows)
-  - Python 3.10+, Node 18+, ffmpeg
-  - GPU recommendations for local XTTS
+  - Python 3.11, Node 18+, ffmpeg
+  - GPU recommendations for the local engine
 - [Installation Paths](getting-started/installation.html) — Pick the path that matches your comfort level.
   - Pinokio (easiest)
   - From source (developers)
@@ -68,7 +68,7 @@ _Install, create projects, build voices, and produce finished audiobooks._
 - [Platform Support & Install Validation](getting-started/platform-validation.html) — Per-platform install/launch notes and the first-run smoke-test matrix.
   - macOS / Windows / Linux install & launch
   - Pinokio install & launch flow
-  - First-run: deps, TTS Server startup, plugin discovery, XTTS/Voxtral setup
+  - First-run: deps, TTS Server startup, plugin discovery, default local engine install
   - Smoke test: sample project, test voice, synthesis, relaunch
   - Platform-specific prerequisites & known limitations
 
@@ -87,11 +87,11 @@ _Install, create projects, build voices, and produce finished audiobooks._
   - Samples & rebuilds
   - Engine-per-voice
   - Portable voice profiles
-- [Engines Overview](concepts/engines-overview.html) — The engines Studio can route to and how they differ.
-  - XTTS (local)
-  - Voxtral (cloud)
+- [Engines Overview](concepts/engines-overview.html) — Local vs cloud engines, and how Studio routes to them.
+  - Local engines — XTTS is the only engine installed by default
+  - Cloud engines — optional and opt-in, enabled with an API key (e.g. Voxtral)
   - Composite (mixed) synthesis
-  - Plugins add more
+  - Add more engines as plugins
 - [The Production Pipeline](concepts/production-pipeline.html) — The stages a chapter passes through to become audio.
   - Analysis -> Queue -> Synthesis -> Bake -> Assembly
   - What happens at each stage
@@ -163,19 +163,21 @@ _Install, create projects, build voices, and produce finished audiobooks._
 - [Troubleshooting & FAQ](user-guide/troubleshooting.html) — Common issues and how to resolve them.
   - Failed jobs & retries
   - Voice quality
-  - Enabling Voxtral
+  - Enabling an optional cloud engine
   - Long-sentence warnings
 
 ### 5. Engines & Voice Cloning
 
-- [XTTS (Local)](engines/xtts.html) — The private, local-default cloning engine.
+- [Local Engine (XTTS Default)](engines/xtts.html) — The private, local cloning engine — the only engine installed by default. XTTS is the bundled example.
+  - Why a local engine is the default
   - What XTTS is & GPU needs
   - Latents & the voice profile
   - Strengths and tuning
-- [Voxtral (Cloud)](engines/voxtral.html) — Optional Mistral-hosted engine, hidden until you add an API key.
-  - Enabling with a Mistral key
-  - What data is sent
-  - When to use it
+- [Cloud Engines (e.g. Voxtral)](engines/voxtral.html) — Optional, opt-in cloud engines you enable with an API key — none are installed by default. Voxtral (Mistral-hosted) is one example.
+  - Why cloud engines are optional & opt-in
+  - Enabling a cloud engine with an API key
+  - What data leaves your machine
+  - Voxtral as a worked example
 - [Composite Synthesis](engines/composite.html) — Combining multiple engines/voices within one chapter.
   - When chapters mix engines
   - How composite rendering stitches output
@@ -269,7 +271,7 @@ _Extend Studio with engine plugins, drive it over the external API, and run it._
   - Context passed into plugin/studio adapters
   - Persistence stays Studio-owned
 - [Portable Core & Standalone Repos](plugin-sdk/standalone-repos.html) **[soon]** — First-party engines as standalone repos that also run from a CLI.
-  - XTTS Web / Voxtral Web repo layout
+  - Engine repo layout (XTTS as the example)
   - CLI entry point & dependency path
   - The standalone CLI Builder Harness (static page)
 - [Studio Dev Mode Preview](plugin-sdk/dev-mode.html) **[soon]** — The authoritative UI preview path for plugin development.
@@ -431,26 +433,6 @@ _Extend Studio with engine plugins, drive it over the external API, and run it._
 - [License](contributing/license.html) — How the project is licensed.
   - MIT license
   - Third-party/engine licenses
-
----
-
-## Parked / open decisions
-
-Tracked here so they don't get lost; revisit before the content pass closes.
-
-- **IA review (#1)** — Steven to review this outline / section structure.
-- **Voice & engine distribution** — _[future]_, final-draft specs awaiting Steven's
-  sign-off. **Voices on Hugging Face, engines on GitLab.** Specs:
-  - `plans/v2_voice_tag_taxonomy.md` — the sectioned tag system (Class/Gender/Age/Language/
-    Accent/Tone/Timbre/Pace/Use-case/Quality/Free).
-  - `plans/v2_huggingface_voice_repo_spec.md` — on-Hub voice bundle (playable sample via
-    `widget`, icon, tags, native `voice.json`; zip export vs loose direct-upload).
-  - `plans/v2_voice_metadata_and_casting.md` — metadata model + AI casting contract.
-  - `plans/v2_huggingface_voice_interface.md` — browse/import/upload flow.
-  - `plans/v2_engine_bundle_gitlab_distribution.md` — GitLab engine bundles, tag discovery,
-    install/update, XTTS auto-install default.
-  Don't document the user-facing pages until confirmed. Lands on `user-guide/voice-lab`,
-  `user-guide/voice-tags-icons`, `engines/*`, and a likely new API/integration page.
 
 ---
 _12 sections · 90 topic pages._
