@@ -54,24 +54,19 @@ must degrade gracefully):
 
 ### 3.2 `VoiceAttributes` (controlled vocabularies)
 
-Structured so casting can filter and score reliably. Each is a closed enum so values are
-comparable; free nuance goes in `description`/`tags`.
+**The controlled vocabulary is owned by `plans/v2_voice_tag_taxonomy.md`** — that spec is
+the single source of truth for every section, value, and cardinality rule. `VoiceAttributes`
+is its structured form:
 
-- `gender`: `feminine` | `masculine` | `neutral` | `unspecified`
-- `age_band`: `child` | `teen` | `young_adult` | `adult` | `mature` | `elderly`
-- `accent`: controlled list (e.g. `us_general`, `uk_rp`, `irish`, `australian`,
-  `indian`, `southern_us`, …) — _Assumption: start with a small list, extend as needed._
-- `timbre`: multi-select descriptors (`warm`, `deep`, `bright`, `gravelly`, `breathy`,
-  `nasal`, `smooth`, `raspy`).
-- `tone`: multi-select (`calm`, `energetic`, `authoritative`, `friendly`, `somber`,
-  `playful`, `menacing`).
-- `pace`: `slow` | `measured` | `fast`.
-- `use_case`: multi-select (`narration`, `dialogue`, `character`, `audiobook`,
-  `documentary`, `commercial`).
+- `class` (one, required) — human / synthetic / creature / character / deity
+- `gender` (one, required) — feminine / masculine / neutral / ambiguous / not-applicable
+- `age` (one, required) — child / teen / young-adult / adult / middle-aged / senior / ageless
+- `accent` (one, optional) — controlled list (see taxonomy §2.5)
+- `tone` (many, optional), `timbre` (many, optional), `pace` (one, optional),
+  `use_case` (many, optional), `quality` (many, optional)
 
-> _Assumption:_ these vocabularies mirror the spirit of ElevenLabs' labels but are ours to
-> own and version. We should version the vocabulary (`attributes_schema_version`) so
-> bundles and AI prompts stay stable.
+Languages live in `languages` (BCP-47); free nuance goes in `description`/`tags`. The
+vocabulary is versioned via `taxonomy_version`; unknown values degrade to free tags.
 
 ## 4. The casting contract
 
@@ -95,13 +90,14 @@ A deterministic, token-frugal representation the assistant reads. Example:
   "voice_id": "vp_0d3a",
   "name": "Gravel Road",
   "language": "en-US",
+  "class": "human",
   "gender": "masculine",
-  "age_band": "mature",
-  "accent": "southern_us",
+  "age": "senior",
+  "accent": "us-southern",
   "timbre": ["deep", "gravelly"],
   "tone": ["authoritative", "somber"],
-  "use_case": ["narration", "character"],
-  "tags": ["weathered", "cowboy", "narrator"],
+  "use_case": ["audiobook", "narration", "character-dialogue"],
+  "tags": ["weathered", "cowboy", "rancher"],
   "description": "A weathered, low Southern drawl. Reads like an old ranch hand telling a hard story."
 }
 ```
@@ -146,19 +142,26 @@ A ranked recommendation, never a silent auto-apply:
 - A "Suggest voices for this character" action in the editor that calls the casting
   contract and shows ranked cards with reasons.
 
-## 6. Open questions (need Steven's answers)
+## 6. Decisions & remaining questions
 
-1. Is AI casting **in-app** (Studio calls a model) or **handoff** (we expose the casting
-   cards + character profile for the user's own AI)? The handbook style guide says
-   integration surfaces should be AI-handoff-ready — this likely wants **both**: a
-   documented JSON contract plus an optional in-app convenience.
-2. How much of the attribute vocabulary do we lock for v1 vs. leave extensible?
-3. Should `tags` fully replace the existing `labels` field, or coexist?
-4. Does casting need per-character multi-language handling, or is one language per project
-   enough for v1?
+Decided:
+- **Casting is both handoff and in-app.** The casting-card + recommendation JSON is a
+  documented, AI-handoff-ready contract (per the handbook style guide); Studio also offers
+  an in-app "Suggest voices" convenience that uses it.
+- **Vocabulary** is owned and versioned by `plans/v2_voice_tag_taxonomy.md` (locked v1.0,
+  extensible via minor bumps).
+- **`tags`** (the taxonomy's Free tags) is the going-forward field; the legacy `labels`
+  field is migrated into it.
+
+Still open (minor):
+1. Per-character multi-language handling, or one language per project for v1?
+2. Whether in-app casting ships at release or follows as a fast-follow (the contract ships
+   regardless).
 
 ## 7. References
 
+- `plans/v2_voice_tag_taxonomy.md` (attribute/tag source of truth)
+- `plans/v2_huggingface_voice_repo_spec.md` (bundle shape)
 - `plans/v2_voice_system_interface.md`
 - `plans/implementation/domain_data_model.md`
 - `plans/v2_chapter_editor_workflow.md`

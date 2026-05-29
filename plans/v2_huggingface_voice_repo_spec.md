@@ -1,69 +1,78 @@
 # Spec: Audiobook Studio Voice Bundle — Hugging Face Repo Shape
 
-> **Status: DRAFT for review, research-backed.** Defines the standardized shape a voice
-> takes on the Hugging Face Hub so it (a) renders well on the HF page — icon, playable
-> sample, description, ElevenLabs-style tags — and (b) is read **natively** by Audiobook
-> Studio after download. Supersedes the sourcing sketch in
-> `plans/v2_huggingface_voice_interface.md` §4 with a concrete file/metadata contract.
-> Research sources are listed at the bottom; assumptions are flagged _Assumption_.
+> **Status: FINAL DRAFT for review, research-backed.** Defines the standardized shape a
+> voice takes on the **Hugging Face Hub** (the voice host) so it (a) renders well on the HF
+> page — icon, playable sample, description, full tag set — and (b) is read **natively** by
+> Audiobook Studio after download. Tag values come from
+> `plans/v2_voice_tag_taxonomy.md`. Engines are hosted separately on GitLab — see
+> `plans/v2_engine_bundle_gitlab_distribution.md`. Research sources at the bottom.
 
 ## 1. Goal
 
-Anyone should be able to publish a voice to Hugging Face in a fixed shape such that:
+Anyone can publish a voice to Hugging Face in a fixed shape such that:
 
-- A visitor to the repo page sees **a representative image, a play button for a voice
-  sample, a description, and tags** (male/female, age, gritty, English accent, …) — the
-  ElevenLabs experience, on HF.
-- The same repo, downloaded and dropped into Audiobook Studio, is recognized
-  **automatically**: Studio reads one canonical spec file and registers the voice with no
-  manual setup.
-- The voice is **discoverable** by querying HF for a known tag (e.g.
-  `audiobook-studio-voice`).
+- A visitor sees **an image, a play button for a voice sample, a description, and tags**
+  (male/female, age, gritty, English accent, monster, …) — an ElevenLabs-style card on HF.
+- The same voice, downloaded into Audiobook Studio, is recognized **automatically** from a
+  single canonical file, with no manual setup.
+- The voice is **discoverable** by querying HF for the tag `audiobook-studio-voice`.
 
-We ship a **template + generator** so voices "assume this shape automatically."
+We ship a **template + generator** so voices assume this shape automatically.
 
-## 2. Why a model repo (not a dataset repo)
+## 2. Host & repo type decision
 
-HF has three repo types (model / dataset / space). We standardize on a **model repo**
-because:
+- **Host: Hugging Face Hub.** (Engines live on GitLab; voices live on HF.)
+- **Repo type: model repo.** Chosen because the **`widget` field with `output: url:` makes
+  the HF page show a playable sample with no live inference** — the cleanest way to "listen
+  right there on the page." `pipeline_tag: text-to-speech` categorizes it; cards render
+  `<img>` for the icon; tags are free-form for discovery. (All confirmed in HF docs — see
+  Sources.) A dataset repo would also auto-play audio via the Dataset Viewer but misframes
+  a voice as a dataset; we don't use it.
 
-- The **`widget` metadata field supports an `output: url:` pointing at an audio file in
-  the repo, which makes the HF page show a playable sample with no live inference.** This
-  is the cleanest way to get "listen right there on the page." (Confirmed in HF widget
-  docs — see Sources.)
-- `pipeline_tag: text-to-speech` slots voices into the right HF category and widget type.
-- Model repos render `README.md` as a card and support raw `<img>` HTML for the icon.
-- A dataset repo would auto-play audio via the Dataset Viewer, but it frames a voice as a
-  "dataset," misuses the type, and complicates native reading. _Assumption: model repo is
-  the right call; revisit if HF changes widget behavior._
+## 3. Delivery formats
 
-## 3. Repo file layout
+Two shapes of the **same logical bundle**:
+
+- **Loose files** — the canonical on-Hub layout (§4). Used when Studio's Voices tab
+  **uploads directly to Hugging Face** (it pushes loose files via the user's token).
+- **Zip** — produced by **Export** in the Voices tab (`<voice-id>.asvoice.zip`, a normal
+  zip containing exactly the loose layout). Used for sharing, backup, and manual upload.
+
+**Manual upload (documented in the handbook):** unzip the `.asvoice.zip`, create a new HF
+**model** repo, and push the unzipped files at the repo root (so `README.md`, `voice.json`,
+`icon.png`, and `samples/` sit at top level). The handbook page gives exact `git`/web-UI
+steps and notes that the zip must be extracted first (HF doesn't unpack zips).
+
+Studio **imports either**: a downloaded HF repo (loose) or a `.asvoice.zip` dropped into
+the app (auto-extracted).
+
+## 4. Canonical repo file layout (loose form)
 
 ```
 <namespace>/<voice-name>/
-├── README.md            # HF card: YAML frontmatter (below) + human body. GENERATED.
+├── README.md            # HF card: YAML frontmatter + human body. GENERATED from voice.json.
 ├── voice.json           # CANONICAL spec Studio reads natively. Source of truth.
-├── icon.png             # 1:1 voice image (recommend 512x512). Referenced by both.
+├── icon.png             # 1:1 voice image (512x512 recommended, 256 min).
 ├── samples/
-│   ├── preview.wav       # Primary sample used by the HF widget + Studio preview.
-│   └── preview-*.wav      # Optional extra samples (emotions, languages).
-├── assets/              # Optional engine-specific voice assets (see §6).
+│   ├── preview.wav       # Primary sample: HF widget player + Studio preview.
+│   └── preview-*.wav      # Optional extra samples (emotions/languages).
+├── assets/              # Optional precomputed engine assets (§6).
 │   └── <engine_id>/...
 └── LICENSE              # Optional explicit license text.
 ```
 
-`voice.json` is authoritative. `README.md` is **generated from `voice.json`** so the HF
-presentation and the machine spec can never drift.
+`voice.json` is authoritative; `README.md` is **generated from it** so the HF page and the
+machine spec can never drift.
 
-## 4. `voice.json` — the canonical, Studio-native spec
+## 5. `voice.json` — canonical, Studio-native spec (v1.0)
 
-Mirrors `plans/v2_voice_metadata_and_casting.md` (same attribute vocabulary), plus the
-bundle/provenance fields. Proposed v1:
+Attribute values are governed by `plans/v2_voice_tag_taxonomy.md`.
 
 ```json
 {
   "spec": "audiobook-studio-voice",
   "spec_version": "1.0",
+  "taxonomy_version": "1.0",
   "id": "gravel-road",
   "name": "Gravel Road",
   "description": "A weathered, low Southern drawl. Reads like an old ranch hand telling a hard story.",
@@ -71,24 +80,21 @@ bundle/provenance fields. Proposed v1:
   "samples": [
     { "path": "samples/preview.wav", "text": "The sun went down slow over the dry creek.", "primary": true }
   ],
-  "languages": { "primary": "en-US", "supported": ["en-US"] },
+  "languages": ["en-US"],
   "attributes": {
+    "class": "human",
     "gender": "masculine",
-    "age_band": "mature",
-    "accent": "southern_us",
-    "timbre": ["deep", "gravelly"],
+    "age": "senior",
+    "accent": "us-southern",
     "tone": ["authoritative", "somber"],
+    "timbre": ["deep", "gravelly"],
     "pace": "measured",
-    "use_case": ["narration", "character", "audiobook"]
+    "use_case": ["audiobook", "narration", "character-dialogue"],
+    "quality": ["studio-quality"]
   },
-  "tags": ["weathered", "cowboy", "narrator"],
+  "tags": ["cowboy", "weathered", "rancher"],
   "engines": [
-    {
-      "engine_id": "xtts",
-      "asset_type": "xtts_latents",
-      "path": "assets/xtts/",
-      "min_engine_version": "2.0.0"
-    }
+    { "engine_id": "xtts", "asset_type": "xtts_latents", "path": "assets/xtts/", "min_engine_version": "2.0.0" }
   ],
   "provenance": {
     "source": "recorded",
@@ -96,21 +102,27 @@ bundle/provenance fields. Proposed v1:
     "consent_ack": true,
     "created_at": "2026-05-29T00:00:00Z"
   },
-  "license": "cc-by-4.0",
-  "attributes_schema_version": "1.0"
+  "license": "cc-by-4.0"
 }
 ```
 
-Notes:
-- `attributes` uses the controlled vocabularies defined in the metadata/casting proposal,
-  so AI casting works on bundles too.
-- `engines[]` is **optional**. A bundle may ship only samples (Studio clones locally on
-  import) or precomputed engine assets under `assets/<engine_id>/` for instant use.
-- `id` is the folder/profile id; must match the bundle directory name on import.
+Rules:
+- `id` is the voice/profile id and must match the bundle directory name on import.
+- `languages[0]` is primary. `attributes` follows the taxonomy cardinality (Class, Gender,
+  Age required; rest optional).
+- `engines[]` is **optional**. With present assets → instant use; absent → Studio clones
+  locally from `samples/` via `build_voice_asset(...)`.
+- Unknown attribute values are preserved as free tags (forward-compat — see §9).
 
-## 5. `README.md` frontmatter — HF presentation + discovery
+## 6. Engine assets (optional, for instant use)
 
-Generated from `voice.json`. Maps our rich model onto HF's flat tag system and widget:
+Precomputed engine assets live under `assets/<engine_id>/`, declared in
+`voice.json.engines[]`, and map to `VoiceAsset`s on import
+(`plans/v2_voice_system_interface.md`). Engine assets never carry descriptive metadata —
+that stays in `voice.json`. Asset types must match what the engine declares it accepts
+(`supported_voice_asset_types` in the engine manifest).
+
+## 7. `README.md` — HF presentation + discovery (generated)
 
 ```yaml
 ---
@@ -120,14 +132,17 @@ language:
 pipeline_tag: text-to-speech
 library_name: audiobook-studio
 tags:
-  - audiobook-studio-voice          # discovery anchor (see §7)
-  - audiobook-studio-spec-v1        # spec version for forward-compat queries
-  - voice
-  - gender:masculine                # flattened attributes for HF filtering
-  - age:mature
-  - accent:southern_us
-  - timbre:gravelly
-  - use-case:narration
+  - audiobook-studio-voice          # discovery anchor
+  - audiobook-studio-spec-v1        # spec generation
+  - text-to-speech
+  - as-class-human
+  - as-gender-masculine
+  - as-age-senior
+  - as-accent-us-southern
+  - as-tone-authoritative
+  - as-timbre-gravelly
+  - as-use-audiobook
+  - cowboy                          # free tags pass through
 widget:
   - text: "The sun went down slow over the dry creek."
     example_title: "Gravel Road — preview"
@@ -141,108 +156,77 @@ widget:
 
 | Attribute | Value |
 | --- | --- |
+| Class | Human |
 | Gender | Masculine |
-| Age | Mature |
-| Accent | Southern US |
+| Age | Senior |
+| Accent | American (Southern) |
+| Tone | Authoritative, somber |
 | Timbre | Deep, gravelly |
-| Use case | Narration, character, audiobook |
+| Best for | Audiobook, narration, character dialogue |
 
-_This voice follows the Audiobook Studio voice spec v1. Download and drop it into
-`tts_voices/` to use it._
+_Follows the Audiobook Studio voice spec v1. Download and drop it into `tts_voices/`, or
+import the `.asvoice.zip` from the Voices tab._
 ```
 
-Key mechanics (all confirmed against HF docs):
-- **`widget … output.url`** → playable audio sample on the page without inference.
-- **`<img>`** raw HTML is supported in cards → renders the icon.
-- **`tags`** are free-form strings; arbitrary custom tags (incl. `gender:masculine`) are
-  allowed and become filter facets.
+Confirmed HF mechanics: `widget … output.url` → playable sample; `<img>` HTML supported;
+free-form custom tags allowed and become filter facets.
 
-## 6. Engine assets (optional, for instant use)
+## 8. Native read on import
 
-If a publisher precomputes engine-specific assets, they live under
-`assets/<engine_id>/` and are declared in `voice.json.engines[]`. On import Studio maps
-each to a `VoiceAsset` (per `plans/v2_voice_system_interface.md`). If absent, Studio
-imports `samples/` and builds an asset locally via `build_voice_asset(...)`. Engine assets
-must never carry metadata that belongs on the profile — attributes stay in `voice.json`.
+1. User imports a HF repo (loose) or `.asvoice.zip` (auto-extracted) into `tts_voices/<id>/`
+   (per the namespace rename in `plans/master_agnostic_tasks.md`).
+2. Studio's voice scanner finds `voice.json` and validates `spec`/`spec_version`/schema.
+3. Creates/updates a `VoiceProfile` from name, description, image, attributes, tags,
+   languages, provenance, license.
+4. For each `engines[]` with present assets → registers a `VoiceAsset`; otherwise marks
+   "needs build" and offers one-click local clone from `samples/`.
+5. Voice appears in Voice Lab with the same icon, sample, description, and tags as the HF
+   page. No manual configuration.
 
-## 7. Discovery tag convention
+## 9. Spec governance & versioning (the "how do we not break things" rule)
 
-To make "search HF for our voices" work:
+- **One published JSON Schema** (`voice.schema.json`) defines `voice.json`. It lives in the
+  Studio repo at a stable path and is published so anyone can validate before uploading.
+- **`spec_version`** is semver-ish `MAJOR.MINOR`:
+  - Adding **optional** fields → **minor** bump. Old Studio reads new bundles fine
+    (ignores unknown optional fields); new Studio reads old bundles fine (defaults).
+  - Renaming/removing/retyping a **required** field → **major** bump. Studio refuses a
+    higher major than it knows, with a friendly "update Audiobook Studio to use this voice"
+    message instead of a crash.
+- **`taxonomy_version`** tracks the tag vocabulary independently (see taxonomy spec §5);
+  unknown attribute values are demoted to free tags rather than dropped.
+- The generator always stamps the current `spec_version` and `taxonomy_version`.
 
-- Every bundle carries the tag **`audiobook-studio-voice`** (the anchor) plus
-  **`audiobook-studio-spec-v1`** (spec generation).
-- Search via the Hub API: `HfApi().list_models(filter="audiobook-studio-voice")` or the
-  HTTP equivalent `GET https://huggingface.co/api/models?filter=audiobook-studio-voice`.
-- Secondary filtering by flattened attribute tags (`accent:southern_us`, etc.) or by
-  free-text search. _Assumption: flattened `key:value` tags are acceptable; if HF ever
-  restricts tag characters we fall back to plain tags + `voice.json` filtering._
+This keeps every published voice readable far into the future and lets us extend safely
+before and after release.
 
-## 8. How Studio reads a bundle natively
+## 10. Template & generator
 
-1. User downloads/extracts a bundle into the voices namespace (`tts_voices/<id>/`, per the
-   deferred namespace rename in `plans/master_agnostic_tasks.md`).
-2. Studio's voice scanner finds `voice.json`, validates `spec`/`spec_version`.
-3. Creates/updates a `VoiceProfile` from `name`, `description`, `image`, `attributes`,
-   `tags`, `languages`, `provenance`, `license`.
-4. For each `engines[]` entry with present assets, registers a `VoiceAsset`; otherwise
-   marks the voice "needs build" and offers a one-click local clone from `samples/`.
-5. The voice appears in Voice Lab with its icon, sample, description, and tags — same data
-   the HF page showed.
+- Ship `voice.schema.json` + a template skeleton.
+- The Voices tab **Export** and **Upload to Hugging Face** actions both run the generator:
+  given a Studio voice, it writes `voice.json`, `icon.png` (auto-cropped 1:1),
+  `samples/preview.wav`, and a `README.md` rendered from `voice.json`. Export zips it;
+  Upload pushes loose files via the user's HF token.
+- **Validation** before export/upload: required attributes present and within the taxonomy,
+  `id` matches folder, image is 1:1, ≥1 sample, widget `output.url` resolves, schema
+  passes.
 
-No manual configuration: the bundle *is* the spec Studio operates off of.
+## 11. Future: browse / search from the Voices tab
 
-## 9. Template & generator (so voices auto-assume the shape)
+ComfyUI-Manager / Civitai-style, but on HF:
+- **Browse/search**: query the anchor tag —
+  `HfApi().list_models(filter="audiobook-studio-voice")` or
+  `GET https://huggingface.co/api/models?filter=audiobook-studio-voice` — then refine by
+  `as-*` tags or free text. Show result cards (icon, playable sample, tags).
+- **Install**: download + extract into `tts_voices/`, auto-register (§8).
+- **Upload**: generator → push loose files with the user's token; tags set automatically.
+- **Token/consent/license/privacy** per `plans/v2_huggingface_voice_interface.md` §7.
 
-- Ship a **`voice.json` JSON Schema** and a template repo skeleton.
-- Provide a generator (CLI / Voice Lab export) that, given a voice in Studio, writes the
-  full bundle — `voice.json`, `icon.png`, `samples/preview.wav`, and a `README.md`
-  rendered from `voice.json` — ready to push to HF.
-- Validation: required fields present, `id` matches folder, image is 1:1, at least one
-  sample, attribute values in the controlled vocabulary, widget `output.url` resolves.
+## 12. Sources
 
-## 10. Future: browse / upload from the Voices tab
-
-Parallels Stable Diffusion model managers (ComfyUI Manager / Civitai browsers):
-
-- **Browse**: query `audiobook-studio-voice`, show result cards (icon, sample, tags),
-  pick one, download + extract into `tts_voices/`, auto-register (§8).
-- **Upload**: from the Voices tab, run the generator (§9) and push to the user's HF repo
-  with their token; set the discovery tags automatically.
-- **Token/consent/license/privacy** handling per `plans/v2_huggingface_voice_interface.md`
-  §7 (optional token, license surfaced, cloning consent recorded, off-machine calls
-  disclosed).
-
-## 11. Parallel: engine/plugin bundle distribution
-
-The same browse-by-tag-and-install pattern applies to TTS engine plugins, which are being
-renamed `plugins/` → **`tts_engines/`** (with `tts_voices/` for voices and a reserved
-`plugins/` for app-behavior extensions — `plans/master_agnostic_tasks.md`, "Deferred
-Phase: Namespace Rename"). Engine bundles are meant to become **self-contained,
-extractable repos**. Proposed discovery tag: **`audiobook-studio-tts`** (engine) so a
-browser can list/pull/install engines the way ComfyUI Manager installs custom nodes and
-Civitai serves models. Engine install still goes through the strict plugin SDK validation
-(`tts_<name>` folder + `manifest.json`) in `plans/v2_plugin_sdk.md` before any code loads.
-_Assumption: host engines on HF too; the user mentioned GitLab — confirm the host (HF Hub
-vs GitLab vs both) since it changes the search API._
-
-## 12. Open questions (need Steven's answers)
-
-1. **Engine host:** HF Hub, GitLab, or both for engine bundles? (Voices are clearly HF.)
-2. **Bundle delivery:** loose files in the repo (this spec) vs. a single zipped artifact?
-   Loose files render better on HF; a zip is tidier to download. (Recommend loose files.)
-3. **Discovery tags:** confirm `audiobook-studio-voice` / `audiobook-studio-tts` as the
-   anchors, and the `key:value` attribute-tag convention.
-4. **Precomputed assets:** do we encourage shipping engine assets (instant use, larger
-   repos) or samples-only (smaller, clone-on-import)?
-5. **Spec governance:** where does the JSON Schema live and how is `spec_version` bumped?
-
-## Sources
-
-- Model card metadata fields — https://huggingface.co/docs/hub/en/model-cards
+- Model card metadata — https://huggingface.co/docs/hub/en/model-cards
 - Model card metadata spec (raw) — https://github.com/huggingface/hub-docs/blob/main/modelcard.md
 - Widgets & audio output (`widget … output.url`) — https://huggingface.co/docs/hub/models-widgets
 - Widget examples — https://huggingface.co/docs/hub/models-widgets-examples
 - Searching the Hub by tag/filter — https://huggingface.co/docs/huggingface_hub/guides/search
-- Audio datasets / viewer playback (alternative) — https://huggingface.co/docs/hub/datasets-audio
-- ElevenLabs voice library labels (taxonomy reference) — https://elevenlabs.io/docs/creative-platform/voices/voice-library
-- ComfyUI Manager / Civitai distribution analogy — https://github.com/hayden-fr/ComfyUI-Model-Manager , https://civitai.com/models/71980/comfyui-manager
+- Audio datasets / viewer (alternative) — https://huggingface.co/docs/hub/datasets-audio

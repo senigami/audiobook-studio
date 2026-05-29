@@ -439,14 +439,18 @@ _Extend Studio with engine plugins, drive it over the external API, and run it._
 Tracked here so they don't get lost; revisit before the content pass closes.
 
 - **IA review (#1)** — Steven to review this outline / section structure.
-- **Voice-creation + Hugging Face shape** — _[future]_. Draft specs now exist for review:
-  `plans/v2_voice_metadata_and_casting.md` (ElevenLabs-style icon/description/attributes +
-  AI casting), `plans/v2_huggingface_voice_repo_spec.md` (the concrete HF voice-bundle
-  shape — playable sample via `widget`, icon, tags, native `voice.json` Studio reads), and
-  `plans/v2_huggingface_voice_interface.md` (browse/import/upload flow). All carry open
-  questions awaiting Steven's sign-off; don't document the user-facing pages until the
-  specs are confirmed. Likely lands on `user-guide/voice-lab`,
-  `user-guide/voice-tags-icons`, and/or the `engines/*` pages.
+- **Voice & engine distribution** — _[future]_, final-draft specs awaiting Steven's
+  sign-off. **Voices on Hugging Face, engines on GitLab.** Specs:
+  - `plans/v2_voice_tag_taxonomy.md` — the sectioned tag system (Class/Gender/Age/Language/
+    Accent/Tone/Timbre/Pace/Use-case/Quality/Free).
+  - `plans/v2_huggingface_voice_repo_spec.md` — on-Hub voice bundle (playable sample via
+    `widget`, icon, tags, native `voice.json`; zip export vs loose direct-upload).
+  - `plans/v2_voice_metadata_and_casting.md` — metadata model + AI casting contract.
+  - `plans/v2_huggingface_voice_interface.md` — browse/import/upload flow.
+  - `plans/v2_engine_bundle_gitlab_distribution.md` — GitLab engine bundles, tag discovery,
+    install/update, XTTS auto-install default.
+  Don't document the user-facing pages until confirmed. Lands on `user-guide/voice-lab`,
+  `user-guide/voice-tags-icons`, `engines/*`, and a likely new API/integration page.
 
 ---
 _12 sections · 90 topic pages._

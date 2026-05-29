@@ -1,31 +1,27 @@
 # Proposal: Hugging Face Voice Interface (Studio 2.0)
 
-> **Status: DRAFT for review.** No spec for a Hugging Face *voice-creation* interface
-> existed in `plans/` before now. The only prior HF usage in the codebase is XTTS
-> downloading its **base model** from Hugging Face during first-run setup — that is
-> unrelated to what this document proposes. Assumptions are flagged _Assumption_ and need
-> Steven's sign-off. Doc-only.
+> **Status: FINAL DRAFT for review.** The browse/import/upload flow for voices on the
+> **Hugging Face Hub**. The concrete on-Hub shape is `plans/v2_huggingface_voice_repo_spec.md`;
+> the metadata/tags come from `plans/v2_voice_tag_taxonomy.md` and
+> `plans/v2_voice_metadata_and_casting.md`. **Voices live on Hugging Face; engines live on
+> GitLab** (`plans/v2_engine_bundle_gitlab_distribution.md`) — this document is voices only.
 
-The goal is to let users **bring a voice in from Hugging Face** — either a hosted
-text-to-speech / cloning model, or speaker reference audio from a dataset — and turn it
-into a first-class Studio `VoiceProfile` with proper metadata, without coupling Studio to
-any one engine.
+The goal is to let users **bring a voice in from Hugging Face** and **publish voices to
+it**, mapping each to a first-class Studio `VoiceProfile` with full metadata, without
+coupling Studio to any one engine.
 
-## 1. What "Hugging Face interface" means here
+## 1. Scope
 
-Two distinct, often-conflated things. This proposal scopes both and recommends a phased
-order:
+Hugging Face is the **voice host**. This covers three flows, all voice-only:
 
-1. **Voice sourcing (Phase A, recommended first).** Browse/search the Hugging Face Hub for
-   **speaker reference audio** (from datasets or model cards) and import it as sample audio
-   that an existing engine (e.g. XTTS) clones into a `VoiceAsset`. This needs no new
-   inference engine — it reuses the current cloning path.
-2. **Engine sourcing (Phase B, later).** Discover and install community **TTS engine
-   models** hosted on HF as Studio plugins. This is really a special case of the existing
-   plugin SDK (`plans/v2_plugin_sdk.md`) and should go through it, not a bespoke path.
+1. **Import** a voice from the Hub into Studio (native read when it follows the bundle
+   spec; otherwise pull reference audio and clone locally).
+2. **Browse/search** the Hub by the `audiobook-studio-voice` tag and install with a card UI.
+3. **Upload/export** a Studio voice to the Hub (loose files via token) or as a
+   `.asvoice.zip` for manual upload.
 
-> _Assumption:_ the near-term intent is Phase A (get voices in), with Phase B as a
-> forward-looking extension. Confirm.
+Engine plugins are **out of scope here** — they are hosted and installed from GitLab; see
+`plans/v2_engine_bundle_gitlab_distribution.md`.
 
 ## 2. Objectives
 
@@ -43,10 +39,11 @@ order:
 
 - Import produces a `VoiceAsset` via the engine contract's `build_voice_asset(...)` /
   `VoiceAssetBuildRequest` defined in `plans/v2_voice_system_interface.md` §3.
-- Phase B installs are plugins under `plugins/tts_*/` with a standard `manifest.json`
-  (`plans/v2_plugin_sdk.md`) — the HF browser is just a discovery/install front-end.
+- Bundles that follow `plans/v2_huggingface_voice_repo_spec.md` are read natively; imported
+  voices land in `tts_voices/`.
 - Imported voices get presentation + structured metadata from
-  `plans/v2_voice_metadata_and_casting.md`, including `provenance` set to `imported`.
+  `plans/v2_voice_metadata_and_casting.md` + `plans/v2_voice_tag_taxonomy.md`, including
+  `provenance` set to `imported`.
 - All network access respects the privacy disclosure rules in
   `v2_voice_system_interface.md` §8 (cloud/off-machine activity must be explicit).
 
@@ -84,14 +81,18 @@ the metadata proposal):
 }
 ```
 
-## 6. Phase B — engine sourcing (later)
+## 6. Upload / export to Hugging Face
 
-- Treat an HF-hosted engine as a plugin: validate `tts_<name>` folder + `manifest.json`,
-  then go through the normal Install Plugin / Refresh flow.
-- The HF browser only adds a "fetch + stage into `plugins/`" convenience; the SDK contract
-  (`info / check_env / check_request / synthesize / settings_schema`) is unchanged.
-- Resource profile, network requirements, and health checks come from the manifest, same
-  as any other engine.
+- **Export** (Voices tab) runs the bundle generator and produces `<voice-id>.asvoice.zip`
+  for sharing/backup/manual upload. The handbook documents manual upload (unzip first, push
+  the loose files to a new HF **model** repo).
+- **Upload to Hugging Face** (Voices tab) runs the same generator and pushes **loose files**
+  to the user's HF repo via their token, setting the `audiobook-studio-voice` anchor and
+  `as-*` tags automatically.
+- Both paths use the shape in `plans/v2_huggingface_voice_repo_spec.md`.
+
+> **Engines are not here.** TTS engine plugins are hosted on GitLab and installed/updated
+> through `plans/v2_engine_bundle_gitlab_distribution.md`.
 
 ## 7. Security, licensing, privacy
 
@@ -103,8 +104,8 @@ the metadata proposal):
 - **Consent:** explicit cloning-consent acknowledgement recorded in `provenance`.
 - **Disclosure:** any download or off-machine call is shown in the UI, consistent with the
   cloud-engine disclosure rules.
-- **Plugin trust (Phase B):** strict manifest + folder-name validation before any Python
-  loads, exactly as `v2_voice_system_interface.md` §4.1 requires for community plugins.
+- **Voices are data, not code.** Importing a voice never executes third-party code, so its
+  trust bar is lower than installing an engine (which does — see the GitLab engine spec §9).
 
 ## 8. AI-handoff documentation note
 
@@ -114,19 +115,23 @@ auth header shape, the download → `build_voice_asset` sequence, the `provenanc
 and the resulting `VoiceProfile`/`VoiceAsset` JSON. Keep general "import a voice" steps
 everyday-simple; keep the integration contract exact.
 
-## 9. Open questions (need Steven's answers)
+## 9. Decisions & remaining questions
 
-1. Confirm Phase A (voice sourcing) is the priority and Phase B (engine plugins) is a
-   later extension.
-2. Which HF content types do we support importing first — dataset speaker clips, model
-   card samples, or both?
-3. Do we want in-app HF search, or just "paste a Hub ID / URL" for v1?
-4. How strict is license enforcement — warn-only, or hard-block on certain licenses?
-5. Is the HF token ever required, or strictly optional (public read only) for v1?
+Decided (this round):
+- **Voices host = Hugging Face; engines host = GitLab.**
+- **Delivery:** Export → zip; direct Upload → loose files; manual upload documented.
+- **Token:** optional — public browse/import needs none; required only to upload or to read
+  private repos.
+
+Still open (minor):
+1. License enforcement — warn-only (recommended) vs. hard-block certain licenses?
+2. In-app HF search UI vs. "paste a Hub ID / URL" for the very first version (full browse
+   is the target either way).
 
 ## 10. References
 
-- `plans/v2_voice_system_interface.md`
-- `plans/v2_plugin_sdk.md`
-- `plans/v2_voice_metadata_and_casting.md` (sibling proposal — metadata & casting)
-- `plans/implementation/voice_engine_impl.md`
+- `plans/v2_huggingface_voice_repo_spec.md` (the on-Hub bundle shape)
+- `plans/v2_voice_tag_taxonomy.md` (tags)
+- `plans/v2_voice_metadata_and_casting.md` (metadata & casting)
+- `plans/v2_engine_bundle_gitlab_distribution.md` (engines — separate host)
+- `plans/v2_voice_system_interface.md`, `plans/implementation/voice_engine_impl.md`
