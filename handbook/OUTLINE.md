@@ -441,9 +441,11 @@ Tracked here so they don't get lost; revisit before the content pass closes.
 - **IA review (#1)** — Steven to review this outline / section structure.
 - **Voice-creation + Hugging Face shape** — _[future]_. Draft specs now exist for review:
   `plans/v2_voice_metadata_and_casting.md` (ElevenLabs-style icon/description/attributes +
-  AI casting) and `plans/v2_huggingface_voice_interface.md` (importing voices from the HF
-  Hub). Both carry open questions awaiting Steven's sign-off; don't document the
-  user-facing pages until the specs are confirmed. Likely lands on `user-guide/voice-lab`,
+  AI casting), `plans/v2_huggingface_voice_repo_spec.md` (the concrete HF voice-bundle
+  shape — playable sample via `widget`, icon, tags, native `voice.json` Studio reads), and
+  `plans/v2_huggingface_voice_interface.md` (browse/import/upload flow). All carry open
+  questions awaiting Steven's sign-off; don't document the user-facing pages until the
+  specs are confirmed. Likely lands on `user-guide/voice-lab`,
   `user-guide/voice-tags-icons`, and/or the `engines/*` pages.
 
 ---

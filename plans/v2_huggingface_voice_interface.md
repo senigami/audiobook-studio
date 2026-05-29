@@ -58,8 +58,10 @@ order:
    description. License and any consent terms must be visible before download.
 3. **Consent gate.** User confirms they have the right to use the voice (cloning consent).
    We record the acknowledgement in `provenance`.
-4. **Import.** Download the selected reference audio into the voice's sample set
-   (subject to the file-format/quality guidance already in the handbook).
+4. **Import.** Download the bundle. If it follows the **Audiobook Studio voice bundle
+   shape** (`plans/v2_huggingface_voice_repo_spec.md`), Studio reads `voice.json` and
+   registers it natively with no setup. Otherwise, pull the reference audio into the
+   voice's sample set (subject to the file-format/quality guidance in the handbook).
 5. **Build.** Run the existing clone path (`build_voice_asset`) on the chosen engine to
    produce a `VoiceAsset`.
 6. **Annotate.** Pre-fill metadata (name, language, description) from the HF card; user
