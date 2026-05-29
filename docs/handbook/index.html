@@ -12,46 +12,17 @@
     <link rel="stylesheet" href="../assets/handbook.css" />
   </head>
   <body>
+    <!-- The CENTRAL DESIGN. Content is loaded as JSON and rendered into #hb-article.
+         Restyle here / in the CSS once and every page updates; content is never touched. -->
     <nav class="site-nav" id="hb-top"></nav>
-
-    <div class="container">
-      <header class="hb-hero">
-        <span class="badge">Handbook</span>
-        <h1>Everything you need to produce audiobooks</h1>
-        <p>From your first install to building voices, casting characters, and extending Studio with your own engines and integrations.</p>
-        <div class="soon-note" style="max-width: 640px; margin: 1.5rem auto 0;">
-          <b>In progress.</b> The 2.0 handbook is being written section by section. Pages marked <em>soon</em> are on the way.
-        </div>
-      </header>
-
-      <section class="section" id="users">
-        <div class="section-header"><span class="badge">For Users</span><h2>Install, create, and produce</h2></div>
-        <div class="grid grid-3">
-          <a class="card" href="overview/what-is-audiobook-studio.html" style="text-decoration:none;color:inherit;"><div class="ico">📖</div><h3>Overview</h3><p>What Audiobook Studio is, who it's for, the 2.0 rearchitecture, and how the pieces fit.</p></a>
-          <a class="card" href="getting-started/requirements.html" style="text-decoration:none;color:inherit;"><div class="ico">🚀</div><h3>Getting Started</h3><p>Requirements, install paths, the launchers, first run, and a 5-minute tour.</p></a>
-          <a class="card" href="concepts/content-hierarchy.html" style="text-decoration:none;color:inherit;"><div class="ico">🧠</div><h3>Core Concepts</h3><p>Content hierarchy, characters &amp; narrators, voices, engines, and the production pipeline.</p></a>
-          <a class="card" href="user-guide/project-workspace.html" style="text-decoration:none;color:inherit;"><div class="ico">🛎️</div><h3>User Guide</h3><p>Projects, chapters, the editor, Voice Lab, the queue, settings, and export.</p></a>
-          <a class="card" href="engines/xtts.html" style="text-decoration:none;color:inherit;"><div class="ico">🎚️</div><h3>Engines &amp; Voice Cloning</h3><p>The local default engine, optional cloud engines, composite synthesis, and quality.</p></a>
-          <a class="card" href="reference/glossary.html" style="text-decoration:none;color:inherit;"><div class="ico">📑</div><h3>Reference</h3><p>Glossary, file formats, and a UI cheat sheet.</p></a>
-        </div>
-      </section>
-
-      <section class="section" id="devs">
-        <div class="section-header"><span class="badge">For Developers &amp; Integrators</span><h2>Extend and integrate</h2></div>
-        <div class="grid grid-3">
-          <a class="card" href="plugin-sdk/overview.html" style="text-decoration:none;color:inherit;"><div class="ico">📦</div><h3>Plugin SDK</h3><p>Wrap any engine in five methods; publish it as a GitLab bundle.</p></a>
-          <a class="card" href="api/overview.html" style="text-decoration:none;color:inherit;"><div class="ico">🔌</div><h3>TTS Gateway API</h3><p>Use Studio as a local TTS backend over HTTP, with auth and queued jobs.</p></a>
-          <a class="card" href="architecture/overview.html" style="text-decoration:none;color:inherit;"><div class="ico">🏗️</div><h3>Architecture</h3><p>The TTS Server, orchestrator, voice bridge, storage, and the web/API layer.</p></a>
-          <a class="card" href="operations/launcher-options.html" style="text-decoration:none;color:inherit;"><div class="ico">🛟</div><h3>Operations &amp; Config</h3><p>Launchers, env vars, storage, performance, and recovery.</p></a>
-          <a class="card" href="whats-new/at-a-glance.html" style="text-decoration:none;color:inherit;"><div class="ico">🆕</div><h3>What's New in 2.0</h3><p>The 2.0 changelog, shifts, and migration notes.</p></a>
-          <a class="card" href="contributing/workflow.html" style="text-decoration:none;color:inherit;"><div class="ico">🤝</div><h3>Contributing</h3><p>Workflow, testing &amp; verification, security policy, and license.</p></a>
-        </div>
-      </section>
+    <div class="doc-shell">
+      <aside class="doc-sidebar" id="hb-sidebar"></aside>
+      <article class="doc-article" id="hb-article"><p class="lede">Loading…</p></article>
     </div>
-
     <footer class="site-footer" id="hb-foot"></footer>
-    <script>window.HB_ROOT = "";</script>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="../assets/nav-data.js"></script>
-    <script src="../assets/hb-nav.js"></script>
+    <script src="../assets/handbook-app.js"></script>
   </body>
 </html>

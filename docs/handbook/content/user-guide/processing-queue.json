@@ -1,0 +1,6 @@
+{
+ "title": "Processing Queue",
+ "desc": "Monitor and control all background rendering and assembly jobs.",
+ "lede": "The queue is mission control for background work — see what's running, what's next, and how long it'll take.",
+ "body": "<div class=\"soon-note\"><b>In progress —</b> the queue UI is being refined in Phase 12; behavior below is the target.</div>\n        <div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Queue stats and ETA.</li><li>Per-job output metadata (duration).</li><li>Reorder, pause/resume, and clear.</li><li>Live updates over WebSocket.</li></ul></div>\n        <h2>Watching progress</h2>\n        <p><strong>See live stats and ETAs as jobs run.</strong> Progress comes from a central service, so the numbers are consistent across the app. See <a href=\"#architecture/progress\">Progress Services</a>.</p>\n        <h2>Controlling jobs</h2>\n        <p><strong>Reorder, pause/resume, and clear jobs.</strong> Job history stays available for reference.</p>\n        <h2>Live updates</h2>\n        <p><strong>The queue updates in real time over WebSocket</strong> — no refreshing to see the latest state.</p>"
+}

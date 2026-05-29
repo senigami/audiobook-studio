@@ -1,0 +1,6 @@
+{
+ "title": "Project Library",
+ "desc": "Browse, create, and manage your audiobook projects.",
+ "lede": "The Library is your home base — every project lives here, ready to open or create.",
+ "body": "<div class=\"soon-note\"><b>In progress —</b> the Library is being refreshed as part of Phase 12; the shape below is the near-term target.</div>\n        <div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Grid &amp; list views with sorting.</li><li>Create a project with title, author, series, and cover.</li><li>Open or delete projects.</li></ul></div>\n        <h2>Browsing</h2>\n        <p><strong>See all your projects at a glance.</strong> Switch between grid and list views and sort to find what you need.</p>\n        <h2>Creating a project</h2>\n        <p><strong>Create a project with its title, author, optional series, and a cover.</strong> These double as audiobook metadata at export time.</p>\n        <h2>Opening &amp; deleting</h2>\n        <p><strong>Open a project to enter its workspace</strong> (<a href=\"#user-guide/project-workspace\">Project Workspace</a>), or delete ones you no longer need.</p>"
+}

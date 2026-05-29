@@ -9,7 +9,7 @@ So this script handles only per-page content; navigation lives in one place.
 Run:  python3 docs/handbook/_build/build.py
 """
 from __future__ import annotations
-import html
+import html, json, re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]  # docs/handbook/
@@ -34,7 +34,7 @@ def table(headers, rows):
     th = "".join(f"<th>{c}</th>" for c in headers)
     body = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
     return f"<table><thead><tr>{th}</tr></thead><tbody>{body}</tbody></table>"
-def L(href, text): return f'<a href="{href}">{text}</a>'  # in-handbook relative link
+def L(href, text): return f'<a href="@@{href}@@">{text}</a>'  # resolved to a #route at render
 
 SHELL = """<!doctype html>
 <html lang="en">
@@ -459,18 +459,485 @@ page("concepts/artifacts-recovery",
   h2("Restart recovery &amp; reconciliation"),
   p("<strong>Studio reconciles state on startup.</strong> After a crash or restart, it checks artifacts against expected work and picks up where it left off. See " + L("../operations/backups-recovery.html", "Backups &amp; Recovery") + "."))
 
-# ---- render -------------------------------------------------------------------
+# ============================ ENGINES ==========================================
+page("engines/xtts",
+  "Local Engine (XTTS Default)",
+  "The private, local cloning engine — the only engine installed by default.",
+  "XTTS is the default local engine: a private, on-machine voice-cloning engine that needs no account. It's the bundled example of a local engine.",
+  glance([
+    "The <strong>only engine installed by default</strong>.",
+    "Runs locally — private and free to run.",
+    "Clones a voice from samples into a reusable profile.",
+    "A GPU makes it much faster."]),
+  h2("Why a local engine is the default"),
+  p("<strong>Local-first means your audio never has to leave the machine.</strong> XTTS ships as the default so you can produce a full audiobook with no account, no API key, and no per-word cost."),
+  h2("What XTTS is &amp; GPU needs"),
+  p("<strong>XTTS is a neural voice-cloning engine.</strong> It runs on CPU but is dramatically faster on a CUDA GPU. Its model is downloaded on first use; see " + L("../getting-started/first-run.html", "First Run") + "."),
+  h2("Latents &amp; the voice profile"),
+  p("<strong>A clone is captured as a compact voice profile.</strong> XTTS turns your samples into latents that represent the voice; that profile is what gets reused for synthesis. Profiles are kept separate from a voice's identity so the same voice can carry assets for more than one engine."),
+  h2("Strengths &amp; tuning"),
+  p("<strong>Quality depends most on your samples.</strong> Clean, consistent recordings clone best. See " + L("voice-quality.html", "Voice Cloning Quality") + " for heuristics, and " + L("engine-settings.html", "Engine Settings &amp; Verification") + " to configure and test it."))
+
+page("engines/voxtral",
+  "Cloud Engines (e.g. Voxtral)",
+  "Optional, opt-in cloud engines enabled with an API key — none are installed by default.",
+  "Cloud engines are optional. You enable one with an API key; none ship or run by default. Voxtral (Mistral-hosted) is one example.",
+  glance([
+    "<strong>Optional and opt-in</strong> — off until you enable one.",
+    "Enabled with an <strong>API key</strong>.",
+    "Some data leaves your machine when used.",
+    "Voxtral is one example of this kind of engine."]),
+  h2("Why cloud engines are optional"),
+  p("<strong>Studio is local-first.</strong> Cloud engines exist for people who want a specific hosted voice or model, but they are never required and never on by default."),
+  h2("Enabling a cloud engine with an API key"),
+  p("<strong>Add the provider's API key in Settings to enable it.</strong> Until a key is present, the engine stays hidden. Voxtral, for example, is enabled with a Mistral API key."),
+  h2("What data leaves your machine"),
+  p("<strong>Using a cloud engine sends the text to be spoken (and any required reference audio) to the provider.</strong> Studio discloses this clearly. See " + L("../overview/privacy-model.html", "Local-First &amp; Privacy") + "."),
+  warn("a cloud engine means data leaves your device. Review the provider's terms; Studio shows facts, it doesn't act as a legal gate."),
+  h2("When to use one"),
+  p("Reach for a cloud engine when you specifically want a voice or model it offers. For most local audiobook production, the default local engine is enough."))
+
+page("engines/composite",
+  "Composite Synthesis",
+  "Combining multiple engines or voices within a single chapter.",
+  "Composite synthesis lets one chapter use more than one engine or voice, stitched into a single, seamless result.",
+  glance([
+    "Mix engines/voices within one chapter.",
+    "Studio stitches the output together.",
+    "Formerly called “mixed” synthesis."]),
+  h2("When chapters mix engines"),
+  p("<strong>Sometimes the best cast spans engines.</strong> A narrator on the local engine and a specific character on another, for instance. Composite synthesis handles that within a single chapter."),
+  h2("How composite rendering stitches output"),
+  p("<strong>Each segment is rendered by its assigned engine/voice, then combined in order.</strong> Because completion is tracked per validated artifact, segments from different engines assemble cleanly into one chapter."),
+  note("Composite was previously called “mixed” synthesis; you may still see that term in older material."))
+
+page("engines/engine-settings",
+  "Engine Settings &amp; Verification",
+  "Per-engine configuration and the verification/self-test flow.",
+  "Each engine carries its own settings and a self-test, so you can configure it and confirm it actually works before relying on it.",
+  glance([
+    "Settings are <strong>schema-driven</strong> — the form comes from the engine.",
+    "<strong>Verify</strong> runs a real test synthesis.",
+    "Engines report a clear status."]),
+  h2("Schema-driven engine settings"),
+  p("<strong>Each engine declares its own settings.</strong> Studio renders the form from that schema, so an engine's options (models, keys, tuning) appear without hard-coding anything in the UI."),
+  h2("Verification &amp; test runs"),
+  p("<strong>Verify runs a quick synthesis to prove the engine is working.</strong> Use it after setup or after changing a setting, and read the diagnostics if it fails."),
+  h2("Enable / disable &amp; status"),
+  p("<strong>Engines show a clear status</strong> — ready, needs setup, or unavailable — so you know what will happen before you queue a job. Manage all of this in " + L("../user-guide/settings.html", "Settings") + "."))
+
+page("engines/voice-quality",
+  "Voice Cloning Quality",
+  "Why quality varies and how to get the best clone.",
+  "Cloning quality comes mostly from your samples. A few habits make a big difference.",
+  glance([
+    "<strong>Sample quality matters most.</strong>",
+    "Clean, consistent recordings clone best.",
+    "Use variants to find the best result."]),
+  h2("Sample selection heuristics"),
+  ul([
+    "Use clear speech with little background noise.",
+    "Keep tone and pace consistent across samples.",
+    "Prefer a handful of good samples over many noisy ones."]),
+  h2("Recording quality factors"),
+  p("<strong>Room noise, clipping, and inconsistent levels hurt clones.</strong> A quiet space and a steady level go a long way. See the recording guidance in the " + L("../user-guide/voice-lab.html", "Voice Lab") + "."),
+  h2("Variant strategies"),
+  p("<strong>Build variants and compare.</strong> Different sample sets or settings can produce noticeably different results; keep the variant that sounds best for your project."))
+
+# ============================ WHAT'S NEW =======================================
+page("whats-new/at-a-glance",
+  "1.x → 2.0 at a Glance",
+  "The short version of what changed in 2.0 and why it matters.",
+  "Here's the short version of what changed from 1.x to 2.0 — what you feel day to day, and what developers gain.",
+  glance([
+    "Synthesis moved to a <strong>managed TTS Server</strong>.",
+    "A real <strong>orchestrator</strong> runs the queue and recovery.",
+    "Engines and voices are <strong>installable bundles</strong>.",
+    "A plugin SDK and external API open Studio up."]),
+  h2("Headline changes"),
+  ul([
+    "A managed, crash-isolated TTS Server hosts engines.",
+    "A task orchestrator replaces the old worker loop.",
+    "Engine behavior is driven by plugin manifests, not engine-ID branches.",
+    "Completion is decided by validated artifacts, not loose files."]),
+  h2("What users feel day-to-day"),
+  p("<strong>More reliability and less lost work.</strong> Crashes are contained, progress is steadier, and restarts recover. Voices get icons and tags; playback and the editor are smoother."),
+  h2("What developers gain"),
+  p("<strong>Clean extension points.</strong> A five-method plugin SDK, installable engines from GitLab, shareable voices on Hugging Face, and a documented gateway API. See " + L("at-a-glance.html", "this section") + "'s other pages for detail."))
+
+page("whats-new/architectural-shifts",
+  "Architectural Shifts",
+  "The structural changes under the hood in 2.0.",
+  "The big 2.0 changes are structural. Here's what moved and why each shift matters.",
+  glance([
+    "One-shot subprocess → managed TTS Server.",
+    "Worker loop → orchestrator.",
+    "Engine-ID branches → plugin manifests.",
+    "Raw-file checks → validated artifacts."]),
+  h2("From one-shot subprocess to a managed TTS Server"),
+  p("<strong>Synthesis runs in a long-lived, supervised process</strong> with a watchdog, instead of being spun up ad hoc. Engines can crash and restart without losing app state."),
+  h2("From a worker loop to an orchestrator"),
+  p("<strong>Scheduling, progress, and recovery are centralized.</strong> The orchestrator owns the queue and reconciliation rather than a single loop doing everything."),
+  h2("From engine-ID branches to plugin manifests"),
+  p("<strong>Behavior is declared, not hard-coded.</strong> What an engine supports comes from its manifest, so adding an engine doesn't mean adding special cases across the app."),
+  h2("From raw-file checks to validated artifacts"),
+  p("<strong>Completion is judged by validated artifact metadata.</strong> A file existing is no longer mistaken for finished work. See " + L("../concepts/artifacts-recovery.html", "Artifacts, Reuse &amp; Recovery") + "."))
+
+page("whats-new/new-capabilities",
+  "New Capabilities",
+  "Features that didn't exist in 1.x.",
+  "Beyond the rearchitecture, 2.0 adds capabilities that weren't possible before.",
+  glance([
+    "Plugin SDK &amp; external TTS API.",
+    "Composite engine and project backups.",
+    "Predictive progress and VCR playback.",
+    "Voice tags &amp; icons."]),
+  h2("Extensibility"),
+  p("<strong>A plugin SDK and an external TTS API.</strong> Wrap engines and drive Studio from your own tools. See " + L("../plugin-sdk/overview.html", "Plugin SDK") + " and " + L("../api/overview.html", "TTS Gateway API") + "."),
+  h2("Production features"),
+  ul([
+    "<strong>Composite synthesis</strong> across engines in one chapter.",
+    "<strong>Project backups</strong> and disk-based recovery.",
+    "<strong>Predictive progress</strong> with ETAs, and <strong>VCR-style playback</strong> in the editor."]),
+  h2("Voice library"),
+  p("<strong>Voices gain icons and tags</strong>, making a real, searchable library. See " + L("../user-guide/voice-tags-icons.html", "Voice Icons &amp; Tags") + "."),
+  future("installable engines from GitLab, the Hugging Face voice library, and AI voice casting land as part of the 2.0 rollout."))
+
+page("whats-new/migration",
+  "Migration Notes",
+  "What changes for existing 1.x workspaces.",
+  "Upgrading from 1.x? Here's what carries over and what changes.",
+  glance([
+    "Live state moves toward a database.",
+    "Folder layout is tidied.",
+    "Your projects and voices carry over."]),
+  h2("State: toward SQLite"),
+  p("<strong>Durable data lives in SQLite, with live runtime state in state.json.</strong> Existing data is migrated forward. See " + L("../architecture/state.html", "State: state.json + SQLite") + "."),
+  h2("Folders &amp; compatibility"),
+  p("<strong>Storage is normalized</strong> into clear per-project folders. Compatibility shims keep older layouts working during the transition."),
+  h2("What carries over"),
+  p("<strong>Your projects, chapters, and voices come with you.</strong> The workflow is unchanged; the machinery underneath is what moved."),
+  soon("exact migration steps are finalized as 2.0 lands; this page will get the concrete checklist."))
+
+page("whats-new/pr-talking-points",
+  "PR Talking Points",
+  "Benefit-framed messaging for announcements and marketing.",
+  "Need to describe 2.0 to others? These are the benefit-framed talking points.",
+  glance([
+    "Reliability &amp; recovery story.",
+    "Extensibility story (plugins + API).",
+    "Polish story (playback, progress, voices)."]),
+  h2("Reliability &amp; recovery"),
+  p("<strong>“It doesn't lose your work.”</strong> Crash-isolated synthesis, a real queue, and restart recovery mean long jobs survive the bumps."),
+  h2("Extensibility"),
+  p("<strong>“Make it yours.”</strong> Install engines like Stable Diffusion, publish voices like a library, and drive Studio from your own scripts via the API."),
+  h2("Polish"),
+  p("<strong>“It feels finished.”</strong> Predictive progress, VCR-style playback, and a real voice library with icons and tags."),
+  tip("For audience-tailored versions, see the site's For Developers and For Everyone pages."))
+
+page("whats-new/changelog",
+  "Changelog",
+  "Dated record of shipped behavior changes.",
+  "A running record of shipped changes. The 2.0 line is summarized here; the full history lives with the project.",
+  glance([
+    "2.0 highlights collected here.",
+    "Patch lines noted as they ship.",
+    "Full history in the repository."]),
+  h2("2.0 highlights"),
+  ul([
+    "Managed TTS Server + watchdog.",
+    "Task orchestrator, predictive progress, recovery.",
+    "Plugin SDK, external TTS API, composite synthesis.",
+    "Voice tags &amp; icons; clearer first-run model-download progress."]),
+  h2("Recent patch lines"),
+  p("Patch-level changes are recorded as they ship."),
+  note("The authoritative, dated changelog is maintained in the repository and release notes."))
+
+# ============================ REFERENCE ========================================
+page("reference/glossary",
+  "Glossary",
+  "Definitions for the terms used throughout the handbook.",
+  "Short definitions for the terms you'll see across the handbook.",
+  glance(["Content terms: project, chapter, segment, chunk.",
+          "Voice terms: voice, variant, sample, engine.",
+          "Pipeline terms: task, job, artifact."]),
+  h2("Content"),
+  ul([
+    "<strong>Project</strong> — one book and its settings.",
+    "<strong>Chapter</strong> — a unit of text you narrate and assemble.",
+    "<strong>Segment / block</strong> — a line or passage assigned to a voice.",
+    "<strong>Chunk</strong> — the bounded piece of text actually sent to an engine."]),
+  h2("Voices"),
+  ul([
+    "<strong>Voice</strong> — a reusable voice identity.",
+    "<strong>Variant</strong> — a tuned build of a voice for an engine.",
+    "<strong>Sample</strong> — audio a variant is built from.",
+    "<strong>Engine</strong> — the component that turns text into speech."]),
+  h2("Pipeline"),
+  ul([
+    "<strong>Task</strong> — a unit of work the orchestrator schedules.",
+    "<strong>Job</strong> — a queued instance of a task.",
+    "<strong>Artifact</strong> — validated output (with metadata) that defines completion."]))
+
+page("reference/file-formats",
+  "File Formats",
+  "Supported input and output formats in one place.",
+  "A quick reference for the formats Studio reads and writes.",
+  glance(["Text in: plain text.",
+          "Audio in: common sample formats.",
+          "Audio out: WAV, MP3, M4B."]),
+  h2("Text inputs"),
+  p("<strong>Chapters accept plain text</strong> — paste it or upload a <code>.txt</code> file."),
+  h2("Audio inputs (samples)"),
+  p("<strong>Voice samples use common audio formats.</strong> Clean recordings clone best — see " + L("../engines/voice-quality.html", "Voice Cloning Quality") + "."),
+  h2("Outputs"),
+  p("<strong>Studio renders to WAV internally and exports MP3 or M4B.</strong> M4B is the standard audiobook container with chapters. See " + L("../user-guide/audio-formats.html", "Audio Guidance &amp; Formats") + "."))
+
+page("reference/ui-cheat-sheet",
+  "UI Cheat Sheet",
+  "Quick reference for navigation and common actions.",
+  "A fast reference for getting around Studio.",
+  glance(["Main navigation map.",
+          "Common actions.",
+          "Where key features live."]),
+  h2("Navigation map"),
+  ul([
+    "<strong>Library</strong> → your projects.",
+    "<strong>Project</strong> → Chapters, Characters, Assemblies, Backups.",
+    "<strong>Voice Lab</strong> → build and manage voices.",
+    "<strong>Queue</strong> → monitor jobs.",
+    "<strong>Settings</strong> → defaults, engines, API."]),
+  h2("Common actions"),
+  ul([
+    "Create a project; add a chapter (paste or upload).",
+    "Build/assign a voice; generate; review and fix lines.",
+    "Assemble to M4B/MP3."]),
+  note("Detailed walkthroughs live in the " + L("../user-guide/project-workspace.html", "User Guide") + "."))
+
+# ============================ USER GUIDE =======================================
+page("user-guide/project-library",
+  "Project Library",
+  "Browse, create, and manage your audiobook projects.",
+  "The Library is your home base — every project lives here, ready to open or create.",
+  soon("the Library is being refreshed as part of Phase 12; the shape below is the near-term target."),
+  glance(["Grid &amp; list views with sorting.",
+          "Create a project with title, author, series, and cover.",
+          "Open or delete projects."]),
+  h2("Browsing"),
+  p("<strong>See all your projects at a glance.</strong> Switch between grid and list views and sort to find what you need."),
+  h2("Creating a project"),
+  p("<strong>Create a project with its title, author, optional series, and a cover.</strong> These double as audiobook metadata at export time."),
+  h2("Opening &amp; deleting"),
+  p("<strong>Open a project to enter its workspace</strong> (" + L("project-workspace.html", "Project Workspace") + "), or delete ones you no longer need."))
+
+page("user-guide/project-workspace",
+  "Project Workspace",
+  "The project view, its header, and sub-navigation tabs.",
+  "Open a project and you land in its workspace — the header for metadata, and tabs for everything inside.",
+  glance(["Edit project metadata and cover.",
+          "Sub-nav: Chapters, Characters, Assemblies, Backups.",
+          "Set project defaults like the narrator and output preset."]),
+  h2("The header"),
+  p("<strong>Edit the project's metadata and cover from the header.</strong> Title, author, series, and cover travel through to the finished audiobook."),
+  h2("Sub-navigation"),
+  ul([
+    "<strong>" + L("chapters-tab.html", "Chapters") + "</strong> — add and manage chapters.",
+    "<strong>" + L("characters-tab.html", "Characters") + "</strong> — define characters and assign voices.",
+    "<strong>" + L("assemblies-tab.html", "Assemblies") + "</strong> — combine chapters into output.",
+    "<strong>" + L("backups-tab.html", "Backups") + "</strong> — snapshot and restore."]),
+  h2("Project defaults"),
+  p("<strong>Projects hold defaults</strong> like the default narrator and output preset, which apply unless a chapter or line overrides them."))
+
+page("user-guide/chapters-tab",
+  "Chapters",
+  "Add and manage the chapters in a project.",
+  "Chapters are the units you narrate and assemble. Add them by pasting text or uploading files.",
+  glance(["Add a chapter by upload or paste.",
+          "See status and stats per chapter.",
+          "Reorder and delete."]),
+  h2("Adding a chapter"),
+  p("<strong>Paste text or upload a <code>.txt</code> file.</strong> Each chapter becomes its own unit of work."),
+  h2("Status &amp; stats"),
+  p("<strong>Each chapter shows its status and basic stats</strong> so you can see what's drafted, generated, or ready to assemble."),
+  h2("Reorder &amp; delete"),
+  p("<strong>Reorder chapters to match your book</strong> and remove any you don't need. Order carries through to assembly."))
+
+page("user-guide/characters-tab",
+  "Characters",
+  "Define project characters and assign each a voice and color.",
+  "Characters let dialogue sound distinct. Define them once, give each a voice and color, and assignment does the rest.",
+  glance(["Create a character.",
+          "Assign a voice profile/variant.",
+          "Use color coding to scan who speaks."]),
+  h2("Create a character"),
+  p("<strong>Add the characters that appear in your book.</strong> The narrator exists by default; characters cover everyone else."),
+  h2("Assign a voice"),
+  p("<strong>Give each character a voice (and variant).</strong> Their assigned lines render in that voice. See " + L("../concepts/characters-narrators.html", "Characters &amp; Narrators") + "."),
+  h2("Color coding"),
+  p("<strong>Each character gets a color</strong> so you can scan a chapter and see who speaks which lines at a glance."),
+  future("AI voice casting can suggest a fitting voice per character from your library, with a reason — you confirm the picks."))
+
+page("user-guide/assemblies-tab",
+  "Assemblies &amp; Export",
+  "Combine rendered chapters into finished audiobook files.",
+  "Assembly is the finish line: turn your rendered chapters into a real audiobook file.",
+  glance(["Assemble a project into one file.",
+          "Download M4B and manage outputs.",
+          "Edit descriptions and see stats."]),
+  h2("Assemble a project"),
+  p("<strong>Combine finished chapters in order into a single audiobook.</strong> Chapter order and titles come from your project."),
+  h2("Download &amp; manage outputs"),
+  p("<strong>Download the M4B (or MP3) and manage past outputs.</strong> M4B is the standard chaptered audiobook container."),
+  h2("Descriptions &amp; stats"),
+  p("<strong>Edit the description and review stats</strong> like total duration before you publish or share."))
+
+page("user-guide/backups-tab",
+  "Backups",
+  "Snapshot a project (optionally with audio) and restore later.",
+  "Backups let you snapshot a project and roll back if something goes wrong.",
+  glance(["Create a backup with a comment.",
+          "Optionally include audio samples.",
+          "Download, restore, or delete snapshots."]),
+  h2("Create a backup"),
+  p("<strong>Snapshot the project, with an optional comment</strong> to remember why. Toggle whether to include audio samples (bigger, but complete)."),
+  h2("Restore &amp; manage"),
+  p("<strong>Download, restore, or delete snapshots.</strong> Restoring rolls the project back to that point. See " + L("../operations/backups-recovery.html", "Backups &amp; Recovery") + " for the bigger picture."))
+
+page("user-guide/chapter-editor",
+  "Chapter Editor",
+  "Edit, assign, generate, and review a chapter — centered on the Script tab.",
+  "The editor is where a chapter comes together: assign voices, generate, and listen back, all in one place.",
+  soon("the editor is consolidating around a single Script tab in Phase 12; the description below reflects that target."),
+  glance(["Script tab: assign, batch-assign, generate, watch progress.",
+          "VCR playback: play / pause / stop / next / previous.",
+          "Edit tab: raw text with resync preview."]),
+  h2("The Script tab"),
+  p("<strong>Assign voices and generate from one place.</strong> Assign a line, a character, or all unassigned narration at once, then generate and watch progress inline."),
+  h2("VCR playback"),
+  p("<strong>Review like a tape deck.</strong> Play, pause, stop, and jump to the next or previous line to audition your chapter quickly."),
+  h2("The Edit tab"),
+  p("<strong>Edit the raw text and resync.</strong> Fix wording, then preview how it re-splits before regenerating affected segments."),
+  note("Older Production/Performance/Preview tabs are folding into the Script tab."))
+
+page("user-guide/voice-lab",
+  "Voice Lab",
+  "Create, configure, sample, test, and share voices.",
+  "The Voice Lab is where voices are born: create them, add samples, test, and prepare them to share.",
+  glance(["Create a voice and pick an engine.",
+          "Manage variants and samples.",
+          "Test, preview, and import/export voices."]),
+  h2("Create a voice &amp; pick an engine"),
+  p("<strong>Start a voice and choose the engine it builds for.</strong> The default local engine works out of the box."),
+  h2("Variants &amp; samples"),
+  ul([
+    "<strong>Variants</strong> — add, rename, move, set speed, and give test text.",
+    "<strong>Samples</strong> — upload, manage, and rebuild to improve the clone."]),
+  p("Quality depends on samples — see " + L("../engines/voice-quality.html", "Voice Cloning Quality") + " and the built-in Recording Guide prompts."),
+  h2("Test, preview &amp; share"),
+  p("<strong>Test a voice with quick previews, then import or export voice bundles.</strong> See " + L("voice-tags-icons.html", "Voice Icons &amp; Tags") + " for identifying voices."),
+  future("export a voice as a shareable bundle and publish it to a Hugging Face voice library."))
+
+page("user-guide/voice-tags-icons",
+  "Voice Icons &amp; Tags",
+  "Identify and search voices with images and category tags.",
+  "Icons and tags turn a pile of voices into a real, searchable library.",
+  soon("the voice library (icons, tags, search) is part of the Phase 12 / 2.0 rollout."),
+  glance(["Upload a 1:1 icon per voice.",
+          "Tag voices (gender, age, accent, character, …).",
+          "Search and filter by tag.",
+          "Per-voice plugin settings."]),
+  h2("Voice icons"),
+  p("<strong>Give each voice a square (1:1) icon.</strong> It shows on cards and pickers so voices are easy to recognize."),
+  h2("Tags"),
+  p("<strong>Tag voices by their qualities</strong> — class, gender, age, accent, tone, and free-form labels — so you can find the right one fast. The tag set is organized into simple sections."),
+  h2("Searching &amp; filtering"),
+  p("<strong>Search and filter the library by tag.</strong> Rich, structured tags also power AI voice casting."),
+  future("voices published to Hugging Face carry the same icon, sample, and tags, and are discoverable by the <code>audiobook-studio-voice</code> tag."))
+
+page("user-guide/processing-queue",
+  "Processing Queue",
+  "Monitor and control all background rendering and assembly jobs.",
+  "The queue is mission control for background work — see what's running, what's next, and how long it'll take.",
+  soon("the queue UI is being refined in Phase 12; behavior below is the target."),
+  glance(["Queue stats and ETA.",
+          "Per-job output metadata (duration).",
+          "Reorder, pause/resume, and clear.",
+          "Live updates over WebSocket."]),
+  h2("Watching progress"),
+  p("<strong>See live stats and ETAs as jobs run.</strong> Progress comes from a central service, so the numbers are consistent across the app. See " + L("../architecture/progress.html", "Progress Services") + "."),
+  h2("Controlling jobs"),
+  p("<strong>Reorder, pause/resume, and clear jobs.</strong> Job history stays available for reference."),
+  h2("Live updates"),
+  p("<strong>The queue updates in real time over WebSocket</strong> — no refreshing to see the latest state."))
+
+page("user-guide/settings",
+  "Settings",
+  "Configure defaults, engines, the external API, and view diagnostics.",
+  "Settings is where you configure Studio: general defaults, engines, the external API, and diagnostics.",
+  glance(["General: safe mode, default engine/speaker.",
+          "Engines: enable, configure, install/update, delete.",
+          "API panel; About/diagnostics."]),
+  h2("General"),
+  p("<strong>Set project-wide defaults</strong> like safe mode and the default engine/speaker."),
+  h2("Engines"),
+  p("<strong>Enable, configure, install, update, and delete engines.</strong> Updates surface here as a notify-only alert with per-engine and Update-all actions. See " + L("../engines/engine-settings.html", "Engine Settings &amp; Verification") + " and " + L("../plugin-sdk/install-import.html", "Installing &amp; Updating Engines") + "."),
+  h2("API panel"),
+  p("<strong>Enable and manage the TTS Gateway API.</strong> See " + L("../api/overview.html", "Gateway Overview") + "."),
+  h2("About / diagnostics"),
+  p("<strong>Check versions and diagnostics</strong> when you need to confirm what's installed or troubleshoot."))
+
+page("user-guide/audio-formats",
+  "Audio Guidance &amp; Formats",
+  "Supported inputs/outputs and quality guidance.",
+  "What goes in, what comes out, and how to keep quality high.",
+  glance(["Text and audio inputs.",
+          "Internal vs output formats.",
+          "Bitrate, normalization, and length tips."]),
+  h2("Inputs"),
+  p("<strong>Text chapters are plain text; voice samples are common audio formats.</strong> See " + L("../reference/file-formats.html", "File Formats") + "."),
+  h2("Internal vs output formats"),
+  p("<strong>Studio renders to WAV internally, then exports MP3 or M4B.</strong> Working in WAV keeps quality high until the final export."),
+  h2("Quality tips"),
+  ul([
+    "Pick a sensible export bitrate for spoken word.",
+    "Let Studio normalize levels for consistent loudness.",
+    "Keep per-segment text within the engine's chunk limit."]))
+
+page("user-guide/troubleshooting",
+  "Troubleshooting &amp; FAQ",
+  "Common issues and how to resolve them.",
+  "Stuck? Start here. These are the issues people hit most and how to clear them.",
+  glance(["Failed jobs &amp; retries.",
+          "Voice quality problems.",
+          "Enabling an optional cloud engine.",
+          "Long-sentence warnings."]),
+  h2("Failed jobs &amp; retries"),
+  p("<strong>Open the job in the " + L("processing-queue.html", "queue") + " and read its reason.</strong> Most failures are setup-related (engine not ready, missing dependency) and clear after a retry."),
+  h2("Voice quality"),
+  p("<strong>Poor clones usually trace back to samples.</strong> See " + L("../engines/voice-quality.html", "Voice Cloning Quality") + "."),
+  h2("Enabling an optional cloud engine"),
+  p("<strong>Add the provider's API key in Settings.</strong> Cloud engines stay hidden until a key is present. See " + L("../engines/voxtral.html", "Cloud Engines") + "."),
+  h2("Long-sentence warnings"),
+  p("<strong>Very long sentences may be split for the engine.</strong> If you see a warning, shortening or re-punctuating the sentence usually helps."))
+
+# ---- render: emit unstyled content JSON; the SPA shell + CSS own all design ----
+def resolve(section, target):
+    """Turn an in-handbook relative link into a #route the SPA router uses."""
+    t = target[:-5] if target.endswith(".html") else target
+    t = t[3:] if t.startswith("../") else f"{section}/{t}"  # ../sec/slug | same-section
+    return "#" + t
+
 def render():
     n = 0
     for key, (title, desc, lede, body) in C.items():
         section, slug = key.split("/", 1)
-        out = ROOT / section / f"{slug}.html"
+        sub = lambda s: re.sub(r"@@(.*?)@@", lambda m: resolve(section, m.group(1)), s)
+        obj = {"title": title, "desc": desc, "lede": sub(lede), "body": sub(body)}
+        out = ROOT / "content" / section / f"{slug}.json"
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(SHELL.format(
-            title=esc(title.replace("&amp;", "&")), desc=esc(desc),
-            h1=title, lede=lede, body=body, section=section, slug=slug), encoding="utf-8")
+        out.write_text(json.dumps(obj, ensure_ascii=False, indent=1), encoding="utf-8")
         n += 1
-    print(f"Generated {n} handbook pages.")
+    print(f"Wrote {n} content JSON files.")
 
 if __name__ == "__main__":
     render()

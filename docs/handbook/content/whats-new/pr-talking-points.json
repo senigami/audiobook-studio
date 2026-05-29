@@ -1,0 +1,6 @@
+{
+ "title": "PR Talking Points",
+ "desc": "Benefit-framed messaging for announcements and marketing.",
+ "lede": "Need to describe 2.0 to others? These are the benefit-framed talking points.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Reliability &amp; recovery story.</li><li>Extensibility story (plugins + API).</li><li>Polish story (playback, progress, voices).</li></ul></div>\n        <h2>Reliability &amp; recovery</h2>\n        <p><strong>“It doesn't lose your work.”</strong> Crash-isolated synthesis, a real queue, and restart recovery mean long jobs survive the bumps.</p>\n        <h2>Extensibility</h2>\n        <p><strong>“Make it yours.”</strong> Install engines like Stable Diffusion, publish voices like a library, and drive Studio from your own scripts via the API.</p>\n        <h2>Polish</h2>\n        <p><strong>“It feels finished.”</strong> Predictive progress, VCR-style playback, and a real voice library with icons and tags.</p>\n        <div class=\"tip\"><b>Tip —</b> For audience-tailored versions, see the site's For Developers and For Everyone pages.</div>"
+}
