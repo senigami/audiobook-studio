@@ -805,8 +805,22 @@ class OrchestratorHelpersMixin:
                 )
 
         # Stop 0% synthesis_progress from flipping status to running prematurely
+        has_started = (started_at is not None)
+        if not has_started:
+            try:
+                from app.db.state import get_jobs  # noqa: PLC0415
+                existing_job = get_jobs().get(context.task_id)
+                if existing_job and existing_job.started_at is not None:
+                    has_started = True
+            except Exception:
+                pass
+
         if state_status == "running" and reason_code in ("synthesis_progress", "SEGMENT_PROGRESS") and (progress is None or progress == 0.0):
-            state_status = "preparing"
+            if not has_started:
+                state_status = "preparing"
+
+        if has_started and state_status == "preparing":
+            state_status = "running"
         state_progress = progress
         if state_progress is None:
             if state_status == "done":

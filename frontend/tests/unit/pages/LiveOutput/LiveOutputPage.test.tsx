@@ -113,6 +113,16 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
     expect(visibleFrameIds).toEqual(['1', '6']);
   });
 
+  it('proves the main-queue event map does not list segments.progress', () => {
+    render(<LiveOutputPage />);
+    const mainQueueLabel = screen.getByRole('button', { name: 'main-queue' });
+    expect(mainQueueLabel).toBeInTheDocument();
+
+    const row = mainQueueLabel.closest('div');
+    expect(row).toBeInTheDocument();
+    expect(row!.textContent).not.toContain('segments.progress');
+  });
+
   it('filters based on explicit topic visibility rather than subscriber observations', () => {
     // 1. Publish events: tts.logs, chapters.progress, jobs.lifecycle. No subscriber observations!
     publishEvent('tts.logs', 'tts_log', { line: 'Synthesizing line' });                                         // frameId 1, topic tts.logs

@@ -1,15 +1,15 @@
 {
-  "snapshot_version": 142,
-  "current_task": "Fix main queue disappearance from chapter lifecycle overlay classification",
-  "status": "queue_lifecycle_overlay_classification_verified",
+  "snapshot_version": 144,
+  "current_task": "Fix post-START_SYNTHESIS false rollback/preparing events and align Event Stream listener presets with actual queue listener topics",
+  "status": "rollback_fixed_and_presets_verified",
   "last_committed_milestone": {
-    "title": "Event stream and queue routing corrected",
+    "title": "Fixed post-START_SYNTHESIS preparing status rollback and verified Event Stream presets",
     "commit": "pending",
     "notes": [
-      "Canonical START_SEGMENT at 0% now promotes the active segment job to running so the segment timer can start from the command frame.",
-      "Main queue filtering now distinguishes true segment queue items from segment-capable chapter jobs.",
-      "Event-stream map labels now act as topic presets, and the All minus tts.logs shortcut was removed.",
-      "Chapter-scoped lifecycle/progress frames now infer chapter classification when explicit classification is omitted, preventing project-id parentJobId values from hiding chapter jobs in the main queue."
+      "Prevented progress status rollbacks to preparing in OrchestratorHelpersMixin._publish and ProgressService.publish once started_at is set.",
+      "Coerced preparing status back to running for active jobs.",
+      "Added TDD tests verifying rollback protection and preservation of legitimate pre-synthesis preparing events.",
+      "Verified Event Stream preset alignment and verified that clicking main-queue filters out segments.progress."
     ]
   },
   "active_constraints": [

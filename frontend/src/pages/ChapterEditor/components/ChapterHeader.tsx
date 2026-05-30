@@ -106,16 +106,23 @@ export const useChapterStatus = (
     typeof liveSegmentProgressJob.active_render_batch_progress === 'number' ||
     typeof liveSegmentProgressJob.active_render_batch_id === 'string'
   );
+  const hasActiveSegment = !!liveSegmentProgressJob
+    && hasSegmentSupport
+    && !!liveSegmentProgressJob.active_segment_id;
+  const hasActiveRenderBatchProgress = !!liveSegmentProgressJob
+    && hasSegmentSupport
+    && (
+      typeof liveSegmentProgressJob.active_render_batch_progress === 'number' ||
+      typeof liveSegmentProgressJob.active_render_batch_id === 'string'
+    );
   const liveSegmentProgressValue = liveSegmentProgressJob
     ? (['finalizing', 'done', 'failed', 'cancelled'].includes(liveSegmentProgressJob.status)
         ? 1
-        : (hasSegmentSupport && (typeof liveSegmentProgressJob.active_render_batch_progress === 'number' || typeof liveSegmentProgressJob.active_render_batch_id === 'string')
-            ? deriveActiveBatchProgress(liveSegmentProgressJob, liveSegmentProgressJob.active_render_group_weight ?? 1, Date.now())
-            : (hasSegmentSupport && liveSegmentProgressJob.active_segment_id)
+        : hasActiveSegment
             ? (liveSegmentProgressJob.active_segment_progress ?? 0)
-            : (liveProgressIsRenderBlock
-                ? deriveActiveBatchProgress(liveSegmentProgressJob, liveSegmentProgressJob.active_render_group_weight ?? 1, Date.now())
-                : (liveSegmentProgressJob.progress ?? 0))))
+            : (hasActiveRenderBatchProgress || liveProgressIsRenderBlock)
+              ? deriveActiveBatchProgress(liveSegmentProgressJob, liveSegmentProgressJob.active_render_group_weight ?? 1, Date.now())
+              : (liveSegmentProgressJob.progress ?? 0))
     : 0;
 
   React.useEffect(() => {
@@ -166,19 +173,33 @@ export const useChapterStatus = (
     ? 'no_live_job'
     : ['finalizing', 'done', 'failed', 'cancelled'].includes(liveSegmentProgressJob.status)
       ? 'terminal_complete'
-      : liveProgressIsRenderBlock
+      : hasActiveSegment
+        ? 'active_segment_progress'
+        : liveProgressIsRenderBlock
         ? 'render_block_progress'
-        : (hasSegmentSupport && liveSegmentProgressJob.active_segment_id && typeof liveSegmentProgressJob.active_segment_progress === 'number')
-          ? 'active_segment_progress'
-          : 'job_progress';
+        : 'job_progress';
 
   const CHUNK_CHAR_LIMIT = 500;
   const block_char_count = activeRenderBatchWeight ?? 0;
   const progressVal = liveSegmentProgressValue;
   const clamp01 = (val: number) => Math.max(0, Math.min(val, 1));
   const coverageRatio = block_char_count > 0 ? clamp01(block_char_count / CHUNK_CHAR_LIMIT) : 1;
-  const isSegmentStartAtZero = hasSegmentSupport && (liveSegmentProgressJob?.reason_code === 'segment_start' || liveSegmentProgressJob?.reason_code === 'START_SEGMENT') && progressVal === 0;
+  const isSegmentStartAtZero = hasSegmentSupport && (
+    liveSegmentProgressJob?.reason_code === 'segment_start' ||
+    liveSegmentProgressJob?.reason_code === 'START_SEGMENT' ||
+    liveSegmentProgressJob?.reason_code === 'START_SYNTHESIS'
+  ) && progressVal === 0;
   const evidenceWeightFraction = isSegmentStartAtZero ? 1.0 : coverageRatio * clamp01(progressVal);
+  const selectedEtaSource = !liveSegmentProgressJob
+    ? 'none'
+    : hasActiveSegment
+      ? (liveSegmentProgressJob.active_segment_eta_seconds != null ? 'active_segment_eta_seconds' : 'none')
+      : (liveSegmentProgressJob.eta_seconds != null ? 'eta_seconds' : 'none');
+  const selectedUpdatedAtSource = !liveSegmentProgressJob
+    ? 'none'
+    : hasActiveSegment
+      ? (liveSegmentProgressJob.active_segment_updated_at != null ? 'active_segment_updated_at' : 'none')
+      : (liveSegmentProgressJob.updated_at != null ? 'updated_at' : 'none');
 
   const segmentProgressBarSelection = {
     dataTestId: "chapter-header-segment-progress-bar",
@@ -202,10 +223,13 @@ export const useChapterStatus = (
       : (liveSegmentProgressJob?.updated_at ?? null),
     liveSegmentProgressValue,
     liveSegmentProgressIsRenderBlock,
-    activeRenderBatchId: (hasSegmentSupport && (activeRenderBatchIdFromPage || liveSegmentProgressJob?.active_render_batch_id || liveSegmentProgressJob?.active_segment_id)) || null,
-    activeRenderBatchProgress: hasSegmentSupport ? (liveSegmentProgressJob?.active_render_batch_progress ?? liveSegmentProgressJob?.active_segment_progress ?? null) : null,
+    activeRenderBatchId: (hasSegmentSupport && (liveSegmentProgressJob?.active_segment_id || activeRenderBatchIdFromPage || liveSegmentProgressJob?.active_render_batch_id)) || null,
+    activeRenderBatchProgress: hasSegmentSupport ? (liveSegmentProgressJob?.active_segment_progress ?? liveSegmentProgressJob?.active_render_batch_progress ?? null) : null,
     renderGroupCount: hasSegmentSupport ? (liveSegmentProgressJob?.render_group_count ?? null) : null,
     valueSource,
+    progressSource: valueSource,
+    selectedEtaSource,
+    selectedUpdatedAtSource,
     evidenceWeightFraction,
     isSegmentStartAtZero
   };

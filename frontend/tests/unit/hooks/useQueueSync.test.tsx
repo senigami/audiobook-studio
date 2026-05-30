@@ -406,6 +406,8 @@ describe('useQueueSync', () => {
       status: 'running',
       progress: 0.2,
       eta_seconds: 40,
+      active_segment_id: 'old-seg-id',
+      active_segment_progress: 0.1,
       created_at: Date.now() / 1000,
     };
     (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
@@ -418,6 +420,8 @@ describe('useQueueSync', () => {
       progress: 0.75,
       etaSeconds: 10,
       reasonCode: 'SEGMENT_PROGRESS',
+      activeSegmentId: 'seg-1',
+      activeSegmentProgress: 0.75,
     }, { jobId: 'job-segment-ignore', projectId: 'proj-1', chapterId: 'chap-1', segmentId: 'seg-1' });
 
     await new Promise(resolve => setTimeout(resolve, 50));
@@ -425,6 +429,8 @@ describe('useQueueSync', () => {
     const job = result.current.queue.find((q: any) => q.id === 'job-segment-ignore');
     expect(job?.progress).toBe(0.2);
     expect(job?.eta_seconds).toBe(40);
+    expect(job?.active_segment_id).toBe('old-seg-id');
+    expect(job?.active_segment_progress).toBe(0.1);
 
     const records = getLiveEventAuditSnapshot();
     const observed = records.find(r => r.event.topic === 'segments.progress');

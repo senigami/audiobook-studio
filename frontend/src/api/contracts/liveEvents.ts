@@ -372,7 +372,7 @@ export const computeProgressConfidence = (
   reasonCode?: string | null
 ): number | null => {
   if (!status) return null;
-  if ((reasonCode === 'segment_start' || reasonCode === 'START_SEGMENT') && progress === 0) {
+  if ((reasonCode === 'segment_start' || reasonCode === 'START_SEGMENT' || reasonCode === 'START_SYNTHESIS') && progress === 0) {
     return 1.0;
   }
   if (['done', 'failed', 'cancelled', 'finalizing'].includes(status)) {

@@ -1,3 +1,11 @@
+# 2026-05-30 - Fix post-START_SYNTHESIS preparing status rollback and verify Event Stream presets
+
+- Prevented progress status rollbacks from "running" to "preparing" in both `OrchestratorHelpersMixin._publish` and `ProgressService.publish` once a run has started (i.e. `started_at` is populated).
+- Coerced state status back to "running" if it regresses to "preparing" after synthesis has already started.
+- Added TDD backend unit tests verifying the status rollback prevention and ensuring pre-synthesis preparing status is still preserved normally.
+- Verified that the Event Stream presets on the frontend (such as main-queue not listing segments.progress and segment-state focusing on segment progress topics) are fully aligned and correct.
+- All 75 backend tests and all 93 frontend unit tests pass successfully.
+
 # 2026-05-27 - Promote segment_start @ 0% to processing for ChapterEditor progress bar
 
 - Mapped the presentation `state` prop of `PredictiveProgressBar` in `ChapterHeader.tsx` to `'processing'` (instead of `'preparing'`) when `isSegmentStartAtZero` is true.
@@ -1662,3 +1670,12 @@
 - Updated `useQueueSync` to record `main-queue` subscriber observations for `queue.items` invalidation/pause frames so future event-stream captures show that refresh-only path explicitly.
 - Added a failing-first queue-sync regression proving a chapter lifecycle overlay remains visible when `parentJobId` carries the project id.
 - Verified the focused queue-sync test, adjacent queue/hydration/component/useJobs/event-stream Vitest suites, targeted ESLint, frontend build, and `git diff --check`.
+
+# 2026-05-29 - Decoupled segment ETA and progress from main queue and chapter jobs
+
+- Mapped `segments.progress` topic explicitly to the `'chapter'` (non-queue/non-both) audience in `runtimeDebug.ts`.
+- Removed overall job-level `eta_seconds` and `eta_basis` updates from `segments.progress` handler in `useJobs.ts`.
+- Left the segment-level fields (`active_segment_eta_seconds` and `active_segment_eta_basis`) intact.
+- Updated `segmentProgressSocketProvenance.selectedFields` to report segment ETA from `active_segment_eta_seconds`/`active_segment_eta_basis` (or raw payload values).
+- Added/updated test cases verifying overall job/chapter ETA and main queue items (including progress and active_segment fields) are completely isolated from `segments.progress` updates.
+- Verified all unit tests, ESLint, and production build pass cleanly.

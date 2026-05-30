@@ -218,6 +218,10 @@ describe('wsAudienceForType', () => {
     expect(wsAudienceForType('segments_updated')).toBe('chapter');
     expect(wsAudienceForType('chapter_updated')).toBe('chapter');
     expect(wsAudienceForType('test_progress')).toBe('chapter');
+    // Ensure segments.progress topic is classified as not queue and not both
+    const audience = wsAudienceForType('studio_event', { topic: 'segments.progress' });
+    expect(audience).not.toBe('queue');
+    expect(audience).not.toBe('both');
   });
 
   it('classifies dual-audience message types as both', () => {

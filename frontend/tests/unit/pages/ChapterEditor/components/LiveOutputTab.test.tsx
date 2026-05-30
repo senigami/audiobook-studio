@@ -112,6 +112,20 @@ describe('LiveOutputTab', () => {
     expect(screen.getByText('100%')).toBeInTheDocument();
   });
 
+  it('renders confidence 100% for START_SYNTHESIS frame at 0% progress', () => {
+    publishEvent('jobs.lifecycle', 'job_lifecycle', {
+      status: 'running',
+      progress: 0.0,
+      reasonCode: 'START_SYNTHESIS',
+      message: 'Synthesis in progress...',
+    }, { jobId: 'job-1' });
+
+    render(<LiveOutputTab />);
+
+    expect(screen.getByText('0%')).toBeInTheDocument();
+    expect(screen.getByText('100%')).toBeInTheDocument();
+  });
+
   it('renders distinct same-job studio_job_event frames as separate rows in insertion order', () => {
     publishEvent('queue.items', 'queue_item_status', { status: 'queued' }, { jobId: 'job-same' });
     publishEvent('queue.items', 'queue_item_status', { status: 'running' }, { jobId: 'job-same' });

@@ -768,8 +768,9 @@ describe('useJobs', () => {
     expect(job.active_segment_id).toBe('seg-abc');
     expect(job.active_segment_progress).toBe(0.85);
     expect(job.status).toBe('running');
-    expect(job.eta_seconds).toBe(15);
-    expect(job.eta_basis).toBe('remaining_from_update');
+    expect(job.active_segment_eta_seconds).toBe(15);
+    expect(job.active_segment_eta_basis).toBe('remaining_from_update');
+    expect(job.eta_seconds).toBeUndefined();
     expect(job.log).toBe('active segment progress log');
     expect(job.reason_code).toBe('segment_progress_tick');
 
@@ -940,7 +941,7 @@ describe('useJobs', () => {
     expect(job.active_segment_progress).toBe(0.77);
   });
 
-  it('propagates eta_seconds, eta_basis, and started_at from segments.progress only when present on socket payload', async () => {
+  it('propagates segment-scoped ETA and started_at from segments.progress only when present on socket payload', async () => {
     const { result } = renderHook(() => useJobs());
     emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-seg-metrics', status: 'running', progress: 0 }] });
 
@@ -963,8 +964,10 @@ describe('useJobs', () => {
     expect(job.eta_seconds).toBeUndefined();
     expect(job.eta_basis).toBeUndefined();
     expect(job.started_at).toBeUndefined();
+    expect(job.active_segment_eta_seconds).toBeNull();
+    expect(job.active_segment_eta_basis).toBeNull();
 
-    // 2. Emit with metrics, should propagate
+    // 2. Emit with metrics, should propagate to segment fields/trace
     act(() => {
       publishStudioSocketMessage({
         type: 'studio_event',
@@ -983,9 +986,58 @@ describe('useJobs', () => {
     });
 
     job = result.current.jobs['job-seg-metrics'];
-    expect(job.eta_seconds).toBe(45);
-    expect(job.eta_basis).toBe('custom_basis');
-    expect(job.started_at).toBe(1234567);
+    expect(job.active_segment_eta_seconds).toBe(45);
+    expect(job.active_segment_eta_basis).toBe('custom_basis');
+    expect(job.started_at).toBeUndefined();
+    expect(job.eta_seconds).toBeUndefined();
+    expect(job.eta_basis).toBeUndefined();
+    expect(job.segmentProgressSocketProvenance).toBeDefined();
+    expect(job.segmentProgressSocketProvenance.selectedFields.started_at).toBe(1234567);
+  });
+
+  it('proves that a prior job/chapter started_at and eta_seconds survive a later segments.progress update, while segment-level ETA and startedAt are mapped to segment-specific fields', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({
+      type: 'jobs_snapshot',
+      jobs: [{
+        id: 'job-prior-both',
+        status: 'running',
+        progress: 0.3,
+        started_at: 1000000,
+        eta_seconds: 120,
+        eta_basis: 'remaining_from_update',
+      } as any],
+    });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-abc', jobId: 'job-prior-both', chapterId: 'chap-1' },
+        payload: {
+          status: 'running',
+          progress: 0.5,
+          etaSeconds: 15,
+          etaBasis: 'segment_basis',
+          startedAt: 2000000,
+        },
+      });
+    });
+
+    const job = result.current.jobs['job-prior-both'];
+    expect(job).toBeDefined();
+    // Overall job/chapter ETA and started_at must survive unchanged
+    expect(job.started_at).toBe(1000000);
+    expect(job.eta_seconds).toBe(120);
+    expect(job.eta_basis).toBe('remaining_from_update');
+    // Segment specific ETA fields must be populated with the segment ETA
+    expect(job.active_segment_eta_seconds).toBe(15);
+    expect(job.active_segment_eta_basis).toBe('segment_basis');
+    // Raw segment startedAt should be captured in debug provenance
+    expect(job.segmentProgressSocketProvenance).toBeDefined();
+    expect(job.segmentProgressSocketProvenance.selectedFields.started_at).toBe(2000000);
   });
 
   it('populates segmentProgressSocketProvenance only for segments.progress events and includes raw/selected fields', async () => {
@@ -1235,7 +1287,8 @@ describe('useJobs', () => {
     expect(job.status).toBe('preparing');
     expect(job.active_segment_id).toBe('seg-start');
     expect(job.active_segment_progress).toBe(0);
-    expect(job.eta_seconds).toBe(19);
+    expect(job.active_segment_eta_seconds).toBe(19);
+    expect(job.eta_seconds).toBeUndefined();
   });
 
   it('proves queue.items updates cannot overwrite active_segment_eta_seconds while active_segment_id is present', async () => {

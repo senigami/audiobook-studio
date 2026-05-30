@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.6] - 2026-05-30
+
+### Highlights
+
+- **Fixed Post-START_SYNTHESIS Status Rollback**: Prevented active jobs and chapters from rolling back from `"running"` to `"preparing"` due to subsequent 0% progress events (such as segment initialization).
+- **Enforced Status Coercion**: Coerced `"preparing"` status updates back to `"running"` in both database synchronizations (`OrchestratorHelpersMixin._publish`) and websocket emissions (`ProgressService.publish`) once synthesis has already started.
+- **Event Stream Preset Alignment**: Verified the Event Stream preset mappings on the frontend (`main-queue` preset does not list `segments.progress`, and `segment-state` is focused on segment-scoped topics), supported by unit tests.
+
+## [2.0.5] - 2026-05-29
+
+### Highlights
+
+- **Decoupled Segment Timing from Job/Chapter State**: Completely isolated segment-level timing (`eta_seconds`, `eta_basis`, and `started_at` / `startedAt`) updates in `segments.progress` frames from mutating overall job-level fields in `useJobs.ts`, preventing segment timing from interfering with chapter/job timers.
+- **Enhanced Segment Progress Debug Provenance**: Updated `segmentProgressSocketProvenance` to capture the segment-level ETA in `active_segment_eta_seconds` and raw segment startedAt in `selectedFields.started_at` for debugging and UI coordination without mutating job state.
+- **Cleaned Up wsAudienceForType Classification**: Removed redundant classification checks for segment topics in `runtimeDebug.ts`, letting them fall back to standard non-queue/non-both `'chapter'` classification (verified as not queue and not both in tests).
+
 ## [2.0.4] - 2026-05-26
 
 ### Highlights

@@ -730,3 +730,113 @@ def test_segment_block_eta_100_percent():
         started_at=None
     )
     assert eta == 0
+
+
+def test_progress_service_coerces_preparing_after_started_at():
+    from app.orchestration.progress.service import ProgressService
+
+    broadcast_events = []
+
+    def dummy_broadcaster(*, payload: dict, channel: str):
+        broadcast_events.append((payload, channel))
+
+    service = ProgressService(
+        reconcile_fn=lambda **kwargs: kwargs,
+        eta_fn=lambda **kwargs: 10,
+        broadcaster=dummy_broadcaster
+    )
+
+    # Legitimate preparing before started_at
+    service.publish(
+        job_id="job-coerced-test",
+        status="preparing",
+        scope="chapter",
+        parent_job_id="proj-coerced",
+        chapter_id="chap-coerced",
+        progress=0.0,
+        message="Preparing...",
+    )
+
+    events_by_topic = {e[0]["topic"]: e[0] for e in broadcast_events}
+    assert events_by_topic["jobs.lifecycle"]["payload"]["status"] == "preparing"
+    assert events_by_topic["chapters.progress"]["payload"]["status"] == "preparing"
+
+    broadcast_events.clear()
+
+    # START_SYNTHESIS: running with started_at
+    service.publish(
+        job_id="job-coerced-test",
+        status="running",
+        scope="chapter",
+        parent_job_id="proj-coerced",
+        chapter_id="chap-coerced",
+        progress=0.0,
+        started_at=1780106056.0,
+        reason_code="START_SYNTHESIS",
+    )
+
+    broadcast_events.clear()
+
+    # Subsequent preparing status (rollback) should be coerced to running
+    service.publish(
+        job_id="job-coerced-test",
+        status="preparing",
+        scope="chapter",
+        parent_job_id="proj-coerced",
+        chapter_id="chap-coerced",
+        progress=0.0,
+    )
+
+    # No jobs.lifecycle should be emitted because status did not change (it stayed "running")
+    # chapters.progress should be emitted with status "running"
+    assert len(broadcast_events) == 1
+    event = broadcast_events[0][0]
+    assert event["topic"] == "chapters.progress"
+    assert event["payload"]["status"] == "running"
+
+
+def test_orchestrator_publish_coerces_preparing_after_started_at():
+    from app.db.state import put_job, get_jobs, update_job, Job
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext
+
+    jobs_db = {}
+    def mock_put_job(j): jobs_db[j.id] = j
+    def mock_get_jobs(): return jobs_db
+    def mock_update_job(jid, **kwargs):
+        if jid in jobs_db:
+            for k, v in kwargs.items():
+                if hasattr(jobs_db[jid], k):
+                    setattr(jobs_db[jid], k, v)
+
+    from unittest.mock import patch, MagicMock
+    with patch("app.db.state.put_job", side_effect=mock_put_job), \
+         patch("app.db.state.get_jobs", side_effect=mock_get_jobs), \
+         patch("app.db.state.update_job", side_effect=mock_update_job):
+
+        mock_progress = MagicMock()
+        mixin = OrchestratorHelpersMixin()
+        mixin.progress_service = mock_progress
+
+        context = TaskContext(task_id="orch_rollback_test", task_type="test")
+
+        # Legitimate preparing before started_at
+        mixin._publish(context=context, status="preparing", progress=0.0)
+        assert jobs_db["orch_rollback_test"].status == "preparing"
+        assert jobs_db["orch_rollback_test"].started_at is None
+
+        # Start synthesis: status running with started_at
+        start_time = 1780106056.0
+        mixin._publish(context=context, status="running", started_at=start_time)
+        assert jobs_db["orch_rollback_test"].status == "running"
+        assert jobs_db["orch_rollback_test"].started_at == start_time
+
+        # Subsequent preparing update (like 0% SEGMENT_PROGRESS)
+        # Should NOT rollback to preparing in the DB or in the progress service publication
+        mixin._publish(context=context, status="running", reason_code="SEGMENT_PROGRESS", progress=0.0)
+        assert jobs_db["orch_rollback_test"].status == "running"
+
+        # Verify that we called progress_service with status="running" instead of "preparing"
+        # The last call to progress_service.publish should have status="running"
+        last_publish_args = mock_progress.publish.call_args[1]
+        assert last_publish_args["status"] == "running"

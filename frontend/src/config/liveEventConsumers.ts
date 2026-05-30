@@ -1,4 +1,5 @@
 import type { LiveEvent } from '@/api/contracts/liveEvents';
+import type { TopicFilterId } from '@/config/liveEventTopics';
 
 export interface LiveEventConsumer {
   id: 'main-queue' | 'chapter-state' | 'segment-state' | 'project-state' | 'tts-diagnostics' | 'voice-test-state' | string;
@@ -6,39 +7,45 @@ export interface LiveEventConsumer {
   listensTo: (event: LiveEvent) => boolean;
 }
 
+export const LIVE_EVENT_CONSUMER_TOPIC_IDS: Record<string, TopicFilterId[]> = {
+  'main-queue': ['jobs.lifecycle', 'queue.items', 'chapters.lifecycle', 'chapters.progress', 'voice.test'],
+  'chapter-state': ['jobs.lifecycle', 'chapters.lifecycle', 'chapters.progress', 'segments.progress'],
+  'segment-state': ['jobs.lifecycle', 'segments.lifecycle', 'segments.progress'],
+  'tts-diagnostics': ['tts.logs'],
+  'voice-test-state': ['voice.test'],
+  'project-state': ['projects.lifecycle'],
+};
+
 export const LIVE_EVENT_CONSUMERS: LiveEventConsumer[] = [
   {
     id: 'main-queue',
     label: 'main-queue',
-    listensTo: (event: LiveEvent) =>
-      ['jobs.lifecycle', 'queue.items', 'chapters.lifecycle', 'chapters.progress', 'voice.test'].includes(event.topic),
+    listensTo: (event: LiveEvent) => LIVE_EVENT_CONSUMER_TOPIC_IDS['main-queue'].includes(event.topic as TopicFilterId),
   },
   {
     id: 'chapter-state',
     label: 'chapter-state',
-    listensTo: (event: LiveEvent) =>
-      ['jobs.lifecycle', 'chapters.lifecycle', 'chapters.progress', 'segments.progress'].includes(event.topic),
+    listensTo: (event: LiveEvent) => LIVE_EVENT_CONSUMER_TOPIC_IDS['chapter-state'].includes(event.topic as TopicFilterId),
   },
   {
     id: 'segment-state',
     label: 'segment-state',
-    listensTo: (event: LiveEvent) =>
-      ['jobs.lifecycle', 'segments.lifecycle', 'segments.progress'].includes(event.topic),
+    listensTo: (event: LiveEvent) => LIVE_EVENT_CONSUMER_TOPIC_IDS['segment-state'].includes(event.topic as TopicFilterId),
   },
   {
     id: 'tts-diagnostics',
     label: 'tts-diagnostics',
-    listensTo: (event: LiveEvent) => event.topic === 'tts.logs',
+    listensTo: (event: LiveEvent) => LIVE_EVENT_CONSUMER_TOPIC_IDS['tts-diagnostics'].includes(event.topic as TopicFilterId),
   },
   {
     id: 'voice-test-state',
     label: 'voice-test-state',
-    listensTo: (event: LiveEvent) => event.topic === 'voice.test',
+    listensTo: (event: LiveEvent) => LIVE_EVENT_CONSUMER_TOPIC_IDS['voice-test-state'].includes(event.topic as TopicFilterId),
   },
   {
     id: 'project-state',
     label: 'project-state',
-    listensTo: (event: LiveEvent) => event.topic === 'projects.lifecycle',
+    listensTo: (event: LiveEvent) => LIVE_EVENT_CONSUMER_TOPIC_IDS['project-state'].includes(event.topic as TopicFilterId),
   },
 ];
 

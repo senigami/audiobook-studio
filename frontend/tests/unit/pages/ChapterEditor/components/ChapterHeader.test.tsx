@@ -287,6 +287,9 @@ describe('ChapterHeader', () => {
       activeRenderBatchProgress: null,
       renderGroupCount: null,
       valueSource: 'no_live_job',
+      progressSource: 'no_live_job',
+      selectedEtaSource: 'none',
+      selectedUpdatedAtSource: 'none',
       evidenceWeightFraction: 0,
       isSegmentStartAtZero: false
     });
@@ -342,7 +345,7 @@ describe('ChapterHeader', () => {
     expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('job_progress');
     expect(capturedStatus.segmentProgressBarSelection.selectedJobProgress).toBe(0.77);
 
-    // 6. Render-block progress should win when both render-group and active-segment fields exist
+    // 6. Active segment progress should win when both render-group and active-segment fields exist
     const mixedJob = {
       id: 'job-mixed',
       status: 'running',
@@ -355,10 +358,12 @@ describe('ChapterHeader', () => {
       hasSegmentSupport: true,
     };
     rerender(<TestComponent job={mixedJob as any} generatingJob={mixedJob as any} />);
-    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('render_block_progress');
+    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('active_segment_progress');
+    expect(capturedStatus.segmentProgressBarSelection.progressSource).toBe('active_segment_progress');
     expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressIsRenderBlock).toBe(true);
+    expect(capturedStatus.liveSegmentProgressValue).toBe(0.85);
   });
-  it('proves grouping/source order matches known-good: render_block_progress wins over active_segment_progress when render_group_count or active_render_batch_* fields exist', () => {
+  it('proves active_segment_progress wins over stale render-batch fields during a segment handoff', () => {
     let capturedStatus: any = null;
     const TestComponent = ({ job, generatingJob }: any) => {
       capturedStatus = useChapterStatus(mockChapter as any, job, generatingJob, false, 0, false);
@@ -368,19 +373,21 @@ describe('ChapterHeader', () => {
     const mixedJob = {
       id: 'job-mixed-priority',
       status: 'running',
-      progress: 0.2,
-      active_segment_id: 'seg-xyz',
-      active_segment_progress: 0.85,
+      progress: 0.44,
+      active_segment_id: 'seg-2',
+      active_segment_progress: 0,
       active_render_batch_id: 'batch-2',
-      active_render_batch_progress: 0.65,
-      render_group_count: 3,
+      active_render_batch_progress: 1,
+      render_group_count: 2,
+      completed_render_groups: 1,
       hasSegmentSupport: true,
     };
 
     render(<TestComponent job={mixedJob as any} generatingJob={mixedJob as any} />);
     expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressIsRenderBlock).toBe(true);
-    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('render_block_progress');
-    expect(capturedStatus.liveSegmentProgressValue).not.toBe(0.85);
+    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('active_segment_progress');
+    expect(capturedStatus.segmentProgressBarSelection.progressSource).toBe('active_segment_progress');
+    expect(capturedStatus.liveSegmentProgressValue).toBe(0);
   });
 
   it('proves that the progress value/grouping stays known-good while etaSeconds/etaBasis/updatedAt come from active_segment_eta_* when active_segment_id is present', () => {
@@ -412,7 +419,9 @@ describe('ChapterHeader', () => {
 
     expect(capturedStatus.segmentProgressBarSelection.selectedEtaSeconds).toBe(15);
     expect(capturedStatus.segmentProgressBarSelection.selectedEtaBasis).toBe('segment_remaining');
+    expect(capturedStatus.segmentProgressBarSelection.selectedEtaSource).toBe('active_segment_eta_seconds');
     expect(capturedStatus.segmentProgressBarSelection.selectedUpdatedAt).toBe(1050);
+    expect(capturedStatus.segmentProgressBarSelection.selectedUpdatedAtSource).toBe('active_segment_updated_at');
   });
 
   it('proves that if active_segment_id is present but segment-local ETA is absent, it does not fall back to chapter ETA', () => {
@@ -562,6 +571,35 @@ describe('ChapterHeader', () => {
         active_segment_id: 'seg-1',
         active_segment_progress: 0.0,
         reason_code: 'segment_start',
+        hasSegmentSupport: true,
+      }), []);
+      capturedStatus = useChapterStatus(
+        mockChapter as any,
+        undefined,
+        mockJob as any,
+        false,
+        1,
+        false,
+        null,
+        400
+      );
+      return null;
+    };
+
+    render(<TestComponent />);
+    expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBe(1.0);
+  });
+
+  it('proves evidenceWeightFraction is 1.0 for START_SYNTHESIS at 0.0 progress', () => {
+    let capturedStatus: any = null;
+    const TestComponent = () => {
+      const mockJob = React.useMemo(() => ({
+        id: 'job-synth-start',
+        status: 'running' as const,
+        progress: 0.0,
+        active_segment_id: 'seg-1',
+        active_segment_progress: 0.0,
+        reason_code: 'START_SYNTHESIS',
         hasSegmentSupport: true,
       }), []);
       capturedStatus = useChapterStatus(

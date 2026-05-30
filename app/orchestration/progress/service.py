@@ -200,6 +200,11 @@ class ProgressService:
             dict[str, object] | None: The emitted payload, or ``None`` when the
             update was coalesced as non-meaningful.
         """
+        # Prevent status rollback to preparing if synthesis has already started
+        previous = self._last_payload_by_job.get(job_id)
+        if not allow_progress_regression and previous and previous.get("started_at") is not None and status == "preparing":
+            status = "running"
+
         lifecycle_status = status
         if status == "finalizing":
             status = "running"

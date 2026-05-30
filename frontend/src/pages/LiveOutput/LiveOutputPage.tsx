@@ -1,16 +1,12 @@
 import React from 'react';
 import { ChevronDown, Terminal } from 'lucide-react';
 import { LiveOutputTable } from '@/components/LiveOutputTable';
-import { LIVE_EVENT_CONSUMERS } from '@/config/liveEventConsumers';
+import { LIVE_EVENT_CONSUMERS, LIVE_EVENT_CONSUMER_TOPIC_IDS } from '@/config/liveEventConsumers';
 import { ALL_TOPIC_FILTER_IDS, type TopicFilterId } from '@/config/liveEventTopics';
 
 const consumerTopicIds = (id: string): TopicFilterId[] => {
-  if (id === 'main-queue') return ['jobs.lifecycle', 'queue.items', 'chapters.lifecycle', 'chapters.progress', 'voice.test'];
-  if (id === 'chapter-state') return ['jobs.lifecycle', 'chapters.lifecycle', 'chapters.progress', 'segments.progress'];
-  if (id === 'segment-state') return ['jobs.lifecycle', 'segments.lifecycle', 'segments.progress'];
-  if (id === 'tts-diagnostics') return ['tts.logs'];
-  if (id === 'voice-test-state') return ['voice.test'];
-  if (id === 'project-state') return ['projects.lifecycle'];
+  const topicIds = LIVE_EVENT_CONSUMER_TOPIC_IDS[id];
+  if (topicIds) return topicIds;
   if (id === 'plugin-private') return ['plugins.*'];
   return [];
 };

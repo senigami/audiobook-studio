@@ -382,7 +382,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
               active_segment_id: event.segmentId || null,
               active_segment_progress: segmentProg ?? null,
               active_segment_eta_seconds: segmentProg != null && rawEta !== undefined ? (typeof rawEta === 'number' ? rawEta : Number(rawEta)) : null,
-              active_segment_eta_basis: segmentProg != null ? (rawEtaBasis || 'remaining_from_update') : null,
+              active_segment_eta_basis: segmentProg != null && rawEta !== undefined ? (rawEtaBasis || 'remaining_from_update') : null,
               active_segment_updated_at: segmentProg != null ? resolveEventUpdatedAt(event, payload) : null,
               status: projectedStatus,
               reason_code: rawReasonCode,
@@ -392,18 +392,11 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
               db_started_at: typeof rawStartedAt === 'number' ? rawStartedAt : (typeof rawStartedAt === 'string' ? Date.parse(rawStartedAt) / 1000 : undefined),
             };
 
-            if (rawEta !== undefined) {
-              projectedUpdates.eta_seconds = typeof rawEta === 'number' ? rawEta : Number(rawEta);
-              projectedUpdates.eta_basis = rawEtaBasis || 'remaining_from_update';
-            } else if (rawEtaBasis !== undefined) {
-              projectedUpdates.eta_basis = rawEtaBasis;
-            }
-
-            if (rawStarted !== undefined) {
-              projectedUpdates.started_at = typeof rawStarted === 'number'
+            const segmentStartedAt = rawStarted !== undefined
+              ? (typeof rawStarted === 'number'
                 ? rawStarted
-                : (typeof rawStarted === 'string' ? Date.parse(rawStarted) / 1000 : rawStarted);
-            }
+                : (typeof rawStarted === 'string' ? Date.parse(rawStarted) / 1000 : rawStarted))
+              : null;
 
             const trace = {
               rawEnvelope: {
@@ -431,9 +424,9 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
                 segmentId: event.segmentId,
                 activeSegmentId: event.segmentId || null,
                 activeSegmentProgress: segmentProg ?? null,
-                etaSeconds: projectedUpdates.eta_seconds !== undefined ? projectedUpdates.eta_seconds : null,
-                eta_basis: projectedUpdates.eta_basis || null,
-                started_at: projectedUpdates.started_at || null,
+                etaSeconds: projectedUpdates.active_segment_eta_seconds !== null && projectedUpdates.active_segment_eta_seconds !== undefined ? projectedUpdates.active_segment_eta_seconds : null,
+                eta_basis: projectedUpdates.active_segment_eta_basis || null,
+                started_at: segmentStartedAt,
                 status: projectedStatus || null,
                 progress: payload.progress ?? null,
                 reasonCode: rawReasonCode || null,
