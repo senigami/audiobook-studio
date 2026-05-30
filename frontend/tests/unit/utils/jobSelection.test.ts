@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Job } from '@/types';
-import { isSegmentScopedJob, pickRelevantJob } from '@/utils/jobSelection';
+import { hasSegmentProgressCapability, isSegmentScopedJob, pickRelevantJob } from '@/utils/jobSelection';
 
 function makeJob(overrides: Partial<Job>): Job {
   return {
@@ -65,5 +65,26 @@ describe('isSegmentScopedJob', () => {
       custom_title: 'chapter 1 * Part 2: segment #7',
       segment_ids: ['seg-7'],
     })).toBe(true);
+  });
+
+  it('does not treat a segment-capable chapter job as a segment sub-job', () => {
+    expect(isSegmentScopedJob({
+      classification: 'chapter',
+      has_segment_support: true,
+      active_segment_id: 'seg-1',
+    })).toBe(false);
+  });
+});
+
+describe('hasSegmentProgressCapability', () => {
+  it('treats has_segment_support as capability without changing job scope', () => {
+    const job = {
+      classification: 'chapter' as const,
+      has_segment_support: true,
+      active_segment_id: 'seg-1',
+    };
+
+    expect(hasSegmentProgressCapability(job)).toBe(true);
+    expect(isSegmentScopedJob(job)).toBe(false);
   });
 });

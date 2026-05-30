@@ -110,6 +110,9 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           const nextUpdatesStale: Record<string, any> = {};
           if (updates.active_segment_id !== undefined) nextUpdatesStale.active_segment_id = updates.active_segment_id;
           if (updates.active_segment_progress !== undefined) nextUpdatesStale.active_segment_progress = updates.active_segment_progress;
+          if (updates.active_segment_eta_seconds !== undefined) nextUpdatesStale.active_segment_eta_seconds = updates.active_segment_eta_seconds;
+          if (updates.active_segment_eta_basis !== undefined) nextUpdatesStale.active_segment_eta_basis = updates.active_segment_eta_basis;
+          if (updates.active_segment_updated_at !== undefined) nextUpdatesStale.active_segment_updated_at = updates.active_segment_updated_at;
           if (updates.project_id !== undefined) nextUpdatesStale.project_id = updates.project_id;
           if (updates.chapter_id !== undefined) nextUpdatesStale.chapter_id = updates.chapter_id;
           if (updates.segmentProgressSocketProvenance !== undefined) nextUpdatesStale.segmentProgressSocketProvenance = updates.segmentProgressSocketProvenance;
@@ -121,7 +124,20 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
 
       const isNotSegmentProgress = sourceTopic !== 'segments.progress';
       if (isNotSegmentProgress) {
-        if (sourceTopic !== 'queue.items') {
+        const incomingStatusForReset = typeof nextUpdates.status === 'string' ? nextUpdates.status : undefined;
+        const canCarryExplicitSegmentReset = sourceTopic === 'jobs.lifecycle'
+          || (sourceTopic === 'queue.items' && ['done', 'failed', 'cancelled'].includes(incomingStatusForReset || ''));
+        const hasExplicitSegmentReset = canCarryExplicitSegmentReset && (
+          nextUpdates.active_segment_id === null ||
+          nextUpdates.active_segment_progress === 0 ||
+          nextUpdates.active_segment_eta_seconds === null ||
+          nextUpdates.active_segment_eta_basis === null ||
+          nextUpdates.active_segment_updated_at === null ||
+          nextUpdates.active_render_batch_id === null ||
+          nextUpdates.active_render_batch_progress === null
+        );
+
+        if (!hasExplicitSegmentReset) {
           delete nextUpdates.active_segment_id;
           delete nextUpdates.active_segment_progress;
           delete nextUpdates.active_segment_eta_seconds;
@@ -145,7 +161,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         }
       }
 
-      const excludeSegmentFields = sourceTopic !== 'segments.progress' && sourceTopic !== 'queue.items';
+      const excludeSegmentFields = sourceTopic !== 'segments.progress';
       copyRenderGroupFields(nextUpdates, updates as Record<string, any>, excludeSegmentFields);
       const incomingStatus = typeof nextUpdates.status === 'string' ? nextUpdates.status : undefined;
       const currentStatus = typeof oldJob.status === 'string' ? oldJob.status : undefined;

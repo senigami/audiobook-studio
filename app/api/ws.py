@@ -302,6 +302,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
             status = str(merged.get("status") or "running")
             seg_status = status if status in ("failed", "cancelled") else "done"
             seg_progress = 1.0
+            seg_reason_code = "SEGMENT_SAVED" if seg_status == "done" else merged.get("reason_code")
             seg_index = current_job.get("active_render_group_index") or current_job.get("segment_index")
             seg_count = current_job.get("render_group_count") or current_job.get("segment_count")
 
@@ -312,12 +313,13 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                 segment_index=seg_index,
                 segment_count=seg_count,
                 message=updates.get("message") or updates.get("log") or merged.get("message"),
-                reason_code=merged.get("reason_code"),
+                reason_code=seg_reason_code,
                 job_id=job_id,
                 chapter_id=merged.get("chapter_id"),
                 project_id=merged.get("project_id") or merged.get("parent_job_id"),
                 source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
                 eta_seconds=None,
+                has_segment_support=True,
             )
             broadcast_studio_event(event)
 
@@ -354,6 +356,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                         if updates.get("active_segment_eta_seconds") is not None
                         else merged.get("active_segment_eta_seconds")
                     ),
+                    has_segment_support=True,
                 )
                 broadcast_studio_event(seg_event)
 
@@ -404,6 +407,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                         else (updates.get("eta_seconds") or merged.get("eta_seconds"))
                     )
                 ),
+                has_segment_support=True,
             )
             broadcast_studio_event(event)
         return
@@ -417,6 +421,7 @@ def broadcast_segment_progress(job_id: str, chapter_id: str | None, segment_id: 
         job_id=job_id,
         chapter_id=chapter_id,
         source=source or _resolve_source("app.api.ws.broadcast_segment_progress"),
+        has_segment_support=True,
     )
     broadcast_studio_event(event)
 

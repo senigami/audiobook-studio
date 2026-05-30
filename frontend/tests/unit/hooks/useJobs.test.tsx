@@ -357,7 +357,7 @@ describe('useJobs', () => {
     expect(sendMessage).not.toHaveBeenCalled();
   });
 
-  it('propagates active_segment_id and active_segment_progress from queue.items into Job map', async () => {
+  it('ignores rogue active segment fields from queue.items updates', async () => {
     const { result } = renderHook(() => useJobs());
 
     emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-seg', status: 'running', progress: 0 }] });
@@ -370,8 +370,8 @@ describe('useJobs', () => {
       activeSegmentProgress: 0.8,
     }, { jobId: 'job-seg' });
 
-    expect(result.current.jobs['job-seg']?.active_segment_id).toBe('seg-abc');
-    expect(result.current.jobs['job-seg']?.active_segment_progress).toBe(0.8);
+    expect(result.current.jobs['job-seg']?.active_segment_id).toBeUndefined();
+    expect(result.current.jobs['job-seg']?.active_segment_progress).toBeUndefined();
   });
 
   it('clears active_segment_id and resets active_segment_progress=0 when terminal queue.items arrives', async () => {
@@ -391,6 +391,37 @@ describe('useJobs', () => {
     expect(result.current.jobs['job-t']?.progress).toBe(1.0);
     expect(result.current.jobs['job-t']?.active_segment_id).toBeNull();
     expect(result.current.jobs['job-t']?.active_segment_progress).toBe(0.0);
+  });
+
+  it('clears active segment fields when terminal jobs.lifecycle arrives', async () => {
+    const { result } = renderHook(() => useJobs());
+
+    emit({
+      type: 'jobs_snapshot',
+      jobs: [{
+        id: 'job-terminal-lifecycle',
+        status: 'running',
+        progress: 0.9,
+        active_segment_id: 'seg-stale',
+        active_segment_progress: 0.9,
+        active_segment_eta_seconds: 3,
+        active_segment_eta_basis: 'remaining_from_update',
+        active_segment_updated_at: 500,
+      }],
+    });
+
+    emitEvent('jobs.lifecycle', 'job_lifecycle', {
+      status: 'done',
+      reasonCode: 'JOB_DONE',
+      progress: 1.0,
+      updatedAt: 9999,
+    }, { jobId: 'job-terminal-lifecycle' });
+
+    expect(result.current.jobs['job-terminal-lifecycle']?.status).toBe('done');
+    expect(result.current.jobs['job-terminal-lifecycle']?.active_segment_id).toBeNull();
+    expect(result.current.jobs['job-terminal-lifecycle']?.active_segment_progress).toBe(0.0);
+    expect(result.current.jobs['job-terminal-lifecycle']?.active_segment_eta_seconds).toBeNull();
+    expect(result.current.jobs['job-terminal-lifecycle']?.active_segment_updated_at).toBeNull();
   });
 
   it('records main-queue and chapter-state subscriber observations on handled chapter progress frames', async () => {
@@ -1120,6 +1151,9 @@ describe('useJobs', () => {
     // active_segment fields should still be updated (existing behavior)
     expect(job.active_segment_id).toBe('seg-new');
     expect(job.active_segment_progress).toBe(0.88);
+    expect(job.active_segment_eta_seconds).toBe(20);
+    expect(job.active_segment_eta_basis).toBe('remaining_from_update');
+    expect(job.active_segment_updated_at).toBe(150);
     // segmentProgressSocketProvenance MUST survive the stale-timestamp fast path
     expect(job.segmentProgressSocketProvenance).toBeDefined();
     expect(job.segmentProgressSocketProvenance.consumedTopic).toBe('segments.progress');

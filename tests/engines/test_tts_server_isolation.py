@@ -6,9 +6,8 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 from app.tts_server.plugin_loader import discover_plugins, LoadedPlugin
-from app.tts_server.verification import verify_all
 from app.tts_server.server import load_plugins, refresh_plugins
-from app.engines.voice.sdk import TTSResult
+from app.engines.voice.sdk import TTSResult, VerificationResult
 
 def _make_plugin_dir(
     tmp_path: Path,
@@ -71,8 +70,8 @@ class TestTTSServerIsolation:
 
         mock_print.assert_any_call("READY:7862", flush=True)
 
-    def test_startup_with_mixed_plugins_isolated(self, tmp_path):
-        """Server should start and load good plugins even if some are broken."""
+    def test_startup_with_mixed_plugins_isolated_without_auto_verification(self, tmp_path):
+        """Server should start and load good plugins without running test synthesis."""
         # 1. Good plugin
         _make_plugin_dir(tmp_path, "tts_good", _minimal_manifest("good"), """
             from app.engines.voice.sdk import VerificationResult
@@ -109,7 +108,7 @@ class TestTTSServerIsolation:
                 def synthesize(self, req): return None
         """)
 
-        # 5. Crash on verification plugin (passes loader but fails verify_all)
+        # 5. Crash on verification plugin (passes loader but would fail run_test)
         _make_plugin_dir(tmp_path, "tts_badverify", _minimal_manifest("badverify"), """
             class MockEngine:
                 def check_env(self): return True, "OK"
@@ -122,13 +121,6 @@ class TestTTSServerIsolation:
 
         with patch("app.tts_server.server._state_lock"), \
              patch("threading.Thread") as mock_thread:
-
-            def run_sync(target, *args, **kwargs):
-                target()
-                return MagicMock()
-
-            mock_thread.side_effect = lambda target=None, **kwargs: MagicMock(start=lambda: target())
-
             load_plugins(tmp_path)
 
             from app.tts_server.server import _plugins
@@ -140,10 +132,14 @@ class TestTTSServerIsolation:
             assert "badinit" not in engine_ids
             assert "badenv" not in engine_ids
 
-            # badverify should be marked unverified
+            # Discovery must not call plugin.run_test(). Verification synthesis is
+            # reserved for the explicit engine verify action from Settings.
+            mock_thread.assert_not_called()
+
+            # badverify should remain pending, not failed by startup verification.
             badverify_plugin = next(p for p in _plugins if p.engine_id == "badverify")
             assert badverify_plugin.verified is False
-            assert "verify crash" in badverify_plugin.verification_error
+            assert badverify_plugin.verification_error is None
 
     def test_refresh_isolation(self, tmp_path):
         """Refreshing plugins should isolate failures and not crash the server."""
@@ -223,7 +219,7 @@ class TestTTSServerIsolation:
         assert "computer_speed_multiplier" not in settings
         assert settings["temperature"] == 0.7
 
-    def test_synthesize_allows_pending_verification_engine(self, tmp_path):
+    def test_synthesize_blocks_pending_verification_engine(self, tmp_path):
         from app.tts_server.server import app
 
         plugin_dir = tmp_path / "tts_pending"
@@ -255,9 +251,36 @@ class TestTTSServerIsolation:
                 },
             )
 
+        assert response.status_code == 503
+        assert "has not passed verification" in response.json()["detail"]
+
+    def test_explicit_verify_endpoint_runs_plugin_test_synthesis(self, tmp_path):
+        from app.tts_server.server import app
+
+        plugin_dir = tmp_path / "tts_mock"
+        plugin_dir.mkdir()
+        engine = SimpleNamespace(
+            run_test=MagicMock(return_value=VerificationResult(ok=True, message="OK")),
+        )
+        plugin = SimpleNamespace(
+            engine_id="mock",
+            folder_name="tts_mock",
+            plugin_dir=plugin_dir,
+            engine=engine,
+            manifest={"engine_id": "mock"},
+            verified=False,
+            verification_error=None,
+        )
+
+        client = TestClient(app)
+        with patch("app.tts_server.server._plugins", [plugin]):
+            response = client.post("/engines/mock/verify")
+
         assert response.status_code == 200
         assert response.json()["ok"] is True
-        assert response.json()["output_path"] == str(tmp_path / "out.wav")
+        assert plugin.verified is True
+        assert plugin.verification_error is None
+        engine.run_test.assert_called_once()
 
     def test_synthesize_blocks_after_failed_verification(self, tmp_path):
         from app.tts_server.server import app

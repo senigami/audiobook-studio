@@ -422,8 +422,6 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     ]);
 
     if (barOnly) {
-        console.log('barOnly');
-
         return (
             <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden' }} data-testid={dataTestId ?? "progress-bar-tiny"}>
                 <div

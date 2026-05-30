@@ -1,10 +1,9 @@
 """Verification synthesis runner for the TTS Server.
 
-On startup (or when a plugin is refreshed), the TTS Server runs a short test
-synthesis through each loaded engine to confirm it can actually produce audio.
-An engine that passes environment checks but fails verification is marked
-``unverified`` and blocked from production use until the user fixes the issue
-and manually re-verifies.
+Verification is an explicit user action from engine settings. It runs a short
+test synthesis through the selected engine to confirm it can produce audio.
+Automatic startup verification is intentionally avoided because plugin tests
+may generate files such as ``test_output.wav`` and emit synthesis progress.
 """
 
 from __future__ import annotations

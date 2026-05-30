@@ -33,7 +33,7 @@ from app.tts_server.health import (
 from app.engines.enablement import can_enable_engine
 from app.tts_server.plugin_loader import LoadedPlugin, discover_plugins
 from app.tts_server.settings_store import load_settings, merge_settings, save_settings
-from app.tts_server.verification import verify_all, verify_plugin
+from app.tts_server.verification import verify_plugin
 
 logger = logging.getLogger(__name__)
 
@@ -75,11 +75,12 @@ def _plugin_by_id(engine_id: str) -> LoadedPlugin:
 # ---------------------------------------------------------------------------
 
 def load_plugins(plugins_dir: Path) -> None:
-    """Discover, load, and verify all plugins.
+    """Discover and load all plugins.
 
     Called by the entry point after the server configuration is applied.
-    Thread-safe — writes to the shared plugin list under the lock.
-    Verification runs in a background thread to avoid blocking startup.
+    Thread-safe — writes to the shared plugin list under the lock. Verification
+    synthesis is intentionally not run here; plugin ``run_test()`` may generate
+    audio and must only run from the explicit engine verify action in Settings.
 
     Args:
         plugins_dir: Absolute path to the ``plugins/`` directory.
@@ -92,14 +93,7 @@ def load_plugins(plugins_dir: Path) -> None:
         _plugins = discovered
         _plugins_dir = plugins_dir
 
-    def _bg_verify():
-        try:
-            verify_all(discovered)
-        except Exception:
-            logger.exception("Unexpected error during background plugin verification")
-
-    threading.Thread(target=_bg_verify, name="TtsPluginVerification", daemon=True).start()
-    logger.info("Discovered %d plugin(s) from %s. Verification started in background.", len(discovered), plugins_dir)
+    logger.info("Discovered %d plugin(s) from %s. Verification is manual.", len(discovered), plugins_dir)
 
 
 @app.on_event("startup")
@@ -488,9 +482,9 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
             detail=f"Engine {body.engine_id} failed verification: {plugin.verification_error}",
         )
     if not plugin.verified:
-        logger.warning(
-            "Engine %s is synthesizing while verification is still pending.",
-            body.engine_id,
+        raise HTTPException(
+            status_code=503,
+            detail=f"Engine {body.engine_id} has not passed verification.",
         )
 
     # Load persisted settings and merge with request overrides.
@@ -654,9 +648,9 @@ def plan_synthesis(engine_id: str, body: SynthesizeRequest) -> dict[str, Any]:
 def refresh_plugins() -> dict[str, Any]:
     """Re-scan the plugins directory without restarting the TTS Server.
 
-    Newly added plugins are loaded and verified.  Removed plugins are
-    unloaded.  Existing plugins that are already loaded are not reloaded
-    unless their folder was removed and re-added.
+    Newly added plugins are loaded with persisted verification state only.
+    Removed plugins are unloaded. Existing plugins that are already loaded are
+    not reloaded unless their folder was removed and re-added.
     """
     with _state_lock:
         current_dir = _plugins_dir

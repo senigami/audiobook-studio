@@ -1141,8 +1141,8 @@ def test_broadcast_segment_progress_sends_canonical_envelope(monkeypatch):
         "active_segment_progress": 0.67,
         "etaSeconds": None,
         "eta_seconds": None,
-        "hasSegmentSupport": None,
-        "has_segment_support": None,
+        "hasSegmentSupport": True,
+        "has_segment_support": True,
     }
     assert event["source"].endswith("test_broadcast_segment_progress_sends_canonical_envelope")
 
@@ -1325,6 +1325,42 @@ def test_broadcast_job_updated_segment_completion(monkeypatch):
     assert messages[2]["ids"]["chapterId"] == "chap-1"
     assert messages[2]["payload"]["status"] == "running"
 
+
+def test_broadcast_job_updated_segment_handoff_preserves_segment_commands(monkeypatch):
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-seg-comp",
+        {
+            "active_segment_id": "seg-2",
+            "active_segment_progress": 0.0,
+            "reason_code": "START_SEGMENT",
+        },
+        current_job={
+            "status": "running",
+            "active_segment_id": "seg-1",
+            "active_segment_progress": 0.8,
+            "chapter_id": "chap-1",
+            "project_id": "proj-1",
+            "classification": "chapter",
+            "has_segment_support": True,
+        },
+    )
+
+    assert messages[0]["topic"] == "segments.progress"
+    assert messages[0]["ids"]["segmentId"] == "seg-1"
+    assert messages[0]["payload"]["status"] == "done"
+    assert messages[0]["payload"]["reasonCode"] == "SEGMENT_SAVED"
+
+    assert messages[1]["topic"] == "segments.progress"
+    assert messages[1]["ids"]["segmentId"] == "seg-2"
+    assert messages[1]["payload"]["reasonCode"] == "START_SEGMENT"
 
 
 def test_broadcast_tts_log_line_includes_plugin_metadata(monkeypatch):

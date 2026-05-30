@@ -604,6 +604,107 @@ def test_progress_service_segment_completion_matching_outcome():
     assert chap_event["payload"]["status"] == "failed"
 
 
+def test_progress_service_segment_handoff_completion_uses_segment_saved_command():
+    from app.orchestration.progress.service import ProgressService
+    broadcast_events = []
+
+    def dummy_broadcaster(*, payload: dict, channel: str):
+        broadcast_events.append((payload, channel))
+
+    service = ProgressService(
+        reconcile_fn=lambda **kwargs: kwargs,
+        eta_fn=lambda **kwargs: 10,
+        broadcaster=dummy_broadcaster
+    )
+
+    service.publish(
+        job_id="job-handoff",
+        status="running",
+        scope="chapter",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        active_segment_id="seg-1",
+        active_segment_progress=0.8,
+        reason_code="SEGMENT_PROGRESS",
+        has_segment_support=True,
+    )
+    broadcast_events.clear()
+
+    service.publish(
+        job_id="job-handoff",
+        status="running",
+        scope="chapter",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        active_segment_id="seg-2",
+        active_segment_progress=0.0,
+        reason_code="START_SEGMENT",
+        has_segment_support=True,
+    )
+
+    completion_event = broadcast_events[0][0]
+    next_segment_event = broadcast_events[1][0]
+
+    assert completion_event["topic"] == "segments.progress"
+    assert completion_event["ids"]["segmentId"] == "seg-1"
+    assert completion_event["payload"]["status"] == "done"
+    assert completion_event["payload"]["progress"] == 1.0
+    assert completion_event["payload"]["reasonCode"] == "SEGMENT_SAVED"
+
+    assert next_segment_event["topic"] == "segments.progress"
+    assert next_segment_event["ids"]["segmentId"] == "seg-2"
+    assert next_segment_event["payload"]["reasonCode"] == "START_SEGMENT"
+
+
+def test_progress_service_emits_active_segment_eta_only_updates():
+    from app.orchestration.progress.service import ProgressService
+    broadcast_events = []
+
+    def dummy_broadcaster(*, payload: dict, channel: str):
+        broadcast_events.append((payload, channel))
+
+    service = ProgressService(
+        reconcile_fn=lambda **kwargs: kwargs,
+        eta_fn=lambda **kwargs: 10,
+        broadcaster=dummy_broadcaster,
+        monotonic_clock=lambda: 100.0,
+    )
+
+    service.publish(
+        job_id="job-segment-eta-only",
+        status="running",
+        scope="chapter",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        active_segment_id="seg-1",
+        active_segment_progress=0.2,
+        active_segment_eta_seconds=40,
+        reason_code="SEGMENT_PROGRESS",
+        has_segment_support=True,
+    )
+    broadcast_events.clear()
+
+    service.publish(
+        job_id="job-segment-eta-only",
+        status="running",
+        scope="chapter",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        active_segment_id="seg-1",
+        active_segment_progress=0.2,
+        active_segment_eta_seconds=25,
+        reason_code="SEGMENT_PROGRESS",
+        has_segment_support=True,
+    )
+
+    assert len(broadcast_events) == 2
+    segment_event = broadcast_events[0][0]
+    chapter_event = broadcast_events[1][0]
+    assert segment_event["topic"] == "segments.progress"
+    assert segment_event["payload"]["eta_seconds"] == 25
+    assert chapter_event["topic"] == "chapters.progress"
+
+
 def test_meaningful_chapter_progress_emits_chapter_progress():
     from app.orchestration.progress.service import ProgressService
     broadcast_events = []

@@ -7,8 +7,11 @@ All notable changes to this project will be documented in this file.
 ### Highlights
 
 - **Fixed Post-START_SYNTHESIS Status Rollback**: Prevented active jobs and chapters from rolling back from `"running"` to `"preparing"` due to subsequent 0% progress events (such as segment initialization).
+- **Disabled Startup Verification Synthesis**: TTS Server plugin discovery and refresh now load plugins without running plugin `run_test()` synthesis, preventing `test_output.wav` generation and `[START_SYNTHESIS]` chatter during normal chapter renders. Normal synthesis now fails closed unless the plugin has already passed verification, while explicit engine verification from Settings still runs the plugin test.
 - **Enforced Status Coercion**: Coerced `"preparing"` status updates back to `"running"` in both database synchronizations (`OrchestratorHelpersMixin._publish`) and websocket emissions (`ProgressService.publish`) once synthesis has already started.
 - **Event Stream Preset Alignment**: Verified the Event Stream preset mappings on the frontend (`main-queue` preset does not list `segments.progress`, and `segment-state` is focused on segment-scoped topics), supported by unit tests.
+- **Hardened Queue/Segment Consumer Isolation**: Main queue consumers now reject rogue active segment fields from `queue.items`, terminal lifecycle/queue events explicitly clear stale segment state, and segment-capable chapter jobs no longer get classified as segment child jobs.
+- **Fixed Segment Timing Corrections**: Segment ETA-only updates are emitted instead of being coalesced, stale-timestamp segment frames preserve segment ETA/basis/update anchors, and synthetic segment handoff completions now emit `SEGMENT_SAVED`.
 
 ## [2.0.5] - 2026-05-29
 

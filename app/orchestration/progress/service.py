@@ -280,6 +280,7 @@ class ProgressService:
             from app.api.contracts.events import build_segment_progress_event  # noqa: PLC0415
             seg_status = status if status in ("failed", "cancelled") else "done"
             seg_progress = 1.0
+            seg_reason_code = "SEGMENT_SAVED" if seg_status == "done" else reason_code
             seg_event = build_segment_progress_event(
                 segment_id=prev_active_segment_id,
                 status=seg_status,
@@ -287,7 +288,7 @@ class ProgressService:
                 segment_index=previous.get("active_render_group_index") or active_render_group_index,
                 segment_count=render_group_count or previous.get("render_group_count"),
                 message=message,
-                reason_code=reason_code,
+                reason_code=seg_reason_code,
                 job_id=job_id,
                 chapter_id=chapter_id,
                 project_id=parent_job_id,
@@ -556,6 +557,13 @@ class ProgressService:
                     return True
             elif previous_seg_progress != current_seg_progress:
                 return True
+        previous_segment_eta = previous.get("active_segment_eta_seconds")
+        current_segment_eta = payload.get("active_segment_eta_seconds")
+        if isinstance(previous_segment_eta, int) and isinstance(current_segment_eta, int):
+            if abs(current_segment_eta - previous_segment_eta) >= 1:
+                return True
+        elif current_segment_eta is not None and previous_segment_eta != current_segment_eta:
+            return True
         if payload.get("eta_confidence") != previous.get("eta_confidence"):
             return True
 

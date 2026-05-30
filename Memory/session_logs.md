@@ -1679,3 +1679,21 @@
 - Updated `segmentProgressSocketProvenance.selectedFields` to report segment ETA from `active_segment_eta_seconds`/`active_segment_eta_basis` (or raw payload values).
 - Added/updated test cases verifying overall job/chapter ETA and main queue items (including progress and active_segment fields) are completely isolated from `segments.progress` updates.
 - Verified all unit tests, ESLint, and production build pass cleanly.
+
+# 2026-05-30 - Progress consumer ingress audit tightened
+
+- Audited the debug socket captures and confirmed the main queue subscriber saw only `jobs.lifecycle`, `queue.items`, `chapters.lifecycle`, and `chapters.progress`; `segments.progress` was absent from main-queue observations.
+- Split segment capability from segment scope so segment-capable chapter jobs no longer look like segment child jobs in shared selectors.
+- Hardened `useJobs` so `queue.items` can no longer inject active segment fields, while terminal lifecycle/queue events can still explicitly clear stale segment state.
+- Preserved segment ETA/basis/updatedAt through the stale-timestamp segment fast path, and made ProgressService emit same-progress segment ETA corrections instead of coalescing them.
+- Fixed synthetic segment handoff completions to emit `SEGMENT_SAVED` and ensured websocket segment progress helpers pass explicit segment capability.
+- Verified focused backend websocket/progress tests, focused frontend queue/job/ChapterHeader/event-stream tests, Ruff, ESLint, frontend build, and `git diff --check`.
+
+# 2026-05-30 - Startup plugin verification synthesis disabled
+
+- Traced the unwanted pre-render `test_output.wav` synthesis in debug socket captures to `load_plugins()` starting the `TtsPluginVerification` background thread.
+- Removed automatic `verify_all()` execution from TTS Server plugin discovery and refresh; persisted verification state is still loaded.
+- Tightened `/synthesize` so normal rendering fails closed unless the selected plugin has already passed verification.
+- Preserved the explicit Settings verification path via `/engines/{engine_id}/verify`, which still delegates to plugin `run_test()`.
+- Added regressions proving startup discovery does not start a verification thread, pending verification blocks synthesis, and the explicit verify endpoint still runs plugin test synthesis.
+- Verified TTS server isolation/verification/API/bridge/client tests, Ruff on touched Python files, and `git diff --check`.

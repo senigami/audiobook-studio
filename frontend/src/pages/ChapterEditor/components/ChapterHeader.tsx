@@ -3,7 +3,7 @@ import { RefreshCw, Zap, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, 
 import type { Chapter, Job } from '@/types';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import { deriveActiveBatchProgress } from '@/utils/chapterRenderProgress';
-import { isSegmentScopedJob } from '@/utils/jobSelection';
+import { hasSegmentProgressCapability } from '@/utils/jobSelection';
 
 const RECENT_DONE_WINDOW_SECONDS = 60;
 
@@ -98,7 +98,7 @@ export const useChapterStatus = (
     : (heldLiveJob && ['done', 'failed', 'cancelled'].includes(heldLiveJob.status) && !(recentlyFinishedDoneJob && !hasChapterAudio) ? heldLiveJob : undefined);
 
   const hasSegmentSupport = liveSegmentProgressJob
-    ? isSegmentScopedJob(liveSegmentProgressJob)
+    ? hasSegmentProgressCapability(liveSegmentProgressJob)
     : false;
 
   const liveProgressIsRenderBlock = !!liveSegmentProgressJob && hasSegmentSupport && (
