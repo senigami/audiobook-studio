@@ -1,7 +1,7 @@
 {
   "snapshot_version": 147,
-  "current_task": "Restore ChapterEditor batch-scoped text progress mapping in the pre-push queue path",
-  "status": "chapter_editor_batch_progress_mapping_fixed",
+  "current_task": "Fix XTTS post-render metrics failure and false zero segment ETA",
+  "status": "xtts_duration_and_segment_eta_fixed",
   "last_committed_milestone": {
     "title": "Disabled startup plugin run_test synthesis while preserving explicit Settings verification",
     "commit": "pending",
@@ -93,13 +93,13 @@
   ],
   "verification": {
     "latest_backend_focus": "2026-05-21: Full pytest suite passed (879 passed, 2 skipped).",
-    "latest_frontend_focus": "2026-05-30: Fixed ScriptView batch text progress mapping so active render-batch progress stays batch-scoped even when only the active span is marked rendering; focused ScriptView and ChapterEditor queue Vitest passed, and the full changed-file pre-push frontend Vitest suite passed (323 tests).",
+    "latest_frontend_focus": "2026-05-30: Segment websocket consumers no longer coerce null segment ETA payloads to zero; focused useJobs/useQueueSync/LiveOutput/runtimeDebug Vitest passed (104 tests).",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",
     "latest_lint_focus": "2026-05-22: eslint passed on frontend with 7 existing warnings.",
     "latest_frontend_event_stream_focus": "2026-05-22: Live Output route renamed to /event-stream and consumer filter toggles implemented; focused Vitest passed, full frontend Vitest passed (580 tests), frontend build passed, frontend lint passed, and git diff --check passed.",
     "latest_frontend_live_output_ownership": "2026-05-22: Removed the false jobs-state ownership from tts.logs so the Live Output subscribers column now reflects actual consumer handling.",
-    "latest_diff_check": "2026-05-30: git diff --check passed after the ChapterEditor batch progress mapping fix.",
+    "latest_diff_check": "2026-05-30: git diff --check passed after XTTS duration and null segment ETA fixes.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."

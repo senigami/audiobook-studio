@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import time
 from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
@@ -259,6 +260,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
             temp_wav = Path(temp_wav_path)
             render_wav_path = temp_wav
 
+        synth_started = time.monotonic()
         try:
             if request.get("script"):
                 # Handle script-based synthesis
@@ -295,6 +297,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
                 )
         except Exception as exc:
             raise EngineExecutionError(f"XTTS synthesis failed - {exc}") from exc
+        synthesis_duration_sec = max(0.001, time.monotonic() - synth_started)
 
         if rc != 0 or not render_wav_path.exists():
             raise EngineExecutionError("XTTS synthesis did not produce an audio file.")
@@ -321,6 +324,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
             "ephemeral": False,
             "audio_path": str(output_path),
             "audio_format": output_format,
+            "duration_sec": synthesis_duration_sec,
             "request_fingerprint": request.get("request_fingerprint"),
             "synthesis_request": {
                 "voice_profile_id": voice_profile_id,

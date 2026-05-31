@@ -13,6 +13,8 @@ All notable changes to this project will be documented in this file.
 - **Event Stream Preset Alignment**: Verified the Event Stream preset mappings on the frontend (`main-queue` preset does not list `segments.progress`, and `segment-state` is focused on segment-scoped topics), supported by unit tests.
 - **Hardened Queue/Segment Consumer Isolation**: Main queue consumers now reject rogue active segment fields from `queue.items`, terminal lifecycle/queue events explicitly clear stale segment state, and segment-capable chapter jobs no longer get classified as segment child jobs.
 - **Fixed Segment Timing Corrections**: Segment ETA-only updates are emitted instead of being coalesced, stale-timestamp segment frames preserve segment ETA/basis/update anchors, and synthetic segment handoff completions now emit `SEGMENT_SAVED`.
+- **Persisted XTTS Synthesis Duration**: XTTS bridge synthesis now reports measured `duration_sec`, allowing `generate_via_bridge()` to persist `synthesis_duration_seconds` before post-render metric training. This prevents successful renders from flipping to failed during `record_engine_sample()`.
+- **Preserved Null Segment ETA Semantics**: Segment websocket consumers no longer coerce `etaSeconds: null` into `0`, preventing `START_SEGMENT` and `SEGMENT_SAVED` frames from creating false zero-ETA progress lanes.
 
 ## [2.0.5] - 2026-05-29
 

@@ -390,6 +390,10 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
             const rawEta = getVal('etaSeconds', 'eta_seconds');
             const rawEtaBasis = getVal('etaBasis', 'eta_basis');
             const rawStarted = getVal('startedAt', 'started_at');
+            const parsedSegmentEta = rawEta === null || rawEta === undefined
+              ? null
+              : (typeof rawEta === 'number' ? rawEta : Number(rawEta));
+            const segmentEtaSeconds = Number.isFinite(parsedSegmentEta) ? parsedSegmentEta : null;
 
             const projectedUpdates: any = {
               source_topic: 'segments.progress',
@@ -397,8 +401,8 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
               chapter_id: event.chapterId,
               active_segment_id: event.segmentId || null,
               active_segment_progress: segmentProg ?? null,
-              active_segment_eta_seconds: segmentProg != null && rawEta !== undefined ? (typeof rawEta === 'number' ? rawEta : Number(rawEta)) : null,
-              active_segment_eta_basis: segmentProg != null && rawEta !== undefined ? (rawEtaBasis || 'remaining_from_update') : null,
+              active_segment_eta_seconds: segmentProg != null ? segmentEtaSeconds : null,
+              active_segment_eta_basis: segmentProg != null && segmentEtaSeconds != null ? (rawEtaBasis || 'remaining_from_update') : null,
               active_segment_updated_at: segmentProg != null ? resolveEventUpdatedAt(event, payload) : null,
               status: projectedStatus,
               reason_code: rawReasonCode,

@@ -1704,3 +1704,12 @@
 - Restored batch-scoped text progress math so render-batch progress is mapped across the full batch text while `renderingSpanIds` still controls whether the batch is actively rendering.
 - Added a focused `ScriptView` regression covering the partial-active-span case and updated the queue integration fixture to declare `hasSegmentSupport: true` so it exercises the current capability-gated contract.
 - Verified focused ScriptView/ChapterEditor queue Vitest, then reran `git push` to confirm the full changed-file pre-push hook passes end to end.
+
+# 2026-05-31 - XTTS render duration and segment ETA null handling fixed
+
+- Audited `debug/debug_socket.txt`, `debug/debug_queue.txt`, and `debug/debug_segment.txt`; confirmed `segments.progress` was not observed by `main-queue`, while the successful XTTS render flipped from `done` to `failed` because `record_engine_sample()` raised `synthesis_duration_seconds is mandatory and must be positive`.
+- Added `duration_sec` to `XttsVoiceEngine.synthesize()` results so `generate_via_bridge()` can persist `synthesis_duration_seconds` before post-render metric training.
+- Added a plugin adapter regression proving XTTS bridge synthesis reports a positive `duration_sec`.
+- Fixed `useJobs` so `etaSeconds: null` on `START_SEGMENT`/`SEGMENT_SAVED` is not coerced into `0`, preventing false zero-ETA segment progress lanes.
+- Added a frontend regression proving null segment ETA stays null in active segment state and provenance.
+- Verified focused XTTS/plugin/performance/startup ETA pytest, focused useJobs/useQueueSync/LiveOutput/runtimeDebug Vitest, and `git diff --check`.

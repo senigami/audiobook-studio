@@ -1026,6 +1026,25 @@ describe('useJobs', () => {
     expect(job.segmentProgressSocketProvenance.selectedFields.started_at).toBe(1234567);
   });
 
+  it('does not coerce null segment ETA payloads to zero', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-null-segment-eta', status: 'running', progress: 0 }] });
+
+    emitEvent('segments.progress', 'segment_progress', {
+      status: 'running',
+      progress: 0,
+      etaSeconds: null,
+      reasonCode: 'START_SEGMENT',
+    }, { jobId: 'job-null-segment-eta', chapterId: 'chap-1', segmentId: 'seg-1' });
+
+    const job = result.current.jobs['job-null-segment-eta'];
+    expect(job.active_segment_id).toBe('seg-1');
+    expect(job.active_segment_progress).toBe(0);
+    expect(job.active_segment_eta_seconds).toBeNull();
+    expect(job.active_segment_eta_basis).toBeNull();
+    expect(job.segmentProgressSocketProvenance.selectedFields.etaSeconds).toBeNull();
+  });
+
   it('proves that a prior job/chapter started_at and eta_seconds survive a later segments.progress update, while segment-level ETA and startedAt are mapped to segment-specific fields', async () => {
     const { result } = renderHook(() => useJobs());
     emit({
