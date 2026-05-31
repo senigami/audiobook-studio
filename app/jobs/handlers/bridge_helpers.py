@@ -63,6 +63,11 @@ def generate_via_bridge(
     try:
         response = bridge.synthesize(request)
 
+        synthesis_duration = response.get("duration_sec")
+        if synthesis_duration is not None and task_id:
+            from app.db.state import update_job
+            update_job(task_id, synthesis_duration_seconds=synthesis_duration)
+
         # If the bridge returned a different path (e.g. from a cache or temp file), move it to target
         audio_path = response.get("audio_path")
         if audio_path and Path(str(audio_path)) != out_wav:

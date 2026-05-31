@@ -80,6 +80,26 @@ class OrchestratorHelpersMixin:
         marker_driven = bool(getattr(task, "is_marker_driven", False))
         expected_duration = self._estimate_task_duration(task=task, context=context)
 
+        engine_id = context.payload.get("engine_id") or getattr(task, "engine_id", "synthesis")
+        calibrated_cps = None
+        try:
+            from app.db.state import get_performance_metrics  # noqa: PLC0415
+            from app.orchestration.scheduler.eta import get_calibrated_model_params  # noqa: PLC0415
+            from app.tts_server.performance_settings import (  # noqa: PLC0415
+                filter_history_for_engine_model,
+                resolve_engine_settings_model,
+            )
+
+            perf = get_performance_metrics()
+            all_history = perf.get("render_history") or []
+            tts_model = resolve_engine_settings_model(engine_id)
+            history = filter_history_for_engine_model(all_history, engine_id, tts_model)
+            params = get_calibrated_model_params(history)
+            if params:
+                calibrated_cps = params[0]
+        except Exception:
+            pass
+
         def task_progress_reporter(progress: float, message: str | None, reason_code: str | None, status: str = "running"):
             # Non-marker tasks start when they first report running. Marker-driven
             # tasks should only fall back here for real positive progress if a
@@ -143,6 +163,9 @@ class OrchestratorHelpersMixin:
 
             try:
                 from app.db.performance import record_render_sample  # noqa: PLC0415
+                from app.db.state import get_jobs  # noqa: PLC0415
+                job_obj = get_jobs().get(context.task_id)
+                synthesis_dur = getattr(job_obj, "synthesis_duration_seconds", None) if job_obj else None
 
                 record_render_sample(
                     engine=str(payload.get("engine_id") or getattr(task, "engine_id", "")),
@@ -160,6 +183,7 @@ class OrchestratorHelpersMixin:
                     audio_duration_seconds=audio_duration_seconds,
                     make_mp3=bool(payload.get("make_mp3", False)),
                     completed_at=time.time(),
+                    synthesis_duration_seconds=synthesis_dur,
                 )
             except Exception:
                 logger.warning(
@@ -347,6 +371,7 @@ class OrchestratorHelpersMixin:
                             active_weight=id_to_weight.get(sid, 0),
                             active_progress=0.0,
                             started_at=timing["render_started_at"],
+                            calibrated_cps=calibrated_cps,
                         ),
                         reason_code="START_SEGMENT",
                         message=f"Rendering segment {sid}...",
@@ -391,6 +416,7 @@ class OrchestratorHelpersMixin:
                         active_weight=id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0,
                         active_progress=raw_progress if (total_weight > 0 and active_seg_id[0] is not None) else p,
                         started_at=timing["render_started_at"],
+                        calibrated_cps=calibrated_cps,
                     )
                     trace(
                         "orchestrator.marker_progress",
@@ -532,10 +558,14 @@ class OrchestratorHelpersMixin:
                     "on_output": self._relay_output_wrapper(task),
                     "cancel_check": lambda: getattr(task, "_cancelled", False),
                 }
-                if "start" in sig.parameters:
+                has_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+                if "text" in sig.parameters or has_kwargs:
+                    kwargs["text"] = getattr(task, "script_text", getattr(task, "text", None))
+                if "start" in sig.parameters or has_kwargs:
                     kwargs["start"] = start_time
 
                 result_val = handler(**kwargs)
+
 
                 # Convert handler result to TaskResult
                 handler_name = getattr(handler, "__name__", str(handler))
@@ -738,6 +768,7 @@ class OrchestratorHelpersMixin:
         active_weight: int | float,
         active_progress: float,
         started_at: float | None = None,
+        calibrated_cps: float | None = None,
     ) -> int | None:
         """Estimate ETA for the active render group, not the whole chapter."""
         active_total = max(int(active_weight), 0)
@@ -748,7 +779,9 @@ class OrchestratorHelpersMixin:
         completed_units = max(0, min(int(round(active_total * progress)), active_total))
 
         baseline_cps = None
-        if expected_duration is not None and expected_duration > 0 and total_weight > 0:
+        if calibrated_cps is not None:
+            baseline_cps = calibrated_cps
+        elif expected_duration is not None and expected_duration > 0 and total_weight > 0:
             baseline_cps = float(total_weight) / float(expected_duration)
 
         observed_cps = None

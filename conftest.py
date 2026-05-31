@@ -28,6 +28,7 @@ REAL_ROOT = Path(__file__).resolve().parent
 os.environ["PLUGINS_DIR"] = str(REAL_ROOT / "plugins")
 os.environ["APP_TEST_MODE"] = "1"
 os.environ["DB_PATH"] = str(SESSION_TEMP / "test_audiobook_studio.db")
+os.environ["STUDIO_DB_PATH"] = str(SESSION_TEMP / "test_studio.db")
 os.environ["STATE_FILE"] = str(SESSION_TEMP / "test_state.json")
 os.environ["UPLOAD_DIR"] = str(SESSION_TEMP / "uploads")
 os.environ["REPORT_DIR"] = str(SESSION_TEMP / "reports")

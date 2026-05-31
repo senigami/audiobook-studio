@@ -833,6 +833,24 @@ def test_segment_block_eta_100_percent():
     assert eta == 0
 
 
+def test_segment_block_eta_uses_calibrated_cps():
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    # Test case: baseline CPS is provided via calibrated_cps directly
+    # expected_duration is 10.0, total_weight = 1000 -> if it derived it, baseline_cps = 100
+    # But we pass calibrated_cps = 50.0
+    # active_weight = 200, progress = 0.5 -> completed = 100, remaining = 100
+    # remaining / calibrated_cps = 100 / 50.0 = 2.0 -> 2s
+    eta = OrchestratorHelpersMixin._estimate_active_segment_eta_seconds(
+        expected_duration=10.0,
+        total_weight=1000,
+        active_weight=200,
+        active_progress=0.5,
+        started_at=None,
+        calibrated_cps=50.0
+    )
+    assert eta == 2
+
+
 def test_progress_service_coerces_preparing_after_started_at():
     from app.orchestration.progress.service import ProgressService
 

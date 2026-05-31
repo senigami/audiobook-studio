@@ -5,6 +5,8 @@
 # Data & Database
 audiobook_studio.db
 audiobook_studio.db-journal
+studio.db
+studio.db-journal
 db.sqlite3
 db.sqlite3-journal
 state.json

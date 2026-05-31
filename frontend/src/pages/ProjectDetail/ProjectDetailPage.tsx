@@ -285,8 +285,25 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   if (loading) return <div style={{ padding: '2rem' }}>{editingChapterId ? 'Loading chapter...' : 'Loading project...'}</div>;
   if (!project) return <div style={{ padding: '2rem' }}>Project not found.</div>;
 
-  const totalRuntime = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => acc + (c.audio_status === 'done' ? (c.audio_length_seconds || c.predicted_audio_length || 0) : 0), 0);
-  const totalPredicted = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => acc + (c.predicted_audio_length || 0), 0);
+  const totalRuntime = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => acc + (c.audio_status === 'done' ? (c.audio_length_seconds || 0) : 0), 0);
+
+  const profile = speakerProfiles.find(p => p.name === effectiveProjectVoice);
+  const engineId = profile?.engine || settings?.default_engine || '';
+  const targetEngine = engines.find(e => e.engine_id === engineId);
+  const calibratedCps = targetEngine?.calibrated_cps;
+
+  let totalPredicted: number | null = null;
+  if (calibratedCps && calibratedCps > 0) {
+    totalPredicted = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => {
+      if (c.audio_status === 'done') {
+        return acc + (c.audio_length_seconds || 0);
+      } else {
+        return acc + (c.char_count / calibratedCps);
+      }
+    }, 0);
+  }
+
+  const hasUnrendered = (Array.isArray(chapters) ? chapters : []).some(c => c.audio_status !== 'done');
   const activeChapter = editingChapterId ? chapters.find(c => c.id === editingChapterId) || null : null;
 
   // Derive editor state
@@ -350,6 +367,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
           project={project}
           totalRuntime={totalRuntime}
           totalPredicted={totalPredicted}
+          hasUnrendered={hasUnrendered}
           onEditMetadata={() => setShowEditProjectModal(true)}
           onShowCover={() => setShowCoverModal(true)}
           formatLength={formatLength}

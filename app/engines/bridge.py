@@ -104,6 +104,38 @@ class VoiceBridge:
                     data["last_test"] = json.loads(meta_path.read_text(encoding="utf-8"))
                 except Exception:
                     pass
+
+        # Enrich with operational speed calibration metrics
+        try:
+            from app.db.state import get_performance_metrics  # noqa: PLC0415
+            from app.tts_server.performance_settings import resolve_engine_settings_model, filter_history_for_engine_model  # noqa: PLC0415
+            from app.orchestration.scheduler.eta import get_calibrated_model_params  # noqa: PLC0415
+            from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS  # noqa: PLC0415
+
+            perf = get_performance_metrics()
+            all_history = perf.get("render_history") or []
+
+            for data in results:
+                engine_id = data.get("engine_id")
+                if not engine_id:
+                    continue
+                try:
+                    tts_model = resolve_engine_settings_model(engine_id)
+                    history = filter_history_for_engine_model(all_history, engine_id, tts_model)
+                    params = get_calibrated_model_params(history)
+                    if params:
+                        calibrated_cps, _ = params
+                        data["calibrated_cps"] = round(calibrated_cps, 2)
+                        data["operational_speed"] = round(calibrated_cps / DEFAULT_BASELINE_ENGINE_CPS, 2)
+                    else:
+                        data["calibrated_cps"] = None
+                        data["operational_speed"] = None
+                except Exception:
+                    data["calibrated_cps"] = None
+                    data["operational_speed"] = None
+        except Exception:
+            pass
+
         return results
 
     def update_engine_settings(self, engine_id: str, settings: dict[str, Any]) -> dict[str, Any]:

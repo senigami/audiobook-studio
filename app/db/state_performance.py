@@ -38,40 +38,8 @@ def _normalize_performance_metrics(metrics: Optional[Dict[str, Any]]) -> Dict[st
 
 
 def _ensure_settings_table(cursor) -> None:
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-        )
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS render_performance_samples (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            engine TEXT NOT NULL,
-            tts_model TEXT,
-            speaker_profile TEXT,
-            chars INTEGER NOT NULL,
-            word_count INTEGER DEFAULT 0,
-            segment_count INTEGER NOT NULL,
-            render_group_count INTEGER DEFAULT 0,
-            duration_seconds REAL NOT NULL,
-            cps REAL NOT NULL,
-            seconds_per_segment REAL NOT NULL,
-            completed_at REAL NOT NULL
-        )
-    """)
-    try:
-        cursor.execute("ALTER TABLE render_performance_samples ADD COLUMN tts_model TEXT")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE render_performance_samples ADD COLUMN word_count INTEGER DEFAULT 0")
-    except Exception:
-        pass
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_render_performance_completed_at
-        ON render_performance_samples (completed_at)
-    """)
+    from .core import init_db
+    init_db()
 
 
 def _read_setting_float(cursor, key: str, default: float) -> float:
@@ -100,10 +68,10 @@ def _write_setting_value(cursor, key: str, value: Any) -> None:
 def _read_performance_metrics_from_db() -> Dict[str, Any]:
     metrics = _default_performance_metrics()
     try:
-        from .core import get_connection
+        from .core import get_studio_connection
         from .performance import get_render_history
 
-        with get_connection() as conn:
+        with get_studio_connection() as conn:
             cursor = conn.cursor()
             _ensure_settings_table(cursor)
 
@@ -127,9 +95,9 @@ def _read_performance_metrics_from_db() -> Dict[str, Any]:
 
 def _write_performance_metrics_to_db(metrics: Dict[str, Any]) -> bool:
     try:
-        from .core import get_connection
+        from .core import get_studio_connection
 
-        with get_connection() as conn:
+        with get_studio_connection() as conn:
             cursor = conn.cursor()
             _ensure_settings_table(cursor)
             cursor.execute("DELETE FROM settings WHERE key = ?", ("performance_metric:audiobook_speed_multiplier",))
@@ -152,9 +120,9 @@ def clear_engine_cps_cache(engine_id: str) -> bool:
         return False
 
     try:
-        from .core import get_connection
+        from .core import get_studio_connection
 
-        with get_connection() as conn:
+        with get_studio_connection() as conn:
             cursor = conn.cursor()
             _ensure_settings_table(cursor)
             cursor.execute(

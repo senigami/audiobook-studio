@@ -45,7 +45,6 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   onDeleteChapter,
   onExportSample,
   isExporting,
-  formatLength,
   anyEnginesEnabled = true,
   engines = []
 }) => {
@@ -287,8 +286,13 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                     })()}
                   </audio>
                 ) : (
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>~{formatLength(chap.predicted_audio_length || 0)} runtime</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    <span>{chap.word_count ?? 0} words</span>
+                    <span>•</span>
+                    <span>{chap.char_count ?? 0} chars</span>
+                  </div>
                 )}
+
                 
                 {!isAssemblyMode && (
                   <>

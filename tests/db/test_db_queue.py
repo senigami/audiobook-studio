@@ -11,12 +11,12 @@ from app.db.projects import create_project
 from app.db.chapters import create_chapter, get_chapter
 
 @pytest.fixture
-def db_conn():
-    db_path = "/tmp/test_queue.db"
-    if os.path.exists(db_path):
-        os.unlink(db_path)
+def db_conn(tmp_path):
+    db_path = str(tmp_path / "test_queue.db")
+    studio_db_path = str(tmp_path / "test_studio_queue.db")
 
     os.environ["DB_PATH"] = db_path
+    os.environ["STUDIO_DB_PATH"] = studio_db_path
     import app.db.core
     import importlib
     importlib.reload(app.db.core)
@@ -27,6 +27,8 @@ def db_conn():
     conn.close()
     if os.path.exists(db_path):
         os.unlink(db_path)
+    if os.path.exists(studio_db_path):
+        os.unlink(studio_db_path)
 
 def test_queue_lifecycle(db_conn):
     pid = create_project("P1")

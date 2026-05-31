@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
@@ -800,5 +801,36 @@ describe('ChapterHeader', () => {
     const secondVal = screen.getByTestId('chapter-header-segment-progress-bar').textContent;
     expect(firstVal).toBe(secondVal); // The progress value passed to PredictiveProgressBar must remain identical/stable
     vi.useRealTimers();
+  });
+
+  it('asserts that the segment progress bar uses pure segment ETA (active_segment_eta_seconds) and excludes chapter overhead', () => {
+    let capturedStatus: any = null;
+    const TestComponent = ({ generatingJob }: any) => {
+      const status = useChapterStatus(mockChapter as any, undefined, generatingJob, false, 0, false);
+      React.useEffect(() => {
+        capturedStatus = status;
+      });
+      return null;
+    };
+
+
+    const jobWithPureSegmentEta = {
+      id: 'job-pure-segment-eta',
+      status: 'running',
+      progress: 0.5,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.5,
+      eta_seconds: 120, // Chapter-level ETA containing group overheads
+      active_segment_eta_seconds: 18, // Pure segment ETA based on segment characters/CPS only
+      active_segment_eta_basis: 'segment_remaining',
+      hasSegmentSupport: true,
+    };
+
+    render(<TestComponent generatingJob={jobWithPureSegmentEta as any} />);
+
+    // The segment progress bar MUST use the active_segment_eta_seconds (18) and NOT the chapter-level eta_seconds (120)
+    expect(capturedStatus.segmentProgressBarSelection.selectedEtaSeconds).toBe(18);
+    expect(capturedStatus.segmentProgressBarSelection.selectedEtaSeconds).not.toBe(120);
+    expect(capturedStatus.segmentProgressBarSelection.selectedEtaBasis).toBe('segment_remaining');
   });
 });

@@ -340,6 +340,7 @@ def build_job_lifecycle_event(
     has_segment_support: bool | None = None,
 ) -> dict:
     """Build a jobs.lifecycle envelope with global job state only."""
+    mapped_status = status
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
     if canonical_command is None:
         lifecycle_status_map = {
@@ -358,7 +359,7 @@ def build_job_lifecycle_event(
 
     resolved_updated_at = float(updated_at if updated_at is not None else time.time())
     payload = {
-        "status": status,
+        "status": mapped_status,
         "reasonCode": canonical_command,
         "reason_code": canonical_command,
         "message": message,

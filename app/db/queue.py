@@ -104,9 +104,12 @@ def add_to_queue(project_id: str, chapter_id: str, split_part: int = 0):
             return queue_id
 
 def get_queue() -> List[Dict[str, Any]]:
+    from .core import get_studio_db_path
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
+            studio_db = get_studio_db_path()
+            cursor.execute("ATTACH DATABASE ? AS studio_db", (str(studio_db),))
             # Return active jobs sorted by created_at, then history items
             cursor.execute("""
                 SELECT q.*, p.name as project_name, c.title as chapter_title, 
@@ -121,9 +124,9 @@ def get_queue() -> List[Dict[str, Any]]:
                 FROM processing_queue q
                 LEFT JOIN projects p ON q.project_id = p.id
                 LEFT JOIN chapters c ON q.chapter_id = c.id
-                LEFT JOIN render_performance_samples s ON s.id = (
+                LEFT JOIN studio_db.render_performance_samples s ON s.id = (
                     SELECT latest.id
-                    FROM render_performance_samples latest
+                    FROM studio_db.render_performance_samples latest
                     WHERE latest.job_id = q.id
                     ORDER BY latest.completed_at DESC, latest.id DESC
                     LIMIT 1
@@ -136,7 +139,9 @@ def get_queue() -> List[Dict[str, Any]]:
                    q.created_at DESC,
                    q.rowid DESC
             """)
-            return [dict(row) for row in cursor.fetchall()]
+            rows = cursor.fetchall()
+            cursor.execute("DETACH DATABASE studio_db")
+            return [dict(row) for row in rows]
 
 def clear_queue() -> bool:
     with _db_lock:

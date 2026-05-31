@@ -352,6 +352,7 @@ def test_processing_queue_returns_completed_output_metadata_without_duplicate_ro
         project_id=pid,
         chapter_id=cid,
         completed_at=completed_at - 5,
+        synthesis_duration_seconds=3.5,
     )
     record_render_sample(
         engine="mixed",
@@ -364,8 +365,10 @@ def test_processing_queue_returns_completed_output_metadata_without_duplicate_ro
         project_id=pid,
         chapter_id=cid,
         completed_at=completed_at,
+        synthesis_duration_seconds=7.0,
     )
     update_queue_item(jid, "done", audio_length_seconds=75.4, output_file=f"{cid}.wav")
+
 
     response = client.get("/api/processing_queue")
     assert response.status_code == 200

@@ -228,7 +228,25 @@ export const EngineCard: React.FC<{
           >
             {verificationLabel}
           </span>
+          {displayEngine.operational_speed !== undefined && displayEngine.operational_speed !== null && (
+            <span
+              style={{
+                borderRadius: '999px',
+                padding: '0.28rem 0.6rem',
+                fontSize: '0.7rem',
+                fontWeight: 900,
+                letterSpacing: '0.02em',
+                background: 'rgba(59, 130, 246, 0.1)',
+                color: 'var(--accent)',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+              }}
+              title="Diagnostic: Computer Speed Multiplier (measured_cps / baseline_cps)"
+            >
+              {Number(displayEngine.operational_speed).toFixed(2)}x Speed
+            </span>
+          )}
         </div>
+
       </summary>
       <div style={{ padding: '0 1rem 1.25rem 2.95rem', color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: 1.55 }}>
         <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.85rem' }}>
@@ -408,6 +426,34 @@ export const EngineCard: React.FC<{
             >
               <ShieldCheck size={14} /> {displayEngine.verified ? 'Verified' : 'Verify'}
             </button>
+            <button
+              type="button"
+              className="btn-glass"
+              title="Reset the calibration history for this engine."
+              disabled={saving}
+              onClick={async () => {
+                if (activeScenario) {
+                  addDevLog(`Simulated: Reset calibration requested for ${displayEngine.display_name}.`);
+                  return;
+                }
+                setSaving(true);
+                try {
+                  await api.resetEngineCalibration(displayEngine.engine_id);
+                  onShowNotification?.(`${displayEngine.display_name} calibration history reset.`);
+                  await onUpdate();
+                } catch (err: any) {
+                  const msg = getErrorMessage(err);
+                  if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
+                  onShowNotification?.(`Reset calibration failed: ${msg}`);
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800 }}
+            >
+              Reset Calibration
+            </button>
+
 
 
             {needsDependencyInstall && (

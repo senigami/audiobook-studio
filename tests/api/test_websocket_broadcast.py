@@ -719,6 +719,15 @@ def test_build_core_topic_helpers():
     assert e_job_lifecycle["payload"]["hasSegmentSupport"] is None
     assert e_job_lifecycle["payload"]["has_segment_support"] is None
 
+    # Verify finalizing is preserved without remapping to running
+    e_job_finalizing = build_job_lifecycle_event(
+        job_id="j-1",
+        status="finalizing",
+        message="Finalizing synthesis",
+    )
+    assert e_job_finalizing["payload"]["status"] == "finalizing"
+
+
     # Test message filtering on segment_start and segment_saved
     for reason in ("segment_start", "segment_saved"):
         e_queue_filtered = build_queue_item_status_event(

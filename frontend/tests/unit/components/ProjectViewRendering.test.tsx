@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import { api } from '@/api';
 import { 
-  renderProjectView, mockProject, mockChapters, stripMotionProps
+  renderProjectView, mockProject, mockChapters, stripMotionProps, mockSpeakerProfiles
 } from '@tests/helpers/ProjectViewTestHelpers';
 
 // Mock API
@@ -120,5 +120,101 @@ describe('ProjectView - Rendering', () => {
     await screen.findAllByText('Test Project');
     expect(screen.getByRole('navigation', { name: /breadcrumb/i })).toBeInTheDocument();
     expect(screen.getByText('Library')).toBeInTheDocument();
+  });
+
+  it('hides or labels predicted runtime as unavailable when operational_speed is unavailable', async () => {
+    const mockEngines = [
+      { engine_id: 'xtts', enabled: true, status: 'ready', operational_speed: null }
+    ];
+
+    renderProjectView({ engines: mockEngines });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Predicted: Unavailable/i)).toBeInTheDocument();
+  });
+
+  it('displays the correct predicted runtime when operational_speed is available', async () => {
+    const mockEngines = [
+      { engine_id: 'xtts', enabled: true, status: 'ready', calibrated_cps: 33.4, operational_speed: 2.0 }
+    ];
+    const customChapters = [
+      {
+        id: 'chap-1',
+        title: 'Chapter 1',
+        audio_status: 'done',
+        char_count: 100,
+        audio_length_seconds: 60,
+        has_wav: true,
+        predicted_audio_length: 60
+      },
+      {
+        id: 'chap-2',
+        title: 'Chapter 2',
+        audio_status: 'unprocessed',
+        char_count: 334,
+        has_wav: false,
+        predicted_audio_length: 120
+      }
+    ];
+    (api.fetchChapters as any).mockResolvedValue(customChapters);
+
+    const speakerProfilesWithEngine = [
+      {
+        ...mockSpeakerProfiles[0],
+        engine: 'xtts'
+      }
+    ];
+
+    renderProjectView({ engines: mockEngines, speakerProfiles: speakerProfilesWithEngine });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Predicted: 1m 10s/i)).toBeInTheDocument();
+  });
+
+  it('displays predicted runtime based on calibrated_cps and does not fall back to multiplying operational_speed by 16.7', async () => {
+    const mockEngines = [
+      { engine_id: 'xtts', enabled: true, status: 'ready', calibrated_cps: 10.0, operational_speed: 2.0 }
+    ];
+    const customChapters = [
+      {
+        id: 'chap-1',
+        title: 'Chapter 1',
+        audio_status: 'done',
+        char_count: 100,
+        audio_length_seconds: 60,
+        has_wav: true,
+        predicted_audio_length: 60
+      },
+      {
+        id: 'chap-2',
+        title: 'Chapter 2',
+        audio_status: 'unprocessed',
+        char_count: 300,
+        has_wav: false,
+        predicted_audio_length: 120
+      }
+    ];
+    (api.fetchChapters as any).mockResolvedValue(customChapters);
+
+    const speakerProfilesWithEngine = [
+      {
+        ...mockSpeakerProfiles[0],
+        engine: 'xtts'
+      }
+    ];
+
+    renderProjectView({ engines: mockEngines, speakerProfiles: speakerProfilesWithEngine });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Predicted: 1m 30s/i)).toBeInTheDocument();
   });
 });

@@ -337,3 +337,23 @@ def _resolve_plugin_dir(*, engine_id: str, module_path: str) -> Optional[Path]:
         return PLUGINS_DIR / f"tts_{safe_engine_id}"
 
     return None
+
+
+@router.post("/{engine_id}/calibrate/reset")
+def reset_engine_calibration(engine_id: str, model: Optional[str] = None):
+    """Reset calibration data (historical render samples and cached CPS) for an engine and optionally a model."""
+    from app.db.performance import reset_engine_calibration_history
+    from app.db.state_performance import clear_engine_cps_cache
+    import logging
+
+    safe_engine_id = "".join(ch for ch in engine_id if ch.isalnum() or ch in ("-", "_"))
+    if not safe_engine_id or safe_engine_id != engine_id:
+        return JSONResponse({"status": "error", "message": "Invalid engine_id format"}, status_code=400)
+
+    try:
+        reset_engine_calibration_history(engine_id, model)
+        clear_engine_cps_cache(engine_id)
+        return JSONResponse({"status": "ok", "engine_id": engine_id})
+    except Exception as exc:
+        logging.getLogger(__name__).error("Failed to reset engine calibration: %s", exc, exc_info=True)
+        return JSONResponse({"status": "error", "message": f"Failed to reset calibration: {exc}"}, status_code=500)

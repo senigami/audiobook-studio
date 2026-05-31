@@ -13,6 +13,7 @@ vi.mock('@/api', () => ({
     verifyEngine: vi.fn(),
     installEngineDependencies: vi.fn(),
     removeEnginePlugin: vi.fn(),
+    resetEngineCalibration: vi.fn(),
   },
 }));
 
@@ -254,5 +255,52 @@ describe('EngineCard dependency installation', () => {
 
     expect(screen.queryByText('Uninstalling...')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Uninstall' })).not.toBeDisabled();
+  });
+
+  it('calls resetEngineCalibration when "Reset Calibration" button is clicked', async () => {
+    vi.mocked(api.resetEngineCalibration).mockResolvedValueOnce({ ok: true });
+    const onUpdate = vi.fn();
+    const onShowNotification = vi.fn();
+
+    render(<EngineCard engine={voxtralEngine} onUpdate={onUpdate} onShowNotification={onShowNotification} />);
+
+    // Click "Reset Calibration" button
+    const resetBtn = screen.getByRole('button', { name: 'Reset Calibration' });
+    fireEvent.click(resetBtn);
+
+    await waitFor(() => {
+      expect(api.resetEngineCalibration).toHaveBeenCalledWith('voxtral');
+      expect(onShowNotification).toHaveBeenCalledWith('Voxtral (Mistral AI) calibration history reset.');
+      expect(onUpdate).toHaveBeenCalled();
+    });
+
+  });
+
+  it('displays the speed badge from operational_speed and ignores computer_speed_multiplier', () => {
+    const engineWithSpeed = {
+      ...voxtralEngine,
+      operational_speed: 1.5,
+      current_settings: {
+        ...voxtralEngine.current_settings,
+        computer_speed_multiplier: 2.0,
+      }
+    };
+
+    const { rerender } = render(<EngineCard engine={engineWithSpeed} onUpdate={vi.fn()} />);
+
+    expect(screen.getByText('1.50x Speed')).toBeInTheDocument();
+    expect(screen.queryByText('2.00x Speed')).not.toBeInTheDocument();
+
+    const engineNoSpeed = {
+      ...voxtralEngine,
+      operational_speed: null,
+      current_settings: {
+        ...voxtralEngine.current_settings,
+        computer_speed_multiplier: 2.0,
+      }
+    };
+    rerender(<EngineCard engine={engineNoSpeed} onUpdate={vi.fn()} />);
+    expect(screen.queryByText('2.00x Speed')).not.toBeInTheDocument();
+    expect(screen.queryByText('1.50x Speed')).not.toBeInTheDocument();
   });
 });

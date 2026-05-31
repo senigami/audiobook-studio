@@ -12,9 +12,11 @@ from app.db.state import get_performance_metrics, update_performance_metrics, _d
 def clean_db(tmp_path):
     # Use a unique DB path for this test
     db_path = tmp_path / f"test_performance_{uuid.uuid4().hex}.db"
+    studio_db_path = tmp_path / f"test_studio_{uuid.uuid4().hex}.db"
     os.environ["DB_PATH"] = str(db_path)
+    os.environ["STUDIO_DB_PATH"] = str(studio_db_path)
 
-    # Force reload of db.core to pick up the new DB_PATH
+    # Force reload of db.core to pick up the new DB_PATHs
     import app.db.core
     import importlib
     importlib.reload(app.db.core)
@@ -27,6 +29,11 @@ def clean_db(tmp_path):
     if db_path.exists():
         try:
             os.unlink(db_path)
+        except OSError:
+            pass
+    if studio_db_path.exists():
+        try:
+            os.unlink(studio_db_path)
         except OSError:
             pass
 
@@ -58,12 +65,13 @@ def test_record_render_sample_storage(clean_db):
         chars=1000,
         segment_count=10,
         duration_seconds=60.0,
-        cps=16.67,
         seconds_per_segment=6.0,
         job_id=jid,
         project_id="p1",
         chapter_id="c1",
-        speaker_profile="feeling-lucky"
+        speaker_profile="feeling-lucky",
+        synthesis_duration_seconds=45.0,
+        sample_type="chapter",
     )
 
     history = get_render_history()
@@ -75,13 +83,24 @@ def test_record_render_sample_storage(clean_db):
     assert sample["project_id"] == "p1"
     assert sample["chapter_id"] == "c1"
     assert sample["tts_model"] == "model-a"
+    # Verify split timing fields are correctly stored
+    assert sample["duration_seconds"] == 60.0
+    assert sample["synthesis_duration_seconds"] == 45.0
+    assert sample["inter_group_overhead_seconds"] == 15.0
+    assert sample["sample_type"] == "chapter"
+    # CPS must be computed from pure synthesis duration (1000 / 45 = 22.22), not total duration (1000 / 60 = 16.67)
+    assert abs(sample["cps"] - 22.22) < 0.01
+
+    # Regression check: verify old behavior duration_seconds == synthesis_duration_seconds is NOT true
+    assert sample["duration_seconds"] != sample["synthesis_duration_seconds"]
+
 
 def test_performance_retention_policy(clean_db):
     # 1. Test 180 day hard purge
     old_time = time.time() - (181 * 86400)
     record_render_sample(
         engine="engine-a", chars=100, segment_count=1, duration_seconds=10, cps=10, seconds_per_segment=10,
-        completed_at=old_time
+        completed_at=old_time, synthesis_duration_seconds=10.0
     )
     apply_performance_retention_policy()
     history = get_render_history()
@@ -95,7 +114,7 @@ def test_performance_retention_policy(clean_db):
         # and ensure they are processed by the retention policy
         record_render_sample(
             engine="engine-a", chars=100, segment_count=1, duration_seconds=10, cps=10, seconds_per_segment=10,
-            completed_at=now - (31 * 86400) - i
+            completed_at=now - (31 * 86400) - i, synthesis_duration_seconds=10.0
         )
 
     # Retention is now startup-triggered, so we invoke it explicitly to test the cleanup logic.
@@ -108,7 +127,7 @@ def test_performance_retention_policy(clean_db):
     for i in range(50):
         record_render_sample(
             engine="engine-a", chars=100, segment_count=1, duration_seconds=10, cps=10, seconds_per_segment=10,
-            completed_at=now - (1 * 86400)
+            completed_at=now - (1 * 86400), synthesis_duration_seconds=10.0
         )
 
     apply_performance_retention_policy()
@@ -133,12 +152,13 @@ def test_init_db_runs_performance_retention(clean_db, monkeypatch):
 
 
 def test_global_audiobook_speed_multiplier_is_not_persisted(clean_db, clean_state):
+    from app.db.core import get_studio_connection
     update_performance_metrics(audiobook_speed_multiplier=2.5)
 
     metrics = get_performance_metrics()
 
     assert "audiobook_speed_multiplier" not in metrics
-    with get_connection() as conn:
+    with get_studio_connection() as conn:
         row = conn.execute(
             "SELECT value FROM settings WHERE key = ?",
             ("performance_metric:audiobook_speed_multiplier",),
@@ -168,7 +188,7 @@ def test_successful_jobs_train(clean_db, clean_state):
     jid = "job-success-test"
     # We must ensure started_at is before finished_at and dur > 1.0
     now = time.time()
-    job = Job(id=jid, engine="engine-a", chapter_file="c1", status="done", created_at=now-30, started_at=now-20, finished_at=now)
+    job = Job(id=jid, engine="engine-a", chapter_file="c1", status="done", created_at=now-30, started_at=now-20, finished_at=now, synthesis_duration_seconds=10.0)
     put_job(job)
 
     record_engine_sample(job, now - 10, 1000, {})
@@ -179,7 +199,7 @@ def test_successful_jobs_train(clean_db, clean_state):
     assert history[0]["chars"] == 1000
 
 
-def test_successful_jobs_write_plugin_computer_speed_multiplier(clean_db, clean_state, tmp_path, monkeypatch):
+def test_successful_jobs_do_not_write_plugin_computer_speed_multiplier(clean_db, clean_state, tmp_path, monkeypatch):
     from app.jobs.worker_metrics import record_engine_sample
     from app.db.state import put_job
     from app.db.models import Job
@@ -201,6 +221,7 @@ def test_successful_jobs_write_plugin_computer_speed_multiplier(clean_db, clean_
         created_at=now - 30,
         started_at=now - 10,
         finished_at=now,
+        synthesis_duration_seconds=5.0,
     )
     put_job(job)
 
@@ -209,7 +230,7 @@ def test_successful_jobs_write_plugin_computer_speed_multiplier(clean_db, clean_
     settings = load_settings(plugin_dir)
     assert settings["enabled"] is True
     assert settings["quality"] == "draft"
-    assert settings["computer_speed_multiplier"] == 2.0
+    assert "computer_speed_multiplier" not in settings
 
 
 def test_clear_engine_speed_baseline_wipes_samples_and_cached_cps(clean_db, clean_state, tmp_path, monkeypatch):
@@ -232,6 +253,7 @@ def test_clear_engine_speed_baseline_wipes_samples_and_cached_cps(clean_db, clea
         cps=20.0,
         seconds_per_segment=5.0,
         completed_at=now - 20,
+        synthesis_duration_seconds=50.0,
     )
     record_render_sample(
         engine="engine-b",
@@ -242,6 +264,7 @@ def test_clear_engine_speed_baseline_wipes_samples_and_cached_cps(clean_db, clea
         cps=20.0,
         seconds_per_segment=5.0,
         completed_at=now - 10,
+        synthesis_duration_seconds=25.0,
     )
     update_performance_metrics(engine_cps={"engine-a": 19.5, "engine-b": 21.0})
 
@@ -280,6 +303,7 @@ def test_record_engine_sample_filters_speed_history_by_tts_model(clean_db, clean
         segment_count=1,
         duration_seconds=100,
         completed_at=now - 20,
+        synthesis_duration_seconds=10.0,
     )
 
     jid = "job-model-filter-test"
@@ -291,15 +315,14 @@ def test_record_engine_sample_filters_speed_history_by_tts_model(clean_db, clean
         created_at=now - 30,
         started_at=now - 10,
         finished_at=now,
+        synthesis_duration_seconds=10.0,
     )
     put_job(job)
 
     record_engine_sample(job, now - 10, 1000, {})
 
-    metrics = get_performance_metrics()
-    assert metrics["engine_cps"]["engine-a"] == 100.0
-
     history = get_render_history()
+    assert history[-1]["cps"] == 100.0
     assert history[-1]["tts_model"] == "model-fast"
 
 
@@ -310,7 +333,7 @@ def test_record_engine_sample_requires_chars(clean_db, clean_state):
 
     jid = "test-no-chars"
     now = time.time()
-    job = Job(id=jid, engine="engine-a", status="done", started_at=now-10, finished_at=now, created_at=now-20)
+    job = Job(id=jid, engine="engine-a", status="done", started_at=now-10, finished_at=now, created_at=now-20, synthesis_duration_seconds=5.0)
     put_job(job)
 
     # 1. Chars = 0 (should be ignored)
@@ -322,3 +345,146 @@ def test_record_engine_sample_requires_chars(clean_db, clean_state):
     history = get_render_history()
     assert len(history) == 1
     assert history[0]["chars"] == 100
+
+
+def test_mandatory_synthesis_duration_contract(clean_db):
+    # Valid call should pass
+    record_render_sample(
+        engine="engine-a",
+        tts_model="model-a",
+        chars=100,
+        segment_count=1,
+        synthesis_duration_seconds=5.0,
+    )
+    assert len(get_render_history()) == 1
+
+    # Missing synthesis_duration_seconds should raise ValueError
+    with pytest.raises(ValueError, match="synthesis_duration_seconds is mandatory"):
+        record_render_sample(
+            engine="engine-a",
+            tts_model="model-a",
+            chars=100,
+            segment_count=1,
+            synthesis_duration_seconds=None,
+        )
+
+    # Zero synthesis_duration_seconds should raise ValueError
+    with pytest.raises(ValueError, match="synthesis_duration_seconds is mandatory"):
+        record_render_sample(
+            engine="engine-a",
+            tts_model="model-a",
+            chars=100,
+            segment_count=1,
+            synthesis_duration_seconds=0.0,
+        )
+
+    # Negative synthesis_duration_seconds should raise ValueError
+    with pytest.raises(ValueError, match="synthesis_duration_seconds is mandatory"):
+        record_render_sample(
+            engine="engine-a",
+            tts_model="model-a",
+            chars=100,
+            segment_count=1,
+            synthesis_duration_seconds=-1.0,
+        )
+
+
+def test_xtts_segment_adapter_text_capture(clean_db, monkeypatch):
+    from plugins.tts_xtts.plugin.studio.adapter import xtts_dispatch_adapter
+    from app.db.models import Job
+    from app.db.state import put_job
+
+    # Mock get_profile_wavs and get_speaker_settings to avoid filesystem dependency
+    monkeypatch.setattr("app.db.speakers.get_profile_wavs", lambda x: ["/dummy.wav"])
+    monkeypatch.setattr("app.db.speakers.get_speaker_settings", lambda x: {"speed": 1.0})
+    monkeypatch.setattr("plugins.tts_xtts.plugin.studio.handler.handle_xtts_job", lambda *args, **kwargs: 0)
+
+    # Create terminal Job
+    jid = "xtts-segment-text-test"
+    now = time.time()
+    job = Job(
+        id=jid,
+        engine="xtts",
+        status="done",
+        project_id="p1",
+        chapter_id="c1",
+        speaker_profile="spk1",
+        created_at=now - 20,
+        started_at=now - 10,
+        finished_at=now,
+        synthesis_duration_seconds=5.0
+    )
+    put_job(job)
+
+    # Invoke dispatch adapter with text in kwargs
+    xtts_dispatch_adapter(jid, job, start=now - 10, on_output=lambda x: None, cancel_check=lambda: False, text="This is segment text")
+
+    history = get_render_history()
+    assert len(history) == 1
+    assert history[0]["chars"] == len("This is segment text")
+
+
+def test_record_engine_sample_contract_enforcement(clean_db, clean_state):
+    from app.jobs.worker_metrics import record_engine_sample
+    from app.db.state import put_job
+    from app.db.models import Job
+
+    # 1. Job with missing synthesis_duration_seconds must raise ValueError
+    job_missing = Job(
+        id="job-missing-synth",
+        engine="engine-a",
+        status="done",
+        created_at=time.time() - 10,
+        started_at=time.time() - 8,
+        finished_at=time.time(),
+        synthesis_duration_seconds=None
+    )
+    put_job(job_missing)
+    with pytest.raises(ValueError, match="synthesis_duration_seconds is mandatory"):
+        record_engine_sample(job_missing, time.time() - 8, 100, {})
+
+    # 2. Job with negative synthesis_duration_seconds must raise ValueError
+    job_negative = Job(
+        id="job-negative-synth",
+        engine="engine-a",
+        status="done",
+        created_at=time.time() - 10,
+        started_at=time.time() - 8,
+        finished_at=time.time(),
+        synthesis_duration_seconds=-2.0
+    )
+    put_job(job_negative)
+    with pytest.raises(ValueError, match="synthesis_duration_seconds is mandatory"):
+        record_engine_sample(job_negative, time.time() - 8, 100, {})
+
+
+def test_state_performance_initialization_isolation(tmp_path):
+    # Setup fresh DB paths
+    db_path = tmp_path / "test_perf_isolated.db"
+    studio_db_path = tmp_path / "test_studio_isolated.db"
+    import os
+    os.environ["DB_PATH"] = str(db_path)
+    os.environ["STUDIO_DB_PATH"] = str(studio_db_path)
+
+    import app.db.core
+    import importlib
+    importlib.reload(app.db.core)
+
+    from app.db.state import get_performance_metrics
+    from app.db.performance import record_render_sample
+
+    # Call get_performance_metrics first, which triggers _ensure_settings_table
+    metrics = get_performance_metrics()
+    assert isinstance(metrics, dict)
+
+    # Now, attempt to write a sample using record_render_sample
+    # This requires the schema to have all the new timing columns like synthesis_duration_seconds.
+    # If _ensure_settings_table created the obsolete schema, this will FAIL with an OperationalError.
+    record_render_sample(
+        engine="engine-test-isolated",
+        tts_model="model-test",
+        chars=1000,
+        segment_count=5,
+        duration_seconds=30.0,
+        synthesis_duration_seconds=20.0,
+    )

@@ -9,6 +9,7 @@ from pathlib import Path
 # Use a connection pool or a single connection with a lock
 _db_lock = threading.RLock()
 DB_PATH = Path(os.getenv("DB_PATH", "audiobook_studio.db"))
+STUDIO_DB_PATH = Path(os.getenv("STUDIO_DB_PATH", "studio.db"))
 logger = logging.getLogger(__name__)
 
 
@@ -22,6 +23,10 @@ def _running_under_test() -> bool:
 
 def get_db_path() -> Path:
     return Path(os.getenv("DB_PATH", os.fspath(DB_PATH)))
+
+
+def get_studio_db_path() -> Path:
+    return Path(os.getenv("STUDIO_DB_PATH", os.fspath(STUDIO_DB_PATH)))
 
 
 def _assert_safe_db_path_for_tests(db_path: Path) -> None:
@@ -58,11 +63,45 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+def get_studio_connection():
+    db_path = get_studio_db_path()
+    _assert_safe_db_path_for_tests(db_path)
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def verify_and_cleanup_legacy_tables(conn: sqlite3.Connection):
+    """
+    Safely checks if settings and render_performance_samples tables exist in audiobook_studio.db.
+    Validates that studio.db has already initialized these tables, then drops them from audiobook_studio.db.
+    """
+    cursor = conn.cursor()
+    # Check if legacy tables exist in the user project DB
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('settings', 'render_performance_samples');")
+    existing_legacy_tables = {row[0] for row in cursor.fetchall()}
+    if not existing_legacy_tables:
+        return
+
+    try:
+        # Validate that the studio DB connection is active and contains the tables
+        with get_studio_connection() as studio_conn:
+            studio_cursor = studio_conn.cursor()
+            studio_cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('settings', 'render_performance_samples');")
+            studio_tables = {row[0] for row in studio_cursor.fetchall()}
+        # Only drop if the studio DB has successfully initialized these tables
+        if "settings" in studio_tables and "render_performance_samples" in studio_tables:
+            for table in existing_legacy_tables:
+                logger.info(f"Safely dropping legacy table '{table}' from project database after validation.")
+                cursor.execute(f"DROP TABLE {table};")
+            conn.commit()
+    except Exception as exc:
+        logger.warning(f"Failed to safely validate and cleanup legacy operational tables: {exc}", exc_info=True)
+
+
 def init_db():
-    # init_db logic continues using locals
     global _db_lock
-    # no import needed here as they are in local scope
     with _db_lock:
+        # 1. Initialize User/Project Database
         with get_connection() as conn:
             cursor = conn.cursor()
 
@@ -160,42 +199,7 @@ def init_db():
                 )
             """)
 
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS settings (
-                    key TEXT PRIMARY KEY,
-                    value TEXT NOT NULL
-                )
-            """)
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS render_performance_samples (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    job_id TEXT,
-                    project_id TEXT,
-                    chapter_id TEXT,
-                    engine TEXT NOT NULL,
-                    tts_model TEXT,
-                    speaker_profile TEXT,
-                    chars INTEGER NOT NULL,
-                    word_count INTEGER DEFAULT 0,
-                    segment_count INTEGER NOT NULL,
-                    render_group_count INTEGER DEFAULT 0,
-                    started_at REAL,
-                    completed_at REAL NOT NULL,
-                    duration_seconds REAL NOT NULL,
-                    cps REAL NOT NULL,
-                    seconds_per_segment REAL NOT NULL,
-                    audio_duration_seconds REAL,
-                    make_mp3 INTEGER DEFAULT 0
-                )
-            """)
-
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_render_performance_completed_at
-                ON render_performance_samples (completed_at)
-            """)
-
-            # Migrations
+            # Projects/User migrations
             def add_column_if_missing(sql: str, label: str):
                 try:
                     cursor.execute(sql)
@@ -212,14 +216,6 @@ def init_db():
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN error TEXT", "processing_queue.error")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN custom_title TEXT", "processing_queue.custom_title")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN engine TEXT", "processing_queue.engine")
-            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN job_id TEXT", "render_performance_samples.job_id")
-            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN project_id TEXT", "render_performance_samples.project_id")
-            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN chapter_id TEXT", "render_performance_samples.chapter_id")
-            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN tts_model TEXT", "render_performance_samples.tts_model")
-            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN started_at REAL", "render_performance_samples.started_at")
-            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN audio_duration_seconds REAL", "render_performance_samples.audio_duration_seconds")
-            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN word_count INTEGER DEFAULT 0", "render_performance_samples.word_count")
-            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN make_mp3 INTEGER DEFAULT 0", "render_performance_samples.make_mp3")
 
             # Migration: Ensure project_id and chapter_id allow NULLs for system tasks
             try:
@@ -262,5 +258,75 @@ def init_db():
                 logger.warning("Failed to migrate processing_queue NULL constraints", exc_info=True)
 
             conn.commit()
-            from .performance import apply_performance_retention_policy
-            apply_performance_retention_policy()
+
+        # 2. Initialize Studio Operational Database
+        with get_studio_connection() as studio_conn:
+            studio_cursor = studio_conn.cursor()
+
+            studio_cursor.execute("""
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+            """)
+
+            studio_cursor.execute("""
+                CREATE TABLE IF NOT EXISTS render_performance_samples (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_id TEXT,
+                    project_id TEXT,
+                    chapter_id TEXT,
+                    engine TEXT NOT NULL,
+                    tts_model TEXT,
+                    speaker_profile TEXT,
+                    chars INTEGER NOT NULL,
+                    word_count INTEGER DEFAULT 0,
+                    segment_count INTEGER NOT NULL,
+                    render_group_count INTEGER DEFAULT 0,
+                    started_at REAL,
+                    completed_at REAL NOT NULL,
+                    duration_seconds REAL NOT NULL,
+                    synthesis_duration_seconds REAL NOT NULL DEFAULT 0.0,
+                    inter_group_overhead_seconds REAL NOT NULL DEFAULT 0.0,
+                    sample_type TEXT,
+                    cps REAL NOT NULL,
+                    seconds_per_segment REAL NOT NULL,
+                    audio_duration_seconds REAL,
+                    make_mp3 INTEGER DEFAULT 0
+                )
+            """)
+
+            studio_cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_render_performance_completed_at
+                ON render_performance_samples (completed_at)
+            """)
+
+            # Operational migrations
+            def add_studio_column_if_missing(sql: str, label: str):
+                try:
+                    studio_cursor.execute(sql)
+                except sqlite3.OperationalError as exc:
+                    if "duplicate column name" not in str(exc).lower():
+                        logger.warning("Failed to apply %s migration", label, exc_info=True)
+
+            add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN job_id TEXT", "render_performance_samples.job_id")
+            add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN project_id TEXT", "render_performance_samples.project_id")
+            add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN chapter_id TEXT", "render_performance_samples.chapter_id")
+            add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN tts_model TEXT", "render_performance_samples.tts_model")
+            add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN started_at REAL", "render_performance_samples.started_at")
+            add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN audio_duration_seconds REAL", "render_performance_samples.audio_duration_seconds")
+            add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN word_count INTEGER DEFAULT 0", "render_performance_samples.word_count")
+            add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN make_mp3 INTEGER DEFAULT 0", "render_performance_samples.make_mp3")
+            add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN synthesis_duration_seconds REAL NOT NULL DEFAULT 0.0", "render_performance_samples.synthesis_duration_seconds")
+            add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN inter_group_overhead_seconds REAL NOT NULL DEFAULT 0.0", "render_performance_samples.inter_group_overhead_seconds")
+            add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN sample_type TEXT", "render_performance_samples.sample_type")
+
+            studio_conn.commit()
+
+
+        # 3. Safe validation and clean up of legacy tables from user DB
+        with get_connection() as conn:
+            verify_and_cleanup_legacy_tables(conn)
+
+        from .performance import apply_performance_retention_policy
+        apply_performance_retention_policy()

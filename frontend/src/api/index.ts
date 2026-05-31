@@ -386,6 +386,14 @@ export const api = {
     const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/test`, { method: 'POST' });
     return parseApiResponse(res);
   },
+  resetEngineCalibration: async (engineId: string, model?: string): Promise<any> => {
+    const params = new URLSearchParams();
+    if (model) params.append('model', model);
+    const url = `/api/engines/${encodeURIComponent(engineId)}/calibrate/reset?${params.toString()}`;
+    const res = await fetch(url, { method: 'POST' });
+    return parseApiResponse(res);
+  },
+
   importEnginePlugin: async (file: File): Promise<any> => {
     const formData = new FormData();
     formData.append('file', file);

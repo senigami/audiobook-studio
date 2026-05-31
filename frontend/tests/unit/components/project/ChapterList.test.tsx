@@ -376,4 +376,48 @@ describe('ChapterList', () => {
     const audioTags = container.querySelectorAll('audio');
     expect(audioTags).toHaveLength(1);
   });
+
+  it('hides estimated runtime badge if predicted_audio_length is missing, rendering only word and character counts', () => {
+    const chapterWithoutEta = {
+      id: 'chap-no-eta',
+      project_id: 'proj-1',
+      title: 'No ETA Chapter',
+      audio_status: 'unprocessed',
+      audio_file_path: null,
+      has_wav: false,
+      has_mp3: false,
+      sort_order: 3,
+      word_count: 320,
+      char_count: 1800,
+      predicted_audio_length: null,
+    } as any;
+
+    render(<ChapterList {...defaultProps} chapters={[chapterWithoutEta]} />);
+
+    expect(screen.getByText('320 words')).toBeInTheDocument();
+    expect(screen.getByText('1800 chars')).toBeInTheDocument();
+    expect(screen.queryByText(/runtime/i)).toBeNull();
+  });
+
+  it('does not render estimated runtime badge even when predicted_audio_length is present', () => {
+    const chapterWithEta = {
+      id: 'chap-with-eta',
+      project_id: 'proj-1',
+      title: 'With ETA Chapter',
+      audio_status: 'unprocessed',
+      audio_file_path: null,
+      has_wav: false,
+      has_mp3: false,
+      sort_order: 4,
+      word_count: 500,
+      char_count: 3000,
+      predicted_audio_length: 45,
+    } as any;
+
+    render(<ChapterList {...defaultProps} chapters={[chapterWithEta]} />);
+
+    expect(screen.getByText('500 words')).toBeInTheDocument();
+    expect(screen.getByText('3000 chars')).toBeInTheDocument();
+    expect(screen.queryByText(/runtime/i)).toBeNull();
+  });
 });

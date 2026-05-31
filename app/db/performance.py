@@ -3,7 +3,7 @@ import time
 import logging
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
-from .core import _db_lock, get_connection
+from .core import _db_lock, get_studio_connection
 
 logger = logging.getLogger(__name__)
 _STATS_RESET_KEY = "render_stats_reset_at"
@@ -21,7 +21,7 @@ def record_render_sample(
     engine: str,
     chars: int,
     segment_count: int,
-    duration_seconds: float,
+    duration_seconds: float = 0.0,
     tts_model: Optional[str] = None,
     word_count: Optional[int] = None,
     cps: Optional[float] = None,
@@ -35,16 +35,27 @@ def record_render_sample(
     audio_duration_seconds: Optional[float] = None,
     make_mp3: bool = False,
     completed_at: Optional[float] = None,
+    synthesis_duration_seconds: Optional[float] = None,
+    sample_type: Optional[str] = None,
 ):
     """
     Records a successful render sample into the database.
     Only successful terminal 'done' jobs should call this.
     """
-    if chars < 0 or duration_seconds <= 0:
+    if synthesis_duration_seconds is None or synthesis_duration_seconds <= 0:
+        raise ValueError("synthesis_duration_seconds is mandatory and must be positive")
+
+    # If duration_seconds is not provided or <= 0, fall back to synthesis duration
+    if duration_seconds <= 0.0:
+        duration_seconds = synthesis_duration_seconds
+
+    if chars < 0:
         return
 
-    if cps is None and duration_seconds > 0:
-        cps = round(chars / duration_seconds, 2)
+    inter_group_overhead_seconds = max(0.0, duration_seconds - synthesis_duration_seconds)
+
+    if cps is None and synthesis_duration_seconds > 0:
+        cps = round(chars / synthesis_duration_seconds, 2)
     if seconds_per_segment is None and duration_seconds > 0:
         seconds_per_segment = round(duration_seconds / max(1, segment_count), 2)
     if word_count is None:
@@ -54,7 +65,7 @@ def record_render_sample(
         return  # Cannot record invalid sample
 
     with _db_lock:
-        with get_connection() as conn:
+        with get_studio_connection() as conn:
             cursor = conn.cursor()
             _ensure_settings_table(cursor)
             completed_at = completed_at or time.time()
@@ -63,19 +74,22 @@ def record_render_sample(
                 INSERT INTO render_performance_samples (
                     job_id, project_id, chapter_id, engine, tts_model, speaker_profile,
                     chars, word_count, segment_count, render_group_count, started_at,
-                    completed_at, duration_seconds, cps, seconds_per_segment,
+                    completed_at, duration_seconds, synthesis_duration_seconds,
+                    inter_group_overhead_seconds, sample_type, cps, seconds_per_segment,
                     audio_duration_seconds, make_mp3
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     job_id, project_id, chapter_id, engine, _normalize_tts_model(tts_model), speaker_profile,
                     chars, max(0, int(word_count or 0)), segment_count, render_group_count, started_at,
-                    completed_at, duration_seconds, cps, seconds_per_segment,
+                    completed_at, duration_seconds, synthesis_duration_seconds,
+                    inter_group_overhead_seconds, sample_type, cps, seconds_per_segment,
                     audio_duration_seconds, 1 if make_mp3 else 0,
                 ),
             )
             conn.commit()
+
 
 
 def delete_render_samples_for_engine(engine: str) -> int:
@@ -84,9 +98,30 @@ def delete_render_samples_for_engine(engine: str) -> int:
         return 0
 
     with _db_lock:
-        with get_connection() as conn:
+        with get_studio_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM render_performance_samples WHERE engine = ?", (engine,))
+            conn.commit()
+            return max(0, int(cursor.rowcount or 0))
+
+
+def reset_engine_calibration_history(engine_id: str, model: Optional[str] = None) -> int:
+    """Delete render performance samples from studio.db for the selected scope."""
+    if not engine_id:
+        return 0
+    with _db_lock:
+        with get_studio_connection() as conn:
+            cursor = conn.cursor()
+            if model:
+                cursor.execute(
+                    "DELETE FROM render_performance_samples WHERE engine = ? AND tts_model = ?",
+                    (engine_id, _normalize_tts_model(model)),
+                )
+            else:
+                cursor.execute(
+                    "DELETE FROM render_performance_samples WHERE engine = ?",
+                    (engine_id,),
+                )
             conn.commit()
             return max(0, int(cursor.rowcount or 0))
 
@@ -115,7 +150,7 @@ def reset_render_stats() -> Dict[str, Any]:
     """Set a new baseline so future render stats start counting from now."""
     now = time.time()
     with _db_lock:
-        with get_connection() as conn:
+        with get_studio_connection() as conn:
             cursor = conn.cursor()
             _ensure_settings_table(cursor)
             cursor.execute(
@@ -142,7 +177,7 @@ def apply_performance_retention_policy():
 
     try:
         with _db_lock:
-            with get_connection() as conn:
+            with get_studio_connection() as conn:
                 cursor = conn.cursor()
 
                 # 1. Hard-delete samples older than 180 days NO MATTER WHAT
@@ -170,7 +205,7 @@ def get_render_history(limit: int = 100) -> List[Dict[str, Any]]:
     """
     try:
         with _db_lock:
-            with get_connection() as conn:
+            with get_studio_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     SELECT * FROM render_performance_samples
@@ -189,7 +224,7 @@ def get_render_stats() -> Dict[str, Any]:
     """Summarize render history for the About page and diagnostics."""
     try:
         with _db_lock:
-            with get_connection() as conn:
+            with get_studio_connection() as conn:
                 cursor = conn.cursor()
                 reset_at = _read_stats_reset_at(cursor)
                 if reset_at is None:
