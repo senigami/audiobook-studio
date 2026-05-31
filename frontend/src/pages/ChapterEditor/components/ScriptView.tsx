@@ -150,7 +150,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       .map(batch => {
         const batchSpans = batch.span_ids
           .map(spanId => spanMap.get(spanId))
-          .filter((candidate): candidate is ScriptSpan => !!candidate && renderingSpanIds.has(candidate.id));
+          .filter((candidate): candidate is ScriptSpan => !!candidate);
         const progress = renderingBatchProgressById[batch.id] ?? 0;
         const lengths = batchSpans.map(candidate => Array.from(getDisplayText(candidate)).length);
         const totalChars = lengths.reduce((sum, length) => sum + length, 0);
@@ -233,7 +233,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
 
     const batchSpans = batch.span_ids
       .map(spanId => spanMap.get(spanId))
-      .filter((candidate): candidate is ScriptSpan => !!candidate && renderingSpanIds.has(candidate.id));
+      .filter((candidate): candidate is ScriptSpan => !!candidate);
 
     const progress = clamp01(renderingBatchProgressById[batch.id] ?? 0);
 

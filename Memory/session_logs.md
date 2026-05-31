@@ -1697,3 +1697,10 @@
 - Preserved the explicit Settings verification path via `/engines/{engine_id}/verify`, which still delegates to plugin `run_test()`.
 - Added regressions proving startup discovery does not start a verification thread, pending verification blocks synthesis, and the explicit verify endpoint still runs plugin test synthesis.
 - Verified TTS server isolation/verification/API/bridge/client tests, Ruff on touched Python files, and `git diff --check`.
+
+# 2026-05-30 - ChapterEditor batch progress mapping fixed for pre-push queue path
+
+- Reproduced the pre-push hook failure in `ChapterEditor_Queue.test.tsx` and traced it to `ScriptView` distributing batch progress over only the actively rendering spans.
+- Restored batch-scoped text progress math so render-batch progress is mapped across the full batch text while `renderingSpanIds` still controls whether the batch is actively rendering.
+- Added a focused `ScriptView` regression covering the partial-active-span case and updated the queue integration fixture to declare `hasSegmentSupport: true` so it exercises the current capability-gated contract.
+- Verified focused ScriptView/ChapterEditor queue Vitest, then reran `git push` to confirm the full changed-file pre-push hook passes end to end.

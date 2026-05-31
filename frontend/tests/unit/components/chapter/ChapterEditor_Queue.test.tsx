@@ -811,6 +811,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
             total_render_weight: 8,
             completed_render_weight: 0,
             active_render_group_weight: 8,
+            hasSegmentSupport: true,
           } as any,
         ]}
         onBack={vi.fn()}
