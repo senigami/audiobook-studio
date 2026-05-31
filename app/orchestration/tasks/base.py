@@ -130,7 +130,7 @@ class StudioTask:
         return _heartbeat_ctx()
 
 
-    def get_expected_duration(self, text: str, engine_id: str) -> Optional[float]:
+    def get_expected_duration(self, text: str, engine_id: str) -> float | None:
         """Estimate the expected duration of a synthesis task based on historical metrics."""
         try:
             from app.db.state import get_performance_metrics  # noqa: PLC0415

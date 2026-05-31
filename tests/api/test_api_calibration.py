@@ -39,9 +39,11 @@ def clean_db(tmp_path):
 def test_engine_calibration_reset_endpoint(clean_db, client):
     from app.db.core import get_studio_connection
 
-    # Write a general setting to studio.db
+    # Write a general setting and derived performance cache settings to studio.db
     with get_studio_connection() as conn:
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ("general_test_setting", "preserve_me"))
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ("performance_metric:cps:engine-a", "12.5"))
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ("performance_metric:audiobook_speed_multiplier", "1.5"))
         conn.commit()
 
     # Log some samples for engine-a and engine-b
@@ -81,6 +83,12 @@ def test_engine_calibration_reset_endpoint(clean_db, client):
         assert row is not None
         val = row["value"] if hasattr(row, "keys") else row[0]
         assert val == "preserve_me"
+
+        # Assert derived cache settings are deleted
+        row_cps = conn.execute("SELECT value FROM settings WHERE key = ?", ("performance_metric:cps:engine-a",)).fetchone()
+        assert row_cps is None
+        row_speed = conn.execute("SELECT value FROM settings WHERE key = ?", ("performance_metric:audiobook_speed_multiplier",)).fetchone()
+        assert row_speed is None
 
     # Test invalid engine_id validation / SQL injection protection
     response = client.post("/api/engines/engine-a;DROP TABLE settings;/calibrate/reset")

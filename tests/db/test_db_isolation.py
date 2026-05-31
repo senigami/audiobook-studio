@@ -111,3 +111,68 @@ def test_legacy_table_cleanup(tmp_path, monkeypatch):
         cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='render_performance_samples'")
         assert cur.fetchone() is not None
 
+
+def test_legacy_table_cleanup_with_data(tmp_path, monkeypatch):
+    """
+    Ensure that data inside legacy tables (settings, render_performance_samples) in user DB
+    is migrated/backed up to studio DB instead of being silently dropped.
+    """
+    user_db = tmp_path / "test_audiobook_studio.db"
+    studio_db = tmp_path / "test_studio.db"
+    monkeypatch.setenv("DB_PATH", str(user_db))
+    monkeypatch.setenv("STUDIO_DB_PATH", str(studio_db))
+
+    # Initialize databases (creates tables in studio_db)
+    init_db()
+
+    # Manually create legacy tables with data in user DB
+    with sqlite3.connect(user_db) as conn:
+        cur = conn.cursor()
+        cur.execute("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        cur.execute("INSERT INTO settings (key, value) VALUES ('legacy_key_1', 'legacy_val_1')")
+        cur.execute("CREATE TABLE render_performance_samples (id INTEGER PRIMARY KEY, engine TEXT NOT NULL, chars INTEGER NOT NULL, segment_count INTEGER NOT NULL, duration_seconds REAL NOT NULL, synthesis_duration_seconds REAL NOT NULL, inter_group_overhead_seconds REAL NOT NULL, cps REAL NOT NULL, seconds_per_segment REAL NOT NULL, completed_at REAL NOT NULL)")
+        cur.execute("INSERT INTO render_performance_samples (engine, chars, segment_count, duration_seconds, synthesis_duration_seconds, inter_group_overhead_seconds, cps, seconds_per_segment, completed_at) VALUES ('xtts', 100, 1, 10.0, 8.0, 2.0, 12.5, 10.0, 17171717.0)")
+        conn.commit()
+
+    # Verify studio DB tables are currently empty
+    conn = get_studio_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM settings WHERE key = 'legacy_key_1'")
+        assert cur.fetchone()[0] == 0
+        cur.execute("SELECT COUNT(*) FROM render_performance_samples WHERE engine = 'xtts'")
+        assert cur.fetchone()[0] == 0
+    finally:
+        conn.close()
+
+    # Run cleanup
+    conn = get_connection()
+    try:
+        verify_and_cleanup_legacy_tables(conn)
+    finally:
+        conn.close()
+
+    # Verify they have been removed from user DB
+    with sqlite3.connect(user_db) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('settings', 'render_performance_samples')")
+        assert len(cur.fetchall()) == 0
+
+    # Verify the legacy data was migrated to studio DB
+    conn = get_studio_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT value FROM settings WHERE key = 'legacy_key_1'")
+        row = cur.fetchone()
+        assert row is not None
+        assert row[0] == 'legacy_val_1'
+
+        cur.execute("SELECT chars, duration_seconds, synthesis_duration_seconds, completed_at FROM render_performance_samples WHERE engine = 'xtts'")
+        row = cur.fetchone()
+        assert row is not None
+        assert row[0] == 100
+        assert row[1] == 10.0
+        assert row[2] == 8.0
+        assert row[3] == 17171717.0
+    finally:
+        conn.close()

@@ -177,7 +177,8 @@ def apply_performance_retention_policy():
 
     try:
         with _db_lock:
-            with get_studio_connection() as conn:
+            conn = get_studio_connection()
+            try:
                 cursor = conn.cursor()
 
                 # 1. Hard-delete samples older than 180 days NO MATTER WHAT
@@ -196,6 +197,8 @@ def apply_performance_retention_policy():
                 """, (day_30_ago,))
 
                 conn.commit()
+            finally:
+                conn.close()
     except Exception:
         logger.warning("Failed to apply performance retention policy", exc_info=True)
 

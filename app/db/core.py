@@ -73,7 +73,7 @@ def get_studio_connection():
 def verify_and_cleanup_legacy_tables(conn: sqlite3.Connection):
     """
     Safely checks if settings and render_performance_samples tables exist in audiobook_studio.db.
-    Validates that studio.db has already initialized these tables, then drops them from audiobook_studio.db.
+    Validates that studio.db has already initialized these tables, migrates any data, then drops them from audiobook_studio.db.
     """
     cursor = conn.cursor()
     # Check if legacy tables exist in the user project DB
@@ -84,12 +84,46 @@ def verify_and_cleanup_legacy_tables(conn: sqlite3.Connection):
 
     try:
         # Validate that the studio DB connection is active and contains the tables
-        with get_studio_connection() as studio_conn:
+        studio_db_path = get_studio_db_path()
+        studio_conn = get_studio_connection()
+        try:
             studio_cursor = studio_conn.cursor()
             studio_cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('settings', 'render_performance_samples');")
             studio_tables = {row[0] for row in studio_cursor.fetchall()}
+        finally:
+            studio_conn.close()
         # Only drop if the studio DB has successfully initialized these tables
         if "settings" in studio_tables and "render_performance_samples" in studio_tables:
+            cursor.execute("ATTACH DATABASE ? AS studio_db", (str(studio_db_path),))
+            try:
+                # 1. Migrate settings
+                if "settings" in existing_legacy_tables:
+                    cursor.execute("SELECT COUNT(*) FROM settings")
+                    legacy_count = cursor.fetchone()[0]
+                    if legacy_count > 0:
+                        logger.info("Migrating legacy settings to studio DB")
+                        cursor.execute("INSERT OR IGNORE INTO studio_db.settings (key, value) SELECT key, value FROM settings")
+
+                # 2. Migrate render_performance_samples
+                if "render_performance_samples" in existing_legacy_tables:
+                    cursor.execute("SELECT COUNT(*) FROM render_performance_samples")
+                    legacy_count = cursor.fetchone()[0]
+                    if legacy_count > 0:
+                        logger.info("Migrating legacy render_performance_samples to studio DB")
+                        cursor.execute("PRAGMA table_info(render_performance_samples)")
+                        legacy_cols = {col[1] for col in cursor.fetchall()}
+                        cursor.execute("PRAGMA studio_db.table_info(render_performance_samples)")
+                        studio_cols = {col[1] for col in cursor.fetchall()}
+                        common_cols = list(legacy_cols.intersection(studio_cols))
+                        if "id" in common_cols:
+                            common_cols.remove("id")
+                        if common_cols:
+                            cols_str = ", ".join(common_cols)
+                            cursor.execute(f"INSERT OR IGNORE INTO studio_db.render_performance_samples ({cols_str}) SELECT {cols_str} FROM render_performance_samples")
+                conn.commit()
+            finally:
+                cursor.execute("DETACH DATABASE studio_db")
+
             for table in existing_legacy_tables:
                 logger.info(f"Safely dropping legacy table '{table}' from project database after validation.")
                 cursor.execute(f"DROP TABLE {table};")
@@ -102,7 +136,8 @@ def init_db():
     global _db_lock
     with _db_lock:
         # 1. Initialize User/Project Database
-        with get_connection() as conn:
+        conn = get_connection()
+        try:
             cursor = conn.cursor()
 
             # Projects table
@@ -229,38 +264,40 @@ def init_db():
 
                 if needs_migration:
                     logger.info("Migrating processing_queue to remove NOT NULL constraints")
-                    with conn:
-                        cursor.execute("ALTER TABLE processing_queue RENAME TO _processing_queue_old")
-                        cursor.execute("""
-                            CREATE TABLE processing_queue (
-                                id TEXT PRIMARY KEY,
-                                project_id TEXT,
-                                chapter_id TEXT,
-                                split_part INTEGER DEFAULT 0,
-                                status TEXT DEFAULT 'queued',
-                                created_at REAL,
-                                started_at REAL,
-                                completed_at REAL,
-                                error TEXT,
-                                custom_title TEXT,
-                                engine TEXT,
-                                FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
-                                FOREIGN KEY (chapter_id) REFERENCES chapters (id) ON DELETE CASCADE
-                            )
-                        """)
-                        cursor.execute("""
-                            INSERT INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, started_at, completed_at, error, custom_title, engine)
-                            SELECT id, project_id, chapter_id, split_part, status, created_at, started_at, completed_at, NULL, custom_title, NULL
-                            FROM _processing_queue_old
-                        """)
-                        cursor.execute("DROP TABLE _processing_queue_old")
+                    cursor.execute("ALTER TABLE processing_queue RENAME TO _processing_queue_old")
+                    cursor.execute("""
+                        CREATE TABLE processing_queue (
+                            id TEXT PRIMARY KEY,
+                            project_id TEXT,
+                            chapter_id TEXT,
+                            split_part INTEGER DEFAULT 0,
+                            status TEXT DEFAULT 'queued',
+                            created_at REAL,
+                            started_at REAL,
+                            completed_at REAL,
+                            error TEXT,
+                            custom_title TEXT,
+                            engine TEXT,
+                            FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+                            FOREIGN KEY (chapter_id) REFERENCES chapters (id) ON DELETE CASCADE
+                        )
+                    """)
+                    cursor.execute("""
+                        INSERT INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, started_at, completed_at, error, custom_title, engine)
+                        SELECT id, project_id, chapter_id, split_part, status, created_at, started_at, completed_at, NULL, custom_title, NULL
+                        FROM _processing_queue_old
+                    """)
+                    cursor.execute("DROP TABLE _processing_queue_old")
             except Exception:
                 logger.warning("Failed to migrate processing_queue NULL constraints", exc_info=True)
 
             conn.commit()
+        finally:
+            conn.close()
 
         # 2. Initialize Studio Operational Database
-        with get_studio_connection() as studio_conn:
+        studio_conn = get_studio_connection()
+        try:
             studio_cursor = studio_conn.cursor()
 
             studio_cursor.execute("""
@@ -322,11 +359,16 @@ def init_db():
             add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN sample_type TEXT", "render_performance_samples.sample_type")
 
             studio_conn.commit()
+        finally:
+            studio_conn.close()
 
 
         # 3. Safe validation and clean up of legacy tables from user DB
-        with get_connection() as conn:
+        conn = get_connection()
+        try:
             verify_and_cleanup_legacy_tables(conn)
+        finally:
+            conn.close()
 
         from .performance import apply_performance_retention_policy
         apply_performance_retention_policy()
