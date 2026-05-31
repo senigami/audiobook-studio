@@ -488,3 +488,99 @@ def test_state_performance_initialization_isolation(tmp_path):
         duration_seconds=30.0,
         synthesis_duration_seconds=20.0,
     )
+
+
+# ---------------------------------------------------------------------------
+# Non-training path classification tests (C.7)
+#
+# SampleBuildTask and SampleTestTask must NOT write to render_performance_samples
+# after a successful synthesis.  The non-training classification is intentional:
+# these are short/exploratory runs that would bias CPS calibration.
+# These tests lock in that contract so accidental future metrics writes surface
+# as failures.
+# ---------------------------------------------------------------------------
+
+def test_sample_build_task_does_not_train_metrics(clean_db, tmp_path, monkeypatch):
+    """SampleBuildTask.run() must not write to render_performance_samples even
+    when synthesis succeeds."""
+    from app.orchestration.tasks.sample_build import SampleBuildTask
+
+    class _FakeBridge:
+        def synthesize(self, request):
+            wav_path = Path(request["output_path"])
+            wav_path.parent.mkdir(parents=True, exist_ok=True)
+            wav_path.write_bytes(b"RIFF\x00\x00\x00\x00WAVEfmt ")
+            return {"status": "ok", "duration_sec": 3.5}
+
+        def cancel(self, task_id):
+            pass
+
+    # Imports in run() are local, so patch at the source module.
+    monkeypatch.setattr("app.engines.bridge.create_voice_bridge", lambda: _FakeBridge())
+
+    def _fake_wav_to_mp3(src, dst):
+        dst.write_bytes(b"\xff\xfb")
+        return 0
+
+    monkeypatch.setattr("app.engines.audio_ops.wav_to_mp3", _fake_wav_to_mp3)
+    monkeypatch.setattr("app.db.speakers.update_speaker_settings", lambda *args, **kwargs: None)
+
+    output_path = tmp_path / "speaker" / "preview.mp3"
+    task = SampleBuildTask(
+        task_id="sample-build-nontrain",
+        speaker_profile="test-speaker",
+        engine_id="xtts",
+        output_path=output_path,
+        test_text="Hello world, this is a sample build test.",
+    )
+    result = task.run()
+    assert result.status == "completed", f"Expected completed, got: {result}"
+
+    history = get_render_history()
+    assert len(history) == 0, (
+        "SampleBuildTask must not write to render_performance_samples; "
+        f"found {len(history)} unexpected sample(s)."
+    )
+
+
+def test_sample_test_task_does_not_train_metrics(clean_db, tmp_path, monkeypatch):
+    """SampleTestTask.run() must not write to render_performance_samples even
+    when synthesis succeeds."""
+    from app.orchestration.tasks.sample_test import SampleTestTask
+
+    class _FakeBridge:
+        def synthesize(self, request):
+            wav_path = Path(request["output_path"])
+            wav_path.parent.mkdir(parents=True, exist_ok=True)
+            wav_path.write_bytes(b"RIFF\x00\x00\x00\x00WAVEfmt ")
+            return {"status": "ok", "duration_sec": 2.1}
+
+        def cancel(self, task_id):
+            pass
+
+    # Imports in run() are local, so patch at the source module.
+    monkeypatch.setattr("app.engines.bridge.create_voice_bridge", lambda: _FakeBridge())
+
+    def _fake_wav_to_mp3(src, dst):
+        dst.write_bytes(b"\xff\xfb")
+        return 0
+
+    monkeypatch.setattr("app.engines.audio_ops.wav_to_mp3", _fake_wav_to_mp3)
+    monkeypatch.setattr("app.db.speakers.update_speaker_settings", lambda *args, **kwargs: None)
+
+    output_path = tmp_path / "speaker" / "preview_test.mp3"
+    task = SampleTestTask(
+        task_id="sample-test-nontrain",
+        speaker_profile="test-speaker",
+        engine_id="xtts",
+        output_path=output_path,
+        test_text="Hello world, this is a voice preview test.",
+    )
+    result = task.run()
+    assert result.status == "completed", f"Expected completed, got: {result}"
+
+    history = get_render_history()
+    assert len(history) == 0, (
+        "SampleTestTask must not write to render_performance_samples; "
+        f"found {len(history)} unexpected sample(s)."
+    )

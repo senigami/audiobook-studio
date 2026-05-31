@@ -1,8 +1,6 @@
 # ETA & Performance Overhaul Execution Checklist (Final)
 
-Status: Correction Gate Completed & Verified.
-
-All Correction Gate verification checks pass successfully. Slices 1-5 have been audited and corrected.
+Status: Correction Gate Verified (C.4 and C.7 wording corrected; C.7 non-training regression tests added and passing).
 
 This checklist defines the stepwise, verifiable implementation workflow for replacing the Audiobook Studio ETA and performance metrics system.
 
@@ -42,11 +40,17 @@ This checklist defines the stepwise, verifiable implementation workflow for repl
 - [x] Update `frontend/tests/unit/components/project/ChapterList.test.tsx` so tests reject `predicted_audio_length`-driven runtime display.
 - [x] Search for remaining active UI/runtime uses of `predicted_audio_length` and either remove them or explicitly classify them as non-ETA legacy/import metadata.
 
-### C.4 Calibration Reset Must Not Clear General Settings
-- [x] Update `app/api/routers/engines.py` so `POST /api/engines/{engine_id}/calibrate/reset` deletes calibration samples only.
-- [x] Remove `clear_engine_computer_speed_multiplier(engine_id)` from calibration reset behavior.
-- [x] Add or adjust `tests/api/test_api_calibration.py` to prove calibration reset does not remove or mutate `settings` rows or plugin settings.
-- [x] Keep any full settings-reset behavior as a separate explicit action, not part of calibration reset.
+### C.4 Calibration Reset Contract
+- [x] `POST /api/engines/{engine_id}/calibrate/reset` deletes:
+  - [x] All `render_performance_samples` rows for the given `engine_id` (and optional `model`) from `studio.db`.
+  - [x] Derived calibration cache settings rows: `performance_metric:cps:{engine_id}` and `performance_metric:audiobook_speed_multiplier` from the `settings` table in `studio.db`.
+- [x] It does **not** delete general configuration settings or plugin settings (e.g. `general_test_setting` is preserved).
+- [x] `clear_engine_computer_speed_multiplier(engine_id)` has been removed from calibration reset. Derived cache clearing is done via `clear_engine_cps_cache()` which targets only `performance_metric:*` keys.
+- [x] `tests/api/test_api_calibration.py::test_engine_calibration_reset_endpoint` proves:
+  - [x] General settings rows survive.
+  - [x] `performance_metric:cps:{engine_id}` is deleted.
+  - [x] `performance_metric:audiobook_speed_multiplier` is deleted.
+  - [x] Only the target engine's render samples are deleted; other engines' samples survive.
 
 ### C.5 Remove Active `computer_speed_multiplier` ETA Coupling
 - [x] Stop writing `computer_speed_multiplier` from `app/jobs/worker_metrics.py` as part of ETA calibration.
@@ -59,15 +63,24 @@ This checklist defines the stepwise, verifiable implementation workflow for repl
 - [x] Add or update a contract test proving `jobs.lifecycle` preserves finalizing semantics unless there is an explicit product decision to hide it.
 - [x] Do not bundle lifecycle semantic changes into the ETA cleanup unless the test and product reason are explicit.
 
-### C.7 Verify All Synthesis Success Paths Actually Carry Timing Metadata
-- [x] Complete the Slice 2 audit with concrete file/function names for every successful synthesis path.
-- [x] For each path, prove a successful run provides non-null `synthesis_duration_seconds` to the metrics writer:
-  - [x] standard chapter render
-  - [x] XTTS segment/chunk render
-  - [x] mixed synthesis render
-  - [x] engine verification
-  - [x] voice test / preview render
-- [x] Add tests that fail if any audited path silently skips metrics because timing metadata is missing.
+### C.7 Synthesis Path Metrics Coverage — Truthful Classification
+
+Audit complete. Paths are classified as **training** (records to `render_performance_samples`) or **non-training** (intentionally excluded to avoid contaminating calibration with synthetic/exploratory data).
+
+| Path | Classification | Metrics Entry Point | Rationale |
+|------|---------------|---------------------|-----------|
+| Standard chapter render | **Training** | `orchestrator_helpers.py:record_render_stats_if_completed()` → `record_render_sample()` | Full production render via job orchestrator. Timing from `synthesis_duration_seconds` persisted on the job row. |
+| XTTS segment/chunk render | **Training** | `plugins/tts_xtts/plugin/studio/adapter.py:xtts_dispatch_adapter()` → `record_engine_sample()` | Production segment render inside orchestrated chapter job. |
+| Mixed synthesis render | **Training** | `plugins/synthesis_mixed/handler.py:mixed_handler()` → `record_engine_sample()` | Production segment render inside orchestrated chapter job. |
+| Engine verification (`/api/engines/{id}/verify`) | **Non-training** | None — `bridge.verify_engine()` has no metrics path | Short dummy render; including it would bias CPS metrics downward. |
+| Engine self-test (`/api/engines/{id}/test`) | **Non-training** | None — `bridge.run_test()` has no metrics path | Synthetic verification render; same contamination risk as verify. |
+| Voice sample build (`SampleBuildTask`) | **Non-training** | None — `bridge.synthesize()` result is not forwarded to `record_render_sample()` | Creative/exploratory short renders with non-production text. |
+| Voice preview/test render (`SampleTestTask`) | **Non-training** | None — `bridge.synthesize()` result is not forwarded to `record_render_sample()` | One-off preview runs; non-representative of production chapter workload. |
+
+- [x] Training paths are verified to pass `synthesis_duration_seconds` to the metrics writer (see C.1 and Slice 2 tests).
+- [x] Non-training paths are explicitly classified as excluded — no silent skipping, intentional design decision.
+- [x] `tests/db/test_performance_metrics_storage.py` covers the contract: missing or zero `synthesis_duration_seconds` is rejected; valid samples are stored with correct `inter_group_overhead_seconds` partitioning.
+- [x] **Gap resolved**: `tests/db/test_performance_metrics_storage.py::test_sample_build_task_does_not_train_metrics` and `test_sample_test_task_does_not_train_metrics` assert that these paths do **not** write to `render_performance_samples` after a successful synthesis. Tests pass (2 passed).
 
 ### C.8 Working Tree Hygiene
 - [x] Remove untracked runtime DB artifacts such as `studio.db` before checkpointing.
