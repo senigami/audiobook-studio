@@ -391,4 +391,44 @@ describe('HydrationCoordinator', () => {
     expect(merged[0].eta_seconds).toBeUndefined();
     expect(merged[0].eta_updated_at).toBeUndefined();
   });
+
+  it('overlay confidence is preserved into a built overlay queue item', () => {
+    const snapshot = coordinator.createSnapshot([]);
+    const overlays: LiveOverlayState = {
+      eventsById: {
+        'job-new-overlay': {
+          project_id: 'proj-1',
+          chapter_id: 'chap-1',
+          classification: 'chapter',
+          status: 'running',
+          progress: 0.1,
+          updated_at: 1000,
+          confidence: 0.85,
+        }
+      }
+    };
+
+    const merged = coordinator.mergeQueueWithOverlays(snapshot, overlays);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].confidence).toBe(0.85);
+  });
+
+  it('merged queue item receives delta.confidence when overlay is newer', () => {
+    const snapshot = coordinator.createSnapshot([
+      { id: 'job-existing', status: 'running', progress: 0.1, confidence: 0.5 } as any
+    ]);
+    const overlays: LiveOverlayState = {
+      eventsById: {
+        'job-existing': {
+          status: 'running',
+          progress: 0.2,
+          updated_at: 1010,
+          confidence: 0.92,
+        }
+      }
+    };
+
+    const merged = coordinator.mergeQueueWithOverlays(snapshot, overlays);
+    expect(merged[0].confidence).toBe(0.92);
+  });
 });

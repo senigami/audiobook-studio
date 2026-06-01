@@ -1574,4 +1574,29 @@ describe('useJobs', () => {
 
     expect(result.current.jobs['job-seg-scoped'].eta_seconds).toBe(15); // Suppressed/preserved segment ETA
   });
+
+  it('useJobs: preserves and propagates job confidence', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({
+      type: 'jobs_snapshot',
+      jobs: [{
+        id: 'job-conf',
+        status: 'running',
+        progress: 0.2,
+        classification: 'chapter',
+        confidence: 0.85,
+      } as any],
+    });
+
+    expect(result.current.jobs['job-conf'].confidence).toBe(0.85);
+
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.3,
+      etaSeconds: 30,
+      confidence: 0.62,
+    }, { jobId: 'job-conf', chapterId: 'chap-1' });
+
+    expect(result.current.jobs['job-conf'].confidence).toBe(0.62);
+  });
 });

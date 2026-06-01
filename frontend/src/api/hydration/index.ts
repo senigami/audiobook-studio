@@ -90,6 +90,7 @@ function buildOverlayQueueItem(jobId: string, delta: OverlayDelta): ProcessingQu
     chapter_audio_file_path: null,
     updated_at: delta.updated_at ?? undefined,
     eta_updated_at: hasPositiveEta ? (delta.eta_updated_at ?? undefined) : undefined,
+    confidence: delta.confidence ?? undefined,
     error: delta.error ?? delta.message ?? undefined,
     render_group_count: undefined,
     completed_render_groups: undefined,
@@ -244,6 +245,7 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
         grouped_progress: isOverlayNewer ? (delta.grouped_progress !== undefined ? delta.grouped_progress ?? undefined : item.grouped_progress) : item.grouped_progress,
         active_segment_id: isOverlayNewer ? (delta.active_segment_id !== undefined ? delta.active_segment_id ?? undefined : item.active_segment_id) : item.active_segment_id,
         active_segment_progress: isOverlayNewer ? (delta.active_segment_progress !== undefined ? delta.active_segment_progress ?? undefined : item.active_segment_progress) : item.active_segment_progress,
+        confidence: isOverlayNewer ? (delta.confidence !== undefined ? delta.confidence ?? undefined : item.confidence) : item.confidence,
       };
 
       // Apply Finalizing Hold heuristic

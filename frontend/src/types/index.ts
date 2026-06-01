@@ -199,6 +199,7 @@ export interface ProcessingQueueItem {
   chapter_audio_file_path?: string | null;
   updated_at?: number;
   eta_updated_at?: number;
+  confidence?: number;
   render_group_count?: number;
   completed_render_groups?: number;
   active_render_group_index?: number;
@@ -267,6 +268,7 @@ export interface Job {
   estimated_end_at?: number;
   eta_basis?: 'remaining_from_update' | 'total_from_start';
   eta_confidence?: 'estimating' | 'stable' | 'recomputing';
+  confidence?: number;
   log?: string;
   error?: string;
   reason_code?: string;

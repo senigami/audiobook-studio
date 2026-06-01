@@ -833,4 +833,24 @@ describe('ChapterHeader', () => {
     expect(capturedStatus.segmentProgressBarSelection.selectedEtaSeconds).not.toBe(120);
     expect(capturedStatus.segmentProgressBarSelection.selectedEtaBasis).toBe('segment_remaining');
   });
+
+  it('ChapterHeader: uses canonical confidence from the job/event path', () => {
+    let capturedStatus: any = null;
+    const TestComponent = ({ generatingJob }: any) => {
+      capturedStatus = useChapterStatus(mockChapter as any, undefined, generatingJob, false, 0, false);
+      return null;
+    };
+
+    const jobWithCanonicalConfidence = {
+      id: 'job-canonical-conf',
+      status: 'running',
+      progress: 0.5,
+      confidence: 0.88,
+      hasSegmentSupport: true,
+    };
+
+    render(<TestComponent generatingJob={jobWithCanonicalConfidence as any} />);
+
+    expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBe(0.88);
+  });
 });

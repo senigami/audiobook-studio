@@ -41,6 +41,7 @@ export interface StudioJobEvent {
   eta_confidence?: StudioEtaConfidence;
   eta_updated_at?: number | null;
   etaUpdatedAt?: number | null;
+  confidence?: number | null;
   message?: string | null;
   reason_code?: string | null;
   updated_at?: number | null;

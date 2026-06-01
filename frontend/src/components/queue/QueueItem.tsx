@@ -218,6 +218,9 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const etaSourceReason = etaSource === 'liveJob'
         ? (preferLiveEta ? 'positive_live_job_eta' : 'live_job_eta_fallback')
         : (etaSource === 'job' ? 'job_eta' : 'default_fallback');
+    const selectedEvidenceWeightFraction = etaSource === 'liveJob'
+        ? (liveJob?.confidence ?? job.confidence ?? 1.0)
+        : (job.confidence ?? liveJob?.confidence ?? 1.0);
 
     const isActive = ['running', 'processing', 'finalizing'].includes(displayStatus);
     const liveJobSourceTopic = (liveJob as any)?.source_topic;
@@ -237,6 +240,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
             eta_seconds: liveJob?.eta_seconds,
             eta_updated_at: liveJob?.eta_updated_at,
             updated_at: liveJob?.updated_at,
+            confidence: liveJob?.confidence,
             eta_basis: liveJob?.eta_basis,
             estimated_end_at: liveJob?.estimated_end_at,
             status: liveJob?.status,
@@ -246,6 +250,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
             eta_seconds: job.eta_seconds,
             eta_updated_at: job.eta_updated_at,
             updated_at: job.updated_at,
+            confidence: job.confidence,
             eta_basis: job.eta_basis,
             estimated_end_at: job.estimated_end_at,
             status: job.status,
@@ -265,6 +270,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         liveJob?.eta_seconds,
         liveJob?.eta_updated_at,
         liveJob?.updated_at,
+        liveJob?.confidence,
         liveJob?.eta_basis,
         liveJob?.estimated_end_at,
         liveJob?.status,
@@ -272,6 +278,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         job.eta_seconds,
         job.eta_updated_at,
         job.updated_at,
+        job.confidence,
         job.eta_basis,
         job.estimated_end_at,
         job.status,
@@ -348,7 +355,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                 : (job.render_group_count || liveJob?.render_group_count)
                 ? 'queue'
                 : 'default',
-            evidenceWeightFraction: 1,
+            evidenceWeightFraction: selectedEvidenceWeightFraction,
             transitionTickCount: (job.segment_ids?.length || liveJob?.segment_ids?.length || activeSegmentId)
                 ? 3
                 : (job.render_group_count || liveJob?.render_group_count)
@@ -405,7 +412,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         rawStarted, stableStarted, started, rawEtaSeconds, stableEta, derivedEtaSeconds,
         derivedEtaBasis, etaBasis, updatedAt, derivedUpdatedAt, estimatedEndAt, derivedEstimatedEndAt,
         activeSegmentId, stableUpdatedAt, stableEtaBasis, etaSource, etaSourcePath, etaSourceReason,
-        etaSelectionDebug,
+        etaSelectionDebug, selectedEvidenceWeightFraction,
     ]);
 
     React.useEffect(() => {
@@ -424,13 +431,14 @@ export const QueueItem: React.FC<QueueItemProps> = ({
             progress,
             displayStatus,
             etaReason: etaSourceReason,
+            evidenceWeightFraction: selectedEvidenceWeightFraction,
             etaSelectionDebug,
         });
     }, [
         job.id, job.eta_seconds, liveJob?.eta_seconds, rawEtaSeconds, stableEta,
         derivedEtaSeconds, estimatedEndAt, derivedEstimatedEndAt, derivedUpdatedAt,
         derivedEtaBasis, etaBasis, status, progress, displayStatus, isTrulyActive, etaSourceReason,
-        etaSelectionDebug
+        etaSelectionDebug, selectedEvidenceWeightFraction
     ]);
 
     return (
@@ -531,7 +539,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                             ? 'queue'
                             : 'default'
                     }
-                    evidenceWeightFraction={1}
+                    evidenceWeightFraction={selectedEvidenceWeightFraction}
                     transitionTickCount={
                         (job.segment_ids?.length || liveJob?.segment_ids?.length || activeSegmentId)
                             ? 3

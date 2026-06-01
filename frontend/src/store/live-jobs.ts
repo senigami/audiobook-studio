@@ -20,6 +20,7 @@ export interface OverlayDelta {
   updated_at?: number | null;
   estimated_end_at?: number | null;
   eta_updated_at?: number | null;
+  confidence?: number | null;
   eta_basis?: 'remaining_from_update' | 'total_from_start' | null;
   active_render_batch_id?: string | null;
   active_render_batch_progress?: number | null;
@@ -192,8 +193,14 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     if (isTerminal) {
       nextDelta.estimated_end_at = null;
       nextDelta.eta_basis = null;
+      nextDelta.confidence = null;
     } else {
       if (typeof event.estimated_end_at === 'number') nextDelta.estimated_end_at = event.estimated_end_at;
+      if (typeof event.confidence === 'number') {
+        nextDelta.confidence = event.confidence;
+      } else if (existing?.confidence !== undefined) {
+        nextDelta.confidence = existing.confidence;
+      }
       // Explicitly default eta_basis to 'remaining_from_update' for StudioJobEvents
       // as per Backend Progress Service documentation, unless specified otherwise.
       nextDelta.eta_basis = event.eta_basis ?? 'remaining_from_update';
@@ -307,6 +314,7 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       reason_code: jobUpdated.reason_code,
       eta_updated_at: typeof jobUpdated.eta_updated_at === 'number' ? jobUpdated.eta_updated_at : (typeof jobUpdated.etaUpdatedAt === 'number' ? jobUpdated.etaUpdatedAt : undefined),
       etaUpdatedAt: typeof jobUpdated.etaUpdatedAt === 'number' ? jobUpdated.etaUpdatedAt : (typeof jobUpdated.eta_updated_at === 'number' ? jobUpdated.eta_updated_at : undefined),
+      confidence: typeof jobUpdated.confidence === 'number' ? jobUpdated.confidence : undefined,
     };
 
     applyEvent(event);

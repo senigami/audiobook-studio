@@ -189,7 +189,9 @@ export const useChapterStatus = (
     liveSegmentProgressJob?.reason_code === 'START_SEGMENT' ||
     liveSegmentProgressJob?.reason_code === 'START_SYNTHESIS'
   ) && progressVal === 0;
-  const evidenceWeightFraction = isSegmentStartAtZero ? 1.0 : coverageRatio * clamp01(progressVal);
+  const evidenceWeightFraction = typeof liveSegmentProgressJob?.confidence === 'number'
+    ? liveSegmentProgressJob.confidence
+    : (isSegmentStartAtZero ? 1.0 : coverageRatio * clamp01(progressVal));
   const selectedEtaSource = !liveSegmentProgressJob
     ? 'none'
     : hasActiveSegment

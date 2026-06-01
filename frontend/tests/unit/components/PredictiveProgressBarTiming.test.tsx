@@ -206,4 +206,79 @@ describe('PredictiveProgressBar - Timing', () => {
         expect(screen.getByText(/ETA: 0:30/i)).toBeTruthy()
         vi.restoreAllMocks()
     })
+
+    it('applies confidence to ETA migration using evidenceWeightFraction', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(100_000)
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0.5}
+                startedAt={50}
+                etaSeconds={100}
+                status="running"
+                transitionTickCount={4}
+                tickMs={250}
+                evidenceWeightFraction={0.10}
+            />
+        )
+
+        const beforeS = parseTime(screen.getByText(/ETA:/).textContent)
+        expect(beforeS).toBe(50)
+
+        rerender(
+            <PredictiveProgressBar
+                progress={0.5}
+                startedAt={50}
+                etaSeconds={200}
+                status="running"
+                transitionTickCount={4}
+                tickMs={250}
+                evidenceWeightFraction={0.10}
+            />
+        )
+
+        act(() => {
+            vi.advanceTimersByTime(1000)
+        })
+
+        const settledS = parseTime(screen.getByText(/ETA:/).textContent)
+        expect(settledS).toBeCloseTo(59, 0)
+        vi.useRealTimers()
+    })
+
+    it('preserves authoritative behavior when evidenceWeightFraction=1.0', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(100_000)
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0.5}
+                startedAt={50}
+                etaSeconds={100}
+                status="running"
+                transitionTickCount={4}
+                tickMs={250}
+                evidenceWeightFraction={1.0}
+            />
+        )
+
+        rerender(
+            <PredictiveProgressBar
+                progress={0.5}
+                startedAt={50}
+                etaSeconds={200}
+                status="running"
+                transitionTickCount={4}
+                tickMs={250}
+                evidenceWeightFraction={1.0}
+            />
+        )
+
+        act(() => {
+            vi.advanceTimersByTime(1000)
+        })
+
+        const settledS = parseTime(screen.getByText(/ETA:/).textContent)
+        expect(settledS).toBeCloseTo(149, 0)
+        vi.useRealTimers()
+    })
 })

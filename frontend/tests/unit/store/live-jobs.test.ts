@@ -379,4 +379,28 @@ describe('LiveJobsStore', () => {
     expect(store.getState().eventsById['job1'].eta_seconds).toBe(45);
     expect(store.getState().eventsById['job1'].eta_updated_at).toBe(1000); // Preserved!
   });
+
+  it('preserves confidence from studio_job_event updates and applyJobUpdated', () => {
+    const store = createLiveJobsStore();
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      progress: 0.5,
+      updated_at: 1000,
+      scope: 'job',
+      confidence: 0.78
+    } as any);
+
+    expect(store.getState().eventsById['job1'].confidence).toBe(0.78);
+
+    store.applyJobUpdated('job1', {
+      status: 'running',
+      progress: 0.6,
+      updated_at: 1100,
+      confidence: 0.42
+    });
+
+    expect(store.getState().eventsById['job1'].confidence).toBe(0.42);
+  });
 });

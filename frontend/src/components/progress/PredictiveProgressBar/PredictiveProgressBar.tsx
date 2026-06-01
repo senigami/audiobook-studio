@@ -257,6 +257,11 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             targetProgress = Math.max(currentVisual, getRememberedProgress(memoryKey), weightedTargetProgress);
         }
 
+        let targetEndAtMs = nextEndAtMs;
+        if (activeCurrentEndAtMs !== null && nextEndAtMs !== null) {
+            targetEndAtMs = activeCurrentEndAtMs + ((nextEndAtMs - activeCurrentEndAtMs) * confidence);
+        }
+
         const isBackwardMigration = effectiveAllowBackward && targetProgress < currentVisual - 0.001;
         const activeTransitionTickCount = isBackwardMigration ? backwardTransitionTickCount : transitionTickCount;
 
@@ -278,7 +283,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             const desiredLane: ProgressLane = {
                 startedAtMs: nowMs,
                 startProgress: targetProgress,
-                endAtMs: nextEndAtMs,
+                endAtMs: targetEndAtMs,
             };
             const newMigration: LaneMigration = {
                 startedAtMs: nowMs,

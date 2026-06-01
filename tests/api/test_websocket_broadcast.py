@@ -1656,3 +1656,49 @@ def test_terminal_status_clears_eta_seconds_and_eta_updated_at(monkeypatch):
     assert event["payload"].get("eta_seconds") is None
     assert event["payload"].get("etaUpdatedAt") is None
     assert event["payload"].get("eta_updated_at") is None
+
+
+def test_broadcast_event_payload_emits_camelcase_only(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-camel-test",
+        {"progress": 0.5, "eta_seconds": 30, "eta_updated_at": 1000},
+        {"status": "running", "progress": 0.5, "eta_seconds": 30, "eta_updated_at": 1000, "classification": "chapter"},
+    )
+
+    assert len(messages) == 1
+    payload = messages[0]["payload"]
+    
+    assert "etaSeconds" in payload
+    assert "etaUpdatedAt" in payload
+    assert "eta_seconds" not in payload
+    assert "eta_updated_at" not in payload
+    assert "grouped_progress" not in payload
+    assert "reason_code" not in payload
+    assert "render_group_count" not in payload
+    assert "completed_render_groups" not in payload
+
+
+def test_broadcast_event_payload_includes_confidence_in_camelcase(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-confidence-test",
+        {"progress": 0.5, "eta_seconds": 30, "eta_updated_at": 1000},
+        {"status": "running", "progress": 0.5, "eta_seconds": 30, "eta_updated_at": 1000, "classification": "chapter"},
+    )
+
+    assert len(messages) == 1
+    payload = messages[0]["payload"]
+    assert "confidence" in payload
+    assert isinstance(payload["confidence"], (int, float))
+

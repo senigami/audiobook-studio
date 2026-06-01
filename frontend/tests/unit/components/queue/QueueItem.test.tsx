@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueueItem } from '@/components/queue/QueueItem';
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
@@ -10,13 +10,15 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
     label,
     dataTestId,
     updatedAt,
-    etaSeconds
+    etaSeconds,
+    evidenceWeightFraction
   }: any) => (
     <div
       data-testid={dataTestId || "progress-bar"}
       data-progress={progress}
       data-updatedat={updatedAt}
       data-etaseconds={etaSeconds}
+      data-confidence={evidenceWeightFraction}
     >
       {label}
     </div>
@@ -246,5 +248,131 @@ describe('QueueItem Stable ETA TDD', () => {
     const progressBar = screen.getByTestId('queue-item-progress-bar');
     expect(progressBar.getAttribute('data-etaseconds')).toBe('40');
     expect(progressBar.getAttribute('data-updatedat')).toBe('2000');
+  });
+
+  it('QueueItem: propagates confidence correctly', () => {
+    render(
+      <QueueItem
+        {...defaultProps}
+        job={{
+          ...defaultProps.job,
+          confidence: 0.35,
+        }}
+      />
+    );
+
+    const progressBar = screen.getByTestId('queue-item-progress-bar');
+    expect(progressBar.getAttribute('data-confidence')).toBe('0.35');
+  });
+
+  it('QueueItem: preserves START_SEGMENT progress 0 with confidence 1.0', () => {
+    render(
+      <QueueItem
+        {...defaultProps}
+        job={{
+          ...defaultProps.job,
+          reason_code: 'segment_start',
+          progress: 0,
+          confidence: 1.0,
+        }}
+      />
+    );
+
+    const progressBar = screen.getByTestId('queue-item-progress-bar');
+    expect(progressBar.getAttribute('data-confidence')).toBe('1');
+  });
+
+  it('QueueItem: uses job confidence when etaSource resolves to job', () => {
+    render(
+      <QueueItem
+        {...defaultProps}
+        job={{
+          ...defaultProps.job,
+          eta_seconds: 40,
+          eta_updated_at: 2000,
+          updated_at: 2000,
+          confidence: 0.22,
+        }}
+        liveJob={{
+          id: 'job-1',
+          status: 'running',
+          eta_seconds: 30,
+          eta_updated_at: 1000,
+          updated_at: 1000,
+          started_at: 1000,
+          confidence: 0.99,
+        } as any}
+      />
+    );
+
+    const progressBar = screen.getByTestId('queue-item-progress-bar');
+    expect(progressBar.getAttribute('data-confidence')).toBe('0.22');
+  });
+
+  it('QueueItem: uses liveJob confidence when etaSource resolves to liveJob', () => {
+    render(
+      <QueueItem
+        {...defaultProps}
+        job={{
+          ...defaultProps.job,
+          eta_seconds: 40,
+          eta_updated_at: 1000,
+          updated_at: 1000,
+          confidence: 0.22,
+        }}
+        liveJob={{
+          id: 'job-1',
+          status: 'running',
+          eta_seconds: 30,
+          eta_updated_at: 2000,
+          updated_at: 2000,
+          started_at: 1000,
+          confidence: 0.99,
+        } as any}
+      />
+    );
+
+    const progressBar = screen.getByTestId('queue-item-progress-bar');
+    expect(progressBar.getAttribute('data-confidence')).toBe('0.99');
+  });
+
+  it('QueueItem debug copy includes selected confidence and the real evidenceWeightFraction', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, {
+      clipboard: { writeText },
+    });
+
+    render(
+      <QueueItem
+        {...defaultProps}
+        job={{
+          ...defaultProps.job,
+          eta_seconds: 40,
+          eta_updated_at: 2000,
+          updated_at: 2000,
+          confidence: 0.22,
+        }}
+        liveJob={{
+          id: 'job-1',
+          status: 'running',
+          eta_seconds: 30,
+          eta_updated_at: 1000,
+          updated_at: 1000,
+          started_at: 1000,
+          confidence: 0.99,
+        } as any}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('debug-copy-btn-job-1'));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const payload = JSON.parse(writeText.mock.calls[0][0]);
+
+    expect(payload.evidenceWeightFraction).toBe(0.22);
+    expect(payload.job.confidence).toBe(0.22);
+    expect(payload.liveJob.confidence).toBe(0.99);
+    expect(payload.etaSelectionDebug.job.confidence).toBe(0.22);
+    expect(payload.etaSelectionDebug.liveJob.confidence).toBe(0.99);
   });
 });

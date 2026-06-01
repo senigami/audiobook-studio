@@ -86,6 +86,7 @@ export const adaptEventToJobUpdates = (event: any) => {
         : undefined),
     estimated_end_at: getPayloadValue(payload, 'estimatedEndAt', 'estimated_end_at'),
     eta_updated_at: getPayloadValue(payload, 'etaUpdatedAt', 'eta_updated_at'),
+    confidence: getPayloadValue(payload, 'confidence', 'confidence'),
     reason_code: rCode,
     render_group_count: getPayloadValue(payload, 'renderGroupCount', 'render_group_count'),
     completed_render_groups: getPayloadValue(payload, 'completedRenderGroups', 'completed_render_groups'),
