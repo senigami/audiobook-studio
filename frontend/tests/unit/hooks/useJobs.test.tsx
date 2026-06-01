@@ -1,6 +1,7 @@
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useJobs, resetGlobalSegmentProgressUpdates } from '@/hooks/useJobs';
+import { adaptEventToJobUpdates } from '@/utils/jobEventAdapters';
 import {
   publishStudioSocketMessage,
   resetStudioSocketBusForTests,
@@ -1598,5 +1599,67 @@ describe('useJobs', () => {
     }, { jobId: 'job-conf', chapterId: 'chap-1' });
 
     expect(result.current.jobs['job-conf'].confidence).toBe(0.62);
+  });
+
+  it('useJobs debug/provenance test: confidence and etaUpdatedAt are not reported under ignoredFields when present in segments.progress', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-provenance-test', status: 'running', progress: 0 }] });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-xyz', jobId: 'job-provenance-test', chapterId: 'chap-1', projectId: 'proj-1' },
+        payload: {
+          status: 'running',
+          progress: 0.85,
+          etaSeconds: 30,
+          etaUpdatedAt: 2000,
+          confidence: 0.95,
+          segmentIndex: 2,
+          segmentCount: 5,
+        },
+      });
+    });
+
+    const job = result.current.jobs['job-provenance-test'];
+    expect(job?.segmentProgressSocketProvenance).toBeDefined();
+    const ignored = job.segmentProgressSocketProvenance.ignoredFields;
+    expect(ignored).not.toContain('confidence');
+    expect(ignored).not.toContain('etaUpdatedAt');
+    expect(ignored).not.toContain('eta_updated_at');
+    expect(ignored).not.toContain('segmentIndex');
+    expect(ignored).not.toContain('segmentCount');
+  });
+
+  it('Frontend adapter test: canonical camelCase payloads are consumed correctly without relying on duplicate snake_case fields', () => {
+    const mockEvent = {
+      topic: 'chapters.progress',
+      jobId: 'job-123',
+      projectId: 'proj-456',
+      chapterId: 'chap-789',
+      payload: {
+        status: 'running',
+        progress: 0.77,
+        groupedProgress: 0.6,
+        etaSeconds: 45,
+        etaUpdatedAt: 1500,
+        confidence: 0.92,
+        renderGroupCount: 8,
+        completedRenderGroups: 4,
+        hasSegmentSupport: true,
+      },
+    };
+    const updates = adaptEventToJobUpdates(mockEvent);
+    expect(updates.progress).toBe(0.77);
+    expect(updates.grouped_progress).toBe(0.6);
+    expect(updates.eta_seconds).toBe(45);
+    expect(updates.eta_updated_at).toBe(1500);
+    expect(updates.confidence).toBe(0.92);
+    expect(updates.render_group_count).toBe(8);
+    expect(updates.completed_render_groups).toBe(4);
+    expect(updates.has_segment_support).toBe(true);
   });
 });

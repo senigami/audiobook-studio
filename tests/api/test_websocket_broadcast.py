@@ -159,7 +159,6 @@ def test_broadcast_tts_log_line_sends_canonical_envelope(monkeypatch):
         "chapterId": "chap-1",
         "source": "tests.api.test_websocket_broadcast.test_broadcast_tts_log_line_sends_canonical_envelope",
         "marker": "PROGRESS",
-        "received_at": 123.45,
         "backendReceivedAt": 123.45
     }
 
@@ -217,7 +216,6 @@ def test_broadcast_queue_update_sends_canonical_envelope(monkeypatch):
     assert event["payload"] == {
         "reasonCode": "QUEUE_INVALIDATED",
         "changedFields": ["status"],
-        "changed_fields": ["status"]  # Legacy compatibility
     }
     assert event["source"].endswith("test_broadcast_queue_update_sends_canonical_envelope")
 
@@ -253,9 +251,7 @@ def test_broadcast_segments_updated_sends_canonical_envelope(monkeypatch):
     assert "reason" not in event["payload"]
     assert event["payload"] == {
         "reasonCode": "segments_rebuilt",
-        "reason_code": "segments_rebuilt",  # Legacy compatibility
         "changedFields": ["audio_status"],
-        "changed_fields": ["audio_status"]  # Legacy compatibility
     }
     assert event["source"].endswith("test_broadcast_segments_updated_sends_canonical_envelope")
 
@@ -291,9 +287,7 @@ def test_broadcast_chapter_updated_sends_canonical_envelope(monkeypatch):
     assert "reason" not in event["payload"]
     assert event["payload"] == {
         "reasonCode": "chapter_metadata_change",
-        "reason_code": "chapter_metadata_change",  # Legacy compatibility
         "changedFields": ["title"],
-        "changed_fields": ["title"]  # Legacy compatibility
     }
     assert event["source"].endswith("test_broadcast_chapter_updated_sends_canonical_envelope")
 
@@ -328,9 +322,7 @@ def test_broadcast_project_updated_sends_canonical_envelope(monkeypatch):
     assert "reason" not in event["payload"]
     assert event["payload"] == {
         "reasonCode": "project_membership_change",
-        "reason_code": "project_membership_change",  # Legacy compatibility
         "changedFields": ["status"],
-        "changed_fields": ["status"]  # Legacy compatibility
     }
     assert event["source"].endswith("test_broadcast_project_updated_sends_canonical_envelope")
 
@@ -674,7 +666,6 @@ def test_build_core_topic_helpers():
         "chapterId": "c-1",
         "source": e_tts["payload"]["source"],
         "marker": "raw",
-        "received_at": None,
         "backendReceivedAt": None
     }
 
@@ -700,9 +691,7 @@ def test_build_core_topic_helpers():
         "changedFields": None,
         "paused": None,
         "hasSegmentSupport": None,
-        "has_segment_support": None,
-        "eta_seconds": 120,
-        "reason_code": None
+        "confidence": 0.45,
     }
 
     # 2b. jobs.lifecycle status
@@ -717,7 +706,7 @@ def test_build_core_topic_helpers():
     assert e_job_lifecycle["payload"]["status"] == "running"
     assert e_job_lifecycle["payload"]["message"] == "Running synthesis"
     assert e_job_lifecycle["payload"]["hasSegmentSupport"] is None
-    assert e_job_lifecycle["payload"]["has_segment_support"] is None
+    assert "confidence" not in e_job_lifecycle["payload"]
 
     # Verify finalizing is preserved without remapping to running
     e_job_finalizing = build_job_lifecycle_event(
@@ -777,9 +766,7 @@ def test_build_core_topic_helpers():
     assert e_chap_prog["topic"] == "chapters.progress"
     payload = e_chap_prog["payload"]
     assert "etaUpdatedAt" in payload
-    assert "eta_updated_at" in payload
     assert isinstance(payload["etaUpdatedAt"], (int, float))
-    assert isinstance(payload["eta_updated_at"], (int, float))
 
     cleaned_payload = {k: v for k, v in payload.items() if k not in ("etaUpdatedAt", "eta_updated_at")}
     assert cleaned_payload == {
@@ -792,13 +779,19 @@ def test_build_core_topic_helpers():
         "renderGroupCount": 10,
         "completedRenderGroups": 5,
         "hasSegmentSupport": None,
-        "has_segment_support": None,
-        "grouped_progress": 0.5,
-        "eta_seconds": 60,
-        "reason_code": None,
-        "render_group_count": 10,
-        "completed_render_groups": 5,
+        "confidence": 0.8,
     }
+
+    e_chap_zero = build_chapter_progress_event(
+        chapter_id="c-1",
+        status="running",
+        progress=0.0,
+        grouped_progress=0.0,
+        eta_seconds=41,
+        render_group_count=2,
+        completed_render_groups=0,
+    )
+    assert e_chap_zero["payload"]["confidence"] == 1.0
 
 
     # 6. segments.progress
@@ -819,16 +812,22 @@ def test_build_core_topic_helpers():
         "segmentCount": 5,
         "message": None,
         "reasonCode": None,
-        "reason_code": None,
         "activeSegmentId": "s-1",
         "activeSegmentProgress": 0.25,
-        "active_segment_id": "s-1",
-        "active_segment_progress": 0.25,
         "etaSeconds": None,
-        "eta_seconds": None,
         "hasSegmentSupport": None,
-        "has_segment_support": None,
+        "confidence": 0.25,
     }
+
+    e_seg_zero = build_segment_progress_event(
+        segment_id="s-1",
+        status="running",
+        progress=0.0,
+        segment_index=0,
+        segment_count=2,
+        eta_seconds=18,
+    )
+    assert e_seg_zero["payload"]["confidence"] == 1.0
 
 
     # 7. segments.lifecycle
@@ -841,9 +840,7 @@ def test_build_core_topic_helpers():
     assert "reason" not in e_seg_life["payload"]
     assert e_seg_life["payload"] == {
         "reasonCode": "saved",
-        "reason_code": "saved",  # Legacy compatibility
         "changedFields": ["audio_path"],
-        "changed_fields": ["audio_path"]  # Legacy compatibility
     }
 
     # 8. chapters.lifecycle
@@ -856,9 +853,7 @@ def test_build_core_topic_helpers():
     assert "reason" not in e_chap_life["payload"]
     assert e_chap_life["payload"] == {
         "reasonCode": "reset",
-        "reason_code": "reset",  # Legacy compatibility
         "changedFields": ["audio_status"],
-        "changed_fields": ["audio_status"]  # Legacy compatibility
     }
 
     # 9. voice.test
@@ -876,8 +871,6 @@ def test_build_core_topic_helpers():
         "progress": 0.5,
         "startedAt": 100.0,
         "message": "building",
-        "name": "VoiceA",
-        "started_at": 100.0  # Legacy compatibility
     }
 
     # 10. system.events
@@ -911,9 +904,7 @@ def test_build_core_topic_helpers():
     assert "reason" not in e_proj["payload"]
     assert e_proj["payload"] == {
         "reasonCode": "project_membership_change",
-        "reason_code": "project_membership_change",  # Legacy compatibility
         "changedFields": ["status"],
-        "changed_fields": ["status"]  # Legacy compatibility
     }
 
 
@@ -1073,7 +1064,6 @@ def test_broadcast_pause_state_sends_canonical_envelope(monkeypatch):
         "reasonCode": "QUEUE_INVALIDATED",
         "changedFields": ["paused"],
         "paused": True,
-        "changed_fields": ["paused"]  # Legacy compatibility
     }
     assert event["source"].endswith("test_broadcast_pause_state_sends_canonical_envelope")
 
@@ -1108,8 +1098,6 @@ def test_broadcast_test_progress_sends_canonical_envelope(monkeypatch):
         "progress": 0.75,
         "startedAt": 123.45,
         "message": None,
-        "name": "VoiceB",
-        "started_at": 123.45  # Legacy compatibility
     }
     assert event["source"].endswith("test_broadcast_test_progress_sends_canonical_envelope")
 
@@ -1150,15 +1138,11 @@ def test_broadcast_segment_progress_sends_canonical_envelope(monkeypatch):
         "segmentCount": None,
         "message": None,
         "reasonCode": None,
-        "reason_code": None,  # Legacy compatibility
         "activeSegmentId": "seg-789",
         "activeSegmentProgress": 0.67,
-        "active_segment_id": "seg-789",
-        "active_segment_progress": 0.67,
         "etaSeconds": None,
-        "eta_seconds": None,
         "hasSegmentSupport": True,
-        "has_segment_support": True,
+        "confidence": 0.67,
     }
     assert event["source"].endswith("test_broadcast_segment_progress_sends_canonical_envelope")
 
@@ -1198,13 +1182,9 @@ def test_broadcast_job_updated_chapter_progress_sends_canonical_envelope(monkeyp
     assert event["payload"]["status"] == "running"
     assert event["payload"]["progress"] == 0.77
     assert event["payload"]["groupedProgress"] == 0.6
-    assert event["payload"]["grouped_progress"] == 0.6
     assert event["payload"]["etaSeconds"] == 45
-    assert event["payload"]["eta_seconds"] == 45
     assert event["payload"]["renderGroupCount"] == 8
-    assert event["payload"]["render_group_count"] == 8
     assert event["payload"]["completedRenderGroups"] == 4
-    assert event["payload"]["completed_render_groups"] == 4
 
 
 def test_broadcast_job_updated_chapter_progress_respects_skip_studio_job_event(monkeypatch):
@@ -1259,10 +1239,7 @@ def test_broadcast_job_updated_segment_progress_sends_canonical_envelope(monkeyp
     assert event["payload"]["progress"] == 0.5
     assert event["payload"]["activeSegmentId"] == "job-seg-123"
     assert event["payload"]["activeSegmentProgress"] == 0.5
-    assert event["payload"]["active_segment_id"] == "job-seg-123"
-    assert event["payload"]["active_segment_progress"] == 0.5
     assert event["payload"]["etaSeconds"] == 15
-    assert event["payload"]["eta_seconds"] == 15
 
 
 def test_broadcast_job_updated_chapter_completion_emits_both(monkeypatch):
@@ -1619,7 +1596,6 @@ def test_broadcast_job_updated_preserves_active_segment_eta_seconds(monkeypatch)
     event = segment_events[0]
     assert event["payload"]["activeSegmentId"] == "seg-1"
     assert event["payload"]["etaSeconds"] == 12
-    assert event["payload"]["eta_seconds"] == 12
 
 
 def test_terminal_status_clears_eta_seconds_and_eta_updated_at(monkeypatch):
@@ -1653,9 +1629,7 @@ def test_terminal_status_clears_eta_seconds_and_eta_updated_at(monkeypatch):
     event = chapter_events[0]
     # The broadcast event payload must clear the ETA fields for a terminal status!
     assert event["payload"].get("etaSeconds") is None
-    assert event["payload"].get("eta_seconds") is None
     assert event["payload"].get("etaUpdatedAt") is None
-    assert event["payload"].get("eta_updated_at") is None
 
 
 def test_broadcast_event_payload_emits_camelcase_only(monkeypatch):
@@ -1701,4 +1675,3 @@ def test_broadcast_event_payload_includes_confidence_in_camelcase(monkeypatch):
     payload = messages[0]["payload"]
     assert "confidence" in payload
     assert isinstance(payload["confidence"], (int, float))
-

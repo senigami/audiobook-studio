@@ -462,7 +462,13 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
                   'status',
                   'progress',
                   'reasonCode', 'reason_code',
-                  'updatedAt', 'updated_at'
+                  'updatedAt', 'updated_at',
+                  'confidence',
+                  'etaUpdatedAt', 'eta_updated_at',
+                  'segmentIndex', 'segment_index',
+                  'segmentCount', 'segment_count',
+                  'message',
+                  'hasSegmentSupport', 'has_segment_support'
                 ].includes(k)
               )
             };

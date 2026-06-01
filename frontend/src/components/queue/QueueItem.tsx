@@ -355,6 +355,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                 : (job.render_group_count || liveJob?.render_group_count)
                 ? 'queue'
                 : 'default',
+            confidence: selectedEvidenceWeightFraction,
             evidenceWeightFraction: selectedEvidenceWeightFraction,
             transitionTickCount: (job.segment_ids?.length || liveJob?.segment_ids?.length || activeSegmentId)
                 ? 3
@@ -380,19 +381,14 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                             status: p?.status,
                             progress: p?.progress,
                             etaSeconds: p?.etaSeconds,
-                            eta_seconds: p?.eta_seconds,
                             etaUpdatedAt: p?.etaUpdatedAt,
-                            eta_updated_at: p?.eta_updated_at,
                             etaBasis: p?.etaBasis,
-                            eta_basis: p?.eta_basis,
                             startedAt: p?.startedAt,
-                            started_at: p?.started_at,
                             updatedAt: p?.updatedAt,
-                            updated_at: p?.updated_at,
                             estimatedEndAt: p?.estimatedEndAt,
-                            estimated_end_at: p?.estimated_end_at,
+                            confidence: p?.confidence,
                         },
-                        reasonCode: p?.reasonCode ?? p?.reason_code,
+                        reasonCode: p?.reasonCode,
                         source: ev.source,
                     };
                 }),

@@ -370,6 +370,7 @@ describe('QueueItem Stable ETA TDD', () => {
     const payload = JSON.parse(writeText.mock.calls[0][0]);
 
     expect(payload.evidenceWeightFraction).toBe(0.22);
+    expect(payload.confidence).toBe(0.22);
     expect(payload.job.confidence).toBe(0.22);
     expect(payload.liveJob.confidence).toBe(0.99);
     expect(payload.etaSelectionDebug.job.confidence).toBe(0.22);

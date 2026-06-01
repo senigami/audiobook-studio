@@ -14,10 +14,8 @@ export const resolveEventUpdatedAt = (event: any, payload: any): number => {
   return Date.now() / 1000;
 };
 
-const getPayloadValue = (payload: Record<string, any>, keyCamel: string, keySnake: string) => {
-  if (payload[keyCamel] !== undefined) return payload[keyCamel];
-  if (payload[keySnake] !== undefined) return payload[keySnake];
-  return undefined;
+const getPayloadValue = (payload: Record<string, any>, keyCamel: string, _keySnake?: string) => {
+  return payload[keyCamel];
 };
 
 const resolveEventClassification = (event: any, payload: Record<string, any>) => {

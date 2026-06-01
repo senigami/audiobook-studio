@@ -165,6 +165,30 @@ def normalize_to_canonical_command(
 
     return canonical
 
+
+def compute_progress_confidence(
+    status: str | None,
+    progress: float | None,
+    active_render_group_weight: int | None = None,
+    reason_code: str | None = None,
+) -> float | None:
+    if not status:
+        return None
+    if progress == 0:
+        return 1.0
+    if status in ("done", "failed", "cancelled", "finalizing"):
+        return 1.0
+    if progress is None:
+        return None
+
+    chunk_char_limit = 3000
+    coverage_ratio = 1.0
+    if active_render_group_weight is not None and active_render_group_weight > 0:
+        coverage_ratio = max(0.0, min(float(active_render_group_weight) / chunk_char_limit, 1.0))
+
+    return float(coverage_ratio * max(0.0, min(float(progress), 1.0)))
+
+
 StudioJobStatus = Literal["queued", "preparing", "running", "finalizing", "done", "failed", "cancelled"]
 StudioJobClassification = Literal["job", "chapter", "segment"]
 StudioJobEventScope = Literal["job", "queue", "chapter", "segment", "export", "voice_test", "voice_build"]
@@ -320,7 +344,6 @@ def build_tts_log_event(
         "chapterId": chapter_id,
         "source": resolved_source,
         "marker": classify_tts_log_line(line, plugin_id),
-        "received_at": received_at,  # Legacy compatibility
         "backendReceivedAt": received_at,  # camelCase variant
     }
     return build_studio_event(
@@ -347,6 +370,7 @@ def build_job_lifecycle_event(
     started_at: float | None = None,
     updated_at: float | None = None,
     has_segment_support: bool | None = None,
+    confidence: float | None = None,
 ) -> dict:
     """Build a jobs.lifecycle envelope with global job state only."""
     mapped_status = status
@@ -370,16 +394,11 @@ def build_job_lifecycle_event(
     payload = {
         "status": mapped_status,
         "reasonCode": canonical_command,
-        "reason_code": canonical_command,
         "message": message,
         "startedAt": started_at,
-        "started_at": started_at,
         "updatedAt": resolved_updated_at,
-        "updated_at": resolved_updated_at,
         "hasSegmentSupport": has_segment_support,
-        "has_segment_support": has_segment_support,
         "parentJobId": parent_job_id,
-        "parent_job_id": parent_job_id,
     }
     return build_studio_event(
         topic="jobs.lifecycle",
@@ -405,6 +424,7 @@ def build_queue_item_status_event(
     source: str | None = None,
     paused: bool | None = None,
     has_segment_support: bool | None = None,
+    confidence: float | None = None,
 ) -> dict:
     """Build a queue.items status envelope."""
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
@@ -412,6 +432,13 @@ def build_queue_item_status_event(
         canonical_command = None
         message = None
 
+    resolved_confidence = confidence
+    if resolved_confidence is None:
+        resolved_confidence = compute_progress_confidence(
+            status=status,
+            progress=progress,
+            reason_code=canonical_command,
+        )
     payload = {
         "status": status,
         "progress": round(float(progress), 2),
@@ -422,10 +449,7 @@ def build_queue_item_status_event(
         "changedFields": None,
         "paused": paused,
         "hasSegmentSupport": has_segment_support,
-        "has_segment_support": has_segment_support,
-        # Legacy compatibility duplicate fields
-        "eta_seconds": eta_seconds,
-        "reason_code": canonical_command,
+        "confidence": resolved_confidence,
     }
     resolved_source = source or _resolve_source_path()
     return build_studio_event(
@@ -454,7 +478,6 @@ def build_queue_item_invalidated_event(
     payload = {
         "reasonCode": canonical_command,
         "changedFields": changed_fields,
-        "changed_fields": changed_fields,  # Legacy compatibility
     }
     return build_studio_event(
         topic="queue.items",
@@ -472,7 +495,6 @@ def build_queue_paused_event(paused: bool, source: str | None = None) -> dict:
         "reasonCode": "QUEUE_INVALIDATED",
         "changedFields": ["paused"],
         "paused": paused,
-        "changed_fields": ["paused"],  # Legacy compatibility
     }
     return build_studio_event(
         topic="queue.items",
@@ -498,6 +520,7 @@ def build_chapter_progress_event(
     source: str | None = None,
     has_segment_support: bool | None = None,
     eta_updated_at: float | None = None,
+    confidence: float | None = None,
 ) -> dict:
     """Build a chapters.progress topic envelope."""
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
@@ -513,6 +536,13 @@ def build_chapter_progress_event(
     if resolved_eta_seconds is not None and resolved_eta_seconds > 0:
         resolved_eta_updated_at = eta_updated_at if eta_updated_at is not None else (updated_at if updated_at is not None else time.time())
 
+    resolved_confidence = confidence
+    if resolved_confidence is None:
+        resolved_confidence = compute_progress_confidence(
+            status=status,
+            progress=progress,
+            reason_code=canonical_command,
+        )
     payload = {
         "status": status,
         "progress": round(float(progress), 2),
@@ -523,20 +553,12 @@ def build_chapter_progress_event(
         "renderGroupCount": render_group_count,
         "completedRenderGroups": completed_render_groups,
         "hasSegmentSupport": has_segment_support,
-        "has_segment_support": has_segment_support,
-        # Legacy compatibility duplicate fields
-        "grouped_progress": round(float(grouped_progress), 2) if grouped_progress is not None else None,
-        "eta_seconds": resolved_eta_seconds,
-        "reason_code": canonical_command,
-        "render_group_count": render_group_count,
-        "completed_render_groups": completed_render_groups,
+        "confidence": resolved_confidence,
     }
     if resolved_eta_updated_at is not None:
         payload["etaUpdatedAt"] = resolved_eta_updated_at
-        payload["eta_updated_at"] = resolved_eta_updated_at
     if updated_at is not None:
         payload["updatedAt"] = updated_at
-        payload["updated_at"] = updated_at
     resolved_source = source or _resolve_source_path()
     return build_studio_event(
         topic="chapters.progress",
@@ -562,10 +584,12 @@ def build_segment_progress_event(
     chapter_id: str | None = None,
     project_id: str | None = None,
     source: str | None = None,
+    parent_job_id: str | None = None,
     eta_seconds: int | None = None,
     updated_at: float | None = None,
     has_segment_support: bool | None = None,
     eta_updated_at: float | None = None,
+    confidence: float | None = None,
 ) -> dict:
     """Build a segments.progress topic envelope."""
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
@@ -582,6 +606,13 @@ def build_segment_progress_event(
         resolved_eta_updated_at = eta_updated_at if eta_updated_at is not None else (updated_at if updated_at is not None else time.time())
 
     rounded_progress = round(float(progress), 2)
+    resolved_confidence = confidence
+    if resolved_confidence is None:
+        resolved_confidence = compute_progress_confidence(
+            status=status,
+            progress=progress,
+            reason_code=canonical_command,
+        )
     payload = {
         "status": status,
         "progress": rounded_progress,
@@ -589,22 +620,16 @@ def build_segment_progress_event(
         "segmentCount": segment_count,
         "message": message,
         "reasonCode": canonical_command,
-        "reason_code": canonical_command,  # Legacy compatibility
         "activeSegmentId": segment_id,
         "activeSegmentProgress": rounded_progress,
-        "active_segment_id": segment_id,
-        "active_segment_progress": rounded_progress,
         "etaSeconds": resolved_eta_seconds,
-        "eta_seconds": resolved_eta_seconds,
         "hasSegmentSupport": has_segment_support,
-        "has_segment_support": has_segment_support,
+        "confidence": resolved_confidence,
     }
     if resolved_eta_updated_at is not None:
         payload["etaUpdatedAt"] = resolved_eta_updated_at
-        payload["eta_updated_at"] = resolved_eta_updated_at
     if updated_at is not None:
         payload["updatedAt"] = updated_at
-        payload["updated_at"] = updated_at
     return build_studio_event(
         topic="segments.progress",
         event_kind="segment_progress",
@@ -630,9 +655,7 @@ def build_segment_lifecycle_event(
     canonical_command = normalize_to_canonical_command(reason) or reason
     payload = {
         "reasonCode": canonical_command,
-        "reason_code": canonical_command,  # Legacy compatibility
         "changedFields": changed_fields,
-        "changed_fields": changed_fields,  # Legacy compatibility
     }
     return build_studio_event(
         topic="segments.lifecycle",
@@ -657,9 +680,7 @@ def build_chapter_lifecycle_event(
     canonical_command = normalize_to_canonical_command(reason) or reason
     payload = {
         "reasonCode": canonical_command,
-        "reason_code": canonical_command,  # Legacy compatibility
         "changedFields": changed_fields,
-        "changed_fields": changed_fields,  # Legacy compatibility
     }
     return build_studio_event(
         topic="chapters.lifecycle",
@@ -683,9 +704,7 @@ def build_project_lifecycle_event(
     canonical_command = normalize_to_canonical_command(reason) or reason
     payload = {
         "reasonCode": canonical_command,
-        "reason_code": canonical_command,  # Legacy compatibility
         "changedFields": changed_fields,
-        "changed_fields": changed_fields,  # Legacy compatibility
     }
     return build_studio_event(
         topic="projects.lifecycle",
@@ -712,8 +731,6 @@ def build_voice_test_progress_event(
         "progress": round(float(progress), 2),
         "startedAt": float(started_at),
         "message": message,
-        "name": voice_name,
-        "started_at": float(started_at),  # Legacy compatibility
     }
     return build_studio_event(
         topic="voice.test",
