@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Highlights
 
+- **Restored Computed CPS Display In Engine Settings**: Engine registry responses now inject the derived `computer_speed_multiplier` back into each plugin's `current_settings` payload from the calibrated SQLite metrics, so the read-only Settings form shows the computed characters-per-second value instead of falling back to "Not yet computed."
 - **Restored Batch-Scoped Chapter Header Text Progress**: Fixed Chapter Editor script progress lettering so active render-batch progress is distributed across the full batch text even when only the current span is flagged as actively rendering. This keeps top-bar-driven batch progress aligned with the visible book-mode text overlay.
 - **Fixed Post-START_SYNTHESIS Status Rollback**: Prevented active jobs and chapters from rolling back from `"running"` to `"preparing"` due to subsequent 0% progress events (such as segment initialization).
 - **Disabled Startup Verification Synthesis**: TTS Server plugin discovery and refresh now load plugins without running plugin `run_test()` synthesis, preventing `test_output.wav` generation and `[START_SYNTHESIS]` chatter during normal chapter renders. Normal synthesis now fails closed unless the plugin has already passed verification, while explicit engine verification from Settings still runs the plugin test.

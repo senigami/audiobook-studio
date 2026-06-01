@@ -1,7 +1,7 @@
 {
-  "snapshot_version": 147,
-  "current_task": "Fix XTTS post-render metrics failure and false zero segment ETA",
-  "status": "xtts_duration_and_segment_eta_fixed",
+  "snapshot_version": 148,
+  "current_task": "Restore computed CPS display in engine settings",
+  "status": "engine_settings_cps_display_fixed",
   "last_committed_milestone": {
     "title": "Disabled startup plugin run_test synthesis while preserving explicit Settings verification",
     "commit": "pending",

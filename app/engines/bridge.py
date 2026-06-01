@@ -123,6 +123,10 @@ class VoiceBridge:
                     tts_model = resolve_engine_settings_model(engine_id)
                     history = filter_history_for_engine_model(all_history, engine_id, tts_model)
                     params = get_calibrated_model_params(history)
+                    current_settings = data.get("current_settings")
+                    if not isinstance(current_settings, dict):
+                        current_settings = {}
+                        data["current_settings"] = current_settings
                     if params:
                         calibrated_cps, _ = params
                         data["calibrated_cps"] = round(calibrated_cps, 2)
@@ -130,9 +134,13 @@ class VoiceBridge:
                     else:
                         data["calibrated_cps"] = None
                         data["operational_speed"] = None
+                    current_settings["computer_speed_multiplier"] = data["operational_speed"]
                 except Exception:
                     data["calibrated_cps"] = None
                     data["operational_speed"] = None
+                    current_settings = data.get("current_settings")
+                    if isinstance(current_settings, dict):
+                        current_settings["computer_speed_multiplier"] = None
         except Exception:
             pass
 

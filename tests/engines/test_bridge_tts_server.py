@@ -156,6 +156,28 @@ class TestBridgeDescribeRegistry:
         assert len(result) == 1
         assert result[0]["engine_id"] == "xtts"
 
+    def test_describe_registry_injects_computed_multiplier_into_current_settings(self):
+        mock_client = MagicMock()
+        mock_client.get_engines.return_value = [
+            {
+                "engine_id": "xtts",
+                "display_name": "XTTS",
+                "current_settings": {},
+            }
+        ]
+
+        bridge = _make_bridge_with_client(mock_client)
+
+        with patch("app.db.state.get_performance_metrics", return_value={"render_history": [{"engine": "xtts"}]}), \
+             patch("app.tts_server.performance_settings.resolve_engine_settings_model", return_value="xtts-v2"), \
+             patch("app.tts_server.performance_settings.filter_history_for_engine_model", return_value=[{"engine": "xtts", "tts_model": "xtts-v2"}]), \
+             patch("app.orchestration.scheduler.eta.get_calibrated_model_params", return_value=(33.4, 0.9)):
+            result = bridge.describe_registry()
+
+        assert result[0]["calibrated_cps"] == 33.4
+        assert result[0]["operational_speed"] == 2.0
+        assert result[0]["current_settings"]["computer_speed_multiplier"] == 2.0
+
     def test_describe_registry_enriches_with_test_metadata(self, tmp_path):
         mock_client = MagicMock()
         mock_client.get_engines.return_value = [

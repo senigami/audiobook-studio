@@ -1713,3 +1713,10 @@
 - Fixed `useJobs` so `etaSeconds: null` on `START_SEGMENT`/`SEGMENT_SAVED` is not coerced into `0`, preventing false zero-ETA segment progress lanes.
 - Added a frontend regression proving null segment ETA stays null in active segment state and provenance.
 - Verified focused XTTS/plugin/performance/startup ETA pytest, focused useJobs/useQueueSync/LiveOutput/runtimeDebug Vitest, and `git diff --check`.
+
+# 2026-06-01 - Engine settings CPS display restored from calibrated metrics
+
+- Root-caused the stale "Not yet computed" engine-settings field to an API enrichment gap: calibrated CPS and operational speed already came from SQLite, but `current_settings.computer_speed_multiplier` was no longer being populated for the read-only schema form.
+- Updated `VoiceBridge.describe_registry()` to inject the derived `computer_speed_multiplier` into each engine's `current_settings` payload, using the calibrated operational speed when available and `None` otherwise so stale plugin settings do not leak into the UI.
+- Added a regression in `tests/engines/test_bridge_tts_server.py` proving computed speed is copied into `current_settings` for Settings rendering.
+- Verified focused backend tests (`test_bridge_tts_server`, `test_api_engines`, `test_api_calibration`), focused Settings Vitest (`EngineCard`, `JsonSchemaForm`), Ruff on touched Python files, and `git diff --check`.
