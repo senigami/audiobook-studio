@@ -656,6 +656,7 @@ describe('useJobs', () => {
         id: 'job-seg-eta',
         status: 'running',
         progress: 0.2,
+        classification: 'segment',
         active_segment_id: 'seg-live',
         active_segment_progress: 0.55,
         eta_seconds: 18,
@@ -1518,5 +1519,59 @@ describe('useJobs', () => {
     const job = result.current.jobs['job-non-seg-reintro'];
     expect(job.active_segment_progress).toBeUndefined();
     expect(job.active_segment_id).toBeUndefined();
+  });
+
+  it('chapter-classified job with active_segment_id still accepts later chapters.progress ETA updates', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({
+      type: 'jobs_snapshot',
+      jobs: [{
+        id: 'job-chap-active-seg',
+        status: 'running',
+        progress: 0.2,
+        classification: 'chapter',
+        active_segment_id: 'seg-xyz',
+        eta_seconds: 40,
+        eta_basis: 'remaining_from_update',
+        estimated_end_at: 1040,
+      } as any],
+    });
+
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.3,
+      etaSeconds: 30,
+      eta_basis: 'remaining_from_update',
+      estimatedEndAt: 1040,
+    }, { jobId: 'job-chap-active-seg', chapterId: 'chap-1' });
+
+    expect(result.current.jobs['job-chap-active-seg'].eta_seconds).toBe(30);
+  });
+
+  it('true segment-scoped job still does not leak chapter ETA into the queue path', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({
+      type: 'jobs_snapshot',
+      jobs: [{
+        id: 'job-seg-scoped',
+        status: 'running',
+        progress: 0.2,
+        classification: 'segment',
+        active_segment_id: 'seg-xyz',
+        eta_seconds: 15,
+        eta_basis: 'remaining_from_update',
+        estimated_end_at: 1015,
+      } as any],
+    });
+
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.3,
+      etaSeconds: 120, // chapter level ETA
+      eta_basis: 'remaining_from_update',
+      estimatedEndAt: 1120,
+    }, { jobId: 'job-seg-scoped', chapterId: 'chap-1' });
+
+    expect(result.current.jobs['job-seg-scoped'].eta_seconds).toBe(15); // Suppressed/preserved segment ETA
   });
 });

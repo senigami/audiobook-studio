@@ -173,6 +173,7 @@ class ProgressService:
         source: str | None = None,
         allow_progress_regression: bool = False,
         force: bool = False,
+        eta_updated_at: float | None = None,
     ) -> dict[str, object] | None:
         """Publish normalized progress updates for queue and chapter surfaces.
 
@@ -234,6 +235,7 @@ class ProgressService:
             active_render_group_weight=active_render_group_weight,
             grouped_progress=grouped_progress,
             source=source,
+            eta_updated_at=eta_updated_at,
         )
         if not force and not self._should_emit(payload, allow_progress_regression=allow_progress_regression):
             return None
@@ -331,7 +333,9 @@ class ProgressService:
                 project_id=parent_job_id,
                 source=payload.get("source"),
                 eta_seconds=segment_eta_seconds,
+                updated_at=payload.get("updated_at"),
                 has_segment_support=resolved_has_segment_support,
+                eta_updated_at=payload.get("eta_updated_at"),
             )
             self.broadcaster(payload=seg_event, channel="jobs")
 
@@ -355,7 +359,9 @@ class ProgressService:
                 job_id=job_id,
                 project_id=parent_job_id,
                 source=payload.get("source"),
+                updated_at=payload.get("updated_at"),
                 has_segment_support=resolved_has_segment_support,
+                eta_updated_at=payload.get("eta_updated_at"),
             )
             self.broadcaster(payload=chap_event, channel="jobs")
 
@@ -429,6 +435,7 @@ class ProgressService:
         active_render_group_weight: int | None = None,
         grouped_progress: float | None = None,
         source: str | None = None,
+        eta_updated_at: float | None = None,
     ) -> dict[str, object]:
         """Describe the canonical payload sent to live frontend listeners.
 
@@ -452,9 +459,28 @@ class ProgressService:
             dict[str, object]: Broadcast-ready progress payload.
         """
         now = float(updated_at if updated_at is not None else self.wall_clock())
+
+        # Enforce terminal status clearing
+        is_terminal = status in {"done", "failed", "cancelled"}
+        if is_terminal:
+            eta_seconds = None
+            eta_updated_at = None
+
         normalized_progress = None
         if progress is not None:
             normalized_progress = round(max(0.0, min(float(progress), 1.0)), 2)
+
+        # Resolve eta_updated_at duplicate protection
+        resolved_eta_updated_at = None
+        if eta_seconds is not None and not is_terminal:
+            resolved_eta_updated_at = eta_updated_at if eta_updated_at is not None else now
+            previous = self._last_payload_by_job.get(job_id)
+            if previous is not None:
+                prev_eta = previous.get("eta_seconds")
+                prev_progress = previous.get("progress")
+                # If progress and ETA are unchanged, reuse previous eta_updated_at
+                if prev_eta == eta_seconds and prev_progress == normalized_progress:
+                    resolved_eta_updated_at = previous.get("eta_updated_at") or previous.get("updated_at") or now
 
         payload: dict[str, object] = {
             "type": "studio_job_event",
@@ -468,11 +494,20 @@ class ProgressService:
             payload["parent_job_id"] = parent_job_id
         if normalized_progress is not None:
             payload["progress"] = normalized_progress
+
         if eta_seconds is not None:
             sanitized_eta = max(0, int(eta_seconds))
             payload["eta_seconds"] = sanitized_eta
             payload["eta_basis"] = "remaining_from_update"
             payload["estimated_end_at"] = now + float(sanitized_eta)
+            payload["eta_updated_at"] = resolved_eta_updated_at
+        elif is_terminal:
+            # Explicitly put null values in terminal status update payloads
+            payload["eta_seconds"] = None
+            payload["eta_basis"] = None
+            payload["estimated_end_at"] = None
+            payload["eta_updated_at"] = None
+
         if eta_confidence is not None:
             payload["eta_confidence"] = eta_confidence
         else:
@@ -510,6 +545,7 @@ class ProgressService:
         if grouped_progress is not None:
             payload["grouped_progress"] = round(max(0.0, min(float(grouped_progress), 1.0)), 2)
         return payload
+
 
     def _should_emit(self, payload: dict[str, object], *, allow_progress_regression: bool = False) -> bool:
         job_id = str(payload["job_id"])

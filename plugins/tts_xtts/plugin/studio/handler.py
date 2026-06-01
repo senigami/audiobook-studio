@@ -45,7 +45,17 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
     generated_segment_audio = bool(j.is_bake or j.segment_ids)
 
     if cancel_check():
-        update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
+        update_job(
+            jid,
+            status="cancelled",
+            finished_at=time.time(),
+            progress=1.0,
+            error="Cancelled.",
+            eta_seconds=None,
+            eta_basis=None,
+            estimated_end_at=None,
+            eta_updated_at=None,
+        )
         return
 
     if j.chapter_id:
@@ -63,14 +73,34 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
         rc = handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, text=text)
 
     if cancel_check():
-        update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
+        update_job(
+            jid,
+            status="cancelled",
+            finished_at=time.time(),
+            progress=1.0,
+            error="Cancelled.",
+            eta_seconds=None,
+            eta_basis=None,
+            estimated_end_at=None,
+            eta_updated_at=None,
+        )
         return
 
     if rc != 0 or not out_wav.exists():
         # Only mark failed if not already handled by sub-handlers
         existing_job = update_job(jid) # Get current state? No, update_job doesn't return state.
         # We assume if rc != 0, we should mark failed if not already terminal
-        update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=f"Generation failed (rc={rc}).")
+        update_job(
+            jid,
+            status="failed",
+            finished_at=time.time(),
+            progress=1.0,
+            error=f"Generation failed (rc={rc}).",
+            eta_seconds=None,
+            eta_basis=None,
+            estimated_end_at=None,
+            eta_updated_at=None,
+        )
         return
 
     # Finalize (MP3 conversion)
@@ -99,6 +129,10 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                 progress=1.0,
                 output_wav=out_wav.name,
                 output_mp3=out_mp3.name,
+                eta_seconds=None,
+                eta_basis=None,
+                estimated_end_at=None,
+                eta_updated_at=None,
             )
         else:
             if j.chapter_id and generated_segment_audio:
@@ -114,6 +148,10 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                 progress=1.0,
                 output_wav=out_wav.name,
                 error="MP3 conversion failed (using WAV fallback)",
+                eta_seconds=None,
+                eta_basis=None,
+                estimated_end_at=None,
+                eta_updated_at=None,
             )
     else:
         if j.chapter_id and generated_segment_audio:
@@ -128,4 +166,8 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
             finished_at=time.time(),
             progress=1.0,
             output_wav=out_wav.name,
+            eta_seconds=None,
+            eta_basis=None,
+            estimated_end_at=None,
+            eta_updated_at=None,
         )

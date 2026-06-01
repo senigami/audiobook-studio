@@ -19,6 +19,7 @@ export interface OverlayDelta {
   started_at?: number | null;
   updated_at?: number | null;
   estimated_end_at?: number | null;
+  eta_updated_at?: number | null;
   eta_basis?: 'remaining_from_update' | 'total_from_start' | null;
   active_render_batch_id?: string | null;
   active_render_batch_progress?: number | null;
@@ -125,18 +126,37 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       }
     }
 
+    const isTerminal = ['done', 'failed', 'cancelled'].includes(effectiveStatus);
+
     // 4. ETA stabilization
     const incomingEta = event.eta_seconds;
     const existingEta = existing?.eta_seconds;
-    if (typeof incomingEta === 'number') {
+    const incomingEtaUpdatedAt = event.eta_updated_at ?? event.etaUpdatedAt;
+    let shouldAdvanceUpdatedAt = true;
+
+    if (isTerminal) {
+      nextDelta.eta_seconds = null;
+      nextDelta.eta_updated_at = null;
+      nextDelta.estimated_end_at = null;
+      nextDelta.eta_basis = null;
+    } else if (typeof incomingEta === 'number') {
       if (
         typeof existingEta !== 'number' ||
         Math.abs(incomingEta - existingEta) >= 1
       ) {
         nextDelta.eta_seconds = incomingEta;
+        nextDelta.eta_updated_at = incomingEtaUpdatedAt ?? event.updated_at ?? Date.now() / 1000;
+      } else {
+        shouldAdvanceUpdatedAt = false;
       }
     } else if (incomingEta === null) {
-      nextDelta.eta_seconds = null;
+      const isRollback = isRollbackStatus(incomingStatus);
+      if (isRollback || typeof existingEta !== 'number') {
+        nextDelta.eta_seconds = null;
+        nextDelta.eta_updated_at = null;
+      } else {
+        shouldAdvanceUpdatedAt = false;
+      }
     }
 
     // 5. started_at stabilization
@@ -148,7 +168,9 @@ export const createLiveJobsStore = (): LiveJobsStore => {
         nextDelta.started_at = event.started_at;
       }
     } else if (event.started_at === null) {
-      nextDelta.started_at = null;
+      if (typeof existing?.started_at !== 'number') {
+        nextDelta.started_at = null;
+      }
     }
 
     if (typeof event.parent_job_id === 'string') {
@@ -166,12 +188,16 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     }
 
     // 6. Metadata/Basis
-    if (typeof event.updated_at === 'number') nextDelta.updated_at = event.updated_at;
-    if (typeof event.estimated_end_at === 'number') nextDelta.estimated_end_at = event.estimated_end_at;
-    
-    // Explicitly default eta_basis to 'remaining_from_update' for StudioJobEvents
-    // as per Backend Progress Service documentation, unless specified otherwise.
-    nextDelta.eta_basis = event.eta_basis ?? 'remaining_from_update';
+    if (shouldAdvanceUpdatedAt && typeof event.updated_at === 'number') nextDelta.updated_at = event.updated_at;
+    if (isTerminal) {
+      nextDelta.estimated_end_at = null;
+      nextDelta.eta_basis = null;
+    } else {
+      if (typeof event.estimated_end_at === 'number') nextDelta.estimated_end_at = event.estimated_end_at;
+      // Explicitly default eta_basis to 'remaining_from_update' for StudioJobEvents
+      // as per Backend Progress Service documentation, unless specified otherwise.
+      nextDelta.eta_basis = event.eta_basis ?? 'remaining_from_update';
+    }
 
     if (event.message) nextDelta.message = event.message;
     if (event.message) nextDelta.error = event.message;
@@ -279,6 +305,8 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       grouped_progress: jobUpdated.grouped_progress,
       message: jobUpdated.message || jobUpdated.log || jobUpdated.error || undefined,
       reason_code: jobUpdated.reason_code,
+      eta_updated_at: typeof jobUpdated.eta_updated_at === 'number' ? jobUpdated.eta_updated_at : (typeof jobUpdated.etaUpdatedAt === 'number' ? jobUpdated.etaUpdatedAt : undefined),
+      etaUpdatedAt: typeof jobUpdated.etaUpdatedAt === 'number' ? jobUpdated.etaUpdatedAt : (typeof jobUpdated.eta_updated_at === 'number' ? jobUpdated.eta_updated_at : undefined),
     };
 
     applyEvent(event);

@@ -150,14 +150,14 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           (oldJob.active_segment_progress ?? 0) <= 0 &&
           (oldJob.progress ?? 0) <= 0;
 
-        if (oldJob.active_segment_id || isSegmentJob) {
+        if (isSegmentJob) {
           delete nextUpdates.eta_seconds;
           delete nextUpdates.eta_basis;
           delete nextUpdates.estimated_end_at;
+        }
 
-          if (isPreparingZeroProgress) {
-            delete nextUpdates.status;
-          }
+        if ((oldJob.active_segment_id || isSegmentJob) && isPreparingZeroProgress) {
+          delete nextUpdates.status;
         }
       }
 

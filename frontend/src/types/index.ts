@@ -198,6 +198,7 @@ export interface ProcessingQueueItem {
   chapter_audio_status?: Chapter['audio_status'];
   chapter_audio_file_path?: string | null;
   updated_at?: number;
+  eta_updated_at?: number;
   render_group_count?: number;
   completed_render_groups?: number;
   active_render_group_index?: number;
@@ -257,6 +258,7 @@ export interface Job {
   classification?: JobClassification;
   started_at?: number;
   updated_at?: number;
+  eta_updated_at?: number;
   finished_at?: number;
   safe_mode: boolean;
   make_mp3: boolean;

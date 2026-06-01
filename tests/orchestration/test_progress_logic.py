@@ -282,6 +282,7 @@ def test_progress_service_chapter_progress_sends_canonical_envelope():
         progress=0.45,
         grouped_progress=0.4,
         eta_seconds=120,
+        updated_at=1234.5,
         message="Synthesizing...",
     )
 
@@ -314,6 +315,8 @@ def test_progress_service_chapter_progress_sends_canonical_envelope():
     assert event["payload"]["grouped_progress"] == 0.4
     assert event["payload"]["etaSeconds"] == 120
     assert event["payload"]["eta_seconds"] == 120
+    assert event["payload"]["updatedAt"] == 1234.5
+    assert event["payload"]["updated_at"] == 1234.5
     assert event["payload"]["message"] == "Synthesizing..."
 
 
@@ -339,6 +342,7 @@ def test_progress_service_segment_progress_sends_canonical_envelope():
         chapter_id="chap-1",
         progress=0.75,
         eta_seconds=15,
+        updated_at=2345.6,
         message="Synthesizing segment...",
     )
 
@@ -370,6 +374,8 @@ def test_progress_service_segment_progress_sends_canonical_envelope():
     assert event["payload"]["active_segment_progress"] == 0.75
     assert event["payload"]["etaSeconds"] == 15
     assert event["payload"]["eta_seconds"] == 15
+    assert event["payload"]["updatedAt"] == 2345.6
+    assert event["payload"]["updated_at"] == 2345.6
     assert event["payload"]["message"] == "Synthesizing segment..."
 
 
@@ -1001,3 +1007,165 @@ def test_chapter_job_with_parent_id_classified_as_chapter():
     j7.active_segment_id = "seg-1"
     j7.classification_override = "segment"
     assert j7.classification == "segment"
+
+
+def test_chapter_progress_eta_samples_include_eta_updated_at():
+    from app.api.contracts.events import build_chapter_progress_event
+    # 1. When eta_seconds is positive, etaUpdatedAt / eta_updated_at must be present
+    e1 = build_chapter_progress_event(
+        chapter_id="chap-1", status="running", progress=0.5, eta_seconds=30
+    )
+    assert "etaUpdatedAt" in e1["payload"]
+    assert "eta_updated_at" in e1["payload"]
+    assert isinstance(e1["payload"]["etaUpdatedAt"], (int, float))
+
+    # 2. When eta_seconds is None, etaUpdatedAt / eta_updated_at must be None
+    e2 = build_chapter_progress_event(
+        chapter_id="chap-1", status="running", progress=0.5, eta_seconds=None
+    )
+    assert e2["payload"].get("etaUpdatedAt") is None
+    assert e2["payload"].get("eta_updated_at") is None
+
+
+def test_segment_progress_eta_samples_include_eta_updated_at():
+    from app.api.contracts.events import build_segment_progress_event
+    # 1. When eta_seconds is positive, etaUpdatedAt / eta_updated_at must be present
+    e1 = build_segment_progress_event(
+        segment_id="seg-1", status="running", progress=0.5, eta_seconds=10
+    )
+    assert "etaUpdatedAt" in e1["payload"]
+    assert "eta_updated_at" in e1["payload"]
+    assert isinstance(e1["payload"]["etaUpdatedAt"], (int, float))
+
+    # 2. When eta_seconds is None, etaUpdatedAt / eta_updated_at must be None
+    e2 = build_segment_progress_event(
+        segment_id="seg-1", status="running", progress=0.5, eta_seconds=None
+    )
+    assert e2["payload"].get("etaUpdatedAt") is None
+    assert e2["payload"].get("eta_updated_at") is None
+
+
+def test_update_job_terminal_status_defensively_clears_eta_fields(tmp_path):
+    from app.db.state import update_job, put_job, load_state, clear_all_jobs
+    from unittest.mock import patch
+    with patch("app.db.state.STATE_FILE", tmp_path / "state.json"):
+        clear_all_jobs()
+
+        # Create a job with active ETA
+        job = Job(
+            id="term_eta_job",
+            engine="xtts",
+            status="running",
+            progress=0.5,
+            created_at=1000.0,
+            started_at=1000.0,
+            eta_seconds=20,
+            eta_basis="remaining_from_update",
+            estimated_end_at=1020.0,
+            eta_updated_at=1000.0,
+        )
+        put_job(job)
+
+        # Update to done terminal status
+        update_job("term_eta_job", status="done")
+
+        state = load_state()
+        updated_job = state["jobs"]["term_eta_job"]
+        assert updated_job["status"] == "done"
+        assert updated_job.get("eta_seconds") is None
+        assert updated_job.get("eta_basis") is None
+        assert updated_job.get("estimated_end_at") is None
+        assert updated_job.get("eta_updated_at") is None
+
+
+def test_progress_service_duplicate_same_eta_progress_prevents_timestamp_update():
+    from app.orchestration.progress.service import ProgressService
+    emitted = []
+    service = ProgressService(
+        reconcile_fn=lambda **kwargs: kwargs,
+        eta_fn=lambda **kwargs: 10,
+        broadcaster=lambda payload, **kwargs: emitted.append(payload)
+    )
+
+    # 1. Initial running update
+    service.publish(
+        job_id="dup_test",
+        status="running",
+        scope="chapter",
+        progress=0.2,
+        eta_seconds=30,
+        updated_at=1000.0,
+    )
+    assert len(emitted) == 2  # 1 lifecycle, 1 chapter.progress
+    p1 = emitted[-1]["payload"]
+    assert p1["etaSeconds"] == 30
+    assert p1["etaUpdatedAt"] == 1000.0
+
+    # 2. Duplicate same progress + same ETA, but newer updated_at
+    service.publish(
+        job_id="dup_test",
+        status="running",
+        scope="chapter",
+        progress=0.2,
+        eta_seconds=30,
+        updated_at=1010.0,
+    )
+    p2 = emitted[-1]["payload"]
+    # The duplicate frame must NOT update/refresh etaUpdatedAt! It stays 1000.0
+    assert p2["etaSeconds"] == 30
+    assert p2["etaUpdatedAt"] == 1000.0
+
+    # 3. Fresh progress update (progress changes)
+    service.publish(
+        job_id="dup_test",
+        status="running",
+        scope="chapter",
+        progress=0.3,  # changed
+        eta_seconds=30,
+        updated_at=1020.0,
+    )
+    p3 = emitted[-1]["payload"]
+    # It must refresh because progress changed (fresh sample)
+    assert p3["etaSeconds"] == 30
+    assert p3["etaUpdatedAt"] == 1020.0
+
+
+def test_xtts_plugin_handler_terminal_clears_eta(monkeypatch):
+    from unittest.mock import MagicMock
+    from plugins.tts_xtts.plugin.studio.handler import handle_xtts_job
+
+    mock_update_job = MagicMock()
+    monkeypatch.setattr("plugins.tts_xtts.plugin.studio.handler.update_job", mock_update_job)
+
+    # Mock parameters
+    class MockJob:
+        id = "mock_job_id"
+        is_bake = False
+        segment_ids = []
+        chapter_id = "mock_chap_id"
+        make_mp3 = False
+
+    job = MockJob()
+    # If cancel_check returns True initially
+    handle_xtts_job(
+        jid="mock_job_id",
+        j=job,
+        start=1000.0,
+        on_output=lambda *args: None,
+        cancel_check=lambda: True,
+        default_sw=None,
+        speed=1.0,
+        pdir=MagicMock(),
+        out_wav=MagicMock(),
+        out_mp3=MagicMock()
+    )
+
+    # Assert mock_update_job was called with terminal state and ETA clears
+    mock_update_job.assert_called()
+    last_call = mock_update_job.call_args_list[-1]
+    kwargs = last_call[1]
+    assert kwargs["status"] == "cancelled"
+    assert kwargs["eta_seconds"] is None
+    assert kwargs["eta_basis"] is None
+    assert kwargs["estimated_end_at"] is None
+    assert kwargs["eta_updated_at"] is None

@@ -73,6 +73,7 @@ class Job:
     inter_group_overhead_seconds: Optional[float] = None
     chapter_post_start_window: Optional[float] = None
     chapter_wall_duration: Optional[float] = None
+    eta_updated_at: Optional[float] = None
 
     @property
     def classification(self) -> str:

@@ -254,4 +254,129 @@ describe('LiveJobsStore', () => {
     expect(store.getState().eventsById['job1'].status).toBe('queued');
     expect(store.getState().eventsById['job1'].progress).toBe(0);
   });
+
+  it('preserves last positive chapter eta_seconds across active null-bearing boundary events', () => {
+    const store = createLiveJobsStore();
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      updated_at: 1000,
+      scope: 'chapter',
+      eta_seconds: 45,
+    });
+    expect(store.getState().eventsById['job1'].eta_seconds).toBe(45);
+
+    // Boundary event with eta_seconds: null (e.g., START_SEGMENT)
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      updated_at: 1100,
+      scope: 'chapter',
+      eta_seconds: null,
+    });
+    expect(store.getState().eventsById['job1'].eta_seconds).toBe(45);
+  });
+
+  it('does not advance updated_at when an ETA frame does not update the stored ETA', () => {
+    const store = createLiveJobsStore();
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      updated_at: 1000,
+      scope: 'chapter',
+      eta_seconds: 45,
+    });
+    expect(store.getState().eventsById['job1'].eta_seconds).toBe(45);
+    expect(store.getState().eventsById['job1'].updated_at).toBe(1000);
+
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      updated_at: 1100,
+      scope: 'chapter',
+      eta_seconds: 45,
+    });
+    expect(store.getState().eventsById['job1'].eta_seconds).toBe(45);
+    expect(store.getState().eventsById['job1'].updated_at).toBe(1000);
+  });
+
+  it('clears eta_seconds when terminal done event arrives with eta_seconds: null', () => {
+    const store = createLiveJobsStore();
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      updated_at: 1000,
+      scope: 'chapter',
+      eta_seconds: 45,
+    });
+    expect(store.getState().eventsById['job1'].eta_seconds).toBe(45);
+
+    // Terminal done event with eta_seconds: null
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'done',
+      updated_at: 1100,
+      scope: 'chapter',
+      eta_seconds: null,
+    });
+    expect(store.getState().eventsById['job1'].eta_seconds).toBeNull();
+  });
+
+  it('preserves started_at when incoming event carries null started_at', () => {
+    const store = createLiveJobsStore();
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      updated_at: 1000,
+      scope: 'chapter',
+      started_at: 1234567890,
+    });
+    expect(store.getState().eventsById['job1'].started_at).toBe(1234567890);
+
+    // Event with started_at: null
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'done',
+      updated_at: 1100,
+      scope: 'chapter',
+      started_at: null,
+    });
+    expect(store.getState().eventsById['job1'].started_at).toBe(1234567890);
+  });
+
+  it('preserves eta_updated_at when same eta_seconds arrives with newer generic updated_at', () => {
+    const store = createLiveJobsStore();
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      updated_at: 1000,
+      scope: 'chapter',
+      eta_seconds: 45,
+      eta_updated_at: 1000,
+    });
+    expect(store.getState().eventsById['job1'].eta_seconds).toBe(45);
+    expect(store.getState().eventsById['job1'].eta_updated_at).toBe(1000);
+
+    // Same eta_seconds (45), but updated_at is 1010
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      updated_at: 1010,
+      scope: 'chapter',
+      eta_seconds: 45,
+      eta_updated_at: 1010,
+    });
+    expect(store.getState().eventsById['job1'].eta_seconds).toBe(45);
+    expect(store.getState().eventsById['job1'].eta_updated_at).toBe(1000); // Preserved!
+  });
 });

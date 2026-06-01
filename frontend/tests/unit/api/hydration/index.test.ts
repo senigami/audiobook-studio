@@ -348,4 +348,47 @@ describe('HydrationCoordinator', () => {
     expect(merged[0].status).toBe('queued');
     expect(merged[0].progress).toBe(0); // Forced to 0, not Math.max(0, 0.75)
   });
+
+  it('preserves eta_updated_at in hydration merge', () => {
+    const snapshot = coordinator.createSnapshot([
+      { id: 'job-eta', status: 'running', progress: 0.2, eta_seconds: 30, eta_updated_at: 1000 } as any
+    ]);
+
+    const overlays: LiveOverlayState = {
+      eventsById: {
+        'job-eta': {
+          status: 'running',
+          progress: 0.3,
+          eta_seconds: 25,
+          eta_updated_at: 1010,
+          updated_at: 1010,
+        }
+      }
+    };
+
+    const merged = coordinator.mergeQueueWithOverlays(snapshot, overlays);
+    expect(merged[0].eta_updated_at).toBe(1010);
+  });
+
+  it('clears eta_updated_at when the overlay clears eta_seconds', () => {
+    const snapshot = coordinator.createSnapshot([
+      { id: 'job-eta-clear', status: 'running', progress: 0.9, eta_seconds: 5, eta_updated_at: 1000 } as any
+    ]);
+
+    const overlays: LiveOverlayState = {
+      eventsById: {
+        'job-eta-clear': {
+          status: 'running',
+          progress: 0.9,
+          eta_seconds: null,
+          eta_updated_at: 1005,
+          updated_at: 1005,
+        }
+      }
+    };
+
+    const merged = coordinator.mergeQueueWithOverlays(snapshot, overlays);
+    expect(merged[0].eta_seconds).toBeUndefined();
+    expect(merged[0].eta_updated_at).toBeUndefined();
+  });
 });

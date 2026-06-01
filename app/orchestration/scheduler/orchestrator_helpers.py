@@ -417,11 +417,20 @@ class OrchestratorHelpersMixin:
                         active_weight=id_to_weight.get(sid, 0),
                         line=line,
                     )
+                    remaining_fraction = (
+                        (total_weight - completed_weight[0]) / total_weight
+                        if total_weight > 0 else 1.0
+                    )
+                    remaining_eta = (
+                        int(round(expected_duration * remaining_fraction))
+                        if expected_duration is not None and expected_duration > 0
+                        else None
+                    )
                     self._publish(
                         context=context,
                         status="running",
                         progress=_get_grouped_progress(),
-                        eta_seconds=self._duration_to_eta_seconds(expected_duration),
+                        eta_seconds=self._duration_to_eta_seconds(remaining_eta),
                         active_segment_eta_seconds=self._estimate_active_segment_eta_seconds(
                             expected_duration=expected_duration,
                             total_weight=total_weight,

@@ -775,7 +775,14 @@ def test_build_core_topic_helpers():
         completed_render_groups=5
     )
     assert e_chap_prog["topic"] == "chapters.progress"
-    assert e_chap_prog["payload"] == {
+    payload = e_chap_prog["payload"]
+    assert "etaUpdatedAt" in payload
+    assert "eta_updated_at" in payload
+    assert isinstance(payload["etaUpdatedAt"], (int, float))
+    assert isinstance(payload["eta_updated_at"], (int, float))
+
+    cleaned_payload = {k: v for k, v in payload.items() if k not in ("etaUpdatedAt", "eta_updated_at")}
+    assert cleaned_payload == {
         "status": "running",
         "progress": 0.8,
         "groupedProgress": 0.5,
@@ -1613,3 +1620,39 @@ def test_broadcast_job_updated_preserves_active_segment_eta_seconds(monkeypatch)
     assert event["payload"]["activeSegmentId"] == "seg-1"
     assert event["payload"]["etaSeconds"] == 12
     assert event["payload"]["eta_seconds"] == 12
+
+
+def test_terminal_status_clears_eta_seconds_and_eta_updated_at(monkeypatch):
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    # Emit terminal update
+    broadcast_job_updated(
+        "job-terminal-test",
+        {
+            "status": "done",
+            "progress": 1.0,
+            "eta_seconds": 5,  # stale value being sent
+        },
+        {
+            "status": "done",
+            "progress": 1.0,
+            "eta_seconds": 5,
+            "classification": "chapter",
+        },
+    )
+
+    # Let's inspect chapters.progress events
+    chapter_events = [m for m in messages if m.get("topic") == "chapters.progress"]
+    assert len(chapter_events) == 1
+    event = chapter_events[0]
+    # The broadcast event payload must clear the ETA fields for a terminal status!
+    assert event["payload"].get("etaSeconds") is None
+    assert event["payload"].get("eta_seconds") is None
+    assert event["payload"].get("etaUpdatedAt") is None
+    assert event["payload"].get("eta_updated_at") is None

@@ -488,6 +488,7 @@ def build_chapter_progress_event(
     progress: float,
     grouped_progress: float | None = None,
     eta_seconds: int | None = None,
+    updated_at: float | None = None,
     message: str | None = None,
     reason_code: str | None = None,
     render_group_count: int | None = None,
@@ -496,6 +497,7 @@ def build_chapter_progress_event(
     project_id: str | None = None,
     source: str | None = None,
     has_segment_support: bool | None = None,
+    eta_updated_at: float | None = None,
 ) -> dict:
     """Build a chapters.progress topic envelope."""
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
@@ -503,11 +505,19 @@ def build_chapter_progress_event(
         canonical_command = None
         message = None
 
+    resolved_eta_seconds = eta_seconds
+    if status in ("done", "failed", "cancelled"):
+        resolved_eta_seconds = None
+
+    resolved_eta_updated_at = None
+    if resolved_eta_seconds is not None and resolved_eta_seconds > 0:
+        resolved_eta_updated_at = eta_updated_at if eta_updated_at is not None else (updated_at if updated_at is not None else time.time())
+
     payload = {
         "status": status,
         "progress": round(float(progress), 2),
         "groupedProgress": round(float(grouped_progress), 2) if grouped_progress is not None else None,
-        "etaSeconds": eta_seconds,
+        "etaSeconds": resolved_eta_seconds,
         "message": message,
         "reasonCode": canonical_command,
         "renderGroupCount": render_group_count,
@@ -516,11 +526,17 @@ def build_chapter_progress_event(
         "has_segment_support": has_segment_support,
         # Legacy compatibility duplicate fields
         "grouped_progress": round(float(grouped_progress), 2) if grouped_progress is not None else None,
-        "eta_seconds": eta_seconds,
+        "eta_seconds": resolved_eta_seconds,
         "reason_code": canonical_command,
         "render_group_count": render_group_count,
         "completed_render_groups": completed_render_groups,
     }
+    if resolved_eta_updated_at is not None:
+        payload["etaUpdatedAt"] = resolved_eta_updated_at
+        payload["eta_updated_at"] = resolved_eta_updated_at
+    if updated_at is not None:
+        payload["updatedAt"] = updated_at
+        payload["updated_at"] = updated_at
     resolved_source = source or _resolve_source_path()
     return build_studio_event(
         topic="chapters.progress",
@@ -547,13 +563,23 @@ def build_segment_progress_event(
     project_id: str | None = None,
     source: str | None = None,
     eta_seconds: int | None = None,
+    updated_at: float | None = None,
     has_segment_support: bool | None = None,
+    eta_updated_at: float | None = None,
 ) -> dict:
     """Build a segments.progress topic envelope."""
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
     if not is_command_allowed_for_topic(canonical_command, "segments.progress"):
         canonical_command = None
         message = None
+
+    resolved_eta_seconds = eta_seconds
+    if status in ("done", "failed", "cancelled"):
+        resolved_eta_seconds = None
+
+    resolved_eta_updated_at = None
+    if resolved_eta_seconds is not None and resolved_eta_seconds > 0:
+        resolved_eta_updated_at = eta_updated_at if eta_updated_at is not None else (updated_at if updated_at is not None else time.time())
 
     rounded_progress = round(float(progress), 2)
     payload = {
@@ -568,11 +594,17 @@ def build_segment_progress_event(
         "activeSegmentProgress": rounded_progress,
         "active_segment_id": segment_id,
         "active_segment_progress": rounded_progress,
-        "etaSeconds": eta_seconds,
-        "eta_seconds": eta_seconds,
+        "etaSeconds": resolved_eta_seconds,
+        "eta_seconds": resolved_eta_seconds,
         "hasSegmentSupport": has_segment_support,
         "has_segment_support": has_segment_support,
     }
+    if resolved_eta_updated_at is not None:
+        payload["etaUpdatedAt"] = resolved_eta_updated_at
+        payload["eta_updated_at"] = resolved_eta_updated_at
+    if updated_at is not None:
+        payload["updatedAt"] = updated_at
+        payload["updated_at"] = updated_at
     return build_studio_event(
         topic="segments.progress",
         event_kind="segment_progress",

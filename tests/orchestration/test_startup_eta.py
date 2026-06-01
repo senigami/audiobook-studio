@@ -467,7 +467,7 @@ def test_orchestrator_log_listener_captures_timing_model_metrics(clean_db, tmp_p
     from app.orchestration.tasks.synthesis import SynthesisTask
     from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
     from app.orchestration.tasks.base import TaskContext
-    from app.db.state import put_job, Job
+    from app.db.state import Job
 
     # Prepare job
     job_id = "test-timing-markers-job"
@@ -569,10 +569,7 @@ def test_orchestrator_log_listener_captures_timing_model_metrics(clean_db, tmp_p
          patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"):
 
         mock_reg.return_value.get_handler.return_value = lambda *args, **kwargs: None
-        try:
-            mixin._dispatch(task=task, context=context)
-        except Exception:
-            pass
+        mixin._dispatch(task=task, context=context)
 
     # Ensure log_listener was registered
     assert listener_cb[0] is not None
@@ -880,3 +877,122 @@ def test_engine_without_manifest_ignores_fallback_completion(clean_db, tmp_path,
     # chapter_render_completed_at MUST be None because the log did not match
     job = jobs_db.get(job_id)
     assert job.chapter_render_completed_at is None
+
+
+def test_start_segment_proportional_eta(clean_db, tmp_path, monkeypatch):
+    from app.orchestration.tasks.synthesis import SynthesisTask
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext
+    from app.db.state import put_job, Job
+
+    job_id = "test-prop-eta-job"
+    task = SynthesisTask(
+        task_id=job_id,
+        engine_id="xtts",
+        script_text="Hello world",
+        output_path="/tmp/out.wav",
+        chapter_id="chap-1",
+        voice_profile_id="Default",
+        script=[
+            {"ids": ["seg-1"], "save_path": "/tmp/seg-1.wav", "text": "Hello world"},
+            {"ids": ["seg-2"], "save_path": "/tmp/seg-2.wav", "text": "Hello world 2"}
+        ]
+    )
+    context = TaskContext(
+        task_id=job_id,
+        task_type="synthesis",
+        project_id="proj-1",
+        chapter_id="chap-1"
+    )
+
+    jobs_db = {}
+    def mock_put_job(job):
+        jobs_db[job.id] = job
+    def mock_get_jobs():
+        return jobs_db
+    def mock_update_job(job_id, **kwargs):
+        job = jobs_db.get(job_id)
+        if job:
+            for k, v in kwargs.items():
+                setattr(job, k, v)
+
+    monkeypatch.setattr("app.db.state.put_job", mock_put_job)
+    monkeypatch.setattr("app.db.state_jobs.put_job", mock_put_job)
+    monkeypatch.setattr("app.db.state.get_jobs", mock_get_jobs)
+    monkeypatch.setattr("app.db.state_jobs.get_jobs", mock_get_jobs)
+    monkeypatch.setattr("app.db.state.update_job", mock_update_job)
+    monkeypatch.setattr("app.db.state_jobs.update_job", mock_update_job)
+
+    published_etas = []
+    def mock_publish(self, context, started_at=None, **kwargs):
+        if "eta_seconds" in kwargs:
+            published_etas.append((kwargs.get("reason_code"), kwargs["eta_seconds"]))
+
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_publish", mock_publish)
+    # Expected duration = 60s
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_estimate_task_duration", lambda *args, **kwargs: 60.0)
+
+    # 2 render groups, weighted by chunk text length.
+    mock_segments = [
+        {"id": "seg-1", "text_content": "Hello world", "character_id": 1, "speaker_profile_name": "Narrator"},
+        {"id": "seg-2", "text_content": "Hello world 2", "character_id": 2, "speaker_profile_name": "Narrator"}
+    ]
+
+    mock_manifest = {
+        "behavior": {
+            "timing_markers": {
+                "ENGINE_ACTIVITY_STARTED": "Booting custom engine server...",
+                "CHAPTER_SYNTHESIS_COMPLETE": "Successfully synthesized 2 audio chunks."
+            }
+        }
+    }
+    from app.engines.behavior import normalize_behavior
+    monkeypatch.setattr("app.engines.behavior.behavior_for_engine", lambda engine_id, **kwargs: normalize_behavior(mock_manifest["behavior"]))
+
+    listener_cb = [None]
+    class FakeWatchdog:
+        def register_log_listener(self, cb):
+            listener_cb[0] = cb
+        def unregister_log_listener(self, cb):
+            pass
+
+    mock_put_job(Job(
+        id=job_id,
+        engine="xtts",
+        status="running",
+        created_at=time.time()
+    ))
+
+    mixin = OrchestratorHelpersMixin()
+
+    with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_reg, \
+         patch("app.engines.watchdog.get_watchdog", return_value=FakeWatchdog()), \
+         patch("app.domain.chunk_groups.load_chunk_segments", return_value=mock_segments), \
+         patch("app.domain.chunk_groups.build_chunk_groups", return_value=[
+             {"id": "seg-1", "leader_segment_id": "seg-1", "segments": [mock_segments[0]], "text_content": "Hello world"},
+             {"id": "seg-2", "leader_segment_id": "seg-2", "segments": [mock_segments[1]], "text_content": "Hello world 2"}
+         ]), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"):
+
+        mock_reg.return_value.get_handler.return_value = lambda *args, **kwargs: None
+        try:
+            mixin._dispatch(task=task, context=context)
+        except Exception:
+            pass
+
+    assert listener_cb[0] is not None
+    listener = listener_cb[0]
+
+    # Start segment 1 (Group 1 - completed weight 0)
+    listener("Synthesizing: 0% ... [START_SEGMENT] seg-1")
+    # SEGMENT_SAVED advances completed_weight before the next START_SEGMENT.
+    listener("[SEGMENT_SAVED] /tmp/seg-1.wav")
+    listener("Synthesizing: 0% ... [START_SEGMENT] seg-2")
+
+    start_segment_etas = [eta for reason, eta in published_etas if reason == "START_SEGMENT"]
+    assert len(start_segment_etas) == 2
+    # First START_SEGMENT (seg-1): completed weight = 0, remaining_fraction = 1.0, eta should be ~60
+    assert start_segment_etas[0] == 60
+    # Second START_SEGMENT (seg-2): completed weight = 11 (Hello world), total_weight = 24.
+    # remaining_fraction = (24 - 11) / 24 = 13 / 24 = 0.5416. eta should be ~32
+    assert start_segment_etas[1] == 32

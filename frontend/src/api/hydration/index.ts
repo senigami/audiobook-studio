@@ -63,6 +63,8 @@ const TERMINAL_STATUSES: ProcessingQueueItem['status'][] = ['done', 'failed', 'c
 
 function buildOverlayQueueItem(jobId: string, delta: OverlayDelta): ProcessingQueueItem | null {
   if (!delta.project_id || !delta.chapter_id || !delta.status) return null;
+  const hasPositiveEta = typeof delta.eta_seconds === 'number' && delta.eta_seconds > 0;
+  const positiveEtaSeconds = hasPositiveEta ? Number(delta.eta_seconds) : undefined;
   return {
     id: jobId,
     project_id: delta.project_id,
@@ -76,7 +78,7 @@ function buildOverlayQueueItem(jobId: string, delta: OverlayDelta): ProcessingQu
     chapter_title: undefined,
     project_name: undefined,
     progress: delta.progress,
-    eta_seconds: delta.eta_seconds ?? undefined,
+    eta_seconds: positiveEtaSeconds,
     estimated_end_at: delta.estimated_end_at ?? undefined,
     eta_basis: delta.eta_basis ?? undefined,
     started_at: delta.started_at ?? undefined,
@@ -87,6 +89,7 @@ function buildOverlayQueueItem(jobId: string, delta: OverlayDelta): ProcessingQu
     chapter_audio_status: undefined,
     chapter_audio_file_path: null,
     updated_at: delta.updated_at ?? undefined,
+    eta_updated_at: hasPositiveEta ? (delta.eta_updated_at ?? undefined) : undefined,
     error: delta.error ?? delta.message ?? undefined,
     render_group_count: undefined,
     completed_render_groups: undefined,
@@ -206,6 +209,8 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
       }
 
       const status = isOverlayNewer ? ((delta.status as LegacyStatus) ?? item.status) : item.status;
+      const hasPositiveOverlayEta = typeof delta.eta_seconds === 'number' && delta.eta_seconds > 0;
+      const positiveOverlayEtaSeconds = hasPositiveOverlayEta ? Number(delta.eta_seconds) : undefined;
       let progress = (isOverlayActive && isSnapshotTerminal && isOverlayNewer)
         ? (delta.progress ?? 0)
         : (isOverlayActive && isSnapshotTerminal && !isOverlayNewer)
@@ -223,9 +228,10 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
         parent_job_id: delta.parent_job_id ?? item.parent_job_id,
         status,
         progress,
-        eta_seconds: isOverlayNewer ? (delta.eta_seconds !== undefined ? (delta.eta_seconds ?? undefined) : item.eta_seconds) : item.eta_seconds,
+        eta_seconds: isOverlayNewer ? (delta.eta_seconds !== undefined ? positiveOverlayEtaSeconds : item.eta_seconds) : item.eta_seconds,
         eta_basis: isOverlayNewer ? (delta.eta_basis ?? item.eta_basis) : item.eta_basis,
         estimated_end_at: isOverlayNewer ? (delta.estimated_end_at !== undefined ? (delta.estimated_end_at ?? undefined) : item.estimated_end_at) : item.estimated_end_at,
+        eta_updated_at: isOverlayNewer ? (delta.eta_seconds !== undefined ? (hasPositiveOverlayEta ? (delta.eta_updated_at ?? undefined) : undefined) : item.eta_updated_at) : item.eta_updated_at,
         started_at: isOverlayNewer ? (delta.started_at !== undefined ? (delta.started_at ?? undefined) : item.started_at) : item.started_at,
         log: isOverlayNewer ? (delta.message ?? item.log) : item.log,
         error: isOverlayNewer ? (delta.error ?? delta.message ?? item.error) : item.error,

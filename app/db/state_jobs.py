@@ -145,6 +145,13 @@ def update_job(job_id: str, force_broadcast: bool = False, source: Optional[str]
         if effective_active_batch_id is None:
             updates["active_render_batch_progress"] = None
 
+        target_status = updates.get("status") or j.get("status")
+        if target_status in ("done", "failed", "cancelled"):
+            updates["eta_seconds"] = None
+            updates["eta_basis"] = None
+            updates["estimated_end_at"] = None
+            updates["eta_updated_at"] = None
+
         current_status = j.get("status")
         terminal_reset = current_status in ("done", "failed", "cancelled") and updates.get("status") in ("queued", "preparing")
         if not force_broadcast and current_status in ("done", "failed", "cancelled"):
