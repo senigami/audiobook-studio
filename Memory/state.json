@@ -1,15 +1,15 @@
 {
-  "snapshot_version": 149,
-  "current_task": "Replace fake engine speed badge with real calibration summary metadata",
-  "status": "engine_calibration_summary_exposed",
+  "snapshot_version": 151,
+  "current_task": "Expose calibration confidence next to engine CPS",
+  "status": "calibration_confidence_exposed",
   "last_committed_milestone": {
-    "title": "Replace fake engine speed badge with real calibration summary metadata",
+    "title": "Exposed calibration confidence alongside calibrated CPS",
     "commit": "pending",
     "notes": [
-      "Removed operational_speed from the engine API/UI path and stopped presenting the fixed 16.7-baseline multiplier as a product-facing metric.",
-      "VoiceBridge.describe_registry now exposes calibration_sample_count and calibration_since from the filtered calibration window while continuing to expose calibrated_cps.",
-      "Settings engine cards now show the real calibration summary as characters/sec plus sample count and earliest sample date from the current window.",
-      "Added backend and frontend regressions covering calibration window metadata and the new engine card rendering contract."
+      "Computed calibration confidence from the same filtered render-history window used for calibrated CPS.",
+      "Exposed calibration_confidence_percent on the engine registry payload alongside calibrated_cps, sample count, and since date.",
+      "Updated the Settings engine card to render calibration confidence next to CPS without inventing fallback certainty.",
+      "Added backend and frontend regressions covering confidence exposure, null handling, and display formatting."
     ]
   },
   "active_constraints": [

@@ -156,6 +156,24 @@ class XttsPlugin(StudioTTSEngine):
 
     def synthesize(self, req: TTSRequest) -> TTSResult:
         """Run XTTS synthesis and write audio to req.output_path."""
+        import time
+        from app.engines.voice.sdk import TTSTimingResult, SegmentTimingResult, TimingEvent
+
+        engine_activity_started_at = None
+        chapter_render_started_at = None
+        chapter_render_completed_at = None
+        segments_timing: list[SegmentTimingResult] = []
+
+        try:
+            engine_activity_started_at = time.time()
+            if req.on_timing_event:
+                try:
+                    req.on_timing_event(TimingEvent(event_name="engine_activity_started", timestamp=engine_activity_started_at))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
         ok, msg = self.check_request(req)
         if not ok:
             return TTSResult(ok=False, error=f"check_request failed: {msg}")
@@ -195,8 +213,80 @@ class XttsPlugin(StudioTTSEngine):
             temp_wav = Path(tmp)
             render_wav_path = temp_wav
 
+        active_segment_id: str | None = None
+        segment_starts: dict[str, float] = {}
+
+        def parse_output(line: str):
+            nonlocal active_segment_id
+            try:
+                cleaned = line.strip()
+                if not cleaned:
+                    return
+                if cleaned.startswith("[START_SEGMENT]"):
+                    parts = cleaned.split("[START_SEGMENT]", 1)
+                    if len(parts) > 1:
+                        seg_id_or_path = parts[1].strip()
+                        now = time.time()
+                        segment_starts[seg_id_or_path] = now
+                        active_segment_id = seg_id_or_path
+                        if req.on_timing_event:
+                            try:
+                                req.on_timing_event(TimingEvent(
+                                    event_name="segment_render_started",
+                                    timestamp=now,
+                                    segment_id=seg_id_or_path
+                                ))
+                            except Exception:
+                                pass
+                elif cleaned.startswith("[SEGMENT_SAVED]"):
+                    parts = cleaned.split("[SEGMENT_SAVED]", 1)
+                    if len(parts) > 1:
+                        seg_id_or_path = parts[1].strip()
+                        now = time.time()
+                        start_time = segment_starts.get(seg_id_or_path)
+                        if start_time is None and active_segment_id:
+                            start_time = segment_starts.get(active_segment_id)
+                            seg_id_or_path = active_segment_id
+
+                        if start_time is not None:
+                            chars = None
+                            if req.script:
+                                for entry in req.script:
+                                    if str(entry.get("id")) == seg_id_or_path or entry.get("save_path") == seg_id_or_path or Path(entry.get("save_path", "")).name == Path(seg_id_or_path).name:
+                                        chars = len(entry.get("text", ""))
+                                        if "id" in entry:
+                                            seg_id_or_path = str(entry["id"])
+                                        break
+                            segments_timing.append(SegmentTimingResult(
+                                segment_id=seg_id_or_path,
+                                render_started_at=start_time,
+                                render_completed_at=now,
+                                chars=chars
+                            ))
+                        if req.on_timing_event:
+                            try:
+                                req.on_timing_event(TimingEvent(
+                                    event_name="segment_render_completed",
+                                    timestamp=now,
+                                    segment_id=seg_id_or_path
+                                ))
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+
         rc = 1
         try:
+            try:
+                chapter_render_started_at = time.time()
+                if req.on_timing_event:
+                    try:
+                        req.on_timing_event(TimingEvent(event_name="chapter_render_started", timestamp=chapter_render_started_at))
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
             if req.script:
                 with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as handle:
                     json.dump(req.script, handle)
@@ -205,7 +295,7 @@ class XttsPlugin(StudioTTSEngine):
                     rc = self._xtts_generate_script(
                         script_json_path=script_path,
                         out_wav=render_wav_path,
-                        on_output=lambda _: None,
+                        on_output=parse_output,
                         cancel_check=req.cancel_check or (lambda: False),
                         speed=speed,
                         task_id=req.task_id,
@@ -217,13 +307,23 @@ class XttsPlugin(StudioTTSEngine):
                     text=req.text.strip(),
                     out_wav=render_wav_path,
                     safe_mode=safe_mode,
-                    on_output=lambda _: None,
+                    on_output=parse_output,
                     cancel_check=req.cancel_check or (lambda: False),
                     speaker_wav=speaker_wav,
                     speed=speed,
                     voice_profile_dir=voice_profile_dir,
                     task_id=req.task_id,
                 )
+
+            try:
+                chapter_render_completed_at = time.time()
+                if req.on_timing_event:
+                    try:
+                        req.on_timing_event(TimingEvent(event_name="chapter_render_completed", timestamp=chapter_render_completed_at))
+                    except Exception:
+                        pass
+            except Exception:
+                pass
         except Exception as exc:
             return TTSResult(ok=False, error=f"XTTS synthesis raised: {exc}")
         finally:
@@ -247,9 +347,26 @@ class XttsPlugin(StudioTTSEngine):
                     error="XTTS mp3 conversion did not produce a valid file.",
                 )
 
+        timing_payload = None
+        try:
+            if (
+                engine_activity_started_at is not None
+                and chapter_render_started_at is not None
+                and chapter_render_completed_at is not None
+            ):
+                timing_payload = TTSTimingResult(
+                    engine_activity_started_at=engine_activity_started_at,
+                    chapter_render_started_at=chapter_render_started_at,
+                    chapter_render_completed_at=chapter_render_completed_at,
+                    segments=segments_timing if segments_timing else None
+                )
+        except Exception:
+            pass
+
         return TTSResult(
             ok=True,
             output_path=str(output_path),
+            timing=timing_payload,
         )
 
     def preview(self, req: TTSRequest) -> TTSResult:

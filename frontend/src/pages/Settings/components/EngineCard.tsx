@@ -415,7 +415,12 @@ export const EngineCard: React.FC<{
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.28rem' }}>
               <span style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-primary)' }}>
                 {displayEngine.calibrated_cps !== undefined && displayEngine.calibrated_cps !== null
-                  ? `${Number(displayEngine.calibrated_cps).toFixed(1)} characters/sec`
+                  ? `${Number(displayEngine.calibrated_cps).toFixed(1)} characters/sec${
+                      displayEngine.calibration_confidence_percent !== undefined &&
+                      displayEngine.calibration_confidence_percent !== null
+                        ? `, ${displayEngine.calibration_confidence_percent}% confidence`
+                        : ''
+                    }`
                   : 'Not yet computed'}
               </span>
               {hasCalibrationSummary ? (

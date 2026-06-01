@@ -113,7 +113,10 @@ class VoiceBridge:
                 resolve_engine_settings_model,
                 filter_history_for_engine_model,
             )
-            from app.orchestration.scheduler.eta import get_calibrated_model_params  # noqa: PLC0415
+            from app.orchestration.scheduler.eta import (  # noqa: PLC0415
+                get_calibrated_model_params,
+                get_calibration_confidence,
+            )
 
             perf = get_performance_metrics()
             all_history = perf.get("render_history") or []
@@ -126,12 +129,14 @@ class VoiceBridge:
                     tts_model = resolve_engine_settings_model(engine_id)
                     history = filter_history_for_engine_model(all_history, engine_id, tts_model)
                     params = get_calibrated_model_params(history)
+                    confidence = get_calibration_confidence(history)
                     current_settings = data.get("current_settings")
                     if not isinstance(current_settings, dict):
                         current_settings = {}
                         data["current_settings"] = current_settings
                     data["calibration_sample_count"] = len(history)
                     data["calibration_since"] = history[0].get("completed_at") if history else None
+                    data["calibration_confidence_percent"] = confidence
                     if params:
                         calibrated_cps, _ = params
                         data["calibrated_cps"] = round(calibrated_cps, 2)
@@ -141,6 +146,7 @@ class VoiceBridge:
                         current_settings["computer_speed_multiplier"] = None
                 except Exception:
                     data["calibrated_cps"] = None
+                    data["calibration_confidence_percent"] = None
                     data["calibration_sample_count"] = 0
                     data["calibration_since"] = None
                     current_settings = data.get("current_settings")

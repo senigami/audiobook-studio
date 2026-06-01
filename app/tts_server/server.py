@@ -547,13 +547,44 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
     if result.output_path:
         h.postprocess_audio(result.output_path, merged_settings)
 
-    return {
+    timing_dict = None
+    if getattr(result, "timing", None) is not None:
+        t = result.timing
+        def get_val(obj, key):
+            if isinstance(obj, dict):
+                return obj.get(key)
+            return getattr(obj, key, None)
+
+        segments_raw = get_val(t, "segments")
+        segments_list = None
+        if segments_raw is not None:
+            segments_list = []
+            for s in segments_raw:
+                segments_list.append({
+                    "segment_id": get_val(s, "segment_id"),
+                    "render_started_at": get_val(s, "render_started_at"),
+                    "render_completed_at": get_val(s, "render_completed_at"),
+                    "chars": get_val(s, "chars")
+                })
+
+        timing_dict = {
+            "chapter_render_started_at": get_val(t, "chapter_render_started_at"),
+            "chapter_render_completed_at": get_val(t, "chapter_render_completed_at"),
+            "engine_activity_started_at": get_val(t, "engine_activity_started_at"),
+            "segments": segments_list
+        }
+
+    response_payload = {
         "ok": True,
         "engine_id": body.engine_id,
         "output_path": result.output_path,
         "duration_sec": result.duration_sec,
         "warnings": result.warnings,
     }
+    if timing_dict is not None:
+        response_payload["timing"] = timing_dict
+
+    return response_payload
 
 
 @app.post("/preview")

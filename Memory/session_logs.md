@@ -1,3 +1,15 @@
+# 2026-06-01 - Expose calibration confidence alongside calibrated CPS
+
+- Added `calibration_confidence_percent` to engine registry responses using the same filtered render-history window as calibrated CPS.
+- Updated the Settings engine card to render `characters/sec, XX% confidence` when confidence is available, and to omit invented fallback confidence when it is not.
+- Verified the focused backend, frontend, and build checks pass cleanly.
+
+# 2026-06-01 - Propagate structured timing payload through XTTS transport path
+
+- Verified the structured timing payload now survives the real XTTS plugin, TTS server, and bridge transport path.
+- Added regression coverage for bridge-level timing preservation, HTTP transport timing preservation, and timing-absent behavior.
+- Confirmed the backend focused suites pass and `git diff --check` is clean for the transport slice.
+
 # 2026-06-01 - Replace fake engine speed badge with real calibration summary
 
 - Removed the misleading Settings `x Speed` badge derived from the fixed `16.7` baseline and replaced it with real calibration summary text on engine cards.

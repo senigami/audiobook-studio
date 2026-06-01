@@ -316,3 +316,105 @@ class TestTTSServerIsolation:
 
         assert response.status_code == 503
         assert "failed verification" in response.json()["detail"]
+
+    def test_synthesize_endpoint_returns_timing(self, tmp_path):
+        from app.tts_server.server import app
+        from app.engines.voice.sdk import TTSResult, TTSTimingResult, SegmentTimingResult
+
+        plugin_dir = tmp_path / "tts_mock"
+        plugin_dir.mkdir(exist_ok=True)
+
+        timing_res = TTSTimingResult(
+            chapter_render_started_at=105.0,
+            chapter_render_completed_at=135.0,
+            engine_activity_started_at=100.0,
+            segments=[
+                SegmentTimingResult(segment_id="seg-1", render_started_at=108.0, render_completed_at=118.0),
+            ]
+        )
+
+        class MockEngine:
+            def check_env(self): return True, "OK"
+            def hooks(self): return TestTTSServerIsolation._NoopHooks()
+            def check_request(self, req): return True, "OK"
+            def synthesize(self, req):
+                return TTSResult(ok=True, output_path=req.output_path, timing=timing_res)
+
+        plugin = SimpleNamespace(
+            engine_id="mock",
+            folder_name="tts_mock",
+            plugin_dir=plugin_dir,
+            engine=MockEngine(),
+            manifest={"engine_id": "mock"},
+            verified=True,
+            verification_error=None,
+            load_error=None,
+            dependencies_satisfied=True,
+            missing_dependencies=[],
+            setup_message=None,
+        )
+
+        client = TestClient(app)
+        with patch("app.tts_server.server._plugins", [plugin]), \
+             patch("app.tts_server.server.load_settings", return_value={}):
+            response = client.post(
+                "/synthesize",
+                json={
+                    "engine_id": "mock",
+                    "text": "Hello world",
+                    "output_path": str(tmp_path / "out.wav"),
+                    "task_id": "task-1",
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["ok"] is True
+        assert data["timing"]["chapter_render_started_at"] == 105.0
+        assert data["timing"]["segments"][0]["segment_id"] == "seg-1"
+
+    def test_synthesize_endpoint_timing_absent(self, tmp_path):
+        from app.tts_server.server import app
+        from app.engines.voice.sdk import TTSResult
+
+        plugin_dir = tmp_path / "tts_mock"
+        plugin_dir.mkdir(exist_ok=True)
+
+        class MockEngine:
+            def check_env(self): return True, "OK"
+            def hooks(self): return TestTTSServerIsolation._NoopHooks()
+            def check_request(self, req): return True, "OK"
+            def synthesize(self, req):
+                return TTSResult(ok=True, output_path=req.output_path, timing=None)
+
+        plugin = SimpleNamespace(
+            engine_id="mock",
+            folder_name="tts_mock",
+            plugin_dir=plugin_dir,
+            engine=MockEngine(),
+            manifest={"engine_id": "mock"},
+            verified=True,
+            verification_error=None,
+            load_error=None,
+            dependencies_satisfied=True,
+            missing_dependencies=[],
+            setup_message=None,
+        )
+
+        client = TestClient(app)
+        with patch("app.tts_server.server._plugins", [plugin]), \
+             patch("app.tts_server.server.load_settings", return_value={}):
+            response = client.post(
+                "/synthesize",
+                json={
+                    "engine_id": "mock",
+                    "text": "Hello world",
+                    "output_path": str(tmp_path / "out.wav"),
+                    "task_id": "task-1",
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["ok"] is True
+        assert data.get("timing") is None

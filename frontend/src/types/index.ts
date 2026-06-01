@@ -37,6 +37,7 @@ export interface TtsEngine {
   calibrated_cps?: number | null;
   calibration_sample_count?: number | null;
   calibration_since?: number | null;
+  calibration_confidence_percent?: number | null;
   dev?: {
     enabled?: boolean;
     scenarios?: string;

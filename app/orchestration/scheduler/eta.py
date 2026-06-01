@@ -139,3 +139,32 @@ def get_calibrated_model_params(history: list[dict]) -> tuple[float, float] | No
     calibrated_cps = _trimmed_mean(cps_values, 1.0)
     calibrated_overhead = _trimmed_mean(overhead_values, 0.0)
     return calibrated_cps, calibrated_overhead
+
+
+def get_calibration_confidence(history: list[dict]) -> int | None:
+    """Compute calibration confidence from render performance history."""
+    if not history:
+        return None
+    cps_values = [s["cps"] for s in history if s.get("cps", 0) > 0]
+    n = len(cps_values)
+    if n < 5:
+        return None
+
+    ordered = sorted(cps_values)
+    trim = int(n * 0.15)
+    effective = ordered[trim : n - trim] if trim else ordered
+
+    if not effective:
+        return None
+
+    mean = sum(effective) / len(effective)
+    if mean <= 0:
+        return 0
+
+    variance = sum((x - mean) ** 2 for x in effective) / len(effective)
+    stddev = variance ** 0.5
+    cv = stddev / mean
+
+    w_count = min(1.0, n / 15.0)
+    c_cal = w_count * max(0.0, 1.0 - 2.0 * cv)
+    return int(round(c_cal * 100))

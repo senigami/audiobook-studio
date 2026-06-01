@@ -316,4 +316,33 @@ describe('EngineCard dependency installation', () => {
     expect(screen.getByText('Not yet computed')).toBeInTheDocument();
     expect(screen.queryByText(/from 24 samples since/i)).not.toBeInTheDocument();
   });
+
+  it('renders "characters/sec, XX% confidence" when calibration confidence exists', () => {
+    const engineWithConfidence = {
+      ...voxtralEngine,
+      calibrated_cps: 33.4,
+      calibration_confidence_percent: 82,
+      calibration_sample_count: 24,
+      calibration_since: Date.UTC(2026, 4, 30, 16, 0, 0) / 1000,
+    };
+
+    render(<EngineCard engine={engineWithConfidence} onUpdate={vi.fn()} />);
+
+    expect(screen.getByText('33.4 characters/sec, 82% confidence')).toBeInTheDocument();
+  });
+
+  it('does not invent confidence when calibration confidence is null', () => {
+    const engineNoConfidence = {
+      ...voxtralEngine,
+      calibrated_cps: 33.4,
+      calibration_confidence_percent: null,
+      calibration_sample_count: 24,
+      calibration_since: Date.UTC(2026, 4, 30, 16, 0, 0) / 1000,
+    };
+
+    render(<EngineCard engine={engineNoConfidence} onUpdate={vi.fn()} />);
+
+    expect(screen.getByText('33.4 characters/sec')).toBeInTheDocument();
+    expect(screen.queryByText(/confidence/i)).not.toBeInTheDocument();
+  });
 });
