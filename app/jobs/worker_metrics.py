@@ -119,7 +119,8 @@ def _resolve_job_tts_model(job, engine: str) -> str | None:
     if speaker_profile:
         try:
             from app.db.speakers import get_speaker_settings
-            speaker_model = normalize_tts_model(get_speaker_settings(speaker_profile).get("model"))
+            speaker_settings = get_speaker_settings(speaker_profile)
+            speaker_model = normalize_tts_model(speaker_settings.get("model")) or normalize_tts_model(speaker_settings.get("preview_model"))
             if speaker_model:
                 return speaker_model
         except Exception:

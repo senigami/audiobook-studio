@@ -218,8 +218,8 @@ def test_uncalibrated_model_suppresses_eta(tmp_path, monkeypatch):
     )
 
     duration = StudioTask().get_expected_duration("x" * 1000, "engine-c")
-    # Returns None or triggers suppression (returns None/0 or float representation to signal uncalibrated)
-    assert duration is None
+    from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
+    assert duration == 1000.0 / DEFAULT_BASELINE_ENGINE_CPS
 
 
 def test_eta_behavior_unchanged_by_speed_multiplier_setting(tmp_path, monkeypatch):
@@ -390,3 +390,493 @@ def test_get_expected_duration_prefers_self_script(tmp_path, monkeypatch):
     )
     duration = task.get_expected_duration("x" * 1000, "engine-multi-group")
     assert duration == 25.0
+
+
+def test_get_expected_duration_empty_history_cps_only_fallback(tmp_path, monkeypatch):
+    from app.orchestration.tasks.base import StudioTask
+    from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
+
+    # Mock performance metrics to return empty history
+    monkeypatch.setattr(
+        "app.db.state.get_performance_metrics",
+        lambda: {"engine_cps": {}, "render_history": []},
+    )
+
+    duration = StudioTask().get_expected_duration("x" * 1000, "engine-cps-fallback")
+
+    # It should fall back to chars / DEFAULT_BASELINE_ENGINE_CPS
+    expected = 1000.0 / DEFAULT_BASELINE_ENGINE_CPS
+    assert duration == expected
+
+
+def test_active_segment_eta_empty_history_cps_only_fallback(monkeypatch):
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
+
+    # Let's call _estimate_active_segment_eta_seconds with expected_duration=None, calibrated_cps=None
+    # This simulates startup before any calibration history is present
+    eta = OrchestratorHelpersMixin._estimate_active_segment_eta_seconds(
+        expected_duration=None,
+        total_weight=1000,
+        active_weight=200,
+        active_progress=0.0,
+        started_at=None,
+        calibrated_cps=None,
+    )
+
+    # Remaining units is 200. baseline_cps = DEFAULT_BASELINE_ENGINE_CPS
+    # Expected remaining ETA = ceil(200 / DEFAULT_BASELINE_ENGINE_CPS)
+    from math import ceil
+    expected = int(ceil(200 / DEFAULT_BASELINE_ENGINE_CPS))
+    assert eta == expected
+
+
+def test_plugin_log_contract_timing_markers(monkeypatch):
+    from app.engines.behavior import get_timing_markers, match_timing_marker
+
+    # Mock the full manifest for custom-engine
+    mock_manifest = {
+        "behavior": {
+            "timing_markers": {
+                "ENGINE_ACTIVITY_STARTED": "Booting custom engine server...",
+                "CHAPTER_SYNTHESIS_COMPLETE": "Synthesized custom chapter successfully"
+            }
+        }
+    }
+
+    # Force reload or clear lru_cache since lru_cache might cache it
+    from app.engines.behavior import _load_full_manifest
+    _load_full_manifest.cache_clear()
+
+    monkeypatch.setattr("app.engines.behavior._load_full_manifest", lambda engine_id: mock_manifest if engine_id == "custom-engine" else {})
+
+    # 1. Verify get_timing_markers resolves the custom and fallback markers
+    markers = get_timing_markers("custom-engine")
+    assert markers["ENGINE_ACTIVITY_STARTED"] == ["Booting custom engine server..."]
+    assert markers["START_SYNTHESIS"] == ["[START_SYNTHESIS]"]
+    assert markers["CHAPTER_SYNTHESIS_COMPLETE"] == ["Synthesized custom chapter successfully"]
+
+    # 2. Verify match_timing_marker works on engine-specific logs
+    assert match_timing_marker("custom-engine", "Booting custom engine server...") == "ENGINE_ACTIVITY_STARTED"
+    assert match_timing_marker("custom-engine", "[START_SYNTHESIS] for job") == "START_SYNTHESIS"
+    assert match_timing_marker("custom-engine", "Synthesized custom chapter successfully") == "CHAPTER_SYNTHESIS_COMPLETE"
+    assert match_timing_marker("custom-engine", "random unrelated line") is None
+
+
+def test_orchestrator_log_listener_captures_timing_model_metrics(clean_db, tmp_path, monkeypatch):
+    from app.orchestration.tasks.synthesis import SynthesisTask
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext
+    from app.db.state import put_job, Job
+
+    # Prepare job
+    job_id = "test-timing-markers-job"
+    task = SynthesisTask(
+        task_id=job_id,
+        engine_id="xtts",
+        script_text="Hello world",
+        output_path="/tmp/out.wav",
+        chapter_id="chap-1",
+        voice_profile_id="Default",
+        script=[{"ids": ["seg-1"], "save_path": "/tmp/seg-1.wav", "text": "Hello world"}]
+    )
+    context = TaskContext(
+        task_id=job_id,
+        task_type="synthesis",
+        project_id="proj-1",
+        chapter_id="chap-1"
+    )
+
+    # Completely isolated local state database mock
+    jobs_db = {}
+
+    def mock_put_job(job):
+        jobs_db[job.id] = job
+
+    def mock_get_jobs():
+        return jobs_db
+
+    def mock_update_job(job_id, **kwargs):
+        job = jobs_db.get(job_id)
+        if job:
+            for k, v in kwargs.items():
+                setattr(job, k, v)
+
+    monkeypatch.setattr("app.db.state.put_job", mock_put_job)
+    monkeypatch.setattr("app.db.state_jobs.put_job", mock_put_job)
+    monkeypatch.setattr("app.db.state.get_jobs", mock_get_jobs)
+    monkeypatch.setattr("app.db.state_jobs.get_jobs", mock_get_jobs)
+    monkeypatch.setattr("app.db.state.update_job", mock_update_job)
+    monkeypatch.setattr("app.db.state_jobs.update_job", mock_update_job)
+
+    # Mock _publish to record state updates during log listening using our isolated state
+    def mock_publish(self, context, started_at=None, **kwargs):
+        updates = {}
+        if started_at is not None:
+            updates["started_at"] = started_at
+        for k in ["status", "progress", "active_segment_id"]:
+            if k in kwargs:
+                updates[k] = kwargs[k]
+        if updates:
+            mock_put_job(Job(**{**jobs_db[context.task_id].__dict__, **updates}))
+
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_publish", mock_publish)
+    # Mock _estimate_task_duration
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_estimate_task_duration", lambda *args, **kwargs: 10.0)
+
+    # Mock chunk groups and segments
+    mock_segments = [
+        {"id": "seg-1", "text_content": "Hello world", "character_id": 1, "speaker_profile_name": "Narrator"}
+    ]
+
+    # Override timing manifest loading
+    mock_manifest = {
+        "behavior": {
+            "timing_markers": {
+                "ENGINE_ACTIVITY_STARTED": "Booting custom engine server...",
+                "CHAPTER_SYNTHESIS_COMPLETE": "Successfully synthesized 1 audio chunks."
+            }
+        }
+    }
+    from app.engines.behavior import normalize_behavior
+    monkeypatch.setattr("app.engines.behavior.behavior_for_engine", lambda engine_id, **kwargs: normalize_behavior(mock_manifest["behavior"]))
+
+    # Capture the log_listener closure function by mocking register_log_listener
+    listener_cb = [None]
+    class FakeWatchdog:
+        def register_log_listener(self, cb):
+            listener_cb[0] = cb
+        def unregister_log_listener(self, cb):
+            pass
+
+    # Initialize job in DB state
+    mock_put_job(Job(
+        id=job_id,
+        engine="xtts",
+        status="running",
+        created_at=time.time()
+    ))
+
+    # Instantiate Mixin class and start dispatch shim to hook log_listener
+    mixin = OrchestratorHelpersMixin()
+
+    # We patch dispatch helper calls
+    from unittest.mock import patch
+    with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_reg, \
+         patch("app.engines.watchdog.get_watchdog", return_value=FakeWatchdog()), \
+         patch("app.domain.chunk_groups.load_chunk_segments", return_value=mock_segments), \
+         patch("app.domain.chunk_groups.build_chunk_groups", return_value=[{"id": "seg-1", "leader_segment_id": "seg-1", "segments": mock_segments, "text_content": "Hello world"}]), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"):
+
+        mock_reg.return_value.get_handler.return_value = lambda *args, **kwargs: None
+        try:
+            mixin._dispatch(task=task, context=context)
+        except Exception:
+            pass
+
+    # Ensure log_listener was registered
+    assert listener_cb[0] is not None
+    listener = listener_cb[0]
+
+    # Send log line 1: ENGINE_ACTIVITY_STARTED
+    t_start = time.time()
+    with patch("time.time", return_value=t_start):
+        listener("Booting custom engine server...")
+
+    job = mock_get_jobs().get(job_id)
+    assert job.engine_activity_started_at == t_start
+
+    # Send log line 2: START_SYNTHESIS
+    t_synth = t_start + 1.0
+    with patch("time.time", return_value=t_synth):
+        listener("[START_SYNTHESIS]")
+
+    job = mock_get_jobs().get(job_id)
+    assert job.started_at == t_synth
+
+    # Send log line 3: START_SEGMENT
+    t_seg = t_start + 3.0
+    with patch("time.time", return_value=t_seg):
+        listener("[START_SEGMENT] seg-1")
+
+    job = mock_get_jobs().get(job_id)
+    assert job.first_start_segment_at == t_seg
+    # chapter_load_seconds should be t_seg - t_start = 3.0
+    assert job.chapter_load_seconds == 3.0
+
+    # Send log line 4: SEGMENT_SAVED
+    t_saved = t_start + 8.0
+    with patch("time.time", return_value=t_saved):
+        listener("[SEGMENT_SAVED] /tmp/seg-1.wav")
+
+    job = mock_get_jobs().get(job_id)
+    # segment render time is 8.0 - 3.0 = 5.0s
+    assert job.sum_segment_render_seconds == 5.0
+
+    # Send log line 5: CHAPTER_SYNTHESIS_COMPLETE
+    t_complete = t_start + 10.0
+    with patch("time.time", return_value=t_complete):
+        listener("Successfully synthesized 1 audio chunks.")
+
+    job = mock_get_jobs().get(job_id)
+    assert job.chapter_render_completed_at == t_complete
+
+    # chapter_wall_duration = 10.0s (t_complete - t_start)
+    assert job.chapter_wall_duration == 10.0
+    # chapter_post_start_window = 7.0s (t_complete - t_seg)
+    assert job.chapter_post_start_window == 7.0
+    # inter_group_overhead_seconds = post_start_window - sum_segment_render_seconds = 7.0 - 5.0 = 2.0s
+    assert job.inter_group_overhead_seconds == 2.0
+
+
+def test_orchestrator_records_render_sample_marker_timing(clean_db, tmp_path, monkeypatch):
+    from app.orchestration.tasks.synthesis import SynthesisTask
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext
+    from app.db.state import put_job, Job
+    from app.db.performance import get_render_history
+    from app.engines.behavior import normalize_behavior
+
+    # Prepare job
+    job_id = "test-timing-markers-completion-job"
+    task = SynthesisTask(
+        task_id=job_id,
+        engine_id="xtts",
+        script_text="Hello world",
+        output_path="/tmp/out.wav",
+        chapter_id="chap-1",
+        voice_profile_id="Default",
+        script=[{"ids": ["seg-1"], "save_path": "/tmp/seg-1.wav", "text": "Hello world"}]
+    )
+    context = TaskContext(
+        task_id=job_id,
+        task_type="synthesis",
+        project_id="proj-1",
+        chapter_id="chap-1",
+        payload={
+            "engine_id": "xtts",
+            "script_text": "Hello world",
+            "voice_profile_id": "Default",
+        }
+    )
+
+    # Track updates to job
+    jobs_db = {}
+    def mock_put_job(job):
+        jobs_db[job.id] = job
+    def mock_get_jobs():
+        return jobs_db
+    def mock_update_job(job_id, **kwargs):
+        job = jobs_db.get(job_id)
+        if job:
+            for k, v in kwargs.items():
+                setattr(job, k, v)
+
+    monkeypatch.setattr("app.db.state.put_job", mock_put_job)
+    monkeypatch.setattr("app.db.state.get_jobs", mock_get_jobs)
+    monkeypatch.setattr("app.db.state.update_job", mock_update_job)
+
+    def mock_publish(self, context, status=None, progress=None, eta_seconds=None, started_at=None, **kwargs):
+        updates = {}
+        if status is not None:
+            updates["status"] = status
+        if progress is not None:
+            updates["progress"] = progress
+        if eta_seconds is not None:
+            updates["eta_seconds"] = eta_seconds
+        if started_at is not None:
+            updates["started_at"] = started_at
+
+        job_fields = Job.__dataclass_fields__
+        for k, v in kwargs.items():
+            if k in job_fields:
+                updates[k] = v
+        if updates:
+            mock_put_job(Job(**{**jobs_db[context.task_id].__dict__, **updates}))
+
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_publish", mock_publish)
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_estimate_task_duration", lambda *args, **kwargs: 10.0)
+
+    mock_segments = [
+        {"id": "seg-1", "text_content": "Hello world", "character_id": 1, "speaker_profile_name": "Narrator"}
+    ]
+
+    mock_manifest = {
+        "behavior": {
+            "timing_markers": {
+                "ENGINE_ACTIVITY_STARTED": "Booting custom engine server...",
+                "CHAPTER_SYNTHESIS_COMPLETE": "Successfully synthesized 1 audio chunks."
+            }
+        }
+    }
+    monkeypatch.setattr("app.engines.behavior.behavior_for_engine", lambda engine_id, **kwargs: normalize_behavior(mock_manifest["behavior"]))
+
+    listener_cb = [None]
+    class FakeWatchdog:
+        def register_log_listener(self, cb):
+            listener_cb[0] = cb
+        def unregister_log_listener(self, cb):
+            pass
+
+    mock_put_job(Job(
+        id=job_id,
+        engine="xtts",
+        status="running",
+        created_at=time.time()
+    ))
+
+    mixin = OrchestratorHelpersMixin()
+
+    from unittest.mock import patch
+    from app.orchestration.tasks.base import TaskResult
+
+    # Set up the mock handler to process logs and return completion
+    def custom_handler(*args, **kwargs):
+        listener = listener_cb[0]
+        assert listener is not None
+        # 1. ENGINE_ACTIVITY_STARTED at t=100.0
+        with patch("time.time", return_value=100.0):
+            listener("Booting custom engine server...")
+        # 2. START_SYNTHESIS at t=105.0
+        with patch("time.time", return_value=105.0):
+            listener("[START_SYNTHESIS]")
+        # 3. START_SEGMENT at t=110.0
+        with patch("time.time", return_value=110.0):
+            listener("[START_SEGMENT] seg-1")
+        # 4. SEGMENT_SAVED at t=120.0
+        with patch("time.time", return_value=120.0):
+            listener("[SEGMENT_SAVED] /tmp/seg-1.wav")
+        # 5. CHAPTER_SYNTHESIS_COMPLETE at t=125.0
+        with patch("time.time", return_value=125.0):
+            listener("Successfully synthesized 1 audio chunks.")
+        return TaskResult(status="completed")
+
+    with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_reg, \
+         patch("app.engines.watchdog.get_watchdog", return_value=FakeWatchdog()), \
+         patch("app.domain.chunk_groups.load_chunk_segments", return_value=mock_segments), \
+         patch("app.domain.chunk_groups.build_chunk_groups", return_value=[{"id": "seg-1", "leader_segment_id": "seg-1", "segments": mock_segments, "text_content": "Hello world"}]), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"), \
+         patch("time.time", return_value=125.0):
+
+        mock_reg.return_value.get_handler.return_value = custom_handler
+        mixin._dispatch(task=task, context=context)
+
+    # Now verify the recorded sample in DB history
+    history = get_render_history()
+    assert len(history) == 1
+    sample = history[0]
+
+    assert sample["started_at"] == 100.0
+    assert sample["completed_at"] == 125.0
+    assert sample["duration_seconds"] == 25.0
+    assert sample["chapter_load_seconds"] == 10.0
+    assert sample["sum_segment_render_seconds"] == 10.0
+    # inter_group_overhead_seconds = post_start_window - sum_segment_render_seconds = (125-110) - 10 = 5.0
+    assert sample["inter_group_overhead_seconds"] == 5.0
+
+
+def test_engine_without_manifest_ignores_fallback_completion(clean_db, tmp_path, monkeypatch):
+    from app.orchestration.tasks.synthesis import SynthesisTask
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext
+    from app.db.state import put_job, Job
+    from app.engines.behavior import normalize_behavior
+
+    job_id = "test-no-fallback-completion-job"
+    task = SynthesisTask(
+        task_id=job_id,
+        engine_id="custom-engine",
+        script_text="Hello world",
+        output_path="/tmp/out.wav",
+        chapter_id="chap-1",
+        voice_profile_id="Default",
+        script=[{"ids": ["seg-1"], "save_path": "/tmp/seg-1.wav", "text": "Hello world"}]
+    )
+    context = TaskContext(
+        task_id=job_id,
+        task_type="synthesis",
+        project_id="proj-1",
+        chapter_id="chap-1",
+        payload={
+            "engine_id": "custom-engine",
+            "script_text": "Hello world",
+            "voice_profile_id": "Default",
+        }
+    )
+
+    jobs_db = {}
+    def mock_put_job(job):
+        jobs_db[job.id] = job
+    def mock_get_jobs():
+        return jobs_db
+    def mock_update_job(job_id, **kwargs):
+        job = jobs_db.get(job_id)
+        if job:
+            for k, v in kwargs.items():
+                setattr(job, k, v)
+
+    monkeypatch.setattr("app.db.state.put_job", mock_put_job)
+    monkeypatch.setattr("app.db.state.get_jobs", mock_get_jobs)
+    monkeypatch.setattr("app.db.state.update_job", mock_update_job)
+
+    def mock_publish(self, context, status=None, progress=None, eta_seconds=None, started_at=None, **kwargs):
+        updates = {}
+        if status is not None:
+            updates["status"] = status
+        if progress is not None:
+            updates["progress"] = progress
+        job_fields = Job.__dataclass_fields__
+        for k, v in kwargs.items():
+            if k in job_fields:
+                updates[k] = v
+        if updates:
+            mock_put_job(Job(**{**jobs_db[context.task_id].__dict__, **updates}))
+
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_publish", mock_publish)
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_estimate_task_duration", lambda *args, **kwargs: 10.0)
+
+    # NO TIMING MARKERS declarations in behavior
+    mock_manifest = {
+        "behavior": {
+            "timing_markers": {}
+        }
+    }
+    monkeypatch.setattr("app.engines.behavior.behavior_for_engine", lambda engine_id, **kwargs: normalize_behavior(mock_manifest["behavior"]))
+
+    listener_cb = [None]
+    class FakeWatchdog:
+        def register_log_listener(self, cb):
+            listener_cb[0] = cb
+        def unregister_log_listener(self, cb):
+            pass
+
+    mock_put_job(Job(
+        id=job_id,
+        engine="custom-engine",
+        status="running",
+        created_at=time.time()
+    ))
+
+    mixin = OrchestratorHelpersMixin()
+
+    from unittest.mock import patch
+    from app.orchestration.tasks.base import TaskResult
+
+    def custom_handler(*args, **kwargs):
+        listener = listener_cb[0]
+        # Send XTTS completion line, which should NOT match
+        listener("Successfully synthesized 1 audio chunks.")
+        return TaskResult(status="completed")
+
+    with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_reg, \
+         patch("app.engines.watchdog.get_watchdog", return_value=FakeWatchdog()), \
+         patch("app.domain.chunk_groups.load_chunk_segments", return_value=[]), \
+         patch("app.domain.chunk_groups.build_chunk_groups", return_value=[]), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="custom-engine"):
+
+        mock_reg.return_value.get_handler.return_value = custom_handler
+        mixin._dispatch(task=task, context=context)
+
+    # chapter_render_completed_at MUST be None because the log did not match
+    job = jobs_db.get(job_id)
+    assert job.chapter_render_completed_at is None

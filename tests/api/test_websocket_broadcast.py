@@ -60,7 +60,7 @@ def test_broadcast_job_updated_preserves_context_in_job_updated_payload(monkeypa
     broadcast_job_updated(
         "job-3",
         {"progress": 0.5},
-        {"status": "running", "progress": 0.5, "chapter_id": "chap-1", "project_id": "proj-1", "parent_job_id": "chapter-parent"},
+        {"status": "running", "progress": 0.5, "chapter_id": "chap-1", "project_id": "proj-1", "parent_job_id": "chapter-parent", "classification": "segment"},
     )
 
     assert len(messages) == 1
@@ -1231,7 +1231,7 @@ def test_broadcast_job_updated_segment_progress_sends_canonical_envelope(monkeyp
     broadcast_job_updated(
         "job-seg-123",
         {"progress": 0.5, "eta_seconds": 15},
-        {"status": "running", "progress": 0.5, "parent_job_id": "chapter-parent-job", "chapter_id": "chap-1", "project_id": "proj-1"},
+        {"status": "running", "progress": 0.5, "parent_job_id": "chapter-parent-job", "chapter_id": "chap-1", "project_id": "proj-1", "classification": "segment"},
     )
 
     # We expect only one broadcast: the canonical segments.progress studio_event

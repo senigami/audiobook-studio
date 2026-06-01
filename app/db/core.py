@@ -325,6 +325,8 @@ def init_db():
                     duration_seconds REAL NOT NULL,
                     synthesis_duration_seconds REAL NOT NULL DEFAULT 0.0,
                     inter_group_overhead_seconds REAL NOT NULL DEFAULT 0.0,
+                    chapter_load_seconds REAL,
+                    sum_segment_render_seconds REAL,
                     sample_type TEXT,
                     cps REAL NOT NULL,
                     seconds_per_segment REAL NOT NULL,
@@ -356,6 +358,8 @@ def init_db():
             add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN make_mp3 INTEGER DEFAULT 0", "render_performance_samples.make_mp3")
             add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN synthesis_duration_seconds REAL NOT NULL DEFAULT 0.0", "render_performance_samples.synthesis_duration_seconds")
             add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN inter_group_overhead_seconds REAL NOT NULL DEFAULT 0.0", "render_performance_samples.inter_group_overhead_seconds")
+            add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN chapter_load_seconds REAL", "render_performance_samples.chapter_load_seconds")
+            add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN sum_segment_render_seconds REAL", "render_performance_samples.sum_segment_render_seconds")
             add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN sample_type TEXT", "render_performance_samples.sample_type")
 
             studio_conn.commit()

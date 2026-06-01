@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Job } from '@/types';
-import { hasSegmentProgressCapability, isSegmentScopedJob, pickRelevantJob } from '@/utils/jobSelection';
+import { hasSegmentProgressCapability, isSegmentScopedJob, pickRelevantJob, isMainQueueSegmentItem } from '@/utils/jobSelection';
 
 function makeJob(overrides: Partial<Job>): Job {
   return {
@@ -86,5 +86,38 @@ describe('hasSegmentProgressCapability', () => {
 
     expect(hasSegmentProgressCapability(job)).toBe(true);
     expect(isSegmentScopedJob(job)).toBe(false);
+  });
+});
+
+describe('classification logic rules', () => {
+  it('returns false for isMainQueueSegmentItem and isSegmentScopedJob if classification is chapter', () => {
+    const job = {
+      classification: 'chapter' as const,
+      parent_job_id: 'job-parent',
+      segment_ids: ['seg-1'],
+    };
+    expect(isSegmentScopedJob(job)).toBe(false);
+  });
+
+  it('checks segment_ids first and parent_job_id startsWith job- fallback last', () => {
+    // parent_job_id that does not start with job- should return false (it's a projectUUID)
+    const jobProjectParent = {
+      parent_job_id: 'project-uuid-1234',
+    };
+    expect(isSegmentScopedJob(jobProjectParent)).toBe(false);
+
+    // parent_job_id starting with job- fallback returns true
+    const jobTaskParent = {
+      parent_job_id: 'job-parent-1234',
+    };
+    expect(isSegmentScopedJob(jobTaskParent)).toBe(true);
+  });
+
+  it('returns false for chapter jobs with project parent_job_id and active_segment_id', () => {
+    const job = {
+      parent_job_id: 'project-uuid-1234',
+      active_segment_id: 'seg-1',
+    };
+    expect(isMainQueueSegmentItem(job)).toBe(false);
   });
 });

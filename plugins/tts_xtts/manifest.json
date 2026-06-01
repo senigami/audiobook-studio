@@ -42,7 +42,14 @@
     ],
     "text_chunk_limit": 500,
     "text_split_target": 450,
-    "progress_pattern": "\\[PROGRESS\\]\\s*(?P<value>\\d+(?:\\.\\d+)?)\\s*%"
+    "progress_pattern": "\\[PROGRESS\\]\\s*(?P<value>\\d+(?:\\.\\d+)?)\\s*%",
+    "timing_markers": {
+      "ENGINE_ACTIVITY_STARTED": ["Loading XTTS model..."],
+      "START_SYNTHESIS": ["[START_SYNTHESIS]"],
+      "START_SEGMENT": ["[START_SEGMENT]"],
+      "SEGMENT_SAVED": ["[SEGMENT_SAVED]"],
+      "CHAPTER_SYNTHESIS_COMPLETE": ["Successfully synthesized"]
+    }
   },
   "local": true,
   "cloud": false,

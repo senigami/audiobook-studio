@@ -63,7 +63,7 @@ def generate_via_bridge(
     try:
         response = bridge.synthesize(request)
 
-        synthesis_duration = response.get("duration_sec")
+        synthesis_duration = response.get("duration_sec") or response.get("tts_server_result", {}).get("duration_sec")
         if synthesis_duration is not None and task_id:
             from app.db.state import update_job
             update_job(task_id, synthesis_duration_seconds=synthesis_duration)

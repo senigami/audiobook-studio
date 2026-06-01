@@ -56,6 +56,7 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
     try:
         # Plugins are responsible for their own test execution and asset management.
         # This keeps them self-contained so they can be their own separate repos.
+        wall_start = time.time()
         start_time = time.perf_counter()
         run_test = plugin.engine.run_test
         if _accepts_settings(run_test):
@@ -80,6 +81,39 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
             "metadata": calculate_verification_metadata(plugin.plugin_dir, plugin.manifest)
         }
         save_state(plugin.plugin_dir, state)
+
+        # Record a performance sample for calibration
+        try:
+            from app.db.performance import record_render_sample
+            from app.tts_server.performance_settings import resolve_engine_settings_model
+
+            test_text = plugin.manifest.get("test_text") or "Hello, verification test text."
+            chars = len(test_text)
+            sample_dur = max(0.1, duration)
+            tts_model = resolve_engine_settings_model(engine_id)
+
+            record_render_sample(
+                engine=engine_id,
+                tts_model=tts_model,
+                chars=chars,
+                word_count=len(test_text.split()),
+                segment_count=1,
+                duration_seconds=round(sample_dur, 2),
+                cps=round(chars / sample_dur, 2),
+                seconds_per_segment=round(sample_dur, 2),
+                job_id=None,
+                project_id=None,
+                chapter_id=None,
+                speaker_profile=None,
+                render_group_count=0,
+                started_at=wall_start,
+                completed_at=wall_start + sample_dur,
+                make_mp3=False,
+                synthesis_duration_seconds=sample_dur,
+                sample_type="verification"
+            )
+        except Exception:
+            logger.exception("Failed to record verification performance sample")
 
         return VerificationResult(
             engine_id=engine_id,

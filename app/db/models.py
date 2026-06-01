@@ -63,11 +63,39 @@ class Job:
     active_segment_updated_at: Optional[float] = None
     has_segment_support: bool = False
     synthesis_duration_seconds: Optional[float] = None
+    classification_override: Optional[str] = None
+
+    engine_activity_started_at: Optional[float] = None
+    first_start_segment_at: Optional[float] = None
+    chapter_render_completed_at: Optional[float] = None
+    sum_segment_render_seconds: float = 0.0
+    chapter_load_seconds: Optional[float] = None
+    inter_group_overhead_seconds: Optional[float] = None
+    chapter_post_start_window: Optional[float] = None
+    chapter_wall_duration: Optional[float] = None
 
     @property
     def classification(self) -> str:
-        if getattr(self, "parent_job_id", None) or getattr(self, "segment_ids", None):
+        # Prefer explicit classification if present
+        explicit = getattr(self, "classification_override", None)
+        if explicit in {"job", "chapter", "segment"}:
+            return explicit
+
+        # Check chapter_id + active_segment_id combination
+        if getattr(self, "chapter_id", None) and getattr(self, "active_segment_id", None):
+            return "chapter"
+
+        # Check true segment indicators
+        if getattr(self, "segment_ids", None):
             return "segment"
+
+        # Check chapter indicators
         if getattr(self, "chapter_id", None):
             return "chapter"
+
+        # Defensive fallback for parent_job_id
+        parent_id = getattr(self, "parent_job_id", None)
+        if parent_id and parent_id.startswith("job-"):
+            return "segment"
+
         return "job"

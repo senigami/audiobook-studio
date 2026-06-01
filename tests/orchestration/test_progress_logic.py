@@ -959,3 +959,45 @@ def test_orchestrator_publish_coerces_preparing_after_started_at():
         # The last call to progress_service.publish should have status="running"
         last_publish_args = mock_progress.publish.call_args[1]
         assert last_publish_args["status"] == "running"
+
+
+def test_chapter_job_with_parent_id_classified_as_chapter():
+    from app.db.models import Job
+
+    # 1. Job with explicit classification override
+    j1 = Job(id="job-1", engine="xtts", status="running", created_at=time.time())
+    j1.classification_override = "chapter"
+    assert j1.classification == "chapter"
+
+    # 2. Job with segment indicators
+    j2 = Job(id="job-2", engine="xtts", status="running", created_at=time.time())
+    j2.segment_ids = ["seg1", "seg2"]
+    assert j2.classification == "segment"
+
+    # 3. Job with chapter_id and a project parent job ID
+    j3 = Job(id="job-3", engine="xtts", status="running", created_at=time.time())
+    j3.chapter_id = "chap-123"
+    j3.parent_job_id = "project-uuid-456"
+    assert j3.classification == "chapter"
+
+    # 4. Job with parent_job_id starting with 'job-' (fallback check)
+    j4 = Job(id="job-4", engine="xtts", status="running", created_at=time.time())
+    j4.parent_job_id = "job-parent-123"
+    assert j4.classification == "segment"
+
+    # 5. Generic job
+    j5 = Job(id="job-5", engine="xtts", status="running", created_at=time.time())
+    assert j5.classification == "job"
+
+    # 6. Job with chapter_id and active_segment_id (returns chapter unless overridden)
+    j6 = Job(id="job-6", engine="xtts", status="running", created_at=time.time())
+    j6.chapter_id = "chap-123"
+    j6.active_segment_id = "seg-1"
+    assert j6.classification == "chapter"
+
+    # 7. Job with chapter_id and active_segment_id but explicit segment override
+    j7 = Job(id="job-7", engine="xtts", status="running", created_at=time.time())
+    j7.chapter_id = "chap-123"
+    j7.active_segment_id = "seg-1"
+    j7.classification_override = "segment"
+    assert j7.classification == "segment"

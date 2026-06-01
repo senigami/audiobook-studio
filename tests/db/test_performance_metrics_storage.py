@@ -584,3 +584,149 @@ def test_sample_test_task_does_not_train_metrics(clean_db, tmp_path, monkeypatch
         "SampleTestTask must not write to render_performance_samples; "
         f"found {len(history)} unexpected sample(s)."
     )
+
+
+def test_generate_via_bridge_extracts_nested_duration(clean_db, tmp_path, monkeypatch):
+    """generate_via_bridge should extract duration_sec from response.tts_server_result.duration_sec and write it to job state."""
+    from app.jobs.handlers.bridge_helpers import generate_via_bridge
+    from app.db.state import get_jobs, put_job, Job
+
+    # Create dummy job in state
+    job_id = "test-nested-dur-job"
+    put_job(Job(
+        id=job_id,
+        engine="xtts",
+        status="running",
+        created_at=time.time(),
+        started_at=time.time(),
+        synthesis_duration_seconds=0.0
+    ))
+
+    class _FakeBridge:
+        def synthesize(self, request):
+            # Write a dummy wav file so we don't fail path checks
+            out_path = Path(request["output_path"])
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_bytes(b"RIFF\x00\x00\x00\x00WAVEfmt ")
+            return {
+                "status": "ok",
+                "tts_server_result": {
+                    "duration_sec": 4.25
+                }
+            }
+
+    monkeypatch.setattr("app.jobs.handlers.bridge_helpers.create_voice_bridge", lambda: _FakeBridge())
+
+    out_wav = tmp_path / "output.wav"
+    generate_via_bridge(
+        engine="xtts",
+        text="Hello world",
+        out_wav=out_wav,
+        task_id=job_id
+    )
+
+    # Reload job state
+    job = get_jobs().get(job_id)
+    assert job is not None
+    assert job.synthesis_duration_seconds == 4.25
+
+
+def test_verify_plugin_records_performance_sample(clean_db, monkeypatch):
+    """verify_plugin should record a calibration sample on successful verification with correct details."""
+    from app.tts_server.verification import verify_plugin
+    from app.tts_server.plugin_loader import LoadedPlugin
+    from app.engines.voice.sdk import VerificationResult as SDKVerificationResult
+
+    class FakeEngine:
+        def run_test(self, settings=None):
+            return SDKVerificationResult(ok=True, message="Engine test OK")
+
+    plugin = LoadedPlugin(
+        folder_name="tts_xtts",
+        plugin_dir=Path("/tmp/fake_xtts"),
+        manifest={
+            "engine_id": "xtts",
+            "version": "1.0.0",
+            "display_name": "XTTS",
+            "entry_class": "interface:XttsPlugin",
+            "capabilities": ["synthesis"],
+            "test_text": "Hello, verification test text."
+        },
+        engine=FakeEngine()
+    )
+
+    monkeypatch.setattr("app.tts_server.settings_store.save_state", lambda *args, **kwargs: None)
+    monkeypatch.setattr("app.tts_server.settings_store.calculate_verification_metadata", lambda *args, **kwargs: {})
+    monkeypatch.setattr("app.tts_server.settings_store.load_settings", lambda *args: {})
+
+    res = verify_plugin(plugin)
+    assert res.ok
+
+    history = get_render_history()
+    assert len(history) == 1
+    sample = history[0]
+    assert sample["engine"] == "xtts"
+    assert sample["sample_type"] == "verification"
+    assert sample["chars"] == len("Hello, verification test text.")
+    assert sample["synthesis_duration_seconds"] > 0
+    assert sample["completed_at"] > 1700000000.0
+    assert sample["started_at"] > 1700000000.0
+
+    # Test retention survival
+    apply_performance_retention_policy()
+    history_after = get_render_history()
+    assert len(history_after) == 1
+    assert history_after[0]["sample_type"] == "verification"
+
+
+def test_resolve_job_tts_model_falls_back_to_preview_model(clean_db, monkeypatch):
+    """_resolve_job_tts_model should resolve from speaker settings' preview_model if model is not set."""
+    from app.jobs.worker_metrics import _resolve_job_tts_model
+    from app.db.state_jobs import Job
+
+    job = Job(
+        id="test-job",
+        engine="xtts",
+        status="done",
+        created_at=time.time(),
+        speaker_profile="narrator"
+    )
+
+    # Mock get_speaker_settings to return preview_model only
+    monkeypatch.setattr("app.db.speakers.get_speaker_settings", lambda name: {
+        "preview_model": "tts_models/multilingual/multi-dataset/xtts_v2",
+        "speed": 1.0,
+        "engine": "xtts"
+    })
+
+    model = _resolve_job_tts_model(job, "xtts")
+    assert model == "tts_models/multilingual/multi-dataset/xtts_v2"
+
+
+def test_record_render_sample_stores_load_and_pure_render_seconds(clean_db):
+    jid = str(uuid.uuid4())
+    record_render_sample(
+        engine="engine-b",
+        tts_model="model-b",
+        chars=1000,
+        segment_count=5,
+        duration_seconds=50.0,
+        job_id=jid,
+        project_id="p2",
+        chapter_id="c2",
+        chapter_load_seconds=8.0,
+        sum_segment_render_seconds=30.0,
+        sample_type="chapter",
+    )
+
+    history = get_render_history()
+    assert len(history) == 1
+    sample = history[0]
+    assert sample["job_id"] == jid
+    assert sample["chapter_load_seconds"] == 8.0
+    assert sample["sum_segment_render_seconds"] == 30.0
+    # inter_group_overhead_seconds = (duration_seconds - chapter_load_seconds) - sum_segment_render_seconds
+    # = (50.0 - 8.0) - 30.0 = 12.0
+    assert sample["inter_group_overhead_seconds"] == 12.0
+    # CPS is chars / sum_segment_render_seconds = 1000 / 30 = 33.33
+    assert abs(sample["cps"] - 33.33) < 0.01

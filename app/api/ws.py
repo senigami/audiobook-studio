@@ -79,10 +79,15 @@ def _classify_job_payload(job: dict | None) -> str:
     explicit = job.get("classification")
     if explicit in {"job", "chapter", "segment"}:
         return str(explicit)
-    if job.get("parent_job_id") or job.get("segment_ids"):
+    if job.get("chapter_id") and job.get("active_segment_id"):
+        return "chapter"
+    if job.get("segment_ids"):
         return "segment"
     if job.get("chapter_id"):
         return "chapter"
+    parent_id = job.get("parent_job_id")
+    if parent_id and parent_id.startswith("job-"):
+        return "segment"
     return "job"
 
 

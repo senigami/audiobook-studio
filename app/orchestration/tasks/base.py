@@ -147,7 +147,8 @@ class StudioTask:
 
             params = get_calibrated_model_params(history)
             if not params:
-                return None
+                from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
+                return float(len(text)) / float(DEFAULT_BASELINE_ENGINE_CPS)
 
             calibrated_cps, calibrated_overhead = params
 

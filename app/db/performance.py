@@ -36,12 +36,17 @@ def record_render_sample(
     make_mp3: bool = False,
     completed_at: Optional[float] = None,
     synthesis_duration_seconds: Optional[float] = None,
+    chapter_load_seconds: Optional[float] = None,
+    sum_segment_render_seconds: Optional[float] = None,
     sample_type: Optional[str] = None,
 ):
     """
     Records a successful render sample into the database.
     Only successful terminal 'done' jobs should call this.
     """
+    if (synthesis_duration_seconds is None or synthesis_duration_seconds <= 0) and sum_segment_render_seconds is not None and sum_segment_render_seconds > 0:
+        synthesis_duration_seconds = sum_segment_render_seconds
+
     if synthesis_duration_seconds is None or synthesis_duration_seconds <= 0:
         raise ValueError("synthesis_duration_seconds is mandatory and must be positive")
 
@@ -52,10 +57,18 @@ def record_render_sample(
     if chars < 0:
         return
 
-    inter_group_overhead_seconds = max(0.0, duration_seconds - synthesis_duration_seconds)
+    if chapter_load_seconds is not None and sum_segment_render_seconds is not None:
+        post_start_window = duration_seconds - chapter_load_seconds
+        inter_group_overhead_seconds = max(0.0, post_start_window - sum_segment_render_seconds)
+    else:
+        inter_group_overhead_seconds = max(0.0, duration_seconds - synthesis_duration_seconds)
 
-    if cps is None and synthesis_duration_seconds > 0:
-        cps = round(chars / synthesis_duration_seconds, 2)
+    if cps is None:
+        if sum_segment_render_seconds is not None and sum_segment_render_seconds > 0:
+            cps = round(chars / sum_segment_render_seconds, 2)
+        elif synthesis_duration_seconds > 0:
+            cps = round(chars / synthesis_duration_seconds, 2)
+
     if seconds_per_segment is None and duration_seconds > 0:
         seconds_per_segment = round(duration_seconds / max(1, segment_count), 2)
     if word_count is None:
@@ -75,16 +88,18 @@ def record_render_sample(
                     job_id, project_id, chapter_id, engine, tts_model, speaker_profile,
                     chars, word_count, segment_count, render_group_count, started_at,
                     completed_at, duration_seconds, synthesis_duration_seconds,
-                    inter_group_overhead_seconds, sample_type, cps, seconds_per_segment,
+                    inter_group_overhead_seconds, chapter_load_seconds, sum_segment_render_seconds,
+                    sample_type, cps, seconds_per_segment,
                     audio_duration_seconds, make_mp3
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     job_id, project_id, chapter_id, engine, _normalize_tts_model(tts_model), speaker_profile,
                     chars, max(0, int(word_count or 0)), segment_count, render_group_count, started_at,
                     completed_at, duration_seconds, synthesis_duration_seconds,
-                    inter_group_overhead_seconds, sample_type, cps, seconds_per_segment,
+                    inter_group_overhead_seconds, chapter_load_seconds, sum_segment_render_seconds,
+                    sample_type, cps, seconds_per_segment,
                     audio_duration_seconds, 1 if make_mp3 else 0,
                 ),
             )

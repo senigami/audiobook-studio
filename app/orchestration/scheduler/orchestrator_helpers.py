@@ -72,7 +72,19 @@ class OrchestratorHelpersMixin:
         """Dispatch the task to execution through the orchestrator-owned bridge."""
         # Render start is separate from preparation. Marker-driven tasks anchor this
         # on engine markers so model loading does not pollute render duration metrics.
-        timing = {"render_started_at": None}
+        timing = {
+            "engine_activity_started_at": None,
+            "render_started_at": None,
+            "first_start_segment_at": None,
+            "chapter_render_completed_at": None,
+            "sum_segment_render_seconds": 0.0,
+            "chapter_load_seconds": None,
+            "inter_group_overhead_seconds": None,
+            "chapter_post_start_window": None,
+            "chapter_wall_duration": None,
+            "synthesis_duration_seconds": None,
+        }
+        segment_starts = {}
         marker_state = {
             "start_synthesis_emitted": False,
             "start_segment_ids": set(),
@@ -125,11 +137,19 @@ class OrchestratorHelpersMixin:
         def record_render_stats_if_completed(result: TaskResult) -> None:
             if result.status != "completed":
                 return
-            started_at = timing["render_started_at"]
-            if started_at is None:
-                duration_seconds = max(0.0, time.monotonic() - float(getattr(task, "submitted_at", time.monotonic())))
+
+            if timing.get("chapter_wall_duration") is not None:
+                duration_seconds = timing["chapter_wall_duration"]
+                started_at = timing.get("engine_activity_started_at") or timing.get("render_started_at")
+                completed_at_val = timing.get("chapter_render_completed_at") or time.time()
             else:
-                duration_seconds = max(0.0, time.time() - started_at)
+                started_at = timing["render_started_at"]
+                if started_at is None:
+                    duration_seconds = max(0.0, time.monotonic() - float(getattr(task, "submitted_at", time.monotonic())))
+                else:
+                    duration_seconds = max(0.0, time.time() - started_at)
+                completed_at_val = time.time()
+
             if duration_seconds <= 0:
                 return
 
@@ -182,8 +202,10 @@ class OrchestratorHelpersMixin:
                     started_at=started_at,
                     audio_duration_seconds=audio_duration_seconds,
                     make_mp3=bool(payload.get("make_mp3", False)),
-                    completed_at=time.time(),
+                    completed_at=completed_at_val,
                     synthesis_duration_seconds=synthesis_dur,
+                    chapter_load_seconds=getattr(job_obj, "chapter_load_seconds", None) if job_obj else None,
+                    sum_segment_render_seconds=getattr(job_obj, "sum_segment_render_seconds", None) if job_obj else None,
                 )
             except Exception:
                 logger.warning(
@@ -276,14 +298,16 @@ class OrchestratorHelpersMixin:
             # If a task_id is present in the line, it MUST match ours.
             if line_task_id and line_task_id != context.task_id:
                 return
+
+            engine_id = None
+            if context and context.payload:
+                engine_id = context.payload.get("engine_id")
+            if not engine_id:
+                engine_id = getattr(task, "engine_id", None)
+            plugin_id = engine_id
+
             try:
                 from app.api.ws import broadcast_tts_log_line
-                engine_id = None
-                if context and context.payload:
-                    engine_id = context.payload.get("engine_id")
-                if not engine_id:
-                    engine_id = getattr(task, "engine_id", None)
-
                 plugin_short_name = None
                 plugin_id = engine_id
                 if engine_id:
@@ -310,12 +334,25 @@ class OrchestratorHelpersMixin:
             except Exception:
                 logger.exception("Failed to broadcast TTS log line for task %s", context.task_id)
 
-            if "[START_SYNTHESIS]" in line:
+            from app.engines.behavior import match_timing_marker
+            matched_marker = match_timing_marker(plugin_id or engine_id, line)
+            now_time = time.time()
+
+            if matched_marker == "ENGINE_ACTIVITY_STARTED":
+                if timing.get("engine_activity_started_at") is None:
+                    timing["engine_activity_started_at"] = now_time
+                    try:
+                        from app.db.state import update_job
+                        update_job(context.task_id, engine_activity_started_at=now_time)
+                    except Exception:
+                        pass
+
+            if matched_marker == "START_SYNTHESIS" or "[START_SYNTHESIS]" in line:
                 if marker_state["start_synthesis_emitted"]:
                     return
                 marker_state["start_synthesis_emitted"] = True
                 if timing["render_started_at"] is None:
-                    timing["render_started_at"] = time.time()
+                    timing["render_started_at"] = now_time
                 trace(
                     "orchestrator.marker_start_synthesis",
                     job_id=context.task_id,
@@ -340,15 +377,35 @@ class OrchestratorHelpersMixin:
                     force=False,
                 )
 
-            if "[START_SEGMENT]" in line:
+            if matched_marker == "START_SEGMENT" or "[START_SEGMENT]" in line:
+                if timing.get("first_start_segment_at") is None:
+                    timing["first_start_segment_at"] = now_time
+                    try:
+                        from app.db.state import update_job
+                        update_job(context.task_id, first_start_segment_at=now_time)
+                    except Exception:
+                        pass
+                if timing.get("engine_activity_started_at") is not None and timing.get("chapter_load_seconds") is None:
+                    timing["chapter_load_seconds"] = now_time - timing["engine_activity_started_at"]
+                    try:
+                        from app.db.state import update_job
+                        update_job(context.task_id, chapter_load_seconds=timing["chapter_load_seconds"])
+                    except Exception:
+                        pass
+
                 try:
                     # [START_SEGMENT] {segment_id}
-                    sid = line.split("[START_SEGMENT]")[1].strip().split()[0]
+                    if "[START_SEGMENT]" in line:
+                        sid = line.split("[START_SEGMENT]")[1].strip().split()[0]
+                    else:
+                        sid = active_seg_id[0] or (list(marker_state["start_segment_ids"])[-1] if marker_state["start_segment_ids"] else "unknown")
+
                     if sid in marker_state["start_segment_ids"]:
                         return
                     marker_state["start_segment_ids"].add(sid)
                     active_seg_id[0] = sid
                     active_seg_progress[0] = 0.0
+                    segment_starts[sid] = now_time
                     active_render_group_index[0] = group_index_by_leader.get(sid, active_render_group_index[0])
                     trace(
                         "orchestrator.marker_start_segment",
@@ -370,7 +427,7 @@ class OrchestratorHelpersMixin:
                             total_weight=total_weight,
                             active_weight=id_to_weight.get(sid, 0),
                             active_progress=0.0,
-                            started_at=timing["render_started_at"],
+                            started_at=segment_starts.get(sid),
                             calibrated_cps=calibrated_cps,
                         ),
                         reason_code="START_SEGMENT",
@@ -415,7 +472,7 @@ class OrchestratorHelpersMixin:
                         total_weight=total_weight,
                         active_weight=id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0,
                         active_progress=raw_progress if (total_weight > 0 and active_seg_id[0] is not None) else p,
-                        started_at=timing["render_started_at"],
+                        started_at=segment_starts.get(active_seg_id[0]) if active_seg_id[0] else None,
                         calibrated_cps=calibrated_cps,
                     )
                     trace(
@@ -455,10 +512,13 @@ class OrchestratorHelpersMixin:
                 except Exception:
                     pass
 
-            if "[SEGMENT_SAVED]" in line:
+            if matched_marker == "SEGMENT_SAVED" or "[SEGMENT_SAVED]" in line:
                 try:
                     # [SEGMENT_SAVED] {path}
-                    saved_path = line.split("[SEGMENT_SAVED]")[1].strip().split()[0]
+                    if "[SEGMENT_SAVED]" in line:
+                        saved_path = line.split("[SEGMENT_SAVED]")[1].strip().split()[0]
+                    else:
+                        saved_path = active_seg_id[0] or "unknown.wav"
                     sids = path_to_ids.get(saved_path)
                     if not sids:
                         # Fallback: try to find by filename if path doesn't match exactly
@@ -488,6 +548,16 @@ class OrchestratorHelpersMixin:
                             grouped_progress=_get_grouped_progress(),
                             line=line,
                         )
+
+                        # Capture timing
+                        if leader_id in segment_starts:
+                            seg_dur = now_time - segment_starts[leader_id]
+                            timing["sum_segment_render_seconds"] += seg_dur
+                            try:
+                                from app.db.state import update_job
+                                update_job(context.task_id, sum_segment_render_seconds=timing["sum_segment_render_seconds"])
+                            except Exception:
+                                pass
 
                         # Update segment database state for all members of the group
                         try:
@@ -521,6 +591,42 @@ class OrchestratorHelpersMixin:
                             grouped_progress=_get_grouped_progress(),
                         )
                 except (IndexError, ValueError):
+                    pass
+
+            if matched_marker == "CHAPTER_SYNTHESIS_COMPLETE":
+                if timing.get("chapter_render_completed_at") is None:
+                    timing["chapter_render_completed_at"] = now_time
+                    try:
+                        from app.db.state import update_job
+                        update_job(context.task_id, chapter_render_completed_at=now_time)
+                    except Exception:
+                        pass
+
+                # Derive final timing variables!
+                if timing["engine_activity_started_at"] is not None:
+                    timing["chapter_wall_duration"] = now_time - timing["engine_activity_started_at"]
+                elif timing["render_started_at"] is not None:
+                    timing["chapter_wall_duration"] = now_time - timing["render_started_at"]
+
+                if timing["render_started_at"] is not None:
+                    timing["synthesis_duration_seconds"] = now_time - timing["render_started_at"]
+
+                if timing["first_start_segment_at"] is not None:
+                    timing["chapter_post_start_window"] = now_time - timing["first_start_segment_at"]
+
+                if timing["chapter_post_start_window"] is not None:
+                    timing["inter_group_overhead_seconds"] = max(0.0, timing["chapter_post_start_window"] - timing["sum_segment_render_seconds"])
+
+                try:
+                    from app.db.state import update_job
+                    update_job(
+                        context.task_id,
+                        chapter_wall_duration=timing["chapter_wall_duration"],
+                        chapter_post_start_window=timing["chapter_post_start_window"],
+                        inter_group_overhead_seconds=timing["inter_group_overhead_seconds"],
+                        synthesis_duration_seconds=timing["synthesis_duration_seconds"]
+                    )
+                except Exception:
                     pass
 
         if wd:
@@ -783,6 +889,9 @@ class OrchestratorHelpersMixin:
             baseline_cps = calibrated_cps
         elif expected_duration is not None and expected_duration > 0 and total_weight > 0:
             baseline_cps = float(total_weight) / float(expected_duration)
+        else:
+            from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
+            baseline_cps = DEFAULT_BASELINE_ENGINE_CPS
 
         observed_cps = None
         if started_at is not None and progress > 0:

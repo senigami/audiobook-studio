@@ -172,8 +172,17 @@ StudioEtaBasis = Literal["remaining_from_update", "total_from_start"]
 TtsLogLineMarker = Literal["START_SYNTHESIS", "START_SEGMENT", "PROGRESS", "SEGMENT_SAVED", "raw"]
 
 
-def classify_tts_log_line(line: str) -> TtsLogLineMarker:
+def classify_tts_log_line(line: str, engine_id: str | None = None) -> str:
     """Classify known TTS bridge marker lines without changing their raw text."""
+    if engine_id:
+        try:
+            from app.engines.behavior import match_timing_marker
+            matched = match_timing_marker(engine_id, line)
+            if matched:
+                return matched
+        except Exception:
+            pass
+
     if "[START_SYNTHESIS]" in line:
         return "START_SYNTHESIS"
     if "[START_SEGMENT]" in line:
@@ -310,7 +319,7 @@ def build_tts_log_event(
         "jobId": job_id,
         "chapterId": chapter_id,
         "source": resolved_source,
-        "marker": classify_tts_log_line(line),
+        "marker": classify_tts_log_line(line, plugin_id),
         "received_at": received_at,  # Legacy compatibility
         "backendReceivedAt": received_at,  # camelCase variant
     }
