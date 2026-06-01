@@ -65,7 +65,7 @@ describe('PredictiveProgressBar - Timing', () => {
         vi.useRealTimers()
     })
 
-    it('increases ETA when a new prop update gives a later endAtMs', () => {
+    it('increases ETA when a new prop update gives a later endAtMs after the migration window advances', () => {
         vi.useFakeTimers()
         vi.setSystemTime(100_000)
         const { rerender } = render(
@@ -77,6 +77,7 @@ describe('PredictiveProgressBar - Timing', () => {
             />
         )
         const beforeS = parseTime(screen.getByText(/ETA:/).textContent)
+        expect(beforeS).toBe(50)
         rerender(
             <PredictiveProgressBar 
                 progress={0.5} 
@@ -85,8 +86,60 @@ describe('PredictiveProgressBar - Timing', () => {
                 status="running" 
             />
         )
+        const immediateS = parseTime(screen.getByText(/ETA:/).textContent)
+        expect(immediateS).toBe(beforeS)
+        act(() => {
+            vi.advanceTimersByTime(1000)
+        })
         const afterS = parseTime(screen.getByText(/ETA:/).textContent)
         expect(afterS).toBeGreaterThan(beforeS)
+        vi.useRealTimers()
+    })
+
+    it('smooths ETA changes across the lane migration window instead of snapping immediately to a later target', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(100_000)
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0.5}
+                startedAt={50}
+                etaSeconds={100}
+                status="running"
+                transitionTickCount={4}
+                tickMs={250}
+            />
+        )
+
+        const beforeS = parseTime(screen.getByText(/ETA:/).textContent)
+        expect(beforeS).toBe(50)
+
+        rerender(
+            <PredictiveProgressBar
+                progress={0.5}
+                startedAt={50}
+                etaSeconds={200}
+                status="running"
+                transitionTickCount={4}
+                tickMs={250}
+            />
+        )
+
+        const immediateS = parseTime(screen.getByText(/ETA:/).textContent)
+        expect(immediateS).toBe(beforeS)
+
+        act(() => {
+            vi.advanceTimersByTime(500)
+        })
+        const midwayS = parseTime(screen.getByText(/ETA:/).textContent)
+        expect(midwayS).toBeGreaterThan(beforeS)
+        expect(midwayS).toBeLessThan(150)
+
+        act(() => {
+            vi.advanceTimersByTime(500)
+        })
+        const settledS = parseTime(screen.getByText(/ETA:/).textContent)
+        expect(settledS).toBeGreaterThan(145)
+
         vi.useRealTimers()
     })
 

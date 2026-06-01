@@ -146,6 +146,20 @@ const getRenderedProgress = (currentLane: ProgressLane | null, migration: LaneMi
     return oldValue + ((desiredValue - oldValue) * t);
 };
 
+const getRenderedEndAtMs = (currentLane: ProgressLane | null, migration: LaneMigration | null, nowMs: number) => {
+    if (!currentLane) return null;
+    if (!migration) return currentLane.endAtMs;
+
+    const fromEndAtMs = migration.fromLane.endAtMs;
+    const toEndAtMs = migration.toLane.endAtMs;
+    if (fromEndAtMs == null || toEndAtMs == null) {
+        return toEndAtMs ?? fromEndAtMs ?? null;
+    }
+
+    const t = Math.max(0, Math.min(1, (nowMs - migration.startedAtMs) / migration.durationMs));
+    return fromEndAtMs + ((toEndAtMs - fromEndAtMs) * t);
+};
+
 export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     progress,
     startedAt,
@@ -335,9 +349,10 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     });
 
     const activeTargetLane = migration?.toLane ?? currentLane;
-    const displayedRemaining = activeTargetLane?.endAtMs == null
+    const renderedEndAtMs = getRenderedEndAtMs(currentLane, migration, now);
+    const displayedRemaining = renderedEndAtMs == null
         ? null
-        : Math.max(0, Math.ceil((activeTargetLane.endAtMs - now) / 1000));
+        : Math.max(0, Math.ceil((renderedEndAtMs - now) / 1000));
 
     const autoFinalizing = isLiveAnimatedStatus(presentationState)
         && localProgress >= 0.995
@@ -396,7 +411,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             desiredLane: migration?.toLane ?? null,
             migrationProgress: migration ? clamp01((now - migration.startedAtMs) / migration.durationMs) : null,
             displayedRemaining,
-            remainingTicks: activeTargetLane?.endAtMs == null ? null : getRemainingTicks(now, activeTargetLane.endAtMs),
+            remainingTicks: renderedEndAtMs == null ? null : getRemainingTicks(now, renderedEndAtMs),
             launchEtaOnly: false,
             allowBackwardProgress: effectiveAllowBackward,
             lastDisplayWriteSource: lastDisplayWriteRef.current.source,
@@ -418,7 +433,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     }, [
         onDebugSnapshot, memoryKey, status, progress, startedAt, etaSeconds, predictive, 
         effectiveAllowBackward, displayProgress, localProgress, displayedRemaining, now, 
-        presentationState, currentLane, migration, activeTargetLane, tickMs
+        presentationState, currentLane, migration, activeTargetLane, renderedEndAtMs, tickMs
     ]);
 
     if (barOnly) {
