@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Highlights
 
+- **Replaced Fake Engine Speed Badge With Real Calibration Summary**: Removed the misleading `x Speed` engine badge derived from the fixed `16.7` baseline and replaced it with real calibration metadata on the Settings engine cards. Engine registry responses now expose the current calibration window count and earliest sample date, and the UI shows `N.N characters/sec, from X samples since M/D/YYYY` using the actual filtered calibration history.
 - **Restored Computed CPS Display In Engine Settings**: Engine registry responses now inject the derived `computer_speed_multiplier` back into each plugin's `current_settings` payload from the calibrated SQLite metrics, so the read-only Settings form shows the computed characters-per-second value instead of falling back to "Not yet computed."
 - **Restored Batch-Scoped Chapter Header Text Progress**: Fixed Chapter Editor script progress lettering so active render-batch progress is distributed across the full batch text even when only the current span is flagged as actively rendering. This keeps top-bar-driven batch progress aligned with the visible book-mode text overlay.
 - **Fixed Post-START_SYNTHESIS Status Rollback**: Prevented active jobs and chapters from rolling back from `"running"` to `"preparing"` due to subsequent 0% progress events (such as segment initialization).

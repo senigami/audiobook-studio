@@ -34,8 +34,9 @@ export interface TtsEngine {
     generated_at: number | string;
     message?: string;
   };
-  operational_speed?: number | null;
   calibrated_cps?: number | null;
+  calibration_sample_count?: number | null;
+  calibration_since?: number | null;
   dev?: {
     enabled?: boolean;
     scenarios?: string;

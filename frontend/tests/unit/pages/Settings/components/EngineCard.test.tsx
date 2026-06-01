@@ -150,7 +150,7 @@ describe('EngineCard developer scenarios', () => {
     expect(screen.getByText('Voxtral Cloud Voices')).toBeInTheDocument();
     expect(screen.getByText('Mistral API Key')).toBeInTheDocument();
     expect(screen.queryByText('Output Format')).not.toBeInTheDocument();
-    expect(screen.queryByText('Computer Speed')).not.toBeInTheDocument();
+    expect(screen.getByText('Computer Speed')).toBeInTheDocument();
   });
 
   it('restores schema-hidden fields in a ready scenario', async () => {
@@ -261,11 +261,16 @@ describe('EngineCard dependency installation', () => {
     vi.mocked(api.resetEngineCalibration).mockResolvedValueOnce({ ok: true });
     const onUpdate = vi.fn();
     const onShowNotification = vi.fn();
+    const calibratedEngine = {
+      ...voxtralEngine,
+      calibrated_cps: 23.5,
+      calibration_sample_count: 24,
+      calibration_since: Date.UTC(2026, 4, 30, 16, 0, 0) / 1000,
+    };
 
-    render(<EngineCard engine={voxtralEngine} onUpdate={onUpdate} onShowNotification={onShowNotification} />);
+    render(<EngineCard engine={calibratedEngine} onUpdate={onUpdate} onShowNotification={onShowNotification} />);
 
-    // Click "Reset Calibration" button
-    const resetBtn = screen.getByRole('button', { name: 'Reset Calibration' });
+    const resetBtn = screen.getByRole('button', { name: 'Reset Baseline' });
     fireEvent.click(resetBtn);
 
     await waitFor(() => {
@@ -276,10 +281,12 @@ describe('EngineCard dependency installation', () => {
 
   });
 
-  it('displays the speed badge from operational_speed and ignores computer_speed_multiplier', () => {
+  it('displays a dedicated computer speed block above test samples with calibration metadata and reset control', () => {
     const engineWithSpeed = {
       ...voxtralEngine,
-      operational_speed: 1.5,
+      calibrated_cps: 33.4,
+      calibration_sample_count: 24,
+      calibration_since: Date.UTC(2026, 4, 30, 16, 0, 0) / 1000,
       current_settings: {
         ...voxtralEngine.current_settings,
         computer_speed_multiplier: 2.0,
@@ -288,19 +295,25 @@ describe('EngineCard dependency installation', () => {
 
     const { rerender } = render(<EngineCard engine={engineWithSpeed} onUpdate={vi.fn()} />);
 
-    expect(screen.getByText('1.50x Speed')).toBeInTheDocument();
-    expect(screen.queryByText('2.00x Speed')).not.toBeInTheDocument();
+    expect(screen.getByText('33.4 characters/sec')).toBeInTheDocument();
+    expect(screen.getByText(/from 24 samples since/i)).toBeInTheDocument();
+    expect(screen.getByText(/5\/30\/2026|5\/30\/26/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reset Baseline' })).toBeInTheDocument();
+    expect(screen.queryByText(/x Speed/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Reset Calibration')).not.toBeInTheDocument();
 
     const engineNoSpeed = {
       ...voxtralEngine,
-      operational_speed: null,
+      calibrated_cps: null,
+      calibration_sample_count: null,
+      calibration_since: null,
       current_settings: {
         ...voxtralEngine.current_settings,
-        computer_speed_multiplier: 2.0,
+        computer_speed_multiplier: null,
       }
     };
     rerender(<EngineCard engine={engineNoSpeed} onUpdate={vi.fn()} />);
-    expect(screen.queryByText('2.00x Speed')).not.toBeInTheDocument();
-    expect(screen.queryByText('1.50x Speed')).not.toBeInTheDocument();
+    expect(screen.getByText('Not yet computed')).toBeInTheDocument();
+    expect(screen.queryByText(/from 24 samples since/i)).not.toBeInTheDocument();
   });
 });

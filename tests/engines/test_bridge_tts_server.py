@@ -175,8 +175,34 @@ class TestBridgeDescribeRegistry:
             result = bridge.describe_registry()
 
         assert result[0]["calibrated_cps"] == 33.4
-        assert result[0]["operational_speed"] == 2.0
         assert result[0]["current_settings"]["computer_speed_multiplier"] == 2.0
+
+    def test_describe_registry_exposes_calibration_window_metadata(self):
+        mock_client = MagicMock()
+        mock_client.get_engines.return_value = [
+            {
+                "engine_id": "xtts",
+                "display_name": "XTTS",
+                "current_settings": {},
+            }
+        ]
+
+        bridge = _make_bridge_with_client(mock_client)
+        history = [
+            {"engine": "xtts", "tts_model": "xtts-v2", "cps": 20.0, "completed_at": 1780156800.0},
+            {"engine": "xtts", "tts_model": "xtts-v2", "cps": 30.0, "completed_at": 1780243200.0},
+            {"engine": "xtts", "tts_model": "xtts-v2", "cps": 40.0, "completed_at": 1780329600.0},
+        ]
+
+        with patch("app.db.state.get_performance_metrics", return_value={"render_history": history}), \
+             patch("app.tts_server.performance_settings.resolve_engine_settings_model", return_value="xtts-v2"), \
+             patch("app.tts_server.performance_settings.filter_history_for_engine_model", return_value=history), \
+             patch("app.orchestration.scheduler.eta.get_calibrated_model_params", return_value=(33.4, 0.9)):
+            result = bridge.describe_registry()
+
+        assert result[0]["calibrated_cps"] == 33.4
+        assert result[0]["calibration_sample_count"] == 3
+        assert result[0]["calibration_since"] == 1780156800.0
 
     def test_describe_registry_enriches_with_test_metadata(self, tmp_path):
         mock_client = MagicMock()

@@ -122,9 +122,9 @@ describe('ProjectView - Rendering', () => {
     expect(screen.getByText('Library')).toBeInTheDocument();
   });
 
-  it('hides or labels predicted runtime as unavailable when operational_speed is unavailable', async () => {
+  it('hides or labels predicted runtime as unavailable when calibrated_cps is unavailable', async () => {
     const mockEngines = [
-      { engine_id: 'xtts', enabled: true, status: 'ready', operational_speed: null }
+      { engine_id: 'xtts', enabled: true, status: 'ready', calibrated_cps: null }
     ];
 
     renderProjectView({ engines: mockEngines });
@@ -136,9 +136,9 @@ describe('ProjectView - Rendering', () => {
     expect(screen.getByText(/Predicted: Unavailable/i)).toBeInTheDocument();
   });
 
-  it('displays the correct predicted runtime when operational_speed is available', async () => {
+  it('displays the correct predicted runtime when calibrated_cps is available', async () => {
     const mockEngines = [
-      { engine_id: 'xtts', enabled: true, status: 'ready', calibrated_cps: 33.4, operational_speed: 2.0 }
+      { engine_id: 'xtts', enabled: true, status: 'ready', calibrated_cps: 33.4 }
     ];
     const customChapters = [
       {
@@ -177,9 +177,9 @@ describe('ProjectView - Rendering', () => {
     expect(screen.getByText(/Predicted: 1m 10s/i)).toBeInTheDocument();
   });
 
-  it('displays predicted runtime based on calibrated_cps and does not fall back to multiplying operational_speed by 16.7', async () => {
+  it('displays predicted runtime based on calibrated_cps only', async () => {
     const mockEngines = [
-      { engine_id: 'xtts', enabled: true, status: 'ready', calibrated_cps: 10.0, operational_speed: 2.0 }
+      { engine_id: 'xtts', enabled: true, status: 'ready', calibrated_cps: 10.0 }
     ];
     const customChapters = [
       {

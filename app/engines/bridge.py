@@ -108,9 +108,12 @@ class VoiceBridge:
         # Enrich with operational speed calibration metrics
         try:
             from app.db.state import get_performance_metrics  # noqa: PLC0415
-            from app.tts_server.performance_settings import resolve_engine_settings_model, filter_history_for_engine_model  # noqa: PLC0415
+            from app.tts_server.performance_settings import (  # noqa: PLC0415
+                computer_speed_multiplier_from_cps,
+                resolve_engine_settings_model,
+                filter_history_for_engine_model,
+            )
             from app.orchestration.scheduler.eta import get_calibrated_model_params  # noqa: PLC0415
-            from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS  # noqa: PLC0415
 
             perf = get_performance_metrics()
             all_history = perf.get("render_history") or []
@@ -127,17 +130,19 @@ class VoiceBridge:
                     if not isinstance(current_settings, dict):
                         current_settings = {}
                         data["current_settings"] = current_settings
+                    data["calibration_sample_count"] = len(history)
+                    data["calibration_since"] = history[0].get("completed_at") if history else None
                     if params:
                         calibrated_cps, _ = params
                         data["calibrated_cps"] = round(calibrated_cps, 2)
-                        data["operational_speed"] = round(calibrated_cps / DEFAULT_BASELINE_ENGINE_CPS, 2)
+                        current_settings["computer_speed_multiplier"] = computer_speed_multiplier_from_cps(calibrated_cps)
                     else:
                         data["calibrated_cps"] = None
-                        data["operational_speed"] = None
-                    current_settings["computer_speed_multiplier"] = data["operational_speed"]
+                        current_settings["computer_speed_multiplier"] = None
                 except Exception:
                     data["calibrated_cps"] = None
-                    data["operational_speed"] = None
+                    data["calibration_sample_count"] = 0
+                    data["calibration_since"] = None
                     current_settings = data.get("current_settings")
                     if isinstance(current_settings, dict):
                         current_settings["computer_speed_multiplier"] = None

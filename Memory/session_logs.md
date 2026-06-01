@@ -1,3 +1,11 @@
+# 2026-06-01 - Replace fake engine speed badge with real calibration summary
+
+- Removed the misleading Settings `x Speed` badge derived from the fixed `16.7` baseline and replaced it with real calibration summary text on engine cards.
+- `VoiceBridge.describe_registry()` now exposes `calibration_sample_count` and `calibration_since` from the filtered calibration window alongside `calibrated_cps`.
+- Settings engine cards now render `N.N characters/sec, from X samples since M/D/YYYY` based on the current calibration window instead of the normalized multiplier.
+- Added backend regression coverage in `tests/engines/test_bridge_tts_server.py` and frontend regression coverage in `EngineCard.test.tsx` / `ProjectViewRendering.test.tsx`.
+- Verified focused backend tests, focused frontend tests, `npm run build`, Ruff, lint, and `git diff --check`.
+
 # 2026-05-30 - Fix post-START_SYNTHESIS preparing status rollback and verify Event Stream presets
 
 - Prevented progress status rollbacks from "running" to "preparing" in both `OrchestratorHelpersMixin._publish` and `ProgressService.publish` once a run has started (i.e. `started_at` is populated).

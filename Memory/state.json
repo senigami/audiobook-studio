@@ -1,15 +1,15 @@
 {
-  "snapshot_version": 148,
-  "current_task": "Restore computed CPS display in engine settings",
-  "status": "engine_settings_cps_display_fixed",
+  "snapshot_version": 149,
+  "current_task": "Replace fake engine speed badge with real calibration summary metadata",
+  "status": "engine_calibration_summary_exposed",
   "last_committed_milestone": {
-    "title": "Disabled startup plugin run_test synthesis while preserving explicit Settings verification",
+    "title": "Replace fake engine speed badge with real calibration summary metadata",
     "commit": "pending",
     "notes": [
-      "Traced the extra debug synthesis to app.tts_server.server.load_plugins starting TtsPluginVerification during plugin discovery.",
-      "Removed automatic verify_all startup/refresh execution so plugin run_test and test_output.wav generation only occur through explicit engine verification.",
-      "Tightened the TTS Server synthesize endpoint to fail closed unless plugin.verified is true.",
-      "Added regressions proving discovery does not start a verification thread and /engines/{engine_id}/verify still runs plugin test synthesis."
+      "Removed operational_speed from the engine API/UI path and stopped presenting the fixed 16.7-baseline multiplier as a product-facing metric.",
+      "VoiceBridge.describe_registry now exposes calibration_sample_count and calibration_since from the filtered calibration window while continuing to expose calibrated_cps.",
+      "Settings engine cards now show the real calibration summary as characters/sec plus sample count and earliest sample date from the current window.",
+      "Added backend and frontend regressions covering calibration window metadata and the new engine card rendering contract."
     ]
   },
   "active_constraints": [
