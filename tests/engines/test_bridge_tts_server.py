@@ -223,3 +223,50 @@ class TestBridgeDescribeRegistry:
 
         assert len(result) == 1
         assert result[0]["last_test"] == meta
+
+
+class TestTimingContractSlice1:
+    def test_timing_event_constrained_literals(self):
+        from app.engines.voice.sdk import TimingEvent
+
+        # Valid events should initialize cleanly
+        event = TimingEvent(event_name="engine_activity_started", timestamp=1780000000.0)
+        assert event.event_name == "engine_activity_started"
+        assert event.timestamp == 1780000000.0
+        assert event.segment_id is None
+
+        # Segmented event carries segment_id
+        seg_event = TimingEvent(event_name="segment_render_started", timestamp=1780000001.0, segment_id="seg-1")
+        assert seg_event.segment_id == "seg-1"
+
+        # Invalid literal names should be caught (either at run-time init check or type validation check)
+        with pytest.raises(ValueError):
+            TimingEvent(event_name="invalid_event_name", timestamp=1780000000.0)
+
+    def test_tts_result_timing_payload_schema(self):
+        from app.engines.voice.sdk import TTSResult, TTSTimingResult, SegmentTimingResult
+
+        seg_timing = SegmentTimingResult(
+            segment_id="seg-1",
+            render_started_at=1780000001.0,
+            render_completed_at=1780000003.0,
+            chars=45
+        )
+        timing = TTSTimingResult(
+            engine_activity_started_at=1780000000.0,
+            chapter_render_started_at=1780000001.0,
+            chapter_render_completed_at=1780000005.0,
+            segments=[seg_timing]
+        )
+
+        result = TTSResult(ok=True, output_path="/tmp/test.wav", timing=timing)
+        assert result.timing == timing
+        assert result.timing.segments[0].segment_id == "seg-1"
+        assert result.timing.segments[0].chars == 45
+
+    def test_regression_result_without_timing(self):
+        from app.engines.voice.sdk import TTSResult
+
+        # Regression: existing callers should still construct TTSResult without timing
+        result = TTSResult(ok=True, output_path="/tmp/test.wav")
+        assert result.timing is None

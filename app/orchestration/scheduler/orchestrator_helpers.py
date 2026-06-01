@@ -134,9 +134,92 @@ class OrchestratorHelpersMixin:
 
         task.set_progress_reporter(task_progress_reporter)
 
-        def record_render_stats_if_completed(result: TaskResult) -> None:
+        def record_render_stats_if_completed(result: TaskResult, raw_result: dict | None = None) -> None:
             if result.status != "completed":
                 return
+
+            timing_payload = None
+            if raw_result is not None and isinstance(raw_result, dict):
+                timing_payload = raw_result.get("timing")
+                if timing_payload is None:
+                    tts_server_res = raw_result.get("tts_server_result")
+                    if isinstance(tts_server_res, dict):
+                        timing_payload = tts_server_res.get("timing")
+            if timing_payload is None and hasattr(result, "timing"):
+                timing_payload = getattr(result, "timing")
+
+            def get_val(obj, key):
+                if isinstance(obj, dict):
+                    return obj.get(key)
+                return getattr(obj, key, None)
+
+            if timing_payload is not None:
+                engine_act_start = get_val(timing_payload, "engine_activity_started_at")
+                chap_render_start = get_val(timing_payload, "chapter_render_started_at")
+                chap_render_completed = get_val(timing_payload, "chapter_render_completed_at")
+                segments_raw = get_val(timing_payload, "segments")
+
+                # Normalize segments list to a list of dicts to handle any mixing of types
+                segments = []
+                if segments_raw:
+                    for s in segments_raw:
+                        s_start = get_val(s, "render_started_at")
+                        s_end = get_val(s, "render_completed_at")
+                        if s_start is not None and s_end is not None:
+                            segments.append({
+                                "render_started_at": s_start,
+                                "render_completed_at": s_end
+                            })
+
+                if chap_render_start is not None and chap_render_completed is not None:
+                    chapter_load_seconds = 0.0
+                    if engine_act_start is not None:
+                        chapter_load_seconds = chap_render_start - engine_act_start
+
+                    synthesis_duration_seconds = chap_render_completed - chap_render_start
+
+                    if segments:
+                        sum_segment_render_seconds = sum(
+                            max(0.0, s["render_completed_at"] - s["render_started_at"])
+                            for s in segments
+                        )
+                    else:
+                        sum_segment_render_seconds = synthesis_duration_seconds
+
+                    if segments:
+                        first_segment_start = min(s["render_started_at"] for s in segments)
+                        last_segment_end = max(s["render_completed_at"] for s in segments)
+                        inter_group_overhead_seconds = max(0.0, (last_segment_end - first_segment_start) - sum_segment_render_seconds)
+                    else:
+                        inter_group_overhead_seconds = 0.0
+
+                    duration_seconds = chap_render_completed - (engine_act_start or chap_render_start)
+
+                    timing["engine_activity_started_at"] = engine_act_start
+                    timing["render_started_at"] = chap_render_start
+                    timing["chapter_render_completed_at"] = chap_render_completed
+                    timing["sum_segment_render_seconds"] = sum_segment_render_seconds
+                    timing["chapter_load_seconds"] = chapter_load_seconds
+                    timing["inter_group_overhead_seconds"] = inter_group_overhead_seconds
+                    timing["chapter_wall_duration"] = duration_seconds
+                    timing["synthesis_duration_seconds"] = synthesis_duration_seconds
+
+                    try:
+                        from app.db.state import update_job
+                        update_job(
+                            context.task_id,
+                            engine_activity_started_at=engine_act_start,
+                            started_at=chap_render_start,
+                            chapter_render_completed_at=chap_render_completed,
+                            sum_segment_render_seconds=sum_segment_render_seconds,
+                            chapter_load_seconds=chapter_load_seconds,
+                            inter_group_overhead_seconds=inter_group_overhead_seconds,
+                            chapter_wall_duration=duration_seconds,
+                            synthesis_duration_seconds=synthesis_duration_seconds,
+                            finished_at=chap_render_completed
+                        )
+                    except Exception:
+                        pass
 
             if timing.get("chapter_wall_duration") is not None:
                 duration_seconds = timing["chapter_wall_duration"]
@@ -729,7 +812,7 @@ class OrchestratorHelpersMixin:
                         msg = f"{msg}{debug_info}"
                     result = TaskResult(status="failed", message=msg, retriable=result.retriable)
 
-                record_render_stats_if_completed(result)
+                record_render_stats_if_completed(result, raw_result=result_val)
                 if wd:
                     wd.unregister_log_listener(log_listener)
                 return result
@@ -792,7 +875,7 @@ class OrchestratorHelpersMixin:
                             if debug_info not in msg:
                                 msg = f"{msg}{debug_info}"
                             task_result = TaskResult(status="failed", message=msg, retriable=task_result.retriable)
-                        record_render_stats_if_completed(task_result)
+                        record_render_stats_if_completed(task_result, raw_result=result)
                         return task_result
                     except Exception as exc:
                         print(f"\n[DEBUG] Caught exc: {type(exc)}: {exc}")

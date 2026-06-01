@@ -8,7 +8,53 @@ they must not import anything from the rest of ``app``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Literal
+
+
+TimingEventName = Literal[
+    'engine_activity_started',
+    'chapter_render_started',
+    'segment_render_started',
+    'segment_render_completed',
+    'chapter_render_completed'
+]
+
+
+@dataclass(frozen=True)
+class TimingEvent:
+    """Live timing telemetry event payload."""
+    event_name: TimingEventName
+    timestamp: float
+    segment_id: Optional[str] = None
+
+    def __post_init__(self):
+        valid_events = {
+            'engine_activity_started',
+            'chapter_render_started',
+            'segment_render_started',
+            'segment_render_completed',
+            'chapter_render_completed'
+        }
+        if self.event_name not in valid_events:
+            raise ValueError(f"Invalid timing event_name: {self.event_name}")
+
+
+@dataclass(frozen=True)
+class SegmentTimingResult:
+    """Retrospective timing statistics for a single synthesized segment."""
+    segment_id: str
+    render_started_at: float
+    render_completed_at: float
+    chars: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class TTSTimingResult:
+    """Authoritative retrospective timing anchors payload."""
+    chapter_render_started_at: float
+    chapter_render_completed_at: float
+    engine_activity_started_at: Optional[float] = None
+    segments: Optional[list[SegmentTimingResult]] = None
 
 
 @dataclass(frozen=True)
@@ -40,6 +86,7 @@ class TTSRequest:
     script: Optional[list[dict[str, Any]]] = None
     task_id: Optional[str] = None
     cancel_check: Optional[Callable[[], bool]] = None
+    on_timing_event: Optional[Callable[[TimingEvent], None]] = None
 
 
 @dataclass
@@ -65,6 +112,8 @@ class TTSResult:
     duration_sec: float | None = None
     warnings: list[str] = field(default_factory=list)
     error: str | None = None
+    timing: Optional[TTSTimingResult] = None
+
 
 
 @dataclass(frozen=True)

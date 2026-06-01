@@ -996,3 +996,455 @@ def test_start_segment_proportional_eta(clean_db, tmp_path, monkeypatch):
     # Second START_SEGMENT (seg-2): completed weight = 11 (Hello world), total_weight = 24.
     # remaining_fraction = (24 - 11) / 24 = 13 / 24 = 0.5416. eta should be ~32
     assert start_segment_etas[1] == 32
+
+
+def test_structured_timing_derivation_segmented(clean_db, monkeypatch):
+    from app.orchestration.tasks.synthesis import SynthesisTask
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext, TaskResult
+    from app.db.state import put_job, Job
+    from app.db.performance import get_render_history
+
+    job_id = "test-structured-segmented-job"
+    task = SynthesisTask(
+        task_id=job_id,
+        engine_id="xtts",
+        script_text="Hello world",
+        output_path="/tmp/out.wav",
+        chapter_id="chap-1",
+        voice_profile_id="Default",
+        script=[{"ids": ["seg-1"], "save_path": "/tmp/seg-1.wav", "text": "Hello world"}]
+    )
+    context = TaskContext(
+        task_id=job_id,
+        task_type="synthesis",
+        project_id="proj-1",
+        chapter_id="chap-1",
+        payload={
+            "engine_id": "xtts",
+            "script_text": "Hello world",
+            "voice_profile_id": "Default",
+        }
+    )
+
+    jobs_db = {}
+    def mock_put_job(job):
+        jobs_db[job.id] = job
+    def mock_get_jobs():
+        return jobs_db
+    def mock_update_job(job_id, **kwargs):
+        job = jobs_db.get(job_id)
+        if job:
+            for k, v in kwargs.items():
+                setattr(job, k, v)
+
+    monkeypatch.setattr("app.db.state.put_job", mock_put_job)
+    monkeypatch.setattr("app.db.state.get_jobs", mock_get_jobs)
+    monkeypatch.setattr("app.db.state.update_job", mock_update_job)
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_publish", lambda *args, **kwargs: None)
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_estimate_task_duration", lambda *args, **kwargs: 10.0)
+
+    # Initialize job in DB state
+    mock_put_job(Job(
+        id=job_id,
+        engine="xtts",
+        status="running",
+        created_at=100.0,
+    ))
+
+    # Real JSON-style response shape: plain nested dicts
+    timing_res = {
+        "chapter_render_started_at": 105.0,
+        "chapter_render_completed_at": 135.0,
+        "engine_activity_started_at": 100.0,
+        "segments": [
+            {"segment_id": "seg-1", "render_started_at": 108.0, "render_completed_at": 118.0},
+            {"segment_id": "seg-2", "render_started_at": 120.0, "render_completed_at": 132.0},
+        ]
+    }
+
+    class FakeBridge:
+        def synthesize(self, request):
+            return {
+                "status": "ok",
+                "tts_server_result": {
+                    "ok": True,
+                    "output_path": "/tmp/out.wav",
+                    "duration_sec": 4.5,
+                    "timing": timing_res
+                }
+            }
+
+    mixin = OrchestratorHelpersMixin()
+    mixin.voice_bridge = FakeBridge()
+
+    with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_reg, \
+         patch("app.domain.chunk_groups.load_chunk_segments", return_value=[]), \
+         patch("app.domain.chunk_groups.build_chunk_groups", return_value=[]), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"):
+
+        mock_reg.return_value.get_handler.return_value = None # force bridge dispatch
+        mixin._dispatch(task=task, context=context)
+
+    # Now verify the recorded sample in DB history
+    history = get_render_history()
+    assert len(history) == 1
+    sample = history[0]
+
+    assert sample["started_at"] == 100.0
+    assert sample["completed_at"] == 135.0
+    assert sample["duration_seconds"] == 35.0
+    assert sample["chapter_load_seconds"] == 5.0
+    assert sample["sum_segment_render_seconds"] == 22.0
+    assert sample["inter_group_overhead_seconds"] == 8.0 # DB formula
+
+    # Verify the job state has the exact formulas derived
+    job = jobs_db.get(job_id)
+    assert job.chapter_load_seconds == 5.0
+    assert job.synthesis_duration_seconds == 30.0
+    assert job.sum_segment_render_seconds == 22.0
+    assert job.inter_group_overhead_seconds == 2.0
+
+
+def test_structured_timing_derivation_non_segmented(clean_db, monkeypatch):
+    from app.orchestration.tasks.synthesis import SynthesisTask
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext, TaskResult
+    from app.db.state import put_job, Job
+    from app.db.performance import get_render_history
+
+    job_id = "test-structured-non-segmented-job"
+    task = SynthesisTask(
+        task_id=job_id,
+        engine_id="xtts",
+        script_text="Hello world",
+        output_path="/tmp/out.wav",
+        chapter_id="chap-1",
+        voice_profile_id="Default",
+        script=[{"ids": ["seg-1"], "save_path": "/tmp/seg-1.wav", "text": "Hello world"}]
+    )
+    context = TaskContext(
+        task_id=job_id,
+        task_type="synthesis",
+        project_id="proj-1",
+        chapter_id="chap-1",
+        payload={
+            "engine_id": "xtts",
+            "script_text": "Hello world",
+            "voice_profile_id": "Default",
+        }
+    )
+
+    jobs_db = {}
+    def mock_put_job(job):
+        jobs_db[job.id] = job
+    def mock_get_jobs():
+        return jobs_db
+    def mock_update_job(job_id, **kwargs):
+        job = jobs_db.get(job_id)
+        if job:
+            for k, v in kwargs.items():
+                setattr(job, k, v)
+
+    monkeypatch.setattr("app.db.state.put_job", mock_put_job)
+    monkeypatch.setattr("app.db.state.get_jobs", mock_get_jobs)
+    monkeypatch.setattr("app.db.state.update_job", mock_update_job)
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_publish", lambda *args, **kwargs: None)
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_estimate_task_duration", lambda *args, **kwargs: 10.0)
+
+    # Initialize job in DB state
+    mock_put_job(Job(
+        id=job_id,
+        engine="xtts",
+        status="running",
+        created_at=100.0,
+    ))
+
+    # Real JSON-style response shape: plain nested dicts
+    timing_res = {
+        "chapter_render_started_at": 105.0,
+        "chapter_render_completed_at": 130.0,
+        "engine_activity_started_at": None,
+        "segments": None
+    }
+
+    class FakeBridge:
+        def synthesize(self, request):
+            return {
+                "status": "ok",
+                "tts_server_result": {
+                    "ok": True,
+                    "output_path": "/tmp/out.wav",
+                    "duration_sec": 4.5,
+                    "timing": timing_res
+                }
+            }
+
+    mixin = OrchestratorHelpersMixin()
+    mixin.voice_bridge = FakeBridge()
+
+    with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_reg, \
+         patch("app.domain.chunk_groups.load_chunk_segments", return_value=[]), \
+         patch("app.domain.chunk_groups.build_chunk_groups", return_value=[]), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"):
+
+        mock_reg.return_value.get_handler.return_value = None # force bridge dispatch
+        mixin._dispatch(task=task, context=context)
+
+    # Now verify the recorded sample in DB history
+    history = get_render_history()
+    assert len(history) == 1
+    sample = history[0]
+
+    assert sample["started_at"] == 105.0
+    assert sample["completed_at"] == 130.0
+    assert sample["duration_seconds"] == 25.0
+    assert sample["chapter_load_seconds"] == 0.0
+    assert sample["sum_segment_render_seconds"] == 25.0
+    assert sample["inter_group_overhead_seconds"] == 0.0
+
+
+def test_structured_timing_derivation_out_of_order(clean_db, monkeypatch):
+    from app.orchestration.tasks.synthesis import SynthesisTask
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext, TaskResult
+    from app.db.state import put_job, Job
+    from app.db.performance import get_render_history
+
+    job_id = "test-structured-ooo-job"
+    task = SynthesisTask(
+        task_id=job_id,
+        engine_id="xtts",
+        script_text="Hello world",
+        output_path="/tmp/out.wav",
+        chapter_id="chap-1",
+        voice_profile_id="Default",
+        script=[{"ids": ["seg-1"], "save_path": "/tmp/seg-1.wav", "text": "Hello world"}]
+    )
+    context = TaskContext(
+        task_id=job_id,
+        task_type="synthesis",
+        project_id="proj-1",
+        chapter_id="chap-1",
+        payload={
+            "engine_id": "xtts",
+            "script_text": "Hello world",
+            "voice_profile_id": "Default",
+        }
+    )
+
+    jobs_db = {}
+    def mock_put_job(job):
+        jobs_db[job.id] = job
+    def mock_get_jobs():
+        return jobs_db
+    def mock_update_job(job_id, **kwargs):
+        job = jobs_db.get(job_id)
+        if job:
+            for k, v in kwargs.items():
+                setattr(job, k, v)
+
+    monkeypatch.setattr("app.db.state.put_job", mock_put_job)
+    monkeypatch.setattr("app.db.state.get_jobs", mock_get_jobs)
+    monkeypatch.setattr("app.db.state.update_job", mock_update_job)
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_publish", lambda *args, **kwargs: None)
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_estimate_task_duration", lambda *args, **kwargs: 10.0)
+
+    # Initialize job in DB state
+    mock_put_job(Job(
+        id=job_id,
+        engine="xtts",
+        status="running",
+        created_at=100.0,
+    ))
+
+    # Plain nested dict timing payload with segment list intentionally out of order
+    timing_res = {
+        "chapter_render_started_at": 105.0,
+        "chapter_render_completed_at": 135.0,
+        "engine_activity_started_at": 100.0,
+        "segments": [
+            {"segment_id": "seg-2", "render_started_at": 120.0, "render_completed_at": 132.0},
+            {"segment_id": "seg-1", "render_started_at": 108.0, "render_completed_at": 118.0},
+        ]
+    }
+
+    class FakeBridge:
+        def synthesize(self, request):
+            return {
+                "status": "ok",
+                "tts_server_result": {
+                    "ok": True,
+                    "output_path": "/tmp/out.wav",
+                    "duration_sec": 4.5,
+                    "timing": timing_res
+                }
+            }
+
+    mixin = OrchestratorHelpersMixin()
+    mixin.voice_bridge = FakeBridge()
+
+    with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_reg, \
+         patch("app.domain.chunk_groups.load_chunk_segments", return_value=[]), \
+         patch("app.domain.chunk_groups.build_chunk_groups", return_value=[]), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"):
+
+        mock_reg.return_value.get_handler.return_value = None # force bridge dispatch
+        mixin._dispatch(task=task, context=context)
+
+    # Now verify the recorded sample in DB history
+    history = get_render_history()
+    assert len(history) == 1
+    sample = history[0]
+
+    assert sample["started_at"] == 100.0
+    assert sample["completed_at"] == 135.0
+    assert sample["duration_seconds"] == 35.0
+    assert sample["chapter_load_seconds"] == 5.0
+    assert sample["sum_segment_render_seconds"] == 22.0
+    assert sample["inter_group_overhead_seconds"] == 8.0 # DB formula
+
+    # Verify the job state has the exact formulas derived (inter_group_overhead must be 2.0 based on min/max time bounds)
+    job = jobs_db.get(job_id)
+    assert job.chapter_load_seconds == 5.0
+    assert job.synthesis_duration_seconds == 30.0
+    assert job.sum_segment_render_seconds == 22.0
+    assert job.inter_group_overhead_seconds == 2.0
+
+
+
+def test_structured_timing_fallback_when_absent(clean_db, monkeypatch):
+    from app.orchestration.tasks.synthesis import SynthesisTask
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext, TaskResult
+    from app.db.state import put_job, Job
+    from app.db.performance import get_render_history
+
+    job_id = "test-timing-fallback-job"
+    task = SynthesisTask(
+        task_id=job_id,
+        engine_id="xtts",
+        script_text="Hello world",
+        output_path="/tmp/out.wav",
+        chapter_id="chap-1",
+        voice_profile_id="Default",
+        script=[{"ids": ["seg-1"], "save_path": "/tmp/seg-1.wav", "text": "Hello world"}]
+    )
+    context = TaskContext(
+        task_id=job_id,
+        task_type="synthesis",
+        project_id="proj-1",
+        chapter_id="chap-1",
+        payload={
+            "engine_id": "xtts",
+            "script_text": "Hello world",
+            "voice_profile_id": "Default",
+        }
+    )
+
+    jobs_db = {}
+    def mock_put_job(job):
+        jobs_db[job.id] = job
+    def mock_get_jobs():
+        return jobs_db
+    def mock_update_job(job_id, **kwargs):
+        job = jobs_db.get(job_id)
+        if job:
+            for k, v in kwargs.items():
+                setattr(job, k, v)
+
+    monkeypatch.setattr("app.db.state.put_job", mock_put_job)
+    monkeypatch.setattr("app.db.state.get_jobs", mock_get_jobs)
+    monkeypatch.setattr("app.db.state.update_job", mock_update_job)
+    # Don't mock publish/update_job fully, let fallback logic set timing values
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_estimate_task_duration", lambda *args, **kwargs: 10.0)
+
+    # Initialize job in DB state
+    mock_put_job(Job(
+        id=job_id,
+        engine="xtts",
+        status="running",
+        created_at=100.0,
+    ))
+
+    class FakeBridge:
+        def synthesize(self, request):
+            return {
+                "status": "ok",
+                "tts_server_result": {
+                    "ok": True,
+                    "output_path": "/tmp/out.wav",
+                    "duration_sec": 4.5,
+                    "timing": None  # Timing is absent!
+                }
+            }
+
+    mixin = OrchestratorHelpersMixin()
+    mixin.voice_bridge = FakeBridge()
+
+    # We manually trigger log markers to test the fallback path
+    listener_cb = [None]
+    class FakeWatchdog:
+        def register_log_listener(self, cb):
+            listener_cb[0] = cb
+        def unregister_log_listener(self, cb):
+            pass
+
+    mock_manifest = {
+        "behavior": {
+            "timing_markers": {
+                "ENGINE_ACTIVITY_STARTED": "Booting custom engine server...",
+                "CHAPTER_SYNTHESIS_COMPLETE": "Successfully synthesized 1 audio chunks."
+            }
+        }
+    }
+    from app.engines.behavior import normalize_behavior
+    monkeypatch.setattr("app.engines.behavior.behavior_for_engine", lambda engine_id, **kwargs: normalize_behavior(mock_manifest["behavior"]))
+
+    with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_reg, \
+         patch("app.engines.watchdog.get_watchdog", return_value=FakeWatchdog()), \
+         patch("app.domain.chunk_groups.load_chunk_segments", return_value=[]), \
+         patch("app.domain.chunk_groups.build_chunk_groups", return_value=[]), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"):
+
+        mock_reg.return_value.get_handler.return_value = None
+
+        # To simulate log markers during synthesis, we construct a thread or custom synchronize call
+        def custom_synthesize(request):
+            listener = listener_cb[0]
+            assert listener is not None
+            with patch("time.time", return_value=110.0):
+                listener("Booting custom engine server...")
+            with patch("time.time", return_value=115.0):
+                listener("[START_SYNTHESIS]")
+            with patch("time.time", return_value=120.0):
+                listener("[START_SEGMENT] seg-1")
+            with patch("time.time", return_value=130.0):
+                listener("[SEGMENT_SAVED] /tmp/seg-1.wav")
+            with patch("time.time", return_value=135.0):
+                listener("Successfully synthesized 1 audio chunks.")
+            return {
+                "status": "ok",
+                "tts_server_result": {
+                    "ok": True,
+                    "output_path": "/tmp/out.wav",
+                    "duration_sec": 4.5,
+                    "timing": None
+                }
+            }
+
+        mixin.voice_bridge.synthesize = custom_synthesize
+        mixin._dispatch(task=task, context=context)
+
+    # Now verify the recorded sample in DB history
+    history = get_render_history()
+    assert len(history) == 1
+    sample = history[0]
+
+    # Should have fallback timing markers parsed from logs
+    assert sample["started_at"] == 110.0
+    assert sample["completed_at"] == 135.0
+    assert sample["duration_seconds"] == 25.0
+    assert sample["chapter_load_seconds"] == 10.0
+    assert sample["sum_segment_render_seconds"] == 10.0
+    assert sample["inter_group_overhead_seconds"] == 5.0
