@@ -259,6 +259,99 @@ export const EngineCard: React.FC<{
 
       </summary>
       <div style={{ padding: '0 1rem 1.25rem 2.95rem', color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: 1.55 }}>
+        {(() => {
+          const isLowConfidence = displayEngine.calibration_confidence_percent !== undefined &&
+            displayEngine.calibration_confidence_percent !== null &&
+            displayEngine.calibration_confidence_percent < 70;
+
+          return (
+            <div
+              style={{
+                marginBottom: '1.25rem',
+                padding: '1rem',
+                borderRadius: '16px',
+                border: '1px solid rgba(43, 110, 255, 0.2)',
+                background: 'linear-gradient(180deg, rgba(240, 247, 255, 0.94), rgba(245, 250, 255, 0.85))',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Voice generation speed
+                </span>
+                <button
+                  type="button"
+                  className="btn-glass"
+                  title="Reset the calibration history for this engine."
+                  disabled={saving || !hasCalibrationSummary}
+                  onClick={async () => {
+                    if (activeScenario) {
+                      addDevLog(`Simulated: Reset calibration requested for ${displayEngine.display_name}.`);
+                      return;
+                    }
+                    setSaving(true);
+                    try {
+                      await api.resetEngineCalibration(displayEngine.engine_id);
+                      onShowNotification?.(`${displayEngine.display_name} calibration history reset.`);
+                      await onUpdate();
+                    } catch (err: any) {
+                      const msg = getErrorMessage(err);
+                      if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
+                      onShowNotification?.(`Reset calibration failed: ${msg}`);
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  style={{ padding: '0.45rem 0.75rem', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 800 }}
+                >
+                  Reset Baseline
+                </button>
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.75rem',
+                  padding: '0.85rem 1rem',
+                  borderRadius: '12px',
+                  border: isLowConfidence ? '1px solid rgba(217, 119, 6, 0.24)' : '1px solid rgba(43, 110, 255, 0.16)',
+                  background: isLowConfidence ? 'rgba(245, 158, 11, 0.04)' : 'rgba(255,255,255,0.72)',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.28rem' }}>
+                  <span style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-primary)' }}>
+                    {displayEngine.calibrated_cps !== undefined && displayEngine.calibrated_cps !== null
+                      ? `${Number(displayEngine.calibrated_cps).toFixed(1)} characters/sec${
+                          displayEngine.calibration_confidence_percent !== undefined &&
+                          displayEngine.calibration_confidence_percent !== null
+                            ? `, ${displayEngine.calibration_confidence_percent}% confidence`
+                            : ''
+                        }`
+                      : 'Not yet computed'}
+                  </span>
+                  {hasCalibrationSummary ? (
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
+                      from {displayEngine.calibration_sample_count} samples since {calibrationSince}
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      Computed from completed renders for this plugin and shown in characters per second.
+                    </span>
+                  )}
+                </div>
+              </div>
+              {isLowConfidence && (
+                <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.82rem', color: '#b45309', fontWeight: 600, lineHeight: 1.5 }}>
+                  Generate more text-to-speech renders to improve confidence in this speed estimate.
+                </p>
+              )}
+              <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                This calibrates Studio&apos;s render-time estimates and does not change voice speaking speed.
+              </p>
+            </div>
+          );
+        })()}
+
         <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.85rem' }}>
           {displayEngine.author ? `Engine by ${displayEngine.author}. ` : ''}
           {displayEngine.homepage && (
@@ -357,87 +450,6 @@ export const EngineCard: React.FC<{
             />
           </div>
         )}
-
-        <div
-          style={{
-            marginTop: '1.25rem',
-            marginBottom: '1.25rem',
-            padding: '1rem',
-            borderRadius: '16px',
-            border: '1px solid rgba(43, 110, 255, 0.2)',
-            background: 'linear-gradient(180deg, rgba(240, 247, 255, 0.94), rgba(245, 250, 255, 0.85))',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Computer Speed
-            </span>
-            <button
-              type="button"
-              className="btn-glass"
-              title="Reset the calibration history for this engine."
-              disabled={saving || !hasCalibrationSummary}
-              onClick={async () => {
-                if (activeScenario) {
-                  addDevLog(`Simulated: Reset calibration requested for ${displayEngine.display_name}.`);
-                  return;
-                }
-                setSaving(true);
-                try {
-                  await api.resetEngineCalibration(displayEngine.engine_id);
-                  onShowNotification?.(`${displayEngine.display_name} calibration history reset.`);
-                  await onUpdate();
-                } catch (err: any) {
-                  const msg = getErrorMessage(err);
-                  if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
-                  onShowNotification?.(`Reset calibration failed: ${msg}`);
-                } finally {
-                  setSaving(false);
-                }
-              }}
-              style={{ padding: '0.45rem 0.75rem', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 800 }}
-            >
-              Reset Baseline
-            </button>
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '0.75rem',
-              padding: '0.85rem 1rem',
-              borderRadius: '12px',
-              border: '1px solid rgba(43, 110, 255, 0.16)',
-              background: 'rgba(255,255,255,0.72)',
-            }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.28rem' }}>
-              <span style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-primary)' }}>
-                {displayEngine.calibrated_cps !== undefined && displayEngine.calibrated_cps !== null
-                  ? `${Number(displayEngine.calibrated_cps).toFixed(1)} characters/sec${
-                      displayEngine.calibration_confidence_percent !== undefined &&
-                      displayEngine.calibration_confidence_percent !== null
-                        ? `, ${displayEngine.calibration_confidence_percent}% confidence`
-                        : ''
-                    }`
-                  : 'Not yet computed'}
-              </span>
-              {hasCalibrationSummary ? (
-                <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
-                  from {displayEngine.calibration_sample_count} samples since {calibrationSince}
-                </span>
-              ) : (
-                <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                  Computed from completed renders for this plugin and shown in characters per second.
-                </span>
-              )}
-            </div>
-          </div>
-          <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            This calibrates Studio&apos;s render-time estimates and does not change voice speaking speed.
-          </p>
-        </div>
 
         {testResult && testResult.ok && (
           <div style={{ marginTop: '1.25rem', padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: '12px', border: '1px solid var(--border)', animation: 'fade-in 0.3s ease-out' }}>

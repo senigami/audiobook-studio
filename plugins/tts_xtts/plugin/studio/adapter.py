@@ -35,9 +35,3 @@ def xtts_dispatch_adapter(jid: str, j: Job, start: float, on_output: Callable[[s
         sw, spk["speed"], pdir, out_wav, out_mp3, 
         text=text
     )
-
-    # Record metrics
-    chars = len(text) if text else 0
-    perf = get_performance_metrics()
-    from app.jobs.worker_metrics import record_engine_sample
-    record_engine_sample(j, start, chars, perf, 0)

@@ -26,6 +26,9 @@ def record_engine_sample(job, start: float, chars: int, perf: dict, source_segme
         return
 
     engine = _job_field(persisted, "engine", _job_field(job, "engine"))
+    if engine == "xtts":
+        return
+
     tts_model = _resolve_job_tts_model(persisted or job, engine)
     # We now allow all engines to record samples if they have a non-zero character count.
     # Mixed chapters are also recorded under the 'mixed' engine ID.
@@ -91,7 +94,6 @@ def record_engine_sample(job, start: float, chars: int, perf: dict, source_segme
             render_group_count=_job_field(persisted, "render_group_count", _job_field(job, "render_group_count", 0)) or 0,
             started_at=eff_start,
             completed_at=finished_at,
-            make_mp3=_job_field(persisted, "make_mp3", _job_field(job, "make_mp3", False)),
             synthesis_duration_seconds=synthesis_dur,
         )
     except ValueError as exc:

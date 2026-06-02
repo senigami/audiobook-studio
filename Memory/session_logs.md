@@ -1,3 +1,24 @@
+# 2026-06-01 - Migrate existing databases to drop make_mp3 column from render_performance_samples
+
+- Implemented DB schema migration in `app/db/core.py` to drop `make_mp3` column from existing databases, preserving historical data via ALTER TABLE DROP COLUMN or table rebuild fallbacks.
+- Removed `make_mp3` from the legacy history database recording routine inside `app/db/legacy_migration.py`.
+- Added comprehensive backend TDD pytest migration regressions asserting the column's absence, data survival, and new inserts correctness.
+
+# 2026-06-01 - Fix duplicate XTTS sample writes and remove make_mp3 from render performance pipeline
+
+- Made render performance sample recording single-source and authoritative for XTTS jobs by bypassing the worker-metrics path for XTTS and relying solely on the orchestrator completion path.
+- Resolved segment count directly from structured timing payload segments in the orchestrator completion path, falling back to segment_ids only when timing is absent.
+- Removed the legacy make_mp3 field from the render_performance_samples SQLite schema and stripped make_mp3 from all performance-recording queries and calls.
+- Added extensive backend TDD pytest regressions covering single-sample recording, correct segment count source, and make_mp3 column omission.
+
+# 2026-06-01 - Refine operational speed calibration display in Settings engine card
+
+- Moved the calibration block to the top of the expanded card so it is the first visible element.
+- Renamed the block label from 'Computer Speed' to 'Voice generation speed'.
+- Applied a subtle color treatment (amber border and light amber background) to the calibration block when calibration confidence is below 70%.
+- Added a helpful message prompting the user to generate more TTS renders when calibration confidence is low.
+- Added comprehensive Vitest regression tests covering layout placement, labeling, styling, and conditional rendering.
+
 # 2026-06-01 - Expose calibration confidence alongside calibrated CPS
 
 - Added `calibration_confidence_percent` to engine registry responses using the same filtered render-history window as calibrated CPS.

@@ -762,3 +762,28 @@ class TestPluginIsolation:
         assert len(result) == 1
         assert result[0].engine_id == "syntaxdev"
         assert "invalid syntax" in result[0].load_error
+
+
+def test_xtts_manifest_and_schema_contains_model_v2():
+    """Verify that XTTS plugin manifest and schema define the model parameter with default 'v2'."""
+    from pathlib import Path
+    import json
+
+    plugin_dir = Path(__file__).parents[2] / "plugins" / "tts_xtts"
+
+    # Check manifest.json
+    manifest_path = plugin_dir / "manifest.json"
+    assert manifest_path.is_file()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert "model" in manifest.get("behavior", {}).get("synthesis_settings", [])
+
+    # Check settings_schema.json
+    schema_path = plugin_dir / "settings_schema.json"
+    assert schema_path.is_file()
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    properties = schema.get("properties", {})
+    assert "model" in properties
+    model_prop = properties["model"]
+    assert model_prop.get("type") == "string"
+    assert model_prop.get("default") == "v2"
+    assert model_prop.get("enum") == ["v2"]

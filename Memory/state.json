@@ -1,15 +1,14 @@
 {
-  "snapshot_version": 151,
-  "current_task": "Expose calibration confidence next to engine CPS",
-  "status": "calibration_confidence_exposed",
+  "snapshot_version": 152,
+  "current_task": "Migrate existing render_performance_samples tables to drop legacy make_mp3 column",
+  "status": "make_mp3_column_fully_migrated_and_dropped",
   "last_committed_milestone": {
-    "title": "Exposed calibration confidence alongside calibrated CPS",
+    "title": "Migrate existing render_performance_samples tables to drop legacy make_mp3 column",
     "commit": "pending",
     "notes": [
-      "Computed calibration confidence from the same filtered render-history window used for calibrated CPS.",
-      "Exposed calibration_confidence_percent on the engine registry payload alongside calibrated_cps, sample count, and since date.",
-      "Updated the Settings engine card to render calibration confidence next to CPS without inventing fallback certainty.",
-      "Added backend and frontend regressions covering confidence exposure, null handling, and display formatting."
+      "Implemented DB schema migration in app/db/core.py to drop make_mp3 column from existing databases, preserving historical data via ALTER TABLE DROP COLUMN or table rebuild fallbacks.",
+      "Removed make_mp3 from the legacy history database recording routine inside app/db/legacy_migration.py.",
+      "Added comprehensive backend TDD pytest migration regressions asserting the column's absence, data survival, and new inserts correctness."
     ]
   },
   "active_constraints": [

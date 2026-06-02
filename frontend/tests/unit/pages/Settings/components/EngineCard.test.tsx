@@ -150,7 +150,7 @@ describe('EngineCard developer scenarios', () => {
     expect(screen.getByText('Voxtral Cloud Voices')).toBeInTheDocument();
     expect(screen.getByText('Mistral API Key')).toBeInTheDocument();
     expect(screen.queryByText('Output Format')).not.toBeInTheDocument();
-    expect(screen.getByText('Computer Speed')).toBeInTheDocument();
+    expect(screen.getByText('Voice generation speed')).toBeInTheDocument();
   });
 
   it('restores schema-hidden fields in a ready scenario', async () => {
@@ -175,7 +175,7 @@ describe('EngineCard developer scenarios', () => {
     await waitFor(() => {
       expect(screen.getByText('Output Format')).toBeInTheDocument();
     });
-    expect(screen.getByText('Computer Speed')).toBeInTheDocument();
+    expect(screen.getByText('Voice generation speed')).toBeInTheDocument();
   });
 
   it('hides DEV badge and panel when dev mode is disabled', () => {
@@ -317,32 +317,84 @@ describe('EngineCard dependency installation', () => {
     expect(screen.queryByText(/from 24 samples since/i)).not.toBeInTheDocument();
   });
 
-  it('renders "characters/sec, XX% confidence" when calibration confidence exists', () => {
-    const engineWithConfidence = {
+  it('renders "Voice generation speed" instead of "Computer Speed"', () => {
+    render(<EngineCard engine={voxtralEngine} onUpdate={vi.fn()} />);
+    expect(screen.getByText('Voice generation speed')).toBeInTheDocument();
+    expect(screen.queryByText('Computer Speed')).not.toBeInTheDocument();
+  });
+
+  it('proves the calibration block appears before other sections in the expanded card', () => {
+    render(<EngineCard engine={voxtralEngine} onUpdate={vi.fn()} />);
+
+    const html = document.body.innerHTML;
+    const calibrationIndex = html.indexOf('Voice generation speed');
+    const settingsIndex = html.indexOf('Mistral API Key');
+
+    expect(calibrationIndex).toBeGreaterThan(-1);
+    expect(settingsIndex).toBeGreaterThan(-1);
+    expect(calibrationIndex).toBeLessThan(settingsIndex);
+  });
+
+  it('renders confidence-sensitive subtle color treatment when confidence is present', () => {
+    // Low confidence (< 70)
+    const lowConfEngine = {
       ...voxtralEngine,
       calibrated_cps: 33.4,
-      calibration_confidence_percent: 82,
+      calibration_confidence_percent: 60,
       calibration_sample_count: 24,
       calibration_since: Date.UTC(2026, 4, 30, 16, 0, 0) / 1000,
     };
+    const { rerender } = render(<EngineCard engine={lowConfEngine} onUpdate={vi.fn()} />);
 
-    render(<EngineCard engine={engineWithConfidence} onUpdate={vi.fn()} />);
+    const textEl = screen.getByText('33.4 characters/sec, 60% confidence');
+    const blockContainer = textEl.closest('div')?.parentElement;
+    expect(blockContainer).toHaveStyle({ borderColor: 'rgba(217, 119, 6, 0.24)' });
 
-    expect(screen.getByText('33.4 characters/sec, 82% confidence')).toBeInTheDocument();
+    // High confidence (>= 70)
+    const highConfEngine = {
+      ...voxtralEngine,
+      calibrated_cps: 33.4,
+      calibration_confidence_percent: 85,
+      calibration_sample_count: 24,
+      calibration_since: Date.UTC(2026, 4, 30, 16, 0, 0) / 1000,
+    };
+    rerender(<EngineCard engine={highConfEngine} onUpdate={vi.fn()} />);
+    expect(blockContainer).toHaveStyle({ borderColor: 'rgba(43, 110, 255, 0.16)' });
   });
 
-  it('does not invent confidence when calibration confidence is null', () => {
-    const engineNoConfidence = {
+  it('proves helper text appears only when calibration_confidence_percent is below 70', () => {
+    const lowConfEngine = {
+      ...voxtralEngine,
+      calibrated_cps: 33.4,
+      calibration_confidence_percent: 65,
+      calibration_sample_count: 24,
+      calibration_since: Date.UTC(2026, 4, 30, 16, 0, 0) / 1000,
+    };
+    const { rerender } = render(<EngineCard engine={lowConfEngine} onUpdate={vi.fn()} />);
+
+    const helperText = 'Generate more text-to-speech renders to improve confidence in this speed estimate.';
+    expect(screen.getByText(helperText)).toBeInTheDocument();
+
+    // 70 or above
+    const borderConfEngine = {
+      ...voxtralEngine,
+      calibrated_cps: 33.4,
+      calibration_confidence_percent: 70,
+      calibration_sample_count: 24,
+      calibration_since: Date.UTC(2026, 4, 30, 16, 0, 0) / 1000,
+    };
+    rerender(<EngineCard engine={borderConfEngine} onUpdate={vi.fn()} />);
+    expect(screen.queryByText(helperText)).not.toBeInTheDocument();
+
+    // null confidence
+    const nullConfEngine = {
       ...voxtralEngine,
       calibrated_cps: 33.4,
       calibration_confidence_percent: null,
       calibration_sample_count: 24,
       calibration_since: Date.UTC(2026, 4, 30, 16, 0, 0) / 1000,
     };
-
-    render(<EngineCard engine={engineNoConfidence} onUpdate={vi.fn()} />);
-
-    expect(screen.getByText('33.4 characters/sec')).toBeInTheDocument();
-    expect(screen.queryByText(/confidence/i)).not.toBeInTheDocument();
+    rerender(<EngineCard engine={nullConfEngine} onUpdate={vi.fn()} />);
+    expect(screen.queryByText(helperText)).not.toBeInTheDocument();
   });
 });

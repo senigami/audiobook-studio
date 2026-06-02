@@ -50,6 +50,13 @@
       "description": "Use a more conservative cleanup path before synthesis. Leave this on if XTTS is unstable or if you want the safest default behavior.",
       "default": true
     },
+    "model": {
+      "type": "string",
+      "title": "Model",
+      "description": "XTTS model version to use for synthesis.",
+      "enum": ["v2"],
+      "default": "v2"
+    },
     "computer_speed_multiplier": {
       "type": "number",
       "title": "Computer Speed",

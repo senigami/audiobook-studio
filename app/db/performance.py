@@ -33,17 +33,14 @@ def record_render_sample(
     render_group_count: int = 0,
     started_at: Optional[float] = None,
     audio_duration_seconds: Optional[float] = None,
-    make_mp3: bool = False,
     completed_at: Optional[float] = None,
     synthesis_duration_seconds: Optional[float] = None,
     chapter_load_seconds: Optional[float] = None,
     sum_segment_render_seconds: Optional[float] = None,
     sample_type: Optional[str] = None,
+    **kwargs,
 ):
-    """
-    Records a successful render sample into the database.
-    Only successful terminal 'done' jobs should call this.
-    """
+
     if (synthesis_duration_seconds is None or synthesis_duration_seconds <= 0) and sum_segment_render_seconds is not None and sum_segment_render_seconds > 0:
         synthesis_duration_seconds = sum_segment_render_seconds
 
@@ -90,9 +87,9 @@ def record_render_sample(
                     completed_at, duration_seconds, synthesis_duration_seconds,
                     inter_group_overhead_seconds, chapter_load_seconds, sum_segment_render_seconds,
                     sample_type, cps, seconds_per_segment,
-                    audio_duration_seconds, make_mp3
+                    audio_duration_seconds
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     job_id, project_id, chapter_id, engine, _normalize_tts_model(tts_model), speaker_profile,
@@ -100,7 +97,7 @@ def record_render_sample(
                     completed_at, duration_seconds, synthesis_duration_seconds,
                     inter_group_overhead_seconds, chapter_load_seconds, sum_segment_render_seconds,
                     sample_type, cps, seconds_per_segment,
-                    audio_duration_seconds, 1 if make_mp3 else 0,
+                    audio_duration_seconds,
                 ),
             )
             conn.commit()

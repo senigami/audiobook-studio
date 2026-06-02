@@ -164,7 +164,6 @@ def _record_legacy_performance_history_to_db(history: list[Dict[str, Any]]) -> N
                 render_group_count=int(sample.get("render_group_count") or 0),
                 started_at=sample.get("started_at"),
                 audio_duration_seconds=sample.get("audio_duration_seconds"),
-                make_mp3=bool(sample.get("make_mp3")),
                 completed_at=sample.get("completed_at"),
             )
         except Exception:

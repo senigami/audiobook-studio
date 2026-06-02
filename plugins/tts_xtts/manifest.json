@@ -35,6 +35,7 @@
     "required_settings": [],
     "setting_aliases": {},
     "synthesis_settings": [
+      "model",
       "temperature",
       "repetition_penalty",
       "top_k",

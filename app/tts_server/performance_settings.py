@@ -112,7 +112,22 @@ def resolve_engine_settings_model(engine_id: str) -> str | None:
         return None
 
     settings = load_settings(plugin_dir)
-    return normalize_tts_model(settings.get("model"))
+    val = settings.get("model")
+    if val is not None:
+        return normalize_tts_model(val)
+
+    # Fall back to settings_schema.json default
+    schema_path = plugin_dir / "settings_schema.json"
+    if schema_path.is_file():
+        try:
+            import json
+            schema = json.loads(schema_path.read_text(encoding="utf-8"))
+            default_val = schema.get("properties", {}).get("model", {}).get("default")
+            if default_val is not None:
+                return normalize_tts_model(default_val)
+        except Exception:
+            pass
+    return None
 
 
 def normalize_tts_model(tts_model: Any) -> str | None:
@@ -129,6 +144,32 @@ def filter_history_for_engine_model(
 ) -> list[dict[str, Any]]:
     """Select history for the same engine and, when known, the same TTS model."""
     engine_history = [sample for sample in history if sample.get("engine") == engine_id]
-    if not tts_model:
-        return [sample for sample in engine_history if not sample.get("tts_model")]
-    return [sample for sample in engine_history if sample.get("tts_model") == tts_model]
+
+    # Resolve default model from settings schema to handle missing/historical model fields
+    default_model = None
+    from app.tts_server.plugin_loader import get_plugin_dir  # noqa: PLC0415
+    try:
+        plugin_dir = get_plugin_dir(engine_id)
+        if plugin_dir.is_dir():
+            schema_path = plugin_dir / "settings_schema.json"
+            if schema_path.is_file():
+                import json
+                schema = json.loads(schema_path.read_text(encoding="utf-8"))
+                default_model = schema.get("properties", {}).get("model", {}).get("default")
+    except Exception:
+        pass
+
+    normalized_target = normalize_tts_model(tts_model)
+    normalized_default = normalize_tts_model(default_model)
+
+    res = []
+    for sample in engine_history:
+        sample_model = normalize_tts_model(sample.get("tts_model"))
+        if sample_model == normalized_target:
+            res.append(sample)
+        elif normalized_target and normalized_target == normalized_default and sample_model is None:
+            res.append(sample)
+        elif normalized_target is None and sample_model == normalized_default:
+            res.append(sample)
+
+    return res

@@ -242,8 +242,18 @@ class OrchestratorHelpersMixin:
             if chars <= 0:
                 return
 
-            segment_ids = payload.get("segment_ids") or getattr(task, "segment_ids", None) or []
-            segment_count = max(1, len(segment_ids) if isinstance(segment_ids, list) else 1)
+            # Resolve segment count: prioritize actual timing segments if available,
+            # otherwise fall back to canonical job state segment_ids
+            timing_segments = None
+            if timing_payload is not None:
+                timing_segments = get_val(timing_payload, "segments")
+
+            if timing_segments and isinstance(timing_segments, list):
+                segment_count = max(1, len(timing_segments))
+            else:
+                segment_ids = payload.get("segment_ids") or getattr(task, "segment_ids", None) or []
+                segment_count = max(1, len(segment_ids) if isinstance(segment_ids, list) else 1)
+
             render_group_count = len(getattr(task, "script", None) or [])
             word_count = len(script_text.split())
             synthesis_settings = payload.get("synthesis_settings") if isinstance(payload.get("synthesis_settings"), dict) else {}
@@ -284,7 +294,6 @@ class OrchestratorHelpersMixin:
                     render_group_count=render_group_count,
                     started_at=started_at,
                     audio_duration_seconds=audio_duration_seconds,
-                    make_mp3=bool(payload.get("make_mp3", False)),
                     completed_at=completed_at_val,
                     synthesis_duration_seconds=synthesis_dur,
                     chapter_load_seconds=getattr(job_obj, "chapter_load_seconds", None) if job_obj else None,
