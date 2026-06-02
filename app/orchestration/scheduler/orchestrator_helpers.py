@@ -139,6 +139,9 @@ class OrchestratorHelpersMixin:
                 return
 
             timing_payload = None
+            from app.db.state import get_jobs  # noqa: PLC0415
+            perf_job_obj = get_jobs().get(context.task_id)
+
             if raw_result is not None and isinstance(raw_result, dict):
                 timing_payload = raw_result.get("timing")
                 if timing_payload is None:
@@ -251,8 +254,19 @@ class OrchestratorHelpersMixin:
             if timing_segments and isinstance(timing_segments, list):
                 segment_count = max(1, len(timing_segments))
             else:
-                segment_ids = payload.get("segment_ids") or getattr(task, "segment_ids", None) or []
-                segment_count = max(1, len(segment_ids) if isinstance(segment_ids, list) else 1)
+                engine = str(payload.get("engine_id") or getattr(task, "engine_id", ""))
+                if engine == "xtts":
+                    # For XTTS, prioritize true render chunk count over sentence fallback
+                    script = payload.get("script") or getattr(task, "script", None)
+                    if script and isinstance(script, list):
+                        segment_count = max(1, len(script))
+                    elif perf_job_obj and getattr(perf_job_obj, "render_group_count", 0) > 0:
+                        segment_count = max(1, perf_job_obj.render_group_count)
+                    else:
+                        segment_count = 1
+                else:
+                    segment_ids = payload.get("segment_ids") or getattr(task, "segment_ids", None) or []
+                    segment_count = max(1, len(segment_ids) if isinstance(segment_ids, list) else 1)
 
             render_group_count = len(getattr(task, "script", None) or [])
             word_count = len(script_text.split())
@@ -276,9 +290,7 @@ class OrchestratorHelpersMixin:
 
             try:
                 from app.db.performance import record_render_sample  # noqa: PLC0415
-                from app.db.state import get_jobs  # noqa: PLC0415
-                job_obj = get_jobs().get(context.task_id)
-                synthesis_dur = getattr(job_obj, "synthesis_duration_seconds", None) if job_obj else None
+                synthesis_dur = getattr(perf_job_obj, "synthesis_duration_seconds", None) if perf_job_obj else None
 
                 record_render_sample(
                     engine=str(payload.get("engine_id") or getattr(task, "engine_id", "")),
@@ -296,8 +308,8 @@ class OrchestratorHelpersMixin:
                     audio_duration_seconds=audio_duration_seconds,
                     completed_at=completed_at_val,
                     synthesis_duration_seconds=synthesis_dur,
-                    chapter_load_seconds=getattr(job_obj, "chapter_load_seconds", None) if job_obj else None,
-                    sum_segment_render_seconds=getattr(job_obj, "sum_segment_render_seconds", None) if job_obj else None,
+                    chapter_load_seconds=getattr(perf_job_obj, "chapter_load_seconds", None) if perf_job_obj else None,
+                    sum_segment_render_seconds=getattr(perf_job_obj, "sum_segment_render_seconds", None) if perf_job_obj else None,
                 )
             except Exception:
                 logger.warning(
