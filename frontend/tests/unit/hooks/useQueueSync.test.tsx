@@ -437,25 +437,15 @@ describe('useQueueSync', () => {
     expect(observed?.subscribers.map(s => s.subscriber)).not.toContain('main-queue');
   });
 
-  it('updates the queue overlay from voice.test frames when they carry a job id', async () => {
-    const jobItem = {
-      id: 'voice-job-1',
-      project_id: 'voice-preview',
-      chapter_id: 'voice-preview',
-      status: 'queued',
-      progress: 0,
-      created_at: Date.now() / 1000,
-    };
-    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
-
+  it('renders a voice-test queue row from queue.items without chapter or project context', async () => {
+    (api.getProcessingQueue as any).mockResolvedValue([]);
     const { result } = renderHook(() => useQueueSync());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    emitEvent('voice.test', 'voice_test_progress', {
+    emitEvent('queue.items', 'queue_item_status', {
       status: 'running',
       progress: 0.35,
-      voiceName: 'Narrator',
-      startedAt: Date.now() / 1000,
+      classification: 'job',
       message: 'Generating preview',
     }, { jobId: 'voice-job-1' });
 
@@ -463,6 +453,27 @@ describe('useQueueSync', () => {
       const job = result.current.queue.find((q: any) => q.id === 'voice-job-1');
       expect(job?.status).toBe('running');
       expect(job?.progress).toBe(0.35);
+      expect(job?.project_id).toBeNull();
+      expect(job?.chapter_id).toBeNull();
+    });
+  });
+
+  it('does not use voice.test frames to refresh the queue', async () => {
+    (api.getProcessingQueue as any).mockResolvedValue([]);
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('voice.test', 'voice_test_progress', {
+      status: 'queued',
+      progress: 0,
+      voiceName: 'Narrator',
+      startedAt: Date.now() / 1000,
+      message: 'Task accepted, reconciling batches.',
+    }, { jobId: 'voice-job-queue-refresh' });
+
+    await waitFor(() => {
+      expect(api.getProcessingQueue).toHaveBeenCalledTimes(1);
+      expect(result.current.queue).toHaveLength(0);
     });
   });
 

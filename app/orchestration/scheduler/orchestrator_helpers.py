@@ -1153,11 +1153,18 @@ class OrchestratorHelpersMixin:
                 if state_progress < (existing_job.progress or 0.0):
                     state_progress = existing_job.progress
 
+            # Determine scope
+            scope = "chapter"
+            if context.task_type in {"sample_build", "sample_test", "voice_build", "voice_test"}:
+                scope = "voice_test"
+            elif context.payload and context.payload.get("segment_ids"):
+                scope = "segment"
+
             # self.progress_service must be available on the target class
             self.progress_service.publish(
                 job_id=context.task_id,
                 status=state_status,
-                scope="segment" if (context.payload and context.payload.get("segment_ids")) else "chapter",
+                scope=scope,
                 parent_job_id=context.project_id,
                 chapter_id=context.chapter_id,
                 progress=state_progress,

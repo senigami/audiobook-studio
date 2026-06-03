@@ -1793,3 +1793,70 @@ def test_websocket_trace_includes_tts_logs(monkeypatch, tmp_path):
     assert record["eventKind"] == "tts_log"
     assert record["jobId"] == "job-sample"
     assert record["payload_summary"]["line"] == "Launching XTTS inference..."
+
+
+def test_voice_test_job_telemetry_isolation(monkeypatch):
+    """TDD regression: voice-test jobs must emit voice.test, jobs.lifecycle, queue.items but NOT chapters.progress."""
+    from app.orchestration.progress.service import ProgressService
+    from app.db.state import put_job, Job, get_jobs
+    import time
+
+    messages = []
+    def broadcaster(payload, channel):
+        messages.append(payload)
+
+    progress_service = ProgressService(
+        reconcile_fn=lambda **kwargs: kwargs,
+        eta_fn=lambda **kwargs: 0.0,
+        broadcaster=broadcaster,
+    )
+
+    # Put a mock voice test job in db state
+    job_id = "job-voice-test-telemetry"
+    put_job(Job(
+        id=job_id,
+        engine="xtts",
+        status="running",
+        created_at=time.time(),
+        kind="voice_test",
+        speaker_profile="feeling-lucky",
+        started_at=time.time(),
+    ))
+
+    # Publish progress as voice_test scope
+    progress_service.publish(
+        job_id=job_id,
+        status="running",
+        scope="voice_test",
+        progress=0.45,
+        started_at=time.time(),
+    )
+
+    # 1. Must emit voice.test progress frame
+    voice_test_events = [m for m in messages if m.get("topic") == "voice.test"]
+    assert len(voice_test_events) == 1
+    assert voice_test_events[0]["eventKind"] == "voice_test_progress"
+    assert voice_test_events[0]["payload"]["progress"] == 0.45
+    assert voice_test_events[0]["payload"]["voiceName"] == "feeling-lucky"
+    # Ensure jobId is in ids
+    assert voice_test_events[0]["ids"]["jobId"] == job_id
+
+    # 2. Must emit queue.items frames for the queue lifecycle contract
+    queue_events = [m for m in messages if m.get("topic") == "queue.items"]
+    assert len(queue_events) == 1
+    assert queue_events[0]["eventKind"] == "queue_item_status"
+    assert queue_events[0]["ids"]["jobId"] == job_id
+    assert queue_events[0]["ids"]["projectId"] is None
+    assert queue_events[0]["ids"]["chapterId"] is None
+    assert queue_events[0]["payload"]["status"] == "running"
+    assert queue_events[0]["payload"]["progress"] == 0.45
+
+    # 3. Must NOT emit chapters.progress frames
+    chapter_events = [m for m in messages if m.get("topic") == "chapters.progress"]
+    assert len(chapter_events) == 0
+
+    # 4. Queue visibility works via jobs.lifecycle and queue.items
+    lifecycle_events = [m for m in messages if m.get("topic") == "jobs.lifecycle"]
+    assert len(lifecycle_events) == 1
+    assert lifecycle_events[0]["eventKind"] == "job_lifecycle"
+    assert lifecycle_events[0]["ids"]["jobId"] == job_id

@@ -8,7 +8,7 @@ export interface LiveEventConsumer {
 }
 
 export const LIVE_EVENT_CONSUMER_TOPIC_IDS: Record<string, TopicFilterId[]> = {
-  'main-queue': ['jobs.lifecycle', 'queue.items', 'chapters.lifecycle', 'chapters.progress', 'voice.test'],
+  'main-queue': ['jobs.lifecycle', 'queue.items', 'chapters.lifecycle', 'chapters.progress'],
   'chapter-state': ['jobs.lifecycle', 'chapters.lifecycle', 'chapters.progress', 'segments.progress'],
   'segment-state': ['jobs.lifecycle', 'segments.lifecycle', 'segments.progress'],
   'tts-diagnostics': ['tts.logs'],

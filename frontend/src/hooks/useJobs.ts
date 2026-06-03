@@ -507,6 +507,12 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           if (nameVal) {
             setTestProgress(prev => ({ ...prev, [nameVal]: { progress: progVal, started_at: startedVal } }));
           }
+          if (event.jobId) {
+            applyJobUpdatedEvent({
+              job_id: event.jobId,
+              updates: adaptEventToJobUpdates(event),
+            });
+          }
           break;
         }
       }

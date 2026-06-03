@@ -339,7 +339,49 @@ class ProgressService:
             )
             self.broadcaster(payload=seg_event, channel="jobs")
 
-        # 2. Chapter progress (second)
+        # 2. Voice test progress (second)
+        if scope == "voice_test":
+            from app.api.contracts.events import build_queue_item_status_event, build_voice_test_progress_event  # noqa: PLC0415
+            from app.db.state import get_jobs  # noqa: PLC0415
+
+            existing_job = get_jobs().get(job_id)
+            voice_name = "default"
+            if existing_job:
+                if hasattr(existing_job, "speaker_profile"):
+                    voice_name = existing_job.speaker_profile or "default"
+                elif isinstance(existing_job, dict) and existing_job.get("speaker_profile"):
+                    voice_name = existing_job["speaker_profile"]
+
+            queue_event = build_queue_item_status_event(
+                job_id=job_id,
+                status=status,
+                progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
+                eta_seconds=eta_seconds,
+                message=message,
+                reason_code=reason_code,
+                classification="job",
+                project_id=parent_job_id,
+                chapter_id=chapter_id,
+                source=payload.get("source"),
+                has_segment_support=resolved_has_segment_support,
+            )
+            self.broadcaster(payload=queue_event, channel="jobs")
+
+            voice_event = build_voice_test_progress_event(
+                voice_name=voice_name,
+                status=status,
+                progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
+                started_at=started_at or (existing_job.started_at if existing_job and hasattr(existing_job, "started_at") else None) or (existing_job.get("started_at") if existing_job and isinstance(existing_job, dict) else None) or time.time(),
+                message=message,
+                source=payload.get("source"),
+            )
+            # Add jobId to IDs
+            if "ids" in voice_event:
+                voice_event["ids"]["jobId"] = job_id
+
+            self.broadcaster(payload=voice_event, channel="jobs")
+
+        # 3. Chapter progress (third)
         is_chapter_progress = (
             scope == "chapter"
             or (chapter_id is not None and scope != "segment")

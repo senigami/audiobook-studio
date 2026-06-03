@@ -82,6 +82,11 @@ The plugin owns:
 
 If a behavior is specific to one encoder, keep it in the plugin. If Studio would need to know about it for a second plugin, that is a hook.
 
+For the live event stream and queue lifecycle contract, read
+[`docs/event_stream_processing_schema.md`](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/docs/event_stream_processing_schema.md).
+That document spells out the required queue row sequence, the voice-test
+exception, and which topics own state versus diagnostics.
+
 ## Declared Hook Model
 
 The current plugin hook surface is intentionally small and composable, but the declaration lives in the manifest and SDK contract first.

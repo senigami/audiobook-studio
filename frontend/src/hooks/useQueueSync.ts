@@ -89,8 +89,7 @@ export const useQueueSync = () => {
         event.topic === 'jobs.lifecycle' ||
         event.topic === 'queue.items' ||
         event.topic === 'chapters.lifecycle' ||
-        event.topic === 'chapters.progress' ||
-        event.topic === 'voice.test'
+        event.topic === 'chapters.progress'
       ) {
         recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
         if (event.topic === 'queue.items' && event.eventKind === 'queue_item_invalidated') {

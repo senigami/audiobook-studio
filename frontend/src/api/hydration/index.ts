@@ -62,13 +62,13 @@ const ACTIVE_STATUSES: ProcessingQueueItem['status'][] = ['queued', 'preparing',
 const TERMINAL_STATUSES: ProcessingQueueItem['status'][] = ['done', 'failed', 'cancelled'];
 
 function buildOverlayQueueItem(jobId: string, delta: OverlayDelta): ProcessingQueueItem | null {
-  if (!delta.project_id || !delta.chapter_id || !delta.status) return null;
+  if (!delta.status) return null;
   const hasPositiveEta = typeof delta.eta_seconds === 'number' && delta.eta_seconds > 0;
   const positiveEtaSeconds = hasPositiveEta ? Number(delta.eta_seconds) : undefined;
   return {
     id: jobId,
-    project_id: delta.project_id,
-    chapter_id: delta.chapter_id,
+    project_id: delta.project_id ?? null,
+    chapter_id: delta.chapter_id ?? null,
     split_part: 0,
     parent_job_id: delta.parent_job_id ?? undefined,
     classification: delta.classification ?? undefined,

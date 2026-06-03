@@ -7,6 +7,8 @@ consumer registry expectations.
 
 The executable backend contract lives in `app/api/contracts/events.py`. The
 frontend executable contract lives in `frontend/src/api/contracts/liveEvents.ts`.
+The queue/item lifecycle schema lives in
+`docs/event_stream_processing_schema.md`.
 
 ## 1. Rationale
 

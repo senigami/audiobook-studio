@@ -502,6 +502,32 @@ describe('useJobs', () => {
     expect(subscribers).toContain('voice-test-state');
   });
 
+  it('updates the jobs state from voice.test frames when they carry a job id', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-voice-test-1', status: 'running', progress: 0.1 }] });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'voice.test',
+        eventKind: 'voice_test_progress',
+        ids: { jobId: 'job-voice-test-1' },
+        payload: {
+          voiceName: 'feeling-lucky',
+          status: 'running',
+          progress: 0.55,
+          startedAt: 12345,
+        },
+      });
+    });
+
+    expect(result.current.jobs['job-voice-test-1']).toMatchObject({
+      status: 'running',
+      progress: 0.55,
+    });
+  });
+
   it('drives segment progress directly from segments.progress topic', async () => {
     const { result } = renderHook(() => useJobs());
     emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-seg', status: 'running', progress: 0 }] });

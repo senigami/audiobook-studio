@@ -1,3 +1,18 @@
+# 2026-06-03 - Document event stream processing schema
+
+- Added `plans/implementation/event_stream_processing_schema.md` as the canonical queue/item lifecycle and voice-test processing schema for developers.
+- Linked the new schema from the plugin guide, broadcaster contract, and live event stream contract so the queue and voice-test ownership rules are easier to find.
+- Verified the existing voice-test regressions still pass, including the backend isolation test and the frontend queue-refresh test.
+
+# 2026-06-03 - Separate voice-test telemetry from chapter telemetry
+
+- Classified sample and voice build/test tasks as `scope="voice_test"` in `app/orchestration/scheduler/orchestrator_helpers.py`.
+- Updated `ProgressService.publish` in `app/orchestration/progress/service.py` to route `voice_test` scope progress events to the `voice.test` channel/topic using the canonical `voice_test_progress` event payload.
+- Attached `jobId` to the `ids` dictionary of the `voice.test` event, allowing clients to identify which queue items are related to the telemetry.
+- Bypassed the generation/broadcast of `chapters.progress` frames for voice test jobs to prevent polluting chapter telemetry.
+- Updated `frontend/src/hooks/useJobs.ts` in the frontend to apply updates from incoming `voice.test` frames to the active `jobs` map when a `jobId` is provided.
+- Added TDD unit tests in `tests/api/test_websocket_broadcast.py` and `frontend/tests/unit/hooks/useJobs.test.tsx` verifying the isolation and updates.
+
 # 2026-06-02 - Allow XTTS sample jobs to synthesize without project/chapter context
 
 - Modified `xtts_dispatch_adapter` in `plugins/tts_xtts/plugin/studio/adapter.py` to bypass the strict project and chapter context validations when the job kind is sample-related.
@@ -1805,3 +1820,21 @@
 - Observed that one-segment sample runs were still persisting `model_load_seconds = null` because the completion path only derived load time from `START_SEGMENT`, which never fires for the current sample flow.
 - Added a completion-path fallback in `orchestrator_helpers.py` so `model_load_seconds` is derived from job timestamps when structured timing is absent.
 - Added a regression proving the one-segment sample path still persists `model_load_seconds` and `audio_duration_seconds` correctly, then verified the focused timing/persistence and watchdog suites pass.
+
+# 2026-06-02 - Voice-test telemetry isolated from chapter telemetry
+
+- Routed voice-test/sample progress through `voice.test` instead of `chapters.progress`, and attached `jobId` so the frontend can update job state from those frames.
+- Updated `useJobs.ts` to fold incoming `voice.test` frames into jobs state when they carry a job id, preserving queue visibility while keeping the voice-test topic separate.
+- Verified the focused backend and frontend suites pass after the telemetry isolation change.
+
+# 2026-06-02 - Voice-test queue refresh and XTTS stderr flush fixed
+
+- Added a frontend refresh on the first queued/preparing `voice.test` frame so voice-test jobs without chapter context now appear in the queue during render.
+- Flushed the XTTS `Loading XTTS model...` and synthesis header stderr lines so the browser-visible log order no longer lets `[START_SYNTHESIS]` jump ahead of the model-load line.
+- Verified the focused plugin, backend, and frontend queue tests pass after the fix.
+
+# 2026-06-03 - Voice-test queue contract aligned with queue.items
+
+- Voice-test scope now emits `queue.items` alongside `jobs.lifecycle`, and the frontend queue hydrator accepts overlay rows even when project/chapter ids are absent.
+- Removed `voice.test` from the main queue consumer path so queue visibility follows the queue contract instead of the old refresh workaround.
+- Verified the backend voice-test websocket regression plus the focused queue and Live Output frontend tests pass.

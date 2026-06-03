@@ -35,7 +35,7 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
     expect(screen.getByText(/Internal audit log of normalized websocket events/)).toBeInTheDocument();
     expect(screen.getByText('Event map')).toBeInTheDocument();
     expect(screen.getByText('main-queue')).toBeInTheDocument();
-    expect(screen.getByText('jobs.lifecycle, queue.items, chapters.lifecycle, chapters.progress, voice.test')).toBeInTheDocument();
+    expect(screen.getByText('jobs.lifecycle, queue.items, chapters.lifecycle, chapters.progress')).toBeInTheDocument();
   });
 
   it('renders topic toggle buttons without the old all-minus-logs shortcut', () => {
@@ -141,7 +141,7 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'main-queue' }));
     let visibleFrameIds = Array.from(document.querySelectorAll('tbody tr[data-frame-id]')).map(row => row.getAttribute('data-frame-id'));
-    expect(visibleFrameIds).toEqual(['1', '2', '3', '4', '5']);
+    expect(visibleFrameIds).toEqual(['1', '2', '3', '4']);
 
     fireEvent.click(screen.getByRole('button', { name: 'segment-state' }));
     visibleFrameIds = Array.from(document.querySelectorAll('tbody tr[data-frame-id]')).map(row => row.getAttribute('data-frame-id'));
