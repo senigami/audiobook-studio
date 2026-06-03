@@ -47,6 +47,8 @@ class TaskResult:
     status: str
     message: str | None = None
     retriable: bool = False
+    timing: dict[str, Any] | None = None
+
 
 
 class StudioTask:

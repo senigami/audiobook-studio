@@ -27,6 +27,7 @@ class SampleTestTask(StudioTask):
         self.engine_id = engine_id
         self.output_path = output_path
         self.test_text = test_text
+        self.script_text = test_text
         self.voice_job_settings = voice_job_settings or {}
         self.custom_title = custom_title
         self.voice_profile_dir = Path(voice_profile_dir) if voice_profile_dir else None
@@ -44,8 +45,8 @@ class SampleTestTask(StudioTask):
 
     @property
     def is_marker_driven(self) -> bool:
-        """Voice tests use log markers to track render start."""
-        return True
+        """Voice tests do not use marker-driven progress."""
+        return False
 
     @property
     def prefers_local_execution(self) -> bool:
@@ -65,6 +66,7 @@ class SampleTestTask(StudioTask):
                 "output_path": str(self.output_path),
                 "voice_profile_dir": str(self.voice_profile_dir) if self.voice_profile_dir else None,
                 "test_text": self.test_text,
+                "script_text": self.script_text,
                 "voice_job_settings": self.voice_job_settings,
                 "custom_title": self.custom_title,
             },
@@ -80,7 +82,7 @@ class SampleTestTask(StudioTask):
             engine_id=str(p.get("engine_id", "")),
             output_path=Path(str(p.get("output_path", ""))),
             voice_profile_dir=p.get("voice_profile_dir"),
-            test_text=str(p.get("test_text", "")),
+            test_text=str(p.get("script_text", p.get("test_text", ""))),
             voice_job_settings=p.get("voice_job_settings"),
             custom_title=p.get("custom_title"),
         )
@@ -106,16 +108,19 @@ class SampleTestTask(StudioTask):
         }
         request.update(self.voice_job_settings)
 
+        res = {}
         try:
             from app.engines.bridge import create_voice_bridge
             bridge = create_voice_bridge()
 
-            res = bridge.synthesize(request)
+            with self.progress_heartbeat(start=0.05, cap=0.65, message="Synthesizing...", reason_code="synthesis_progress"):
+                res = bridge.synthesize(request)
 
             if res.get("status") != "ok":
                 return TaskResult(status="failed", message=res.get("message", "Synthesis failed"))
         except Exception as e:
             return TaskResult(status="failed", message=f"Synthesis error: {e}")
+
 
         self.report_progress(0.70, message="Preview synthesis finished.", reason_code="synthesis_finished")
 
@@ -149,7 +154,11 @@ class SampleTestTask(StudioTask):
         except Exception as e:
              return TaskResult(status="failed", message=f"Metadata update failed: {e}")
 
-        return TaskResult(status="completed")
+        timing_payload = res.get("timing")
+        if timing_payload is None and isinstance(res.get("tts_server_result"), dict):
+            timing_payload = res["tts_server_result"].get("timing")
+        return TaskResult(status="completed", timing=timing_payload)
+
 
     def on_cancel(self) -> None:
         """Cleanup on cancellation."""

@@ -181,6 +181,32 @@ def test_voice_test_orchestration_e2e(voices_root):
     assert settings["preview_model"] == "large"
 
 
+def test_sample_tasks_expose_script_text_alias():
+    """Sample tasks must expose test_text under script_text for XTTS dispatch."""
+    from app.orchestration.tasks.sample_build import SampleBuildTask
+    from app.orchestration.tasks.sample_test import SampleTestTask
+
+    build_task = SampleBuildTask(
+        task_id="build-1",
+        speaker_profile="VoiceA",
+        engine_id="xtts",
+        output_path=Path("/tmp/sample.mp3"),
+        test_text="Build text",
+    )
+    test_task = SampleTestTask(
+        task_id="test-1",
+        speaker_profile="VoiceA",
+        engine_id="xtts",
+        output_path=Path("/tmp/sample.mp3"),
+        test_text="Test text",
+    )
+
+    assert build_task.script_text == "Build text"
+    assert build_task.describe().payload["script_text"] == "Build text"
+    assert test_task.script_text == "Test text"
+    assert test_task.describe().payload["script_text"] == "Test text"
+
+
 def test_voice_build_fails_when_no_engine(clean_db, voices_root):
     from app.orchestration.tasks.sample_build import SampleBuildTask
     from app.jobs.worker_voice import handle_voice_job

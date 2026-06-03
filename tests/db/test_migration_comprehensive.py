@@ -146,3 +146,79 @@ def test_migration_removes_make_mp3_column(tmp_path, monkeypatch):
     assert len(history) == 2
     assert history[0]["job_id"] == "job-1"
     assert history[1]["job_id"] == "job-2"
+
+
+def test_migration_renames_chapter_load_seconds_to_model_load_seconds(tmp_path, monkeypatch):
+    """An existing database with chapter_load_seconds in render_performance_samples should have it renamed to model_load_seconds with data preserved."""
+    import sqlite3
+    import uuid
+    from app.db.core import init_db, get_studio_connection
+    from app.db.performance import record_render_sample, get_render_history
+
+    # Setup paths
+    db_path = tmp_path / f"test_db_{uuid.uuid4().hex}.db"
+    studio_db_path = tmp_path / f"test_studio_{uuid.uuid4().hex}.db"
+
+    monkeypatch.setenv("DB_PATH", str(db_path))
+    monkeypatch.setenv("STUDIO_DB_PATH", str(studio_db_path))
+
+    # Reload modules to apply environment variables
+    import app.db.core
+    import importlib
+    importlib.reload(app.db.core)
+
+    # 1. Manually create the old schema with chapter_load_seconds (and without model_load_seconds)
+    conn = sqlite3.connect(studio_db_path)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE render_performance_samples (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id TEXT,
+            project_id TEXT,
+            chapter_id TEXT,
+            engine TEXT NOT NULL,
+            tts_model TEXT,
+            speaker_profile TEXT,
+            chars INTEGER NOT NULL,
+            word_count INTEGER DEFAULT 0,
+            segment_count INTEGER NOT NULL,
+            render_group_count INTEGER DEFAULT 0,
+            started_at REAL,
+            completed_at REAL NOT NULL,
+            duration_seconds REAL NOT NULL,
+            synthesis_duration_seconds REAL NOT NULL DEFAULT 0.0,
+            inter_group_overhead_seconds REAL NOT NULL DEFAULT 0.0,
+            chapter_load_seconds REAL,
+            sum_segment_render_seconds REAL,
+            sample_type TEXT,
+            cps REAL NOT NULL,
+            seconds_per_segment REAL NOT NULL,
+            audio_duration_seconds REAL
+        )
+    """)
+    cursor.execute(f"""
+        INSERT INTO render_performance_samples (
+            job_id, engine, chars, segment_count, completed_at, duration_seconds,
+            synthesis_duration_seconds, cps, seconds_per_segment, chapter_load_seconds
+        ) VALUES ('job-1', 'xtts', 100, 1, {time.time()}, 10.0, 5.0, 20.0, 10.0, 2.5)
+    """)
+    conn.commit()
+    conn.close()
+
+    # 2. Run init_db() which should trigger the migration
+    init_db()
+
+    # 3. Assert old column is gone and new is present
+    with get_studio_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(render_performance_samples)")
+        columns = [r[1] for r in cursor.fetchall()]
+        assert "chapter_load_seconds" not in columns
+        assert "model_load_seconds" in columns
+
+        # 4. Assert data survives
+        cursor.execute("SELECT job_id, model_load_seconds FROM render_performance_samples")
+        row = cursor.fetchone()
+        assert row is not None
+        assert row[0] == 'job-1'
+        assert row[1] == 2.5

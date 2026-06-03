@@ -312,11 +312,8 @@ def test_progress_service_chapter_progress_sends_canonical_envelope():
     assert event["payload"]["status"] == "running"
     assert event["payload"]["progress"] == 0.45
     assert event["payload"]["groupedProgress"] == 0.4
-    assert event["payload"]["grouped_progress"] == 0.4
     assert event["payload"]["etaSeconds"] == 120
-    assert event["payload"]["eta_seconds"] == 120
     assert event["payload"]["updatedAt"] == 1234.5
-    assert event["payload"]["updated_at"] == 1234.5
     assert event["payload"]["message"] == "Synthesizing..."
 
 
@@ -370,12 +367,8 @@ def test_progress_service_segment_progress_sends_canonical_envelope():
     assert event["payload"]["progress"] == 0.75
     assert event["payload"]["activeSegmentId"] == "job-seg-1"
     assert event["payload"]["activeSegmentProgress"] == 0.75
-    assert event["payload"]["active_segment_id"] == "job-seg-1"
-    assert event["payload"]["active_segment_progress"] == 0.75
     assert event["payload"]["etaSeconds"] == 15
-    assert event["payload"]["eta_seconds"] == 15
     assert event["payload"]["updatedAt"] == 2345.6
-    assert event["payload"]["updated_at"] == 2345.6
     assert event["payload"]["message"] == "Synthesizing segment..."
 
 
@@ -476,11 +469,11 @@ def test_progress_service_segment_eta_isolated_from_chapter_eta():
     assert lifecycle_event["topic"] == "jobs.lifecycle"
     assert seg_event["topic"] == "segments.progress"
     assert seg_event["payload"]["progress"] == 1.0
-    assert seg_event["payload"]["eta_seconds"] == 0
+    assert seg_event["payload"]["etaSeconds"] == 0
 
     assert chap_event["topic"] == "chapters.progress"
     assert chap_event["payload"]["progress"] == 0.44
-    assert chap_event["payload"]["eta_seconds"] == 22
+    assert chap_event["payload"]["etaSeconds"] == 22
 
 
 def test_progress_service_completed_segment_does_not_inherit_chapter_eta():
@@ -518,11 +511,11 @@ def test_progress_service_completed_segment_does_not_inherit_chapter_eta():
     assert lifecycle_event["topic"] == "jobs.lifecycle"
     assert seg_event["topic"] == "segments.progress"
     assert seg_event["payload"]["progress"] == 1.0
-    assert seg_event["payload"]["eta_seconds"] is None
+    assert seg_event["payload"]["etaSeconds"] is None
 
     assert chap_event["topic"] == "chapters.progress"
     assert chap_event["payload"]["progress"] == 0.44
-    assert chap_event["payload"]["eta_seconds"] == 22
+    assert chap_event["payload"]["etaSeconds"] == 22
 
 
 def test_progress_service_segment_completion_matching_outcome():
@@ -707,7 +700,7 @@ def test_progress_service_emits_active_segment_eta_only_updates():
     segment_event = broadcast_events[0][0]
     chapter_event = broadcast_events[1][0]
     assert segment_event["topic"] == "segments.progress"
-    assert segment_event["payload"]["eta_seconds"] == 25
+    assert segment_event["payload"]["etaSeconds"] == 25
     assert chapter_event["topic"] == "chapters.progress"
 
 
@@ -1016,7 +1009,6 @@ def test_chapter_progress_eta_samples_include_eta_updated_at():
         chapter_id="chap-1", status="running", progress=0.5, eta_seconds=30
     )
     assert "etaUpdatedAt" in e1["payload"]
-    assert "eta_updated_at" in e1["payload"]
     assert isinstance(e1["payload"]["etaUpdatedAt"], (int, float))
 
     # 2. When eta_seconds is None, etaUpdatedAt / eta_updated_at must be None
@@ -1024,7 +1016,6 @@ def test_chapter_progress_eta_samples_include_eta_updated_at():
         chapter_id="chap-1", status="running", progress=0.5, eta_seconds=None
     )
     assert e2["payload"].get("etaUpdatedAt") is None
-    assert e2["payload"].get("eta_updated_at") is None
 
 
 def test_segment_progress_eta_samples_include_eta_updated_at():
@@ -1034,7 +1025,6 @@ def test_segment_progress_eta_samples_include_eta_updated_at():
         segment_id="seg-1", status="running", progress=0.5, eta_seconds=10
     )
     assert "etaUpdatedAt" in e1["payload"]
-    assert "eta_updated_at" in e1["payload"]
     assert isinstance(e1["payload"]["etaUpdatedAt"], (int, float))
 
     # 2. When eta_seconds is None, etaUpdatedAt / eta_updated_at must be None
@@ -1042,7 +1032,6 @@ def test_segment_progress_eta_samples_include_eta_updated_at():
         segment_id="seg-1", status="running", progress=0.5, eta_seconds=None
     )
     assert e2["payload"].get("etaUpdatedAt") is None
-    assert e2["payload"].get("eta_updated_at") is None
 
 
 def test_update_job_terminal_status_defensively_clears_eta_fields(tmp_path):

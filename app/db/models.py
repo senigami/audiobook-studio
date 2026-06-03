@@ -69,7 +69,7 @@ class Job:
     first_start_segment_at: Optional[float] = None
     chapter_render_completed_at: Optional[float] = None
     sum_segment_render_seconds: float = 0.0
-    chapter_load_seconds: Optional[float] = None
+    model_load_seconds: Optional[float] = None
     inter_group_overhead_seconds: Optional[float] = None
     chapter_post_start_window: Optional[float] = None
     chapter_wall_duration: Optional[float] = None

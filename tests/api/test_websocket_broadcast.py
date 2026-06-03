@@ -1675,3 +1675,121 @@ def test_broadcast_event_payload_includes_confidence_in_camelcase(monkeypatch):
     payload = messages[0]["payload"]
     assert "confidence" in payload
     assert isinstance(payload["confidence"], (int, float))
+
+
+def test_broadcast_job_classification_progress_updates(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    # When classification is "job", progress updates should be broadcasted to "queue.items"
+    broadcast_job_updated(
+        "job-generic-test",
+        {"progress": 0.35, "eta_seconds": 15},
+        {"status": "running", "progress": 0.1, "eta_seconds": 20, "classification": "job", "engine": "voice_build"},
+    )
+
+    assert len(messages) == 1
+    event = messages[0]
+    assert event["type"] == "studio_event"
+    assert event["topic"] == "queue.items"
+    assert event["eventKind"] == "queue_item_status"
+    assert event["payload"]["progress"] == 0.35
+    assert event["payload"]["status"] == "running"
+    assert event["payload"]["etaSeconds"] == 15
+
+
+def test_websocket_trace_sink_when_enabled(monkeypatch, tmp_path):
+    import json
+    from app.api.ws import broadcast_studio_event
+
+    trace_file = tmp_path / "socket_trace.jsonl"
+    monkeypatch.setenv("STUDIO_SOCKET_TRACE", str(trace_file))
+
+    monkeypatch.setattr("app.api.ws.manager.broadcast", lambda msg: None)
+
+    event = {
+        "type": "studio_event",
+        "version": 1,
+        "topic": "queue.items",
+        "eventKind": "queue_item_status",
+        "ids": {
+            "projectId": "p1",
+            "chapterId": "c1",
+            "jobId": "j1",
+            "segmentId": "s1"
+        },
+        "payload": {
+            "status": "running",
+            "progress": 0.5,
+            "line": "some text"
+        }
+    }
+
+    broadcast_studio_event(event)
+
+    assert trace_file.exists()
+    lines = trace_file.read_text(encoding="utf-8").strip().split("\n")
+    assert len(lines) == 1
+    record = json.loads(lines[0])
+    assert record["topic"] == "queue.items"
+    assert record["eventKind"] == "queue_item_status"
+    assert record["jobId"] == "j1"
+    assert record["projectId"] == "p1"
+    assert record["chapterId"] == "c1"
+    assert record["segmentId"] == "s1"
+    assert record["payload_summary"]["status"] == "running"
+    assert record["payload_summary"]["progress"] == 0.5
+
+
+def test_websocket_trace_sink_disabled_by_default(monkeypatch):
+    from app.api.ws import broadcast_studio_event
+
+    monkeypatch.delenv("STUDIO_SOCKET_TRACE", raising=False)
+
+    broadcast_called = []
+    monkeypatch.setattr("app.api.ws.manager.broadcast", lambda msg: broadcast_called.append(msg))
+
+    event = {
+        "type": "studio_event",
+        "version": 1,
+        "topic": "queue.items",
+        "eventKind": "queue_item_status",
+        "ids": {},
+        "payload": {}
+    }
+
+    broadcast_studio_event(event)
+
+    assert len(broadcast_called) == 1
+
+
+def test_websocket_trace_includes_tts_logs(monkeypatch, tmp_path):
+    import json
+    from app.api.ws import broadcast_tts_log_line
+
+    trace_file = tmp_path / "socket_trace.jsonl"
+    monkeypatch.setenv("STUDIO_SOCKET_TRACE", str(trace_file))
+
+    monkeypatch.setattr("app.api.ws.manager.broadcast", lambda msg: None)
+
+    from app.api.ws import reset_tts_log_line_sequences_for_tests
+    reset_tts_log_line_sequences_for_tests()
+
+    broadcast_tts_log_line(
+        job_id="job-sample",
+        project_id="proj-sample",
+        chapter_id="chap-sample",
+        line="Launching XTTS inference...\n",
+    )
+
+    assert trace_file.exists()
+    lines = trace_file.read_text(encoding="utf-8").strip().split("\n")
+    assert len(lines) == 1
+    record = json.loads(lines[0])
+    assert record["topic"] == "tts.logs"
+    assert record["eventKind"] == "tts_log"
+    assert record["jobId"] == "job-sample"
+    assert record["payload_summary"]["line"] == "Launching XTTS inference..."

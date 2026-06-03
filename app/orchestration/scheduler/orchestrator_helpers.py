@@ -78,7 +78,7 @@ class OrchestratorHelpersMixin:
             "first_start_segment_at": None,
             "chapter_render_completed_at": None,
             "sum_segment_render_seconds": 0.0,
-            "chapter_load_seconds": None,
+            "model_load_seconds": None,
             "inter_group_overhead_seconds": None,
             "chapter_post_start_window": None,
             "chapter_wall_duration": None,
@@ -175,9 +175,9 @@ class OrchestratorHelpersMixin:
                             })
 
                 if chap_render_start is not None and chap_render_completed is not None:
-                    chapter_load_seconds = 0.0
+                    model_load_seconds = 0.0
                     if engine_act_start is not None:
-                        chapter_load_seconds = chap_render_start - engine_act_start
+                        model_load_seconds = chap_render_start - engine_act_start
 
                     synthesis_duration_seconds = chap_render_completed - chap_render_start
 
@@ -202,7 +202,7 @@ class OrchestratorHelpersMixin:
                     timing["render_started_at"] = chap_render_start
                     timing["chapter_render_completed_at"] = chap_render_completed
                     timing["sum_segment_render_seconds"] = sum_segment_render_seconds
-                    timing["chapter_load_seconds"] = chapter_load_seconds
+                    timing["model_load_seconds"] = model_load_seconds
                     timing["inter_group_overhead_seconds"] = inter_group_overhead_seconds
                     timing["chapter_wall_duration"] = duration_seconds
                     timing["synthesis_duration_seconds"] = synthesis_duration_seconds
@@ -215,7 +215,7 @@ class OrchestratorHelpersMixin:
                             started_at=chap_render_start,
                             chapter_render_completed_at=chap_render_completed,
                             sum_segment_render_seconds=sum_segment_render_seconds,
-                            chapter_load_seconds=chapter_load_seconds,
+                            model_load_seconds=model_load_seconds,
                             inter_group_overhead_seconds=inter_group_overhead_seconds,
                             chapter_wall_duration=duration_seconds,
                             synthesis_duration_seconds=synthesis_duration_seconds,
@@ -240,7 +240,7 @@ class OrchestratorHelpersMixin:
                 return
 
             payload = context.payload or {}
-            script_text = str(payload.get("script_text") or "")
+            script_text = str(payload.get("script_text") or payload.get("test_text") or "")
             chars = len(script_text)
             if chars <= 0:
                 return
@@ -254,19 +254,21 @@ class OrchestratorHelpersMixin:
             if timing_segments and isinstance(timing_segments, list):
                 segment_count = max(1, len(timing_segments))
             else:
-                engine = str(payload.get("engine_id") or getattr(task, "engine_id", ""))
-                if engine == "xtts":
-                    # For XTTS, prioritize true render chunk count over sentence fallback
-                    script = payload.get("script") or getattr(task, "script", None)
-                    if script and isinstance(script, list):
-                        segment_count = max(1, len(script))
-                    elif perf_job_obj and getattr(perf_job_obj, "render_group_count", 0) > 0:
-                        segment_count = max(1, perf_job_obj.render_group_count)
-                    else:
-                        segment_count = 1
+                script = payload.get("script") or getattr(task, "script", None)
+                if script and isinstance(script, list):
+                    segment_count = max(1, len(script))
+                elif perf_job_obj and getattr(perf_job_obj, "render_group_count", 0) > 0:
+                    segment_count = max(1, perf_job_obj.render_group_count)
+                elif context.task_type in ("sample_build", "sample_test"):
+                    segment_count = 1
                 else:
-                    segment_ids = payload.get("segment_ids") or getattr(task, "segment_ids", None) or []
-                    segment_count = max(1, len(segment_ids) if isinstance(segment_ids, list) else 1)
+                    from app.engines.behavior import supports_segment_rendering  # noqa: PLC0415
+                    engine_id_val = str(payload.get("engine_id") or getattr(task, "engine_id", ""))
+                    if engine_id_val and supports_segment_rendering(engine_id_val):
+                        segment_count = 1
+                    else:
+                        segment_ids = payload.get("segment_ids") or getattr(task, "segment_ids", None) or []
+                        segment_count = max(1, len(segment_ids) if isinstance(segment_ids, list) else 1)
 
             render_group_count = len(getattr(task, "script", None) or [])
             word_count = len(script_text.split())
@@ -290,7 +292,29 @@ class OrchestratorHelpersMixin:
 
             try:
                 from app.db.performance import record_render_sample  # noqa: PLC0415
-                synthesis_dur = getattr(perf_job_obj, "synthesis_duration_seconds", None) if perf_job_obj else None
+                synthesis_dur = (getattr(perf_job_obj, "synthesis_duration_seconds", None) if perf_job_obj else None) or timing.get("synthesis_duration_seconds")
+                model_load_seconds = (
+                    getattr(perf_job_obj, "model_load_seconds", None)
+                    if perf_job_obj else None
+                ) or (
+                    getattr(perf_job_obj, "chapter_load_seconds", None)
+                    if perf_job_obj else None
+                ) or timing.get("model_load_seconds")
+
+                if model_load_seconds is None:
+                    job_engine_started = (
+                        getattr(perf_job_obj, "engine_activity_started_at", None)
+                        if perf_job_obj else None
+                    ) or timing.get("engine_activity_started_at")
+                    job_render_started = (
+                        getattr(perf_job_obj, "started_at", None)
+                        if perf_job_obj else None
+                    ) or timing.get("render_started_at")
+                    if job_engine_started is not None and job_render_started is not None:
+                        try:
+                            model_load_seconds = max(0.0, float(job_render_started) - float(job_engine_started))
+                        except (TypeError, ValueError):
+                            model_load_seconds = None
 
                 record_render_sample(
                     engine=str(payload.get("engine_id") or getattr(task, "engine_id", "")),
@@ -308,8 +332,11 @@ class OrchestratorHelpersMixin:
                     audio_duration_seconds=audio_duration_seconds,
                     completed_at=completed_at_val,
                     synthesis_duration_seconds=synthesis_dur,
-                    chapter_load_seconds=getattr(perf_job_obj, "chapter_load_seconds", None) if perf_job_obj else None,
-                    sum_segment_render_seconds=getattr(perf_job_obj, "sum_segment_render_seconds", None) if perf_job_obj else None,
+                    model_load_seconds=model_load_seconds,
+                    sum_segment_render_seconds=(
+                        getattr(perf_job_obj, "sum_segment_render_seconds", None)
+                        if perf_job_obj else None
+                    ) or timing.get("sum_segment_render_seconds"),
                 )
             except Exception:
                 logger.warning(
@@ -489,11 +516,11 @@ class OrchestratorHelpersMixin:
                         update_job(context.task_id, first_start_segment_at=now_time)
                     except Exception:
                         pass
-                if timing.get("engine_activity_started_at") is not None and timing.get("chapter_load_seconds") is None:
-                    timing["chapter_load_seconds"] = now_time - timing["engine_activity_started_at"]
+                if timing.get("engine_activity_started_at") is not None and timing.get("model_load_seconds") is None:
+                    timing["model_load_seconds"] = now_time - timing["engine_activity_started_at"]
                     try:
                         from app.db.state import update_job
-                        update_job(context.task_id, chapter_load_seconds=timing["chapter_load_seconds"])
+                        update_job(context.task_id, model_load_seconds=timing["model_load_seconds"])
                     except Exception:
                         pass
 

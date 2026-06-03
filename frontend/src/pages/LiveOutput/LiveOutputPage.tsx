@@ -3,6 +3,8 @@ import { ChevronDown, Terminal } from 'lucide-react';
 import { LiveOutputTable } from '@/components/LiveOutputTable';
 import { LIVE_EVENT_CONSUMERS, LIVE_EVENT_CONSUMER_TOPIC_IDS } from '@/config/liveEventConsumers';
 import { ALL_TOPIC_FILTER_IDS, type TopicFilterId } from '@/config/liveEventTopics';
+import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
+import { getWebsocketRecentMessages } from '@/utils/runtimeDebug';
 
 const consumerTopicIds = (id: string): TopicFilterId[] => {
   const topicIds = LIVE_EVENT_CONSUMER_TOPIC_IDS[id];
@@ -20,6 +22,15 @@ const consumerTopicLabel = (id: string) => {
 
 export const LiveOutputPage: React.FC = () => {
   const [hiddenTopics, setHiddenTopics] = React.useState<TopicFilterId[]>([]);
+  const connected = useStudioSocketConnection();
+  const [socketTrace, setSocketTrace] = React.useState(() => getWebsocketRecentMessages());
+
+  React.useEffect(() => {
+    const syncTrace = () => setSocketTrace(getWebsocketRecentMessages());
+    syncTrace();
+    const interval = window.setInterval(syncTrace, 250);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const showConsumerTopics = (consumerId: string) => {
     const visibleTopicIds = consumerTopicIds(consumerId);
@@ -49,11 +60,11 @@ export const LiveOutputPage: React.FC = () => {
             <ChevronDown size={16} />
             Event map
           </summary>
-          <div style={{ marginTop: '0.85rem', display: 'grid', gap: '0.5rem' }}>
-            <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.5 }}>
-              `topic` is the routing key. `eventKind` is the event action, and `source` stays visible for provenance.
-              The buttons below mirror the same listener map used by the page.
-            </div>
+        <div style={{ marginTop: '0.85rem', display: 'grid', gap: '0.5rem' }}>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.5 }}>
+            `topic` is the routing key. `eventKind` is the event action, and `source` stays visible for provenance.
+            The buttons below mirror the same listener map used by the page.
+          </div>
             <div style={{ display: 'grid', gap: '0.35rem' }}>
               {LIVE_EVENT_CONSUMERS.map(consumer => (
                 <div key={consumer.id} style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '0.75rem', alignItems: 'start', fontSize: '0.82rem' }}>
@@ -86,6 +97,37 @@ export const LiveOutputPage: React.FC = () => {
                 <div style={{ color: 'var(--text-secondary)' }}>any topic beginning with `plugins.`</div>
               </div>
             </div>
+          </div>
+        </details>
+
+        <details style={{ marginTop: '0.9rem', borderTop: '1px solid var(--border)', paddingTop: '0.85rem' }}>
+          <summary style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.92rem', fontWeight: 600, listStyle: 'none' }}>
+            <ChevronDown size={16} />
+            Socket trace
+          </summary>
+          <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+            <div>
+              Connection: <strong style={{ color: 'var(--text-primary)' }}>{connected ? 'connected' : 'disconnected'}</strong>
+            </div>
+            <div>
+              Traced frames: <strong style={{ color: 'var(--text-primary)' }}>{socketTrace.length}</strong>
+            </div>
+            <pre style={{
+              margin: 0,
+              padding: '0.75rem',
+              borderRadius: '8px',
+              border: '1px solid var(--border)',
+              background: 'var(--surface-muted, rgba(0,0,0,0.03))',
+              maxHeight: '18rem',
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              color: 'var(--text-primary)',
+              fontSize: '0.78rem',
+              lineHeight: 1.45,
+            }}>
+              {JSON.stringify(socketTrace.slice(-10), null, 2)}
+            </pre>
           </div>
         </details>
       </section>

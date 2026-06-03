@@ -325,7 +325,7 @@ def init_db():
                     duration_seconds REAL NOT NULL,
                     synthesis_duration_seconds REAL NOT NULL DEFAULT 0.0,
                     inter_group_overhead_seconds REAL NOT NULL DEFAULT 0.0,
-                    chapter_load_seconds REAL,
+                    model_load_seconds REAL,
                     sum_segment_render_seconds REAL,
                     sample_type TEXT,
                     cps REAL NOT NULL,
@@ -356,9 +356,71 @@ def init_db():
             add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN word_count INTEGER DEFAULT 0", "render_performance_samples.word_count")
             add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN synthesis_duration_seconds REAL NOT NULL DEFAULT 0.0", "render_performance_samples.synthesis_duration_seconds")
             add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN inter_group_overhead_seconds REAL NOT NULL DEFAULT 0.0", "render_performance_samples.inter_group_overhead_seconds")
-            add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN chapter_load_seconds REAL", "render_performance_samples.chapter_load_seconds")
+            add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN model_load_seconds REAL", "render_performance_samples.model_load_seconds")
             add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN sum_segment_render_seconds REAL", "render_performance_samples.sum_segment_render_seconds")
             add_studio_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN sample_type TEXT", "render_performance_samples.sample_type")
+
+            # Migration: Rename chapter_load_seconds to model_load_seconds if it exists
+            try:
+                studio_cursor.execute("PRAGMA table_info(render_performance_samples)")
+                cols = [r[1] for r in studio_cursor.fetchall()]
+                if "chapter_load_seconds" in cols:
+                    logger.info("Migrating database: renaming chapter_load_seconds to model_load_seconds")
+                    try:
+                        studio_cursor.execute("ALTER TABLE render_performance_samples RENAME COLUMN chapter_load_seconds TO model_load_seconds")
+                    except sqlite3.OperationalError:
+                        # Fallback for older SQLite versions: rebuild table renaming the column
+                        studio_cursor.execute("ALTER TABLE render_performance_samples RENAME TO old_render_performance_samples")
+                        studio_cursor.execute("""
+                            CREATE TABLE render_performance_samples (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                job_id TEXT,
+                                project_id TEXT,
+                                chapter_id TEXT,
+                                engine TEXT NOT NULL,
+                                tts_model TEXT,
+                                speaker_profile TEXT,
+                                chars INTEGER NOT NULL,
+                                word_count INTEGER DEFAULT 0,
+                                segment_count INTEGER NOT NULL,
+                                render_group_count INTEGER DEFAULT 0,
+                                started_at REAL,
+                                completed_at REAL NOT NULL,
+                                duration_seconds REAL NOT NULL,
+                                synthesis_duration_seconds REAL NOT NULL DEFAULT 0.0,
+                                inter_group_overhead_seconds REAL NOT NULL DEFAULT 0.0,
+                                model_load_seconds REAL,
+                                sum_segment_render_seconds REAL,
+                                sample_type TEXT,
+                                cps REAL NOT NULL,
+                                seconds_per_segment REAL NOT NULL,
+                                audio_duration_seconds REAL
+                            )
+                        """)
+                        studio_cursor.execute("PRAGMA table_info(render_performance_samples)")
+                        new_cols = {r[1] for r in studio_cursor.fetchall()}
+                        studio_cursor.execute("PRAGMA table_info(old_render_performance_samples)")
+                        old_cols = [r[1] for r in studio_cursor.fetchall()]
+                        select_cols = []
+                        insert_cols = []
+                        for col in old_cols:
+                            if col == "chapter_load_seconds":
+                                if "model_load_seconds" in new_cols:
+                                    select_cols.append("chapter_load_seconds")
+                                    insert_cols.append("model_load_seconds")
+                            elif col in new_cols:
+                                select_cols.append(col)
+                                insert_cols.append(col)
+                        cols_select_str = ", ".join(select_cols)
+                        cols_insert_str = ", ".join(insert_cols)
+                        studio_cursor.execute(f"INSERT INTO render_performance_samples ({cols_insert_str}) SELECT {cols_select_str} FROM old_render_performance_samples")
+                        studio_cursor.execute("DROP TABLE old_render_performance_samples")
+                        studio_cursor.execute("""
+                            CREATE INDEX IF NOT EXISTS idx_render_performance_completed_at
+                            ON render_performance_samples (completed_at)
+                        """)
+            except Exception:
+                logger.warning("Failed to migrate chapter_load_seconds column", exc_info=True)
 
             # Remove make_mp3 column if it exists in render_performance_samples
             try:
@@ -389,7 +451,7 @@ def init_db():
                                 duration_seconds REAL NOT NULL,
                                 synthesis_duration_seconds REAL NOT NULL DEFAULT 0.0,
                                 inter_group_overhead_seconds REAL NOT NULL DEFAULT 0.0,
-                                chapter_load_seconds REAL,
+                                model_load_seconds REAL,
                                 sum_segment_render_seconds REAL,
                                 sample_type TEXT,
                                 cps REAL NOT NULL,
@@ -397,9 +459,11 @@ def init_db():
                                 audio_duration_seconds REAL
                             )
                         """)
-                        # Retrieve column names except make_mp3
+                        # Retrieve column names except make_mp3 and check against new schema
+                        studio_cursor.execute("PRAGMA table_info(render_performance_samples)")
+                        new_cols = {r[1] for r in studio_cursor.fetchall()}
                         studio_cursor.execute("PRAGMA table_info(old_render_performance_samples)")
-                        old_cols = [r[1] for r in studio_cursor.fetchall() if r[1] != "make_mp3"]
+                        old_cols = [r[1] for r in studio_cursor.fetchall() if r[1] != "make_mp3" and r[1] in new_cols]
                         cols_str = ", ".join(old_cols)
                         studio_cursor.execute(f"INSERT INTO render_performance_samples ({cols_str}) SELECT {cols_str} FROM old_render_performance_samples")
                         studio_cursor.execute("DROP TABLE old_render_performance_samples")
@@ -410,6 +474,7 @@ def init_db():
                         """)
             except Exception:
                 logger.warning("Failed to migrate render_performance_samples to remove make_mp3 column", exc_info=True)
+
 
             studio_conn.commit()
         finally:

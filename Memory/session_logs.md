@@ -1,3 +1,28 @@
+# 2026-06-02 - Allow XTTS sample jobs to synthesize without project/chapter context
+
+- Modified `xtts_dispatch_adapter` in `plugins/tts_xtts/plugin/studio/adapter.py` to bypass the strict project and chapter context validations when the job kind is sample-related.
+- Structured sample/voice job output directories to resolve inside the speaker profile directory instead of using `get_chapter_dir()`.
+- Wrote regressions in `tests/engines/test_xtts_timing.py` asserting that sample runs succeed and reach handler execution without context, whereas standard synthesis jobs are correctly rejected when context is absent.
+
+# 2026-06-02 - Implement minimal live tee for XTTS diagnostics
+
+- Created a new shared diagnostics emit helper in `plugins/tts_xtts/plugin/core/diagnostics.py` to tee plugin-originated log lines to `sys.stderr`.
+- Replaced direct `on_output` calls in `plugins/tts_xtts/plugin/core/implementation.py` with the new helper.
+- Avoided duplicating raw subprocess output by keeping the original `on_output` handler for `run_cmd_stream`.
+- Added TDD tests validating that diagnostics are written to `sys.stderr` in real time, the file-backed diagnostics callback is still called, and raw subprocess output is not duplicated.
+
+# 2026-06-02 - Fix sample-run telemetry transport gap and completion persistence
+
+- Resolved the transport gap for generic job classification progress events so voice builds/tests broadcast `queue_item_status` events on `queue.items` topic.
+- Ensured completion persistence reliably writes `model_load_seconds` and `audio_duration_seconds` from structured timing and audio file probing.
+- Verified with regression test for generic job progress websocket broadcasting and all 97 backend tests pass.
+
+# 2026-06-02 - XTTS sample telemetry now uses structured timing and model_load_seconds
+
+- Wired XTTS sample runs to carry structured timing through the task, bridge, TTS server, and orchestrator completion path so live progress no longer depends on log markers.
+- Renamed the render-sample load metric to `model_load_seconds` across the DB schema, models, persistence, and migration path, while keeping a migration-safe cutover for older databases.
+- Captured `audio_duration_seconds` in persisted render samples and verified the backend timing, migration, and progress suites plus Ruff and `git diff --check`.
+
 # 2026-06-01 - Migrate existing databases to drop make_mp3 column from render_performance_samples
 
 - Implemented DB schema migration in `app/db/core.py` to drop `make_mp3` column from existing databases, preserving historical data via ALTER TABLE DROP COLUMN or table rebuild fallbacks.
@@ -1721,6 +1746,18 @@
 - Added/updated test cases verifying overall job/chapter ETA and main queue items (including progress and active_segment fields) are completely isolated from `segments.progress` updates.
 - Verified all unit tests, ESLint, and production build pass cleanly.
 
+# 2026-06-02 - XTTS timing envelope reconciled into the TTS Server response
+
+- Expanded `app/tts_server/server.py` so the returned timing payload now includes the derived fields the orchestrator needs: `model_load_seconds`, `synthesis_duration_seconds`, `sum_segment_render_seconds`, and `inter_group_overhead_seconds`.
+- Added a server-level regression proving the full timing envelope is present on `/synthesize`, alongside the existing XTTS timing persistence regression.
+- Verified focused XTTS timing and TTS server isolation tests pass after the reconciliation.
+
+# 2026-06-02 - XTTS sample websocket delivery verified live
+
+- Ran a live sample against the current backend and observed websocket frames on the active socket stream for job `test-3f06d56f`.
+- Confirmed outbound `jobs.lifecycle`, `chapters.progress`, `tts.logs`, and `queue.items` frames are emitted in real time during sample synthesis.
+- The persisted sample row still shows `model_load_seconds = null`, so the remaining bug is the timing-derived persistence path rather than websocket delivery.
+
 # 2026-05-30 - Progress consumer ingress audit tightened
 
 - Audited the debug socket captures and confirmed the main queue subscriber saw only `jobs.lifecycle`, `queue.items`, `chapters.lifecycle`, and `chapters.progress`; `segments.progress` was absent from main-queue observations.
@@ -1761,3 +1798,10 @@
 - Updated `VoiceBridge.describe_registry()` to inject the derived `computer_speed_multiplier` into each engine's `current_settings` payload, using the calibrated operational speed when available and `None` otherwise so stale plugin settings do not leak into the UI.
 - Added a regression in `tests/engines/test_bridge_tts_server.py` proving computed speed is copied into `current_settings` for Settings rendering.
 - Verified focused backend tests (`test_bridge_tts_server`, `test_api_engines`, `test_api_calibration`), focused Settings Vitest (`EngineCard`, `JsonSchemaForm`), Ruff on touched Python files, and `git diff --check`.
+
+# 2026-06-02 - Live websocket trace verified in browser and sample completion fallback fixed
+
+- Reproduced a live XTTS sample run on the current studio backend and confirmed the browser event stream now receives websocket frames in real time (`jobs.lifecycle`, `chapters.progress`, `tts.logs`, and queue updates).
+- Observed that one-segment sample runs were still persisting `model_load_seconds = null` because the completion path only derived load time from `START_SEGMENT`, which never fires for the current sample flow.
+- Added a completion-path fallback in `orchestrator_helpers.py` so `model_load_seconds` is derived from job timestamps when structured timing is absent.
+- Added a regression proving the one-segment sample path still persists `model_load_seconds` and `audio_duration_seconds` correctly, then verified the focused timing/persistence and watchdog suites pass.

@@ -18,6 +18,7 @@ from .contracts.events import (
     build_segment_progress_event,
     build_project_lifecycle_event,
     build_chapter_progress_event,
+    build_queue_item_status_event,
 )
 from ..utils.render_trace import trace
 
@@ -417,6 +418,37 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
             broadcast_studio_event(event)
         return
 
+    if classification == "job":
+        if not skip_studio_job_event and not skip_job_updated:
+            prev_status = previous_status if previous_status is not None else (current_job.get("status") if current_job else None)
+            new_status = updates.get("status", merged.get("status")) if updates else merged.get("status")
+            status_changed = prev_status != new_status
+
+            prev_progress = current_job.get("progress") if current_job else None
+            new_progress = updates.get("progress", merged.get("progress")) if updates else merged.get("progress")
+            progress_changed = prev_progress != new_progress
+
+            prev_eta = current_job.get("eta_seconds") if current_job else None
+            new_eta = updates.get("eta_seconds", merged.get("eta_seconds")) if updates else merged.get("eta_seconds")
+            eta_changed = prev_eta != new_eta
+
+            if status_changed or progress_changed or eta_changed:
+                status = str(merged.get("status") or "queued")
+                event = build_queue_item_status_event(
+                    job_id=job_id,
+                    status=status,
+                    progress=merged.get("progress") or 0.0,
+                    eta_seconds=updates.get("eta_seconds") or merged.get("eta_seconds"),
+                    message=updates.get("message") or updates.get("log") or merged.get("message"),
+                    reason_code=merged.get("reason_code"),
+                    classification="job",
+                    project_id=merged.get("project_id"),
+                    chapter_id=merged.get("chapter_id"),
+                    source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
+                )
+                broadcast_studio_event(event)
+        return
+
 
 def broadcast_segment_progress(job_id: str, chapter_id: str | None, segment_id: str, progress: float, source: str | None = None):
     event = build_segment_progress_event(
@@ -443,6 +475,9 @@ def broadcast_test_progress(name: str, progress: float, started_at: float = None
 
 def broadcast_studio_event(event: dict) -> None:
     """Websocket transport facade for canonical studio_event envelopes."""
+    from ..utils.socket_trace import trace_outbound_socket_frame
+    trace_outbound_socket_frame(event)
+
     ids = event.get("ids", {})
     trace(
         "ws.broadcast_studio_event",

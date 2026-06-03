@@ -35,7 +35,7 @@ def record_render_sample(
     audio_duration_seconds: Optional[float] = None,
     completed_at: Optional[float] = None,
     synthesis_duration_seconds: Optional[float] = None,
-    chapter_load_seconds: Optional[float] = None,
+    model_load_seconds: Optional[float] = None,
     sum_segment_render_seconds: Optional[float] = None,
     sample_type: Optional[str] = None,
     **kwargs,
@@ -54,8 +54,8 @@ def record_render_sample(
     if chars < 0:
         return
 
-    if chapter_load_seconds is not None and sum_segment_render_seconds is not None:
-        post_start_window = duration_seconds - chapter_load_seconds
+    if model_load_seconds is not None and sum_segment_render_seconds is not None:
+        post_start_window = duration_seconds - model_load_seconds
         inter_group_overhead_seconds = max(0.0, post_start_window - sum_segment_render_seconds)
     else:
         inter_group_overhead_seconds = max(0.0, duration_seconds - synthesis_duration_seconds)
@@ -85,7 +85,7 @@ def record_render_sample(
                     job_id, project_id, chapter_id, engine, tts_model, speaker_profile,
                     chars, word_count, segment_count, render_group_count, started_at,
                     completed_at, duration_seconds, synthesis_duration_seconds,
-                    inter_group_overhead_seconds, chapter_load_seconds, sum_segment_render_seconds,
+                    inter_group_overhead_seconds, model_load_seconds, sum_segment_render_seconds,
                     sample_type, cps, seconds_per_segment,
                     audio_duration_seconds
                 )
@@ -95,12 +95,13 @@ def record_render_sample(
                     job_id, project_id, chapter_id, engine, _normalize_tts_model(tts_model), speaker_profile,
                     chars, max(0, int(word_count or 0)), segment_count, render_group_count, started_at,
                     completed_at, duration_seconds, synthesis_duration_seconds,
-                    inter_group_overhead_seconds, chapter_load_seconds, sum_segment_render_seconds,
+                    inter_group_overhead_seconds, model_load_seconds, sum_segment_render_seconds,
                     sample_type, cps, seconds_per_segment,
                     audio_duration_seconds,
                 ),
             )
             conn.commit()
+
 
 
 

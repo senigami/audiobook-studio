@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LiveOutputPage } from '@/pages/LiveOutput/LiveOutputPage';
 import { publishStudioSocketMessage, resetStudioSocketBusForTests } from '@/store/studioSocketBus';
 import { resetLiveEventAuditForTests } from '@/store/liveEventAuditStore';
+import { clearTtsCommunicationTimeline, recordWebsocketDebugMessage } from '@/utils/runtimeDebug';
 const publishEvent = (topic: string, eventKind: string, payload: any, ids: any = {}) => {
   act(() => {
     publishStudioSocketMessage({
@@ -24,6 +25,8 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
   beforeEach(() => {
     resetStudioSocketBusForTests();
     resetLiveEventAuditForTests();
+    clearTtsCommunicationTimeline();
+    delete (window as any).__ttsCommunicationTimeline;
   });
 
   it('renders the header and description of the page', () => {
@@ -48,6 +51,38 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
     expect(screen.getByRole('button', { name: 'segments.progress' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'voice.test' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'tts.logs' })).toBeInTheDocument();
+  });
+
+  it('renders socket trace status and recent consumed websocket frames', async () => {
+    act(() => {
+      recordWebsocketDebugMessage('useQueueSync', {
+        type: 'studio_event',
+        topic: 'queue.items',
+        eventKind: 'queue_item_status',
+        source: 'backend',
+        job_id: 'job-1',
+        payload: {
+          status: 'running',
+          progress: 0.25,
+          message: 'loading',
+        },
+      }, JSON.stringify({
+        type: 'studio_event',
+        topic: 'queue.items',
+        eventKind: 'queue_item_status',
+      }));
+    });
+
+    render(<LiveOutputPage />);
+
+    const traceBlock = screen.getByText('Socket trace').closest('details');
+    expect(traceBlock).toBeInTheDocument();
+    expect(traceBlock?.textContent).toContain('Connection:');
+    await waitFor(() => {
+      expect(traceBlock?.textContent).toContain('Traced frames: 1');
+      expect(traceBlock?.textContent).toContain('queue.items');
+      expect(traceBlock?.textContent).toContain('queue_item_status');
+    });
   });
 
   it('toggles topic visibility and filters rows without hiding unrelated topics', async () => {

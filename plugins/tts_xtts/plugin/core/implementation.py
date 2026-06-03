@@ -13,6 +13,7 @@ from typing import Any, Callable
 
 from .text_utils import pack_text_to_limit, safe_split_long_sentences, sanitize_text
 from .proc_utils import run_cmd_stream
+from .diagnostics import emit_diagnostics
 # Engine environment resolution
 XTTS_ENV_DIR_DEFAULT = Path.home() / "xtts-env"
 XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(XTTS_ENV_DIR_DEFAULT)))
@@ -59,15 +60,15 @@ def xtts_generate(
         try:
             import TTS  # noqa: F401, PLC0415
             python_exe = Path(sys.executable)
-            on_output("XTTS environment not found; falling back to current environment (TTS detected).\n")
+            emit_diagnostics(on_output, "XTTS environment not found; falling back to current environment (TTS detected).\n")
         except ImportError:
-            on_output(f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE} and 'TTS' not found in current environment.\n")
+            emit_diagnostics(on_output, f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE} and 'TTS' not found in current environment.\n")
             return 1
 
     sw = speaker_wav
 
     if not sw and voice_profile_dir is None:
-        on_output("[error] No speaker profile or reference WAV provided\n")
+        emit_diagnostics(on_output, "[error] No speaker profile or reference WAV provided\n")
         return 1
 
     if safe_mode:
@@ -105,8 +106,8 @@ def xtts_generate(
         cmd.extend(["--task_id", task_id])
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
-    on_output("Launching XTTS inference...\n")
-    on_output("XTTS may take a while on first use while models load, caches warm, or assets download.\n")
+    emit_diagnostics(on_output, "Launching XTTS inference...\n")
+    emit_diagnostics(on_output, "XTTS may take a while on first use while models load, caches warm, or assets download.\n")
     return run_cmd_stream(cmd, on_output, cancel_check, env=env)
 
 
@@ -129,9 +130,9 @@ def xtts_generate_script(
         try:
             import TTS  # noqa: F401, PLC0415
             python_exe = Path(sys.executable)
-            on_output("XTTS environment not found; falling back to current environment (TTS detected).\n")
+            emit_diagnostics(on_output, "XTTS environment not found; falling back to current environment (TTS detected).\n")
         except ImportError:
-            on_output(f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE} and 'TTS' not found in current environment.\n")
+            emit_diagnostics(on_output, f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE} and 'TTS' not found in current environment.\n")
             return 1
 
     cmd = [
@@ -154,8 +155,8 @@ def xtts_generate_script(
         cmd.extend(["--task_id", task_id])
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
-    on_output("Launching XTTS inference...\n")
-    on_output("XTTS may take a while on first use while models load, caches warm, or assets download.\n")
+    emit_diagnostics(on_output, "Launching XTTS inference...\n")
+    emit_diagnostics(on_output, "XTTS may take a while on first use while models load, caches warm, or assets download.\n")
     return run_cmd_stream(cmd, on_output, cancel_check, env=env)
 
 

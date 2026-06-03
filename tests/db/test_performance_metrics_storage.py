@@ -727,7 +727,7 @@ def test_record_render_sample_stores_load_and_pure_render_seconds(clean_db):
         job_id=jid,
         project_id="p2",
         chapter_id="c2",
-        chapter_load_seconds=8.0,
+        model_load_seconds=8.0,
         sum_segment_render_seconds=30.0,
         sample_type="chapter",
     )
@@ -736,9 +736,9 @@ def test_record_render_sample_stores_load_and_pure_render_seconds(clean_db):
     assert len(history) == 1
     sample = history[0]
     assert sample["job_id"] == jid
-    assert sample["chapter_load_seconds"] == 8.0
+    assert sample["model_load_seconds"] == 8.0
     assert sample["sum_segment_render_seconds"] == 30.0
-    # inter_group_overhead_seconds = (duration_seconds - chapter_load_seconds) - sum_segment_render_seconds
+    # inter_group_overhead_seconds = (duration_seconds - model_load_seconds) - sum_segment_render_seconds
     # = (50.0 - 8.0) - 30.0 = 12.0
     assert sample["inter_group_overhead_seconds"] == 12.0
     # CPS is chars / sum_segment_render_seconds = 1000 / 30 = 33.33

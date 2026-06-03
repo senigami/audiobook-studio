@@ -175,6 +175,12 @@ export const getTtsCommunicationTimeline = (): TtsCommunicationTimelineEntry[] =
   return Array.isArray(win.__ttsCommunicationTimeline) ? [...win.__ttsCommunicationTimeline] : [];
 };
 
+export const getWebsocketRecentMessages = (): WebsocketDebugSnapshot[] => {
+  if (typeof window === 'undefined') return [];
+  const win = window as WebsocketDebugWindow;
+  return Array.isArray(win.__websocketRecentMessages) ? [...win.__websocketRecentMessages] : [];
+};
+
 export const clearTtsCommunicationTimeline = () => {
   if (typeof window === 'undefined') return;
   const win = window as WebsocketDebugWindow;

@@ -1,15 +1,18 @@
 {
-  "snapshot_version": 152,
-  "current_task": "Migrate existing render_performance_samples tables to drop legacy make_mp3 column",
-  "status": "make_mp3_column_fully_migrated_and_dropped",
+  "snapshot_version": 157,
+  "current_task": "Allow XTTS sample jobs to synthesize without project/chapter context",
+  "status": "xtts_sample_synthesis_without_context_implemented",
   "last_committed_milestone": {
-    "title": "Migrate existing render_performance_samples tables to drop legacy make_mp3 column",
+    "title": "Allow XTTS sample jobs to synthesize without project/chapter context",
     "commit": "pending",
-    "notes": [
-      "Implemented DB schema migration in app/db/core.py to drop make_mp3 column from existing databases, preserving historical data via ALTER TABLE DROP COLUMN or table rebuild fallbacks.",
-      "Removed make_mp3 from the legacy history database recording routine inside app/db/legacy_migration.py.",
-      "Added comprehensive backend TDD pytest migration regressions asserting the column's absence, data survival, and new inserts correctness."
-    ]
+      "notes": [
+        "Bypassed project/chapter validation in xtts_dispatch_adapter for sample and voice jobs.",
+        "Routed output directories to speaker profile path when project/chapter context is absent.",
+        "Added regressions to tests/engines/test_xtts_timing.py ensuring sample jobs can run and synthesize, while chapter-bound jobs are still rejected.",
+        "Expanded the TTS Server synthesize response to return the full derived timing envelope so persistence has one canonical source for model_load_seconds and related metrics.",
+        "Live websocket frames were verified on running sample jobs in the browser event stream.",
+        "Sample completion now falls back to job timestamps when structured timing is absent, so model_load_seconds persists for one-segment sample runs instead of staying null."
+      ]
   },
   "active_constraints": [
     "Use Memory/rules.md as the shared source of truth for Codex and Antigravity/Gemini session behavior.",
@@ -91,14 +94,14 @@
     "Prepare the voice icon and tagging implementation to improve large-library usability."
   ],
   "verification": {
-    "latest_backend_focus": "2026-05-21: Full pytest suite passed (879 passed, 2 skipped).",
+    "latest_backend_focus": "2026-06-02: Focused backend suites for XTTS sample telemetry and render-sample migration passed (67 passed); the sample completion path now falls back to job timestamps for model_load_seconds, and browser live output showed websocket frames during a fresh voice test run.",
     "latest_frontend_focus": "2026-05-30: Segment websocket consumers no longer coerce null segment ETA payloads to zero; focused useJobs/useQueueSync/LiveOutput/runtimeDebug Vitest passed (104 tests).",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",
     "latest_lint_focus": "2026-05-22: eslint passed on frontend with 7 existing warnings.",
     "latest_frontend_event_stream_focus": "2026-05-22: Live Output route renamed to /event-stream and consumer filter toggles implemented; focused Vitest passed, full frontend Vitest passed (580 tests), frontend build passed, frontend lint passed, and git diff --check passed.",
     "latest_frontend_live_output_ownership": "2026-05-22: Removed the false jobs-state ownership from tts.logs so the Live Output subscribers column now reflects actual consumer handling.",
-    "latest_diff_check": "2026-05-30: git diff --check passed after XTTS duration and null segment ETA fixes.",
+    "latest_diff_check": "2026-06-02: git diff --check passed after XTTS sample telemetry and model_load_seconds rename.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."

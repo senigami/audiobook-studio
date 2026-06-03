@@ -371,6 +371,9 @@ class TestTTSServerIsolation:
         data = response.json()
         assert data["ok"] is True
         assert data["timing"]["chapter_render_started_at"] == 105.0
+        assert data["timing"]["model_load_seconds"] == 5.0
+        assert data["timing"]["synthesis_duration_seconds"] == 30.0
+        assert data["timing"]["sum_segment_render_seconds"] == 10.0
         assert data["timing"]["segments"][0]["segment_id"] == "seg-1"
 
     def test_synthesize_endpoint_timing_absent(self, tmp_path):

@@ -567,11 +567,49 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
                     "chars": get_val(s, "chars")
                 })
 
+        engine_activity_started_at = get_val(t, "engine_activity_started_at")
+        chapter_render_started_at = get_val(t, "chapter_render_started_at")
+        chapter_render_completed_at = get_val(t, "chapter_render_completed_at")
+        model_load_seconds = None
+        synthesis_duration_seconds = None
+        sum_segment_render_seconds = None
+        inter_group_overhead_seconds = None
+
+        if chapter_render_started_at is not None and chapter_render_completed_at is not None:
+            synthesis_duration_seconds = chapter_render_completed_at - chapter_render_started_at
+            if engine_activity_started_at is not None:
+                model_load_seconds = chapter_render_started_at - engine_activity_started_at
+
+            if segments_list:
+                valid_segments = [
+                    s for s in segments_list
+                    if s.get("render_started_at") is not None and s.get("render_completed_at") is not None
+                ]
+                if valid_segments:
+                    sum_segment_render_seconds = sum(
+                        max(0.0, float(s["render_completed_at"]) - float(s["render_started_at"]))
+                        for s in valid_segments
+                    )
+                    first_segment_start = min(float(s["render_started_at"]) for s in valid_segments)
+                    last_segment_end = max(float(s["render_completed_at"]) for s in valid_segments)
+                    inter_group_overhead_seconds = max(
+                        0.0,
+                        (last_segment_end - first_segment_start) - sum_segment_render_seconds,
+                    )
+            if sum_segment_render_seconds is None:
+                sum_segment_render_seconds = synthesis_duration_seconds
+            if inter_group_overhead_seconds is None:
+                inter_group_overhead_seconds = 0.0
+
         timing_dict = {
-            "chapter_render_started_at": get_val(t, "chapter_render_started_at"),
-            "chapter_render_completed_at": get_val(t, "chapter_render_completed_at"),
-            "engine_activity_started_at": get_val(t, "engine_activity_started_at"),
-            "segments": segments_list
+            "chapter_render_started_at": chapter_render_started_at,
+            "chapter_render_completed_at": chapter_render_completed_at,
+            "engine_activity_started_at": engine_activity_started_at,
+            "segments": segments_list,
+            "model_load_seconds": model_load_seconds,
+            "synthesis_duration_seconds": synthesis_duration_seconds,
+            "sum_segment_render_seconds": sum_segment_render_seconds,
+            "inter_group_overhead_seconds": inter_group_overhead_seconds,
         }
 
     response_payload = {
