@@ -174,8 +174,8 @@ export interface Chapter {
 
 export interface ProcessingQueueItem {
   id: string;
-  project_id: string;
-  chapter_id: string;
+  project_id?: string | null;
+  chapter_id?: string | null;
   split_part: number;
   parent_job_id?: string | null;
   classification?: JobClassification;
@@ -263,6 +263,7 @@ export interface Job {
   updated_at?: number;
   eta_updated_at?: number;
   finished_at?: number;
+  completed_at?: number | null;
   safe_mode: boolean;
   make_mp3: boolean;
   progress: number;
@@ -280,6 +281,10 @@ export interface Job {
   narrator_meta?: string;
   output_wav?: string | null;
   output_mp3?: string | null;
+  audio_length_seconds?: number;
+  produced_audio_length?: number;
+  produced_chars?: number;
+  produced_segment_count?: number;
   speaker_profile?: string | null;
   segment_ids?: string[];
   active_segment_id?: string | null;

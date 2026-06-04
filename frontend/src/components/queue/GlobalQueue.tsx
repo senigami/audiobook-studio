@@ -80,12 +80,14 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
     }, []);
 
     const formatJobTitle = React.useCallback((job: ProcessingQueueItem) => {
-        const base = job.custom_title || job.chapter_title || "System Task";
-        if (job.engine === 'audiobook') {
+        const liveJob = jobs[job.id];
+        const displayJob = liveJob ? { ...job, ...liveJob } : job;
+        const base = displayJob.custom_title || displayJob.chapter_title || "System Task";
+        if (displayJob.engine === 'audiobook') {
             return `Assembling m4b for: ${base}`;
         }
         return base;
-    }, []);
+    }, [jobs]);
 
     const chapterJobs = React.useMemo(() => queue.filter(q => !isMainQueueSegmentItem(q)), [queue]);
     const [recentlyCompleted, setRecentlyCompleted] = React.useState<Record<string, number>>({});
@@ -264,7 +266,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                     <QueueItem
                                         key={job.id}
                                         job={job}
-                                        liveJob={Object.values(jobs).find(j => j.id === job.id)}
+                                        liveJob={jobs[job.id]}
                                         localPaused={localPaused}
                                         formatJobTitle={formatJobTitle}
                                         formatTime={formatTime}
@@ -323,49 +325,52 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                 {showHistory && (
                                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }} style={{ overflow: 'hidden' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingBottom: '1rem' }}>
-                                            {pastJobs.map(job => (
+                                            {pastJobs.map(job => {
+                                                const liveJob = jobs[job.id];
+                                                const displayJob = liveJob ? { ...job, ...liveJob } : job;
+                                                return (
                                                 <div key={job.id} onMouseEnter={() => setHoveredJobId(job.id)} onMouseLeave={() => setHoveredJobId(null)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '0.75rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1.25rem', opacity: 0.8, transition: 'all 0.2s ease' }}>
-                                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: job.status === 'done' ? 'var(--success-tint)' : 'var(--error-tint)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: job.status === 'done' ? 'var(--success)' : 'var(--error)' }}>
-                                                        {job.status === 'done' ? <CheckCircle size={18} strokeWidth={2} /> : <XCircle size={18} strokeWidth={2} />}
+                                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: displayJob.status === 'done' ? 'var(--success-tint)' : 'var(--error-tint)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: displayJob.status === 'done' ? 'var(--success)' : 'var(--error)' }}>
+                                                        {displayJob.status === 'done' ? <CheckCircle size={18} strokeWidth={2} /> : <XCircle size={18} strokeWidth={2} />}
                                                     </div>
                                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <h4 style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatJobTitle(job)}</h4>
+                                                        <h4 style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatJobTitle(displayJob as any)}</h4>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
                                                             <span style={!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: compact ? '0.65rem' : '0.75rem', textTransform: 'uppercase' } : undefined}>
-                                                                {formatQueueContext(job, engines)}
+                                                                {formatQueueContext(displayJob as any, engines)}
                                                             </span>
-                                                            {(job.started_at || job.completed_at || job.updated_at) && (
+                                                            {(displayJob.started_at || displayJob.completed_at || displayJob.updated_at) && (
                                                                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                                     <span>
-                                                                        {formatTime(job.started_at || job.completed_at || job.updated_at)}
-                                                                        {job.started_at && job.completed_at && job.completed_at > job.started_at && (
-                                                                            <> → {formatRunDuration(job.started_at, job.completed_at)}</>
+                                                                        {formatTime(displayJob.started_at || displayJob.completed_at || displayJob.updated_at)}
+                                                                        {displayJob.started_at && displayJob.completed_at && displayJob.completed_at > displayJob.started_at && (
+                                                                            <> → {formatRunDuration(displayJob.started_at, displayJob.completed_at)}</>
                                                                         )}
                                                                     </span>
                                                                 </span>
                                                             )}
-                                                            <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: job.status === 'done' ? 'var(--success)' : 'var(--error)' }}>{job.status}</span>
-                                                            {job.status === 'done' && (job.produced_audio_length || job.audio_length_seconds) && (
+                                                            <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: displayJob.status === 'done' ? 'var(--success)' : 'var(--error)' }}>{displayJob.status}</span>
+                                                            {displayJob.status === 'done' && (displayJob.produced_audio_length || displayJob.audio_length_seconds) && (
                                                                 <>
                                                                     <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)' }} />
                                                                     <span style={{ fontSize: '0.72rem', color: 'var(--accent)', fontWeight: 600 }}>
-                                                                        {formatAudioDuration(job.produced_audio_length || job.audio_length_seconds)}
+                                                                        {formatAudioDuration(displayJob.produced_audio_length || displayJob.audio_length_seconds)}
                                                                     </span>
                                                                 </>
                                                             )}
-                                                            {job.status === 'done' && (job.produced_chars || job.char_count) && (
+                                                            {displayJob.status === 'done' && (displayJob.produced_chars || displayJob.char_count) && (
                                                                 <>
                                                                     <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)' }} />
                                                                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                                                                        {(job.produced_chars || job.char_count)?.toLocaleString()} chars
-                                                                        {job.produced_segment_count ? ` • ${job.produced_segment_count} segments` : ''}
+                                                                        {(displayJob.produced_chars || displayJob.char_count)?.toLocaleString()} chars
+                                                                        {displayJob.produced_segment_count ? ` • ${displayJob.produced_segment_count} segments` : ''}
                                                                     </span>
                                                                 </>
                                                             )}
                                                         </div>
-                                                        {job.status !== 'done' && (job.error || job.log) && (
+                                                        {displayJob.status !== 'done' && (displayJob.error || displayJob.log) && (
                                                             <div style={{ marginTop: '0.35rem', fontSize: '0.75rem', lineHeight: 1.45, color: 'var(--error)', whiteSpace: 'normal' }}>
-                                                                Reason: {job.error || job.log}
+                                                                Reason: {displayJob.error || displayJob.log}
                                                             </div>
                                                         )}
                                                     </div>
@@ -373,7 +378,8 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                                         <Trash2 size={16} strokeWidth={2} />
                                                     </button>
                                                 </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </motion.div>
                                 )}

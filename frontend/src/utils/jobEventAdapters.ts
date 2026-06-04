@@ -67,10 +67,12 @@ export const adaptEventToJobUpdates = (event: any) => {
     parent_job_id: getPayloadValue(payload, 'parentJobId', 'parent_job_id'),
     segment_ids: getPayloadValue(payload, 'segmentIds', 'segment_ids'),
     engine: getPayloadValue(payload, 'engine', 'engine'),
+    custom_title: getPayloadValue(payload, 'customTitle', 'custom_title'),
     status: getPayloadValue(payload, 'status', 'status'),
     progress: getPayloadValue(payload, 'progress', 'progress'),
     eta_seconds: getPayloadValue(payload, 'etaSeconds', 'eta_seconds'),
     started_at: getPayloadValue(payload, 'startedAt', 'started_at'),
+    completed_at: getPayloadValue(payload, 'completedAt', 'completed_at'),
     updated_at: resolveEventUpdatedAt(event, payload),
     db_updated_at: typeof getPayloadValue(payload, 'updatedAt', 'updated_at') === 'number'
       ? getPayloadValue(payload, 'updatedAt', 'updated_at')
@@ -100,6 +102,10 @@ export const adaptEventToJobUpdates = (event: any) => {
     active_segment_updated_at: getPayloadValue(payload, 'activeSegmentUpdatedAt', 'active_segment_updated_at'),
     active_render_batch_id: getPayloadValue(payload, 'activeRenderBatchId', 'active_render_batch_id'),
     active_render_batch_progress: getPayloadValue(payload, 'activeRenderBatchProgress', 'active_render_batch_progress'),
+    produced_audio_length: getPayloadValue(payload, 'producedAudioLength', 'produced_audio_length'),
+    audio_length_seconds: getPayloadValue(payload, 'audioLengthSeconds', 'audio_length_seconds'),
+    produced_chars: getPayloadValue(payload, 'producedChars', 'produced_chars'),
+    produced_segment_count: getPayloadValue(payload, 'producedSegmentCount', 'produced_segment_count'),
     has_segment_support: getPayloadValue(payload, 'hasSegmentSupport', 'has_segment_support'),
     hasSegmentSupport: getPayloadValue(payload, 'hasSegmentSupport', 'has_segment_support'),
   };

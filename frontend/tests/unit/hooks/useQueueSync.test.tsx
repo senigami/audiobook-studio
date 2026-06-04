@@ -447,6 +447,9 @@ describe('useQueueSync', () => {
       progress: 0.35,
       classification: 'job',
       message: 'Generating preview',
+      startedAt: 1710000000,
+      customTitle: 'Building voice for Dark Fantasy: Default',
+      engine: 'voice_test',
     }, { jobId: 'voice-job-1' });
 
     await waitFor(() => {
@@ -455,6 +458,9 @@ describe('useQueueSync', () => {
       expect(job?.progress).toBe(0.35);
       expect(job?.project_id).toBeNull();
       expect(job?.chapter_id).toBeNull();
+      expect(job?.custom_title).toBe('Building voice for Dark Fantasy: Default');
+      expect(job?.engine).toBe('voice_test');
+      expect(job?.started_at).toBe(1710000000);
     });
   });
 
@@ -739,6 +745,38 @@ describe('useQueueSync', () => {
       expect(job).toBeDefined();
       expect(job?.eta_seconds).toBe(20);
       expect(job?.eta_basis).toBe('remaining_from_update');
+    });
+  });
+
+  it('keeps a voice-build job-scoped item in the queue when it completes with active_segment_id=null and active_segment_progress=0', async () => {
+    const jobItem = {
+      id: 'voice-build-1',
+      project_id: null,
+      chapter_id: null,
+      status: 'running' as const,
+      progress: 0.7,
+      created_at: Date.now() / 1000,
+      classification: 'job' as const,
+      engine: 'voice_build',
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Emit jobs.lifecycle terminal done event clearing active segment fields
+    emitEvent('jobs.lifecycle', 'job_lifecycle', {
+      status: 'done',
+      active_segment_id: null,
+      active_segment_progress: 0,
+      updatedAt: Date.now() / 1000 + 10,
+    }, { jobId: 'voice-build-1' });
+
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'voice-build-1');
+      expect(job).toBeDefined();
+      expect(job?.status).toBe('done');
+      expect(job?.classification).toBe('job');
     });
   });
 });

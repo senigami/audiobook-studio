@@ -421,6 +421,13 @@ def build_queue_item_status_event(
     classification: str = "job",
     project_id: str | None = None,
     chapter_id: str | None = None,
+    started_at: float | None = None,
+    completed_at: float | None = None,
+    custom_title: str | None = None,
+    engine: str | None = None,
+    produced_audio_length: float | None = None,
+    produced_chars: int | None = None,
+    produced_segment_count: int | None = None,
     source: str | None = None,
     paused: bool | None = None,
     has_segment_support: bool | None = None,
@@ -450,6 +457,13 @@ def build_queue_item_status_event(
         "paused": paused,
         "hasSegmentSupport": has_segment_support,
         "confidence": resolved_confidence,
+        "startedAt": started_at,
+        "completedAt": completed_at,
+        "customTitle": custom_title,
+        "engine": engine,
+        "producedAudioLength": produced_audio_length,
+        "producedChars": produced_chars,
+        "producedSegmentCount": produced_segment_count,
     }
     resolved_source = source or _resolve_source_path()
     return build_studio_event(

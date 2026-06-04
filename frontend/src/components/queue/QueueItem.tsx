@@ -103,21 +103,39 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const activeSegmentId = isSegmentJob ? (liveJob?.active_segment_id ?? job.active_segment_id) : undefined;
     const isGroupedJob = (job.render_group_count ?? 0) > 0 || (liveJob?.render_group_count ?? 0) > 0;
     const isRunningOrProcessing = ['running', 'processing', 'finalizing'].includes(status) || (status === 'preparing' && isGroupedJob);
-    const activeSegmentProgress = isSegmentJob && isRunningOrProcessing
-        ? (typeof liveJob?.active_segment_progress === 'number'
-            ? liveJob.active_segment_progress
-            : (typeof job.active_segment_progress === 'number' ? job.active_segment_progress : undefined))
-        : (isSegmentJob ? (job.active_segment_progress ?? undefined) : undefined);
+    const liveActiveSegmentProgress = typeof liveJob?.active_segment_progress === 'number'
+        ? liveJob.active_segment_progress
+        : undefined;
+    const snapshotActiveSegmentProgress = typeof job.active_segment_progress === 'number'
+        ? job.active_segment_progress
+        : undefined;
+    const selectedActiveSegmentProgress = liveActiveSegmentProgress ?? snapshotActiveSegmentProgress;
+    const hasMeaningfulActiveSegmentProgress = typeof selectedActiveSegmentProgress === 'number'
+        && selectedActiveSegmentProgress > 0
+        && selectedActiveSegmentProgress <= 1;
+    const activeSegmentProgress = isSegmentJob && isRunningOrProcessing && (activeSegmentId || hasMeaningfulActiveSegmentProgress)
+        ? selectedActiveSegmentProgress
+        : undefined;
     const jobProgress = isRunningOrProcessing
         ? Math.max(job.progress ?? 0, liveJob?.progress ?? 0)
         : (job.progress ?? 0);
-    const progress = !isTrulyActive
-        ? 0
-        : (typeof activeSegmentProgress === 'number'
-            ? activeSegmentProgress
-            : jobProgress);
+    const progress = (() => {
+        if (isTrulyActive) {
+            return typeof activeSegmentProgress === 'number'
+                ? activeSegmentProgress
+                : jobProgress;
+        }
+        // Terminal status (done, failed, cancelled)
+        const lastKnownProgress = activeSegmentProgress ?? job.progress ?? liveJob?.progress;
+        if (status === 'done') {
+            return lastKnownProgress ?? 1;
+        }
+        // failed or cancelled
+        return lastKnownProgress ?? 0;
+    })();
     const engineType = (liveJob?.engine ?? job.engine) || '';
     const engineMeta = Array.isArray(engines) ? engines.find(e => e && e.engine_id === engineType) : undefined;
+    const displayJob = React.useMemo(() => (liveJob ? { ...job, ...liveJob } : job), [job, liveJob]);
     const isCloudLike = engineMeta 
         ? (Array.isArray(engineMeta.capabilities) && engineMeta.capabilities.includes('simulated_finalizing')) || !!engineMeta.cloud
         : false;
@@ -125,7 +143,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
             engine: engineType,
             segment_ids: liveJob?.segment_ids ?? job.segment_ids,
             active_segment_id: liveJob?.active_segment_id,
-            custom_title: liveJob?.custom_title ?? job.custom_title,
+            custom_title: displayJob.custom_title,
             engineMeta
         });
     // Render-group metadata can arrive before the backend flips a grouped chapter job from
@@ -480,11 +498,11 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: compact ? '4px' : '12px' }}>
                     <div style={{ minWidth: 0 }}>
                         <h4 style={{ fontWeight: 700, fontSize: compact ? '0.95rem' : '1.1rem', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {formatJobTitle(job)}
+                            {formatJobTitle(displayJob)}
                         </h4>
                         <div style={{ fontSize: compact ? '0.75rem' : '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: compact ? '0.65rem' : '0.75rem', textTransform: 'uppercase' } : undefined}>
-                                {formatQueueContext(job, engines)}
+                                {formatQueueContext(displayJob as any, engines)}
                             </span>
                             {started && (
                                 <>

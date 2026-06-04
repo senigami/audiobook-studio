@@ -59,7 +59,13 @@ export const getProgressInfo = ({
     preparingIndeterminate: boolean;
     displayProgress: number;
 }) => {
-    if (isDoneStatus(presentationState) || isFailedStatus(presentationState)) {
+    if (isDoneStatus(presentationState)) {
+        if (displayProgress < 0.999) {
+            return { localProgress: clamp01(displayProgress), indeterminate: false };
+        }
+        return { localProgress: 1, indeterminate: false };
+    }
+    if (isFailedStatus(presentationState)) {
         return { localProgress: 1, indeterminate: false };
     }
     if (isFinalizingStatus(presentationState)) {

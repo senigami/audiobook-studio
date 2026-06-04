@@ -1,3 +1,17 @@
+# 2026-06-03 - Synchronize visual progress and displayed remaining ETA in PredictiveProgressBar
+
+- Refactored `PredictiveProgressBar.tsx` to derive both visual progress and remaining ETA from a unified rendered lane state at every tick, preventing any visual drift.
+- Replaced the `Math.max` render-cycle progress floor with target lane boundary corrections: shifting the lane start time forward using the slope correction formula to respect the backend progress floor on updates.
+- Stood up a local `Date.now()` variable in the render body to ensure all visual elements (width, labels, and remaining ETA) are computed against the exact same millisecond timestamp.
+- Verified with the complete progress bar and queue component test suites (42 progress tests, 33 queue tests) passing cleanly.
+
+# 2026-06-03 - Fix voice-build queue retention and terminal progress display after completion
+
+- Fixed store classification logic in `applyJobUpdated` within [live-jobs.ts](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/store/live-jobs.ts) to prevent `active_segment_id: null` and `active_segment_progress: 0` on terminal updates from corrupting job scope to segment scope.
+- Removed the `isTrulyActive` progress override to 0 in [QueueItem.tsx](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/components/queue/QueueItem.tsx) to allow completed, failed, and cancelled jobs to keep their progress status (defaulting completed to `1.0` and failed/cancelled to last known or `0`).
+- Updated typescript interfaces in [events.ts](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/api/contracts/events.ts) and [types/index.ts](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/types/index.ts) to allow `project_id` and `chapter_id` to be optional/nullable, resolving TypeScript compiler build errors.
+- Verified that all unit tests in useQueueSync, QueueItem, GlobalQueue, and GlobalQueueFiles pass cleanly and that `npm run build` compiles with zero errors.
+
 # 2026-06-03 - Document event stream processing schema
 
 - Added `plans/implementation/event_stream_processing_schema.md` as the canonical queue/item lifecycle and voice-test processing schema for developers.
@@ -1838,3 +1852,35 @@
 - Voice-test scope now emits `queue.items` alongside `jobs.lifecycle`, and the frontend queue hydrator accepts overlay rows even when project/chapter ids are absent.
 - Removed `voice.test` from the main queue consumer path so queue visibility follows the queue contract instead of the old refresh workaround.
 - Verified the backend voice-test websocket regression plus the focused queue and Live Output frontend tests pass.
+
+# 2026-06-03 - Voice-test queue labels and metrics restored
+
+- Voice-test queue rows now carry a human title, engine, timestamps, and terminal metrics instead of falling back to `System Task / unavailable synthesis`.
+- The `voice_test` queue emit now falls back to a generated voice-test title when the stored custom title is missing, and the frontend queue view merges the live job metadata before rendering.
+- Verified the backend websocket contract plus the focused queue hooks/components tests pass, and `git diff --check` is clean.
+
+# 2026-06-03 - Voice-build ETA now uses real job progress
+
+- Voice-build queue rows no longer let a zero-valued active-segment placeholder override the real job progress when there is no active segment id.
+- The predictive queue bar now honors the job-level ETA for those rows instead of staying stuck on an old lane floor from the progress memory.
+- Verified the focused queue component and predictive progress tests pass, and `git diff --check` is clean.
+
+# 2026-06-04 - Voice-Test progress telemetry raw scaling and smooth done transitions implemented
+
+- Removed scaled synthesis progress telemetry from SampleTestTask and SampleBuildTask, ensuring progress is raw/unscaled and reaches 1.0 directly upon completion.
+- Ensured true starting timestamp startedAt is set at start of synthesis (START_SYNTHESIS or first progress event) instead of pre-populating on dispatch.
+- Prevented progress bar snapping to 100% immediately on terminal done status when visual progress is still catching up, keeping the tick loop alive to animate smoothly to 100%.
+- Hid the ETA display cleanly during the done transition completion phase.
+- Verified backend pytest and frontend vitest suites pass cleanly, eslint passed with 7 existing warnings, tsc builds cleanly, and git diff --check is clean.
+
+# 2026-06-04 - Voice-Test progress telemetry and done transitions cleanup
+
+- Removed stray raw console.log debug statements from PredictiveProgressBar.tsx update and render paths.
+- Corrected state.json verification notes to accurately document the 7 existing frontend eslint warnings.
+- Verified frontend eslint linting and git diff --check pass cleanly.
+
+# 2026-06-04 - Voice-sample START_SYNTHESIS timing aligned to real markers
+
+- Guarded the registry-handler and local fallback dispatch paths against publishing early synthetic running status and startedAt timestamps for sample_build and sample_test tasks.
+- Prevented task_progress_reporter from setting render_started_at to time.time() at 0.0 progress for voice-sample tasks, ensuring starting timestamp is only populated on real synthesis start.
+- Verified pytest progress logic tests, Ruff linter, and git diff --check pass cleanly.

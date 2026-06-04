@@ -396,6 +396,8 @@ def update_job(job_id: str, force_broadcast: bool = False, source: Optional[str]
                 logger.warning("Failed to sync job status to SQLite for %s", job_id, exc_info=True)
 
         broadcast_dict = {k: v for k, v in updates.items() if k != "log"}
+        if force_broadcast:
+            broadcast_dict["force_broadcast"] = True
         if skip_studio_job_event:
             broadcast_dict["skip_studio_job_event"] = True
         if skip_job_updated:

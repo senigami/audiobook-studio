@@ -431,8 +431,22 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
             prev_eta = current_job.get("eta_seconds") if current_job else None
             new_eta = updates.get("eta_seconds", merged.get("eta_seconds")) if updates else merged.get("eta_seconds")
             eta_changed = prev_eta != new_eta
+            display_fields_changed = any(
+                updates.get(field) is not None
+                for field in (
+                    "custom_title",
+                    "engine",
+                    "started_at",
+                    "finished_at",
+                    "completed_at",
+                    "audio_length_seconds",
+                    "produced_audio_length",
+                    "produced_chars",
+                    "produced_segment_count",
+                )
+            )
 
-            if status_changed or progress_changed or eta_changed:
+            if status_changed or progress_changed or eta_changed or updates.get("force_broadcast") or display_fields_changed:
                 status = str(merged.get("status") or "queued")
                 event = build_queue_item_status_event(
                     job_id=job_id,
@@ -444,6 +458,13 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                     classification="job",
                     project_id=merged.get("project_id"),
                     chapter_id=merged.get("chapter_id"),
+                    started_at=merged.get("started_at"),
+                    completed_at=merged.get("finished_at") or merged.get("completed_at"),
+                    custom_title=merged.get("custom_title"),
+                    engine=merged.get("engine"),
+                    produced_audio_length=merged.get("produced_audio_length") or merged.get("audio_length_seconds"),
+                    produced_chars=merged.get("produced_chars"),
+                    produced_segment_count=merged.get("produced_segment_count"),
                     source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
                 )
                 broadcast_studio_event(event)

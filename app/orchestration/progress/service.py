@@ -343,14 +343,37 @@ class ProgressService:
         if scope == "voice_test":
             from app.api.contracts.events import build_queue_item_status_event, build_voice_test_progress_event  # noqa: PLC0415
             from app.db.state import get_jobs  # noqa: PLC0415
+            from app.api.routers.voices_helpers import _voice_job_title  # noqa: PLC0415
 
             existing_job = get_jobs().get(job_id)
             voice_name = "default"
+            existing_started_at = None
+            existing_completed_at = None
+            existing_custom_title = None
+            existing_engine = None
             if existing_job:
                 if hasattr(existing_job, "speaker_profile"):
                     voice_name = existing_job.speaker_profile or "default"
                 elif isinstance(existing_job, dict) and existing_job.get("speaker_profile"):
                     voice_name = existing_job["speaker_profile"]
+                if hasattr(existing_job, "started_at"):
+                    existing_started_at = existing_job.started_at
+                elif isinstance(existing_job, dict):
+                    existing_started_at = existing_job.get("started_at")
+                    existing_completed_at = existing_job.get("finished_at") or existing_job.get("completed_at")
+                if hasattr(existing_job, "finished_at"):
+                    existing_completed_at = existing_job.finished_at
+                if hasattr(existing_job, "custom_title"):
+                    existing_custom_title = existing_job.custom_title
+                elif isinstance(existing_job, dict):
+                    existing_custom_title = existing_job.get("custom_title")
+                if hasattr(existing_job, "engine"):
+                    existing_engine = existing_job.engine
+                elif isinstance(existing_job, dict):
+                    existing_engine = existing_job.get("engine")
+
+            resolved_custom_title = existing_custom_title or _voice_job_title(voice_name, action="Voice Test:", include_variant=False)
+            resolved_engine = existing_engine or "voice_test"
 
             queue_event = build_queue_item_status_event(
                 job_id=job_id,
@@ -362,6 +385,13 @@ class ProgressService:
                 classification="job",
                 project_id=parent_job_id,
                 chapter_id=chapter_id,
+                started_at=started_at or existing_started_at,
+                completed_at=existing_completed_at if status in ("done", "failed", "cancelled") else None,
+                custom_title=resolved_custom_title,
+                engine=resolved_engine,
+                produced_audio_length=None,
+                produced_chars=None,
+                produced_segment_count=None,
                 source=payload.get("source"),
                 has_segment_support=resolved_has_segment_support,
             )

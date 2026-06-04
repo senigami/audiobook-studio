@@ -692,6 +692,13 @@ def test_build_core_topic_helpers():
         "paused": None,
         "hasSegmentSupport": None,
         "confidence": 0.45,
+        "startedAt": None,
+        "completedAt": None,
+        "customTitle": None,
+        "engine": None,
+        "producedAudioLength": None,
+        "producedChars": None,
+        "producedSegmentCount": None,
     }
 
     # 2b. jobs.lifecycle status
@@ -1850,6 +1857,9 @@ def test_voice_test_job_telemetry_isolation(monkeypatch):
     assert queue_events[0]["ids"]["chapterId"] is None
     assert queue_events[0]["payload"]["status"] == "running"
     assert queue_events[0]["payload"]["progress"] == 0.45
+    assert queue_events[0]["payload"]["customTitle"] == "Voice Test: Feeling Lucky"
+    assert queue_events[0]["payload"]["engine"] == "xtts"
+    assert queue_events[0]["payload"]["startedAt"] == pytest.approx(voice_test_events[0]["payload"]["startedAt"])
 
     # 3. Must NOT emit chapters.progress frames
     chapter_events = [m for m in messages if m.get("topic") == "chapters.progress"]
@@ -1860,3 +1870,50 @@ def test_voice_test_job_telemetry_isolation(monkeypatch):
     assert len(lifecycle_events) == 1
     assert lifecycle_events[0]["eventKind"] == "job_lifecycle"
     assert lifecycle_events[0]["ids"]["jobId"] == job_id
+
+
+def test_broadcast_job_classification_force_broadcast_carries_voice_queue_metadata(monkeypatch):
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-voice-metadata",
+        {
+            "progress": 0.91,
+            "force_broadcast": True,
+            "produced_audio_length": 26.4,
+            "produced_chars": 400,
+            "produced_segment_count": 1,
+            "audio_length_seconds": 26.4,
+            "completed_at": 1010.0,
+        },
+        {
+            "status": "done",
+            "progress": 1.0,
+            "classification": "job",
+            "custom_title": "Building voice for Dark Fantasy: Default",
+            "engine": "voice_test",
+            "started_at": 1000.0,
+            "finished_at": 1010.0,
+            "produced_audio_length": 26.4,
+            "produced_chars": 400,
+            "produced_segment_count": 1,
+            "audio_length_seconds": 26.4,
+        },
+    )
+
+    queue_events = [m for m in messages if m.get("topic") == "queue.items"]
+    assert len(queue_events) == 1
+    payload = queue_events[0]["payload"]
+    assert payload["customTitle"] == "Building voice for Dark Fantasy: Default"
+    assert payload["engine"] == "voice_test"
+    assert payload["startedAt"] == 1000.0
+    assert payload["completedAt"] == 1010.0
+    assert payload["producedAudioLength"] == 26.4
+    assert payload["producedChars"] == 400
+    assert payload["producedSegmentCount"] == 1

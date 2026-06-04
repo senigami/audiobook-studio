@@ -1148,13 +1148,243 @@ def test_xtts_plugin_handler_terminal_clears_eta(monkeypatch):
         out_wav=MagicMock(),
         out_mp3=MagicMock()
     )
-
     # Assert mock_update_job was called with terminal state and ETA clears
     mock_update_job.assert_called()
     last_call = mock_update_job.call_args_list[-1]
     kwargs = last_call[1]
+
     assert kwargs["status"] == "cancelled"
     assert kwargs["eta_seconds"] is None
     assert kwargs["eta_basis"] is None
     assert kwargs["estimated_end_at"] is None
     assert kwargs["eta_updated_at"] is None
+
+
+def test_voice_sample_unscaled_progress():
+    """Verify that progress updates for sample_test and sample_build are not scaled down by 0.70."""
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext
+    from unittest.mock import patch, MagicMock
+
+    class MockOrchestrator(OrchestratorHelpersMixin):
+        def __init__(self):
+            self.published = []
+        def _publish(self, **kwargs):
+            self.published.append(kwargs)
+
+    orc = MockOrchestrator()
+    context = TaskContext(task_id="sample-unscaled-test", task_type="sample_test", payload={"engine_id": "xtts"})
+
+    captured_listeners = []
+    class MockWatchdog:
+        def register_log_listener(self, listener):
+            captured_listeners.append(listener)
+        def unregister_log_listener(self, listener):
+            pass
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=MockWatchdog()), \
+         patch("app.jobs.registry.get_handler_registry") as mock_reg, \
+         patch("app.orchestration.scheduler.orchestrator_helpers.OrchestratorHelpersMixin._estimate_task_duration", return_value=10.0):
+
+        mock_reg.return_value.get_handler.return_value = None
+
+        from app.orchestration.tasks.base import StudioTask, TaskResult
+        class DummySampleTask(StudioTask):
+            def validate(self): pass
+            def describe(self): return context
+            @property
+            def prefers_local_execution(self) -> bool: return True
+            @property
+            def is_marker_driven(self) -> bool: return False
+            def run(self): return TaskResult(status="completed")
+            def on_cancel(self): pass
+
+        task = DummySampleTask()
+        orc._dispatch(task=task, context=context)
+
+    assert len(captured_listeners) == 1
+    log_listener = captured_listeners[0]
+
+    # Let's send a progress log line: "[PROGRESS] 50%"
+    log_listener("[PROGRESS] 50%", "sample-unscaled-test")
+
+    running_publishes = [p for p in orc.published if p.get("reason_code") == "SEGMENT_PROGRESS"]
+    assert len(running_publishes) == 1
+    assert running_publishes[0]["progress"] == 0.50
+
+
+def test_voice_sample_started_at_synthesis_start():
+    """Verify that started_at for voice sample tasks represents synthesis start time, not task dispatch start."""
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext
+    from unittest.mock import patch, MagicMock
+
+    class MockOrchestrator(OrchestratorHelpersMixin):
+        def __init__(self):
+            self.published = []
+        def _publish(self, **kwargs):
+            self.published.append(kwargs)
+
+    orc = MockOrchestrator()
+    context = TaskContext(task_id="sample-started-at-test", task_type="sample_test", payload={"engine_id": "xtts"})
+
+    captured_listeners = []
+    class MockWatchdog:
+        def register_log_listener(self, listener):
+            captured_listeners.append(listener)
+        def unregister_log_listener(self, listener):
+            pass
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=MockWatchdog()), \
+         patch("app.jobs.registry.get_handler_registry") as mock_reg, \
+         patch("app.orchestration.scheduler.orchestrator_helpers.OrchestratorHelpersMixin._estimate_task_duration", return_value=10.0):
+
+        mock_reg.return_value.get_handler.return_value = None
+
+        from app.orchestration.tasks.base import StudioTask, TaskResult
+        class DummySampleTask(StudioTask):
+            def validate(self): pass
+            def describe(self): return context
+            @property
+            def prefers_local_execution(self) -> bool: return True
+            @property
+            def is_marker_driven(self) -> bool: return False
+            def run(self): return TaskResult(status="completed")
+            def on_cancel(self): pass
+
+        task = DummySampleTask()
+        orc._dispatch(task=task, context=context)
+
+    log_listener = captured_listeners[0]
+
+    # Verify that no running/START_SYNTHESIS events are published on dispatch
+    running_events_before = [p for p in orc.published if p.get("status") == "running"]
+    assert len(running_events_before) == 0
+
+    # Now trigger START_SYNTHESIS marker
+    synth_start_time = 9999.0
+    with patch("time.time", return_value=synth_start_time):
+        log_listener("[START_SYNTHESIS]", "sample-started-at-test")
+
+    synth_publish = [p for p in orc.published if p.get("status") == "running" and p.get("started_at") is not None]
+    assert len(synth_publish) == 1
+    assert synth_publish[0]["started_at"] == synth_start_time
+
+
+def test_voice_sample_started_at_fallback_to_first_progress():
+    """Verify that if START_SYNTHESIS is missing, started_at falls back to the first real progress event."""
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext
+    from unittest.mock import patch, MagicMock
+
+    class MockOrchestrator(OrchestratorHelpersMixin):
+        def __init__(self):
+            self.published = []
+        def _publish(self, **kwargs):
+            self.published.append(kwargs)
+
+    orc = MockOrchestrator()
+    context = TaskContext(task_id="sample-fallback-test", task_type="sample_test", payload={"engine_id": "xtts"})
+
+    captured_listeners = []
+    class MockWatchdog:
+        def register_log_listener(self, listener):
+            captured_listeners.append(listener)
+        def unregister_log_listener(self, listener):
+            pass
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=MockWatchdog()), \
+         patch("app.jobs.registry.get_handler_registry") as mock_reg, \
+         patch("app.orchestration.scheduler.orchestrator_helpers.OrchestratorHelpersMixin._estimate_task_duration", return_value=10.0):
+
+        mock_reg.return_value.get_handler.return_value = None
+
+        from app.orchestration.tasks.base import StudioTask, TaskResult
+        class DummySampleTask(StudioTask):
+            def validate(self): pass
+            def describe(self): return context
+            @property
+            def prefers_local_execution(self) -> bool: return True
+            @property
+            def is_marker_driven(self) -> bool: return False
+            def run(self): return TaskResult(status="completed")
+            def on_cancel(self): pass
+
+        task = DummySampleTask()
+        orc._dispatch(task=task, context=context)
+
+    log_listener = captured_listeners[0]
+
+    # Verify no running events yet
+    running_events_before = [p for p in orc.published if p.get("status") == "running"]
+    assert len(running_events_before) == 0
+
+    # Log an early setup/log line that isn't progress or START_SYNTHESIS
+    log_listener("Loading model...", "sample-fallback-test")
+    running_events_after_log = [p for p in orc.published if p.get("status") == "running"]
+    assert len(running_events_after_log) == 0
+
+    # Trigger a real progress update (e.g. [PROGRESS] 10%)
+    first_progress_time = 12345.0
+    with patch("time.time", return_value=first_progress_time):
+        log_listener("[PROGRESS] 10%", "sample-fallback-test")
+
+    synth_publish = [p for p in orc.published if p.get("status") == "running" and p.get("started_at") is not None]
+    assert len(synth_publish) == 1
+    assert synth_publish[0]["started_at"] == first_progress_time
+    assert synth_publish[0]["progress"] == 0.10
+
+
+def test_voice_sample_terminal_done_progress(tmp_path):
+    """Verify that sample task progress reaches 1.0 upon completion and does not regress on post-processing updates."""
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext, TaskResult
+    from app.orchestration.tasks.sample_test import SampleTestTask
+    from unittest.mock import patch, MagicMock
+    from pathlib import Path
+
+    class MockOrchestrator(OrchestratorHelpersMixin):
+        def __init__(self):
+            self.published = []
+        def _publish(self, **kwargs):
+            self.published.append(kwargs)
+
+    orc = MockOrchestrator()
+    output_path = tmp_path / "dummy_out.mp3"
+    task = SampleTestTask(
+        task_id="sample-terminal-test",
+        speaker_profile="feeling-lucky",
+        engine_id="xtts",
+        output_path=output_path,
+        test_text="Hello world",
+    )
+    context = task.describe()
+
+    # Write dummy file so mp3 exists check passes
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("dummy audio content")
+
+    mock_bridge = MagicMock()
+    mock_bridge.synthesize.return_value = {"status": "ok", "timing": {"chapter_render_started_at": 1000.0, "chapter_render_completed_at": 1005.0}}
+    mock_wav_to_mp3 = MagicMock(return_value=0)
+    mock_update_settings = MagicMock()
+
+    with patch("app.engines.bridge.create_voice_bridge", return_value=mock_bridge), \
+         patch("app.engines.audio_ops.wav_to_mp3", mock_wav_to_mp3), \
+         patch("app.db.speakers.update_speaker_settings", mock_update_settings), \
+         patch("app.engines.watchdog.get_watchdog", return_value=None), \
+         patch("app.jobs.registry.get_handler_registry") as mock_reg:
+
+        mock_reg.return_value.get_handler.return_value = None
+
+        # Run dispatch which will invoke task.run()
+        orc._dispatch(task=task, context=context)
+
+    post_synth_publishes = [
+        p for p in orc.published
+        if p.get("reason_code") in ("synthesis_finished", "post_processing", "metadata_update")
+    ]
+
+    assert len(post_synth_publishes) == 3
+    for p in post_synth_publishes:
+        assert p["progress"] == 1.0

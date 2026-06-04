@@ -115,6 +115,37 @@ describe('QueueItem Stable ETA TDD', () => {
     expect(progressBar.getAttribute('data-updatedat')).toBe('1100');
   });
 
+  it('ignores placeholder zero active segment progress when voice build has no active segment id', () => {
+    render(
+      <QueueItem
+        {...defaultProps}
+        job={{
+          ...defaultProps.job,
+          engine: 'voice_build',
+          progress: 0.7,
+          eta_seconds: 15,
+          eta_updated_at: 3000,
+          updated_at: 3000,
+        } as any}
+        liveJob={{
+          id: 'job-1',
+          status: 'running',
+          engine: 'voice_build',
+          progress: 0.7,
+          active_segment_progress: 0,
+          active_segment_id: null,
+          eta_seconds: null,
+          started_at: 1000,
+          updated_at: 3000,
+        } as any}
+      />
+    );
+
+    const progressBar = screen.getByTestId('queue-item-progress-bar');
+    expect(progressBar.getAttribute('data-progress')).toBe('0.7');
+    expect(progressBar.getAttribute('data-etaseconds')).toBe('15');
+  });
+
   it('QueueItem countdown uses chapter/job eta_seconds only, not active_segment_eta_seconds', () => {
     render(
       <QueueItem
@@ -375,5 +406,38 @@ describe('QueueItem Stable ETA TDD', () => {
     expect(payload.liveJob.confidence).toBe(0.99);
     expect(payload.etaSelectionDebug.job.confidence).toBe(0.22);
     expect(payload.etaSelectionDebug.liveJob.confidence).toBe(0.99);
+  });
+
+  it('preserves progress on done/completed jobs instead of forcing to 0', () => {
+    // Done job with progress in job state
+    render(
+      <QueueItem
+        {...defaultProps}
+        job={{
+          ...defaultProps.job,
+          status: 'done',
+          progress: 0.85,
+        }}
+      />
+    );
+
+    const progressBar = screen.getByTestId('queue-item-progress-bar');
+    expect(progressBar.getAttribute('data-progress')).toBe('0.85');
+  });
+
+  it('keeps failed or cancelled jobs at their last known progress without promoting to 100%', () => {
+    render(
+      <QueueItem
+        {...defaultProps}
+        job={{
+          ...defaultProps.job,
+          status: 'failed',
+          progress: 0.44,
+        }}
+      />
+    );
+
+    const progressBar = screen.getByTestId('queue-item-progress-bar');
+    expect(progressBar.getAttribute('data-progress')).toBe('0.44');
   });
 });

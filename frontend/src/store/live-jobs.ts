@@ -13,6 +13,7 @@ export interface OverlayDelta {
   classification?: 'job' | 'chapter' | 'segment' | null;
   created_at?: number | null;
   completed_at?: number | null;
+  finished_at?: number | null;
   status?: StudioJobStatus;
   progress?: number;
   eta_seconds?: number | null;
@@ -36,6 +37,10 @@ export interface OverlayDelta {
   reason_code?: string | null;
   message?: string | null;
   error?: string | null;
+  audio_length_seconds?: number | null;
+  produced_audio_length?: number | null;
+  produced_chars?: number | null;
+  produced_segment_count?: number | null;
 }
 
 export interface LiveOverlayState {
@@ -179,6 +184,26 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     } else if (event.parent_job_id === null) {
       nextDelta.parent_job_id = null;
     }
+    if (typeof event.engine === 'string') {
+      nextDelta.engine = event.engine;
+    } else if (event.engine === null) {
+      nextDelta.engine = null;
+    }
+    if (typeof event.custom_title === 'string') {
+      nextDelta.custom_title = event.custom_title;
+    } else if (event.custom_title === null) {
+      nextDelta.custom_title = null;
+    }
+    if (typeof event.completed_at === 'number') {
+      nextDelta.completed_at = event.completed_at;
+    } else if (event.completed_at === null) {
+      nextDelta.completed_at = null;
+    }
+    if (typeof event.finished_at === 'number') {
+      nextDelta.finished_at = event.finished_at;
+    } else if (event.finished_at === null) {
+      nextDelta.finished_at = null;
+    }
 
     if (typeof event.classification === 'string') {
       nextDelta.classification = event.classification;
@@ -244,6 +269,18 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     if (event.grouped_progress !== undefined) {
       nextDelta.grouped_progress = event.grouped_progress;
     }
+    if (event.audio_length_seconds !== undefined) {
+      nextDelta.audio_length_seconds = event.audio_length_seconds;
+    }
+    if (event.produced_audio_length !== undefined) {
+      nextDelta.produced_audio_length = event.produced_audio_length;
+    }
+    if (event.produced_chars !== undefined) {
+      nextDelta.produced_chars = event.produced_chars;
+    }
+    if (event.produced_segment_count !== undefined) {
+      nextDelta.produced_segment_count = event.produced_segment_count;
+    }
 
     state.eventsById[jobId] = nextDelta;
 
@@ -284,8 +321,13 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     const jobUpdated = updates || {};
     const existing = state.eventsById[jobId];
     const status = jobUpdated.status ?? existing?.status ?? 'queued';
+    const hasMeaningfulActiveSegmentProgress =
+      typeof jobUpdated.active_segment_progress === 'number' &&
+      jobUpdated.active_segment_progress > 0 &&
+      jobUpdated.active_segment_progress <= 1;
     const scope = jobUpdated.classification ||
-                  ((jobUpdated.active_segment_id !== undefined || jobUpdated.active_segment_progress !== undefined) ? 'segment' : 'job');
+                  (((typeof jobUpdated.active_segment_id === 'string' && jobUpdated.active_segment_id.length > 0) ||
+                    hasMeaningfulActiveSegmentProgress) ? 'segment' : 'job');
     const event: StudioJobEvent = {
       type: 'studio_job_event',
       job_id: jobId,
@@ -329,6 +371,11 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       if (jobUpdated.segment_ids !== undefined) savedDelta.segment_ids = jobUpdated.segment_ids;
       if (jobUpdated.created_at !== undefined) savedDelta.created_at = jobUpdated.created_at;
       if (jobUpdated.completed_at !== undefined) savedDelta.completed_at = jobUpdated.completed_at;
+      if (jobUpdated.finished_at !== undefined) savedDelta.finished_at = jobUpdated.finished_at;
+      if (jobUpdated.audio_length_seconds !== undefined) savedDelta.audio_length_seconds = jobUpdated.audio_length_seconds;
+      if (jobUpdated.produced_audio_length !== undefined) savedDelta.produced_audio_length = jobUpdated.produced_audio_length;
+      if (jobUpdated.produced_chars !== undefined) savedDelta.produced_chars = jobUpdated.produced_chars;
+      if (jobUpdated.produced_segment_count !== undefined) savedDelta.produced_segment_count = jobUpdated.produced_segment_count;
     }
   };
 

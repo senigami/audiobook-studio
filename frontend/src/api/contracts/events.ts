@@ -57,6 +57,14 @@ export interface StudioJobEvent {
   completed_render_weight?: number | null;
   active_render_group_weight?: number | null;
   grouped_progress?: number | null;
+  engine?: string | null;
+  custom_title?: string | null;
+  completed_at?: number | null;
+  finished_at?: number | null;
+  audio_length_seconds?: number | null;
+  produced_audio_length?: number | null;
+  produced_chars?: number | null;
+  produced_segment_count?: number | null;
 }
 
 export const isStudioJobEvent = (value: unknown): value is StudioJobEvent => {

@@ -294,11 +294,15 @@ def _voice_has_generation_material(name: str) -> bool:
         return False
 
 
-def _voice_job_title(name: str, action: str = "Building voice for") -> str:
+def _voice_job_title(name: str, action: str = "Building voice for", include_variant: bool = True) -> str:
     settings = get_speaker_settings(name)
     variant_name = str(settings.get("variant_name") or infer_variant_name(name) or "Default").strip() or "Default"
     speaker_name = infer_speaker_name(name, settings).strip() or name
-    return f"{action} {speaker_name}: {variant_name}"
+    speaker_name = re.sub(r"[-_]+", " ", speaker_name).strip() or name
+    speaker_name = speaker_name.title()
+    if include_variant:
+        return f"{action} {speaker_name}: {variant_name}"
+    return f"{action} {speaker_name}"
 
 def delete_speaker_sample(
     name: str,

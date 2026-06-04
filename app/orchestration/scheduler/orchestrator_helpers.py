@@ -116,10 +116,14 @@ class OrchestratorHelpersMixin:
             # Non-marker tasks start when they first report running. Marker-driven
             # tasks should only fall back here for real positive progress if a
             # START_SYNTHESIS marker was missed.
+            is_voice_sample = context.task_type in {"sample_build", "sample_test"}
             if (
                 status == "running"
                 and timing["render_started_at"] is None
-                and (not marker_driven or progress > 0.0)
+                and (
+                    (not marker_driven and not is_voice_sample)
+                    or progress > 0.0
+                )
             ):
                 timing["render_started_at"] = time.time()
 
@@ -338,6 +342,20 @@ class OrchestratorHelpersMixin:
                         if perf_job_obj else None
                     ) or timing.get("sum_segment_render_seconds"),
                 )
+                try:
+                    from app.db.state import update_job
+                    update_job(
+                        context.task_id,
+                        force_broadcast=True,
+                        finished_at=completed_at_val,
+                        completed_at=completed_at_val,
+                        audio_length_seconds=audio_duration_seconds,
+                        produced_audio_length=audio_duration_seconds,
+                        produced_chars=chars,
+                        produced_segment_count=segment_count,
+                    )
+                except Exception:
+                    pass
             except Exception:
                 logger.warning(
                     "Failed to record render performance sample for task %s.",
@@ -598,9 +616,6 @@ class OrchestratorHelpersMixin:
                         p = _get_grouped_progress()
                     else:
                         p = raw_progress
-                        # Scale progress for tasks that have post-synthesis phases
-                        if context.task_type in {"sample_build", "sample_test"}:
-                            p = p * 0.70
 
                     eta_seconds = self._observed_remaining_seconds(
                         started_at=timing["render_started_at"],
@@ -779,14 +794,16 @@ class OrchestratorHelpersMixin:
 
         if handler:
             if not marker_driven:
-                if timing["render_started_at"] is None:
-                    timing["render_started_at"] = time.time()
-                self._publish(
-                    context=context,
-                    status="running",
-                    progress=0.0,
-                    started_at=timing["render_started_at"],
-                )
+                is_voice_sample = context.task_type in {"sample_build", "sample_test"}
+                if not is_voice_sample:
+                    if timing["render_started_at"] is None:
+                        timing["render_started_at"] = time.time()
+                    self._publish(
+                        context=context,
+                        status="running",
+                        progress=0.0,
+                        started_at=timing["render_started_at"],
+                    )
 
             # Execute via registry handler
             try:
@@ -882,14 +899,16 @@ class OrchestratorHelpersMixin:
             # 2. Local fallback if explicitly opted-out of bridge dispatch
             if getattr(task, "prefers_local_execution", False):
                 if not marker_driven:
-                    if timing["render_started_at"] is None:
-                        timing["render_started_at"] = time.time()
-                    self._publish(
-                        context=context,
-                        status="running",
-                        progress=0.0,
-                        started_at=timing["render_started_at"],
-                    )
+                    is_voice_sample = context.task_type in {"sample_build", "sample_test"}
+                    if not is_voice_sample:
+                        if timing["render_started_at"] is None:
+                            timing["render_started_at"] = time.time()
+                        self._publish(
+                            context=context,
+                            status="running",
+                            progress=0.0,
+                            started_at=timing["render_started_at"],
+                        )
 
                 result = task.run()
                 if result.status == "failed":

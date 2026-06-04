@@ -86,6 +86,13 @@ export interface QueueItemPayload {
   paused?: boolean | null;
   hasSegmentSupport?: boolean;
   has_segment_support?: boolean;
+  startedAt?: number | null;
+  completedAt?: number | null;
+  customTitle?: string | null;
+  engine?: string | null;
+  producedAudioLength?: number | null;
+  producedChars?: number | null;
+  producedSegmentCount?: number | null;
   // Legacy duplicate fields for backward compatibility
   eta_seconds?: number | null;
   reason_code?: string | null;

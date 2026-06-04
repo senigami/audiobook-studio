@@ -228,6 +228,41 @@ describe('GlobalQueue', () => {
         expect(screen.getByText('1,234 chars • 5 segments')).toBeTruthy()
     })
 
+    it('uses live job metadata to label voice test queue rows without a hard refresh', async () => {
+        const queue = [
+            {
+                id: 'voice-job-1',
+                status: 'done',
+                project_name: null,
+                chapter_title: null,
+                split_part: 0,
+                completed_at: 1710000060,
+            },
+        ];
+        const jobs = {
+            'voice-job-1': {
+                id: 'voice-job-1',
+                engine: 'voice_test',
+                status: 'done',
+                custom_title: 'Building voice for Dark Fantasy: Default',
+                started_at: 1710000000,
+                finished_at: 1710000060,
+                produced_audio_length: 26.4,
+                produced_chars: 400,
+                produced_segment_count: 1,
+            },
+        };
+
+        render(<GlobalQueue queue={queue as any[]} jobs={jobs as any} />);
+
+        fireEvent.click(await screen.findByText(/Completed \/ Failed History/i));
+
+        expect(await screen.findByText('Building voice for Dark Fantasy: Default')).toBeTruthy();
+        expect(screen.getByText('Voice Preview')).toBeTruthy();
+        expect(screen.getByText('26.4s')).toBeTruthy();
+        expect(screen.getByText('400 chars • 1 segments')).toBeTruthy();
+    })
+
     it('calls clear completed from ActionMenu', async () => {
         render(<GlobalQueue queue={mockJobs as any[]} />)
         
