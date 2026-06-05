@@ -263,8 +263,8 @@ def test_fallback_paths_when_structured_timing_absent(clean_db):
     assert sample4["segment_count"] == 1
 
 
-def test_sample_runs_live_progress_without_log_markers(clean_db, tmp_path):
-    """Proving SampleBuildTask and SampleTestTask produce live progress without any log markers."""
+def test_sample_runs_wait_for_synthesis_marker_before_running_progress(clean_db, tmp_path):
+    """Proving SampleBuildTask does not publish synthetic running progress before synthesis starts."""
     from app.orchestration.tasks.sample_build import SampleBuildTask
 
     orc = MockOrchestrator()
@@ -287,12 +287,10 @@ def test_sample_runs_live_progress_without_log_markers(clean_db, tmp_path):
     with patch("app.engines.watchdog.get_watchdog", return_value=None):
         orc._dispatch(task=task, context=context)
 
-    # We should have received running progress updates immediately (since marker_driven is False)
-    # and not be waiting for any START_SYNTHESIS log markers.
+    # Voice samples must wait for the real START_SYNTHESIS/progress markers so model load time
+    # does not become part of the synthesis lane.
     running_updates = [p for p in orc.published if p.get("status") == "running"]
-    assert len(running_updates) > 0
-    # The first update should start at progress 0.0
-    assert running_updates[0]["progress"] == 0.0
+    assert running_updates == []
 
 
 def test_persisted_sample_includes_audio_duration_and_model_load_seconds(clean_db, tmp_path):
