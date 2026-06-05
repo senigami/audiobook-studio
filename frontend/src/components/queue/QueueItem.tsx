@@ -16,6 +16,7 @@ interface QueueItemProps {
     onRemove: (id: string) => void;
     compact?: boolean;
     engines?: import('@/types').TtsEngine[];
+    onVisualPendingChange?: (jobId: string, pending: boolean) => void;
 }
 
 export const QueueItem: React.FC<QueueItemProps> = ({
@@ -26,7 +27,8 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     formatTime,
     onRemove,
     compact = false,
-    engines = []
+    engines = [],
+    onVisualPendingChange
 }) => {
     const latestSnapshotRef = React.useRef<any>(null);
     const handleDebugSnapshot = React.useCallback((snapshot: any) => {
@@ -133,6 +135,89 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         // failed or cancelled
         return lastKnownProgress ?? 0;
     })();
+
+    const [visualProgress, setVisualProgress] = React.useState(progress);
+    const [isVisuallyPending, setIsVisuallyPending] = React.useState(status === 'done' && progress < 1.0);
+    const hasReachedOneRef = React.useRef(false);
+    const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+    const [prevStatus, setPrevStatus] = React.useState<string | null>(status);
+    const [currentStatus, setCurrentStatus] = React.useState(status);
+
+    if (status !== currentStatus) {
+        setPrevStatus(currentStatus);
+        setCurrentStatus(status);
+    }
+
+    // Sync visualProgress when progress prop changes and not done yet
+    React.useEffect(() => {
+        if (status !== 'done') {
+            setVisualProgress(progress);
+        }
+    }, [progress, status]);
+
+    // Clean up timeout on unmount
+    React.useEffect(() => {
+        return () => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        };
+    }, []);
+
+    React.useEffect(() => {
+        if (status !== 'done') {
+            setIsVisuallyPending(false);
+            hasReachedOneRef.current = false;
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
+            return;
+        }
+
+        // status is 'done'
+        const wasActive = ['running', 'preparing', 'finalizing'].includes(prevStatus ?? '');
+        let currentPending = isVisuallyPending;
+
+        if (wasActive) {
+            // Seeding on transition
+            currentPending = true;
+            hasReachedOneRef.current = false;
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
+        }
+
+        if (visualProgress >= 1.0) {
+            if (!hasReachedOneRef.current) {
+                hasReachedOneRef.current = true;
+                if (currentPending) {
+                    if (!timeoutRef.current) {
+                        timeoutRef.current = setTimeout(() => {
+                            setIsVisuallyPending(false);
+                            timeoutRef.current = null;
+                        }, 500); // 0.5s brief visible hold
+                    }
+                    setIsVisuallyPending(true);
+                } else {
+                    setIsVisuallyPending(false);
+                }
+            }
+        } else {
+            // status is 'done' but visualProgress < 1.0
+            if (!hasReachedOneRef.current) {
+                setIsVisuallyPending(true);
+            }
+        }
+    }, [status, visualProgress, isVisuallyPending, prevStatus]);
+
+    // Notify parent on change
+    React.useEffect(() => {
+        onVisualPendingChange?.(job.id, isVisuallyPending);
+        return () => {
+            onVisualPendingChange?.(job.id, false);
+        };
+    }, [job.id, isVisuallyPending, onVisualPendingChange]);
+
     const engineType = (liveJob?.engine ?? job.engine) || '';
     const engineMeta = Array.isArray(engines) ? engines.find(e => e && e.engine_id === engineType) : undefined;
     const displayJob = React.useMemo(() => (liveJob ? { ...job, ...liveJob } : job), [job, liveJob]);
@@ -150,6 +235,9 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     // preparing into running. Keep the queue row in the backend's explicit status so the UI
     // does not start the active animation early just because group bookkeeping showed up.
     const displayStatus = isCloudLike && status === 'finalizing' ? 'finalizing' : (showIndeterminateProgress ? 'preparing' : status);
+    const wasActive = prevStatus && ['running', 'preparing', 'finalizing', 'processing'].includes(prevStatus);
+    const justTransitionedToDone = wasActive && status === 'done';
+
     const [stableStarted, setStableStarted] = React.useState<number | null | undefined>(rawStarted);
     const [stableEta, setStableEta] = React.useState<number | null | undefined>(rawEtaSeconds);
     const [stableUpdatedAt, setStableUpdatedAt] = React.useState<number | null | undefined>(updatedAt);
@@ -159,9 +247,11 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         if (typeof rawStarted === 'number' && rawStarted > 0) {
             setStableStarted(rawStarted);
         } else if (!['running', 'processing', 'finalizing'].includes(displayStatus)) {
-            setStableStarted(rawStarted);
+            if (!isVisuallyPending && !justTransitionedToDone) {
+                setStableStarted(rawStarted);
+            }
         }
-    }, [rawStarted, displayStatus]);
+    }, [rawStarted, displayStatus, isVisuallyPending, justTransitionedToDone]);
 
     React.useEffect(() => {
         if (etaSource === 'liveJob') {
@@ -194,23 +284,26 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         }
 
         if (!['running', 'processing', 'finalizing'].includes(displayStatus)) {
-            setStableEta(rawEtaSeconds);
-            setStableUpdatedAt(updatedAt);
-            setStableEtaBasis(etaBasis);
+            if (!isVisuallyPending && !justTransitionedToDone) {
+                setStableEta(rawEtaSeconds);
+                setStableUpdatedAt(updatedAt);
+                setStableEtaBasis(etaBasis);
+            }
         }
-    }, [rawEtaSeconds, displayStatus, updatedAt, etaBasis, liveJob, job.eta_seconds, job.updated_at, job.eta_updated_at, job.eta_basis, etaSource]);
+    }, [rawEtaSeconds, displayStatus, updatedAt, etaBasis, liveJob, job.eta_seconds, job.updated_at, job.eta_updated_at, job.eta_basis, etaSource, isVisuallyPending, justTransitionedToDone]);
 
-    // Original start and ETA values (may be undefined for non-active statuses)
-    const started = ['running', 'processing', 'finalizing'].includes(displayStatus)
+    // Original start and ETA values (may be undefined for non-active statuses, but retained during done-transition visual pending catch-up)
+    const shouldRetainActiveParams = ['running', 'processing', 'finalizing'].includes(displayStatus) || isVisuallyPending || justTransitionedToDone;
+    const started = shouldRetainActiveParams
         ? (stableStarted ?? rawStarted)
         : undefined;
-    const etaSeconds = ['running', 'processing', 'finalizing'].includes(displayStatus)
+    const etaSeconds = shouldRetainActiveParams
         ? (stableEta ?? rawEtaSeconds)
         : undefined;
-    const activeUpdatedAt = ['running', 'processing', 'finalizing'].includes(displayStatus)
+    const activeUpdatedAt = shouldRetainActiveParams
         ? (stableUpdatedAt ?? updatedAt)
         : updatedAt;
-    const derivedEtaBasis = ['running', 'processing', 'finalizing'].includes(displayStatus)
+    const derivedEtaBasis = shouldRetainActiveParams
         ? (stableEtaBasis ?? etaBasis)
         : undefined;
 
@@ -546,6 +639,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     predictive={true}
                     allowBackwardProgress={false}
                     onDebugSnapshot={handleDebugSnapshot}
+                    onDisplayProgress={setVisualProgress}
                     checkpointMode={
                         (job.segment_ids?.length || liveJob?.segment_ids?.length || activeSegmentId)
                             ? 'segment'

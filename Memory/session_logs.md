@@ -1,3 +1,32 @@
+# 2026-06-04 - Fix QueueItem terminal parameters retention during done-transition
+
+- Fixed QueueItem to synchronously derive active-to-done transition state (`justTransitionedToDone`) in the render body. This prevents a React state-update timing lag from stripping `startedAt` and `etaSeconds` properties on the very first `'done'` frame.
+- Resolved an ESLint `react-hooks/refs` warning by replacing the ref-based `prevStatusRef` with standard React state-driven `prevStatus` and `currentStatus` updates managed synchronously during render.
+- Verified all 56 tests in Vitest timing/queue suites, including the newly added production sequence regressions, pass cleanly with zero ESLint errors and a successful production build.
+
+# 2026-06-04 - Fix PredictiveProgressBar done-transition starting progress
+
+- Fixed done-transition animation in `PredictiveProgressBar` to start from the last rendered visual progress (`displayProgressRef.current`) instead of the newly calculated target `displayProgress`. This prevents premature lane collapse to 1.0 when a terminal done update arrives immediately after a running update with 1.0 progress.
+- Added a regression test case `does not snap to 100 percent when a done update arrives after a running progress=1.0 update` to `PredictiveProgressBarTiming.test.tsx` simulating this sequence and verifying correct transition animation start progress, timing, and settlement.
+- Verified all 35 tests in the timing/queue suites pass, the frontend builds successfully, and git diff check is clean.
+
+# 2026-06-04 - Fix done-row visual retention for 1.0 progress
+
+
+- Fixed done-row visual retention so a queue item that transitions from active to done stays mounted until its rendered bar actually reaches 100 percent, even when the terminal payload already reports progress 1.0.
+- Synchronously checked for active-to-done transitions in the `activeJobs` memo using `prevQueueRef` during the render phase to prevent initial render unmounts when progress is already 1.0.
+- Batched state updates and transition logic in `QueueItem` into a single unified `useEffect` hook to prevent React state timing races where the visual pending state was reset immediately on mount.
+- Wrote regressions in `QueueItem.test.tsx` and `GlobalQueue.test.tsx` proving retention, delay, and release of rows transitioning to done with progress 1.0.
+- Verified with all 37 Vitest tests passing, production build succeeding, and git checks clean.
+
+# 2026-06-04 - Done transition queue row retention and visual completion catch-up
+
+- Retained completed done queue rows with progress below 1.0 mounted in the active section ("Processing Now") until visual progress reaches 1.0.
+- Kept the tick loop running during terminal completion catch-up and hid the ETA display.
+- Initialized `isVisuallyPending` state in `QueueItem` using `status === 'done' && progress < 1.0` to prevent initial render race where the row was filtered out of active jobs before it could register.
+- Updated `activeJobs` memo in `GlobalQueue` to derive visual pending state with a fallback for done rows with progress below 1.0.
+- Verified with all 50 tests in `PredictiveProgressBarTiming`, `QueueItem`, and `GlobalQueue` passing, production build succeeding, and git check clean.
+
 # 2026-06-03 - Synchronize visual progress and displayed remaining ETA in PredictiveProgressBar
 
 - Refactored `PredictiveProgressBar.tsx` to derive both visual progress and remaining ETA from a unified rendered lane state at every tick, preventing any visual drift.

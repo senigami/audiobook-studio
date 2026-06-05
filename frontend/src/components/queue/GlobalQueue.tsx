@@ -91,6 +91,15 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
 
     const chapterJobs = React.useMemo(() => queue.filter(q => !isMainQueueSegmentItem(q)), [queue]);
     const [recentlyCompleted, setRecentlyCompleted] = React.useState<Record<string, number>>({});
+    const [visuallyPendingJobs, setVisuallyPendingJobs] = React.useState<Record<string, boolean>>({});
+
+    const handleVisualPendingChange = React.useCallback((jobId: string, pending: boolean) => {
+        setVisuallyPendingJobs(prev => {
+            if (prev[jobId] === pending) return prev;
+            return { ...prev, [jobId]: pending };
+        });
+    }, []);
+
     const prevQueueRef = React.useRef<ProcessingQueueItem[]>([]);
     const timeoutsRef = React.useRef<Record<string, NodeJS.Timeout>>({});
 
@@ -156,6 +165,13 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                         delete timeoutsRef.current[job.id];
                     }, 30000);
                 }
+
+                if (wasActive && job.status === 'done') {
+                    setVisuallyPendingJobs(prev => {
+                        if (prev[job.id] === true) return prev;
+                        return { ...prev, [job.id]: true };
+                    });
+                }
             }
         });
 
@@ -170,11 +186,18 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
         const now = Date.now();
         const retained = chapterJobs.filter(q => {
             const completedAt = recentlyCompleted[q.id];
-            return completedAt && (now - completedAt < 30000);
+            const prevJob = prevQueueRef.current.find(j => j.id === q.id);
+            const wasActive = prevJob ? ['running', 'preparing', 'finalizing'].includes(prevJob.status) : false;
+            const justTransitionedToDone = wasActive && q.status === 'done';
+
+            const isVisualPending = visuallyPendingJobs[q.id] !== undefined
+                ? visuallyPendingJobs[q.id]
+                : (justTransitionedToDone || (q.status === 'done' && (q.progress ?? 0) < 1.0));
+            return (completedAt && (now - completedAt < 30000)) || isVisualPending;
         });
         const activeIds = new Set(active.map(j => j.id));
         return [...active, ...retained.filter(j => !activeIds.has(j.id))];
-    }, [chapterJobs, recentlyCompleted]);
+    }, [chapterJobs, recentlyCompleted, visuallyPendingJobs]);
 
     const pendingJobs = React.useMemo(() => chapterJobs.filter(q => q.status === 'queued'), [chapterJobs]);
     const activeIds = React.useMemo(() => new Set(activeJobs.map(j => j.id)), [activeJobs]);
@@ -273,6 +296,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                         onRemove={handleRemove}
                                         compact={compact}
                                         engines={engines}
+                                        onVisualPendingChange={handleVisualPendingChange}
                                     />
                                 ))}
                             </div>

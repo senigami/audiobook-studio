@@ -2,6 +2,7 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { GlobalQueue } from '@/components/queue/GlobalQueue'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { api } from '@/api'
+import React from 'react'
 
 // Mock the API
 vi.mock('@/api', () => ({
@@ -20,15 +21,22 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
   PredictiveProgressBar: ({
     progress,
     label,
-    dataTestId
-  }: any) => (
-    <div
-      data-testid={dataTestId || "progress-bar"}
-      data-progress={progress}
-    >
-      {label}
-    </div>
-  )
+    dataTestId,
+    onDisplayProgress
+  }: any) => {
+    React.useEffect(() => {
+      onDisplayProgress?.(progress);
+    }, [progress, onDisplayProgress]);
+
+    return (
+      <div
+        data-testid={dataTestId || "progress-bar"}
+        data-progress={progress}
+      >
+        {label}
+      </div>
+    );
+  }
 }))
 
 describe('GlobalQueue', () => {
@@ -358,5 +366,93 @@ describe('GlobalQueue', () => {
         // It should identify it as a chapter-scoped job and render it in the processing now section
         expect(screen.getByText('Custom Engine Chapter')).toBeTruthy();
         expect(screen.queryByText(/Queue is empty/i)).toBeNull();
+    });
+
+    it('keeps a done queue row with progress below 1.0 mounted in the active section until visual completion', async () => {
+        vi.useFakeTimers();
+        const queue = [
+            {
+                id: 'job-pending-visual',
+                status: 'done',
+                progress: 0.7,
+                chapter_title: 'Catch-Up Chapter',
+            } as any
+        ];
+
+        const { rerender } = render(<GlobalQueue queue={queue} />);
+
+        // It should be under "Processing Now" because it is visually pending
+        expect(screen.getByText(/Processing Now/i)).toBeTruthy();
+        expect(screen.getByText('Catch-Up Chapter')).toBeTruthy();
+
+        // Rerender with 1.0 progress (representing completed done-transition)
+        const queueDone = [
+            {
+                ...queue[0],
+                progress: 1.0
+            }
+        ];
+        rerender(<GlobalQueue queue={queueDone} />);
+
+        // Still visible briefly due to the 0.5s delay
+        expect(screen.queryByText('Catch-Up Chapter')).toBeTruthy();
+
+        // Advance timers by 0.5s
+        await act(async () => {
+            vi.advanceTimersByTime(500);
+        });
+
+        // Now it should be allowed to disappear from the active section (Processing Now is gone/empty)
+        expect(screen.queryByText(/Processing Now/i)).toBeNull();
+
+        vi.useRealTimers();
+    });
+
+    it('retains a done queue row when transitioning from active to done even if progress is already 1.0', async () => {
+        vi.useFakeTimers();
+        const queueActive = [
+            {
+                id: 'job-transition-1',
+                status: 'running',
+                progress: 0.8,
+                chapter_title: 'Transition Chapter',
+            } as any
+        ];
+
+        const { rerender } = render(<GlobalQueue queue={queueActive} />);
+
+        // Should be active/Processing Now
+        expect(screen.getByText(/Processing Now/i)).toBeTruthy();
+        expect(screen.getByText('Transition Chapter')).toBeTruthy();
+
+        // Transition to done with progress 1.0 immediately
+        const queueDone = [
+            {
+                id: 'job-transition-1',
+                status: 'done',
+                progress: 1.0,
+                chapter_title: 'Transition Chapter',
+            } as any
+        ];
+        rerender(<GlobalQueue queue={queueDone} />);
+
+        // It must remain visually pending (Processing Now is still present, item is still mounted)
+        expect(screen.queryByText(/Processing Now/i)).toBeTruthy();
+        expect(screen.queryByText('Transition Chapter')).toBeTruthy();
+
+        // Rerender with 1.0 progress again to simulate a tick
+        rerender(<GlobalQueue queue={queueDone} />);
+        expect(screen.queryByText('Transition Chapter')).toBeTruthy();
+
+        // Advance timers by 31s to trigger both QueueItem's visual completion hold (500ms)
+        // and GlobalQueue's 30s debug button retention window.
+        await act(async () => {
+            vi.advanceTimersByTime(31000);
+        });
+
+        // Now it should be allowed to disappear
+        expect(screen.queryByText(/Processing Now/i)).toBeNull();
+
+        vi.useRealTimers();
     });
 })

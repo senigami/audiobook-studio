@@ -11,18 +11,25 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
     dataTestId,
     updatedAt,
     etaSeconds,
-    evidenceWeightFraction
-  }: any) => (
-    <div
-      data-testid={dataTestId || "progress-bar"}
-      data-progress={progress}
-      data-updatedat={updatedAt}
-      data-etaseconds={etaSeconds}
-      data-confidence={evidenceWeightFraction}
-    >
-      {label}
-    </div>
-  )
+    evidenceWeightFraction,
+    onDisplayProgress
+  }: any) => {
+    React.useEffect(() => {
+      onDisplayProgress?.(progress);
+    }, [progress, onDisplayProgress]);
+
+    return (
+      <div
+        data-testid={dataTestId || "progress-bar"}
+        data-progress={progress}
+        data-updatedat={updatedAt}
+        data-etaseconds={etaSeconds}
+        data-confidence={evidenceWeightFraction}
+      >
+        {label}
+      </div>
+    );
+  }
 }));
 
 describe('QueueItem Stable ETA TDD', () => {
@@ -439,5 +446,127 @@ describe('QueueItem Stable ETA TDD', () => {
 
     const progressBar = screen.getByTestId('queue-item-progress-bar');
     expect(progressBar.getAttribute('data-progress')).toBe('0.44');
+  });
+
+  it('notifies visual pending change when entering done with progress below 1.0', () => {
+    const onVisualPendingChange = vi.fn();
+    const { rerender } = render(
+      <QueueItem
+        {...defaultProps}
+        job={{
+          ...defaultProps.job,
+          status: 'running',
+          progress: 0.7,
+        }}
+        onVisualPendingChange={onVisualPendingChange}
+      />
+    );
+
+    expect(onVisualPendingChange).toHaveBeenLastCalledWith(defaultProps.job.id, false);
+
+    // Transition to done, progress still reported as 0.7 internally or visually
+    rerender(
+      <QueueItem
+        {...defaultProps}
+        job={{
+          ...defaultProps.job,
+          status: 'done',
+          progress: 0.7,
+        }}
+        onVisualPendingChange={onVisualPendingChange}
+      />
+    );
+
+    expect(onVisualPendingChange).toHaveBeenLastCalledWith(defaultProps.job.id, true);
+  });
+
+  it('sets isVisuallyPending to true on active -> done transition even if progress is already 1.0', () => {
+    const onVisualPendingChange = vi.fn();
+    const { rerender } = render(
+      <QueueItem
+        {...defaultProps}
+        job={{
+          ...defaultProps.job,
+          status: 'running',
+          progress: 1.0,
+        }}
+        onVisualPendingChange={onVisualPendingChange}
+      />
+    );
+
+    // Should not be visually pending during running
+    expect(onVisualPendingChange).toHaveBeenLastCalledWith(defaultProps.job.id, false);
+
+    // Transition to done, progress is 1.0
+    rerender(
+      <QueueItem
+        {...defaultProps}
+        job={{
+          ...defaultProps.job,
+          status: 'done',
+          progress: 1.0,
+        }}
+        onVisualPendingChange={onVisualPendingChange}
+      />
+    );
+
+    // It should set visually pending to true because it transitioned active -> done
+    expect(onVisualPendingChange).toHaveBeenLastCalledWith(defaultProps.job.id, true);
+  });
+
+  it('retains active startedAt and etaSeconds during done transition visual pending phase', () => {
+    const onVisualPendingChange = vi.fn();
+    const { rerender } = render(
+      <QueueItem
+        {...defaultProps}
+        job={{
+          ...defaultProps.job,
+          status: 'running',
+          progress: 0.66,
+          started_at: 1000,
+        }}
+        liveJob={{
+          id: 'job-1',
+          status: 'running',
+          progress: 1.0,
+          eta_seconds: 1,
+          started_at: 1000,
+          updated_at: 1000,
+        } as any}
+        onVisualPendingChange={onVisualPendingChange}
+      />
+    );
+
+    let progressBar = screen.getByTestId('queue-item-progress-bar');
+    expect(progressBar.getAttribute('data-etaseconds')).toBe('1');
+    expect(progressBar.getAttribute('data-updatedat')).toBe('1000');
+
+    // Transition to done
+    rerender(
+      <QueueItem
+        {...defaultProps}
+        job={{
+          ...defaultProps.job,
+          status: 'done',
+          progress: 1.0,
+          started_at: 1000,
+        }}
+        liveJob={{
+          id: 'job-1',
+          status: 'done',
+          progress: 1.0,
+          eta_seconds: null,
+          started_at: 1000,
+          updated_at: 1100,
+        } as any}
+        onVisualPendingChange={onVisualPendingChange}
+      />
+    );
+
+    progressBar = screen.getByTestId('queue-item-progress-bar');
+    // While visually pending, startedAt and etaSeconds must be retained
+    expect(onVisualPendingChange).toHaveBeenLastCalledWith(defaultProps.job.id, true);
+    expect(progressBar.getAttribute('data-etaseconds')).toBe('1');
+    expect(progressBar.getAttribute('data-updatedat')).toBe('1000');
   });
 });

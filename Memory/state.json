@@ -1,14 +1,14 @@
 {
-  "snapshot_version": 168,
-  "current_task": "Fix voice-sample START_SYNTHESIS timing",
-  "status": "voice_sample_start_synthesis_timing_fixed",
+  "snapshot_version": 172,
+  "current_task": "Fix remaining PredictiveProgressBar terminal collapse bug using real QueueItem sequence",
+  "status": "terminal_collapse_and_parameter_retention_fixed",
   "last_committed_milestone": {
-    "title": "Voice-sample START_SYNTHESIS timing fixed",
+    "title": "QueueItem terminal parameter retention during done-transition fixed",
     "commit": "pending",
     "notes": [
-      "Prevented dispatch-time synthetic running status and startedAt emissions for sample_build and sample_test tasks.",
-      "Aligned synthesis start time to the real START_SYNTHESIS marker or first positive progress log, avoiding early predictive lane animation.",
-      "Verified pytest progress logic tests, Ruff linter, and git diff --check pass cleanly."
+      "Synchronously derived active-to-done transition state (justTransitionedToDone) in QueueItem's render body to prevent state update lag from stripping startedAt/etaSeconds.",
+      "Replaced prevStatusRef ref-based tracking with React state-driven prevStatus/currentStatus updates to resolve the react-hooks/refs ESLint error.",
+      "Verified that all 56 Vitest timing and queue suite tests pass, including new production sequence regressions."
     ]
   },
   "active_constraints": [
@@ -93,7 +93,7 @@
   ],
   "verification": {
     "latest_backend_focus": "2026-06-04: Voice-sample START_SYNTHESIS timing aligned to real markers; pytest test_progress_logic.py (86 tests passed).",
-    "latest_frontend_focus": "2026-06-04: PredictiveProgressBar done transition smooth animation and tick loop preservation verified via Vitest timing/rendering/lifecycle suites (52 tests passed).",
+    "latest_frontend_focus": "2026-06-04: Fixed QueueItem terminal parameter retention and resolved ESLint react-hooks/refs errors; verified with Vitest timing/queue suites (56 tests passed).",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",
     "latest_lint_focus": "2026-06-04: eslint passed on frontend with 7 existing warnings, ruff passed on backend.",

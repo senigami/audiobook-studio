@@ -501,4 +501,191 @@ describe('PredictiveProgressBar - Timing', () => {
 
         vi.useRealTimers()
     })
+
+    it('does not snap to 100 percent immediately when transitioning to done with undefined startedAt and etaSeconds', () => {
+        vi.useFakeTimers()
+        const now = 100_000
+        vi.setSystemTime(now * 1000)
+
+        let snapshot: any = null
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0.5}
+                startedAt={now - 50}
+                etaSeconds={100}
+                status="running"
+                onDebugSnapshot={(snap) => { snapshot = snap; }}
+                tickMs={250}
+            />
+        )
+
+        // Verify initial progress is near 50%
+        expect(snapshot.localProgress).toBeCloseTo(0.5, 2)
+
+        // Transition to "done" with undefined startedAt and etaSeconds
+        rerender(
+            <PredictiveProgressBar
+                progress={1.0}
+                startedAt={undefined}
+                etaSeconds={undefined}
+                status="done"
+                onDebugSnapshot={(snap) => { snapshot = snap; }}
+                tickMs={250}
+            />
+        )
+
+        // The visual progress should not immediately snap to 1.0
+        expect(snapshot.localProgress).toBeLessThan(0.99)
+
+        // It should animate to 1.0 over the configured transition duration (500ms)
+        act(() => {
+            vi.advanceTimersByTime(250)
+        })
+        expect(snapshot.localProgress).toBeGreaterThan(0.5)
+        expect(snapshot.localProgress).toBeLessThan(1.0)
+
+        // Settle at 1.0 after the transition completes
+        act(() => {
+            vi.advanceTimersByTime(250)
+        })
+        expect(snapshot.localProgress).toBe(1.0)
+
+        vi.useRealTimers()
+    })
+
+    it('does not snap to 100 percent when a done update arrives after a running progress=1.0 update', () => {
+        vi.useFakeTimers()
+        const now = 100_000
+        vi.setSystemTime(now * 1000)
+
+        let snapshot: any = null
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0.25}
+                startedAt={now - 50}
+                etaSeconds={150}
+                status="running"
+                onDebugSnapshot={(snap) => { snapshot = snap; }}
+                tickMs={250}
+            />
+        )
+
+        // Visual progress is around 25%
+        expect(snapshot.localProgress).toBeLessThan(0.3)
+
+        // 1. Send running update with progress = 1.0
+        rerender(
+            <PredictiveProgressBar
+                progress={1.0}
+                startedAt={now - 50}
+                etaSeconds={0}
+                status="running"
+                onDebugSnapshot={(snap) => { snapshot = snap; }}
+                tickMs={250}
+            />
+        )
+
+        // Advance by 1000ms (1 second) to let migration progress
+        act(() => {
+            vi.advanceTimersByTime(1000)
+        })
+        // It should have migrated halfway between 0.25 and 1.0 (since duration is 2000ms)
+        expect(snapshot.localProgress).toBeCloseTo(0.625, 1)
+
+        // 2. Send done update
+        rerender(
+            <PredictiveProgressBar
+                progress={1.0}
+                startedAt={now - 50}
+                etaSeconds={0}
+                status="done"
+                onDebugSnapshot={(snap) => { snapshot = snap; }}
+                tickMs={250}
+            />
+        )
+
+        // The visual progress should start from the last visual progress (~0.625) and not snap to 1.0
+        expect(snapshot.localProgress).toBeCloseTo(0.625, 1)
+
+        // It should animate to 1.0 over the configured transition duration (500ms)
+        act(() => {
+            vi.advanceTimersByTime(250)
+        })
+        // Halfway through 500ms done transition (from ~0.625 to 1.0), it should be around 0.81
+        expect(snapshot.localProgress).toBeCloseTo(0.81, 1)
+
+        // Settle at 1.0 after the transition completes (another 250ms)
+        act(() => {
+            vi.advanceTimersByTime(250)
+        })
+        expect(snapshot.localProgress).toBe(1.0)
+
+        vi.useRealTimers()
+    })
+
+    it('reproduces production done sequence with undefined startedAt and etaSeconds', () => {
+        vi.useFakeTimers()
+        const now = 100_000
+        vi.setSystemTime(now * 1000)
+
+        let snapshot: any = null
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0.25}
+                startedAt={now - 50}
+                etaSeconds={150}
+                status="running"
+                onDebugSnapshot={(snap) => { snapshot = snap; }}
+                tickMs={250}
+            />
+        )
+
+        expect(snapshot.localProgress).toBeLessThan(0.3)
+
+        // 1. Send running update with progress = 1.0
+        rerender(
+            <PredictiveProgressBar
+                progress={1.0}
+                startedAt={now - 50}
+                etaSeconds={1}
+                status="running"
+                onDebugSnapshot={(snap) => { snapshot = snap; }}
+                tickMs={250}
+            />
+        )
+
+        // Advance by 1000ms
+        act(() => {
+            vi.advanceTimersByTime(1000)
+        })
+
+        // 2. Send done update with startedAt = undefined and etaSeconds = undefined
+        rerender(
+            <PredictiveProgressBar
+                progress={1.0}
+                startedAt={undefined}
+                etaSeconds={undefined}
+                status="done"
+                onDebugSnapshot={(snap) => { snapshot = snap; }}
+                tickMs={250}
+            />
+        )
+
+        // Verify that visual progress did not snap to 1.0 immediately
+        expect(snapshot.localProgress).toBeLessThan(0.99)
+
+        // Advance by 250ms
+        act(() => {
+            vi.advanceTimersByTime(250)
+        })
+        expect(snapshot.localProgress).toBeLessThan(1.0)
+
+        // Settle at 1.0 after 500ms transition completes
+        act(() => {
+            vi.advanceTimersByTime(250)
+        })
+        expect(snapshot.localProgress).toBe(1.0)
+
+        vi.useRealTimers()
+    })
 })
