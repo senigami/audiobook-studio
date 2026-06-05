@@ -20,7 +20,7 @@ def trace_outbound_socket_frame(event: dict) -> None:
     project_id = ids.get("projectId")
     chapter_id = ids.get("chapterId")
     segment_id = ids.get("segmentId")
-    
+
     # Resolve source of event
     source = event.get("source") or payload.get("source")
 

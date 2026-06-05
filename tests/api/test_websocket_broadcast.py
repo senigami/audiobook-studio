@@ -1654,7 +1654,7 @@ def test_broadcast_event_payload_emits_camelcase_only(monkeypatch):
 
     assert len(messages) == 1
     payload = messages[0]["payload"]
-    
+
     assert "etaSeconds" in payload
     assert "etaUpdatedAt" in payload
     assert "eta_seconds" not in payload

@@ -21,7 +21,7 @@ def test_xtts_adapter_returns_timing_result_on_success(tmp_path):
          patch.object(plugin, "_resolve_voice_inputs", return_value=("ref.wav", None)), \
          patch.object(plugin, "_xtts_generate", return_value=0), \
          patch("pathlib.Path.exists", return_value=True):
-        
+
         result = plugin.synthesize(req)
         assert result.ok is True
         assert result.timing is not None
@@ -57,17 +57,17 @@ def test_xtts_adapter_timing_payload_contains_raw_anchors_and_segments(tmp_path)
     with patch.object(plugin, "check_request", return_value=(True, "OK")), \
          patch.object(plugin, "_xtts_generate_script", side_effect=mock_generate_script_side_effect), \
          patch("pathlib.Path.exists", return_value=True):
-        
+
         result = plugin.synthesize(req)
         assert result.ok is True
         assert result.timing is not None
         assert len(result.timing.segments) == 2
-        
+
         seg1 = result.timing.segments[0]
         assert seg1.segment_id == "seg-1"
         assert seg1.chars == len("Segment one text")
         assert seg1.render_started_at < seg1.render_completed_at
-        
+
         seg2 = result.timing.segments[1]
         assert seg2.segment_id == "seg-2"
         assert seg2.chars == len("Segment two text")
@@ -88,7 +88,7 @@ def test_xtts_adapter_fallback_when_timing_unavailable(tmp_path):
          patch.object(plugin, "_resolve_voice_inputs", return_value=("ref.wav", None)), \
          patch.object(plugin, "_xtts_generate", return_value=0), \
          patch("pathlib.Path.exists", return_value=True):
-        
+
         # If we simulate timing not being populated, we should still return ok=True
         # For example, if we mock time.time to return None or raise ValueError
         with patch("time.time", side_effect=ValueError("Time error")):
