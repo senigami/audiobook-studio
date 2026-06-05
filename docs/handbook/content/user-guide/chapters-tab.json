@@ -1,0 +1,6 @@
+{
+ "title": "Chapters",
+ "desc": "Add and manage the chapters in a project.",
+ "lede": "Chapters are the units you narrate and assemble. Add them by pasting text or uploading files.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Add a chapter by upload or paste.</li><li>See status and stats per chapter.</li><li>Reorder and delete.</li></ul></div>\n        <h2>Adding a chapter</h2>\n        <p><strong>Paste text or upload a <code>.txt</code> file.</strong> Each chapter becomes its own unit of work.</p>\n        <h2>Status &amp; stats</h2>\n        <p><strong>Each chapter shows its status and basic stats</strong> so you can see what's drafted, generated, or ready to assemble.</p>\n        <h2>Reorder &amp; delete</h2>\n        <p><strong>Reorder chapters to match your book</strong> and remove any you don't need. Order carries through to assembly.</p>"
+}

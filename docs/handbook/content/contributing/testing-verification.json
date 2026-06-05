@@ -1,0 +1,6 @@
+{
+ "title": "Testing &amp; Verification",
+ "desc": "How to verify a change end to end.",
+ "lede": "Before a change is done, it's verified — backend, lint, and frontend.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>pytest across <code>tests/</code> and plugins.</li><li>ruff for linting.</li><li>Frontend vitest / build.</li><li>Tests expected with changes.</li></ul></div>\n        <h2>What to run</h2>\n        <ul><li><strong>pytest</strong> — backend and plugin-local tests.</li><li><strong>ruff</strong> — Python linting.</li><li><strong>vitest / build</strong> — frontend tests and build.</li></ul>\n        <h2>Expectation</h2>\n        <p><strong>Changes ship with tests and a clean verification run.</strong> Plugin tests live with their plugin — see <a href=\"#plugin-sdk/testing\">Testing Your Plugin</a>.</p>"
+}

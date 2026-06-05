@@ -1,0 +1,6 @@
+{
+ "title": "Headless &amp; LAN Exposure",
+ "desc": "Running without the UI in focus and exposing on a network.",
+ "lede": "You can run Studio on a machine and reach it from elsewhere — just secure it first.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Serve on a LAN address.</li><li>Secure the gateway with a key + rate limits.</li><li>Reverse-proxy notes.</li></ul></div>\n        <h2>Serving on a LAN</h2>\n        <p><strong>Bind to a network address to reach Studio from other devices.</strong> Doing so exposes it beyond localhost, so treat security as mandatory.</p>\n        <h2>Securing it</h2>\n        <p><strong>Require the API key, apply per-IP rate limits, and consider a reverse proxy with TLS.</strong> See <a href=\"#api/auth\">Authentication &amp; Rate Limiting</a>.</p>"
+}

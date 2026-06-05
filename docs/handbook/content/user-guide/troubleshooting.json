@@ -1,0 +1,6 @@
+{
+ "title": "Troubleshooting &amp; FAQ",
+ "desc": "Common issues and how to resolve them.",
+ "lede": "Stuck? Start here. These are the issues people hit most and how to clear them.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Failed jobs &amp; retries.</li><li>Voice quality problems.</li><li>Enabling an optional cloud engine.</li><li>Long-sentence warnings.</li></ul></div>\n        <h2>Failed jobs &amp; retries</h2>\n        <p><strong>Open the job in the <a href=\"#user-guide/processing-queue\">queue</a> and read its reason.</strong> Most failures are setup-related (engine not ready, missing dependency) and clear after a retry.</p>\n        <h2>Voice quality</h2>\n        <p><strong>Poor clones usually trace back to samples.</strong> See <a href=\"#engines/voice-quality\">Voice Cloning Quality</a>.</p>\n        <h2>Enabling an optional cloud engine</h2>\n        <p><strong>Add the provider's API key in Settings.</strong> Cloud engines stay hidden until a key is present. See <a href=\"#engines/voxtral\">Cloud Engines</a>.</p>\n        <h2>Long-sentence warnings</h2>\n        <p><strong>Very long sentences may be split for the engine.</strong> If you see a warning, shortening or re-punctuating the sentence usually helps.</p>"
+}

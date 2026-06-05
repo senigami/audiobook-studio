@@ -1,0 +1,6 @@
+{
+ "title": "LLM / Controller Readiness",
+ "desc": "Forward-looking: the API surface for future LLM/controller plugins.",
+ "lede": "Looking ahead: what an LLM or external controller would need to drive Studio, and where the gaps are.",
+ "body": "<div class=\"future\"><b>Coming with 2.0 —</b> this is planning only — not built yet. It captures the direction so the API can grow toward it.</div>\n        <div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>What a controller would need from the API.</li><li>Gaps currently being verified.</li><li>Direction, not a shipped feature.</li></ul></div>\n        <h2>What a controller would need</h2>\n        <p><strong>A controller needs to discover capabilities, submit work, and observe results</strong> — list engines/voices, synthesize, and poll jobs, all of which the gateway already covers in basic form.</p>\n        <h2>Current gaps</h2>\n        <p><strong>Richer capability description and status detail are being verified</strong> as candidates for the controller surface. Nothing here is committed yet.</p>"
+}

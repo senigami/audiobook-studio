@@ -1,0 +1,7 @@
+# Python dependencies for your engine. Studio's guided "Install Dependencies" action
+# installs these into the isolated TTS Server environment.
+#
+# List only what the engine needs to RUN. Do NOT pin Studio itself or import app.*.
+# Example:
+# numpy>=1.26
+# soundfile>=0.12

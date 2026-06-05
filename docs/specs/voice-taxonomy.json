@@ -1,0 +1,126 @@
+{
+  "taxonomy_version": "1.0",
+  "description": "Machine-readable form of plans/v2_voice_tag_taxonomy.md. Drives the tagging UI and validation. 'rule' is cardinality + requiredness; values carry stable ids and display labels.",
+  "hf_tag_prefix": "as-",
+  "anchors": ["audiobook-studio-voice", "audiobook-studio-spec-v1"],
+  "sections": [
+    {
+      "key": "class", "label": "Class", "rule": "one-required",
+      "values": [
+        { "id": "human", "label": "Human" },
+        { "id": "synthetic", "label": "Synthetic / AI" },
+        { "id": "creature", "label": "Creature / Monster" },
+        { "id": "character", "label": "Stylized Character" },
+        { "id": "deity", "label": "Mythic / Narrator-God" }
+      ]
+    },
+    {
+      "key": "gender", "label": "Gender", "rule": "one-required",
+      "values": [
+        { "id": "feminine", "label": "Feminine" },
+        { "id": "masculine", "label": "Masculine" },
+        { "id": "neutral", "label": "Neutral / Androgynous" },
+        { "id": "ambiguous", "label": "Ambiguous" },
+        { "id": "not-applicable", "label": "Not applicable (non-human)" }
+      ]
+    },
+    {
+      "key": "age", "label": "Age", "rule": "one-required",
+      "values": [
+        { "id": "child", "label": "Child" },
+        { "id": "teen", "label": "Teen" },
+        { "id": "young-adult", "label": "Young adult" },
+        { "id": "adult", "label": "Adult" },
+        { "id": "middle-aged", "label": "Middle-aged" },
+        { "id": "senior", "label": "Senior / Elderly" },
+        { "id": "ageless", "label": "Ageless / Timeless" }
+      ]
+    },
+    {
+      "key": "accent", "label": "Accent", "rule": "one-optional",
+      "values": [
+        { "id": "none", "label": "Neutral / None" },
+        { "id": "us-general", "label": "American (General)" },
+        { "id": "us-southern", "label": "American (Southern)" },
+        { "id": "us-nyc", "label": "American (New York)" },
+        { "id": "us-midwest", "label": "American (Midwest)" },
+        { "id": "us-african-american", "label": "American (AAVE)" },
+        { "id": "british-rp", "label": "British (RP)" },
+        { "id": "british-cockney", "label": "British (Cockney)" },
+        { "id": "british-northern", "label": "British (Northern)" },
+        { "id": "scottish", "label": "Scottish" },
+        { "id": "irish", "label": "Irish" },
+        { "id": "welsh", "label": "Welsh" },
+        { "id": "australian", "label": "Australian" },
+        { "id": "new-zealand", "label": "New Zealand" },
+        { "id": "canadian", "label": "Canadian" },
+        { "id": "south-african", "label": "South African" },
+        { "id": "indian", "label": "Indian" },
+        { "id": "caribbean", "label": "Caribbean" },
+        { "id": "european", "label": "Continental European" },
+        { "id": "other", "label": "Other (+ Free tag)" }
+      ]
+    },
+    {
+      "key": "tone", "label": "Tone", "rule": "many-optional",
+      "values": [
+        {"id":"warm","label":"Warm"},{"id":"friendly","label":"Friendly"},{"id":"calm","label":"Calm"},
+        {"id":"soothing","label":"Soothing"},{"id":"cheerful","label":"Cheerful"},{"id":"upbeat","label":"Upbeat"},
+        {"id":"energetic","label":"Energetic"},{"id":"confident","label":"Confident"},
+        {"id":"authoritative","label":"Authoritative"},{"id":"professional","label":"Professional"},
+        {"id":"serious","label":"Serious"},{"id":"somber","label":"Somber"},{"id":"dramatic","label":"Dramatic"},
+        {"id":"intense","label":"Intense"},{"id":"epic","label":"Epic"},{"id":"mysterious","label":"Mysterious"},
+        {"id":"menacing","label":"Menacing"},{"id":"sinister","label":"Sinister"},{"id":"playful","label":"Playful"},
+        {"id":"quirky","label":"Quirky"},{"id":"sarcastic","label":"Sarcastic"},{"id":"deadpan","label":"Deadpan"},
+        {"id":"gentle","label":"Gentle"},{"id":"wise","label":"Wise"},{"id":"sensual","label":"Sensual"},
+        {"id":"melancholic","label":"Melancholic"},{"id":"heroic","label":"Heroic"},{"id":"villainous","label":"Villainous"}
+      ]
+    },
+    {
+      "key": "timbre", "label": "Timbre", "rule": "many-optional",
+      "values": [
+        {"id":"deep","label":"Deep"},{"id":"low","label":"Low"},{"id":"high-pitched","label":"High-pitched"},
+        {"id":"bright","label":"Bright"},{"id":"rich","label":"Rich"},{"id":"resonant","label":"Resonant"},
+        {"id":"booming","label":"Booming"},{"id":"smooth","label":"Smooth"},{"id":"velvety","label":"Velvety"},
+        {"id":"silky","label":"Silky"},{"id":"clear","label":"Clear"},{"id":"crisp","label":"Crisp"},
+        {"id":"soft","label":"Soft"},{"id":"breathy","label":"Breathy"},{"id":"husky","label":"Husky"},
+        {"id":"raspy","label":"Raspy"},{"id":"gravelly","label":"Gravelly"},{"id":"gritty","label":"Gritty"},
+        {"id":"rough","label":"Rough"},{"id":"nasal","label":"Nasal"},{"id":"thin","label":"Thin"},
+        {"id":"light","label":"Light"},{"id":"robotic","label":"Robotic"},{"id":"distorted","label":"Distorted"}
+      ]
+    },
+    {
+      "key": "pace", "label": "Pace", "rule": "one-optional",
+      "values": [
+        {"id":"slow","label":"Slow"},{"id":"measured","label":"Measured"},{"id":"moderate","label":"Moderate"},
+        {"id":"brisk","label":"Brisk"},{"id":"fast","label":"Fast"},{"id":"variable","label":"Variable / Expressive"}
+      ]
+    },
+    {
+      "key": "use_case", "label": "Use case", "rule": "many-optional",
+      "values": [
+        {"id":"audiobook","label":"Audiobook"},{"id":"narration","label":"Narration"},
+        {"id":"character-dialogue","label":"Character dialogue"},{"id":"storytelling","label":"Storytelling"},
+        {"id":"documentary","label":"Documentary"},{"id":"e-learning","label":"E-learning"},
+        {"id":"meditation","label":"Meditation"},{"id":"news","label":"News"},{"id":"podcast","label":"Podcast"},
+        {"id":"advertising","label":"Advertising"},{"id":"gaming","label":"Gaming"},
+        {"id":"animation","label":"Animation"},{"id":"assistant","label":"Assistant"},{"id":"ivr","label":"IVR"}
+      ]
+    },
+    {
+      "key": "quality", "label": "Quality / technical", "rule": "many-optional",
+      "values": [
+        {"id":"studio-quality","label":"Studio quality"},{"id":"clean","label":"Clean"},
+        {"id":"denoised","label":"Denoised"},{"id":"hi-fi","label":"Hi-fi"},
+        {"id":"phone-quality","label":"Phone quality"},{"id":"vintage","label":"Vintage"},
+        {"id":"multilingual","label":"Multilingual"},{"id":"expressive","label":"Expressive"},
+        {"id":"fast-inference","label":"Fast inference"}
+      ]
+    }
+  ],
+  "free_tags": {
+    "key": "tags", "label": "Free tags", "rule": "many-optional",
+    "pattern": "^[a-z0-9][a-z0-9-]*$",
+    "note": "Anything the controlled sections can't hold: cowboy, wizard, drill-sergeant, santa."
+  }
+}

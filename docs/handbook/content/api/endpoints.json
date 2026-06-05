@@ -1,0 +1,6 @@
+{
+ "title": "Endpoints Reference",
+ "desc": "The routes exposed under /api/v1/tts.",
+ "lede": "The gateway's surface is small. Here are the routes you'll use.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Discover engines.</li><li>Synthesize and preview.</li><li>Fetch job status and audio.</li></ul></div>\n        <h2>Routes</h2>\n        <table><thead><tr><th>Method &amp; path</th><th>Purpose</th></tr></thead><tbody><tr><td><code>GET /api/v1/tts/engines</code></td><td>List installed engines.</td></tr><tr><td><code>GET /api/v1/tts/engines/{id}</code></td><td>Details for one engine.</td></tr><tr><td><code>POST /api/v1/tts/synthesize</code></td><td>Synthesize text (inline or queued).</td></tr><tr><td><code>POST /api/v1/tts/preview</code></td><td>Quick preview synthesis.</td></tr><tr><td><code>GET /api/v1/tts/jobs/{id}</code></td><td>Poll a queued job's status.</td></tr><tr><td><code>GET /api/v1/tts/jobs/{id}/audio</code></td><td>Download a finished job's audio.</td></tr></tbody></table>\n        <p>See <a href=\"#api/sync-vs-queued\">Inline vs Queued + Polling</a> for how short and long text differ, and <a href=\"#api/examples\">Examples</a> for copy-paste calls.</p>"
+}

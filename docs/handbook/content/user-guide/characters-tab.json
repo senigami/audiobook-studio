@@ -1,0 +1,6 @@
+{
+ "title": "Characters",
+ "desc": "Define project characters and assign each a voice and color.",
+ "lede": "Characters let dialogue sound distinct. Define them once, give each a voice and color, and assignment does the rest.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Create a character.</li><li>Assign a voice profile/variant.</li><li>Use color coding to scan who speaks.</li></ul></div>\n        <h2>Create a character</h2>\n        <p><strong>Add the characters that appear in your book.</strong> The narrator exists by default; characters cover everyone else.</p>\n        <h2>Assign a voice</h2>\n        <p><strong>Give each character a voice (and variant).</strong> Their assigned lines render in that voice. See <a href=\"#concepts/characters-narrators\">Characters &amp; Narrators</a>.</p>\n        <h2>Color coding</h2>\n        <p><strong>Each character gets a color</strong> so you can scan a chapter and see who speaks which lines at a glance.</p>\n        <div class=\"future\"><b>Coming with 2.0 —</b> AI voice casting can suggest a fitting voice per character from your library, with a reason — you confirm the picks.</div>"
+}

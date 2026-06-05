@@ -1,0 +1,6 @@
+{
+ "title": "Testing Your Plugin",
+ "desc": "Keeping tests and fixtures inside the plugin folder.",
+ "lede": "Tests travel with the plugin, so an engine repo proves itself wherever it lives.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Plugin-local <code>tests/</code> are collected by pytest.</li><li>A contract test checks the required surface.</li><li>Fixtures and generated outputs live with the plugin.</li></ul></div>\n        <h2>Plugin-local tests</h2>\n        <p><strong>Keep tests inside the plugin folder.</strong> They're collected alongside the app's tests, so the engine is verified in place.</p>\n        <h2>The contract test</h2>\n        <p><strong>A contract test confirms the engine implements the required methods</strong> with the expected behavior — the fastest way to catch a broken plugin.</p>\n        <h2>Fixtures</h2>\n        <p><strong>Ship fixtures (and any generated outputs) with the plugin</strong> so tests are deterministic and self-contained.</p>"
+}

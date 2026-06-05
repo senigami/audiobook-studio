@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Example TTS settings",
+  "description": "Schema-driven settings form rendered by Studio. Replace with your engine's real options.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "api_key": {
+      "type": "string",
+      "title": "API key",
+      "description": "Only for cloud engines. Rendered as a password field.",
+      "format": "password"
+    },
+    "speed": {
+      "type": "number",
+      "title": "Speaking rate",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0
+    },
+    "model": {
+      "type": "string",
+      "title": "Model",
+      "enum": ["base", "large"],
+      "default": "base"
+    }
+  }
+}
