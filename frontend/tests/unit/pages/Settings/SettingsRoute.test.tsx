@@ -19,6 +19,7 @@ vi.mock('@/api', () => ({
     refreshPlugins: vi.fn(),
     updateEngineSettings: vi.fn(),
     clearEngineSetting: vi.fn(),
+    resetEngineCalibration: vi.fn(),
     verifyEngine: vi.fn(),
     installEngineDependencies: vi.fn(),
     removeEnginePlugin: vi.fn(),
@@ -377,20 +378,32 @@ describe('SettingsRoute', () => {
     });
   });
 
-  it('resets the computed computer speed setting through the engine card', async () => {
+  it('resets the computed computer speed baseline through the engine card', async () => {
+    // Give XTTS a calibration summary so the "Reset Baseline" control is enabled.
+    const xttsWithCalibration = {
+      ...mockedEngines[0],
+      calibrated_cps: 12.5,
+      calibration_sample_count: 5,
+      calibration_since: 1_700_000_000,
+      calibration_confidence_percent: 85,
+    };
+    vi.mocked(api.fetchEngines).mockResolvedValue([xttsWithCalibration, mockedEngines[1]] as any);
     render(
       <MemoryRouter initialEntries={['/settings/engines']}>
-        <SettingsRoute {...defaultProps} />
+        <SettingsRoute {...defaultProps} engines={[xttsWithCalibration, mockedEngines[1]] as any} />
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByText('XTTS Local'));
-    fireEvent.click(screen.getByRole('button', { name: 'Reset Baseline' }));
+    const xttsHeader = await screen.findByText('XTTS Local');
+    fireEvent.click(xttsHeader);
+    // Each engine card renders its own calibration "Reset Baseline" button, so
+    // scope the query to the XTTS card rather than matching every engine's button.
+    const xttsCard = xttsHeader.closest('details') as HTMLElement;
+    fireEvent.click(within(xttsCard).getByRole('button', { name: 'Reset Baseline' }));
 
     await waitFor(() => {
-      expect(api.clearEngineSetting).toHaveBeenCalledWith('xtts-local', 'computer_speed_multiplier');
-      expect(defaultProps.onShowNotification).toHaveBeenCalledWith('XTTS Local baseline reset.');
-      expect(defaultProps.onRefresh).toHaveBeenCalled();
+      expect(api.resetEngineCalibration).toHaveBeenCalledWith('xtts-local');
+      expect(defaultProps.onShowNotification).toHaveBeenCalledWith('XTTS Local calibration history reset.');
     });
   });
 

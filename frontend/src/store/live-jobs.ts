@@ -240,13 +240,17 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     if (event.active_render_batch_progress !== undefined) {
       nextDelta.active_render_batch_progress = event.active_render_batch_progress;
     }
-    if (event.scope === 'segment') {
-      if (event.active_segment_id !== undefined) {
-        nextDelta.active_segment_id = event.active_segment_id;
-      }
-      if (event.active_segment_progress !== undefined) {
-        nextDelta.active_segment_progress = event.active_segment_progress;
-      }
+    // Clearing (explicit null) applies regardless of scope so callers can reset
+    // the active segment; setting a concrete value only applies on segment scope.
+    if (event.active_segment_id === null) {
+      nextDelta.active_segment_id = null;
+    } else if (event.scope === 'segment' && event.active_segment_id !== undefined) {
+      nextDelta.active_segment_id = event.active_segment_id;
+    }
+    if (event.active_segment_progress === null) {
+      nextDelta.active_segment_progress = null;
+    } else if (event.scope === 'segment' && event.active_segment_progress !== undefined) {
+      nextDelta.active_segment_progress = event.active_segment_progress;
     }
     if (event.render_group_count !== undefined) {
       nextDelta.render_group_count = event.render_group_count;
