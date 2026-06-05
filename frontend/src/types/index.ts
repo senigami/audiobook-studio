@@ -1,5 +1,6 @@
 export type Engine = string;
 export type VoiceEngine = string;
+export type JobClassification = 'job' | 'chapter' | 'segment';
 
 export interface TtsEngine {
   engine_id: string;
@@ -33,6 +34,17 @@ export interface TtsEngine {
     generated_at: number | string;
     message?: string;
   };
+  calibrated_cps?: number | null;
+  calibration_sample_count?: number | null;
+  calibration_since?: number | null;
+  calibration_confidence_percent?: number | null;
+  dev?: {
+    enabled?: boolean;
+    scenarios?: string;
+  };
+  behavior?: Record<string, any>;
+  logo_url?: string;
+  built_in?: boolean;
 }
 
 export type Status = 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'error';
@@ -69,30 +81,6 @@ export interface ChapterSegment {
   audio_file_path: string | null;
   audio_status: 'unprocessed' | 'processing' | 'done' | 'error' | 'failed' | 'cancelled';
   audio_generated_at: number | null;
-}
-
-export interface ProductionBlock {
-  id: string;
-  order_index: number;
-  text: string;
-  character_id: string | null;
-  speaker_profile_name: string | null;
-  status: string;
-  source_segment_ids: string[];
-}
-
-export interface ProductionRenderBatch {
-  id: string;
-  block_ids: string[];
-  status: string;
-  estimated_work_weight: number;
-}
-
-export interface ProductionBlocksResponse {
-  chapter_id: string;
-  base_revision_id: string | null;
-  blocks: ProductionBlock[];
-  render_batches: ProductionRenderBatch[];
 }
 
 export interface ScriptSpan {
@@ -186,9 +174,11 @@ export interface Chapter {
 
 export interface ProcessingQueueItem {
   id: string;
-  project_id: string;
-  chapter_id: string;
+  project_id?: string | null;
+  chapter_id?: string | null;
   split_part: number;
+  parent_job_id?: string | null;
+  classification?: JobClassification;
   status: Status;
   created_at: number;
   completed_at: number | null;
@@ -200,6 +190,7 @@ export interface ProcessingQueueItem {
   eta_basis?: 'remaining_from_update' | 'total_from_start';
   started_at?: number;
   log?: string;
+  error?: string | null;
   custom_title?: string;
   predicted_audio_length?: number;
   char_count?: number;
@@ -209,6 +200,8 @@ export interface ProcessingQueueItem {
   chapter_audio_status?: Chapter['audio_status'];
   chapter_audio_file_path?: string | null;
   updated_at?: number;
+  eta_updated_at?: number;
+  confidence?: number;
   render_group_count?: number;
   completed_render_groups?: number;
   active_render_group_index?: number;
@@ -217,6 +210,11 @@ export interface ProcessingQueueItem {
   active_render_group_weight?: number;
   active_segment_id?: string | null;
   active_segment_progress?: number;
+  audio_length_seconds?: number;
+  produced_audio_length?: number;
+  produced_chars?: number;
+  produced_word_count?: number;
+  produced_segment_count?: number;
 }
 
 export interface SpeakerProfile {
@@ -240,6 +238,7 @@ export interface SpeakerProfile {
   samples_detailed?: Array<{ name: string; is_new: boolean }>;
   is_ready?: boolean;
   readiness_message?: string;
+  settings?: Record<string, any>;
 }
 
 export interface Speaker {
@@ -256,11 +255,15 @@ export interface Job {
   chapter_file: string;
   status: Status;
   created_at: number;
+  parent_job_id?: string | null;
   project_id?: string;
   chapter_id?: string;
+  classification?: JobClassification;
   started_at?: number;
   updated_at?: number;
+  eta_updated_at?: number;
   finished_at?: number;
+  completed_at?: number | null;
   safe_mode: boolean;
   make_mp3: boolean;
   progress: number;
@@ -268,6 +271,7 @@ export interface Job {
   estimated_end_at?: number;
   eta_basis?: 'remaining_from_update' | 'total_from_start';
   eta_confidence?: 'estimating' | 'stable' | 'recomputing';
+  confidence?: number;
   log?: string;
   error?: string;
   reason_code?: string;
@@ -277,10 +281,17 @@ export interface Job {
   narrator_meta?: string;
   output_wav?: string | null;
   output_mp3?: string | null;
+  audio_length_seconds?: number;
+  produced_audio_length?: number;
+  produced_chars?: number;
+  produced_segment_count?: number;
   speaker_profile?: string | null;
   segment_ids?: string[];
   active_segment_id?: string | null;
   active_segment_progress?: number;
+  active_segment_eta_seconds?: number | null;
+  active_segment_eta_basis?: string | null;
+  active_segment_updated_at?: number | null;
   render_group_count?: number;
   completed_render_groups?: number;
   active_render_group_index?: number;
@@ -290,6 +301,9 @@ export interface Job {
   grouped_progress?: number;
   active_render_batch_id?: string | null;
   active_render_batch_progress?: number;
+  segmentProgressUpdates?: any[];
+  has_segment_support?: boolean;
+  hasSegmentSupport?: boolean;
 }
 
 export interface SegmentProgress {

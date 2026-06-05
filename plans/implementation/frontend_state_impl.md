@@ -27,6 +27,10 @@ Owned by the store:
 
 The live overlay transport should be websocket-first. REST is for initial hydration, reconnect recovery, and explicit user-driven refreshes, not for steady-state progress polling.
 
+The canonical contract for websocket transport, live event topics, consumers,
+diagnostics logs, queue updates, and segment progress is
+[`live_event_stream_contract.md`](live_event_stream_contract.md).
+
 ### Local Editor Session State
 
 Owned by the store or feature-local session layer:

@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -33,7 +33,7 @@ from app.tts_server.health import (
 from app.engines.enablement import can_enable_engine
 from app.tts_server.plugin_loader import LoadedPlugin, discover_plugins
 from app.tts_server.settings_store import load_settings, merge_settings, save_settings
-from app.tts_server.verification import verify_all, verify_plugin
+from app.tts_server.verification import verify_plugin
 
 logger = logging.getLogger(__name__)
 
@@ -75,11 +75,12 @@ def _plugin_by_id(engine_id: str) -> LoadedPlugin:
 # ---------------------------------------------------------------------------
 
 def load_plugins(plugins_dir: Path) -> None:
-    """Discover, load, and verify all plugins.
+    """Discover and load all plugins.
 
     Called by the entry point after the server configuration is applied.
-    Thread-safe — writes to the shared plugin list under the lock.
-    Verification runs in a background thread to avoid blocking startup.
+    Thread-safe — writes to the shared plugin list under the lock. Verification
+    synthesis is intentionally not run here; plugin ``run_test()`` may generate
+    audio and must only run from the explicit engine verify action in Settings.
 
     Args:
         plugins_dir: Absolute path to the ``plugins/`` directory.
@@ -92,14 +93,7 @@ def load_plugins(plugins_dir: Path) -> None:
         _plugins = discovered
         _plugins_dir = plugins_dir
 
-    def _bg_verify():
-        try:
-            verify_all(discovered)
-        except Exception:
-            logger.exception("Unexpected error during background plugin verification")
-
-    threading.Thread(target=_bg_verify, name="TtsPluginVerification", daemon=True).start()
-    logger.info("Discovered %d plugin(s) from %s. Verification started in background.", len(discovered), plugins_dir)
+    logger.info("Discovered %d plugin(s) from %s. Verification is manual.", len(discovered), plugins_dir)
 
 
 @app.on_event("startup")
@@ -231,7 +225,7 @@ def update_engine_settings(
             current_settings=merged,
             built_in=bool(getattr(plugin.manifest, "built_in", False)),
             verified=bool(getattr(plugin, "verified", False)),
-            status=engine_status(plugin),
+            status=engine_status(plugin, current_settings=merged),
             behavior=plugin.manifest.get("behavior"),
         )
         if not can_enable:
@@ -342,13 +336,54 @@ def install_dependencies(engine_id: str) -> dict[str, Any]:
     try:
         # Use sys.executable to ensure we use the same venv.
         cmd = [sys.executable, "-m", "pip", "install", "-r", str(req_file)]
-        # We use check_call for simplicity, but in a real app we might want to stream logs.
-        subprocess.check_call(cmd)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            output = "\n".join(
+                part.strip()
+                for part in (result.stderr, result.stdout)
+                if part and part.strip()
+            )
+            output = output[-4000:]
+            detail = (
+                f"Dependency installation failed for {engine_id} "
+                f"(exit {result.returncode})."
+            )
+            if output:
+                detail = f"{detail}\n{output}"
+            logger.error("Pip install failed for %s: %s", engine_id, detail)
+            raise HTTPException(status_code=500, detail=detail)
 
         # Re-check dependencies and update plugin state.
         deps_ok, missing = _check_dependencies(plugin.plugin_dir)
         plugin.dependencies_satisfied = deps_ok
         plugin.missing_dependencies = missing
+
+        # If dependencies are now satisfied, try to recover the plugin state.
+        if deps_ok:
+            if plugin.engine is not None:
+                # Re-run check_env to update setup_message.
+                try:
+                    ok, msg = plugin.engine.check_env()
+                    if ok:
+                        plugin.setup_message = None
+                    else:
+                        plugin.setup_message = str(msg or "Setup required.")
+                except Exception as exc:
+                    plugin.setup_message = f"check_env() crashed: {exc}"
+            elif plugin.load_error:
+                # Attempt to reload the plugin entirely.
+                from app.tts_server.plugin_loader import _load_plugin  # noqa: PLC0415
+                try:
+                    new_plugin = _load_plugin(plugin_dir=plugin.plugin_dir, folder_name=plugin.folder_name)
+                    # Update our shared state with the new loaded plugin.
+                    with _state_lock:
+                        for i, p in enumerate(_plugins):
+                            if p.engine_id == engine_id:
+                                _plugins[i] = new_plugin
+                                plugin = new_plugin
+                                break
+                except Exception as exc:
+                    logger.debug("Reload after install failed for %s: %s", engine_id, exc)
 
         return {
             "ok": True,
@@ -356,14 +391,51 @@ def install_dependencies(engine_id: str) -> dict[str, Any]:
             "dependencies_satisfied": deps_ok,
             "missing_dependencies": missing,
         }
-    except subprocess.CalledProcessError as exc:
-        logger.error("Pip install failed for %s: %s", engine_id, exc)
-        raise HTTPException(
-            status_code=500, detail=f"Dependency installation failed: {exc}"
-        ) from exc
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("Unexpected error installing dependencies for %s", engine_id)
         raise HTTPException(status_code=500, detail=f"Unexpected error: {exc}") from exc
+
+
+@app.delete("/engines/{engine_id}")
+def delete_engine(engine_id: str) -> dict[str, Any]:
+    """Uninstall a plugin by shutting it down and deleting its directory."""
+    plugin = _plugin_by_id(engine_id)
+
+    # Protect built-in plugins from deletion.
+    if plugin.manifest.get("built_in"):
+        raise HTTPException(
+            status_code=403,
+            detail="Built-in plugins cannot be uninstalled.",
+        )
+
+    # 1. Shutdown the engine.
+    if plugin.engine is not None:
+        try:
+            plugin.engine.shutdown()
+        except Exception as exc:
+            logger.warning("Shutdown failed during deletion for %s: %s", engine_id, exc)
+
+    # 2. Delete the directory.
+    import shutil
+    try:
+        if plugin.plugin_dir.exists():
+            shutil.rmtree(plugin.plugin_dir)
+            logger.info("Deleted plugin directory: %s", plugin.plugin_dir)
+    except OSError as exc:
+        logger.error("Failed to delete plugin directory %s: %s", plugin.plugin_dir, exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete plugin directory: {exc}",
+        ) from exc
+
+    # 3. Remove from memory.
+    with _state_lock:
+        global _plugins
+        _plugins = [p for p in _plugins if p.engine_id != engine_id]
+
+    return {"ok": True, "message": f"Successfully uninstalled plugin {engine_id}"}
 
 
 @app.post("/engines/{engine_id}/verify")
@@ -398,11 +470,21 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
 
     plugin = _plugin_by_id(body.engine_id)
 
-    if not plugin.verified:
-        status = engine_status(plugin)
+    status = engine_status(plugin)
+    if status in {"needs_setup", "invalid_config"}:
         raise HTTPException(
             status_code=503,
-            detail=f"Engine {body.engine_id} is not verified (status: {status})",
+            detail=f"Engine {body.engine_id} is not ready (status: {status})",
+        )
+    if getattr(plugin, "verification_error", None):
+        raise HTTPException(
+            status_code=503,
+            detail=f"Engine {body.engine_id} failed verification: {plugin.verification_error}",
+        )
+    if not plugin.verified:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Engine {body.engine_id} has not passed verification.",
         )
 
     # Load persisted settings and merge with request overrides.
@@ -465,13 +547,82 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
     if result.output_path:
         h.postprocess_audio(result.output_path, merged_settings)
 
-    return {
+    timing_dict = None
+    if getattr(result, "timing", None) is not None:
+        t = result.timing
+        def get_val(obj, key):
+            if isinstance(obj, dict):
+                return obj.get(key)
+            return getattr(obj, key, None)
+
+        segments_raw = get_val(t, "segments")
+        segments_list = None
+        if segments_raw is not None:
+            segments_list = []
+            for s in segments_raw:
+                segments_list.append({
+                    "segment_id": get_val(s, "segment_id"),
+                    "render_started_at": get_val(s, "render_started_at"),
+                    "render_completed_at": get_val(s, "render_completed_at"),
+                    "chars": get_val(s, "chars")
+                })
+
+        engine_activity_started_at = get_val(t, "engine_activity_started_at")
+        chapter_render_started_at = get_val(t, "chapter_render_started_at")
+        chapter_render_completed_at = get_val(t, "chapter_render_completed_at")
+        model_load_seconds = None
+        synthesis_duration_seconds = None
+        sum_segment_render_seconds = None
+        inter_group_overhead_seconds = None
+
+        if chapter_render_started_at is not None and chapter_render_completed_at is not None:
+            synthesis_duration_seconds = chapter_render_completed_at - chapter_render_started_at
+            if engine_activity_started_at is not None:
+                model_load_seconds = chapter_render_started_at - engine_activity_started_at
+
+            if segments_list:
+                valid_segments = [
+                    s for s in segments_list
+                    if s.get("render_started_at") is not None and s.get("render_completed_at") is not None
+                ]
+                if valid_segments:
+                    sum_segment_render_seconds = sum(
+                        max(0.0, float(s["render_completed_at"]) - float(s["render_started_at"]))
+                        for s in valid_segments
+                    )
+                    first_segment_start = min(float(s["render_started_at"]) for s in valid_segments)
+                    last_segment_end = max(float(s["render_completed_at"]) for s in valid_segments)
+                    inter_group_overhead_seconds = max(
+                        0.0,
+                        (last_segment_end - first_segment_start) - sum_segment_render_seconds,
+                    )
+            if sum_segment_render_seconds is None:
+                sum_segment_render_seconds = synthesis_duration_seconds
+            if inter_group_overhead_seconds is None:
+                inter_group_overhead_seconds = 0.0
+
+        timing_dict = {
+            "chapter_render_started_at": chapter_render_started_at,
+            "chapter_render_completed_at": chapter_render_completed_at,
+            "engine_activity_started_at": engine_activity_started_at,
+            "segments": segments_list,
+            "model_load_seconds": model_load_seconds,
+            "synthesis_duration_seconds": synthesis_duration_seconds,
+            "sum_segment_render_seconds": sum_segment_render_seconds,
+            "inter_group_overhead_seconds": inter_group_overhead_seconds,
+        }
+
+    response_payload = {
         "ok": True,
         "engine_id": body.engine_id,
         "output_path": result.output_path,
         "duration_sec": result.duration_sec,
         "warnings": result.warnings,
     }
+    if timing_dict is not None:
+        response_payload["timing"] = timing_dict
+
+    return response_payload
 
 
 @app.post("/preview")
@@ -566,9 +717,9 @@ def plan_synthesis(engine_id: str, body: SynthesizeRequest) -> dict[str, Any]:
 def refresh_plugins() -> dict[str, Any]:
     """Re-scan the plugins directory without restarting the TTS Server.
 
-    Newly added plugins are loaded and verified.  Removed plugins are
-    unloaded.  Existing plugins that are already loaded are not reloaded
-    unless their folder was removed and re-added.
+    Newly added plugins are loaded with persisted verification state only.
+    Removed plugins are unloaded. Existing plugins that are already loaded are
+    not reloaded unless their folder was removed and re-added.
     """
     with _state_lock:
         current_dir = _plugins_dir
@@ -591,4 +742,89 @@ def refresh_plugins() -> dict[str, Any]:
     return {
         "ok": True,
         "loaded_count": new_count,
+    }
+
+
+@app.post("/plugins/import")
+async def import_plugin(file: UploadFile = File(...)) -> dict[str, Any]:
+    """Import a plugin from a .zip file."""
+    import io
+    import json
+    import zipfile
+    import shutil
+    from pathlib import PurePosixPath
+
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        raise HTTPException(status_code=400, detail="Only .zip files are supported.")
+
+    content = await file.read()
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(content))
+    except zipfile.BadZipFile as exc:
+        raise HTTPException(status_code=400, detail="Invalid zip file.") from exc
+
+    with zf:
+        # 1. Path safety and member list
+        members = zf.infolist()
+        for member in members:
+            path = PurePosixPath(member.filename)
+            if path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
+                raise HTTPException(status_code=400, detail=f"Unsafe path in zip: {member.filename}")
+
+        # 2. Check for manifest.json
+        manifest_names = [m.filename for m in members if m.filename.lower() == "manifest.json"]
+        if not manifest_names:
+            raise HTTPException(status_code=400, detail="Plugin zip is missing manifest.json")
+
+        try:
+            manifest_data = json.loads(zf.read(manifest_names[0]).decode("utf-8"))
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid manifest.json: {exc}") from exc
+
+        # 2b. Check for optional settings_schema.json
+        schema_names = [m.filename for m in members if m.filename.lower() == "settings_schema.json"]
+        if schema_names:
+            try:
+                schema_data = json.loads(zf.read(schema_names[0]).decode("utf-8"))
+                if not isinstance(schema_data, dict):
+                    raise ValueError("settings_schema.json must be a dictionary (object) at the root.")
+            except Exception as exc:
+                raise HTTPException(status_code=400, detail=f"Invalid settings_schema.json: {exc}") from exc
+
+        # 3. Validate engine_id
+        engine_id = manifest_data.get("engine_id")
+        if not engine_id:
+            raise HTTPException(status_code=400, detail="manifest.json missing engine_id")
+
+        import re
+        if not re.fullmatch(r"[a-z][a-z0-9_]{1,14}", engine_id):
+            raise HTTPException(status_code=400, detail=f"Invalid engine_id: {engine_id}")
+
+        # 4. Check for conflicts
+        target_folder = f"tts_{engine_id}"
+        target_dir = _plugins_dir / target_folder
+        if target_dir.exists():
+            raise HTTPException(status_code=409, detail=f"Plugin folder {target_folder} already exists.")
+
+        # 5. Extract to staging
+        import uuid
+        staging_dir = _plugins_dir / f".import_{uuid.uuid4().hex}"
+        try:
+            staging_dir.mkdir(parents=True)
+            zf.extractall(staging_dir)
+
+            # 6. Atomic-ish move
+            staging_dir.rename(target_dir)
+        except Exception as exc:
+            if staging_dir.exists():
+                shutil.rmtree(staging_dir)
+            raise HTTPException(status_code=500, detail=f"Failed to extract plugin: {exc}") from exc
+
+    # 7. Refresh plugins in memory
+    load_plugins(_plugins_dir)
+
+    return {
+        "ok": True,
+        "message": f"Successfully imported plugin {engine_id}",
+        "engine_id": engine_id,
     }

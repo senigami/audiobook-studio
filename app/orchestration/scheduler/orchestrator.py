@@ -219,12 +219,6 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         if result.status == "completed":
             self._publish(
                 context=context,
-                status="finalizing",
-                progress=0.99,
-                message="Synthesis complete, finalizing outputs.",
-            )
-            self._publish(
-                context=context,
                 status="completed",
                 progress=1.0,
                 message="Task completed successfully.",
@@ -268,15 +262,28 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             task_id = context.task_id
             prior_status = context.payload.get("_recovered_from_status", "unknown")
 
+            # Resolve has_segment_support capability from engine
+            has_segment_support = False
+            if context.payload:
+                engine_id = context.payload.get("engine_id") or context.payload.get("engine")
+                if engine_id:
+                    from app.engines.behavior import uses_segment_orchestration, supports_segment_rendering
+                    has_segment_support = bool(
+                        uses_segment_orchestration(engine_id) or supports_segment_rendering(engine_id)
+                    )
+
             # Publish recovery reset event — allow progress regression because we
             # are explicitly resetting state from a previous run.
             self.progress_service.publish(
                 job_id=task_id,
                 status="preparing",
+                parent_job_id=context.project_id,
+                chapter_id=context.chapter_id,
                 message=f"Recovering from interrupted {prior_status} state.",
                 reason_code="recovery_resumed",
                 allow_progress_regression=True,
                 force=True,
+                has_segment_support=has_segment_support,
             )
 
             # Reconcile this job's work scope against current artifacts.
@@ -289,9 +296,12 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                     job_id=task_id,
                     status="completed",
                     progress=1.0,
+                    parent_job_id=context.project_id,
+                    chapter_id=context.chapter_id,
                     message="All artifacts already valid — recovery complete without re-synthesis.",
                     reason_code="recovery_reused",
                     force=True,
+                    has_segment_support=has_segment_support,
                 )
                 logger.info("Recovery: task %s — all artifacts valid, skipped.", task_id)
                 recovered_ids.append(task_id)
@@ -301,10 +311,13 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             self.progress_service.publish(
                 job_id=task_id,
                 status="queued",
+                parent_job_id=context.project_id,
+                chapter_id=context.chapter_id,
                 message="Unresolved batches re-queued after recovery. Resuming...",
                 reason_code="recovery_requeued",
                 allow_progress_regression=True,
                 force=True,
+                has_segment_support=has_segment_support,
             )
             logger.info(
                 "Recovery: task %s — decision=%s, re-queued %d unresolved batch(es).",
@@ -417,13 +430,18 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         return True
 
 
+_GLOBAL_ORCHESTRATOR = None
+
 def create_orchestrator() -> TaskOrchestrator:
     """Create the TaskOrchestrator with production dependency wiring.
 
     Returns:
         TaskOrchestrator: Ready for use by API route handlers and boot sequence.
     """
-    return TaskOrchestrator(
-        progress_service=create_progress_service(),
-        voice_bridge=create_voice_bridge(),
-    )
+    global _GLOBAL_ORCHESTRATOR
+    if _GLOBAL_ORCHESTRATOR is None:
+        _GLOBAL_ORCHESTRATOR = TaskOrchestrator(
+            progress_service=create_progress_service(),
+            voice_bridge=create_voice_bridge(),
+        )
+    return _GLOBAL_ORCHESTRATOR

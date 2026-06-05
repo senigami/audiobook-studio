@@ -7,7 +7,7 @@ import { useVoicesData } from '@/hooks/useVoicesData';
 import { useVoicesTabActions } from '@/hooks/useVoicesTabActions';
 import { VoicesTabHeader } from '@/pages/Voices/components/VoicesTabHeader';
 import { VoicesTabContent } from '@/pages/Voices/components/VoicesTabContent';
-import { getDefaultEngineId } from '@/utils/voiceProfiles';
+import { getDefaultEngineId, isVoiceProfileSelectable } from '@/utils/voiceProfiles';
 
 interface VoicesTabProps {
     onRefresh: () => void | Promise<void>;
@@ -88,7 +88,9 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 onAddVariant={(s, profiles) => {
                     state.setAddVariantSpeaker({ speaker: s, nextVariantNum: profiles.length + 1 });
                     state.setNewVariantNameModal(`Variant ${profiles.length + 1}`);
-                    state.setNewVariantEngine(profiles[0]?.engine || getDefaultEngineId(engines));
+                    state.setNewVariantEngine(
+                        profiles.find(profile => isVoiceProfileSelectable(profile, engines))?.engine || getDefaultEngineId(engines)
+                    );
                     state.setIsAddVariantModalOpen(true);
                 }}
                 onMoveVariant={(p) => {
@@ -155,6 +157,8 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 setReferenceSample={state.setReferenceSample}
                 engineVoiceId={state.engineVoiceId}
                 setEngineVoiceId={state.setEngineVoiceId}
+                editingSettings={state.editingSettings}
+                setEditingSettings={state.setEditingSettings}
                 isSavingText={state.isSavingText}
                 handleResetTestText={actions.handleResetTestText}
                 handleSaveTestText={actions.handleSaveTestText}

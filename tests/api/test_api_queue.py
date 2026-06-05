@@ -33,7 +33,12 @@ def clean_db(tmp_path):
     if os.path.exists(db_path):
         os.unlink(db_path)
 
-def test_queue_api(clean_db, client):
+def test_queue_api(clean_db, voices_root, client):
+    default_profile_dir = voices_root / "DefaultVoice" / "Default"
+    default_profile_dir.mkdir(parents=True, exist_ok=True)
+    (default_profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "xtts"}))
+    (voices_root / "DefaultVoice" / "voice.json").write_text(json.dumps({"version": 2, "name": "DefaultVoice"}))
+
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     prefix = uuid.uuid4().hex[:6]
@@ -75,6 +80,25 @@ def test_queue_api(clean_db, client):
     # Clear completed
     response = client.post("/api/processing_queue/clear_completed")
     assert response.status_code == 200
+
+
+def test_failed_queue_items_expose_error_reason(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.queue import add_to_queue, update_queue_item
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    qid = add_to_queue(pid, cid)
+
+    update_queue_item(qid, "running")
+    update_queue_item(qid, "failed", error="Stitching failed (rc=1)")
+
+    response = client.get("/api/processing_queue")
+    assert response.status_code == 200
+    row = next(item for item in response.json() if item["id"] == qid)
+    assert row["status"] == "failed"
+    assert row["error"] == "Stitching failed (rc=1)"
 
 
 
@@ -302,3 +326,116 @@ def test_processing_queue_hydrates_preparing_progress_for_reload(clean_db, clien
     row = next(item for item in response.json() if item["id"] == jid)
     assert row["status"] == "preparing"
     assert row["progress"] == 0.0
+
+
+def test_processing_queue_returns_completed_output_metadata_without_duplicate_rows(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.performance import record_render_sample
+    from app.db.queue import upsert_queue_row, update_queue_item
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    jid = "job-output-metadata"
+    completed_at = time.time()
+
+    upsert_queue_row(jid, project_id=pid, chapter_id=cid, status="queued", engine="mixed")
+    update_queue_item(jid, "running")
+    record_render_sample(
+        engine="mixed",
+        chars=100,
+        word_count=20,
+        segment_count=2,
+        duration_seconds=4.0,
+        audio_duration_seconds=10.0,
+        job_id=jid,
+        project_id=pid,
+        chapter_id=cid,
+        completed_at=completed_at - 5,
+        synthesis_duration_seconds=3.5,
+    )
+    record_render_sample(
+        engine="mixed",
+        chars=1234,
+        word_count=250,
+        segment_count=5,
+        duration_seconds=8.0,
+        audio_duration_seconds=75.4,
+        job_id=jid,
+        project_id=pid,
+        chapter_id=cid,
+        completed_at=completed_at,
+        synthesis_duration_seconds=7.0,
+    )
+    update_queue_item(jid, "done", audio_length_seconds=75.4, output_file=f"{cid}.wav")
+
+
+    response = client.get("/api/processing_queue")
+    assert response.status_code == 200
+    rows = [item for item in response.json() if item["id"] == jid]
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["status"] == "done"
+    assert row["audio_length_seconds"] == 75.4
+    assert row["produced_audio_length"] == 75.4
+    assert row["produced_chars"] == 1234
+    assert row["produced_word_count"] == 250
+    assert row["produced_segment_count"] == 5
+
+
+def test_queue_never_returns_simulated_finalizing(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.core import get_connection
+    import time
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    now = time.time()
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, completed_at, engine)
+            VALUES (?, ?, ?, 0, 'done', ?, ?, 'voxtral')
+            """,
+            ("job-test-finalizing", pid, cid, now - 5, now - 2),
+        )
+        conn.commit()
+
+    # Even if engine is voxtral (which declares simulated_finalizing), and completed within 12 seconds
+    # and has no audio, it must NOT return status "finalizing".
+    response = client.get("/api/processing_queue")
+    assert response.status_code == 200
+    rows = {item["id"]: item for item in response.json()}
+    assert rows["job-test-finalizing"]["status"] == "done"
+
+
+def test_processing_queue_hydrates_classification(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.queue import upsert_queue_row, update_queue_item
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    jid = "job-classification-test"
+
+    put_job(Job(
+        id=jid,
+        project_id=pid,
+        chapter_id=cid,
+        chapter_file=f"{cid}_0.txt",
+        status="running",
+        created_at=time.time(),
+        engine="xtts",
+    ))
+    upsert_queue_row(jid, project_id=pid, chapter_id=cid, status="queued", engine="xtts")
+    update_queue_item(jid, "running")
+
+    response = client.get("/api/processing_queue")
+    assert response.status_code == 200
+
+    row = next(item for item in response.json() if item["id"] == jid)
+    assert row["classification"] == "chapter"

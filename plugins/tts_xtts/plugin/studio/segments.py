@@ -14,6 +14,11 @@ from .helpers import (
     _group_job_progress
 )
 
+_SKIP_LIVE_BROADCASTS = {
+    "skip_studio_job_event": True,
+    "skip_job_updated": True,
+}
+
 
 def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, speed, pdir):
     from app.db import get_chapter_segments, update_segment
@@ -70,7 +75,11 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
     j.render_group_count = total_requested_groups
     j.completed_render_groups = 0
     j.active_render_group_index = 0
-    xtts_facade.update_job(jid, **_group_display_updates(0, total_requested_groups, 0.0, limit=1.0, group_weights=requested_group_weights))
+    xtts_facade.update_job(
+        jid,
+        **_group_display_updates(0, total_requested_groups, 0.0, limit=1.0, group_weights=requested_group_weights),
+        **_SKIP_LIVE_BROADCASTS,
+    )
 
     def gen_on_output(line):
         on_output(line)
@@ -97,6 +106,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
                     active_segment_id=None,
                     active_segment_progress=0.0,
                     **_group_display_updates(completed_groups[0], total_requested_groups, 0.0, limit=1.0, group_weights=requested_group_weights),
+                    **_SKIP_LIVE_BROADCASTS,
                 )
 
         if "[START_SEGMENT]" in line:
@@ -116,6 +126,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
                 active_segment_id=asid,
                 active_segment_progress=0.0,
                 **_group_display_updates(completed_groups[0], total_requested_groups, 0.0, limit=1.0, active_index=min(completed_groups[0] + 1, total_requested_groups), group_weights=requested_group_weights),
+                **_SKIP_LIVE_BROADCASTS,
             )
 
         if "[PROGRESS]" in line:
@@ -135,6 +146,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
                     progress=overall_progress,
                     active_segment_progress=segment_progress,
                     **_group_display_updates(completed_groups[0], total_requested_groups, segment_progress, limit=1.0, active_index=min(completed_groups[0] + 1, total_requested_groups), group_weights=requested_group_weights),
+                    **_SKIP_LIVE_BROADCASTS,
                 )
             except: pass
 
@@ -148,6 +160,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
             cancel_check=cancel_check,
             speed=speed,
             script=full_script,
+            task_id=jid,
         )
     except EngineBridgeError as exc:
         logger = xtts_facade.logger

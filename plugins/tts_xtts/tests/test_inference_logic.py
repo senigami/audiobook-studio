@@ -81,3 +81,16 @@ def test_synthesize_one_logic_routing():
     # 2. Use fallback (if latents missing)
     res = mock_synthesize_one(text, None, fallback_sw, xtts_model, tts)
     assert res == "wav_from_tts"
+
+
+def test_xtts_stderr_status_lines_flush_in_order(capsys):
+    from plugins.tts_xtts.plugin.core.xtts_inference import _emit_stderr_line
+
+    _emit_stderr_line("Loading XTTS model...", flush=True)
+    _emit_stderr_line("[START_SYNTHESIS] job-1", flush=True)
+
+    captured = capsys.readouterr()
+    assert captured.err.splitlines() == [
+        "Loading XTTS model...",
+        "[START_SYNTHESIS] job-1",
+    ]

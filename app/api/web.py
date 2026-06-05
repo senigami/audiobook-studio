@@ -14,7 +14,7 @@ from ..core.config import (
     FRONTEND_DIST, get_project_cover_dir, get_project_m4b_dir,
 )
 from ..db import init_db
-from .routers import projects, chapters, voices, queue, settings, generation, system, analysis, jobs, migration, engines
+from .routers import projects, chapters, voices, queue, settings, generation, system, analysis, migration, engines
 from .ws import manager, broadcast_job_updated
 from .tts_api import tts_app
 from .routers.analysis import AnalysisError
@@ -136,7 +136,9 @@ def get_project_cover_hardened(project_id: str, filename: str):
     if not filename.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
         raise HTTPException(status_code=404)
     try:
-        root = get_project_cover_dir(project_id)
+        from ..core.config import _canonical_project_id
+        canonical_pid = _canonical_project_id(project_id)
+        root = get_project_cover_dir(canonical_pid)
     except ValueError:
         raise HTTPException(status_code=404)
     file_path = _contained_root_file(root, filename)
@@ -153,7 +155,9 @@ def get_project_m4b_hardened(project_id: str, filename: str):
     if not filename.lower().endswith(allowed_exts):
         raise HTTPException(status_code=404)
     try:
-        root = get_project_m4b_dir(project_id)
+        from ..core.config import _canonical_project_id
+        canonical_pid = _canonical_project_id(project_id)
+        root = get_project_m4b_dir(canonical_pid)
     except ValueError:
         raise HTTPException(status_code=404)
     file_path = _contained_root_file(root, filename)
@@ -204,7 +208,25 @@ async def websocket_endpoint(websocket: WebSocket):
         except RuntimeError: pass
     try:
         while True:
-            await websocket.receive_text()
+            data = await websocket.receive_json()
+            if isinstance(data, dict) and data.get("type") == "jobs_snapshot_request":
+                from ..db.state import get_jobs
+                from dataclasses import asdict
+                all_jobs = get_jobs()
+                jobs_list = [asdict(j) for j in all_jobs.values()]
+                jobs_list.sort(key=lambda j: j.get('created_at', 0))
+
+                # bandwidth optimization (matching retired HTTP behavior)
+                for j in jobs_list:
+                    if j.get('status') == 'running':
+                        continue
+                    if 'log' in j:
+                        del j['log']
+
+                await websocket.send_json({
+                    "type": "jobs_snapshot",
+                    "jobs": jobs_list[:400]
+                })
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception as e:
@@ -356,7 +378,6 @@ app.include_router(settings.router)
 app.include_router(generation.router)
 app.include_router(system.router)
 app.include_router(analysis.router)
-app.include_router(jobs.router)
 app.include_router(migration.router)
 app.include_router(engines.router)
 
@@ -384,7 +405,6 @@ def catch_all(full_path: str):
         "frontend": "Not built/found",
         "endpoints": {
             "home": "/api/home",
-            "jobs": "/api/jobs",
             "speaker_profiles": "/api/speaker-profiles"
         }
     })

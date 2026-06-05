@@ -8,44 +8,44 @@
 - [ ] Delete `uploads/` (Deferred: `/out/covers` compatibility and shared-cover migration source)
 
 ## Phase 2: Storage Abstraction Layer
-- [ ] Implement `app/storage/manager.py` (`StorageManager`)
-- [ ] Implement `app/storage/project.py` (`ProjectContext`)
-- [ ] Migrate pathing logic from `app/config.py` to `StorageManager`
-- [ ] Update `app/api/routers/chapters_assets.py` to use `StorageManager`
-- [ ] Update `app/jobs/reconcile.py` to use `StorageManager`
+- [x] Implement `app/storage/manager.py` (`StorageManager`)
+- [x] Implement `app/storage/project.py` (`ProjectContext`)
+- [x] Migrate pathing logic from `app/config.py` to `StorageManager`
+- [x] Update `app/api/routers/chapters_assets.py` to use `StorageManager`
+- [x] Update `app/jobs/reconcile.py` to use `StorageManager`
 - [x] Remove `XTTS_OUT_DIR` from core runtime config; `AUDIO_OUT_DIR` remains migration-only.
 
 ## Phase 3: Declared Plugin Contract
-- [ ] Update `docs/plugin-guide.md` to define manifest-declared capabilities, behavior, and worker hooks as the default model.
-- [ ] Update `docs/plugin-template/README.md` to present the template as the canonical declared-hook example.
-- [ ] Document hook ownership rules in the SDK so new hooks are added through the plugin contract rather than app-side engine branches.
-- [ ] Ensure `manifest.json` fields are the source of truth for supported behavior.
+- [x] Update `docs/plugin-guide.md` to define manifest-declared capabilities, behavior, and worker hooks as the default model.
+- [x] Update `docs/plugin-template/README.md` to present the template as the canonical declared-hook example.
+- [x] Document hook ownership rules in the SDK so new hooks are added through the plugin contract rather than app-side engine branches.
+- [x] Ensure `manifest.json` fields are the source of truth for supported behavior.
 
 ## Phase 4: Configuration & Models
 - [x] Delete `SENT_CHAR_LIMIT` and `SAFE_SPLIT_TARGET` from core config and preserve them as generic behavior fallbacks.
 - [x] Relocate the remaining generic baseline CPS fallback out of core config.
-- [ ] Move engine-specific config to plugin manifests
+- [x] Move engine-specific config to plugin manifests
 - [x] Update persisted job engine identity to `str`
-- [ ] Introduce `TaskType` or `JobKind` if Phase 12 decides the distinction is still needed before release docs
+- [x] Introduce `TaskType` or `JobKind`
 
 ## Phase 5: Plugin Implementation Relocation
 - [x] Move `app/xtts_inference.py` -> `plugins/tts_xtts/`
 - [x] Move `app/jobs/handlers/xtts*` -> `plugins/tts_xtts/handlers/`
 - [x] Move `app/jobs/handlers/voxtral.py` -> `plugins/tts_voxtral/handlers/`
 - [/] Implement `parse_progress` and `sanitize_text` in plugin adapters (progress is metadata-driven; sanitize hook pending)
-- [ ] Move resource requirements (GPU/VRAM) to plugin manifests
+- [x] Move resource requirements (GPU/VRAM) to plugin manifests
 - [x] Move `sanitize_for_xtts` logic to `plugins/tts_xtts/`
 
 ## Phase 6: Core Orchestration Generalization
-- [ ] Implement `JobHandlerRegistry` in `app/jobs/handlers/`
-- [ ] Register plugin handlers in the registry without app-level engine names
-- [ ] Update `app/jobs/worker.py` to use generic dispatch via registry
+- [x] Implement `JobHandlerRegistry` in `app/jobs/registry.py`
+- [x] Register plugin handlers in the registry without app-level engine names
+- [x] Update orchestrator dispatch via registry
 - [ ] Implement `check_output` interface in plugin adapters
 - [ ] Update `app/jobs/reconcile.py` to use `engine.check_output(job)`
 - [x] Update `app/engines/behavior.py` to remove all `is_built_in` checks
 
 ## Phase 7: API & Routing
-- [ ] Rename `mixed.py` -> `composite.py`
+- [ ] Rename `mixed.py` -> `composite.py` (Deferred to Phase 13)
 - [/] Update composite/mixed rendering to use metadata-driven progress and sanitization hooks
 - [x] Remove `/{name}/voxtral-voice-id` route in `app/api/routers/voices_actions.py`
 - [x] Remove `/out/xtts/{filename}` route from app routing
@@ -70,12 +70,35 @@
 - [ ] Final broad test verification: `pytest tests/` before Phase 13 release docs
 
 ## Phase 12: Polish And Cleanup
-- [ ] Add VCR-style chapter playback controls.
+- [ ] Complete the remaining master agnostic conversion checklist before Phase 13, or explicitly mark each unfinished item deferred with rationale.
+- [ ] Complete Phase 12 pre-change verification: migration idempotency, plugin boundary leaks, recovery coverage, frontend state/store pressure, helper/service ownership, and corrupt-state handling.
+- [x] Add Library list view and sort options.
+- [x] Add VCR-style chapter playback controls.
+- [x] Fix voice/plugin dependency installation feedback and XTTS missing-dependencies resolution.
+- [x] Add TTS plugin zip import/delete flows (Import done; Uninstall done).
+- [x] Define standalone XTTS and Voxtral Web repo readiness for real repo ingestion: repo layout, CLI entry point, dependency install path, and a standalone CLI Builder Harness.
+- [x] Implement Studio Dev Mode as the authoritative UI preview path using plugin-provided scenario fixtures.
+- [ ] Add plugin contract-version and callable-signature compatibility verification.
+- [x] Surface plugin-defined per-voice controls in voice settings when supported.
+- [ ] Plan multilingual voice/text language support.
+- [ ] Implement Voxtral segment and bake rendering for chapter jobs.
+- [ ] Audit default voice fallback so chapters do not silently default to Voxtral.
+- [ ] Revisit voice settings placement outside the Script popup/right queue area.
+- [ ] Align voice export bundles with Hugging Face-compatible layout and settings metadata where practical.
+- [ ] Add voice image/icon upload, standardized 1:1 JPG processing, and character-surface icon display.
+- [ ] Add searchable voice tags compatible with future voice search/Hugging Face metadata.
+- [ ] Verify system API surface for future third-party/LLM controller plugins.
+- [x] Show queue output metadata such as generated audio duration/length.
+- [x] Remove legacy Chapter Editor Production, Performance, and Preview tabs/code.
+- [x] Rework crowded Chapter Editor menu bar and remove duplicate preparing pill.
+- [x] Keep Chapter Editor live queue state anchored to the active job instead of stale completed jobs.
+- [ ] Scan plans and memory for forgotten requests, including `tts_plugins` / `tts_voices` namespace rename ideas.
 - [ ] Manually verify fixed-but-pending Phase 11 app behaviors.
 - [ ] Triage Vite websocket `ECONNRESET` reconnect behavior.
 - [ ] Re-check large-book project/chapter load timings.
 - [ ] Complete or explicitly defer generic plugin setup loop.
-- [ ] Complete or explicitly defer StorageManager, JobHandlerRegistry, `JobKind`/`TaskType`, and mixed/composite naming.
+- [x] Complete or explicitly defer JobHandlerRegistry, `JobKind`, and mixed/composite naming (mixed renaming deferred to Phase 13).
+- [x] Complete or explicitly defer StorageManager and other remaining Phase 12 polish.
 - [ ] Prepare plugin docs and template docs enough for Phase 13 release documentation.
 
 ## Deferred Phase: Namespace Rename And App-Behavior Plugins

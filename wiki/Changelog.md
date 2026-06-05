@@ -2,6 +2,67 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.6] - 2026-05-30
+
+### Highlights
+
+- **Replaced Fake Engine Speed Badge With Real Calibration Summary**: Removed the misleading `x Speed` engine badge derived from the fixed `16.7` baseline and replaced it with real calibration metadata on the Settings engine cards. Engine registry responses now expose the current calibration window count and earliest sample date, and the UI shows `N.N characters/sec, from X samples since M/D/YYYY` using the actual filtered calibration history.
+- **Restored Computed CPS Display In Engine Settings**: Engine registry responses now inject the derived `computer_speed_multiplier` back into each plugin's `current_settings` payload from the calibrated SQLite metrics, so the read-only Settings form shows the computed characters-per-second value instead of falling back to "Not yet computed."
+- **Restored Batch-Scoped Chapter Header Text Progress**: Fixed Chapter Editor script progress lettering so active render-batch progress is distributed across the full batch text even when only the current span is flagged as actively rendering. This keeps top-bar-driven batch progress aligned with the visible book-mode text overlay.
+- **Fixed Post-START_SYNTHESIS Status Rollback**: Prevented active jobs and chapters from rolling back from `"running"` to `"preparing"` due to subsequent 0% progress events (such as segment initialization).
+- **Disabled Startup Verification Synthesis**: TTS Server plugin discovery and refresh now load plugins without running plugin `run_test()` synthesis, preventing `test_output.wav` generation and `[START_SYNTHESIS]` chatter during normal chapter renders. Normal synthesis now fails closed unless the plugin has already passed verification, while explicit engine verification from Settings still runs the plugin test.
+- **Enforced Status Coercion**: Coerced `"preparing"` status updates back to `"running"` in both database synchronizations (`OrchestratorHelpersMixin._publish`) and websocket emissions (`ProgressService.publish`) once synthesis has already started.
+- **Event Stream Preset Alignment**: Verified the Event Stream preset mappings on the frontend (`main-queue` preset does not list `segments.progress`, and `segment-state` is focused on segment-scoped topics), supported by unit tests.
+- **Hardened Queue/Segment Consumer Isolation**: Main queue consumers now reject rogue active segment fields from `queue.items`, terminal lifecycle/queue events explicitly clear stale segment state, and segment-capable chapter jobs no longer get classified as segment child jobs.
+- **Fixed Segment Timing Corrections**: Segment ETA-only updates are emitted instead of being coalesced, stale-timestamp segment frames preserve segment ETA/basis/update anchors, and synthetic segment handoff completions now emit `SEGMENT_SAVED`.
+- **Persisted XTTS Synthesis Duration**: XTTS bridge synthesis now reports measured `duration_sec`, allowing `generate_via_bridge()` to persist `synthesis_duration_seconds` before post-render metric training. This prevents successful renders from flipping to failed during `record_engine_sample()`.
+- **Preserved Null Segment ETA Semantics**: Segment websocket consumers no longer coerce `etaSeconds: null` into `0`, preventing `START_SEGMENT` and `SEGMENT_SAVED` frames from creating false zero-ETA progress lanes.
+
+## [2.0.5] - 2026-05-29
+
+### Highlights
+
+- **Decoupled Segment Timing from Job/Chapter State**: Completely isolated segment-level timing (`eta_seconds`, `eta_basis`, and `started_at` / `startedAt`) updates in `segments.progress` frames from mutating overall job-level fields in `useJobs.ts`, preventing segment timing from interfering with chapter/job timers.
+- **Enhanced Segment Progress Debug Provenance**: Updated `segmentProgressSocketProvenance` to capture the segment-level ETA in `active_segment_eta_seconds` and raw segment startedAt in `selectedFields.started_at` for debugging and UI coordination without mutating job state.
+- **Cleaned Up wsAudienceForType Classification**: Removed redundant classification checks for segment topics in `runtimeDebug.ts`, letting them fall back to standard non-queue/non-both `'chapter'` classification (verified as not queue and not both in tests).
+
+## [2.0.4] - 2026-05-26
+
+### Highlights
+
+- **Removed Synthetic 99% Segment Completion Blip**: Previous-segment completion events now emit `progress: 1.0` instead of the legacy synthetic `0.99`, preventing a completed segment from visually dropping back to 99% after the real `segment_saved` frame.
+- **Expanded Chapter Editor Segment Progress debug payload**: Expanded the Segment Progress bar debug telemetry in useChapterStatus to capture the exact raw socket event kind, raw envelope frames, ignore lists, mismatched job flags, and exact render props passed to PredictiveProgressBar.
+- **Improved Clipboard Copy Debug Payload**: Exposed `segmentProgressBarDebug` directly inside the `render` section of the clipboard copy JSON payload.
+- **Persistent Segment Progress Telemetry**: Added `lastTelemetryRef` to ensure the debug state survives unmounting of the visual progress bar, clearly marking whether the telemetry is currently active or persisted after unmount.
+
+## [2.0.3] - 2026-05-25
+
+### Highlights
+
+- **Fixed Chapter Editor Segment Progress Highlights**: Resolved the segment progress highlighting mismatch by tying progress calculations strictly to the canonical segment progress source (without `liveBarSegmentProgress` fallback).
+- **Added Standalone Rendering Span Support**: Enabled rendering of segment-local progress for standalone spans (spans not belonging to any batch) by mapping progress directly to the active span ID.
+- **Prevented Silent Batch-Wide Progress Fallback**: Prevented rendering spans from silently falling back to batch-wide progress when `activeSegmentId` is provided but is not part of the active batch (ensuring mismatching spans remain 0% lit).
+- **Expanded Clipboard Copy Diagnostics**: Added `activeSegmentRenderSource`, `activeSegmentResolvedToBatch`, `activeSegmentResolvedBatch`, and `canonicalSegmentProgressSource` to the copied debug snapshot in `ChapterEditorPage`.
+- **Added ScriptView Debug Diagnostics**: Expanded the debug snapshot `useEffect` hook in `ScriptView` to record detailed per-span diagnostics (`spanId`, `spanIndex`, `textLength`, `litCount`, `showCursor`, `progressValueUsed`, `activeSegmentId`, `resolvedSource`) for both batched spans and standalone rendering spans.
+
+## [2.0.2] - 2026-05-20
+
+### Highlights
+
+- **Stabilized XTTS Progress and ETA Projection**: Fixed a bug where progress regressions inside the XTTS standard handler caused the projected ETA to jump erratically. The orchestrator helper's `_get_grouped_progress` calculation is now strictly monotonic by tracking and clamping to the maximum progress seen so far during a task dispatch run, and the database `update_job` ETA projection now correctly uses the clamped/monotonic progress value.
+- **Increased Synthesis Read Timeout**: Increased the synthesis HTTP client read timeout (`_READ_TIMEOUT`) from 60 seconds to 300 seconds to prevent slow synthesis operations (e.g., long chapters or CPU/GPU load spikes) from timing out and failing jobs at the end of the run.
+- **Added Monotonic Progress & Timeout Regression Tests**: Added unit tests to `test_state_rules.py`, `test_watchdog_progress_logic.py`, and `test_tts_client.py` verifying that database-level ETA calculations, log-listener progress reporting, and read timeouts are robust.
+- **Added Caller Stack-Walking for Websocket Progress Traceability**: Updated `update_job` and `ProgressService` to accept and automatically resolve the true caller's stack frame via stack walking. Websocket payloads now include the calling backend function or trigger callsite as the `source` attribute, allowing full queue chatter and progress updates to be traced back during frontend diagnostics and debugging.
+- **Fixed Premature Segment Progress Jump at Startup**: Resolved an issue where initial engine progress logs (like `[PROGRESS] 100%`) before the first segment started caused `active_segment_progress` to jump to `1.0` while `active_segment_id` was still `None`. Handled by restricting segment progress updates in the orchestrator helpers to only when an active segment is running, and implementing state normalization in `update_job` to force segment and batch progress values back to default when their respective IDs are `None`. Added a new regression unit test to verify this normalization rule.
+
+## [2.0.1] - 2026-05-19
+
+### Highlights
+
+- **Eliminated "finalizing" Job Status**: Sanitized all references to the legacy `"finalizing"` status throughout the backend. The database, orchestrator helpers, and progress service now automatically map any incoming `"finalizing"` status to `"running"` before persistence and websocket broadcasting.
+- **Fixed Legacy Task Translation**: Fixed a translation bug in the legacy job shim (`_context_to_job`) where custom title and narrator metadata were not correctly mapped, resolving audiobook title fallback to filename during assembly.
+- **Integration Test Robustness**: Made the audiobook assembly integration test robust to positional and keyword calling patterns.
+
 ## [2.0.0] - 2026-05-11
 
 ### Highlights
@@ -9,6 +70,8 @@ All notable changes to this project will be documented in this file.
 - **Studio 2.0 Modular Architecture**: Migrated to a decoupled plugin-based architecture where engines (XTTS, Voxtral) operate as independent services through a unified bridge.
 - **Unified Settings Experience**: Redesigned the Settings interface with dedicated tabs for General, TTS Engines, About, and API, featuring a schema-driven engine configuration system.
 - **Engine Registry & Fallback**: Implemented a robust engine registry that supports both remote TTS Server plugins and local in-process fallbacks, ensuring reliability even when the server is unavailable.
+- **Plugin Manifest Diagnostics**: Studio now validates the `studio_tts_manifest` contract and callable references for TTS plugins, surfaces parseable manifest errors as `invalid_config`, and keeps runtime plugin crashes isolated from healthy engines.
+- **Plugin Developer Scenario Validation**: Studio now validates developer scenario fixtures before the Settings UI consumes them, returning actionable errors for malformed JSON, missing fields, and invalid scenario shapes.
 - **Production Tally & Diagnostics**: Added real-time production statistics and runtime diagnostics to the About panel for better visibility into system performance and health.
 - **Version Migration**: Completed the transition from the 1.8.x release line to the 2.0.0 baseline with consistent branding and metadata across all surfaces.
 - **Global Queue UI Alignment**: Fixed a regression in the job history display where a colon was used instead of an arrow symbol, restoring consistency with validation tests and improving history legibility.
@@ -22,7 +85,7 @@ All notable changes to this project will be documented in this file.
 - **Save Operations Are Now Instant**: Rewrote the database segment sync logic to use bulk insertion (`executemany`) instead of sequential inserts. Saving a massive chapter now completes in milliseconds instead of seconds.
 - **Background Processes No Longer Stall the App**: Moved database bulk operations and text tokenization outside the global database lock, preventing the backend from freezing other requests (like progress polling) while a large chapter is saved.
 - **Increased Text Analysis Ceiling**: Raised the limit on the text analyzer endpoint from 1,000,000 to 5,000,000 characters to better support massive document inputs.
-- **Python 3.9 Compatibility Restored**: Replaced Python 3.10+ union type hints (`|`) with `typing.Optional` and `typing.Union` in the core configuration and database modules, resolving startup crashes in environments running older Python versions.
+- **Python Compatibility Cleanup**: Replaced modern union type hints (`|`) with `typing.Optional` and `typing.Union` in the core configuration and database modules, resolving startup crashes in environments running older Python versions.
 - **Automated Regression Coverage for Empty Saves**: Added test cases to the backend suite to ensure that clearing chapter fields through the API remains functional in future updates.
 - **Unified Onboarding Funnel**: Streamlined installation paths across all surfaces (Pinokio, wiki, README) to make the onboarding process clearer for new users.
 - **Windows Architecture Hardening**: Implemented self-healing Python environment logic for Pinokio/Conda, hardened `run.ps1` for robust environment provisioning, and updated the Windows start script for better compatibility.
@@ -44,7 +107,7 @@ All notable changes to this project will be documented in this file.
 - **Chapter And Segment Progress No Longer Fight Each Other**: Websocket updates now separate chapter-level job progress from live segment progress, which lets the global queue follow whole-chapter completion while Performance cards track the currently rendering segment directly.
 - **Chapter Progress Now Follows Actual Chapter Segments**: XTTS chapter jobs now weight progress by the real number of chapter segments being completed instead of by internal synth-group count, so queue/project overview progress behaves like `segment 2 of 4` even when adjacent segments are merged into one XTTS pass under the hood.
 - **Voxtral Regenerate No Longer Gets Stuck Acting Like Play**: Regenerating a Voxtral preview now behaves like a true rebuild action, without trying to auto-play audio before the new preview exists or leaving the button stuck in a play-state UI.
-- **Windows README Startup Is Much More Forgiving**: The PowerShell launcher now checks more standard Windows Python install locations before relying on the Pinokio/conda bootstrap path, a failed conda bootstrap no longer hard-aborts local installs that should fall back to a normal Python setup, the launcher/docs now match the app’s actual Python 3.10+ compatibility, and missing `npm` or `ffmpeg` now fails early with clearer install guidance instead of surfacing later as confusing runtime breakage.
+- **Windows README Startup Is Much More Forgiving**: The PowerShell launcher now checks more standard Windows Python install locations before relying on the Pinokio/conda bootstrap path, a failed conda bootstrap no longer hard-aborts local installs that should fall back to a normal Python setup, the launcher/docs now match the app’s actual Python 3.11+ compatibility, and missing `npm` or `ffmpeg` now fails early with clearer install guidance instead of surfacing later as confusing runtime breakage.
 - **XTTS Windows Reference Loading Is More Reliable**: XTTS voice conditioning now reads plain WAV reference clips without depending on TorchCodec’s FFmpeg DLL chain, and generated `sample.wav` previews are no longer accidentally reused as source training references during later renders.
 - **Startup And First-Run Terminal Output Are Much Less Hidden**: The launcher, worker, and more one-shot subprocess paths now stop swallowing so much install, model-load, ffmpeg/ffprobe, and download output, which makes first-run XTTS setup and other long startup work much easier to follow from the terminal.
 - **First-Run XTTS Downloads Are Easier To Understand**: Worker logging now surfaces more Hugging Face and model-download progress into the terminal, which makes long first-run setup look like active work instead of a silent stall.

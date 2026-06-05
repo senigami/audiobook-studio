@@ -1,7 +1,9 @@
+import os
 import pytest
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from plugins.tts_xtts.plugin.studio import handler as xtts_handler
 from plugins.tts_xtts.plugin.studio.handler import handle_xtts_job, _group_job_progress
 from app.db.models import Job
 
@@ -58,6 +60,10 @@ def test_handle_xtts_standard_full(mock_job, mock_params):
         handle_xtts_job(j=mock_job, **mock_params)
         assert mock_job.status == "running"
 
+
+def test_xtts_handler_exports_logger():
+    assert hasattr(xtts_handler, "logger")
+
 def test_handle_xtts_bake_mode(mock_job, mock_params):
     """Test chapter baking path."""
     mock_job.is_bake = True
@@ -73,11 +79,118 @@ def test_handle_xtts_bake_mode(mock_job, mock_params):
          patch("plugins.tts_xtts.plugin.studio.handler.wav_to_mp3", return_value=0), \
          patch("plugins.tts_xtts.plugin.studio.handler.get_audio_duration", return_value=10.0), \
          patch("app.db.update_queue_item"), \
-         patch("plugins.tts_xtts.plugin.studio.handler.update_job"), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update_job, \
          patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value="spk.wav"):
 
         handle_xtts_job(j=mock_job, **mock_params)
         mock_params["on_output"].assert_any_call("Baking Chapter chap_123 starting...\n")
+
+    for call in mock_update_job.call_args_list:
+        status = call.kwargs.get("status")
+        if status in {"done", "failed", "cancelled"}:
+            continue
+        assert call.kwargs.get("skip_studio_job_event") is True
+        assert call.kwargs.get("skip_job_updated") is True
+
+def test_handle_xtts_bake_recovers_single_segment_output_when_stitch_leaves_no_file(mock_job, mock_params, tmp_path):
+    """A successful stitch should still yield a chapter file even if the stitch helper does not materialize it."""
+    mock_job.is_bake = True
+    pdir = tmp_path / "project"
+    pdir.mkdir()
+    out_wav = pdir / "output.wav"
+    out_mp3 = pdir / "output.mp3"
+
+    segs = [
+        {"id": "s1", "character_id": "c1", "text_content": "Text 1", "audio_status": "unprocessed", "audio_file_path": None},
+    ]
+
+    (pdir / "segments").mkdir(parents=True, exist_ok=True)
+    (pdir / "segments" / "s1.wav").write_bytes(b"audio")
+
+    def update_segment_side_effect(segment_id, broadcast=True, **updates):
+        for segment in segs:
+            if segment["id"] == segment_id:
+                segment.update(updates)
+                break
+        return True
+
+    def generate_side_effect(**kwargs):
+        on_output = kwargs.get("on_output")
+        if on_output:
+            on_output("[SEGMENT_SAVED] " + str(pdir / "segments" / "s1.wav"))
+        return 0
+
+    def path_exists(self):
+        return os.path.exists(self)
+
+    with patch("pathlib.Path.exists", new=path_exists), \
+         patch("app.db.get_chapter_segments", side_effect=lambda chapter_id: segs), \
+         patch("app.db.update_segment", side_effect=update_segment_side_effect), \
+         patch("app.db.get_connection"), \
+         patch("app.db.update_queue_item") as mock_update_queue, \
+         patch("plugins.tts_xtts.plugin.studio.bake.generate_via_bridge", side_effect=generate_side_effect), \
+         patch("plugins.tts_xtts.plugin.studio.handler.stitch_segments", return_value=0), \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_audio_duration", return_value=10.0), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job"), \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value="spk.wav"):
+
+        handle_xtts_job(
+            "test_job", mock_job, time.time(),
+            print, lambda: False, "default.wav", 1.0,
+            pdir, out_wav, out_mp3
+        )
+
+    assert out_wav.exists()
+    mock_update_queue.assert_called_with("test_job", "done", audio_length_seconds=10.0, output_file="output.wav")
+
+def test_handle_xtts_standard_recovers_single_segment_output_when_stitch_leaves_no_file(mock_job, mock_params, tmp_path):
+    """The standard chapter path should also keep a successful single-segment stitch."""
+    pdir = tmp_path / "project"
+    pdir.mkdir()
+    out_wav = pdir / "output.wav"
+    out_mp3 = pdir / "output.mp3"
+
+    segs = [
+        {"id": "s1", "character_id": "c1", "text_content": "Text 1", "audio_status": "unprocessed", "audio_file_path": None},
+    ]
+
+    (pdir / "segments").mkdir(parents=True, exist_ok=True)
+    (pdir / "segments" / "s1.wav").write_bytes(b"audio")
+
+    def update_segment_side_effect(segment_id, broadcast=True, **updates):
+        for segment in segs:
+            if segment["id"] == segment_id:
+                segment.update(updates)
+                break
+        return True
+
+    def generate_side_effect(**kwargs):
+        on_output = kwargs.get("on_output")
+        if on_output:
+            on_output("[SEGMENT_SAVED] " + str(pdir / "segments" / "s1.wav"))
+        return 0
+
+    def path_exists(self):
+        return os.path.exists(self)
+
+    with patch("pathlib.Path.exists", new=path_exists), \
+         patch("app.db.get_chapter_segments", side_effect=lambda chapter_id: segs), \
+         patch("app.db.update_segment", side_effect=update_segment_side_effect), \
+         patch("app.db.get_connection"), \
+         patch("app.db.update_segments_status_bulk"), \
+         patch("plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=generate_side_effect), \
+         patch("plugins.tts_xtts.plugin.studio.handler.stitch_segments", return_value=0), \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_audio_duration", return_value=10.0), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job"), \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value="spk.wav"):
+
+        handle_xtts_job(
+            "test_job", mock_job, time.time(),
+            print, lambda: False, "default.wav", 1.0,
+            pdir, out_wav, out_mp3, text="Fallback text"
+        )
+
+    assert out_wav.exists()
 
 def test_handle_xtts_segments_mode(mock_job, mock_params):
     """Test specific segments generation path."""
@@ -86,10 +199,42 @@ def test_handle_xtts_segments_mode(mock_job, mock_params):
 
     with patch("app.db.get_chapter_segments", return_value=segs), \
          patch("plugins.tts_xtts.plugin.studio.segments.generate_via_bridge", return_value=0), \
-         patch("plugins.tts_xtts.plugin.studio.handler.update_job"), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update_job, \
          patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value="spk.wav"):
 
         handle_xtts_job(j=mock_job, **mock_params)
+
+    for call in mock_update_job.call_args_list:
+        status = call.kwargs.get("status")
+        if status in {"done", "failed", "cancelled"}:
+            continue
+        assert call.kwargs.get("skip_studio_job_event") is True
+        assert call.kwargs.get("skip_job_updated") is True
+
+
+def test_handle_xtts_segments_clamps_full_progress_before_save(mock_job, mock_params):
+    """A raw 100% progress marker should not surface as a terminal-looking segment bar blip."""
+    mock_job.segment_ids = ["seg1"]
+    segs = [{"id": "seg1", "text_content": "T1", "character_id": "c1", "speaker_profile_name": "S1"}]
+
+    def generate_with_full_progress(**kwargs):
+        on_output = kwargs["on_output"]
+        on_output("[START_SEGMENT] seg1")
+        on_output("[PROGRESS] 100%")
+        return 0
+
+    with patch("app.db.get_chapter_segments", return_value=segs), \
+         patch("plugins.tts_xtts.plugin.studio.segments.generate_via_bridge", side_effect=generate_with_full_progress), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update_job, \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value="spk.wav"):
+        handle_xtts_job(j=mock_job, **mock_params)
+
+    progress_calls = [
+        call for call in mock_update_job.call_args_list
+        if call.kwargs.get("active_segment_id") == "seg1" and call.kwargs.get("active_segment_progress") is not None
+    ]
+    assert progress_calls
+    assert all(call.kwargs.get("active_segment_progress") < 1.0 for call in progress_calls)
 
 def test_handle_xtts_cancel(mock_job, mock_params):
     """Test cancellation check."""

@@ -1,7 +1,6 @@
 import pytest
 import os
 import time
-from pathlib import Path
 from app.db.core import init_db
 from app.db.models import Job
 
@@ -26,7 +25,7 @@ def clean_db():
         os.unlink(db_path)
 
 def test_jobs_api(clean_db, tmp_path, client, monkeypatch):
-    from app.db.state import put_job, get_jobs
+    from app.db.state import put_job
 
     chapter_file = "test.txt"
     (tmp_path / chapter_file).write_text("dummy content")
@@ -36,25 +35,9 @@ def test_jobs_api(clean_db, tmp_path, client, monkeypatch):
     job = Job(id=jid, engine="xtts", chapter_file=chapter_file, status="queued", created_at=time.time())
     put_job(job)
 
-    # List jobs
-    response = client.get("/api/jobs")
-    assert response.status_code == 200
-    assert any(j["id"] == jid for j in response.json())
-
-    # Get job details
-    response = client.get(f"/api/jobs/{jid}")
-    assert response.status_code == 200
-    assert response.json()["id"] == jid
-
-    # Update title
-    response = client.post("/api/jobs/update-title", data={"chapter_file": chapter_file, "new_title": "New Title"})
-    assert response.status_code == 200
-    assert get_jobs()[jid].custom_title == "New Title"
-
-    # Cancel job
-    response = client.post("/api/cancel", data={"job_id": jid})
-    assert response.status_code == 200
-
-    # Active job
-    response = client.get("/api/active_job")
-    assert response.status_code == 200
+    # List jobs via WebSocket
+    with client.websocket_connect("/ws") as websocket:
+        websocket.send_json({"type": "jobs_snapshot_request"})
+        data = websocket.receive_json()
+        assert data["type"] == "jobs_snapshot"
+        assert any(j["id"] == jid for j in data["jobs"])

@@ -19,14 +19,15 @@ import sys
 import types
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 logger = logging.getLogger(__name__)
 
 # Matches tts_<name> where <name> is 2–15 lowercase alphanumeric characters.
 _PLUGIN_FOLDER_RE = re.compile(r"^tts_[a-z][a-z0-9]{1,14}$")
 
-# Regex for the entry_class field: "module:ClassName" or "package.module:ClassName"
-_ENTRY_CLASS_RE = re.compile(r"^[a-z_][a-z0-9_.]*:[A-Za-z][A-Za-z0-9_]*$")
+# Regex for callable fields: "module:ClassName" or "package.module:function_name"
+_CALLABLE_RE = re.compile(r"^[a-z_][a-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
 
 
 # Maximum seconds allowed for a plugin's __init__ / module load.
@@ -46,14 +47,16 @@ class LoadedPlugin:
         folder_name: str,
         plugin_dir: Path,
         manifest: dict[str, Any],
-        engine: Any,
+        engine: Any = None,
         settings_schema: dict[str, Any] | None = None,
+        load_error: str | None = None,
     ) -> None:
         self.folder_name = folder_name
         self.plugin_dir = plugin_dir
         self.manifest = manifest
         self.engine = engine
         self.settings_schema = settings_schema or {}
+        self.load_error = load_error
         self.verified: bool = False
         self.verification_error: str | None = None
         self.is_pip: bool = False
@@ -81,9 +84,10 @@ def discover_plugins(plugins_dir: Path) -> list[LoadedPlugin]:
         plugins_dir: Absolute path to the ``plugins/`` directory.
 
     Returns:
-        list[LoadedPlugin]: Successfully loaded plugins.  Plugins that fail
-        to load are skipped and logged as warnings — they do not block other
-        plugins from loading.
+        list[LoadedPlugin]: Successfully loaded plugins plus parseable manifest
+        contract failures that can be shown as invalid_config in Studio. Missing
+        manifests, malformed JSON, and runtime import/init/check failures are
+        skipped and logged as warnings.
     """
     if not plugins_dir.is_dir():
         logger.info("Plugins directory does not exist: %s", plugins_dir)
@@ -97,7 +101,6 @@ def discover_plugins(plugins_dir: Path) -> list[LoadedPlugin]:
             continue
 
         folder_name = entry.name
-
         # Reject folder names that don't match the naming convention.
         if not _PLUGIN_FOLDER_RE.match(folder_name):
             logger.debug("Skipping non-plugin folder: %s", folder_name)
@@ -105,13 +108,15 @@ def discover_plugins(plugins_dir: Path) -> list[LoadedPlugin]:
 
         try:
             plugin = _load_plugin(plugin_dir=entry, folder_name=folder_name)
-        except PluginLoadError as exc:
+        except Exception as exc:
             logger.warning("Plugin %s failed to load: %s", folder_name, exc)
-            continue
-        except Exception:
-            logger.exception(
-                "Unexpected error loading plugin %s", folder_name
+            plugin = _invalid_manifest_plugin(
+                plugin_dir=entry,
+                folder_name=folder_name,
+                load_error=str(exc),
             )
+            if plugin is not None:
+                loaded.append(plugin)
             continue
 
         # Guard against duplicate engine_id.
@@ -162,6 +167,55 @@ def discover_plugins(plugins_dir: Path) -> list[LoadedPlugin]:
             logger.warning("Pip plugin %s failed to load: %s", ep.name, exc)
 
     return loaded
+
+
+def _invalid_manifest_plugin(
+    *,
+    plugin_dir: Path,
+    folder_name: str,
+    load_error: str,
+) -> LoadedPlugin | None:
+    """Return a health-reportable plugin only for parseable manifest failures.
+
+    Broken manifests are useful to surface in Studio because the plugin author
+    can fix them from the diagnostics. Runtime failures remain isolated so a
+    crashing plugin engine does not appear as an installed engine, EXCEPT when
+    dev.enabled is True in the manifest.
+    """
+    try:
+        manifest = _load_manifest(plugin_dir=plugin_dir, folder_name=folder_name)
+    except PluginLoadError:
+        # If manifest itself is missing or unparseable, we can't even check dev mode safely.
+        # Isolation remains strict for security.
+        return None
+
+    try:
+        _validate_manifest(manifest=manifest, folder_name=folder_name)
+    except PluginLoadError:
+        # Manifest validation failed. This is a "contract" error we surface.
+        manifest = dict(manifest)
+        manifest.setdefault("engine_id", folder_name.replace("tts_", "", 1))
+        manifest.setdefault("display_name", folder_name)
+        manifest.setdefault("capabilities", [])
+        return LoadedPlugin(
+            folder_name=folder_name,
+            plugin_dir=plugin_dir,
+            manifest=manifest,
+            load_error=load_error,
+        )
+
+    # If we reached here, the manifest is valid but something else failed (import/init).
+    # We only surface these if dev.enabled is True.
+    dev_config = manifest.get("dev", {})
+    if isinstance(dev_config, dict) and dev_config.get("enabled") is True:
+        return LoadedPlugin(
+            folder_name=folder_name,
+            plugin_dir=plugin_dir,
+            manifest=manifest,
+            load_error=load_error,
+        )
+
+    return None
 
 
 def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
@@ -289,6 +343,8 @@ def _load_pip_plugin(ep: Any, plugins_dir: Path) -> LoadedPlugin:
             logger.debug("No manifest.json found in distribution for %s", ep.name)
 
     # Fallback/Required fields synthesis if manifest is missing or partial.
+    if not manifest.get("studio_tts_manifest"):
+        manifest["studio_tts_manifest"] = "1.0"
     if not manifest.get("engine_id"):
         manifest["engine_id"] = ep.name
     if not manifest.get("display_name"):
@@ -419,12 +475,19 @@ def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
     Raises:
         PluginLoadError: If required fields are missing or invalid.
     """
-    required = ["engine_id", "display_name", "entry_class", "capabilities"]
+    required = ["studio_tts_manifest", "engine_id", "display_name", "entry_class", "capabilities"]
     for field_name in required:
         if not manifest.get(field_name):
             raise PluginLoadError(
                 f"manifest.json missing required field '{field_name}' in {folder_name}"
             )
+
+    manifest_version = str(manifest["studio_tts_manifest"]).strip()
+    if manifest_version != "1.0":
+        raise PluginLoadError(
+            f"Unsupported studio_tts_manifest version {manifest_version!r} in {folder_name}. "
+            "Supported versions: '1.0'."
+        )
 
     engine_id = str(manifest["engine_id"]).strip()
     if not re.match(r"^[a-z][a-z0-9]{1,14}$", engine_id):
@@ -434,10 +497,37 @@ def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
         )
 
     entry_class = str(manifest["entry_class"]).strip()
-    if not _ENTRY_CLASS_RE.match(entry_class):
+    if not _CALLABLE_RE.match(entry_class):
         raise PluginLoadError(
             f"entry_class {entry_class!r} must be in 'module:ClassName' format in {folder_name}"
         )
+
+    # Validate optional app_adapter fields if present
+    adapter_class = manifest.get("app_adapter_class")
+    if adapter_class and not re.match(r"^[A-Za-z][A-Za-z0-9_]*$", str(adapter_class).strip()):
+        raise PluginLoadError(
+            f"app_adapter_class {adapter_class!r} must be a valid Python class name in {folder_name}"
+        )
+
+    adapter_module = manifest.get("app_adapter_module")
+    if adapter_module and not re.match(r"^[a-z_][a-z0-9_.]*$", str(adapter_module).strip()):
+        raise PluginLoadError(
+            f"app_adapter_module {adapter_module!r} must be a valid Python module name in {folder_name}"
+        )
+
+    # Validate worker_logic callables if present
+    worker_logic = manifest.get("worker_logic", {})
+    if isinstance(worker_logic, dict):
+        for eid, handler in worker_logic.get("engine_handlers", {}).items():
+            if not _CALLABLE_RE.match(str(handler).strip()):
+                raise PluginLoadError(
+                    f"worker_logic engine_handler {eid!r} value {handler!r} has invalid format in {folder_name}"
+                )
+        for kind, handler in worker_logic.get("kind_handlers", {}).items():
+            if not _CALLABLE_RE.match(str(handler).strip()):
+                raise PluginLoadError(
+                    f"worker_logic kind_handler {kind!r} value {handler!r} has invalid format in {folder_name}"
+                )
 
     capabilities = manifest.get("capabilities", [])
     if "synthesis" not in capabilities:
@@ -455,7 +545,12 @@ def _load_optional_json(path: Path) -> dict[str, Any]:
         raise PluginLoadError(
             f"{path.name} is not valid JSON: {exc}"
         ) from exc
-    return data if isinstance(data, dict) else {}
+
+    if not isinstance(data, dict):
+        raise PluginLoadError(
+            f"{path.name} must be a JSON dictionary (object) at the root."
+        )
+    return data
 
 
 def _check_dependencies(plugin_dir: Path) -> tuple[bool, list[str]]:
@@ -478,13 +573,20 @@ def _check_dependencies(plugin_dir: Path) -> tuple[bool, list[str]]:
         content = req_file.read_text(encoding="utf-8")
         for line in content.splitlines():
             line = line.strip()
-            # Skip comments, empty lines, and links/flags.
+            # Skip comments, empty lines, links, and pip flags.
             if not line or line.startswith(("#", "-", "http://", "https://")):
                 continue
 
-            # Simple split to get package name before any specifiers.
-            # Handles: pkg, pkg==1.0, pkg>=2.0, pkg[extra], pkg ; python_version > '3.7'
-            pkg_name = re.split(r"[<>=!~;\[]", line)[0].strip()
+            if line.startswith("git+"):
+                fragment = parse_qs(urlparse(line).fragment)
+                pkg_name = (fragment.get("egg") or [""])[0].strip()
+            elif " @ " in line:
+                pkg_name = line.split(" @ ", 1)[0].strip()
+            else:
+                # Simple split to get package name before any specifiers.
+                # Handles: pkg, pkg==1.0, pkg>=2.0, pkg[extra], pkg ; python_version > '3.7'
+                pkg_name = re.split(r"[<>=!~;\[]", line)[0].strip()
+
             if not pkg_name:
                 continue
 
@@ -584,6 +686,22 @@ def _import_engine_class(
     if not isinstance(engine_cls, type):
         raise PluginLoadError(
             f"{class_name!r} in {folder_name} is not a class"
+        )
+
+    # 4. Verify signature compatibility (Duck Typing check for StudioTTSEngine contract)
+    required_methods = ["info", "check_env", "check_request", "synthesize", "settings_schema"]
+    missing_methods = [m for m in required_methods if not hasattr(engine_cls, m) or not callable(getattr(engine_cls, m))]
+
+    # Also check for unimplemented abstract methods if they used the ABC contract
+    abstract_methods = getattr(engine_cls, "__abstractmethods__", set())
+    unimplemented = abstract_methods.intersection(set(required_methods))
+
+    if missing_methods or unimplemented:
+        all_missing = sorted(list(set(missing_methods) | unimplemented))
+        methods_str = ", ".join(all_missing)
+        raise PluginLoadError(
+            f"Class {class_name!r} in {folder_name} is missing or has unimplemented required methods: {methods_str}. "
+            "Engines must implement the StudioTTSEngine contract."
         )
 
     return engine_cls

@@ -47,8 +47,30 @@ async def api_update_profile_settings(name: str, request: Request):
         form = await request.form()
         settings = dict(form)
 
+    # Rule 9: Validate against the target engine allowlist while preserving
+    # existing profile metadata fields that the drawer still submits.
+    spk_settings = get_speaker_settings(name)
+    requested_engine = str(settings.get("engine") or spk_settings.get("engine") or "")
+
+    if not requested_engine:
+        return JSONResponse(
+            {"status": "error", "message": "No TTS engine is currently configured. Please select an engine."},
+            status_code=400
+        )
+
+    from ...engines.behavior import get_synthesis_settings_allowlist
+    allowed = set(get_synthesis_settings_allowlist(requested_engine))
+    allowed.update({"engine", "test_text"})
+
+    invalid_keys = [k for k in settings if k not in allowed]
+    if invalid_keys:
+        return JSONResponse(
+            {"status": "error", "message": f"Settings not allowed for engine '{requested_engine}': {', '.join(invalid_keys)}"},
+            status_code=400
+        )
+
     if not update_speaker_settings(name, **settings):
-         return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
+        return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
     return {"status": "ok"}
 
 
@@ -91,7 +113,9 @@ def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
     # Rule 9: Early validation
     name = config.canonical_voice_name(name)
     spk_settings = get_speaker_settings(name)
-    current_engine = spk_settings.get("engine", get_default_profile_engine())
+    current_engine = spk_settings.get("engine") or ""
+    if not current_engine:
+         return JSONResponse({"status": "error", "message": "No TTS engine is configured for this profile."}, status_code=400)
     if not voices_helpers._has_behavior(current_engine, "reference_sample"):
          return JSONResponse({"status": "error", "message": f"Engine {current_engine} does not support reference samples."}, status_code=400)
 
@@ -116,7 +140,9 @@ def update_speaker_voice_asset_id(name: str, voice_id: str = Form("")):
     # Rule 9: Early validation
     name = config.canonical_voice_name(name)
     spk_settings = get_speaker_settings(name)
-    current_engine = spk_settings.get("engine", get_default_profile_engine())
+    current_engine = spk_settings.get("engine") or ""
+    if not current_engine:
+         return JSONResponse({"status": "error", "message": "No TTS engine is configured for this profile."}, status_code=400)
     if not voices_helpers._has_behavior(current_engine, "voice_asset_id"):
          return JSONResponse({"status": "error", "message": f"Engine {current_engine} does not support voice asset IDs."}, status_code=400)
 
@@ -137,6 +163,11 @@ async def build_speaker_profile(
     try:
         # Rule 9: Early validation
         name = config.canonical_voice_name(name)
+        spk_settings = get_speaker_settings(name)
+        engine = spk_settings.get("engine") or ""
+        if not engine:
+            return JSONResponse({"status": "error", "message": "No TTS engine is configured for this profile."}, status_code=400)
+
         try:
             path = voices_helpers._existing_voice_profile_dir(name) or voices_helpers._new_voice_profile_dir(name)
         except ValueError:
@@ -216,7 +247,7 @@ async def build_speaker_profile(
     # Submit to orchestrator
     orchestrator = create_orchestrator()
     spk_settings = get_speaker_settings(name)
-    engine = spk_settings.get("engine", get_default_profile_engine())
+    engine = spk_settings.get("engine") or ""
 
     task = SampleBuildTask(
         task_id=jid,
@@ -284,7 +315,9 @@ def test_speaker_profile(name: str, background_tasks: BackgroundTasks):
     name = config.canonical_voice_name(name)
     try:
         settings = get_speaker_settings(name)
-        engine = settings.get("engine", get_default_profile_engine())
+        engine = settings.get("engine") or ""
+        if not engine:
+             return JSONResponse({"status": "error", "message": "No TTS engine is configured for this profile."}, status_code=400)
         if not voices_helpers._is_engine_active(engine):
             return JSONResponse({"status": "error", "message": f"Engine {engine} is not enabled in Settings."}, status_code=400)
 

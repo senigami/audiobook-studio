@@ -6,7 +6,6 @@ vi.mock('@/api', () => ({
     fetchChapters: vi.fn(),
     fetchSegments: vi.fn(),
     fetchCharacters: vi.fn(),
-    fetchProductionBlocks: vi.fn(),
     updateChapter: vi.fn(),
     generateSegments: vi.fn(),
     updateSegmentsBulk: vi.fn(),
@@ -14,7 +13,6 @@ vi.mock('@/api', () => ({
     cancelChapterGeneration: vi.fn(),
     updateCharacter: vi.fn(),
     bakeChapter: vi.fn(),
-    updateProductionBlocks: vi.fn(),
     exportChapterAudio: vi.fn(),
     fetchScriptView: vi.fn(),
     saveScriptAssignments: vi.fn(),
@@ -63,8 +61,6 @@ import {
   mockSpeakerProfiles, 
   mockSpeakers,
   mockSegments,
-  mockProductionBlocks,
-  mockRenderBatches,
   mockScriptView
 } from '@tests/helpers/chapterEditorFixtures';
 
@@ -75,12 +71,6 @@ describe('ChapterEditor - Assets & Voices', () => {
     (api.fetchChapters as any).mockResolvedValue([mockChapter]);
     (api.fetchSegments as any).mockResolvedValue(mockSegments);
     (api.fetchCharacters as any).mockResolvedValue([]);
-    (api.fetchProductionBlocks as any).mockResolvedValue({
-      chapter_id: mockChapterId,
-      base_revision_id: 'rev-1',
-      blocks: mockProductionBlocks,
-      render_batches: mockRenderBatches
-    });
     (api.fetchScriptView as any).mockResolvedValue(mockScriptView);
     (api.exportChapterAudio as any).mockResolvedValue(new Blob(['audio']));
     Object.defineProperty(window.URL, 'createObjectURL', { value: vi.fn(() => 'blob:mock'), writable: true });
@@ -102,12 +92,14 @@ describe('ChapterEditor - Assets & Voices', () => {
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
-    fireEvent.click(screen.getByTitle('Export WAV'));
+    fireEvent.click(screen.getByTitle('Export Audio Options'));
+    fireEvent.click(screen.getByText('Export WAV'));
     await waitFor(() => {
       expect(api.exportChapterAudio).toHaveBeenCalledWith(mockChapterId, 'wav');
     });
 
-    fireEvent.click(screen.getByTitle('Export MP3'));
+    fireEvent.click(screen.getByTitle('Export Audio Options'));
+    fireEvent.click(screen.getByText('Export MP3'));
     await waitFor(() => {
       expect(api.exportChapterAudio).toHaveBeenCalledWith(mockChapterId, 'mp3');
     });
@@ -130,7 +122,7 @@ describe('ChapterEditor - Assets & Voices', () => {
     );
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-    const voiceSelect = screen.getByTitle('Select Voice Profile for this chapter');
+    const voiceSelect = screen.getByTitle('Select Default Voice Profile for this chapter');
     fireEvent.change(voiceSelect, { target: { value: '' } });
     fireEvent.click(screen.getByTitle('Queue Chapter'));
 
@@ -152,7 +144,7 @@ describe('ChapterEditor - Assets & Voices', () => {
     );
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-    const voiceSelect = screen.getByTitle('Select Voice Profile for this chapter');
+    const voiceSelect = screen.getByTitle('Select Default Voice Profile for this chapter');
     fireEvent.change(voiceSelect, { target: { value: 'Profile 1' } });
 
     await waitFor(() => {
@@ -175,7 +167,7 @@ describe('ChapterEditor - Assets & Voices', () => {
     );
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-    const voiceSelect = screen.getByTitle('Select Voice Profile for this chapter') as HTMLSelectElement;
+    const voiceSelect = screen.getByTitle('Select Default Voice Profile for this chapter') as HTMLSelectElement;
     expect(voiceSelect.value).toBe('Profile 1');
   });
 });

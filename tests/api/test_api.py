@@ -1,6 +1,5 @@
 import pytest
 from fastapi.testclient import TestClient
-from pathlib import Path
 
 # Import the app from app.api.web
 from app.api.web import app
@@ -26,6 +25,8 @@ def test_api_preview_raw():
     assert response.json()["text"] == "Hello world"
 
 def test_api_preview_processed():
+    from app.db.state import update_settings
+    update_settings({"default_engine": "xtts"})
     res = client.post("/api/projects", data={"name": "Preview Project 2"})
     pid = res.json()["project_id"]
     res = client.post(f"/api/projects/{pid}/chapters", data={"title": "Preview Chapter 2", "text_content": "Hello world"})
@@ -40,15 +41,11 @@ def test_api_preview_processed():
 
 def test_api_jobs_list():
     response = client.get("/api/jobs")
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
+    assert response.status_code == 404
 
 
 
-def test_api_active_job():
-    response = client.get("/api/active_job")
-    assert response.status_code == 200
+
 
 
 
@@ -63,12 +60,16 @@ def test_queue_uniqueness():
 
     # 1. Setup clean environment
     clear_all_jobs()
+    from app.db.state import update_settings
+    update_settings({"default_engine": "xtts"})
 
     # 2. Create mock project and chapter
     pid = create_project("Queue Uniqueness Test")
     cid = create_chapter(project_id=pid, title="Unique Chapter")
 
-    with patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit") as mock_submit:
+    with patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit") as mock_submit, \
+         patch("app.engines.voice_engines.resolve_profile_engine", return_value="xtts"), \
+         patch("app.api.routers.generation.resolve_profile_engine", return_value="xtts"):
         # 3. Add to queue first time
         res1 = client.post("/api/processing_queue", data={
             "project_id": pid,
@@ -162,3 +163,17 @@ def test_chapter_text_last_modified():
     chap3 = get_chapter(cid)
     assert chap3['text_content'] == "New text"
     assert chap3['text_last_modified'] > original_time # SHOULD have changed
+
+
+def test_api_preview_processed_fails_when_no_engine():
+    from unittest.mock import patch
+    res = client.post("/api/projects", data={"name": "Preview Project 3"})
+    pid = res.json()["project_id"]
+    res = client.post(f"/api/projects/{pid}/chapters", data={"title": "Preview Chapter 3", "text_content": "Hello world"})
+    cid = res.json()["chapter"]["id"]
+
+    with patch("app.api.routers.chapters_assets.get_settings", return_value={}), \
+         patch("app.engines.voice_engines.get_default_profile_engine", return_value=""):
+        response = client.get(f"/api/chapters/{cid}/preview?processed=true")
+        assert response.status_code == 400
+        assert "No TTS engine" in response.json()["message"]

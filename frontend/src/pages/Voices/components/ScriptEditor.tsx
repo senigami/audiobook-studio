@@ -1,6 +1,7 @@
 import React from 'react';
 import { RotateCcw, Loader2 } from 'lucide-react';
 import { GlassInput } from '@/components/forms/GlassInput';
+import { JsonSchemaForm } from '@/pages/Settings/components/JsonSchemaForm';
 import type { VoiceEngine, TtsEngine } from '@/types';
 
 interface ScriptEditorProps {
@@ -16,6 +17,8 @@ interface ScriptEditorProps {
     availableSamples: string[];
     engineVoiceId: string;
     onEngineVoiceIdChange: (val: string) => void;
+    settings: Record<string, any>;
+    onSettingsChange: (val: Record<string, any>) => void;
     onResetTestText: () => void;
     onSave: () => void;
     isSaving: boolean;
@@ -34,10 +37,15 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
     availableSamples,
     engineVoiceId,
     onEngineVoiceIdChange,
+    settings,
+    onSettingsChange,
     onResetTestText,
     onSave,
     isSaving
 }) => {
+    const activeEngine = engines.find(e => e.engine_id === engine);
+    const synthesisSettings = activeEngine?.behavior?.synthesis_settings || [];
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div className="glass-panel" style={{ padding: '1.5rem' }}>
@@ -91,6 +99,20 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                         return null;
                     })()}
                 </div>
+
+                {activeEngine?.settings_schema && synthesisSettings.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.5rem', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.02)' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>PLUGIN SETTINGS</label>
+                        <JsonSchemaForm
+                            schema={activeEngine.settings_schema}
+                            values={settings}
+                            onSave={onSettingsChange}
+                            busy={isSaving}
+                            engineVerified={activeEngine.verified}
+                            propertyFilter={synthesisSettings}
+                        />
+                    </div>
+                )}
 
                 {(() => {
                     const activeEngine = engines.find(e => e.engine_id === engine);

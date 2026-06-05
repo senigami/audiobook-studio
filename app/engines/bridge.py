@@ -104,6 +104,57 @@ class VoiceBridge:
                     data["last_test"] = json.loads(meta_path.read_text(encoding="utf-8"))
                 except Exception:
                     pass
+
+        # Enrich with operational speed calibration metrics
+        try:
+            from app.db.state import get_performance_metrics  # noqa: PLC0415
+            from app.tts_server.performance_settings import (  # noqa: PLC0415
+                computer_speed_multiplier_from_cps,
+                resolve_engine_settings_model,
+                filter_history_for_engine_model,
+            )
+            from app.orchestration.scheduler.eta import (  # noqa: PLC0415
+                get_calibrated_model_params,
+                get_calibration_confidence,
+            )
+
+            perf = get_performance_metrics()
+            all_history = perf.get("render_history") or []
+
+            for data in results:
+                engine_id = data.get("engine_id")
+                if not engine_id:
+                    continue
+                try:
+                    tts_model = resolve_engine_settings_model(engine_id)
+                    history = filter_history_for_engine_model(all_history, engine_id, tts_model)
+                    params = get_calibrated_model_params(history)
+                    confidence = get_calibration_confidence(history)
+                    current_settings = data.get("current_settings")
+                    if not isinstance(current_settings, dict):
+                        current_settings = {}
+                        data["current_settings"] = current_settings
+                    data["calibration_sample_count"] = len(history)
+                    data["calibration_since"] = history[0].get("completed_at") if history else None
+                    data["calibration_confidence_percent"] = confidence
+                    if params:
+                        calibrated_cps, _ = params
+                        data["calibrated_cps"] = round(calibrated_cps, 2)
+                        current_settings["computer_speed_multiplier"] = computer_speed_multiplier_from_cps(calibrated_cps)
+                    else:
+                        data["calibrated_cps"] = None
+                        current_settings["computer_speed_multiplier"] = None
+                except Exception:
+                    data["calibrated_cps"] = None
+                    data["calibration_confidence_percent"] = None
+                    data["calibration_sample_count"] = 0
+                    data["calibration_since"] = None
+                    current_settings = data.get("current_settings")
+                    if isinstance(current_settings, dict):
+                        current_settings["computer_speed_multiplier"] = None
+        except Exception:
+            pass
+
         return results
 
     def update_engine_settings(self, engine_id: str, settings: dict[str, Any]) -> dict[str, Any]:
@@ -143,7 +194,11 @@ class VoiceBridge:
 
     def remove_plugin(self, engine_id: str) -> dict[str, Any]:
         """Uninstall a plugin."""
-        return {"ok": False, "message": f"Plugin removal not implemented for {engine_id}."}
+        return self.remote.delete_engine(engine_id)
+
+    def import_plugin(self, file_content: bytes, filename: str) -> dict[str, Any]:
+        """Import a plugin from a zip file."""
+        return self.remote.import_plugin(file_content, filename)
 
     def install_plugin(self) -> dict[str, Any]:
         """Provide instructions for manual install."""

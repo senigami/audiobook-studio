@@ -24,27 +24,18 @@ def _load_project_manifest_with_v1_fallback(project_dir: Path) -> Dict[str, Any]
 
 def migrate_project_to_v2(project_id: str) -> bool:
     """Migrates a project from flat v1 layout to nested v2 chapter folders."""
+    from app.storage.manager import get_storage_manager
+    storage = get_storage_manager()
     try:
-        canonical_project_id = str(uuid.UUID(project_id))
-    except (ValueError, TypeError, AttributeError):
-        if isinstance(project_id, str) and config.SAFE_PROJECT_ID_RE.fullmatch(project_id):
-            canonical_project_id = project_id
-        else:
-            logger.warning("Skipping project migration for invalid project id: %r", project_id)
-            return False
-
-    # Rule 9: Locally visible containment proof for projects root
-    projects_root = os.path.abspath(os.path.realpath(os.fspath(config.PROJECTS_DIR)))
-    projects_root_prefix = projects_root if projects_root.endswith(os.sep) else projects_root + os.sep
-
-    project_dir_path = os.path.abspath(
-        os.path.normpath(os.path.join(projects_root, canonical_project_id))
-    )
-    if project_dir_path != projects_root and not project_dir_path.startswith(projects_root_prefix):
-        logger.warning("Skipping project migration outside projects root: %r", project_id)
+        ctx = storage.get_project_context(project_id)
+        project_dir = ctx.root
+    except ValueError:
+        logger.warning("Skipping project migration for invalid project id: %r", project_id)
         return False
 
-    project_dir = Path(project_dir_path)
+    if not project_dir.exists() or not storage.is_safe(project_dir):
+        logger.warning("Skipping project migration for missing or unsafe directory: %r", project_id)
+        return False
     manifest = _load_project_manifest_with_v1_fallback(project_dir)
 
     current_version = int(manifest.get("version", 1))
@@ -59,6 +50,13 @@ def migrate_project_to_v2(project_id: str) -> bool:
 
     try:
         chapters = list_chapters(project_id)
+
+        # Derive string forms of the project dir and projects root for the legacy
+        # path-containment checks further down in the file-move loops.
+        project_dir_path = os.path.abspath(os.path.realpath(os.fspath(project_dir)))
+        from app.core import config as _cfg
+        _projects_root = os.path.abspath(os.path.realpath(os.fspath(_cfg.PROJECTS_DIR)))
+        projects_root_prefix = _projects_root if _projects_root.endswith(os.sep) else _projects_root + os.sep
 
         # Resolve legacy dirs as proven strings
         audio_root = os.path.abspath(os.path.realpath(os.path.join(project_dir_path, "audio")))

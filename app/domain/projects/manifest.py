@@ -11,15 +11,10 @@ PROJECT_MANIFEST_FILENAME = "project.json"
 CURRENT_STORAGE_VERSION = 2
 
 def get_project_manifest_path(project_dir: Path) -> Path:
-    from ...core.config import PROJECTS_DIR
-    # Rule 9: Explicit containment check for scanner locality
-    try:
-        projects_root = os.path.abspath(os.fspath(PROJECTS_DIR))
-        resolved = os.path.abspath(os.fspath(project_dir))
-        if not resolved.startswith(projects_root + os.sep):
-             raise ValueError(f"Invalid or out-of-bounds project directory: {project_dir}")
-    except (OSError, ValueError) as e:
-         raise ValueError(f"Invalid or out-of-bounds project directory: {project_dir}") from e
+    from ...storage.manager import get_storage_manager
+    storage = get_storage_manager()
+    if not storage.is_safe(project_dir):
+         raise ValueError(f"Invalid or out-of-bounds project directory: {project_dir}")
 
     return secure_join_flat(project_dir, PROJECT_MANIFEST_FILENAME)
 
@@ -30,16 +25,13 @@ def load_project_manifest(project_dir: Path) -> Dict[str, Any]:
         if not manifest_path.exists():
             return {}
 
-        import os
-        from ...core.config import PROJECTS_DIR
-        trusted_root = os.path.abspath(os.fspath(PROJECTS_DIR))
-        resolved_path = os.path.abspath(os.fspath(manifest_path))
-
-        if resolved_path.startswith(trusted_root + os.sep):
-            with open(resolved_path, "r", encoding="utf-8") as f:
+        from ...storage.manager import get_storage_manager
+        storage = get_storage_manager()
+        if storage.is_safe(manifest_path):
+            with open(manifest_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         else:
-            logger.warning("Blocking manifest load outside projects root: %s", resolved_path)
+            logger.warning("Blocking manifest load outside projects root: %s", manifest_path)
             return {}
     except Exception as e:
         logger.warning("Failed to load project manifest: %s", e)
@@ -51,19 +43,15 @@ def save_project_manifest(project_dir: Path, manifest: Dict[str, Any]) -> bool:
         manifest_path = get_project_manifest_path(project_dir)
         tmp_path = manifest_path.with_suffix(".json.tmp")
 
-        import os
-        from ...core.config import PROJECTS_DIR
-        trusted_root = os.path.abspath(os.fspath(PROJECTS_DIR))
-        resolved_path = os.path.abspath(os.fspath(manifest_path))
-        resolved_tmp = os.path.abspath(os.fspath(tmp_path))
-
-        if resolved_path.startswith(trusted_root + os.sep) and resolved_tmp.startswith(trusted_root + os.sep):
-            with open(resolved_tmp, "w", encoding="utf-8") as f:
+        from ...storage.manager import get_storage_manager
+        storage = get_storage_manager()
+        if storage.is_safe(manifest_path) and storage.is_safe(tmp_path):
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(manifest, f, indent=2)
-            os.replace(resolved_tmp, resolved_path)
+            os.replace(tmp_path, manifest_path)
             return True
         else:
-            logger.error("Blocking manifest save outside projects root: %s", resolved_path)
+            logger.error("Blocking manifest save outside projects root: %s", manifest_path)
             return False
     except Exception as e:
         logger.error("Failed to save project manifest: %s", e)

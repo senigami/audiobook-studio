@@ -15,7 +15,7 @@ export interface VoiceOption {
 
 export function getDefaultEngineId(engines?: TtsEngine[]): VoiceEngine {
     if (!engines || engines.length === 0) return '';
-    return engines.find(e => e.enabled && e.status === 'ready')?.engine_id || engines[0]?.engine_id || '';
+    return engines.find(e => e.enabled && e.status === 'ready')?.engine_id || '';
 }
 
 export function getVoiceProfileEngine(profile?: Pick<SpeakerProfile, 'engine'> | null): VoiceEngine | null {
@@ -47,7 +47,15 @@ export function isDefaultVoiceProfile(profile?: Pick<SpeakerProfile, 'name' | 'v
     return profile.is_default || profile.variant_name === 'Default' || !profileName.includes(' - ');
 }
 
-export function getDefaultVoiceProfileName(profiles: SpeakerProfile[]): string | null {
+export function getDefaultVoiceProfileName(profiles: SpeakerProfile[], engines?: TtsEngine[]): string | null {
+    if (engines && engines.length > 0) {
+        const selectable = profiles.filter(p => isVoiceProfileSelectable(p, engines));
+        return (
+            selectable.find(isDefaultVoiceProfile)?.name ||
+            selectable[0]?.name ||
+            null
+        );
+    }
     return (
         profiles.find(isDefaultVoiceProfile)?.name ||
         profiles[0]?.name ||
@@ -121,7 +129,7 @@ export function buildVoiceOptions(
                 label = `${label} (${statuses.join(', ')})`;
             }
 
-            const finalEngineId = engineId || getDefaultEngineId(engines);
+            const finalEngineId = engineId || getDefaultEngineId(engines) || (engines && engines.length > 0 ? engines[0].engine_id : '');
             const matchingEngine = engines?.find(e => e.engine_id === finalEngineId);
             let disabledReason = '';
             if (!selectable) {
@@ -156,7 +164,7 @@ export function buildVoiceOptions(
             }
 
             const engineId = getVoiceProfileEngine(profile);
-            const finalEngineId = engineId || getDefaultEngineId(engines);
+            const finalEngineId = engineId || getDefaultEngineId(engines) || (engines && engines.length > 0 ? engines[0].engine_id : '');
             const matchingEngine = engines?.find(e => e.engine_id === finalEngineId);
             let disabledReason = '';
             if (!selectable) {

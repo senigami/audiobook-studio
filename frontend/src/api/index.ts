@@ -1,10 +1,10 @@
-import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock, ScriptViewResponse, ScriptAssignmentsUpdate } from '@/types';
+import type { Project, Chapter, ScriptViewResponse, ScriptAssignmentsUpdate } from '@/types';
 import { DEFAULT_VOICE_SENTINEL } from '@/constants/api';
 
 const parseApiResponse = async (res: Response) => {
   const data = await res.json();
   if (!res.ok || data?.status === 'error') {
-    const error = new Error(data?.message || 'Request failed') as Error & { status?: number };
+    const error = new Error(data?.message || data?.detail || 'Request failed') as Error & { status?: number };
     error.status = res.status;
     throw error;
   }
@@ -161,10 +161,6 @@ export const api = {
     const res = await fetch(`/api/chapters/${chapterId}/analyze`);
     return res.json();
   },
-  fetchProductionBlocks: async (chapterId: string): Promise<ProductionBlocksResponse> => {
-    const res = await fetch(`/api/chapters/${chapterId}/production-blocks`);
-    return parseApiResponse(res);
-  },
   fetchScriptView: async (chapterId: string): Promise<ScriptViewResponse> => {
     const res = await fetch(`/api/chapters/${chapterId}/script-view`);
     return parseApiResponse(res);
@@ -213,22 +209,6 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text_content: textContent })
-    });
-    return parseApiResponse(res);
-  },
-  updateProductionBlocks: async (
-    chapterId: string,
-    data: { base_revision_id?: string; blocks: ProductionBlock[] }
-  ): Promise<ProductionBlocksResponse> => {
-    const res = await fetch(`/api/chapters/${chapterId}/production-blocks`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        base_revision_id: data.base_revision_id,
-        blocks: data.blocks,
-      }),
     });
     return parseApiResponse(res);
   },
@@ -288,40 +268,12 @@ export const api = {
     return res.json();
   },
 
-  // --- Jobs ---
-  fetchJobs: async (): Promise<Job[]> => {
-    const res = await fetch('/api/jobs');
-    return res.json();
-  },
-  fetchActiveJob: async (): Promise<Job | null> => {
-    const res = await fetch('/api/active_job');
-    return res.json();
-  },
-  fetchJobDetails: async (filename: string): Promise<Job | null> => {
-    const res = await fetch(`/api/job/${encodeURIComponent(filename)}`);
-    return res.json();
-  },
-  fetchPreview: async (chapterId: string, processed: boolean = false): Promise<{ text: string; error?: string }> => {
-    const res = await fetch(`/api/chapters/${chapterId}/preview?processed=${processed}`);
-    return res.json();
-  },
-  updateTitle: async (filename: string, newTitle: string): Promise<any> => {
-    const formData = new FormData();
-    formData.append('chapter_file', filename);
-    formData.append('new_title', newTitle);
-    const res = await fetch('/api/job/update_title', { method: 'POST', body: formData });
-    return res.json();
-  },
   deleteAudiobook: async (filename: string, projectId?: string): Promise<any> => {
     const res = await fetch(`/api/audiobook/${encodeURIComponent(filename)}${projectId ? `?project_id=${projectId}` : ''}`, { method: 'DELETE' });
     return res.json();
   },
   resetChapter: async (chapterId: string): Promise<any> => {
     const res = await fetch(`/api/chapters/${chapterId}/reset`, { method: 'POST' });
-    return res.json();
-  },
-  cancelPending: async (): Promise<any> => {
-    const res = await fetch('/api/generation/cancel-all', { method: 'POST' });
     return res.json();
   },
   exportSample: async (chapterId: string, projectId?: string): Promise<{ url: string; status?: string; message?: string }> => {
@@ -426,8 +378,29 @@ export const api = {
     const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/logs`);
     return parseApiResponse(res);
   },
+  fetchEngineScenarios: async (engineId: string): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/dev/scenarios`);
+    return parseApiResponse(res);
+  },
   testEngine: async (engineId: string): Promise<any> => {
     const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/test`, { method: 'POST' });
+    return parseApiResponse(res);
+  },
+  resetEngineCalibration: async (engineId: string, model?: string): Promise<any> => {
+    const params = new URLSearchParams();
+    if (model) params.append('model', model);
+    const url = `/api/engines/${encodeURIComponent(engineId)}/calibrate/reset?${params.toString()}`;
+    const res = await fetch(url, { method: 'POST' });
+    return parseApiResponse(res);
+  },
+
+  importEnginePlugin: async (file: File): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/engines/import', {
+      method: 'POST',
+      body: formData,
+    });
     return parseApiResponse(res);
   },
   installPlugin: async (): Promise<any> => {

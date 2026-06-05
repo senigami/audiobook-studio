@@ -113,11 +113,12 @@ def export_voice_bundle(voices_root: Path, voice_name: str, *, include_source_wa
 
             from ...engines.behavior import get_test_sample_name
             from ...db.speakers import get_speaker_settings
-            from ...engines.voice_engines import get_default_profile_engine
 
             profile_name = voice_name + " - " + variant_dir.name if variant_dir.name != "Default" else voice_name
             spk_settings = get_speaker_settings(profile_name)
-            engine = variant_manifest.get("engine") or spk_settings.get("engine") or get_default_profile_engine()
+            engine = variant_manifest.get("engine") or spk_settings.get("engine")
+            if not engine:
+                raise VoiceBundleError(f"No TTS engine configured for variant {variant_dir.name}")
             test_sample = get_test_sample_name(engine)
 
             effective_model_assets = ({test_sample} if test_sample else set()) | MODEL_ASSET_NAMES

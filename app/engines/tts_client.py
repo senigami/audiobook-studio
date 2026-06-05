@@ -17,13 +17,13 @@ import httpx
 logger = logging.getLogger(__name__)
 
 # Default connect and read timeouts used for regular requests.
-_CONNECT_TIMEOUT = 5.0   # seconds
-_READ_TIMEOUT    = 60.0  # seconds — synthesis can be slow
+_CONNECT_TIMEOUT = 5.0  # seconds
+_READ_TIMEOUT = 300.0  # seconds — synthesis can be slow
+_INSTALL_TIMEOUT = 900.0  # seconds — pip installs can be slow
 
 # Tighter timeout for heartbeat checks.
 _HEARTBEAT_TIMEOUT = 3.0
-_LIST_TIMEOUT      = 10.0  # seconds for registry/plugin list
-
+_LIST_TIMEOUT = 10.0  # seconds for registry/plugin list
 
 
 class TtsServerError(RuntimeError):
@@ -256,7 +256,17 @@ class TtsClient:
         return self._post(
             f"/engines/{_safe_id(engine_id)}/install",
             payload={},
+            timeout=_INSTALL_TIMEOUT,
         )
+
+    def delete_engine(self, engine_id: str) -> dict[str, Any]:
+        """DELETE /engines/{engine_id} — uninstall a plugin."""
+        return self._delete(f"/engines/{_safe_id(engine_id)}")
+
+    def import_plugin(self, file_content: bytes, filename: str) -> dict[str, Any]:
+        """POST /plugins/import — upload and install a plugin zip."""
+        files = {"file": (filename, file_content, "application/zip")}
+        return self._post_files("/plugins/import", files=files)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -283,6 +293,27 @@ class TtsClient:
         url = f"{self.base_url}{path}"
         try:
             resp = httpx.post(url, json=payload, timeout=timeout)
+        except httpx.ConnectError as exc:
+            raise TtsServerConnectionError(
+                f"Could not connect to TTS Server at {url}: {exc}"
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise TtsServerConnectionError(
+                f"TTS Server request timed out: {url}: {exc}"
+            ) from exc
+        _raise_for_status(resp, url)
+        return resp.json()
+
+    def _post_files(
+        self,
+        path: str,
+        *,
+        files: dict[str, Any],
+        timeout: float = _CONNECT_TIMEOUT,
+    ) -> Any:
+        url = f"{self.base_url}{path}"
+        try:
+            resp = httpx.post(url, files=files, timeout=timeout)
         except httpx.ConnectError as exc:
             raise TtsServerConnectionError(
                 f"Could not connect to TTS Server at {url}: {exc}"
@@ -330,9 +361,25 @@ class TtsClient:
 def _raise_for_status(resp: httpx.Response, url: str) -> None:
     """Raise TtsServerResponseError for non-success status codes."""
     if resp.status_code not in (200, 201, 207):
+        detail = _response_error_detail(resp)
         raise TtsServerResponseError(
-            f"TTS Server returned {resp.status_code} for {url}: {resp.text[:200]}"
+            f"TTS Server returned {resp.status_code} for {url}: {detail}"
         )
+
+
+def _response_error_detail(resp: httpx.Response) -> str:
+    """Extract useful error details from a TTS Server response."""
+    try:
+        payload = resp.json()
+    except ValueError:
+        payload = None
+
+    if isinstance(payload, dict):
+        detail = payload.get("detail") or payload.get("message")
+        if detail:
+            return str(detail)[-4000:]
+
+    return resp.text[-4000:]
 
 
 def _safe_id(engine_id: str) -> str:

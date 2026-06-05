@@ -21,6 +21,8 @@ def mock_state(tmp_path, monkeypatch):
     return tmp_path
 
 def test_analysis_router_endpoints(mock_state):
+    from app.db.state import update_settings
+    update_settings({"default_engine": "xtts"})
     # Test analyze_text endpoint (POST)
     response = client.post("/api/analyze_text", json={"text_content": "This is a short sentence. This is another one."})
     assert response.status_code == 200

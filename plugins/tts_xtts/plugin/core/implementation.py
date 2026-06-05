@@ -6,16 +6,37 @@ import hashlib
 import os
 import re
 import shutil
+import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable
 
-from app.core import config as app_config
-from app.utils.text.textops import pack_text_to_limit, safe_split_long_sentences, sanitize_text
+from .text_utils import pack_text_to_limit, safe_split_long_sentences, sanitize_text
+from .proc_utils import run_cmd_stream
+from .diagnostics import emit_diagnostics
 # Engine environment resolution
 XTTS_ENV_DIR_DEFAULT = Path.home() / "xtts-env"
 XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(XTTS_ENV_DIR_DEFAULT)))
 XTTS_ENV_PYTHON = Path(os.getenv("XTTS_ENV_PYTHON", str(XTTS_ENV_DIR / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))))
 XTTS_ENV_ACTIVATE = XTTS_ENV_DIR / ("Scripts/Activate.ps1" if os.name == "nt" else "bin/activate")
+
+
+
+@lru_cache(maxsize=1)
+def _load_local_manifest() -> dict[str, Any]:
+    """Load the manifest.json from the plugin root for local behavior discovery."""
+    try:
+        # Implementation is in plugin/core/, manifest is 2 levels up
+        manifest_path = Path(__file__).parents[2] / "manifest.json"
+        if manifest_path.exists():
+            return json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+
+def _get_local_behavior() -> dict[str, Any]:
+    return _load_local_manifest().get("behavior") or {}
 
 
 def xtts_generate(
@@ -30,7 +51,6 @@ def xtts_generate(
     task_id: str | None = None,
 ) -> int:
     """Invoke XTTS inference via subprocess."""
-    from app.engines.proc_utils import run_cmd_stream
 
     import sys
     python_exe = XTTS_ENV_PYTHON
@@ -40,28 +60,30 @@ def xtts_generate(
         try:
             import TTS  # noqa: F401, PLC0415
             python_exe = Path(sys.executable)
-            on_output("XTTS environment not found; falling back to current environment (TTS detected).\n")
+            emit_diagnostics(on_output, "XTTS environment not found; falling back to current environment (TTS detected).\n")
         except ImportError:
-            on_output(f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE} and 'TTS' not found in current environment.\n")
+            emit_diagnostics(on_output, f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE} and 'TTS' not found in current environment.\n")
             return 1
 
     sw = speaker_wav
 
     if not sw and voice_profile_dir is None:
-        on_output("[error] No speaker profile or reference WAV provided\n")
+        emit_diagnostics(on_output, "[error] No speaker profile or reference WAV provided\n")
         return 1
 
     if safe_mode:
         text = sanitize_text(text)
-        from app.engines.behavior import get_text_split_target
-        text = safe_split_long_sentences(text, target=get_text_split_target("xtts"))
+        behavior = _get_local_behavior()
+        split_target = behavior.get("text_split_target", 450)
+        text = safe_split_long_sentences(text, target=split_target)
     else:
         # Raw mode: Absolute bare minimum to prevent speech engine crashes
         text = re.sub(r"[^\x00-\x7F]+", "", text)  # ASCII only
         text = text.strip()
 
-    from app.engines.behavior import get_text_chunk_limit
-    text = pack_text_to_limit(text, limit=get_text_chunk_limit("xtts"), pad=True) or " "
+    behavior = _get_local_behavior()
+    chunk_limit = behavior.get("text_chunk_limit", 500)
+    text = pack_text_to_limit(text, limit=chunk_limit, pad=True) or " "
 
     cmd = [
         str(python_exe),
@@ -84,8 +106,8 @@ def xtts_generate(
         cmd.extend(["--task_id", task_id])
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
-    on_output("Launching XTTS inference...\n")
-    on_output("XTTS may take a while on first use while models load, caches warm, or assets download.\n")
+    emit_diagnostics(on_output, "Launching XTTS inference...\n")
+    emit_diagnostics(on_output, "XTTS may take a while on first use while models load, caches warm, or assets download.\n")
     return run_cmd_stream(cmd, on_output, cancel_check, env=env)
 
 
@@ -99,7 +121,6 @@ def xtts_generate_script(
     task_id: str | None = None,
 ) -> int:
     """Invoke XTTS script-based inference via subprocess."""
-    from app.engines.proc_utils import run_cmd_stream
 
     import sys
     python_exe = XTTS_ENV_PYTHON
@@ -109,9 +130,9 @@ def xtts_generate_script(
         try:
             import TTS  # noqa: F401, PLC0415
             python_exe = Path(sys.executable)
-            on_output("XTTS environment not found; falling back to current environment (TTS detected).\n")
+            emit_diagnostics(on_output, "XTTS environment not found; falling back to current environment (TTS detected).\n")
         except ImportError:
-            on_output(f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE} and 'TTS' not found in current environment.\n")
+            emit_diagnostics(on_output, f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE} and 'TTS' not found in current environment.\n")
             return 1
 
     cmd = [
@@ -134,8 +155,8 @@ def xtts_generate_script(
         cmd.extend(["--task_id", task_id])
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
-    on_output("Launching XTTS inference...\n")
-    on_output("XTTS may take a while on first use while models load, caches warm, or assets download.\n")
+    emit_diagnostics(on_output, "Launching XTTS inference...\n")
+    emit_diagnostics(on_output, "XTTS may take a while on first use while models load, caches warm, or assets download.\n")
     return run_cmd_stream(cmd, on_output, cancel_check, env=env)
 
 

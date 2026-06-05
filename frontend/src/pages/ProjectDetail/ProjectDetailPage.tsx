@@ -34,7 +34,7 @@ import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '@/uti
 import { useProjectActions } from '@/hooks/useProjectActions';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '@/utils/voiceProfiles';
 import { isChapterScopedJob, pickRelevantJob } from '@/utils/jobSelection';
-
+import { resolveVoiceEngineStatus } from '@/utils/chapterEditorHelpers';
 interface ProjectViewProps {
   jobs: Record<string, Job>;
   segmentProgress?: Record<string, SegmentProgress>;
@@ -247,9 +247,12 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     return selectedVoice
       || project?.speaker_profile_name
       || settings?.default_speaker_profile
-      || getDefaultVoiceProfileName(speakerProfiles)
+      || getDefaultVoiceProfileName(speakerProfiles, engines)
       || '';
-  }, [selectedVoice, project?.speaker_profile_name, settings?.default_speaker_profile, speakerProfiles]);
+  }, [selectedVoice, project?.speaker_profile_name, settings?.default_speaker_profile, speakerProfiles, engines]);
+  const projectVoiceStatus = React.useMemo(() => {
+    return resolveVoiceEngineStatus(effectiveProjectVoice, engines || [], speakerProfiles || []);
+  }, [effectiveProjectVoice, engines, speakerProfiles]);
   const projectDefaultVoiceLabel = React.useMemo(() => {
     const fallbackVoiceLabel = getVoiceOptionLabel(effectiveProjectVoice, speakerProfiles, speakers, engines, characters);
     return fallbackVoiceLabel ? `Default Speaker (${fallbackVoiceLabel})` : 'Default Speaker';
@@ -282,14 +285,37 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   if (loading) return <div style={{ padding: '2rem' }}>{editingChapterId ? 'Loading chapter...' : 'Loading project...'}</div>;
   if (!project) return <div style={{ padding: '2rem' }}>Project not found.</div>;
 
-  const totalRuntime = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => acc + (c.audio_status === 'done' ? (c.audio_length_seconds || c.predicted_audio_length || 0) : 0), 0);
-  const totalPredicted = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => acc + (c.predicted_audio_length || 0), 0);
+  const totalRuntime = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => acc + (c.audio_status === 'done' ? (c.audio_length_seconds || 0) : 0), 0);
+
+  const profile = speakerProfiles.find(p => p.name === effectiveProjectVoice);
+  const engineId = profile?.engine || settings?.default_engine || '';
+  const targetEngine = engines.find(e => e.engine_id === engineId);
+  const calibratedCps = targetEngine?.calibrated_cps;
+
+  let totalPredicted: number | null = null;
+  if (calibratedCps && calibratedCps > 0) {
+    totalPredicted = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => {
+      if (c.audio_status === 'done') {
+        return acc + (c.audio_length_seconds || 0);
+      } else {
+        return acc + (c.char_count / calibratedCps);
+      }
+    }, 0);
+  }
+
+  const hasUnrendered = (Array.isArray(chapters) ? chapters : []).some(c => c.audio_status !== 'done');
   const activeChapter = editingChapterId ? chapters.find(c => c.id === editingChapterId) || null : null;
 
   // Derive editor state
-  const matchingChapterJobs = Object.values(jobs).filter(j =>
+  const rawMatchingJobs = Object.values(jobs).filter(j =>
     j.project_id === effectiveProjectId &&
     (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId || 'none'))
+  );
+  const rawChapterRenderJobs = rawMatchingJobs.filter(isChapterScopedJob);
+  const newestChapterScopedJob = pickRelevantJob(rawChapterRenderJobs, true);
+
+  const matchingChapterJobs = rawMatchingJobs.filter(j =>
+    !isChapterScopedJob(j) || (newestChapterScopedJob && j.id === newestChapterScopedJob.id)
   );
   const chapterRenderJobs = matchingChapterJobs.filter(isChapterScopedJob);
   const includeDoneForEditor = !!activeChapter
@@ -341,11 +367,34 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
           project={project}
           totalRuntime={totalRuntime}
           totalPredicted={totalPredicted}
+          hasUnrendered={hasUnrendered}
           onEditMetadata={() => setShowEditProjectModal(true)}
           onShowCover={() => setShowCoverModal(true)}
           formatLength={formatLength}
           compact={!!editingChapterId}
         />
+
+        {!editingChapterId && !projectVoiceStatus.enabled && projectVoiceStatus.message && (
+          <div style={{
+            margin: '0.5rem 0',
+            padding: '1rem',
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            borderRadius: '8px',
+            color: 'var(--text-primary)',
+            fontSize: '0.875rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            boxShadow: 'var(--shadow-sm)',
+          }}>
+            <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+            <div style={{ flex: 1 }}>
+              <strong style={{ display: 'block', marginBottom: '0.25rem', color: '#ef4444' }}>Project Default Voice Engine Unavailable</strong>
+              <span>{projectVoiceStatus.message}</span>
+            </div>
+          </div>
+        )}
 
         {editingChapterId ? (
           <ChapterEditor

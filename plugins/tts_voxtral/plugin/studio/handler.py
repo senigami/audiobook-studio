@@ -11,6 +11,11 @@ from app.jobs.handlers.bridge_helpers import generate_via_bridge
 
 logger = logging.getLogger(__name__)
 
+_SKIP_LIVE_BROADCASTS = {
+    "skip_studio_job_event": True,
+    "skip_job_updated": True,
+}
+
 
 def _chapter_text_from_segments(chapter_id: str) -> str:
     from app.db import get_connection
@@ -121,6 +126,7 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
             voice_asset_id=spk.get("voice_asset_id"),
             model=spk.get("model"),
             reference_sample=spk.get("reference_sample"),
+            task_id=jid,
         )
         logger.info(
             "[%s-debug %s] generate_via_bridge returned job=%s rc=%s wav_exists=%s",
@@ -153,7 +159,7 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
 
     if j.make_mp3:
         logger.info("[%s-debug %s] finalizing mp3 job=%s wav=%s", j.engine, time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), jid, out_wav)
-        update_job(jid, status="finalizing", progress=0.99)
+        update_job(jid, status="finalizing", progress=0.99, **_SKIP_LIVE_BROADCASTS)
         frc = wav_to_mp3(out_wav, out_mp3, on_output=on_output, cancel_check=cancel_check)
         logger.info(
             "[%s-debug %s] wav_to_mp3 returned job=%s rc=%s mp3_exists=%s",

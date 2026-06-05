@@ -4,6 +4,7 @@ import type { ChunkGroup } from '@/utils/chunkGroups';
 
 export function useChapterPlayback(
   projectId: string,
+  chapterId: string,
   segments: ChapterSegment[],
   chunkGroups: ChunkGroup[],
   generatingSegmentIds: Set<string>,
@@ -12,6 +13,10 @@ export function useChapterPlayback(
 ) {
   const [playingSegmentId, setPlayingSegmentId] = useState<string | null>(null);
   const [playingSegmentIds, setPlayingSegmentIds] = useState<Set<string>>(new Set());
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const playbackQueueRef = useRef<string[]>([]);
   const isPlayingRef = useRef<boolean>(false);
@@ -20,6 +25,7 @@ export function useChapterPlayback(
   const chunkGroupsRef = useRef<ChunkGroup[]>(chunkGroups);
   const audioGroupsRef = useRef<AudioGroup[]>(audioGroups);
   const pendingPlaybackRef = useRef<{ segmentId: string; queue: string[] } | null>(null);
+  const skimIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     segmentsRef.current = segments;
@@ -50,7 +56,10 @@ export function useChapterPlayback(
     setPlayingSegmentId(currentId);
     setPlayingSegmentIds(new Set(getGroupSegmentIds(idx, queue)));
 
-    if (!seg.audio_file_path || seg.audio_status !== 'done') {
+    const audioGroup = audioGroupsRef.current.find(g => g.span_ids.includes(currentId));
+    const isReady = (seg.audio_file_path && seg.audio_status === 'done') || !!(audioGroup && (audioGroup.status === 'rendered' || audioGroup.audio_file_path || audioGroup.asset_url));
+
+    if (!isReady) {
       const groupIds = getGroupSegmentIds(idx, queue);
       const missingInGroup = groupIds.filter(id => {
         const s = segmentsRef.current.find(seg => seg.id === id);
@@ -67,10 +76,15 @@ export function useChapterPlayback(
 
     pendingPlaybackRef.current = null;
 
-    const audioPath = seg.audio_file_path;
+    let audioPath: string | null | undefined = seg.audio_file_path || audioGroup?.audio_file_path;
+    if (!audioPath && audioGroup?.asset_url) {
+      const parts = audioGroup.asset_url.split('/');
+      audioPath = parts[parts.length - 1] || undefined;
+    }
+    if (!audioPath) return;
     const wavPath = audioPath.replace(/\.[^.]+$/, '.wav');
     const mp3Path = audioPath.replace(/\.[^.]+$/, '.mp3');
-    
+
     const urls = [
       `/api/projects/${projectId}/chapters/${seg.chapter_id}/assets/segment?filename=${encodeURIComponent(audioPath)}`,
       `/api/projects/${projectId}/chapters/${seg.chapter_id}/assets/segment?filename=${encodeURIComponent(wavPath)}`,
@@ -80,6 +94,13 @@ export function useChapterPlayback(
     let urlIdx = 0;
     const playWithFallback = (u: string) => {
       const audio = new Audio(u);
+      audio.onplay = () => {
+        setIsPaused(false);
+      };
+      audio.onpause = () => {
+        if (!isPlayingRef.current) return;
+        setIsPaused(true);
+      };
       audio.onended = () => {
         if (!isPlayingRef.current) return;
         let nextIdx = idx + 1;
@@ -94,7 +115,7 @@ export function useChapterPlayback(
         }
         playFromIndex(nextIdx, queue);
       };
-      
+
       audio.onerror = () => {
         if (!isPlayingRef.current) return;
         urlIdx++;
@@ -104,7 +125,15 @@ export function useChapterPlayback(
           playFromIndex(idx + 1, queue);
         }
       };
-      
+
+      audio.ontimeupdate = () => {
+        setCurrentTime(audio.currentTime);
+      };
+
+      audio.onloadedmetadata = () => {
+        setDuration(audio.duration);
+      };
+
       audio.play().catch(e => {
         console.error("Playback failed", e);
         audio.onerror?.(new Event('error') as any);
@@ -132,14 +161,26 @@ export function useChapterPlayback(
     }
   }, [segments, generatingSegmentIds]);
 
+  useEffect(() => {
+    return () => stopPlayback();
+  }, [chapterId]);
+
   const stopPlayback = () => {
+    stopSkim();
     if (audioPlayerRef.current) {
+      audioPlayerRef.current.onpause = null;
+      audioPlayerRef.current.ontimeupdate = null;
+      audioPlayerRef.current.onloadedmetadata = null;
       audioPlayerRef.current.pause();
       audioPlayerRef.current = null;
     }
     setPlayingSegmentId(null);
     setPlayingSegmentIds(new Set());
     isPlayingRef.current = false;
+    setIsPlaying(false);
+    setIsPaused(false);
+    setCurrentTime(0);
+    setDuration(0);
     playbackQueueRef.current = [];
     pendingPlaybackRef.current = null;
   };
@@ -151,6 +192,13 @@ export function useChapterPlayback(
       audio.play().catch(() => {});
     } else {
       audio.pause();
+    }
+  };
+
+  const seekTo = (time: number) => {
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.currentTime = time;
+      setCurrentTime(time);
     }
   };
 
@@ -181,12 +229,39 @@ export function useChapterPlayback(
 
     stopPlayback();
     isPlayingRef.current = true;
+    setIsPlaying(true);
+    setIsPaused(false);
     playbackQueueRef.current = fullQueue;
-    
+
     const currentIndex = fullQueue.indexOf(segmentId);
-    if (currentIndex === -1) return;
+    if (currentIndex === -1) {
+      setIsPlaying(false);
+      return;
+    }
     pendingPlaybackRef.current = { segmentId, queue: fullQueue };
     await playFromIndex(currentIndex, fullQueue);
+  };
+
+  const startSkim = (direction: 'forward' | 'backward') => {
+    if (!audioPlayerRef.current || !isPlayingRef.current) return;
+    stopSkim();
+
+    const step = direction === 'forward' ? 0.5 : -0.5;
+    skimIntervalRef.current = setInterval(() => {
+      if (audioPlayerRef.current) {
+        const newTime = audioPlayerRef.current.currentTime + step;
+        audioPlayerRef.current.currentTime = Math.max(0, Math.min(newTime, audioPlayerRef.current.duration || 0));
+      } else {
+        stopSkim();
+      }
+    }, 150);
+  };
+
+  const stopSkim = () => {
+    if (skimIntervalRef.current) {
+      clearInterval(skimIntervalRef.current);
+      skimIntervalRef.current = null;
+    }
   };
 
   return {
@@ -195,6 +270,12 @@ export function useChapterPlayback(
     playSegment,
     stopPlayback,
     togglePause,
-    isPlaying: isPlayingRef.current
+    seekTo,
+    isPlaying,
+    isPaused,
+    currentTime,
+    duration,
+    startSkim,
+    stopSkim
   };
 }

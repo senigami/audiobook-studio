@@ -16,6 +16,11 @@ from app.db.state import get_performance_metrics
 
 logger = logging.getLogger(__name__)
 
+_SKIP_LIVE_BROADCASTS = {
+    "skip_studio_job_event": True,
+    "skip_job_updated": True,
+}
+
 
 def _group_weight(group: dict) -> int:
     return max(1, int(group.get("text_length") or 0))
@@ -100,7 +105,7 @@ def _chunk_output_path(pdir: Path, chunk: dict) -> Path:
     return sdir / f"{chunk['segments'][0]['id']}.wav"
 
 
-def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav: Path, safe_mode: bool, on_output, cancel_check) -> int:
+def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav: Path, safe_mode: bool, on_output, cancel_check, task_id: str | None = None) -> int:
     if not profile_name:
         on_output(f"[error] No profile is assigned for this segment ({engine_id}).\n")
         return 1
@@ -123,6 +128,7 @@ def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav
         safe_mode=safe_mode,
         on_output=on_output,
         cancel_check=cancel_check,
+        task_id=task_id,
         **settings
     )
 
@@ -241,7 +247,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     j.total_render_weight = weight_updates["total_render_weight"]
     j.completed_render_weight = weight_updates["completed_render_weight"]
     j.active_render_group_weight = weight_updates["active_render_group_weight"]
-    update_job(jid, grouped_progress=0.0, **weight_updates)
+    update_job(jid, grouped_progress=0.0, **weight_updates, **_SKIP_LIVE_BROADCASTS)
 
     for index, group in enumerate(target_groups, start=1):
         if cancel_check():
@@ -269,6 +275,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
                 limit=1.0 if j.segment_ids else 0.9,
                 active_index=offset + index,
             ),
+            **_SKIP_LIVE_BROADCASTS,
         )
         for group_segment in group["segments"]:
             update_segment(
@@ -306,9 +313,10 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
                         limit=progress_limit,
                         active_index=offset + index,
                     ),
+                    **_SKIP_LIVE_BROADCASTS,
                 )
 
-            rc = _render_segment(engine, chunk_text, profile_name, seg_out, j.safe_mode, engine_on_output, cancel_check)
+            rc = _render_segment(engine, chunk_text, profile_name, seg_out, j.safe_mode, engine_on_output, cancel_check, task_id=jid)
         except EngineBridgeError as exc:
             update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=str(exc))
             return "failed", str(exc)
@@ -355,6 +363,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
                 limit=progress_limit,
                 active_index=0,
             ),
+            **_SKIP_LIVE_BROADCASTS,
         )
 
     if j.segment_ids:
@@ -386,6 +395,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         status="finalizing",
         progress=max(getattr(j, "progress", 0.0), 0.91),
         **_grouped_progress_updates(tracking_groups, total_groups, 0.0, limit=0.9, active_index=0),
+        **_SKIP_LIVE_BROADCASTS,
     )
     segment_paths = []
     fresh_groups = build_chunk_groups(get_chapter_segments(j.chapter_id), j.speaker_profile)

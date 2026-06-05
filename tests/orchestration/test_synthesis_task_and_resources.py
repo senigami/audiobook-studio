@@ -150,14 +150,15 @@ class TestSynthesisTask:
         progress.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
 
         bridge = MagicMock()
-        from app.engines.bridge_remote import EngineUnavailableError
+        from app.engines.errors import EngineUnavailableError
         bridge.synthesize.side_effect = EngineUnavailableError("Network split")
 
         orch = TaskOrchestrator(progress_service=progress, voice_bridge=bridge)
         task = self._make()
 
         # We need to mock resource reservation so it doesn't wait
-        with patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}):
+        with patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
+             patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None):
             orch.submit(task)
 
         published_reasons = [c.kwargs.get("reason_code") for c in progress.publish.call_args_list]

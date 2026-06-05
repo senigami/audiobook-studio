@@ -197,3 +197,22 @@ def test_imported_latent_voice_lists_ready_without_rebuild(clean_db, voices_root
     assert profile["has_latent"] is True
     assert profile["is_ready"] is True
     assert profile["is_rebuild_required"] is False
+
+
+def test_export_voice_bundle_fails_when_no_engine(clean_db, voices_root):
+    voices_root.mkdir()
+    _write_voice_root(voices_root, "NoEngineVoice")
+    # Modify profile.json to remove 'engine' field
+    (voices_root / "NoEngineVoice" / "Default" / "profile.json").write_text(json.dumps({
+        "variant_name": "Default"
+    }))
+    (voices_root / "NoEngineVoice" / "Angry" / "profile.json").write_text(json.dumps({
+        "variant_name": "Angry"
+    }))
+
+    from app.domain.voices.bundles import VoiceBundleError, export_voice_bundle
+    with patch("app.engines.voice_engines.get_default_profile_engine", return_value=""), \
+         patch("app.api.routers.analysis.state.get_settings", return_value={}):
+        with pytest.raises(VoiceBundleError) as exc_info:
+            export_voice_bundle(voices_root, "NoEngineVoice")
+        assert "no tts engine configured" in str(exc_info.value).lower()

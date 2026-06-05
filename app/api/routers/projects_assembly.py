@@ -28,11 +28,17 @@ router = APIRouter()
 
 @router.get("/{project_id}/audiobooks")
 def api_list_project_audiobooks(project_id: str):
-    project = get_project(project_id)
-    if not project:
+    if not get_project(project_id):
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
-    m4b_dir = get_project_m4b_dir(project_id)
+    from ...storage.manager import get_storage_manager
+    storage = get_storage_manager()
+    try:
+        ctx = storage.get_project_context(project_id)
+        m4b_dir = ctx.m4b_dir
+    except ValueError:
+        return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+
     m4b_files = []
     if m4b_dir.exists():
         for p in m4b_dir.iterdir():
@@ -53,8 +59,8 @@ def api_list_project_audiobooks(project_id: str):
     valid_files = []
     for filename, url in unique_files:
         # Rule 8 match
-        p = find_secure_file(m4b_dir, filename)
-        if p:
+        p = m4b_dir / filename
+        if p.exists() and storage.is_safe(p):
             valid_files.append((filename, url, p))
 
     valid_files.sort(key=lambda x: x[2].stat().st_mtime, reverse=True)
@@ -84,16 +90,12 @@ def api_list_project_audiobooks(project_id: str):
         item["download_filename"] = preferred_audiobook_download_filename(item["title"], p.name)
 
         # Read description from sidecar file if it exists
-        import os
-        trusted_m4b_root = os.path.abspath(os.path.realpath(os.fspath(m4b_dir)))
         description_filename = p.name + ".description"
-        # Since p was found via find_secure_file, we know it is in m4b_dir.
-        # We derive description_path from m4b_dir and description_filename.
-        description_full_path = os.path.normpath(os.path.join(trusted_m4b_root, description_filename))
+        description_path = m4b_dir / description_filename
 
-        if description_full_path.startswith(trusted_m4b_root + os.sep) and os.path.exists(description_full_path):
+        if description_path.exists() and storage.is_safe(description_path):
             try:
-                with open(description_full_path, "r", encoding="utf-8") as f:
+                with open(description_path, "r", encoding="utf-8") as f:
                     item["description"] = f.read().strip()
             except Exception:
                 pass
@@ -102,8 +104,8 @@ def api_list_project_audiobooks(project_id: str):
         item["cover_url"] = None
         for ext in [".jpg", ".png", ".jpeg", ".webp"]:
             cover_filename = p.stem + ext
-            cover_full_path = os.path.normpath(os.path.join(trusted_m4b_root, cover_filename))
-            if cover_full_path.startswith(trusted_m4b_root + os.sep) and os.path.exists(cover_full_path) and os.path.getsize(cover_full_path) > 0:
+            cover_path = m4b_dir / cover_filename
+            if cover_path.exists() and storage.is_safe(cover_path) and cover_path.stat().st_size > 0:
                 encoded_ext = urllib.parse.quote(cover_filename)
                 item["cover_url"] = f"/projects/{project_id}/m4b/{encoded_ext}"
                 break
@@ -114,39 +116,28 @@ def api_list_project_audiobooks(project_id: str):
 def api_update_audiobook_metadata(project_id: str, filename: str, description: str = Body(..., embed=True)):
     """Update metadata (description) for a project assembly."""
     try:
-        if get_project(project_id) is None:
+        from ...storage.manager import get_storage_manager
+        storage = get_storage_manager()
+        try:
+            ctx = storage.get_project_context(project_id)
+            m4b_dir = ctx.m4b_dir
+        except ValueError:
             return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
-        project_dir = get_project_dir(project_id)
-        from ...utils.pathing import secure_join_flat
-        try:
-            m4b_dir = secure_join_flat(project_dir, "m4b")
-        except ValueError:
-             return JSONResponse({"status": "error", "message": "Invalid m4b directory"}, status_code=403)
-
         # Store description in sidecar file
-        import os
-        trusted_m4b_root = os.path.abspath(os.path.realpath(os.fspath(m4b_dir)))
         # Rule 8: match from m4b dir for local proof
-        audiobook_found_path = None
-        for entry in os.scandir(trusted_m4b_root):
-            if entry.is_file() and entry.name == filename:
-                cand_path = os.path.abspath(os.path.realpath(entry.path))
-                if cand_path.startswith(trusted_m4b_root + os.sep):
-                    audiobook_found_path = cand_path
-                    break
-
-        if not audiobook_found_path:
+        audiobook_path = m4b_dir / filename
+        if not audiobook_path.is_file() or not storage.is_safe(audiobook_path):
             return JSONResponse({"status": "error", "message": "Audiobook not found"}, status_code=404)
 
         description_filename = filename + ".description"
-        description_full_path = os.path.normpath(os.path.join(trusted_m4b_root, description_filename))
+        description_path = m4b_dir / description_filename
 
         # Rule 9: Locally visible containment check
-        if not description_full_path.startswith(trusted_m4b_root + os.sep):
+        if not storage.is_safe(description_path):
              return JSONResponse({"status": "error", "message": "Invalid description path"}, status_code=403)
 
-        with open(description_full_path, "w", encoding="utf-8") as f:
+        with open(description_path, "w", encoding="utf-8") as f:
             f.write(description)
 
         return JSONResponse({"status": "ok"})
@@ -164,6 +155,14 @@ def assemble_project(
     chapter_ids: Optional[str] = Form(None)
 ):
     import json
+
+    from ...storage.manager import get_storage_manager
+    storage = get_storage_manager()
+    try:
+        ctx = storage.get_project_context(project_id)
+        m4b_dir = ctx.m4b_dir
+    except ValueError:
+        return JSONResponse({"error": "Project not found"}, status_code=404)
 
     project = get_project(project_id)
     if not project:
@@ -189,8 +188,7 @@ def assemble_project(
     chapter_list = []
     for c in chapters:
         if c['audio_status'] == 'done' and c['audio_file_path']:
-            from ...core.config import resolve_chapter_asset_path
-            full_path = resolve_chapter_asset_path(project_id, c['id'], 'audio', filename=c['audio_file_path'])
+            full_path = storage.resolve_chapter_asset_path(project_id, c['id'], 'audio', filename=c['audio_file_path'])
             if full_path and full_path.exists():
                 chapter_list.append({
                     'filename': str(full_path),
@@ -198,7 +196,7 @@ def assemble_project(
                 })
             else:
                 return JSONResponse({
-                    "error": f"Chapter '{c['title']}' audio file not found at {full_path}"
+                    "error": f"Chapter '{c['title']}' audio file not found"
                 }, status_code=400)
         else:
             return JSONResponse({
@@ -213,13 +211,12 @@ def assemble_project(
     jid = uuid.uuid4().hex[:12]
     cover_path = project.get('cover_image_path', None)
     if cover_path and cover_path.startswith(f'/projects/{project_id}/'):
-        filename = cover_path.replace(f'/projects/{project_id}/', '')
-        # If it's a nested path like 'cover/cover.jpg', we use safe_join
-        try:
-            # Rule 9: containment check
-            cover_p = safe_join(get_project_dir(project_id), filename)
-            cover_path = str(cover_p) if cover_p.exists() else None
-        except ValueError:
+        # If it's a nested path like '/projects/PID/cover/cover.jpg', we resolve via ctx
+        filename = cover_path.split('/')[-1]
+        cover_p = ctx.cover_dir / filename
+        if cover_p.exists() and storage.is_safe(cover_p):
+            cover_path = str(cover_p)
+        else:
             cover_path = None
     else:
         cover_path = None
@@ -244,7 +241,7 @@ def assemble_project(
     update_job(jid, force_broadcast=True, status="queued", project_id=project_id, custom_title=book_title)
 
     orchestrator = create_orchestrator()
-    out_file = get_project_m4b_dir(project_id) / f"{unique_filename}.m4b"
+    out_file = m4b_dir / f"{unique_filename}.m4b"
     task = AssemblyTask(
         task_id=jid,
         output_path=out_file,

@@ -61,19 +61,19 @@ def test_progress_regression_protection():
     assert state["jobs"]["test_regress"]["progress"] == 0.6
 
 def test_status_regression_protection():
-    job = Job(id="test_status_regress", engine="xtts", chapter_file="c1.txt", status="finalizing", progress=0.9, created_at=time.time())
+    job = Job(id="test_status_regress", engine="xtts", chapter_file="c1.txt", status="running", progress=0.9, created_at=time.time())
     put_job(job)
 
-    # status_priority = {"done": 5, "failed": 5, "cancelled": 5, "finalizing": 4, "running": 3, "preparing": 2, "queued": 1, None: 0}
-    # finalizing (4) -> running (3) should be blocked
-    update_job("test_status_regress", status="running")
+    # running (3) -> preparing (2) should be blocked
+    update_job("test_status_regress", status="preparing")
     state = load_state()
-    assert state["jobs"]["test_status_regress"]["status"] == "finalizing"
+    assert state["jobs"]["test_status_regress"]["status"] == "running"
 
-    # finalizing (4) -> done (5) should be allowed
+    # running (3) -> done (5) should be allowed
     update_job("test_status_regress", status="done")
     state = load_state()
     assert state["jobs"]["test_status_regress"]["status"] == "done"
+
 
 def test_reset_to_queued_from_terminal_status():
     # Rule: Allow regression only if explicitly resetting (e.g. back to queued from a terminal state)
@@ -129,3 +129,163 @@ def test_requeue_clean_slate():
     assert j["finished_at"] is None
     assert j["error"] is None
     assert j["warning_count"] == 0
+
+
+def test_finalizing_status_mapped_to_running():
+    job = Job(id="test_finalizing_mapping", engine="xtts", chapter_file="c1.txt", status="finalizing", progress=0.9, created_at=time.time())
+    put_job(job)
+
+    # After put_job, status should be remapped to running
+    state = load_state()
+    assert state["jobs"]["test_finalizing_mapping"]["status"] == "running"
+
+    # If we call update_job with finalizing, it should also map to running
+    update_job("test_finalizing_mapping", status="finalizing", progress=0.95)
+    state = load_state()
+    assert state["jobs"]["test_finalizing_mapping"]["status"] == "running"
+    assert state["jobs"]["test_finalizing_mapping"]["progress"] == 0.95
+
+
+def test_eta_projection_uses_clamped_progress():
+    started_at = 1000.0
+    job = Job(
+        id="test_eta_clamp",
+        engine="xtts",
+        chapter_file="c1.txt",
+        status="running",
+        progress=0.44,
+        started_at=started_at,
+        created_at=started_at,
+    )
+    put_job(job)
+
+    # 1. Update at t = 1010.0 with progress = 0.44
+    # Expected elapsed = 10.0
+    # Projected ETA = 10.0 * (1 - 0.44) / 0.44 = 12.72s -> 13s
+    update_job("test_eta_clamp", progress=0.44, updated_at=1010.0)
+    state = load_state()
+    assert state["jobs"]["test_eta_clamp"]["progress"] == 0.44
+    assert state["jobs"]["test_eta_clamp"]["eta_seconds"] == 13
+
+    # 2. Now update at t = 1020.0 with progress = 0.08 (which is a regression)
+    # Regression guard should clamp progress to 0.44.
+    # If the ETA projection uses the clamped progress (0.44):
+    # Expected elapsed = 20.0
+    # Projected ETA = 20.0 * (1 - 0.44) / 0.44 = 25.45s -> 26s.
+    # So we assert that the computed eta_seconds is 26, NOT 230!
+    update_job("test_eta_clamp", progress=0.08, updated_at=1020.0)
+    state = load_state()
+    assert state["jobs"]["test_eta_clamp"]["progress"] == 0.44
+    assert state["jobs"]["test_eta_clamp"]["eta_seconds"] == 26
+
+
+def test_active_segment_progress_forced_to_zero_when_id_is_none():
+    job = Job(
+        id="test_active_seg",
+        engine="xtts",
+        chapter_file="c1.txt",
+        status="running",
+        progress=0.0,
+        active_segment_id=None,
+        active_segment_progress=0.0,
+        created_at=time.time()
+    )
+    put_job(job)
+
+    # 1. Update job with progress but with id=None
+    update_job("test_active_seg", active_segment_id=None, active_segment_progress=0.5)
+    state = load_state()
+    assert state["jobs"]["test_active_seg"]["active_segment_id"] is None
+    assert state["jobs"]["test_active_seg"]["active_segment_progress"] == 0.0
+
+    # 2. Update job with progress and id=some-id, should be allowed
+    update_job("test_active_seg", active_segment_id="some-id", active_segment_progress=0.7)
+    state = load_state()
+    assert state["jobs"]["test_active_seg"]["active_segment_id"] == "some-id"
+    assert state["jobs"]["test_active_seg"]["active_segment_progress"] == 0.7
+
+    # 3. Update job setting id to None, progress should be reset
+    update_job("test_active_seg", active_segment_id=None)
+    state = load_state()
+    assert state["jobs"]["test_active_seg"]["active_segment_id"] is None
+    assert state["jobs"]["test_active_seg"]["active_segment_progress"] == 0.0
+
+
+def test_active_segment_eta_fields():
+    job = Job(
+        id="test_active_seg_eta",
+        engine="xtts",
+        chapter_file="c1.txt",
+        status="running",
+        progress=0.0,
+        active_segment_id="some-id",
+        active_segment_progress=0.5,
+        created_at=time.time()
+    )
+    put_job(job)
+
+    # 1. Update job with active segment ETA fields
+    update_job(
+        "test_active_seg_eta",
+        active_segment_eta_seconds=15,
+        active_segment_eta_basis="remaining_from_update",
+        active_segment_updated_at=12345.6
+    )
+
+    state = load_state()
+    j_dict = state["jobs"]["test_active_seg_eta"]
+    # These assertions should fail because the fields are not yet defined on Job model or handled in state_jobs
+    assert j_dict.get("active_segment_eta_seconds") == 15
+    assert j_dict.get("active_segment_eta_basis") == "remaining_from_update"
+    assert j_dict.get("active_segment_updated_at") == 12345.6
+
+    # 2. Update job setting id to None, active segment ETA fields should be cleared
+    update_job("test_active_seg_eta", active_segment_id=None)
+    state = load_state()
+    j_dict = state["jobs"]["test_active_seg_eta"]
+    assert j_dict.get("active_segment_id") is None
+    assert j_dict.get("active_segment_eta_seconds") is None
+    assert j_dict.get("active_segment_eta_basis") is None
+    assert j_dict.get("active_segment_updated_at") is None
+
+
+def test_chapter_queue_updates_do_not_overwrite_active_segment_eta():
+    job = Job(
+        id="test_preserve_seg_eta",
+        engine="xtts",
+        chapter_file="c1.txt",
+        status="running",
+        progress=0.1,
+        active_segment_id="seg-123",
+        active_segment_progress=0.4,
+        active_segment_eta_seconds=15,
+        active_segment_eta_basis="remaining_from_update",
+        active_segment_updated_at=1000.0,
+        created_at=time.time()
+    )
+    put_job(job)
+
+    # Now simulate a chapter update (e.g. chapters.progress or queue update)
+    # which has progress=0.2 and chapter eta_seconds=120, but doesn't mention segments.
+    update_job(
+        "test_preserve_seg_eta",
+        progress=0.2,
+        eta_seconds=120,
+        eta_basis="remaining_from_update"
+    )
+
+    state = load_state()
+    j_dict = state["jobs"]["test_preserve_seg_eta"]
+    # Chapter fields should update
+    assert j_dict["progress"] == 0.2
+    assert j_dict["eta_seconds"] == 120
+
+    # Active segment fields must be preserved and untouched
+    assert j_dict["active_segment_id"] == "seg-123"
+    assert j_dict["active_segment_progress"] == 0.4
+    assert j_dict["active_segment_eta_seconds"] == 15
+    assert j_dict["active_segment_eta_basis"] == "remaining_from_update"
+    assert j_dict["active_segment_updated_at"] == 1000.0
+
+
+

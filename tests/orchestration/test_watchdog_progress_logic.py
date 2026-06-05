@@ -75,7 +75,7 @@ class MockSampleBuildTask(StudioTask):
     def __init__(self, bridge):
         self.bridge = bridge
     def describe(self):
-        return TaskContext(task_id="build-1", task_type="sample_build")
+        return TaskContext(task_id="build-1", task_type="sample_build", payload={"script_text": "hello"})
     @property
     def prefers_local_execution(self) -> bool:
         return True
@@ -123,6 +123,42 @@ def test_marker_driven_preparing_has_no_render_timing():
     assert preparing_event.get("eta_seconds") is None
     assert preparing_event.get("estimated_end_at") is None
 
+
+def test_dispatch_unregisters_watchdog_listener_for_registry_handler():
+    orc = MockOrchestrator(voice_bridge=MagicMock())
+    wd = TtsServerWatchdog()
+
+    class RegistryTask(StudioTask):
+        def validate(self):
+            pass
+
+        def describe(self):
+            return TaskContext(task_id="registry-job", task_type="synthesis", payload={"engine_id": "xtts"})
+
+        @property
+        def prefers_local_execution(self) -> bool:
+            return False
+
+        def run(self):
+            raise AssertionError("registry handler path should not call run()")
+
+        def on_cancel(self):
+            pass
+
+    def registry_handler(**_kwargs):
+        return TaskResult(status="completed")
+
+    task = RegistryTask()
+    context = task.describe()
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+         patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_registry:
+        mock_registry.return_value.get_handler.return_value = registry_handler
+        result = orc._dispatch(task=task, context=context)
+
+    assert result.status == "completed"
+    assert wd._log_listeners == []
+
 def test_sample_build_receives_markers_live():
     bridge = MagicMock()
     orc = MockOrchestrator(voice_bridge=bridge)
@@ -131,7 +167,8 @@ def test_sample_build_receives_markers_live():
 
     wd = TtsServerWatchdog()
     # Mock get_watchdog to return our local wd
-    with patch("app.engines.watchdog.get_watchdog", return_value=wd):
+    with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None):
         # Simulate synthesis emitting logs while blocking
         def side_effect(*args, **kwargs):
             with patch.object(OrchestratorHelpersMixin, "_observed_remaining_seconds", return_value=10):
@@ -155,7 +192,7 @@ def test_sample_build_receives_markers_live():
     assert any(pytest.approx(p["progress"]) == 0.35 for p in progress_events)
     marker_progress = next(p for p in progress_events if pytest.approx(p["progress"]) == 0.35)
     assert marker_progress["eta_seconds"] == 10
-    assert marker_progress["reason_code"] == "synthesis_progress"
+    assert marker_progress["reason_code"] == "SEGMENT_PROGRESS"
 
 # 4. Proving unrelated task_id markers are ignored.
 def test_log_listener_task_id_filtering():
@@ -216,8 +253,13 @@ def test_started_at_marker_driven():
     wd = TtsServerWatchdog()
     with patch("app.engines.watchdog.get_watchdog", return_value=wd):
         def side_effect(*args, **kwargs):
-            # Emit START_SYNTHESIS
-            wd._drain_stream(None, "stdout", MockStream(["[START_SYNTHESIS] job-1\n"]))
+            # Emit START_SYNTHESIS followed by START_SEGMENT to verify the
+            # segment handoff carries the same predicted ETA seed.
+            wd._drain_stream(
+                None,
+                "stdout",
+                MockStream(["[START_SYNTHESIS] job-1\n", "[START_SEGMENT] seg-1\n"]),
+            )
             return {"status": "ok"}
 
         bridge.synthesize.side_effect = side_effect
@@ -238,3 +280,162 @@ def test_started_at_marker_driven():
     assert running_event["started_at"] is not None
     assert running_event["started_at"] > 0
     assert running_event["eta_seconds"] == 25
+
+    segment_running_event = next(
+        e for e in orc.published
+        if e["status"] == "running" and e.get("active_segment_id") == "seg-1"
+    )
+    assert segment_running_event["eta_seconds"] == 25
+    assert segment_running_event["started_at"] is not None
+
+
+class MockScriptedTask(StudioTask):
+    def __init__(self, bridge):
+        self.bridge = bridge
+        self.script = [
+            {"id": "segA", "text": "hello 1234567", "save_path": "a.wav"},
+            {"id": "segB", "text": "hello 1234567", "save_path": "b.wav"},
+        ]
+    def get_expected_duration(self, text: str, engine_id: str) -> float:
+        return 24.0
+    def describe(self):
+        return TaskContext(
+            task_id="script-1",
+            task_type="synthesis",
+            payload={"script_text": "hello 1234567 hello 1234567", "engine_id": "xtts"},
+        )
+    @property
+    def prefers_local_execution(self) -> bool:
+        return True
+    def run(self):
+        self.bridge.synthesize({"text": "test"})
+        return TaskResult(status="completed")
+
+def test_log_listener_progress_is_monotonic():
+    bridge = MagicMock()
+    orc = MockOrchestrator(voice_bridge=bridge)
+    task = MockScriptedTask(bridge)
+    context = task.describe()
+    wd = TtsServerWatchdog()
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None):
+        def side_effect(*args, **kwargs):
+            wd._drain_stream(None, "stdout", MockStream([
+                "[START_SYNTHESIS] script-1\n",
+                "[START_SEGMENT] segA\n",
+                "[PROGRESS] 50% script-1\n",
+                "[PROGRESS] 100% script-1\n",
+                "[PROGRESS] 20% script-1\n",
+            ]))
+            return {"status": "ok"}
+
+        bridge.synthesize.side_effect = side_effect
+        orc.progress_service = MagicMock()
+
+        orc._dispatch(task=task, context=context)
+
+    # Filter running events from orc.published
+    running_events = [p for p in orc.published if p.get("status") == "running" and p.get("progress") is not None]
+
+    # Progress values published should be:
+    # 1. 0.0 (from START_SYNTHESIS)
+    # 2. 0.0 (from START_SEGMENT)
+    # 3. 0.0 (from initial segment progress parsed)
+    # 4. 0.225 (from 50% segment progress)
+    # 5. 0.45 (from 100% segment progress)
+    # 6. 0.45 (remains at 0.45 because of monotonicity clamp, NOT 0.09)
+    progress_values = [p["progress"] for p in running_events]
+    assert progress_values == [0.0, 0.0, 0.0, 0.225, 0.45, 0.45]
+
+
+def test_start_segment_eta_uses_active_block_chars():
+    bridge = MagicMock()
+    orc = MockOrchestrator(voice_bridge=bridge)
+    task = MockScriptedTask(bridge)
+    context = task.describe()
+    wd = TtsServerWatchdog()
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None):
+        def side_effect(*args, **kwargs):
+            wd._drain_stream(None, "stdout", MockStream([
+                "[START_SYNTHESIS] script-1\n",
+                "[START_SEGMENT] segA\n",
+            ]))
+            return {"status": "ok"}
+
+        bridge.synthesize.side_effect = side_effect
+        orc.progress_service = MagicMock()
+
+        orc._dispatch(task=task, context=context)
+
+    segment_start = next(
+        e for e in orc.published
+        if e.get("reason_code") == "START_SEGMENT" and e.get("active_segment_id") == "segA"
+    )
+    assert segment_start["eta_seconds"] == 24
+    assert segment_start["active_segment_eta_seconds"] == 12
+
+
+def test_segment_eta_uses_active_block_progress_not_chapter_progress():
+    bridge = MagicMock()
+    orc = MockOrchestrator(voice_bridge=bridge)
+    task = MockScriptedTask(bridge)
+    context = task.describe()
+    wd = TtsServerWatchdog()
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None):
+        def side_effect(*args, **kwargs):
+            wd._drain_stream(None, "stdout", MockStream([
+                "[START_SYNTHESIS] script-1\n",
+                "[START_SEGMENT] segA\n",
+                "[PROGRESS] 100% script-1\n",
+            ]))
+            return {"status": "ok"}
+
+        bridge.synthesize.side_effect = side_effect
+        orc.progress_service = MagicMock()
+
+        orc._dispatch(task=task, context=context)
+
+    segment_complete = next(
+        e for e in orc.published
+        if e.get("reason_code") == "SEGMENT_PROGRESS"
+        and e.get("active_segment_id") == "segA"
+        and e.get("active_segment_progress") == 1.0
+    )
+    assert segment_complete["progress"] == 0.45
+    assert segment_complete["eta_seconds"] is not None
+    assert segment_complete["active_segment_eta_seconds"] == 0
+
+
+def test_watchdog_uses_readline_to_avoid_buffering():
+    wd = TtsServerWatchdog()
+
+    class ReadlineStream:
+        def __init__(self, lines):
+            self.lines = list(lines)
+            self.readline_called = 0
+            self.iter_called = 0
+
+        def readline(self):
+            self.readline_called += 1
+            if self.lines:
+                return self.lines.pop(0)
+            return ""
+
+        def __iter__(self):
+            self.iter_called += 1
+            return iter(self.lines)
+
+        def close(self):
+            pass
+
+    stream = ReadlineStream(["line1\n", "line2\n"])
+    wd._drain_stream(None, "stdout", stream)
+
+    # We want it to have called readline, not __iter__
+    assert stream.readline_called > 0
+    assert stream.iter_called == 0

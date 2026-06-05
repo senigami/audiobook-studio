@@ -57,18 +57,6 @@ test('chapter segment rendering highlights correctly', async ({ page }) => {
     });
   });
 
-  await page.route(`**/api/chapters/${chapterId}/production-blocks`, async route => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        base_revision_id: 'rev1',
-        blocks: [],
-        render_batches: []
-      })
-    });
-  });
-
   await page.route(`**/api/projects/${projectId}/characters`, async route => {
     await route.fulfill({
       status: 200,
@@ -77,13 +65,6 @@ test('chapter segment rendering highlights correctly', async ({ page }) => {
     });
   });
 
-  await page.route('**/api/jobs', async route => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([])
-    });
-  });
 
   await page.route('**/api/processing_queue', async route => {
     await route.fulfill({
@@ -104,6 +85,12 @@ test('chapter segment rendering highlights correctly', async ({ page }) => {
   let wsClient: any;
   await page.routeWebSocket('**/ws', ws => {
     wsClient = ws;
+    ws.on('message', message => {
+      const data = JSON.parse(typeof message === 'string' ? message : message.toString());
+      if (data.type === 'jobs_snapshot_request') {
+        ws.send(JSON.stringify({ type: 'jobs_snapshot', jobs: [] }));
+      }
+    });
   });
 
   await page.goto(`/chapter/${chapterId}`);

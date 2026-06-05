@@ -39,6 +39,13 @@ export function useVoicesTabActions({
                 settingsToUpdate.voice_asset_id = state.engineVoiceId;
             }
 
+            // Merge only the plugin-specific settings allowed for the active engine.
+            const allowedPluginSettings = new Set(activeEngine?.behavior?.synthesis_settings || []);
+            const pluginSettings = Object.fromEntries(
+                Object.entries(state.editingSettings || {}).filter(([key]) => allowedPluginSettings.has(key))
+            );
+            Object.assign(settingsToUpdate, pluginSettings);
+
             const success = await handleUpdateSettings(state.editingProfile.name, settingsToUpdate);
 
             if (success) {

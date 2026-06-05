@@ -219,6 +219,66 @@ describe('ScriptView', () => {
     expect(screen.getByText('Different paragraph.').querySelector('.script-progress-letter')).toBeNull();
   });
 
+  it('maps batch progress across the full batch even when only the active span is marked rendering', () => {
+    const shortBatchData: ScriptViewResponse = {
+      chapter_id: 'chap-2',
+      base_revision_id: 'rev-2',
+      paragraphs: [{ id: 'p-short', span_ids: ['short-1', 'short-2'] }],
+      spans: [
+        {
+          id: 'short-1',
+          order_index: 0,
+          text: 'One.',
+          sanitized_text: 'One.',
+          character_id: 'char-1',
+          speaker_profile_name: 'Voice 1',
+          status: 'draft',
+          audio_file_path: null,
+          audio_generated_at: null,
+          char_count: 4,
+          sanitized_char_count: 4,
+        },
+        {
+          id: 'short-2',
+          order_index: 1,
+          text: 'Two.',
+          sanitized_text: 'Two.',
+          character_id: 'char-1',
+          speaker_profile_name: 'Voice 1',
+          status: 'draft',
+          audio_file_path: null,
+          audio_generated_at: null,
+          char_count: 4,
+          sanitized_char_count: 4,
+        },
+      ],
+      render_batches: [
+        { id: 'short-batch', span_ids: ['short-1', 'short-2'], status: 'draft', estimated_work_weight: 1 },
+      ],
+      audio_groups: [],
+    };
+
+    render(
+      <ScriptView
+        data={shortBatchData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['short-1', 'short-2'])}
+        renderingSpanIds={new Set(['short-1'])}
+        renderingBatchProgressById={{ 'short-batch': 0.25 }}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    const firstSpan = screen.getByTestId('script-span-short-1');
+    const secondSpan = screen.getByTestId('script-span-short-2');
+
+    expect(firstSpan.querySelectorAll('.script-progress-letter.is-lit')).toHaveLength(2);
+    expect(firstSpan.querySelectorAll('.script-progress-letter.is-cursor')).toHaveLength(1);
+    expect(secondSpan.querySelectorAll('.script-progress-letter.is-lit')).toHaveLength(0);
+    expect(secondSpan.querySelectorAll('.script-progress-letter.is-cursor')).toHaveLength(0);
+  });
+
   it('renders complete batch progress without a cursor', () => {
     render(
       <ScriptView
@@ -481,5 +541,80 @@ describe('ScriptView', () => {
 
     expect(onAssign).not.toHaveBeenCalled();
     expect(onAssignToCharacter).toHaveBeenCalledWith(['s1'], 'char-1', 'V1');
+  });
+
+  it('renders non-leader spans in a completed group as ready, rebuildable, and playable', () => {
+    const completedGroupData: ScriptViewResponse = {
+      chapter_id: 'chap-1',
+      base_revision_id: 'rev-1',
+      paragraphs: [
+        { id: 'p1', span_ids: ['s1', 's2'] }
+      ],
+      spans: [
+        {
+          id: 's1',
+          order_index: 0,
+          text: 'Sentence one.',
+          sanitized_text: 'Sentence one.',
+          character_id: 'char-1',
+          speaker_profile_name: 'Voice 1',
+          status: 'rendered',
+          audio_file_path: 's1.wav',
+          audio_generated_at: 1000,
+          char_count: 13,
+          sanitized_char_count: 13
+        },
+        {
+          id: 's2',
+          order_index: 1,
+          text: 'Sentence two.',
+          sanitized_text: 'Sentence two.',
+          character_id: 'char-1',
+          speaker_profile_name: 'Voice 1',
+          status: 'draft',
+          audio_file_path: null,
+          audio_generated_at: null,
+          char_count: 13,
+          sanitized_char_count: 13
+        }
+      ],
+      render_batches: [
+        { id: 'b1', span_ids: ['s1', 's2'], status: 'draft', estimated_work_weight: 1 }
+      ],
+      audio_groups: [
+        { id: 'g1', span_ids: ['s1', 's2'], status: 'draft', audio_file_path: 's1.wav', asset_url: '/api/assets/s1.wav', order_index: 0, estimated_work_weight: 1 }
+      ]
+    };
+
+    render(
+      <ScriptView
+        data={completedGroupData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set()}
+        onPlaySpan={onPlaySpan}
+        engines={[{ engine_id: 'xtts', enabled: true, status: 'ready' } as any]}
+      />
+    );
+
+    // Switch to Script mode
+    fireEvent.click(screen.getByText('Script'));
+
+    // Check sentence one (leader)
+    const s1Text = screen.getByText('Sentence one.');
+    expect(s1Text).toHaveClass('script-span-text-ready');
+
+    // Check sentence two (non-leader)
+    const s2Text = screen.getByText('Sentence two.');
+    expect(s2Text).toHaveClass('script-span-text-ready');
+
+    // The play button for sentence two should be enabled
+    const s2Span = s2Text.closest('.script-span');
+    const playButtons = s2Span?.querySelectorAll('button[title="Play Audio"]');
+    expect(playButtons?.[0]).not.toHaveAttribute('disabled');
+
+    // The generate button for sentence two should show 'Rebuild' title
+    const rebuildButtons = s2Span?.querySelectorAll('button[title="Rebuild"]');
+    expect(rebuildButtons?.length).toBe(1);
   });
 });

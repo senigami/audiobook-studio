@@ -47,6 +47,8 @@ class TaskResult:
     status: str
     message: str | None = None
     retriable: bool = False
+    timing: dict[str, Any] | None = None
+
 
 
 class StudioTask:
@@ -130,34 +132,55 @@ class StudioTask:
         return _heartbeat_ctx()
 
 
-    def get_expected_duration(self, text: str, engine_id: str) -> float:
+    def get_expected_duration(self, text: str, engine_id: str) -> float | None:
         """Estimate the expected duration of a synthesis task based on historical metrics."""
         try:
             from app.db.state import get_performance_metrics  # noqa: PLC0415
-            from app.orchestration.scheduler.eta import _estimate_seconds, get_robust_eta_params  # noqa: PLC0415
-            from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS  # noqa: PLC0415
+            from app.orchestration.scheduler.eta import get_calibrated_model_params, calculate_chapter_startup_eta  # noqa: PLC0415
             from app.tts_server.performance_settings import (  # noqa: PLC0415
                 filter_history_for_engine_model,
-                get_engine_computer_speed_multiplier,
                 resolve_engine_settings_model,
             )
 
             perf = get_performance_metrics()
-            engine_cps = perf.get("engine_cps", {})
-            tts_model = resolve_engine_settings_model(engine_id)
-            fallback_cps = engine_cps.get(
-                engine_id,
-                DEFAULT_BASELINE_ENGINE_CPS * get_engine_computer_speed_multiplier(engine_id),
-            )
             all_history = perf.get("render_history") or []
+            tts_model = resolve_engine_settings_model(engine_id)
             history = filter_history_for_engine_model(all_history, engine_id, tts_model)
-            robust_params = get_robust_eta_params(history, fallback_cps)
 
-            est = _estimate_seconds(len(text), fallback_cps, robust_params=robust_params)
-            return float(max(5.0, est))
+            params = get_calibrated_model_params(history)
+            if not params:
+                from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
+                return float(len(text)) / float(DEFAULT_BASELINE_ENGINE_CPS)
+
+            calibrated_cps, calibrated_overhead = params
+
+            group_count = 1
+            script = getattr(self, "script", None)
+            if script is not None:
+                group_count = len(script)
+            else:
+                chapter_id = getattr(self, "chapter_id", None)
+                if chapter_id:
+                    try:
+                        from app.domain.chunk_groups import build_chunk_groups, load_chunk_segments, get_chunk_group_indexes_for_segment_ids  # noqa: PLC0415
+                        segment_ids = getattr(self, "segment_ids", None)
+                        voice_profile_id = getattr(self, "voice_profile_id", None)
+                        if segment_ids:
+                            indexes = get_chunk_group_indexes_for_segment_ids(chapter_id, segment_ids, voice_profile_id)
+                            group_count = len(indexes) if indexes else 1
+                        else:
+                            segments = load_chunk_segments(chapter_id)
+                            groups = build_chunk_groups(segments, voice_profile_id)
+                            group_count = len(groups) if groups else 1
+                    except Exception as exc:
+                        import logging
+                        logging.getLogger(__name__).warning("Failed to determine chunk group count fallback for chapter %s: %s", chapter_id, exc, exc_info=True)
+
+            est = calculate_chapter_startup_eta(len(text), calibrated_cps, group_count, calibrated_overhead)
+            return float(est)
         except Exception:
-            # Fallback to a safe default if metrics are unavailable or failed
-            return 25.0
+            return None
+
 
     def validate(self) -> None:
         """Validate task payload before it enters the scheduler."""

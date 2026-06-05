@@ -123,28 +123,22 @@ def migrate_legacy_project_covers() -> int:
                 candidates.append((project_id, shared_path, destination, new_virtual_path))
 
     migrated_updates: list[tuple[str, str]] = []
-    import os
-    trusted_cover_root = os.path.abspath(os.path.realpath(os.fspath(config.COVER_DIR)))
+    from ..storage.manager import get_storage_manager
+    storage = get_storage_manager()
 
     for project_id, shared_path, destination, new_virtual_path in candidates:
-        # Rule 9: Locally visible containment check
-        dest_parent = os.path.abspath(os.path.realpath(os.fspath(destination.parent)))
-        trusted_projects_root = os.path.abspath(os.path.realpath(os.fspath(config.PROJECTS_DIR)))
-
-        if not dest_parent.startswith(trusted_projects_root + os.sep):
-             logger.warning("Migration destination escapes projects root: %s", dest_parent)
+        # Rule 9: Locally visible containment check via abstraction
+        if not storage.is_safe(destination):
+             logger.warning("Migration destination escapes projects root: %s", destination)
              continue
 
-        os.makedirs(dest_parent, exist_ok=True)
+        os.makedirs(destination.parent, exist_ok=True)
 
         try:
-            resolved_shared = os.path.abspath(os.path.realpath(os.fspath(shared_path)))
-            resolved_dest = os.path.abspath(os.path.realpath(os.fspath(destination)))
-
             # Proof both sides
-            if resolved_shared.startswith(trusted_cover_root + os.sep) and resolved_dest.startswith(dest_parent + os.sep):
-                if resolved_dest != resolved_shared:
-                    shutil.copy2(resolved_shared, resolved_dest)
+            if storage.is_safe(shared_path) and storage.is_safe(destination):
+                if destination != shared_path:
+                    shutil.copy2(shared_path, destination)
                 migrated_updates.append((project_id, new_virtual_path))
         except Exception:
             logger.warning("Failed to migrate legacy shared cover %s for project %s", shared_path, project_id, exc_info=True)
@@ -192,35 +186,26 @@ def migrate_voice_profiles(voices_dir: Optional[Path] = None) -> None:
 
     for speaker in speakers:
         speaker_name = speaker["name"]
-        # Rule 8: Enumerate trusted root and match by entry.name
-        if speaker_name not in root_entries:
-            continue
+        from ..storage.manager import get_storage_manager
+        storage = get_storage_manager()
+        voice_dir = storage.get_voice_dir(speaker_name)
 
-        exact = root_entries[speaker_name]
-        try:
-            resolved_base = os.path.abspath(os.path.realpath(exact.path))
-        except OSError:
-            continue
-
-        if not resolved_base.startswith(trusted_voices_root + os.sep):
+        if not voice_dir.is_dir():
             continue
 
         # Check for v2 structure
-        voice_json = os.path.join(resolved_base, "voice.json")
-        if os.path.exists(voice_json):
+        voice_json = voice_dir / "voice.json"
+        if voice_json.exists():
             # Authoritative V2 structure: resolve to Default variant
-            resolved_base = os.path.abspath(os.path.realpath(os.fspath(voices_dir / speaker_name / "Default")))
-            if not os.path.isdir(resolved_base):
+            variant_dir = voice_dir / "Default"
+            if not variant_dir.is_dir():
                 continue
-            meta_path_full = os.path.normpath(os.path.join(resolved_base, "profile.json"))
+            meta_path_full = variant_dir / "profile.json"
         else:
             # LEGACY FALLBACK: Flat layout
-            resolved_base = os.path.abspath(os.path.realpath(os.fspath(voices_dir / speaker_name)))
-            if not os.path.isdir(resolved_base):
-                continue
-            meta_path_full = os.path.normpath(os.path.join(resolved_base, "profile.json"))
+            meta_path_full = voice_dir / "profile.json"
 
-        if not os.path.exists(meta_path_full):
+        if not meta_path_full.exists():
             continue
 
         meta: Dict[str, Any] = {}

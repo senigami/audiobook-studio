@@ -23,7 +23,27 @@ ETA_PROJECTION_SKIP_REASONS = {
     "metadata_update",
     "segment_start",
     "segment_saved",
+    "START_SEGMENT",
+    "SEGMENT_PROGRESS",
+    "SEGMENT_SAVED",
 }
+
+
+def _resolve_caller(depth: int = 1) -> Optional[str]:
+    try:
+        import sys
+        while True:
+            frame = sys._getframe(depth)
+            module = frame.f_globals.get("__name__", "")
+            function = frame.f_code.co_name
+            if module == "app.db.state_jobs" or function == "update_job":
+                depth += 1
+                continue
+            if module and function:
+                return f"{module}.{function}"
+            depth += 1
+    except (AttributeError, ValueError):
+        return None
 
 
 def get_jobs() -> Dict[str, Job]:
@@ -44,25 +64,102 @@ def put_job(job: Job) -> None:
     with _STATE_LOCK:
         state = _load_state_no_lock()
         state.setdefault("jobs", {})
+        if job.status == "finalizing":
+            job.status = "running"
         if job.updated_at is None:
             job.updated_at = job.created_at
+
+        # Check for terminal-to-active reset
+        existing_job = state["jobs"].get(job.id)
+        is_terminal_reset = False
+        if existing_job:
+            old_status = existing_job.get("status")
+            if old_status in ("done", "failed", "cancelled") and job.status in ("queued", "preparing"):
+                is_terminal_reset = True
+
         state["jobs"][job.id] = asdict(job)
         _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
 
+    if is_terminal_reset:
+        try:
+            from ..api.ws import broadcast_chapter_updated, broadcast_queue_update
+            chapter_id = job.chapter_id
+            if chapter_id:
+                broadcast_chapter_updated(
+                    chapter_id,
+                    reason="JOB_RESET_TO_ACTIVE",
+                    job_id=job.id,
+                    project_id=job.project_id,
+                    changed_fields=["status"]
+                )
+            broadcast_queue_update(
+                reason="JOB_RESET_TO_ACTIVE",
+                job_id=job.id,
+                project_id=job.project_id,
+                changed_fields=["status"]
+            )
+        except Exception:
+            logger.warning("Failed to broadcast terminal reset for %s", job.id, exc_info=True)
+
     try:
         from ..api.ws import broadcast_job_updated
-        broadcast_job_updated(job.id, {}, current_job=asdict(job))
+        broadcast_job_updated(
+            job.id,
+            {
+                "skip_job_updated": True,
+                "terminal_reset": is_terminal_reset,
+                "reason_code": "JOB_RESET_TO_ACTIVE" if is_terminal_reset else None,
+                "previous_status": existing_job.get("status") if existing_job else None,
+                "status_changed": bool(existing_job and existing_job.get("status") != job.status),
+            },
+            current_job=asdict(job),
+        )
     except Exception:
         pass
 
 
-def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
+
+def update_job(job_id: str, force_broadcast: bool = False, source: Optional[str] = None, **updates) -> None:
+    skip_studio_job_event = updates.pop("skip_studio_job_event", False)
+    skip_job_updated = updates.pop("skip_job_updated", False)
+    if source is None:
+        source = _resolve_caller()
+    if "status" in updates and updates["status"] == "finalizing":
+        updates["status"] = "running"
     with _STATE_LOCK:
         state = _load_state_no_lock()
         jobs = state.setdefault("jobs", {})
         j = jobs.get(job_id)
         if not j:
             return
+
+        # Normalize segment and batch progress when their respective IDs are None
+        effective_active_seg_id = updates.get("active_segment_id") if "active_segment_id" in updates else j.get("active_segment_id")
+        if effective_active_seg_id is None:
+            updates["active_segment_progress"] = 0.0
+            updates["active_segment_eta_seconds"] = None
+            updates["active_segment_eta_basis"] = None
+            updates["active_segment_updated_at"] = None
+
+        effective_active_batch_id = updates.get("active_render_batch_id") if "active_render_batch_id" in updates else j.get("active_render_batch_id")
+        if effective_active_batch_id is None:
+            updates["active_render_batch_progress"] = None
+
+        target_status = updates.get("status") or j.get("status")
+        if target_status in ("done", "failed", "cancelled"):
+            updates["eta_seconds"] = None
+            updates["eta_basis"] = None
+            updates["estimated_end_at"] = None
+            updates["eta_updated_at"] = None
+
+        current_status = j.get("status")
+        terminal_reset = current_status in ("done", "failed", "cancelled") and updates.get("status") in ("queued", "preparing")
+        if not force_broadcast and current_status in ("done", "failed", "cancelled"):
+            incoming_status = updates.get("status")
+            if incoming_status not in ("queued", "preparing"):
+                # Drop updates to terminal jobs
+                return
+
 
         # Apply updates with protection
         changed_fields = []
@@ -87,6 +184,13 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                     elif not is_reset:
                         logger.debug("Preventing status regression for %s: %s -> %s", job_id, current_status, v)
                         continue
+
+            if terminal_reset and k in ("finished_at", "started_at", "eta_seconds", "eta_basis", "estimated_end_at", "active_segment_id", "active_segment_progress", "active_render_batch_id", "active_render_batch_progress", "active_segment_eta_seconds", "active_segment_eta_basis", "active_segment_updated_at", "reason_code", "error"):
+                # A rerun of a terminal job should come back as a clean active job record.
+                if j.get(k) is not None:
+                    j[k] = None
+                    changed_fields.append(k)
+                continue
 
             # 2. Progress regression protection
             if k == "progress":
@@ -113,7 +217,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
         # 4. ETA basis/end_at hardening & Observed Progress Projection
         event_updated_at = float(updates.get("updated_at") or time.time())
         status = updates.get("status") or j.get("status")
-        progress = updates.get("progress") if "progress" in updates else j.get("progress")
+        progress = j.get("progress")
         started_at = updates.get("started_at") or j.get("started_at")
 
         # Explicit ETA check or Observed projection
@@ -159,7 +263,13 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
             elapsed = event_updated_at - started_at
             if elapsed > 1:
                 import math
-                remaining = math.ceil(elapsed * (1 - progress) / progress)
+                extrapolated = math.ceil(elapsed * (1 - progress) / progress)
+                previous_eta = j.get("eta_seconds")
+                if previous_eta is not None and progress < 0.15:
+                    alpha = progress / 0.15
+                    remaining = math.ceil(alpha * extrapolated + (1 - alpha) * previous_eta)
+                else:
+                    remaining = extrapolated
                 # Omit if remaining is absurdly huge (> 24 hours) or if progress stagnant
                 if 1 <= remaining <= 86400:
                     j["eta_seconds"] = remaining
@@ -225,6 +335,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
 
                 audio_length = 0.0
                 output_file = None
+                queue_error = None
                 new_status = updates.get("status", j.get("status"))
                 project_id = updates.get("project_id", j.get("project_id"))
 
@@ -244,6 +355,8 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                                 audio_length = probe_audio_duration(full_audio_path)
                             except Exception:
                                 logger.warning("Could not get duration for %s", output_file, exc_info=True)
+                elif new_status in ("failed", "cancelled"):
+                    queue_error = updates.get("error") or j.get("error")
 
                 update_queue_item(
                     job_id, 
@@ -251,15 +364,31 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                     audio_length_seconds=audio_length, 
                     force_chapter_id=j.get("chapter_id"), 
                     output_file=output_file,
+                    error=queue_error,
                     chapter_scoped=not bool(j.get("segment_ids")),
                 )
 
                 try:
                     from ..api.ws import broadcast_chapter_updated, broadcast_queue_update
-                    chapter_id = j.get("chapter_id")
-                    if chapter_id:
-                        broadcast_chapter_updated(chapter_id)
-                    broadcast_queue_update()
+                    # Gate chapter invalidation broadcasts to terminal status transitions or explicit force_broadcast.
+                    if new_status in ("done", "failed", "cancelled") or terminal_reset or force_broadcast:
+                        chapter_id = j.get("chapter_id")
+                        if chapter_id:
+                            broadcast_chapter_updated(
+                                chapter_id,
+                                reason="job_terminal_status" if new_status in ("done", "failed", "cancelled") else ("JOB_RESET_TO_ACTIVE" if terminal_reset else "chapter_updated"),
+                                job_id=job_id,
+                                project_id=project_id,
+                                changed_fields=["status"]
+                            )
+                    # For terminal updates, do not emit queue invalidation. Only emit on reset or explicit force_broadcast for non-terminal statuses.
+                    if (terminal_reset or force_broadcast) and new_status not in ("done", "failed", "cancelled"):
+                        broadcast_queue_update(
+                            reason="JOB_RESET_TO_ACTIVE" if terminal_reset else "QUEUE_INVALIDATED",
+                            job_id=job_id,
+                            project_id=project_id,
+                            changed_fields=["status"]
+                        )
                 except ImportError:
                     logger.debug("broadcast_queue_update is unavailable during state sync")
 
@@ -267,6 +396,19 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                 logger.warning("Failed to sync job status to SQLite for %s", job_id, exc_info=True)
 
         broadcast_dict = {k: v for k, v in updates.items() if k != "log"}
+        if force_broadcast:
+            broadcast_dict["force_broadcast"] = True
+        if skip_studio_job_event:
+            broadcast_dict["skip_studio_job_event"] = True
+        if skip_job_updated:
+            broadcast_dict["skip_job_updated"] = True
+        if terminal_reset:
+            broadcast_dict["terminal_reset"] = True
+            broadcast_dict.setdefault("reason_code", "JOB_RESET_TO_ACTIVE")
+        broadcast_dict["previous_status"] = current_status
+        broadcast_dict["status_changed"] = current_status != j.get("status")
+        if source is not None:
+            broadcast_dict["source"] = source
         if auto_updated_at is not None:
             broadcast_dict.setdefault("updated_at", auto_updated_at)
         if broadcast_dict or force_broadcast:

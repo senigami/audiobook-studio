@@ -1,30 +1,5 @@
-import type { ChapterSegment, ProductionBlock, TtsEngine, SpeakerProfile } from '@/types';
+import type { TtsEngine, SpeakerProfile } from '@/types';
 import { getDefaultVoiceProfileName, getVoiceProfileEngine, formatVoiceEngineLabel } from '@/utils/voiceProfiles';
-
-/**
- * Builds fallback production blocks from source segments if no production blocks exist.
- */
-export const buildFallbackProductionBlocks = (sourceSegments: ChapterSegment[]): ProductionBlock[] => {
-  return [...sourceSegments]
-    .sort((a, b) => (a.segment_order ?? 0) - (b.segment_order ?? 0))
-    .map((segment, index) => ({
-      id: segment.id,
-      order_index: index,
-      text: segment.sanitized_text || segment.text_content || '',
-      character_id: segment.character_id,
-      speaker_profile_name: segment.speaker_profile_name,
-      status: segment.audio_status === 'done'
-        ? 'rendered'
-        : segment.audio_status === 'processing'
-          ? 'running'
-          : segment.audio_status === 'failed' || segment.audio_status === 'error'
-            ? 'failed'
-            : segment.audio_status === 'cancelled'
-              ? 'failed'
-              : 'draft',
-      source_segment_ids: [segment.id],
-    }));
-};
 
 /**
  * Resolves the engine status and availability message for a given voice.

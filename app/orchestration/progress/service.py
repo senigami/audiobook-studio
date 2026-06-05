@@ -7,6 +7,7 @@ gating for the live websocket path.
 from __future__ import annotations
 
 import time
+import sys
 from collections.abc import Callable, Mapping
 
 from .broadcaster import broadcast_progress
@@ -27,6 +28,22 @@ FORBIDDEN_DIRECT_IMPORTS = (
     "app.engines",
     "app.db.queue",
 )
+
+
+def _resolve_source(default: str, depth: int = 1) -> str:
+    try:
+        while True:
+            frame = sys._getframe(depth)
+            module = frame.f_globals.get("__name__", "")
+            function = frame.f_code.co_name
+            if module == "app.orchestration.progress.service" or function in ("publish", "_build_progress_payload"):
+                depth += 1
+                continue
+            if module and function:
+                return f"{module}.{function}"
+            depth += 1
+    except (AttributeError, ValueError):
+        return default
 
 
 class ProgressService:
@@ -131,6 +148,7 @@ class ProgressService:
         status: str,
         scope: str = "job",
         parent_job_id: str | None = None,
+        chapter_id: str | None = None,
         progress: float | None = None,
         eta_seconds: int | None = None,
         eta_confidence: str | None = None,
@@ -141,10 +159,21 @@ class ProgressService:
         updated_at: float | None = None,
         active_render_batch_id: str | None = None,
         active_render_batch_progress: float | None = None,
+        active_segment_eta_seconds: int | None = None,
         active_segment_id: str | None = None,
         active_segment_progress: float | None = None,
+        has_segment_support: bool | None = None,
+        render_group_count: int | None = None,
+        completed_render_groups: int | None = None,
+        active_render_group_index: int | None = None,
+        total_render_weight: int | None = None,
+        completed_render_weight: int | None = None,
+        active_render_group_weight: int | None = None,
+        grouped_progress: float | None = None,
+        source: str | None = None,
         allow_progress_regression: bool = False,
         force: bool = False,
+        eta_updated_at: float | None = None,
     ) -> dict[str, object] | None:
         """Publish normalized progress updates for queue and chapter surfaces.
 
@@ -153,6 +182,7 @@ class ProgressService:
             status: Canonical live job status.
             scope: Normalized event scope.
             parent_job_id: Optional parent task/job identifier.
+            chapter_id: Optional chapter identifier.
             progress: Optional normalized progress percentage or ratio.
             eta_seconds: Optional remaining seconds estimate.
             eta_confidence: Optional ETA confidence hint.
@@ -171,6 +201,14 @@ class ProgressService:
             dict[str, object] | None: The emitted payload, or ``None`` when the
             update was coalesced as non-meaningful.
         """
+        # Prevent status rollback to preparing if synthesis has already started
+        previous = self._last_payload_by_job.get(job_id)
+        if not allow_progress_regression and previous and previous.get("started_at") is not None and status == "preparing":
+            status = "running"
+
+        lifecycle_status = status
+        if status == "finalizing":
+            status = "running"
         payload = self._build_progress_payload(
             job_id=job_id,
             scope=scope,
@@ -186,11 +224,81 @@ class ProgressService:
             updated_at=updated_at,
             active_render_batch_id=active_render_batch_id,
             active_render_batch_progress=active_render_batch_progress,
+            active_segment_eta_seconds=active_segment_eta_seconds,
             active_segment_id=active_segment_id,
             active_segment_progress=active_segment_progress,
+            render_group_count=render_group_count,
+            completed_render_groups=completed_render_groups,
+            active_render_group_index=active_render_group_index,
+            total_render_weight=total_render_weight,
+            completed_render_weight=completed_render_weight,
+            active_render_group_weight=active_render_group_weight,
+            grouped_progress=grouped_progress,
+            source=source,
+            eta_updated_at=eta_updated_at,
         )
         if not force and not self._should_emit(payload, allow_progress_regression=allow_progress_regression):
             return None
+
+        # Capture the previous active segment state before mutating self._last_payload_by_job
+        previous = self._last_payload_by_job.get(job_id)
+        prev_status = previous.get("status") if previous else None
+        status_changed = (prev_status != status)
+        prev_active_segment_id = previous.get("active_segment_id") if previous else None
+        new_active_segment_id = payload.get("active_segment_id")
+
+        inferred_has_segment_support = any(
+            value is not None
+            for value in (
+                active_segment_id,
+                active_segment_eta_seconds,
+                active_segment_progress,
+            )
+        ) or scope == "segment"
+        resolved_has_segment_support = (
+            inferred_has_segment_support
+            if has_segment_support is None
+            else bool(has_segment_support)
+        )
+
+        if status_changed or previous is None:
+            from app.api.contracts.events import build_job_lifecycle_event  # noqa: PLC0415
+            lifecycle_event = build_job_lifecycle_event(
+                job_id=job_id,
+                status=lifecycle_status,
+                reason_code=reason_code or waiting_reason,
+                message=message,
+                project_id=parent_job_id,
+                chapter_id=chapter_id,
+                parent_job_id=parent_job_id,
+                source=payload.get("source"),
+                started_at=started_at,
+                updated_at=updated_at,
+                has_segment_support=resolved_has_segment_support,
+            )
+            self.broadcaster(payload=lifecycle_event, channel="jobs")
+
+        if prev_active_segment_id and prev_active_segment_id != new_active_segment_id:
+            from app.api.contracts.events import build_segment_progress_event  # noqa: PLC0415
+            seg_status = status if status in ("failed", "cancelled") else "done"
+            seg_progress = 1.0
+            seg_reason_code = "SEGMENT_SAVED" if seg_status == "done" else reason_code
+            seg_event = build_segment_progress_event(
+                segment_id=prev_active_segment_id,
+                status=seg_status,
+                progress=seg_progress,
+                segment_index=previous.get("active_render_group_index") or active_render_group_index,
+                segment_count=render_group_count or previous.get("render_group_count"),
+                message=message,
+                reason_code=seg_reason_code,
+                job_id=job_id,
+                chapter_id=chapter_id,
+                project_id=parent_job_id,
+                source=payload.get("source"),
+                eta_seconds=None,
+                has_segment_support=resolved_has_segment_support,
+            )
+            self.broadcaster(payload=seg_event, channel="jobs")
 
         self._last_payload_by_job[job_id] = payload
         self._last_emit_tick_by_job[job_id] = float(self.monotonic_clock())
@@ -200,9 +308,138 @@ class ProgressService:
             self._last_progress_by_job.pop(job_id, None)
         if status == "queued":
             self._last_payload_by_job.pop(job_id, None)
-        self.broadcaster(payload=payload, channel="jobs")
+
+        # 1. Segment progress tick (first)
+        if new_active_segment_id is not None or scope == "segment":
+            from app.api.contracts.events import build_segment_progress_event  # noqa: PLC0415
+            seg_p = payload.get("active_segment_progress") if new_active_segment_id is not None else payload.get("progress")
+            if seg_p is None:
+                seg_p = 0.0
+            segment_eta_seconds = (
+                payload.get("active_segment_eta_seconds")
+                if new_active_segment_id is not None
+                else payload.get("eta_seconds")
+            )
+            seg_event = build_segment_progress_event(
+                segment_id=new_active_segment_id or job_id,
+                status=status,
+                progress=seg_p,
+                segment_index=active_render_group_index,
+                segment_count=render_group_count,
+                message=message,
+                reason_code=reason_code,
+                job_id=job_id,
+                chapter_id=chapter_id,
+                project_id=parent_job_id,
+                source=payload.get("source"),
+                eta_seconds=segment_eta_seconds,
+                updated_at=payload.get("updated_at"),
+                has_segment_support=resolved_has_segment_support,
+                eta_updated_at=payload.get("eta_updated_at"),
+            )
+            self.broadcaster(payload=seg_event, channel="jobs")
+
+        # 2. Voice test progress (second)
+        if scope == "voice_test":
+            from app.api.contracts.events import build_queue_item_status_event, build_voice_test_progress_event  # noqa: PLC0415
+            from app.db.state import get_jobs  # noqa: PLC0415
+            from app.api.routers.voices_helpers import _voice_job_title  # noqa: PLC0415
+
+            existing_job = get_jobs().get(job_id)
+            voice_name = "default"
+            existing_started_at = None
+            existing_completed_at = None
+            existing_custom_title = None
+            existing_engine = None
+            if existing_job:
+                if hasattr(existing_job, "speaker_profile"):
+                    voice_name = existing_job.speaker_profile or "default"
+                elif isinstance(existing_job, dict) and existing_job.get("speaker_profile"):
+                    voice_name = existing_job["speaker_profile"]
+                if hasattr(existing_job, "started_at"):
+                    existing_started_at = existing_job.started_at
+                elif isinstance(existing_job, dict):
+                    existing_started_at = existing_job.get("started_at")
+                    existing_completed_at = existing_job.get("finished_at") or existing_job.get("completed_at")
+                if hasattr(existing_job, "finished_at"):
+                    existing_completed_at = existing_job.finished_at
+                if hasattr(existing_job, "custom_title"):
+                    existing_custom_title = existing_job.custom_title
+                elif isinstance(existing_job, dict):
+                    existing_custom_title = existing_job.get("custom_title")
+                if hasattr(existing_job, "engine"):
+                    existing_engine = existing_job.engine
+                elif isinstance(existing_job, dict):
+                    existing_engine = existing_job.get("engine")
+
+            resolved_custom_title = existing_custom_title or _voice_job_title(voice_name, action="Voice Test:", include_variant=False)
+            resolved_engine = existing_engine or "voice_test"
+
+            queue_event = build_queue_item_status_event(
+                job_id=job_id,
+                status=status,
+                progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
+                eta_seconds=eta_seconds,
+                message=message,
+                reason_code=reason_code,
+                classification="job",
+                project_id=parent_job_id,
+                chapter_id=chapter_id,
+                started_at=started_at or existing_started_at,
+                completed_at=existing_completed_at if status in ("done", "failed", "cancelled") else None,
+                custom_title=resolved_custom_title,
+                engine=resolved_engine,
+                produced_audio_length=None,
+                produced_chars=None,
+                produced_segment_count=None,
+                source=payload.get("source"),
+                has_segment_support=resolved_has_segment_support,
+            )
+            self.broadcaster(payload=queue_event, channel="jobs")
+
+            voice_event = build_voice_test_progress_event(
+                voice_name=voice_name,
+                status=status,
+                progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
+                started_at=started_at or (existing_job.started_at if existing_job and hasattr(existing_job, "started_at") else None) or (existing_job.get("started_at") if existing_job and isinstance(existing_job, dict) else None) or time.time(),
+                message=message,
+                source=payload.get("source"),
+            )
+            # Add jobId to IDs
+            if "ids" in voice_event:
+                voice_event["ids"]["jobId"] = job_id
+
+            self.broadcaster(payload=voice_event, channel="jobs")
+
+        # 3. Chapter progress (third)
+        is_chapter_progress = (
+            scope == "chapter"
+            or (chapter_id is not None and scope != "segment")
+        )
+        if is_chapter_progress:
+            from app.api.contracts.events import build_chapter_progress_event  # noqa: PLC0415
+            chap_event = build_chapter_progress_event(
+                chapter_id=chapter_id or "",
+                status=status,
+                progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
+                grouped_progress=payload.get("grouped_progress"),
+                eta_seconds=payload.get("eta_seconds"),
+                message=payload.get("message"),
+                reason_code=payload.get("reason_code"),
+                render_group_count=payload.get("render_group_count"),
+                completed_render_groups=payload.get("completed_render_groups"),
+                job_id=job_id,
+                project_id=parent_job_id,
+                source=payload.get("source"),
+                updated_at=payload.get("updated_at"),
+                has_segment_support=resolved_has_segment_support,
+                eta_updated_at=payload.get("eta_updated_at"),
+            )
+            self.broadcaster(payload=chap_event, channel="jobs")
+
         self._last_payload_by_job[job_id] = payload
         return payload
+
 
     def _normalize_monotonic_progress(
         self,
@@ -259,8 +496,18 @@ class ProgressService:
         updated_at: float | None,
         active_render_batch_id: str | None,
         active_render_batch_progress: float | None,
+        active_segment_eta_seconds: int | None = None,
         active_segment_id: str | None = None,
         active_segment_progress: float | None = None,
+        render_group_count: int | None = None,
+        completed_render_groups: int | None = None,
+        active_render_group_index: int | None = None,
+        total_render_weight: int | None = None,
+        completed_render_weight: int | None = None,
+        active_render_group_weight: int | None = None,
+        grouped_progress: float | None = None,
+        source: str | None = None,
+        eta_updated_at: float | None = None,
     ) -> dict[str, object]:
         """Describe the canonical payload sent to live frontend listeners.
 
@@ -284,9 +531,28 @@ class ProgressService:
             dict[str, object]: Broadcast-ready progress payload.
         """
         now = float(updated_at if updated_at is not None else self.wall_clock())
+
+        # Enforce terminal status clearing
+        is_terminal = status in {"done", "failed", "cancelled"}
+        if is_terminal:
+            eta_seconds = None
+            eta_updated_at = None
+
         normalized_progress = None
         if progress is not None:
             normalized_progress = round(max(0.0, min(float(progress), 1.0)), 2)
+
+        # Resolve eta_updated_at duplicate protection
+        resolved_eta_updated_at = None
+        if eta_seconds is not None and not is_terminal:
+            resolved_eta_updated_at = eta_updated_at if eta_updated_at is not None else now
+            previous = self._last_payload_by_job.get(job_id)
+            if previous is not None:
+                prev_eta = previous.get("eta_seconds")
+                prev_progress = previous.get("progress")
+                # If progress and ETA are unchanged, reuse previous eta_updated_at
+                if prev_eta == eta_seconds and prev_progress == normalized_progress:
+                    resolved_eta_updated_at = previous.get("eta_updated_at") or previous.get("updated_at") or now
 
         payload: dict[str, object] = {
             "type": "studio_job_event",
@@ -294,16 +560,26 @@ class ProgressService:
             "scope": scope,
             "status": status,
             "updated_at": now,
+            "source": source or _resolve_source("app.orchestration.progress.service.ProgressService.publish"),
         }
         if parent_job_id is not None:
             payload["parent_job_id"] = parent_job_id
         if normalized_progress is not None:
             payload["progress"] = normalized_progress
+
         if eta_seconds is not None:
             sanitized_eta = max(0, int(eta_seconds))
             payload["eta_seconds"] = sanitized_eta
             payload["eta_basis"] = "remaining_from_update"
             payload["estimated_end_at"] = now + float(sanitized_eta)
+            payload["eta_updated_at"] = resolved_eta_updated_at
+        elif is_terminal:
+            # Explicitly put null values in terminal status update payloads
+            payload["eta_seconds"] = None
+            payload["eta_basis"] = None
+            payload["estimated_end_at"] = None
+            payload["eta_updated_at"] = None
+
         if eta_confidence is not None:
             payload["eta_confidence"] = eta_confidence
         else:
@@ -322,9 +598,26 @@ class ProgressService:
             payload["active_render_batch_progress"] = round(max(0.0, min(float(active_render_batch_progress), 1.0)), 2)
         if active_segment_id is not None:
             payload["active_segment_id"] = active_segment_id
-        if active_segment_progress is not None:
-            payload["active_segment_progress"] = round(max(0.0, min(float(active_segment_progress), 1.0)), 2)
+            if active_segment_progress is not None:
+                payload["active_segment_progress"] = round(max(0.0, min(float(active_segment_progress), 1.0)), 2)
+            if active_segment_eta_seconds is not None:
+                payload["active_segment_eta_seconds"] = max(0, int(active_segment_eta_seconds))
+        if render_group_count is not None:
+            payload["render_group_count"] = int(render_group_count)
+        if completed_render_groups is not None:
+            payload["completed_render_groups"] = int(completed_render_groups)
+        if active_render_group_index is not None:
+            payload["active_render_group_index"] = int(active_render_group_index)
+        if total_render_weight is not None:
+            payload["total_render_weight"] = int(total_render_weight)
+        if completed_render_weight is not None:
+            payload["completed_render_weight"] = int(completed_render_weight)
+        if active_render_group_weight is not None:
+            payload["active_render_group_weight"] = int(active_render_group_weight)
+        if grouped_progress is not None:
+            payload["grouped_progress"] = round(max(0.0, min(float(grouped_progress), 1.0)), 2)
         return payload
+
 
     def _should_emit(self, payload: dict[str, object], *, allow_progress_regression: bool = False) -> bool:
         job_id = str(payload["job_id"])
@@ -337,6 +630,11 @@ class ProgressService:
             previous=previous,
             allow_progress_regression=allow_progress_regression,
         )
+
+        prev_status = previous.get("status")
+        curr_status = payload.get("status")
+        if prev_status in {"done", "failed", "cancelled"} and curr_status not in {"done", "failed", "cancelled", "queued", "preparing"}:
+            return False
 
         if payload.get("status") != previous.get("status"):
             return True
@@ -367,6 +665,13 @@ class ProgressService:
                     return True
             elif previous_seg_progress != current_seg_progress:
                 return True
+        previous_segment_eta = previous.get("active_segment_eta_seconds")
+        current_segment_eta = payload.get("active_segment_eta_seconds")
+        if isinstance(previous_segment_eta, int) and isinstance(current_segment_eta, int):
+            if abs(current_segment_eta - previous_segment_eta) >= 1:
+                return True
+        elif current_segment_eta is not None and previous_segment_eta != current_segment_eta:
+            return True
         if payload.get("eta_confidence") != previous.get("eta_confidence"):
             return True
 

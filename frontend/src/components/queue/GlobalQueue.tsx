@@ -9,6 +9,7 @@ import { ReorderableQueueItem } from '@/components/queue/ReorderableQueueItem';
 import { QueueStats } from '@/components/queue/QueueStats';
 import type { Job, ProcessingQueueItem } from '@/types';
 import { formatQueueContext } from '@/utils/queueLabels';
+import { isMainQueueSegmentItem } from '@/utils/jobSelection';
 
 interface GlobalQueueProps {
     paused?: boolean;
@@ -70,17 +71,137 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
         return `${seconds}s`;
     }, []);
 
+    const formatAudioDuration = React.useCallback((seconds: number | undefined) => {
+        if (!seconds) return "";
+        if (seconds < 60) return `${seconds.toFixed(1)}s`;
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.round(seconds % 60);
+        return `${mins}m ${secs}s`;
+    }, []);
+
     const formatJobTitle = React.useCallback((job: ProcessingQueueItem) => {
-        const base = job.custom_title || job.chapter_title || "System Task";
-        if (job.engine === 'audiobook') {
+        const liveJob = jobs[job.id];
+        const displayJob = liveJob ? { ...job, ...liveJob } : job;
+        const base = displayJob.custom_title || displayJob.chapter_title || "System Task";
+        if (displayJob.engine === 'audiobook') {
             return `Assembling m4b for: ${base}`;
         }
         return base;
+    }, [jobs]);
+
+    const chapterJobs = React.useMemo(() => queue.filter(q => !isMainQueueSegmentItem(q)), [queue]);
+    const [recentlyCompleted, setRecentlyCompleted] = React.useState<Record<string, number>>({});
+    const [visuallyPendingJobs, setVisuallyPendingJobs] = React.useState<Record<string, boolean>>({});
+
+    const handleVisualPendingChange = React.useCallback((jobId: string, pending: boolean) => {
+        setVisuallyPendingJobs(prev => {
+            if (prev[jobId] === pending) return prev;
+            return { ...prev, [jobId]: pending };
+        });
     }, []);
 
-    const activeJobs = React.useMemo(() => queue.filter(q => q.status === 'running' || q.status === 'preparing' || q.status === 'finalizing'), [queue]);
-    const pendingJobs = React.useMemo(() => queue.filter(q => q.status === 'queued'), [queue]);
-    const pastJobs = React.useMemo(() => queue.filter(q => q.status === 'done' || q.status === 'failed' || q.status === 'cancelled'), [queue]);
+    const prevQueueRef = React.useRef<ProcessingQueueItem[]>([]);
+    const timeoutsRef = React.useRef<Record<string, NodeJS.Timeout>>({});
+
+    React.useEffect(() => {
+        return () => {
+            // Clean up all timeouts on unmount
+            Object.values(timeoutsRef.current).forEach(clearTimeout);
+        };
+    }, []);
+
+    React.useEffect(() => {
+        const now = Date.now();
+        const newCompletions = { ...recentlyCompleted };
+        let changed = false;
+
+        // Clean up timeouts and completions for any removed/cancelled jobs
+        prevQueueRef.current.forEach(prevJob => {
+            const stillExists = queue.some(j => j.id === prevJob.id);
+            if (!stillExists) {
+                if (timeoutsRef.current[prevJob.id]) {
+                    clearTimeout(timeoutsRef.current[prevJob.id]);
+                    delete timeoutsRef.current[prevJob.id];
+                }
+                if (newCompletions[prevJob.id]) {
+                    delete newCompletions[prevJob.id];
+                    changed = true;
+                }
+            }
+        });
+
+        queue.forEach(job => {
+            const prevJob = prevQueueRef.current.find(j => j.id === job.id);
+            if (prevJob) {
+                const wasActive = ['running', 'preparing', 'finalizing'].includes(prevJob.status);
+                const isTerminal = ['done', 'failed', 'cancelled'].includes(job.status);
+                const wentActiveAgain = ['done', 'failed', 'cancelled'].includes(prevJob.status) && ['running', 'preparing', 'finalizing', 'queued'].includes(job.status);
+
+                if (wentActiveAgain) {
+                    if (timeoutsRef.current[job.id]) {
+                        clearTimeout(timeoutsRef.current[job.id]);
+                        delete timeoutsRef.current[job.id];
+                    }
+                    if (newCompletions[job.id]) {
+                        delete newCompletions[job.id];
+                        changed = true;
+                    }
+                }
+
+                if (wasActive && isTerminal && !newCompletions[job.id]) {
+                    newCompletions[job.id] = now;
+                    changed = true;
+
+                    if (timeoutsRef.current[job.id]) {
+                        clearTimeout(timeoutsRef.current[job.id]);
+                    }
+
+                    timeoutsRef.current[job.id] = setTimeout(() => {
+                        setRecentlyCompleted(prev => {
+                            const next = { ...prev };
+                            delete next[job.id];
+                            return next;
+                        });
+                        delete timeoutsRef.current[job.id];
+                    }, 30000);
+                }
+
+                if (wasActive && job.status === 'done') {
+                    setVisuallyPendingJobs(prev => {
+                        if (prev[job.id] === true) return prev;
+                        return { ...prev, [job.id]: true };
+                    });
+                }
+            }
+        });
+
+        if (changed) {
+            setRecentlyCompleted(newCompletions);
+        }
+        prevQueueRef.current = queue;
+    }, [queue, recentlyCompleted]);
+
+    const activeJobs = React.useMemo(() => {
+        const active = chapterJobs.filter(q => q.status === 'running' || q.status === 'preparing' || q.status === 'finalizing');
+        const now = Date.now();
+        const retained = chapterJobs.filter(q => {
+            const completedAt = recentlyCompleted[q.id];
+            const prevJob = prevQueueRef.current.find(j => j.id === q.id);
+            const wasActive = prevJob ? ['running', 'preparing', 'finalizing'].includes(prevJob.status) : false;
+            const justTransitionedToDone = wasActive && q.status === 'done';
+
+            const isVisualPending = visuallyPendingJobs[q.id] !== undefined
+                ? visuallyPendingJobs[q.id]
+                : (justTransitionedToDone || (q.status === 'done' && (q.progress ?? 0) < 1.0));
+            return (completedAt && (now - completedAt < 30000)) || isVisualPending;
+        });
+        const activeIds = new Set(active.map(j => j.id));
+        return [...active, ...retained.filter(j => !activeIds.has(j.id))];
+    }, [chapterJobs, recentlyCompleted, visuallyPendingJobs]);
+
+    const pendingJobs = React.useMemo(() => chapterJobs.filter(q => q.status === 'queued'), [chapterJobs]);
+    const activeIds = React.useMemo(() => new Set(activeJobs.map(j => j.id)), [activeJobs]);
+    const pastJobs = React.useMemo(() => chapterJobs.filter(q => (q.status === 'done' || q.status === 'failed' || q.status === 'cancelled') && !activeIds.has(q.id)), [chapterJobs, activeIds]);
     if (loading) return <div style={{ padding: '2rem' }}>Loading Queue...</div>;
 
     return (
@@ -100,8 +221,8 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                     </h2>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
                         {!compact && <p style={{ color: 'var(--text-muted)', margin: 0 }}>Manage your batch audio generation tasks</p>}
-                        {queue.some(q => ['queued', 'preparing', 'running', 'finalizing'].includes(q.status)) && (
-                            <QueueStats queue={queue} jobs={jobs} />
+                        {chapterJobs.some(q => ['queued', 'preparing', 'running', 'finalizing'].includes(q.status)) && (
+                            <QueueStats queue={chapterJobs} jobs={jobs} />
                         )}
                     </div>
                 </div>
@@ -137,7 +258,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                 </div>
             </header>
 
-            {queue.length === 0 ? (
+            {chapterJobs.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'var(--surface)', borderRadius: '20px', border: '2px dashed var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', color: 'var(--text-muted)' }}>
                     <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
                         <Layers size={32} />
@@ -168,13 +289,14 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                     <QueueItem
                                         key={job.id}
                                         job={job}
-                                        liveJob={Object.values(jobs).find(j => j.id === job.id)}
+                                        liveJob={jobs[job.id]}
                                         localPaused={localPaused}
                                         formatJobTitle={formatJobTitle}
                                         formatTime={formatTime}
                                         onRemove={handleRemove}
                                         compact={compact}
                                         engines={engines}
+                                        onVisualPendingChange={handleVisualPendingChange}
                                     />
                                 ))}
                             </div>
@@ -227,35 +349,61 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                 {showHistory && (
                                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }} style={{ overflow: 'hidden' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingBottom: '1rem' }}>
-                                            {pastJobs.map(job => (
+                                            {pastJobs.map(job => {
+                                                const liveJob = jobs[job.id];
+                                                const displayJob = liveJob ? { ...job, ...liveJob } : job;
+                                                return (
                                                 <div key={job.id} onMouseEnter={() => setHoveredJobId(job.id)} onMouseLeave={() => setHoveredJobId(null)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '0.75rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1.25rem', opacity: 0.8, transition: 'all 0.2s ease' }}>
-                                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: job.status === 'done' ? 'var(--success-tint)' : 'var(--error-tint)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: job.status === 'done' ? 'var(--success)' : 'var(--error)' }}>
-                                                        {job.status === 'done' ? <CheckCircle size={18} strokeWidth={2} /> : <XCircle size={18} strokeWidth={2} />}
+                                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: displayJob.status === 'done' ? 'var(--success-tint)' : 'var(--error-tint)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: displayJob.status === 'done' ? 'var(--success)' : 'var(--error)' }}>
+                                                        {displayJob.status === 'done' ? <CheckCircle size={18} strokeWidth={2} /> : <XCircle size={18} strokeWidth={2} />}
                                                     </div>
                                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <h4 style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatJobTitle(job)}</h4>
+                                                        <h4 style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatJobTitle(displayJob as any)}</h4>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
                                                             <span style={!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: compact ? '0.65rem' : '0.75rem', textTransform: 'uppercase' } : undefined}>
-                                                                {formatQueueContext(job, engines)}
+                                                                {formatQueueContext(displayJob as any, engines)}
                                                             </span>
-                                                            {(job.started_at || job.completed_at || job.updated_at) && (
+                                                            {(displayJob.started_at || displayJob.completed_at || displayJob.updated_at) && (
                                                                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                                     <span>
-                                                                        {formatTime(job.started_at || job.completed_at || job.updated_at)}
-                                                                        {job.started_at && job.completed_at && job.completed_at > job.started_at && (
-                                                                            <> → {formatRunDuration(job.started_at, job.completed_at)}</>
+                                                                        {formatTime(displayJob.started_at || displayJob.completed_at || displayJob.updated_at)}
+                                                                        {displayJob.started_at && displayJob.completed_at && displayJob.completed_at > displayJob.started_at && (
+                                                                            <> → {formatRunDuration(displayJob.started_at, displayJob.completed_at)}</>
                                                                         )}
                                                                     </span>
                                                                 </span>
                                                             )}
-                                                            <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: job.status === 'done' ? 'var(--success)' : 'var(--error)' }}>{job.status}</span>
+                                                            <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: displayJob.status === 'done' ? 'var(--success)' : 'var(--error)' }}>{displayJob.status}</span>
+                                                            {displayJob.status === 'done' && (displayJob.produced_audio_length || displayJob.audio_length_seconds) && (
+                                                                <>
+                                                                    <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)' }} />
+                                                                    <span style={{ fontSize: '0.72rem', color: 'var(--accent)', fontWeight: 600 }}>
+                                                                        {formatAudioDuration(displayJob.produced_audio_length || displayJob.audio_length_seconds)}
+                                                                    </span>
+                                                                </>
+                                                            )}
+                                                            {displayJob.status === 'done' && (displayJob.produced_chars || displayJob.char_count) && (
+                                                                <>
+                                                                    <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)' }} />
+                                                                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                                                        {(displayJob.produced_chars || displayJob.char_count)?.toLocaleString()} chars
+                                                                        {displayJob.produced_segment_count ? ` • ${displayJob.produced_segment_count} segments` : ''}
+                                                                    </span>
+                                                                </>
+                                                            )}
                                                         </div>
+                                                        {displayJob.status !== 'done' && (displayJob.error || displayJob.log) && (
+                                                            <div style={{ marginTop: '0.35rem', fontSize: '0.75rem', lineHeight: 1.45, color: 'var(--error)', whiteSpace: 'normal' }}>
+                                                                Reason: {displayJob.error || displayJob.log}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <button onClick={() => handleRemove(job.id)} className="hover-bg-destructive" style={{ background: 'none', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer', color: hoveredJobId === job.id ? 'var(--error)' : 'var(--text-muted)', opacity: hoveredJobId === job.id ? 1 : 0.4, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}>
                                                         <Trash2 size={16} strokeWidth={2} />
                                                     </button>
                                                 </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </motion.div>
                                 )}

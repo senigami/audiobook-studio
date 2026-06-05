@@ -43,10 +43,12 @@ def create_chapter(project_id: str, title: str, text_content: Optional[str] = No
             conn.commit()
 
             # Ensure nested directory exists immediately
-            from ..core.config import get_chapter_dir
-            nested_dir = get_chapter_dir(project_id, chapter_id)
+            from ..storage.manager import get_storage_manager
+            storage = get_storage_manager()
+            ctx = storage.get_project_context(project_id)
+            nested_dir = ctx.get_chapter_dir(chapter_id)
             nested_dir.mkdir(parents=True, exist_ok=True)
-            secure_join_flat(nested_dir, "segments").mkdir(exist_ok=True)
+            (nested_dir / "segments").mkdir(exist_ok=True)
 
             return chapter_id
 
@@ -78,15 +80,16 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
             chap = dict(row)
 
     # Rule 3: Disk as Source of Truth - Outside Lock
-    from ..core import config
+    from ..storage.manager import get_storage_manager
+    storage = get_storage_manager()
 
     path = chap.get("audio_file_path")
 
-    resolved = config.resolve_chapter_asset_path(
+    resolved = storage.resolve_chapter_asset_path(
         chap["project_id"], chap["id"], "audio", filename=path
     )
     if not resolved:
-        resolved = config.resolve_chapter_asset_path(chap["project_id"], chap["id"], "audio")
+        resolved = storage.resolve_chapter_asset_path(chap["project_id"], chap["id"], "audio")
 
     flags = _detect_audio_flags(chap["id"], path, resolved)
     chap.update(flags)
@@ -115,16 +118,17 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
             )
             rows = [dict(row) for row in cursor.fetchall()]
 
-    from ..core import config
+    from ..storage.manager import get_storage_manager
+    storage = get_storage_manager()
 
     for chap in rows:
         path = chap.get("audio_file_path")
 
-        resolved = config.resolve_chapter_asset_path(
+        resolved = storage.resolve_chapter_asset_path(
             chap["project_id"], chap["id"], "audio", filename=path
         )
         if not resolved and not path:
-            resolved = config.resolve_chapter_asset_path(
+            resolved = storage.resolve_chapter_asset_path(
                 chap["project_id"], chap["id"], "audio"
             )
 

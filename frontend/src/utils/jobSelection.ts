@@ -5,6 +5,11 @@ type SegmentScopedShape = {
   active_segment_id?: string | null;
   custom_title?: string | null;
   render_group_count?: number;
+  parent_job_id?: string | null;
+  classification?: 'job' | 'chapter' | 'segment' | null;
+  engine?: string | null;
+  has_segment_support?: boolean | null;
+  hasSegmentSupport?: boolean | null;
 };
 
 const STATUS_RANK: Record<string, number> = {
@@ -19,9 +24,26 @@ const STATUS_RANK: Record<string, number> = {
 };
 
 export function isSegmentScopedJob(job: SegmentScopedShape): boolean {
+  if (job.classification === 'segment') return true;
+  if (job.classification === 'chapter') return false;
+  if (job.engine === 'voice_build') return true;
   if ((job.segment_ids?.length ?? 0) > 0) return true;
-  if (job.active_segment_id) return true;
+  if (job.parent_job_id && job.parent_job_id.startsWith('job-')) return true;
   if ((job.render_group_count ?? 0) > 0) return false;
+  return /segment\s*#/i.test(job.custom_title || '');
+}
+
+export function hasSegmentProgressCapability(job: SegmentScopedShape): boolean {
+  if (typeof job.has_segment_support === 'boolean') return job.has_segment_support;
+  if (typeof job.hasSegmentSupport === 'boolean') return job.hasSegmentSupport;
+  return isSegmentScopedJob(job);
+}
+
+export function isMainQueueSegmentItem(job: SegmentScopedShape): boolean {
+  if (job.classification === 'segment') return true;
+  if (job.classification === 'chapter') return false;
+  if ((job.segment_ids?.length ?? 0) > 0) return true;
+  if (job.parent_job_id && job.parent_job_id.startsWith('job-')) return true;
   return /segment\s*#/i.test(job.custom_title || '');
 }
 
@@ -41,6 +63,17 @@ export function pickRelevantJob(candidates: Job[], includeDone = false): Job | u
   return [...candidates]
     .filter(job => includeDone || ['queued', 'preparing', 'running', 'finalizing'].includes(job.status))
     .sort((a, b) => {
+      const aIsTerminal = ['done', 'failed', 'cancelled', 'error'].includes(a.status);
+      const bIsTerminal = ['done', 'failed', 'cancelled', 'error'].includes(b.status);
+
+      if (aIsTerminal !== bIsTerminal) {
+        const aTime = a.created_at ?? a.started_at ?? 0;
+        const bTime = b.created_at ?? b.started_at ?? 0;
+        if (aTime !== bTime) {
+          return bTime - aTime;
+        }
+      }
+
       const aRank = STATUS_RANK[a.status] ?? 0;
       const bRank = STATUS_RANK[b.status] ?? 0;
       if (aRank !== bRank) return bRank - aRank;

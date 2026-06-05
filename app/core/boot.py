@@ -52,7 +52,14 @@ def boot_studio() -> None:
     except Exception:
         logger.exception("Database migration failed during boot sequence.")
 
-    # 2. Start services
+    # 2. Initialize job handlers
+    try:
+        from app.jobs.registry import initialize_default_handlers  # noqa: PLC0415
+        initialize_default_handlers()
+    except Exception:
+        logger.exception("Job handler initialization failed during boot.")
+
+    # 3. Start services
     boot_tts_server()
 
 

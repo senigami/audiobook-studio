@@ -15,13 +15,12 @@ If a behavior is not supported, declare it as unsupported or return an explicit 
 
 ## Quick Start
 
-1. Copy `docs/plugin-template/` into `plugins/tts_myengine/`.
-2. Rename `engine_id`, `display_name`, and the engine class.
-3. Edit `manifest.json` so it declares the plugin's capabilities, behavior, and worker hooks.
-4. Edit `settings_schema.json` so it declares the plugin's settings contract.
-5. Implement your public surface in `interface.py` and your internals under `plugin/`.
-5. Start Studio and click `Refresh Plugins` in Settings > TTS Engines.
-6. Verify the plugin appears in the engine list and can pass discovery checks.
+1. Copy `docs/plugin-template/` to a new folder and customize it.
+2. Update `manifest.json` with your `engine_id`, `display_name`, and `entry_class`.
+3. Compress your plugin folder into a **.zip** file (ensure `manifest.json` is at the root of the zip).
+4. In Studio, go to **Settings > TTS Engines** and click **Import Plugin (.zip)**.
+5. Verify the plugin appears in the list and passes initial discovery.
+6. Once ready for distribution, authors can also submit plugins for inclusion as built-in engines.
 7. Treat the template as the canonical example of the declared-hook model, not as a no-op stub library.
 
 ## Plugin Layout
@@ -42,7 +41,7 @@ plugins/tts_myengine/
 
 Required files:
 
-- `manifest.json`
+- `manifest.json` (must declare `studio_tts_manifest`: "1.0")
 - `settings_schema.json`
 - `interface.py`
 
@@ -82,6 +81,11 @@ The plugin owns:
 - plugin-specific help/privacy copy
 
 If a behavior is specific to one encoder, keep it in the plugin. If Studio would need to know about it for a second plugin, that is a hook.
+
+For the live event stream and queue lifecycle contract, read
+[`docs/event_stream_processing_schema.md`](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/docs/event_stream_processing_schema.md).
+That document spells out the required queue row sequence, the voice-test
+exception, and which topics own state versus diagnostics.
 
 ## Declared Hook Model
 
@@ -205,14 +209,42 @@ Studio uses this schema to:
 - validate updates
 - persist runtime settings under Studio-owned `plugin_data/<engine_id>/`
 
+### Per-Voice Settings
+
+Plugins can declare which settings from their `settings_schema.json` should be available for per-voice overrides (e.g., custom temperature or repetition penalty for a specific voice variant).
+
+To enable this, list the allowed keys in your `manifest.json` under `behavior.synthesis_settings`:
+
+```json
+{
+  "behavior": {
+    "synthesis_settings": [
+      "temperature",
+      "repetition_penalty",
+      "top_k",
+      "top_p"
+    ]
+  }
+}
+```
+
+Studio uses this list to:
+- Filter the engine schema when displaying per-voice controls in the UI.
+- Validate that updates to a voice profile's settings only contain allowed keys.
+- Merge these overrides into the synthesis request before calling your plugin's `synthesize()` or `preview()` methods.
+
+Common settings like `speed` and `model` are always allowed for per-voice overrides and do not need to be listed in `synthesis_settings`.
+
 ## Manifest And Hook Declaration Rules
 
 Use the manifest as the declaration layer:
 
 - `capabilities` says what the plugin can do
 - `behavior` says what Studio should ask for or expect from the plugin
-- `worker_logic` says which job kinds or engine ids the plugin owns, if the plugin participates in worker dispatch
-- `entry_class` says which class implements the plugin, usually via `interface.py`
+- `worker_logic` says which job kinds or engine ids the plugin owns. Handlers must be in `module:function` format.
+- `entry_class` says which class implements the plugin, usually via `interface.py`. Must be in `module:Class` format.
+- `built_in` (optional, default: `false`) if `true`, Studio will protect the plugin from being uninstalled via the UI. Usually reserved for first-party engines.
+- `studio_tts_manifest` must be "1.0" for this version of Studio.
 
 Use the Python SDK as the runtime layer:
 
@@ -287,9 +319,27 @@ If this returns `False`, the Build and Test buttons in the UI will be disabled o
 
 Use this hook to ensure users have provided all required model inputs before they try to render audio.
 
+## Installation and Lifecycle
+
+Studio supports two main ways to install plugins:
+
+### 1. Manual Drop-in
+Copy the plugin folder into the `plugins/` directory. The folder name **must** follow the pattern `tts_[a-z][a-z0-9_]{1,14}`. After copying, click **Refresh Plugins** in the Studio UI.
+
+### 2. Zip Import (Recommended)
+Users can upload a `.zip` file containing the plugin via the **Import Plugin (.zip)** button in Settings.
+- **Safety**: Studio validates the zip for path traversal attacks and ensures `manifest.json` is present and valid before extraction.
+- **Root Level**: `manifest.json` must be at the top level of the zip file.
+- **Conflicts**: Studio will reject the import if a plugin with the same `engine_id` already exists.
+
+### Uninstalling
+Plugins can be uninstalled directly from their Engine Card in Settings.
+- **Atomic Deletion**: Studio shuts down the engine instance, deletes the plugin folder, and refreshes the registry.
+- **Built-in Protection**: Plugins marked with `"built_in": true` in their manifest cannot be uninstalled via the UI.
+
 ## Settings Schema Tips
 
-Keep your schema small and readable.
+Your `settings_schema.json` **must be a JSON dictionary (object)** at the root level. Studio will reject the plugin if the schema is a list or other primitive type.
 
 Recommended fields:
 
@@ -370,6 +420,67 @@ If you are extending Studio itself, the relevant code paths are:
 - `app/engines/models.py` for manifest and registry models
 - `app/api/routers/engines.py` for settings and refresh endpoints
 - `frontend/src/features/settings/routes/SettingsRoute.tsx` for the engine cards and schema-driven settings UI
+
+## Developer Scenarios
+
+Plugin authors can define **Developer Scenarios** to test how their engine card renders in different states (e.g., missing dependencies, unverified, or ready) without manually breaking their environment.
+
+### 1. Enable Developer Mode
+
+In your `manifest.json`, enable developer mode and point to a scenarios file:
+
+```json
+{
+  "dev": {
+    "enabled": true,
+    "scenarios": "dev/scenarios.json"
+  }
+}
+```
+
+### 2. Define Scenarios
+
+Create `dev/scenarios.json` in your plugin folder. It must contain a `scenarios` array. Each scenario defines overrides for the engine's runtime state.
+
+```json
+{
+  "scenarios": [
+    {
+      "id": "missing_deps",
+      "label": "Missing Dependencies",
+      "engine_detail": {
+        "status": "needs_setup",
+        "verified": false,
+        "enabled": false,
+        "dependencies_satisfied": false,
+        "missing_dependencies": ["torch", "coqui-tts"],
+        "setup_message": "Run Install Deps to continue."
+      }
+    },
+    {
+      "id": "ready",
+      "label": "Ready",
+      "engine_detail": {
+        "status": "ready",
+        "verified": true,
+        "enabled": true
+      }
+    }
+  ]
+}
+```
+
+### 3. Scenario Contract
+
+- **Required Fields**: Each scenario must have `id`, `label`, and `engine_detail`.
+- **Identity Protection**: Identity fields (like `engine_id`, `display_name`, `author`, `logo_url`) cannot be overridden by scenarios. Studio will ignore these if present in `engine_detail`.
+- **State Overrides**: You can override any other field in `TtsEngine`, such as `status`, `verified`, `enabled`, `current_settings`, and `settings_schema`.
+- **Deep Merge**: `current_settings` and `settings_schema` are deep-merged with the base values, allowing you to override specific fields while keeping the rest of the original state.
+- **Simulated Logs**: You can optionally include a `dev_logs` object to provide custom messages when "Run Test", "Verify", or "Install Deps" are clicked while the scenario is active.
+
+### 4. Validation
+
+Studio validates the structure and JSON syntax of your scenarios file. If it is malformed, the Engine Developer Panel will display a specific error message describing the issue.
 
 ## Plugin Author Rule Of Thumb
 

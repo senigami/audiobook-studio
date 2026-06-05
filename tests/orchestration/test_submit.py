@@ -83,7 +83,7 @@ class TestOrchestratorProgressTransitions:
         assert statuses[0] == "queued"
         assert "preparing" in statuses
         assert "running" in statuses
-        assert "finalizing" in statuses
+        assert "finalizing" not in statuses
         assert statuses[-1] == "done"
 
     def test_running_event_includes_started_at(self, orchestrator, progress_service, make_task):
@@ -173,8 +173,12 @@ class TestOrchestratorProgressTransitions:
             synthesis_settings={"model": "model-a"},
         )
 
+        import time
+        task.submitted_at = time.monotonic() - 5.0
+
         with patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
              patch("app.orchestration.scheduler.orchestrator.release_task_resources"), \
+             patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
              patch("app.db.performance.record_render_sample") as mock_record:
             orchestrator.voice_bridge.synthesize.return_value = {"status": "ok"}
             orchestrator.submit(task)
@@ -183,3 +187,43 @@ class TestOrchestratorProgressTransitions:
         assert mock_record.call_args.kwargs["engine"] == "xtts"
         assert mock_record.call_args.kwargs["job_id"] == "t-render"
         assert mock_record.call_args.kwargs["tts_model"] == "model-a"
+
+
+class TestOrchestratorFailureDiagnostics:
+    def test_registry_handler_raising_exception_surfaces_rich_info(self, orchestrator, make_task):
+        task = make_task(task_type="synthesis")
+        context = task.describe()
+        context.payload = {"engine_id": "test_engine"}
+
+        def failing_handler(**kwargs):
+            raise ValueError("Something bad happened in the handler")
+
+        with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_get_reg:
+            mock_reg = MagicMock()
+            mock_reg.get_handler.return_value = failing_handler
+            mock_get_reg.return_value = mock_reg
+
+            result = orchestrator._dispatch(task=task, context=context)
+
+            assert result.status == "failed"
+            assert "Handler raised exception: ValueError: Something bad happened in the handler" in result.message
+            assert "[Handler: failing_handler | Engine: test_engine | Kind: synthesis]" in result.message
+
+    def test_registry_handler_returning_non_zero_rc_surfaces_rich_info(self, orchestrator, make_task):
+        task = make_task(task_type="synthesis")
+        context = task.describe()
+        context.payload = {"engine_id": "test_engine"}
+
+        def failing_handler(**kwargs):
+            return 42
+
+        with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_get_reg:
+            mock_reg = MagicMock()
+            mock_reg.get_handler.return_value = failing_handler
+            mock_get_reg.return_value = mock_reg
+
+            result = orchestrator._dispatch(task=task, context=context)
+
+            assert result.status == "failed"
+            assert "Handler failed with exit code 42" in result.message
+            assert "[Handler: failing_handler | Engine: test_engine | Kind: synthesis]" in result.message

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { EditorTabs } from '@/pages/ChapterEditor/components/EditorTabs';
 
@@ -9,19 +9,17 @@ describe('EditorTabs', () => {
         editorTab="script"
         setEditorTab={vi.fn()}
         onSave={vi.fn().mockResolvedValue(true)}
-        onEnsureVoiceChunks={vi.fn().mockResolvedValue(undefined)}
         onRequestEditSourceText={vi.fn()}
-        analysis={null}
-        loadingVoiceChunks={false}
         sourceTextMode="view"
       />
     );
 
     expect(screen.getByText('Script')).toBeInTheDocument();
     expect(screen.getByText('Source Text')).toBeInTheDocument();
-    expect(screen.getByText('Production')).toBeInTheDocument();
-    expect(screen.getByText('Performance')).toBeInTheDocument();
-    expect(screen.getByText('Preview Safe Output')).toBeInTheDocument();
+    expect(screen.queryByText('Live Output')).not.toBeInTheDocument();
+    expect(screen.queryByText('Production')).not.toBeInTheDocument();
+    expect(screen.queryByText('Performance')).not.toBeInTheDocument();
+    expect(screen.queryByText('Preview Safe Output')).not.toBeInTheDocument();
   });
 
   it('calls setEditorTab when a tab is clicked', async () => {
@@ -31,18 +29,14 @@ describe('EditorTabs', () => {
         editorTab="script"
         setEditorTab={setEditorTab}
         onSave={vi.fn().mockResolvedValue(true)}
-        onEnsureVoiceChunks={vi.fn().mockResolvedValue(undefined)}
         onRequestEditSourceText={vi.fn()}
-        analysis={null}
-        loadingVoiceChunks={false}
         sourceTextMode="view"
       />
     );
 
-    fireEvent.click(screen.getByText('Production'));
-    await waitFor(() => {
-      expect(setEditorTab).toHaveBeenCalledWith('production');
-    });
+    fireEvent.click(screen.getByText('Source Text'));
+    expect(setEditorTab).toHaveBeenCalledWith('edit');
+
   });
 
   it('shows edit source text button in edit tab mode', () => {
@@ -52,10 +46,7 @@ describe('EditorTabs', () => {
         editorTab="edit"
         setEditorTab={vi.fn()}
         onSave={vi.fn().mockResolvedValue(true)}
-        onEnsureVoiceChunks={vi.fn().mockResolvedValue(undefined)}
         onRequestEditSourceText={onRequestEditSourceText}
-        analysis={null}
-        loadingVoiceChunks={false}
         sourceTextMode="view"
       />
     );

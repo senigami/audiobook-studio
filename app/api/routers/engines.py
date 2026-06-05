@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Any, Optional
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, File, UploadFile
 from fastapi.responses import JSONResponse, FileResponse
 from ...engines.bridge import create_voice_bridge
 
@@ -152,11 +152,44 @@ def test_engine(engine_id: str):
 def install_engine_dependencies(engine_id: str):
     """Trigger dependency installation for an engine."""
     from ...engines.errors import EngineUnavailableError
+    from ...engines.tts_client import TtsServerError
     bridge = create_voice_bridge()
     try:
         return bridge.install_dependencies(engine_id)
     except EngineUnavailableError as exc:
         return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
+    except TtsServerError as exc:
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).exception("Engine dependency installation failed")
+        return JSONResponse(
+            {
+                "status": "error",
+                "message": f"Failed to install engine dependencies: {exc}",
+            },
+            status_code=500,
+        )
+
+
+@router.post("/import")
+async def import_engine_plugin(file: UploadFile = File(...)):
+    """Import an engine plugin from a .zip file."""
+    from ...engines.tts_client import TtsServerError
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        return JSONResponse({"status": "error", "message": "Only .zip files are supported."}, status_code=400)
+
+    bridge = create_voice_bridge()
+    try:
+        content = await file.read()
+        return bridge.import_plugin(content, file.filename)
+    except TtsServerError as exc:
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).exception("Plugin import failed")
+        return JSONResponse({"status": "error", "message": f"Plugin import failed: {exc}"}, status_code=500)
 
 
 @router.delete("/{engine_id}")
@@ -177,11 +210,111 @@ def get_engine_logs(engine_id: str):
         return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
 
 
-@router.post("/install")
-def install_plugin():
-    """Request plugin installation instructions or trigger install."""
-    bridge = create_voice_bridge()
-    return bridge.install_plugin()
+@router.get("/{engine_id}/dev/scenarios")
+def get_engine_scenarios(engine_id: str):
+    """Fetch developer scenario fixtures for an engine."""
+    from ...engines.registry import load_engine_registry  # noqa: PLC0415
+    registry = load_engine_registry()
+    reg = registry.get(engine_id)
+    if not reg:
+        return JSONResponse({"ok": False, "message": "Engine not found"}, status_code=404)
+
+    plugin_dir = _resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
+    if not plugin_dir:
+        return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
+
+    dev_config = getattr(reg.manifest, "dev", None)
+    if dev_config is None:
+        dev_config = getattr(reg.manifest, "raw", {}).get("dev", {})
+    if not dev_config or not dev_config.get("enabled"):
+        return JSONResponse({"ok": False, "message": "Developer mode is disabled for this engine"}, status_code=403)
+
+    scenarios_path = dev_config.get("scenarios")
+    if not scenarios_path:
+        return JSONResponse({"ok": False, "message": "No dev scenarios declared in manifest"}, status_code=404)
+
+    # Path safety check
+    full_path = (plugin_dir / scenarios_path).resolve()
+    try:
+        full_path.relative_to(plugin_dir.resolve())
+    except ValueError:
+        return JSONResponse({"ok": False, "message": "Scenario path escapes plugin directory"}, status_code=403)
+
+    if not full_path.is_file():
+        return JSONResponse({"ok": False, "message": f"Scenarios file not found: {scenarios_path}"}, status_code=404)
+
+    import json
+    try:
+        data = json.loads(full_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return JSONResponse({"ok": False, "message": f"Invalid JSON in scenarios file: {exc}"}, status_code=400)
+
+    if not isinstance(data, dict):
+        return JSONResponse({"ok": False, "message": "Scenarios file must be a JSON object at the root"}, status_code=400)
+
+    scenarios = data.get("scenarios")
+    if scenarios is None:
+        return JSONResponse({"ok": False, "message": "Missing 'scenarios' key in scenarios file"}, status_code=400)
+
+    if not isinstance(scenarios, list):
+        return JSONResponse({"ok": False, "message": "'scenarios' must be a list"}, status_code=400)
+
+    for i, s in enumerate(scenarios):
+        if not isinstance(s, dict):
+            return JSONResponse({"ok": False, "message": f"Scenario at index {i} must be an object"}, status_code=400)
+        required = ["id", "label", "engine_detail"]
+        missing = [f for f in required if f not in s]
+        if missing:
+            return JSONResponse({"ok": False, "message": f"Scenario at index {i} is missing required fields: {', '.join(missing)}"}, status_code=400)
+        if not isinstance(s["id"], str):
+            return JSONResponse({"ok": False, "message": f"Scenario at index {i} id must be a string"}, status_code=400)
+        if not isinstance(s["label"], str):
+            return JSONResponse({"ok": False, "message": f"Scenario at index {i} label must be a string"}, status_code=400)
+        if not isinstance(s["engine_detail"], dict):
+            return JSONResponse({"ok": False, "message": f"Scenario at index {i} engine_detail must be an object"}, status_code=400)
+
+    return JSONResponse(data)
+
+
+@router.get("/{engine_id}/assets/{asset_path:path}")
+def get_engine_asset(engine_id: str, asset_path: str):
+    """Serve a static asset from a plugin's folder."""
+    from ...engines.registry import load_engine_registry  # noqa: PLC0415
+    registry = load_engine_registry()
+    reg = registry.get(engine_id)
+    if not reg:
+        return JSONResponse({"ok": False, "message": "Engine not found"}, status_code=404)
+
+    plugin_dir = _resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
+    if not plugin_dir:
+        return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
+
+    # Security: only allow files inside assets/ and with specific extensions
+    if not asset_path.startswith("assets/"):
+        return JSONResponse({"ok": False, "message": "Access denied: assets only"}, status_code=403)
+
+    allowed_exts = {".svg", ".png", ".jpg", ".jpeg", ".webp"}
+    if Path(asset_path).suffix.lower() not in allowed_exts:
+        return JSONResponse({"ok": False, "message": "Unsupported asset type"}, status_code=403)
+
+    full_path = (plugin_dir / asset_path).resolve()
+    try:
+        full_path.relative_to(plugin_dir.resolve())
+    except ValueError:
+        return JSONResponse({"ok": False, "message": "Asset path escapes plugin directory"}, status_code=403)
+
+    if not full_path.is_file():
+        return JSONResponse({"ok": False, "message": "Asset not found"}, status_code=404)
+
+    media_types = {
+        ".svg": "image/svg+xml",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+    }
+    media_type = media_types.get(Path(asset_path).suffix.lower(), "application/octet-stream")
+    return FileResponse(full_path, media_type=media_type)
 
 
 # Removed self-contained resolution helpers; they are now owned by the plugins.
@@ -204,3 +337,23 @@ def _resolve_plugin_dir(*, engine_id: str, module_path: str) -> Optional[Path]:
         return PLUGINS_DIR / f"tts_{safe_engine_id}"
 
     return None
+
+
+@router.post("/{engine_id}/calibrate/reset")
+def reset_engine_calibration(engine_id: str, model: Optional[str] = None):
+    """Reset calibration data (historical render samples and cached CPS) for an engine and optionally a model."""
+    from app.db.performance import reset_engine_calibration_history
+    from app.db.state_performance import clear_engine_cps_cache
+    import logging
+
+    safe_engine_id = "".join(ch for ch in engine_id if ch.isalnum() or ch in ("-", "_"))
+    if not safe_engine_id or safe_engine_id != engine_id:
+        return JSONResponse({"status": "error", "message": "Invalid engine_id format"}, status_code=400)
+
+    try:
+        reset_engine_calibration_history(engine_id, model)
+        clear_engine_cps_cache(engine_id)
+        return JSONResponse({"status": "ok", "engine_id": engine_id})
+    except Exception as exc:
+        logging.getLogger(__name__).error("Failed to reset engine calibration: %s", exc, exc_info=True)
+        return JSONResponse({"status": "error", "message": f"Failed to reset calibration: {exc}"}, status_code=500)

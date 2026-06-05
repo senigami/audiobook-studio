@@ -78,6 +78,10 @@ def normalize_behavior(behavior: Mapping[str, Any] | None) -> dict[str, Any]:
     if progress_pattern is not None:
         progress_pattern = str(progress_pattern).strip()
 
+    timing_markers = behavior.get("timing_markers")
+    if not isinstance(timing_markers, Mapping):
+        timing_markers = {}
+
     return {
         "features": features,
         "required_settings": required_settings,
@@ -86,6 +90,7 @@ def normalize_behavior(behavior: Mapping[str, Any] | None) -> dict[str, Any]:
         "text_chunk_limit": text_chunk_limit,
         "text_split_target": text_split_target,
         "progress_pattern": progress_pattern,
+        "timing_markers": timing_markers,
     }
 
 
@@ -143,6 +148,17 @@ def extract_engine_settings(
             settings[target_key] = source[source_key]
 
     return settings
+
+
+def get_synthesis_settings_allowlist(engine_id: str) -> set[str]:
+    """Get the set of allowed synthesis setting keys for an engine."""
+    normalized = behavior_for_engine(engine_id)
+    allowed = set(COMMON_SYNTHESIS_SETTINGS)
+    allowed.update(str(item) for item in normalized.get("synthesis_settings", []))
+    # Also include source keys that have aliases
+    aliases = setting_aliases_for(engine_id, behavior=normalized)
+    allowed.update(aliases.keys())
+    return allowed
 
 
 def behavior_for_engine(
@@ -208,9 +224,7 @@ def uses_segment_orchestration(engine_id: str) -> bool:
     return has_behavior(engine_id, "segment_orchestration")
 
 
-def has_simulated_finalizing(engine_id: str) -> bool:
-    """Return whether an engine should show a simulated finalizing state in the UI."""
-    return has_behavior(engine_id, "simulated_finalizing")
+
 
 
 def get_text_chunk_limit(engine_id: str) -> int:
@@ -281,3 +295,39 @@ def _normalize_required_settings(raw_items: Any) -> list[dict[str, str]]:
         if name:
             normalized.append({"name": name, "message": message})
     return normalized
+
+
+DEFAULT_TIMING_MARKERS = {
+    "ENGINE_ACTIVITY_STARTED": ["[ENGINE_ACTIVITY_STARTED]"],
+    "START_SYNTHESIS": ["[START_SYNTHESIS]"],
+    "START_SEGMENT": ["[START_SEGMENT]"],
+    "SEGMENT_SAVED": ["[SEGMENT_SAVED]"],
+    "CHAPTER_SYNTHESIS_COMPLETE": ["[CHAPTER_SYNTHESIS_COMPLETE]"],
+}
+
+
+def get_timing_markers(engine_id: str) -> dict[str, list[str]]:
+    """Return the timing markers configured for this engine, falling back to default values."""
+    behavior = behavior_for_engine(engine_id)
+    markers = behavior.get("timing_markers", {})
+
+    result = {}
+    for key, default_vals in DEFAULT_TIMING_MARKERS.items():
+        val = markers.get(key, default_vals)
+        if isinstance(val, str):
+            result[key] = [val]
+        elif isinstance(val, list):
+            result[key] = [str(v) for v in val]
+        else:
+            result[key] = default_vals
+    return result
+
+
+def match_timing_marker(engine_id: str, line: str) -> str | None:
+    """Check if the log line maps to a normalized timing marker for this engine."""
+    markers = get_timing_markers(engine_id)
+    for marker_name, patterns in markers.items():
+        for pat in patterns:
+            if pat in line:
+                return marker_name
+    return None

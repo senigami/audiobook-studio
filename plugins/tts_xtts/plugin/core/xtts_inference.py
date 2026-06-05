@@ -98,6 +98,10 @@ def _patch_xtts_load_audio() -> None:
 
     xtts_module.load_audio = _safe_load_audio
 
+
+def _emit_stderr_line(message: str, *, flush: bool = False) -> None:
+    print(message, file=sys.stderr, flush=flush)
+
 def main():
     parser = argparse.ArgumentParser(description="XTTS Streaming Inference Script")
     parser.add_argument("--text", help="Text to synthesize (ignored if --script_json is provided)")
@@ -247,7 +251,7 @@ def main():
         return gpt_cond_latent, speaker_embedding
 
     # Load model (quietly)
-    print("Loading XTTS model...", file=sys.stderr)
+    _emit_stderr_line("Loading XTTS model...", flush=True)
     torch, _ = _get_torch_modules()
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -276,7 +280,7 @@ def main():
             print(f"Warning: Failed to compute latents for {sw}: {e}", file=sys.stderr)
             speaker_latents[key] = None
 
-    print(f"Synthesizing {len(script)} segments to {args.out_path}...", file=sys.stderr)
+    _emit_stderr_line(f"Synthesizing {len(script)} segments to {args.out_path}...", flush=True)
     print(f"[START_SYNTHESIS] {args.task_id or ''}".strip(), file=sys.stderr, flush=True)
 
     try:

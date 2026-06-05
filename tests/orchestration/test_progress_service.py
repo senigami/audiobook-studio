@@ -36,10 +36,14 @@ def test_publish_throttles_small_progress_churn():
         progress=0.2,
         eta_seconds=30,
         message="Rendering",
+        chapter_id="chapter-1",
     )
     assert emitted is not None
-    assert emitted["progress"] == 0.2
-    assert events == [(emitted, "jobs")]
+    assert len(events) == 2
+    assert events[0][1] == "jobs"
+    assert events[1][1] == "jobs"
+    assert events[1][0]["payload"]["progress"] == 0.2
+    assert events[1][0]["payload"]["status"] == "running"
 
     wall_now["value"] += 1.0
     monotonic_now["value"] += 1.0
@@ -49,9 +53,10 @@ def test_publish_throttles_small_progress_churn():
         progress=0.204,
         eta_seconds=30,
         message="Rendering",
+        chapter_id="chapter-1",
     )
     assert throttled is None
-    assert len(events) == 1
+    assert len(events) == 2
 
     wall_now["value"] += 1.0
     monotonic_now["value"] += 1.0
@@ -61,10 +66,11 @@ def test_publish_throttles_small_progress_churn():
         progress=0.28,
         eta_seconds=29,
         message="Rendering",
+        chapter_id="chapter-1",
     )
     assert emitted_again is not None
     assert emitted_again["progress"] == 0.28
-    assert len(events) == 2
+    assert len(events) == 3
 
 
 def test_publish_emits_heartbeat_after_silence():
@@ -76,8 +82,9 @@ def test_publish_emits_heartbeat_after_silence():
         progress=0.4,
         eta_seconds=20,
         message="Rendering",
+        chapter_id="chapter-2",
     )
-    assert len(events) == 1
+    assert len(events) == 2
 
     wall_now["value"] += 11.0
     monotonic_now["value"] += 11.0
@@ -87,9 +94,10 @@ def test_publish_emits_heartbeat_after_silence():
         progress=0.4,
         eta_seconds=20,
         message="Rendering",
+        chapter_id="chapter-2",
     )
     assert repeated is not None
-    assert len(events) == 2
+    assert len(events) == 3
 
 
 def test_publish_allows_explicit_progress_regression_for_recovery():
@@ -101,8 +109,9 @@ def test_publish_allows_explicit_progress_regression_for_recovery():
         progress=0.85,
         eta_seconds=8,
         message="Rendering",
+        chapter_id="chapter-3",
     )
-    assert len(events) == 1
+    assert len(events) == 2
 
     wall_now["value"] += 1.0
     monotonic_now["value"] += 1.0
@@ -113,12 +122,13 @@ def test_publish_allows_explicit_progress_regression_for_recovery():
         eta_seconds=None,
         message="Recovering",
         reason_code="recovery_reconcile",
+        chapter_id="chapter-3",
     )
 
     assert blocked_reset_event is not None
     assert blocked_reset_event["progress"] == 0.85
     assert blocked_reset_event["reason_code"] == "recovery_reconcile"
-    assert len(events) == 2
+    assert len(events) == 4
 
     wall_now["value"] += 1.0
     monotonic_now["value"] += 1.0
@@ -130,12 +140,13 @@ def test_publish_allows_explicit_progress_regression_for_recovery():
         message="Recovering",
         reason_code="recovery_reconcile",
         allow_progress_regression=True,
+        chapter_id="chapter-3",
     )
 
     assert reset_event is not None
     assert reset_event["progress"] == 0.0
     assert reset_event["reason_code"] == "recovery_reconcile"
-    assert len(events) == 3
+    assert len(events) == 5
 
 
 def test_monotonic_progress_and_eta_selection():
@@ -206,3 +217,48 @@ def test_publish_includes_explicit_eta_basis():
     # 1200 (now) + 45 (eta) = 1245
     assert emitted["estimated_end_at"] == 1245.0
     assert emitted["updated_at"] == 1200.0
+
+
+def test_publish_includes_render_group_context():
+    service, events, wall_now, _ = _make_service()
+
+    wall_now["value"] = 1200.0
+    emitted = service.publish(
+        job_id="job-8",
+        status="running",
+        progress=0.44,
+        render_group_count=2,
+        completed_render_groups=1,
+        active_render_group_index=1,
+        total_render_weight=945,
+        completed_render_weight=420,
+        active_render_group_weight=525,
+        grouped_progress=0.44,
+        chapter_id="chapter-8",
+    )
+
+    assert emitted is not None
+    assert emitted["render_group_count"] == 2
+    assert emitted["completed_render_groups"] == 1
+    assert emitted["active_render_group_index"] == 1
+    assert emitted["total_render_weight"] == 945
+    assert emitted["completed_render_weight"] == 420
+    assert emitted["active_render_group_weight"] == 525
+    assert len(events) == 2
+    assert events[1][1] == "jobs"
+    assert events[1][0]["payload"]["progress"] == 0.44
+    assert events[1][0]["payload"]["status"] == "running"
+
+
+def test_publish_remaps_finalizing_to_running():
+    service, events, _, _ = _make_service()
+
+    emitted = service.publish(
+        job_id="job-7",
+        status="finalizing",
+        progress=0.91,
+    )
+    assert emitted is not None
+    assert emitted["status"] == "running"
+    assert emitted["progress"] == 0.91
+    assert events[0][0]["payload"]["status"] == "finalizing"

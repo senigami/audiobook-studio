@@ -60,7 +60,7 @@ describe('useWebSocket', () => {
       mockSocket.onmessage(mockEvent);
     });
 
-    expect(onMessage).toHaveBeenCalledWith({ type: 'test' });
+    expect(onMessage).toHaveBeenCalledWith({ type: 'test' }, mockEvent.data);
   });
 
   it('handles reconnection on close', async () => {
@@ -88,5 +88,53 @@ describe('useWebSocket', () => {
     const { unmount } = renderHook(() => useWebSocket('/ws', vi.fn()));
     unmount();
     expect(mockSocket.close).toHaveBeenCalled();
+  });
+
+  it('sends messages when socket is open', async () => {
+    const { result } = renderHook(() => useWebSocket('/ws', vi.fn()));
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+    });
+
+    act(() => {
+      result.current.sendMessage({ type: 'hello' });
+    });
+
+    expect(mockSocket.send).toHaveBeenCalledWith(JSON.stringify({ type: 'hello' }));
+  });
+
+  it('does not write to the websocket ring buffer by itself', async () => {
+    // Clear any previous global state
+    delete (window as any).__websocketRecentMessages;
+
+    const onMessage = vi.fn();
+    renderHook(() => useWebSocket('/ws', onMessage));
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+    });
+
+    const payload = {
+      type: 'studio_job_event',
+      source: 'app.db.state_jobs.update_job',
+      scope: 'chapter',
+      classification: 'chapter',
+      job_id: 'job-123',
+      project_id: 'proj-456',
+      chapter_id: 'chap-789',
+      status: 'running',
+      progress: 0.5,
+      reason_code: 'none',
+      extra_field: 'ignored'
+    };
+    const mockEvent = { data: JSON.stringify(payload) };
+
+    act(() => {
+      mockSocket.onmessage(mockEvent);
+    });
+
+    expect((window as any).__websocketRecentMessages).toBeUndefined();
+    expect(onMessage).toHaveBeenCalledWith(payload, mockEvent.data);
   });
 });

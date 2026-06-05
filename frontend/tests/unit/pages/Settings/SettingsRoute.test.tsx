@@ -1,8 +1,16 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/api';
 import { SettingsRoute } from '@/pages/Settings/SettingsRoute';
+import {
+  publishStudioSocketMessage,
+  resetStudioSocketBusForTests,
+} from '@/store/studioSocketBus';
+import {
+  getLiveEventAuditSnapshot,
+  resetLiveEventAuditForTests,
+} from '@/store/liveEventAuditStore';
 
 vi.mock('@/api', () => ({
   api: {
@@ -18,6 +26,7 @@ vi.mock('@/api', () => ({
     installPlugin: vi.fn(),
     resetRenderStats: vi.fn(),
     restartTtsServer: vi.fn(),
+    importEnginePlugin: vi.fn(),
   },
 }));
 
@@ -133,8 +142,31 @@ const defaultProps = {
 };
 
 describe('SettingsRoute', () => {
+  const emitEvent = (topic: string, eventKind: string, payload: any, ids: any = {}) => {
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic,
+        eventKind,
+        source: 'backend',
+        emittedAt: Date.now() / 1000,
+        pluginId: null,
+        ids,
+        payload,
+      });
+    });
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
+    resetStudioSocketBusForTests();
+    resetLiveEventAuditForTests();
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
     global.fetch = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
       if (url === '/settings') {
@@ -233,23 +265,31 @@ describe('SettingsRoute', () => {
     await waitFor(() => expect(mockVerify).toHaveBeenCalledWith('xtts-local'));
   });
 
-  it('shows installation instructions when Install Plugin is clicked', async () => {
-    const mockInstall = vi.spyOn(api, 'installPlugin').mockResolvedValue({ 
-      ok: false, 
-      message: 'Place your plugin folder in the plugins/ directory.' 
+  it('triggers file input selection and handles zip import', async () => {
+    const mockImport = vi.spyOn(api, 'importEnginePlugin').mockResolvedValue({
+      ok: true,
+      engine_id: 'new-plugin'
     });
-    
+
     render(
       <MemoryRouter initialEntries={['/settings/engines']}>
         <SettingsRoute {...defaultProps} />
       </MemoryRouter>
     );
-    
-    const installBtn = await screen.findByText(/Install Plugin/i);
-    fireEvent.click(installBtn);
-    
-    expect(mockInstall).toHaveBeenCalled();
-    expect(await screen.findByText(/Place your plugin folder in the plugins\/ directory./i)).toBeTruthy();
+
+    const importBtn = await screen.findByText(/Import Plugin/i);
+    expect(importBtn).toBeTruthy();
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(fileInput).toBeTruthy();
+
+    const file = new File(['test'], 'plugin.zip', { type: 'application/zip' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(mockImport).toHaveBeenCalledWith(file);
+      expect(defaultProps.onShowNotification).toHaveBeenCalledWith('Plugin new-plugin imported successfully.');
+    });
   });
 
   it('renders deep-linked engine settings cards and schema-driven controls', async () => {
@@ -448,5 +488,174 @@ describe('SettingsRoute', () => {
         'Log streaming is not available yet. Check the logs/ directory in your Studio root.'
       );
     });
+  });
+
+  it('appends incoming tts.logs lines to the diagnostics panel without pressing Refresh Logs', async () => {
+    vi.mocked(api.fetchEngineLogs).mockResolvedValue({
+      ok: true,
+      logs: '[boot] historical line\n',
+    } as any);
+
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('XTTS Local')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /View Diagnostics/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/historical line/)).toBeInTheDocument();
+    });
+
+    emitEvent('tts.logs', 'tts_log', {
+      line: '[live] synthesis started',
+      sequence: 1,
+    }, { jobId: 'job-1' });
+
+    await waitFor(() => {
+      expect(screen.getByText(/\[live\] synthesis started/)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/historical line/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Refresh Logs/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Close Diagnostics/i }));
+    expect(screen.queryByText(/historical line/)).not.toBeInTheDocument();
+    expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('ignores non-tts events for the diagnostics panel', async () => {
+    vi.mocked(api.fetchEngineLogs).mockResolvedValue({
+      ok: true,
+      logs: '[boot] historical line\n',
+    } as any);
+
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('XTTS Local')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /View Diagnostics/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/historical line/)).toBeInTheDocument();
+    });
+
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      message: 'should-not-appear-in-diagnostics',
+    }, { jobId: 'job-1' });
+    emitEvent('queue.items', 'queue_item_invalidated', {
+      reason: 'should-not-appear-either',
+      changedFields: [],
+    });
+
+    expect(screen.queryByText(/should-not-appear-in-diagnostics/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/should-not-appear-either/)).not.toBeInTheDocument();
+  });
+
+  it('records a tts-diagnostics subscriber observation for consumed tts.logs frames', async () => {
+    vi.mocked(api.fetchEngineLogs).mockResolvedValue({
+      ok: true,
+      logs: '',
+    } as any);
+
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('XTTS Local')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /View Diagnostics/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/No diagnostics captured yet|TTS Server Diagnostics/)).toBeInTheDocument();
+    });
+
+    emitEvent('tts.logs', 'tts_log', {
+      line: '[live] observed',
+      sequence: 1,
+    }, { jobId: 'job-1' });
+
+    await waitFor(() => {
+      expect(screen.getByText(/\[live\] observed/)).toBeInTheDocument();
+    });
+
+    const records = getLiveEventAuditSnapshot();
+    const ttsRecord = records.find(r => r.event.topic === 'tts.logs');
+    expect(ttsRecord).toBeDefined();
+    const subscribers = ttsRecord!.subscribers.map(s => s.subscriber);
+    expect(subscribers).toContain('tts-diagnostics');
+  });
+
+  it('preserves live lines that arrive while the initial diagnostics history fetch is in flight', async () => {
+    let resolveFirstFetch: (value: any) => void = () => {};
+    vi.mocked(api.fetchEngineLogs)
+      .mockReturnValueOnce(new Promise(resolve => { resolveFirstFetch = resolve; }) as any);
+
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('XTTS Local')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /View Diagnostics/i }));
+
+    emitEvent('tts.logs', 'tts_log', {
+      line: '[live] arrived during refresh',
+      sequence: 22,
+    }, { jobId: 'job-refresh' });
+
+    await act(async () => {
+      resolveFirstFetch({ ok: true, logs: '[boot] historical without live line\n' });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/historical without live line/)).toBeInTheDocument();
+      expect(screen.getByText(/\[live\] arrived during refresh/)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('button', { name: /Refresh Logs/i })).not.toBeInTheDocument();
+  });
+
+  it('dedupes consecutive live frames with the same (job_id, sequence)', async () => {
+    vi.mocked(api.fetchEngineLogs).mockResolvedValue({
+      ok: true,
+      logs: '',
+    } as any);
+
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('XTTS Local')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /View Diagnostics/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/No diagnostics captured yet|TTS Server Diagnostics/)).toBeInTheDocument();
+    });
+
+    emitEvent('tts.logs', 'tts_log', {
+      line: '[live] unique-line',
+      sequence: 7,
+    }, { jobId: 'job-1' });
+    emitEvent('tts.logs', 'tts_log', {
+      line: '[live] unique-line',
+      sequence: 7,
+    }, { jobId: 'job-1' });
+
+    await waitFor(() => {
+      expect(screen.getByText(/\[live\] unique-line/)).toBeInTheDocument();
+    });
+
+    const allMatches = screen.getAllByText(/\[live\] unique-line/);
+    expect(allMatches).toHaveLength(1);
   });
 });

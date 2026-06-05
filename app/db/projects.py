@@ -28,9 +28,11 @@ def create_project(
             """, (project_id, name, series, author, speaker_profile_name, cover_image_path, now, now))
             conn.commit()
 
-            project_dir = config.PROJECTS_DIR / project_id
-            (project_dir / "m4b").mkdir(parents=True, exist_ok=True)
-            (project_dir / "cover").mkdir(parents=True, exist_ok=True)
+            from ..storage.manager import get_storage_manager
+            ctx = get_storage_manager().get_project_context(project_id)
+            ctx.m4b_dir.mkdir(parents=True, exist_ok=True)
+            ctx.cover_dir.mkdir(parents=True, exist_ok=True)
+            project_dir = ctx.root
 
             # Save V2 manifest immediately for new projects
             from ..domain.projects.manifest import save_project_manifest, CURRENT_STORAGE_VERSION
@@ -96,14 +98,10 @@ def delete_project(project_id: str) -> bool:
         with get_connection() as conn:
             cursor = conn.cursor()
             # 1. First, get project info for path cleanup
-            from ..core import config
-            pdir = None
-            try:
-                pdir = config.get_project_dir(project_id)
-                if not pdir.exists():
-                    pdir = None
-            except ValueError:
-                pass
+            from ..storage.manager import get_storage_manager
+            storage = get_storage_manager()
+            ctx = storage.get_project_context(project_id)
+            pdir = ctx.root if ctx.root.exists() else None
 
             # 2. Delete from DB
             # Delete related characters
@@ -117,14 +115,10 @@ def delete_project(project_id: str) -> bool:
 
             # 3. Physical cleanup
             if pdir:
-                import os
-                trusted_projects_root = os.path.abspath(os.path.realpath(os.fspath(config.PROJECTS_DIR)))
-                resolved_pdir = os.path.abspath(os.path.realpath(os.fspath(pdir)))
-
-                if resolved_pdir.startswith(trusted_projects_root + os.sep):
+                if storage.is_safe(pdir):
                     try:
-                        shutil.rmtree(resolved_pdir)
+                        shutil.rmtree(pdir)
                     except Exception:
-                        logger.warning("Failed to remove project directory %s", resolved_pdir, exc_info=True)
+                        logger.warning("Failed to remove project directory %s", pdir, exc_info=True)
 
             return cursor.rowcount > 0

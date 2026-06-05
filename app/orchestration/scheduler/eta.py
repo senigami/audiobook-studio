@@ -93,3 +93,78 @@ def calculate_predicted_progress(job, now: float, start_time: float, eta: int, l
         return max(current_p, min(prepare_limit, predicted))
 
     return max(current_p, min(limit, predicted))
+
+
+def calculate_segment_eta(chars: int, cps: float) -> int:
+    """Segment ETA is based strictly on remaining characters and pure model CPS, excluding overhead."""
+    if cps <= 0:
+        return 0
+    return max(1, int(round(chars / cps)))
+
+
+def calculate_chapter_startup_eta(chars: int, cps: float, group_count: int, inter_group_overhead: float) -> int:
+    """Startup Chapter ETA adds transition overhead for (Group_Count - 1) boundaries."""
+    if cps <= 0:
+        return 0
+    synthesis_time = chars / cps
+    overhead_groups = max(0, group_count - 1)
+    total_time = synthesis_time + (overhead_groups * inter_group_overhead)
+    return max(1, int(round(total_time)))
+
+
+def calculate_chapter_remaining_eta(
+    active_group_remaining_chars: int,
+    remaining_chars: int,
+    cps: float,
+    groups_remaining: int,
+    inter_group_overhead: float
+) -> int:
+    """Live Chapter Remaining ETA avoids active group double-counting and adds remaining overhead."""
+    if cps <= 0:
+        return 0
+    total_chars = active_group_remaining_chars + remaining_chars
+    synthesis_time = total_chars / cps
+    total_time = synthesis_time + (groups_remaining * inter_group_overhead)
+    return max(1, int(round(total_time)))
+
+
+def get_calibrated_model_params(history: list[dict]) -> tuple[float, float] | None:
+    """Computes robust model CPS and inter-group overhead from render performance history."""
+    if not history:
+        return None
+    cps_values = [s["cps"] for s in history if s.get("cps", 0) > 0]
+    if not cps_values:
+        return None
+    overhead_values = [s.get("inter_group_overhead_seconds", 0.0) for s in history]
+    calibrated_cps = _trimmed_mean(cps_values, 1.0)
+    calibrated_overhead = _trimmed_mean(overhead_values, 0.0)
+    return calibrated_cps, calibrated_overhead
+
+
+def get_calibration_confidence(history: list[dict]) -> int | None:
+    """Compute calibration confidence from render performance history."""
+    if not history:
+        return None
+    cps_values = [s["cps"] for s in history if s.get("cps", 0) > 0]
+    n = len(cps_values)
+    if n < 5:
+        return None
+
+    ordered = sorted(cps_values)
+    trim = int(n * 0.15)
+    effective = ordered[trim : n - trim] if trim else ordered
+
+    if not effective:
+        return None
+
+    mean = sum(effective) / len(effective)
+    if mean <= 0:
+        return 0
+
+    variance = sum((x - mean) ** 2 for x in effective) / len(effective)
+    stddev = variance ** 0.5
+    cv = stddev / mean
+
+    w_count = min(1.0, n / 15.0)
+    c_cal = w_count * max(0.0, 1.0 - 2.0 * cv)
+    return int(round(c_cal * 100))

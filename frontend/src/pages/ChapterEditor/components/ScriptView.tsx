@@ -144,6 +144,27 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
 
   useEffect(() => {
     if (!shouldLogRenderDebug) return;
+
+    const activeBatchesDebug = data.render_batches
+      ?.filter(batch => batch.span_ids.some(id => renderingSpanIds.has(id)))
+      .map(batch => {
+        const batchSpans = batch.span_ids
+          .map(spanId => spanMap.get(spanId))
+          .filter((candidate): candidate is ScriptSpan => !!candidate);
+        const progress = renderingBatchProgressById[batch.id] ?? 0;
+        const lengths = batchSpans.map(candidate => Array.from(getDisplayText(candidate)).length);
+        const totalChars = lengths.reduce((sum, length) => sum + length, 0);
+        const globalLitCount = Math.floor(progress * totalChars);
+        return {
+          batchId: batch.id,
+          spanIds: batch.span_ids,
+          textLengths: lengths,
+          totalChars,
+          litCount: globalLitCount,
+          progressValueUsed: progress,
+        };
+      }) ?? [];
+
     const debugSnapshot = {
       chapterId: data.chapter_id,
       totalSpans: data.spans?.length ?? 0,
@@ -153,6 +174,9 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       renderedAudioGroupCount: data.audio_groups?.filter(group => group.status === 'rendered').length ?? 0,
       renderBatchCount: data.render_batches?.length ?? 0,
       readySpanCount: data.spans?.filter(span => span.status === 'rendered').length ?? 0,
+      renderingSpanIds: Array.from(renderingSpanIds),
+      renderingBatchProgressById,
+      activeBatches: activeBatchesDebug,
     };
     const nextSignature = JSON.stringify(debugSnapshot);
     if (nextSignature !== renderDebugSignatureRef.current) {
@@ -166,6 +190,10 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     data.audio_groups,
     data.render_batches,
     pendingSpanIds,
+    renderingSpanIds,
+    renderingBatchProgressById,
+    spanMap,
+    showSafeText,
   ]);
 
   const engineIsEnabled = (engineId: string | null | undefined) => {
@@ -205,9 +233,10 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
 
     const batchSpans = batch.span_ids
       .map(spanId => spanMap.get(spanId))
-      .filter((candidate): candidate is ScriptSpan => !!candidate && renderingSpanIds.has(candidate.id));
+      .filter((candidate): candidate is ScriptSpan => !!candidate);
 
     const progress = clamp01(renderingBatchProgressById[batch.id] ?? 0);
+
     const lengths = batchSpans.map(candidate => Array.from(getDisplayText(candidate)).length);
     const totalChars = lengths.reduce((sum, length) => sum + length, 0);
     const globalLitCount = Math.floor(progress * totalChars);
@@ -337,7 +366,8 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       ? getRenderingTextProgress(batch, span)
       : { litCount: 0, showCursor: false };
     const isPlaying = isPlayingSpan(span.id);
-    const isReady = span.status === 'rendered' || (audioGroup && audioGroup.status === 'rendered');
+    const isReady = span.status === 'rendered' || !!(audioGroup && (audioGroup.status === 'rendered' || audioGroup.audio_file_path || audioGroup.asset_url));
+    const canPlay = span.status === 'rendered' || !!(audioGroup && (audioGroup.audio_file_path || audioGroup.asset_url));
     const displayText = getDisplayText(span);
     const batchStatus = batch ? batchEngineStatus(batch.span_ids) : { canGenerate: false, unavailableEngine: null as string | null };
 
@@ -401,9 +431,9 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
               onPlaySpan?.(span.id);
             }}
             title="Play Audio"
-            disabled={span.status !== 'rendered'}
+            disabled={!canPlay}
           >
-            <Play size={14} fill={span.status === 'rendered' ? 'currentColor' : 'none'} />
+            <Play size={14} fill={canPlay ? 'currentColor' : 'none'} />
           </button>
           <button
             className="span-control-btn"
@@ -416,10 +446,10 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
               ? (batchStatus.unavailableEngine
                   ? `Engine ${formatVoiceEngineLabel(batchStatus.unavailableEngine)} is disabled in Settings`
                   : 'All engines disabled')
-              : (!anyEnginesEnabled ? 'All engines disabled' : (span.status === 'rendered' ? 'Rebuild' : 'Generate'))}
+              : (!anyEnginesEnabled ? 'All engines disabled' : (isReady ? 'Rebuild' : 'Generate'))}
             disabled={isPending || !batchStatus.canGenerate || !onGenerateBatch}
           >
-            {span.status === 'rendered' ? <RotateCcw size={14} /> : <WandSparkles size={14} />}
+            {isReady ? <RotateCcw size={14} /> : <WandSparkles size={14} />}
           </button>
         </div>
       </span>
@@ -555,6 +585,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
             Script
           </button>
         </div>
+
 
         <div className="script-view-toggle-actions">
           <button

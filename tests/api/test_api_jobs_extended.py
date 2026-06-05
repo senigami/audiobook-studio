@@ -31,9 +31,9 @@ def test_api_jobs_returns_authoritative_running_progress(clean_jobs):
     )
     put_job(job)
 
-    response = client.get("/api/jobs")
-    assert response.status_code == 200
-    data = response.json()
+    with client.websocket_connect("/ws") as websocket:
+        websocket.send_json({"type": "jobs_snapshot_request"})
+        data = websocket.receive_json()["jobs"]
 
     job_data = next((j for j in data if j["id"] == jid), None)
     assert job_data is not None
@@ -57,9 +57,9 @@ def test_api_jobs_uses_authoritative_progress_when_segment_tracking_is_active(cl
     )
     put_job(job)
 
-    response = client.get("/api/jobs")
-    assert response.status_code == 200
-    data = response.json()
+    with client.websocket_connect("/ws") as websocket:
+        websocket.send_json({"type": "jobs_snapshot_request"})
+        data = websocket.receive_json()["jobs"]
 
     job_data = next((j for j in data if j["id"] == jid), None)
     assert job_data is not None
@@ -83,9 +83,9 @@ def test_api_jobs_preserves_zero_running_progress_when_segment_id_exists_but_seg
     )
     put_job(job)
 
-    response = client.get("/api/jobs")
-    assert response.status_code == 200
-    data = response.json()
+    with client.websocket_connect("/ws") as websocket:
+        websocket.send_json({"type": "jobs_snapshot_request"})
+        data = websocket.receive_json()["jobs"]
 
     job_data = next((j for j in data if j["id"] == jid), None)
     assert job_data is not None
@@ -107,9 +107,9 @@ def test_api_jobs_preserves_zero_preparing_progress_when_started(clean_jobs):
     )
     put_job(job)
 
-    response = client.get("/api/jobs")
-    assert response.status_code == 200
-    data = response.json()
+    with client.websocket_connect("/ws") as websocket:
+        websocket.send_json({"type": "jobs_snapshot_request"})
+        data = websocket.receive_json()["jobs"]
 
     job_data = next((j for j in data if j["id"] == jid), None)
     assert job_data is not None
@@ -117,47 +117,14 @@ def test_api_jobs_preserves_zero_preparing_progress_when_started(clean_jobs):
 
 
 def test_api_jobs_does_not_block_on_reconciliation(clean_jobs):
-    response = client.get("/api/jobs")
+    with client.websocket_connect("/ws") as websocket:
+        start_time = time.time()
+        websocket.send_json({"type": "jobs_snapshot_request"})
+        websocket.receive_json()
+        assert (time.time() - start_time) < 1.0
 
-    assert response.status_code == 200
-    assert response.elapsed.total_seconds() < 1.0
 
 
-
-def test_api_get_job_not_found(clean_jobs):
-    response = client.get("/api/jobs/nonexistent")
-    assert response.status_code == 404
-    assert response.json()["message"] == "Job not found"
-
-def test_api_cancel_job():
-    with patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.cancel", return_value=True) as mock_cancel:
-        response = client.post("/api/cancel", data={"job_id": "test_id"})
-        assert response.status_code == 200
-        assert response.json()["status"] == "ok"
-        mock_cancel.assert_called_once_with("test_id")
-
-def test_api_update_job_title(clean_jobs):
-    jid = "test_update_title"
-    job = Job(
-        id=jid,
-        engine="xtts",
-        chapter_file="chapter_to_update.txt",
-        status="queued",
-        created_at=time.time()
-    )
-    put_job(job)
-
-    response = client.post("/api/jobs/update-title", data={
-        "chapter_file": "chapter_to_update.txt",
-        "new_title": "New Awesome Title"
-    })
-    assert response.status_code == 200
-    assert response.json()["updated"] == 1
-
-    # Verify in state
-    from app.db.state import get_jobs
-    updated_job = get_jobs()[jid]
-    assert updated_job.custom_title == "New Awesome Title"
 
 
 def test_api_jobs_returns_multiple_live_jobs_for_same_chapter_file(clean_jobs):
@@ -177,9 +144,9 @@ def test_api_jobs_returns_multiple_live_jobs_for_same_chapter_file(clean_jobs):
         created_at=now + 1,
     ))
 
-    response = client.get("/api/jobs")
-    assert response.status_code == 200
-    data = response.json()
+    with client.websocket_connect("/ws") as websocket:
+        websocket.send_json({"type": "jobs_snapshot_request"})
+        data = websocket.receive_json()["jobs"]
 
     returned_ids = {j["id"] for j in data}
     assert "job-a" in returned_ids
@@ -203,9 +170,9 @@ def test_api_jobs_preserves_live_metadata_fields(clean_jobs):
         active_render_batch_progress=0.6,
     ))
 
-    response = client.get("/api/jobs")
-    assert response.status_code == 200
-    data = response.json()
+    with client.websocket_connect("/ws") as websocket:
+        websocket.send_json({"type": "jobs_snapshot_request"})
+        data = websocket.receive_json()["jobs"]
 
     job_data = next((j for j in data if j["id"] == "job-live-metadata"), None)
     assert job_data is not None

@@ -50,6 +50,13 @@
       "description": "Use a more conservative cleanup path before synthesis. Leave this on if XTTS is unstable or if you want the safest default behavior.",
       "default": true
     },
+    "model": {
+      "type": "string",
+      "title": "Model",
+      "description": "XTTS model version to use for synthesis.",
+      "enum": ["v2"],
+      "default": "v2"
+    },
     "computer_speed_multiplier": {
       "type": "number",
       "title": "Computer Speed",
@@ -67,6 +74,7 @@
   "additionalProperties": true,
   "x-ui": {
     "panel_title": "XTTS Local Setup",
-    "summary": "XTTS Local stays on your machine, but it still needs the Studio XTTS runtime and any Python packages listed by the engine before it can be turned on. Good starting values are speed 1.0, temperature around 0.7, top-p around 0.9, top-k around 40 to 50, and a repetition penalty around 1.1 to 1.2. If the card says needs setup, click Install Deps to install the required packages, then verify the engine again using the Default Voice from General settings."
+    "summary": "XTTS Local stays on your machine, but it still needs the Studio XTTS runtime and any Python packages listed by the engine before it can be turned on. Good starting values are speed 1.0, temperature around 0.7, top-p around 0.9, top-k around 40 to 50, and a repetition penalty around 1.1 to 1.2. If the card says needs setup, click Install Deps to install the required packages, then verify the engine again using the Default Voice from General settings.",
+    "hide_settings_when_not_ready": true
   }
 }

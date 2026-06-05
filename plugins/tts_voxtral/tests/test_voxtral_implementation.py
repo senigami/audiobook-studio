@@ -5,6 +5,8 @@ import base64
 import pytest
 
 from plugins.tts_voxtral.plugin.core.implementation import VoxtralError, resolve_reference_audio_path, voxtral_generate
+from plugins.tts_voxtral.plugin.server.engine import VoxtralPlugin
+from app.engines.voice.sdk import TTSRequest
 
 
 class FakeResponse:
@@ -36,6 +38,10 @@ class FakeClient:
         self.calls.append((args, kwargs))
         return self.response
 
+    def get(self, *args, **kwargs):
+        self.calls.append((args, kwargs))
+        return self.response
+
 
 def test_resolve_reference_audio_path_prefers_configured_sample(tmp_path):
     profile_dir = tmp_path / "VoiceA"
@@ -45,8 +51,7 @@ def test_resolve_reference_audio_path_prefers_configured_sample(tmp_path):
     fallback.write_bytes(b"a")
     preferred.write_bytes(b"b")
 
-    with patch("app.db.speakers.get_profile_dir", return_value=profile_dir):
-        result = resolve_reference_audio_path("VoiceA", "clip2.wav")
+    result = resolve_reference_audio_path("VoiceA", "clip2.wav", voice_profile_dir=profile_dir)
 
     assert result == preferred
 
@@ -64,10 +69,9 @@ def test_voxtral_generate_writes_wav_response(tmp_path):
     wav_bytes = b"RIFF\x24\x00\x00\x00WAVEfmt "
     client = FakeClient(FakeResponse(status_code=200, content=wav_bytes, headers={"content-type": "audio/wav"}))
 
-    with patch("plugins.tts_voxtral.plugin.core.implementation.get_settings", return_value={"mistral_api_key": "test-key"}), \
-         patch("plugins.tts_voxtral.plugin.core.implementation.resolve_reference_audio_path", return_value=ref_audio), \
+    with patch("plugins.tts_voxtral.plugin.core.implementation.resolve_reference_audio_path", return_value=ref_audio), \
          patch("plugins.tts_voxtral.plugin.core.implementation.httpx.Client", return_value=client):
-        rc = voxtral_generate("Hello", out_wav, profile_name="VoiceA")
+        rc = voxtral_generate("Hello", out_wav, profile_name="VoiceA", settings={"mistral_api_key": "test-key"})
 
     assert rc == 0
     assert out_wav.read_bytes() == wav_bytes
@@ -97,15 +101,14 @@ def test_voxtral_generate_converts_non_wav_audio(tmp_path):
     ref_audio.write_bytes(b"ref")
     client = FakeClient(FakeResponse(status_code=200, content=b"ID3fake-mp3", headers={"content-type": "audio/mpeg"}))
 
-    def fake_convert(src: Path, dest: Path):
-        dest.write_bytes(b"RIFFconvertedWAVE")
+    def fake_convert(in_file: Path, out_wav: Path):
+        out_wav.write_bytes(b"RIFFconvertedWAVE")
         return 0
 
-    with patch("plugins.tts_voxtral.plugin.core.implementation.get_settings", return_value={"mistral_api_key": "test-key"}), \
-         patch("plugins.tts_voxtral.plugin.core.implementation.resolve_reference_audio_path", return_value=ref_audio), \
+    with patch("plugins.tts_voxtral.plugin.core.implementation.resolve_reference_audio_path", return_value=ref_audio), \
          patch("plugins.tts_voxtral.plugin.core.implementation.httpx.Client", return_value=client), \
-         patch("plugins.tts_voxtral.plugin.core.implementation.convert_to_wav", side_effect=fake_convert):
-        rc = voxtral_generate("Hello", out_wav, profile_name="VoiceA")
+         patch("plugins.tts_voxtral.plugin.core.implementation._convert_to_wav", side_effect=fake_convert):
+        rc = voxtral_generate("Hello", out_wav, profile_name="VoiceA", settings={"mistral_api_key": "test-key"})
 
     assert rc == 0
     assert out_wav.read_bytes() == b"RIFFconvertedWAVE"
@@ -114,5 +117,92 @@ def test_voxtral_generate_converts_non_wav_audio(tmp_path):
 def test_resolve_voxtral_model_upgrades_short_default():
     from plugins.tts_voxtral.plugin.core.implementation import resolve_voxtral_model
 
-    with patch("plugins.tts_voxtral.plugin.core.implementation.get_settings", return_value={"voxtral_model": "voxtral-tts"}):
-        assert resolve_voxtral_model() == "voxtral-mini-tts-2603"
+    assert resolve_voxtral_model(settings={"voxtral_model": "voxtral-tts"}) == "voxtral-mini-tts-2603"
+
+
+def test_list_mistral_models_uses_saved_settings_key(monkeypatch):
+    from plugins.tts_voxtral.plugin.core import implementation
+
+    implementation._models_cache = {"data": [], "timestamp": 0.0, "api_key_hash": ""}
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    response = FakeResponse(
+        status_code=200,
+        json_payload={"data": [{"id": "mistral-tts-latest"}]},
+    )
+    client = FakeClient(response)
+
+    with patch("plugins.tts_voxtral.plugin.core.implementation.httpx.Client", return_value=client):
+        models = implementation.list_mistral_models(settings={"mistral_api_key": "saved-key"}, strict=True)
+
+    assert models == ["mistral-tts-latest"]
+    _, kwargs = client.calls[0]
+    assert kwargs["headers"]["Authorization"] == "Bearer saved-key"
+
+
+def test_voxtral_verify_passes_saved_settings_to_model_check(monkeypatch):
+    seen = {}
+
+    def fake_list_models(*, settings=None, strict=False):
+        seen["settings"] = settings
+        seen["strict"] = strict
+        return ["mistral-tts-latest"]
+
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+
+    with patch("plugins.tts_voxtral.plugin.core.implementation.list_mistral_models", side_effect=fake_list_models):
+        result = VoxtralPlugin().verify(
+            TTSRequest(
+                text="hello",
+                output_path="out.wav",
+                settings={"mistral_api_key": "saved-key"},
+            )
+        )
+
+    assert result.ok is True
+    assert seen == {"settings": {"mistral_api_key": "saved-key"}, "strict": True}
+
+
+def test_handle_voxtral_job_skips_live_finalizing_broadcasts(tmp_path):
+    from app.db.models import Job
+    from plugins.tts_voxtral.plugin.studio.handler import handle_voxtral_job
+
+    job = Job(
+        id="voxtral-job",
+        engine="voxtral",
+        chapter_file="chapter.txt",
+        status="running",
+        created_at=0.0,
+        project_id="proj-1",
+        chapter_id="chap-1",
+        speaker_profile="VoiceA",
+        make_mp3=True,
+    )
+
+    out_wav = tmp_path / "chapter.wav"
+    out_mp3 = tmp_path / "chapter.mp3"
+
+    def fake_generate_via_bridge(**kwargs):
+        Path(kwargs["out_wav"]).write_text("wav")
+        return 0
+
+    def fake_wav_to_mp3(in_wav, out_mp3_path, on_output=None, cancel_check=None):
+        Path(out_mp3_path).write_text("mp3")
+        return 0
+
+    with patch("plugins.tts_voxtral.plugin.studio.handler._chapter_text_from_segments", return_value="hello world"), \
+         patch("plugins.tts_voxtral.plugin.studio.handler._chapter_uses_multiple_profiles", return_value=False), \
+         patch("plugins.tts_voxtral.plugin.studio.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("plugins.tts_voxtral.plugin.studio.handler.get_speaker_settings", return_value={"voice_asset_id": "asset-1"}), \
+         patch("plugins.tts_voxtral.plugin.studio.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_voxtral.plugin.studio.handler.wav_to_mp3", side_effect=fake_wav_to_mp3), \
+         patch("plugins.tts_voxtral.plugin.studio.handler.update_job") as mock_update:
+        result = handle_voxtral_job("voxtral-job", job, 0.0, lambda _line: None, lambda: False)
+
+    assert result == "done"
+    assert out_wav.exists()
+    assert out_mp3.exists()
+
+    finalizing_calls = [call for call in mock_update.call_args_list if call.kwargs.get("status") == "finalizing"]
+    assert finalizing_calls
+    assert finalizing_calls[0].kwargs["skip_studio_job_event"] is True
+    assert finalizing_calls[0].kwargs["skip_job_updated"] is True

@@ -93,15 +93,13 @@ export const ApiSettingsPanel: React.FC = () => {
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Submit chapter to queue</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)' }}>
-                <code style={{ fontWeight: 800 }}>GET /api/jobs</code>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Poll job status & progress</span>
+                <code style={{ fontWeight: 800 }}>WebSocket /ws</code>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Subscribe to live status & progress</span>
               </div>
             </div>
-            <pre style={apiExampleStyle}>{`curl -X POST http://localhost:8000/api/processing_queue \\
-  -d "project_id=p-123&chapter_id=c-456&speaker_profile=Dark Fantasy"
-
-// Polling response
+            <pre style={apiExampleStyle}>{`// Connect to WebSocket /ws and listen for:
 {
+  "type": "studio_job_event",
   "job_id": "job_abc123",
   "status": "running",
   "progress": 0.45,

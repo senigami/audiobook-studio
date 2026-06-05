@@ -3,6 +3,28 @@ import os
 import importlib
 from unittest.mock import patch, MagicMock
 
+@pytest.fixture(autouse=True)
+def setup_test_voices(tmp_path, monkeypatch):
+    from app.core import config
+    import app.db.speakers
+    import json
+
+    voices_dir = tmp_path / "voices"
+    voices_dir.mkdir(exist_ok=True)
+
+    # Create Voice1 profile directory, voice.json, and Default variant profile.json
+    v1_dir = voices_dir / "Voice1"
+    v1_dir.mkdir(exist_ok=True)
+    (v1_dir / "voice.json").write_text(json.dumps({"id": "voice1-id", "default_variant": "Default"}))
+
+    v1_default_dir = v1_dir / "Default"
+    v1_default_dir.mkdir(exist_ok=True)
+    (v1_default_dir / "profile.json").write_text(json.dumps({"engine": "xtts"}))
+
+    monkeypatch.setattr(config, "VOICES_DIR", voices_dir)
+    return voices_dir
+
+
 @pytest.fixture
 def client(clean_db):
     from fastapi.testclient import TestClient
@@ -18,7 +40,7 @@ def clean_db(tmp_path):
     app.db.core.init_db()
 
     from app.db.state import update_settings
-    update_settings({"default_speaker_profile": "Voice1", "mistral_api_key": "test_key", "enabled_plugins": {"voxtral": True}})
+    update_settings({"default_speaker_profile": "Voice1", "default_engine": "xtts", "mistral_api_key": "test_key", "enabled_plugins": {"voxtral": True}})
 
     yield
 
@@ -583,7 +605,11 @@ def test_generation_orchestration_integration(clean_db, client, monkeypatch):
     # 5. Patch create_orchestrator to return our real (but mocked-dependency) orchestrator
     monkeypatch.setattr("app.api.routers.generation.create_orchestrator", lambda: real_orchestrator)
 
-    # 6. Patch state-syncing to avoid state.json pollution during test
+    # 6. Ensure registry is clear so it falls back to bridge synthesis
+    from app.jobs.registry import get_handler_registry
+    get_handler_registry().clear()
+
+    # 7. Patch state-syncing to avoid state.json pollution during test
     # and patch resource reservation to skip hardware checks
     with patch("app.api.routers.generation.put_job"), \
          patch("app.api.routers.generation.update_job"), \
@@ -642,6 +668,9 @@ def test_voice_profile_dir_propagation(clean_db, client, monkeypatch):
     # Mock voice resolution
     mock_resolution = (None, Path("/tmp/dummy_voice_dir"))
 
+    from app.jobs.registry import get_handler_registry
+    get_handler_registry().clear()
+
     with patch("app.api.routers.generation.put_job"), \
          patch("app.api.routers.generation.update_job"), \
          patch("app.engines.voice_engines.resolve_voice_preview_inputs", return_value=mock_resolution), \
@@ -666,9 +695,13 @@ def test_voice_profile_dir_propagation(clean_db, client, monkeypatch):
 
 def test_mixed_generation_orchestration_integration(clean_db, client, monkeypatch):
     """Verifies that 'mixed' jobs bypass the bridge and call run() locally."""
+    from app.jobs.registry import initialize_default_handlers, get_handler_registry
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.orchestration.scheduler.orchestrator import TaskOrchestrator
+
+    get_handler_registry().clear()
+    initialize_default_handlers()
 
     pid = create_project("MixedProject")
     cid = create_chapter(pid, "MixedChapter", "Mixed text.")
@@ -683,7 +716,11 @@ def test_mixed_generation_orchestration_integration(clean_db, client, monkeypatc
     )
     monkeypatch.setattr("app.api.routers.generation.create_orchestrator", lambda: real_orchestrator)
 
-    # We need to mock handle_mixed_job because it's called by task.run()
+    # Clear registry so it picks up our patch during initialize_default_handlers
+    from app.jobs.registry import get_handler_registry
+    get_handler_registry().clear()
+
+    # We need to mock handle_mixed_job because it's called by the registry
     # when engine_id == 'mixed'.
     with patch("app.api.routers.generation.put_job"), \
          patch("app.api.routers.generation.update_job"), \
@@ -734,6 +771,10 @@ def test_queue_chapter_mixed_render_runs_end_to_end(clean_db, client, monkeypatc
     real_orchestrator = TaskOrchestrator(progress_service=mock_progress, voice_bridge=mock_bridge)
     monkeypatch.setattr("app.api.routers.generation.create_orchestrator", lambda: real_orchestrator)
 
+    from app.jobs.registry import initialize_default_handlers, get_handler_registry
+    get_handler_registry().clear()
+    initialize_default_handlers()
+
     chapter_dir = tmp_path / "chapters" / cid
 
     def _write_silence_wav(path: Path) -> None:
@@ -753,11 +794,15 @@ def test_queue_chapter_mixed_render_runs_end_to_end(clean_db, client, monkeypatc
         _write_silence_wav(output_path)
         return 0
 
+    from app.jobs.registry import get_handler_registry
+    get_handler_registry().clear()
+
     with patch("app.api.routers.generation.get_chapter_dir", return_value=chapter_dir), \
          patch("app.core.config.get_chapter_dir", return_value=chapter_dir), \
          patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=chapter_dir), \
          patch("app.api.routers.generation.resolve_tts_engine_for_profiles", return_value=("xtts", ["xtts", "voxtral"])), \
-         patch("app.api.routers.generation.resolve_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
+         patch("app.engines.voice_engines.resolve_profile_engine", side_effect=lambda name, fallback_engine=None, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
+         patch("app.api.routers.generation.resolve_profile_engine", side_effect=lambda name, fallback_engine=None, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voice2" else {"speed": 1.0}), \
          patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \

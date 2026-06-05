@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "studio_tts_manifest": "1.0",
   "engine_id": "cloudmock",
   "display_name": "Cloud Mock (PoC)",
   "version": "1.0.0",

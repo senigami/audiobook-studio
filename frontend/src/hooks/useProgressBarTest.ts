@@ -2,6 +2,7 @@ import React from 'react';
 import { type ProgressBarTestConfig, type ProgressBarStatus, DEFAULT_CONFIG } from '@tests/helpers/ProgressBarTestTypes';
 import { clamp01, nowUnixSeconds } from '@tests/helpers/ProgressBarTestHelpers';
 import { resetPredictiveProgressMemory, type PredictiveProgressDebugSnapshot } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
+import { subscribeStudioSocketMessages, type StudioSocketEnvelope } from '@/store/studioSocketBus';
 
 export function useProgressBarTest() {
   const [launchConfig, setLaunchConfig] = React.useState<ProgressBarTestConfig>(DEFAULT_CONFIG);
@@ -15,6 +16,9 @@ export function useProgressBarTest() {
   const [manualEtaSeconds, setManualEtaSeconds] = React.useState(String(DEFAULT_CONFIG.etaSeconds ?? ''));
   const [debugSnapshot, setDebugSnapshot] = React.useState<PredictiveProgressDebugSnapshot | null>(null);
   const [debugHistory, setDebugHistory] = React.useState<string[]>([]);
+  const [updateSource, setUpdateSource] = React.useState<'launch_config' | 'manual' | 'socket'>('launch_config');
+  const [lastSocketEnvelope, setLastSocketEnvelope] = React.useState<StudioSocketEnvelope<any> | null>(null);
+  const [lastIgnoredEnvelope, setLastIgnoredEnvelope] = React.useState<StudioSocketEnvelope<any> | null>(null);
 
   const pushLog = (message: string) => {
     setEventLog(prev => [`${new Date().toLocaleTimeString()} ${message}`, ...prev].slice(0, 20));
@@ -29,6 +33,7 @@ export function useProgressBarTest() {
     const nextProgressValue = manualProgressValue.trim() === '' ? undefined : clamp01(Number(manualProgressValue) / 100);
     const nextEtaValue = manualEtaSeconds.trim() === '' ? undefined : Math.max(1, Math.round(Number(manualEtaSeconds)));
 
+    setUpdateSource('manual');
     setActiveConfig(prev => {
       const nextStatus = manualStatus;
       const shouldSeedStartNow = nextStatus === 'running' && typeof prev.startedAt !== 'number';
@@ -55,6 +60,7 @@ export function useProgressBarTest() {
     const etaSeconds = launchConfig.etaSeconds;
     const persistenceKey = launchConfig.persistenceKey || `progress-test-${Date.now()}`;
     resetPredictiveProgressMemory(persistenceKey);
+    setUpdateSource('launch_config');
     const nextActiveConfig: ProgressBarTestConfig = {
       ...launchConfig,
       progress: launchProgress,
@@ -78,6 +84,9 @@ export function useProgressBarTest() {
     setManualProgressValue(String(Math.round(DEFAULT_CONFIG.progress * 100)));
     setManualEtaSeconds(String(DEFAULT_CONFIG.etaSeconds ?? ''));
     setManualStatus(DEFAULT_CONFIG.status);
+    setLastSocketEnvelope(null);
+    setLastIgnoredEnvelope(null);
+    setUpdateSource('launch_config');
     setRenderToken(prev => prev + 1);
     pushLog('Reset preview to the default configuration.');
   };
@@ -99,6 +108,53 @@ export function useProgressBarTest() {
     const value = nowUnixSeconds();
     applyConfigPatch({ startedAt: value }, `startedAt set to now (${value}).`);
   };
+
+  React.useEffect(() => {
+    const unsubscribe = subscribeStudioSocketMessages((data, raw, envelope) => {
+      if (data?.topic === 'segments.progress') {
+        const payload = data.payload || {};
+
+        const progressVal = typeof payload.activeSegmentProgress === 'number'
+          ? payload.activeSegmentProgress
+          : (typeof payload.progress === 'number' ? payload.progress : 0);
+
+        const etaVal = typeof payload.etaSeconds === 'number'
+          ? payload.etaSeconds
+          : (typeof payload.eta_seconds === 'number' ? payload.eta_seconds : undefined);
+
+        const statusVal = payload.status || 'running';
+
+        setLastSocketEnvelope(envelope || {
+          frameId: 0,
+          receivedAt: new Date().toISOString(),
+          data,
+          raw: raw || JSON.stringify(data),
+        });
+        setUpdateSource('socket');
+
+        setActiveConfig(prev => ({
+          ...prev,
+          progress: progressVal,
+          etaSeconds: etaVal,
+          status: statusVal,
+          updatedAt: nowUnixSeconds(),
+        }));
+
+        pushLog(`Websocket segments.progress received: progress ${Math.round(progressVal * 100)}%, status ${statusVal}`);
+      } else if (data?.topic) {
+        setLastIgnoredEnvelope(envelope || {
+          frameId: 0,
+          receivedAt: new Date().toISOString(),
+          data,
+          raw: raw || JSON.stringify(data),
+        });
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!debugSnapshot) return;
@@ -135,6 +191,9 @@ export function useProgressBarTest() {
     resetPreview,
     nudgeProgress,
     setStatus,
-    setConfigStartedAtToNow
+    setConfigStartedAtToNow,
+    updateSource,
+    lastSocketEnvelope,
+    lastIgnoredEnvelope
   };
 }

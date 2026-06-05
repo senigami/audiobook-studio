@@ -74,7 +74,7 @@ async def api_create_project(
     normalized_profile_name = (speaker_profile_name or "").strip() or None
     pid = create_project(name, series, author, None, normalized_profile_name)
     if cover:
-        cover_path = await _store_project_cover(pid, get_project_dir(pid), cover)
+        cover_path = await _store_project_cover(pid, cover)
         update_project(pid, cover_image_path=cover_path)
     return JSONResponse({"status": "ok", "project_id": pid})
 
@@ -103,8 +103,7 @@ async def api_update_project(
         updates["speaker_profile_name"] = normalized_profile_name
 
     if cover:
-        project_dir = get_project_dir(project_id)
-        updates["cover_image_path"] = await _store_project_cover(project_id, project_dir, cover)
+        updates["cover_image_path"] = await _store_project_cover(project_id, cover)
 
     if updates:
         update_project(project_id, **updates)

@@ -2,7 +2,6 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useMatch } from 'react-router-dom';
 import { api } from '@/api';
 import { Layout } from '@/components/layout/Layout';
-import { PreviewModal } from '@/components/overlays/PreviewModal';
 import { VoicesTab } from '@/pages/Voices/VoicesPage';
 import { ProjectLibrary } from '@/pages/ProjectLibrary/ProjectLibraryPage';
 import { ProjectView } from '@/pages/ProjectDetail/ProjectDetailPage';
@@ -10,6 +9,7 @@ import { GlobalQueue } from '@/components/queue/GlobalQueue';
 import { ProgressBarTestPage } from '@/pages/DevProgressBar/DevProgressBarPage';
 import { useJobs } from '@/hooks/useJobs';
 import { useQueueSync } from '@/hooks/useQueueSync';
+import { useStudioSocketTransport } from '@/hooks/useStudioSocketTransport';
 import { useInitialData } from '@/hooks/useInitialData';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { createStudioShellState } from '@/app/layout/StudioShell';
@@ -19,10 +19,12 @@ import { SettingsRoute } from '@/pages/Settings';
 import type { Chapter, Project } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from '@/pages/Voices/components/VoiceUtils';
+import { LiveOutputPage } from '@/pages/LiveOutput/LiveOutputPage';
 
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  useStudioSocketTransport();
   const projectMatch = useMatch('/project/:projectId');
   const chapterMatch = useMatch('/chapter/:chapterId');
   const projectIdFromRoute = projectMatch?.params.projectId;
@@ -56,9 +58,17 @@ function App() {
   const { data: initialData, loading: initialLoading, refetch: refetchHome } = useInitialData();
   const [chapterRouteData, setChapterRouteData] = useState<Chapter | null>(null);
   const [chapterRouteLoading, setChapterRouteLoading] = useState(false);
+  // Topic ownership for queue refresh:
+  //   - useQueueSync owns queue-visible live overlays from jobs.lifecycle,
+  //     queue.items, chapters.lifecycle, chapters.progress, and voice.test.
+  //   - Job completion (status=done) is the only signal that warrants a ProjectDetailPage
+  //     reload via queueRefreshTrigger, because that is when chapter status actually changes.
+  //   - queue-visible socket frames must NOT bump the trigger directly, otherwise every
+  //     update triggers a fetchProject/Chapters/Characters/Audiobooks burst on top of the
+  //     completion bump. That overlap is what inflates the live update count.
   const { jobs, refreshJobs, testProgress, segmentProgress } = useJobs(
-    () => { refetchHome(); refreshQueue('refresh'); },
-    () => { refreshQueue('refresh'); },
+    () => { refetchHome(); setQueueRefreshTrigger(prev => prev + 1); },
+    undefined,
     () => refetchHome(),
     (chapterId: string) => { setSegmentUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); },
     (chapterId: string) => { setChapterUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); }
@@ -99,7 +109,6 @@ function App() {
     };
   }, [chapterIdFromRoute]);
 
-  const [previewFilename, setPreviewFilename] = useState<string | null>(null);
 
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
@@ -288,6 +297,7 @@ function App() {
                 />
               } />
               <Route path="/progress-test" element={<ProgressBarTestPage />} />
+              <Route path="/event-stream" element={<LiveOutputPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
@@ -345,11 +355,6 @@ function App() {
       )}
 
 
-      <PreviewModal
-        isOpen={!!previewFilename}
-        onClose={() => setPreviewFilename(null)}
-        filename={previewFilename || ''}
-      />
 
       <Drawer
         isOpen={isQueueDrawerOpen}

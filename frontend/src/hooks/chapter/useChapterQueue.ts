@@ -133,7 +133,7 @@ export const useChapterQueue = (
   }, [chapterId, projectId, speakerProfiles, engines, loadChapter, queueSyncTimerRef, setSubmitting]);
 
   const generatingSegmentJob = useMemo(() => {
-    return pickRelevantJob(chapterJobs);
+    return pickRelevantJob(chapterJobs, true);
   }, [chapterJobs]);
 
   return {

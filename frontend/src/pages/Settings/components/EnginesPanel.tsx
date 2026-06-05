@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, FileText, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { RefreshCw, FileText, Loader2, Upload } from 'lucide-react';
 import type { TtsEngine } from '@/types';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { EngineCard } from '@/pages/Settings/components/EngineCard';
+import { useLiveTtsLogLines } from '@/hooks/useLiveTtsLogLines';
 
 interface EnginesPanelProps {
   onShowNotification?: (message: string) => void;
@@ -16,10 +17,14 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [installModal, setInstallModal] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<string>('');
   const [fetchingLogs, setFetchingLogs] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const logsEndRef = useRef<HTMLDivElement | null>(null);
+  const { liveLines, markRefreshStart, resetCursor: resetLiveCursor } = useLiveTtsLogLines(showLogs);
 
   const loadEngines = useCallback(async () => {
     try {
@@ -66,22 +71,42 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
     }
   };
 
-  const handleInstallPlugin = async () => {
+  const handleInstallPlugin = () => {
+    // Open file selector instead of just showing instructions
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
     try {
-      const res = await api.installPlugin();
-      setInstallModal({ open: true, message: res.message || 'Place your plugin folder in the "plugins/" directory and click Refresh.' });
-    } catch (err) {
-      onShowNotification?.('Failed to retrieve installation instructions.');
+      const res = await api.importEnginePlugin(file);
+      if (res.ok || res.engine_id) {
+        onShowNotification?.(`Plugin ${res.engine_id || ''} imported successfully.`);
+        await refreshAppState();
+      } else {
+        onShowNotification?.(res.message || 'Import failed.');
+      }
+    } catch (err: any) {
+      onShowNotification?.(`Import failed: ${err.message || err}`);
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   const handleFetchLogs = async () => {
+    const refreshStartedAfterFrameId = markRefreshStart();
     setFetchingLogs(true);
     setShowLogs(true);
     try {
       // The backend watchdog buffer captures all TTS server output
       const res = await api.fetchEngineLogs('all');
       setLogs(res.logs || '');
+      // Reconcile: the backend text is fresh, but preserve live frames that arrived during this fetch.
+      resetLiveCursor({ preserveAfterFrameId: refreshStartedAfterFrameId });
       if (!res.logs && res.message) {
         onShowNotification?.(res.message);
       }
@@ -91,6 +116,42 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
       setFetchingLogs(false);
     }
   };
+
+  const combinedLogs = useMemo(() => {
+    if (liveLines.length === 0) return logs;
+    const formatTimestamp = (isoString?: string): string => {
+      if (!isoString) return '';
+      try {
+        const date = new Date(isoString);
+        if (isNaN(date.getTime())) return '';
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        const ms = String(date.getMilliseconds()).padStart(3, '0');
+        return `${hours}:${minutes}:${seconds}.${ms}`;
+      } catch {
+        return '';
+      }
+    };
+
+    const liveText = liveLines.map(entry => {
+      const timePart = formatTimestamp(entry.timestamp);
+      const label = entry.pluginShortName ? entry.pluginShortName.substring(0, 10) : '';
+      const prefix = [
+        timePart ? `[${timePart}]` : '',
+        label ? `[${label}]` : '',
+      ].filter(Boolean).join(' ');
+      return prefix ? `${prefix} ${entry.line}` : entry.line;
+    }).join('\n');
+
+    if (!logs) return liveText;
+    return `${logs.endsWith('\n') ? logs : `${logs}\n`}${liveText}`;
+  }, [logs, liveLines]);
+
+  useEffect(() => {
+    if (!showLogs) return;
+    logsEndRef.current?.scrollIntoView({ block: 'end' });
+  }, [combinedLogs, showLogs]);
 
   if (loading && engines.length === 0) {
     return (
@@ -117,13 +178,22 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
         />
       ))}
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', paddingTop: '0.25rem' }}>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".zip"
+          style={{ display: 'none' }}
+        />
         <button
           type="button"
           className="btn-glass"
+          disabled={importing}
           onClick={handleInstallPlugin}
-          style={{ padding: '0.65rem 0.9rem', borderRadius: '10px', border: '1px solid var(--border)', fontWeight: 800 }}
+          style={{ padding: '0.65rem 0.9rem', borderRadius: '10px', border: '1px solid var(--border)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
-          Install Plugin
+          {importing ? <Loader2 size={14} className="spin" /> : <Upload size={14} />}
+          {importing ? 'Importing...' : 'Import Plugin (.zip)'}
         </button>
         <button
           type="button"
@@ -137,12 +207,12 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
         <button
           type="button"
           className="btn-glass"
-          disabled={fetchingLogs}
-          onClick={handleFetchLogs}
+          disabled={fetchingLogs && !showLogs}
+          onClick={showLogs ? () => setShowLogs(false) : handleFetchLogs}
           style={{ padding: '0.65rem 0.9rem', borderRadius: '10px', border: '1px solid var(--border)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
-          {fetchingLogs ? <Loader2 size={14} className="spin" /> : <FileText size={14} />}
-          {showLogs ? 'Refresh Logs' : 'View Diagnostics'}
+          {fetchingLogs && !showLogs ? <Loader2 size={14} className="spin" /> : <FileText size={14} />}
+          {showLogs ? 'Close Diagnostics' : 'View Diagnostics'}
         </button>
       </div>
 
@@ -155,12 +225,6 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
                 TTS Server Diagnostics
               </span>
             </div>
-            <button
-              onClick={() => setShowLogs(false)}
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
-            >
-              Close Diagnostics
-            </button>
           </div>
           <div
             style={{
@@ -178,11 +242,12 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
               boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
             }}
           >
-            {fetchingLogs && !logs ? (
+            {fetchingLogs && !combinedLogs ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#666' }}>
                 <Loader2 size={14} className="spin" /> Streaming logs...
               </div>
-            ) : logs || 'No diagnostics captured yet.'}
+            ) : combinedLogs || 'No diagnostics captured yet.'}
+            <div ref={logsEndRef} aria-hidden="true" />
           </div>
         </div>
       )}

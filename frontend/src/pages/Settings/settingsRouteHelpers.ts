@@ -18,9 +18,9 @@ export const getEngineStatusLabel = (status: string): string => {
     case 'ready':
       return 'READY';
     case 'needs_setup':
-      return 'NEEDS SETUP';
+      return 'NOT READY';
     case 'unverified':
-      return 'UNVERIFIED';
+      return 'NOT READY';
     case 'invalid_config':
       return 'INVALID CONFIG';
     case 'not_loaded':

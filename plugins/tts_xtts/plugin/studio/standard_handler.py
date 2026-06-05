@@ -1,5 +1,6 @@
 from __future__ import annotations
 import time
+import shutil
 from pathlib import Path
 
 from app.engines.behavior import DEFAULT_SENT_CHAR_LIMIT as SENT_CHAR_LIMIT
@@ -7,7 +8,13 @@ from app.domain.chunk_groups import build_chunk_groups
 from app.utils.text.textops import sanitize_text, safe_split_long_sentences
 from app.engines.errors import EngineBridgeError
 from . import handler as xtts_facade
+from .helpers import _segment_group_weight
 from app.jobs.handlers.bridge_helpers import generate_via_bridge
+
+_SKIP_LIVE_BROADCASTS = {
+    "skip_studio_job_event": True,
+    "skip_job_updated": True,
+}
 
 
 def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, text=None):
@@ -17,7 +24,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
         groups = build_chunk_groups(xtts_facade.load_chunk_segments(j.chapter_id), j.speaker_profile)
         if groups:
             def _group_weight(g: dict) -> int:
-                return max(1, int(g.get("text_length") or 0))
+                return _segment_group_weight(g["segments"])
 
             def _group_is_done(g: dict) -> bool:
                 import logging as _logging
@@ -113,6 +120,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                 completed_render_weight=done_weight,
                 active_render_group_weight=0,
                 grouped_progress=_progress_from_weight(),
+                **_SKIP_LIVE_BROADCASTS,
             )
 
             active_save_path = [None]  
@@ -140,6 +148,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                         completed_render_weight=completed_weight[0],
                         active_render_group_weight=path_to_weight.get(matched_path, 0) if matched_path else 0,
                         grouped_progress=prog,
+                        **_SKIP_LIVE_BROADCASTS,
                     )
 
                 if "[SEGMENT_SAVED]" in line:
@@ -169,6 +178,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                             completed_render_weight=completed_weight[0],
                             active_render_group_weight=0,
                             grouped_progress=prog,
+                            **_SKIP_LIVE_BROADCASTS,
                         )
 
                 if "[PROGRESS]" in line:
@@ -176,17 +186,19 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                         p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
                         segment_progress = float(p_str) / 100.0
                         prog = _progress_from_weight(segment_progress, active_save_path[0])
+                        active_progress = segment_progress if active_save_path[0] else 0.0
                         xtts_facade.update_job(
                             jid,
                             force_broadcast=True,
                             progress=prog,
-                            active_segment_progress=segment_progress,
+                            active_segment_progress=active_progress,
                             completed_render_groups=completed_count[0],
                             render_group_count=total_groups,
                             total_render_weight=total_weight,
                             completed_render_weight=completed_weight[0],
                             active_render_group_weight=path_to_weight.get(active_save_path[0], 0) if active_save_path[0] else 0,
                             grouped_progress=prog,
+                            **_SKIP_LIVE_BROADCASTS,
                         )
                     except Exception:
                         pass
@@ -202,6 +214,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                     cancel_check=cancel_check,
                     speed=speed,
                     script=script,
+                    task_id=jid,
                 )
             except EngineBridgeError as exc:
                 xtts_facade.logger.error("Bridge synthesis failed in xtts_standard: %s", exc)
@@ -211,10 +224,11 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                     scratch_wav.unlink()
 
             if rc == 0:
-                xtts_facade.update_job(jid, status="finalizing", progress=0.91,
+                xtts_facade.update_job(jid, status="running", progress=0.91,
                            completed_render_groups=total_groups, render_group_count=total_groups,
                            total_render_weight=total_weight, completed_render_weight=total_weight,
-                           active_render_group_weight=0, grouped_progress=_RENDER_LIMIT)
+                           active_render_group_weight=0, grouped_progress=_RENDER_LIMIT,
+                           **_SKIP_LIVE_BROADCASTS)
                 segment_paths = []
                 last_path = None
                 for group in build_chunk_groups(xtts_facade.load_chunk_segments(j.chapter_id), j.speaker_profile):
@@ -227,6 +241,12 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                     xtts_facade.update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="No valid segment audio was available to stitch.")
                     return 1
                 rc = xtts_facade.stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
+                if (rc != 0 or not out_wav.exists()) and len(segment_paths) == 1 and segment_paths[0].exists():
+                    try:
+                        shutil.copy2(segment_paths[0], out_wav)
+                        rc = 0
+                    except Exception:
+                        pass
                 return rc
             return rc
         else:
@@ -239,6 +259,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                 cancel_check=cancel_check,
                 speed=speed,
                 safe_mode=j.safe_mode,
+                task_id=jid,
             )
     else:
         return generate_via_bridge(
@@ -250,4 +271,5 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
             cancel_check=cancel_check,
             speed=speed,
             safe_mode=j.safe_mode,
+            task_id=jid,
         )

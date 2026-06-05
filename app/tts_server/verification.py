@@ -1,14 +1,14 @@
 """Verification synthesis runner for the TTS Server.
 
-On startup (or when a plugin is refreshed), the TTS Server runs a short test
-synthesis through each loaded engine to confirm it can actually produce audio.
-An engine that passes environment checks but fails verification is marked
-``unverified`` and blocked from production use until the user fixes the issue
-and manually re-verifies.
+Verification is an explicit user action from engine settings. It runs a short
+test synthesis through the selected engine to confirm it can produce audio.
+Automatic startup verification is intentionally avoided because plugin tests
+may generate files such as ``test_output.wav`` and emit synthesis progress.
 """
 
 from __future__ import annotations
 
+import inspect
 import logging
 import time
 from pathlib import Path
@@ -49,15 +49,20 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
     Returns:
         VerificationResult: Result of the verification attempt.
     """
-    from app.tts_server.settings_store import calculate_verification_metadata, save_state # noqa: PLC0415
+    from app.tts_server.settings_store import calculate_verification_metadata, load_settings, save_state # noqa: PLC0415
 
     engine_id = plugin.engine_id
 
     try:
         # Plugins are responsible for their own test execution and asset management.
         # This keeps them self-contained so they can be their own separate repos.
+        wall_start = time.time()
         start_time = time.perf_counter()
-        result = plugin.engine.run_test()
+        run_test = plugin.engine.run_test
+        if _accepts_settings(run_test):
+            result = run_test(settings=load_settings(plugin.plugin_dir))
+        else:
+            result = run_test()
         duration = time.perf_counter() - start_time
 
         # Normalize SDK VerificationResult to internal VerificationResult
@@ -77,6 +82,39 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
         }
         save_state(plugin.plugin_dir, state)
 
+        # Record a performance sample for calibration
+        try:
+            from app.db.performance import record_render_sample
+            from app.tts_server.performance_settings import resolve_engine_settings_model
+
+            test_text = plugin.manifest.get("test_text") or "Hello, verification test text."
+            chars = len(test_text)
+            sample_dur = max(0.1, duration)
+            tts_model = resolve_engine_settings_model(engine_id)
+
+            record_render_sample(
+                engine=engine_id,
+                tts_model=tts_model,
+                chars=chars,
+                word_count=len(test_text.split()),
+                segment_count=1,
+                duration_seconds=round(sample_dur, 2),
+                cps=round(chars / sample_dur, 2),
+                seconds_per_segment=round(sample_dur, 2),
+                job_id=None,
+                project_id=None,
+                chapter_id=None,
+                speaker_profile=None,
+                render_group_count=0,
+                started_at=wall_start,
+                completed_at=wall_start + sample_dur,
+                make_mp3=False,
+                synthesis_duration_seconds=sample_dur,
+                sample_type="verification"
+            )
+        except Exception:
+            logger.exception("Failed to record verification performance sample")
+
         return VerificationResult(
             engine_id=engine_id,
             ok=True,
@@ -90,6 +128,19 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
             ok=False,
             error=f"run_test() raised: {exc}",
         )
+
+
+def _accepts_settings(callable_obj: object) -> bool:
+    """Return True when a plugin method supports a settings keyword."""
+    try:
+        signature = inspect.signature(callable_obj)
+    except (TypeError, ValueError):
+        return False
+
+    return any(
+        param.kind == inspect.Parameter.VAR_KEYWORD or name == "settings"
+        for name, param in signature.parameters.items()
+    )
 
 
 def verify_all(plugins: "list[LoadedPlugin]") -> list[VerificationResult]:

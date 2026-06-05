@@ -29,6 +29,16 @@ class JobHandlerRegistry:
         self._kind_handlers[kind] = handler
         logger.debug("Registered kind handler: %s", kind)
 
+    def has_any(self) -> bool:
+        """Return True if any handlers are registered."""
+        return bool(self._engine_handlers or self._kind_handlers)
+
+    def clear(self):
+        """Clear all registered handlers."""
+        self._engine_handlers.clear()
+        self._kind_handlers.clear()
+        logger.debug("Cleared job handler registry")
+
     def get_handler(self, job: Job) -> Optional[HandlerFunc]:
         """Fetch the most specific handler for the given job."""
         engine = job.engine
@@ -37,9 +47,10 @@ class JobHandlerRegistry:
         if engine in self._engine_handlers:
             return self._engine_handlers[engine]
 
-        # 2. Kind match (e.g., 'voice_build' or 'voice_test')
-        if engine in self._kind_handlers:
-            return self._kind_handlers[engine]
+        # 2. Kind match (e.g., 'voice_build', 'assembly')
+        kind = getattr(job, "kind", None)
+        if kind and kind in self._kind_handlers:
+            return self._kind_handlers[kind]
 
         # 3. Handle special categories via kind mapping if engine name doesn't match
         if engine in ("voice_build", "voice_test") and "voice_task" in self._kind_handlers:
@@ -62,6 +73,10 @@ def get_handler_registry() -> JobHandlerRegistry:
 
 def initialize_default_handlers():
     """Wire up the built-in handlers and discover plugin handlers."""
+    reg = get_handler_registry()
+    if reg.has_any():
+        return
+
     from .handlers.audiobook import handle_audiobook_job
     from app.core.config import PLUGINS_DIR
     import json
@@ -70,8 +85,16 @@ def initialize_default_handlers():
 
     # 1. Built-in generic handlers
     reg.register_engine("audiobook", handle_audiobook_job)
+    reg.register_kind("assembly", handle_audiobook_job)
 
-    # 2. Plugin discovery
+    # 2. Voice/Sample handlers
+    from .worker_voice import handle_voice_job
+    reg.register_kind("voice_build", handle_voice_job)
+    reg.register_kind("voice_test", handle_voice_job)
+    reg.register_kind("sample_build", handle_voice_job)
+    reg.register_kind("sample_test", handle_voice_job)
+
+    # 3. Plugin discovery
     if not PLUGINS_DIR.is_dir():
         logger.debug("Plugins directory not found at %s", PLUGINS_DIR)
         return
@@ -146,7 +169,7 @@ def _load_plugin_callable(*, plugin_dir, folder_name: str, handler_spec: str) ->
         logger.warning("Handler module %s not found in %s", module_name, folder_name)
         return None
 
-    package_name = f"_job_plugin_{folder_name}"
+    package_name = f"plugins.{folder_name}"
     spec_name = f"{package_name}.{module_name}"
     _ensure_plugin_package_hierarchy(
         package_name=package_name,
@@ -158,9 +181,12 @@ def _load_plugin_callable(*, plugin_dir, folder_name: str, handler_spec: str) ->
         logger.warning("Could not create handler module spec for %s in %s", module_name, folder_name)
         return None
 
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec_name] = module
-    spec.loader.exec_module(module)
+    if spec_name in sys.modules:
+        module = sys.modules[spec_name]
+    else:
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec_name] = module
+        spec.loader.exec_module(module)
     handler_func = getattr(module, func_name, None)
     if not handler_func:
         logger.error("Handler function %s not found in %s", func_name, module_path)

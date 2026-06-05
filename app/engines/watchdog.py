@@ -517,7 +517,20 @@ class TtsServerWatchdog:
         if stream is None:
             return
         try:
-            for line in stream:
+            # Avoid internal block-buffering of TextIOWrapper iteration by using readline()
+            # if available, otherwise falling back to standard stream iteration.
+            if hasattr(stream, "readline"):
+                def line_generator():
+                    while True:
+                        line = stream.readline()
+                        if not line:
+                            break
+                        yield line
+                stream_iter = line_generator()
+            else:
+                stream_iter = stream
+
+            for line in stream_iter:
                 line = line.rstrip()
                 if not line:
                     continue

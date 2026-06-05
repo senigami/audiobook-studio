@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import { useProjectLibrary } from '@/hooks/useProjectLibrary';
 import { ProjectCard } from '@/pages/ProjectDetail/components/ProjectCard';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
+import { LibraryControls } from './components/LibraryControls';
+import { ProjectListView } from './components/ProjectListView';
 
 interface ProjectLibraryProps {
     onSelectProject?: (projectId: string) => void;
@@ -35,7 +37,12 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
         handleDrop,
         handleCreateProject,
         handleDeleteClick,
-        confirmDelete
+        confirmDelete,
+        viewMode,
+        setViewMode,
+        sortOption,
+        setSortOption,
+        sortedProjects
     } = useProjectLibrary(onSelectProject);
 
     const formatDate = (timestamp: number) => {
@@ -53,14 +60,13 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
     }
 
     return (
-        <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '3rem', minHeight: '100%' }}>
+        <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', minHeight: '100%' }}>
             {/* Hero Section */}
             <header style={{ 
                 display: 'flex', 
                 justifyContent: 'space-between', 
                 alignItems: 'center', 
                 padding: '3rem',
-                margin: '1.5rem 0 0 0',
                 border: '1px solid var(--border)',
                 background: 'linear-gradient(135deg, var(--as-info-tint) 0%, var(--surface) 100%)',
                 borderRadius: 'var(--radius-panel)',
@@ -176,23 +182,41 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                     <p style={{ fontSize: '0.85rem', opacity: 0.7 }}>Create a new project to get started translating text into audio.</p>
                 </div>
             ) : (
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-                    gap: '1.5rem'
-                }}>
-                    {projects.map(project => (
-                        <ProjectCard
-                            key={project.id}
-                            project={project}
-                            isHovered={hoveredProjectId === project.id}
-                            onHover={setHoveredProjectId}
-                            onClick={(id) => onSelectProject?.(id)}
+                <>
+                    <LibraryControls
+                        viewMode={viewMode}
+                        onViewModeChange={setViewMode}
+                        sortOption={sortOption}
+                        onSortOptionChange={setSortOption}
+                    />
+
+                    {viewMode === 'grid' ? (
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                            gap: '1.5rem'
+                        }}>
+                            {sortedProjects.map(project => (
+                                <ProjectCard
+                                    key={project.id}
+                                    project={project}
+                                    isHovered={hoveredProjectId === project.id}
+                                    onHover={setHoveredProjectId}
+                                    onClick={(id) => onSelectProject?.(id)}
+                                    onDelete={handleDeleteClick}
+                                    formatDate={formatDate}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <ProjectListView
+                            projects={sortedProjects}
+                            onSelect={(id) => onSelectProject?.(id)}
                             onDelete={handleDeleteClick}
                             formatDate={formatDate}
                         />
-                    ))}
-                </div>
+                    )}
+                </>
             )}
 
             {/* Create Project Modal */}

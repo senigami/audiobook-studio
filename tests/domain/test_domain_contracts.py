@@ -12,12 +12,7 @@ from app.domain.artifacts.manifest import (
     validate_artifact_manifest,
 )
 from app.domain.artifacts.models import ArtifactOutputModel
-from app.domain.chapters.batching import (
-    compute_block_revision_hash,
-    derive_render_batches,
-)
-from app.domain.chapters.drafting import normalize_chapter_draft
-from app.domain.chapters.models import ChapterModel, ProductionBlockModel
+from app.domain.chapters.models import ChapterModel
 from app.domain.projects.models import ProjectModel
 from app.domain.projects.snapshots import build_project_snapshot, validate_project_snapshot
 from app.domain.settings.ownership import build_settings_ownership_chain
@@ -37,34 +32,6 @@ def _disable_external_engines_by_default(monkeypatch: pytest.MonkeyPatch) -> Non
     load_engine_registry.cache_clear()
     yield
     load_engine_registry.cache_clear()
-
-
-def _make_block(
-    *,
-    block_id: str,
-    order_index: int,
-    text: str,
-    voice_assignment_id: str = "voice-1",
-    engine_id: str = "engine-1",
-    engine_version: str = "2.0.0",
-    character_id: str | None = None,
-    estimated_work_weight: int = 1,
-    synthesis_settings: dict[str, object] | None = None,
-) -> ProductionBlockModel:
-    return ProductionBlockModel(
-        id=block_id,
-        chapter_id="chapter-1",
-        order_index=order_index,
-        stable_key=f"stable-{block_id}",
-        text=text,
-        normalized_text=text,
-        voice_assignment_id=voice_assignment_id,
-        resolved_engine_id=engine_id,
-        resolved_engine_version=engine_version,
-        character_id=character_id,
-        estimated_work_weight=estimated_work_weight,
-        synthesis_settings=synthesis_settings or {"speed": 1.0},
-    )
 
 
 def test_artifact_manifest_fingerprint_and_staleness() -> None:
@@ -181,82 +148,6 @@ def test_artifact_manifest_detects_non_text_input_changes(
     assert is_artifact_stale(manifest=manifest, **expected)
 
 
-def test_render_batch_derivation_groups_compatible_blocks() -> None:
-    chapter = ChapterModel(id="chapter-1", project_id="project-1", title="Chapter 1")
-    blocks = [
-        _make_block(block_id="block-1", order_index=0, text="A" * 1000),
-        _make_block(block_id="block-2", order_index=1, text="B" * 1000),
-        _make_block(block_id="block-3", order_index=2, text="C" * 1000),
-    ]
-
-    batches = derive_render_batches(chapter=chapter, blocks=blocks)
-
-    assert len(batches) == 2
-    assert batches[0].block_ids == ["block-1", "block-2"]
-    assert batches[1].block_ids == ["block-3"]
-    assert batches[0].resolved_engine_id == "engine-1"
-    assert batches[0].resolved_voice_assignment_id == "voice-1"
-    assert batches[0].batch_revision_hash.startswith("sha256:")
-
-    changed = compute_block_revision_hash(_make_block(block_id="block-1", order_index=0, text="A" * 1000, engine_version="2.0.1"))
-    assert changed != compute_block_revision_hash(blocks[0])
-
-
-def test_render_batch_derivation_rejects_unknown_subset_ids() -> None:
-    chapter = ChapterModel(id="chapter-1", project_id="project-1", title="Chapter 1")
-    blocks = [
-        _make_block(block_id="block-1", order_index=0, text="One"),
-        _make_block(block_id="block-2", order_index=1, text="Two"),
-    ]
-
-    with pytest.raises(ValueError, match="Unknown block ids"):
-        derive_render_batches(chapter=chapter, blocks=blocks, block_ids=["block-1", "missing-block"])
-
-
-def test_render_batch_derivation_keeps_subset_order_from_chapter() -> None:
-    chapter = ChapterModel(id="chapter-1", project_id="project-1", title="Chapter 1")
-    blocks = [
-        _make_block(block_id="block-1", order_index=0, text="One"),
-        _make_block(block_id="block-2", order_index=1, text="Two"),
-        _make_block(block_id="block-3", order_index=2, text="Three"),
-    ]
-
-    batches = derive_render_batches(
-        chapter=chapter,
-        blocks=blocks,
-        block_ids=["block-3", "block-1"],
-    )
-
-    assert len(batches) == 1
-    assert batches[0].block_ids == ["block-1", "block-3"]
-
-
-def test_render_batch_derivation_splits_on_incompatible_adjacent_blocks() -> None:
-    chapter = ChapterModel(id="chapter-1", project_id="project-1", title="Chapter 1")
-    blocks = [
-        _make_block(block_id="block-1", order_index=0, text="One", voice_assignment_id="voice-1"),
-        _make_block(block_id="block-2", order_index=1, text="Two", voice_assignment_id="voice-2"),
-        _make_block(block_id="block-3", order_index=2, text="Three", voice_assignment_id="voice-2"),
-    ]
-
-    batches = derive_render_batches(chapter=chapter, blocks=blocks)
-
-    assert [batch.block_ids for batch in batches] == [["block-1"], ["block-2", "block-3"]]
-
-
-def test_render_batch_derivation_splits_on_weight_limits() -> None:
-    chapter = ChapterModel(id="chapter-1", project_id="project-1", title="Chapter 1")
-    blocks = [
-        _make_block(block_id="block-1", order_index=0, text="One", estimated_work_weight=6),
-        _make_block(block_id="block-2", order_index=1, text="Two", estimated_work_weight=6),
-        _make_block(block_id="block-3", order_index=2, text="Three", estimated_work_weight=6),
-    ]
-
-    batches = derive_render_batches(chapter=chapter, blocks=blocks)
-
-    assert [batch.block_ids for batch in batches] == [["block-1", "block-2"], ["block-3"]]
-
-
 def test_project_snapshot_portability_and_validation() -> None:
     project = ProjectModel(
         id="project-1",
@@ -333,17 +224,6 @@ def test_voice_compatibility_rejects_engine_mismatch_for_asset() -> None:
         validate_voice_compatibility(profile=profile, engine_id="engine-1", asset=asset)
 
 
-def test_normalize_chapter_draft_generates_revision_hashes() -> None:
-    draft = normalize_chapter_draft(
-        chapter_id="chapter-1",
-        raw_text="First block\n\nSecond block",
-    )
-
-    assert draft.revision_id.startswith("rev_")
-    assert [block.order_index for block in draft.blocks] == [0, 1]
-    assert all(block.render_revision_hash and block.render_revision_hash.startswith("sha256:") for block in draft.blocks)
-
-
 def test_preview_voice_profile_routes_through_real_bridge() -> None:
     response = preview_voice_profile(
         VoicePreviewRequestModel(
@@ -384,7 +264,6 @@ def test_preview_voice_profile_rejects_non_wav_bridge_format(
     "module_path",
     [
         "app/domain/artifacts/manifest.py",
-        "app/domain/chapters/batching.py",
         "app/domain/projects/snapshots.py",
         "app/domain/settings/ownership.py",
         "app/domain/voices/compatibility.py",

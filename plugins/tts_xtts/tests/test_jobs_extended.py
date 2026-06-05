@@ -55,14 +55,14 @@ def test_handle_xtts_job_bake(mock_job, tmp_path):
         mock_generate.side_effect = side_effect
 
         handle_xtts_job(
-            "test_job", mock_job, time.time(), 
-            print, lambda: False, "default.wav", 1.0, 
+            "test_job", mock_job, time.time(),
+            print, lambda: False, "default.wav", 1.0,
             pdir, out_wav, out_mp3
         )
 
         assert mock_generate.called
         assert mock_stitch.called
-        mock_update_queue.assert_called_with("test_job", "done", audio_length_seconds=10.0)
+        mock_update_queue.assert_called_with("test_job", "done", audio_length_seconds=10.0, output_file="output.wav")
 
 def test_handle_xtts_job_segments(mock_job, tmp_path):
     mock_job.segment_ids = ["s1"]
@@ -165,8 +165,10 @@ def test_handle_xtts_job_standard_mixed_latent_only_profiles_builds_script(mock_
          patch("plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=inspect_script), \
          patch("plugins.tts_xtts.plugin.studio.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
          patch("plugins.tts_xtts.plugin.studio.handler.update_job"), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"), \
          patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value=None), \
          patch("plugins.tts_xtts.plugin.studio.handler.get_voice_profile_dir", side_effect=lambda name: Path(f"/tmp/voices/{name}")):
+
 
         handle_xtts_job(
             "test_job", mock_job, time.time(),
@@ -184,6 +186,77 @@ def test_handle_xtts_job_standard_mixed_latent_only_profiles_builds_script(mock_
     assert captured["script"][1]["save_path"].endswith("/segments/c1.wav")
     assert captured["script"][1]["voice_profile_dir"] == "/tmp/voices/Old Man - Angry"
     assert captured["script"][1]["speaker_wav"] is None
+
+
+def test_handle_xtts_job_standard_ignores_orphan_progress_before_start_segment(mock_job, tmp_path):
+    mock_job.segment_ids = None
+    mock_job.speaker_profile = "Senigami"
+    pdir = tmp_path / "project"
+    pdir.mkdir()
+    out_wav = pdir / "output.wav"
+    out_mp3 = pdir / "output.mp3"
+    seg_path = pdir / "segments" / "s1.wav"
+
+    def generate_with_orphan_progress(**kwargs):
+        on_output = kwargs["on_output"]
+        on_output("[PROGRESS] 100%")
+        on_output("[START_SEGMENT] s1")
+        on_output("[PROGRESS] 20%")
+        seg_path.parent.mkdir(parents=True, exist_ok=True)
+        seg_path.write_text("chunk")
+        on_output(f"[SEGMENT_SAVED] {seg_path}")
+        return 0
+
+    with patch("plugins.tts_xtts.plugin.studio.handler.load_chunk_segments", return_value=[
+            {"id": "s1", "text_content": "Hello", "character_id": None, "speaker_profile_name": None, "character_speaker_profile_name": None, "audio_status": "unprocessed", "audio_file_path": None},
+        ]), \
+         patch("app.db.get_connection"), \
+         patch("app.db.update_segments_status_bulk"), \
+         patch("app.db.update_segment"), \
+         patch("plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=generate_with_orphan_progress), \
+         patch("plugins.tts_xtts.plugin.studio.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update_job, \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value=None), \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_voice_profile_dir", return_value=Path("/tmp/voices/Senigami")):
+
+        handle_xtts_job(
+            "test_job", mock_job, time.time(),
+            print, lambda: False, None, 1.0,
+            pdir, out_wav, out_mp3, text="Hello"
+        )
+
+    orphan_progress_calls = [
+        call for call in mock_update_job.call_args_list
+        if call.kwargs.get("active_segment_id") is None
+        and call.kwargs.get("active_segment_progress") == 1.0
+    ]
+    assert orphan_progress_calls == []
+
+    active_progress_calls = [
+        call for call in mock_update_job.call_args_list
+        if call.kwargs.get("active_segment_progress") == 0.2
+    ]
+    assert active_progress_calls
+
+    pre_start_progress_calls = []
+    for call in mock_update_job.call_args_list:
+        if call.kwargs.get("active_segment_id") == "s1":
+            break
+        progress = call.kwargs.get("progress")
+        if (
+            isinstance(progress, (int, float))
+            and progress > 0
+            and call.kwargs.get("active_segment_id") is None
+        ):
+            pre_start_progress_calls.append(call)
+    assert pre_start_progress_calls == []
+
+    for call in mock_update_job.call_args_list:
+        status = call.kwargs.get("status")
+        if status in {"done", "failed", "cancelled"}:
+            continue
+        assert call.kwargs.get("skip_studio_job_event") is True
+        assert call.kwargs.get("skip_job_updated") is True
 
 def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
     mock_job.make_mp3 = True
@@ -213,7 +286,7 @@ def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
 
         handle_xtts_job(
             "test_job", mock_job, time.time(),
-            print, lambda: False, "default.wav", 1.0, 
+            print, lambda: False, "default.wav", 1.0,
             pdir, out_wav, out_mp3, text="Hello"
         )
 
@@ -266,9 +339,50 @@ def test_handle_xtts_job_cancel(mock_job, tmp_path):
          patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update_job:
 
         handle_xtts_job(
-            "test_job", mock_job, time.time(), 
-            print, lambda: True, "default.wav", 1.0, 
+            "test_job", mock_job, time.time(),
+            print, lambda: True, "default.wav", 1.0,
             pdir, out_wav, out_mp3, text="Hello"
         )
 
         mock_update_job.assert_any_call("test_job", status="cancelled", finished_at=ANY, progress=1.0, error="Cancelled.")
+
+
+def test_no_finalizing_status_is_set(mock_job, tmp_path):
+    mock_job.make_mp3 = True
+    pdir = tmp_path / "project"
+    pdir.mkdir()
+    out_wav = pdir / "output.wav"
+    out_mp3 = pdir / "output.mp3"
+    out_wav.write_text("wav")
+    out_mp3.write_text("mp3")
+
+    def inspect_script(**kwargs):
+        script = kwargs["script"]
+        for entry in script:
+            Path(entry["save_path"]).write_text("chunk")
+        return 0
+
+    with patch("plugins.tts_xtts.plugin.studio.handler.load_chunk_segments", return_value=[
+            {"id": "s1", "text_content": "Hello", "character_id": None, "speaker_profile_name": None, "character_speaker_profile_name": None, "audio_status": "unprocessed", "audio_file_path": None},
+        ]), \
+         patch("app.db.get_connection"), \
+         patch("app.db.update_segments_status_bulk"), \
+         patch("app.db.update_segment"), \
+         patch("plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=inspect_script), \
+         patch("plugins.tts_xtts.plugin.studio.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
+         patch("plugins.tts_xtts.plugin.studio.handler.wav_to_mp3", return_value=0), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update_job:
+
+        handle_xtts_job(
+            "test_job", mock_job, time.time(),
+            print, lambda: False, "default.wav", 1.0,
+            pdir, out_wav, out_mp3, text="Hello"
+        )
+
+        for call in mock_update_job.call_args_list:
+            status = call.kwargs.get("status")
+            assert status != "finalizing"
+            if status in {"done", "failed", "cancelled"}:
+                continue
+            assert call.kwargs.get("skip_studio_job_event") is True
+            assert call.kwargs.get("skip_job_updated") is True

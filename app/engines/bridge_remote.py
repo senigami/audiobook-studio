@@ -153,6 +153,14 @@ class RemoteBridgeHandler:
         """Install dependencies via TTS Server."""
         return self._get_tts_client().install_dependencies(engine_id)
 
+    def delete_engine(self, engine_id: str) -> dict[str, Any]:
+        """Delete/Uninstall engine via TTS Server."""
+        return self._get_tts_client().delete_engine(engine_id)
+
+    def import_plugin(self, file_content: bytes, filename: str) -> dict[str, Any]:
+        """Import plugin zip via TTS Server."""
+        return self._get_tts_client().import_plugin(file_content, filename)
+
     def _get_tts_client(self) -> Any:
         """Connect to global watchdog client."""
         if self._tts_client_factory is not None:

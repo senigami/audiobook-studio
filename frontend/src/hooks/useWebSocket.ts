@@ -1,10 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-export const useWebSocket = (url: string, onMessage: (data: any) => void) => {
+export const useWebSocket = (
+  url: string,
+  onMessage: (data: any, raw?: string) => void,
+  options?: { captureDebugMessages?: boolean }
+) => {
+  void options?.captureDebugMessages;
   const [connected, setConnected] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const onMessageRef = useRef(onMessage);
+  const captureDebugMessages = options?.captureDebugMessages ?? true;
+  void captureDebugMessages;
 
   useEffect(() => {
     onMessageRef.current = onMessage;
@@ -29,8 +36,10 @@ export const useWebSocket = (url: string, onMessage: (data: any) => void) => {
 
     socket.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
-        onMessageRef.current(data);
+        const raw = event.data;
+        const data = JSON.parse(raw);
+
+        onMessageRef.current(data, raw);
       } catch (e) {
         console.error('WS parse error', e);
       }
@@ -63,5 +72,11 @@ export const useWebSocket = (url: string, onMessage: (data: any) => void) => {
     };
   }, [connect]);
 
-  return { connected };
+  const sendMessage = useCallback((data: any) => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify(data));
+    }
+  }, []);
+
+  return { connected, sendMessage };
 };

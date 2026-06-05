@@ -52,7 +52,7 @@ class EngineManifestModel:
     built_in: bool = True
 
     # SDK fields — populated by the TTS Server plugin loader
-    schema_version: str = "1.0"
+    studio_tts_manifest: str = "1.0"
     version: str = "0.0.0"
     min_studio: str = "2.0.0"
     entry_class: str = ""
@@ -68,6 +68,8 @@ class EngineManifestModel:
     test_sample: str | None = None
     verified: bool = False
     behavior: dict[str, Any] = field(default_factory=dict)
+    dev: dict[str, Any] = field(default_factory=dict)
+    logo: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -116,6 +118,7 @@ class EngineRegistrationModel:
 
         # Flatten manifest for top-level compatibility with TTS Server detail shape
         flattened = {
+            "studio_tts_manifest": self.manifest.studio_tts_manifest,
             "engine_id": self.manifest.engine_id,
             "display_name": self.manifest.display_name,
             "status": self.health.status,
@@ -131,6 +134,8 @@ class EngineRegistrationModel:
             "homepage": self.manifest.homepage,
             "test_text": self.manifest.test_text,
             "behavior": dict(self.manifest.behavior),
+            "dev": dict(self.manifest.dev),
+            "logo": dict(self.manifest.logo),
         }
 
         try:

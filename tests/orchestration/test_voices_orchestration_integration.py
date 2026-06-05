@@ -48,12 +48,16 @@ def test_voice_build_api_uses_real_orchestrator_submit(clean_db, voices_root, cl
     files = {"files": ("input.wav", io.BytesIO(b"fake wav"), "audio/wav")}
     with patch("app.engines.bridge.create_voice_bridge", return_value=mock_bridge), \
          patch("app.engines.audio_ops.wav_to_mp3", side_effect=fake_wav_to_mp3), \
-         patch("app.db.speakers.list_tts_engines", return_value=["xtts"]), \
-         patch("app.db.speakers.get_default_profile_engine", return_value="xtts"), \
+         patch("app.engines.voice_engines.list_tts_engines", return_value=["xtts"]), \
+         patch("app.engines.voice_engines.get_default_profile_engine", return_value="xtts"), \
          patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
-         patch("app.orchestration.scheduler.orchestrator.release_task_resources"):
+         patch("app.orchestration.scheduler.orchestrator.release_task_resources"), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None):
         response = client.post("/api/speaker-profiles/ApiOrchSpeaker/build", files=files)
 
+    if not mock_bridge.synthesize.called:
+        print(f"\n[DEBUG] response: {response.json()}")
+        print(f"[DEBUG] mock_bridge calls: {mock_bridge.mock_calls}")
     assert response.status_code == 200
     assert mock_bridge.synthesize.called
     request = mock_bridge.synthesize.call_args.args[0]
@@ -175,3 +179,72 @@ def test_voice_test_orchestration_e2e(voices_root):
     settings = get_speaker_settings("TestSpeaker")
     assert settings["preview_test_text"] == "Testing 1 2 3"
     assert settings["preview_model"] == "large"
+
+
+def test_sample_tasks_expose_script_text_alias():
+    """Sample tasks must expose test_text under script_text for XTTS dispatch."""
+    from app.orchestration.tasks.sample_build import SampleBuildTask
+    from app.orchestration.tasks.sample_test import SampleTestTask
+
+    build_task = SampleBuildTask(
+        task_id="build-1",
+        speaker_profile="VoiceA",
+        engine_id="xtts",
+        output_path=Path("/tmp/sample.mp3"),
+        test_text="Build text",
+    )
+    test_task = SampleTestTask(
+        task_id="test-1",
+        speaker_profile="VoiceA",
+        engine_id="xtts",
+        output_path=Path("/tmp/sample.mp3"),
+        test_text="Test text",
+    )
+
+    assert build_task.script_text == "Build text"
+    assert build_task.describe().payload["script_text"] == "Build text"
+    assert test_task.script_text == "Test text"
+    assert test_task.describe().payload["script_text"] == "Test text"
+
+
+def test_voice_build_fails_when_no_engine(clean_db, voices_root):
+    from app.orchestration.tasks.sample_build import SampleBuildTask
+    from app.jobs.worker_voice import handle_voice_job
+    from unittest.mock import patch
+
+    # 1. Test validate() raises ValueError
+    task = SampleBuildTask(
+        task_id="build-1",
+        speaker_profile="OrchSpeaker",
+        engine_id="",
+        output_path=Path("sample.mp3"),
+        test_text="This is a test build."
+    )
+    with pytest.raises(ValueError):
+        task.validate()
+
+    # 2. Test handle_voice_job fails via _mark_queue_failed
+    # Set up voice profile without engine in settings
+    profile_root = voices_root / "NoEngineSpeaker"
+    profile_root.mkdir(parents=True, exist_ok=True)
+    (profile_root / "voice.json").write_text(json.dumps({"version": 2, "name": "NoEngineSpeaker"}))
+    profile_dir = profile_root / "Default"
+    profile_dir.mkdir()
+    (profile_dir / "profile.json").write_text(json.dumps({
+        "variant_name": "Default"
+    }))
+
+    # We mock _mark_queue_failed to see if it is called
+    with patch("app.jobs.worker_voice._mark_queue_failed") as mock_fail, \
+         patch("app.engines.voice_engines.get_default_profile_engine", return_value=""):
+
+        class DummyJob:
+            def __init__(self):
+                self.speaker_profile = "NoEngineSpeaker"
+                self.engine = "voice_build"
+
+        dummy_job = DummyJob()
+        handle_voice_job("job-123", dummy_job, lambda msg: None, lambda: False)
+
+        assert mock_fail.called
+        assert "no tts engine" in mock_fail.call_args[0][1].lower()

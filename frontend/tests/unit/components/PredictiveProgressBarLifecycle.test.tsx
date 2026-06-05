@@ -15,7 +15,7 @@ describe('PredictiveProgressBar - Lifecycle', () => {
         )
         const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
         expect(fill()).toBeTruthy()
-        expect(fill().style.width).toBe('100%')
+        expect(fill().style.width).toBe('0%')
         rerender(
             <PredictiveProgressBar
                 progress={0.01}
@@ -34,9 +34,9 @@ describe('PredictiveProgressBar - Lifecycle', () => {
     it('is null-safe for debug snapshots before first capture', () => {
         let captured: any = null
         render(
-            <PredictiveProgressBar 
-                progress={0.5} 
-                status="running" 
+            <PredictiveProgressBar
+                progress={0.5}
+                status="running"
                 onDebugSnapshot={sn => captured = sn}
             />
         )
@@ -80,9 +80,9 @@ describe('PredictiveProgressBar - Lifecycle', () => {
     it('includes all transition and confidence fields in debug snapshot', () => {
         let captured: any = null
         render(
-            <PredictiveProgressBar 
-                progress={0.5} 
-                status="running" 
+            <PredictiveProgressBar
+                progress={0.5}
+                status="running"
                 transitionTickCount={12}
                 backwardTransitionTickCount={2}
                 tickMs={250}
@@ -105,19 +105,19 @@ describe('PredictiveProgressBar - Lifecycle', () => {
     it('performs an instant mode swap (no backward animation) on preparing -> running transition', () => {
         vi.useFakeTimers()
         const { container, rerender } = render(
-            <PredictiveProgressBar 
-                progress={0.5} 
-                status="preparing" 
+            <PredictiveProgressBar
+                progress={0.5}
+                status="preparing"
                 showEta={false}
             />
         )
         const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
-        expect(fill().style.width).toBe('100%')
+        expect(fill().style.width).toBe('0%')
         act(() => {
             rerender(
-                <PredictiveProgressBar 
-                    progress={0} 
-                    status="running" 
+                <PredictiveProgressBar
+                    progress={0}
+                    status="running"
                     showEta={false}
                 />
             )
@@ -129,9 +129,9 @@ describe('PredictiveProgressBar - Lifecycle', () => {
     it('verifies real queue trace sequence: running 0/no ETA -> metadata -> grouped progress', () => {
         vi.useFakeTimers()
         const { container, rerender } = render(
-            <PredictiveProgressBar 
-                progress={0} 
-                status="running" 
+            <PredictiveProgressBar
+                progress={0}
+                status="running"
                 showEta={true}
             />
         )
@@ -139,9 +139,9 @@ describe('PredictiveProgressBar - Lifecycle', () => {
         expect(fill().style.width).toBe('0%')
         const nowMs = Date.now()
         rerender(
-            <PredictiveProgressBar 
-                progress={0} 
-                status="running" 
+            <PredictiveProgressBar
+                progress={0}
+                status="running"
                 showEta={true}
                 etaSeconds={60}
                 updatedAt={nowMs / 1000}
@@ -151,6 +151,47 @@ describe('PredictiveProgressBar - Lifecycle', () => {
         expect(fill().style.width).toBe('0%')
         act(() => { vi.advanceTimersByTime(1000) })
         expect(parseFloat(fill().style.width)).toBeGreaterThan(0)
+        vi.useRealTimers()
+    })
+
+    it('smoothly animates finalizing status to 100 percent instead of resetting/stalling', () => {
+        vi.useFakeTimers()
+        const { container, rerender } = render(
+            <PredictiveProgressBar
+                progress={0.3}
+                status="running"
+                showEta={false}
+                transitionTickCount={4}
+                tickMs={250}
+            />
+        )
+        const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
+
+        // Transition to finalizing with progress 1
+        rerender(
+            <PredictiveProgressBar
+                progress={1.0}
+                status="finalizing"
+                showEta={false}
+                transitionTickCount={4}
+                tickMs={250}
+            />
+        )
+
+        // Before timing ticks, progress should be around 30% (from running state)
+        expect(parseFloat(fill().style.width)).toBeLessThan(50)
+        expect(parseFloat(fill().style.width)).toBeGreaterThan(20)
+
+        // Advance timers to let it animate towards 100%
+        act(() => { vi.advanceTimersByTime(500) })
+        const progressMid = parseFloat(fill().style.width)
+        expect(progressMid).toBeGreaterThan(30)
+        expect(progressMid).toBeLessThan(100)
+
+        // Complete the animation
+        act(() => { vi.advanceTimersByTime(1000) })
+        expect(parseFloat(fill().style.width)).toBe(100)
+
         vi.useRealTimers()
     })
 })

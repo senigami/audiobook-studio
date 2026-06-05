@@ -59,6 +59,28 @@ def test_reset_chapter_audio_deletes_chunk_files(db_conn, tmp_path):
         assert success is True
         assert not chunk_path.exists()
 
+def test_cleanup_chapter_audio_files_deletes_segment_file_by_id(db_conn, tmp_path):
+    from app.db.chapters import cleanup_chapter_audio_files
+    from app.db.segments import sync_chapter_segments, get_chapter_segments
+    from app.core.config import get_chapter_dir
+
+    pid = create_project("P2C", "/tmp")
+    cid = create_chapter(pid, "C1", "One. Two.")
+    with patch("app.core.config.PROJECTS_DIR", tmp_path), \
+         patch("app.core.config.TRASH_DIR", tmp_path / "trash"):
+        chapter_dir = get_chapter_dir(pid, cid)
+        segment_dir = chapter_dir / "segments"
+        segment_dir.mkdir(parents=True, exist_ok=True)
+
+        sync_chapter_segments(cid, "One. Two.")
+        segs = get_chapter_segments(cid)
+        target_segment_id = segs[1]["id"]
+        target_path = segment_dir / f"{target_segment_id}.wav"
+        target_path.write_text("chunk")
+
+        assert cleanup_chapter_audio_files(pid, cid, [target_segment_id]) is True
+        assert not target_path.exists()
+
 def test_update_segment_only_cleans_edited_segment_files(db_conn, tmp_path):
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
     from app.core.config import get_chapter_dir

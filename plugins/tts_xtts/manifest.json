@@ -34,23 +34,58 @@
     ],
     "required_settings": [],
     "setting_aliases": {},
-    "synthesis_settings": ["temperature", "repetition_penalty", "top_k", "top_p"],
+    "synthesis_settings": [
+      "model",
+      "temperature",
+      "repetition_penalty",
+      "top_k",
+      "top_p"
+    ],
     "text_chunk_limit": 500,
     "text_split_target": 450,
-    "progress_pattern": "\\[PROGRESS\\]\\s*(?P<value>\\d+(?:\\.\\d+)?)\\s*%"
+    "progress_pattern": "\\[PROGRESS\\]\\s*(?P<value>\\d+(?:\\.\\d+)?)\\s*%",
+    "timing_markers": {
+      "ENGINE_ACTIVITY_STARTED": ["Loading XTTS model..."],
+      "START_SYNTHESIS": ["[START_SYNTHESIS]"],
+      "START_SEGMENT": ["[START_SEGMENT]"],
+      "SEGMENT_SAVED": ["[SEGMENT_SAVED]"],
+      "CHAPTER_SYNTHESIS_COMPLETE": ["Successfully synthesized"]
+    }
   },
   "local": true,
   "cloud": false,
   "network": false,
-  "languages": ["en", "es", "fr", "de", "it", "pt", "pl", "tr", "ru", "nl", "cs", "ar", "zh"],
+  "languages": [
+    "en",
+    "es",
+    "fr",
+    "de",
+    "it",
+    "pt",
+    "pl",
+    "tr",
+    "ru",
+    "nl",
+    "cs",
+    "ar",
+    "zh"
+  ],
   "resource": {
     "gpu": true,
     "vram_mb": 4000,
     "cpu_heavy": true
   },
-  "author": "Coqui AI",
-  "homepage": "https://github.com/coqui-ai/TTS",
+  "author": "idiap/coqui-ai-TTS",
+  "homepage": "https://github.com/idiap/coqui-ai-TTS",
   "license": "CPML-1.0",
   "test_sample": "latent.pth",
-  "test_text": "Hello, this is a verification test of the XTTS synthesis engine."
+  "test_text": "Hello, this is a verification test of the XTTS synthesis engine.",
+  "dev": {
+    "enabled": false,
+    "scenarios": "dev/scenarios.json"
+  },
+  "logo": {
+    "svg": "assets/logo.svg",
+    "png": "assets/logo.png"
+  }
 }

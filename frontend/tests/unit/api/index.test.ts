@@ -44,12 +44,6 @@ describe('api methods', () => {
         await api.updateChapter('c1', { title: 'Chapter 1' })
         expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1', expect.anything())
 
-        await api.fetchProductionBlocks('c1')
-        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1/production-blocks')
-
-        await api.updateProductionBlocks('c1', { blocks: [] })
-        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1/production-blocks', expect.objectContaining({ method: 'PUT' }))
-
         await api.exportChapterAudio('c1', 'wav')
         expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1/export-audio', expect.objectContaining({ 
             method: 'POST',
@@ -59,11 +53,7 @@ describe('api methods', () => {
     })
 
     it('other', async () => {
-        await api.fetchJobs()
-        expect(global.fetch).toHaveBeenCalledWith('/api/jobs')
 
-        await api.updateTitle('c1.txt', 'New Title')
-        expect(global.fetch).toHaveBeenCalledWith('/api/job/update_title', expect.anything())
 
         await api.deleteAudiobook('ab1')
         expect(global.fetch).toHaveBeenCalledWith('/api/audiobook/ab1', expect.objectContaining({ method: 'DELETE' }))
@@ -79,18 +69,6 @@ describe('api methods', () => {
 
         await api.reorderChapters('p1', ['c1', 'c2'])
         expect(global.fetch).toHaveBeenCalledWith('/api/projects/p1/reorder_chapters', expect.objectContaining({ method: 'POST' }))
-
-        await api.fetchActiveJob()
-        expect(global.fetch).toHaveBeenCalledWith('/api/active_job')
-
-        await api.fetchJobDetails('f1')
-        expect(global.fetch).toHaveBeenCalledWith('/api/job/f1')
-
-        await api.fetchPreview('f1', true)
-        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/f1/preview?processed=true')
-
-        await api.cancelPending()
-        expect(global.fetch).toHaveBeenCalledWith('/api/generation/cancel-all', expect.objectContaining({ method: 'POST' }))
 
         await api.exportSample('f1')
         expect(global.fetch).toHaveBeenCalledWith('/api/chapters/f1/export-sample', expect.objectContaining({ method: 'POST' }))
@@ -128,14 +106,5 @@ describe('api methods', () => {
 
         await expect(api.generateSegments(['seg-1'], 'Test')).rejects.toThrow(/Enable Cloud Engine/i)
         await expect(api.addProcessingQueue('p1', 'c1', 0, 'Test')).rejects.toThrow(/Enable Cloud Engine/i)
-    })
-
-    it('rejects production block updates when the backend reports a revision conflict', async () => {
-        global.fetch = vi.fn().mockResolvedValue({
-            ok: false,
-            json: () => Promise.resolve({ status: 'error', message: 'Revision mismatch' })
-        }) as any
-
-        await expect(api.updateProductionBlocks('c1', { blocks: [] })).rejects.toThrow('Revision mismatch')
     })
 })

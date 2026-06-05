@@ -12,7 +12,6 @@ from ...engines import bridge
 from ...db import state
 from ...utils import pathing
 from ...core import config
-from ...engines.voice_engines import get_default_profile_engine
 
 logger = logging.getLogger(__name__)
 
@@ -264,13 +263,13 @@ def list_speaker_profiles():
             if has_preview_signature:
                 preview_signature_stale = (
                     spk_settings.get("preview_test_text") != spk_settings.get("test_text")
-                    or spk_settings.get("preview_engine") != spk_settings.get("engine", get_default_profile_engine())
+                    or spk_settings.get("preview_engine") != (spk_settings.get("engine") or "")
                 )
-                if voices_helpers._has_behavior(spk_settings.get("engine", get_default_profile_engine()), "reference_sample"):
+                if voices_helpers._has_behavior(spk_settings.get("engine") or "", "reference_sample"):
                     preview_signature_stale = preview_signature_stale or (
                         spk_settings.get("preview_reference_sample") != spk_settings.get("reference_sample")
                     )
-                if voices_helpers._has_behavior(spk_settings.get("engine", get_default_profile_engine()), "voice_asset_id"):
+                if voices_helpers._has_behavior(spk_settings.get("engine") or "", "voice_asset_id"):
                     preview_signature_stale = preview_signature_stale or (
                         spk_settings.get("preview_voice_asset_id") != spk_settings.get("voice_asset_id")
                         or spk_settings.get("preview_model") != spk_settings.get("model")
@@ -303,13 +302,14 @@ def list_speaker_profiles():
             "test_text": spk_settings["test_text"],
             "speaker_id": spk_settings.get("speaker_id"),
             "variant_name": spk_settings.get("variant_name"),
-            "engine": spk_settings.get("engine", get_default_profile_engine()),
+            "engine": spk_settings.get("engine") or "",
             "voice_asset_id": spk_settings.get("voice_asset_id"),
             "model": spk_settings.get("model"),
             "reference_sample": spk_settings.get("reference_sample"),
             "preview_url": preview_url,
             "asset_base_url": voices_helpers._voice_asset_base_url(d),
             "has_latent": voices_helpers._voice_has_test_sample(name),
+            "settings": spk_settings,
             "is_ready": False,
             "readiness_message": "",
         }
@@ -342,8 +342,10 @@ def api_create_speaker_profile(
     variant_name: str = Form(...),
     engine: str = Form(None),
 ):
-    if engine is None:
-        engine = get_default_profile_engine()
+    if not engine:
+        engine = state.get_settings().get("default_engine") or ""
+    if not engine:
+        return JSONResponse({"status": "error", "message": "No TTS engine is configured. Please specify an engine or set a default in Settings."}, status_code=400)
     logger.info(f"Creating profile for speaker_id='{speaker_id}', variant_name='{variant_name}', engine='{engine}'")
     try:
         normalized_engine = voices_helpers._normalize_profile_engine(engine)

@@ -80,7 +80,7 @@ pick_python() {
     fi
     if "$candidate" - <<'PY'
 import sys
-raise SystemExit(0 if sys.version_info >= (3, 10) else 1)
+raise SystemExit(0 if sys.version_info >= (3, 11) else 1)
 PY
     then
       printf '%s\n' "$candidate"
@@ -256,7 +256,7 @@ maybe_restore_demo_bundle() {
 require_cmd bash
 
 PYTHON_BIN="$(pick_python || bootstrap_conda_python)"
-[[ -n "$PYTHON_BIN" ]] || die "Python 3.10+ is required. Please install Python 3.10 or newer, or use Pinokio's AI bundle with conda support."
+[[ -n "$PYTHON_BIN" ]] || die "Python 3.11+ is required. Please install Python 3.11 or newer, or use Pinokio's AI bundle with conda support."
 
 log "Using Python: $PYTHON_BIN"
 ensure_ffmpeg_ready

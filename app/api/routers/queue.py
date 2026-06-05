@@ -33,13 +33,13 @@ _LIVE_QUEUE_JOB_FIELDS = (
     "reason_code",
     "active_render_batch_id",
     "active_render_batch_progress",
+    "classification",
 )
 
 
 def _merge_live_queue_job(item: dict, job) -> None:
-    job_dict = asdict(job)
     for field in _LIVE_QUEUE_JOB_FIELDS:
-        value = job_dict.get(field)
+        value = getattr(job, field, None)
         if value is not None:
             item[field] = value
 
@@ -98,21 +98,6 @@ def api_get_queue():
         job = all_jobs.get(jid)
         if job:
             _merge_live_queue_job(item, job)
-        has_chapter_audio = item.get("chapter_audio_status") == "done" or bool(item.get("chapter_audio_file_path"))
-        completed_at = item.get("completed_at") or 0
-        has_active_sibling = bool(item.get("chapter_id")) and item.get("chapter_id") in active_queue_chapter_ids
-        from ...engines.behavior import has_simulated_finalizing
-        if (
-            has_simulated_finalizing(item.get("engine"))
-            and item.get("status") == "done"
-            and item.get("chapter_id")
-            and not has_chapter_audio
-            and not has_active_sibling
-            and completed_at
-            and (now - completed_at) <= 12
-        ):
-            item["status"] = "finalizing"
-            item["progress"] = 1.0
     return JSONResponse(queue_items)
 
 @router.delete("/processing_queue")

@@ -7,7 +7,8 @@ export const EngineMetadataPanel: React.FC<{
   engine: TtsEngine;
   schema: any;
   getBadgeStyles: (tone: 'blue' | 'yellow' | 'gray' | 'red') => React.CSSProperties;
-}> = ({ engine, schema, getBadgeStyles }) => {
+  unframed?: boolean;
+}> = ({ engine, schema, getBadgeStyles, unframed }) => {
   const ui = getEngineUi(schema);
   const helpUrl = ui?.help_url;
   const helpLabel = ui?.help_label || 'Open instructions';
@@ -15,14 +16,24 @@ export const EngineMetadataPanel: React.FC<{
   const summary = ui?.summary || schema?.description || engine.homepage || '';
   const privacyNotice = ui?.privacy_notice;
   const privacyTone = ui?.privacy_tone === 'warning' ? 'warning' : 'info';
-  const showPanel = Boolean(summary || ui?.help_url || privacyNotice || !engine.verified);
+  const showPanel = Boolean(summary || ui?.help_url || privacyNotice || !engine.verified)
+    && ui?.hidden !== true
+    && !(ui?.hide_metadata_when_verified === true && engine.verified)
+    && !(ui?.hide_metadata_when_not_ready === true && engine.status !== 'ready')
+    && !(ui?.hide_metadata_when_unverified === true && !engine.verified);
 
   if (!showPanel) {
     return null;
   }
 
   return (
-    <div style={{ marginBottom: '1rem', padding: '1rem', borderRadius: '16px', border: '1px solid rgba(43, 110, 255, 0.2)', background: 'linear-gradient(180deg, rgba(240, 247, 255, 0.9), rgba(245, 250, 255, 0.72))' }}>
+    <div style={{
+      marginBottom: unframed ? '0' : '1rem',
+      padding: unframed ? '0' : '1rem',
+      borderRadius: unframed ? '0' : '16px',
+      border: unframed ? 'none' : '1px solid rgba(43, 110, 255, 0.2)',
+      background: unframed ? 'transparent' : 'linear-gradient(180deg, rgba(240, 247, 255, 0.9), rgba(245, 250, 255, 0.72))'
+    }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.9rem' }}>
         <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-start' }}>
           <div style={{ width: 30, height: 30, borderRadius: '10px', display: 'grid', placeItems: 'center', color: 'var(--accent)', background: 'rgba(43, 110, 255, 0.12)', flexShrink: 0 }}>

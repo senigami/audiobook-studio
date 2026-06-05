@@ -13,11 +13,6 @@ class BulkSegmentsUpdate(BaseModel):
     updates: dict
 
 
-class ProductionBlocksUpdate(BaseModel):
-    blocks: list[dict]
-    base_revision_id: Optional[str] = None
-
-
 class AudioExportRequest(BaseModel):
     format: Literal["wav", "mp3"]
 

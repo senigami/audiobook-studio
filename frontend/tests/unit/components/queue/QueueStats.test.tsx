@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import { QueueStats } from '@/components/queue/QueueStats';
+
 describe('QueueStats', () => {
     beforeEach(() => {
         vi.useFakeTimers();
@@ -17,12 +18,28 @@ describe('QueueStats', () => {
         expect(container.firstChild).toBeNull();
     });
 
-    it('calculates and formats minutes correctly for queued items', () => {
+    it('returns null if any active processing item is missing an eta_seconds on its job', () => {
         const queue = [
-            { id: '1', status: 'queued', predicted_audio_length: 120 } as any,
-            { id: '2', status: 'queued', predicted_audio_length: 60 } as any
+            { id: '1', status: 'queued', char_count: 1000 } as any,
+            { id: '2', status: 'running', char_count: 2000 } as any
         ];
-        render(<QueueStats queue={queue} jobs={{}} />);
+        const jobs = {
+            '2': { id: '2', status: 'running', progress: 0.5 } as any // missing eta_seconds
+        };
+        const { container } = render(<QueueStats queue={queue} jobs={jobs} />);
+        expect(container.firstChild).toBeNull();
+    });
+
+    it('calculates and formats minutes correctly when all items have eta_seconds', () => {
+        const queue = [
+            { id: '1', status: 'queued' } as any,
+            { id: '2', status: 'queued' } as any
+        ];
+        const jobs = {
+            '1': { id: '1', status: 'queued', eta_seconds: 120 } as any,
+            '2': { id: '2', status: 'queued', eta_seconds: 60 } as any
+        };
+        render(<QueueStats queue={queue} jobs={jobs} />);
         
         // 120 + 60 = 180 seconds = 3 minutes
         expect(screen.getByText('3m remaining')).toBeDefined();
@@ -30,9 +47,12 @@ describe('QueueStats', () => {
 
     it('formats days, hours, and minutes correctly', () => {
         const queue = [
-            { id: '1', status: 'queued', predicted_audio_length: 86400 + 3600 + 120 } as any // 1d 1h 2m
+            { id: '1', status: 'queued' } as any
         ];
-        render(<QueueStats queue={queue} jobs={{}} />);
+        const jobs = {
+            '1': { id: '1', status: 'queued', eta_seconds: 86400 + 3600 + 120 } as any // 1d 1h 2m
+        };
+        render(<QueueStats queue={queue} jobs={jobs} />);
         
         expect(screen.getByText('1d 1h 2m remaining')).toBeDefined();
     });
@@ -40,7 +60,7 @@ describe('QueueStats', () => {
     it('updates in real-time as time passes', async () => {
         const startTimestamp = Date.now() / 1000;
         const queue = [
-            { id: 'job-1', status: 'running', predicted_audio_length: 300 } as any
+            { id: 'job-1', status: 'running' } as any
         ];
         const jobs = {
             'job-1': { 
@@ -75,7 +95,7 @@ describe('QueueStats', () => {
 
     it('shows "Finishing..." when total seconds reach 0', () => {
         const queue = [
-            { id: '1', status: 'running', predicted_audio_length: 0 } as any
+            { id: '1', status: 'running' } as any
         ];
         const jobs = {
             '1': { id: '1', status: 'running', progress: 0.999, eta_seconds: 0 } as any

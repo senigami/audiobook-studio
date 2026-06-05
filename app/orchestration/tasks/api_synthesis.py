@@ -110,6 +110,10 @@ class ApiSynthesisTask(StudioTask):
         try:
             result = bridge.synthesize(self.to_bridge_request())
             status = result.get("status", "ok")
+            synthesis_duration = result.get("duration_sec")
+            if synthesis_duration is not None:
+                from app.db.state import update_job
+                update_job(self.task_id, synthesis_duration_seconds=synthesis_duration)
             return TaskResult(
                 status="completed" if status == "ok" else "failed",
                 message=result.get("message"),

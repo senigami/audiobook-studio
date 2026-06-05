@@ -5,61 +5,17 @@ import threading
 _DISCOVERY_LOCK = threading.Lock()
 _IN_DISCOVERY = False
 
-def get_default_profile_engine(settings: Optional[dict] = None) -> str:
-    """Resolve the system-wide default engine ID from settings or discovery."""
-    if settings == {}:
-        # Rule 9: Safe schema default for initial boot before discovery is ready.
-        # This prevents problematic discovery calls during early module import.
-        return ""
-
-    # 1. Verification list
-    valid_engines = list_tts_engines()
-
-    # 2. Use provided settings or try to fetch them
-    if settings is None:
-        try:
-            from ..db.state_settings import get_settings
-            settings = get_settings()
-        except (ImportError, AttributeError, RecursionError):
-            settings = {}
-
-    # 3. Resolve from settings
-    explicit = settings.get("default_engine")
-    enabled_plugins = settings.get("enabled_plugins") or {}
-
-    if explicit and not valid_engines:
-        return str(explicit).strip().lower()
-
-    if explicit and explicit in valid_engines and enabled_plugins.get(explicit, True):
-        return explicit
-
-    # Find first enabled in registry
-    for eid in valid_engines:
-        if enabled_plugins.get(eid, True):
-            return eid
-
-    # Fallback to the first available engine in registry
-    if valid_engines:
-        return valid_engines[0]
-
-    # Rule 9: Generic placeholder if no engines are discovered yet.
-    # This avoids hardcoding a specific engine name as a runtime default.
-    return ""
-
-
-def list_tts_engines() -> list[str]:
+def _get_registry_manifests() -> list[dict]:
+    """Helper to fetch engine registry manifests once without recursion."""
     global _IN_DISCOVERY
     if _IN_DISCOVERY:
         return []
     _IN_DISCOVERY = True
     try:
-        import logging
-        logger = logging.getLogger(__name__)
         from ..engines.bridge import create_voice_bridge
         bridge = create_voice_bridge()
-        return [entry["engine_id"] for entry in bridge.describe_registry()]
+        return bridge.describe_registry()
     except Exception as e:
-        # Fallback if bridge is not ready
         import logging
         logging.getLogger(__name__).debug("Registry discovery failed: %s", e)
         return []
@@ -67,24 +23,82 @@ def list_tts_engines() -> list[str]:
         _IN_DISCOVERY = False
 
 
+def select_runtime_engine_candidate(registry_entries: list[dict], settings: Optional[dict] = None) -> str:
+    """Strictly return the configured `default_engine` from settings if it is valid (registered)
+    and enabled in `enabled_plugins`. Otherwise return `""`."""
+    if settings is None:
+        try:
+            from ..db.state_settings import get_settings
+            settings = get_settings()
+        except (ImportError, AttributeError, RecursionError):
+            settings = {}
+
+    enabled_plugins = settings.get("enabled_plugins") or {}
+    explicit = settings.get("default_engine")
+    if not explicit:
+        return ""
+
+    explicit_str = str(explicit).strip().lower()
+
+    # Check if registered and enabled
+    is_registered = any(entry.get("engine_id") == explicit_str for entry in registry_entries)
+    if is_registered and enabled_plugins.get(explicit_str, True):
+        return explicit_str
+
+    return ""
+
+
+def get_default_profile_engine(settings: Optional[dict] = None) -> str:
+    """Resolve the system-wide default engine ID from settings or discovery."""
+    if settings == {}:
+        # Rule 9: Safe schema default for initial boot before discovery is ready.
+        # This prevents problematic discovery calls during early module import.
+        return ""
+
+    # Use provided settings or try to fetch them
+    if settings is None:
+        try:
+            from ..db.state_settings import get_settings
+            settings = get_settings()
+        except (ImportError, AttributeError, RecursionError):
+            settings = {}
+
+    manifests = _get_registry_manifests()
+    return select_runtime_engine_candidate(manifests, settings)
+
+
+def list_tts_engines() -> list[str]:
+    return [entry["engine_id"] for entry in _get_registry_manifests() if entry.get("engine_id")]
+
+
 def normalize_tts_engine(engine: Optional[str], fallback: Optional[str] = None, settings: Optional[dict] = None) -> str:
     """Normalize an engine ID, resolving to system default if invalid or empty."""
     valid = list_tts_engines()
-    normalized = str(engine or fallback or "").strip().lower()
 
-    if not valid:
-        return normalized
+    if settings is None:
+        try:
+            from ..db.state_settings import get_settings
+            settings = get_settings()
+        except (ImportError, AttributeError, RecursionError):
+            settings = {}
 
-    # If the engine is empty or invalid, try to resolve the default
-    if not engine or engine.strip().lower() not in valid:
-        resolved_default = get_default_profile_engine(settings=settings)
-        if resolved_default in valid:
-            return resolved_default
-        if resolved_default:
-            return resolved_default
+    enabled_plugins = settings.get("enabled_plugins") or {}
 
-    # Use provided engine or ultimate fallback
-    return normalized if normalized in valid else (fallback or "")
+    def is_valid_and_enabled(engine_id: Optional[str]) -> bool:
+        if not engine_id:
+            return False
+        normalized = str(engine_id).strip().lower()
+        return normalized in valid and enabled_plugins.get(normalized, True)
+
+    # 1. Requested engine
+    if is_valid_and_enabled(engine):
+        return str(engine).strip().lower()
+
+    # 2. Fallback engine
+    if is_valid_and_enabled(fallback):
+        return str(fallback).strip().lower()
+
+    return ""
 
 
 def is_tts_engine(engine: Optional[str]) -> bool:
@@ -93,16 +107,25 @@ def is_tts_engine(engine: Optional[str]) -> bool:
 
 
 def resolve_profile_engine(profile_name_or_id: Optional[str], fallback_engine: Optional[str] = None) -> str:
-    fallback = normalize_tts_engine(fallback_engine)
     if not profile_name_or_id:
-        return fallback
-
+        if not fallback_engine:
+            return ""
+        from ..engines.voice_engines import list_tts_engines
+        try:
+            from ..db.state_settings import get_settings
+            settings = get_settings()
+        except Exception:
+            settings = {}
+        enabled_plugins = settings.get("enabled_plugins") or {}
+        normalized = str(fallback_engine).strip().lower()
+        if normalized in list_tts_engines() and enabled_plugins.get(normalized, True):
+            return normalized
+        return ""
     try:
         from ..db.speakers import get_profile_engine
-
-        return get_profile_engine(profile_name_or_id, fallback)
+        return get_profile_engine(profile_name_or_id)
     except Exception:
-        return fallback
+        return ""
 
 
 def resolve_tts_engine_for_profiles(

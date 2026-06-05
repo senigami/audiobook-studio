@@ -10,7 +10,8 @@ def reconcile_project_audio(project_id: str):
     Scans the project's audio directories and updates the database if audio files exist
     but the chapter status is not 'done'.
     """
-    from ..core import config
+    from ..storage.manager import get_storage_manager
+    storage = get_storage_manager()
 
     with _db_lock:
         with get_connection() as conn:
@@ -26,12 +27,12 @@ def reconcile_project_audio(project_id: str):
                     continue  # Never reconcile while a job is active or failed
 
                 # 1. Resolve the current asset
-                resolved = config.resolve_chapter_asset_path(
+                resolved = storage.resolve_chapter_asset_path(
                     project_id, cid, "audio", filename=current_path
                 )
                 if not resolved and not current_path:
                     # Try default names
-                    resolved = config.resolve_chapter_asset_path(project_id, cid, "audio")
+                    resolved = storage.resolve_chapter_asset_path(project_id, cid, "audio")
 
                 if not resolved:
                     if status == "done":

@@ -147,7 +147,7 @@ describe('PredictiveProgressBar - Transitions', () => {
             />
         )
         expect(captured.effectiveTargetProgress).toBeCloseTo(0.3)
-        
+
         act(() => { vi.advanceTimersByTime(4000) })
         expect(readPercent()).toBe(30)
         vi.useRealTimers()
@@ -182,6 +182,52 @@ describe('PredictiveProgressBar - Transitions', () => {
         expect(captured.isBackwardMigration).toBe(true)
         expect(captured.activeTransitionTickCount).toBe(2)
         expect(captured.migrationDurationMs).toBe(500)
+        vi.useRealTimers()
+    })
+
+    it('does not label the job status as Rendering or Finalizing before the backend status reaches those states', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(100_000)
+
+        // 1. When status is preparing, it shows Preparing, not Rendering or Finalizing
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0.1}
+                status="preparing"
+                checkpointMode="queue"
+                showLabel={true}
+            />
+        )
+        expect(screen.getByText('Preparing')).toBeTruthy()
+        expect(screen.queryByText('Rendering')).toBeNull()
+        expect(screen.queryByText('Finalizing')).toBeNull()
+
+        // 2. When status is running, it shows Rendering, not Finalizing, even if ETA is 0 (which triggers autoFinalizing internally)
+        rerender(
+            <PredictiveProgressBar
+                progress={0.99}
+                status="running"
+                etaSeconds={0}
+                updatedAt={100}
+                checkpointMode="queue"
+                showLabel={true}
+            />
+        )
+        expect(screen.getByText('Rendering')).toBeTruthy()
+        expect(screen.queryByText('Finalizing')).toBeNull()
+
+        // 3. Only when status is actually finalizing, it shows Finalizing
+        rerender(
+            <PredictiveProgressBar
+                progress={0.99}
+                status="finalizing"
+                checkpointMode="queue"
+                showLabel={true}
+            />
+        )
+        expect(screen.getByText('Finalizing')).toBeTruthy()
+        expect(screen.queryByText('Rendering')).toBeNull()
+
         vi.useRealTimers()
     })
 })

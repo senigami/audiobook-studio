@@ -5,7 +5,8 @@ import type { Project } from '@/types';
 interface ProjectHeaderProps {
   project: Project;
   totalRuntime: number;
-  totalPredicted: number;
+  totalPredicted: number | null;
+  hasUnrendered: boolean;
   onBack?: () => void;
   onEditMetadata: () => void;
   onShowCover: () => void;
@@ -17,6 +18,7 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
   project,
   totalRuntime,
   totalPredicted,
+  hasUnrendered,
   onEditMetadata,
   onShowCover,
   formatLength,
@@ -107,7 +109,7 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
               <div style={{ display: 'flex', gap: '2rem', marginTop: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <Clock size={16} /> 
-                      <span>Runtime: <strong style={{ color: 'var(--text-primary)' }}>{formatLength(totalRuntime)}</strong> {totalRuntime < totalPredicted && `(Predicted: ${formatLength(totalPredicted)})`}</span>
+                      <span>Runtime: <strong style={{ color: 'var(--text-primary)' }}>{formatLength(totalRuntime)}</strong> {hasUnrendered && (totalPredicted === null ? ' (Predicted: Unavailable)' : (totalRuntime < totalPredicted && ` (Predicted: ${formatLength(totalPredicted)})`))}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <CheckCircle size={16} />

@@ -104,18 +104,33 @@ def add_to_queue(project_id: str, chapter_id: str, split_part: int = 0):
             return queue_id
 
 def get_queue() -> List[Dict[str, Any]]:
+    from .core import get_studio_db_path
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
+            studio_db = get_studio_db_path()
+            cursor.execute("ATTACH DATABASE ? AS studio_db", (str(studio_db),))
             # Return active jobs sorted by created_at, then history items
             cursor.execute("""
                 SELECT q.*, p.name as project_name, c.title as chapter_title, 
                        c.predicted_audio_length, c.char_count,
                        c.audio_status as chapter_audio_status,
-                       c.audio_file_path as chapter_audio_file_path
+                       c.audio_file_path as chapter_audio_file_path,
+                       c.audio_length_seconds,
+                       s.audio_duration_seconds as produced_audio_length,
+                       s.chars as produced_chars,
+                       s.word_count as produced_word_count,
+                       s.segment_count as produced_segment_count
                 FROM processing_queue q
                 LEFT JOIN projects p ON q.project_id = p.id
                 LEFT JOIN chapters c ON q.chapter_id = c.id
+                LEFT JOIN studio_db.render_performance_samples s ON s.id = (
+                    SELECT latest.id
+                    FROM studio_db.render_performance_samples latest
+                    WHERE latest.job_id = q.id
+                    ORDER BY latest.completed_at DESC, latest.id DESC
+                    LIMIT 1
+                )
                 ORDER BY 
                    CASE WHEN q.status IN ('queued', 'running', 'preparing', 'finalizing') THEN 0 ELSE 1 END,
                    CASE WHEN q.status IN ('queued', 'running', 'preparing', 'finalizing') THEN q.created_at END ASC,
@@ -124,7 +139,9 @@ def get_queue() -> List[Dict[str, Any]]:
                    q.created_at DESC,
                    q.rowid DESC
             """)
-            return [dict(row) for row in cursor.fetchall()]
+            rows = cursor.fetchall()
+            cursor.execute("DETACH DATABASE studio_db")
+            return [dict(row) for row in rows]
 
 def clear_queue() -> bool:
     with _db_lock:
@@ -144,7 +161,7 @@ def clear_queue() -> bool:
             conn.commit()
             return True
 
-def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0, force_chapter_id: str = None, output_file: str = None, chapter_scoped: bool = True):
+def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0, force_chapter_id: str = None, output_file: str = None, error: str = None, chapter_scoped: bool = True):
     import logging
 
     logger = logging.getLogger(__name__)
@@ -160,12 +177,23 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
             if status == 'running':
                 updates.append("started_at = COALESCE(started_at, ?)")
                 params.append(now)
+                updates.append("completed_at = NULL")
+                updates.append("error = NULL")
             elif status == 'preparing':
-                # We NO LONGER set started_at during preparing to avoid corrupting render duration
-                pass
+                # Preparing is not processing time. Treat it as a reset-friendly active state.
+                updates.append("started_at = NULL")
+                updates.append("completed_at = NULL")
+                updates.append("error = NULL")
+            elif status == 'queued':
+                updates.append("started_at = NULL")
+                updates.append("completed_at = NULL")
+                updates.append("error = NULL")
             elif status in ('done', 'failed', 'cancelled'):
                 updates.append("completed_at = ?")
                 params.append(now)
+            if status in ('done', 'failed', 'cancelled') or error is not None:
+                updates.append("error = ?")
+                params.append(error if status in ('failed', 'cancelled') else None)
 
             params.append(queue_id)
             cursor.execute(f"UPDATE processing_queue SET {', '.join(updates)} WHERE id = ?", params)
@@ -217,14 +245,6 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
                 output_file=output_file,
                 audio_length_seconds=audio_length_seconds,
             )
-
-            # Broadcast project update to refresh orbs and counts
-            if row and row['project_id']:
-                try:
-                    from ..api.ws import broadcast_project_updated
-                    broadcast_project_updated(row['project_id'])
-                except Exception:
-                    pass
 
 def reconcile_queue_status(active_ids: List[str], known_job_statuses: Optional[Dict[str, str]] = None):
     """

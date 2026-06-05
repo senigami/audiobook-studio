@@ -3,6 +3,7 @@ import { RefreshCw, Terminal, Clipboard, SkipForward } from 'lucide-react';
 import { type ProgressBarTestConfig } from '@tests/helpers/ProgressBarTestTypes';
 import { MetricGrid } from '@tests/helpers/ProgressBarTestHelpers';
 import { type PredictiveProgressDebugSnapshot } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
+import { type StudioSocketEnvelope } from '@/store/studioSocketBus';
 
 interface ProgressBarDebugPanelProps {
   activeConfig: ProgressBarTestConfig;
@@ -10,6 +11,9 @@ interface ProgressBarDebugPanelProps {
   debugSnapshot: PredictiveProgressDebugSnapshot | null;
   debugHistory: string[];
   eventLog: string[];
+  updateSource: 'launch_config' | 'manual' | 'socket';
+  lastSocketEnvelope: StudioSocketEnvelope<any> | null;
+  lastIgnoredEnvelope: StudioSocketEnvelope<any> | null;
 }
 
 export const ProgressBarDebugPanel: React.FC<ProgressBarDebugPanelProps> = ({
@@ -17,7 +21,10 @@ export const ProgressBarDebugPanel: React.FC<ProgressBarDebugPanelProps> = ({
   launchConfig,
   debugSnapshot,
   debugHistory,
-  eventLog
+  eventLog,
+  updateSource,
+  lastSocketEnvelope,
+  lastIgnoredEnvelope
 }) => {
   const debugDump = debugSnapshot
     ? JSON.stringify({
@@ -32,7 +39,21 @@ export const ProgressBarDebugPanel: React.FC<ProgressBarDebugPanelProps> = ({
     <>
       <div style={{ marginTop: '1rem', display: 'grid', gap: '1rem' }}>
         <section style={{ padding: '1rem', borderRadius: '14px', border: '1px solid var(--border)', background: 'var(--surface-light)' }}>
-          <h3 style={{ marginTop: 0, marginBottom: '0.5rem', fontSize: '1rem' }}>Rendered Display Data</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <h3 style={{ marginTop: 0, marginBottom: 0, fontSize: '1rem' }}>Rendered Display Data</h3>
+            <span style={{
+              padding: '0.25rem 0.6rem',
+              borderRadius: '6px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              background: updateSource === 'socket' ? 'rgba(59, 130, 246, 0.15)' : updateSource === 'manual' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(107, 114, 128, 0.15)',
+              color: updateSource === 'socket' ? 'rgb(37, 99, 235)' : updateSource === 'manual' ? 'rgb(5, 150, 105)' : 'rgb(75, 85, 99)',
+              border: `1px solid ${updateSource === 'socket' ? 'rgba(59, 130, 246, 0.3)' : updateSource === 'manual' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(107, 114, 128, 0.3)'}`,
+            }}>
+              {updateSource === 'socket' ? 'Socket event' : updateSource === 'manual' ? 'Manual update' : 'Launch config'}
+            </span>
+          </div>
           <p style={{ marginTop: 0, marginBottom: '0.75rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
             These are the values the bar is actually using for its visible render.
           </p>
@@ -46,6 +67,74 @@ export const ProgressBarDebugPanel: React.FC<ProgressBarDebugPanelProps> = ({
             ['ETA remaining', 'The countdown currently being displayed beside the bar.', debugSnapshot?.displayedRemaining != null ? `${debugSnapshot.displayedRemaining}s` : 'n/a'],
           ]} />
         </section>
+      </div>
+
+      <div style={{ marginTop: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          <RefreshCw size={16} color="var(--accent)" />
+          <strong>Raw Websocket Segment Data</strong>
+        </div>
+        <p style={{ marginTop: 0, marginBottom: '0.75rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+          Fields extracted from the last segments.progress live socket payload.
+        </p>
+        <MetricGrid items={[
+          ['frameId', 'Websocket envelope frame sequence ID.', lastSocketEnvelope?.frameId ?? 'n/a'],
+          ['receivedAt', 'Local ISO timestamp when the frame was received.', lastSocketEnvelope?.receivedAt ?? 'n/a'],
+          ['topic', 'Event topic received from the socket.', lastSocketEnvelope?.data?.topic ?? 'n/a'],
+          ['eventKind', 'Event sub-kind received from the socket.', lastSocketEnvelope?.data?.eventKind ?? 'n/a'],
+          ['projectId', 'ID of the project associated with the segment.', lastSocketEnvelope?.data?.ids?.projectId ?? 'n/a'],
+          ['chapterId', 'ID of the chapter associated with the segment.', lastSocketEnvelope?.data?.ids?.chapterId ?? 'n/a'],
+          ['jobId', 'ID of the rendering job associated with the segment.', lastSocketEnvelope?.data?.ids?.jobId ?? 'n/a'],
+          ['segmentId', 'ID of the segment that triggered the progress event.', lastSocketEnvelope?.data?.ids?.segmentId ?? 'n/a'],
+          ['activeSegmentId', 'Current segment being processed by the backend.', lastSocketEnvelope?.data?.payload?.activeSegmentId ?? 'n/a'],
+          ['activeSegmentProgress', 'Individual progress of the active segment.', lastSocketEnvelope?.data?.payload?.activeSegmentProgress !== undefined ? `${lastSocketEnvelope.data.payload.activeSegmentProgress}` : 'n/a'],
+          ['etaSeconds', 'Estimated seconds remaining for the segment/batch.', lastSocketEnvelope?.data?.payload?.etaSeconds !== undefined ? `${lastSocketEnvelope.data.payload.etaSeconds}` : (lastSocketEnvelope?.data?.payload?.eta_seconds !== undefined ? `${lastSocketEnvelope.data.payload.eta_seconds}` : 'n/a')],
+          ['status', 'Job status (e.g. running, done, etc.).', lastSocketEnvelope?.data?.payload?.status ?? 'n/a'],
+          ['progress', 'Overall batch or job progress value.', lastSocketEnvelope?.data?.payload?.progress !== undefined ? `${lastSocketEnvelope.data.payload.progress}` : 'n/a'],
+          ['reasonCode', 'Trigger reason code (e.g. segment_progress_tick).', lastSocketEnvelope?.data?.payload?.reasonCode ?? (lastSocketEnvelope?.data?.payload?.reason_code ?? 'n/a')],
+        ]} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.75rem' }}>
+          <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Raw Frame Inspector</label>
+          <textarea
+            data-testid="raw-frame-inspector"
+            readOnly
+            value={lastSocketEnvelope ? JSON.stringify(lastSocketEnvelope, null, 2) : ''}
+            style={{
+              width: '100%',
+              height: '120px',
+              padding: '0.5rem',
+              borderRadius: '8px',
+              border: '1px solid var(--border)',
+              background: 'var(--surface-light)',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+              fontSize: '0.8rem',
+              resize: 'vertical',
+            }}
+          />
+        </div>
+      </div>
+
+      <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: '14px', border: '1px solid var(--border)', background: 'var(--surface-light)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+          <Terminal size={16} color="var(--accent)" />
+          <strong>Ignored Topics</strong>
+        </div>
+        <p style={{ marginTop: 0, marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+          The following topics are intentionally ignored and do not mutate DevProgressBar state:
+        </p>
+        <ul style={{ margin: '0 0 0.5rem 1.25rem', padding: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', listStyleType: 'disc' }}>
+          <li>queue.items (Ignored)</li>
+          <li>chapters.progress (Ignored)</li>
+          <li>tts.logs (Ignored)</li>
+        </ul>
+        {lastIgnoredEnvelope && (
+          <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed var(--border)', fontSize: '0.88rem' }}>
+            <span>Last ignored event:</span>{' '}
+            <span data-testid="last-ignored-event-topic" style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+              {lastIgnoredEnvelope.data?.topic}
+            </span>
+          </div>
+        )}
       </div>
 
       <div style={{ marginTop: '1rem' }}>

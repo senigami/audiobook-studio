@@ -51,6 +51,19 @@ describe('ProjectLibrary', () => {
         })
     })
 
+    it('shows created and updated dates in the default grid view', async () => {
+        render(
+            <MemoryRouter>
+                <ProjectLibrary onSelectProject={vi.fn()} />
+            </MemoryRouter>
+        )
+
+        await screen.findByText('Test Project')
+
+        expect(screen.getByText(/^Created/i)).toBeTruthy()
+        expect(screen.getByText(/^Updated/i)).toBeTruthy()
+    })
+
     it('opens create modal', async () => {
         render(
             <MemoryRouter>

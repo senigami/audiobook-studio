@@ -1,5 +1,6 @@
 from __future__ import annotations
 import time
+import shutil
 from pathlib import Path
 
 from app.engines.behavior import DEFAULT_SENT_CHAR_LIMIT as SENT_CHAR_LIMIT
@@ -14,6 +15,11 @@ from .helpers import (
     _group_display_updates,
     _group_job_progress
 )
+
+_SKIP_LIVE_BROADCASTS = {
+    "skip_studio_job_event": True,
+    "skip_job_updated": True,
+}
 
 
 def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav):
@@ -65,7 +71,11 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
         j.render_group_count = total_missing_groups
         j.completed_render_groups = offset
         j.active_render_group_index = offset
-        xtts_facade.update_job(jid, **_group_display_updates(offset, total_missing_groups, 0.0, limit=0.9, active_index=offset, group_weights=missing_group_weights))
+        xtts_facade.update_job(
+            jid,
+            **_group_display_updates(offset, total_missing_groups, 0.0, limit=0.9, active_index=offset, group_weights=missing_group_weights),
+            **_SKIP_LIVE_BROADCASTS,
+        )
 
         def bake_on_output(line):
             on_output(line)
@@ -92,6 +102,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                         active_segment_id=None,
                         active_segment_progress=0.0,
                         **_group_display_updates(completed_groups[0], total_missing_groups, 0.0, limit=0.9, group_weights=missing_group_weights),
+                        **_SKIP_LIVE_BROADCASTS,
                     )
 
             if "[START_SEGMENT]" in line:
@@ -111,6 +122,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                     active_segment_id=asid,
                     active_segment_progress=0.0,
                     **_group_display_updates(completed_groups[0], total_missing_groups, 0.0, limit=0.9, active_index=min(completed_groups[0] + 1, total_missing_groups), group_weights=missing_group_weights),
+                    **_SKIP_LIVE_BROADCASTS,
                 )
 
             if "[PROGRESS]" in line:
@@ -130,6 +142,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                         progress=overall_progress,
                         active_segment_progress=segment_progress,
                         **_group_display_updates(completed_groups[0], total_missing_groups, segment_progress, limit=0.9, active_index=min(completed_groups[0] + 1, total_missing_groups), group_weights=missing_group_weights),
+                        **_SKIP_LIVE_BROADCASTS,
                     )
                 except: pass
 
@@ -144,6 +157,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                 cancel_check=cancel_check,
                 speed=speed,
                 script=full_script,
+                task_id=jid,
             )
         except EngineBridgeError as exc:
             logger = xtts_facade.logger
@@ -154,7 +168,13 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
 
     # Final Stitch
     if cancel_check(): return
-    xtts_facade.update_job(jid, status="finalizing", progress=0.91, **_group_display_updates(total_missing_groups, total_missing_groups, 0.0, limit=0.9, group_weights=missing_group_weights if missing_groups else []))
+    xtts_facade.update_job(
+        jid,
+        status="running",
+        progress=0.91,
+        **_group_display_updates(total_missing_groups, total_missing_groups, 0.0, limit=0.9, group_weights=missing_group_weights if missing_groups else []),
+        **_SKIP_LIVE_BROADCASTS,
+    )
     fresh_segs = get_chapter_segments(j.chapter_id)
     segment_paths = []
     last_path = None
@@ -171,10 +191,17 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
         return
 
     rc = xtts_facade.stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
+    if (rc != 0 or not out_wav.exists()) and len(segment_paths) == 1 and segment_paths[0].exists():
+        try:
+            shutil.copy2(segment_paths[0], out_wav)
+            rc = 0
+        except Exception:
+            pass
+
     if rc == 0 and out_wav.exists():
         duration = xtts_facade.get_audio_duration(out_wav)
         from app.db import update_queue_item
-        update_queue_item(jid, "done", audio_length_seconds=duration)
+        update_queue_item(jid, "done", audio_length_seconds=duration, output_file=out_wav.name)
         return 0
     else:
         xtts_facade.update_job(jid, status="failed", error=f"Stitching failed (rc={rc})")

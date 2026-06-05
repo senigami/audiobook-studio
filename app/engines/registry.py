@@ -177,9 +177,14 @@ def _manifest_from_tts_server_payload(data: dict) -> EngineManifestModel:
         built_in=False,
         verified=bool(data.get("verified", False)),
         version=str(data.get("version", "0.0.0")),
+        local=bool(data.get("local", True)),
+        cloud=bool(data.get("cloud", False)),
+        network=bool(data.get("network", False)),
         test_text=str(data.get("test_text", "This is a verification test.")),
         test_sample=data.get("test_sample"),
         behavior=dict(data.get("behavior") or {}),
+        dev=dict(data.get("dev") or {}),
+        logo=dict(data.get("logo") or {}),
     )
 
 
@@ -282,6 +287,15 @@ def _load_plugin_engines() -> dict[str, EngineRegistrationModel]:
 def _load_engine_manifest(*, manifest_path: Path) -> EngineManifestModel:
     """Load and parse a built-in engine manifest."""
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    # Contract version validation
+    manifest_version = str(payload.get("studio_tts_manifest", "")).strip()
+    if manifest_version != "1.0":
+        raise ValueError(
+            f"Engine manifest {manifest_path} has unsupported "
+            f"studio_tts_manifest version {manifest_version!r}"
+        )
+
     engine_id = str(payload.get("engine_id") or "").strip()
     display_name = str(payload.get("display_name") or engine_id).strip() or engine_id
     phase = str(payload.get("phase") or "unknown").strip()
@@ -291,6 +305,7 @@ def _load_engine_manifest(*, manifest_path: Path) -> EngineManifestModel:
         engine_id=engine_id,
         display_name=display_name,
         phase=phase,
+        studio_tts_manifest=manifest_version or "1.0",
         module_path=_manifest_module_path(manifest_path),
         notes=tuple(str(note).strip() for note in payload.get("notes", []) if str(note).strip()),
         capabilities=tuple(
@@ -309,6 +324,8 @@ def _load_engine_manifest(*, manifest_path: Path) -> EngineManifestModel:
         test_text=str(payload.get("test_text", "This is a verification test.")),
         test_sample=payload.get("test_sample"),
         behavior=dict(payload.get("behavior") or {}),
+        dev=dict(payload.get("dev") or {}),
+        logo=dict(payload.get("logo") or {}),
     )
 
 

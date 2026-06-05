@@ -6,7 +6,6 @@ vi.mock('@/api', () => ({
     fetchChapters: vi.fn(),
     fetchSegments: vi.fn(),
     fetchCharacters: vi.fn(),
-    fetchProductionBlocks: vi.fn(),
     updateChapter: vi.fn(),
     generateSegments: vi.fn(),
     updateSegmentsBulk: vi.fn(),
@@ -14,7 +13,6 @@ vi.mock('@/api', () => ({
     cancelChapterGeneration: vi.fn(),
     updateCharacter: vi.fn(),
     bakeChapter: vi.fn(),
-    updateProductionBlocks: vi.fn(),
     exportChapterAudio: vi.fn(),
     fetchScriptView: vi.fn(),
     saveScriptAssignments: vi.fn(),
@@ -63,8 +61,6 @@ import {
   mockSpeakerProfiles, 
   mockSpeakers,
   mockSegments,
-  mockProductionBlocks,
-  mockRenderBatches,
   mockScriptView
 } from '@tests/helpers/chapterEditorFixtures';
 
@@ -78,12 +74,6 @@ describe('ChapterEditor - Source Text & Resync', () => {
     (api.fetchChapters as any).mockResolvedValue([mockChapter]);
     (api.fetchSegments as any).mockResolvedValue(mockSegments);
     (api.fetchCharacters as any).mockResolvedValue([]);
-    (api.fetchProductionBlocks as any).mockResolvedValue({
-      chapter_id: mockChapterId,
-      base_revision_id: 'rev-1',
-      blocks: mockProductionBlocks,
-      render_batches: mockRenderBatches
-    });
     (api.fetchScriptView as any).mockResolvedValue(mockScriptView);
   });
 

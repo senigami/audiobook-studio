@@ -24,6 +24,7 @@ def test_job_registry_loads_interface_and_dotted_worker_handlers(tmp_path, monke
     (interface_dir / "manifest.json").write_text(
         json.dumps(
             {
+                "studio_tts_manifest": "1.0",
                 "engine_id": "ifacejob",
                 "display_name": "Interface Job",
                 "entry_class": "interface:Engine",
@@ -49,6 +50,7 @@ def test_job_registry_loads_interface_and_dotted_worker_handlers(tmp_path, monke
     (dotted_dir / "manifest.json").write_text(
         json.dumps(
             {
+                "studio_tts_manifest": "1.0",
                 "engine_id": "dotjob",
                 "display_name": "Dotted Job",
                 "entry_class": "interface:Engine",
@@ -118,6 +120,7 @@ class Adapter(BaseVoiceEngine):
     (interface_dir / "manifest.json").write_text(
         json.dumps(
             {
+                "studio_tts_manifest": "1.0",
                 "engine_id": "ifacead",
                 "display_name": "Interface Adapter",
                 "entry_class": "interface:Engine",
@@ -131,6 +134,7 @@ class Adapter(BaseVoiceEngine):
     (dotted_dir / "manifest.json").write_text(
         json.dumps(
             {
+                "studio_tts_manifest": "1.0",
                 "engine_id": "dotad",
                 "display_name": "Dotted Adapter",
                 "entry_class": "interface:Engine",

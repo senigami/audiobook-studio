@@ -2,14 +2,37 @@ import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import App from '@/app/App'
 import { MemoryRouter } from 'react-router-dom'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
+import { useEffect } from 'react'
+import { publishStudioSocketMessage } from '@/store/studioSocketBus'
+import { resetLiveEventAuditForTests } from '@/store/liveEventAuditStore'
 
 let wsConnected = true;
+let activeConnections = 0;
+const mockUseWebSocket = vi.fn(() => {
+  useEffect(() => {
+    activeConnections++;
+    return () => {
+      activeConnections--;
+    };
+  }, []);
+  return {
+    connected: wsConnected,
+    sendMessage: vi.fn()
+  };
+});
+
 vi.mock('@/hooks/useWebSocket', () => ({
-  useWebSocket: () => ({ connected: wsConnected })
-}))
+  useWebSocket: () => mockUseWebSocket()
+}));
 
 describe('App', () => {
+
   beforeEach(() => {
+    mockUseWebSocket.mockClear();
+    activeConnections = 0;
+    act(() => {
+      resetLiveEventAuditForTests();
+    });
     global.fetch = vi.fn((url) => {
       if (url === '/api/home') {
         return Promise.resolve({
@@ -79,6 +102,19 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText(/Audiobook/i)).toBeTruthy()
     })
+  })
+
+  it('proves only one websocket transport is mounted from App', async () => {
+    mockUseWebSocket.mockClear()
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
+    )
+    await waitFor(() => {
+      expect(screen.getByText(/Audiobook/i)).toBeTruthy()
+    })
+    expect(activeConnections).toBe(1)
   })
 
   it('reports ready hydration status when idle and connected', async () => {
@@ -219,5 +255,73 @@ describe('App', () => {
     })
 
     expect(screen.queryByText('Loading chapter...')).toBeFalsy()
+  })
+
+  it('opens the standalone secret route and renders the live output table', async () => {
+    render(
+      <MemoryRouter initialEntries={['/event-stream']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /all/i })).toBeInTheDocument()
+    })
+  })
+
+  it('ensures the old /internal/live-output route does not render the page', async () => {
+    render(
+      <MemoryRouter initialEntries={['/internal/live-output']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /all/i })).not.toBeInTheDocument()
+    })
+  })
+
+  it('ensures the secret route is not present in the main navigation', async () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText(/Audiobook/i)).toBeTruthy()
+    })
+
+    // Check that there is no nav link pointing to the secret path
+    const navLinks = screen.queryAllByRole('link')
+    const liveOutputLink = navLinks.find(link => link.getAttribute('href') === '/event-stream')
+    expect(liveOutputLink).toBeUndefined()
+  })
+
+  it('renders live socket messages on the standalone page', async () => {
+    render(
+      <MemoryRouter initialEntries={['/event-stream']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /all/i })).toBeInTheDocument()
+    })
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'queue.items',
+        eventKind: 'queue_item_status',
+        ids: { jobId: 'job-live' },
+        payload: { status: 'running' },
+      })
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('running')).toBeInTheDocument()
+    })
   })
 })

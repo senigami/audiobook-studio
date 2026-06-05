@@ -1,12 +1,24 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/api';
 import type { ProcessingQueueItem } from '@/types';
-import { useWebSocket } from '@/hooks/useWebSocket';
-import { isStudioJobEvent } from '@/api/contracts/events';
+import { recordWebsocketDebugMessage } from '@/utils/runtimeDebug';
+import {
+  recordLiveEventSubscriberObservation,
+  getLiveEventAuditRecordByFrameId,
+} from '@/store/liveEventAuditStore';
 import { createLiveJobsStore } from '@/store/live-jobs';
 import { createHydrationCoordinator, selectActiveQueueCount } from '@/api/hydration';
+import { subscribeStudioSocketMessages } from '@/store/studioSocketBus';
+import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
+import { adaptEventToJobUpdates } from '@/utils/jobEventAdapters';
 
 const FALLBACK_POLL_MS = 60000;
+// Grace window for reconnect overlay pruning. Events that arrive on the websocket
+// during the reconnect API call have server-side updated_at stamps that may be
+// slightly behind the wall-clock time when the API response is received. Subtracting
+// this buffer ensures we never prune overlays that are still fresh.
+const PRUNE_GRACE_SECONDS = 5;
+
 
 export const useQueueSync = () => {
   const [queue, setQueue] = useState<ProcessingQueueItem[]>([]);
@@ -14,6 +26,7 @@ export const useQueueSync = () => {
   const [loading, setLoading] = useState(true);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [activeSource, setActiveSource] = useState<'bootstrap' | 'reconnect' | 'refresh' | undefined>(undefined);
+  const connected = useStudioSocketConnection();
 
   // Pure stores initialized once
   const storeRef = useRef(createLiveJobsStore());
@@ -42,10 +55,16 @@ export const useQueueSync = () => {
       const snapshot = coordinatorRef.current.createSnapshot(items, source);
       lastSnapshotRef.current = snapshot;
       
-      // On reconnect/refresh, prune overlays older than the snapshot (units: seconds)
-      if (source !== 'bootstrap') {
-        storeRef.current.pruneOlderThan(snapshot.hydratedAtSeconds);
+      // On reconnect only: prune overlays that predate the new snapshot. This clears
+      // stale overlays accumulated during a disconnect. We intentionally skip this for
+      // 'refresh' (queue_updated-triggered) because the server updated_at timestamps
+      // on in-flight events are often slightly behind the wall-clock time at which the
+      // API response arrives, causing valid live overlays to be pruned and progress to
+      // disappear until the next event arrives.
+      if (source === 'reconnect') {
+        storeRef.current.pruneOlderThan(snapshot.hydratedAtSeconds - PRUNE_GRACE_SECONDS);
       }
+
 
       updateDerivedState();
       setLoading(false);
@@ -58,21 +77,55 @@ export const useQueueSync = () => {
     }
   }, [updateDerivedState]);
 
-  const onMessage = useCallback((data: any) => {
-    if (isStudioJobEvent(data)) {
-      storeRef.current.applyEvent(data);
-      updateDerivedState();
-    } else if (data.type === 'job_updated') {
-      storeRef.current.applyJobUpdated(data.job_id, data.updates);
-      updateDerivedState();
-      // Also trigger refresh in case other fields changed that aren't in overlay
-      refreshQueue('refresh');
-    } else if (data.type === 'queue_updated' || data.type === 'pause_updated') {
-      refreshQueue('refresh');
-    }
-  }, [updateDerivedState, refreshQueue]);
+  useEffect(() => {
+    return subscribeStudioSocketMessages((data, raw, envelope) => {
+      const record = getLiveEventAuditRecordByFrameId(envelope?.frameId);
+      if (!record) return;
 
-  const { connected } = useWebSocket('/ws', onMessage);
+      const event = record.event;
+      const payload = event.payload as any;
+
+      if (
+        event.topic === 'jobs.lifecycle' ||
+        event.topic === 'queue.items' ||
+        event.topic === 'chapters.lifecycle' ||
+        event.topic === 'chapters.progress'
+      ) {
+        recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
+        if (event.topic === 'queue.items' && event.eventKind === 'queue_item_invalidated') {
+          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
+          refreshQueue('refresh');
+        } else if (event.topic === 'queue.items' && event.eventKind === 'queue_paused') {
+          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
+          refreshQueue('refresh');
+        } else if (event.topic === 'chapters.lifecycle') {
+          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
+          refreshQueue('refresh');
+        } else if (event.jobId) {
+          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
+          const updates = adaptEventToJobUpdates(event);
+          if (event.topic === 'jobs.lifecycle' && ['queued', 'preparing', 'finalizing', 'done', 'failed', 'cancelled'].includes((updates.status || '') as string)) {
+            updates.eta_seconds = null;
+            updates.eta_basis = null;
+            updates.estimated_end_at = null;
+            updates.active_segment_id = null;
+            updates.active_segment_progress = 0;
+            updates.active_segment_eta_seconds = null;
+            updates.active_segment_eta_basis = null;
+            updates.active_segment_updated_at = null;
+            updates.active_render_batch_id = null;
+            updates.active_render_batch_progress = null;
+          }
+          storeRef.current.applyJobUpdated(event.jobId, updates);
+          updateDerivedState();
+          const reasonCode = payload.reasonCode ?? payload.reason_code;
+          if (event.topic === 'jobs.lifecycle' && reasonCode === 'QUEUE_INVALIDATED') {
+            refreshQueue('refresh');
+          }
+        }
+      }
+    });
+  }, [updateDerivedState, refreshQueue]);
 
   // 1. Bootstrap
   useEffect(() => {

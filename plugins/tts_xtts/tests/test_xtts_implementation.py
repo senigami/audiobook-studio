@@ -18,7 +18,7 @@ def mock_cancel_check():
 
 def test_xtts_generate_success(mock_on_output, mock_cancel_check):
     with patch("plugins.tts_xtts.plugin.core.implementation.XTTS_ENV_ACTIVATE") as mock_activate, \
-         patch("app.engines.proc_utils.run_cmd_stream", return_value=0) as mock_run:
+         patch("plugins.tts_xtts.plugin.core.implementation.run_cmd_stream", return_value=0) as mock_run:
         mock_activate.exists.return_value = True
 
         rc = xtts_generate("Hello", Path("out.wav"), True, mock_on_output, mock_cancel_check, speaker_wav="spk.wav", voice_profile_dir=Path("/tmp/voices/VoiceA"))
@@ -27,7 +27,7 @@ def test_xtts_generate_success(mock_on_output, mock_cancel_check):
 
 def test_xtts_generate_voice_profile_only(mock_on_output, mock_cancel_check):
     with patch("plugins.tts_xtts.plugin.core.implementation.XTTS_ENV_ACTIVATE") as mock_activate, \
-         patch("app.engines.proc_utils.run_cmd_stream", return_value=0) as mock_run:
+         patch("plugins.tts_xtts.plugin.core.implementation.run_cmd_stream", return_value=0) as mock_run:
         mock_activate.exists.return_value = True
 
         rc = xtts_generate(
@@ -64,7 +64,7 @@ def test_xtts_generate_no_activate(mock_on_output, mock_cancel_check):
 
 def test_xtts_generate_script_includes_voice_profile_dir(mock_on_output, mock_cancel_check, tmp_path):
     with patch("plugins.tts_xtts.plugin.core.implementation.XTTS_ENV_ACTIVATE") as mock_activate, \
-         patch("app.engines.proc_utils.run_cmd_stream", return_value=0) as mock_run:
+         patch("plugins.tts_xtts.plugin.core.implementation.run_cmd_stream", return_value=0) as mock_run:
         mock_activate.exists.return_value = True
 
         script = [{"text": "Hello", "save_path": "chunk.wav", "voice_profile_dir": "/tmp/voices/VoiceA"}]

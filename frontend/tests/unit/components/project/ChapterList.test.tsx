@@ -7,23 +7,29 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
   PredictiveProgressBar: ({
     progress,
     status,
+    state,
     predictive,
     allowBackwardProgress,
     evidenceWeightFraction,
+    checkpointMode,
   }: {
     progress: number;
     status?: string;
+    state?: string;
     predictive?: boolean;
     allowBackwardProgress?: boolean;
     evidenceWeightFraction?: number;
+    checkpointMode?: string;
   }) => (
     <div
       data-testid="progress-bar"
       data-progress={progress}
       data-status={status ?? ''}
+      data-state={state ?? ''}
       data-predictive={String(!!predictive)}
       data-allow-backward={String(!!allowBackwardProgress)}
       data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
+      data-checkpoint-mode={checkpointMode ?? ''}
     />
   ),
 }));
@@ -142,6 +148,56 @@ describe('ChapterList', () => {
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.63');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'false');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '0.4');
+  });
+
+  it('treats segment-capable grouped chapter jobs as chapter progress in the chapter list', () => {
+    const liveJob = {
+      id: 'job-segment-capable-chapter',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      status: 'running',
+      progress: 0.4,
+      has_segment_support: true,
+      started_at: Date.now() / 1000 - 30,
+      eta_seconds: 120,
+      render_group_count: 3,
+      completed_render_groups: 1,
+      active_render_group_index: 2,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.5,
+      total_render_weight: 1000,
+      completed_render_weight: 500,
+      active_render_group_weight: 400,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [liveJob.id]: liveJob }} />);
+
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.63');
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-checkpoint-mode', 'queue');
+  });
+
+  it('keeps a grouped running chapter in processing state until an active render block exists', () => {
+    const groupedJob = {
+      id: 'job-grouped-pre-render',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      status: 'running',
+      progress: 0.12,
+      started_at: Date.now() / 1000 - 3,
+      eta_seconds: 120,
+      render_group_count: 3,
+      completed_render_groups: 0,
+      active_render_group_index: 0,
+      total_render_weight: 300,
+      completed_render_weight: 0,
+      active_render_group_weight: 100,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [groupedJob.id]: groupedJob }} />);
+
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'running');
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-state', 'processing');
+    expect(screen.getByText('Processing')).toBeInTheDocument();
   });
 
   it('shows an indeterminate preparing state for active chapter jobs', () => {
@@ -302,5 +358,66 @@ describe('ChapterList', () => {
     // It SHOULD show the spinner
     const spinner = container.querySelector('.animate-spin');
     expect(spinner).toBeTruthy();
+  });
+
+  it('immediately hides the done job and renders the audio player without delay', () => {
+    const liveJob = {
+      id: 'job-done-recent',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      status: 'done',
+      progress: 1,
+      finished_at: Date.now() / 1000 - 1,
+    } as any;
+
+    const { container } = render(<ChapterList {...defaultProps} jobs={{ [liveJob.id]: liveJob }} chapters={[{ ...mockChapters[0], has_wav: true, audio_status: 'done' } as any]} />);
+
+    expect(screen.queryByTestId('progress-bar')).toBeNull();
+    const audioTags = container.querySelectorAll('audio');
+    expect(audioTags).toHaveLength(1);
+  });
+
+  it('hides estimated runtime badge if predicted_audio_length is missing, rendering only word and character counts', () => {
+    const chapterWithoutEta = {
+      id: 'chap-no-eta',
+      project_id: 'proj-1',
+      title: 'No ETA Chapter',
+      audio_status: 'unprocessed',
+      audio_file_path: null,
+      has_wav: false,
+      has_mp3: false,
+      sort_order: 3,
+      word_count: 320,
+      char_count: 1800,
+      predicted_audio_length: null,
+    } as any;
+
+    render(<ChapterList {...defaultProps} chapters={[chapterWithoutEta]} />);
+
+    expect(screen.getByText('320 words')).toBeInTheDocument();
+    expect(screen.getByText('1800 chars')).toBeInTheDocument();
+    expect(screen.queryByText(/runtime/i)).toBeNull();
+  });
+
+  it('does not render estimated runtime badge even when predicted_audio_length is present', () => {
+    const chapterWithEta = {
+      id: 'chap-with-eta',
+      project_id: 'proj-1',
+      title: 'With ETA Chapter',
+      audio_status: 'unprocessed',
+      audio_file_path: null,
+      has_wav: false,
+      has_mp3: false,
+      sort_order: 4,
+      word_count: 500,
+      char_count: 3000,
+      predicted_audio_length: 45,
+    } as any;
+
+    render(<ChapterList {...defaultProps} chapters={[chapterWithEta]} />);
+
+    expect(screen.getByText('500 words')).toBeInTheDocument();
+    expect(screen.getByText('3000 chars')).toBeInTheDocument();
+    expect(screen.queryByText(/runtime/i)).toBeNull();
   });
 });

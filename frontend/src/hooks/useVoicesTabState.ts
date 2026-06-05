@@ -29,6 +29,7 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
     const [editingEngine, setEditingEngine] = useState<VoiceEngine>(firstReadyEngine);
     const [referenceSample, setReferenceSample] = useState('');
     const [engineVoiceId, setEngineVoiceId] = useState('');
+    const [editingSettings, setEditingSettings] = useState<Record<string, any>>({});
     const [isSavingText, setIsSavingText] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
 
@@ -40,14 +41,16 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
             setEditingEngine(editingProfile.engine || '');
             setReferenceSample(editingProfile.reference_sample || '');
             setEngineVoiceId(editingProfile.voice_asset_id || '');
+            setEditingSettings(editingProfile.settings || {});
         } else {
             setTestText('');
             setVariantName('');
             setEditingEngine(firstReadyEngine);
             setReferenceSample('');
             setEngineVoiceId('');
+            setEditingSettings({});
         }
-    }, [editingProfile, speakerProfiles]);
+    }, [editingProfile, speakerProfiles, firstReadyEngine]);
 
     // --- Voice Management Modals State ---
     const [searchQuery, setSearchQuery] = useState('');
@@ -104,6 +107,7 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
         editingEngine, setEditingEngine,
         referenceSample, setReferenceSample,
         engineVoiceId, setEngineVoiceId,
+        editingSettings, setEditingSettings,
         isSavingText, setIsSavingText,
         showGuide, setShowGuide,
         searchQuery, setSearchQuery,

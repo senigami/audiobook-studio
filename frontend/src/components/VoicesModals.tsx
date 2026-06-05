@@ -71,6 +71,8 @@ interface VoicesModalsProps {
     setReferenceSample: (sample: string) => void;
     engineVoiceId: string;
     setEngineVoiceId: (voiceId: string) => void;
+    editingSettings: Record<string, any>;
+    setEditingSettings: (settings: Record<string, any>) => void;
     isSavingText: boolean;
     handleResetTestText: () => void;
     handleSaveTestText: () => void;
@@ -167,6 +169,8 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                     availableSamples={props.editingProfile?.samples || []}
                     engineVoiceId={props.engineVoiceId}
                     onEngineVoiceIdChange={props.setEngineVoiceId}
+                    settings={props.editingSettings}
+                    onSettingsChange={props.setEditingSettings}
                     onResetTestText={props.handleResetTestText}
                     onSave={props.handleSaveTestText}
                     isSaving={props.isSavingText}

@@ -22,7 +22,7 @@ class TestOrchestratorRecover:
             task_id="recovered-1",
             task_type="synthesis",
             source="ui",
-            payload={"_recovered_from_status": "running"},
+            payload={"_recovered_from_status": "running", "engine_id": "xtts", "script_text": "text", "output_path": "/tmp/out.wav"},
         )
         progress_service.reconcile.return_value = {"artifact_state": "valid", "can_reuse": True}
         with patch(
@@ -43,7 +43,7 @@ class TestOrchestratorRecover:
             task_id="recovered-2",
             task_type="synthesis",
             source="ui",
-            payload={"_recovered_from_status": "running"},
+            payload={"_recovered_from_status": "running", "engine_id": "xtts", "script_text": "text", "output_path": "/tmp/out.wav"},
         )
         progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
         with patch(
@@ -65,7 +65,7 @@ class TestOrchestratorRecover:
             task_id="r-regress",
             task_type="synthesis",
             source="ui",
-            payload={"_recovered_from_status": "running"},
+            payload={"_recovered_from_status": "running", "engine_id": "xtts", "script_text": "text", "output_path": "/tmp/out.wav"},
         )
         progress_service.reconcile.return_value = {"artifact_state": "valid", "can_reuse": True}
         with patch(
@@ -85,7 +85,7 @@ class TestOrchestratorRecover:
             task_id="r-reason",
             task_type="synthesis",
             source="ui",
-            payload={"_recovered_from_status": "running"},
+            payload={"_recovered_from_status": "running", "engine_id": "xtts", "script_text": "text", "output_path": "/tmp/out.wav"},
         )
         progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
         with patch(
@@ -102,7 +102,7 @@ class TestOrchestratorRecover:
     def test_multiple_contexts_all_recovered(self, orchestrator, progress_service):
         contexts = [
             TaskContext(task_id=f"r-{i}", task_type="synthesis", source="ui",
-                        payload={"_recovered_from_status": "running"})
+                        payload={"_recovered_from_status": "running", "engine_id": "xtts", "script_text": "text", "output_path": "/tmp/out.wav"})
             for i in range(3)
         ]
         progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}

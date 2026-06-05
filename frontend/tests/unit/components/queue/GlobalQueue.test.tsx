@@ -2,6 +2,7 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { GlobalQueue } from '@/components/queue/GlobalQueue'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { api } from '@/api'
+import React from 'react'
 
 // Mock the API
 vi.mock('@/api', () => ({
@@ -13,6 +14,29 @@ vi.mock('@/api', () => ({
         toggleQueuePause: vi.fn().mockResolvedValue({}),
         cancelChapterGeneration: vi.fn().mockResolvedValue({}),
     }
+}))
+
+// Mock predictive progress bar
+vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () => ({
+  PredictiveProgressBar: ({
+    progress,
+    label,
+    dataTestId,
+    onDisplayProgress
+  }: any) => {
+    React.useEffect(() => {
+      onDisplayProgress?.(progress);
+    }, [progress, onDisplayProgress]);
+
+    return (
+      <div
+        data-testid={dataTestId || "progress-bar"}
+        data-progress={progress}
+      >
+        {label}
+      </div>
+    );
+  }
 }))
 
 describe('GlobalQueue', () => {
@@ -50,7 +74,7 @@ describe('GlobalQueue', () => {
             id: 'job-seg',
             status: 'running',
             chapter_title: 'overview',
-            custom_title: 'overview * Part 5: segment #7',
+            custom_title: 'overview * Part 5: Custom Title',
             project_name: 'Project A',
             split_part: 0,
             progress: 0.5
@@ -58,8 +82,62 @@ describe('GlobalQueue', () => {
 
         render(<GlobalQueue queue={[customItem] as any[]} />)
 
-        expect(await screen.findByText('overview * Part 5: segment #7')).toBeTruthy()
+        expect(await screen.findByText('overview * Part 5: Custom Title')).toBeTruthy()
         expect(screen.queryByText(/^overview$/i)).toBeNull()
+    })
+
+    it('does not render segment-scoped overlay jobs as separate active items', () => {
+        const segmentItem = {
+            id: 'job-seg-1',
+            status: 'running',
+            chapter_title: 'overview',
+            custom_title: 'overview * Part 5: segment #7',
+            project_name: 'Project A',
+            split_part: 0,
+            progress: 0.5,
+            segment_ids: ['seg-1']
+        };
+
+        render(<GlobalQueue queue={[segmentItem] as any[]} />)
+
+        // Queue is empty because segment jobs are filtered out
+        expect(screen.queryByText('overview * Part 5: segment #7')).toBeNull()
+        expect(screen.getByText(/Queue is empty/i)).toBeTruthy()
+    })
+
+    it('chapter-scoped jobs still render in the main queue', async () => {
+        const chapterItem = {
+            id: 'job-chap-1',
+            status: 'running',
+            chapter_title: 'Chapter 1',
+            project_name: 'Project A',
+            split_part: 0,
+            progress: 0.5
+        };
+
+        render(<GlobalQueue queue={[chapterItem] as any[]} />)
+
+        expect(await screen.findByText('Chapter 1')).toBeTruthy()
+        expect(screen.queryByText(/Queue is empty/i)).toBeNull()
+    })
+
+    it('keeps grouped chapter jobs visible after active segment progress starts', async () => {
+        const groupedChapterItem = {
+            id: 'job-grouped-chap-1',
+            status: 'running',
+            chapter_title: 'Chapter 1',
+            project_name: 'Project A',
+            split_part: 0,
+            progress: 0.5,
+            render_group_count: 2,
+            active_segment_id: 'seg-1',
+            active_segment_progress: 0.2,
+        };
+
+        render(<GlobalQueue queue={[groupedChapterItem] as any[]} />)
+
+        expect(await screen.findByText('Chapter 1')).toBeTruthy()
+        expect(screen.queryByText(/Queue is empty/i)).toBeNull()
     })
 
     it('toggles pause state', async () => {
@@ -130,7 +208,67 @@ describe('GlobalQueue', () => {
 
         expect(await screen.findByText('Failed Chapter')).toBeTruthy()
         expect(screen.getByText('failed')).toBeTruthy()
+        expect(screen.getByText(/Reason:/i)).toBeTruthy()
+        expect(screen.getByText(/Mixed synthesis returned failed/i)).toBeTruthy()
         expect(screen.getByText((content) => content.includes('2024') || content.includes('Mar'))).toBeTruthy()
+    })
+
+    it('shows completed output metadata in history when available', async () => {
+        const queue = [
+            {
+                id: 'job-done-metadata',
+                status: 'done',
+                chapter_title: 'Chapter With Metadata',
+                project_name: 'Project A',
+                split_part: 0,
+                produced_audio_length: 75.4,
+                produced_chars: 1234,
+                produced_segment_count: 5,
+            },
+        ];
+
+        render(<GlobalQueue queue={queue as any[]} />)
+
+        fireEvent.click(await screen.findByText(/Completed \/ Failed History/i))
+
+        expect(await screen.findByText('Chapter With Metadata')).toBeTruthy()
+        expect(screen.getByText('1m 15s')).toBeTruthy()
+        expect(screen.getByText('1,234 chars • 5 segments')).toBeTruthy()
+    })
+
+    it('uses live job metadata to label voice test queue rows without a hard refresh', async () => {
+        const queue = [
+            {
+                id: 'voice-job-1',
+                status: 'done',
+                project_name: null,
+                chapter_title: null,
+                split_part: 0,
+                completed_at: 1710000060,
+            },
+        ];
+        const jobs = {
+            'voice-job-1': {
+                id: 'voice-job-1',
+                engine: 'voice_test',
+                status: 'done',
+                custom_title: 'Building voice for Dark Fantasy: Default',
+                started_at: 1710000000,
+                finished_at: 1710000060,
+                produced_audio_length: 26.4,
+                produced_chars: 400,
+                produced_segment_count: 1,
+            },
+        };
+
+        render(<GlobalQueue queue={queue as any[]} jobs={jobs as any} />);
+
+        fireEvent.click(await screen.findByText(/Completed \/ Failed History/i));
+
+        expect(await screen.findByText('Building voice for Dark Fantasy: Default')).toBeTruthy();
+        expect(screen.getByText('Voice Preview')).toBeTruthy();
+        expect(screen.getByText('26.4s')).toBeTruthy();
+        expect(screen.getByText('400 chars • 1 segments')).toBeTruthy();
     })
 
     it('calls clear completed from ActionMenu', async () => {
@@ -195,4 +333,126 @@ describe('GlobalQueue', () => {
         expect(screen.getByText(/Processing\.\.\./i)).toBeTruthy();
         expect(screen.queryByText(/Finalizing\.\.\./i)).toBeNull();
     })
+
+    it('does not resurrect stale progress from liveJob when the merged queue row is queued or preparing', () => {
+        const mergedQueue = [
+            { id: 'job-stale-progress', status: 'preparing', progress: 0, chapter_title: 'Preparing Chapter' } as any
+        ];
+        // liveJob says running and progress is 0.77 (stale)
+        const legacyJobs = {
+            'job-stale-progress': { id: 'job-stale-progress', status: 'running', progress: 0.77 } as any
+        };
+
+        render(<GlobalQueue queue={mergedQueue} jobs={legacyJobs} />);
+
+        // The job status is preparing, so its progress should be 0 (not 0.77)
+        // The display label should be "Preparing..."
+        expect(screen.getByText('Preparing...')).toBeTruthy();
+        expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-progress', '0');
+    });
+
+    it('identifies chapter jobs without engine-name heuristics', () => {
+        const queue = [
+            {
+                id: 'job-custom-engine',
+                status: 'running',
+                progress: 0.5,
+                chapter_title: 'Custom Engine Chapter',
+                engine: 'my-custom-plugin-tts', // Not xtts or mixed
+            } as any
+        ];
+        render(<GlobalQueue queue={queue} />);
+
+        // It should identify it as a chapter-scoped job and render it in the processing now section
+        expect(screen.getByText('Custom Engine Chapter')).toBeTruthy();
+        expect(screen.queryByText(/Queue is empty/i)).toBeNull();
+    });
+
+    it('keeps a done queue row with progress below 1.0 mounted in the active section until visual completion', async () => {
+        vi.useFakeTimers();
+        const queue = [
+            {
+                id: 'job-pending-visual',
+                status: 'done',
+                progress: 0.7,
+                chapter_title: 'Catch-Up Chapter',
+            } as any
+        ];
+
+        const { rerender } = render(<GlobalQueue queue={queue} />);
+
+        // It should be under "Processing Now" because it is visually pending
+        expect(screen.getByText(/Processing Now/i)).toBeTruthy();
+        expect(screen.getByText('Catch-Up Chapter')).toBeTruthy();
+
+        // Rerender with 1.0 progress (representing completed done-transition)
+        const queueDone = [
+            {
+                ...queue[0],
+                progress: 1.0
+            }
+        ];
+        rerender(<GlobalQueue queue={queueDone} />);
+
+        // Still visible briefly due to the 0.5s delay
+        expect(screen.queryByText('Catch-Up Chapter')).toBeTruthy();
+
+        // Advance timers by 0.5s
+        await act(async () => {
+            vi.advanceTimersByTime(500);
+        });
+
+        // Now it should be allowed to disappear from the active section (Processing Now is gone/empty)
+        expect(screen.queryByText(/Processing Now/i)).toBeNull();
+
+        vi.useRealTimers();
+    });
+
+    it('retains a done queue row when transitioning from active to done even if progress is already 1.0', async () => {
+        vi.useFakeTimers();
+        const queueActive = [
+            {
+                id: 'job-transition-1',
+                status: 'running',
+                progress: 0.8,
+                chapter_title: 'Transition Chapter',
+            } as any
+        ];
+
+        const { rerender } = render(<GlobalQueue queue={queueActive} />);
+
+        // Should be active/Processing Now
+        expect(screen.getByText(/Processing Now/i)).toBeTruthy();
+        expect(screen.getByText('Transition Chapter')).toBeTruthy();
+
+        // Transition to done with progress 1.0 immediately
+        const queueDone = [
+            {
+                id: 'job-transition-1',
+                status: 'done',
+                progress: 1.0,
+                chapter_title: 'Transition Chapter',
+            } as any
+        ];
+        rerender(<GlobalQueue queue={queueDone} />);
+
+        // It must remain visually pending (Processing Now is still present, item is still mounted)
+        expect(screen.queryByText(/Processing Now/i)).toBeTruthy();
+        expect(screen.queryByText('Transition Chapter')).toBeTruthy();
+
+        // Rerender with 1.0 progress again to simulate a tick
+        rerender(<GlobalQueue queue={queueDone} />);
+        expect(screen.queryByText('Transition Chapter')).toBeTruthy();
+
+        // Advance timers by 31s to trigger both QueueItem's visual completion hold (500ms)
+        // and GlobalQueue's 30s debug button retention window.
+        await act(async () => {
+            vi.advanceTimersByTime(31000);
+        });
+
+        // Now it should be allowed to disappear
+        expect(screen.queryByText(/Processing Now/i)).toBeNull();
+
+        vi.useRealTimers();
+    });
 })
