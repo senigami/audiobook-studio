@@ -1373,9 +1373,7 @@ def test_voice_sample_terminal_done_progress(tmp_path):
          patch("app.engines.audio_ops.wav_to_mp3", mock_wav_to_mp3), \
          patch("app.db.speakers.update_speaker_settings", mock_update_settings), \
          patch("app.engines.watchdog.get_watchdog", return_value=None), \
-         patch("app.jobs.registry.get_handler_registry") as mock_reg:
-
-        mock_reg.return_value.get_handler.return_value = None
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None):
 
         # Run dispatch which will invoke task.run()
         orc._dispatch(task=task, context=context)

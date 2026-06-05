@@ -2,7 +2,6 @@ import pytest
 import time
 import os
 import uuid
-import importlib
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from app.db.core import init_db
@@ -12,31 +11,34 @@ from app.orchestration.tasks.base import TaskContext, StudioTask, TaskResult
 
 @pytest.fixture
 def clean_db(tmp_path):
-    # Use a unique DB path for this test
+    # Use a unique DB path for this test. Connections resolve the path from the
+    # environment on every call (get_db_path/get_studio_db_path), so no module
+    # reload is needed. Save and restore the env so the path never leaks into
+    # later tests (which previously caused order-dependent failures).
     db_path = tmp_path / f"test_performance_{uuid.uuid4().hex}.db"
     studio_db_path = tmp_path / f"test_studio_{uuid.uuid4().hex}.db"
+    _prev = {k: os.environ.get(k) for k in ("DB_PATH", "STUDIO_DB_PATH")}
     os.environ["DB_PATH"] = str(db_path)
     os.environ["STUDIO_DB_PATH"] = str(studio_db_path)
-
-    # Force reload of db.core to pick up the new DB_PATHs
-    import app.db.core
-    importlib.reload(app.db.core)
 
     init_db()
 
     yield db_path
 
+    # Restore prior env so subsequent tests use the session databases.
+    for k, v in _prev.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+
     # Cleanup
-    if db_path.exists():
-        try:
-            os.unlink(db_path)
-        except OSError:
-            pass
-    if studio_db_path.exists():
-        try:
-            os.unlink(studio_db_path)
-        except OSError:
-            pass
+    for p in (db_path, studio_db_path):
+        if p.exists():
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
 
 
 class MockOrchestrator(OrchestratorHelpersMixin):
@@ -322,6 +324,7 @@ def test_persisted_sample_includes_audio_duration_and_model_load_seconds(clean_d
 
     # Mock probe_audio_duration to return a dummy duration
     with patch("app.utils.subprocess_utils.probe_audio_duration", return_value=12.34), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
          patch("app.engines.watchdog.get_watchdog", return_value=None):
 
         # Mock the handler or bridge so the task returns result with timing
@@ -373,6 +376,7 @@ def test_persisted_sample_prefers_structured_timing_for_model_load_seconds(clean
     perf_job_obj = SimpleNamespace(render_group_count=1)
 
     with patch("app.utils.subprocess_utils.probe_audio_duration", return_value=12.34), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
          patch("app.engines.watchdog.get_watchdog", return_value=None), \
          patch("app.db.state.get_jobs", return_value={context.task_id: perf_job_obj}):
 
@@ -416,6 +420,7 @@ def test_persisted_sample_falls_back_to_job_timestamps_for_model_load_seconds(cl
     )
 
     with patch("app.utils.subprocess_utils.probe_audio_duration", return_value=12.34), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
          patch("app.engines.watchdog.get_watchdog", return_value=None), \
          patch("app.db.state.get_jobs", return_value={context.task_id: perf_job_obj}):
 
@@ -463,7 +468,11 @@ def test_xtts_diagnostics_live_tee_stderr(capsys):
     def mock_on_output(line):
         callback_lines.append(line)
 
-    with patch("plugins.tts_xtts.plugin.core.implementation.run_cmd_stream", return_value=0):
+    # Isolate from the host: the diagnostics-tee behavior under test runs after the
+    # XTTS-env check, so pretend the env is present (run_cmd_stream is mocked anyway).
+    with patch("plugins.tts_xtts.plugin.core.implementation.run_cmd_stream", return_value=0), \
+         patch("plugins.tts_xtts.plugin.core.implementation.XTTS_ENV_ACTIVATE") as mock_activate:
+        mock_activate.exists.return_value = True
         rc = xtts_generate(
             text="hello",
             out_wav=Path("dummy.wav"),

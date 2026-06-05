@@ -188,9 +188,9 @@ def test_sample_build_receives_markers_live():
     progress_events = [p for p in orc.published if p.get("status") == "running"]
     assert len(progress_events) >= 2
     assert any(p["progress"] == 0.0 for p in progress_events) # START_SYNTHESIS
-    # 50% scaled by 0.7 = 0.35
-    assert any(pytest.approx(p["progress"]) == 0.35 for p in progress_events)
-    marker_progress = next(p for p in progress_events if pytest.approx(p["progress"]) == 0.35)
+    # Voice-sample progress is reported unscaled: 50% -> 0.50
+    assert any(pytest.approx(p["progress"]) == 0.50 for p in progress_events)
+    marker_progress = next(p for p in progress_events if pytest.approx(p["progress"]) == 0.50)
     assert marker_progress["eta_seconds"] == 10
     assert marker_progress["reason_code"] == "SEGMENT_PROGRESS"
 

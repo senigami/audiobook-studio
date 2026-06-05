@@ -291,7 +291,7 @@ def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
         )
 
         # Verify status became 'done'
-        mock_update_job.assert_any_call("test_job", status="done", finished_at=ANY, progress=1.0, output_wav="output.wav", output_mp3="output.mp3")
+        mock_update_job.assert_any_call("test_job", status="done", finished_at=ANY, progress=1.0, output_wav="output.wav", output_mp3="output.mp3", eta_seconds=None, eta_basis=None, estimated_end_at=None, eta_updated_at=None)
 
 
 def test_handle_xtts_job_creates_missing_project_audio_dir(mock_job, tmp_path):
@@ -344,7 +344,7 @@ def test_handle_xtts_job_cancel(mock_job, tmp_path):
             pdir, out_wav, out_mp3, text="Hello"
         )
 
-        mock_update_job.assert_any_call("test_job", status="cancelled", finished_at=ANY, progress=1.0, error="Cancelled.")
+        mock_update_job.assert_any_call("test_job", status="cancelled", finished_at=ANY, progress=1.0, error="Cancelled.", eta_seconds=None, eta_basis=None, estimated_end_at=None, eta_updated_at=None)
 
 
 def test_no_finalizing_status_is_set(mock_job, tmp_path):

@@ -261,7 +261,7 @@ class OrchestratorHelpersMixin:
                 script = payload.get("script") or getattr(task, "script", None)
                 if script and isinstance(script, list):
                     segment_count = max(1, len(script))
-                elif perf_job_obj and getattr(perf_job_obj, "render_group_count", 0) > 0:
+                elif perf_job_obj and (getattr(perf_job_obj, "render_group_count", 0) or 0) > 0:
                     segment_count = max(1, perf_job_obj.render_group_count)
                 elif context.task_type in ("sample_build", "sample_test"):
                     segment_count = 1
