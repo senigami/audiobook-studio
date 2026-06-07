@@ -1,7 +1,7 @@
 {
-  "snapshot_version": 172,
-  "current_task": "Fix remaining PredictiveProgressBar terminal collapse bug using real QueueItem sequence",
-  "status": "terminal_collapse_and_parameter_retention_fixed",
+  "snapshot_version": 173,
+  "current_task": "Sync Studio 2.0 Phase 12 changes into the GitHub wiki",
+  "status": "phase_12_wiki_sync_verified",
   "last_committed_milestone": {
     "title": "QueueItem terminal parameter retention during done-transition fixed",
     "commit": "pending",
@@ -73,7 +73,8 @@
     "QueueItem ETA source and updatedAt anchor selection is unified via explicit etaSource derivation, and the stabilization effect guards against overwriting live timestamps with older database values.",
     "DevProgressBar test harness is subscribed to segments.progress websocket events, displaying active source badges, full raw frame inspector JSON, and explicit ignored topics set (queue.items, chapters.progress, tts.logs) along with the last ignored event.",
     "Backend START_SEGMENT emissions now seed eta_seconds from the historical duration estimate so the first segment tick no longer starts with a null ETA, and the watchdog regression test covers that contract.",
-    "Progress consumer ingress is now audited: main queue ignores segment topics and rogue queue.items segment fields, segment progress ETA is preserved through stale timestamp paths, and synthetic handoff completions use SEGMENT_SAVED."
+    "Progress consumer ingress is now audited: main queue ignores segment topics and rogue queue.items segment fields, segment progress ETA is preserved through stale timestamp paths, and synthetic handoff completions use SEGMENT_SAVED.",
+    "Wiki pages now document the Phase 12 plugin-to-queue event stream contract, voice-test queue visibility rules, plugin Settings UX, WAV-first output behavior, per-voice plugin settings, voice bundle schema direction, Library list/sort controls, and Chapter Editor VCR playback."
   ],
   "phase_13_guidance": [
     "Phase 13 plan is plans/phases/phase_13_release_documentation_and_distribution.md.",
@@ -99,7 +100,7 @@
     "latest_lint_focus": "2026-06-04: eslint passed on frontend with 7 existing warnings, ruff passed on backend.",
     "latest_frontend_event_stream_focus": "2026-05-22: Live Output route renamed to /event-stream and consumer filter toggles implemented; focused Vitest passed, full frontend Vitest passed (580 tests), frontend build passed, frontend lint passed, and git diff --check passed.",
     "latest_frontend_live_output_ownership": "2026-05-22: Removed the false jobs-state ownership from tts.logs so the Live Output subscribers column now reflects actual consumer handling.",
-    "latest_diff_check": "2026-06-04: git diff --check passed with 0 warnings/errors.",
+    "latest_diff_check": "2026-06-07: git diff --check passed after Phase 12 wiki sync.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."

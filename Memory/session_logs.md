@@ -1913,3 +1913,9 @@
 - Guarded the registry-handler and local fallback dispatch paths against publishing early synthetic running status and startedAt timestamps for sample_build and sample_test tasks.
 - Prevented task_progress_reporter from setting render_started_at to time.time() at 0.0 progress for voice-sample tasks, ensuring starting timestamp is only populated on real synthesis start.
 - Verified pytest progress logic tests, Ruff linter, and git diff --check pass cleanly.
+
+# 2026-06-07 - Studio 2.0 Phase 12 wiki sync
+
+- Updated permanent wiki pages with the Phase 12 plugin-to-queue event stream contract, including topic ownership, lifecycle order, voice-test handling, and diagnostics separation.
+- Synced user-facing wiki notes for plugin import/dependency management, schema-driven engine settings, calibration display, WAV-first rendering, per-voice plugin settings, voice bundle schema direction, Library list/sort controls, and Chapter Editor VCR playback.
+- Verified documentation changes with git diff --check.

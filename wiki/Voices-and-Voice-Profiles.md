@@ -41,6 +41,7 @@ Each **Voice** always has at least one variant (usually the "Default" variant). 
 - **Build Progress**: XTTS profiles build local speaker state. Voxtral profiles regenerate preview audio from reference samples or a saved `voice_id`.
 - **Contextual Management**: In the samples list, the **Delete (X)** button is hidden by default and only appears when hovering over a specific row to keep the interface clean while managing audio.
 - **Portable Latent Cache**: Each voice profile now keeps its own `latent.pth` alongside `profile.json` and `sample.wav`, which makes renaming, moving, and sharing a voice bundle much safer.
+- **Per-Voice Plugin Settings**: Engines can expose selected settings for individual voices. Common overrides such as speed and model can travel with the voice profile, while plugin-specific controls appear only when the plugin declares them.
 - **Sample Styling Tip**: The first sample tends to anchor the voice most strongly, while later samples add nuance. Mixing clean examples with different delivery styles can help shape a more interesting profile.
 
 ## Engine Per Voice
@@ -49,6 +50,22 @@ Each **Voice** always has at least one variant (usually the "Default" variant). 
 - The engine is assigned per voice profile, not per project.
 - Mixed-engine chapters are supported, so one section can use XTTS while another uses Voxtral if the assigned profiles differ.
 - Voxtral is hidden entirely unless the user enables it in Settings.
+
+## Voice Bundles
+
+Voice bundles are the portable package format for moving a voice between Studio installs or preparing a voice for external distribution.
+
+A complete voice bundle can include:
+
+- voice and variant metadata
+- sample WAV files
+- generated preview audio
+- engine-specific model assets such as `latent.pth`
+- language, style, tag, and attribution metadata when available
+
+Studio's newer voice-bundle shape is defined in `docs/specs/voice.schema.json`, with a template in `docs/specs/voice-bundle-template/`. That shape is intended to support local Studio imports and future Hugging Face-style voice distribution without relying on undocumented folder conventions.
+
+When sharing a bundle, keep the engine compatibility in mind. A voice built for `XTTS (Local)` may include local model assets, while a cloud or remote engine may rely on provider-specific IDs or reference samples instead.
 
 ---
 

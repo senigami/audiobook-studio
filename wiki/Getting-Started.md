@@ -4,7 +4,7 @@ This guide covers the current recommended first-run path for **Audiobook Studio*
 
 ## Best Starting Point
 
-If you are new to the project, start with the current `1.8.x` release line or the latest `main` after that release. Earlier versions contain important groundwork, but this is the first release family intended to feel smooth for brand-new users end to end across local XTTS production and optional Voxtral support.
+If you are new to the project, start with the current Studio 2.0 release line or the latest `main` after that release. Studio 2.0 is the plugin-based release family for local XTTS production, optional Voxtral support, mixed rendering, and schema-driven engine settings.
 
 ## Requirements
 

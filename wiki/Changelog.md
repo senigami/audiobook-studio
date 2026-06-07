@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - Studio 2.0 Phase 12 Wiki Sync
+
+### Highlights
+
+- **Documented Plugin-to-Queue Event Contract**: Added the permanent wiki version of the event-stream ownership model, including `queue.items`, `jobs.lifecycle`, `chapters.progress`, `segments.progress`, `voice.test`, and `tts.logs`, plus the required queue-visible lifecycle order.
+- **Clarified Voice Test Queue Behavior**: Documented that voice preview/test jobs use `voice.test` for scoped progress while still creating and completing normal queue rows through `queue.items` and `jobs.lifecycle`.
+- **Updated Plugin Settings Documentation**: Settings docs now cover schema-driven engine cards, plugin zip import, dependency installation, plugin refresh, protected built-in plugins, uninstall behavior, calibration confidence, and resettable speed calibration.
+- **Removed Obsolete Automatic MP3 Settings From Wiki**: Settings now describes the current WAV-first render model and treats MP3 as an explicit output/export action rather than a background render toggle.
+- **Updated Library, Chapter Editor, and Voice Docs**: Wiki pages now mention Library list/sort controls, the consolidated Chapter Editor with VCR playback, per-voice plugin settings, and the newer voice-bundle schema/template direction.
+
 ## [2.0.6] - 2026-05-30
 
 ### Highlights
