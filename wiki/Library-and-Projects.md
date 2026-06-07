@@ -4,7 +4,7 @@ The Library is your control center for all audiobooks in progress.
 
 ## 📚 Managing the Library
 
-- **Browse**: View all projects as cards or in the newer list view.
+- **Browse**: View all projects as cards or in list view.
 - **Sort**: Use the Library controls to sort projects by the current project metadata instead of hunting through cards manually.
 - **New Project**: Use the floating "+" button to start a new book.
 - **Delete**: Projects can be removed via the context menu on the project card. _Warning: This removes all associated audio and text._

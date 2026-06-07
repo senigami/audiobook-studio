@@ -1,7 +1,7 @@
 {
   "snapshot_version": 173,
   "current_task": "Sync Studio 2.0 Phase 12 changes into the GitHub wiki",
-  "status": "phase_12_wiki_sync_verified",
+  "status": "wiki_user_facing_wording_corrected",
   "last_committed_milestone": {
     "title": "QueueItem terminal parameter retention during done-transition fixed",
     "commit": "pending",
@@ -100,7 +100,7 @@
     "latest_lint_focus": "2026-06-04: eslint passed on frontend with 7 existing warnings, ruff passed on backend.",
     "latest_frontend_event_stream_focus": "2026-05-22: Live Output route renamed to /event-stream and consumer filter toggles implemented; focused Vitest passed, full frontend Vitest passed (580 tests), frontend build passed, frontend lint passed, and git diff --check passed.",
     "latest_frontend_live_output_ownership": "2026-05-22: Removed the false jobs-state ownership from tts.logs so the Live Output subscribers column now reflects actual consumer handling.",
-    "latest_diff_check": "2026-06-07: git diff --check passed after Phase 12 wiki sync.",
+    "latest_diff_check": "2026-06-07: git diff --check passed after user-facing wiki wording cleanup.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."

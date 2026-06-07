@@ -63,7 +63,7 @@ A complete voice bundle can include:
 - engine-specific model assets such as `latent.pth`
 - language, style, tag, and attribution metadata when available
 
-Studio's newer voice-bundle shape is defined in `docs/specs/voice.schema.json`, with a template in `docs/specs/voice-bundle-template/`. That shape is intended to support local Studio imports and future Hugging Face-style voice distribution without relying on undocumented folder conventions.
+Studio's voice-bundle shape is defined in `docs/specs/voice.schema.json`, with a template in `docs/specs/voice-bundle-template/`. That shape supports local Studio imports and Hugging Face-compatible voice distribution without relying on undocumented folder conventions.
 
 When sharing a bundle, keep the engine compatibility in mind. A voice built for `XTTS (Local)` may include local model assets, while a cloud or remote engine may rely on provider-specific IDs or reference samples instead.
 

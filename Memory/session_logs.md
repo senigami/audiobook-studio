@@ -1919,3 +1919,9 @@
 - Updated permanent wiki pages with the Phase 12 plugin-to-queue event stream contract, including topic ownership, lifecycle order, voice-test handling, and diagnostics separation.
 - Synced user-facing wiki notes for plugin import/dependency management, schema-driven engine settings, calibration display, WAV-first rendering, per-voice plugin settings, voice bundle schema direction, Library list/sort controls, and Chapter Editor VCR playback.
 - Verified documentation changes with git diff --check.
+
+# 2026-06-07 - User-facing wiki wording corrected
+
+- Removed internal development framing from the wiki, including the temporary "Unreleased / Phase 12 Wiki Sync" changelog entry.
+- Reworded recently added wiki text so it describes finished Studio 2.0 behavior rather than "newer" or "future" development direction.
+- Verified the wiki no longer contains the searched internal/incomplete markers and git diff --check passes.
