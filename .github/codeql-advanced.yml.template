@@ -1,10 +1,22 @@
+# ============================================================================
+# CodeQL advanced configuration — TEMPLATE, NOT ACTIVE.
+#
+# This file is intentionally NOT under .github/workflows/, so GitHub does not
+# run it. Until the 2.0 release, GitHub **default setup** owns code scanning
+# (Settings -> Code security -> Code scanning -> Default setup).
+#
+# Do NOT enable an advanced CodeQL workflow while default setup is enabled:
+# the two conflict and silence each other. To switch to this advanced setup
+# after 2.0 ships:
+#   1. Move this file to .github/workflows/codeql.yml on main.
+#   2. Disable default setup in Settings -> Code security -> Code scanning.
+#   3. Enable the "CodeQL" workflow in the Actions tab.
+#
+# It uses the default CodeQL query suite to keep alert noise (false positives)
+# low.
+# ============================================================================
 name: CodeQL
 
-# This advanced workflow is the single CodeQL owner for the repository.
-# Enabling it automatically disables GitHub's "default setup" (the two cannot
-# coexist), so it must cover every branch we care about: main and the
-# studio-2.0 release line, plus PRs targeting either. It uses the default
-# CodeQL query suite to keep alert noise low.
 on:
   push:
     branches: [main, studio-2.0]
