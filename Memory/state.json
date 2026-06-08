@@ -4,7 +4,7 @@
   "status": "queue_event_stream_slices_verified",
   "last_committed_milestone": {
     "title": "Queue/event-stream repair slices implemented and voice previews switched to WAV-only",
-    "commit": "pending",
+    "commit": "3a8c56d6c54c828cf70504bed2628466cff5cf01",
     "notes": [
       "Added durable queue-row creation for bake, segment, and assembly entrypoints; voice-test telemetry now requires jobId; and mixed rendering no longer writes the queue row directly during completion.",
       "Converted voice preview generation to WAV-only across the API routes, worker path, sample tasks, and preview URL helper; removed the MP3 preview fallback.",
