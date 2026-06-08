@@ -201,8 +201,7 @@ async def build_speaker_profile(
     except Exception as e:
         from ...engines.errors import EngineUnavailableError
         if isinstance(e, EngineUnavailableError):
-             logger.warning("Engine service unavailable: %s", e)
-             return JSONResponse({"status": "error", "message": "TTS engine service is unavailable"}, status_code=503)
+             return JSONResponse({"status": "error", "message": str(e)}, status_code=503)
         logger.error(f"Error preparing path for profile {name}: {e}")
         return JSONResponse({"status": "error", "message": "Build failed"}, status_code=500)
 
@@ -379,7 +378,6 @@ def test_speaker_profile(name: str, background_tasks: BackgroundTasks):
     except Exception as e:
         from ...engines.errors import EngineUnavailableError
         if isinstance(e, EngineUnavailableError):
-             logger.warning("Engine service unavailable: %s", e)
-             return JSONResponse({"status": "error", "message": "TTS engine service is unavailable"}, status_code=503)
+             return JSONResponse({"status": "error", "message": str(e)}, status_code=503)
         logger.error(f"Test failed for {name}: {e}")
         return JSONResponse({"status": "error", "message": "Test failed"}, status_code=500)

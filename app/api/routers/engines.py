@@ -20,8 +20,7 @@ def list_engines():
     except EngineUnavailableError as exc:
         # We no longer fall back to the local registry in production.
         # This prevents masking TTS Server failures.
-        logger.warning("Engine service unavailable: %s", exc)
-        return JSONResponse({"status": "error", "message": "TTS engine service is unavailable"}, status_code=503)
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
 
 
 @router.put("/{engine_id}/settings")
@@ -33,8 +32,7 @@ def update_engine_settings(engine_id: str, settings: dict[str, Any] = Body(...))
         result = bridge.update_engine_settings(engine_id, settings)
         return JSONResponse(result)
     except EngineUnavailableError as exc:
-        logger.warning("Engine service unavailable: %s", exc)
-        return JSONResponse({"status": "error", "message": "TTS engine service is unavailable"}, status_code=503)
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
     except NotImplementedError:
         return JSONResponse({"status": "error", "message": "Feature not implemented"}, status_code=501)
     except Exception as exc:
@@ -52,8 +50,7 @@ def clear_engine_setting(engine_id: str, setting_key: str):
         result = bridge.clear_engine_setting(engine_id, setting_key)
         return JSONResponse(result)
     except EngineUnavailableError as exc:
-        logger.warning("Engine service unavailable: %s", exc)
-        return JSONResponse({"status": "error", "message": "TTS engine service is unavailable"}, status_code=503)
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
     except Exception as exc:
         import logging
         logging.getLogger(__name__).error(f"Engine setting reset failed: {exc}")
@@ -69,8 +66,7 @@ def refresh_plugins():
         result = bridge.refresh_plugins()
         return JSONResponse(result)
     except EngineUnavailableError as exc:
-        logger.warning("Engine service unavailable: %s", exc)
-        return JSONResponse({"status": "error", "message": "TTS engine service is unavailable"}, status_code=503)
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
     except Exception as exc:
         import logging
         logging.getLogger(__name__).error(f"Plugin refresh failed: {exc}")
@@ -85,8 +81,7 @@ def verify_engine(engine_id: str):
     try:
         return bridge.verify_engine(engine_id)
     except EngineUnavailableError as exc:
-        logger.warning("Engine service unavailable: %s", exc)
-        return JSONResponse({"status": "error", "message": "TTS engine service is unavailable"}, status_code=503)
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
 
 
 @router.get("/{engine_id}/test/audio")
@@ -149,8 +144,7 @@ def test_engine(engine_id: str):
         return JSONResponse(payload)
 
     except EngineUnavailableError as exc:
-        logger.warning("Engine service unavailable: %s", exc)
-        return JSONResponse({"ok": False, "message": "TTS engine service is unavailable"}, status_code=503)
+        return JSONResponse({"ok": False, "message": str(exc)}, status_code=503)
     except Exception as exc:
         import logging
         logging.getLogger(__name__).exception("Engine test failed")
@@ -166,11 +160,9 @@ def install_engine_dependencies(engine_id: str):
     try:
         return bridge.install_dependencies(engine_id)
     except EngineUnavailableError as exc:
-        logger.warning("Engine service unavailable: %s", exc)
-        return JSONResponse({"status": "error", "message": "TTS engine service is unavailable"}, status_code=503)
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
     except TtsServerError as exc:
-        logger.error("TTS server error: %s", exc)
-        return JSONResponse({"status": "error", "message": "The TTS server reported an error"}, status_code=500)
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
     except Exception as exc:
         import logging
 
@@ -196,8 +188,7 @@ async def import_engine_plugin(file: UploadFile = File(...)):
         content = await file.read()
         return bridge.import_plugin(content, file.filename)
     except TtsServerError as exc:
-        logger.error("TTS server error: %s", exc)
-        return JSONResponse({"status": "error", "message": "The TTS server reported an error"}, status_code=500)
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
     except Exception as exc:
         import logging
         logging.getLogger(__name__).exception("Plugin import failed")
@@ -219,8 +210,7 @@ def get_engine_logs(engine_id: str):
     try:
         return bridge.get_logs(engine_id)
     except EngineUnavailableError as exc:
-        logger.warning("Engine service unavailable: %s", exc)
-        return JSONResponse({"status": "error", "message": "TTS engine service is unavailable"}, status_code=503)
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
 
 
 @router.get("/{engine_id}/dev/scenarios")
