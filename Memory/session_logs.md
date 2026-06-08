@@ -1994,3 +1994,11 @@
 - Removed the header segment bar fallback to chapter/job progress, render-batch progress, terminal job completion, and predictive timestamp math.
 - The header Segment Progress bar now mounts only when active segment contract fields or preserved `segments.progress` provenance are present, renders non-predictively, allows exact backward corrections, and preserves `SEGMENT_SAVED` provenance when later frames clear `active_segment_id`.
 - Verified red/green contract coverage plus ChapterHeader, ChapterEditorPage, ChapterEditor_Queue, useJobs, live-jobs, useQueueSync, hydration, ChapterList, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-08 - Exact segment progress 0% handoff fixed
+
+- Debug logs showed `START_SEGMENT` websocket frames already emitted `activeSegmentProgress: 0`, but `PredictiveProgressBar` still used predictive lane/ETA/memory logic even when `predictive={false}`.
+- Restored `PredictiveProgressBar` as a lane animator and moved segment policy into `buildSegmentProgressBarProps`, shared by ChapterHeader and `/progress-test` segment mode.
+- Segment progress now uses segment-keyed identity, 3-tick local animation, exact plugin progress targets, no ETA prediction fields, and no confidence scaling of the visual target.
+- Kept Anti-gravity's predictive duplicate-zero/no-startedAt behavior only for `predictive={true}` queue/chapter bars.
+- Verified red/green segment contract regressions plus all PredictiveProgressBar suites, ChapterHeader/ChapterEditor/DevProgressBar/queue-state affected suites, frontend lint, frontend build, and `git diff --check`.

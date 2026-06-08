@@ -1,6 +1,7 @@
 import React from 'react';
 import { Terminal } from 'lucide-react';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
+import { buildSegmentProgressBarProps } from '@/components/progress/progressBarContracts';
 import { useProgressBarTest } from '@/hooks/useProgressBarTest';
 import { ProgressBarLaunchPanel } from '@/pages/DevProgressBar/components/ProgressBarLaunchPanel';
 import { ProgressBarUpdatePanel } from '@/pages/DevProgressBar/components/ProgressBarUpdatePanel';
@@ -28,6 +29,20 @@ export const ProgressBarTestPage: React.FC = () => {
     lastSocketEnvelope,
     lastIgnoredEnvelope
   } = useProgressBarTest();
+  const isSegmentCheckpoint = activeConfig.checkpointMode === 'segment';
+  const segmentProgressBarProps = isSegmentCheckpoint
+    ? buildSegmentProgressBarProps({
+        jobId: activeConfig.persistenceKey ?? 'progress-test-run',
+        segmentId: activeConfig.persistenceKey ?? 'progress-test-segment',
+        progress: activeConfig.progress,
+        status: activeConfig.status,
+        evidenceWeightFraction: activeConfig.evidenceWeightFraction,
+        state: activeConfig.status === 'running' ? 'processing' : activeConfig.status,
+        label: activeConfig.label,
+        dataTestId: 'dev-progress-bar-preview',
+        onDebugSnapshot: setDebugSnapshot,
+      })
+    : null;
 
   return (
     <div style={{ display: 'grid', gap: '1.5rem' }}>
@@ -87,27 +102,32 @@ export const ProgressBarTestPage: React.FC = () => {
         }}>
           <h2 style={{ marginTop: 0 }}>Live Preview</h2>
           <div style={{ padding: '1rem', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--surface)' }}>
-              <PredictiveProgressBar
-                key={renderToken}
-                dataTestId="dev-progress-bar-preview"
-                progress={activeConfig.progress}
-                startedAt={activeConfig.startedAt}
-                etaSeconds={activeConfig.etaSeconds}
-                persistenceKey={activeConfig.persistenceKey}
-                label={activeConfig.label}
-                showEta={activeConfig.showEta}
-                status={activeConfig.status}
-                updatedAt={activeConfig.updatedAt}
-                etaBasis={activeConfig.etaBasis}
-                predictive={true}
-                allowBackwardProgress={activeConfig.allowBackwardProgress}
-                transitionTickCount={activeConfig.transitionTickCount}
-                backwardTransitionTickCount={activeConfig.backwardTransitionTickCount}
-                tickMs={activeConfig.tickMs}
-                evidenceWeightFraction={activeConfig.evidenceWeightFraction}
-                checkpointMode={activeConfig.checkpointMode}
-                onDebugSnapshot={setDebugSnapshot}
-            />
+              {segmentProgressBarProps ? (() => {
+                const { key, ...progressBarProps } = segmentProgressBarProps;
+                return <PredictiveProgressBar key={`${renderToken}:${key}`} {...progressBarProps} />;
+              })() : (
+                <PredictiveProgressBar
+                  key={renderToken}
+                  dataTestId="dev-progress-bar-preview"
+                  progress={activeConfig.progress}
+                  startedAt={activeConfig.startedAt}
+                  etaSeconds={activeConfig.etaSeconds}
+                  persistenceKey={activeConfig.persistenceKey}
+                  label={activeConfig.label}
+                  showEta={activeConfig.showEta}
+                  status={activeConfig.status}
+                  updatedAt={activeConfig.updatedAt}
+                  etaBasis={activeConfig.etaBasis}
+                  predictive={true}
+                  allowBackwardProgress={activeConfig.allowBackwardProgress}
+                  transitionTickCount={activeConfig.transitionTickCount}
+                  backwardTransitionTickCount={activeConfig.backwardTransitionTickCount}
+                  tickMs={activeConfig.tickMs}
+                  evidenceWeightFraction={activeConfig.evidenceWeightFraction}
+                  checkpointMode={activeConfig.checkpointMode}
+                  onDebugSnapshot={setDebugSnapshot}
+                />
+              )}
           </div>
 
           <ProgressBarDebugPanel

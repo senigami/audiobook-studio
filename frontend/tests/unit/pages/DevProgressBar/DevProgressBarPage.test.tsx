@@ -77,6 +77,7 @@ describe('ProgressBarTestPage', () => {
   it('seeds startedAt to now when a preparing run becomes running without a handoff timestamp', async () => {
     render(<ProgressBarTestPage />)
 
+    fireEvent.change(screen.getByLabelText('Checkpoint Mode'), { target: { value: 'default' } })
     fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'preparing' } })
     fireEvent.change(screen.getAllByLabelText('Progress')[0], { target: { value: '0.00' } })
     fireEvent.change(screen.getAllByLabelText('ETA Seconds')[0], { target: { value: '120' } })
@@ -176,6 +177,19 @@ describe('ProgressBarTestPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Manual update')).toBeTruthy()
+    })
+  })
+
+  it('uses the segment progress contract on the preview page without confidence-scaling live targets', async () => {
+    render(<ProgressBarTestPage />)
+
+    expect(screen.getByTestId('dev-progress-bar-preview')).toHaveTextContent('25%')
+    expect(screen.queryByText(/ETA:/)).toBeNull()
+
+    fireEvent.click(screen.getByText('+10%'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('dev-progress-bar-preview')).toHaveTextContent('35%')
     })
   })
 

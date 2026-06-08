@@ -4,9 +4,10 @@ import { describe, it, expect, vi } from 'vitest'
 import { readPercent, advanceInTicks } from '@tests/helpers/PredictiveProgressBarTestHelpers'
 
 describe('PredictiveProgressBar - Transitions', () => {
-    it('applies a backend correction smoothly', async () => {
+    it('animates exact-mode target updates without ETA prediction', async () => {
         vi.useFakeTimers()
         vi.setSystemTime(91_000)
+        const onDisplayProgress = vi.fn()
         const { rerender } = render(
             <PredictiveProgressBar
                 progress={0}
@@ -16,6 +17,7 @@ describe('PredictiveProgressBar - Transitions', () => {
                 transitionTickCount={4}
                 tickMs={250}
                 predictive={false}
+                onDisplayProgress={onDisplayProgress}
             />
         )
         expect(screen.getByText('0%')).toBeTruthy()
@@ -28,10 +30,16 @@ describe('PredictiveProgressBar - Transitions', () => {
                 transitionTickCount={4}
                 tickMs={250}
                 predictive={false}
+                onDisplayProgress={onDisplayProgress}
             />
         )
-        expect(readPercent()).toBeLessThan(33)
-        advanceInTicks(1000)
+        expect(readPercent()).toBe(0)
+        advanceInTicks(500)
+        const midValue = readPercent()
+        expect(midValue).toBeGreaterThan(0)
+        expect(midValue).toBeLessThan(33)
+        expect(onDisplayProgress.mock.calls.some(([value]) => value > 0 && value < 0.33)).toBe(true)
+        advanceInTicks(500)
         expect(screen.getByText('33%')).toBeTruthy()
         vi.useRealTimers()
     })

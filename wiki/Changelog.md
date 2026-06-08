@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - **Voice Previews Are WAV-First**: Voice preview generation now writes and serves `sample.wav` on the active path. MP3 generation remains an explicit export/download concern instead of a background preview side effect.
 - **Mixed Rendering Uses The Shared Queue Completion Path**: Mixed rendering no longer writes directly to the queue table during completion, reducing drift between persistent queue state and live job updates.
 - **Chapter Editor Segment Progress Is Segment-Only**: The Chapter Editor Segment Progress bar now renders only from active segment progress events or preserved segment progress provenance. Chapter progress, queue progress, render-batch progress, and terminal job completion no longer leak into the per-segment bar.
+- **Segment Progress Starts Visibly At 0%**: Segment progress now routes through a dedicated progress-bar contract helper. Segment handoffs show the incoming `START_SEGMENT` 0% update immediately, then locally animate between exact plugin progress updates without ETA prediction or confidence-scaling the visual target.
 
 ## [2.0.6] - 2026-05-30
 

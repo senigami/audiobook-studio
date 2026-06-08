@@ -174,7 +174,7 @@ describe('ChapterHeader progress contract', () => {
     );
 
     expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveTextContent('16%');
-    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-eta-basis', 'segment_remaining');
+    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-eta-basis', '');
     expect(capturedProgress).toBe(0.16);
     expect(capturedPredictive).toBe(false);
     expect(capturedAllowBackwardProgress).toBe(true);
@@ -693,9 +693,24 @@ describe('ChapterHeader progress contract', () => {
     expect(capturedProgress).toBe(0.16);
   });
 
-  it('proves the Segment Progress bar receives the computed confidence value and keeps checkpointMode=segment and transitionTickCount=3', () => {
+  it('keeps Segment Progress visual targets exact while preserving computed confidence in selection debug state', () => {
+    let capturedStatus: any = null;
+    const TestComponent = (props: any) => {
+      capturedStatus = useChapterStatus(
+        props.chapter,
+        props.job,
+        props.generatingJob,
+        props.queuePending,
+        props.generatingSegmentIdsCount,
+        props.queueLocked,
+        props.activeRenderBatchId,
+        props.activeRenderBatchWeight
+      );
+      return <ChapterScriptToolbar {...props} status={capturedStatus} />;
+    };
+
     render(
-      <TestHeaderWrapper
+      <TestComponent
         chapter={mockChapter as any}
         title={mockChapter.title}
         saving={false}
@@ -727,7 +742,8 @@ describe('ChapterHeader progress contract', () => {
     expect(screen.getByTestId('chapter-header-segment-progress-bar')).toBeInTheDocument();
     expect(capturedCheckpointMode).toBe('segment');
     expect(capturedTransitionTickCount).toBe(3);
-    expect(capturedEvidenceWeightFraction).toBeCloseTo(0.16);
+    expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBeCloseTo(0.16);
+    expect(capturedEvidenceWeightFraction).toBe(1);
   });
 
   it('proves that when active_segment_id is present, liveSegmentProgressValue equals active_segment_progress exactly even when render_group_count > 0', () => {

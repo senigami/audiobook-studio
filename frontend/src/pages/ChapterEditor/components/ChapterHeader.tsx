@@ -2,6 +2,7 @@ import React from 'react';
 import { RefreshCw, Zap, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Copy, MoreVertical } from 'lucide-react';
 import type { Chapter, Job } from '@/types';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
+import { buildSegmentProgressBarProps } from '@/components/progress/progressBarContracts';
 import { hasSegmentProgressCapability } from '@/utils/jobSelection';
 
 const RECENT_DONE_WINDOW_SECONDS = 60;
@@ -224,7 +225,6 @@ export const useChapterStatus = (
     : hasActiveSegment
       ? (liveSegmentProgressJob.active_segment_updated_at != null ? 'active_segment_updated_at' : 'none')
       : (liveSegmentProgressJob.updated_at != null ? 'updated_at' : 'none');
-
   const segmentProgressBarSelection = {
     dataTestId: "chapter-header-segment-progress-bar",
     barMounted: !!liveSegmentProgressJob,
@@ -257,7 +257,6 @@ export const useChapterStatus = (
     evidenceWeightFraction,
     isSegmentStartAtZero
   };
-
   return {
     queueStatus, heldQueueStatus, effectiveQueueLocked, isQueued,
     liveSegmentProgressJob, liveSegmentProgressValue, hasChapterAudio,
@@ -504,41 +503,26 @@ export const ChapterScriptToolbar: React.FC<{
 
         {status.liveSegmentProgressJob && (
             <div style={{ width: '180px', minWidth: '180px' }}>
-                <PredictiveProgressBar
-                    key={`${status.liveSegmentProgressJob.id}:${status.liveSegmentProgressJob.active_segment_id || 'none'}`}
-                    dataTestId="chapter-header-segment-progress-bar"
-                    progress={status.liveSegmentProgressValue}
-                    startedAt={status.segmentProgressBarSelection.selectedStartedAt ?? undefined}
-                    etaSeconds={status.segmentProgressBarSelection.selectedEtaSeconds ?? undefined}
-                    etaBasis={(status.segmentProgressBarSelection.selectedEtaBasis ?? undefined) as 'remaining_from_update' | 'total_from_start' | undefined}
-                    updatedAt={status.segmentProgressBarSelection.selectedUpdatedAt ?? undefined}
-                    persistenceKey={`${status.liveSegmentProgressJob.id}:${status.liveSegmentProgressJob.active_segment_id || 'none'}`}
-                    status={status.liveSegmentProgressJob.status}
-                    state={
-                        status.liveSegmentProgressJob.status === 'preparing'
+                {(() => {
+                    const progressBarConfig = buildSegmentProgressBarProps({
+                        jobId: status.liveSegmentProgressJob.id,
+                        segmentId: status.liveSegmentProgressJob.active_segment_id || 'none',
+                        progress: status.liveSegmentProgressValue,
+                        status: status.liveSegmentProgressJob.status,
+                        evidenceWeightFraction: status.segmentProgressBarSelection.evidenceWeightFraction,
+                        state: status.liveSegmentProgressJob.status === 'preparing'
                             ? (status.segmentProgressBarSelection.isSegmentStartAtZero ? 'processing' : 'preparing')
                             : status.liveSegmentProgressJob.status === 'finalizing'
                                 ? 'finalizing'
                                 : status.liveSegmentProgressJob.status === 'running'
                                     ? (status.liveSegmentProgressIsRenderBlock ? 'running' : 'processing')
-                                    : (status.liveSegmentProgressJob.status === 'error' ? 'failed' : status.liveSegmentProgressJob.status as any)
-                    }
-                    label="Segment Progress"
-                    predictive={false}
-                    allowBackwardProgress={true}
-                    evidenceWeightFraction={status.segmentProgressBarSelection.evidenceWeightFraction}
-                    checkpointMode={
-                        status.liveSegmentProgressJob.active_segment_id ? 'segment' : 'default'
-                    }
-                    transitionTickCount={
-                        status.liveSegmentProgressJob.active_segment_id ? 3 : 8
-                    }
-                    backwardTransitionTickCount={2}
-                    tickMs={250}
-                    showEta={false}
-                    onDisplayProgress={onSegmentDisplayProgress}
-                    onDebugSnapshot={onProgressBarDebugSnapshot}
-                />
+                                    : (status.liveSegmentProgressJob.status === 'error' ? 'failed' : status.liveSegmentProgressJob.status as any),
+                        onDisplayProgress: onSegmentDisplayProgress,
+                        onDebugSnapshot: onProgressBarDebugSnapshot,
+                    });
+                    const { key, ...progressBarProps } = progressBarConfig;
+                    return <PredictiveProgressBar key={key} {...progressBarProps} />;
+                })()}
             </div>
         )}
 

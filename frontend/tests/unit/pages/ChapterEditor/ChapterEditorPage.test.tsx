@@ -683,8 +683,8 @@ describe('ChapterEditor - Core Orchestration', () => {
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
-    // The progress bar should receive evidenceWeightFraction = (400 / 500) * 0.5 = 0.4
+    // Segment visual progress must not be confidence-scaled; it should render the plugin's exact target.
     const progressBar = await screen.findByTestId('mock-predictive-progress-bar');
-    expect(progressBar).toHaveAttribute('data-evidenceweightfraction', '0.4');
+    expect(progressBar).toHaveAttribute('data-evidenceweightfraction', '1');
   });
 });

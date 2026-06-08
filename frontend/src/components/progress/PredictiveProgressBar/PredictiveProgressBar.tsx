@@ -26,7 +26,7 @@ import {
 
 export type { PredictiveProgressDebugSnapshot } from '@/components/progress/PredictiveProgressBar/predictiveProgressBarDebug';
 
-interface PredictiveProgressBarProps {
+export interface PredictiveProgressBarProps {
     progress: number;
     startedAt?: number;
     etaSeconds?: number;
@@ -263,8 +263,19 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         let shouldCorrectStart = false;
         if (!currentLaneRef.current) {
             shouldCorrectStart = true;
-        } else if (startedAtMs === null) {
+        } else if (instant) {
             shouldCorrectStart = true;
+        } else if (startedAtMs === null) {
+            const currentVisual = getLaneProgress(
+                getRenderedStartAtMs(currentLaneRef.current, migrationRef.current, nowMs),
+                getRenderedEndAtMs(currentLaneRef.current, migrationRef.current, nowMs),
+                getRenderedStartProgress(currentLaneRef.current, migrationRef.current, nowMs),
+                nowMs
+            );
+            const isBackward = (allowBackwardProgress === true) && (incomingProgress < currentVisual - 0.001);
+            if (effectiveIncomingProgress > currentVisual || isBackward) {
+                shouldCorrectStart = true;
+            }
         } else if (nextEndAtMs !== null) {
             const expectedProgressAtNow = (nowMs - startedAtMs) / (nextEndAtMs - startedAtMs);
             if (targetT > expectedProgressAtNow) {
@@ -284,8 +295,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 targetStartAtMs = (nowMs - targetT * nextEndAtMs) / (1 - targetT);
             }
         } else {
-            targetStartAtMs = startedAtMs!;
-            targetStartProgress = 0;
+            targetStartAtMs = startedAtMs ?? currentLaneRef.current!.startedAtMs;
+            targetStartProgress = (startedAtMs !== null) ? 0 : currentLaneRef.current!.startProgress;
         }
 
         if (instant) {
@@ -365,12 +376,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         };
     };
 
-    const now = Date.now();
-    const renderedStartAtMs = getRenderedStartAtMs(currentLane, migration, now);
-    const renderedEndAtMs = getRenderedEndAtMs(currentLane, migration, now);
-    const renderedStartProgress = getRenderedStartProgress(currentLane, migration, now);
-
-    let displayProgress = getLaneProgress(renderedStartAtMs, renderedEndAtMs, renderedStartProgress, now);
+    const initialNow = Date.now();
     if (presentationState === 'done') {
         if (!doneTransitionRef.current) {
             const prevActive = prevPresentationStateRef.current && (
@@ -379,11 +385,28 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 prevPresentationStateRef.current === 'finalizing'
             );
             doneTransitionRef.current = {
-                startTimeMs: now,
+                startTimeMs: initialNow,
                 durationMs: prevActive ? 500 : 0,
                 startProgress: prevActive ? displayProgressRef.current : 1.0,
             };
         }
+    } else {
+        doneTransitionRef.current = null;
+    }
+
+    const isDoneAnimating = presentationState === 'done' && (
+        !doneTransitionRef.current ||
+        (tickState - doneTransitionRef.current.startTimeMs >= doneTransitionRef.current.durationMs)
+    );
+    const shouldTick = isLiveAnimatedStatus(presentationState) || (presentationState === 'done' && !isDoneAnimating);
+    const now = shouldTick ? tickState : initialNow;
+
+    const renderedStartAtMs = getRenderedStartAtMs(currentLane, migration, now);
+    const renderedEndAtMs = getRenderedEndAtMs(currentLane, migration, now);
+    const renderedStartProgress = getRenderedStartProgress(currentLane, migration, now);
+
+    let displayProgress = getLaneProgress(renderedStartAtMs, renderedEndAtMs, renderedStartProgress, now);
+    if (presentationState === 'done' && doneTransitionRef.current) {
         const elapsed = now - doneTransitionRef.current.startTimeMs;
         const duration = doneTransitionRef.current.durationMs;
         if (duration > 0 && elapsed < duration) {
@@ -392,15 +415,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         } else {
             displayProgress = 1.0;
         }
-    } else {
-        doneTransitionRef.current = null;
     }
     displayProgressRef.current = displayProgress;
-
-    const isDoneAnimating = presentationState === 'done' && (
-        !doneTransitionRef.current ||
-        (tickState - doneTransitionRef.current.startTimeMs >= doneTransitionRef.current.durationMs)
-    );
 
     useEffect(() => {
         const nextEndAtMs = resolveEndAtMs({
@@ -420,9 +436,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             updateLaneToTarget('prop-sync', nextEndAtMs, progress, isPhaseHandoff);
         }
         prevPresentationStateRef.current = presentationState;
+        forceUpdate(Date.now());
     }, [progress, startedAt, etaSeconds, etaBasis, estimatedEndAt, updatedAt, presentationState, isPhaseHandoff, isDoneAnimating]);
-
-    const shouldTick = isLiveAnimatedStatus(presentationState) || (presentationState === 'done' && !isDoneAnimating);
 
     useEffect(() => {
         if (!shouldTick) return;
