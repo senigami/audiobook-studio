@@ -14,6 +14,11 @@ logger = logging.getLogger(__name__)
 DEFAULT_VOXTRAL_MODEL = "voxtral-mini-tts-2603"
 DEFAULT_MISTRAL_TTS_URL = "https://api.mistral.ai/v1/audio/speech"
 
+# Per-process random salt used to derive a non-reversible fingerprint of the API
+# key for in-memory cache invalidation only. It is never persisted or sent
+# anywhere; a fresh salt on each process start is sufficient for this purpose.
+_API_KEY_FINGERPRINT_SALT = os.urandom(16)
+
 
 class VoxtralError(RuntimeError):
     def __init__(self, message: str, status_code: Optional[int] = None):
@@ -329,8 +334,11 @@ def list_mistral_models(
     if not api_key:
         return []
 
-    # Use hash to detect key changes
-    key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    # Derive a non-reversible fingerprint to detect key changes for caching.
+    # Use a slow KDF (PBKDF2) rather than a fast hash since the input is secret.
+    key_hash = hashlib.pbkdf2_hmac(
+        "sha256", api_key.encode(), _API_KEY_FINGERPRINT_SALT, 100_000
+    ).hex()
     now = time.time()
 
     global _models_cache
