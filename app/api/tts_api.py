@@ -103,10 +103,18 @@ async def synthesize(request: SynthesisRequest, req_context: Request, background
     """
     task_id = f"api_{uuid.uuid4().hex[:8]}"
 
+    # Validate the requested output format against a fixed allowlist. This both
+    # rejects unsupported formats and prevents path traversal via a crafted
+    # output_format value flowing into the output path below.
+    allowed_formats = {"wav", "mp3", "ogg", "flac"}
+    output_format = request.output_format.lower()
+    if output_format not in allowed_formats:
+        raise HTTPException(status_code=400, detail="Unsupported output format.")
+
     # Ensure output directory exists
     output_dir = TRANSIENT_DIR / "api"
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"{task_id}.{request.output_format}"
+    output_path = output_dir / f"{task_id}.{output_format}"
 
     task = ApiSynthesisTask(
         task_id=task_id,
@@ -129,9 +137,9 @@ async def synthesize(request: SynthesisRequest, req_context: Request, background
             if not output_path.exists():
                 raise HTTPException(status_code=500, detail="Synthesis failed to produce output.")
             return FileResponse(
-                output_path, 
-                media_type=f"audio/{request.output_format}",
-                filename=f"tts_{task_id}.{request.output_format}"
+                output_path,
+                media_type=f"audio/{output_format}",
+                filename=f"tts_{task_id}.{output_format}"
             )
         except Exception as exc:
             logger.exception("Inline synthesis failed")
