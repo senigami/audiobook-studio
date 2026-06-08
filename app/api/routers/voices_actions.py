@@ -196,13 +196,15 @@ async def build_speaker_profile(
         else:
              return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
     except ValueError as e:
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
+        logger.warning("Invalid speaker profile build request for %s: %s", name, e)
+        return JSONResponse({"status": "error", "message": "Invalid profile build request"}, status_code=400)
     except Exception as e:
         from ...engines.errors import EngineUnavailableError
         if isinstance(e, EngineUnavailableError):
-             return JSONResponse({"status": "error", "message": str(e)}, status_code=503)
+             logger.warning("Engine service unavailable: %s", e)
+             return JSONResponse({"status": "error", "message": "TTS engine service is unavailable"}, status_code=503)
         logger.error(f"Error preparing path for profile {name}: {e}")
-        return JSONResponse({"status": "error", "message": f"Build failed: {e}"}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Build failed"}, status_code=500)
 
     saved_files = []
     for f in files:
@@ -377,6 +379,7 @@ def test_speaker_profile(name: str, background_tasks: BackgroundTasks):
     except Exception as e:
         from ...engines.errors import EngineUnavailableError
         if isinstance(e, EngineUnavailableError):
-             return JSONResponse({"status": "error", "message": str(e)}, status_code=503)
+             logger.warning("Engine service unavailable: %s", e)
+             return JSONResponse({"status": "error", "message": "TTS engine service is unavailable"}, status_code=503)
         logger.error(f"Test failed for {name}: {e}")
         return JSONResponse({"status": "error", "message": "Test failed"}, status_code=500)

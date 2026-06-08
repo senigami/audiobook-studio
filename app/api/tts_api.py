@@ -141,9 +141,9 @@ async def synthesize(request: SynthesisRequest, req_context: Request, background
                 media_type=f"audio/{output_format}",
                 filename=f"tts_{task_id}.{output_format}"
             )
-        except Exception as exc:
+        except Exception:
             logger.exception("Inline synthesis failed")
-            raise HTTPException(status_code=500, detail=str(exc))
+            raise HTTPException(status_code=500, detail="Synthesis failed.")
     else:
         # For long text, we queue it and return a job ID.
         # We use a background task to avoid blocking the request while it reconciles/queues.
