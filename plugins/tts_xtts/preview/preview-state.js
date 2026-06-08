@@ -141,7 +141,7 @@ function update() {
     // Compose CLI command
     const cmd = [
         'python cli.py',
-        `--text "${harnessInputs.text.replace(/"/g, '\\"')}"`,
+        `--text "${harnessInputs.text.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`,
         `--out "${harnessInputs.out}"`,
         harnessInputs.speaker_wav ? `--speaker-wav "${harnessInputs.speaker_wav}"` : '',
         `--speed ${currentState.settings.speed}`,

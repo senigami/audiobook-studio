@@ -133,7 +133,7 @@ function update() {
     // Compose CLI command
     const cmd = [
         'python cli.py',
-        `--text "${harnessInputs.text.replace(/"/g, '\\"')}"`,
+        `--text "${harnessInputs.text.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`,
         `--out "${harnessInputs.out}"`,
         currentState.settings.mistral_api_key && !currentState.settings.mistral_api_key.includes('*') ? `--api-key "${currentState.settings.mistral_api_key}"` : '',
         currentState.settings.model ? `--model "${currentState.settings.model}"` : '',
