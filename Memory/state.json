@@ -1,14 +1,14 @@
 {
-  "snapshot_version": 174,
-  "current_task": "Implement and verify queue/event-stream repair slices",
-  "status": "queue_event_stream_slices_verified",
+  "snapshot_version": 175,
+  "current_task": "Adversarial-review queue/event-stream repair slices before manual QA",
+  "status": "queue_event_stream_adversarial_review_verified",
   "last_committed_milestone": {
-    "title": "Queue/event-stream repair slices implemented and voice previews switched to WAV-only",
-    "commit": "3a8c56d6c54c828cf70504bed2628466cff5cf01",
+    "title": "Adversarial queue/event-stream review fixed split-part queue metadata upsert",
+    "commit": "2aa45667",
     "notes": [
-      "Added durable queue-row creation for bake, segment, and assembly entrypoints; voice-test telemetry now requires jobId; and mixed rendering no longer writes the queue row directly during completion.",
-      "Converted voice preview generation to WAV-only across the API routes, worker path, sample tasks, and preview URL helper; removed the MP3 preview fallback.",
-      "Verified the queue, voice, websocket, performance, mixed-render, voice orchestration, speaker profile, XTTS timing, and progress regression suites after adding explicit timeout guards to the longer-running tests."
+      "Adversarial review found that the standard chapter metadata upsert could reset nonzero split_part queue rows back to 0 after db_add_to_queue created the row.",
+      "Fixed app/api/routers/generation.py to pass split_part through the display metadata upsert and added a regression test in tests/api/test_api_generation.py.",
+      "Updated the queue/event-stream audit and wiki changelog to reflect the implemented contract without stale pre-fix wording."
     ]
   },
   "active_constraints": [
@@ -93,14 +93,14 @@
     "Prepare the voice icon and tagging implementation to improve large-library usability."
   ],
   "verification": {
-    "latest_backend_focus": "2026-06-08: Queue/event-stream repair slices and WAV-only voice preview verified; pytest suites covering queue, websocket, performance, mixed render, voice orchestration, speaker profiles, XTTS timing, and progress logic all passed.",
+    "latest_backend_focus": "2026-06-08: Adversarial queue/event-stream review fixed split-part metadata upsert and verified queue, websocket, performance, mixed render, voice orchestration, speaker profile, XTTS timing, and progress regression suites all passed.",
     "latest_frontend_focus": "2026-06-04: Fixed QueueItem terminal parameter retention and resolved ESLint react-hooks/refs errors; verified with Vitest timing/queue suites (56 tests passed).",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",
-    "latest_lint_focus": "2026-06-04: eslint passed on frontend with 7 existing warnings, ruff passed on backend.",
+    "latest_lint_focus": "2026-06-08: ruff passed for app/api/routers/generation.py and tests/api/test_api_generation.py; commit hook also ran Ruff/ESLint auto-fix checks cleanly.",
     "latest_frontend_event_stream_focus": "2026-05-22: Live Output route renamed to /event-stream and consumer filter toggles implemented; focused Vitest passed, full frontend Vitest passed (580 tests), frontend build passed, frontend lint passed, and git diff --check passed.",
     "latest_frontend_live_output_ownership": "2026-05-22: Removed the false jobs-state ownership from tts.logs so the Live Output subscribers column now reflects actual consumer handling.",
-    "latest_diff_check": "2026-06-07: git diff --check passed after user-facing wiki wording cleanup.",
+    "latest_diff_check": "2026-06-08: git diff --check passed after adversarial split-part queue fix, audit update, and changelog update.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."

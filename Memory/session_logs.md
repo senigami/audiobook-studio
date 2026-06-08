@@ -1972,3 +1972,10 @@
 - Implemented durable queue-row creation for bake, segment, and assembly entrypoints, tightened voice-test telemetry to require `jobId`, removed the mixed-render direct queue write, and switched voice preview generation to WAV-only.
 - Added timeout guards to the slower pytest cases that exercise queue, websocket, voice, mixed-render, and XTTS flows.
 - Verified the combined regression suites passed after the final WAV-only preview and queue authority cleanup.
+
+# 2026-06-08 - Queue/event-stream adversarial review checkpoint
+
+- Found and fixed a split-part regression where the standard chapter metadata upsert could reset a nonzero `split_part` queue row back to `0`.
+- Added a focused regression test proving split-part queue rows preserve the requested part after display metadata is upserted.
+- Updated the queue/event-stream audit and wiki changelog so the permanent docs reflect the implemented contract and no longer preserve stale pre-fix wording as current guidance.
+- Verified Ruff, the focused split-part test, the broad affected backend queue/websocket/mixed/voice/XTTS/progress regression suites, `Memory/state.json`, and `git diff --check`.
