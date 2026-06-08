@@ -2,10 +2,16 @@ import React from 'react';
 import { RefreshCw, Zap, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Copy, MoreVertical } from 'lucide-react';
 import type { Chapter, Job } from '@/types';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
-import { deriveActiveBatchProgress } from '@/utils/chapterRenderProgress';
 import { hasSegmentProgressCapability } from '@/utils/jobSelection';
 
 const RECENT_DONE_WINDOW_SECONDS = 60;
+
+const clamp01 = (val: number) => Math.max(0, Math.min(val, 1));
+
+const getSegmentProvenanceFields = (job?: Job): Record<string, any> | null => {
+  const provenance = (job as any)?.segmentProgressSocketProvenance;
+  return provenance?.selectedFields ?? null;
+};
 
 export const useChapterStatus = (
   chapter: Chapter,
@@ -14,7 +20,7 @@ export const useChapterStatus = (
   queuePending: boolean = false,
   generatingSegmentIdsCount: number = 0,
   queueLocked: boolean = false,
-  activeRenderBatchIdFromPage?: string | null,
+  _activeRenderBatchIdFromPage?: string | null,
   activeRenderBatchWeight?: number | null
 ) => {
   const hasChapterAudio = !!(chapter.has_wav || chapter.has_mp3 || chapter.has_m4a);
@@ -93,37 +99,60 @@ export const useChapterStatus = (
     };
   }, []);
 
-  const liveSegmentProgressJob = generatingJob && !['done', 'failed', 'cancelled'].includes(generatingJob.status)
+  const liveSegmentProgressJobCandidate = generatingJob && !['done', 'failed', 'cancelled'].includes(generatingJob.status)
     ? generatingJob
     : (heldLiveJob && ['done', 'failed', 'cancelled'].includes(heldLiveJob.status) && !(recentlyFinishedDoneJob && !hasChapterAudio) ? heldLiveJob : undefined);
 
-  const hasSegmentSupport = liveSegmentProgressJob
-    ? hasSegmentProgressCapability(liveSegmentProgressJob)
+  const hasSegmentSupport = liveSegmentProgressJobCandidate
+    ? hasSegmentProgressCapability(liveSegmentProgressJobCandidate)
     : false;
 
-  const liveProgressIsRenderBlock = !!liveSegmentProgressJob && hasSegmentSupport && (
-    (liveSegmentProgressJob.render_group_count ?? 0) > 0 ||
-    typeof liveSegmentProgressJob.active_render_batch_progress === 'number' ||
-    typeof liveSegmentProgressJob.active_render_batch_id === 'string'
-  );
-  const hasActiveSegment = !!liveSegmentProgressJob
-    && hasSegmentSupport
-    && !!liveSegmentProgressJob.active_segment_id;
-  const hasActiveRenderBatchProgress = !!liveSegmentProgressJob
-    && hasSegmentSupport
-    && (
-      typeof liveSegmentProgressJob.active_render_batch_progress === 'number' ||
-      typeof liveSegmentProgressJob.active_render_batch_id === 'string'
-    );
-  const liveSegmentProgressValue = liveSegmentProgressJob
-    ? (['finalizing', 'done', 'failed', 'cancelled'].includes(liveSegmentProgressJob.status)
-        ? 1
-        : hasActiveSegment
-            ? (liveSegmentProgressJob.active_segment_progress ?? 0)
-            : (hasActiveRenderBatchProgress || liveProgressIsRenderBlock)
-              ? deriveActiveBatchProgress(liveSegmentProgressJob, liveSegmentProgressJob.active_render_group_weight ?? 1, Date.now())
-              : (liveSegmentProgressJob.progress ?? 0))
+  const segmentProvenanceFields = getSegmentProvenanceFields(liveSegmentProgressJobCandidate);
+  const directActiveSegmentId = typeof liveSegmentProgressJobCandidate?.active_segment_id === 'string' && liveSegmentProgressJobCandidate.active_segment_id.length > 0
+    ? liveSegmentProgressJobCandidate.active_segment_id
+    : null;
+  const provenanceActiveSegmentId = typeof segmentProvenanceFields?.activeSegmentId === 'string' && segmentProvenanceFields.activeSegmentId.length > 0
+    ? segmentProvenanceFields.activeSegmentId
+    : null;
+  const selectedActiveSegmentId = directActiveSegmentId ?? provenanceActiveSegmentId;
+  const directActiveSegmentProgress = directActiveSegmentId && typeof liveSegmentProgressJobCandidate?.active_segment_progress === 'number'
+    ? clamp01(liveSegmentProgressJobCandidate.active_segment_progress)
+    : null;
+  const provenanceActiveSegmentProgress = typeof segmentProvenanceFields?.activeSegmentProgress === 'number'
+    ? clamp01(segmentProvenanceFields.activeSegmentProgress)
+    : null;
+  const selectedActiveSegmentProgress = directActiveSegmentProgress ?? provenanceActiveSegmentProgress;
+  const hasActiveSegment = hasSegmentSupport
+    && !!selectedActiveSegmentId
+    && typeof selectedActiveSegmentProgress === 'number';
+  const liveSegmentProgressValue = hasActiveSegment
+    ? selectedActiveSegmentProgress
     : 0;
+  const selectedSegmentEtaSeconds = directActiveSegmentId && typeof liveSegmentProgressJobCandidate?.active_segment_eta_seconds === 'number'
+    ? liveSegmentProgressJobCandidate.active_segment_eta_seconds
+    : (typeof segmentProvenanceFields?.etaSeconds === 'number' ? segmentProvenanceFields.etaSeconds : null);
+  const selectedSegmentEtaBasis = directActiveSegmentId && typeof liveSegmentProgressJobCandidate?.active_segment_eta_basis === 'string'
+    ? liveSegmentProgressJobCandidate.active_segment_eta_basis
+    : (typeof segmentProvenanceFields?.eta_basis === 'string' ? segmentProvenanceFields.eta_basis : null);
+  const selectedSegmentUpdatedAt = directActiveSegmentId && typeof liveSegmentProgressJobCandidate?.active_segment_updated_at === 'number'
+    ? liveSegmentProgressJobCandidate.active_segment_updated_at
+    : (typeof segmentProvenanceFields?.updatedAt === 'number' ? segmentProvenanceFields.updatedAt : null);
+  const selectedSegmentStartedAt = typeof segmentProvenanceFields?.started_at === 'number'
+    ? segmentProvenanceFields.started_at
+    : null;
+  const selectedSegmentReasonCode = typeof segmentProvenanceFields?.reasonCode === 'string'
+    ? segmentProvenanceFields.reasonCode
+    : liveSegmentProgressJobCandidate?.reason_code;
+  const liveSegmentProgressJob = hasActiveSegment && liveSegmentProgressJobCandidate
+    ? {
+        ...liveSegmentProgressJobCandidate,
+        active_segment_id: selectedActiveSegmentId,
+        active_segment_progress: selectedActiveSegmentProgress,
+        active_segment_eta_seconds: selectedSegmentEtaSeconds,
+        active_segment_eta_basis: selectedSegmentEtaBasis,
+        active_segment_updated_at: selectedSegmentUpdatedAt,
+      } as Job
+    : undefined;
 
   React.useEffect(() => {
     if (releaseHoldTimerRef.current !== null) {
@@ -171,23 +200,16 @@ export const useChapterStatus = (
 
   const valueSource = !liveSegmentProgressJob
     ? 'no_live_job'
-    : ['finalizing', 'done', 'failed', 'cancelled'].includes(liveSegmentProgressJob.status)
-      ? 'terminal_complete'
-      : hasActiveSegment
-        ? 'active_segment_progress'
-        : liveProgressIsRenderBlock
-        ? 'render_block_progress'
-        : 'job_progress';
+    : 'active_segment_progress';
 
   const CHUNK_CHAR_LIMIT = 500;
   const block_char_count = activeRenderBatchWeight ?? 0;
   const progressVal = liveSegmentProgressValue;
-  const clamp01 = (val: number) => Math.max(0, Math.min(val, 1));
   const coverageRatio = block_char_count > 0 ? clamp01(block_char_count / CHUNK_CHAR_LIMIT) : 1;
   const isSegmentStartAtZero = hasSegmentSupport && (
-    liveSegmentProgressJob?.reason_code === 'segment_start' ||
-    liveSegmentProgressJob?.reason_code === 'START_SEGMENT' ||
-    liveSegmentProgressJob?.reason_code === 'START_SYNTHESIS'
+    selectedSegmentReasonCode === 'segment_start' ||
+    selectedSegmentReasonCode === 'START_SEGMENT' ||
+    selectedSegmentReasonCode === 'START_SYNTHESIS'
   ) && progressVal === 0;
   const evidenceWeightFraction = typeof liveSegmentProgressJob?.confidence === 'number'
     ? liveSegmentProgressJob.confidence
@@ -214,19 +236,19 @@ export const useChapterStatus = (
       ? liveSegmentProgressJob.active_segment_progress
       : null,
     selectedEtaSeconds: (hasSegmentSupport && liveSegmentProgressJob?.active_segment_id)
-      ? (liveSegmentProgressJob.active_segment_eta_seconds ?? null)
-      : (liveSegmentProgressJob?.eta_seconds ?? null),
+      ? (selectedSegmentEtaSeconds ?? null)
+      : null,
     selectedEtaBasis: (hasSegmentSupport && liveSegmentProgressJob?.active_segment_id)
-      ? (liveSegmentProgressJob.active_segment_eta_basis ?? (liveSegmentProgressJob.active_segment_eta_seconds != null ? 'remaining_from_update' : null))
-      : (liveSegmentProgressJob?.eta_basis ?? (liveSegmentProgressJob?.eta_seconds != null ? 'remaining_from_update' : null)),
-    selectedStartedAt: liveSegmentProgressJob?.started_at ?? null,
+      ? (selectedSegmentEtaBasis ?? (selectedSegmentEtaSeconds != null ? 'remaining_from_update' : null))
+      : null,
+    selectedStartedAt: selectedSegmentStartedAt,
     selectedUpdatedAt: (hasSegmentSupport && liveSegmentProgressJob?.active_segment_id)
-      ? (liveSegmentProgressJob.active_segment_updated_at ?? null)
-      : (liveSegmentProgressJob?.updated_at ?? null),
+      ? (selectedSegmentUpdatedAt ?? null)
+      : null,
     liveSegmentProgressValue,
-    liveSegmentProgressIsRenderBlock,
-    activeRenderBatchId: (hasSegmentSupport && (liveSegmentProgressJob?.active_segment_id || activeRenderBatchIdFromPage || liveSegmentProgressJob?.active_render_batch_id)) || null,
-    activeRenderBatchProgress: hasSegmentSupport ? (liveSegmentProgressJob?.active_segment_progress ?? liveSegmentProgressJob?.active_render_batch_progress ?? null) : null,
+    liveSegmentProgressIsRenderBlock: false,
+    activeRenderBatchId: (hasSegmentSupport && liveSegmentProgressJob?.active_segment_id) || null,
+    activeRenderBatchProgress: hasSegmentSupport ? (liveSegmentProgressJob?.active_segment_progress ?? null) : null,
     renderGroupCount: hasSegmentSupport ? (liveSegmentProgressJob?.render_group_count ?? null) : null,
     valueSource,
     progressSource: valueSource,
@@ -486,7 +508,7 @@ export const ChapterScriptToolbar: React.FC<{
                     key={`${status.liveSegmentProgressJob.id}:${status.liveSegmentProgressJob.active_segment_id || 'none'}`}
                     dataTestId="chapter-header-segment-progress-bar"
                     progress={status.liveSegmentProgressValue}
-                    startedAt={status.liveSegmentProgressJob.started_at}
+                    startedAt={status.segmentProgressBarSelection.selectedStartedAt ?? undefined}
                     etaSeconds={status.segmentProgressBarSelection.selectedEtaSeconds ?? undefined}
                     etaBasis={(status.segmentProgressBarSelection.selectedEtaBasis ?? undefined) as 'remaining_from_update' | 'total_from_start' | undefined}
                     updatedAt={status.segmentProgressBarSelection.selectedUpdatedAt ?? undefined}
@@ -502,22 +524,14 @@ export const ChapterScriptToolbar: React.FC<{
                                     : (status.liveSegmentProgressJob.status === 'error' ? 'failed' : status.liveSegmentProgressJob.status as any)
                     }
                     label="Segment Progress"
-                    predictive={true}
-                    allowBackwardProgress={false}
+                    predictive={false}
+                    allowBackwardProgress={true}
                     evidenceWeightFraction={status.segmentProgressBarSelection.evidenceWeightFraction}
                     checkpointMode={
-                        (status.liveSegmentProgressJob.segment_ids?.length || status.liveSegmentProgressJob.active_segment_id)
-                            ? 'segment'
-                            : (status.liveSegmentProgressJob.render_group_count ?? 0) > 0
-                            ? 'queue'
-                            : 'default'
+                        status.liveSegmentProgressJob.active_segment_id ? 'segment' : 'default'
                     }
                     transitionTickCount={
-                        (status.liveSegmentProgressJob.segment_ids?.length || status.liveSegmentProgressJob.active_segment_id)
-                            ? 3
-                            : (status.liveSegmentProgressJob.render_group_count ?? 0) > 0
-                            ? 12
-                            : 8
+                        status.liveSegmentProgressJob.active_segment_id ? 3 : 8
                     }
                     backwardTransitionTickCount={2}
                     tickMs={250}

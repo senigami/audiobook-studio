@@ -12,11 +12,12 @@ let capturedTransitionTickCount: number | undefined;
 let capturedPersistenceKey: string | undefined;
 let capturedProgress: number | undefined;
 let capturedEvidenceWeightFraction: number | undefined;
+let capturedPredictive: boolean | undefined;
 let renderCount = 0;
 let mountCount = 0;
 
 vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () => ({
-  PredictiveProgressBar: ({ progress, etaBasis, onDebugSnapshot, checkpointMode, state, allowBackwardProgress, transitionTickCount, dataTestId, persistenceKey, evidenceWeightFraction }: any) => {
+  PredictiveProgressBar: ({ progress, etaBasis, onDebugSnapshot, checkpointMode, state, allowBackwardProgress, transitionTickCount, dataTestId, persistenceKey, evidenceWeightFraction, predictive }: any) => {
     capturedOnDebugSnapshot = onDebugSnapshot;
     capturedCheckpointMode = checkpointMode;
     capturedState = state;
@@ -25,6 +26,7 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
     capturedPersistenceKey = persistenceKey;
     capturedProgress = progress;
     capturedEvidenceWeightFraction = evidenceWeightFraction;
+    capturedPredictive = predictive;
     renderCount++;
     React.useEffect(() => {
       mountCount++;
@@ -92,11 +94,12 @@ describe('ChapterHeader progress contract', () => {
     capturedPersistenceKey = undefined;
     capturedProgress = undefined;
     capturedEvidenceWeightFraction = undefined;
+    capturedPredictive = undefined;
     renderCount = 0;
     mountCount = 0;
   });
 
-  it('falls back to remaining_from_update when eta_basis is absent', () => {
+  it('does not render Segment Progress from chapter progress when no active segment frame exists', () => {
     render(
       <TestHeaderWrapper
         chapter={mockChapter as any}
@@ -128,7 +131,102 @@ describe('ChapterHeader progress contract', () => {
       />
     );
 
-    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-eta-basis', 'remaining_from_update');
+    expect(screen.queryByTestId('chapter-header-segment-progress-bar')).toBeNull();
+    expect(capturedProgress).toBeUndefined();
+  });
+
+  it('renders Segment Progress only from the active segment contract and disables predictive interpolation', () => {
+    render(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        generatingJob={{
+          id: 'job-active-segment-only',
+          engine: 'mixed',
+          status: 'running',
+          progress: 0.82,
+          started_at: Date.now() / 1000,
+          eta_seconds: 125,
+          active_segment_id: 'seg-2',
+          active_segment_progress: 0.16,
+          active_segment_eta_seconds: 18,
+          active_segment_eta_basis: 'segment_remaining',
+          active_segment_updated_at: 1234,
+          render_group_count: 2,
+          active_render_batch_progress: 0.9,
+          hasSegmentSupport: true,
+        } as any}
+        generatingSegmentIdsCount={1}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveTextContent('16%');
+    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-eta-basis', 'segment_remaining');
+    expect(capturedProgress).toBe(0.16);
+    expect(capturedPredictive).toBe(false);
+    expect(capturedAllowBackwardProgress).toBe(true);
+    expect(capturedCheckpointMode).toBe('segment');
+  });
+
+  it('uses preserved segments.progress provenance when later frames clear active_segment_id with progress zero', () => {
+    render(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        generatingJob={{
+          id: 'job-provenance-terminal',
+          engine: 'mixed',
+          status: 'running',
+          progress: 0.44,
+          active_segment_id: null,
+          active_segment_progress: 0,
+          active_segment_eta_seconds: 99,
+          hasSegmentSupport: true,
+          segmentProgressSocketProvenance: {
+            consumedTopic: 'segments.progress',
+            selectedFields: {
+              activeSegmentId: 'seg-last',
+              activeSegmentProgress: 1,
+              etaSeconds: 0,
+              eta_basis: 'segment_remaining',
+              updatedAt: 4567,
+              reasonCode: 'SEGMENT_SAVED',
+            },
+          },
+        } as any}
+        generatingSegmentIdsCount={1}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveTextContent('100%');
+    expect(capturedPersistenceKey).toBe('job-provenance-terminal:seg-last');
+    expect(capturedProgress).toBe(1);
   });
 
   it('forwards onProgressBarDebugSnapshot to PredictiveProgressBar.onDebugSnapshot so snapshots reach ChapterEditorPage', () => {
@@ -149,6 +247,8 @@ describe('ChapterHeader progress contract', () => {
           engine: 'xtts',
           status: 'running',
           progress: 0.5,
+          active_segment_id: 'seg-snap-test',
+          active_segment_progress: 0.5,
           started_at: Date.now() / 1000,
           hasSegmentSupport: true,
         } as any}
@@ -191,6 +291,8 @@ describe('ChapterHeader progress contract', () => {
           engine: 'xtts',
           status: 'running',
           progress: 0.3,
+          active_segment_id: 'seg-snap-bundle',
+          active_segment_progress: 0.3,
           started_at: Date.now() / 1000,
           hasSegmentSupport: true,
         } as any}
@@ -216,7 +318,7 @@ describe('ChapterHeader progress contract', () => {
     expect(collected[0]).toMatchObject({ progress: 0.3, status: 'running' });
   });
 
-  it('passes checkpointMode=segment when the live job has segment_ids (matches QueueItem contract)', () => {
+  it('does not mount Segment Progress for selected segment queue identity until the active segment frame arrives', () => {
     render(
       <TestHeaderWrapper
         chapter={mockChapter as any}
@@ -244,11 +346,10 @@ describe('ChapterHeader progress contract', () => {
       />
     );
 
-    expect(screen.getByTestId('chapter-header-segment-progress-bar'))
-      .toHaveAttribute('data-checkpoint-mode', 'segment');
+    expect(screen.queryByTestId('chapter-header-segment-progress-bar')).toBeNull();
   });
 
-  it('passes checkpointMode=queue when the live job is a grouped chapter render job', () => {
+  it('does not mount Segment Progress for grouped chapter render jobs without an active segment frame', () => {
     render(
       <TestHeaderWrapper
         chapter={mockChapter as any}
@@ -276,11 +377,10 @@ describe('ChapterHeader progress contract', () => {
       />
     );
 
-    expect(screen.getByTestId('chapter-header-segment-progress-bar'))
-      .toHaveAttribute('data-checkpoint-mode', 'queue');
+    expect(screen.queryByTestId('chapter-header-segment-progress-bar')).toBeNull();
   });
 
-  it('keeps grouped running jobs in processing state until an active render block exists', () => {
+  it('keeps grouped running jobs out of the Segment Progress bar until an active segment frame exists', () => {
     render(
       <TestHeaderWrapper
         chapter={mockChapter as any}
@@ -309,8 +409,8 @@ describe('ChapterHeader progress contract', () => {
       />
     );
 
-    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-state', 'processing');
-    expect(capturedState).toBe('processing');
+    expect(screen.queryByTestId('chapter-header-segment-progress-bar')).toBeNull();
+    expect(capturedState).toBeUndefined();
   });
 
   it('allows active segment progress corrections to move backward', () => {
@@ -343,8 +443,9 @@ describe('ChapterHeader progress contract', () => {
       />
     );
 
-    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-allow-backward', 'false');
-    expect(capturedAllowBackwardProgress).toBe(false);
+    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-allow-backward', 'true');
+    expect(capturedAllowBackwardProgress).toBe(true);
+    expect(capturedPredictive).toBe(false);
   });
 
   it('uses segment checkpointMode and transitionTickCount=3 for grouped jobs when active_segment_id is present', () => {
@@ -391,6 +492,7 @@ describe('ChapterHeader progress contract', () => {
       progress: 0.4,
       started_at: Date.now() / 1000,
       active_segment_id: 'seg-1',
+      active_segment_progress: 0.4,
       hasSegmentSupport: true,
     };
 
@@ -426,7 +528,7 @@ describe('ChapterHeader progress contract', () => {
         submitting={false}
         queueLocked={false}
         queuePending={false}
-        generatingJob={{ ...baseJob, active_segment_id: 'seg-2', progress: 0.1 } as any}
+        generatingJob={{ ...baseJob, active_segment_id: 'seg-2', active_segment_progress: 0.1, progress: 0.1 } as any}
         generatingSegmentIdsCount={1}
         queueLabel="Queue"
         queueTitle="Queue Chapter"
@@ -445,6 +547,8 @@ describe('ChapterHeader progress contract', () => {
       engine: 'xtts',
       status: 'running' as const,
       progress: 0.8,
+      active_segment_id: 'seg-bridge',
+      active_segment_progress: 0.8,
       started_at: Date.now() / 1000,
       hasSegmentSupport: true,
     };
@@ -482,7 +586,7 @@ describe('ChapterHeader progress contract', () => {
         submitting={false}
         queueLocked={false}
         queuePending={false}
-        generatingJob={{ ...baseJob, status: 'done', progress: 1.0 } as any}
+        generatingJob={{ ...baseJob, status: 'done', progress: 1.0, active_segment_progress: 1.0 } as any}
         generatingSegmentIdsCount={0}
         queueLabel="Queue"
         queueTitle="Queue Chapter"
@@ -522,6 +626,8 @@ describe('ChapterHeader progress contract', () => {
           engine: 'xtts',
           status: 'running',
           progress: 0.5,
+          active_segment_id: 'seg-testid',
+          active_segment_progress: 0.5,
           started_at: Date.now() / 1000,
           hasSegmentSupport: true,
         } as any}

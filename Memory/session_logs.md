@@ -1987,3 +1987,10 @@
 - Fixed both frontend merge paths (`useJobs` and `live-jobs` overlays) so later chapter-scoped frames cannot downgrade an existing segment-scoped job.
 - Added red/green regressions for backend segment queue hydration, DB queue segment-id round-trip, useJobs classification preservation, and live-jobs overlay classification preservation.
 - Verified backend queue/generation/websocket/progress suites, frontend jobs/queue/hydration/chapter UI suites, Ruff, frontend lint/build, and `git diff --check`.
+
+# 2026-06-08 - Chapter Editor Segment Progress isolated from chapter progress
+
+- Debug logs showed `segments.progress` frames emitted correct per-segment 0-to-100 cycles, while the Chapter Editor header bar could still render from the merged chapter job state.
+- Removed the header segment bar fallback to chapter/job progress, render-batch progress, terminal job completion, and predictive timestamp math.
+- The header Segment Progress bar now mounts only when active segment contract fields or preserved `segments.progress` provenance are present, renders non-predictively, allows exact backward corrections, and preserves `SEGMENT_SAVED` provenance when later frames clear `active_segment_id`.
+- Verified red/green contract coverage plus ChapterHeader, ChapterEditorPage, ChapterEditor_Queue, useJobs, live-jobs, useQueueSync, hydration, ChapterList, frontend lint, frontend build, and `git diff --check`.

@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - **Voice Test Event Streams Carry Job Identity**: Voice preview/test telemetry now emits on `voice.test` with a required job id while the actual queue row remains on `queue.items`, making the live queue, diagnostics, and event stream easier to reconcile.
 - **Voice Previews Are WAV-First**: Voice preview generation now writes and serves `sample.wav` on the active path. MP3 generation remains an explicit export/download concern instead of a background preview side effect.
 - **Mixed Rendering Uses The Shared Queue Completion Path**: Mixed rendering no longer writes directly to the queue table during completion, reducing drift between persistent queue state and live job updates.
+- **Chapter Editor Segment Progress Is Segment-Only**: The Chapter Editor Segment Progress bar now renders only from active segment progress events or preserved segment progress provenance. Chapter progress, queue progress, render-batch progress, and terminal job completion no longer leak into the per-segment bar.
 
 ## [2.0.6] - 2026-05-30
 

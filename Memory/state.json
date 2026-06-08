@@ -1,14 +1,14 @@
 {
-  "snapshot_version": 176,
-  "current_task": "Fix segment queue regression where selected segment renders collapsed back into chapter-scoped display",
-  "status": "segment_queue_identity_regression_verified",
+  "snapshot_version": 177,
+  "current_task": "Fix Chapter Editor segment progress bar leakage from chapter and queue progress",
+  "status": "segment_progress_contract_isolated",
   "last_committed_milestone": {
-    "title": "Segment queue identity regression fixed",
+    "title": "Chapter Editor segment progress isolation fixed",
     "commit": "pending-checkpoint",
     "notes": [
-      "Debug logs showed segment progress frames emitted two separate 0-to-100 segment cycles, but the selected-segment queue row could hydrate without durable segment_ids and collapse back into chapter-scoped display after refresh.",
-      "Persisted segment_ids on processing_queue rows for /api/segments/generate and hydrate them back as arrays from /api/processing_queue.",
-      "Frontend useJobs and live-jobs overlay store now preserve existing segment classification when later chapter-scoped frames arrive for the same job id."
+      "Debug logs showed segments.progress frames emitted separate per-segment 0-to-100 cycles while chapters.progress frames were interleaved on the same job id.",
+      "ChapterHeader previously mounted the Segment Progress bar from merged job/chapter progress, render-batch progress, terminal job state, or predictive timestamp math.",
+      "ChapterHeader now mounts the Segment Progress bar only from active segment contract fields or preserved segments.progress provenance and renders it non-predictively."
     ]
   },
   "active_constraints": [
@@ -46,6 +46,7 @@
     "Phase 12 item audit is complete. Verified complete: Library list/sort, Plugin dependency UX, Per-voice settings, Plugin boundary cleanup, Chapter Editor tab removal, VCR controls, Plugin ZIP import/delete, Queue output metadata, Legacy jobs API retirement.",
     "Chapter Editor live queue selection now prefers the active job over stale completed chapter jobs so live progress and queued spans stay visible without waiting for a reload.",
     "Chapter Editor progress no longer treats orphan active_segment_progress values as authoritative when active_segment_id is null; XTTS standard handler now suppresses pre-START_SEGMENT progress from active segment payloads.",
+    "Chapter Editor Segment Progress now ignores chapter progress, queue progress, render-batch progress, terminal job completion, and predictive timestamp math unless an active segments.progress contract frame or preserved segment provenance is present.",
     "Phase 12 product backlog items such as voice icons, searchable voice tags, and Hugging Face-compatible export bundles remain open for the final polish pass.",
     "Chapter audio completion now recovers single-segment renders when stitching reports success but does not materialize the output WAV.",
     "Queue history now persists and renders failure reasons instead of only showing a generic failed status.",
@@ -94,13 +95,13 @@
   ],
   "verification": {
     "latest_backend_focus": "2026-06-08: Fixed selected-segment queue identity persistence by storing processing_queue.segment_ids and passing selected ids from /api/segments/generate; verified generation, queue, websocket, DB queue, and progress regression suites passed.",
-    "latest_frontend_focus": "2026-06-08: Fixed segment classification preservation in useJobs and live-jobs overlays so later chapter-scoped frames cannot downgrade a segment-scoped job; verified useJobs, useQueueSync, live-jobs, hydration, ChapterList, and ChapterHeader Vitest suites passed.",
+    "latest_frontend_focus": "2026-06-08: Fixed Chapter Editor Segment Progress isolation so only active segment contract/provenance feeds the header bar; verified ChapterHeader, ChapterEditorPage, ChapterEditor_Queue, useJobs, live-jobs, useQueueSync, hydration, and ChapterList suites plus lint/build.",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",
     "latest_lint_focus": "2026-06-08: ruff passed for app/api/routers/generation.py and tests/api/test_api_generation.py; commit hook also ran Ruff/ESLint auto-fix checks cleanly.",
     "latest_frontend_event_stream_focus": "2026-05-22: Live Output route renamed to /event-stream and consumer filter toggles implemented; focused Vitest passed, full frontend Vitest passed (580 tests), frontend build passed, frontend lint passed, and git diff --check passed.",
     "latest_frontend_live_output_ownership": "2026-05-22: Removed the false jobs-state ownership from tts.logs so the Live Output subscribers column now reflects actual consumer handling.",
-    "latest_diff_check": "2026-06-08: git diff --check passed after segment queue identity regression fix.",
+    "latest_diff_check": "2026-06-08: git diff --check passed after Chapter Editor segment progress isolation fix.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."
