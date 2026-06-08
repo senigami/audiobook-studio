@@ -1,10 +1,10 @@
 # Voice Queue And Event Stream Audit
 
-Date: 2026-06-07
+Date: 2026-06-07; post-implementation review updated 2026-06-08
 
 Scope: current queue writers, live event-stream contracts, Voxtral mapping, and mixed-render mapping compared with the declared contract in `docs/event_stream_processing_schema.md`.
 
-Status: audit only. No code changes were made for this report.
+Status: implementation complete for the queue/event-stream repair slices listed in `Post-Implementation Verification`. Historical findings are preserved for context, but the post-implementation sections are the current source of truth for what remains.
 
 Audience: this file is intended to be usable as a standalone handoff for an implementation worker who has not followed the prior queue/debugging conversation.
 
@@ -39,12 +39,12 @@ The documented queue lifecycle order is:
 | Path | What it writes today | Contract target | Notes |
 | --- | --- | --- | --- |
 | `app/api/routers/voices_actions.py` | Inserts queue rows for `voice_build` and `voice_test` with `upsert_queue_row(...)` and then submits sample tasks. | `queue.items` | This is the entrypoint for voice-build/test queue rows. |
-| `app/api/routers/generation.py` | Standard chapter queueing inserts `processing_queue` rows through `db_add_to_queue(...)`; bake and segment generation create `Job` objects and publish refreshes but do not insert queue rows in the same way. | `queue.items`, `jobs.lifecycle`, `chapters.progress`, `segments.progress` | This is a high-priority correctness gap: active live overlays can appear, but hard reload/persistent queue history can differ for bake/segment jobs because no durable queue row is guaranteed. |
-| `app/api/routers/projects_assembly.py` | Queues assembly work with `put_job(...)` and `update_job(..., status="queued")`, but does not insert a `processing_queue` row before state sync. | `jobs.lifecycle`, `queue.items` | Assembly is routed through job state sync rather than a dedicated queue helper. This has the same durable-row risk as bake/segment jobs. |
+| `app/api/routers/generation.py` | Standard chapter queueing inserts `processing_queue` rows through `db_add_to_queue(...)`; bake and segment generation now also upsert durable queue rows with display metadata before orchestration. | `queue.items`, `jobs.lifecycle`, `chapters.progress`, `segments.progress` | Post-review fix: the standard metadata upsert now preserves `split_part`, so split-part queue rows no longer collapse back to part `0`. |
+| `app/api/routers/projects_assembly.py` | Assembly work now creates a durable `processing_queue` row before state sync, then uses the shared job update path for lifecycle changes. | `jobs.lifecycle`, `queue.items` | Assembly queue visibility now survives reload-style hydration. |
 | `app/db/state_jobs.py` | Synchronizes job status changes to existing `processing_queue` rows, updates chapter status, normalizes incoming `finalizing` status to `running`, and broadcasts websocket updates. | `queue.items` plus lifecycle topics | This keeps existing SQLite queue rows aligned with `state.json`, but it updates existing rows rather than creating missing rows. A job can emit live lifecycle updates and still be absent from durable queue history after reload. |
 | `app/orchestration/progress/service.py` | Publishes orchestrator progress to `queue.items`, `voice.test`, `chapters.progress`, and `segments.progress`. | topic-specific live events | This is the canonical orchestrator publish path. |
 | `app/api/ws.py` | Fan-out router that converts job updates into canonical websocket events. | `queue.items`, `jobs.lifecycle`, `chapters.progress`, `segments.progress`, `voice.test`, `tts.logs` | This is the live websocket mapper. |
-| `app/jobs/worker_voice.py` | Legacy/registry voice-job handler that generates a sample, converts to MP3, and then sends final `update_job(..., status="done")`. | `jobs.lifecycle` / `queue.items` | The current voice-build/test router submits `SampleBuildTask` / `SampleTestTask`; this worker remains registered as a kind fallback and still has stale MP3 behavior. |
+| `app/jobs/worker_voice.py` | Legacy/registry voice-job handler that generates a WAV preview and sends final `update_job(..., status="done")`. | `jobs.lifecycle` / `queue.items` | The current voice-build/test router submits `SampleBuildTask` / `SampleTestTask`; this fallback path follows the WAV preview policy after the repair slice. |
 | `app/jobs/handlers/bridge_helpers.py` | Records synthesis duration back onto the job after bridge completion. | job metadata / queue sync | This is timing persistence, not a topic writer. |
 | `app/jobs/worker_metrics.py` | Persists render performance samples after completion. | analytics / historical metrics | This does not author live queue state. |
 
@@ -52,19 +52,19 @@ The documented queue lifecycle order is:
 
 Use these anchors before changing behavior. Line numbers may drift, but the functions and nearby statements should remain findable.
 
-- Durable queue row helper: `app/db/queue.py::upsert_queue_row(...)`. Its docstring says every job should appear in the global queue, but not every enqueue route calls it today.
+- Durable queue row helper: `app/db/queue.py::upsert_queue_row(...)`. Its docstring says every job should appear in the global queue; the repaired queue-visible enqueue paths now call it or first create the row through `add_to_queue(...)`.
 - Update-only queue helper: `app/db/queue.py::update_queue_item(...)`. It executes `UPDATE processing_queue ... WHERE id = ?` and then reads the row back. It does not create a missing row.
 - Standard chapter enqueue: `app/api/routers/generation.py::api_add_to_queue(...)` calls `db_add_to_queue(...)` before `put_job(...)`; this is the currently safest durable queue path.
-- Bake enqueue: `app/api/routers/generation.py::api_bake_chapter(...)` creates `jid = "bake-..."` and calls `put_job(j)`, but does not call `upsert_queue_row(...)`.
-- Segment enqueue: `app/api/routers/generation.py::api_generate_segments(...)` creates `jid = "job-..."`, calls `put_job(job)`, and then broadcasts a queue refresh, but does not call `upsert_queue_row(...)`.
-- Assembly enqueue: `app/api/routers/projects_assembly.py::api_assemble_project(...)` creates a `Job`, calls `put_job(j)`, and then `update_job(..., status="queued")`, but does not call `upsert_queue_row(...)`.
+- Bake enqueue: `app/api/routers/generation.py::api_bake_chapter(...)` creates `jid = "bake-..."`, calls `put_job(j)`, and upserts the durable queue row.
+- Segment enqueue: `app/api/routers/generation.py::api_generate_segments(...)` creates `jid = "job-..."`, calls `put_job(job)`, and upserts the durable queue row.
+- Assembly enqueue: `app/api/routers/projects_assembly.py::api_assemble_project(...)` creates a `Job`, calls `put_job(j)`, upserts the durable queue row, and then uses `update_job(..., status="queued")` for lifecycle sync.
 - State sync: `app/db/state_jobs.py::put_job(...)` and `update_job(...)` normalize `finalizing` to `running`; `update_job(...)` calls `update_queue_item(...)` on selected updates but cannot guarantee row creation.
 - Voice queue rows: `app/api/routers/voices_actions.py` calls `upsert_queue_row(...)` for voice build/test jobs and submits `SampleBuildTask` / `SampleTestTask`.
 - Canonical voice-test publisher: `app/orchestration/progress/service.py::ProgressService.publish(...)` emits both `queue.items` and `voice.test` for `scope == "voice_test"`.
-- Stale voice-test helper: `app/api/ws.py::broadcast_test_progress(...)` builds a `voice.test` event without adding `ids.jobId`.
-- Voice-test event builder: `app/api/contracts/events.py::build_voice_test_progress_event(...)` has no explicit `job_id` argument.
-- Sample MP3 conversion: `app/orchestration/tasks/sample_build.py::SampleBuildTask.run(...)`, `app/orchestration/tasks/sample_test.py::SampleTestTask.run(...)`, `app/jobs/worker_voice.py::handle_voice_job(...)`, and `plugins/tts_xtts/plugin/studio/adapter.py::xtts_dispatch_adapter(...)` still use `sample.mp3`.
-- Mixed direct queue write: `plugins/synthesis_mixed/handler.py::_persist_mixed_chapter_output(...)` calls `update_queue_item(...)` directly.
+- Voice-test helper: `app/api/ws.py::broadcast_test_progress(...)` now requires `job_id` before it can emit a `voice.test` frame.
+- Voice-test event builder: `app/api/contracts/events.py::build_voice_test_progress_event(...)` has an explicit `job_id` argument.
+- Sample preview output: `app/orchestration/tasks/sample_build.py::SampleBuildTask.run(...)`, `app/orchestration/tasks/sample_test.py::SampleTestTask.run(...)`, `app/jobs/worker_voice.py::handle_voice_job(...)`, and `plugins/tts_xtts/plugin/studio/adapter.py::xtts_dispatch_adapter(...)` use `sample.wav`.
+- Mixed queue completion: `plugins/synthesis_mixed/handler.py` now relies on the shared job update path for queue status instead of a direct `update_queue_item(...)` write.
 - Mixed finalizing/MP3 branch: `plugins/synthesis_mixed/handler.py` still sets `status="finalizing"` and checks `j.make_mp3`.
 - Frontend queue consumers: `frontend/src/config/liveEventConsumers.ts`, `frontend/src/hooks/useQueueSync.ts`, and `frontend/src/hooks/useJobs.ts` currently let non-`queue.items` topics affect queue-adjacent state.
 
@@ -93,16 +93,15 @@ Current behavior:
 - `app/orchestration/progress/service.py` publishes both:
   - `queue_item_status` on `queue.items`
   - `voice_test_progress` on `voice.test`
-- `app/api/ws.py` also has a `broadcast_test_progress(...)` helper, but it is not the canonical orchestrator path and does not inject `jobId` by itself.
+- `app/api/ws.py` also has a `broadcast_test_progress(...)` helper, but it is not the canonical orchestrator path and now refuses to emit without `jobId`.
 
 Assessment:
 
 - The queue row is still owned by `queue.items`, not by `voice.test`.
 - `voice.test` is telemetry, not queue authority.
-- The current implementation is closer to the declared contract than earlier branches, but the helper surface is still split between `ProgressService.publish(...)` and generic websocket helpers.
-- `build_voice_test_progress_event(...)` does not accept a `job_id` argument directly; `ProgressService.publish(...)` patches `voice_event["ids"]["jobId"]` after building the event. The stale `broadcast_test_progress(...)` helper does not do this.
-- `SampleBuildTask` and `SampleTestTask` still generate WAV internally and then convert the preview artifact to `sample.mp3`; that is separate from chapter synthesis but still part of the stale MP3 surface.
-- The MP3 preview behavior needs an explicit product decision before implementation. Either voice previews are a narrow exception, previews become WAV, or MP3 preview files are generated only through the same on-demand export path as all other MP3 output.
+- The current implementation is aligned with the declared `voice.test` identity contract: queue-visible voice-test telemetry carries `ids.jobId`.
+- `build_voice_test_progress_event(...)` accepts `job_id` directly, so callers do not patch the event after construction.
+- `SampleBuildTask` and `SampleTestTask` generate WAV preview artifacts. Older MP3 files may still exist on disk from previous runs, but the active preview path no longer prefers them.
 
 ## Voxtral Mapping
 
@@ -131,14 +130,14 @@ Current behavior in `plugins/synthesis_mixed/handler.py`:
 - It emits `START_SEGMENT`, `PROGRESS`, and `SEGMENT_SAVED` markers through `on_output`.
 - It calls `update_job(...)` repeatedly during render.
 - It emits `broadcast_segments_updated(...)` during segment transitions.
-- It persists final queue metadata through `_persist_mixed_chapter_output(...)`, which calls `update_queue_item(...)` directly.
+- It persists final queue metadata through the shared job update path.
 - It still has a `make_mp3` branch and a `finalizing` state before conversion.
 
 Assessment:
 
-- Mixed rendering is the most contract-sensitive path because it currently uses both `update_job(...)` state sync and a direct queue write helper.
+- Mixed rendering is still contract-sensitive because it combines grouped progress, segment broadcasts, and chapter completion metadata.
 - Its progress model is intentionally weighted and capped for grouped rendering, so it is not a raw engine progress feed.
-- The direct queue write path is a second authority that can drift from the state-sync path if the two diverge.
+- The direct completion-time queue write path has been removed, so durable queue completion now stays on the shared state-sync path.
 - Segment-scoped mixed jobs use a full `1.0` progress limit, while whole-chapter mixed jobs use a `0.9` render cap before stitch/final completion.
 - Mixed render records performance history with `record_engine_sample(..., source_segment_count=0)`, which means segment count is resolved by fallback rather than an explicit true render-group count.
 
@@ -160,23 +159,22 @@ Assessment:
 
 ## Discrepancies And Risks
 
-1. `voice.test` is correctly separated from chapter telemetry, but the helper surface is still split and `broadcast_test_progress(...)` is stale.
+1. `voice.test` is correctly separated from chapter telemetry, and queue-visible voice-test frames now require `ids.jobId`.
 2. `queue.items` remains authoritative in the contract, but live queue state is still derived through a mix of `update_job(...)`, `update_queue_item(...)`, and orchestrator broadcasts.
 3. The frontend main-queue path still consumes `jobs.lifecycle`, `chapters.lifecycle`, and `chapters.progress` in addition to `queue.items`. This is acceptable only if those topics enrich overlays or trigger refreshes, not if they author row identity/classification/status.
-4. Standard chapter queueing persists a `processing_queue` row at enqueue time, but bake, segment generation, and assembly do not consistently use the same insert/upsert path. This is a concrete durable-queue regression risk because `update_job(...)` can update existing queue rows but does not guarantee missing row creation.
-5. `finalizing` and `make_mp3` still exist in Voxtral, XTTS, mixed rendering, sample tasks, and the legacy voice worker path. Persistence normalizes some `finalizing` updates to `running`, so the main problem is stale lifecycle surface area rather than only stored status.
-6. Mixed rendering still has a direct queue-write path in addition to state sync.
+4. Standard chapter, bake, segment, voice build/test, and assembly enqueue paths now create durable queue rows. Regression coverage also verifies standard chapter split-part rows preserve the requested `split_part` after metadata upsert.
+5. `finalizing` and `make_mp3` still exist in some chapter-rendering paths such as Voxtral, XTTS, and mixed rendering. Persistence normalizes some `finalizing` updates to `running`, so the main problem is stale lifecycle surface area rather than only stored status.
+6. Mixed rendering no longer has a direct completion-time queue-write path; completion now flows through the shared job update path.
 7. XTTS and mixed renderers both publish shaped render progress rather than forwarding raw engine progress unchanged.
 8. Queue classification remains critical because `job` vs `chapter` vs `segment` determines whether a row survives hydration and retention.
-9. Voice preview artifacts still use MP3 in sample paths even though chapter synthesis is WAV-first. The audit should not assume the final policy until that exception is explicitly accepted or removed.
+9. Voice preview artifacts are WAV-first in the active path. Older `sample.mp3` artifacts can remain in existing voice folders until those previews are regenerated.
 
 ## Next-Slice Recommendations
 
-- Normalize queue ownership so durable row creation has one persistent path and live row transport has one `queue.items` path.
+- Keep queue ownership normalized so durable row creation has one persistent path and live row transport has one `queue.items` path.
 - Keep `jobs.lifecycle` for lifecycle transitions and `voice.test` for preview/test telemetry only.
 - Remove or narrow stale helper surfaces that duplicate the canonical publish path.
-- Align the remaining `make_mp3` and `finalizing` branches with the current WAV-first direction before the next voice slice.
-- Decide whether voice preview MP3 files are allowed as an exception, replaced with WAV, or routed through the same on-demand MP3 export path.
+- Align the remaining chapter-render `make_mp3` and `finalizing` branches with the current WAV-first direction before the next voice slice.
 - Add contract tests around `voice.test` job identity, queue retention, and mixed-render queue persistence if the next slice touches those paths.
 
 ## Post-Implementation Verification
@@ -456,11 +454,13 @@ git diff --check
 
 ### Slice 6: Mixed Render Queue Completion Authority
 
+Status: completed in the queue/event-stream repair slice.
+
 Goal: mixed render completion uses the same queue-state path as other jobs.
 
 Scope:
 
-- Remove or wrap `_persist_mixed_chapter_output(...)` direct queue writes.
+- Verify mixed render no longer performs direct completion-time queue writes.
 - Preserve output file, audio duration, chapter status, queue terminal status, and segment status updates.
 - Pass explicit render-group/chunk count to performance metrics if touched in this slice.
 
@@ -523,13 +523,14 @@ git diff --check
 
 ### Slice 8: Voice Preview Artifact Policy
 
+Status: completed as WAV-only for the active preview path.
+
 Goal: voice build/test preview artifacts follow the product decision from Slice 0.
 
 Scope:
 
-- If WAV-only: update sample build/test, legacy voice worker, XTTS adapter sample paths, voice preview URL helpers, and tests to use `sample.wav`.
-- If MP3 exception: document the exception clearly and add tests proving it is preview-only and not a normal synthesis lifecycle phase.
-- If on-demand MP3: route preview MP3 creation through the same explicit export/on-demand mechanism.
+- Update sample build/test, legacy voice worker, XTTS adapter sample paths, voice preview URL helpers, and tests to use `sample.wav`.
+- Keep MP3 generation outside the normal voice-preview render path.
 
 Do not include:
 
@@ -539,8 +540,8 @@ Do not include:
 
 Measurable exit criteria:
 
-- Voice build/test output artifact matches the chosen policy.
-- Tests no longer accidentally enforce stale `sample.mp3` behavior unless approved as a preview exception.
+- Voice build/test output artifact matches the WAV-only policy.
+- Tests no longer accidentally enforce stale `sample.mp3` behavior.
 - Voice preview URLs resolve the selected artifact correctly.
 
 Suggested tests:
@@ -606,24 +607,24 @@ Bring queue-visible voice/chapter/segment/assembly work into one clear contract:
 - Do not hardcode fixes to a specific engine name when a task type, scope, capability, or shared helper can express the behavior.
 - Do not preserve legacy v1 or beta compatibility unless the product owner explicitly approves a specific exception.
 
-### Slice 0 Detail: Product Decisions To Confirm
+### Slice 0 Detail: Product Decisions
 
-These must be resolved before the worker implements behavior:
+These decisions are resolved for the implemented queue/event-stream repair slices:
 
 1. Are bake jobs, segment jobs, and assembly jobs always supposed to appear in persistent queue history after a hard reload?
-   - Recommended answer: yes, every queue-visible job should get a `processing_queue` row at enqueue time.
+   - Answer: yes, every queue-visible job should get a `processing_queue` row at enqueue time.
 2. Are voice preview files allowed to remain `sample.mp3`?
-   - Recommended answer: no, use WAV previews unless the product owner explicitly approves preview MP3 as an exception.
+   - Answer: no, use WAV previews on the active preview path.
 3. Can non-`queue.items` topics update queue-adjacent live progress fields?
-   - Recommended answer: yes for overlays and progress display; no for row identity, classification, lifecycle status, and terminal retention.
+   - Answer: yes for overlays and progress display; no for row identity, classification, lifecycle status, and terminal retention.
 
 ### Slices 1-3 Detail: Durable Queue Row Creation
 
 Problem:
 
 - Standard chapter jobs create durable queue rows through `db_add_to_queue(...)`.
-- Bake, segment, and assembly jobs create `Job` objects and live broadcasts, but do not consistently create `processing_queue` rows.
-- `update_job(...)` can make those jobs appear live, but `update_queue_item(...)` only updates existing rows. Missing rows remain missing after reload.
+- Bake, segment, and assembly jobs now create durable `processing_queue` rows before orchestration.
+- A post-review regression test also verifies standard chapter split-part rows keep the requested `split_part` after display metadata is upserted.
 
 Desired behavior:
 
@@ -644,7 +645,7 @@ Suggested first failing tests:
 - Enqueue a bake job, call `/api/processing_queue`, and assert the bake job row exists with expected id/status/title/engine.
 - Enqueue a segment job, call `/api/processing_queue`, and assert the segment job row exists and retains segment/job classification.
 - Enqueue an assembly job, call `/api/processing_queue`, and assert the assembly row exists after reload-style hydration.
-- Create a `Job` without a queue row, call `update_job(..., force_broadcast=True)`, and assert this does not silently satisfy durable queue history unless the new canonical helper explicitly creates the row.
+- Enqueue a split-part chapter job and assert the queue row preserves the requested split part after metadata is added.
 
 ### Slice 5 Detail: Queue Topic Authority vs Live Overlays
 
@@ -710,7 +711,7 @@ Suggested first failing tests:
 Problem:
 
 - `make_mp3` and `finalizing` branches remain in multiple active paths.
-- Sample build/test still converts generated WAV previews into `sample.mp3`.
+- Sample build/test now uses WAV previews on the active path.
 - Voxtral and mixed rendering still contain MP3/finalizing logic even though normal synthesis is intended to be WAV-first.
 
 Desired behavior:
@@ -749,6 +750,10 @@ Problem:
 - Mixed render uses both `update_job(...)` and `_persist_mixed_chapter_output(...) -> update_queue_item(...)`.
 - This creates two queue-state authorities and can drift from the canonical state-sync path.
 - Mixed performance samples use `source_segment_count=0`, leaving segment/render-group count to fallback resolution.
+
+Post-implementation note:
+
+- The direct completion-time queue write was removed in the repair slice. The remaining follow-up is explicit mixed render-group count persistence if that metric path is revisited.
 
 Desired behavior:
 

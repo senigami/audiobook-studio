@@ -357,6 +357,7 @@ def api_add_to_queue(
                 qid,
                 project_id=project_id,
                 chapter_id=chapter_id,
+                split_part=split_part,
                 status="queued",
                 custom_title=display_title,
                 engine=queue_engine,

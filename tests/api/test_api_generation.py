@@ -103,6 +103,28 @@ def test_queue_and_bake(clean_db, client):
         assert any(row["id"] == job_id and row["custom_title"] == "C1" for row in get_queue())
 
 
+def test_standard_queue_preserves_split_part_after_metadata_upsert(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.queue import get_queue
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+
+    with timeout_after(5, "split-part queue route should not hang"), \
+         patch("app.api.routers.generation.put_job"), \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        response = client.post(
+            "/api/processing_queue",
+            data={"project_id": pid, "chapter_id": cid, "split_part": "2"},
+        )
+
+    assert response.status_code == 200
+    queue_id = response.json()["queue_id"]
+    row = next(item for item in get_queue() if item["id"] == queue_id)
+    assert row["split_part"] == 2
+
+
 def test_bake_chapter_mixed_engines_use_mixed_worker(clean_db, client):
     from app.db.state import update_settings
     update_settings({"enabled_plugins": {"voxtral": True}})

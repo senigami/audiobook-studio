@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.7] - 2026-06-08
+
+### Highlights
+
+- **Queue Rows Survive Reloads Across More Job Types**: Bake, segment-generation, voice build/test, mixed-render, and audiobook assembly jobs now use durable queue rows consistently, so active and completed work remains visible after refresh. Split-part chapter queue items also preserve their requested part number when display metadata is added.
+- **Voice Test Event Streams Carry Job Identity**: Voice preview/test telemetry now emits on `voice.test` with a required job id while the actual queue row remains on `queue.items`, making the live queue, diagnostics, and event stream easier to reconcile.
+- **Voice Previews Are WAV-First**: Voice preview generation now writes and serves `sample.wav` on the active path. MP3 generation remains an explicit export/download concern instead of a background preview side effect.
+- **Mixed Rendering Uses The Shared Queue Completion Path**: Mixed rendering no longer writes directly to the queue table during completion, reducing drift between persistent queue state and live job updates.
+
 ## [2.0.6] - 2026-05-30
 
 ### Highlights
