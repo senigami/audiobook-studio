@@ -735,6 +735,7 @@ def build_voice_test_progress_event(
     status: str,
     progress: float,
     started_at: float,
+    job_id: str,
     message: str | None = None,
     source: str | None = None,
 ) -> dict:
@@ -750,6 +751,7 @@ def build_voice_test_progress_event(
         topic="voice.test",
         event_kind="voice_test_progress",
         payload=payload,
+        job_id=job_id,
         source=source or _resolve_source_path()
     )
 

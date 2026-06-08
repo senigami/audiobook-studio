@@ -1350,7 +1350,7 @@ def test_voice_sample_terminal_done_progress(tmp_path):
             self.published.append(kwargs)
 
     orc = MockOrchestrator()
-    output_path = tmp_path / "dummy_out.mp3"
+    output_path = tmp_path / "dummy_out.wav"
     task = SampleTestTask(
         task_id="sample-terminal-test",
         speaker_profile="feeling-lucky",
@@ -1360,17 +1360,15 @@ def test_voice_sample_terminal_done_progress(tmp_path):
     )
     context = task.describe()
 
-    # Write dummy file so mp3 exists check passes
+    # Write dummy file so the synthesized artifact path exists if probed.
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text("dummy audio content")
 
     mock_bridge = MagicMock()
     mock_bridge.synthesize.return_value = {"status": "ok", "timing": {"chapter_render_started_at": 1000.0, "chapter_render_completed_at": 1005.0}}
-    mock_wav_to_mp3 = MagicMock(return_value=0)
     mock_update_settings = MagicMock()
 
     with patch("app.engines.bridge.create_voice_bridge", return_value=mock_bridge), \
-         patch("app.engines.audio_ops.wav_to_mp3", mock_wav_to_mp3), \
          patch("app.db.speakers.update_speaker_settings", mock_update_settings), \
          patch("app.engines.watchdog.get_watchdog", return_value=None), \
          patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None):
@@ -1380,9 +1378,9 @@ def test_voice_sample_terminal_done_progress(tmp_path):
 
     post_synth_publishes = [
         p for p in orc.published
-        if p.get("reason_code") in ("synthesis_finished", "post_processing", "metadata_update")
+        if p.get("reason_code") in ("synthesis_finished", "metadata_update")
     ]
 
-    assert len(post_synth_publishes) == 3
+    assert len(post_synth_publishes) == 2
     for p in post_synth_publishes:
         assert p["progress"] == 1.0

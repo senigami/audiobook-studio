@@ -9,6 +9,7 @@ import pytest
 from app.engines.errors import EngineBridgeError
 from app.db.models import Job
 from plugins.synthesis_mixed.handler import handle_mixed_job
+from tests.utils.timeout import timeout_after
 
 
 @pytest.fixture
@@ -62,7 +63,8 @@ def test_handle_mixed_job_renders_and_stitches(clean_db, tmp_path):
         Path(out_wav).write_text("stitched")
         return 0
 
-    with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+    with timeout_after(5, "mixed handler render should not hang"), \
+         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
@@ -81,6 +83,54 @@ def test_handle_mixed_job_renders_and_stitches(clean_db, tmp_path):
     assert refreshed[1]["audio_file_path"] == f"{refreshed[1]['id']}.wav"
     assert chapter["audio_status"] == "done"
     assert chapter["audio_file_path"] == output_wav.name
+
+
+def test_handle_mixed_job_does_not_write_queue_row_directly(clean_db, tmp_path):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+    sync_chapter_segments(cid, "Hello world.")
+    segs = get_chapter_segments(cid)
+    update_segment(segs[0]["id"], speaker_profile_name="XTTS Voice")
+
+    job = Job(
+        id="mixed-job-no-queue-write",
+        engine="mixed",
+        chapter_file=f"{cid}_0.txt",
+        status="queued",
+        created_at=time.time(),
+        project_id=pid,
+        chapter_id=cid,
+        speaker_profile="XTTS Voice",
+    )
+
+    def fake_generate_via_bridge(**kwargs):
+        Path(kwargs["out_wav"]).write_text("xtts")
+        return 0
+
+    def fake_stitch(_pdir, _segments, out_wav, _on_output, _cancel_check):
+        Path(out_wav).write_text("stitched")
+        return 0
+
+    with timeout_after(5, "mixed handler completion should not hang"), \
+         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("app.db.update_queue_item") as mock_update_queue, \
+         patch("plugins.synthesis_mixed.handler.update_job") as mock_update_job:
+        result, _ = handle_mixed_job("mixed-job-no-queue-write", job, time.time(), lambda _line: None, lambda: False)
+
+    assert result == "done"
+    assert mock_update_queue.call_count == 0
+    assert any(call.kwargs.get("status") == "done" for call in mock_update_job.call_args_list)
 
 
 def test_handle_mixed_job_returns_bridge_failure_message(clean_db, tmp_path):

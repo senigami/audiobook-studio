@@ -10,6 +10,7 @@ from app.orchestration.scheduler.orchestrator import TaskOrchestrator
 from app.orchestration.tasks.sample_build import SampleBuildTask
 from app.orchestration.tasks.sample_test import SampleTestTask
 from app.db.speakers import get_speaker_settings
+from tests.utils.timeout import timeout_after
 
 
 def test_voice_build_api_uses_real_orchestrator_submit(clean_db, voices_root, client, monkeypatch):
@@ -41,13 +42,9 @@ def test_voice_build_api_uses_real_orchestrator_submit(clean_db, voices_root, cl
     )
     monkeypatch.setattr("app.api.routers.voices_actions.create_orchestrator", lambda: orchestrator)
 
-    def fake_wav_to_mp3(in_wav, out_mp3):
-        Path(out_mp3).write_text("fake mp3")
-        return 0
-
     files = {"files": ("input.wav", io.BytesIO(b"fake wav"), "audio/wav")}
-    with patch("app.engines.bridge.create_voice_bridge", return_value=mock_bridge), \
-         patch("app.engines.audio_ops.wav_to_mp3", side_effect=fake_wav_to_mp3), \
+    with timeout_after(5, "voice build api submit should not hang"), \
+         patch("app.engines.bridge.create_voice_bridge", return_value=mock_bridge), \
          patch("app.engines.voice_engines.list_tts_engines", return_value=["xtts"]), \
          patch("app.engines.voice_engines.get_default_profile_engine", return_value="xtts"), \
          patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
@@ -64,7 +61,7 @@ def test_voice_build_api_uses_real_orchestrator_submit(clean_db, voices_root, cl
     assert request["engine_id"] == "xtts"
     assert request["voice_profile_id"] == "ApiOrchSpeaker"
     assert request["script_text"]
-    assert (profile_dir / "sample.mp3").exists()
+    assert (profile_dir / "sample.wav").exists()
 
 
 def test_voice_build_orchestration_e2e(voices_root):
@@ -99,7 +96,7 @@ def test_voice_build_orchestration_e2e(voices_root):
 
     # 3. Submit SampleBuildTask
     jid = f"build-{uuid.uuid4().hex[:8]}"
-    output_path = profile_dir / "sample.mp3"
+    output_path = profile_dir / "sample.wav"
 
     task = SampleBuildTask(
         task_id=jid,
@@ -117,13 +114,9 @@ def test_voice_build_orchestration_e2e(voices_root):
     # We want to test that SampleBuildTask.run() works correctly when called via orchestrator or directly.
     # But specifically, we want to prove API -> Orchestrator path.
 
-    def fake_wav_to_mp3(in_wav, out_mp3):
-        Path(out_mp3).write_text("fake mp3")
-        return 0
-
-    with patch("app.orchestration.scheduler.orchestrator.create_orchestrator", return_value=orchestrator), \
-         patch("app.engines.bridge.create_voice_bridge", return_value=mock_bridge), \
-         patch("app.engines.audio_ops.wav_to_mp3", side_effect=fake_wav_to_mp3):
+    with timeout_after(5, "voice build orchestration should not hang"), \
+         patch("app.orchestration.scheduler.orchestrator.create_orchestrator", return_value=orchestrator), \
+         patch("app.engines.bridge.create_voice_bridge", return_value=mock_bridge):
 
         # We simulate the task execution. In a real system, the orchestrator might use a worker or run it locally.
         # Studio 2.0 TaskOrchestrator currently runs tasks via its own dispatch.
@@ -155,8 +148,8 @@ def test_voice_test_orchestration_e2e(voices_root):
     mock_bridge = MagicMock()
     mock_bridge.synthesize.return_value = {"status": "ok", "audio_path": "ignored"}
 
-    output_path = profile_dir / "sample.mp3"
-    output_path.write_text("pre-existing") # So wav_to_mp3 check passes
+    output_path = profile_dir / "sample.wav"
+    output_path.write_text("pre-existing")
 
     task = SampleTestTask(
         task_id="test-123",
@@ -167,12 +160,8 @@ def test_voice_test_orchestration_e2e(voices_root):
         voice_job_settings={"model": "large"}
     )
 
-    def fake_wav_to_mp3(in_wav, out_mp3):
-        Path(out_mp3).write_text("fake mp3")
-        return 0
-
-    with patch("app.engines.bridge.create_voice_bridge", return_value=mock_bridge), \
-         patch("app.engines.audio_ops.wav_to_mp3", side_effect=fake_wav_to_mp3):
+    with timeout_after(5, "voice test orchestration should not hang"), \
+         patch("app.engines.bridge.create_voice_bridge", return_value=mock_bridge):
         result = task.run()
         assert result.status == "completed"
 
@@ -190,14 +179,14 @@ def test_sample_tasks_expose_script_text_alias():
         task_id="build-1",
         speaker_profile="VoiceA",
         engine_id="xtts",
-        output_path=Path("/tmp/sample.mp3"),
+        output_path=Path("/tmp/sample.wav"),
         test_text="Build text",
     )
     test_task = SampleTestTask(
         task_id="test-1",
         speaker_profile="VoiceA",
         engine_id="xtts",
-        output_path=Path("/tmp/sample.mp3"),
+        output_path=Path("/tmp/sample.wav"),
         test_text="Test text",
     )
 
@@ -217,7 +206,7 @@ def test_voice_build_fails_when_no_engine(clean_db, voices_root):
         task_id="build-1",
         speaker_profile="OrchSpeaker",
         engine_id="",
-        output_path=Path("sample.mp3"),
+        output_path=Path("sample.wav"),
         test_text="This is a test build."
     )
     with pytest.raises(ValueError):

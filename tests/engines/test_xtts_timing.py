@@ -270,7 +270,7 @@ def test_sample_runs_wait_for_synthesis_marker_before_running_progress(clean_db,
     from app.orchestration.tasks.sample_build import SampleBuildTask
 
     orc = MockOrchestrator()
-    output_wav = tmp_path / "test_sample_output.mp3"
+    output_wav = tmp_path / "test_sample_output.wav"
 
     task = SampleBuildTask(
         task_id="sample-progress-test",
@@ -301,7 +301,7 @@ def test_persisted_sample_includes_audio_duration_and_model_load_seconds(clean_d
     from app.db.performance import get_render_history
 
     orc = MockOrchestrator()
-    output_wav = tmp_path / "sample_test_out.mp3"
+    output_wav = tmp_path / "sample_test_out.wav"
     # Create a dummy audio file so probe_audio_duration can find it
     output_wav.write_text("dummy audio content")
 
@@ -353,7 +353,7 @@ def test_persisted_sample_prefers_structured_timing_for_model_load_seconds(clean
     from app.db.performance import get_render_history
 
     orc = MockOrchestrator()
-    output_wav = tmp_path / "sample_structured_timing_out.mp3"
+    output_wav = tmp_path / "sample_structured_timing_out.wav"
     output_wav.write_text("dummy audio content")
 
     task = SampleBuildTask(
@@ -400,7 +400,7 @@ def test_persisted_sample_falls_back_to_job_timestamps_for_model_load_seconds(cl
     from app.db.performance import get_render_history
 
     orc = MockOrchestrator()
-    output_wav = tmp_path / "sample_job_timestamp_fallback_out.mp3"
+    output_wav = tmp_path / "sample_job_timestamp_fallback_out.wav"
     output_wav.write_text("dummy audio content")
 
     task = SampleBuildTask(
@@ -444,14 +444,14 @@ def test_sample_runs_always_non_marker_driven(clean_db):
         task_id="test-build",
         speaker_profile="feeling-lucky",
         engine_id="dummy-engine",
-        output_path="out.mp3",
+        output_path="out.wav",
         test_text="test",
     )
     task_test = SampleTestTask(
         task_id="test-test",
         speaker_profile="feeling-lucky",
         engine_id="dummy-engine",
-        output_path="out.mp3",
+        output_path="out.wav",
         test_text="test",
     )
 
@@ -529,7 +529,7 @@ def test_sample_build_reaches_completion_without_context(clean_db, tmp_path):
     from app.db.models import Job
 
     orc = MockOrchestrator()
-    output_wav = tmp_path / "sample_out.mp3"
+    output_wav = tmp_path / "sample_out.wav"
 
     task = SampleBuildTask(
         task_id="sample-build-no-ctx-test",

@@ -1,14 +1,14 @@
 {
-  "snapshot_version": 173,
-  "current_task": "Sync Studio 2.0 Phase 12 changes into the GitHub wiki",
-  "status": "wiki_user_facing_wording_corrected",
+  "snapshot_version": 174,
+  "current_task": "Implement and verify queue/event-stream repair slices",
+  "status": "queue_event_stream_slices_verified",
   "last_committed_milestone": {
-    "title": "QueueItem terminal parameter retention during done-transition fixed",
+    "title": "Queue/event-stream repair slices implemented and voice previews switched to WAV-only",
     "commit": "pending",
     "notes": [
-      "Synchronously derived active-to-done transition state (justTransitionedToDone) in QueueItem's render body to prevent state update lag from stripping startedAt/etaSeconds.",
-      "Replaced prevStatusRef ref-based tracking with React state-driven prevStatus/currentStatus updates to resolve the react-hooks/refs ESLint error.",
-      "Verified that all 56 Vitest timing and queue suite tests pass, including new production sequence regressions."
+      "Added durable queue-row creation for bake, segment, and assembly entrypoints; voice-test telemetry now requires jobId; and mixed rendering no longer writes the queue row directly during completion.",
+      "Converted voice preview generation to WAV-only across the API routes, worker path, sample tasks, and preview URL helper; removed the MP3 preview fallback.",
+      "Verified the queue, voice, websocket, performance, mixed-render, voice orchestration, speaker profile, XTTS timing, and progress regression suites after adding explicit timeout guards to the longer-running tests."
     ]
   },
   "active_constraints": [
@@ -93,7 +93,7 @@
     "Prepare the voice icon and tagging implementation to improve large-library usability."
   ],
   "verification": {
-    "latest_backend_focus": "2026-06-04: Voice-sample START_SYNTHESIS timing aligned to real markers; pytest test_progress_logic.py (86 tests passed).",
+    "latest_backend_focus": "2026-06-08: Queue/event-stream repair slices and WAV-only voice preview verified; pytest suites covering queue, websocket, performance, mixed render, voice orchestration, speaker profiles, XTTS timing, and progress logic all passed.",
     "latest_frontend_focus": "2026-06-04: Fixed QueueItem terminal parameter retention and resolved ESLint react-hooks/refs errors; verified with Vitest timing/queue suites (56 tests passed).",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",

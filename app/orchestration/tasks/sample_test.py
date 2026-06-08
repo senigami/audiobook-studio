@@ -25,7 +25,7 @@ class SampleTestTask(StudioTask):
         self.task_id = task_id
         self.speaker_profile = speaker_profile
         self.engine_id = engine_id
-        self.output_path = output_path
+        self.output_path = Path(output_path).with_suffix(".wav")
         self.test_text = test_text
         self.script_text = test_text
         self.voice_job_settings = voice_job_settings or {}
@@ -90,13 +90,12 @@ class SampleTestTask(StudioTask):
     def run(self) -> TaskResult:
         """Execute sample-test flow."""
         from app.engines.bridge import create_voice_bridge
-        from app.engines.audio_ops import wav_to_mp3
         from app.db.speakers import update_speaker_settings
 
         bridge = create_voice_bridge()
 
         # 1. Generate WAV
-        temp_wav = self.output_path.with_suffix(".wav")
+        temp_wav = self.output_path
         request = {
             "engine_id": self.engine_id,
             "voice_profile_id": self.speaker_profile,
@@ -124,22 +123,10 @@ class SampleTestTask(StudioTask):
         self.report_progress(1.0, message="Preview synthesis finished.", reason_code="synthesis_finished")
 
 
-        # 2. Convert to MP3
         if not self.output_path.parent.exists():
             self.output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        self.report_progress(1.0, message="Converting audio to MP3...", reason_code="post_processing")
-        rc = wav_to_mp3(temp_wav, self.output_path)
-        if rc == 0 and self.output_path.exists():
-            try:
-                temp_wav.unlink()
-            except Exception:
-                pass
-        else:
-            if not self.output_path.exists():
-                return TaskResult(status="failed", message="MP3 conversion failed")
-
-        # 3. Update Speaker Settings (Preview only)
+        # 2. Update Speaker Settings (Preview only)
         try:
             self.report_progress(1.0, message="Finalizing metadata...", reason_code="metadata_update")
             update_speaker_settings(

@@ -253,7 +253,7 @@ async def build_speaker_profile(
         task_id=jid,
         speaker_profile=name,
         engine_id=engine,
-        output_path=Path(resolved_pdir) / "sample.mp3",
+        output_path=Path(resolved_pdir) / "sample.wav",
         voice_profile_dir=Path(resolved_pdir),
         test_text=spk_settings["test_text"],
         voice_job_settings=spk_settings,
@@ -351,7 +351,7 @@ def test_speaker_profile(name: str, background_tasks: BackgroundTasks):
             task_id=jid,
             speaker_profile=name,
             engine_id=engine,
-            output_path=pdir / "sample.mp3",
+            output_path=pdir / "sample.wav",
             voice_profile_dir=pdir,
             test_text=settings["test_text"],
             voice_job_settings=settings,
@@ -372,7 +372,7 @@ def test_speaker_profile(name: str, background_tasks: BackgroundTasks):
         return JSONResponse({
             "status": "ok",
             "job_id": jid,
-            "audio_url": preview_url or f"/out/voices/{url_path}/sample.mp3"
+            "audio_url": preview_url or f"/out/voices/{url_path}/sample.wav"
         })
     except Exception as e:
         from ...engines.errors import EngineUnavailableError

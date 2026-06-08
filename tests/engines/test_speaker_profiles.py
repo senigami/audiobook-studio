@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
+from tests.utils.timeout import timeout_after
 
 # Import the app
 from app.api.web import app
@@ -118,23 +119,22 @@ def test_speaker_profile_test_endpoint(mock_orchestrator, clean_voices):
     (profile_dir / "profile.json").write_text(json.dumps({"engine": "xtts"}))
     (profile_dir / "1.wav").write_text("audio")
     (profile_dir / "1.wav").write_text("audio")
-    mp3_path = profile_dir / "sample.mp3"
-    mp3_path.write_text("audio")
+    wav_path = profile_dir / "sample.wav"
+    wav_path.write_text("audio")
 
     # Mock successful generation
     mock_orchestrator.return_value.submit.return_value = None
 
     # We need to make sure the expected output file exists or the endpoint will return 500
-    test_out = clean_voices / name / "sample.mp3"
+    test_out = clean_voices / name / "sample.wav"
     test_out.parent.mkdir(parents=True, exist_ok=True)
     test_out.write_text("output audio")
 
-    response = client.post(
-        f"/api/speaker-profiles/{name}/test"
-    )
+    with timeout_after(5, "speaker profile test endpoint should not hang"):
+        response = client.post(f"/api/speaker-profiles/{name}/test")
 
     assert response.status_code == 200
-    assert response.json()["audio_url"] == f"/out/voices/{name}/Default/sample.mp3"
+    assert response.json()["audio_url"] == f"/out/voices/{name}/Default/sample.wav"
 
     # Cleanup test output
     if test_out.exists():
@@ -148,10 +148,11 @@ def test_speaker_profile_test_endpoint_allows_latent_without_raw_samples(mock_or
     (profile_dir / "profile.json").write_text(json.dumps({"engine": "xtts"}))
     (profile_dir / "latent.pth").write_text("latent")
 
-    response = client.post(f"/api/speaker-profiles/{name}/test")
+    with timeout_after(5, "latent voice profile test endpoint should not hang"):
+        response = client.post(f"/api/speaker-profiles/{name}/test")
 
     assert response.status_code == 200
-    assert response.json()["audio_url"] == f"/out/voices/{name}/Default/sample.mp3"
+    assert response.json()["audio_url"] == f"/out/voices/{name}/Default/sample.wav"
 
 def test_delete_profile(clean_voices):
     name = "DeleteMe"
@@ -314,7 +315,7 @@ def test_list_profiles_marks_preview_out_of_date_when_test_script_changes(clean_
     profile_dir.mkdir(parents=True, exist_ok=True)
     (profile_dir / "profile.json").write_text("{}")
     (profile_dir / "voice.wav").write_text("audio")
-    (profile_dir / "sample.mp3").write_text("preview")
+    (profile_dir / "sample.wav").write_text("preview")
     (profile_dir / "profile.json").write_text(json.dumps({
         "variant_name": "Default",
         "engine": "voxtral",
@@ -337,7 +338,7 @@ def test_list_profiles_does_not_mark_legacy_preview_out_of_date_without_preview_
     profile_dir.mkdir(parents=True, exist_ok=True)
     (profile_dir / "profile.json").write_text("{}")
     (profile_dir / "voice.wav").write_text("audio")
-    (profile_dir / "sample.mp3").write_text("preview")
+    (profile_dir / "sample.wav").write_text("preview")
     (profile_dir / "profile.json").write_text(json.dumps({
         "variant_name": "Default",
         "engine": "xtts",

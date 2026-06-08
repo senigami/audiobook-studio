@@ -3,24 +3,26 @@ from fastapi.testclient import TestClient
 from app.api.web import app
 from app.db.state import update_job
 from app.api.ws import broadcast_job_updated
+from tests.utils.timeout import timeout_after
 
 def test_websocket_broadcast():
-    client = TestClient(app)
-    with client.websocket_connect("/ws") as websocket:
-        # Manually trigger a job update to test broadcast
-        # Since state.py calls listeners, and web.py registers the bridge
-        update_job("test_job", status="running", progress=0.1)
+    with timeout_after(5, "websocket connect should not hang"):
+        client = TestClient(app)
+        with client.websocket_connect("/ws") as websocket:
+            # Manually trigger a job update to test broadcast
+            # Since state.py calls listeners, and web.py registers the bridge
+            update_job("test_job", status="running", progress=0.1)
 
-        # In a real environment, the bridge runs on the main loop.
-        # In TestClient, it typically runs synchronously or we might need to wait.
-        # But our bridge uses asyncio.run_coroutine_threadsafe.
-        # TestClient handles this by running a separate loop sometimes.
+            # In a real environment, the bridge runs on the main loop.
+            # In TestClient, it typically runs synchronously or we might need to wait.
+            # But our bridge uses asyncio.run_coroutine_threadsafe.
+            # TestClient handles this by running a separate loop sometimes.
 
-        # Simple connection test
-        # We don't test the full broadcast bridge here as it requires a running event loop
-        # which TestClient handles in a way that's hard to sync with state.py updates.
-        websocket.send_json({"type": "ping"})
-        # The server doesn't respond to pings yet, but we verified we can connect and send.
+            # Simple connection test
+            # We don't test the full broadcast bridge here as it requires a running event loop
+            # which TestClient handles in a way that's hard to sync with state.py updates.
+            websocket.send_json({"type": "ping"})
+            # The server doesn't respond to pings yet, but we verified we can connect and send.
 
 def test_queue_start_not_redirect():
     client = TestClient(app)
@@ -869,6 +871,7 @@ def test_build_core_topic_helpers():
         status="running",
         progress=0.5,
         started_at=100.0,
+        job_id="job-voice-a",
         message="building"
     )
     assert e_voice["topic"] == "voice.test"
@@ -878,6 +881,12 @@ def test_build_core_topic_helpers():
         "progress": 0.5,
         "startedAt": 100.0,
         "message": "building",
+    }
+    assert e_voice["ids"] == {
+        "projectId": None,
+        "chapterId": None,
+        "jobId": "job-voice-a",
+        "segmentId": None,
     }
 
     # 10. system.events
@@ -1085,7 +1094,8 @@ def test_broadcast_test_progress_sends_canonical_envelope(monkeypatch):
 
     monkeypatch.setattr("app.api.ws.manager", DummyManager())
 
-    broadcast_test_progress(name="VoiceB", progress=0.75, started_at=123.45)
+    with timeout_after(5, "broadcast_test_progress should return promptly"):
+        broadcast_test_progress(name="VoiceB", progress=0.75, started_at=123.45, job_id="job-voice-b")
 
     assert len(messages) == 1
     event = messages[0]
@@ -1096,7 +1106,7 @@ def test_broadcast_test_progress_sends_canonical_envelope(monkeypatch):
     assert event["ids"] == {
         "projectId": None,
         "chapterId": None,
-        "jobId": None,
+        "jobId": "job-voice-b",
         "segmentId": None
     }
     assert event["payload"] == {
@@ -1107,6 +1117,13 @@ def test_broadcast_test_progress_sends_canonical_envelope(monkeypatch):
         "message": None,
     }
     assert event["source"].endswith("test_broadcast_test_progress_sends_canonical_envelope")
+
+
+def test_broadcast_test_progress_requires_job_id():
+    from app.api.ws import broadcast_test_progress
+
+    with pytest.raises(ValueError, match="requires job_id"):
+        broadcast_test_progress(name="VoiceB", progress=0.75, started_at=123.45)
 
 
 def test_broadcast_segment_progress_sends_canonical_envelope(monkeypatch):
@@ -1831,13 +1848,14 @@ def test_voice_test_job_telemetry_isolation(monkeypatch):
     ))
 
     # Publish progress as voice_test scope
-    progress_service.publish(
-        job_id=job_id,
-        status="running",
-        scope="voice_test",
-        progress=0.45,
-        started_at=time.time(),
-    )
+    with timeout_after(5, "voice-test telemetry publish should not hang"):
+        progress_service.publish(
+            job_id=job_id,
+            status="running",
+            scope="voice_test",
+            progress=0.45,
+            started_at=time.time(),
+        )
 
     # 1. Must emit voice.test progress frame
     voice_test_events = [m for m in messages if m.get("topic") == "voice.test"]

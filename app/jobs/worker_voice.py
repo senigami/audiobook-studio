@@ -8,7 +8,6 @@ from typing import Any, Mapping
 from ..db.state import update_job
 from ..core.config import VOICES_DIR
 from ..engines.errors import EngineBridgeError
-from ..engines.audio_ops import wav_to_mp3
 from ..db.speakers import get_profile_wavs as get_speaker_wavs, get_speaker_settings, get_profile_dir as get_voice_profile_dir
 from .worker_helpers import _mark_queue_failed
 
@@ -123,26 +122,13 @@ def handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=None):
             _mark_queue_failed(jid, "Voice synthesis failed.")
             return
 
-        sample_mp3 = pdir / "sample.mp3"
-        mp3_rc = wav_to_mp3(sample_path, sample_mp3, on_output=on_output, cancel_check=cancel_check)
-        if mp3_rc == 0 and sample_mp3.exists():
-            try:
-                sample_path.unlink()
-            except FileNotFoundError:
-                logger.debug("Transient voice sample already removed or missing at %s", sample_path)
-        else:
-            logger.warning(
-                "Failed to convert voice sample for %s to mp3; keeping wav fallback",
-                j.speaker_profile,
-            )
-
         # After success: mark samples as built if this was a build job
         if j.engine == "voice_build" or j.engine == "voice_test":
             try:
                 from ..db.speakers import update_speaker_settings
                 raw_wavs = sorted([
                     f.name for f in pdir.glob("*.wav")
-                    if f.name not in {"sample.wav", "sample.mp3"}
+                    if f.name != "sample.wav"
                 ])
                 update_speaker_settings(
                     j.speaker_profile,

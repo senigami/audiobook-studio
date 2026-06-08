@@ -483,12 +483,15 @@ def broadcast_segment_progress(job_id: str, chapter_id: str | None, segment_id: 
     )
     broadcast_studio_event(event)
 
-def broadcast_test_progress(name: str, progress: float, started_at: float = None, source: str | None = None):
+def broadcast_test_progress(name: str, progress: float, started_at: float = None, job_id: str = None, source: str | None = None):
+    if not job_id:
+        raise ValueError("broadcast_test_progress requires job_id")
     event = build_voice_test_progress_event(
         voice_name=name,
         status="running",
         progress=progress,
         started_at=started_at if started_at is not None else time.time(),
+        job_id=job_id,
         source=source or _resolve_source("app.api.ws.broadcast_test_progress"),
     )
     broadcast_studio_event(event)

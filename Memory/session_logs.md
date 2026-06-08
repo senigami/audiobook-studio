@@ -1925,3 +1925,50 @@
 - Removed internal development framing from the wiki, including the temporary "Unreleased / Phase 12 Wiki Sync" changelog entry.
 - Reworded recently added wiki text so it describes finished Studio 2.0 behavior rather than "newer" or "future" development direction.
 - Verified the wiki no longer contains the searched internal/incomplete markers and git diff --check passes.
+
+# 2026-06-07 - Queue and event-stream audit saved
+
+- Saved a repo audit report at `docs/audits/voice_queue_event_stream_audit.md`.
+- Captured the current queue writers, queue/topic ownership, Voxtral mapping, mixed-render mapping, and the main contract discrepancies for the next voice slice.
+- Synced Memory state to the audit milestone.
+
+# 2026-06-07 - Queue and event-stream audit refined
+
+- Expanded the audit report with the desired target shape for the broken items and a staged plan to converge on the contract.
+- Kept the report focused on queue ownership, voice-test telemetry, Voxtral WAV-first behavior, mixed-render completion, and XTTS progress semantics.
+
+# 2026-06-07 - Queue and event-stream audit rechecked
+
+- Rechecked the audit against current backend, plugin, and frontend queue/event consumers.
+- Corrected the report to include missing persistent queue-row inconsistencies for bake, segment, and assembly jobs.
+- Added the frontend main-queue consumer discrepancy and clarified that `finalizing` is normalized to `running` during state persistence even though stale finalizing branches still exist.
+
+# 2026-06-07 - Queue and event-stream audit adversarial review integrated
+
+- Updated `docs/audits/voice_queue_event_stream_audit.md` with adversarial-review corrections.
+- Split persistent queue-row ownership from live `queue.items` transport ownership.
+- Escalated bake/segment/assembly missing durable queue rows as a high-priority correctness gap, clarified frontend overlay-vs-row authority, and added the unresolved voice-preview MP3 policy decision.
+
+# 2026-06-07 - Queue and event-stream audit made worker-handoff ready
+
+- Expanded `docs/audits/voice_queue_event_stream_audit.md` into a standalone handoff document for implementation workers without prior queue context.
+- Added evidence anchors, explicit objectives and non-goals, priority ordering, files likely in scope, suggested first failing tests, acceptance criteria, and verification commands.
+- Kept the implementation decisions separate from audit findings so product choices such as voice-preview MP3 policy are not assumed.
+
+# 2026-06-07 - Queue and event-stream audit split into measurable stages
+
+- Broke the implementation plan in `docs/audits/voice_queue_event_stream_audit.md` into small independently verifiable slices.
+- Added per-slice scope, exclusions, measurable exit criteria, suggested tests, and verification commands.
+- Renamed the worker detail sections to match the slice numbers so the document has one staged implementation path.
+
+# 2026-06-07 - PR 123 checklist reordered
+
+- Updated GitHub PR #123 description with a single ordered remaining-work checklist.
+- Placed the queue/event-stream repair slices first, followed by Voxtral/plugin contract, voice metadata/export, docs, manual QA, stability, and final verification work.
+- Moved deferred/non-goal items out of the active checkbox list so the first checkbox represents the next implementation item.
+
+# 2026-06-08 - Queue/event-stream repair slices implemented and verified
+
+- Implemented durable queue-row creation for bake, segment, and assembly entrypoints, tightened voice-test telemetry to require `jobId`, removed the mixed-render direct queue write, and switched voice preview generation to WAV-only.
+- Added timeout guards to the slower pytest cases that exercise queue, websocket, voice, mixed-render, and XTTS flows.
+- Verified the combined regression suites passed after the final WAV-only preview and queue authority cleanup.
