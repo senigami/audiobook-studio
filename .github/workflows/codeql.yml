@@ -1,17 +1,15 @@
 name: CodeQL
 
-# CodeQL ownership is split to avoid the "advanced configuration cannot be
-# processed when default setup is enabled" error:
-#   - GitHub default setup owns the default branch (main) and PRs into main.
-#   - This advanced workflow owns the studio-2.0 release line, so PRs that
-#     target studio-2.0 (e.g. ongoing phase work) still get scanned without
-#     analyzing the same ref as default setup.
-# It uses the default CodeQL query suite to keep alert noise low.
+# This advanced workflow is the single CodeQL owner for the repository.
+# Enabling it automatically disables GitHub's "default setup" (the two cannot
+# coexist), so it must cover every branch we care about: main and the
+# studio-2.0 release line, plus PRs targeting either. It uses the default
+# CodeQL query suite to keep alert noise low.
 on:
   push:
-    branches: [studio-2.0]
+    branches: [main, studio-2.0]
   pull_request:
-    branches: [studio-2.0]
+    branches: [main, studio-2.0]
   workflow_dispatch:
 
 permissions:
