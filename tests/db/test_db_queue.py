@@ -97,6 +97,26 @@ def test_upsert_queue_row_updates_metadata_for_existing_row(db_conn):
     assert q[0]["custom_title"] == "Overview * Part 5"
     assert q[0]["engine"] == "mixed"
 
+
+def test_upsert_queue_row_persists_segment_ids(db_conn):
+    pid = create_project("P1")
+    cid = create_chapter(pid, "Overview")
+
+    upsert_queue_row(
+        "segment-job",
+        project_id=pid,
+        chapter_id=cid,
+        status="queued",
+        custom_title="Overview: segment #1",
+        engine="mixed",
+        segment_ids=["seg-1", "seg-2"],
+    )
+
+    q = get_queue()
+    assert q[0]["id"] == "segment-job"
+    assert q[0]["segment_ids"] == ["seg-1", "seg-2"]
+
+
 def test_clear_queue(db_conn):
     pid = create_project("P1")
     cid = create_chapter(pid, "C1")

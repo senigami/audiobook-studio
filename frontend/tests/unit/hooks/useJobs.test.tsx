@@ -1341,6 +1341,41 @@ describe('useJobs', () => {
     expect(job.active_segment_updated_at).toBe(300);
   });
 
+  it('preserves segment classification for segment-scoped jobs when chapter progress arrives', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({
+      type: 'jobs_snapshot',
+      jobs: [{
+        id: 'job-segment-scope',
+        status: 'running',
+        progress: 0,
+        project_id: 'proj-1',
+        chapter_id: 'chap-1',
+        segment_ids: ['seg-1', 'seg-2'],
+        classification: 'segment',
+      }],
+    });
+
+    emitEvent('segments.progress', 'segment_progress', {
+      status: 'running',
+      progress: 0.35,
+      updatedAt: 400,
+    }, { segmentId: 'seg-1', jobId: 'job-segment-scope', chapterId: 'chap-1', projectId: 'proj-1' });
+
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.2,
+      groupedProgress: 0.2,
+      updatedAt: 401,
+    }, { jobId: 'job-segment-scope', chapterId: 'chap-1', projectId: 'proj-1' });
+
+    const job = result.current.jobs['job-segment-scope'];
+    expect(job.classification).toBe('segment');
+    expect(job.segment_ids).toEqual(['seg-1', 'seg-2']);
+    expect(job.active_segment_id).toBe('seg-1');
+    expect(job.active_segment_progress).toBe(0.35);
+  });
+
   it('treats segment_start frames at 0 progress as preparing until real synthesis progress arrives', async () => {
     const { result } = renderHook(() => useJobs());
     emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-segment-start', status: 'running', progress: 0 }] });

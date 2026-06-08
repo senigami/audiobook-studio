@@ -205,12 +205,23 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       nextDelta.finished_at = null;
     }
 
+    const existingIsSegmentScoped = !!existing && isSegmentScopedJob({
+      segment_ids: existing.segment_ids ?? undefined,
+      custom_title: existing.custom_title,
+      classification: existing.classification,
+      parent_job_id: existing.parent_job_id,
+    });
+
     if (typeof event.classification === 'string') {
-      nextDelta.classification = event.classification;
+      if (!(existingIsSegmentScoped && event.classification === 'chapter')) {
+        nextDelta.classification = event.classification;
+      }
     } else if (event.scope === 'segment') {
       nextDelta.classification = 'segment';
     } else if (event.scope === 'chapter') {
-      nextDelta.classification = 'chapter';
+      if (!existingIsSegmentScoped) {
+        nextDelta.classification = 'chapter';
+      }
     }
 
     // 6. Metadata/Basis

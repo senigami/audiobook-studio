@@ -307,6 +307,33 @@ def test_generate_segments_sets_segment_specific_queue_title(clean_db, client):
         assert job.custom_title == "Overview: segment #1"
 
 
+def test_generate_segments_hydrates_segment_ids_without_live_job(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "Overview", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+    segs = get_chapter_segments(cid)
+    segment_ids = [segs[0]["id"], segs[1]["id"]]
+
+    with timeout_after(5, "segment queue hydration should not hang"), \
+         patch("app.api.routers.generation.put_job"), \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"), \
+         patch("app.db.speakers.get_profile_engine", return_value="xtts"):
+        response = client.post("/api/segments/generate", data={"segment_ids": ",".join(segment_ids)})
+
+    assert response.status_code == 200
+    job_id = response.json()["job_id"]
+
+    queue_response = client.get("/api/processing_queue")
+    assert queue_response.status_code == 200
+    row = next(item for item in queue_response.json() if item["id"] == job_id)
+    assert row["custom_title"] == "Overview: segment #1"
+    assert row["segment_ids"] == segment_ids
+
+
 def test_queue_chapter_without_bakeable_segments_uses_standard_engine(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter

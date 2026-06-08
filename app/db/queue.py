@@ -1,3 +1,4 @@
+import json
 import time
 import uuid
 from typing import List, Dict, Any, Optional
@@ -8,8 +9,29 @@ ACTIVE_QUEUE_STATUSES = ("queued", "preparing", "running", "finalizing")
 TERMINAL_QUEUE_STATUSES = ("done", "failed", "cancelled")
 
 
-def upsert_queue_row(job_id: str, project_id: str = None, chapter_id: str = None, 
-                     split_part: int = 0, status: str = 'queued', custom_title: str = None, engine: str = None):
+def _encode_segment_ids(segment_ids: Optional[List[str]]) -> Optional[str]:
+    if segment_ids is None:
+        return None
+    return json.dumps([str(segment_id) for segment_id in segment_ids])
+
+
+def _decode_segment_ids(raw_value: Any) -> Optional[List[str]]:
+    if raw_value in (None, ""):
+        return None
+    if isinstance(raw_value, list):
+        return [str(segment_id) for segment_id in raw_value]
+    try:
+        decoded = json.loads(str(raw_value))
+    except (TypeError, json.JSONDecodeError):
+        return None
+    if not isinstance(decoded, list):
+        return None
+    return [str(segment_id) for segment_id in decoded]
+
+
+def upsert_queue_row(job_id: str, project_id: str = None, chapter_id: str = None,
+                     split_part: int = 0, status: str = 'queued', custom_title: str = None,
+                     engine: str = None, segment_ids: Optional[List[str]] = None):
     """
     Insert or update a processing_queue row for any job type.
     Called by enqueue() so EVERY job appears in the global queue.
@@ -20,16 +42,18 @@ def upsert_queue_row(job_id: str, project_id: str = None, chapter_id: str = None
         with get_connection() as conn:
             cursor = conn.cursor()
             now = time.time()
+            encoded_segment_ids = _encode_segment_ids(segment_ids)
             cursor.execute("""
-                INSERT INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, custom_title, engine)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO processing_queue (id, project_id, chapter_id, segment_ids, split_part, status, created_at, custom_title, engine)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     project_id = COALESCE(excluded.project_id, processing_queue.project_id),
                     chapter_id = COALESCE(excluded.chapter_id, processing_queue.chapter_id),
+                    segment_ids = COALESCE(excluded.segment_ids, processing_queue.segment_ids),
                     split_part = COALESCE(excluded.split_part, processing_queue.split_part),
                     custom_title = COALESCE(excluded.custom_title, processing_queue.custom_title),
                     engine = COALESCE(excluded.engine, processing_queue.engine)
-            """, (job_id, project_id, chapter_id, split_part, status, now, custom_title, engine))
+            """, (job_id, project_id, chapter_id, encoded_segment_ids, split_part, status, now, custom_title, engine))
             conn.commit()
             trace(
                 "queue.upsert",
@@ -39,6 +63,7 @@ def upsert_queue_row(job_id: str, project_id: str = None, chapter_id: str = None
                 status=status,
                 custom_title=custom_title,
                 engine=engine,
+                segment_ids=segment_ids,
             )
 
 def add_to_queue(project_id: str, chapter_id: str, split_part: int = 0):
@@ -141,7 +166,16 @@ def get_queue() -> List[Dict[str, Any]]:
             """)
             rows = cursor.fetchall()
             cursor.execute("DETACH DATABASE studio_db")
-            return [dict(row) for row in rows]
+            queue_rows = []
+            for row in rows:
+                item = dict(row)
+                decoded_segment_ids = _decode_segment_ids(item.get("segment_ids"))
+                if decoded_segment_ids is None:
+                    item.pop("segment_ids", None)
+                else:
+                    item["segment_ids"] = decoded_segment_ids
+                queue_rows.append(item)
+            return queue_rows
 
 def clear_queue() -> bool:
     with _db_lock:

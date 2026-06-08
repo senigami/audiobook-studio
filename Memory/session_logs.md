@@ -1979,3 +1979,11 @@
 - Added a focused regression test proving split-part queue rows preserve the requested part after display metadata is upserted.
 - Updated the queue/event-stream audit and wiki changelog so the permanent docs reflect the implemented contract and no longer preserve stale pre-fix wording as current guidance.
 - Verified Ruff, the focused split-part test, the broad affected backend queue/websocket/mixed/voice/XTTS/progress regression suites, `Memory/state.json`, and `git diff --check`.
+
+# 2026-06-08 - Segment queue identity regression fixed
+
+- Debug logs showed segment progress websocket frames reached 100% for two individual segments, but selected-segment queue rows could hydrate without durable `segment_ids` and then display as chapter-scoped work.
+- Added durable `processing_queue.segment_ids` storage, passed selected segment ids from `/api/segments/generate`, and hydrated the queue response back to a `segment_ids` array.
+- Fixed both frontend merge paths (`useJobs` and `live-jobs` overlays) so later chapter-scoped frames cannot downgrade an existing segment-scoped job.
+- Added red/green regressions for backend segment queue hydration, DB queue segment-id round-trip, useJobs classification preservation, and live-jobs overlay classification preservation.
+- Verified backend queue/generation/websocket/progress suites, frontend jobs/queue/hydration/chapter UI suites, Ruff, frontend lint/build, and `git diff --check`.

@@ -226,6 +226,37 @@ describe('LiveJobsStore', () => {
     expect(state.eventsById['job1'].active_segment_progress).toBeNull();
   });
 
+  it('preserves segment classification when a later chapter-scoped update arrives for the same job', () => {
+    const store = createLiveJobsStore();
+
+    store.applyJobUpdated('job-segment-scope', {
+      status: 'running',
+      progress: 0.35,
+      updated_at: 1000,
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      classification: 'segment',
+      segment_ids: ['seg-1', 'seg-2'],
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.35,
+    });
+
+    store.applyJobUpdated('job-segment-scope', {
+      status: 'running',
+      progress: 0.4,
+      updated_at: 1001,
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      classification: 'chapter',
+    });
+
+    const state = store.getState();
+    expect(state.eventsById['job-segment-scope'].classification).toBe('segment');
+    expect(state.eventsById['job-segment-scope'].segment_ids).toEqual(['seg-1', 'seg-2']);
+    expect(state.eventsById['job-segment-scope'].active_segment_id).toBe('seg-1');
+    expect(state.eventsById['job-segment-scope'].active_segment_progress).toBe(0.35);
+  });
+
   it('unifies merge rules: applyJobUpdated enforces monotonic progress and requeued resets', () => {
     const store = createLiveJobsStore();
 

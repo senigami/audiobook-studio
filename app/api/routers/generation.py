@@ -681,6 +681,7 @@ def api_generate_segments(
         status="queued",
         custom_title=segment_custom_title,
         engine=queue_engine,
+        segment_ids=sids,
     )
 
     orchestrator = create_orchestrator()

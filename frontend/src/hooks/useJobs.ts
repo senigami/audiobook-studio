@@ -151,6 +151,8 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           (oldJob.progress ?? 0) <= 0;
 
         if (isSegmentJob) {
+          delete nextUpdates.classification;
+          delete nextUpdates.segment_ids;
           delete nextUpdates.eta_seconds;
           delete nextUpdates.eta_basis;
           delete nextUpdates.estimated_end_at;
