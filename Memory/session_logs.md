@@ -2002,3 +2002,9 @@
 - Segment progress now uses segment-keyed identity, 3-tick local animation, exact plugin progress targets, no ETA prediction fields, and no confidence scaling of the visual target.
 - Kept Anti-gravity's predictive duplicate-zero/no-startedAt behavior only for `predictive={true}` queue/chapter bars.
 - Verified red/green segment contract regressions plus all PredictiveProgressBar suites, ChapterHeader/ChapterEditor/DevProgressBar/queue-state affected suites, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-09 - Segment progress proof controls added
+
+- Added a Segment Contract Debug panel to `/progress-test` that routes directly through `buildSegmentProgressBarProps`, with Start Segment, Stop Segment, reset, slider/buttons, helper contract display, event log, and `onDisplayProgress` callback log.
+- Browser verification showed `START_SEGMENT` creates `debug-job:debug-segment-1` at 0% with no ETA, and a 40% target animates through intermediate display callbacks before reaching 40%.
+- Verified the DevProgressBar page tests, segment helper tests, PredictiveProgressBar lifecycle/transitions, ChapterHeader segment contract tests, frontend lint, frontend build, and `git diff --check`.

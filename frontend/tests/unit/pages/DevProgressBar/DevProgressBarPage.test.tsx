@@ -4,6 +4,62 @@ import { ProgressBarTestPage } from '@/pages/DevProgressBar/DevProgressBarPage'
 import { publishStudioSocketMessage } from '@/store/studioSocketBus'
 
 describe('ProgressBarTestPage', () => {
+  it('provides a segment contract debug panel that starts a new segment at zero through the helper path', async () => {
+    render(<ProgressBarTestPage />)
+
+    expect(screen.getByText('Segment Contract Debug')).toBeTruthy()
+
+    fireEvent.click(screen.getByText('Start Segment'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('segment-debug-bar')).toHaveTextContent('0%')
+      expect(screen.getByTestId('segment-debug-helper-key')).toHaveTextContent('debug-job:debug-segment-1')
+      expect(screen.getByTestId('segment-debug-helper-contract')).toHaveTextContent('predictive=false')
+      expect(screen.getByTestId('segment-debug-helper-contract')).toHaveTextContent('transitionTicks=3')
+      expect(screen.getByTestId('segment-debug-helper-contract')).toHaveTextContent('showEta=false')
+    })
+
+    expect(screen.getByTestId('segment-debug-event-log')).toHaveTextContent('START_SEGMENT debug-segment-1 progress=0%')
+  })
+
+  it('animates segment debug target changes and records displayed progress callbacks', async () => {
+    render(<ProgressBarTestPage />)
+
+    fireEvent.click(screen.getByText('Start Segment'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('segment-debug-display-log')).toHaveTextContent('display=0%')
+    }, { timeout: 1500 })
+
+    fireEvent.change(screen.getByLabelText('Segment target %'), { target: { value: '50' } })
+
+    expect(screen.getByTestId('segment-debug-bar')).toHaveTextContent('0%')
+
+    await waitFor(() => {
+      expect(screen.getByTestId('segment-debug-bar')).toHaveTextContent('50%')
+    }, { timeout: 1500 })
+
+    const displayLog = screen.getByTestId('segment-debug-display-log')
+    expect(displayLog).toHaveTextContent('display=0%')
+    expect(displayLog).toHaveTextContent('display=50%')
+    expect(screen.getByTestId('segment-debug-event-log')).toHaveTextContent('SEGMENT_PROGRESS debug-segment-1 progress=50%')
+  })
+
+  it('can stop the segment debug run without pulling in ETA or chapter progress state', async () => {
+    render(<ProgressBarTestPage />)
+
+    fireEvent.click(screen.getByText('Start Segment'))
+    fireEvent.change(screen.getByLabelText('Segment target %'), { target: { value: '100' } })
+    fireEvent.click(screen.getByText('Stop Segment'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('segment-debug-bar')).toHaveTextContent('Complete')
+      expect(screen.getByTestId('segment-debug-bar')).not.toHaveTextContent(/ETA:/)
+      expect(screen.getByTestId('segment-debug-display-log')).toHaveTextContent('display=100%')
+      expect(screen.getByTestId('segment-debug-event-log')).toHaveTextContent('SEGMENT_SAVED debug-segment-1 progress=100%')
+    })
+  })
+
   it('does not apply launch-state edits to the live preview until launch is clicked', async () => {
     render(<ProgressBarTestPage />)
 

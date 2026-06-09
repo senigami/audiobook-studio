@@ -6,6 +6,7 @@ import { useProgressBarTest } from '@/hooks/useProgressBarTest';
 import { ProgressBarLaunchPanel } from '@/pages/DevProgressBar/components/ProgressBarLaunchPanel';
 import { ProgressBarUpdatePanel } from '@/pages/DevProgressBar/components/ProgressBarUpdatePanel';
 import { ProgressBarDebugPanel } from '@/pages/DevProgressBar/components/ProgressBarDebugPanel';
+import { SegmentContractDebugPanel } from '@/pages/DevProgressBar/components/SegmentContractDebugPanel';
 
 export const ProgressBarTestPage: React.FC = () => {
   const {
@@ -61,6 +62,8 @@ export const ProgressBarTestPage: React.FC = () => {
           Tweak the same props the real progress bar receives, then push updates the way live websocket events would.
         </p>
       </section>
+
+      <SegmentContractDebugPanel />
 
       <div style={{ display: 'grid', gap: '1.25rem', gridTemplateColumns: 'minmax(320px, 0.95fr) minmax(360px, 1.05fr)' }}>
         <section style={{
