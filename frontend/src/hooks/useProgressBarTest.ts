@@ -114,6 +114,16 @@ export function useProgressBarTest() {
     pushLog('Progress finished to 100% with finalizing status.');
   };
 
+  const setActiveAllowBackward = (enabled: boolean) => {
+    setUpdateSource('manual');
+    setActiveConfig(prev => ({
+      ...prev,
+      allowBackwardProgress: enabled,
+      updatedAt: nowUnixSeconds(),
+    }));
+    pushLog(`Manual allow backward ${enabled ? 'enabled' : 'disabled'}.`);
+  };
+
   const setStatus = (status: ProgressBarStatus) => {
     applyConfigPatch({ status }, `Status changed to ${status}.`);
   };
@@ -205,6 +215,7 @@ export function useProgressBarTest() {
     resetPreview,
     nudgeProgress,
     finishRun,
+    setActiveAllowBackward,
     setStatus,
     setConfigStartedAtToNow,
     updateSource,

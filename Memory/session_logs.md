@@ -2020,3 +2020,10 @@
 - Split the regular predictive update controls from the Segment Contract Debug controls with unique manual progress/ETA labels so the page can be tested and used without ambiguous selectors.
 - Centralized quick progress and Finish actions in `useProgressBarTest` so they mark the source as manual, stamp `updatedAt`, and write clear event-log entries.
 - Added regressions proving Send Update mutates the predictive debug payload and quick/finish controls no longer bypass live-update bookkeeping; verified focused and affected progress suites, lint, build, and `git diff --check`.
+
+# 2026-06-09 - Allow backward progress fixed
+
+- Fixed `PredictiveProgressBar` ETA-backed lane correction so `allowBackwardProgress=true` can move backward even when `startedAt` and `etaSeconds` are present.
+- Added an active Manual allow backward toggle on `/progress-test` so the current preview can be tested without relaunching.
+- Updated the predictive debug snapshot to report the actual backward migration decision for ETA-backed lanes.
+- Verified DevProgressBar, progress contracts, PredictiveProgressBar lifecycle/transitions/timing, ChapterHeader segment contract, frontend lint, frontend build, and `git diff --check`.

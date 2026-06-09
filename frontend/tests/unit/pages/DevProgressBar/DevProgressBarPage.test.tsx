@@ -204,6 +204,29 @@ describe('ProgressBarTestPage', () => {
     })
   })
 
+  it('applies Manual allow backward to the active predictive preview', async () => {
+    render(<ProgressBarTestPage />)
+
+    fireEvent.change(screen.getByLabelText('Manual progress %'), { target: { value: '80' } })
+    fireEvent.change(screen.getByLabelText('Manual ETA seconds'), { target: { value: '120' } })
+    fireEvent.click(screen.getByText('Send Update'))
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue(/"progress": 0.8/)).toBeTruthy()
+    })
+
+    fireEvent.click(screen.getByLabelText('Manual allow backward'))
+    fireEvent.change(screen.getByLabelText('Manual progress %'), { target: { value: '20' } })
+    fireEvent.click(screen.getByText('Send Update'))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Manual allow backward enabled/)).toBeTruthy()
+      expect(screen.getByDisplayValue(/"allowBackwardProgress": true/)).toBeTruthy()
+      expect(screen.getByDisplayValue(/"progress": 0.2/)).toBeTruthy()
+      expect(screen.getByDisplayValue(/"isBackwardMigration": true/)).toBeTruthy()
+    })
+  })
+
   it('reflects segments.progress payload in the debug panel and raw frame inspector', async () => {
     render(<ProgressBarTestPage />)
 

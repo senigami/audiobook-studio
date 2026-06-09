@@ -226,11 +226,13 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         effectiveTargetProgress: number | null;
         evidenceWeightFraction: number | null;
         currentVisualAtUpdate: number | null;
+        isBackwardMigration: boolean;
     }>({
         incomingProgress: null,
         effectiveTargetProgress: null,
         evidenceWeightFraction: null,
         currentVisualAtUpdate: null,
+        isBackwardMigration: false,
     });
 
     const updateLaneToTarget = (source: string, nextEndAtMs: number | null, nextProgress: number, instant = false) => {
@@ -278,7 +280,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             }
         } else if (nextEndAtMs !== null) {
             const expectedProgressAtNow = (nowMs - startedAtMs) / (nextEndAtMs - startedAtMs);
-            if (targetT > expectedProgressAtNow) {
+            const isBackward = effectiveAllowBackward && incomingProgress < currentVisual - 0.001;
+            if (targetT > expectedProgressAtNow || isBackward) {
                 shouldCorrectStart = true;
             }
         }
@@ -315,7 +318,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 incomingProgress,
                 effectiveTargetProgress: effectiveIncomingProgress,
                 evidenceWeightFraction: 1,
-                currentVisualAtUpdate: currentVisual
+                currentVisualAtUpdate: currentVisual,
+                isBackwardMigration: false,
             };
             return;
         }
@@ -372,7 +376,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             incomingProgress,
             effectiveTargetProgress: finalTargetProgress,
             evidenceWeightFraction: confidence,
-            currentVisualAtUpdate: currentVisual
+            currentVisualAtUpdate: currentVisual,
+            isBackwardMigration,
         };
     };
 
@@ -537,7 +542,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             transitionTickCount,
             backwardTransitionTickCount,
             activeTransitionTickCount: migration ? Math.round(migration.durationMs / tickMs) : null,
-            isBackwardMigration: migration ? (migration.toLane.startProgress < migration.fromLane.startProgress - 0.001) : false,
+            isBackwardMigration: migration ? lastUpdateMetadataRef.current.isBackwardMigration : false,
             tickMs,
             migrationDurationMs: migration?.durationMs ?? null,
             migrationElapsedMs: migration ? Math.max(0, now - migration.startedAtMs) : null,

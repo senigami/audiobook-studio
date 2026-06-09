@@ -14,6 +14,7 @@ interface ProgressBarUpdatePanelProps {
   setManualStatus: (s: ProgressBarStatus) => void;
   nudgeProgress: (delta: number) => void;
   finishRun: () => void;
+  setActiveAllowBackward: (enabled: boolean) => void;
   applyManualUpdate: () => void;
 }
 
@@ -28,6 +29,7 @@ export const ProgressBarUpdatePanel: React.FC<ProgressBarUpdatePanelProps> = ({
   setManualStatus,
   nudgeProgress,
   finishRun,
+  setActiveAllowBackward,
   applyManualUpdate
 }) => {
   return (
@@ -117,6 +119,15 @@ export const ProgressBarUpdatePanel: React.FC<ProgressBarUpdatePanelProps> = ({
             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
               Real producers should derive this from the update payload. If it is missing, use an 80% fallback confidence.
             </span>
+          </label>
+          <label title="Allow the currently mounted preview to move backward when the next manual update reports a lower progress value." style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+            <input
+              aria-label="Manual allow backward"
+              type="checkbox"
+              checked={activeConfig.allowBackwardProgress}
+              onChange={e => setActiveAllowBackward(e.target.checked)}
+            />
+            Manual allow backward
           </label>
           <label style={{ display: 'grid', gap: '0.35rem' }}>
             <FieldLabel label="Update Status" help="Choose the status to send with the manual update payload." />
