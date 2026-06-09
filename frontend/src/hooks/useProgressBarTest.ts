@@ -92,12 +92,26 @@ export function useProgressBarTest() {
   };
 
   const nudgeProgress = (delta: number) => {
+    setUpdateSource('manual');
     setActiveConfig(prev => {
       const next = clamp01(prev.progress + delta);
       pushLog(`Progress nudged to ${Math.round(next * 100)}%`);
       setManualProgressValue(String(Math.round(next * 100)));
-      return { ...prev, progress: next };
+      return { ...prev, progress: next, updatedAt: nowUnixSeconds() };
     });
+  };
+
+  const finishRun = () => {
+    setUpdateSource('manual');
+    setActiveConfig(prev => ({
+      ...prev,
+      progress: 1,
+      status: 'finalizing',
+      updatedAt: nowUnixSeconds(),
+    }));
+    setManualProgressValue('100');
+    setManualStatus('finalizing');
+    pushLog('Progress finished to 100% with finalizing status.');
   };
 
   const setStatus = (status: ProgressBarStatus) => {
@@ -190,6 +204,7 @@ export function useProgressBarTest() {
     launchSampleRun,
     resetPreview,
     nudgeProgress,
+    finishRun,
     setStatus,
     setConfigStartedAtToNow,
     updateSource,

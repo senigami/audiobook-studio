@@ -23,6 +23,7 @@ export const ProgressBarTestPage: React.FC = () => {
     launchSampleRun,
     resetPreview,
     nudgeProgress,
+    finishRun,
     setStatus,
     setConfigStartedAtToNow,
     updateSource,
@@ -77,6 +78,7 @@ export const ProgressBarTestPage: React.FC = () => {
             manualStatus={manualStatus}
             setManualStatus={setManualStatus}
             nudgeProgress={nudgeProgress}
+            finishRun={finishRun}
             applyManualUpdate={applyManualUpdate}
           />
         </section>

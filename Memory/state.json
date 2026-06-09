@@ -1,14 +1,14 @@
 {
-  "snapshot_version": 180,
-  "current_task": "Restore direct predictive animation in lower progress-test preview",
-  "status": "dev_progress_live_preview_predictive_path_restored",
+  "snapshot_version": 181,
+  "current_task": "Clean up progress-test manual update harness",
+  "status": "progress_test_manual_update_harness_verified",
   "last_committed_milestone": {
-    "title": "Lower progress-test live preview restored to direct predictive component path",
+    "title": "Progress-test manual update harness cleaned up",
     "commit": "pending-checkpoint",
     "notes": [
-      "The lower /progress-test Live Preview was incorrectly routed through buildSegmentProgressBarProps whenever checkpointMode was segment.",
-      "That helper intentionally strips ETA fields and forced predictive=false, which made the regular component proof stop at fixed targets instead of running on startedAt/etaSeconds.",
-      "The lower preview now always calls PredictiveProgressBar directly; the separate Segment Contract Debug panel remains responsible for the segment-helper proof."
+      "Manual progress and ETA controls on /progress-test now have unique accessible labels separate from the segment debug slider.",
+      "Send Update is regression-tested as a live payload that updates progress, ETA, updatedAt, status, and predictive debug metadata.",
+      "Quick progress and Finish buttons now route through the same manual-update bookkeeping instead of mutating activeConfig silently."
     ]
   },
   "active_constraints": [
@@ -96,7 +96,7 @@
   ],
   "verification": {
     "latest_backend_focus": "2026-06-08: Fixed selected-segment queue identity persistence by storing processing_queue.segment_ids and passing selected ids from /api/segments/generate; verified generation, queue, websocket, DB queue, and progress regression suites passed.",
-    "latest_frontend_focus": "2026-06-09: Restored the lower /progress-test Live Preview to the direct PredictiveProgressBar path so startedAt/etaSeconds/showEta/predictive timing work even when checkpointMode is segment; the Segment Contract Debug panel remains the isolated helper proof. Verified DevProgressBar, progress contracts, PredictiveProgressBar lifecycle/transitions/timing, ChapterHeader segment contract, lint, build, and git diff --check.",
+    "latest_frontend_focus": "2026-06-09: Cleaned up /progress-test manual update controls with unique labels and centralized quick/finish live-update bookkeeping; verified Send Update mutates predictive debug payload fields. Verified DevProgressBar, progress contracts, PredictiveProgressBar lifecycle/transitions/timing, ChapterHeader segment contract, lint, build, and git diff --check.",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",
     "latest_lint_focus": "2026-06-08: ruff passed for app/api/routers/generation.py and tests/api/test_api_generation.py; commit hook also ran Ruff/ESLint auto-fix checks cleanly.",

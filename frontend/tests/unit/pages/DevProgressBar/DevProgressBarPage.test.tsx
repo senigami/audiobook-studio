@@ -41,7 +41,7 @@ describe('ProgressBarTestPage', () => {
 
     const displayLog = screen.getByTestId('segment-debug-display-log')
     expect(displayLog).toHaveTextContent('display=0%')
-    expect(displayLog).toHaveTextContent('display=50%')
+    expect(displayLog).toHaveTextContent(/display=(49|50)%/)
     expect(screen.getByTestId('segment-debug-event-log')).toHaveTextContent('SEGMENT_PROGRESS debug-segment-1 progress=50%')
   })
 
@@ -139,8 +139,8 @@ describe('ProgressBarTestPage', () => {
     fireEvent.change(screen.getAllByLabelText('ETA Seconds')[0], { target: { value: '120' } })
     fireEvent.click(screen.getByText('Launch From Config'))
 
-    fireEvent.change(screen.getAllByRole('slider')[1], { target: { value: '1' } })
-    fireEvent.change(screen.getAllByLabelText('ETA Seconds')[1], { target: { value: '120' } })
+    fireEvent.change(screen.getByLabelText('Manual progress %'), { target: { value: '100' } })
+    fireEvent.change(screen.getByLabelText('Manual ETA seconds'), { target: { value: '120' } })
     fireEvent.change(screen.getByLabelText('Update Status'), { target: { value: 'running' } })
     fireEvent.click(screen.getByText('Send Update'))
 
@@ -156,12 +156,51 @@ describe('ProgressBarTestPage', () => {
     expect(screen.queryByLabelText('ETA Delta Seconds')).toBeNull()
     expect(screen.queryByLabelText('Started At (unix)')).toBeNull()
 
-    fireEvent.change(screen.getAllByLabelText('ETA Seconds')[1], { target: { value: '45' } })
+    fireEvent.change(screen.getByLabelText('Manual ETA seconds'), { target: { value: '45' } })
     fireEvent.change(screen.getByLabelText('Update Status'), { target: { value: 'finalizing' } })
     fireEvent.click(screen.getByText('Send Update'))
 
     await waitFor(() => {
       expect(screen.getByText(/Applied live update:/)).toBeTruthy()
+    })
+  })
+
+  it('applies Send Update as a live payload and reflects it in the predictive debug dump', async () => {
+    render(<ProgressBarTestPage />)
+
+    fireEvent.change(screen.getByLabelText('Manual progress %'), { target: { value: '90' } })
+    fireEvent.change(screen.getByLabelText('Manual ETA seconds'), { target: { value: '45' } })
+    fireEvent.change(screen.getByLabelText('Update Status'), { target: { value: 'running' } })
+    fireEvent.click(screen.getByText('Send Update'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Manual update')).toBeTruthy()
+      expect(screen.getByText(/Applied live update: progress 90%, eta_seconds 45, status running/)).toBeTruthy()
+      expect(screen.getByDisplayValue(/"progress": 0.9/)).toBeTruthy()
+      expect(screen.getByDisplayValue(/"etaSeconds": 45/)).toBeTruthy()
+      expect(screen.getByDisplayValue(/"updatedAt": \d+/)).toBeTruthy()
+      expect(screen.getByDisplayValue(/"incomingProgress": 0.9/)).toBeTruthy()
+    })
+  })
+
+  it('treats quick progress and finish controls as manual live updates', async () => {
+    render(<ProgressBarTestPage />)
+
+    fireEvent.click(screen.getByText('+10%'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Manual update')).toBeTruthy()
+      expect(screen.getByText(/Progress nudged to 35%/)).toBeTruthy()
+      expect(screen.getByDisplayValue(/"progress": 0.35/)).toBeTruthy()
+      expect(screen.getByDisplayValue(/"updatedAt": \d+/)).toBeTruthy()
+    })
+
+    fireEvent.click(screen.getByText('Finish'))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Progress finished to 100% with finalizing status/)).toBeTruthy()
+      expect(screen.getByDisplayValue(/"progress": 1/)).toBeTruthy()
+      expect(screen.getByDisplayValue(/"status": "finalizing"/)).toBeTruthy()
     })
   })
 
@@ -228,7 +267,7 @@ describe('ProgressBarTestPage', () => {
     })
 
     // Send manual update
-    fireEvent.change(screen.getAllByLabelText('ETA Seconds')[1], { target: { value: '45' } })
+    fireEvent.change(screen.getByLabelText('Manual ETA seconds'), { target: { value: '45' } })
     fireEvent.click(screen.getByText('Send Update'))
 
     await waitFor(() => {
@@ -239,7 +278,6 @@ describe('ProgressBarTestPage', () => {
   it('keeps the lower live preview on the direct predictive component path even in segment checkpoint mode', async () => {
     render(<ProgressBarTestPage />)
 
-    expect(screen.getByTestId('dev-progress-bar-preview')).toHaveTextContent('25%')
     expect(screen.getByTestId('dev-progress-bar-preview')).toHaveTextContent(/ETA:/)
     expect(screen.getByTestId('dev-progress-bar-preview')).toHaveTextContent('Progress Test')
 

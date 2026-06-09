@@ -2014,3 +2014,9 @@
 - User debug output showed the lower `/progress-test` Live Preview was still rendering through `buildSegmentProgressBarProps` when `checkpointMode=segment`, producing `predictive=false`, `endAtMs=null`, and no ETA despite launch config having `startedAt` and `etaSeconds`.
 - Removed that helper branch so the lower Live Preview always calls `PredictiveProgressBar` directly; the Segment Contract Debug panel remains the dedicated segment-helper proof surface.
 - Verified the DevProgressBar page tests, progress helper tests, PredictiveProgressBar lifecycle/transitions/timing tests, ChapterHeader segment contract tests, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-09 - Progress-test manual update harness cleaned up
+
+- Split the regular predictive update controls from the Segment Contract Debug controls with unique manual progress/ETA labels so the page can be tested and used without ambiguous selectors.
+- Centralized quick progress and Finish actions in `useProgressBarTest` so they mark the source as manual, stamp `updatedAt`, and write clear event-log entries.
+- Added regressions proving Send Update mutates the predictive debug payload and quick/finish controls no longer bypass live-update bookkeeping; verified focused and affected progress suites, lint, build, and `git diff --check`.

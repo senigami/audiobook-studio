@@ -13,6 +13,7 @@ interface ProgressBarUpdatePanelProps {
   manualStatus: ProgressBarStatus;
   setManualStatus: (s: ProgressBarStatus) => void;
   nudgeProgress: (delta: number) => void;
+  finishRun: () => void;
   applyManualUpdate: () => void;
 }
 
@@ -26,6 +27,7 @@ export const ProgressBarUpdatePanel: React.FC<ProgressBarUpdatePanelProps> = ({
   manualStatus,
   setManualStatus,
   nudgeProgress,
+  finishRun,
   applyManualUpdate
 }) => {
   return (
@@ -68,7 +70,7 @@ export const ProgressBarUpdatePanel: React.FC<ProgressBarUpdatePanelProps> = ({
           <button className="btn-ghost" onClick={() => nudgeProgress(0.05)}>+5%</button>
           <button className="btn-ghost" onClick={() => nudgeProgress(0.1)}>+10%</button>
           <button className="btn-ghost" style={{ border: '1px solid var(--error)', color: 'var(--error)' }} onClick={() => nudgeProgress(-0.1)}>-10%</button>
-          <button className="btn-ghost" onClick={() => setActiveConfig(prev => ({ ...prev, progress: 1, status: 'finalizing' }))}>
+          <button className="btn-ghost" onClick={finishRun}>
             Finish
           </button>
         </div>
@@ -82,10 +84,11 @@ export const ProgressBarUpdatePanel: React.FC<ProgressBarUpdatePanelProps> = ({
         <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
           <label style={{ display: 'grid', gap: '0.35rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-              <FieldLabel label="Progress %" help="The authoritative absolute progress value to send in the update payload." />
+              <FieldLabel label="Manual progress %" help="The authoritative absolute progress value to send in the update payload." />
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{manualProgressValue || '0'}%</span>
             </div>
             <input
+              aria-label="Manual progress %"
               type="range"
               min={0}
               max={100}
@@ -95,8 +98,8 @@ export const ProgressBarUpdatePanel: React.FC<ProgressBarUpdatePanelProps> = ({
             />
           </label>
           <label style={{ display: 'grid', gap: '0.35rem' }}>
-            <FieldLabel label="ETA Seconds" help="The absolute ETA field to send with the update. This mirrors the real runtime payload rather than a debug-only delta." />
-            <input value={manualEtaSeconds} onChange={e => setManualEtaSeconds(e.target.value)} />
+            <FieldLabel label="Manual ETA seconds" help="The absolute ETA field to send with the update. This mirrors the real runtime payload rather than a debug-only delta." />
+            <input aria-label="Manual ETA seconds" value={manualEtaSeconds} onChange={e => setManualEtaSeconds(e.target.value)} />
           </label>
           <label style={{ display: 'grid', gap: '0.35rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
