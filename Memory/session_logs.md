@@ -2008,3 +2008,9 @@
 - Added a Segment Contract Debug panel to `/progress-test` that routes directly through `buildSegmentProgressBarProps`, with Start Segment, Stop Segment, reset, slider/buttons, helper contract display, event log, and `onDisplayProgress` callback log.
 - Browser verification showed `START_SEGMENT` creates `debug-job:debug-segment-1` at 0% with no ETA, and a 40% target animates through intermediate display callbacks before reaching 40%.
 - Verified the DevProgressBar page tests, segment helper tests, PredictiveProgressBar lifecycle/transitions, ChapterHeader segment contract tests, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-09 - Progress-test live preview predictive path restored
+
+- User debug output showed the lower `/progress-test` Live Preview was still rendering through `buildSegmentProgressBarProps` when `checkpointMode=segment`, producing `predictive=false`, `endAtMs=null`, and no ETA despite launch config having `startedAt` and `etaSeconds`.
+- Removed that helper branch so the lower Live Preview always calls `PredictiveProgressBar` directly; the Segment Contract Debug panel remains the dedicated segment-helper proof surface.
+- Verified the DevProgressBar page tests, progress helper tests, PredictiveProgressBar lifecycle/transitions/timing tests, ChapterHeader segment contract tests, frontend lint, frontend build, and `git diff --check`.

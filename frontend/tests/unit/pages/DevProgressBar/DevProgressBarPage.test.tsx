@@ -236,16 +236,17 @@ describe('ProgressBarTestPage', () => {
     })
   })
 
-  it('uses the segment progress contract on the preview page without confidence-scaling live targets', async () => {
+  it('keeps the lower live preview on the direct predictive component path even in segment checkpoint mode', async () => {
     render(<ProgressBarTestPage />)
 
     expect(screen.getByTestId('dev-progress-bar-preview')).toHaveTextContent('25%')
-    expect(screen.queryByText(/ETA:/)).toBeNull()
-
-    fireEvent.click(screen.getByText('+10%'))
+    expect(screen.getByTestId('dev-progress-bar-preview')).toHaveTextContent(/ETA:/)
+    expect(screen.getByTestId('dev-progress-bar-preview')).toHaveTextContent('Progress Test')
 
     await waitFor(() => {
-      expect(screen.getByTestId('dev-progress-bar-preview')).toHaveTextContent('35%')
+      expect(screen.getByDisplayValue(/"predictive": true/)).toBeTruthy()
+      expect(screen.getByDisplayValue(/"transitionTickCount": 8/)).toBeTruthy()
+      expect(screen.getByDisplayValue(/"displayedRemaining":\s*\d+/)).toBeTruthy()
     })
   })
 

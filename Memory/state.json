@@ -1,14 +1,14 @@
 {
-  "snapshot_version": 179,
-  "current_task": "Add segment progress proof controls on the progress-test page",
-  "status": "segment_progress_debug_panel_verified",
+  "snapshot_version": 180,
+  "current_task": "Restore direct predictive animation in lower progress-test preview",
+  "status": "dev_progress_live_preview_predictive_path_restored",
   "last_committed_milestone": {
-    "title": "Segment progress debug proof panel added",
+    "title": "Lower progress-test live preview restored to direct predictive component path",
     "commit": "pending-checkpoint",
     "notes": [
-      "The /progress-test route now includes Segment Contract Debug controls that drive buildSegmentProgressBarProps directly.",
-      "The debug panel can start a segment at 0 percent, manually update target progress by slider/buttons, stop at 100 percent, and record onDisplayProgress callbacks.",
-      "Browser verification proved the helper path animates from 0 percent to 40 percent with intermediate display callbacks, so any remaining live Chapter Editor issue is outside the helper path."
+      "The lower /progress-test Live Preview was incorrectly routed through buildSegmentProgressBarProps whenever checkpointMode was segment.",
+      "That helper intentionally strips ETA fields and forced predictive=false, which made the regular component proof stop at fixed targets instead of running on startedAt/etaSeconds.",
+      "The lower preview now always calls PredictiveProgressBar directly; the separate Segment Contract Debug panel remains responsible for the segment-helper proof."
     ]
   },
   "active_constraints": [
@@ -96,7 +96,7 @@
   ],
   "verification": {
     "latest_backend_focus": "2026-06-08: Fixed selected-segment queue identity persistence by storing processing_queue.segment_ids and passing selected ids from /api/segments/generate; verified generation, queue, websocket, DB queue, and progress regression suites passed.",
-    "latest_frontend_focus": "2026-06-09: Added a Segment Contract Debug panel to /progress-test using buildSegmentProgressBarProps directly; verified start-at-0, manual target animation, stop-at-100 display callbacks, focused progress/ChapterHeader suites, browser check, lint, build, and git diff --check.",
+    "latest_frontend_focus": "2026-06-09: Restored the lower /progress-test Live Preview to the direct PredictiveProgressBar path so startedAt/etaSeconds/showEta/predictive timing work even when checkpointMode is segment; the Segment Contract Debug panel remains the isolated helper proof. Verified DevProgressBar, progress contracts, PredictiveProgressBar lifecycle/transitions/timing, ChapterHeader segment contract, lint, build, and git diff --check.",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",
     "latest_lint_focus": "2026-06-08: ruff passed for app/api/routers/generation.py and tests/api/test_api_generation.py; commit hook also ran Ruff/ESLint auto-fix checks cleanly.",
