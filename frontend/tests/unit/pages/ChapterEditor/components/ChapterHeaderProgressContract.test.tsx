@@ -13,11 +13,14 @@ let capturedPersistenceKey: string | undefined;
 let capturedProgress: number | undefined;
 let capturedEvidenceWeightFraction: number | undefined;
 let capturedPredictive: boolean | undefined;
+let capturedEtaSeconds: number | undefined;
+let capturedUpdatedAt: number | undefined;
+let capturedShowEta: boolean | undefined;
 let renderCount = 0;
 let mountCount = 0;
 
 vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () => ({
-  PredictiveProgressBar: ({ progress, etaBasis, onDebugSnapshot, checkpointMode, state, allowBackwardProgress, transitionTickCount, dataTestId, persistenceKey, evidenceWeightFraction, predictive }: any) => {
+  PredictiveProgressBar: ({ progress, etaBasis, etaSeconds, updatedAt, showEta, onDebugSnapshot, checkpointMode, state, allowBackwardProgress, transitionTickCount, dataTestId, persistenceKey, evidenceWeightFraction, predictive }: any) => {
     capturedOnDebugSnapshot = onDebugSnapshot;
     capturedCheckpointMode = checkpointMode;
     capturedState = state;
@@ -27,6 +30,9 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
     capturedProgress = progress;
     capturedEvidenceWeightFraction = evidenceWeightFraction;
     capturedPredictive = predictive;
+    capturedEtaSeconds = etaSeconds;
+    capturedUpdatedAt = updatedAt;
+    capturedShowEta = showEta;
     renderCount++;
     React.useEffect(() => {
       mountCount++;
@@ -35,6 +41,9 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
       <div
         data-testid={dataTestId || "chapter-header-progress-bar"}
         data-eta-basis={etaBasis ?? ''}
+        data-eta-seconds={etaSeconds ?? ''}
+        data-updated-at={updatedAt ?? ''}
+        data-show-eta={String(!!showEta)}
         data-checkpoint-mode={checkpointMode ?? ''}
         data-state={state ?? ''}
         data-allow-backward={String(!!allowBackwardProgress)}
@@ -95,6 +104,9 @@ describe('ChapterHeader progress contract', () => {
     capturedProgress = undefined;
     capturedEvidenceWeightFraction = undefined;
     capturedPredictive = undefined;
+    capturedEtaSeconds = undefined;
+    capturedUpdatedAt = undefined;
+    capturedShowEta = undefined;
     renderCount = 0;
     mountCount = 0;
   });
@@ -174,10 +186,16 @@ describe('ChapterHeader progress contract', () => {
     );
 
     expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveTextContent('16%');
-    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-eta-basis', '');
+    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-eta-basis', 'segment_remaining');
+    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-eta-seconds', '18');
+    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-updated-at', '1234');
+    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-show-eta', 'true');
     expect(capturedProgress).toBe(0.16);
     expect(capturedPredictive).toBe(false);
-    expect(capturedAllowBackwardProgress).toBe(true);
+    expect(capturedAllowBackwardProgress).toBe(false);
+    expect(capturedEtaSeconds).toBe(18);
+    expect(capturedUpdatedAt).toBe(1234);
+    expect(capturedShowEta).toBe(true);
     expect(capturedCheckpointMode).toBe('segment');
   });
 
@@ -413,7 +431,7 @@ describe('ChapterHeader progress contract', () => {
     expect(capturedState).toBeUndefined();
   });
 
-  it('allows active segment progress corrections to move backward', () => {
+  it('clamps active segment progress corrections instead of allowing backward movement', () => {
     render(
       <TestHeaderWrapper
         chapter={mockChapter as any}
@@ -443,8 +461,8 @@ describe('ChapterHeader progress contract', () => {
       />
     );
 
-    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-allow-backward', 'true');
-    expect(capturedAllowBackwardProgress).toBe(true);
+    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-allow-backward', 'false');
+    expect(capturedAllowBackwardProgress).toBe(false);
     expect(capturedPredictive).toBe(false);
   });
 

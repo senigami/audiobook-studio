@@ -12,14 +12,17 @@ describe('ProgressBarTestPage', () => {
     fireEvent.click(screen.getByText('Start Segment'))
 
     await waitFor(() => {
-      expect(screen.getByTestId('segment-debug-bar')).toHaveTextContent('0%')
       expect(screen.getByTestId('segment-debug-helper-key')).toHaveTextContent('debug-job:debug-segment-1')
       expect(screen.getByTestId('segment-debug-helper-contract')).toHaveTextContent('predictive=false')
       expect(screen.getByTestId('segment-debug-helper-contract')).toHaveTextContent('transitionTicks=3')
-      expect(screen.getByTestId('segment-debug-helper-contract')).toHaveTextContent('showEta=false')
+      expect(screen.getByTestId('segment-debug-helper-contract')).toHaveTextContent('allowBackwardProgress=false')
+      expect(screen.getByTestId('segment-debug-helper-contract')).toHaveTextContent('showEta=true')
+      expect(screen.getByTestId('segment-debug-helper-contract')).toHaveTextContent('startEta=120s')
+      expect(screen.getByTestId('segment-debug-bar')).toHaveTextContent(/ETA:/)
     })
 
-    expect(screen.getByTestId('segment-debug-event-log')).toHaveTextContent('START_SEGMENT debug-segment-1 progress=0%')
+    expect(screen.getByTestId('segment-debug-event-log')).toHaveTextContent('START_SEGMENT debug-segment-1 progress=0% eta=120s')
+    expect(screen.getByTestId('segment-debug-display-log')).toHaveTextContent('display=0%')
   })
 
   it('animates segment debug target changes and records displayed progress callbacks', async () => {

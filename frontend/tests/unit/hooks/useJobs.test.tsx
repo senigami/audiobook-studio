@@ -1531,6 +1531,7 @@ describe('useJobs', () => {
       progress: 0.0,
       activeSegmentProgress: 0.0,
       etaSeconds: 20,
+      hasSegmentSupport: true,
       reasonCode: 'START_SEGMENT',
       updatedAt: 500,
     }, { jobId: 'job-start-segment', chapterId: 'chap-1', segmentId: 'seg-start' });
@@ -1541,6 +1542,8 @@ describe('useJobs', () => {
     expect(job?.active_segment_progress).toBe(0);
     expect(job?.active_segment_eta_seconds).toBe(20);
     expect(job?.active_segment_updated_at).toBe(500);
+    expect(job?.hasSegmentSupport).toBe(true);
+    expect(job?.has_segment_support).toBe(true);
   });
 
   it('transitions segment-scoped job out of preparing normally on first non-zero segments.progress frame', async () => {

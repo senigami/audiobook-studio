@@ -7,6 +7,7 @@ import { FieldLabel, MetricGrid } from '@tests/helpers/ProgressBarTestHelpers';
 type SegmentDebugStatus = 'running' | 'done' | 'cancelled';
 
 const DEBUG_JOB_ID = 'debug-job';
+const DEFAULT_SEGMENT_ETA_SECONDS = 120;
 
 const formatPercent = (value: number) => `${Math.round(value * 100)}%`;
 
@@ -15,6 +16,7 @@ export const SegmentContractDebugPanel: React.FC = () => {
   const [targetProgress, setTargetProgress] = React.useState(0);
   const [status, setStatus] = React.useState<SegmentDebugStatus>('running');
   const [snapshot, setSnapshot] = React.useState<PredictiveProgressDebugSnapshot | null>(null);
+  const [segmentUpdatedAt, setSegmentUpdatedAt] = React.useState<number | null>(null);
   const [displayLog, setDisplayLog] = React.useState<string[]>([]);
   const [eventLog, setEventLog] = React.useState<string[]>(['Ready. Click Start Segment to create a segment-keyed run.']);
 
@@ -31,9 +33,10 @@ export const SegmentContractDebugPanel: React.FC = () => {
     setSegmentNumber(nextSegmentNumber);
     setTargetProgress(0);
     setStatus('running');
+    setSegmentUpdatedAt(Date.now() / 1000);
     setSnapshot(null);
     setDisplayLog([]);
-    pushEvent(`START_SEGMENT ${nextSegmentId} progress=0%`);
+    pushEvent(`START_SEGMENT ${nextSegmentId} progress=0% eta=${DEFAULT_SEGMENT_ETA_SECONDS}s`);
   }, [pushEvent, segmentNumber]);
 
   const stopSegment = React.useCallback(() => {
@@ -43,6 +46,7 @@ export const SegmentContractDebugPanel: React.FC = () => {
     }
     setTargetProgress(1);
     setStatus('done');
+    setSegmentUpdatedAt(Date.now() / 1000);
     pushEvent(`SEGMENT_SAVED ${stoppedSegmentId} progress=100%`);
   }, [activeSegmentId, pushEvent, segmentNumber]);
 
@@ -51,6 +55,7 @@ export const SegmentContractDebugPanel: React.FC = () => {
     setSegmentNumber(0);
     setTargetProgress(0);
     setStatus('running');
+    setSegmentUpdatedAt(null);
     setSnapshot(null);
     setDisplayLog([]);
     setEventLog(['Ready. Click Start Segment to create a segment-keyed run.']);
@@ -61,10 +66,11 @@ export const SegmentContractDebugPanel: React.FC = () => {
     const segmentId = segmentNumber > 0 ? activeSegmentId : 'debug-segment-1';
     if (segmentNumber === 0) {
       setSegmentNumber(1);
-      pushEvent(`START_SEGMENT ${segmentId} progress=0%`);
+      pushEvent(`START_SEGMENT ${segmentId} progress=0% eta=${DEFAULT_SEGMENT_ETA_SECONDS}s`);
     }
     setStatus('running');
     setTargetProgress(nextProgress);
+    setSegmentUpdatedAt(Date.now() / 1000);
     pushEvent(`SEGMENT_PROGRESS ${segmentId} progress=${formatPercent(nextProgress)}`);
   }, [activeSegmentId, pushEvent, segmentNumber]);
 
@@ -83,6 +89,9 @@ export const SegmentContractDebugPanel: React.FC = () => {
     progress: targetProgress,
     status,
     state: status === 'running' ? 'processing' : status,
+    etaSeconds: status === 'running' ? DEFAULT_SEGMENT_ETA_SECONDS : null,
+    etaBasis: status === 'running' ? 'remaining_from_update' : null,
+    updatedAt: segmentUpdatedAt,
     label: `Segment ${activeSegmentId}`,
     dataTestId: 'segment-debug-bar',
     onDisplayProgress: handleDisplayProgress,
@@ -171,7 +180,7 @@ export const SegmentContractDebugPanel: React.FC = () => {
             data-testid="segment-debug-helper-contract"
             style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}
           >
-            predictive=false; allowBackwardProgress=true; transitionTicks=3; tickMs=250; showEta=false
+            predictive=false; allowBackwardProgress=false; transitionTicks=3; tickMs=250; showEta=true; startEta=120s
           </div>
         </div>
 

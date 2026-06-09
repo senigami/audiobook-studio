@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - **Mixed Rendering Uses The Shared Queue Completion Path**: Mixed rendering no longer writes directly to the queue table during completion, reducing drift between persistent queue state and live job updates.
 - **Chapter Editor Segment Progress Is Segment-Only**: The Chapter Editor Segment Progress bar now renders only from active segment progress events or preserved segment progress provenance. Chapter progress, queue progress, render-batch progress, and terminal job completion no longer leak into the per-segment bar.
 - **Segment Progress Starts Visibly At 0%**: Segment progress now routes through a dedicated progress-bar contract helper. Segment handoffs show the incoming `START_SEGMENT` 0% update immediately, then locally animate between exact plugin progress updates without ETA prediction or confidence-scaling the visual target.
+- **Segment Progress Uses Segment ETA and Monotonic Movement**: Segment progress events now preserve their segment-support capability and active segment ETA through the frontend consumer. The Chapter Editor segment bar uses that segment ETA, defaults new segment starts to a two-minute estimate when no explicit ETA is present, and does not move backward within a segment.
 
 ## [2.0.6] - 2026-05-30
 

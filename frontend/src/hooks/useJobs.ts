@@ -113,6 +113,8 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           if (updates.active_segment_eta_seconds !== undefined) nextUpdatesStale.active_segment_eta_seconds = updates.active_segment_eta_seconds;
           if (updates.active_segment_eta_basis !== undefined) nextUpdatesStale.active_segment_eta_basis = updates.active_segment_eta_basis;
           if (updates.active_segment_updated_at !== undefined) nextUpdatesStale.active_segment_updated_at = updates.active_segment_updated_at;
+          if (updates.hasSegmentSupport !== undefined) nextUpdatesStale.hasSegmentSupport = updates.hasSegmentSupport;
+          if (updates.has_segment_support !== undefined) nextUpdatesStale.has_segment_support = updates.has_segment_support;
           if (updates.project_id !== undefined) nextUpdatesStale.project_id = updates.project_id;
           if (updates.chapter_id !== undefined) nextUpdatesStale.chapter_id = updates.chapter_id;
           if (updates.segmentProgressSocketProvenance !== undefined) nextUpdatesStale.segmentProgressSocketProvenance = updates.segmentProgressSocketProvenance;
@@ -391,6 +393,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
 
             const rawEta = getVal('etaSeconds', 'eta_seconds');
             const rawEtaBasis = getVal('etaBasis', 'eta_basis');
+            const rawHasSegmentSupport = getVal('hasSegmentSupport', 'has_segment_support');
             const rawStarted = getVal('startedAt', 'started_at');
             const parsedSegmentEta = rawEta === null || rawEta === undefined
               ? null
@@ -406,6 +409,8 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
               active_segment_eta_seconds: segmentProg != null ? segmentEtaSeconds : null,
               active_segment_eta_basis: segmentProg != null && segmentEtaSeconds != null ? (rawEtaBasis || 'remaining_from_update') : null,
               active_segment_updated_at: segmentProg != null ? resolveEventUpdatedAt(event, payload) : null,
+              hasSegmentSupport: typeof rawHasSegmentSupport === 'boolean' ? rawHasSegmentSupport : undefined,
+              has_segment_support: typeof rawHasSegmentSupport === 'boolean' ? rawHasSegmentSupport : undefined,
               status: projectedStatus,
               reason_code: rawReasonCode,
               log: payload.message || payload.log,
@@ -448,6 +453,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
                 activeSegmentProgress: segmentProg ?? null,
                 etaSeconds: projectedUpdates.active_segment_eta_seconds !== null && projectedUpdates.active_segment_eta_seconds !== undefined ? projectedUpdates.active_segment_eta_seconds : null,
                 eta_basis: projectedUpdates.active_segment_eta_basis || null,
+                hasSegmentSupport: projectedUpdates.hasSegmentSupport ?? null,
                 started_at: segmentStartedAt,
                 status: projectedStatus || null,
                 progress: payload.progress ?? null,

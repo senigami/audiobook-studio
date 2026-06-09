@@ -2027,3 +2027,10 @@
 - Added an active Manual allow backward toggle on `/progress-test` so the current preview can be tested without relaunching.
 - Updated the predictive debug snapshot to report the actual backward migration decision for ETA-backed lanes.
 - Verified DevProgressBar, progress contracts, PredictiveProgressBar lifecycle/transitions/timing, ChapterHeader segment contract, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-09 - Segment progress contract aligned with ETA-backed monotonic rendering
+
+- Updated the shared segment progress helper so segment bars do not allow backward movement, show segment ETA, and seed `START_SEGMENT` at 0% with a 120-second ETA when no explicit ETA is present.
+- Passed active segment ETA/basis/updatedAt from ChapterHeader into the segment helper, and preserved `hasSegmentSupport` from `segments.progress` frames in `useJobs`.
+- Updated `/progress-test` Segment Contract Debug to simulate the same start-segment ETA shape used by real segment rendering.
+- Verified useJobs, progress contracts, PredictiveProgressBar lifecycle/transitions/timing, DevProgressBar, ChapterHeader segment contract, frontend lint, frontend build, and `git diff --check`.

@@ -1,7 +1,7 @@
 import React from 'react';
 import { RefreshCw, Zap, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Copy, MoreVertical } from 'lucide-react';
 import type { Chapter, Job } from '@/types';
-import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
+import { PredictiveProgressBar, type PredictiveProgressBarProps } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import { buildSegmentProgressBarProps } from '@/components/progress/progressBarContracts';
 import { hasSegmentProgressCapability } from '@/utils/jobSelection';
 
@@ -239,7 +239,7 @@ export const useChapterStatus = (
       ? (selectedSegmentEtaSeconds ?? null)
       : null,
     selectedEtaBasis: (hasSegmentSupport && liveSegmentProgressJob?.active_segment_id)
-      ? (selectedSegmentEtaBasis ?? (selectedSegmentEtaSeconds != null ? 'remaining_from_update' : null))
+      ? (selectedSegmentEtaBasis ?? (selectedSegmentEtaSeconds != null ? 'remaining_from_update' : null)) as PredictiveProgressBarProps['etaBasis'] | null
       : null,
     selectedStartedAt: selectedSegmentStartedAt,
     selectedUpdatedAt: (hasSegmentSupport && liveSegmentProgressJob?.active_segment_id)
@@ -509,6 +509,9 @@ export const ChapterScriptToolbar: React.FC<{
                         segmentId: status.liveSegmentProgressJob.active_segment_id || 'none',
                         progress: status.liveSegmentProgressValue,
                         status: status.liveSegmentProgressJob.status,
+                        etaSeconds: status.segmentProgressBarSelection.selectedEtaSeconds,
+                        etaBasis: status.segmentProgressBarSelection.selectedEtaBasis,
+                        updatedAt: status.segmentProgressBarSelection.selectedUpdatedAt,
                         evidenceWeightFraction: status.segmentProgressBarSelection.evidenceWeightFraction,
                         state: status.liveSegmentProgressJob.status === 'preparing'
                             ? (status.segmentProgressBarSelection.isSegmentStartAtZero ? 'processing' : 'preparing')
