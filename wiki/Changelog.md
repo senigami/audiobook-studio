@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.8] - 2026-06-09
+
+### Highlights
+
+- **Enabled Segment Progress Predictive Interpolation**: Enabled predictive ticking animation and smooth interpolation (`predictive: true`) for segment progress bars in the Chapter Editor, allowing progress to advance continuously and smoothly between socket events.
+- **Disabled Segment Progress Backward Regressions**: Enforced strictly monotonic forward progress (`allowBackwardProgress: false`) on segment progress tracking to prevent visual jumps or regressions from minor backend updates.
+
 ## [2.0.7] - 2026-06-08
 
 ### Highlights

@@ -2034,3 +2034,10 @@
 - Passed active segment ETA/basis/updatedAt from ChapterHeader into the segment helper, and preserved `hasSegmentSupport` from `segments.progress` frames in `useJobs`.
 - Updated `/progress-test` Segment Contract Debug to simulate the same start-segment ETA shape used by real segment rendering.
 - Verified useJobs, progress contracts, PredictiveProgressBar lifecycle/transitions/timing, DevProgressBar, ChapterHeader segment contract, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-09 - Enabled segment progress predictive animation and disabled backward progress
+
+- Enabled predictive ticking animation and smooth interpolation (`predictive: true`) for segment progress bars in `progressBarContracts.ts` so progress advances continuously between socket events.
+- Enforced strictly monotonic forward progress (`allowBackwardProgress: false`) on segment progress tracking to prevent visual jumps or regressions.
+- Updated and verified the unit tests in `progressBarContracts.test.ts` and `ChapterHeaderProgressContract.test.tsx` to assert that `predictive` is `true` and `allowBackwardProgress` is `false`.
+- Ran the entire frontend test suite (all 776 tests passed), completed linting checks (`npm run lint`), and verified production compilation (`npm run build`).

@@ -191,7 +191,7 @@ describe('ChapterHeader progress contract', () => {
     expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-updated-at', '1234');
     expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-show-eta', 'true');
     expect(capturedProgress).toBe(0.16);
-    expect(capturedPredictive).toBe(false);
+    expect(capturedPredictive).toBe(true);
     expect(capturedAllowBackwardProgress).toBe(false);
     expect(capturedEtaSeconds).toBe(18);
     expect(capturedUpdatedAt).toBe(1234);
@@ -463,7 +463,7 @@ describe('ChapterHeader progress contract', () => {
 
     expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveAttribute('data-allow-backward', 'false');
     expect(capturedAllowBackwardProgress).toBe(false);
-    expect(capturedPredictive).toBe(false);
+    expect(capturedPredictive).toBe(true);
   });
 
   it('uses segment checkpointMode and transitionTickCount=3 for grouped jobs when active_segment_id is present', () => {

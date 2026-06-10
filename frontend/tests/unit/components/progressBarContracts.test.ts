@@ -20,7 +20,7 @@ describe('progressBarContracts', () => {
     expect(props.key).toBe('job-1:seg-2');
     expect(props.persistenceKey).toBe('job-1:seg-2');
     expect(props.progress).toBe(0.16);
-    expect(props.predictive).toBe(false);
+    expect(props.predictive).toBe(true);
     expect(props.allowBackwardProgress).toBe(false);
     expect(props.checkpointMode).toBe('segment');
     expect(props.transitionTickCount).toBe(3);

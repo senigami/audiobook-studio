@@ -421,6 +421,9 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             displayProgress = 1.0;
         }
     }
+    if (!effectiveAllowBackward && memoryKey) {
+        displayProgress = Math.max(displayProgress, getRememberedProgress(memoryKey));
+    }
     displayProgressRef.current = displayProgress;
 
     useEffect(() => {

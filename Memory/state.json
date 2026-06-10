@@ -1,14 +1,13 @@
 {
-  "snapshot_version": 183,
-  "current_task": "Align segment progress contract with ETA-backed monotonic segment rendering",
-  "status": "segment_eta_monotonic_contract_verified",
+  "snapshot_version": 184,
+  "current_task": "Enable predictive animation and disable backward progress for segment progress",
+  "status": "predictive_segment_progress_verified",
   "last_committed_milestone": {
-    "title": "Segment progress contract uses ETA and monotonic movement",
+    "title": "Segment progress bar predictive animation enabled and backward progress disabled",
     "commit": "pending-checkpoint",
     "notes": [
-      "Segment progress helper now sets allowBackwardProgress=false, shows segment ETA, and defaults START_SEGMENT at 0% to a 120 second ETA when no explicit ETA is present.",
-      "ChapterHeader now forwards the selected active segment ETA/basis/updatedAt into the segment progress helper.",
-      "useJobs now preserves hasSegmentSupport/has_segment_support from segments.progress frames so ChapterHeader can mount the segment bar from canonical segment events."
+      "Segment progress helper (progressBarContracts.ts) now sets predictive: true and allowBackwardProgress: false.",
+      "Associated unit tests in progressBarContracts.test.ts and ChapterHeaderProgressContract.test.tsx are updated and fully verified."
     ]
   },
   "active_constraints": [
@@ -76,6 +75,7 @@
     "DevProgressBar test harness is subscribed to segments.progress websocket events, displaying active source badges, full raw frame inspector JSON, and explicit ignored topics set (queue.items, chapters.progress, tts.logs) along with the last ignored event.",
     "Backend START_SEGMENT emissions now seed eta_seconds from the historical duration estimate so the first segment tick no longer starts with a null ETA, and the watchdog regression test covers that contract.",
     "Progress consumer ingress is now audited: main queue ignores segment topics and rogue queue.items segment fields, segment progress ETA is preserved through stale timestamp paths, and synthetic handoff completions use SEGMENT_SAVED.",
+    "Segment progress bar now uses predictive ticking animation (predictive=true) and prevents visual regressions by disabling backward progress (allowBackwardProgress=false).",
     "Wiki pages now document the Phase 12 plugin-to-queue event stream contract, voice-test queue visibility rules, plugin Settings UX, WAV-first output behavior, per-voice plugin settings, voice bundle schema direction, Library list/sort controls, and Chapter Editor VCR playback."
   ],
   "phase_13_guidance": [

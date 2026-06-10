@@ -48,7 +48,7 @@ export const buildSegmentProgressBarProps = ({
         status,
         state,
         label,
-        predictive: false,
+        predictive: true,
         allowBackwardProgress: false,
         checkpointMode: 'segment',
         transitionTickCount: 3,

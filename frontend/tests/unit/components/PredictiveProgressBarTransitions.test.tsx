@@ -235,6 +235,48 @@ describe('PredictiveProgressBar - Transitions', () => {
         vi.useRealTimers()
     })
 
+    it('does not move backward on ETA-backed lanes when allowBackwardProgress is false', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(100_000)
+        let captured: any = null
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0.6}
+                startedAt={50}
+                etaSeconds={200}
+                status="running"
+                allowBackwardProgress={false}
+                transitionTickCount={8}
+                backwardTransitionTickCount={2}
+                tickMs={250}
+                onDebugSnapshot={sn => captured = sn}
+            />
+        )
+
+        expect(readPercent()).toBe(60)
+
+        rerender(
+            <PredictiveProgressBar
+                progress={0.25}
+                startedAt={50}
+                etaSeconds={200}
+                status="running"
+                allowBackwardProgress={false}
+                transitionTickCount={8}
+                backwardTransitionTickCount={2}
+                tickMs={250}
+                onDebugSnapshot={sn => captured = sn}
+            />
+        )
+
+        // Advance timers by 500ms
+        act(() => { vi.advanceTimersByTime(500) })
+        
+        // Without the fix, the lane migration causes progress to drop below 60%.
+        expect(readPercent()).toBeGreaterThanOrEqual(60)
+        vi.useRealTimers()
+    })
+
     it('does not label the job status as Rendering or Finalizing before the backend status reaches those states', () => {
         vi.useFakeTimers()
         vi.setSystemTime(100_000)
