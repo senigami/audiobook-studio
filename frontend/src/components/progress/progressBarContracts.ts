@@ -12,7 +12,6 @@ export type SegmentProgressBarInput = {
     etaSeconds?: number | null;
     etaBasis?: PredictiveProgressBarProps['etaBasis'] | null;
     updatedAt?: number | null;
-    evidenceWeightFraction?: number;
     onDisplayProgress?: PredictiveProgressBarProps['onDisplayProgress'];
     onDebugSnapshot?: PredictiveProgressBarProps['onDebugSnapshot'];
 };
@@ -58,7 +57,6 @@ export const buildSegmentProgressBarProps = ({
         etaSeconds: seededEtaSeconds,
         etaBasis: seededEtaBasis,
         updatedAt: updatedAt ?? undefined,
-        evidenceWeightFraction: 1,
         onDisplayProgress,
         onDebugSnapshot,
     };

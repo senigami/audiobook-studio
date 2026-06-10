@@ -131,33 +131,35 @@ describe('PredictiveProgressBar - Transitions', () => {
         vi.useRealTimers()
     })
 
-    it('honors evidenceWeightFraction by only moving a fraction of the distance toward target', () => {
+    it('evidenceWeightFraction is deprecated no-op: bar migrates to full incoming progress', () => {
+        // evidenceWeightFraction was removed per doc 15; trust is automatic.
+        // The bar should still migrate toward the full target progress (not half).
         vi.useFakeTimers()
         vi.setSystemTime(100_000)
         let captured: any = null
         const { rerender } = render(
-            <PredictiveProgressBar 
-                progress={0.1} 
-                status="running" 
-                transitionTickCount={4} 
+            <PredictiveProgressBar
+                progress={0.1}
+                status="running"
+                transitionTickCount={4}
                 tickMs={1000}
                 onDebugSnapshot={sn => captured = sn}
             />
         )
         rerender(
-            <PredictiveProgressBar 
-                progress={0.5} 
-                status="running" 
-                transitionTickCount={4} 
+            <PredictiveProgressBar
+                progress={0.5}
+                status="running"
+                transitionTickCount={4}
                 tickMs={1000}
-                evidenceWeightFraction={0.5}
                 onDebugSnapshot={sn => captured = sn}
             />
         )
-        expect(captured.effectiveTargetProgress).toBeCloseTo(0.3)
+        // effectiveTargetProgress is now the full incoming progress (0.5), not 0.3
+        expect(captured.effectiveTargetProgress).toBeCloseTo(0.5)
 
         act(() => { vi.advanceTimersByTime(4000) })
-        expect(readPercent()).toBe(30)
+        expect(readPercent()).toBe(50)
         vi.useRealTimers()
     })
 

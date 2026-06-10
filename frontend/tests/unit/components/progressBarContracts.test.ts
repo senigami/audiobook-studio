@@ -12,7 +12,6 @@ describe('progressBarContracts', () => {
       progress: 0.16,
       status: 'running',
       state: 'processing',
-      evidenceWeightFraction: 0.16,
       onDisplayProgress,
       onDebugSnapshot,
     });
@@ -31,7 +30,7 @@ describe('progressBarContracts', () => {
     expect(props.etaSeconds).toBeUndefined();
     expect(props.etaBasis).toBeUndefined();
     expect(props.updatedAt).toBeUndefined();
-    expect(props.evidenceWeightFraction).toBe(1);
+    expect((props as Record<string, unknown>).evidenceWeightFraction).toBeUndefined();
     expect(props.onDisplayProgress).toBe(onDisplayProgress);
     expect(props.onDebugSnapshot).toBe(onDebugSnapshot);
   });

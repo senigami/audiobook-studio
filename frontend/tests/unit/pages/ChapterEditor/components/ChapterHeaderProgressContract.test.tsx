@@ -761,7 +761,8 @@ describe('ChapterHeader progress contract', () => {
     expect(capturedCheckpointMode).toBe('segment');
     expect(capturedTransitionTickCount).toBe(3);
     expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBeCloseTo(0.16);
-    expect(capturedEvidenceWeightFraction).toBe(1);
+    // Per doc 15 the bar no longer receives an evidenceWeightFraction prop; confidence is internal.
+    expect(capturedEvidenceWeightFraction).toBeUndefined();
   });
 
   it('proves that when active_segment_id is present, liveSegmentProgressValue equals active_segment_progress exactly even when render_group_count > 0', () => {

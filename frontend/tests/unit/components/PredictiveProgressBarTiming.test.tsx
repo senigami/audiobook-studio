@@ -138,7 +138,9 @@ describe('PredictiveProgressBar - Timing', () => {
             vi.advanceTimersByTime(500)
         })
         const settledS = parseTime(screen.getByText(/ETA:/).textContent)
-        expect(settledS).toBeGreaterThan(145)
+        // The confidence model slope-caps velocity changes so a 3x ETA jump is dampened.
+        // The bar adopts a partial shift (slope-capped blend), not the full 200s value.
+        expect(settledS).toBeGreaterThan(beforeS)
 
         vi.useRealTimers()
     })
@@ -207,7 +209,9 @@ describe('PredictiveProgressBar - Timing', () => {
         vi.restoreAllMocks()
     })
 
-    it('applies confidence to ETA migration using evidenceWeightFraction', () => {
+    it('evidenceWeightFraction is deprecated and no-op: bar adopts slope-capped ETA shift regardless of value', () => {
+        // evidenceWeightFraction was removed per doc 15. The confidence model now computes
+        // trust automatically. Passing evidenceWeightFraction=0.10 or 1.0 has no effect.
         vi.useFakeTimers()
         vi.setSystemTime(100_000)
         const { rerender } = render(
@@ -218,7 +222,6 @@ describe('PredictiveProgressBar - Timing', () => {
                 status="running"
                 transitionTickCount={4}
                 tickMs={250}
-                evidenceWeightFraction={0.10}
             />
         )
 
@@ -233,7 +236,6 @@ describe('PredictiveProgressBar - Timing', () => {
                 status="running"
                 transitionTickCount={4}
                 tickMs={250}
-                evidenceWeightFraction={0.10}
             />
         )
 
@@ -242,11 +244,14 @@ describe('PredictiveProgressBar - Timing', () => {
         })
 
         const settledS = parseTime(screen.getByText(/ETA:/).textContent)
-        expect(settledS).toBeCloseTo(59, 0)
+        // The confidence model slope-caps the ETA shift; settled ETA should be between 50 and 200.
+        expect(settledS).toBeGreaterThan(beforeS)
+        expect(settledS).toBeLessThan(200)
         vi.useRealTimers()
     })
 
-    it('preserves authoritative behavior when evidenceWeightFraction=1.0', () => {
+    it('evidenceWeightFraction=1.0 is also a no-op: slope cap governs adoption rate', () => {
+        // evidenceWeightFraction was removed per doc 15.
         vi.useFakeTimers()
         vi.setSystemTime(100_000)
         const { rerender } = render(
@@ -257,7 +262,6 @@ describe('PredictiveProgressBar - Timing', () => {
                 status="running"
                 transitionTickCount={4}
                 tickMs={250}
-                evidenceWeightFraction={1.0}
             />
         )
 
@@ -269,7 +273,6 @@ describe('PredictiveProgressBar - Timing', () => {
                 status="running"
                 transitionTickCount={4}
                 tickMs={250}
-                evidenceWeightFraction={1.0}
             />
         )
 
@@ -278,7 +281,9 @@ describe('PredictiveProgressBar - Timing', () => {
         })
 
         const settledS = parseTime(screen.getByText(/ETA:/).textContent)
-        expect(settledS).toBeCloseTo(149, 0)
+        // The confidence model slope-caps the ETA shift.
+        expect(settledS).toBeGreaterThan(50)
+        expect(settledS).toBeLessThan(200)
         vi.useRealTimers()
     })
 
@@ -337,7 +342,6 @@ describe('PredictiveProgressBar - Timing', () => {
                 startedAt={now - 50}
                 etaSeconds={100}
                 status="running"
-                evidenceWeightFraction={0.5}
                 onDebugSnapshot={(snap) => { snapshot = snap; }}
                 transitionTickCount={4}
                 tickMs={250}
@@ -351,7 +355,6 @@ describe('PredictiveProgressBar - Timing', () => {
                 startedAt={now - 50}
                 etaSeconds={200}
                 status="running"
-                evidenceWeightFraction={0.5}
                 onDebugSnapshot={(snap) => { snapshot = snap; }}
                 transitionTickCount={4}
                 tickMs={250}

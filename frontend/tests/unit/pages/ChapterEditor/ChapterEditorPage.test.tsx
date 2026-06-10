@@ -684,7 +684,9 @@ describe('ChapterEditor - Core Orchestration', () => {
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
     // Segment visual progress must not be confidence-scaled; it should render the plugin's exact target.
+    // Per doc 15 the bar no longer receives a confidence/evidenceWeightFraction prop at all.
     const progressBar = await screen.findByTestId('mock-predictive-progress-bar');
-    expect(progressBar).toHaveAttribute('data-evidenceweightfraction', '1');
+    expect(progressBar).not.toHaveAttribute('data-evidenceweightfraction');
+    expect(progressBar).toHaveAttribute('data-progress', '0.5');
   });
 });

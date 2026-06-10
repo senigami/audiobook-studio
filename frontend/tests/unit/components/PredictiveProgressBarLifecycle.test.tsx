@@ -79,6 +79,7 @@ describe('PredictiveProgressBar - Lifecycle', () => {
     })
 
     it('includes all transition and confidence fields in debug snapshot', () => {
+        // evidenceWeightFraction prop was removed (doc 15); confidence is computed automatically.
         let captured: any = null
         render(
             <PredictiveProgressBar
@@ -87,14 +88,16 @@ describe('PredictiveProgressBar - Lifecycle', () => {
                 transitionTickCount={12}
                 backwardTransitionTickCount={2}
                 tickMs={250}
-                evidenceWeightFraction={0.8}
                 onDebugSnapshot={sn => captured = sn}
             />
         )
         expect(captured.transitionTickCount).toBe(12)
         expect(captured.backwardTransitionTickCount).toBe(2)
         expect(captured.tickMs).toBe(250)
-        expect(captured.evidenceWeightFraction).toBe(0.8)
+        // New doc-15 confidence fields are present in the snapshot
+        expect(captured.etaConfidenceW).toBeDefined()
+        expect(captured.etaConfidenceBase).toBeDefined()
+        expect(captured.etaConfidenceCv).toBeDefined()
     })
 
     it('uses the generic default transition of 8 ticks', () => {

@@ -10,7 +10,7 @@ import { SegmentContractDebugPanel } from '@/pages/DevProgressBar/components/Seg
 export const ProgressBarTestPage: React.FC = () => {
   const {
     launchConfig,
-    activeConfig, setActiveConfig,
+    activeConfig,
     renderToken,
     eventLog,
     manualStatus, setManualStatus,
@@ -71,7 +71,6 @@ export const ProgressBarTestPage: React.FC = () => {
           
           <ProgressBarUpdatePanel
             activeConfig={activeConfig}
-            setActiveConfig={setActiveConfig}
             manualProgressValue={manualProgressValue}
             setManualProgressValue={setManualProgressValue}
             manualEtaSeconds={manualEtaSeconds}
@@ -111,7 +110,6 @@ export const ProgressBarTestPage: React.FC = () => {
                 transitionTickCount={activeConfig.transitionTickCount}
                 backwardTransitionTickCount={activeConfig.backwardTransitionTickCount}
                 tickMs={activeConfig.tickMs}
-                evidenceWeightFraction={activeConfig.evidenceWeightFraction}
                 checkpointMode={activeConfig.checkpointMode}
                 onDebugSnapshot={setDebugSnapshot}
               />

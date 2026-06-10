@@ -288,7 +288,17 @@ describe('QueueItem Stable ETA TDD', () => {
     expect(progressBar.getAttribute('data-updatedat')).toBe('2000');
   });
 
-  it('QueueItem: propagates confidence correctly', () => {
+  // Note: the PredictiveProgressBar no longer receives confidence as a prop (doc 15 — the
+  // confidence model is internal). The selection logic is now observed via the debug-copy payload.
+  const copyDebugPayload = async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    fireEvent.click(screen.getByTestId('debug-copy-btn-job-1'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    return JSON.parse(writeText.mock.calls[0][0]);
+  };
+
+  it('QueueItem: propagates selected confidence into the debug payload', async () => {
     render(
       <QueueItem
         {...defaultProps}
@@ -299,11 +309,11 @@ describe('QueueItem Stable ETA TDD', () => {
       />
     );
 
-    const progressBar = screen.getByTestId('queue-item-progress-bar');
-    expect(progressBar.getAttribute('data-confidence')).toBe('0.35');
+    const payload = await copyDebugPayload();
+    expect(payload.evidenceWeightFraction).toBe(0.35);
   });
 
-  it('QueueItem: preserves START_SEGMENT progress 0 with confidence 1.0', () => {
+  it('QueueItem: preserves START_SEGMENT progress 0 with confidence 1.0', async () => {
     render(
       <QueueItem
         {...defaultProps}
@@ -316,11 +326,11 @@ describe('QueueItem Stable ETA TDD', () => {
       />
     );
 
-    const progressBar = screen.getByTestId('queue-item-progress-bar');
-    expect(progressBar.getAttribute('data-confidence')).toBe('1');
+    const payload = await copyDebugPayload();
+    expect(payload.evidenceWeightFraction).toBe(1.0);
   });
 
-  it('QueueItem: uses job confidence when etaSource resolves to job', () => {
+  it('QueueItem: uses job confidence when etaSource resolves to job', async () => {
     render(
       <QueueItem
         {...defaultProps}
@@ -343,11 +353,11 @@ describe('QueueItem Stable ETA TDD', () => {
       />
     );
 
-    const progressBar = screen.getByTestId('queue-item-progress-bar');
-    expect(progressBar.getAttribute('data-confidence')).toBe('0.22');
+    const payload = await copyDebugPayload();
+    expect(payload.evidenceWeightFraction).toBe(0.22);
   });
 
-  it('QueueItem: uses liveJob confidence when etaSource resolves to liveJob', () => {
+  it('QueueItem: uses liveJob confidence when etaSource resolves to liveJob', async () => {
     render(
       <QueueItem
         {...defaultProps}
@@ -370,8 +380,8 @@ describe('QueueItem Stable ETA TDD', () => {
       />
     );
 
-    const progressBar = screen.getByTestId('queue-item-progress-bar');
-    expect(progressBar.getAttribute('data-confidence')).toBe('0.99');
+    const payload = await copyDebugPayload();
+    expect(payload.evidenceWeightFraction).toBe(0.99);
   });
 
   it('QueueItem debug copy includes selected confidence and the real evidenceWeightFraction', async () => {

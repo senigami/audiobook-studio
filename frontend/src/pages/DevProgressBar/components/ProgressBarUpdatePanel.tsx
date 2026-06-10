@@ -5,7 +5,6 @@ import { FieldLabel } from '@tests/helpers/ProgressBarTestHelpers';
 
 interface ProgressBarUpdatePanelProps {
   activeConfig: ProgressBarTestConfig;
-  setActiveConfig: React.Dispatch<React.SetStateAction<ProgressBarTestConfig>>;
   manualProgressValue: string;
   setManualProgressValue: (v: string) => void;
   manualEtaSeconds: string;
@@ -20,7 +19,6 @@ interface ProgressBarUpdatePanelProps {
 
 export const ProgressBarUpdatePanel: React.FC<ProgressBarUpdatePanelProps> = ({
   activeConfig,
-  setActiveConfig,
   manualProgressValue,
   setManualProgressValue,
   manualEtaSeconds,
@@ -102,23 +100,6 @@ export const ProgressBarUpdatePanel: React.FC<ProgressBarUpdatePanelProps> = ({
           <label style={{ display: 'grid', gap: '0.35rem' }}>
             <FieldLabel label="Manual ETA seconds" help="The absolute ETA field to send with the update. This mirrors the real runtime payload rather than a debug-only delta." />
             <input aria-label="Manual ETA seconds" value={manualEtaSeconds} onChange={e => setManualEtaSeconds(e.target.value)} />
-          </label>
-          <label style={{ display: 'grid', gap: '0.35rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-              <FieldLabel label="Update Confidence" help="How much of the whole this update should count for. Larger segments or more trusted checkpoints should influence ETA more strongly." />
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{Math.round(activeConfig.evidenceWeightFraction * 100)}%</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={Math.round(activeConfig.evidenceWeightFraction * 100)}
-              onChange={e => setActiveConfig(prev => ({ ...prev, evidenceWeightFraction: Number(e.target.value) / 100 }))}
-            />
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              Real producers should derive this from the update payload. If it is missing, use an 80% fallback confidence.
-            </span>
           </label>
           <label title="Allow the currently mounted preview to move backward when the next manual update reports a lower progress value." style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
             <input

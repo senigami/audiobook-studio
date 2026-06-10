@@ -77,11 +77,11 @@ The progress *floor* logic is untouched: if backend progress exceeds the visual 
 
 ## Implementation steps
 
-- [ ] 1. Extract `useEtaConfidence({ persistenceKey, startedAt, status })` hook colocated with the bar: holds the sample ring (N=6), EMA, `base`, and exposes `{ etaEndSmoothed, w }` given each raw `resolveEndAtMs` result. Pure functions for `cv`, `ramp`, `clampSlope` in `predictiveProgressBarHelpers.ts` with unit tests.
-- [ ] 2. Rewire `updateLaneToTarget`: delete the confidence lerp of `startedAtMs`/`startProgress` and the ETA-driven parts of `shouldCorrectStart`; adopt the velocity-continuous lane construction above. Keep floor, backward, phase-handoff, and done-transition behavior byte-identical.
-- [ ] 3. Remove the `evidenceWeightFraction` prop (no caller passes it; it was documented as a no-op — doc 09 F12 resolves with this).
-- [ ] 4. Surface `w`, `base`, `cv`, `etaEndSmoothed`, and clamped-vs-raw slope in the debug snapshot (`predictiveProgressBarDebug.ts`) and the `/progress-test` dev panel so tuning is observable.
-- [ ] 5. Tune constants on the dev panel against recorded real render sessions (capture jittery ETA traces; the doc 14 fixture recording can double for this). Constants live in one exported object, not scattered literals.
-- [ ] 6. Tests: (a) jittery ETA (±40% sample noise) at p=0.3 produces rendered velocity changes under the slope cap; (b) stable ETA earns `base > 0.8` within 3 samples; (c) at p ≥ 0.9, displayed remaining time tracks raw ETA within one EMA step; (d) floor/backward/done behavior unchanged against existing test suite.
+- [x] 1. Extract `useEtaConfidence({ persistenceKey, startedAt, status })` hook colocated with the bar: holds the sample ring (N=6), EMA, `base`, and exposes `{ etaEndSmoothed, w }` given each raw `resolveEndAtMs` result. Pure functions for `cv`, `ramp`, `clampSlope` in `predictiveProgressBarHelpers.ts` with unit tests.
+- [x] 2. Rewire `updateLaneToTarget`: delete the confidence lerp of `startedAtMs`/`startProgress` and the ETA-driven parts of `shouldCorrectStart`; adopt the velocity-continuous lane construction above. Keep floor, backward, phase-handoff, and done-transition behavior byte-identical.
+- [x] 3. Remove the `evidenceWeightFraction` prop (no caller passes it; it was documented as a no-op — doc 09 F12 resolves with this).
+- [x] 4. Surface `w`, `base`, `cv`, `etaEndSmoothed`, and clamped-vs-raw slope in the debug snapshot (`predictiveProgressBarDebug.ts`) and the `/progress-test` dev panel so tuning is observable.
+- [x] 5. Tune constants on the dev panel against recorded real render sessions (capture jittery ETA traces; the doc 14 fixture recording can double for this). Constants live in one exported object, not scattered literals.
+- [x] 6. Tests: (a) jittery ETA (±40% sample noise) at p=0.3 produces rendered velocity changes under the slope cap; (b) stable ETA earns `base > 0.8` within 3 samples; (c) at p ≥ 0.9, displayed remaining time tracks raw ETA within one EMA step; (d) floor/backward/done behavior unchanged against existing test suite.
 
 *Acceptance:* on a recorded jittery session, the bar's velocity visibly eases rather than lurching (slope-change log shows all updates within cap), while the final 10% of the render tracks the backend ETA closely and lands its done transition without a long 99.5% stall.

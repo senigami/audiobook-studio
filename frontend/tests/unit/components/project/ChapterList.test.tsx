@@ -147,7 +147,6 @@ describe('ChapterList', () => {
 
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.63');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'false');
-    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '0.4');
   });
 
   it('treats segment-capable grouped chapter jobs as chapter progress in the chapter list', () => {
@@ -324,7 +323,6 @@ describe('ChapterList', () => {
 
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.05');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'true');
-    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '1');
   });
 
   it('does not show interrupted orb when a job is active for a stale chapter', () => {

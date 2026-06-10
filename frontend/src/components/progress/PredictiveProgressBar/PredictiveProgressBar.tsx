@@ -17,12 +17,14 @@ import {
     isFailedStatus,
     isQueuedStatus,
     isCancelledStatus,
+    clampSlope,
     type ProgressPresentationState,
 } from '@/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers';
 import {
     buildPredictiveProgressDebugSnapshot,
     type PredictiveProgressDebugSnapshot,
 } from '@/components/progress/PredictiveProgressBar/predictiveProgressBarDebug';
+import { useEtaConfidence } from '@/components/progress/PredictiveProgressBar/useEtaConfidence';
 
 export type { PredictiveProgressDebugSnapshot } from '@/components/progress/PredictiveProgressBar/predictiveProgressBarDebug';
 
@@ -53,7 +55,6 @@ export interface PredictiveProgressBarProps {
     backwardTransitionTickCount?: number;
     tickMs?: number;
     checkpointMode?: 'default' | 'queue' | 'segment';
-    evidenceWeightFraction?: number;
     state?: ProgressPresentationState;
     onDebugSnapshot?: (snapshot: PredictiveProgressDebugSnapshot) => void;
     /** Fires every animation tick with the bar's live interpolated progress (0–1). */
@@ -210,7 +211,6 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     backwardTransitionTickCount = 2,
     tickMs = 250,
     checkpointMode,
-    evidenceWeightFraction, // Weight (0–1) applied to lane-migration confidence: controls how far the migrated lane blends toward the target lane
     state,
     onDebugSnapshot,
     onDisplayProgress,
@@ -243,24 +243,28 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     const lastUpdateMetadataRef = useRef<{
         incomingProgress: number | null;
         effectiveTargetProgress: number | null;
-        evidenceWeightFraction: number | null;
         currentVisualAtUpdate: number | null;
         isBackwardMigration: boolean;
     }>({
         incomingProgress: null,
         effectiveTargetProgress: null,
-        evidenceWeightFraction: null,
         currentVisualAtUpdate: null,
         isBackwardMigration: false,
     });
 
+    // ETA confidence model state (doc 15)
+    const etaConfidence = useEtaConfidence({ persistenceKey, startedAt, status: presentationState });
+    const etaConfidenceStateRef = useRef<{
+        w: number;
+        base: number;
+        cv: number;
+        etaEndSmoothed: number | null;
+        slopeCappedVsRaw: number | null;
+    }>({ w: 0, base: 0.2, cv: 0, etaEndSmoothed: null, slopeCappedVsRaw: null });
+
     const updateLaneToTarget = (source: string, nextEndAtMs: number | null, nextProgress: number, instant = false) => {
         const nowMs = Date.now();
         const incomingProgress = clamp01(nextProgress);
-
-        const currentStartAtMs = migrationRef.current?.toLane.startedAtMs ?? currentLaneRef.current?.startedAtMs ?? nowMs;
-        const currentEndAtMs = migrationRef.current?.toLane.endAtMs ?? currentLaneRef.current?.endAtMs ?? null;
-        const currentStartProgress = migrationRef.current?.toLane.startProgress ?? currentLaneRef.current?.startProgress ?? incomingProgress;
 
         const currentVisual = getLaneProgress(
             getRenderedStartAtMs(currentLaneRef.current, migrationRef.current, nowMs),
@@ -269,6 +273,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             nowMs
         );
 
+        // --- Authoritative floor (backend percent is the position floor) ---
         let effectiveIncomingProgress = incomingProgress;
         if (!effectiveAllowBackward) {
             effectiveIncomingProgress = Math.max(incomingProgress, currentVisual);
@@ -278,53 +283,15 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             }
         }
 
-        const targetT = Math.min(0.99, effectiveIncomingProgress / 0.995);
-        const startedAtMs = (typeof startedAt === 'number' && startedAt > 0) ? startedAt * 1000 : null;
+        // --- Backward migration detection (for transitionTickCount selection) ---
+        const isBackwardMigration = effectiveAllowBackward && incomingProgress < currentVisual - 0.001;
+        const activeTransitionTickCount = isBackwardMigration ? backwardTransitionTickCount : transitionTickCount;
 
-        let shouldCorrectStart = false;
-        if (!currentLaneRef.current) {
-            shouldCorrectStart = true;
-        } else if (instant) {
-            shouldCorrectStart = true;
-        } else if (startedAtMs === null) {
-            const currentVisual = getLaneProgress(
-                getRenderedStartAtMs(currentLaneRef.current, migrationRef.current, nowMs),
-                getRenderedEndAtMs(currentLaneRef.current, migrationRef.current, nowMs),
-                getRenderedStartProgress(currentLaneRef.current, migrationRef.current, nowMs),
-                nowMs
-            );
-            const isBackward = effectiveAllowBackward && (incomingProgress < currentVisual - 0.001);
-            if (effectiveIncomingProgress > currentVisual || isBackward) {
-                shouldCorrectStart = true;
-            }
-        } else if (nextEndAtMs !== null) {
-            const expectedProgressAtNow = (nowMs - startedAtMs) / (nextEndAtMs - startedAtMs);
-            const isBackward = effectiveAllowBackward && incomingProgress < currentVisual - 0.001;
-            if (targetT > expectedProgressAtNow || isBackward) {
-                shouldCorrectStart = true;
-            }
-        }
-
-        let targetStartAtMs: number;
-        let targetStartProgress = 0;
-
-        if (shouldCorrectStart) {
-            if (nextEndAtMs === null || effectiveIncomingProgress >= 0.985) {
-                targetStartProgress = effectiveIncomingProgress;
-                targetStartAtMs = nowMs;
-            } else {
-                targetStartProgress = 0;
-                targetStartAtMs = (nowMs - targetT * nextEndAtMs) / (1 - targetT);
-            }
-        } else {
-            targetStartAtMs = startedAtMs ?? currentLaneRef.current!.startedAtMs;
-            targetStartProgress = (startedAtMs !== null) ? 0 : currentLaneRef.current!.startProgress;
-        }
-
+        // --- Instant snap (preparing→running phase handoff, or forced) ---
         if (instant) {
             const snapLane: ProgressLane = {
-                startedAtMs: targetStartAtMs,
-                startProgress: targetStartProgress,
+                startedAtMs: nowMs,
+                startProgress: effectiveIncomingProgress,
                 endAtMs: nextEndAtMs,
             };
             currentLaneRef.current = snapLane;
@@ -336,65 +303,115 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             lastUpdateMetadataRef.current = {
                 incomingProgress,
                 effectiveTargetProgress: effectiveIncomingProgress,
-                evidenceWeightFraction: 1,
                 currentVisualAtUpdate: currentVisual,
                 isBackwardMigration: false,
             };
             return;
         }
 
-        const confidence = clamp01(evidenceWeightFraction ?? 1);
+        // --- ETA confidence model: compute w and smoothed end time ---
+        let confidenceW = etaConfidenceStateRef.current.w;
+        let confidenceBase = etaConfidenceStateRef.current.base;
+        let confidenceCv = etaConfidenceStateRef.current.cv;
+        let etaEndSmoothed = etaConfidenceStateRef.current.etaEndSmoothed;
 
-        const migratedStartAtMs = currentStartAtMs + (targetStartAtMs - currentStartAtMs) * confidence;
-        const migratedStartProgress = currentStartProgress + (targetStartProgress - currentStartProgress) * confidence;
-        let migratedEndAtMs = nextEndAtMs;
-        if (currentEndAtMs !== null && nextEndAtMs !== null) {
-            migratedEndAtMs = currentEndAtMs + (nextEndAtMs - currentEndAtMs) * confidence;
+        if (nextEndAtMs !== null) {
+            const cs = etaConfidence.update(nextEndAtMs, effectiveIncomingProgress, nowMs);
+            confidenceW = cs.w;
+            confidenceBase = cs.base;
+            confidenceCv = cs.cv;
+            etaEndSmoothed = cs.etaEndSmoothed;
+            // Apply stall decay if running
+            if (isLiveAnimatedStatus(presentationState)) {
+                confidenceW = etaConfidence.getStallDecayedW(confidenceW, nowMs);
+            }
+            etaConfidenceStateRef.current = {
+                w: confidenceW,
+                base: confidenceBase,
+                cv: confidenceCv,
+                etaEndSmoothed,
+                slopeCappedVsRaw: null, // updated below
+            };
         }
 
-        const isBackwardMigration = effectiveAllowBackward && incomingProgress < currentVisual - 0.001;
-        const activeTransitionTickCount = isBackwardMigration ? backwardTransitionTickCount : transitionTickCount;
+        // --- Velocity-continuous lane construction ---
+        // Position is always from current visual (no anchor teleport).
+        // End time is blended between the current rendered end and the smoothed ETA.
+        const currentRenderedEnd = getRenderedEndAtMs(currentLaneRef.current, migrationRef.current, nowMs);
 
-        const finalTargetProgress = currentLaneRef.current ? migratedStartProgress : targetStartProgress;
+        let newEndAtMs: number | null = null;
+        let slopeCappedVsRaw: number | null = null;
+
+        if (etaEndSmoothed !== null && nextEndAtMs !== null) {
+            const blendedEnd = currentRenderedEnd !== null
+                ? currentRenderedEnd + (etaEndSmoothed - currentRenderedEnd) * confidenceW
+                : etaEndSmoothed;
+            const clamped = clampSlope(blendedEnd, currentRenderedEnd, effectiveIncomingProgress, nowMs, confidenceW);
+            slopeCappedVsRaw = clamped - blendedEnd; // positive = slowed down, negative = sped up
+            newEndAtMs = clamped;
+        } else if (nextEndAtMs !== null && etaEndSmoothed === null) {
+            // No confidence state yet (e.g. first update) — use raw but record it
+            newEndAtMs = nextEndAtMs;
+        }
+        // If nextEndAtMs is null, newEndAtMs stays null (no ETA)
+
+        etaConfidenceStateRef.current.slopeCappedVsRaw = slopeCappedVsRaw;
+
+        const desiredEndAtMs = newEndAtMs;
 
         if (!currentLaneRef.current) {
-            // Initial mount
-            const desiredLane: ProgressLane = {
-                startedAtMs: targetStartAtMs,
-                startProgress: targetStartProgress,
-                endAtMs: nextEndAtMs,
+            // Initial mount — set the lane directly, no migration
+            const initialLane: ProgressLane = {
+                startedAtMs: nowMs,
+                startProgress: effectiveIncomingProgress,
+                endAtMs: desiredEndAtMs,
             };
-            currentLaneRef.current = desiredLane;
-            setCurrentLane(desiredLane);
+            currentLaneRef.current = initialLane;
+            setCurrentLane(initialLane);
             setMigration(null);
             migrationRef.current = null;
-            displayProgressRef.current = targetStartProgress;
-        } else {
-            const desiredLane: ProgressLane = {
-                startedAtMs: migratedStartAtMs,
-                startProgress: migratedStartProgress,
-                endAtMs: migratedEndAtMs,
+            displayProgressRef.current = effectiveIncomingProgress;
+
+            lastDisplayWriteRef.current = { source, value: effectiveIncomingProgress };
+            lastUpdateMetadataRef.current = {
+                incomingProgress,
+                effectiveTargetProgress: effectiveIncomingProgress,
+                currentVisualAtUpdate: currentVisual,
+                isBackwardMigration: false,
             };
-            const newMigration: LaneMigration = {
-                startedAtMs: nowMs,
-                durationMs: activeTransitionTickCount * tickMs,
-                fromLane: {
-                    startedAtMs: getRenderedStartAtMs(currentLaneRef.current, migrationRef.current, nowMs),
-                    startProgress: getRenderedStartProgress(currentLaneRef.current, migrationRef.current, nowMs),
-                    endAtMs: getRenderedEndAtMs(currentLaneRef.current, migrationRef.current, nowMs)
-                },
-                toLane: desiredLane,
-            };
-            setMigration(newMigration);
-            migrationRef.current = newMigration;
-            displayProgressRef.current = currentVisual;
+            return;
         }
-        
-        lastDisplayWriteRef.current = { source, value: finalTargetProgress };
+
+        // Velocity-continuous new target lane:
+        // startedAtMs = now, startProgress = target position, endAtMs = clamped blended end.
+        // For forward migration: floor to effectiveIncomingProgress (backend authoritative floor).
+        // For backward migration (allowed): target is incomingProgress.
+        const targetStartProgress = isBackwardMigration ? incomingProgress : effectiveIncomingProgress;
+        const toLane: ProgressLane = {
+            startedAtMs: nowMs,
+            startProgress: targetStartProgress,
+            endAtMs: desiredEndAtMs,
+        };
+
+        const newMigration: LaneMigration = {
+            startedAtMs: nowMs,
+            durationMs: activeTransitionTickCount * tickMs,
+            fromLane: {
+                startedAtMs: getRenderedStartAtMs(currentLaneRef.current, migrationRef.current, nowMs),
+                startProgress: getRenderedStartProgress(currentLaneRef.current, migrationRef.current, nowMs),
+                endAtMs: getRenderedEndAtMs(currentLaneRef.current, migrationRef.current, nowMs),
+            },
+            toLane,
+        };
+
+        setMigration(newMigration);
+        migrationRef.current = newMigration;
+        displayProgressRef.current = currentVisual;
+
+        lastDisplayWriteRef.current = { source, value: targetStartProgress };
         lastUpdateMetadataRef.current = {
             incomingProgress,
-            effectiveTargetProgress: finalTargetProgress,
-            evidenceWeightFraction: confidence,
+            effectiveTargetProgress: targetStartProgress,
             currentVisualAtUpdate: currentVisual,
             isBackwardMigration,
         };
@@ -593,10 +610,14 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             migrationElapsedMs: migration ? Math.max(0, now - migration.startedAtMs) : null,
             migrationTicksTotal: migration ? Math.round(migration.durationMs / tickMs) : transitionTickCount,
             migrationTicksElapsed: migration ? Math.floor(Math.max(0, now - migration.startedAtMs) / tickMs) : null,
-            evidenceWeightFraction: lastUpdateMetadataRef.current.evidenceWeightFraction,
             incomingProgress: lastUpdateMetadataRef.current.incomingProgress,
             effectiveTargetProgress: lastUpdateMetadataRef.current.effectiveTargetProgress,
             currentVisualAtUpdate: lastUpdateMetadataRef.current.currentVisualAtUpdate,
+            etaConfidenceW: etaConfidenceStateRef.current.w,
+            etaConfidenceBase: etaConfidenceStateRef.current.base,
+            etaConfidenceCv: etaConfidenceStateRef.current.cv,
+            etaEndSmoothed: etaConfidenceStateRef.current.etaEndSmoothed,
+            slopeCappedVsRaw: etaConfidenceStateRef.current.slopeCappedVsRaw,
         }));
     }, [
         onDebugSnapshot, memoryKey, status, progress, startedAt, etaSeconds, predictive,

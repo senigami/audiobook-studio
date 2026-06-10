@@ -45,6 +45,103 @@ export const formatStatusLabel = (status?: string) => status
 
 export const ETA_TICK_MS = 250;
 
+// ---------------------------------------------------------------------------
+// ETA Confidence Model — constants and pure helpers (doc 15)
+// ---------------------------------------------------------------------------
+
+/** All tunable constants for the ETA confidence / trust-handoff model. */
+export const ETA_CONFIDENCE = {
+    /** Minimum EMA alpha (heavy smoothing when trust is low). */
+    ALPHA_MIN: 0.15,
+    /** Maximum EMA alpha (near-raw tracking when trust is high). */
+    ALPHA_MAX: 0.85,
+    /** Progress at which the progress-based trust ramp begins. */
+    RAMP_START: 0.55,
+    /** Progress at which the progress-based trust ramp reaches 1. */
+    RAMP_END: 0.90,
+    /** CV scaling factor: stable → base near 1, jittery → base near 0. */
+    K: 2.0,
+    /** Minimum base trust (never fully ignore the backend ETA). */
+    BASE_FLOOR: 0.2,
+    /** Number of end-time samples in the ring buffer. */
+    N: 6,
+    /** Slope cap at w=0 (coasting, tight). */
+    SLOPE_CAP_LOW: 1.5,
+    /** Slope cap at w=1 (trusted ETA, loose). */
+    SLOPE_CAP_HIGH: 4.0,
+    /** No-update stall duration before decaying w toward 0 (ms). */
+    STALL_MS: 10_000,
+} as const;
+
+/**
+ * Smoothstep ramp in [0,1] mapping progress p from RAMP_START→RAMP_END.
+ * Returns 0 below RAMP_START, 1 above RAMP_END, smooth cubic in between.
+ */
+export const smoothstepRamp = (p: number, start = ETA_CONFIDENCE.RAMP_START, end = ETA_CONFIDENCE.RAMP_END): number => {
+    if (p <= start) return 0;
+    if (p >= end) return 1;
+    const t = (p - start) / (end - start);
+    return t * t * (3 - 2 * t);
+};
+
+/**
+ * Coefficient of variation of *remaining time* over a ring of end-time samples.
+ * cv = stddev(remaining[i]) / max(1, mean(remaining[i]))
+ * remaining[i] = sample[i] - nowMs
+ */
+export const computeCv = (samples: number[], nowMs: number): number => {
+    if (samples.length < 2) return 0;
+    const remaining = samples.map(s => Math.max(0, s - nowMs));
+    const mean = remaining.reduce((a, b) => a + b, 0) / remaining.length;
+    const variance = remaining.reduce((a, r) => a + (r - mean) ** 2, 0) / remaining.length;
+    const stddev = Math.sqrt(variance);
+    return stddev / Math.max(1, mean);
+};
+
+/**
+ * Single EMA step.
+ * ema = ema + alpha * (sample - ema)
+ */
+export const emaStep = (ema: number, sample: number, alpha: number): number =>
+    ema + clamp01(alpha) * (sample - ema);
+
+/**
+ * Clamp the implied velocity of a proposed end time so it does not exceed
+ * SLOPE_CAP * prevVelocity.  Returns a clamped endAtMs.
+ *
+ * velocity = (0.995 - currentProgress) / (endAtMs - nowMs)
+ * prevVelocity = (0.995 - currentProgress) / (prevEndAtMs - nowMs)
+ *
+ * If prevEndAtMs is null or very close to nowMs, skip clamping.
+ */
+export const clampSlope = (
+    proposedEndAtMs: number,
+    prevEndAtMs: number | null,
+    currentProgress: number,
+    nowMs: number,
+    w: number,
+): number => {
+    const slopeCap = ETA_CONFIDENCE.SLOPE_CAP_LOW + (ETA_CONFIDENCE.SLOPE_CAP_HIGH - ETA_CONFIDENCE.SLOPE_CAP_LOW) * w;
+    if (prevEndAtMs === null) return proposedEndAtMs;
+
+    const remaining = 0.995 - currentProgress;
+    if (remaining <= 0) return proposedEndAtMs;
+
+    const prevDuration = prevEndAtMs - nowMs;
+    if (prevDuration <= 0) return proposedEndAtMs; // can't derive prev velocity
+
+    const proposedDuration = proposedEndAtMs - nowMs;
+    if (proposedDuration <= 0) return proposedEndAtMs; // already overrun, let autoFinalizing handle it
+
+    // velocity is proportional to 1/duration; clamp duration so velocity stays in [1/cap, cap] of prevVelocity
+    // vPrev / SLOPE_CAP ≤ v ≤ vPrev * SLOPE_CAP
+    // → prevDuration / SLOPE_CAP ≤ proposedDuration ≤ prevDuration * SLOPE_CAP  (inverted: larger duration = slower)
+    const minDuration = prevDuration / slopeCap;
+    const maxDuration = prevDuration * slopeCap;
+    const clampedDuration = Math.max(minDuration, Math.min(maxDuration, proposedDuration));
+    return nowMs + clampedDuration;
+};
+
 export const getRemainingTicks = (nowMs: number, endTimeMs: number | null) =>
     endTimeMs === null
         ? 1

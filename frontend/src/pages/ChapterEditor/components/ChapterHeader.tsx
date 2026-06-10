@@ -512,7 +512,6 @@ export const ChapterScriptToolbar: React.FC<{
                         etaSeconds: status.segmentProgressBarSelection.selectedEtaSeconds,
                         etaBasis: status.segmentProgressBarSelection.selectedEtaBasis,
                         updatedAt: status.segmentProgressBarSelection.selectedUpdatedAt,
-                        evidenceWeightFraction: status.segmentProgressBarSelection.evidenceWeightFraction,
                         state: status.liveSegmentProgressJob.status === 'preparing'
                             ? (status.segmentProgressBarSelection.isSegmentStartAtZero ? 'processing' : 'preparing')
                             : status.liveSegmentProgressJob.status === 'finalizing'
