@@ -3,7 +3,6 @@ import time
 import shutil
 from pathlib import Path
 
-from app.engines.behavior import DEFAULT_SENT_CHAR_LIMIT as SENT_CHAR_LIMIT
 from app.domain.chunk_groups import build_chunk_groups
 from app.utils.text.textops import sanitize_text, safe_split_long_sentences
 from app.engines.errors import EngineBridgeError
@@ -19,6 +18,8 @@ _SKIP_LIVE_BROADCASTS = {
 
 def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, text=None):
     from app.db import update_segment
+    from app.engines.behavior import get_text_chunk_limit
+    sent_char_limit = get_text_chunk_limit("xtts")
 
     if j.chapter_id:
         groups = build_chunk_groups(xtts_facade.load_chunk_segments(j.chapter_id), j.speaker_profile)
@@ -83,7 +84,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                 processed = " ".join(group["text_parts"]).strip()
                 if j.safe_mode:
                     processed = sanitize_text(processed)
-                    processed = safe_split_long_sentences(processed, target=SENT_CHAR_LIMIT)
+                    processed = safe_split_long_sentences(processed, target=sent_char_limit)
 
                 seg_out = pdir / "segments" / f"{first['id']}.wav"
                 seg_out.parent.mkdir(parents=True, exist_ok=True)

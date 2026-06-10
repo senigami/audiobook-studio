@@ -361,6 +361,32 @@ def reorder_queue(queue_ids: List[str]) -> bool:
             conn.commit()
             return True
 
+def list_jobs_by_status(status: str) -> list[dict]:
+    """Return all processing_queue rows with the given status as dicts.
+
+    Keys returned match the processing_queue schema: ``id``, ``project_id``,
+    ``chapter_id``, ``segment_ids``, ``split_part``, ``status``,
+    ``created_at``, ``started_at``, ``completed_at``, ``custom_title``,
+    ``engine``, ``error``.
+
+    Used by the scheduler recovery module to load interrupted tasks after
+    a restart.  An empty list is returned when no rows match.
+    """
+    with _db_lock:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM processing_queue WHERE status = ?", (status,)
+            )
+            rows = cursor.fetchall()
+            result = []
+            for row in rows:
+                item = dict(row)
+                item["segment_ids"] = _decode_segment_ids(item.get("segment_ids"))
+                result.append(item)
+            return result
+
+
 def clear_completed_queue() -> int:
     """Deletes all 'done', 'failed', and 'cancelled' items from the processing queue."""
     with _db_lock:

@@ -237,22 +237,31 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
 
         return task_id
 
-    def recover(self) -> list[str]:
+    def recover(self, contexts: Optional[list] = None) -> list[str]:
         """Recover interrupted Studio 2.0 jobs after a restart.
 
         Recovery flow:
-        1. Discover interrupted jobs via ``load_recoverable_task_contexts()``.
+        1. Discover interrupted jobs via ``load_recoverable_task_contexts()``
+           (or use the pre-snapshotted ``contexts`` list if supplied).
         2. For each recovered context, call Phase 4 reconciliation per batch.
         3. Reuse already-valid artifacts — do NOT re-render them.
         4. Resume only unresolved work.
         5. Publish recovery-specific progress transitions.
+
+        Args:
+            contexts: Pre-snapshotted list of ``TaskContext`` objects to recover.
+                When *None* (the default), ``load_recoverable_task_contexts()``
+                is called internally.  Pass a pre-snapshotted list when the
+                caller must capture recoverable contexts *before* reconciliation
+                clears the DB rows (startup recovery).
 
         Returns:
             list[str]: Task IDs of jobs that were recovered and resumed.
         """
         recovered_ids: list[str] = []
 
-        contexts = load_recoverable_task_contexts()
+        if contexts is None:
+            contexts = load_recoverable_task_contexts()
         if not contexts:
             return recovered_ids
 

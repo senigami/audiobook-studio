@@ -3,7 +3,6 @@ import time
 import shutil
 from pathlib import Path
 
-from app.engines.behavior import DEFAULT_SENT_CHAR_LIMIT as SENT_CHAR_LIMIT
 from app.domain.chunk_groups import build_chunk_groups
 from app.utils.text.textops import sanitize_text, safe_split_long_sentences
 from app.engines.errors import EngineBridgeError
@@ -24,6 +23,8 @@ _SKIP_LIVE_BROADCASTS = {
 
 def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav):
     from app.db import get_chapter_segments, update_segment
+    from app.engines.behavior import get_text_chunk_limit
+    sent_char_limit = get_text_chunk_limit("xtts")
 
     on_output(f"Baking Chapter {j.chapter_id} starting...\n")
     segs = get_chapter_segments(j.chapter_id)
@@ -56,7 +57,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
             combined_text = " ".join([s['text_content'] for s in group["segments"]])
             if j.safe_mode:
                 combined_text = sanitize_text(combined_text)
-                combined_text = safe_split_long_sentences(combined_text, target=SENT_CHAR_LIMIT)
+                combined_text = safe_split_long_sentences(combined_text, target=sent_char_limit)
             sid = group["segments"][0]['id']
             seg_out = pdir / "segments" / f"{sid}.wav"
             seg_out.parent.mkdir(parents=True, exist_ok=True)

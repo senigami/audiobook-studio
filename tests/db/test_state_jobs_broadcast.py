@@ -8,7 +8,7 @@ import threading
 import pytest
 from unittest.mock import patch
 
-from app.db.state import update_job, put_job, clear_all_jobs, STATE_FILE
+from app.db.state import update_job, put_job, clear_all_jobs, STATE_FILE, requeue, get_jobs
 from app.db.models import Job
 
 
@@ -118,6 +118,76 @@ def test_update_job_no_status_change_status_changed_false():
 # ---------------------------------------------------------------------------
 # Concurrent stress test: B1 + B2 together
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# B20 — requeue uses standard terminal-reset path
+# ---------------------------------------------------------------------------
+
+def test_requeue_emits_terminal_reset_broadcast():
+    """
+    requeue(job_id) must go through update_job's terminal-reset branch:
+    the broadcast must carry terminal_reset=True, reason_code="JOB_RESET_TO_ACTIVE",
+    previous_status="done", status_changed=True.  Stale ETA fields must be None
+    in the stored job after requeue.
+
+    Revert-check: this test FAILS against the old requeue that used force_broadcast=True
+    without relying on the terminal-reset branch (terminal_reset was False, so
+    terminal_reset and reason_code were absent from broadcast_dict).
+    """
+    now = time.time()
+    job = _make_job(
+        "job-b20",
+        status="done",
+        started_at=now - 30,
+        finished_at=now,
+    )
+    # Give it stale ETA fields so we can assert they are cleared.
+    job.eta_seconds = 120
+    job.eta_basis = "remaining_from_update"
+    job.estimated_end_at = now + 120
+    put_job(job)
+
+    payloads = []
+
+    def listener(job_id, updates, current_job=None):
+        payloads.append(dict(updates))
+
+    with patch("app.db.state._JOB_LISTENERS", [listener]):
+        with patch("app.db.state._LISTENER_SNAPSHOT_SUPPORT", {}):
+            requeue("job-b20")
+
+    assert payloads, "Expected at least one broadcast payload from requeue"
+
+    # Find the payload that represents the status transition.
+    reset_payloads = [p for p in payloads if p.get("terminal_reset") is True]
+    assert reset_payloads, (
+        "Expected a broadcast payload with terminal_reset=True; "
+        f"got payloads: {payloads}"
+    )
+    p = reset_payloads[0]
+    assert p.get("reason_code") == "JOB_RESET_TO_ACTIVE", (
+        f"reason_code should be 'JOB_RESET_TO_ACTIVE', got {p.get('reason_code')!r}"
+    )
+    assert p.get("previous_status") == "done", (
+        f"previous_status should be 'done', got {p.get('previous_status')!r}"
+    )
+    assert p.get("status_changed") is True, (
+        f"status_changed should be True, got {p.get('status_changed')!r}"
+    )
+
+    # Stale ETA fields must be cleared in the stored job.
+    stored = get_jobs().get("job-b20")
+    assert stored is not None, "Job should still exist after requeue"
+    assert stored.eta_seconds is None, (
+        f"eta_seconds should be None after requeue, got {stored.eta_seconds!r}"
+    )
+    assert stored.eta_basis is None, (
+        f"eta_basis should be None after requeue, got {stored.eta_basis!r}"
+    )
+    assert stored.estimated_end_at is None, (
+        f"estimated_end_at should be None after requeue, got {stored.estimated_end_at!r}"
+    )
+
 
 def test_concurrent_put_job_update_job_broadcast_consistency():
     """

@@ -1,6 +1,6 @@
 # SP6 — Text Processing Spec
 
-**spec_version:** 1.0.0  
+**spec_version:** 1.0.1  
 **status:** active  
 **owner:** Studio 2.0
 
@@ -10,6 +10,7 @@
 
 | Version | Date       | Author      | Notes                         |
 |---------|------------|-------------|-------------------------------|
+| 1.0.1   | 2026-06-10 | Studio team | B19: Stage 6 grouping budget now uses `get_text_chunk_limit(engine_id)` (manifest-sourced) — constant-based limit removed from grouper, bake, and standard handler |
 | 1.0.0   | 2026-06-10 | Studio team | Initial spec from implemented behavior |
 
 ---
@@ -263,10 +264,11 @@ manifest, falling back to `DEFAULT_ENGINE_TEXT_CHUNK_LIMIT = 500`.
   1. `same_char`: `curr['character_id'] == prev['character_id']`
   2. `is_consecutive`: the segments are adjacent in the full chapter segment list (no
      gaps from the complete ordered set).
-  3. `fits_limit`: `len(" ".join([s['text_content'] for s in current_group])) + 1 + len(curr['text_content']) <= SENT_CHAR_LIMIT`
-- `SENT_CHAR_LIMIT` is imported from `app.engines.behavior.DEFAULT_SENT_CHAR_LIMIT`
-  (= 500). **Note:** this is the module-level constant, not the manifest-sourced
-  `get_text_chunk_limit()` value. Both currently equal 500 for all shipped engines.
+  3. `fits_limit`: `len(" ".join([s['text_content'] for s in current_group])) + 1 + len(curr['text_content']) <= get_text_chunk_limit("xtts")`
+- The grouping budget is resolved at handler invocation time via
+  `get_text_chunk_limit(engine_id)` (reads `manifest.behavior.text_chunk_limit`),
+  consistent with the packer at Stage 4. The old `DEFAULT_SENT_CHAR_LIMIT` constant
+  is no longer used for render-time grouping decisions.
 - The size budget formula is:
   `combined_len = len(" ".join(existing_texts)) + 1 + len(next_text)`
   which exactly mirrors the separator used by `join_group_text`.
@@ -295,7 +297,7 @@ def join_group_text(group: list) -> str:
 
 When `j.safe_mode` is `True`, after `join_group_text`:
 1. `sanitize_text(combined_text)` is called (full ASCII normalization + terminal punct).
-2. `safe_split_long_sentences(combined_text, target=SENT_CHAR_LIMIT)` is called.
+2. `safe_split_long_sentences(combined_text, target=get_text_chunk_limit("xtts"))` is called.
 
 The safe-mode path may alter the text; the unsanitized path passes the joined text
 directly to the engine.
@@ -313,6 +315,7 @@ directly to the engine.
 | I-5  | The grouper's `combined_len` budget MUST use the same separator (`" ".join` of existing texts) as `join_group_text` so length predictions are accurate. |
 | I-6  | `sync_chapter_segments` MUST use `.strip()` comparison on both sides when deciding whether to preserve an existing segment ID. |
 | I-7  | The `limit` passed to `pack_text_to_limit` MUST be sourced from `manifest.behavior.text_chunk_limit` via `get_text_chunk_limit(engine_id)`, not hardcoded. |
+| I-11 | The grouping budget in Stage 6 (`fits_limit` check) MUST be sourced from `get_text_chunk_limit(engine_id)` so that pack limit and group limit are always consistent. |
 | I-8  | `sanitize_text` MUST append `"."` if the output would otherwise lack terminal punctuation. |
 | I-9  | `split_sentences` MUST NOT use regex for its core split logic (it is a character scan); it is linear time. |
 | I-10 | Audio file cleanup MUST be triggered for any segment removed or whose path is invalidated during `sync_chapter_segments`. |
@@ -344,14 +347,12 @@ Each item maps to one or more pinned tests.
 
 ## Known Gaps and Ambiguities
 
-1. **`SENT_CHAR_LIMIT` vs manifest `text_chunk_limit` in grouping (Stage 6):**
-   The XTTS grouper imports `DEFAULT_SENT_CHAR_LIMIT` (a module constant = 500) from
-   `app.engines.behavior`, whereas the packer (Stage 4) uses the manifest-sourced
-   `get_text_chunk_limit(engine_id)` (also currently 500 for all engines). These happen
-   to be equal today but are sourced differently. If a future engine declares a different
-   `text_chunk_limit`, the grouper's constant would diverge from the packer's limit,
-   potentially allowing groups larger than the engine can accept. A future refactor should
-   route the grouper through `get_text_chunk_limit` as well.
+1. **`SENT_CHAR_LIMIT` vs manifest `text_chunk_limit` in grouping (Stage 6) — RESOLVED (v1.0.1):**
+   The XTTS grouper, bake handler, and standard handler now all resolve the grouping budget
+   via `get_text_chunk_limit("xtts")` at handler invocation time, consistent with the
+   manifest-sourced limit used by the packer at Stage 4. The old `DEFAULT_SENT_CHAR_LIMIT`
+   constant is retained only as the fallback inside `get_text_chunk_limit` and for
+   generic text utility modules that have no engine context.
 
 2. **`clean_text_for_tts` collapses double-newlines:** the final `re.sub(r'\n{2,}', '\n')`
    in `clean_text_for_tts` means paragraph boundaries that survive `safe_split_long_sentences`

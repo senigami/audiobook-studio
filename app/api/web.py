@@ -272,6 +272,15 @@ def startup_event():
     except Exception as e:
         logger.warning(f"Startup Warning: Project cover migration failed: {e}")
 
+    # 0. Snapshot recoverable task contexts BEFORE clearing stuck jobs or
+    #    reconciling the DB — the evidence is destroyed by those steps.
+    _recovery_contexts: list = []
+    try:
+        from ..orchestration.scheduler.recovery import load_recoverable_task_contexts
+        _recovery_contexts = load_recoverable_task_contexts()
+    except Exception as _e:
+        logger.warning("Startup Warning: Could not snapshot recoverable tasks: %s", _e)
+
     # 1. Clear out any stuck jobs from state.json
     from ..db.state import get_jobs, delete_jobs
     jobs = get_jobs()
@@ -314,6 +323,14 @@ def startup_event():
     add_job_listener(broadcast_job_updated)
     configure_progress_broadcaster(lambda payload, _channel: manager.broadcast(payload))
     logger.info("Startup: Job listeners registered.")
+
+    # 3b. Recover interrupted tasks — must happen after listener registration so
+    #     recovery progress events broadcast to the UI.
+    try:
+        from ..core.boot import run_startup_recovery
+        run_startup_recovery(_recovery_contexts)
+    except Exception as _e:
+        logger.warning("Startup Warning: run_startup_recovery raised unexpectedly: %s", _e)
 
     # 4. Restore Pause State
     from ..db.state import get_settings

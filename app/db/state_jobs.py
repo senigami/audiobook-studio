@@ -560,7 +560,16 @@ def purge_jobs_for_chapter(chapter_id: str) -> None:
             _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
             logger.debug("Purged %s stale jobs for chapter %s", len(to_delete), chapter_id)
 def requeue(job_id: str) -> None:
-    """Wipes job metadata and resets status to queued (Clean Slate Protocol)."""
+    """Wipes job metadata and resets status to queued (Clean Slate Protocol).
+
+    Routes through the standard terminal-reset path in update_job: status="queued"
+    from a terminal state triggers terminal_reset=True in the branch, which emits
+    terminal_reset=True and reason_code="JOB_RESET_TO_ACTIVE" in the broadcast dict,
+    plus the chapter/queue broadcasts — identically to any other terminal→active
+    transition.  Stale timing and ETA fields are passed as None so the terminal-reset
+    branch clears them; requeue-specific values (progress=0.0, log="", warning_count=0)
+    survive via the B5 caller-value-precedence rule.
+    """
     update_job(
         job_id,
         status="queued",
@@ -569,6 +578,8 @@ def requeue(job_id: str) -> None:
         started_at=None,
         finished_at=None,
         error=None,
+        eta_seconds=None,
+        eta_basis=None,
+        estimated_end_at=None,
         warning_count=0,
-        force_broadcast=True
     )

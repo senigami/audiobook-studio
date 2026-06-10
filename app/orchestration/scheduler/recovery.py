@@ -48,13 +48,10 @@ def load_recoverable_task_contexts() -> list[TaskContext]:
         there are no dangling jobs or the database is unavailable.
     """
 
-    try:
-        from app.db.queue import list_jobs_by_status  # noqa: PLC0415
-    except ImportError:
-        logger.debug("DB queue not available for recovery; skipping.")
-        return []
+    from app.db.queue import list_jobs_by_status  # noqa: PLC0415
 
     contexts: list[TaskContext] = []
+    _seen_chapters: set[str] = set()
 
     for status in _RECOVERABLE_STATUSES:
         try:
@@ -74,6 +71,16 @@ def load_recoverable_task_contexts() -> list[TaskContext]:
 
             if not job_id:
                 continue
+
+            # One recovery per chapter: recovery submits directly (bypassing
+            # add_to_queue's chapter-uniqueness guard), so dedupe stale rows
+            # for the same chapter here. Statuses iterate most-active-first,
+            # so the most relevant row wins.
+            chapter_id = job.get("chapter_id")
+            if chapter_id:
+                if chapter_id in _seen_chapters:
+                    continue
+                _seen_chapters.add(chapter_id)
 
             ctx = TaskContext(
                 task_id=str(job_id),

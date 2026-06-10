@@ -1,19 +1,22 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.0
+spec_version: 1.0.2
 status: active
 created: 2026-06-10
 sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
          app/orchestration/scheduler/{orchestrator,policies,resources,recovery}.py,
-         app/orchestration/progress/eta.py,
-         tests/db/test_state_rules.py, test_state_jobs_broadcast.py, test_db_reconcile.py
+         app/orchestration/progress/eta.py, app/core/boot.py, app/api/web.py,
+         tests/db/test_state_rules.py, test_state_jobs_broadcast.py, test_db_reconcile.py,
+         tests/orchestration/test_recovery_db_integration.py
 ```
 
 ## Changelog
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.0.2   | 2026-06-10 | B18: startup recovery wired — interrupted tasks are recovered and resumed instead of silently cancelled |
+| 1.0.1   | 2026-06-10 | B20: requeue now uses standard terminal-reset path; G4 resolved |
 | 1.0     | 2026-06-10 | Initial spec, documenting v2.0 implemented behavior |
 
 ---
@@ -250,7 +253,39 @@ TERMINAL_QUEUE_STATUSES = ("done", "failed", "cancelled")
 Chapter sync only fires when `chapter_scoped=True` (the default; set False for
 segment-only jobs).
 
-### 5.3 Reconciliation on restart (`reconcile_queue_status`)
+### 5.3 Startup order: snapshot → clear → reconcile → recover
+
+The web-server startup sequence executes these steps in order to preserve
+interrupted task state while cleaning up stale in-memory records:
+
+1. **Snapshot** — `load_recoverable_task_contexts()` is called first, capturing
+   DB rows in `running`/`queued`/`waiting` into a `recovery_contexts` list.
+   Wrapped in `try/except`; startup never crashes on snapshot failure (returns
+   empty list + warning log).
+
+2. **Clear** — Stuck in-memory jobs (`state.json` entries in
+   `queued`/`running`/`preparing`/`finalizing`) are deleted from `state.json`.
+
+3. **Reconcile** — `reconcile_queue_status()` cancels any `processing_queue`
+   rows that are no longer live in `state.json` (see §5.4 below).  The
+   snapshotted contexts' rows are cancelled here — this is expected and
+   intentional.
+
+4. **Register listeners** — Job listeners and the progress broadcaster are wired
+   so that subsequent recovery events reach the UI.
+
+5. **Recover** — `run_startup_recovery(recovery_contexts)` is called with the
+   pre-snapshotted contexts.  It delegates to `TaskOrchestrator.recover(contexts=…)`,
+   which reconciles each task's artifact state and re-submits work that still
+   needs synthesis.  Re-submission calls `submit()`, which publishes
+   `status="queued"` — this reactivates the DB row (via `update_queue_item`)
+   from `cancelled` back to `queued`/`preparing`.
+
+**Escape hatch:** set `STUDIO_RECOVER_ON_STARTUP=0` to skip step 5 entirely.
+The default is `"1"` (enabled).  Log line on success:
+`"Startup: recovered N interrupted task(s)."`.
+
+### 5.4 Reconciliation on restart (`reconcile_queue_status`)
 
 Called during boot with `active_ids` = job IDs currently live in `state.json`
 and `known_job_statuses` = their statuses.
@@ -458,6 +493,7 @@ Each invariant is verified by at least one existing test.
 | I14 — status regression blocked | `tests/db/test_state_rules.py::test_status_regression_protection` |
 | I15 — terminal updates dropped | `tests/db/test_state_rules.py::test_force_broadcast_overrides_protection` |
 | requeue clean slate | `tests/db/test_state_rules.py::test_requeue_clean_slate` |
+| requeue terminal-reset broadcast | `tests/db/test_state_jobs_broadcast.py::test_requeue_emits_terminal_reset_broadcast` |
 | ETA projection uses clamped progress | `tests/db/test_state_rules.py::test_eta_projection_uses_clamped_progress` |
 | segment ETA fields not clobbered by chapter update | `tests/db/test_state_rules.py::test_chapter_queue_updates_do_not_overwrite_active_segment_eta` |
 | B2 concurrency: status_changed invariant | `tests/db/test_state_jobs_broadcast.py::test_concurrent_put_job_update_job_broadcast_consistency` |
@@ -475,10 +511,10 @@ an external caller) — this cannot occur through the normal orchestrated path.
 The mismatch is benign but should be documented when SQLite statuses are next
 revised.
 
-**G2 — Recovery uses `list_jobs_by_status` from `app.db.queue`**, but that
-function is not present in the `queue.py` source read.  Recovery falls back
-gracefully with a warning log if the import fails, but the expected function
-signature is undocumented.
+**G2 — RESOLVED (v1.0.2 / B18).** `list_jobs_by_status(status: str) -> list[dict]`
+is implemented in `app.db.queue` and used by `load_recoverable_task_contexts()`.
+The function returns all `processing_queue` rows for a given status string.
+Startup recovery is now fully wired via `run_startup_recovery()` in `app.core.boot`.
 
 **G3 — `waiting_for_resources` / `cancelling` / `completed` are
 orchestrator-internal transition labels**, not members of the `Status` Literal in
@@ -488,11 +524,13 @@ events to WebSocket listeners, but `state.json` will never store these strings
 `update_job`).  A future spec revision should enumerate the complete set of
 orchestrator-internal transition labels.
 
-**G4 — `requeue()` uses `update_job` with `force_broadcast=True`**, which
-bypasses the terminal-state guard.  The cleared fields match the terminal-reset
-path in `update_job` but are passed explicitly (not relying on the
-`terminal_reset` branch).  The behavior is equivalent but the code path
-differs; this is noted for clarity.
+**G4 — RESOLVED (v1.0.1 / B20).** `requeue()` now calls `update_job` with
+`status="queued"` and no `force_broadcast=True`, relying on the standard
+terminal-reset branch.  The broadcast therefore carries `terminal_reset=True`,
+`reason_code="JOB_RESET_TO_ACTIVE"`, `previous_status`, and `status_changed`
+identically to any other terminal→active transition.  Stale ETA and segment
+fields are cleared by the branch rather than by explicit caller arguments.
+Covered by `tests/db/test_state_jobs_broadcast.py::test_requeue_emits_terminal_reset_broadcast`.
 
 **G5 — No test for I7 (terminal ETA clear) in isolation.**  The behavior is
 exercised as a side-effect of other tests but there is no dedicated test
