@@ -113,7 +113,7 @@ def discover_plugins(plugins_dir: Path) -> list[LoadedPlugin]:
             plugin = _invalid_manifest_plugin(
                 plugin_dir=entry,
                 folder_name=folder_name,
-                load_error=str(exc) if isinstance(exc, PluginLoadError) else f"{type(exc).__name__} while loading plugin (see server logs)",
+                load_error=str(exc) if isinstance(exc, PluginLoadError) else "Unexpected error while loading plugin (see server logs)",
             )
             if plugin is not None:
                 loaded.append(plugin)
@@ -251,7 +251,7 @@ def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
     except Exception as exc:
         # Dev plugins surface full exception text for the plugin author;
         # otherwise only the exception type leaves the server (details logged).
-        detail = str(exc) if dev_enabled else f"{type(exc).__name__} (see server logs)"
+        detail = str(exc) if dev_enabled else "unexpected error (see server logs)"
         raise PluginLoadError(
             f"Failed to instantiate {engine_cls.__name__}: {detail}"
         ) from exc
@@ -260,7 +260,7 @@ def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
     try:
         ok, msg = engine.check_env()
     except Exception as exc:
-        detail = str(exc) if dev_enabled else f"{type(exc).__name__} (see server logs)"
+        detail = str(exc) if dev_enabled else "unexpected error (see server logs)"
         raise PluginLoadError(f"check_env() raised an exception: {detail}") from exc
 
     # 5b. Check persisted verification state.
@@ -739,7 +739,17 @@ def _ensure_plugin_package_hierarchy(
 def get_plugin_dir(engine_id: str) -> Path:
     """Return the expected plugin directory for a given engine_id.
 
-    This uses the default PLUGINS_DIR from app.config.
+    This uses the default PLUGINS_DIR from app.config. The result is
+    guaranteed to stay inside PLUGINS_DIR (normpath+startswith barrier),
+    so callers may use it in path expressions safely.
+
+    Raises:
+        ValueError: If engine_id would escape the plugins directory.
     """
+    import os  # noqa: PLC0415
     from app.core.config import PLUGINS_DIR # noqa: PLC0415
-    return PLUGINS_DIR / f"tts_{engine_id}"
+    base = os.path.normpath(str(PLUGINS_DIR))
+    candidate = os.path.normpath(os.path.join(base, f"tts_{engine_id}"))
+    if not candidate.startswith(base + os.sep):
+        raise ValueError("engine_id escapes the plugins directory")
+    return Path(candidate)

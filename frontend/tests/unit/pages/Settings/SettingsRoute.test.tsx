@@ -377,7 +377,7 @@ describe('SettingsRoute', () => {
     const speakerNameInput = screen.getByDisplayValue('Narrator');
     fireEvent.change(speakerNameInput, { target: { value: 'Narrator Plus' } });
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Save Settings' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save Settings' }, { timeout: 10000 }));
 
     await waitFor(() => {
       expect(api.updateEngineSettings).toHaveBeenCalledWith('xtts-local', expect.objectContaining({

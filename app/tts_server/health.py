@@ -50,7 +50,7 @@ def engine_status(
             ok, msg = check_env()
     except Exception as exc:
         logger.exception("Plugin %s check_env() crashed", plugin.engine_id)
-        plugin.setup_message = f"check_env() crashed with {type(exc).__name__} (see server logs)."
+        plugin.setup_message = "check_env() crashed (see server logs)."
         return STATUS_NEEDS_SETUP
 
     if not ok:
