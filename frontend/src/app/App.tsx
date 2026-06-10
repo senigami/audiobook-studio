@@ -66,12 +66,29 @@ function App() {
   //   - queue-visible socket frames must NOT bump the trigger directly, otherwise every
   //     update triggers a fetchProject/Chapters/Characters/Audiobooks burst on top of the
   //     completion bump. That overlap is what inflates the live update count.
+  const handleJobComplete = useCallback(() => {
+    refetchHome();
+    setQueueRefreshTrigger(prev => prev + 1);
+  }, [refetchHome]);
+
+  const handlePauseUpdate = useCallback(() => {
+    refetchHome();
+  }, [refetchHome]);
+
+  const handleSegmentsUpdate = useCallback((chapterId: string) => {
+    setSegmentUpdate(prev => ({ chapterId, tick: prev.tick + 1 }));
+  }, []);
+
+  const handleChapterUpdate = useCallback((chapterId: string) => {
+    setChapterUpdate(prev => ({ chapterId, tick: prev.tick + 1 }));
+  }, []);
+
   const { jobs, refreshJobs, testProgress, segmentProgress } = useJobs(
-    () => { refetchHome(); setQueueRefreshTrigger(prev => prev + 1); },
+    handleJobComplete,
     undefined,
-    () => refetchHome(),
-    (chapterId: string) => { setSegmentUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); },
-    (chapterId: string) => { setChapterUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); }
+    handlePauseUpdate,
+    handleSegmentsUpdate,
+    handleChapterUpdate
   );
   const chapterProjectIdFromRoute = initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.project_id;
 

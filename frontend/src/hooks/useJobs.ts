@@ -42,6 +42,14 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
   const prevJobsRef = useRef<Record<string, Job>>({});
   const connected = useStudioSocketConnection();
 
+  // Keep callbacks in a ref so the subscribe effect below doesn't need them as deps.
+  // This prevents the subscription from tearing down and re-creating on every render
+  // when callers pass inline functions.
+  const callbacksRef = useRef({ onJobComplete, onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate });
+  useEffect(() => {
+    callbacksRef.current = { onJobComplete, onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate };
+  });
+
   const refreshJobs = useCallback(() => {
     if (connected) {
       sendStudioSocketMessage({ type: 'jobs_snapshot_request' });
@@ -308,7 +316,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           const reasonCode = payload.reasonCode ?? payload.reason_code;
           if (reasonCode === 'QUEUE_INVALIDATED') {
             refreshJobs();
-            if (onQueueUpdate) onQueueUpdate();
+            if (callbacksRef.current.onQueueUpdate) callbacksRef.current.onQueueUpdate();
           }
           break;
         }
@@ -321,7 +329,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           } else {
             recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
             if (event.eventKind === 'queue_paused') {
-              if (onPauseUpdate) onPauseUpdate(payload.paused ?? data.paused);
+              if (callbacksRef.current.onPauseUpdate) callbacksRef.current.onPauseUpdate(payload.paused ?? data.paused);
             } else if (event.jobId) {
               applyJobUpdatedEvent({
                 job_id: event.jobId,
@@ -350,7 +358,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
           recordLiveEventSubscriberObservation(envelope?.frameId, 'chapter-state', 'handled');
           const chapterId = event.chapterId || data.chapter_id;
-          if (onChapterUpdate && chapterId) onChapterUpdate(chapterId);
+          if (callbacksRef.current.onChapterUpdate && chapterId) callbacksRef.current.onChapterUpdate(chapterId);
           break;
         }
 
@@ -501,7 +509,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           recordWebsocketDebugMessage('useJobs', data, raw, envelope);
           recordLiveEventSubscriberObservation(envelope?.frameId, 'segment-state', 'handled');
           const chapterId = event.chapterId || data.chapter_id;
-          if (onSegmentsUpdate && chapterId) onSegmentsUpdate(chapterId);
+          if (callbacksRef.current.onSegmentsUpdate && chapterId) callbacksRef.current.onSegmentsUpdate(chapterId);
           break;
         }
 
@@ -525,14 +533,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         }
       }
     });
-  }, [
-    applyJobUpdatedEvent,
-    refreshJobs,
-    onQueueUpdate,
-    onPauseUpdate,
-    onSegmentsUpdate,
-    onChapterUpdate,
-  ]);
+  }, [applyJobUpdatedEvent, refreshJobs]);
 
 
   // Monitor jobs for completions to trigger global data refresh
@@ -544,10 +545,10 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
     });
 
     if (hasNewCompletion) {
-      onJobComplete?.();
+      callbacksRef.current.onJobComplete?.();
     }
     prevJobsRef.current = jobs;
-  }, [jobs, onJobComplete]);
+  }, [jobs]);
 
   useEffect(() => {
     refreshJobs();

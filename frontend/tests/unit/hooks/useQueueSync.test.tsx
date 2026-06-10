@@ -748,6 +748,104 @@ describe('useQueueSync', () => {
     });
   });
 
+  // F3 — Events buffered during bootstrap hydration
+  it('reflects a progress event that arrives mid-bootstrap after the snapshot resolves', async () => {
+    const jobItem = {
+      id: 'job-bootstrap-buffered',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'running',
+      progress: 0,
+      created_at: Date.now() / 1000,
+    };
+
+    let resolveBootstrap!: (items: any[]) => void;
+    (api.getProcessingQueue as any).mockImplementationOnce(
+      () => new Promise(res => { resolveBootstrap = res; })
+    );
+
+    const { result } = renderHook(() => useQueueSync());
+
+    // Snapshot has NOT landed yet — emit event while still bootstrapping
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      progress: 0.77,
+      updatedAt: Date.now() / 1000,
+      classification: 'job',
+    }, { jobId: 'job-bootstrap-buffered' });
+
+    // Now resolve the bootstrap snapshot
+    await act(async () => {
+      resolveBootstrap([jobItem]);
+    });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const job = result.current.queue.find((q: any) => q.id === 'job-bootstrap-buffered');
+    expect(job).toBeDefined();
+    expect(job?.progress).toBe(0.77);
+  });
+
+  // F4 — Concurrent hydrations: later-started wins even if earlier resolves last
+  it('applies only the later-started hydration result when two overlap and the earlier resolves last', async () => {
+    // Bootstrap resolves quickly
+    (api.getProcessingQueue as any).mockResolvedValueOnce([]);
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Simulate disconnect → reconnect to start hydration #1 (generation 2)
+    act(() => { setStudioSocketConnected(false); });
+
+    let resolveFirst!: (items: any[]) => void;
+    const firstPromise = new Promise<any[]>(res => { resolveFirst = res; });
+    (api.getProcessingQueue as any).mockImplementationOnce(() => firstPromise);
+
+    act(() => { setStudioSocketConnected(true); });
+    await waitFor(() => expect(result.current.activeSource).toBe('reconnect'));
+
+    // Second disconnect → reconnect immediately starts hydration #2 (generation 3)
+    act(() => { setStudioSocketConnected(false); });
+
+    let resolveSecond!: (items: any[]) => void;
+    const secondPromise = new Promise<any[]>(res => { resolveSecond = res; });
+    (api.getProcessingQueue as any).mockImplementationOnce(() => secondPromise);
+
+    act(() => { setStudioSocketConnected(true); });
+
+    // Resolve the SECOND (newer) hydration first, with a distinct queue item
+    await act(async () => {
+      resolveSecond([{
+        id: 'job-newer-hydration',
+        project_id: 'proj-newer',
+        chapter_id: null,
+        status: 'queued',
+        progress: 0,
+        created_at: Date.now() / 1000,
+      }]);
+    });
+
+    // Now resolve the FIRST (older) hydration with a different item — should be discarded
+    await act(async () => {
+      resolveFirst([{
+        id: 'job-older-hydration',
+        project_id: 'proj-older',
+        chapter_id: null,
+        status: 'queued',
+        progress: 0,
+        created_at: Date.now() / 1000,
+      }]);
+    });
+
+    await waitFor(() => expect(result.current.activeSource).toBeUndefined());
+
+    const newerJob = result.current.queue.find((q: any) => q.id === 'job-newer-hydration');
+    const olderJob = result.current.queue.find((q: any) => q.id === 'job-older-hydration');
+
+    // The newer hydration's result must be present; the stale one must not overwrite it
+    expect(newerJob).toBeDefined();
+    expect(olderJob).toBeUndefined();
+  });
+
   it('keeps a voice-build job-scoped item in the queue when it completes with active_segment_id=null and active_segment_progress=0', async () => {
     const jobItem = {
       id: 'voice-build-1',

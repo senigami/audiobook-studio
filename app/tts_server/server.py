@@ -55,6 +55,12 @@ _cancelled_tasks: set[str] = set()
 _ready_port: int | None = None
 
 
+def _is_task_cancelled(task_id: str) -> bool:
+    """Thread-safe membership check; _cancelled_tasks is mutated under _state_lock."""
+    with _state_lock:
+        return task_id in _cancelled_tasks
+
+
 def set_ready_port(port: int) -> None:
     """Configure the port announced by the startup readiness hook."""
     global _ready_port
@@ -522,7 +528,7 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
         language=str(request_dict.get("language", body.language)),
         script=request_dict.get("script") or body.script,  # type: ignore[arg-type]
         task_id=body.task_id,
-        cancel_check=lambda: (body.task_id in _cancelled_tasks) if body.task_id else False,
+        cancel_check=lambda: _is_task_cancelled(body.task_id) if body.task_id else False,
     )
 
     try:

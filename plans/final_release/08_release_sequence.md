@@ -8,7 +8,7 @@ Owner policies in force throughout (see `01`): Studio 2.0 is not in production �
 
 Goal: correct behavior before any reorganization, so later refactors are verified against a trustworthy baseline.
 
-- [ ] **1a. Critical logic fixes** — doc 09 Backend B1–B4 + Frontend F1–F5 (the broadcast races, reconcile bug, event-drop windows, unchecked `res.ok`). These are the prime suspects behind the queue/segment flakiness; land with the new regression tests.
+- [x] **1a. Critical logic fixes** (done 2026-06-10) — doc 09 Backend B1–B4 + Frontend F1–F5 (the broadcast races, reconcile bug, event-drop windows, unchecked `res.ok`). These are the prime suspects behind the queue/segment flakiness; land with the new regression tests.
 - [ ] **1b. Likely-bug fixes** — doc 09 B5–B13, F6–F13 (includes the segment join-separator fix B12).
 - [ ] **1c. Progress confidence model** — doc 15 (ETA trust handoff). After 1a so velocity work sits on correct events.
 - [ ] **1d. Security release blockers** — doc 12 S1–S5 (key redaction, timing-safe compare, zip traversal, voice_ref containment, plugin trust dialog).

@@ -8,6 +8,7 @@ describe('Navigation Regression', () => {
         global.fetch = vi.fn((url) => {
             if (url === '/api/home') {
                 return Promise.resolve({
+                    ok: true,
                     json: () => Promise.resolve({
                         projects: [
                             { id: 'proj-1', name: 'Test Project', author: 'Author', updated_at: Date.now()/1000 }
@@ -17,24 +18,28 @@ describe('Navigation Regression', () => {
                     })
                 })
             }
-            if (url === '/api/jobs') return Promise.resolve({ json: () => Promise.resolve([]) });
-            if (url === '/api/processing_queue') return Promise.resolve({ json: () => Promise.resolve([]) });
+            if (url === '/api/jobs') return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+            if (url === '/api/processing_queue') return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
             if (url === '/api/projects') return Promise.resolve({
+                ok: true,
                 json: () => Promise.resolve([
                     { id: 'proj-1', name: 'Test Project', author: 'Author', updated_at: Date.now()/1000 }
                 ])
             });
             if (url === '/api/projects/proj-1') return Promise.resolve({
+                ok: true,
                 json: () => Promise.resolve({ id: 'proj-1', name: 'Test Project', author: 'Author' })
             });
             if (url === '/api/projects/proj-1/chapters') return Promise.resolve({
+                ok: true,
                 json: () => Promise.resolve([])
             });
             if (url === '/api/projects/proj-1/audiobooks') return Promise.resolve({
+                ok: true,
                 json: () => Promise.resolve([])
             });
-            if (url === '/api/speakers') return Promise.resolve({ json: () => Promise.resolve([]) });
-            return Promise.resolve({ json: () => Promise.resolve({}) });
+            if (url === '/api/speakers') return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
         }) as any;
     });
 

@@ -72,15 +72,21 @@ def put_job(job: Job) -> None:
         # Check for terminal-to-active reset
         existing_job = state["jobs"].get(job.id)
         is_terminal_reset = False
+        _snapshot_existing_status = existing_job.get("status") if existing_job else None
         if existing_job:
             old_status = existing_job.get("status")
             if old_status in ("done", "failed", "cancelled") and job.status in ("queued", "preparing"):
                 is_terminal_reset = True
+        # Snapshot derived values before releasing lock so post-lock broadcast
+        # uses consistent data even if a concurrent update_job interleaves.
+        _snapshot_is_terminal_reset = is_terminal_reset
+        _snapshot_previous_status = _snapshot_existing_status
+        _snapshot_status_changed = bool(existing_job and _snapshot_existing_status != job.status)
 
         state["jobs"][job.id] = asdict(job)
         _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
 
-    if is_terminal_reset:
+    if _snapshot_is_terminal_reset:
         try:
             from ..api.ws import broadcast_chapter_updated, broadcast_queue_update
             chapter_id = job.chapter_id
@@ -107,10 +113,10 @@ def put_job(job: Job) -> None:
             job.id,
             {
                 "skip_job_updated": True,
-                "terminal_reset": is_terminal_reset,
-                "reason_code": "JOB_RESET_TO_ACTIVE" if is_terminal_reset else None,
-                "previous_status": existing_job.get("status") if existing_job else None,
-                "status_changed": bool(existing_job and existing_job.get("status") != job.status),
+                "terminal_reset": _snapshot_is_terminal_reset,
+                "reason_code": "JOB_RESET_TO_ACTIVE" if _snapshot_is_terminal_reset else None,
+                "previous_status": _snapshot_previous_status,
+                "status_changed": _snapshot_status_changed,
             },
             current_job=asdict(job),
         )
@@ -153,6 +159,9 @@ def update_job(job_id: str, force_broadcast: bool = False, source: Optional[str]
             updates["eta_updated_at"] = None
 
         current_status = j.get("status")
+        # Capture status before any mutations so broadcast always reflects the
+        # real pre-update status, not a value clobbered mid-loop.
+        pre_update_status = current_status
         terminal_reset = current_status in ("done", "failed", "cancelled") and updates.get("status") in ("queued", "preparing")
         if not force_broadcast and current_status in ("done", "failed", "cancelled"):
             incoming_status = updates.get("status")
@@ -405,8 +414,8 @@ def update_job(job_id: str, force_broadcast: bool = False, source: Optional[str]
         if terminal_reset:
             broadcast_dict["terminal_reset"] = True
             broadcast_dict.setdefault("reason_code", "JOB_RESET_TO_ACTIVE")
-        broadcast_dict["previous_status"] = current_status
-        broadcast_dict["status_changed"] = current_status != j.get("status")
+        broadcast_dict["previous_status"] = pre_update_status
+        broadcast_dict["status_changed"] = pre_update_status != j.get("status")
         if source is not None:
             broadcast_dict["source"] = source
         if auto_updated_at is not None:

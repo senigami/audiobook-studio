@@ -36,6 +36,12 @@ export const useQueueSync = () => {
   // Ref to track the latest canonical items snapshot for derived merges
   const lastSnapshotRef = useRef<any>(null);
 
+  // F3: Buffer events that arrive before the first snapshot lands
+  const pendingEventsRef = useRef<Array<() => void>>([]);
+
+  // F4: Hydration generation counter — incremented on each hydration start
+  const hydrationGenerationRef = useRef(0);
+
   const updateDerivedState = useCallback(() => {
     if (!lastSnapshotRef.current) return;
     const merged = coordinatorRef.current.mergeQueueWithOverlays(
@@ -49,12 +55,21 @@ export const useQueueSync = () => {
   const isFirstConnectRef = useRef(true);
 
   const refreshQueue = useCallback(async (source: 'bootstrap' | 'reconnect' | 'refresh' = 'refresh') => {
+    // F4: Capture and increment the generation counter so concurrent hydrations
+    // can detect when a newer one has superseded them.
+    hydrationGenerationRef.current += 1;
+    const myGeneration = hydrationGenerationRef.current;
+
     setActiveSource(source);
     try {
       const items = await api.getProcessingQueue();
+
+      // F4: If a newer hydration started after us, discard our result.
+      if (myGeneration !== hydrationGenerationRef.current) return;
+
       const snapshot = coordinatorRef.current.createSnapshot(items, source);
       lastSnapshotRef.current = snapshot;
-      
+
       // On reconnect only: prune overlays that predate the new snapshot. This clears
       // stale overlays accumulated during a disconnect. We intentionally skip this for
       // 'refresh' (queue_updated-triggered) because the server updated_at timestamps
@@ -65,15 +80,30 @@ export const useQueueSync = () => {
         storeRef.current.pruneOlderThan(snapshot.hydratedAtSeconds - PRUNE_GRACE_SECONDS);
       }
 
+      // F3: Replay any events that arrived while snapshot was null, then clear buffer.
+      const buffered = pendingEventsRef.current.splice(0);
+      for (const replayFn of buffered) {
+        replayFn();
+      }
 
       updateDerivedState();
       setLoading(false);
       setIsReconnecting(false);
     } catch (e) {
       console.error(`Failed to refresh queue (${source})`, e);
+      // F3: Hydration failed and lastSnapshotRef is still null, so the buffered
+      // events have no snapshot to replay against. Drop them to bound the buffer —
+      // a subsequent successful hydration re-reads canonical state and supersedes
+      // any incremental events that would have been replayed. Only the latest
+      // hydration owns the buffer; older superseded ones must not clear it.
+      if (myGeneration === hydrationGenerationRef.current) {
+        pendingEventsRef.current.length = 0;
+      }
       setLoading(false);
     } finally {
-      setActiveSource(undefined);
+      if (myGeneration === hydrationGenerationRef.current) {
+        setActiveSource(undefined);
+      }
     }
   }, [updateDerivedState]);
 
@@ -92,36 +122,49 @@ export const useQueueSync = () => {
         event.topic === 'chapters.progress'
       ) {
         recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
-        if (event.topic === 'queue.items' && event.eventKind === 'queue_item_invalidated') {
-          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-          refreshQueue('refresh');
-        } else if (event.topic === 'queue.items' && event.eventKind === 'queue_paused') {
-          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-          refreshQueue('refresh');
-        } else if (event.topic === 'chapters.lifecycle') {
-          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-          refreshQueue('refresh');
-        } else if (event.jobId) {
-          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-          const updates = adaptEventToJobUpdates(event);
-          if (event.topic === 'jobs.lifecycle' && ['queued', 'preparing', 'finalizing', 'done', 'failed', 'cancelled'].includes((updates.status || '') as string)) {
-            updates.eta_seconds = null;
-            updates.eta_basis = null;
-            updates.estimated_end_at = null;
-            updates.active_segment_id = null;
-            updates.active_segment_progress = 0;
-            updates.active_segment_eta_seconds = null;
-            updates.active_segment_eta_basis = null;
-            updates.active_segment_updated_at = null;
-            updates.active_render_batch_id = null;
-            updates.active_render_batch_progress = null;
-          }
-          storeRef.current.applyJobUpdated(event.jobId, updates);
-          updateDerivedState();
-          const reasonCode = payload.reasonCode ?? payload.reason_code;
-          if (event.topic === 'jobs.lifecycle' && reasonCode === 'QUEUE_INVALIDATED') {
+
+        // F3: Helper that performs the actual state mutation. When the snapshot
+        // has not yet landed we capture it as a closure and push it onto the
+        // pending buffer; it will be replayed in order once the snapshot is set.
+        const applyEvent = () => {
+          if (event.topic === 'queue.items' && event.eventKind === 'queue_item_invalidated') {
+            recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
             refreshQueue('refresh');
+          } else if (event.topic === 'queue.items' && event.eventKind === 'queue_paused') {
+            recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
+            refreshQueue('refresh');
+          } else if (event.topic === 'chapters.lifecycle') {
+            recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
+            refreshQueue('refresh');
+          } else if (event.jobId) {
+            recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
+            const updates = adaptEventToJobUpdates(event);
+            if (event.topic === 'jobs.lifecycle' && ['queued', 'preparing', 'finalizing', 'done', 'failed', 'cancelled'].includes((updates.status || '') as string)) {
+              updates.eta_seconds = null;
+              updates.eta_basis = null;
+              updates.estimated_end_at = null;
+              updates.active_segment_id = null;
+              updates.active_segment_progress = 0;
+              updates.active_segment_eta_seconds = null;
+              updates.active_segment_eta_basis = null;
+              updates.active_segment_updated_at = null;
+              updates.active_render_batch_id = null;
+              updates.active_render_batch_progress = null;
+            }
+            storeRef.current.applyJobUpdated(event.jobId, updates);
+            updateDerivedState();
+            const reasonCode = payload.reasonCode ?? payload.reason_code;
+            if (event.topic === 'jobs.lifecycle' && reasonCode === 'QUEUE_INVALIDATED') {
+              refreshQueue('refresh');
+            }
           }
+        };
+
+        if (!lastSnapshotRef.current) {
+          // Snapshot not yet available — buffer the event for replay after hydration.
+          pendingEventsRef.current.push(applyEvent);
+        } else {
+          applyEvent();
         }
       }
     });

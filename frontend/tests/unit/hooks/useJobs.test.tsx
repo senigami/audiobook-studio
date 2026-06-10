@@ -1726,4 +1726,43 @@ describe('useJobs', () => {
     expect(updates.completed_render_groups).toBe(4);
     expect(updates.has_segment_support).toBe(true);
   });
+
+  it('subscription remains active after rerenders with new inline callbacks (no dropped events)', () => {
+    // Verify the hook stays subscribed after multiple rerenders where the caller
+    // passes brand-new inline function references every time. If the subscription
+    // effect listed callbacks as deps, it would tear down on each rerender and events
+    // arriving during teardown would be silently dropped.
+    let renderCount = 0;
+
+    const { result, rerender } = renderHook(() => {
+      renderCount++;
+      const rc = renderCount; // capture to guarantee new closure on each render
+      return useJobs(
+        () => { void rc; },
+        undefined,
+        () => { void rc; },
+        (_chapterId: string) => { void rc; },
+        (_chapterId: string) => { void rc; }
+      );
+    });
+
+    // Force several rerenders — each produces fresh inline callback references
+    rerender();
+    rerender();
+    rerender();
+    rerender();
+
+    // After all the rerenders, publish a snapshot event. If the subscription had been
+    // torn down and not re-established (i.e., there's a gap), jobs state would not update.
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'jobs_snapshot',
+        jobs: [{ id: 'stable-job', status: 'done', progress: 1 }],
+      });
+    });
+
+    // Subscription was intact: the event was received and state updated.
+    expect(result.current.jobs['stable-job']).toBeDefined();
+    expect(result.current.jobs['stable-job'].status).toBe('done');
+  });
 });

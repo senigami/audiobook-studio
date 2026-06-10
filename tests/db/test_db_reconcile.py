@@ -7,6 +7,7 @@ from app.db.core import init_db, get_connection
 from app.db.reconcile import (
     reconcile_project_audio, reconcile_all_chapter_statuses
 )
+from app.db.queue import reconcile_queue_status, upsert_queue_row
 from app.db.projects import create_project
 from app.db.chapters import create_chapter, get_chapter, update_chapter
 
@@ -102,3 +103,37 @@ def test_reconcile_all_empty_active(db_conn):
     with get_connection() as conn:
         row = conn.execute("SELECT audio_status FROM chapters WHERE id = ?", (cid,)).fetchone()
         assert row["audio_status"] == "unprocessed"
+
+
+def test_reconcile_queue_status_does_not_reset_chapter_with_done_row(db_conn):
+    """B3 regression: a chapter with a stale running row AND a done row must not be reset to unprocessed."""
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1")
+    update_chapter(cid, audio_status="processed")
+
+    # Insert a stale running row (not in active_ids, so reconcile will cancel it)
+    stale_job_id = "stale-running-job"
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO processing_queue (id, project_id, chapter_id, status, engine) VALUES (?, ?, ?, 'running', 'kokoro')",
+            (stale_job_id, pid, cid),
+        )
+        # Insert a done row for the same chapter
+        conn.execute(
+            "INSERT INTO processing_queue (id, project_id, chapter_id, status, engine) VALUES (?, ?, ?, 'done', 'kokoro')",
+            ("done-job", pid, cid),
+        )
+        conn.commit()
+
+    # Reconcile with no active jobs — stale running row should be cancelled
+    reconcile_queue_status([])
+
+    with get_connection() as conn:
+        chapter = conn.execute("SELECT audio_status FROM chapters WHERE id = ?", (cid,)).fetchone()
+        stale_row = conn.execute("SELECT status FROM processing_queue WHERE id = ?", (stale_job_id,)).fetchone()
+
+    # Chapter must not have been reset; stale row must have been cancelled
+    assert chapter["audio_status"] == "processed", (
+        f"Expected 'processed' but got '{chapter['audio_status']}' — B3 regression"
+    )
+    assert stale_row["status"] == "cancelled"

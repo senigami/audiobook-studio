@@ -36,6 +36,7 @@ describe('App', () => {
     global.fetch = vi.fn((url) => {
       if (url === '/api/home') {
         return Promise.resolve({
+          ok: true,
           json: () => Promise.resolve({
             projects: [],
             speaker_profiles: [
@@ -48,26 +49,31 @@ describe('App', () => {
       }
       if (url === '/api/jobs') {
         return Promise.resolve({
+          ok: true,
           json: () => Promise.resolve([])
         })
       }
       if (url === '/api/processing_queue') {
         return Promise.resolve({
+          ok: true,
           json: () => Promise.resolve([])
         })
       }
       if (url === '/api/projects') {
         return Promise.resolve({
+          ok: true,
           json: () => Promise.resolve([])
         })
       }
       if (url === '/api/projects/p1') {
         return Promise.resolve({
+          ok: true,
           json: () => Promise.resolve({ id: 'p1', name: 'Project 1', series: null, author: null, speaker_profile_name: null })
         })
       }
       if (url === '/api/projects/p1/chapters') {
         return Promise.resolve({
+          ok: true,
           json: () => Promise.resolve([
             { id: 'c1', project_id: 'p1', title: 'Chapter 1', sort_order: 0, audio_status: 'done', predicted_audio_length: 0, char_count: 0, word_count: 0 }
           ])
@@ -75,20 +81,23 @@ describe('App', () => {
       }
       if (url === '/api/projects/p1/audiobooks') {
         return Promise.resolve({
+          ok: true,
           json: () => Promise.resolve([])
         })
       }
       if (url === '/api/chapters/c1') {
         return Promise.resolve({
+          ok: true,
           json: () => Promise.resolve({ id: 'c1', project_id: 'p1', title: 'Chapter 1', sort_order: 0, audio_status: 'done' })
         })
       }
       if (url === '/api/speakers') {
         return Promise.resolve({
+          ok: true,
           json: () => Promise.resolve([])
         })
       }
-      return Promise.resolve({ json: () => Promise.resolve({}) })
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
     }) as any
   })
 

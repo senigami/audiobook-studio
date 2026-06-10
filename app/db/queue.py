@@ -325,16 +325,21 @@ def reconcile_queue_status(active_ids: List[str], known_job_statuses: Optional[D
                   AND id NOT IN ({','.join(['?'] * len(terminal_ids)) if terminal_ids else "''"})
             """, (now, *active_ids, *terminal_ids))
 
-            # Also sync chapter status
+            # Also sync chapter status, but only when the chapter has no 'done' row
             cursor.execute(f"""
-                UPDATE chapters 
-                SET audio_status = 'unprocessed' 
+                UPDATE chapters
+                SET audio_status = 'unprocessed'
                 WHERE id IN (
-                    SELECT chapter_id FROM processing_queue 
+                    SELECT chapter_id FROM processing_queue
                     WHERE status = 'cancelled'
                       AND id NOT IN ({placeholders})
                       AND id NOT IN ({','.join(['?'] * len(terminal_ids)) if terminal_ids else "''"})
                 )
+                  AND NOT EXISTS (
+                    SELECT 1 FROM processing_queue pq_done
+                    WHERE pq_done.chapter_id = chapters.id
+                      AND pq_done.status = 'done'
+                  )
             """, (*active_ids, *terminal_ids))
 
             conn.commit()
