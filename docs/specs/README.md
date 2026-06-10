@@ -1,4 +1,19 @@
-# Audiobook Studio — Spec Examples & Templates
+# Audiobook Studio — Specs
+
+## Canonical specs (authoritative contracts)
+
+Versioned, binding contracts per `plans/final_release/18_canonical_specs.md` — code that disagrees with a spec is a bug in one or the other:
+
+| Spec | Covers |
+| --- | --- |
+| [live-events.md](live-events.md) | WebSocket topics, envelope, lifecycle ordering, bootstrap/reconnect contract |
+| [queue-jobs.md](queue-jobs.md) | Job statuses/transitions, the two stores, terminal reset, reconciliation, ETA ownership |
+| [text-processing.md](text-processing.md) | Cleaning → splitting → packing → grouping pipeline invariants |
+| [testing-standards.md](testing-standards.md) | Binding test rules R1–R4 + the classification rubric |
+
+More arrive as their areas finalize (plugin contract, voice bundles, progress presentation, install/distribution).
+
+## Spec examples & templates
 
 Concrete, copyable examples for the distribution specs in `plans/`. These are
 **target-state templates** (the format we're moving to before release); the live code will
@@ -9,12 +24,12 @@ be adjusted to read them. Each mirrors a plan doc:
 | `voice-bundle-template/` | `plans/v2_huggingface_voice_repo_spec.md` | A complete voice as it should look on Hugging Face (loose form). Zip this folder to make a `.asvoice.zip`. |
 | `voice.schema.json` | same | JSON Schema for `voice.json`; validate a bundle against it before upload. |
 | `voice-taxonomy.json` | `plans/v2_voice_tag_taxonomy.md` | The controlled tag vocabulary as machine-readable data (drives the tagging UI and validation). |
-| `engine-bundle-template/` | `plans/v2_engine_bundle_gitlab_distribution.md` + `plans/v2_plugin_sdk.md` | A TTS engine repo as it should look on GitLab. `git clone` target. |
+| `engine-bundle-template/` | `plans/v2_engine_bundle_gitlab_distribution.md` + `plans/v2_plugin_sdk.md` | A TTS engine repo as it should look on GitHub (the GitLab plan is superseded — see plans/final_release/05_standalone_plugin_repos.md). `git clone` target. |
 
 ## Using the voice template
 1. Copy `voice-bundle-template/` and rename the folder to your voice id.
 2. Edit `voice.json` (it is the source of truth). Add `icon.png` (1:1) and
-   `samples/preview.wav`.
+   `samples/preview.mp3`.
 3. Regenerate `README.md` from `voice.json` (the Studio exporter does this automatically).
 4. Validate against `voice.schema.json`.
 5. Upload to Hugging Face as a **model** repo (loose files), or export a `.asvoice.zip`.

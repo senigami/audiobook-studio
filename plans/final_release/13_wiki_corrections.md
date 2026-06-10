@@ -14,6 +14,8 @@ Fact-check results (2026-06-10) of `wiki/` against the actual code, beyond the i
 - [ ] **W12. Job types list incomplete** — `wiki/Queue-and-Jobs.md`. Add `voice_build` (XTTS profile build) and `voice_test` (voice preview) as queue-visible job types; clarify "Baking" is the `is_bake` flag on synthesis, not a distinct kind (`app/db/models.py:5`).
 - [x] **W13. RESOLVED by owner ruling (2026-06-10)** — voice samples/previews are MP3 (canonical `sample.mp3`); `app/domain/voices/bundles.py:24` accepting both `sample.mp3` and `sample.wav` is fine as a tolerant reader, mp3 is canonical. Wiki updated. Remaining: align `docs/specs/voice-bundle-template/voice.json` (`samples/preview.wav` → `preview.mp3`) — tracked in doc 01 W-2 / doc 04.
 
+- [ ] **W20. Wiki websocket topic list incomplete** — the wiki documents 6 topics but code emits 10 stable topics + a `plugins.<id>.<area>` namespace (`chapters.lifecycle`, `segments.lifecycle`, `system.events`, `projects.lifecycle` missing). Update from the authoritative spec `docs/specs/live-events.md`; also soften the "7-step lifecycle ordering" claim to documented-intent per the spec.
+
 ## Missing coverage (features that exist but have no wiki docs)
 
 - [ ] **W14. Settings → API tab** — local TTS API enable, API key auth, rate limit, LAN binding, queue priority mode (`ApiSettingsPanel.tsx`, `app/db/state_settings.py`). Add a section to `wiki/Settings.md`; consider a dedicated API page (Phase 13 already plans API docs — coordinate).

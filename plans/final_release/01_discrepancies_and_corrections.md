@@ -37,7 +37,7 @@ The original audit inverted this: it flagged `sample.mp3` in `wiki/Getting-Start
 
 **Remaining correction (spec, not wiki)**
 - [x] Wiki pages restored to mp3 (done 2026-06-10).
-- [ ] `docs/specs/voice-bundle-template/voice.json` line 10 references `samples/preview.wav` — change to `samples/preview.mp3` (and any other `.wav` sample references in the template/`voice.schema.json`) to match the convention. Owned by doc 04's bundle alignment work.
+- [x] RESOLVED 2026-06-10 (with doc 18 SP-batch commit): `docs/specs/voice-bundle-template/voice.json` referenced `samples/preview.wav` — change to `samples/preview.mp3` (and any other `.wav` sample references in the template/`voice.schema.json`) to match the convention. Owned by doc 04's bundle alignment work.
 
 **Acceptance**
 Wiki, `voice.schema.json`, and the bundle template all show mp3 for samples/previews; render-pipeline docs still say WAV.

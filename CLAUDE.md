@@ -11,7 +11,9 @@ Audiobook Studio is a local-first FastAPI + React app that turns manuscripts int
 - **Audio formats:** voice samples/previews are MP3 (`sample.mp3`, `samples/preview.mp3`); chapter/book render audio is WAV; portable voice bundles are MP3.
 - The release plan lives in `plans/final_release/` (doc 08 is the execution order). Where it conflicts with older `plans/` docs or other guidance in this file, the final_release folder wins.
 
-## Testing standards (binding — see plans/final_release/17_test_quality_audit.md)
+## Testing standards (binding — see docs/specs/testing-standards.md)
+
+Authoritative spec: `docs/specs/testing-standards.md`.
 
 - **R1 — Revert-check every bug-fix test:** a test landing with a fix must fail on the pre-fix code. Verify it: stash the fix, run the test, confirm red, restore.
 - **R2 — Mock boundaries only:** a test may mock only what is *outside* the unit under test (network, clock, filesystem, the TTS engine, broadcast capture at the websocket boundary) — never the module the test file is named for, and never the state-store internals of the function under test.
