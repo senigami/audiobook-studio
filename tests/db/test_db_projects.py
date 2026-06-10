@@ -65,9 +65,9 @@ def test_project_crud(db_conn, tmp_path):
 
 def test_list_projects_order(db_conn):
     pid1 = create_project("P1")
-    import time
-    time.sleep(0.1)
     pid2 = create_project("P2")
+    # Force updated_at ordering by touching pid2 after pid1
+    update_project(pid2, name="P2")
 
     projects = list_projects()
     # Ordered by updated_at DESC

@@ -389,54 +389,6 @@ def test_mandatory_synthesis_duration_contract(clean_db):
         )
 
 
-def test_xtts_segment_adapter_text_capture(clean_db, monkeypatch):
-    from plugins.tts_xtts.plugin.studio.adapter import xtts_dispatch_adapter
-    from app.db.models import Job
-    from app.db.state import put_job
-    from app.db.performance import record_render_sample
-
-    # Mock get_profile_wavs and get_speaker_settings to avoid filesystem dependency
-    monkeypatch.setattr("app.db.speakers.get_profile_wavs", lambda x: ["/dummy.wav"])
-    monkeypatch.setattr("app.db.speakers.get_speaker_settings", lambda x: {"speed": 1.0})
-    monkeypatch.setattr("plugins.tts_xtts.plugin.studio.handler.handle_xtts_job", lambda *args, **kwargs: 0)
-
-    # Create terminal Job
-    jid = "xtts-segment-text-test"
-    now = time.time()
-    job = Job(
-        id=jid,
-        engine="xtts",
-        status="done",
-        project_id="p1",
-        chapter_id="c1",
-        speaker_profile="spk1",
-        created_at=now - 20,
-        started_at=now - 10,
-        finished_at=now,
-        synthesis_duration_seconds=5.0
-    )
-    put_job(job)
-
-    # Invoke dispatch adapter
-    xtts_dispatch_adapter(jid, job, start=now - 10, on_output=lambda x: None, cancel_check=lambda: False, text="This is segment text")
-
-    # Simulate the single-source orchestrator completion path recording the sample
-    record_render_sample(
-        engine="xtts",
-        chars=len("This is segment text"),
-        segment_count=1,
-        duration_seconds=10.0,
-        job_id=jid,
-        project_id="p1",
-        chapter_id="c1",
-        synthesis_duration_seconds=5.0,
-    )
-
-    history = get_render_history()
-    assert len(history) == 1
-    assert history[0]["chars"] == len("This is segment text")
-
-
 def test_record_engine_sample_contract_enforcement(clean_db, clean_state):
     from app.jobs.worker_metrics import record_engine_sample
     from app.db.state import put_job
@@ -745,60 +697,6 @@ def test_record_render_sample_stores_load_and_pure_render_seconds(clean_db):
     assert abs(sample["cps"] - 33.33) < 0.01
 
 
-def test_xtts_job_records_only_one_render_sample(clean_db, clean_state, monkeypatch):
-    """An XTTS job should record only one sample (from the orchestrator path)."""
-    from plugins.tts_xtts.plugin.studio.adapter import xtts_dispatch_adapter
-    from app.db.models import Job
-    from app.db.state import put_job
-
-    # Mock dependencies for xtts_dispatch_adapter
-    monkeypatch.setattr("app.db.speakers.get_profile_wavs", lambda x: ["/dummy.wav"])
-    monkeypatch.setattr("app.db.speakers.get_speaker_settings", lambda x: {"speed": 1.0})
-    monkeypatch.setattr("plugins.tts_xtts.plugin.studio.handler.handle_xtts_job", lambda *args, **kwargs: 0)
-
-    # 1. Setup Job in done state
-    jid = "xtts-single-write-test"
-    now = time.time()
-    job = Job(
-        id=jid,
-        engine="xtts",
-        status="done",
-        project_id="p1",
-        chapter_id="c1",
-        speaker_profile="spk1",
-        created_at=now - 20,
-        started_at=now - 10,
-        finished_at=now,
-        synthesis_duration_seconds=5.0
-    )
-    put_job(job)
-
-    # 2. Invoke xtts_dispatch_adapter (worker path) - this should NOT write to DB because we bypassed XTTS in record_engine_sample
-    xtts_dispatch_adapter(jid, job, start=now - 10, on_output=lambda x: None, cancel_check=lambda: False, text="Hello world")
-
-    # Let's inspect get_render_history
-    history_after_adapter = get_render_history()
-    # At this point, worker-metrics is skipped for XTTS, so it should be 0.
-    assert len(history_after_adapter) == 0
-
-    # 3. Simulate orchestrator completion path writing stats
-    from app.db.performance import record_render_sample
-    record_render_sample(
-        engine="xtts",
-        chars=11,
-        segment_count=1,
-        duration_seconds=10.0,
-        job_id=jid,
-        project_id="p1",
-        chapter_id="c1",
-        synthesis_duration_seconds=5.0,
-    )
-
-    history = get_render_history()
-    # Should only have 1 sample in total
-    assert len(history) == 1, f"Expected exactly 1 sample, found {len(history)}: {history}"
-
-
 def test_xtts_sample_uses_actual_segment_count(clean_db, clean_state):
     """XTTS render sample should use segment count from structured timing if available, or canonical state, not sentence count fallback."""
     from app.db.performance import record_render_sample
@@ -869,13 +767,8 @@ def test_make_mp3_not_written_to_db(clean_db):
         # We can also fetch by column names to verify make_mp3 is either absent or not set to 1.
         cursor.execute("PRAGMA table_info(render_performance_samples)")
         columns = [r[1] for r in cursor.fetchall()]
-        # If the schema does not create the column at all, make_mp3 won't be in columns.
-        # If it still exists in older DBs, it might be there, but our code should not insert into it.
-        # Let's assert make_mp3 is either not in columns, or if it is, the value is 0 (default).
-        if "make_mp3" in columns:
-            cursor.execute("SELECT make_mp3 FROM render_performance_samples WHERE job_id = ?", (jid,))
-            val = cursor.fetchone()[0]
-            assert val == 0 or val is None
+        # After the make_mp3 column removal migration, it must not exist in the current schema.
+        assert "make_mp3" not in columns
 
 
 def test_render_sample_records_explicit_model_without_db_defaulting(clean_db):

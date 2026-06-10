@@ -18,19 +18,19 @@ Disposition: VACUOUS/MOCKED-OUT → rewrite as REAL if the behavior matters, els
 
 ## 2. Priority order (audit where the pain was)
 
-- [ ] **T1. Queue/job lifecycle tests** — `tests/db/test_db_queue.py`, `test_db_reconcile.py`, `test_state_queue_sync.py`, `test_state_rules.py`, `test_clear_logic.py`, the new `test_state_jobs_broadcast.py`; frontend `tests/unit/hooks/useQueueSync.test.tsx`, `useJobs.test.tsx`. This is where false coverage already burned us. For each test: name the production scenario it represents; if you can't, it's WRONG-SCENARIO or VACUOUS.
+- [x] **T1. Queue/job lifecycle tests** (done 2026-06-10 — tables in audits/) — `tests/db/test_db_queue.py`, `test_db_reconcile.py`, `test_state_queue_sync.py`, `test_state_rules.py`, `test_clear_logic.py`, the new `test_state_jobs_broadcast.py`; frontend `tests/unit/hooks/useQueueSync.test.tsx`, `useJobs.test.tsx`. This is where false coverage already burned us. For each test: name the production scenario it represents; if you can't, it's WRONG-SCENARIO or VACUOUS.
   *Accept:* a written classification table (file → test → class → action taken); every surviving test maps to a documented lifecycle behavior in the Live Event Stream Contract (wiki) or doc 09.
-- [ ] **T2. Segment/progress tests** — anything touching `segments`, chapter progress, `PredictiveProgressBar` (incl. doc 15's new ETA model tests when they land). Bar tests must assert displayed-progress invariants (monotonic unless backward allowed, lane transitions, floor honoring) against the real component — not a re-implementation of its math in the test.
-- [ ] **T3. Websocket/event-stream tests** — frontend socket-bus driven tests: verify they publish realistic envelope frames (versioned, correct topics per doc 02) rather than hand-rolled shapes the app never sends. Any fixture frame that doesn't validate against `frontend/src/api/contracts/liveEvents.ts` is WRONG-SCENARIO.
-- [ ] **T4. Remaining backend suites** — `tests/api`, `tests/domain`, `tests/engines`, `tests/utils`, etc. Lower priority sweep with the same rubric; bias toward deletion of vacuous tests over rewriting low-value ones.
+- [x] **T2. Segment/progress tests** (done 2026-06-10 — table in audits/test_audit_progress_segments.md) — anything touching `segments`, chapter progress, `PredictiveProgressBar` (incl. doc 15's new ETA model tests when they land). Bar tests must assert displayed-progress invariants (monotonic unless backward allowed, lane transitions, floor honoring) against the real component — not a re-implementation of its math in the test.
+- [x] **T3. Websocket/event-stream tests** (done 2026-06-10 — covered across the frontend audit tables; all frames contract-checked) — frontend socket-bus driven tests: verify they publish realistic envelope frames (versioned, correct topics per doc 02) rather than hand-rolled shapes the app never sends. Any fixture frame that doesn't validate against `frontend/src/api/contracts/liveEvents.ts` is WRONG-SCENARIO.
+- [x] **T4. Remaining backend suites** (done 2026-06-10 — tables in audits/: api_part1/2, orchestration_part1/2, engines, db_remainder, backend_misc) — `tests/api`, `tests/domain`, `tests/engines`, `tests/utils`, etc. Lower priority sweep with the same rubric; bias toward deletion of vacuous tests over rewriting low-value ones.
 - [ ] **T5. Coverage honesty check** — coverage % is currently 77% but that includes vacuous execution. After T1–T3, spot-check 10 random "covered" lines in `app/db/state_jobs.py`, `app/db/queue.py`, `frontend/src/hooks/useQueueSync.ts`: is there a test that would FAIL if that line's behavior inverted? Record the hit rate.
 
 ## 3. Standing rules going forward (add to CLAUDE.md / contributor docs)
 
-- [ ] **R1.** Every bug fix lands with a test that fails on the pre-fix code. Reviewer (or agent) must actually revert-check: stash the fix, run the test, confirm red, restore. (The Stage 1a tests were written this way; keep it.)
-- [ ] **R2.** A test may mock only what is *outside* the unit under test (network, clock, filesystem, the TTS engine) — never the module named in the test file.
-- [ ] **R3.** Frontend live-event tests must build frames via the contract types in `liveEvents.ts` (compile-time enforcement) — no untyped object literals for socket frames.
-- [ ] **R4.** No `sleep`-based timing assertions; use fake timers (vitest) / explicit synchronization (pytest threading events).
+- [x] **R1.** (in CLAUDE.md) Every bug fix lands with a test that fails on the pre-fix code. Reviewer (or agent) must actually revert-check: stash the fix, run the test, confirm red, restore. (The Stage 1a tests were written this way; keep it.)
+- [x] **R2.** (in CLAUDE.md) A test may mock only what is *outside* the unit under test (network, clock, filesystem, the TTS engine) — never the module named in the test file.
+- [x] **R3.** (in CLAUDE.md) Frontend live-event tests must build frames via the contract types in `liveEvents.ts` (compile-time enforcement) — no untyped object literals for socket frames.
+- [x] **R4.** (in CLAUDE.md) No `sleep`-based timing assertions; use fake timers (vitest) / explicit synchronization (pytest threading events).
 
 ## 4. Execution
 

@@ -13,17 +13,22 @@ describe('useWebSocket', () => {
       send: vi.fn(),
       close: vi.fn(),
       readyState: WebSocket.CONNECTING,
+      onopen: null as any,
+      onclose: null as any,
+      onmessage: null as any,
+      onerror: null as any,
     };
 
     global.WebSocket = vi.fn().mockImplementation(() => {
       setTimeout(() => {
-        if (mockSocket.onopen) mockSocket.onopen();
-        mockSocket.readyState = WebSocket.OPEN;
+        if (mockSocket.onopen) {
+          mockSocket.onopen();
+          mockSocket.readyState = WebSocket.OPEN;
+        }
       }, 0);
       return mockSocket;
     }) as any;
-    
-    // Set up standard WebSocket constants if they aren't there
+
     (global.WebSocket as any).CONNECTING = 0;
     (global.WebSocket as any).OPEN = 1;
     (global.WebSocket as any).CLOSING = 2;
@@ -39,7 +44,7 @@ describe('useWebSocket', () => {
     const { result } = renderHook(() => useWebSocket('/ws', onMessage));
 
     expect(global.WebSocket).toHaveBeenCalledWith(expect.stringContaining('/ws'));
-    
+
     await act(async () => {
       vi.advanceTimersByTime(1);
     });
@@ -116,17 +121,17 @@ describe('useWebSocket', () => {
     });
 
     const payload = {
-      type: 'studio_job_event',
-      source: 'app.db.state_jobs.update_job',
-      scope: 'chapter',
-      classification: 'chapter',
-      job_id: 'job-123',
-      project_id: 'proj-456',
-      chapter_id: 'chap-789',
-      status: 'running',
-      progress: 0.5,
-      reason_code: 'none',
-      extra_field: 'ignored'
+      type: 'studio_event',
+      version: 1,
+      topic: 'queue.items',
+      eventKind: 'queue_item_status',
+      source: 'backend',
+      ids: { jobId: 'job-123', projectId: 'proj-456', chapterId: 'chap-789' },
+      payload: {
+        status: 'running',
+        progress: 0.5,
+        classification: 'chapter',
+      },
     };
     const mockEvent = { data: JSON.stringify(payload) };
 
@@ -136,5 +141,46 @@ describe('useWebSocket', () => {
 
     expect((window as any).__websocketRecentMessages).toBeUndefined();
     expect(onMessage).toHaveBeenCalledWith(payload, mockEvent.data);
+  });
+
+  // Reconnect leak / unmount safety tests
+  it('does not reconnect after unmount when close event fires post-unmount', async () => {
+    const { unmount } = renderHook(() => useWebSocket('/ws', vi.fn()));
+
+    await act(async () => { vi.advanceTimersByTime(1); });
+    expect(global.WebSocket).toHaveBeenCalledTimes(1);
+
+    // Unmount — cleanup strips onclose and closes socket
+    unmount();
+
+    // Simulate the server closing the socket after unmount (onclose is null now)
+    // but also test if onclose were somehow still called
+    act(() => {
+      if (mockSocket.onclose) {
+        mockSocket.onclose();
+      }
+    });
+
+    // Advance past the reconnect delay — no new socket should be created
+    act(() => { vi.advanceTimersByTime(10000); });
+
+    expect(global.WebSocket).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels a pending reconnect timer when unmounted before it fires', async () => {
+    const { unmount } = renderHook(() => useWebSocket('/ws', vi.fn()));
+
+    await act(async () => { vi.advanceTimersByTime(1); });
+
+    // Trigger close while mounted — schedules 5 s reconnect timer
+    act(() => { mockSocket.onclose?.(); });
+
+    // Unmount before the timer fires
+    unmount();
+
+    act(() => { vi.advanceTimersByTime(10000); });
+
+    // Still only 1 WebSocket — reconnect was cancelled
+    expect(global.WebSocket).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,4 +1,5 @@
 import pytest
+import os
 import time
 from fastapi.testclient import TestClient
 from app.api.web import app
@@ -17,12 +18,14 @@ def test_project_audiobook_history_endpoint(tmp_path):
 
     f1 = m4b_dir / "v1.m4b"
     f1.write_text("audio v1")
-
-    # Small delay to ensure mtime difference
-    time.sleep(0.1)
+    # Set explicit mtime to guarantee ordering without sleeping
+    t1 = 1_700_000_000.0
+    os.utime(f1, (t1, t1))
 
     f2 = m4b_dir / "v2.m4b"
     f2.write_text("audio v2")
+    t2 = t1 + 60.0
+    os.utime(f2, (t2, t2))
 
     # 3. Call the new endpoint
     response = client.get(f"/api/projects/{pid}/audiobooks")

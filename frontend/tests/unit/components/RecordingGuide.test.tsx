@@ -43,19 +43,17 @@ describe('RecordingGuide', () => {
         expect(screen.getByText(/Okay, yes! This is going to be fun/i)).toBeInTheDocument();
     });
 
-    it('copies prompt text to clipboard', async () => {
+    it('copies the first prompt text to clipboard', async () => {
         render(<RecordingGuide />);
+        // Neutral / Calm is expanded by default; first prompt is the "Audio check" line
         const copyBtns = screen.getAllByTitle('Copy text');
-        
+
         await act(async () => {
           fireEvent.click(copyBtns[0]);
         });
-        
-        expect(navigator.clipboard.writeText).toHaveBeenCalled();
-        
-        // Verify it sets copied state and then resets it
-        act(() => {
-          vi.advanceTimersByTime(2000);
-        });
+
+        expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+          expect.stringContaining('Audio check')
+        );
     });
 });

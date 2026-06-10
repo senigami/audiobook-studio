@@ -156,20 +156,6 @@ def test_voice_test_job_uses_descriptive_queue_title(clean_db, voices_root, clie
     assert queued_job.custom_title == "Building voice for Alice: Warm"
 
 
-def test_speaker_settings_updates(clean_db, client):
-    with patch("app.api.routers.voices_actions.update_speaker_settings") as mock_update:
-        # Test text
-        response = client.post("/api/speaker-profiles/SpeakerA/test-text", data={"text": "Hello world"})
-        assert response.status_code == 200
-        assert response.json()["test_text"] == "Hello world"
-
-        # Speed
-        response = client.post("/api/speaker-profiles/SpeakerA/speed", data={"speed": 1.2})
-        assert response.status_code == 200
-        assert response.json()["speed"] == 1.2
-
-    assert mock_update.call_count == 2
-
 
 def test_reset_speaker_test_text(clean_db, voices_root, client):
     from app.api.routers.voices import DEFAULT_SPEAKER_TEST_TEXT

@@ -424,8 +424,7 @@ describe('useQueueSync', () => {
       activeSegmentProgress: 0.75,
     }, { jobId: 'job-segment-ignore', projectId: 'proj-1', chapterId: 'chap-1', segmentId: 'seg-1' });
 
-    await new Promise(resolve => setTimeout(resolve, 50));
-
+    // segments.progress should be ignored by main queue — assert state is unchanged
     const job = result.current.queue.find((q: any) => q.id === 'job-segment-ignore');
     expect(job?.progress).toBe(0.2);
     expect(job?.eta_seconds).toBe(40);
@@ -625,7 +624,7 @@ describe('useQueueSync', () => {
       classification: 'job',
     }, { jobId: 'job-stale-older' });
 
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // Stale overlay (updatedAt=100 < snapshot updated_at=200) must not overwrite the done snapshot
     const job = result.current.queue.find((q: any) => q.id === 'job-stale-older');
     expect(job?.status).toBe('done');
     expect(job?.progress).toBe(1.0);
@@ -679,9 +678,7 @@ describe('useQueueSync', () => {
       line: '[PROGRESS] 50% job-tts-ignore, ETA 10 seconds',
     }, { jobId: 'job-tts-ignore' });
 
-    // Wait small delay to ensure it is ignored
-    await new Promise(resolve => setTimeout(resolve, 50));
-
+    // tts.logs should not affect queue ETA — assert state is unchanged
     const job = result.current.queue.find((q: any) => q.id === 'job-tts-ignore');
     expect(job?.eta_seconds).toBe(30);
   });

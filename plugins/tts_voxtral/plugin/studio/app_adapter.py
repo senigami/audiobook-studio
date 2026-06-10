@@ -15,13 +15,13 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 from app.core.config import VOICES_DIR
 from app.engines.errors import EngineExecutionError, EngineRequestError
 from app.engines.voice.base import BaseVoiceEngine
 from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
 from app.engines.models import EngineHealthModel, EngineManifestModel
+
+logger = logging.getLogger(__name__)
 
 INTENDED_UPSTREAM_CALLERS = (
     "app.engines.registry",

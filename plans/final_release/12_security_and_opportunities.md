@@ -26,6 +26,11 @@ Note: this audit found live code under `app/orchestration/tasks/` (e.g. `api_syn
 - [ ] **S11. ffmpeg concat quoting** — `app/engines/audio_ops.py:101-105`: shell-style `'\''` escaping isn't valid in ffmpeg concat lists; apostrophe filenames (O'Brien.wav) break. Use double-quoted paths.
   *(ffmpeg invocation overall is list-based, no shell=True — no injection found.)*
 
+
+## CodeQL alert inventory (added 2026-06-10)
+
+GitHub Advanced Security has **53 open alerts** on the Phase 12.2 PR head: 33 `py/path-injection` (clusters: `app/db/speakers.py`, `app/tts_server/settings_store.py`, voice/bundle routers), 16 `py/stack-trace-exposure` (mostly `app/api/routers/engines.py` returning exception text to clients), 4 `py/polynomial-redos` (`app/utils/text/textops_cleaning.py` regexes). Full list: [audits/codeql_open_alerts_pr123.md](audits/codeql_open_alerts_pr123.md). Execute as part of Stage 1d alongside S1–S5: path-injection fixes follow the constant-selection + resolved-containment pattern used in `app/api/tts_api.py` (commit de15cca5); stack-trace exposures return generic messages and log the detail server-side; ReDoS regexes get linear rewrites or input length caps.
+
 ## Part 2 — Product opportunities (post-release backlog, owner to cherry-pick)
 
 Ranked by value-for-effort for the audiobook-author audience:

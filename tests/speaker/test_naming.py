@@ -1,4 +1,5 @@
 import json
+from unittest.mock import patch
 from app.db.speakers import create_speaker
 
 def test_variant_folder_naming(clean_db, voices_root, client):
@@ -7,9 +8,11 @@ def test_variant_folder_naming(clean_db, voices_root, client):
     # 1. Create a speaker
     sid = create_speaker("TestSpeaker")
 
-    # 2. Create a variant for it
-    response = client.post("/api/speaker-profiles", data={"speaker_id": sid, "variant_name": "Variant1"})
-    assert response.status_code == 200
+    # 2. Create a variant for it — engine validation is bypassed so the test
+    #    exercises only the naming/folder-creation contract.
+    with patch("app.api.routers.voices_management.voices_helpers._is_engine_active", return_value=True):
+        response = client.post("/api/speaker-profiles", data={"speaker_id": sid, "variant_name": "Variant1", "engine": "xtts"})
+    assert response.status_code == 200, response.text
     name = response.json()["name"]
 
     # MUST use dash convention: "TestSpeaker - Variant1"
@@ -47,9 +50,10 @@ def test_add_variant_to_unassigned(clean_db, voices_root, client):
     (voice_root / "Default").mkdir()
     (voice_root / "Default" / "profile.json").write_text("{}")
 
-    # 2. Add a variant to it
-    response = client.post("/api/speaker-profiles", data={"speaker_id": "FreshVoice", "variant_name": "Variant1"})
-    assert response.status_code == 200
+    # 2. Add a variant to it — engine validation bypassed; tests folder creation contract.
+    with patch("app.api.routers.voices_management.voices_helpers._is_engine_active", return_value=True):
+        response = client.post("/api/speaker-profiles", data={"speaker_id": "FreshVoice", "variant_name": "Variant1", "engine": "xtts"})
+    assert response.status_code == 200, response.text
     name = response.json()["name"]
 
     # MUST use dash convention: "FreshVoice - Variant1"

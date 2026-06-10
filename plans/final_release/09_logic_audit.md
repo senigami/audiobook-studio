@@ -76,6 +76,14 @@ Owner policy applies throughout: legacy code is deleted, not preserved (see `01_
 - [x] **F13 (Hygiene). Module-level `progressMemory` Map grows unboundedly** across jobs (keyed `persistenceKey:startedAt`); entries are only removed via `resetPredictiveProgressMemory`. Audit callers; evict terminal jobs' keys.
 - [x] **B13 (Clarity). Contradictory broadcast flags** — `segments.py` passes both `force_broadcast=True` and `_SKIP_LIVE_BROADCASTS` (`skip_studio_job_event`, `skip_job_updated`) to `update_job` for START_SEGMENT/PROGRESS updates. Document the intended topic routing in `state_jobs.py` (which topics each flag suppresses) — this is exactly the topic-ownership tuning Memory/state.json lists as a next step, and it's where future regressions will hide.
 
+## Addendum 2 — production bugs surfaced by the full test audit (2026-06-10, doc 17 T3/T4)
+
+- [ ] **F14 (Bug). ScriptView crashes on undefined `data.paragraphs`** — `frontend/src/pages/ChapterEditor/components/ScriptView.tsx:460` calls `data.paragraphs.map(...)` without guarding `data`; the App.test.tsx chapter-route test logs the unhandled exception but still passes. **Fix:** null-guard `data`/`data.paragraphs` (render empty/loading state) or wrap in an error boundary; make the test assert no console error.
+- [ ] **F15 (Bug). `useInitialData` never signals fetch failure** — on rejection the hook only logs and stays `loading: true` forever → infinite spinner. **Fix:** add an `error` state, surface a retryable error UI in App.
+- [ ] **B14 (Test-env). `test_voice_bridge_describes_remote_registry_by_default` is environment-dependent** — passes only when a live TTS server is running; would fail in clean CI. Needs a mock TTS-server fixture (or skip-unless marker) — flagged in audits/test_audit_backend_misc.md.
+- [ ] **B15 (Coverage gap). `ETA_PROJECTION_SKIP_REASONS` suppression has no real test** — the deleted vacuous test named this contract (segment-boundary events must not project bad ETA) but only checked set membership. Write an end-to-end test through `update_job`.
+- [ ] **B16 (Test-infra). Hardcoded `/tmp/*.db` fixture paths** — tests/db conftest + tests/api voice fixtures use fixed /tmp paths; collide under parallel runs. Migrate to `tmp_path`-based fixtures.
+
 ## Verification gate for this doc
 
 - [ ] `pytest` green after backend fixes; new regression tests for B2, B3, B8, B9 included.
