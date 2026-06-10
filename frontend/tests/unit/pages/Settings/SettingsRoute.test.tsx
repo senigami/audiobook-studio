@@ -366,7 +366,9 @@ describe('SettingsRoute', () => {
     });
   });
 
-  it('persists engine settings and refreshes the registry', async () => {
+  // Generous timeout: this flow renders the full engines panel and has been
+  // observed to exceed the 5s default on slow CI runners.
+  it('persists engine settings and refreshes the registry', { timeout: 20000 }, async () => {
     render(
       <MemoryRouter initialEntries={['/settings/engines']}>
         <SettingsRoute {...defaultProps} />
