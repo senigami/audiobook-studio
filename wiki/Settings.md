@@ -35,6 +35,14 @@ The **TTS Engines** settings area is now the control center for Studio 2.0 plugi
 
 Plugin-specific runtime settings are stored under Studio-managed plugin data, not inside the plugin source folder.
 
+### Plugin Trust
+
+**Plugins run unsandboxed** with the same permissions as Studio — full file system and network access. Installing a plugin means executing third-party Python code.
+
+When you import a plugin zip or click **Install Deps**, Studio shows a confirmation dialog listing the engine name, version, and every dependency line before anything is installed. Dependency lines that reference a remote URL (`git+`, `http://`, `https://`) are marked **REMOTE** because they pull and execute code from the internet at install time.
+
+Only install plugins from sources you trust. Plugin signing and a verified-publisher registry are planned for a future Studio release.
+
 ## Privacy Note
 
 If you enable `Voxtral (Cloud)`, the text being synthesized and any selected reference audio for that request are sent to Mistral. If you want a fully local workflow, keep your voices on `XTTS (Local)`.

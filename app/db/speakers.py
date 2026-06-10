@@ -8,7 +8,7 @@ import sqlite3
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
-from ..utils.pathing import safe_join, safe_join_flat, find_secure_file, secure_join_flat
+from ..utils.pathing import safe_basename, safe_join, safe_join_flat, find_secure_file, secure_join_flat
 from ..core import config
 from ..engines.voice_engines import get_default_profile_engine, list_tts_engines
 
@@ -127,11 +127,15 @@ def _new_profile_dir(voices_dir: Path, profile_name: str) -> Path:
         if " - " in name:
             parts = [s.strip() for s in name.split(" - ", 1)]
             if len(parts) == 2:
-                fullpath = (voices_dir / parts[0] / parts[1]).resolve()
+                safe_part0 = safe_basename(parts[0])
+                safe_part1 = safe_basename(parts[1])
+                fullpath = (voices_dir / safe_part0 / safe_part1).resolve()
             else:
-                fullpath = (voices_dir / name).resolve()
+                safe_name = safe_basename(name)
+                fullpath = (voices_dir / safe_name).resolve()
         else:
-            fullpath = (voices_dir / name).resolve()
+            safe_name = safe_basename(name)
+            fullpath = (voices_dir / safe_name).resolve()
 
         fullpath.relative_to(voices_dir.resolve())
         return fullpath
@@ -208,9 +212,21 @@ def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
     prefix_source = speaker_name or (None if _looks_like_uuid(target_profile) else target_profile)
     voices_root = config.VOICES_DIR
     if prefix_source and voices_root.exists():
-        # Nested layout candidates
-        v_dir_path = voices_root / prefix_source
-        if v_dir_path.exists() and v_dir_path.is_dir():
+        # Nested layout candidates — sanitize prefix_source before joining (Rule 9)
+        try:
+            _safe_prefix = safe_basename(prefix_source)
+        except ValueError:
+            _safe_prefix = None
+        if _safe_prefix:
+            v_dir_path = voices_root / _safe_prefix
+            # Containment proof
+            try:
+                v_dir_path.resolve().relative_to(voices_root.resolve())
+            except (ValueError, OSError):
+                v_dir_path = None
+        else:
+            v_dir_path = None
+        if v_dir_path is not None and v_dir_path.exists() and v_dir_path.is_dir():
             try:
                 for entry in sorted(os.scandir(v_dir_path), key=lambda e: e.name):
                     if entry.is_dir():

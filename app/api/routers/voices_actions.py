@@ -201,8 +201,9 @@ async def build_speaker_profile(
     except Exception as e:
         from ...engines.errors import EngineUnavailableError
         if isinstance(e, EngineUnavailableError):
-             return JSONResponse({"status": "error", "message": str(e)}, status_code=503)
-        logger.error(f"Error preparing path for profile {name}: {e}")
+            logger.exception("Engine unavailable during profile build for %s", name)
+            return JSONResponse({"status": "error", "message": "The TTS engine is currently unavailable."}, status_code=503)
+        logger.exception("Error preparing path for profile %s", name)
         return JSONResponse({"status": "error", "message": "Build failed"}, status_code=500)
 
     saved_files = []
@@ -228,7 +229,10 @@ async def build_speaker_profile(
                     f.write(data)
 
         await anyio.to_thread.run_sync(save_file, content, dest)
-        saved_files.append(pathing.safe_basename(f.filename))
+        try:
+            saved_files.append(pathing.safe_basename(f.filename))
+        except ValueError:
+            saved_files.append("<unknown>")
 
     # Create build job
     jid = f"build-{uuid.uuid4().hex[:8]}"
@@ -378,6 +382,7 @@ def test_speaker_profile(name: str, background_tasks: BackgroundTasks):
     except Exception as e:
         from ...engines.errors import EngineUnavailableError
         if isinstance(e, EngineUnavailableError):
-             return JSONResponse({"status": "error", "message": str(e)}, status_code=503)
-        logger.error(f"Test failed for {name}: {e}")
+            logger.exception("Engine unavailable during profile test for %s", name)
+            return JSONResponse({"status": "error", "message": "The TTS engine is currently unavailable."}, status_code=503)
+        logger.exception("Test failed for %s", name)
         return JSONResponse({"status": "error", "message": "Test failed"}, status_code=500)

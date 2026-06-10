@@ -403,6 +403,31 @@ export const api = {
     });
     return parseApiResponse(res);
   },
+
+  previewEnginePlugin: async (file: File): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/engines/preview', {
+      method: 'POST',
+      body: formData,
+    });
+    return parseApiResponse(res);
+  },
+
+  confirmEnginePlugin: async (token: string): Promise<any> => {
+    const res = await fetch(`/api/engines/confirm/${encodeURIComponent(token)}`, { method: 'POST' });
+    return parseApiResponse(res);
+  },
+
+  cancelEnginePluginStaging: async (token: string): Promise<any> => {
+    const res = await fetch(`/api/engines/staging/${encodeURIComponent(token)}`, { method: 'DELETE' });
+    return parseApiResponse(res);
+  },
+
+  fetchEngineRequirements: async (engineId: string): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/requirements`);
+    return parseApiResponse(res);
+  },
   installPlugin: async (): Promise<any> => {
     const res = await fetch('/api/engines/install', { method: 'POST' });
     return parseApiResponse(res);

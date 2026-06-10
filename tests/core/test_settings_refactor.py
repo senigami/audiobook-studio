@@ -127,3 +127,93 @@ def test_plugin_root_runtime_files_are_ignored(tmp_path, monkeypatch):
 
     assert load_settings(plugin_dir) == {"temperature": 0.9}
     assert not (plugin_data_dir / "mock" / "state.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# engine_id validation / path-injection guard tests
+# ---------------------------------------------------------------------------
+
+class TestValidateEngineId:
+    """validate_engine_id rejects traversal strings and accepts well-formed ids."""
+
+    def test_valid_id_accepted(self):
+        from app.tts_server.settings_store import validate_engine_id
+        # Should not raise
+        validate_engine_id("xtts2")
+        validate_engine_id("my-engine")
+        validate_engine_id("tts_v2")
+        validate_engine_id("a")
+
+    @pytest.mark.parametrize("bad_id", ["../x", "a/b", "..", "A", "", "/etc/passwd", "foo bar"])
+    def test_traversal_ids_rejected(self, bad_id):
+        from app.tts_server.settings_store import validate_engine_id
+        with pytest.raises(ValueError, match="Invalid engine_id"):
+            validate_engine_id(bad_id)
+
+
+class TestSettingsStoreTraversalGuard:
+    """_runtime_file raises for ids that escape PLUGIN_DATA_DIR after resolve."""
+
+    def test_traversal_id_blocked_in_load_settings(self, tmp_path, monkeypatch):
+        from app.tts_server.settings_store import load_settings
+        plugin_data_dir = tmp_path / "plugin_data"
+        monkeypatch.setattr("app.core.config.PLUGIN_DATA_DIR", plugin_data_dir)
+        # Build a plugin_dir whose derived engine_id would escape (use a crafted name)
+        plugin_dir = tmp_path / "plugins" / "tts_mock"
+        plugin_dir.mkdir(parents=True)
+        with pytest.raises(ValueError):
+            # Force _engine_id_from_plugin_dir to return a traversal string by
+            # using a folder that starts with "pip:" and contains traversal chars.
+            # We monkey-patch _engine_id_from_plugin_dir directly to simulate it.
+            import app.tts_server.settings_store as ss
+            original = ss._engine_id_from_plugin_dir
+            monkeypatch.setattr(ss, "_engine_id_from_plugin_dir", lambda _: "../evil")
+            try:
+                load_settings(plugin_dir)
+            finally:
+                monkeypatch.setattr(ss, "_engine_id_from_plugin_dir", original)
+
+    def test_valid_id_round_trips_setting(self, tmp_path, monkeypatch):
+        from app.tts_server.settings_store import load_settings, save_settings
+        plugin_data_dir = tmp_path / "plugin_data"
+        plugin_dir = tmp_path / "plugins" / "tts_roundtrip"
+        plugin_dir.mkdir(parents=True)
+        monkeypatch.setattr("app.core.config.PLUGIN_DATA_DIR", plugin_data_dir)
+        save_settings(plugin_dir, {"key": "value123"})
+        assert load_settings(plugin_dir) == {"key": "value123"}
+
+
+class TestPerformanceSettingsTraversalGuard:
+    """performance_settings functions reject traversal engine_ids without touching disk."""
+
+    @pytest.mark.parametrize("bad_id", ["../x", "a/b", ".."])
+    def test_save_multiplier_rejects_traversal(self, bad_id, tmp_path):
+        from app.tts_server.performance_settings import save_engine_computer_speed_multiplier
+        with pytest.raises(ValueError, match="Invalid engine_id"):
+            save_engine_computer_speed_multiplier(bad_id, 20.0)
+        assert not any(tmp_path.rglob("*.json"))
+
+    @pytest.mark.parametrize("bad_id", ["../x", "a/b", ".."])
+    def test_get_multiplier_rejects_traversal(self, bad_id):
+        from app.tts_server.performance_settings import get_engine_computer_speed_multiplier
+        with pytest.raises(ValueError, match="Invalid engine_id"):
+            get_engine_computer_speed_multiplier(bad_id)
+
+    @pytest.mark.parametrize("bad_id", ["../x", "a/b", ".."])
+    def test_clear_baseline_rejects_traversal(self, bad_id):
+        from app.tts_server.performance_settings import clear_engine_computer_speed_baseline
+        with pytest.raises(ValueError, match="Invalid engine_id"):
+            clear_engine_computer_speed_baseline(bad_id)
+
+    @pytest.mark.parametrize("bad_id", ["../x", "a/b", ".."])
+    def test_resolve_model_rejects_traversal(self, bad_id):
+        from app.tts_server.performance_settings import resolve_engine_settings_model
+        with pytest.raises(ValueError, match="Invalid engine_id"):
+            resolve_engine_settings_model(bad_id)
+
+    def test_valid_id_get_multiplier_returns_default(self, tmp_path, monkeypatch):
+        """Valid engine_id with no plugin dir returns neutral 1.0 multiplier."""
+        from app.tts_server.performance_settings import get_engine_computer_speed_multiplier
+        monkeypatch.setattr("app.core.config.PLUGINS_DIR", tmp_path / "plugins")
+        result = get_engine_computer_speed_multiplier("validengine")
+        assert result == 1.0

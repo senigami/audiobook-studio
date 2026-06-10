@@ -161,6 +161,22 @@ class RemoteBridgeHandler:
         """Import plugin zip via TTS Server."""
         return self._get_tts_client().import_plugin(file_content, filename)
 
+    def preview_plugin(self, file_content: bytes, filename: str) -> dict[str, Any]:
+        """Stage plugin zip and return manifest metadata without installing."""
+        return self._get_tts_client().preview_plugin(file_content, filename)
+
+    def confirm_plugin_import(self, token: str) -> dict[str, Any]:
+        """Complete a staged plugin import."""
+        return self._get_tts_client().confirm_plugin_import(token)
+
+    def cancel_plugin_staging(self, token: str) -> dict[str, Any]:
+        """Discard a staged plugin import."""
+        return self._get_tts_client().cancel_plugin_staging(token)
+
+    def get_engine_requirements(self, engine_id: str) -> dict[str, Any]:
+        """Return requirements.txt lines for an installed engine."""
+        return self._get_tts_client().get_engine_requirements(engine_id)
+
     def _get_tts_client(self) -> Any:
         """Connect to global watchdog client."""
         if self._tts_client_factory is not None:

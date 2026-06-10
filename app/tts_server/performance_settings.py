@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from ..engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
-from app.tts_server.settings_store import load_settings, save_settings
+from app.tts_server.settings_store import load_settings, save_settings, validate_engine_id
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ def save_engine_computer_speed_multiplier(engine_id: str, cps: float) -> None:
     The active plugin directory must already exist. Unknown or synthetic
     engines, such as non-TTS orchestration helpers, are ignored.
     """
+    validate_engine_id(engine_id)
     from app.tts_server.plugin_loader import get_plugin_dir  # noqa: PLC0415
 
     plugin_dir = get_plugin_dir(engine_id)
@@ -44,6 +45,7 @@ def save_engine_computer_speed_multiplier(engine_id: str, cps: float) -> None:
 
 def clear_engine_computer_speed_multiplier(engine_id: str) -> None:
     """Remove the persisted render speed calibration from plugin settings."""
+    validate_engine_id(engine_id)
     from app.tts_server.plugin_loader import get_plugin_dir  # noqa: PLC0415
 
     plugin_dir = get_plugin_dir(engine_id)
@@ -59,6 +61,7 @@ def clear_engine_computer_speed_multiplier(engine_id: str) -> None:
 
 def clear_engine_computer_speed_baseline(engine_id: str) -> dict[str, Any]:
     """Clear all persisted calibration data so the next render starts from baseline."""
+    validate_engine_id(engine_id)
     clear_engine_computer_speed_multiplier(engine_id)
 
     samples_deleted = 0
@@ -88,6 +91,7 @@ def clear_engine_computer_speed_baseline(engine_id: str) -> dict[str, Any]:
 
 def get_engine_computer_speed_multiplier(engine_id: str) -> float:
     """Read the plugin-local render speed multiplier, defaulting to neutral speed."""
+    validate_engine_id(engine_id)
     from app.tts_server.plugin_loader import get_plugin_dir  # noqa: PLC0415
 
     plugin_dir = get_plugin_dir(engine_id)
@@ -105,6 +109,7 @@ def get_engine_computer_speed_multiplier(engine_id: str) -> float:
 
 def resolve_engine_settings_model(engine_id: str) -> str | None:
     """Return the plugin's configured model identifier when it has one."""
+    validate_engine_id(engine_id)
     from app.tts_server.plugin_loader import get_plugin_dir  # noqa: PLC0415
 
     plugin_dir = get_plugin_dir(engine_id)
@@ -143,6 +148,7 @@ def filter_history_for_engine_model(
     tts_model: str | None,
 ) -> list[dict[str, Any]]:
     """Select history for the same engine and, when known, the same TTS model."""
+    validate_engine_id(engine_id)
     engine_history = [sample for sample in history if sample.get("engine") == engine_id]
 
     # Resolve default model from settings schema to handle missing/historical model fields

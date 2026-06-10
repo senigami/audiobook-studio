@@ -3,6 +3,7 @@ import { RefreshCw, FileText, Loader2, Upload } from 'lucide-react';
 import type { TtsEngine } from '@/types';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
+import { PluginTrustModal, type PluginPreviewInfo } from '@/components/overlays/PluginTrustModal';
 import { EngineCard } from '@/pages/Settings/components/EngineCard';
 import { useLiveTtsLogLines } from '@/hooks/useLiveTtsLogLines';
 
@@ -19,11 +20,19 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
   const [refreshing, setRefreshing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [installModal, setInstallModal] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
+  const [trustModal, setTrustModal] = useState<{
+    open: boolean;
+    preview: PluginPreviewInfo | null;
+    stagingToken: string | null;
+  }>({ open: false, preview: null, stagingToken: null });
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<string>('');
   const [fetchingLogs, setFetchingLogs] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const logsEndRef = useRef<HTMLDivElement | null>(null);
+  // Track the active staging token so we can clean it up if the panel unmounts
+  // (e.g. user navigates away) while a trust prompt is still pending.
+  const pendingStagingTokenRef = useRef<string | null>(null);
   const { liveLines, markRefreshStart, resetCursor: resetLiveCursor } = useLiveTtsLogLines(showLogs);
 
   const loadEngines = useCallback(async () => {
@@ -80,22 +89,80 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Reset input immediately so re-selecting the same file works.
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
     setImporting(true);
     try {
-      const res = await api.importEnginePlugin(file);
-      if (res.ok || res.engine_id) {
-        onShowNotification?.(`Plugin ${res.engine_id || ''} imported successfully.`);
-        await refreshAppState();
-      } else {
-        onShowNotification?.(res.message || 'Import failed.');
+      const res = await api.previewEnginePlugin(file);
+      if (!res.ok || !res.staging_token) {
+        onShowNotification?.(res.message || 'Plugin preview failed.');
+        return;
       }
+      // Show trust modal — user must confirm before we complete the install.
+      setTrustModal({
+        open: true,
+        preview: {
+          engine_id: res.engine_id,
+          display_name: res.display_name,
+          version: res.version ?? null,
+          requirements: Array.isArray(res.requirements) ? res.requirements : [],
+        },
+        stagingToken: res.staging_token,
+      });
+      pendingStagingTokenRef.current = res.staging_token;
     } catch (err: any) {
       onShowNotification?.(`Import failed: ${err.message || err}`);
     } finally {
       setImporting(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
+
+  const handleTrustConfirm = async () => {
+    const { stagingToken, preview } = trustModal;
+    setTrustModal({ open: false, preview: null, stagingToken: null });
+    pendingStagingTokenRef.current = null;
+    if (!stagingToken) return;
+
+    setImporting(true);
+    try {
+      const res = await api.confirmEnginePlugin(stagingToken);
+      if (res.ok || res.engine_id) {
+        onShowNotification?.(`Plugin ${res.engine_id || preview?.engine_id || ''} imported successfully.`);
+        await refreshAppState();
+      } else {
+        onShowNotification?.(res.message || 'Install failed.');
+      }
+    } catch (err: any) {
+      onShowNotification?.(`Install failed: ${err.message || err}`);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleTrustCancel = async () => {
+    const { stagingToken } = trustModal;
+    setTrustModal({ open: false, preview: null, stagingToken: null });
+    pendingStagingTokenRef.current = null;
+    if (!stagingToken) return;
+    try {
+      await api.cancelEnginePluginStaging(stagingToken);
+    } catch {
+      // Best-effort cleanup; silence errors.
+    }
+  };
+
+  // On unmount, discard any still-pending staged plugin so its extracted
+  // directory does not leak on the TTS Server until the next restart sweep.
+  useEffect(() => {
+    return () => {
+      const token = pendingStagingTokenRef.current;
+      if (token) {
+        pendingStagingTokenRef.current = null;
+        void api.cancelEnginePluginStaging(token).catch(() => {});
+      }
+    };
+  }, []);
 
   const handleFetchLogs = async () => {
     const refreshStartedAfterFrameId = markRefreshStart();
@@ -261,6 +328,14 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
         confirmText="Understood"
         isAlert={true}
         isDestructive={false}
+      />
+
+      <PluginTrustModal
+        isOpen={trustModal.open}
+        preview={trustModal.preview}
+        mode="import"
+        onConfirm={handleTrustConfirm}
+        onCancel={handleTrustCancel}
       />
     </div>
   );

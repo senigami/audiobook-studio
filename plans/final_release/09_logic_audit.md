@@ -82,6 +82,7 @@ Owner policy applies throughout: legacy code is deleted, not preserved (see `01_
 - [ ] **F15 (Bug). `useInitialData` never signals fetch failure** — on rejection the hook only logs and stays `loading: true` forever → infinite spinner. **Fix:** add an `error` state, surface a retryable error UI in App.
 - [ ] **B14 (Test-env). `test_voice_bridge_describes_remote_registry_by_default` is environment-dependent** — passes only when a live TTS server is running; would fail in clean CI. Needs a mock TTS-server fixture (or skip-unless marker) — flagged in audits/test_audit_backend_misc.md.
 - [ ] **B15 (Coverage gap). `ETA_PROJECTION_SKIP_REASONS` suppression has no real test** — the deleted vacuous test named this contract (segment-boundary events must not project bad ETA) but only checked set membership. Write an end-to-end test through `update_job`.
+- [ ] **B17 (Flaky test). `tests/orchestration/test_submit.py::TestOrchestratorProgressTransitions::test_bridge_tasks_wait_for_resources_before_dispatching` failed once in a full-suite run (2026-06-10), passes in isolation and on rerun — order/timing sensitivity in resource-gate setup. Investigate with `pytest -p no:randomly` repetition or add explicit gate synchronization.
 - [ ] **B16 (Test-infra). Hardcoded `/tmp/*.db` fixture paths** — tests/db conftest + tests/api voice fixtures use fixed /tmp paths; collide under parallel runs. Migrate to `tmp_path`-based fixtures.
 
 ## Verification gate for this doc

@@ -14,7 +14,7 @@ from app.core.security import verify_api_key, rate_limit
 from app.orchestration.tasks.api_synthesis import ApiSynthesisTask
 from app.orchestration.scheduler.orchestrator import create_orchestrator
 from app.db.state import get_settings, get_jobs
-from app.core.config import TRANSIENT_DIR
+from app.core.config import TRANSIENT_DIR, VOICES_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,41 @@ class JobStatusResponse(BaseModel):
     progress: float = 0.0
     download_url: Optional[str] = None
 
+# --- Voice ref validation ---
+
+def _validate_voice_ref(voice_ref: str) -> str:
+    """Validate and return a safe voice_ref value.
+
+    If voice_ref contains a path separator it is treated as a path and must
+    resolve inside VOICES_DIR or TRANSIENT_DIR.  Otherwise it is treated as a
+    profile name and must be resolvable via the voice registry.
+
+    Returns the validated value (unchanged) on success.
+    Raises HTTPException(400) for unsafe paths, HTTPException(404) for unknown names.
+    """
+    if "/" in voice_ref or "\\" in voice_ref:
+        # Caller supplied a path fragment — resolve and assert containment.
+        try:
+            resolved = Path(voice_ref).resolve()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid voice_ref path.")
+        voices_dir_r = VOICES_DIR.resolve()
+        transient_dir_r = TRANSIENT_DIR.resolve()
+        if not (resolved.is_relative_to(voices_dir_r) or resolved.is_relative_to(transient_dir_r)):
+            raise HTTPException(
+                status_code=400,
+                detail="voice_ref path is not within an allowed directory.",
+            )
+        return voice_ref
+
+    # Treat as a profile name — look it up in the voice registry.
+    from app.db.speakers import _resolve_existing_profile_name  # noqa: PLC0415
+    resolved_name = _resolve_existing_profile_name(voice_ref)
+    if not resolved_name:
+        raise HTTPException(status_code=404, detail=f"Voice profile '{voice_ref}' not found.")
+    return voice_ref
+
+
 # --- Endpoints ---
 
 @router.get("/engines", response_model=EngineListResponse)
@@ -115,6 +150,10 @@ async def synthesize(request: SynthesisRequest, req_context: Request, background
             break
     if output_format is None:
         raise HTTPException(status_code=400, detail="Unsupported output format.")
+
+    # Validate voice_ref at the API boundary — reject traversal attempts early.
+    if request.voice_ref is not None:
+        _validate_voice_ref(request.voice_ref)
 
     # Ensure output directory exists
     output_dir = (TRANSIENT_DIR / "api").resolve()
@@ -208,7 +247,12 @@ async def get_job_audio(job_id: str):
     if not output_path_str:
         raise HTTPException(status_code=500, detail="Job has no output path recorded.")
 
-    output_path = Path(output_path_str)
+    output_path = Path(output_path_str).resolve()
+    # Defense in depth: assert the stored output path is within the expected API output dir.
+    api_output_dir = (TRANSIENT_DIR / "api").resolve()
+    if not output_path.is_relative_to(api_output_dir):
+        logger.error("Job %s output_path %s is outside api output dir — refusing to serve", job_id, output_path)
+        raise HTTPException(status_code=500, detail="Job output path is invalid.")
     if not output_path.exists():
         raise HTTPException(status_code=410, detail="Audio file has expired or been removed.")
 

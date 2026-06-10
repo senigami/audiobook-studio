@@ -893,6 +893,33 @@ returns nothing.
 **Acceptance:** `plugins/synthesis_mixed/` no longer exists;
 `grep -rn "from app\." plugins/tts_mixed/` returns nothing.
 
+---
+
+## Trust Model
+
+### Security posture
+
+Plugins run **unsandboxed** inside the TTS Server subprocess. The TTS Server runs as the same OS user as Studio, which means any code in a plugin or its dependencies has full access to the file system, network, and environment variables — the same as Studio itself.
+
+**Installing a plugin = executing third-party code.** This happens at two points:
+
+1. **Import** — when the user imports a `.zip`, the plugin's Python files are extracted and then loaded by the `plugin_loader` (which calls `importlib.import_module`). Execution begins at import time.
+2. **Install Dependencies** — when the user triggers "Install Deps", Studio runs `pip install -r requirements.txt` inside the same Python environment. Dependency lines that start with `git+` or an HTTP/HTTPS URL pull and execute arbitrary remote code.
+
+### Pre-install confirmation flow (S5)
+
+To surface this risk, Studio shows a **Plugin Trust Modal** before either action is finalized:
+
+- **Import flow**: `POST /engines/preview` stages the zip and returns `{engine_id, display_name, version, requirements, staging_token}`. The modal lists the full dependency list, highlights `git+`/URL lines as **REMOTE** sources, and shows the security notice. On confirm, `POST /engines/confirm/{token}` completes the install; on cancel, `DELETE /engines/staging/{token}` removes the staging directory.
+
+- **Install-deps flow**: `GET /engines/{engine_id}/requirements` fetches the existing `requirements.txt` lines. The same modal is shown before `POST /engines/{engine_id}/install` fires.
+
+### Signed plugins (post-release)
+
+Verified-plugin signing and a trusted-publisher registry are planned for a future release. Until then, users are responsible for verifying plugin provenance.
+
+---
+
 ### Step 7 — Enforce the contract in CI
 
 - [ ] Add a pre-commit or CI check:

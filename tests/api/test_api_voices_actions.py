@@ -337,3 +337,27 @@ def test_update_profile_voice_asset_id_rejects_local_engine(clean_db, voices_roo
     response = client.post("/api/speaker-profiles/SpeakerA/voice-asset-id", data={"voice_id": "asset_456"})
     assert response.status_code == 400
     assert "does not support voice asset IDs" in response.json()["message"]
+
+
+def test_build_profile_exception_does_not_expose_stack_trace(clean_db, voices_root, client):
+    """Internal exceptions must not leak exception text or tracebacks to the client."""
+    voices_root.mkdir(parents=True, exist_ok=True)
+    profile_root = voices_root / "SpeakerA"
+    profile_root.mkdir(parents=True, exist_ok=True)
+    (profile_root / "voice.json").write_text(json.dumps({"version": 2, "name": "SpeakerA"}))
+    profile_dir = profile_root / "Default"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "xtts"}))
+    (profile_dir / "source.wav").write_bytes(b"sample")
+
+    with patch(
+        "app.api.routers.voices_helpers._existing_voice_profile_dir",
+        side_effect=RuntimeError("internal secret path: /etc/passwd"),
+    ):
+        response = client.post("/api/speaker-profiles/SpeakerA/build")
+
+    assert response.status_code in (400, 403, 500, 503)
+    body = response.text
+    assert "internal secret path" not in body
+    assert "/etc/passwd" not in body
+    assert "Traceback" not in body

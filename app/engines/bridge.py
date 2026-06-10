@@ -200,6 +200,22 @@ class VoiceBridge:
         """Import a plugin from a zip file."""
         return self.remote.import_plugin(file_content, filename)
 
+    def preview_plugin(self, file_content: bytes, filename: str) -> dict[str, Any]:
+        """Stage plugin zip and return manifest metadata without installing."""
+        return self.remote.preview_plugin(file_content, filename)
+
+    def confirm_plugin_import(self, token: str) -> dict[str, Any]:
+        """Complete a staged plugin import."""
+        return self.remote.confirm_plugin_import(token)
+
+    def cancel_plugin_staging(self, token: str) -> dict[str, Any]:
+        """Discard a staged plugin import."""
+        return self.remote.cancel_plugin_staging(token)
+
+    def get_engine_requirements(self, engine_id: str) -> dict[str, Any]:
+        """Return requirements.txt lines for an installed engine."""
+        return self.remote.get_engine_requirements(engine_id)
+
     def install_plugin(self) -> dict[str, Any]:
         """Provide instructions for manual install."""
         return {

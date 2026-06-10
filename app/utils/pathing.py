@@ -4,7 +4,10 @@ from typing import Optional
 
 
 def safe_basename(value: str) -> str:
-    return Path(value).name
+    name = Path(value).name
+    if not name or name in {".", ".."}:
+        raise ValueError(f"safe_basename produced an empty or dot-only result for: {value!r}")
+    return name
 
 
 def safe_stem(value: str) -> str:

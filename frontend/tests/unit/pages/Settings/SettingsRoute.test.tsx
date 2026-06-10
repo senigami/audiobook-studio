@@ -22,12 +22,16 @@ vi.mock('@/api', () => ({
     resetEngineCalibration: vi.fn(),
     verifyEngine: vi.fn(),
     installEngineDependencies: vi.fn(),
+    fetchEngineRequirements: vi.fn().mockResolvedValue({ ok: true, requirements: [] }),
     removeEnginePlugin: vi.fn(),
     fetchEngineLogs: vi.fn(),
     installPlugin: vi.fn(),
     resetRenderStats: vi.fn(),
     restartTtsServer: vi.fn(),
     importEnginePlugin: vi.fn(),
+    previewEnginePlugin: vi.fn(),
+    confirmEnginePlugin: vi.fn(),
+    cancelEnginePluginStaging: vi.fn(),
   },
 }));
 
@@ -267,9 +271,18 @@ describe('SettingsRoute', () => {
   });
 
   it('triggers file input selection and handles zip import', async () => {
-    const mockImport = vi.spyOn(api, 'importEnginePlugin').mockResolvedValue({
+    // New flow: preview → trust modal → confirm
+    vi.spyOn(api, 'previewEnginePlugin').mockResolvedValue({
       ok: true,
-      engine_id: 'new-plugin'
+      engine_id: 'new-plugin',
+      display_name: 'New Plugin',
+      version: '1.0.0',
+      requirements: [],
+      staging_token: 'a'.repeat(32),
+    });
+    vi.spyOn(api, 'confirmEnginePlugin').mockResolvedValue({
+      ok: true,
+      engine_id: 'new-plugin',
     });
 
     render(
@@ -287,8 +300,12 @@ describe('SettingsRoute', () => {
     const file = new File(['test'], 'plugin.zip', { type: 'application/zip' });
     fireEvent.change(fileInput, { target: { files: [file] } });
 
+    // Wait for trust modal and confirm
+    const confirmBtn = await screen.findByRole('button', { name: /Install Plugin/i });
+    fireEvent.click(confirmBtn);
+
     await waitFor(() => {
-      expect(mockImport).toHaveBeenCalledWith(file);
+      expect(api.confirmEnginePlugin).toHaveBeenCalledWith('a'.repeat(32));
       expect(defaultProps.onShowNotification).toHaveBeenCalledWith('Plugin new-plugin imported successfully.');
     });
   });

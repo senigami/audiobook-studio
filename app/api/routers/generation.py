@@ -301,7 +301,8 @@ def api_add_to_queue(
             else:
                 temp_filename = f"chapter_{split_part}.txt"
 
-            temp_path = chapter_dir / temp_filename
+            from ...utils.pathing import secure_join_flat as _secure_join_flat
+            temp_path = _secure_join_flat(chapter_dir, temp_filename)
             temp_path.write_text(text_content or "", encoding="utf-8", errors="replace")
 
             segs = get_chapter_segments(chapter_id)

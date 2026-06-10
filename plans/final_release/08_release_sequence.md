@@ -11,7 +11,7 @@ Goal: correct behavior before any reorganization, so later refactors are verifie
 - [x] **1a. Critical logic fixes** (done 2026-06-10) — doc 09 Backend B1–B4 + Frontend F1–F5 (the broadcast races, reconcile bug, event-drop windows, unchecked `res.ok`). These are the prime suspects behind the queue/segment flakiness; land with the new regression tests.
 - [x] **1b. Likely-bug fixes** (done 2026-06-10) — doc 09 B5–B13, F6–F13 (includes the segment join-separator fix B12).
 - [x] **1c. Progress confidence model** (done 2026-06-10) — doc 15 (ETA trust handoff). After 1a so velocity work sits on correct events.
-- [ ] **1d. Security release blockers** — doc 12 S1–S5 (key redaction, timing-safe compare, zip traversal, voice_ref containment, plugin trust dialog).
+- [x] **1d. Security release blockers** (done 2026-06-10 — S1-S5 + 53 CodeQL alerts + S8/S9; S6/S7/S10/S11 remain as pre-LAN hardening) — doc 12 S1–S5 (key redaction, timing-safe compare, zip traversal, voice_ref containment, plugin trust dialog).
 - [x] **1e. Test quality audit (T1+T2)** (done 2026-06-10) — doc 17: classify queue/job/segment/progress tests, delete vacuous & mocked-out ones, rewrite real scenarios. Runs after 1b so the new tests are audited in the same pass; T1+T2 gate Stage 1 exit.
 - [ ] **1f. Specs for stabilized areas** — doc 18 SP1 (live events), SP4 (queue/jobs), SP6 (text processing), SP8 (testing standards) — written once Stage 1 behavior is final.
 - [ ] **Gate:** doc 17 T1+T2 classification done; `pytest` + `npm test` + Playwright green; one full real render session (multi-chapter, cancel, requeue, reconnect mid-render) behaves per the wiki lifecycle contract.

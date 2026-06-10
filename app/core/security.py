@@ -1,3 +1,4 @@
+import hmac
 import time
 import threading
 from typing import Dict, List
@@ -28,7 +29,7 @@ def verify_api_key(credentials: HTTPAuthorizationCredentials = Security(security
         # No key configured -> open access (default for local-only use).
         return None
 
-    if not credentials or credentials.credentials != expected_key:
+    if not credentials or not hmac.compare_digest(credentials.credentials, expected_key):
         raise HTTPException(
             status_code=HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key.",

@@ -8,20 +8,20 @@ Note: this audit found live code under `app/orchestration/tasks/` (e.g. `api_syn
 
 ### Release blockers (fix in Phase 12.2)
 
-- [ ] **S1. API key returned in plain text by unauthenticated endpoints** — `app/api/routers/system.py:220` (`GET /api/system`) and the `/api/home` settings inline (~line 92) return `tts_api_key` raw. Redact (`"***"` if set) in every settings-bearing response.
+- [x] **S1. API key returned in plain text by unauthenticated endpoints** — `app/api/routers/system.py:220` (`GET /api/system`) and the `/api/home` settings inline (~line 92) return `tts_api_key` raw. Redact (`"***"` if set) in every settings-bearing response.
   *Accept:* grep responses — no endpoint returns the raw key; key entry remains write-only from the UI.
-- [ ] **S2. Timing-unsafe API key comparison** — `app/core/security.py:31`. Use `hmac.compare_digest(credentials.credentials, expected_key)`.
-- [ ] **S3. Zip path traversal (Windows entries)** — `app/tts_server/server.py:770-772` validates with `PurePosixPath`, which doesn't split backslash entries (`foo\..\..\x`); latent traversal on Windows. After `extractall`, verify every extracted file resolves inside the staging dir before `staging_dir.rename(target_dir)`.
+- [x] **S2. Timing-unsafe API key comparison** — `app/core/security.py:31`. Use `hmac.compare_digest(credentials.credentials, expected_key)`.
+- [x] **S3. Zip path traversal (Windows entries)** — `app/tts_server/server.py:770-772` validates with `PurePosixPath`, which doesn't split backslash entries (`foo\..\..\x`); latent traversal on Windows. After `extractall`, verify every extracted file resolves inside the staging dir before `staging_dir.rename(target_dir)`.
   *Accept:* unit test with a crafted backslash-entry zip is rejected.
-- [ ] **S4. `voice_ref` path not contained** — `app/api/tts_api.py:53` → `app/orchestration/tasks/api_synthesis.py:151,169` pass caller-supplied paths to the engine unchecked. If it contains a separator, resolve + assert containment in `VOICES_DIR`/`TRANSIENT_DIR`; otherwise resolve via the voice registry.
-- [ ] **S5. Plugin trust boundary undocumented + requirements auto-install unrestricted** — `app/tts_server/plugin_loader.py:606-706` (plugins run unsandboxed in the TTS Server process) and `app/tts_server/server.py:323-398` (`pip install -r` accepts `git+`/URL lines even though `_check_dependencies` skips them). For 2.0: (a) pre-install confirmation dialog listing engine_id, display_name, and full dependency lines; (b) state the trust model explicitly in the plugin contract (doc 02) and wiki — installing a plugin = running its code; (c) post-release candidate: checksum/signing for "verified" plugins.
+- [x] **S4. `voice_ref` path not contained** — `app/api/tts_api.py:53` → `app/orchestration/tasks/api_synthesis.py:151,169` pass caller-supplied paths to the engine unchecked. If it contains a separator, resolve + assert containment in `VOICES_DIR`/`TRANSIENT_DIR`; otherwise resolve via the voice registry.
+- [x] **S5. Plugin trust boundary undocumented + requirements auto-install unrestricted** — `app/tts_server/plugin_loader.py:606-706` (plugins run unsandboxed in the TTS Server process) and `app/tts_server/server.py:323-398` (`pip install -r` accepts `git+`/URL lines even though `_check_dependencies` skips them). For 2.0: (a) pre-install confirmation dialog listing engine_id, display_name, and full dependency lines; (b) state the trust model explicitly in the plugin contract (doc 02) and wiki — installing a plugin = running its code; (c) post-release candidate: checksum/signing for "verified" plugins.
 
 ### Hardening (before enabling LAN binding by default)
 
 - [ ] **S6. WebSocket `/ws` unauthenticated** — `app/api/web.py:202-234`. Origin check or query-token on upgrade; at minimum document the LAN exposure (script text leaks via progress events).
 - [ ] **S7. Rate limiter in-memory, keyed by IP** — `app/core/security.py:40-78`. Acceptable for 2.0; document restart-reset and NAT-shared-key limits.
-- [ ] **S8. `safe_basename("…/")` returns ""** — `app/utils/pathing.py:6-7`. Raise on empty result (caller at `voices_actions.py:231` is currently saved by a downstream containment check).
-- [ ] **S9. Backup filename check cosmetic** — `app/api/routers/projects_backups.py:199,244,308`: `endswith(".zip")` passes `../x.zip`; real containment comes from the scandir name-match. Replace with `os.path.basename(filename) == filename` for defense-in-depth clarity.
+- [x] **S8. `safe_basename("…/")` returns ""** — `app/utils/pathing.py:6-7`. Raise on empty result (caller at `voices_actions.py:231` is currently saved by a downstream containment check).
+- [x] **S9. Backup filename check cosmetic** — `app/api/routers/projects_backups.py:199,244,308`: `endswith(".zip")` passes `../x.zip`; real containment comes from the scandir name-match. Replace with `os.path.basename(filename) == filename` for defense-in-depth clarity.
 - [ ] **S10. Secret-aware plugin settings** — `app/tts_server/settings_store.py` stores engine API keys as plain JSON with no secret flag. Add `"secret": true` support in `settings_schema.json` (doc 02 contract): masked on read, never logged. Encryption-at-rest is a post-release candidate.
 - [ ] **S11. ffmpeg concat quoting** — `app/engines/audio_ops.py:101-105`: shell-style `'\''` escaping isn't valid in ffmpeg concat lists; apostrophe filenames (O'Brien.wav) break. Use double-quoted paths.
   *(ffmpeg invocation overall is list-based, no shell=True — no injection found.)*
@@ -29,7 +29,7 @@ Note: this audit found live code under `app/orchestration/tasks/` (e.g. `api_syn
 
 ## CodeQL alert inventory (added 2026-06-10)
 
-GitHub Advanced Security has **53 open alerts** on the Phase 12.2 PR head: 33 `py/path-injection` (clusters: `app/db/speakers.py`, `app/tts_server/settings_store.py`, voice/bundle routers), 16 `py/stack-trace-exposure` (mostly `app/api/routers/engines.py` returning exception text to clients), 4 `py/polynomial-redos` (`app/utils/text/textops_cleaning.py` regexes). Full list: [audits/codeql_open_alerts_pr123.md](audits/codeql_open_alerts_pr123.md). Execute as part of Stage 1d alongside S1–S5: path-injection fixes follow the constant-selection + resolved-containment pattern used in `app/api/tts_api.py` (commit de15cca5); stack-trace exposures return generic messages and log the detail server-side; ReDoS regexes get linear rewrites or input length caps.
+**All 53 alerts addressed in code 2026-06-10 (Stage 1d); awaiting scan re-run to confirm closure.** GitHub Advanced Security had **53 open alerts** on the Phase 12.2 PR head: 33 `py/path-injection` (clusters: `app/db/speakers.py`, `app/tts_server/settings_store.py`, voice/bundle routers), 16 `py/stack-trace-exposure` (mostly `app/api/routers/engines.py` returning exception text to clients), 4 `py/polynomial-redos` (`app/utils/text/textops_cleaning.py` regexes). Full list: [audits/codeql_open_alerts_pr123.md](audits/codeql_open_alerts_pr123.md). Execute as part of Stage 1d alongside S1–S5: path-injection fixes follow the constant-selection + resolved-containment pattern used in `app/api/tts_api.py` (commit de15cca5); stack-trace exposures return generic messages and log the detail server-side; ReDoS regexes get linear rewrites or input length caps.
 
 ## Part 2 — Product opportunities (post-release backlog, owner to cherry-pick)
 
