@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import {
     clamp01,
     ETA_CONFIDENCE,
@@ -54,18 +54,23 @@ export const useEtaConfidence = ({
         lastStartedAt: startedAt,
     });
 
-    // Detect key change → reset
-    const s = stateRef.current;
-    const keyChanged = s.lastPersistenceKey !== persistenceKey || s.lastStartedAt !== startedAt;
-    const isTerminal = status === 'done' || status === 'failed' || status === 'cancelled' || status === 'queued';
-    if (keyChanged || isTerminal) {
-        s.samples = [];
-        s.ema = null;
-        s.base = ETA_CONFIDENCE.BASE_FLOOR;
-        s.lastUpdateMs = null;
-        s.lastPersistenceKey = persistenceKey;
-        s.lastStartedAt = startedAt;
-    }
+    // Detect key change / terminal status → reset. Runs in an effect (never
+    // during render). This hook is called at the top of PredictiveProgressBar,
+    // so this effect is declared — and therefore runs — before the bar's
+    // prop-sync effect that calls update(), keeping reset-before-update order.
+    useEffect(() => {
+        const s = stateRef.current;
+        const keyChanged = s.lastPersistenceKey !== persistenceKey || s.lastStartedAt !== startedAt;
+        const isTerminal = status === 'done' || status === 'failed' || status === 'cancelled' || status === 'queued';
+        if (keyChanged || isTerminal) {
+            s.samples = [];
+            s.ema = null;
+            s.base = ETA_CONFIDENCE.BASE_FLOOR;
+            s.lastUpdateMs = null;
+            s.lastPersistenceKey = persistenceKey;
+            s.lastStartedAt = startedAt;
+        }
+    }, [persistenceKey, startedAt, status]);
 
     /**
      * Process a new raw ETA end-time sample.
