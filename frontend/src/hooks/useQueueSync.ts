@@ -11,6 +11,7 @@ import { createHydrationCoordinator, selectActiveQueueCount } from '@/api/hydrat
 import { subscribeStudioSocketMessages } from '@/store/studioSocketBus';
 import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
 import { adaptEventToJobUpdates } from '@/utils/jobEventAdapters';
+import { applyTerminalLifecycleReset } from '@/utils/jobEventUtils';
 
 const FALLBACK_POLL_MS = 60000;
 // Grace window for reconnect overlay pruning. Events that arrive on the websocket
@@ -139,17 +140,8 @@ export const useQueueSync = () => {
           } else if (event.jobId) {
             recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
             const updates = adaptEventToJobUpdates(event);
-            if (event.topic === 'jobs.lifecycle' && ['queued', 'preparing', 'finalizing', 'done', 'failed', 'cancelled'].includes((updates.status || '') as string)) {
-              updates.eta_seconds = null;
-              updates.eta_basis = null;
-              updates.estimated_end_at = null;
-              updates.active_segment_id = null;
-              updates.active_segment_progress = 0;
-              updates.active_segment_eta_seconds = null;
-              updates.active_segment_eta_basis = null;
-              updates.active_segment_updated_at = null;
-              updates.active_render_batch_id = null;
-              updates.active_render_batch_progress = null;
+            if (event.topic === 'jobs.lifecycle') {
+              applyTerminalLifecycleReset(updates, updates.status);
             }
             storeRef.current.applyJobUpdated(event.jobId, updates);
             updateDerivedState();

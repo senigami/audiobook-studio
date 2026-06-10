@@ -32,6 +32,8 @@ Phases 0–11 of the v2 conversion are complete; the app runs v2-only (TaskOrche
 | [14](14_live_demo_revamp.md) | Rebuild the live demo from real components with scripted event playback |
 | [15](15_progress_confidence_model.md) | ETA trust-handoff design for the predictive progress bar |
 | [16](16_pinokio_distribution.md) | Pinokio one-click install wrapper: audit, release blockers (torch backend, version pinning, public wrapper repo), demo bundle 2.0 refresh, first-run defaults (XTTS engine + Studio Voice) |
+| [17](17_test_quality_audit.md) | Test quality audit: classify/remove vacuous & mocked-out tests, rewrite real-scenario coverage for queue/segments/events; standing test rules |
+| [18](18_canonical_specs.md) | Canonical spec documents (`docs/specs/`): authoritative, versioned contracts for events, plugins, voices, queue/jobs, progress, text processing, install, testing — written as each area finalizes; conformance pass gates v2.0.0 |
 
 ## How to execute
 

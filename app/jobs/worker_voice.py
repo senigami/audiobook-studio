@@ -96,10 +96,7 @@ def handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=None):
         on_output(f"Generating test sample for {j.speaker_profile}...\n")
         spk = voice_job_settings or get_speaker_settings(j.speaker_profile)
         sw = get_speaker_wavs(j.speaker_profile)
-        try:
-            voice_profile_dir = get_voice_profile_dir(j.speaker_profile)
-        except ValueError:
-            voice_profile_dir = None
+        voice_profile_dir = pdir
         engine = spk.get("engine")
         if not engine:
             _mark_queue_failed(jid, "No TTS engine configured for this voice job.")

@@ -32,6 +32,32 @@ def _make_job(job_id, status="queued", **kwargs):
 
 
 # ---------------------------------------------------------------------------
+# B5 — terminal_reset preserves caller-supplied values
+# ---------------------------------------------------------------------------
+
+def test_terminal_reset_preserves_explicit_started_at():
+    """
+    Resetting a done job to queued while passing an explicit started_at must
+    store the caller's started_at, not None.
+    """
+    explicit_started_at = 1_700_000_000.0
+
+    # Create a job that has already finished (terminal state).
+    job = _make_job("job-b5", status="done", started_at=explicit_started_at - 60, finished_at=explicit_started_at)
+    put_job(job)
+
+    # Reset to queued with an explicit started_at supplied by the caller.
+    update_job("job-b5", status="queued", started_at=explicit_started_at, force_broadcast=True)
+
+    from app.db.state import get_jobs
+    stored = get_jobs().get("job-b5")
+    assert stored is not None, "Job should still exist after reset"
+    assert stored.started_at == explicit_started_at, (
+        f"started_at should be {explicit_started_at!r} (caller-supplied), got {stored.started_at!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # B2 — previous_status not clobbered during status transition
 # ---------------------------------------------------------------------------
 

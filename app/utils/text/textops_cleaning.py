@@ -237,14 +237,40 @@ def pack_text_to_limit(
 
     # Split into blocks by literal newlines to respect paragraphing
     raw_lines = text.split('\n')
+
+    # Expand any line that exceeds limit into sub-lines via the sentence
+    # splitter, then hard-wrap any remaining sentence that still exceeds limit.
+    expanded_lines: list[str] = []
+    for line in raw_lines:
+        content = line.strip()
+        if len(content) <= limit:
+            expanded_lines.append(content)
+            continue
+        # Try sentence-level split first.
+        sentences = [s for s, _, _ in split_sentences(content)]
+        for sent in sentences:
+            if len(sent) <= limit:
+                expanded_lines.append(sent)
+            else:
+                # Hard-wrap at whitespace boundaries, never exceeding limit.
+                remaining = sent
+                while len(remaining) > limit:
+                    # Find last whitespace at or before limit.
+                    ws = remaining.rfind(" ", 0, limit)
+                    if ws <= 0:
+                        # No whitespace — force-cut at limit.
+                        expanded_lines.append(remaining[:limit])
+                        remaining = remaining[limit:]
+                    else:
+                        expanded_lines.append(remaining[:ws])
+                        remaining = remaining[ws + 1:]
+                if remaining:
+                    expanded_lines.append(remaining)
+
     packed = []
     current_chunk = ""
 
-    for line in raw_lines:
-        line_content = line.strip()
-        # If it's an empty line (paragraph break),
-        # we treat it as part of the previous or next chunk
-        # But we must ensure it doesn't break the chunking greedy logic.
+    for line_content in expanded_lines:
         separator = "\n" if current_chunk else ""
 
         if (current_chunk and (len(current_chunk) + len(separator) +

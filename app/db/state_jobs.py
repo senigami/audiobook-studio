@@ -126,6 +126,54 @@ def put_job(job: Job) -> None:
 
 
 def update_job(job_id: str, force_broadcast: bool = False, source: Optional[str] = None, **updates) -> None:
+    """Apply field updates to a job and broadcast changes to listeners.
+
+    Broadcast-flag routing
+    ----------------------
+    Three flags (passed as keyword args in ``**updates``, consumed before processing)
+    control what is emitted after the state write:
+
+    ``force_broadcast`` (bool, keyword-only positional param, default False)
+        - Bypasses the early-return guard that silently drops updates to jobs
+          already in a terminal state (done/failed/cancelled).
+        - Bypasses status-regression and progress-regression protection.
+        - Forces a broadcast to all ``_JOB_LISTENERS`` even when no fields
+          actually changed (``changed_fields`` is empty).
+        - Propagated as ``broadcast_dict["force_broadcast"] = True`` so
+          downstream listeners (e.g. ``broadcast_job_updated``) can distinguish
+          a forced ping from a real delta.
+        - Also triggers ``broadcast_queue_update`` for non-terminal statuses
+          (see below).
+
+    ``skip_job_updated`` (bool, in ``**updates``, default False)
+        - When True, ``broadcast_dict["skip_job_updated"] = True`` is set.
+        - Consumed by the ``broadcast_job_updated`` WebSocket handler to suppress
+          the per-job ``JOB_UPDATED`` WebSocket event that normally fires on every
+          update.  The SQLite queue sync and chapter/queue-invalidation broadcasts
+          are **not** affected.
+
+    ``skip_studio_job_event`` (bool, in ``**updates``, default False)
+        - When True, ``broadcast_dict["skip_studio_job_event"] = True`` is set.
+        - Consumed by the studio WebSocket layer to suppress the ``STUDIO_JOB``
+          envelope event.  All other broadcasts (queue sync, chapter invalidation,
+          listener loop) fire normally.
+
+    WebSocket topic summary (what fires and when)
+    ----------------------------------------------
+    ``_JOB_LISTENERS`` (all registered listeners, incl. ``broadcast_job_updated``):
+        Fires when ``changed_fields`` is non-empty **or** ``force_broadcast=True``.
+        Suppressed sub-events inside it: ``skip_job_updated``, ``skip_studio_job_event``.
+
+    ``broadcast_chapter_updated``:
+        Fires only on terminal status transitions (done/failed/cancelled) or
+        terminal-reset (terminal → queued/preparing) or ``force_broadcast=True``
+        while status/started_at is in ``changed_fields``.
+
+    ``broadcast_queue_update``:
+        Fires only when ``terminal_reset=True`` or ``force_broadcast=True`` and
+        the resulting status is **not** terminal (done/failed/cancelled).
+        Never fires for ordinary running/progress updates.
+    """
     skip_studio_job_event = updates.pop("skip_studio_job_event", False)
     skip_job_updated = updates.pop("skip_job_updated", False)
     if source is None:
@@ -196,9 +244,17 @@ def update_job(job_id: str, force_broadcast: bool = False, source: Optional[str]
 
             if terminal_reset and k in ("finished_at", "started_at", "eta_seconds", "eta_basis", "estimated_end_at", "active_segment_id", "active_segment_progress", "active_render_batch_id", "active_render_batch_progress", "active_segment_eta_seconds", "active_segment_eta_basis", "active_segment_updated_at", "reason_code", "error"):
                 # A rerun of a terminal job should come back as a clean active job record.
+                # Clear the stale value first, then fall through to apply any caller-supplied
+                # value for this same key (e.g. an explicit started_at alongside status="queued").
                 if j.get(k) is not None:
                     j[k] = None
                     changed_fields.append(k)
+                # If the caller explicitly passed a value for this field, apply it now.
+                if k in updates and v is not None:
+                    if j.get(k) != v:
+                        j[k] = v
+                        if k not in changed_fields:
+                            changed_fields.append(k)
                 continue
 
             # 2. Progress regression protection

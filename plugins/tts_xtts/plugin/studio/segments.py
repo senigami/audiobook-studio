@@ -8,11 +8,12 @@ from app.engines.errors import EngineBridgeError
 from . import handler as xtts_facade
 from app.jobs.handlers.bridge_helpers import generate_via_bridge
 from .helpers import (
-    _profile_inputs_for_segment, 
-    _segment_group_weight, 
+    _profile_inputs_for_segment,
+    _segment_group_weight,
     _group_display_updates,
     _group_job_progress
 )
+from ._text_utils import join_group_text
 
 _SKIP_LIVE_BROADCASTS = {
     "skip_studio_job_event": True,
@@ -55,7 +56,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
     for group in gen_groups:
         char_profile = group[0].get('speaker_profile_name')
         sw, voice_profile_dir = _profile_inputs_for_segment(char_profile, j.speaker_profile, default_sw)
-        combined_text = "".join([s['text_content'] for s in group])
+        combined_text = join_group_text(group)
         if j.safe_mode:
             combined_text = sanitize_text(combined_text)
             combined_text = safe_split_long_sentences(combined_text, target=SENT_CHAR_LIMIT)
@@ -148,7 +149,8 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
                     **_group_display_updates(completed_groups[0], total_requested_groups, segment_progress, limit=1.0, active_index=min(completed_groups[0] + 1, total_requested_groups), group_weights=requested_group_weights),
                     **_SKIP_LIVE_BROADCASTS,
                 )
-            except: pass
+            except Exception:
+                xtts_facade.logger.warning("Failed to parse [PROGRESS] line: %r", line, exc_info=True)
 
     try:
         rc = generate_via_bridge(

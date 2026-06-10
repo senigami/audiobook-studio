@@ -16,6 +16,7 @@ import {
   copyRenderGroupFields,
   resolveEventUpdatedAt,
 } from '@/utils/jobEventAdapters';
+import { applyTerminalLifecycleReset } from '@/utils/jobEventUtils';
 
 const globalSegmentProgressUpdates: any[] = [];
 let nextSequenceNumber = 1;
@@ -295,18 +296,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           recordWebsocketDebugMessage('useJobs', data, raw, envelope);
           recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
           const lifecycleUpdates = adaptEventToJobUpdates(event);
-          if (['queued', 'preparing', 'finalizing', 'done', 'failed', 'cancelled'].includes(lifecycleUpdates.status || '')) {
-            lifecycleUpdates.eta_seconds = null;
-            lifecycleUpdates.eta_basis = null;
-            lifecycleUpdates.estimated_end_at = null;
-            lifecycleUpdates.active_segment_id = null;
-            lifecycleUpdates.active_segment_progress = 0;
-            lifecycleUpdates.active_segment_eta_seconds = null;
-            lifecycleUpdates.active_segment_eta_basis = null;
-            lifecycleUpdates.active_segment_updated_at = null;
-            lifecycleUpdates.active_render_batch_id = null;
-            lifecycleUpdates.active_render_batch_progress = null;
-          }
+          applyTerminalLifecycleReset(lifecycleUpdates, lifecycleUpdates.status);
           if (event.jobId) {
             applyJobUpdatedEvent({
               job_id: event.jobId,
@@ -402,7 +392,6 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
             const rawEta = getVal('etaSeconds', 'eta_seconds');
             const rawEtaBasis = getVal('etaBasis', 'eta_basis');
             const rawHasSegmentSupport = getVal('hasSegmentSupport', 'has_segment_support');
-            const rawStarted = getVal('startedAt', 'started_at');
             const parsedSegmentEta = rawEta === null || rawEta === undefined
               ? null
               : (typeof rawEta === 'number' ? rawEta : Number(rawEta));
@@ -427,10 +416,10 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
               db_started_at: typeof rawStartedAt === 'number' ? rawStartedAt : (typeof rawStartedAt === 'string' ? Date.parse(rawStartedAt) / 1000 : undefined),
             };
 
-            const segmentStartedAt = rawStarted !== undefined
-              ? (typeof rawStarted === 'number'
-                ? rawStarted
-                : (typeof rawStarted === 'string' ? Date.parse(rawStarted) / 1000 : rawStarted))
+            const segmentStartedAt = rawStartedAt !== undefined
+              ? (typeof rawStartedAt === 'number'
+                ? rawStartedAt
+                : (typeof rawStartedAt === 'string' ? Date.parse(rawStartedAt) / 1000 : rawStartedAt))
               : null;
 
             const trace = {

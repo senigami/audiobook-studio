@@ -136,11 +136,25 @@ function App() {
   } | null>(null);
 
   const [toast, setToast] = useState<{ message: string; visible: boolean; action?: { label: string; onClick: () => void } } | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showToast = (message: string, action?: { label: string; onClick: () => void }) => {
+  const showToast = useCallback((message: string, action?: { label: string; onClick: () => void }) => {
+    // Clear any pending timeout before setting a new one
+    if (toastTimeoutRef.current !== null) {
+      clearTimeout(toastTimeoutRef.current);
+    }
     setToast({ message, visible: true, action });
-    setTimeout(() => setToast(prev => prev ? { ...prev, visible: false } : null), 4000);
-  };
+    toastTimeoutRef.current = setTimeout(() => setToast(prev => prev ? { ...prev, visible: false } : null), 4000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      // Clear any pending toast timeout on unmount
+      if (toastTimeoutRef.current !== null) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const [isQueueDrawerOpen, setIsQueueDrawerOpen] = useState(false);
   const prevPathRef = useRef(location.pathname);

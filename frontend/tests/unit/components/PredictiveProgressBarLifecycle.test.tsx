@@ -210,6 +210,7 @@ describe('PredictiveProgressBar - Lifecycle', () => {
                 predictive={true}
                 transitionTickCount={1}
                 tickMs={250}
+                allowBackwardProgress={false}
             />
         )
         const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
@@ -235,6 +236,7 @@ describe('PredictiveProgressBar - Lifecycle', () => {
                 predictive={true}
                 transitionTickCount={1}
                 tickMs={250}
+                allowBackwardProgress={false}
             />
         )
 

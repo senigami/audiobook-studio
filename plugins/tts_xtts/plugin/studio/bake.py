@@ -144,7 +144,8 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                         **_group_display_updates(completed_groups[0], total_missing_groups, segment_progress, limit=0.9, active_index=min(completed_groups[0] + 1, total_missing_groups), group_weights=missing_group_weights),
                         **_SKIP_LIVE_BROADCASTS,
                     )
-                except: pass
+                except Exception:
+                    xtts_facade.logger.warning("Failed to parse [PROGRESS] line: %r", line, exc_info=True)
 
         scratch_wav = pdir / f"output_{j.id}.wav"
         try:

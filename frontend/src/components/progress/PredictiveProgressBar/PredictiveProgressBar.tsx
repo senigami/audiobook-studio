@@ -43,7 +43,11 @@ export interface PredictiveProgressBarProps {
     predictive?: boolean;
     /** @deprecated Use allowBackwardProgress instead */
     authoritativeFloor?: boolean;
-    /** Explicitly allow the bar to move backward on updates. Default is derived from authoritativeFloor (false). */
+    /**
+     * Explicitly allow the bar to move backward on updates. Default is derived from
+     * authoritativeFloor. Callers should always pass this explicitly — all production
+     * call sites do — rather than relying on the derived default.
+     */
     allowBackwardProgress?: boolean;
     transitionTickCount?: number;
     backwardTransitionTickCount?: number;
@@ -58,6 +62,23 @@ export interface PredictiveProgressBarProps {
 }
 
 const progressMemory = new Map<string, number>();
+
+const PROGRESS_MEMORY_MAX = 100;
+
+const progressMemorySet = (key: string, value: number) => {
+    const isNew = !progressMemory.has(key);
+    progressMemory.set(key, value);
+    if (isNew && progressMemory.size > PROGRESS_MEMORY_MAX) {
+        // Map preserves insertion order; delete oldest entries until within cap
+        const excess = progressMemory.size - PROGRESS_MEMORY_MAX;
+        let count = 0;
+        for (const k of progressMemory.keys()) {
+            if (count >= excess) break;
+            progressMemory.delete(k);
+            count++;
+        }
+    }
+};
 
 export const resetPredictiveProgressMemory = (persistenceKey?: string) => {
     if (!persistenceKey) {
@@ -117,11 +138,6 @@ const resolveEndAtMs = ({
         return null;
     }
 
-    if (etaBasis === 'remaining_from_update') {
-        const anchorSeconds = updatedAt ?? (nowMs / 1000);
-        return (anchorSeconds + etaSeconds) * 1000;
-    }
-    
     if (typeof startedAt === 'number' && startedAt > 0) {
         return (startedAt + etaSeconds) * 1000;
     }
@@ -194,7 +210,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     backwardTransitionTickCount = 2,
     tickMs = 250,
     checkpointMode,
-    evidenceWeightFraction, // No-op for compatibility
+    evidenceWeightFraction, // Weight (0–1) applied to lane-migration confidence: controls how far the migrated lane blends toward the target lane
     state,
     onDebugSnapshot,
     onDisplayProgress,
@@ -213,6 +229,9 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     const migrationRef = useRef<LaneMigration | null>(null);
     const displayProgressRef = useRef<number>(clamp01(progress));
     const doneTransitionRef = useRef<{ startTimeMs: number; durationMs: number; startProgress: number } | null>(null);
+    // Set synchronously in render when done state is first detected; cleared in effect after transition is initialized.
+    // Ensures isDoneAnimating is false on the first done-render so shouldTick stays true.
+    const doneTransitionPendingRef = useRef<boolean>(false);
 
     const lastDisplayWriteRef = useRef<{ source: string; value: number | null }>({
         source: 'init',
@@ -274,7 +293,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 getRenderedStartProgress(currentLaneRef.current, migrationRef.current, nowMs),
                 nowMs
             );
-            const isBackward = (allowBackwardProgress === true) && (incomingProgress < currentVisual - 0.001);
+            const isBackward = effectiveAllowBackward && (incomingProgress < currentVisual - 0.001);
             if (effectiveIncomingProgress > currentVisual || isBackward) {
                 shouldCorrectStart = true;
             }
@@ -382,24 +401,20 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     };
 
     const initialNow = Date.now();
-    if (presentationState === 'done') {
-        if (!doneTransitionRef.current) {
-            const prevActive = prevPresentationStateRef.current && (
-                prevPresentationStateRef.current === 'running' ||
-                prevPresentationStateRef.current === 'processing' ||
-                prevPresentationStateRef.current === 'finalizing'
-            );
-            doneTransitionRef.current = {
-                startTimeMs: initialNow,
-                durationMs: prevActive ? 500 : 0,
-                startProgress: prevActive ? displayProgressRef.current : 1.0,
-            };
-        }
-    } else {
-        doneTransitionRef.current = null;
+
+    // Detect the first render where presentationState becomes 'done' from an active state.
+    // Mark transition pending so isDoneAnimating is false (animation in progress) even before the effect runs.
+    // Only set pending when prevPresentationState is an active state (i.e., a real 500ms animation will occur).
+    const prevIsDoneActiveTransition = prevPresentationStateRef.current === 'running' ||
+        prevPresentationStateRef.current === 'processing' ||
+        prevPresentationStateRef.current === 'finalizing';
+    if (presentationState === 'done' && !doneTransitionRef.current && prevIsDoneActiveTransition) {
+        doneTransitionPendingRef.current = true;
+    } else if (presentationState !== 'done') {
+        doneTransitionPendingRef.current = false;
     }
 
-    const isDoneAnimating = presentationState === 'done' && (
+    const isDoneAnimating = presentationState === 'done' && !doneTransitionPendingRef.current && (
         !doneTransitionRef.current ||
         (tickState - doneTransitionRef.current.startTimeMs >= doneTransitionRef.current.durationMs)
     );
@@ -427,8 +442,30 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     displayProgressRef.current = displayProgress;
 
     useEffect(() => {
+        const nowMs = Date.now();
+
+        if (presentationState === 'done') {
+            if (!doneTransitionRef.current) {
+                const prevActive = prevPresentationStateRef.current && (
+                    prevPresentationStateRef.current === 'running' ||
+                    prevPresentationStateRef.current === 'processing' ||
+                    prevPresentationStateRef.current === 'finalizing'
+                );
+                doneTransitionRef.current = {
+                    startTimeMs: nowMs,
+                    durationMs: prevActive ? 500 : 0,
+                    startProgress: prevActive ? displayProgressRef.current : 1.0,
+                };
+            }
+            // Clear the pending flag now that the transition object is initialized.
+            doneTransitionPendingRef.current = false;
+        } else {
+            doneTransitionRef.current = null;
+            doneTransitionPendingRef.current = false;
+        }
+
         const nextEndAtMs = resolveEndAtMs({
-            nowMs: Date.now(),
+            nowMs,
             startedAt,
             etaSeconds,
             etaBasis,
@@ -444,7 +481,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             updateLaneToTarget('prop-sync', nextEndAtMs, progress, isPhaseHandoff);
         }
         prevPresentationStateRef.current = presentationState;
-        forceUpdate(Date.now());
+        forceUpdate(nowMs);
     }, [progress, startedAt, etaSeconds, etaBasis, estimatedEndAt, updatedAt, presentationState, isPhaseHandoff, isDoneAnimating]);
 
     useEffect(() => {
@@ -483,9 +520,14 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
 
     useEffect(() => {
         if (!memoryKey) return;
+        if (isTerminalStatus(presentationState)) {
+            // Bar has reached a terminal state; evict its own key to avoid unbounded growth
+            progressMemory.delete(memoryKey);
+            return;
+        }
         const currentFloor = !effectiveAllowBackward ? Math.max(getRememberedProgress(memoryKey), displayProgress) : clamp01(displayProgress);
-        progressMemory.set(memoryKey, currentFloor);
-    }, [memoryKey, displayProgress, effectiveAllowBackward]);
+        progressMemorySet(memoryKey, currentFloor);
+    }, [memoryKey, displayProgress, effectiveAllowBackward, presentationState]);
 
     // Fire onDisplayProgress with localProgress — the exact value rendered as the bar width —
     // on every render where it changes. Throttled to 4 decimal places to prevent infinite loops.
