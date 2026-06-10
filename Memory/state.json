@@ -88,6 +88,7 @@
     "local_annotations": "codeql-annotations.json, if present, is informational and should not distract from Phase 12 polish unless intentionally used."
   },
   "next_logical_steps": [
+    "Implement queued Segment Progress bar swaps in Chapter Editor: when SEGMENT_SAVED arrives, keep the current segment bar/text highlight mounted until its display progress reaches 100%; if the next START_SEGMENT arrives during that completion, queue it instead of swapping immediately. Preserve both pendingStart (START_SEGMENT at progress 0 with ETA/updatedAt) and pendingLatest (newest progress frame for that segment). After the previous segment visually completes, mount the next segment from pendingStart at 0%/ETA, then apply pendingLatest on the following tick so the new segment visibly starts at 0 and lane-changes to the latest known progress.",
     "Tune queue and segment progress consumers against the normalized jobs.progress and queue.lifecycle topics, preserving the existing queue overlay behavior while making the topic ownership explicit.",
     "Retire or narrow the legacy runtimeDebug timeline once no user-facing surface depends on __ttsCommunicationTimeline / __websocketRecentMessages.",
     "Implement the check_output interface in plugin adapters to improve engine-agnostic output verification.",

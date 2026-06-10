@@ -100,7 +100,7 @@ A practical starter voice folder can contain:
 - `latent.pth`
 - optional `sample.mp3`
 
-This allows a voice to remain usable for preview and generation without shipping every original source wav in the repository.
+This allows a voice to remain usable for preview and generation without shipping every original source WAV in the repository.
 
 ## XTTS And Voxtral
 

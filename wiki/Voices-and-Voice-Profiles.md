@@ -40,7 +40,7 @@ Each **Voice** always has at least one variant (usually the "Default" variant). 
 - **Edit Script**: Customize the preview text. Testing a voice generates a private preview clip for that specific variant.
 - **Build Progress**: XTTS profiles build local speaker state. Voxtral profiles regenerate preview audio from reference samples or a saved `voice_id`.
 - **Contextual Management**: In the samples list, the **Delete (X)** button is hidden by default and only appears when hovering over a specific row to keep the interface clean while managing audio.
-- **Portable Latent Cache**: Each voice profile now keeps its own `latent.pth` alongside `profile.json` and `sample.wav`, which makes renaming, moving, and sharing a voice bundle much safer.
+- **Portable Latent Cache**: Each voice profile now keeps its own `latent.pth` alongside `profile.json` and `sample.mp3`, which makes renaming, moving, and sharing a voice bundle much safer.
 - **Per-Voice Plugin Settings**: Engines can expose selected settings for individual voices. Common overrides such as speed and model can travel with the voice profile, while plugin-specific controls appear only when the plugin declares them.
 - **Sample Styling Tip**: The first sample tends to anchor the voice most strongly, while later samples add nuance. Mixing clean examples with different delivery styles can help shape a more interesting profile.
 
@@ -55,17 +55,24 @@ Each **Voice** always has at least one variant (usually the "Default" variant). 
 
 Voice bundles are the portable package format for moving a voice between Studio installs or preparing a voice for external distribution.
 
-A complete voice bundle can include:
+The canonical bundle layout (see `docs/specs/voice-bundle-template/`) is:
 
-- voice and variant metadata
-- sample WAV files
-- generated preview audio
-- engine-specific model assets such as `latent.pth`
-- language, style, tag, and attribution metadata when available
+```
+<voice-id>/
+├── voice.json          # required — machine spec validated against voice.schema.json
+├── icon.png            # required — 1:1 aspect-ratio cover image
+├── samples/
+│   ├── preview.mp3     # required — primary preview clip (Studio + Hugging Face widget)
+│   └── preview-*.mp3   # optional — extra samples for different emotions or languages
+├── assets/             # optional — engine-specific model files, e.g. assets/xtts/
+└── README.md           # optional — HF-compatible page (generated from voice.json by the exporter)
+```
 
-Studio's voice-bundle shape is defined in `docs/specs/voice.schema.json`, with a template in `docs/specs/voice-bundle-template/`. That shape supports local Studio imports and Hugging Face-compatible voice distribution without relying on undocumented folder conventions.
+`voice.json` is validated against `docs/specs/voice.schema.json`. Key top-level fields include `spec`, `spec_version`, `id` (must match the bundle folder name), `name`, `image`, `samples`, `languages`, `attributes`, `engines`, and `provenance`.
 
-When sharing a bundle, keep the engine compatibility in mind. A voice built for `XTTS (Local)` may include local model assets, while a cloud or remote engine may rely on provider-specific IDs or reference samples instead.
+The bundle format supports both local Studio imports and Hugging Face-compatible distribution. On Hugging Face, the `README.md` YAML front-matter wires the `widget … output.url` to `samples/preview.mp3`, making the sample playable directly on the repo page without live inference.
+
+When sharing a bundle, keep engine compatibility in mind. A voice built for `XTTS (Local)` will include assets under `assets/xtts/`, while a cloud or remote engine may rely on provider-specific IDs or reference samples instead.
 
 ---
 

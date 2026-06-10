@@ -2041,3 +2041,9 @@
 - Enforced strictly monotonic forward progress (`allowBackwardProgress: false`) on segment progress tracking to prevent visual jumps or regressions.
 - Updated and verified the unit tests in `progressBarContracts.test.ts` and `ChapterHeaderProgressContract.test.tsx` to assert that `predictive` is `true` and `allowBackwardProgress` is `false`.
 - Ran the entire frontend test suite (all 776 tests passed), completed linting checks (`npm run lint`), and verified production compilation (`npm run build`).
+
+# 2026-06-10 - Queued segment-swap plan recorded
+
+- Next desired segment-progress implementation: do not immediately replace the visible segment bar/text driver when a new `START_SEGMENT` arrives while the previous segment is finishing.
+- Keep the previous segment mounted until its displayed progress reaches 100%; queue the next segment separately as `pendingStart` (the `START_SEGMENT` frame at 0% with ETA/updatedAt) plus `pendingLatest` (the newest progress frame received while waiting).
+- After the previous segment visually completes, mount the next segment from `pendingStart` at 0%/ETA, then apply `pendingLatest` on the next tick so the new segment visibly starts at zero before lane-changing to its latest known progress.
