@@ -105,11 +105,14 @@ async def synthesize(request: SynthesisRequest, req_context: Request, background
 
     # Validate the requested output format against a fixed allowlist. This both
     # rejects unsupported formats and prevents path traversal via a crafted
-    # output_format value flowing into the output path below.
-    allowed_formats = {"wav", "mp3", "ogg", "flac"}
-    output_format = request.output_format.lower()
-    if output_format not in allowed_formats:
+    # output_format value flowing into the output path below. The validated value
+    # is re-derived from the allowlist (a constant), so the string used to build
+    # the filesystem path is never the raw user-supplied value.
+    allowed_formats = {"wav": "wav", "mp3": "mp3", "ogg": "ogg", "flac": "flac"}
+    requested_format = request.output_format.lower()
+    if requested_format not in allowed_formats:
         raise HTTPException(status_code=400, detail="Unsupported output format.")
+    output_format = allowed_formats[requested_format]
 
     # Ensure output directory exists
     output_dir = TRANSIENT_DIR / "api"
