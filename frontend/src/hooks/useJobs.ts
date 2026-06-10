@@ -539,12 +539,12 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
     prevJobsRef.current = jobs;
   }, [jobs]);
 
+  // Snapshot hydration is event-driven only: once on (re)connect, plus explicit
+  // refreshJobs() calls on queue-invalidation events. No periodic polling — the
+  // live event stream is the source of truth between snapshots.
   useEffect(() => {
     refreshJobs();
-    // Fallback polling: infrequent if WS is up, frequent if down
-    const timer = setInterval(refreshJobs, connected ? 60000 : 5000);
-    return () => clearInterval(timer);
-  }, [refreshJobs, connected]);
+  }, [refreshJobs]);
 
   return { jobs, loading, refreshJobs, testProgress, segmentProgress, segmentProgressUpdates: globalSegmentProgressUpdates };
 };

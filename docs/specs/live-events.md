@@ -1,7 +1,7 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.0.0
+spec_version: 1.1.0
 status: active
 sources:
   - app/api/ws.py
@@ -17,6 +17,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.1.0   | 2026-06-10 | Removed `useJobs` periodic snapshot polling — snapshot hydration is event-driven only (owner ruling) |
 | 1.0.0   | 2026-06-10 | Initial canonical spec      |
 
 ---
@@ -324,9 +325,14 @@ state accumulated during the disconnect.
 
 ### Fallback polling
 
-When the WebSocket is disconnected:
-- `useQueueSync` falls back to polling `GET /api/queue` every 60 seconds.
-- `useJobs` falls back to requesting `jobs_snapshot` every 5 seconds.
+When the WebSocket is disconnected, `useQueueSync` falls back to polling
+`GET /api/queue` every 60 seconds. The poll stops as soon as the socket reconnects.
+
+`useJobs` has **no** periodic polling. Snapshot hydration is event-driven only:
+one `jobs_snapshot_request` on (re)connect, plus explicit `refreshJobs()` calls on
+queue-invalidation events (`QUEUE_INVALIDATED`, `queue_item_invalidated`). The live
+event stream is the source of truth between snapshots — a periodic snapshot poll
+MUST NOT be reintroduced as a workaround for lost events; lost events are a bug.
 
 ---
 
