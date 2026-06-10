@@ -51,9 +51,10 @@ Can start in parallel with Stage 4 (different files); finish before Stage 6.
 
 - [ ] **6a. Wiki corrections + additions** — doc 13, then the Phase 13 docs audit (`plans/phases/phase_13_release_documentation_and_distribution.md`) including plugin-author docs seeded from doc 03's README.
 - [ ] **6b. Live demo revamp** — doc 14 (interim step 9 webm clips may land any time after Stage 1).
-- [ ] **6c. Phase 13 deliverables** — release notes, install validation (macOS/Windows/Linux, Pinokio), promo assets, `build:demo` in the release checklist.
-- [ ] **Gate:** Phase 13 plan checklist complete; tag `v2.0.0`.
+- [ ] **6c. Pinokio distribution** — doc 16: blockers PK1–PK4 (pin Coqui fork, torch backend selection, public wrapper repo, no machine paths), demo.zip 2.0 refresh (PK7, depends on doc 04), first-run smoke test PK8 (XTTS default engine + Studio Voice default voice + demo restore).
+- [ ] **6d. Phase 13 deliverables** — release notes, install validation (macOS/Windows/Linux, Pinokio), promo assets, `build:demo` in the release checklist.
+- [ ] **Gate:** Phase 13 plan checklist complete; doc 16 PK1–PK4 + PK8 green; tag `v2.0.0`.
 
 ## Post-release backlog (explicitly NOT gating)
 
-Doc 12 Part 2 ideas (ACX QA, audition panel, lexicon, …), doc 05's deferred renames (`plugins/` → `tts_engines/`, `synthesis_mixed` → `tts_mixed`), doc 11 P8–P9 leftovers, doc 12 S-hardening beyond blockers, plugin signing. After release, the versioned contracts from Stage 3 are the compatibility mechanism — legacy support obligations begin at v2.0.0, not before.
+Doc 12 Part 2 ideas (ACX QA, audition panel, lexicon, …), doc 05's deferred rename (`plugins/` → `tts_engines/`; note `synthesis_mixed` → `tts_mixed` is now IN-scope pre-release per owner decision 2026-06-10, doc 05 §4.4), doc 11 P8–P9 leftovers, doc 12 S-hardening beyond blockers, plugin signing. After release, the versioned contracts from Stage 3 are the compatibility mechanism — legacy support obligations begin at v2.0.0, not before.

@@ -879,19 +879,19 @@ nothing.
 **Acceptance:** `grep -rn "from app\." plugins/tts_voxtral/plugin/studio/`
 returns nothing.
 
-### Step 6 — Migrate `plugins/synthesis_mixed` studio handlers
+### Step 6 — Migrate `plugins/tts_mixed` studio handlers
 
-- [ ] Same process as Step 4 for `synthesis_mixed` (if it has studio-side
-  handlers with `app.*` imports).
-- [ ] Note: the folder `plugins/synthesis_mixed/` does NOT match the loader
-  folder regex `^tts_[a-z][a-z0-9]{1,14}$`, so it is not discovered as a
-  standalone plugin. As part of the cutover, either rename it to `tts_mixed`
-  (engine_id `mixed`, already a valid `JobKind`) or fold its logic into the
-  XTTS/Voxtral handlers — decide and record the choice here. Do not leave a
-  dead, undiscoverable plugin folder.
+- [ ] **DECIDED (owner, 2026-06-10): rename `plugins/synthesis_mixed/` →
+  `plugins/tts_mixed/`** so it matches the loader folder regex
+  `^tts_[a-z][a-z0-9]{1,14}$` and is discovered normally (engine_id stays
+  `mixed`). Execution steps live in doc 05 §4.4 (M1/M2); do the rename
+  before or together with this step.
+- [ ] Same process as Step 4 for `tts_mixed` (if it has studio-side
+  handlers with `app.*` imports). It remains in-tree as a documented
+  exception (`builtin: true`) since it depends on Studio's session model.
 
-**Acceptance:** `grep -rn "from app\." plugins/synthesis_mixed/` returns
-nothing (or the folder no longer exists if it was renamed/removed).
+**Acceptance:** `plugins/synthesis_mixed/` no longer exists;
+`grep -rn "from app\." plugins/tts_mixed/` returns nothing.
 
 ### Step 7 — Enforce the contract in CI
 

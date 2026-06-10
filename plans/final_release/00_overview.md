@@ -31,9 +31,12 @@ Phases 0–11 of the v2 conversion are complete; the app runs v2-only (TaskOrche
 | [13](13_wiki_corrections.md) | Wiki fact-check: 9 incorrect claims to fix, 6 missing-coverage additions |
 | [14](14_live_demo_revamp.md) | Rebuild the live demo from real components with scripted event playback |
 | [15](15_progress_confidence_model.md) | ETA trust-handoff design for the predictive progress bar |
+| [16](16_pinokio_distribution.md) | Pinokio one-click install wrapper: audit, release blockers (torch backend, version pinning, public wrapper repo), demo bundle 2.0 refresh, first-run defaults (XTTS engine + Studio Voice) |
 
 ## How to execute
 
 Work [08_release_sequence.md](08_release_sequence.md) top to bottom — it orders the other docs into six gated stages (Stabilize → Clean house → Plugin contract → Voice metadata & repos → Frontend polish → Release). Within a doc, execute checkboxes in order; every checkbox states its own acceptance check. Items flagged **OWNER-VETOABLE** / **OWNER_CONFIRMED** / "owner decision" pause for Steven; everything else proceeds.
 
-Open owner decisions at time of writing: doc 04 D7 (migration default for untagged voices) and D8 (`default_variant` placement), doc 04 §2.3 (voice `class`: hard filter vs strong score), doc 05/02 (`synthesis_mixed`: rename to `tts_mixed` vs registration allowlist), doc 06 (deletion confirmations), doc 13 W13 (keep mp3 preview support or go WAV-only).
+**Owner decisions — resolved 2026-06-10:** doc 04 D7 → omit attributes (null/absent), warning icon on untagged voices, required fields enforced on edit-save; doc 04 D8 → `default_variant` moves to a sibling operational `state.json` (one strict schema, no export transform); doc 04 §2.3 → voice `class` is a **strong score**, not a hard filter; doc 05/02 → `synthesis_mixed` is **renamed to `tts_mixed`** (no allowlist); doc 13 W13 → voice samples/previews are MP3 (canonical), render audio WAV.
+
+**Doc 06 deletions — resolved 2026-06-10:** §1.1 leftover DBs → delete; §1.6 → delete `scratch/` and `debug/` AND remove the now-obsolete debug-copy instrumentation from the frontend, but **keep `demo/demo.zip`** (required fresh-install/Pinokio feature; refresh to 2.0 content per doc 16 PK7); §3.x legacy in-process engine registry → delete. First-run defaults locked: **XTTS is the default-installed engine; "Studio Voice" (the owner's personal voice) ships free as the default starting voice.** No owner decisions remain open; `OWNER_CONFIRMED` flags in doc 06 are ticked.

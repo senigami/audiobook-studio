@@ -245,9 +245,9 @@ scattered throughout the codebase — with no user-visible value at release time
   Same as X6; with a valid Mistral key in settings, synthesis returns audio. Without a key,
   engine is marked `needs_setup` with a human-readable explanation.
 
-### 4.4 `synthesis_mixed` — in-tree orchestrator (not extracted)
+### 4.4 `synthesis_mixed` → `tts_mixed` — in-tree orchestrator (not extracted)
 
-`synthesis_mixed` is a built-in orchestrator that routes segments across multiple engines.
+`synthesis_mixed` (to be renamed `tts_mixed`, see Resolution below) is a built-in orchestrator that routes segments across multiple engines.
 It intentionally stays in-tree because it depends on Studio's internal session/segment model
 and cannot be a standalone plugin. Two concerns to resolve:
 
@@ -259,47 +259,30 @@ underscore. Note also its manifest `engine_id` is `"mixed"` (not `synthesis_mixe
 allowlist keys on the **folder name**, the dedup map keys on `engine_id`, so the two never
 collide.
 
-**Resolution:** register `synthesis_mixed` through a **hardcoded folder allowlist** that
-bypasses only the regex gate — the loaded plugin still goes through the full
-`_load_plugin` path (manifest load, `_validate_manifest`, engine import, dedup). Do NOT
-rewrite `discover_plugins` to return `list[Path]` or to skip validation; it returns
-`list[LoadedPlugin]` and that contract must be preserved. The minimal change is to the
-per-entry gate inside the existing scan loop:
+**Resolution — owner decision 2026-06-10: RENAME the folder to `tts_mixed`.** The
+allowlist alternative (a `BUILTIN_PLUGINS` frozenset bypassing the regex gate) was
+considered and rejected by the owner — one naming rule, zero exemptions. `tts_mixed`
+matches `_PLUGIN_FOLDER_RE` (`^tts_[a-z][a-z0-9]{1,14}$`), so discovery needs **no loader
+changes at all**. The manifest `engine_id` stays `"mixed"` (renaming the engine_id would
+break stored job/queue references; `_invalid_manifest_plugin`'s fallback
+`folder_name.replace("tts_", "", 1)` also derives `"mixed"`, which is consistent).
 
-```python
-# Module level, near _PLUGIN_FOLDER_RE.
-# Built-in orchestrator folders that are exempt from the tts_* naming rule.
-BUILTIN_PLUGINS = frozenset({"synthesis_mixed"})
-
-# Inside discover_plugins(), replacing the existing reject branch:
-        folder_name = entry.name
-        if not (_PLUGIN_FOLDER_RE.match(folder_name) or folder_name in BUILTIN_PLUGINS):
-            logger.debug("Skipping non-plugin folder: %s", folder_name)
-            continue
-        # ... unchanged: _load_plugin(...), duplicate engine_id guard, append ...
-```
-
-`_invalid_manifest_plugin` derives a fallback `engine_id` via
-`folder_name.replace("tts_", "", 1)`; for `synthesis_mixed` that is a no-op and the manifest
-already supplies `engine_id: "mixed"`, so no extra handling is needed there.
-
-**Concern 2 — `synthesis_mixed` imports `app/` internals (session model, etc.).**
+**Concern 2 — the plugin imports `app/` internals (session model, etc.).**
 Because it is in-tree and loaded in the TTS Server subprocess, this is acceptable as an
-explicit exception to the "no app imports" rule — but it must be documented.
+explicit exception to the "no app imports" rule — but it must be documented in the
+manifest (`builtin: true`) and in doc 02's contract notes.
 
-- [ ] **M1. Add `BUILTIN_PLUGINS` allowlist to `app/tts_server/plugin_loader.py`** as shown
-  above. Document that built-in orchestrator plugins are exempt from the `tts_*` naming rule
-  and the `no app imports` rule, and that this exemption is granted by allowlist only.
-  _Acceptance: `POST /plugins/refresh` discovers both `tts_xtts` (folder `tts_xtts`, via regex) and `synthesis_mixed` (folder `synthesis_mixed`, via allowlist); `GET /api/engines` lists engine_ids `xtts` and `mixed`._
+- [ ] **M1. Rename `plugins/synthesis_mixed/` → `plugins/tts_mixed/`** via
+  `git mv plugins/synthesis_mixed plugins/tts_mixed`. Then fix every reference to the old
+  folder name: `grep -rn "synthesis_mixed" app/ plugins/ tests/ frontend/src/ docs/ --include="*.py" --include="*.ts" --include="*.tsx" --include="*.json" --include="*.md" | grep -v __pycache__` and update each hit (imports, manifest `entry_class`
+  module paths if they embed the folder name, test fixtures, docs). Per the clean-break
+  policy, no compatibility shim or old-name alias is kept.
+  _Acceptance: the grep above returns nothing outside `plans/`; `POST /plugins/refresh` discovers both `tts_xtts` and `tts_mixed` via the normal regex path; `GET /api/engines` lists engine_ids `xtts` and `mixed`; pytest green._
 
-- [ ] **M2. Add `"builtin": true` field to `synthesis_mixed/manifest.json`.**
+- [ ] **M2. Add `"builtin": true` field to `plugins/tts_mixed/manifest.json`.**
   Studio uses this to suppress the "Install from URL" / "Uninstall" buttons for built-in
   plugins — they are not user-removable.
-  _Acceptance: Settings → TTS Engines shows no Uninstall button for synthesis_mixed._
-
-- [ ] **M3. (Post-release candidate) Evaluate renaming `synthesis_mixed` to `tts_mixed`.**
-  If the rename is done, remove it from `BUILTIN_PLUGINS` and let it be discovered normally.
-  Record in `Memory/state.json` under deferred items.
+  _Acceptance: Settings → TTS Engines shows no Uninstall button for the mixed engine._
 
 ---
 
