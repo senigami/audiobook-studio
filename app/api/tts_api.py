@@ -103,21 +103,26 @@ async def synthesize(request: SynthesisRequest, req_context: Request, background
     """
     task_id = f"api_{uuid.uuid4().hex[:8]}"
 
-    # Validate the requested output format against a fixed allowlist. This both
-    # rejects unsupported formats and prevents path traversal via a crafted
-    # output_format value flowing into the output path below. The validated value
-    # is re-derived from the allowlist (a constant), so the string used to build
-    # the filesystem path is never the raw user-supplied value.
-    allowed_formats = {"wav": "wav", "mp3": "mp3", "ogg": "ogg", "flac": "flac"}
+    # Validate the requested output format against a fixed allowlist. The value
+    # used downstream is the literal from the allowlist tuple selected by
+    # comparison — never the user-supplied string — so no user input flows into
+    # the filesystem path.
     requested_format = request.output_format.lower()
-    if requested_format not in allowed_formats:
+    output_format = None
+    for fmt in ("wav", "mp3", "ogg", "flac"):
+        if requested_format == fmt:
+            output_format = fmt
+            break
+    if output_format is None:
         raise HTTPException(status_code=400, detail="Unsupported output format.")
-    output_format = allowed_formats[requested_format]
 
     # Ensure output directory exists
-    output_dir = TRANSIENT_DIR / "api"
+    output_dir = (TRANSIENT_DIR / "api").resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"{task_id}.{output_format}"
+    output_path = (output_dir / f"{task_id}.{output_format}").resolve()
+    # Defense in depth: the served file must stay inside the API output dir.
+    if not output_path.is_relative_to(output_dir):
+        raise HTTPException(status_code=400, detail="Invalid output path.")
 
     task = ApiSynthesisTask(
         task_id=task_id,
