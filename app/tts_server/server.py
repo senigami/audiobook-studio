@@ -885,9 +885,7 @@ async def import_plugin(file: UploadFile = File(...)) -> dict[str, Any]:
 # Plugin staging store — keyed by opaque UUID token
 # ---------------------------------------------------------------------------
 
-import threading as _threading
-
-_staging_lock = _threading.Lock()
+_staging_lock = threading.Lock()
 # token -> {"staging_dir": Path, "engine_id": str, "display_name": str,
 #           "version": str|None, "requirements": list[str]}
 _staging: dict[str, dict] = {}
