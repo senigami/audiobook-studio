@@ -113,7 +113,7 @@ def discover_plugins(plugins_dir: Path) -> list[LoadedPlugin]:
             plugin = _invalid_manifest_plugin(
                 plugin_dir=entry,
                 folder_name=folder_name,
-                load_error=str(exc),
+                load_error=str(exc) if isinstance(exc, PluginLoadError) else f"{type(exc).__name__} while loading plugin (see server logs)",
             )
             if plugin is not None:
                 loaded.append(plugin)
@@ -245,20 +245,23 @@ def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
     )
 
     # 4. Instantiate engine.
+    dev_enabled = isinstance(manifest.get("dev"), dict) and manifest["dev"].get("enabled") is True
     try:
         engine = engine_cls()
     except Exception as exc:
+        # Dev plugins surface full exception text for the plugin author;
+        # otherwise only the exception type leaves the server (details logged).
+        detail = str(exc) if dev_enabled else f"{type(exc).__name__} (see server logs)"
         raise PluginLoadError(
-            f"Failed to instantiate {engine_cls.__name__}: {exc}"
+            f"Failed to instantiate {engine_cls.__name__}: {detail}"
         ) from exc
 
     # 5. Environment check.
     try:
         ok, msg = engine.check_env()
     except Exception as exc:
-        raise PluginLoadError(
-            f"check_env() raised an exception: {exc}"
-        ) from exc
+        detail = str(exc) if dev_enabled else f"{type(exc).__name__} (see server logs)"
+        raise PluginLoadError(f"check_env() raised an exception: {detail}") from exc
 
     # 5b. Check persisted verification state.
     from app.tts_server.settings_store import calculate_verification_metadata, load_state # noqa: PLC0415
@@ -364,7 +367,7 @@ def _load_pip_plugin(ep: Any, plugins_dir: Path) -> LoadedPlugin:
     try:
         ok, msg = engine.check_env()
     except Exception as exc:
-        raise PluginLoadError(f"check_env() raised an exception: {exc}") from exc
+        raise PluginLoadError(f"check_env() raised {type(exc).__name__} (see server logs)") from exc
 
     if not ok:
         logger.warning("Pip plugin %s check_env() failed: %s", ep.name, msg)

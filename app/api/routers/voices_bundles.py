@@ -49,10 +49,9 @@ async def import_voice_bundle_route(file: UploadFile = File(...)):
         sync_speakers_from_profiles(get_voices_dir())
         return JSONResponse({"status": "ok", **result})
     except VoiceBundleError as exc:
-        validation_message = str(exc)
-        logger.warning("Voice bundle validation/import error for %s: %s", file.filename, validation_message)
+        logger.warning("Voice bundle validation/import error for %s: %s", file.filename, exc)
         return JSONResponse(
-            {"status": "error", "message": validation_message},
+            {"status": "error", "message": "Invalid voice bundle."},
             status_code=400,
         )
     except Exception as e:

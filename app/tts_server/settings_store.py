@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import re
 import time
 from pathlib import Path
@@ -22,6 +23,19 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 _ENGINE_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
+
+
+def _contained_path(base: "Path | str", *parts: str) -> Path:
+    """Private copy of the containment helper for the tts_server layer.
+
+    Uses normpath+startswith — the form recognized by static analyzers as a
+    path-injection barrier.
+    """
+    base_norm = os.path.normpath(str(base))
+    candidate = os.path.normpath(os.path.join(base_norm, *parts))
+    if candidate != base_norm and not candidate.startswith(base_norm + os.sep):
+        raise ValueError("path escapes containment root")
+    return Path(candidate)
 
 
 def validate_engine_id(engine_id: str) -> None:
@@ -55,13 +69,8 @@ def _runtime_dir(plugin_dir: Path) -> Path:
 def _runtime_file(plugin_dir: Path, filename: str) -> Path:
     from app.core.config import PLUGIN_DATA_DIR  # noqa: PLC0415
 
-    target = (_runtime_dir(plugin_dir) / filename).resolve()
-    allowed_root = PLUGIN_DATA_DIR.resolve()
-    if not target.is_relative_to(allowed_root):
-        raise ValueError(
-            f"Resolved path {target} escapes plugin data directory {allowed_root}"
-        )
-    return target
+    engine_id = _engine_id_from_plugin_dir(plugin_dir)
+    return _contained_path(PLUGIN_DATA_DIR, engine_id, filename)
 
 
 def load_settings(plugin_dir: Path) -> dict[str, Any]:

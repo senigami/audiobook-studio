@@ -138,7 +138,7 @@ def test_import_voice_bundle_rejects_invalid_archives(clean_db, voices_root, cli
         files={"file": ("missing.voice.zip", io.BytesIO(missing_voice.getvalue()), "application/zip")},
     )
     assert response.status_code == 400
-    assert "voice.json" in response.json()["message"]
+    assert response.json()["message"] == "Invalid voice bundle."
 
     traversal = io.BytesIO()
     with zipfile.ZipFile(traversal, "w") as zf:
@@ -160,7 +160,7 @@ def test_import_voice_bundle_rejects_invalid_archives(clean_db, voices_root, cli
         files={"file": ("missing-profile.voice.zip", io.BytesIO(missing_profile.getvalue()), "application/zip")},
     )
     assert response.status_code == 400
-    assert "profile.json" in response.json()["message"]
+    assert response.json()["message"] == "Invalid voice bundle."
 
     unsupported_binary = io.BytesIO()
     with zipfile.ZipFile(unsupported_binary, "w") as zf:

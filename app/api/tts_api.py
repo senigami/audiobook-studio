@@ -15,6 +15,7 @@ from app.orchestration.tasks.api_synthesis import ApiSynthesisTask
 from app.orchestration.scheduler.orchestrator import create_orchestrator
 from app.db.state import get_settings, get_jobs
 from app.core.config import TRANSIENT_DIR, VOICES_DIR
+from app.utils.pathing import contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -80,14 +81,13 @@ def _validate_voice_ref(voice_ref: str) -> str:
     Raises HTTPException(400) for unsafe paths, HTTPException(404) for unknown names.
     """
     if "/" in voice_ref or "\\" in voice_ref:
-        # Caller supplied a path fragment — resolve and assert containment.
-        try:
-            resolved = Path(voice_ref).resolve()
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid voice_ref path.")
-        voices_dir_r = VOICES_DIR.resolve()
-        transient_dir_r = TRANSIENT_DIR.resolve()
-        if not (resolved.is_relative_to(voices_dir_r) or resolved.is_relative_to(transient_dir_r)):
+        # Caller supplied a path fragment — assert containment using the recognized barrier form.
+        candidate = os.path.normpath(voice_ref)
+        voices_norm = os.path.normpath(str(VOICES_DIR))
+        transient_norm = os.path.normpath(str(TRANSIENT_DIR))
+        in_voices = candidate == voices_norm or candidate.startswith(voices_norm + os.sep)
+        in_transient = candidate == transient_norm or candidate.startswith(transient_norm + os.sep)
+        if not (in_voices or in_transient):
             raise HTTPException(
                 status_code=400,
                 detail="voice_ref path is not within an allowed directory.",

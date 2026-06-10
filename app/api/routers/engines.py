@@ -6,6 +6,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Body, File, UploadFile
 from fastapi.responses import JSONResponse, FileResponse
 from ...engines.bridge import create_voice_bridge
+from ...utils.pathing import contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -56,14 +57,13 @@ def _safe_resolve_plugin_dir(
             status_code=404,
         )
 
-    plugins_base = PLUGINS_DIR.resolve()
     try:
-        plugin_dir.resolve().relative_to(plugins_base)
+        plugin_dir = contained_path(PLUGINS_DIR, plugin_dir.name)
     except ValueError:
         logger.warning(
             "Plugin dir %s escapes PLUGINS_DIR %s for engine_id %r",
             plugin_dir,
-            plugins_base,
+            PLUGINS_DIR,
             engine_id,
         )
         return None, JSONResponse(
@@ -168,11 +168,8 @@ def get_test_audio(engine_id: str):
     plugin_dir, err = _safe_resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
     if err:
         return err
-    audio_path = (plugin_dir / "assets" / "test_output.wav").resolve()
-
-    # Containment check
     try:
-        audio_path.relative_to(plugin_dir.resolve())
+        audio_path = contained_path(plugin_dir, "assets", "test_output.wav")
     except ValueError:
         return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
 
@@ -205,11 +202,9 @@ def test_engine(engine_id: str):
         plugin_dir, err = _safe_resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
         if err:
             return err
-        output_path = (plugin_dir / "assets" / "test_output.wav").resolve()
-
-        # Containment check
         try:
-            output_path.relative_to(plugin_dir.resolve())
+            output_path = contained_path(plugin_dir, "assets", "test_output.wav")
+            last_test_path = contained_path(plugin_dir, "assets", "last_test.json")
         except ValueError:
             return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
 
@@ -219,12 +214,6 @@ def test_engine(engine_id: str):
         import json
         import time
 
-        last_test_path = (plugin_dir / "assets" / "last_test.json").resolve()
-        # Containment check for write target
-        try:
-            last_test_path.relative_to(plugin_dir.resolve())
-        except ValueError:
-            return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
         last_test_path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "ok": True,
@@ -441,9 +430,8 @@ def get_engine_scenarios(engine_id: str):
         return JSONResponse({"ok": False, "message": "No dev scenarios declared in manifest"}, status_code=404)
 
     # Path safety check
-    full_path = (plugin_dir / scenarios_path).resolve()
     try:
-        full_path.relative_to(plugin_dir.resolve())
+        full_path = contained_path(plugin_dir, scenarios_path)
     except ValueError:
         return JSONResponse({"ok": False, "message": "Scenario path escapes plugin directory"}, status_code=403)
 
@@ -508,9 +496,8 @@ def get_engine_asset(engine_id: str, asset_path: str):
     if Path(asset_path).suffix.lower() not in allowed_exts:
         return JSONResponse({"ok": False, "message": "Unsupported asset type"}, status_code=403)
 
-    full_path = (plugin_dir / asset_path).resolve()
     try:
-        full_path.relative_to(plugin_dir.resolve())
+        full_path = contained_path(plugin_dir, asset_path)
     except ValueError:
         return JSONResponse({"ok": False, "message": "Asset path escapes plugin directory"}, status_code=403)
 

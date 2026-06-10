@@ -8,7 +8,7 @@ import sqlite3
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
-from ..utils.pathing import safe_basename, safe_join, safe_join_flat, find_secure_file, secure_join_flat
+from ..utils.pathing import safe_basename, safe_join, safe_join_flat, find_secure_file, secure_join_flat, contained_path
 from ..core import config
 from ..engines.voice_engines import get_default_profile_engine, list_tts_engines
 
@@ -122,23 +122,19 @@ def _existing_profile_dir(profile_name: str) -> Optional[Path]:
 def _new_profile_dir(voices_dir: Path, profile_name: str) -> Path:
     name = _profile_name_or_error(profile_name)
 
-    # Rule 9: Explicit containment check via relative_to
     try:
         if " - " in name:
             parts = [s.strip() for s in name.split(" - ", 1)]
             if len(parts) == 2:
                 safe_part0 = safe_basename(parts[0])
                 safe_part1 = safe_basename(parts[1])
-                fullpath = (voices_dir / safe_part0 / safe_part1).resolve()
+                return contained_path(voices_dir, safe_part0, safe_part1)
             else:
                 safe_name = safe_basename(name)
-                fullpath = (voices_dir / safe_name).resolve()
+                return contained_path(voices_dir, safe_name)
         else:
             safe_name = safe_basename(name)
-            fullpath = (voices_dir / safe_name).resolve()
-
-        fullpath.relative_to(voices_dir.resolve())
-        return fullpath
+            return contained_path(voices_dir, safe_name)
     except (OSError, ValueError, RuntimeError):
         raise ValueError(f"Invalid profile path: {profile_name}")
 
@@ -218,11 +214,9 @@ def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
         except ValueError:
             _safe_prefix = None
         if _safe_prefix:
-            v_dir_path = voices_root / _safe_prefix
-            # Containment proof
             try:
-                v_dir_path.resolve().relative_to(voices_root.resolve())
-            except (ValueError, OSError):
+                v_dir_path = contained_path(voices_root, _safe_prefix)
+            except ValueError:
                 v_dir_path = None
         else:
             v_dir_path = None

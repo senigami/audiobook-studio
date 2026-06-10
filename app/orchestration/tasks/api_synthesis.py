@@ -106,15 +106,14 @@ class ApiSynthesisTask(StudioTask):
         if "/" not in self.voice_ref and "\\" not in self.voice_ref:
             # Plain profile name — no filesystem traversal possible.
             return
+        import os  # noqa: PLC0415
         from app.core.config import VOICES_DIR, TRANSIENT_DIR  # noqa: PLC0415
-        try:
-            resolved = Path(self.voice_ref).resolve()
-        except Exception as exc:
-            logger.error("api_synthesis: voice_ref resolution failed for task %s: %s", self.task_id, exc)
-            raise ValueError(f"Invalid voice_ref path: {self.voice_ref}") from exc
-        voices_dir_r = VOICES_DIR.resolve()
-        transient_dir_r = TRANSIENT_DIR.resolve()
-        if not (resolved.is_relative_to(voices_dir_r) or resolved.is_relative_to(transient_dir_r)):
+        candidate = os.path.normpath(self.voice_ref)
+        voices_norm = os.path.normpath(str(VOICES_DIR))
+        transient_norm = os.path.normpath(str(TRANSIENT_DIR))
+        in_voices = candidate == voices_norm or candidate.startswith(voices_norm + os.sep)
+        in_transient = candidate == transient_norm or candidate.startswith(transient_norm + os.sep)
+        if not (in_voices or in_transient):
             logger.error(
                 "api_synthesis: voice_ref %r is outside allowed dirs for task %s — failing task",
                 self.voice_ref, self.task_id,

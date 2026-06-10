@@ -509,9 +509,10 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
             detail=f"Engine {body.engine_id} is not ready (status: {status})",
         )
     if getattr(plugin, "verification_error", None):
+        logger.exception("Engine %s failed verification: %s", body.engine_id, plugin.verification_error)
         raise HTTPException(
             status_code=503,
-            detail=f"Engine {body.engine_id} failed verification: {plugin.verification_error}",
+            detail=f"Engine {body.engine_id} failed verification.",
         )
     if not plugin.verified:
         raise HTTPException(
@@ -570,9 +571,10 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
                 _cancelled_tasks.discard(body.task_id)
 
     if not result.ok:
+        logger.exception("Synthesis failed for engine %s: %s", body.engine_id, result.error)
         raise HTTPException(
             status_code=500,
-            detail=f"Synthesis failed: {result.error}",
+            detail="Synthesis failed.",
         )
 
     # 3. postprocess_audio
@@ -704,9 +706,10 @@ def preview(body: PreviewRequest) -> dict[str, Any]:
     result = plugin.engine.preview(req)
 
     if not result.ok:
+        logger.exception("Preview failed for engine %s: %s", body.engine_id, result.error)
         raise HTTPException(
             status_code=500,
-            detail=f"Preview failed: {result.error}",
+            detail="Preview failed.",
         )
 
     # 3. postprocess_audio

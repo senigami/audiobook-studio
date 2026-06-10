@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from ..engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
-from app.tts_server.settings_store import load_settings, save_settings, validate_engine_id
+from app.tts_server.settings_store import load_settings, save_settings, validate_engine_id, _contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,10 @@ def resolve_engine_settings_model(engine_id: str) -> str | None:
         return normalize_tts_model(val)
 
     # Fall back to settings_schema.json default
-    schema_path = plugin_dir / "settings_schema.json"
+    try:
+        schema_path = _contained_path(plugin_dir, "settings_schema.json")
+    except ValueError:
+        return None
     if schema_path.is_file():
         try:
             import json
@@ -157,7 +160,7 @@ def filter_history_for_engine_model(
     try:
         plugin_dir = get_plugin_dir(engine_id)
         if plugin_dir.is_dir():
-            schema_path = plugin_dir / "settings_schema.json"
+            schema_path = _contained_path(plugin_dir, "settings_schema.json")
             if schema_path.is_file():
                 import json
                 schema = json.loads(schema_path.read_text(encoding="utf-8"))
