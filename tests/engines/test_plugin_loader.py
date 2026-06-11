@@ -787,3 +787,59 @@ def test_xtts_manifest_and_schema_contains_model_v2():
     assert model_prop.get("type") == "string"
     assert model_prop.get("default") == "v2"
     assert model_prop.get("enum") == ["v2"]
+
+
+class TestSettingsAwareVerificationRestore:
+    """Discovery must pass persisted settings to check_env; a settings-keyed
+    engine (e.g. Voxtral's API key) otherwise fails check_env at boot and the
+    persisted verified state is discarded — the engine reverts to 'not ready'
+    after every server restart even though nothing changed."""
+
+    _SRC = """
+    class MockEngine:
+        def check_env(self, settings=None):
+            if (settings or {}).get("mistral_api_key"):
+                return True, "OK"
+            return False, "Needs API key in settings."
+
+        def check_request(self, req):
+            return True, "OK"
+
+        def synthesize(self, req):
+            raise NotImplementedError
+
+        def info(self):
+            return {}
+
+        def settings_schema(self):
+            return {"properties": {"mistral_api_key": {"type": "string"}}}
+    """
+
+    def test_persisted_verification_survives_restart_for_settings_keyed_engine(self, tmp_path):
+        from app.tts_server.settings_store import (
+            calculate_verification_metadata,
+            save_settings,
+            save_state,
+        )
+
+        manifest = _minimal_manifest("voxkeyed")
+        plugin_dir = _make_plugin_dir(tmp_path, "tts_voxkeyed", manifest, self._SRC)
+
+        # Persisted settings hold the key (what the user saved in Settings)…
+        save_settings(plugin_dir, {"mistral_api_key": "saved-key"})
+        # …and a valid verification state from a previous session.
+        save_state(plugin_dir, {
+            "verified": True,
+            "verification_error": None,
+            "last_verified_at": "2026-06-11T00:00:00Z",
+            "metadata": calculate_verification_metadata(plugin_dir, manifest),
+        })
+
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        plugin = result[0]
+        assert plugin.engine_id == "voxkeyed"
+        # The persisted verification must be restored on reload.
+        assert plugin.verified is True
+        # And check_env with the persisted settings means no setup message.
+        assert plugin.load_error is None

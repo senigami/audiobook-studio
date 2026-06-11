@@ -34,6 +34,21 @@ _CALLABLE_RE = re.compile(r"^[a-z_][a-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
 _IMPORT_TIMEOUT_SECONDS = 120
 
 
+def _check_env_accepts_settings(callable_obj: Any) -> bool:
+    """Return True when a plugin's check_env supports a settings keyword."""
+    import inspect  # noqa: PLC0415
+
+    try:
+        signature = inspect.signature(callable_obj)
+    except (TypeError, ValueError):
+        return False
+
+    return any(
+        param.kind == inspect.Parameter.VAR_KEYWORD or name == "settings"
+        for name, param in signature.parameters.items()
+    )
+
+
 class PluginLoadError(Exception):
     """Raised when a plugin cannot be loaded due to a configuration error."""
 
@@ -260,9 +275,20 @@ def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
             f"Failed to instantiate {engine_cls.__name__}: {detail}"
         ) from exc
 
-    # 5. Environment check.
+    # 5. Environment check — with persisted settings when the engine accepts
+    # them, otherwise a settings-keyed engine (e.g. an API key stored in
+    # engine settings) fails check_env on every boot and its persisted
+    # verification below is discarded.
     try:
-        ok, msg = engine.check_env()
+        if _check_env_accepts_settings(engine.check_env):
+            from app.tts_server.settings_store import load_settings  # noqa: PLC0415
+            try:
+                current_settings = load_settings(plugin_dir)
+            except Exception:
+                current_settings = {}
+            ok, msg = engine.check_env(settings=current_settings)
+        else:
+            ok, msg = engine.check_env()
     except Exception as exc:
         detail = str(exc) if dev_enabled else "unexpected error (see server logs)"
         raise PluginLoadError(f"check_env() raised an exception: {detail}") from exc
