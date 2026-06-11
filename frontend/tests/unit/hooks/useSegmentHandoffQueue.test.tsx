@@ -541,4 +541,96 @@ describe('useSegmentHandoffQueue', () => {
 
     vi.useRealTimers();
   });
+
+  // -----------------------------------------------------------------------
+  // H7: Mid-animation failure — immediate reset, no completion animation
+  // -----------------------------------------------------------------------
+  it('H7: resets immediately on job status → failed mid-animation (no hold, no flush)', () => {
+    vi.useFakeTimers();
+
+    const { result, rerender } = renderHook(
+      (props: { segmentId: string; progress: number; status: string }) =>
+        useSegmentHandoffQueue({ jobId: 'job-1', segmentId: props.segmentId, progress: props.progress, status: props.status }),
+      { initialProps: { segmentId: 'seg-A', progress: 0.5, status: 'running' } }
+    );
+
+    // Drive to partial progress with a pending segment queued
+    rerender({ segmentId: 'seg-B', progress: 0, status: 'running' });
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+    expect(result.current.hasPending).toBe(true);
+
+    // Job transitions to failed — must reset immediately
+    rerender({ segmentId: 'seg-B', progress: 0, status: 'failed' });
+
+    expect(result.current.displayedSegmentId).toBe('none');
+    expect(result.current.hasPending).toBe(false);
+
+    // Advance timers — no flush/visual_complete should swap anything
+    act(() => {
+      vi.advanceTimersByTime(COMPLETION_HOLD_MS + 3000 + 100);
+    });
+    expect(result.current.displayedSegmentId).toBe('none');
+    expect(result.current.hasPending).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  // -----------------------------------------------------------------------
+  // H7: Cancelled behaves the same as failed
+  // -----------------------------------------------------------------------
+  it('H7: resets immediately on job status → cancelled mid-animation', () => {
+    vi.useFakeTimers();
+
+    const { result, rerender } = renderHook(
+      (props: { segmentId: string; progress: number; status: string }) =>
+        useSegmentHandoffQueue({ jobId: 'job-1', segmentId: props.segmentId, progress: props.progress, status: props.status }),
+      { initialProps: { segmentId: 'seg-A', progress: 0.6, status: 'running' } }
+    );
+
+    rerender({ segmentId: 'seg-B', progress: 0, status: 'running' });
+    expect(result.current.hasPending).toBe(true);
+
+    rerender({ segmentId: 'seg-B', progress: 0, status: 'cancelled' });
+
+    expect(result.current.displayedSegmentId).toBe('none');
+    expect(result.current.hasPending).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(COMPLETION_HOLD_MS + 3000 + 100);
+    });
+    expect(result.current.displayedSegmentId).toBe('none');
+
+    vi.useRealTimers();
+  });
+
+  // -----------------------------------------------------------------------
+  // H7 regression guard: 'done' still takes the completing→hold path
+  // -----------------------------------------------------------------------
+  it('H7 regression: done does NOT trigger immediate reset — takes completing→hold path', () => {
+    vi.useFakeTimers();
+
+    const { result, rerender } = renderHook(
+      (props: { segmentId: string; progress: number; status: string }) =>
+        useSegmentHandoffQueue({ jobId: 'job-1', segmentId: props.segmentId, progress: props.progress, status: props.status }),
+      { initialProps: { segmentId: 'seg-A', progress: 0.7, status: 'running' } }
+    );
+
+    // Sentinel arrives, enter COMPLETING
+    rerender({ segmentId: 'none', progress: 0, status: 'done' });
+
+    // 'done' must NOT immediately reset — old segment still displayed
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+    expect(result.current.hasPending).toBe(true);
+
+    // Visual complete + hold → sentinel displayed after hold
+    act(() => {
+      result.current.notifyDisplayProgress(1.0);
+    });
+    act(() => {
+      vi.advanceTimersByTime(COMPLETION_HOLD_MS);
+    });
+    expect(result.current.displayedSegmentId).toBe('none');
+
+    vi.useRealTimers();
+  });
 });

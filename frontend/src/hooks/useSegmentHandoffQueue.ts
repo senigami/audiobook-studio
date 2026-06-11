@@ -147,6 +147,9 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
     // Tracks last display_progress bucket crossed upward.
     const lastDisplayBucketRef = useRef<number>(-1);
 
+    // Tracks the last observed job status for terminal-failure edge detection.
+    const lastStatusRef = useRef<string | undefined>(input.status);
+
     // Keep displayedRef in sync with displayed state.
     useEffect(() => {
         displayedRef.current = displayed;
@@ -210,9 +213,54 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
     // visual progress, to avoid calling it multiple times as the bar hovers at ~1.0.
     const visualCompleteFiredRef = useRef(false);
 
+    // Terminal failure reset: clears all display state immediately (H7).
+    const TERMINAL_FAILURE_STATUSES = ['failed', 'cancelled'];
+
     // Main effect: react to incoming prop changes.
     useEffect(() => {
         const currentDisplayed = displayedRef.current;
+
+        // H7: If job transitions to a terminal FAILURE state, reset immediately —
+        // no completion animation, no hold. Only fires on the transition edge
+        // (non-terminal → failed/cancelled) so a freshly mounted hook that already
+        // observes a failed job doesn't thrash on every render.
+        const prevStatus = lastStatusRef.current;
+        const isNowTerminalFailure = TERMINAL_FAILURE_STATUSES.includes(input.status ?? '');
+        const wasTerminalFailure = TERMINAL_FAILURE_STATUSES.includes(prevStatus ?? '');
+        lastStatusRef.current = input.status;
+
+        if (isNowTerminalFailure && !wasTerminalFailure) {
+            // Cancel all pending timers.
+            if (catchUpTimerRef.current !== null) {
+                clearTimeout(catchUpTimerRef.current);
+                catchUpTimerRef.current = null;
+            }
+            if (safetyTimerRef.current !== null) {
+                clearTimeout(safetyTimerRef.current);
+                safetyTimerRef.current = null;
+            }
+            if (holdTimerRef.current !== null) {
+                clearTimeout(holdTimerRef.current);
+                holdTimerRef.current = null;
+            }
+            // Record ring event before clearing displayed state.
+            recordHandoffTransition('terminal_failure_reset', undefined, {
+                jobId: input.jobId,
+                priorDisplayedSegmentId: currentDisplayed.segmentId,
+                status: input.status,
+            });
+            // Reset all state machine refs.
+            completingRef.current = false;
+            pendingRef.current = null;
+            visualCompleteRef.current = false;
+            visualCompletedAtRef.current = null;
+            visualCompleteFiredRef.current = false;
+            holdActiveRef.current = false;
+            lastInputKeyRef.current = '';
+            setHasPending(false);
+            setDisplayed(prev => ({ ...prev, segmentId: NO_SEGMENT, progress: 0, etaSeconds: null }));
+            return;
+        }
 
         // Same segment: just update displayed progress directly (no queueing needed).
         if (input.segmentId === currentDisplayed.segmentId) {

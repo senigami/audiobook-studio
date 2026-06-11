@@ -119,6 +119,14 @@ def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav
         text = sanitize_text(text)
         text = safe_split_long_sentences(text, target=get_text_split_target(engine_id))
 
+    # Resolve the voice profile directory so engines like Voxtral can find
+    # reference audio (the engine core stays portable and never guesses paths).
+    try:
+        pdir = get_voice_profile_dir(profile_name)
+    except ValueError:
+        from app.core.config import VOICES_DIR
+        pdir = VOICES_DIR / profile_name
+
     # Synthesis request with generic settings extraction
     return generate_via_bridge(
         engine=engine_id,
@@ -129,6 +137,7 @@ def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav
         on_output=on_output,
         cancel_check=cancel_check,
         task_id=task_id,
+        voice_profile_dir=pdir,
         **settings
     )
 

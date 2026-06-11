@@ -515,3 +515,59 @@ def test_handle_mixed_job_bake_metrics_uses_rendered_chars_only(clean_db, tmp_pa
     # If we incorrectly use tracking_groups (all_groups), it will be ~24.
     # If we correctly use target_groups (rendered only), it will be ~12.
     assert args[2] < 20, f"Recorded {args[2]} chars, expected only rendered subset (< 20)"
+
+
+def test_render_segment_passes_voice_profile_dir_to_bridge(clean_db, tmp_path):
+    """
+    _render_segment must resolve the voice profile dir and forward it as
+    voice_profile_dir to generate_via_bridge. Without this, Voxtral voices
+    that rely on reference audio (no voice_asset_id) fail:
+    'No Voxtral voice_id or reference sample is available for this voice profile.'
+
+    Pre-fix: generate_via_bridge is called WITHOUT voice_profile_dir.
+    Post-fix: it receives voice_profile_dir equal to the resolved profile dir.
+    """
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+    from plugins.synthesis_mixed.handler import _render_segment
+
+    pid = create_project("P2")
+    cid = create_chapter(pid, "C2", "Hello voxtral.")
+    sync_chapter_segments(cid, "Hello voxtral.")
+    segs = get_chapter_segments(cid)
+    update_segment(segs[0]["id"], speaker_profile_name="Voxtral Voice")
+
+    expected_profile_dir = tmp_path / "voices" / "Voxtral Voice"
+    expected_profile_dir.mkdir(parents=True)
+
+    bridge_calls: list[dict] = []
+
+    def capturing_bridge(**kwargs):
+        bridge_calls.append(kwargs)
+        Path(kwargs["out_wav"]).write_text("voxtral")
+        return 0
+
+    out_wav = tmp_path / "out.wav"
+
+    with patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=expected_profile_dir), \
+         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=capturing_bridge):
+        rc = _render_segment(
+            "voxtral",
+            "Hello voxtral.",
+            "Voxtral Voice",
+            out_wav,
+            safe_mode=False,
+            on_output=lambda _: None,
+            cancel_check=lambda: False,
+        )
+
+    assert rc == 0
+    assert bridge_calls, "generate_via_bridge was not called"
+    call_kwargs = bridge_calls[0]
+    assert "voice_profile_dir" in call_kwargs, (
+        "generate_via_bridge was called WITHOUT voice_profile_dir — "
+        "Voxtral voices without voice_asset_id will fail reference-audio resolution."
+    )
+    assert call_kwargs["voice_profile_dir"] == expected_profile_dir

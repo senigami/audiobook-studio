@@ -3,14 +3,17 @@ from typing import Iterable, Optional
 import threading
 
 _DISCOVERY_LOCK = threading.Lock()
-_IN_DISCOVERY = False
+# Thread-local guard: prevents same-thread re-entrant recursion (describe_registry
+# can re-enter normalize paths), but does NOT block concurrent threads — each thread
+# runs its own independent discovery so list_tts_engines() never transiently returns []
+# due to another thread being mid-discovery.
+_DISCOVERY_STATE = threading.local()
 
 def _get_registry_manifests() -> list[dict]:
     """Helper to fetch engine registry manifests once without recursion."""
-    global _IN_DISCOVERY
-    if _IN_DISCOVERY:
+    if getattr(_DISCOVERY_STATE, 'in_discovery', False):
         return []
-    _IN_DISCOVERY = True
+    _DISCOVERY_STATE.in_discovery = True
     try:
         from ..engines.bridge import create_voice_bridge
         bridge = create_voice_bridge()
@@ -20,7 +23,7 @@ def _get_registry_manifests() -> list[dict]:
         logging.getLogger(__name__).debug("Registry discovery failed: %s", e)
         return []
     finally:
-        _IN_DISCOVERY = False
+        _DISCOVERY_STATE.in_discovery = False
 
 
 def select_runtime_engine_candidate(registry_entries: list[dict], settings: Optional[dict] = None) -> str:
