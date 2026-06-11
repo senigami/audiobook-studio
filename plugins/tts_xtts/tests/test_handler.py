@@ -283,8 +283,9 @@ def test_handle_xtts_empty_segments(mock_job, mock_params):
         # Empty segs_to_gen calls update_job with status="done"
         mock_update.assert_any_call("test_jid", status="done", progress=1.0)
 
-def test_handle_xtts_mp3_fail(mock_job, mock_params):
-    """Test path where MP3 conversion fails."""
+def test_handle_xtts_wav_only_even_when_make_mp3_true(mock_job, mock_params):
+    """Chapter synthesis must complete WAV-only regardless of make_mp3 flag.
+    No MP3 conversion must occur and output_mp3 must not appear in the terminal call."""
     mock_job.make_mp3 = True
     with patch("plugins.tts_xtts.plugin.studio.handler.load_chunk_segments", return_value=[
             {"id": "s1", "text_content": "Hello", "character_id": None, "speaker_profile_name": None, "character_speaker_profile_name": None, "audio_status": "unprocessed", "audio_file_path": None},
@@ -293,14 +294,19 @@ def test_handle_xtts_mp3_fail(mock_job, mock_params):
          patch("app.db.update_segment"), \
          patch("plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", return_value=0), \
          patch("plugins.tts_xtts.plugin.studio.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (mock_params["out_wav"].write_text("wav"), 0)[1]), \
-         patch("plugins.tts_xtts.plugin.studio.handler.wav_to_mp3", return_value=1), \
+         patch("plugins.tts_xtts.plugin.studio.handler.wav_to_mp3") as mock_wav_to_mp3, \
          patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update, \
          patch("app.db.update_segments_status_bulk"):
         handle_xtts_job(j=mock_job, **mock_params)
-        # Should finish with error message but status="done"
-        error_done_calls = [c for c in mock_update.call_args_list if c[1].get('status') == 'done' and 'error' in c[1]]
-        assert len(error_done_calls) > 0
-        assert "MP3 conversion failed" in error_done_calls[0][1]['error']
+
+    # wav_to_mp3 must not be called during ordinary chapter synthesis
+    assert not mock_wav_to_mp3.called, "wav_to_mp3 must not be called in ordinary chapter synthesis"
+
+    done_calls = [c for c in mock_update.call_args_list if c[1].get('status') == 'done']
+    assert done_calls, "expected at least one done update_job call"
+    terminal = done_calls[-1]
+    assert terminal[1].get('output_wav') == mock_params["out_wav"].name
+    assert 'output_mp3' not in terminal[1], "output_mp3 must not appear in WAV-only terminal completion"
 
 def test_handle_xtts_no_custom_segments(mock_job, mock_params):
     """Test standard chapter generation when no segments have custom characters."""

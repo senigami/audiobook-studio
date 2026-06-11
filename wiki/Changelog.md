@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.9] - 2026-06-11
+
+### Highlights
+
+- **WAV-First Chapter Synthesis**: Ordinary chapter renders now always finish as WAV. The hidden in-lifecycle MP3 conversion (and its `finalizing` status phase) has been removed from the XTTS and Voxtral engines; MP3 is produced only by explicit export/assembly actions or by format requests on the external TTS API.
+- **Queue Row Authority**: The live queue now treats `queue.items` websocket frames as the single authority for queue rows. Progress and voice-test events can only update live overlay fields (progress, ETA, active segment) on rows that already exist — they can no longer create phantom rows or change a row's status.
+- **Voxtral Voice Previews Fixed**: Testing a Voxtral voice no longer fails with "Voxtral jobs require project and chapter context"; voice previews render into the voice profile like other engines.
+- **Accurate Segment Counts**: The source-text analysis footer, character sidebar, and the script-view Numbers toggle now show true render groups (the engine-sized text blocks that actually render) instead of sentence counts, served by a new read-only `render_groups` endpoint.
+- **Mixed Render Metrics**: Mixed renders now record the true rendered-segment count in performance history instead of a fallback.
+- **Chapter Editor Polish**: Removed the redundant status pill inside segment progress bars; the script view shows "Narrator" instead of a blank speaker column when no speakers are assigned.
+
 ## [2.0.8] - 2026-06-09
 
 ### Highlights

@@ -12,6 +12,7 @@ import { subscribeStudioSocketMessages } from '@/store/studioSocketBus';
 import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
 import { adaptEventToJobUpdates } from '@/utils/jobEventAdapters';
 import { applyTerminalLifecycleReset } from '@/utils/jobEventUtils';
+import { pickOverlayFields } from '@/utils/queueOverlayFields';
 
 const FALLBACK_POLL_MS = 60000;
 // Grace window for reconnect overlay pruning. Events that arrive on the websocket
@@ -138,10 +139,45 @@ export const useQueueSync = () => {
             recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
             refreshQueue('refresh');
           } else if (event.jobId) {
+            const isQueueAuthority = event.topic === 'queue.items';
+            if (!isQueueAuthority) {
+              // Non-queue.items topics (jobs.lifecycle, chapters.progress) are overlay-only:
+              // they must not create a new row. Skip if the job is not already known.
+              const knownInSnapshot = lastSnapshotRef.current?.items.some(
+                (item: any) => item.id === event.jobId
+              );
+              const knownInStore = !!storeRef.current.getState().eventsById[event.jobId!];
+              if (!knownInSnapshot && !knownInStore) {
+                if (process.env.NODE_ENV === 'development') {
+                  console.debug(
+                    `[useQueueSync] overlay-only topic "${event.topic}" skipped for unknown job "${event.jobId}" — queue.items is row authority`
+                  );
+                }
+                return;
+              }
+            }
+
             recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-            const updates = adaptEventToJobUpdates(event);
-            if (event.topic === 'jobs.lifecycle') {
-              applyTerminalLifecycleReset(updates, updates.status);
+            const rawUpdates = adaptEventToJobUpdates(event);
+            let updates: Record<string, any>;
+            if (isQueueAuthority) {
+              updates = rawUpdates;
+            } else {
+              // Overlay-only topics: strip identity/classification fields but preserve
+              // the current effective status so applyJobUpdated does not overwrite
+              // the snapshot status with its 'queued' default.
+              updates = pickOverlayFields(rawUpdates);
+              const snapshotStatus = lastSnapshotRef.current?.items.find(
+                (item: any) => item.id === event.jobId
+              )?.status;
+              const storeStatus = storeRef.current.getState().eventsById[event.jobId!]?.status;
+              const currentStatus = storeStatus ?? snapshotStatus;
+              if (currentStatus !== undefined) updates.status = currentStatus;
+              // For jobs.lifecycle terminal frames: clear ETA/active-segment overlay fields
+              // (read rawUpdates.status for the trigger check only — it is NOT written to updates).
+              if (event.topic === 'jobs.lifecycle') {
+                applyTerminalLifecycleReset(updates, rawUpdates.status);
+              }
             }
             storeRef.current.applyJobUpdated(event.jobId, updates);
             updateDerivedState();

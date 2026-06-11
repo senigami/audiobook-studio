@@ -365,7 +365,7 @@ def api_add_to_queue(
             )
 
             make_mp3 = bool(settings.get("make_mp3", False))
-            audio_filename = f"{Path(temp_filename).stem}.mp3" if make_mp3 else f"{Path(temp_filename).stem}.wav"
+            audio_filename = f"{Path(temp_filename).stem}.wav"
 
             # Resolve voice directory/reference for single-engine bridge synthesis
             voice_ref = None
@@ -487,7 +487,7 @@ def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
     )
 
     make_mp3 = bool(settings.get("make_mp3", False))
-    audio_filename = f"{chapter_id}_0.mp3" if make_mp3 else f"{chapter_id}_0.wav"
+    audio_filename = f"{chapter_id}_0.wav"
 
     # Resolve voice directory/reference for single-engine bridge synthesis
     voice_ref = None

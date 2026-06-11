@@ -178,12 +178,16 @@ describe('useQueueSync', () => {
     expect(invalidation?.subscribers.map(s => s.subscriber)).toContain('main-queue');
   });
 
-  it('updates the queue overlay from chapters.progress frames', async () => {
+  it('updates the queue overlay from chapters.progress frames (progress/ETA only; status is queue.items authority)', async () => {
+    // CONTRACT: chapters.progress may update progress and ETA overlay on an existing row
+    // but must NOT change the row's status — only queue.items is status authority.
+    // The snapshot must already have status: 'running' for progress to be visible
+    // (the merge layer zeros out progress when status is 'queued' or 'preparing').
     const jobItem = {
       id: 'j1',
       project_id: 'proj-1',
       chapter_id: 'chap-1',
-      status: 'queued',
+      status: 'running',
       progress: 0,
       created_at: Date.now() / 1000,
     };
@@ -205,9 +209,11 @@ describe('useQueueSync', () => {
 
     await waitFor(() => {
       const job = result.current.queue.find((q: any) => q.id === 'j1');
-      expect(job?.status).toBe('running');
+      // progress and eta should update from the overlay
       expect(job?.progress).toBe(0.5);
       expect(job?.eta_seconds).toBe(25);
+      // status must NOT be changed by chapters.progress — queue.items is the only status authority
+      expect(job?.status).toBe('running');
     });
 
     const records = getLiveEventAuditSnapshot();
@@ -550,7 +556,11 @@ describe('useQueueSync', () => {
     });
   });
 
-  it('keeps a chapter lifecycle overlay visible when parentJobId carries the project id', async () => {
+  it('jobs.lifecycle for an unknown job does NOT create a row (queue.items is row authority)', async () => {
+    // CONTRACT CHANGE (Slice 5): jobs.lifecycle is overlay-only on existing rows.
+    // It must not create a new queue row — only queue.items has that authority.
+    // Old behavior: jobs.lifecycle for an unknown jobId created a live overlay row.
+    // New behavior: the frame is silently dropped if the job does not already exist.
     const { result } = renderHook(() => useQueueSync());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -564,12 +574,10 @@ describe('useQueueSync', () => {
       hasSegmentSupport: true,
     }, { jobId: 'job-chapter-parent-project', projectId: 'proj-1', chapterId: 'chap-1' });
 
-    await waitFor(() => {
-      const job = result.current.queue.find((q: any) => q.id === 'job-chapter-parent-project');
-      expect(job).toBeDefined();
-      expect(job?.status).toBe('queued');
-      expect(job?.chapter_id).toBe('chap-1');
-    });
+    // No new row must appear — the job does not exist in the snapshot
+    const job = result.current.queue.find((q: any) => q.id === 'job-chapter-parent-project');
+    expect(job).toBeUndefined();
+    expect(result.current.queue).toHaveLength(0);
   });
 
   it('does not clamp progress of a newer active overlay to 1.0 when merging with a stale done snapshot item', async () => {
@@ -843,7 +851,10 @@ describe('useQueueSync', () => {
     expect(olderJob).toBeUndefined();
   });
 
-  it('keeps a voice-build job-scoped item in the queue when it completes with active_segment_id=null and active_segment_progress=0', async () => {
+  it('keeps a voice-build job-scoped item in the queue when jobs.lifecycle terminal frame clears active segment fields', async () => {
+    // CONTRACT: jobs.lifecycle is overlay-only; it clears ETA/active-segment fields
+    // on a terminal status but does NOT change the row's status — queue.items is
+    // the only status authority. The row must remain visible and retain its classification.
     const jobItem = {
       id: 'voice-build-1',
       project_id: null,
@@ -853,13 +864,16 @@ describe('useQueueSync', () => {
       created_at: Date.now() / 1000,
       classification: 'job' as const,
       engine: 'voice_build',
+      active_segment_id: 'seg-active',
+      active_segment_progress: 0.5,
     };
     (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
 
     const { result } = renderHook(() => useQueueSync());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    // Emit jobs.lifecycle terminal done event clearing active segment fields
+    // Emit jobs.lifecycle terminal done event — should clear active segment overlay fields
+    // but must NOT change status (status comes from queue.items)
     emitEvent('jobs.lifecycle', 'job_lifecycle', {
       status: 'done',
       active_segment_id: null,
@@ -870,8 +884,165 @@ describe('useQueueSync', () => {
     await waitFor(() => {
       const job = result.current.queue.find((q: any) => q.id === 'voice-build-1');
       expect(job).toBeDefined();
-      expect(job?.status).toBe('done');
+      // Row must still be visible with its original classification
       expect(job?.classification).toBe('job');
+      // status must NOT change — jobs.lifecycle is not status authority
+      expect(job?.status).toBe('running');
     });
+  });
+
+  // ── Slice 5: Row-Authority Guardrails ────────────────────────────────────
+
+  it('[S5] chapters.progress frame for an UNKNOWN job id does NOT create a queue row', async () => {
+    (api.getProcessingQueue as any).mockResolvedValue([]);
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.5,
+      groupedProgress: null,
+      etaSeconds: 20,
+      message: null,
+      reasonCode: null,
+      renderGroupCount: null,
+      completedRenderGroups: null,
+    }, { jobId: 'unknown-chapters-job', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    // No row must appear in the queue
+    const job = result.current.queue.find((q: any) => q.id === 'unknown-chapters-job');
+    expect(job).toBeUndefined();
+    expect(result.current.queue).toHaveLength(0);
+  });
+
+  it('[S5] voice.test frame for an unknown job id does NOT create a queue row', async () => {
+    (api.getProcessingQueue as any).mockResolvedValue([]);
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('voice.test', 'voice_test_progress', {
+      voiceName: 'Narrator',
+      status: 'running',
+      progress: 0.4,
+      startedAt: Date.now() / 1000,
+      message: null,
+    }, { jobId: 'unknown-voice-job' });
+
+    const job = result.current.queue.find((q: any) => q.id === 'unknown-voice-job');
+    expect(job).toBeUndefined();
+    expect(result.current.queue).toHaveLength(0);
+  });
+
+  it('[S5] segments.progress frame never creates a main-queue row', async () => {
+    (api.getProcessingQueue as any).mockResolvedValue([]);
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('segments.progress', 'segment_progress', {
+      status: 'running',
+      progress: 0.6,
+      etaSeconds: 5,
+      reasonCode: null,
+      activeSegmentId: 'seg-x',
+      activeSegmentProgress: 0.6,
+    }, { jobId: 'unknown-segment-job', projectId: 'proj-1', chapterId: 'chap-1', segmentId: 'seg-x' });
+
+    const job = result.current.queue.find((q: any) => q.id === 'unknown-segment-job');
+    expect(job).toBeUndefined();
+    expect(result.current.queue).toHaveLength(0);
+  });
+
+  it('[S5] queue.items frame DOES create a row (authority regression guard)', async () => {
+    (api.getProcessingQueue as any).mockResolvedValue([]);
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'queued',
+      progress: 0,
+      classification: 'job',
+      message: null,
+      reasonCode: null,
+    }, { jobId: 'new-queue-job', projectId: 'proj-1' });
+
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'new-queue-job');
+      expect(job).toBeDefined();
+      expect(job?.status).toBe('queued');
+    });
+  });
+
+  it('[S5] chapters.progress can update progress on an EXISTING row but cannot change its classification', async () => {
+    const jobItem = {
+      id: 'existing-chapter-job',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'running',
+      progress: 0.1,
+      classification: 'chapter',
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.65,
+      groupedProgress: null,
+      etaSeconds: 15,
+      message: null,
+      reasonCode: null,
+      renderGroupCount: null,
+      completedRenderGroups: null,
+    }, { jobId: 'existing-chapter-job', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'existing-chapter-job');
+      expect(job?.progress).toBeGreaterThanOrEqual(0.65);
+    });
+
+    // Classification must not be reclassified by chapters.progress
+    const job = result.current.queue.find((q: any) => q.id === 'existing-chapter-job');
+    expect(job?.classification).toBe('chapter');
+  });
+
+  it('[S5] jobs.lifecycle terminal frame for an existing row does not remove it, change its status, or change its classification', async () => {
+    // CONTRACT: jobs.lifecycle is overlay-only. On an existing row it must not:
+    //   - remove the row
+    //   - change the row's status (queue.items is the only status authority)
+    //   - change the row's classification
+    const jobItem = {
+      id: 'lifecycle-guard-job',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'running',
+      progress: 0.8,
+      classification: 'chapter',
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // jobs.lifecycle terminal frame — overlay-only; status and classification must not change
+    emitEvent('jobs.lifecycle', 'job_lifecycle', {
+      status: 'done',
+      reasonCode: 'JOB_DONE',
+      message: null,
+      updatedAt: Date.now() / 1000 + 5,
+    }, { jobId: 'lifecycle-guard-job', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    await waitFor(() => {
+      // Row must still exist (no removal by jobs.lifecycle)
+      const job = result.current.queue.find((q: any) => q.id === 'lifecycle-guard-job');
+      expect(job).toBeDefined();
+    });
+
+    const job = result.current.queue.find((q: any) => q.id === 'lifecycle-guard-job');
+    // Status must NOT be changed by jobs.lifecycle — queue.items is the only status authority
+    expect(job?.status).toBe('running');
+    // Classification must not be changed by jobs.lifecycle
+    expect(job?.classification).toBe('chapter');
   });
 });

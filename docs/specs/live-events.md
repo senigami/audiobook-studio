@@ -1,7 +1,7 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.1.0
+spec_version: 1.2.0
 status: active
 sources:
   - app/api/ws.py
@@ -17,6 +17,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.2.0   | 2026-06-11 | Row-authority guardrails (audit Slice 5): `queue.items` is the sole row authority; all other topics are overlay-only on existing rows (see "Queue row authority") |
 | 1.1.0   | 2026-06-10 | Removed `useJobs` periodic snapshot polling — snapshot hydration is event-driven only (owner ruling) |
 | 1.0.0   | 2026-06-10 | Initial canonical spec      |
 
@@ -378,6 +379,36 @@ mutations. The queue state derives exclusively from `jobs.lifecycle`, `queue.ite
 
 ---
 
+## Queue row authority (binding — audit Slice 5)
+
+`queue.items` is the **only** topic with row authority over main queue rows.
+Enforced in `useQueueSync.ts` (row creation guard + overlay-field stripping) and
+`useJobs.ts` (unknown-job guards); the allowed overlay fields are the exported
+`QUEUE_OVERLAY_FIELDS` constant in `frontend/src/utils/queueOverlayFields.ts`.
+
+| Capability | `queue.items` | `jobs.lifecycle` | `chapters.progress` / `segments.progress` / `voice.test` | `chapters.lifecycle` |
+|---|---|---|---|---|
+| Create a queue row | ✅ | ❌ | ❌ | ❌ |
+| Change row identity / classification (kind, engine, title, project, chapter) | ✅ | ❌ | ❌ | ❌ |
+| Change row lifecycle **status** | ✅ | ❌ | ❌ | ❌ |
+| Drive terminal retention / removal | ✅ | ❌ | ❌ | ❌ |
+| Update live overlay fields (`QUEUE_OVERLAY_FIELDS`) on an **existing** row | ✅ | ✅ | ✅ | ❌ |
+| Trigger refetch / invalidation | ✅ (`queue_item_invalidated`) | ❌ | ❌ | ✅ |
+
+Rules:
+
+- An overlay frame for a job id that is unknown in both the canonical snapshot and
+  the live store MUST be dropped (dev builds may log it). It is NOT buffered: the
+  backend emits a `queue.items` frame for every status/progress/eta/display change
+  (`broadcast_job_updated`, `app/api/ws.py`), so the authoritative row arrives on
+  its own topic.
+- Overlay application MUST preserve the row's current status (from store, then
+  snapshot); a terminal `jobs.lifecycle` frame may be used **read-only** as the
+  trigger for clearing segment-overlay fields (`applyTerminalLifecycleReset`), but
+  its status is never written to the row.
+- The audit-era allowance for `jobs.lifecycle` to refresh queue-visible data is
+  retired; it is an overlay topic for queue purposes.
+
 ## Invariants
 
 **Server MUST:**
@@ -391,6 +422,8 @@ mutations. The queue state derives exclusively from `jobs.lifecycle`, `queue.ite
   (only for terminal resets and explicit force-broadcast with non-terminal status).
 
 **Client MUST:**
+- Enforce the queue row-authority table above: only `queue.items` creates,
+  reclassifies, status-transitions, or retires main queue rows.
 - Use `publishStudioSocketMessage` as the single injection point (not raw listener
   calls) so the audit store record is always created before subscribers run.
 - Not infer queue-row status from `tts.logs` frames.

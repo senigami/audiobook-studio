@@ -3,18 +3,12 @@ import logging
 from pathlib import Path
 
 from app.core.config import get_chapter_dir
-from app.engines.audio_ops import wav_to_mp3
 from app.engines.errors import EngineBridgeError
 from app.db.state import update_job
 from app.db.speakers import get_speaker_settings
 from app.jobs.handlers.bridge_helpers import generate_via_bridge
 
 logger = logging.getLogger(__name__)
-
-_SKIP_LIVE_BROADCASTS = {
-    "skip_studio_job_event": True,
-    "skip_job_updated": True,
-}
 
 
 def _chapter_text_from_segments(chapter_id: str) -> str:
@@ -104,7 +98,6 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
             from app.core.config import VOICES_DIR
             pdir = VOICES_DIR / j.speaker_profile
         out_wav = pdir / "sample.wav"
-        out_mp3 = pdir / "sample.mp3"
     else:
         if not j.project_id or not j.chapter_id:
             update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Voxtral jobs require project and chapter context.")
@@ -112,7 +105,6 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
 
         pdir = get_chapter_dir(j.project_id, j.chapter_id)
         out_wav = pdir / "chapter.wav"
-        out_mp3 = pdir / "chapter.mp3"
 
     pdir.mkdir(parents=True, exist_ok=True)
 
@@ -122,15 +114,13 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
     else:
         render_text = text or (_chapter_text_from_segments(j.chapter_id) if j.chapter_id else "")
     logger.info(
-        "[%s-debug %s] start job=%s chapter=%s profile=%s make_mp3=%s out_wav=%s out_mp3=%s text_len=%s",
+        "[%s-debug %s] start job=%s chapter=%s profile=%s out_wav=%s text_len=%s",
         j.engine,
         time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
         jid,
         j.chapter_id,
         j.speaker_profile,
-        getattr(j, "make_mp3", False),
         out_wav,
-        out_mp3,
         len(render_text),
     )
     if not render_text.strip():
@@ -179,40 +169,6 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         )
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Voxtral synthesis failed.")
         return "failed"
-
-    if j.make_mp3:
-        logger.info("[%s-debug %s] finalizing mp3 job=%s wav=%s", j.engine, time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), jid, out_wav)
-        update_job(jid, status="finalizing", progress=0.99, **_SKIP_LIVE_BROADCASTS)
-        frc = wav_to_mp3(out_wav, out_mp3, on_output=on_output, cancel_check=cancel_check)
-        logger.info(
-            "[%s-debug %s] wav_to_mp3 returned job=%s rc=%s mp3_exists=%s",
-            j.engine,
-            time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
-            jid,
-            frc,
-            out_mp3.exists(),
-        )
-        if frc == 0 and out_mp3.exists():
-            logger.info(
-                "[%s-debug %s] marking done job=%s wav=%s mp3=%s",
-                j.engine,
-                time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
-                jid,
-                out_wav.name,
-                out_mp3.name,
-            )
-            update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name, output_mp3=out_mp3.name)
-            return "done"
-
-        logger.info(
-            "[%s-debug %s] marking done with wav fallback job=%s wav=%s",
-            j.engine,
-            time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
-            jid,
-            out_wav.name,
-        )
-        update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name, error="MP3 conversion failed (using WAV fallback)")
-        return "done"
 
     logger.info(
         "[%s-debug %s] marking done job=%s wav=%s",

@@ -398,6 +398,59 @@ def test_handle_mixed_segment_job_persists_intermediate_progress(clean_db, tmp_p
     assert intermediate_updates[-1]["progress"] == 0.5
 
 
+def test_handle_mixed_job_records_true_render_group_count(clean_db, tmp_path):
+    """record_engine_sample must receive the actual rendered group count, not fallback 0."""
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+    segs = get_chapter_segments(cid)
+    update_segment(segs[0]["id"], speaker_profile_name="XTTS Voice")
+    update_segment(segs[1]["id"], speaker_profile_name="Voxtral Voice")
+
+    job = Job(
+        id="mixed-metrics-job",
+        engine="mixed",
+        chapter_file=f"{cid}_0.txt",
+        status="queued",
+        created_at=time.time(),
+        project_id=pid,
+        chapter_id=cid,
+        speaker_profile="XTTS Voice",
+    )
+
+    def fake_generate_via_bridge(**kwargs):
+        Path(kwargs["out_wav"]).write_text("audio")
+        return 0
+
+    def fake_stitch(_pdir, _segments, out_wav, _on_output, _cancel_check):
+        Path(out_wav).write_text("stitched")
+        return 0
+
+    with timeout_after(5, "mixed metrics test should not hang"), \
+         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "v"} if name == "Voxtral Voice" else {"speed": 1.0}), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.synthesis_mixed.handler.update_job"), \
+         patch("plugins.synthesis_mixed.handler.record_engine_sample") as mock_record:
+        result, _ = handle_mixed_job("mixed-metrics-job", job, time.time(), lambda _line: None, lambda: False)
+
+    assert result == "done"
+    assert mock_record.called, "record_engine_sample must be called after a successful render"
+    # 5th positional argument is source_segment_count; there are 2 render groups (one per profile)
+    call_args = mock_record.call_args
+    recorded_count = call_args.args[4] if len(call_args.args) >= 5 else call_args.kwargs.get("source_segment_count")
+    assert recorded_count == 2, f"expected 2 render groups but got {recorded_count}"
+
+
 def test_handle_mixed_job_bake_metrics_uses_rendered_chars_only(clean_db, tmp_path):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter

@@ -451,6 +451,10 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     # Record metrics for the mixed engine performance history
     chars = sum(_group_weight(g) for g in target_groups)
     perf = get_performance_metrics()
-    record_engine_sample(j, start, chars, perf, 0)
+    # record_engine_sample's 5th arg is the SEGMENT count actually rendered in this
+    # job (it drives seconds_per_segment). Render-group count is tracked separately on
+    # the job. Count the segments across the groups rendered here, not the group count.
+    rendered_segment_count = sum(len(g.get("segments") or []) for g in target_groups)
+    record_engine_sample(j, start, chars, perf, rendered_segment_count)
 
     return "done", None

@@ -41,6 +41,9 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
   const [segmentProgress, setSegmentProgress] = useState<Record<string, SegmentProgress>>({});
   const [loading, setLoading] = useState(true);
   const prevJobsRef = useRef<Record<string, Job>>({});
+  // liveJobsRef is kept in sync inside setJobs functional updaters so overlay-only
+  // guards always see the latest committed state, even before React flushes.
+  const liveJobsRef = useRef<Record<string, Job>>({});
   const connected = useStudioSocketConnection();
 
   // Keep callbacks in a ref so the subscribe effect below doesn't need them as deps.
@@ -64,7 +67,13 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
     setJobs(prev => {
       const oldJob = prev[job_id];
       if (!oldJob) {
-        return { ...prev, [job_id]: { id: job_id, ...updates } as Job };
+        if (data._overlayOnly) {
+          // Overlay-only topics must not create new rows
+          return prev;
+        }
+        const newJob = { id: job_id, ...updates } as Job;
+        liveJobsRef.current = { ...prev, [job_id]: newJob };
+        return liveJobsRef.current;
       }
 
       const prov = updates.segmentProgressSocketProvenance;
@@ -261,7 +270,9 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
       }
 
       const newJob = { ...oldJob, ...nextUpdates };
-      return { ...prev, [job_id]: newJob };
+      const next = { ...prev, [job_id]: newJob };
+      liveJobsRef.current = next;
+      return next;
     });
   }, []);
 
@@ -274,6 +285,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         acc[job.id] = job;
         return acc;
       }, {} as Record<string, Job>);
+      liveJobsRef.current = jobMap;
       setJobs(jobMap);
       setLoading(false);
     });
@@ -335,10 +347,15 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
           recordLiveEventSubscriberObservation(envelope?.frameId, 'chapter-state', 'handled');
           if (event.jobId) {
-            applyJobUpdatedEvent({
-              job_id: event.jobId,
-              updates: adaptEventToJobUpdates(event),
-            });
+            // chapters.progress is overlay-only: must not create a new row or change
+            // status/classification. Use liveJobsRef for an always-current existence check.
+            if (liveJobsRef.current[event.jobId]) {
+              applyJobUpdatedEvent({
+                job_id: event.jobId,
+                updates: adaptEventToJobUpdates(event),
+                _overlayOnly: true,
+              });
+            }
           }
           break;
         }
@@ -373,7 +390,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
             };
             setSegmentProgress(prev => ({ ...prev, [next.segment_id]: next }));
           }
-          if (event.jobId) {
+          if (event.jobId && liveJobsRef.current[event.jobId]) {
             recordLiveEventSubscriberObservation(envelope?.frameId, 'chapter-state', 'handled');
 
             const rawStatus = getVal('status', 'status');
@@ -513,10 +530,18 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
             setTestProgress(prev => ({ ...prev, [nameVal]: { progress: progVal, started_at: startedVal } }));
           }
           if (event.jobId) {
-            applyJobUpdatedEvent({
-              job_id: event.jobId,
-              updates: adaptEventToJobUpdates(event),
-            });
+            // voice.test is overlay-only: must not create a new row or change
+            // status/classification. Use liveJobsRef for an always-current existence check.
+            if (liveJobsRef.current[event.jobId]) {
+              const voiceUpdates = adaptEventToJobUpdates(event);
+              // Do not allow voice.test to reclassify or change lifecycle status
+              delete voiceUpdates.status;
+              delete voiceUpdates.classification;
+              applyJobUpdatedEvent({
+                job_id: event.jobId,
+                updates: voiceUpdates,
+              });
+            }
           }
           break;
         }
