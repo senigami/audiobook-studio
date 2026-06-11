@@ -118,7 +118,8 @@ All keys live inside an optional `behavior` object:
 ## StudioTTSEngine ABC
 
 Every plugin's `entry_class` MUST be a class that inherits from `StudioTTSEngine`
-(defined in `app/engines/voice/sdk.py`).
+(defined in `app/engines/voice/base.py`; the SDK dataclasses below live in
+`app/engines/voice/sdk.py`).
 
 ### Required abstract methods
 
@@ -159,14 +160,14 @@ class TTSRequest:
     cancel_check: Optional[Callable[[], bool]]
     on_timing_event: Optional[Callable[[TimingEvent], None]]
 
-@dataclass(frozen=True)
+@dataclass  # NOTE: not frozen, unlike the others
 class TTSResult:
     ok: bool
     output_path: Optional[str]
     duration_sec: Optional[float]
     warnings: list[str]
     error: Optional[str]
-    timing: dict
+    timing: Optional[TTSTimingResult]   # structured timing, not a plain dict
 
 @dataclass(frozen=True)
 class VerificationResult:
@@ -174,9 +175,9 @@ class VerificationResult:
     message: str
     details: dict
 
-@dataclass
+@dataclass(frozen=True)
 class TimingEvent:
-    event_name: str
+    event_name: str          # TimingEventName literal
     timestamp: float
     segment_id: Optional[str]
 ```

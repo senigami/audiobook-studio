@@ -88,7 +88,6 @@
     "local_annotations": "codeql-annotations.json, if present, is informational and should not distract from Phase 12 polish unless intentionally used."
   },
   "next_logical_steps": [
-    "Implement queued Segment Progress bar swaps in Chapter Editor: when SEGMENT_SAVED arrives, keep the current segment bar/text highlight mounted until its display progress reaches 100%; if the next START_SEGMENT arrives during that completion, queue it instead of swapping immediately. Preserve both pendingStart (START_SEGMENT at progress 0 with ETA/updatedAt) and pendingLatest (newest progress frame for that segment). After the previous segment visually completes, mount the next segment from pendingStart at 0%/ETA, then apply pendingLatest on the following tick so the new segment visibly starts at 0 and lane-changes to the latest known progress.",
     "Tune queue and segment progress consumers against the normalized jobs.progress and queue.lifecycle topics, preserving the existing queue overlay behavior while making the topic ownership explicit.",
     "Retire or narrow the legacy runtimeDebug timeline once no user-facing surface depends on __ttsCommunicationTimeline / __websocketRecentMessages.",
     "Implement the check_output interface in plugin adapters to improve engine-agnostic output verification.",
@@ -113,5 +112,8 @@
     "codex": "Lead architect, reviewer, integrator, verifier, checkpoint owner, and manual-QA caller.",
     "gemini": "Bounded worker for scoped patches and exploration only.",
     "memory": "Update Memory/state.json and Memory/session_logs.md after verified milestones; update .agent rules only for durable repo-level guidance."
-  }
+  },
+  "completed_followups": [
+    "2026-06-10: Queued Segment Progress bar swaps implemented as useSegmentHandoffQueue hook (frontend/src/hooks/useSegmentHandoffQueue.ts), wired into ChapterHeader. SEGMENT_SAVED holds the current bar until visual 100%; START_SEGMENT during completion queues (pendingStart + pendingLatest, latest-wins); after visual completion the next segment mounts at 0% then catches up next tick; 3s safety timer force-flushes if the old bar can never reach 100%."
+  ]
 }

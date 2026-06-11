@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { RefreshCw, Zap, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Copy, MoreVertical } from 'lucide-react';
 import type { Chapter, Job } from '@/types';
 import { PredictiveProgressBar, type PredictiveProgressBarProps } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import { buildSegmentProgressBarProps } from '@/components/progress/progressBarContracts';
 import { hasSegmentProgressCapability } from '@/utils/jobSelection';
+import { useSegmentHandoffQueue } from '@/hooks/useSegmentHandoffQueue';
 
 const RECENT_DONE_WINDOW_SECONDS = 60;
 
@@ -403,6 +404,26 @@ export const ChapterScriptToolbar: React.FC<{
   onQueue, onStopAll, onCopyDebugState, onCommitSourceText, canCommitSourceText, onSegmentDisplayProgress,
   onProgressBarDebugSnapshot, status
 }) => {
+  // Segment handoff queue: defer the bar swap until the outgoing bar visually reaches 100%.
+  const liveJob = status.liveSegmentProgressJob;
+  const handoff = useSegmentHandoffQueue({
+    jobId: liveJob?.id ?? '',
+    segmentId: liveJob?.active_segment_id ?? 'none',
+    progress: status.liveSegmentProgressValue,
+    status: liveJob?.status,
+    etaSeconds: status.segmentProgressBarSelection.selectedEtaSeconds,
+    etaBasis: status.segmentProgressBarSelection.selectedEtaBasis,
+    updatedAt: status.segmentProgressBarSelection.selectedUpdatedAt,
+  });
+
+  // Forward display progress to both the caller and the handoff queue.
+  // The handoff queue's notifyDisplayProgress internally detects visual completion
+  // (≥99.9%) and fires onVisualComplete when appropriate.
+  const handleDisplayProgress = useCallback((progress: number) => {
+    onSegmentDisplayProgress?.(progress);
+    handoff.notifyDisplayProgress(progress);
+  }, [onSegmentDisplayProgress, handoff]);
+
   return (
     <>
         {status.hasChapterAudio && (
@@ -504,14 +525,29 @@ export const ChapterScriptToolbar: React.FC<{
         {status.liveSegmentProgressJob && (
             <div style={{ width: '180px', minWidth: '180px' }}>
                 {(() => {
+                    // Use handoff-queue values so the bar stays mounted until visual 100%
+                    // before swapping to the next segment.
+                    const displayedJobId = handoff.displayedJobId || status.liveSegmentProgressJob.id;
+                    const displayedSegmentId = handoff.displayedSegmentId || status.liveSegmentProgressJob.active_segment_id || 'none';
+                    const displayedProgress = handoff.displayedProgress;
+                    const displayedEtaSeconds = handoff.displayedEtaSeconds !== undefined
+                        ? handoff.displayedEtaSeconds
+                        : status.segmentProgressBarSelection.selectedEtaSeconds;
+                    const displayedEtaBasis = handoff.displayedEtaBasis !== undefined
+                        ? handoff.displayedEtaBasis
+                        : status.segmentProgressBarSelection.selectedEtaBasis;
+                    const displayedUpdatedAt = handoff.displayedUpdatedAt !== undefined
+                        ? handoff.displayedUpdatedAt
+                        : status.segmentProgressBarSelection.selectedUpdatedAt;
+
                     const progressBarConfig = buildSegmentProgressBarProps({
-                        jobId: status.liveSegmentProgressJob.id,
-                        segmentId: status.liveSegmentProgressJob.active_segment_id || 'none',
-                        progress: status.liveSegmentProgressValue,
+                        jobId: displayedJobId,
+                        segmentId: displayedSegmentId,
+                        progress: displayedProgress,
                         status: status.liveSegmentProgressJob.status,
-                        etaSeconds: status.segmentProgressBarSelection.selectedEtaSeconds,
-                        etaBasis: status.segmentProgressBarSelection.selectedEtaBasis,
-                        updatedAt: status.segmentProgressBarSelection.selectedUpdatedAt,
+                        etaSeconds: displayedEtaSeconds,
+                        etaBasis: displayedEtaBasis as any,
+                        updatedAt: displayedUpdatedAt,
                         state: status.liveSegmentProgressJob.status === 'preparing'
                             ? (status.segmentProgressBarSelection.isSegmentStartAtZero ? 'processing' : 'preparing')
                             : status.liveSegmentProgressJob.status === 'finalizing'
@@ -519,7 +555,7 @@ export const ChapterScriptToolbar: React.FC<{
                                 : status.liveSegmentProgressJob.status === 'running'
                                     ? (status.liveSegmentProgressIsRenderBlock ? 'running' : 'processing')
                                     : (status.liveSegmentProgressJob.status === 'error' ? 'failed' : status.liveSegmentProgressJob.status as any),
-                        onDisplayProgress: onSegmentDisplayProgress,
+                        onDisplayProgress: handleDisplayProgress,
                         onDebugSnapshot: onProgressBarDebugSnapshot,
                     });
                     const { key, ...progressBarProps } = progressBarConfig;

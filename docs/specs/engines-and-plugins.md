@@ -45,7 +45,7 @@ Ownership split — these boundaries MUST NOT bleed into each other:
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/health` | Per-engine health; returns 207 when any engine is degraded |
+| GET | `/health` | Per-engine health; returns 207 when any engine is `needs_setup` or `invalid_config` (an `unverified` engine alone still returns 200) |
 | GET | `/ready` | Cheap readiness probe (no engine detail) |
 | GET | `/engines` | All loaded plugins with metadata |
 | GET | `/engines/{id}` | Single engine detail |
@@ -197,7 +197,7 @@ permanent architectural constraint, not a temporary gap.
 **MUST:**
 - Every synthesis request MUST be routed through `VoiceBridge`; no caller MAY call a
   plugin's `synthesize()` method directly.
-- `GET /health` MUST return 207 (not 200) when any loaded engine is not `ready`.
+- `GET /health` MUST return 207 (not 200) when any loaded engine is `needs_setup` or `invalid_config`. (An engine in `unverified` status alone does not flip the overall status to degraded — `/health` still returns 200.)
 - The plugin loader MUST complete discovery before the server prints `READY:{port}`.
 
 **MUST NOT:**

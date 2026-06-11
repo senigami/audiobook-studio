@@ -4,8 +4,10 @@
 spec_version: 1.0.0
 status: active
 sources:
-  - app/voices/
-  - app/db/models.py
+  - app/domain/voices/manifest.py
+  - app/domain/voices/migration.py
+  - app/domain/voices/bundles.py
+  - app/db/speakers.py
   - docs/specs/voice.schema.json
   - docs/specs/voice-taxonomy.json
   - docs/specs/engine-bundle-template
@@ -81,7 +83,16 @@ voices/
 
 ## 4. JSON Schemas
 
-### 4.1 `voice.json` (root metadata, version 2)
+> **Two distinct `voice.json` shapes.** The runtime nested-directory `voice.json`
+> documented in §4.1 is what the live app reads/writes (`app/domain/voices/manifest.py`,
+> `migration.py`): an integer `version: 2` plus `name`/`id`/`default_variant`. The
+> separate `docs/specs/voice.schema.json` describes the **canonical engine-agnostic
+> distribution bundle** format (`spec`, string `spec_version`, `samples`, `attributes`,
+> …) used for the HuggingFace voice repo — it does **not** validate the runtime
+> §4.1 shape. Do not conflate the two. The distribution-bundle format is **post-v1**
+> for the import/export path; the runtime shape below is current.
+
+### 4.1 `voice.json` (runtime root metadata, version 2)
 
 ```json
 {

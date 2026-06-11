@@ -71,7 +71,7 @@ utilities; they are NOT part of the running app.  `app.db` and
 | `web.py` | FastAPI app object; `startup_event`/`shutdown_event`; mounts routers + static roots + SPA catch-all |
 | `ws.py` | WebSocket manager (`/ws`); `broadcast_*` helpers |
 | `tts_api.py` | External TTS gateway sub-app (mounted at `/api/v1/tts`); guarded by `verify_api_key` + `rate_limit` |
-| `routers/` | One file per domain (`projects.py`, `chapters.py`, `voices.py`, `queue.py`, `settings.py`, `generation.py`, `system.py`, `analysis.py`, `jobs.py`, `migration.py`, `engines.py`) |
+| `routers/` | One module per domain, registered in `web.py`: `projects`, `chapters`, `voices`, `queue`, `settings`, `generation`, `system`, `analysis`, `migration`, `engines`. (Several domains span multiple files, e.g. `projects*.py`, `chapters*.py`, `voices*.py`.) |
 
 New API endpoints MUST go in `app/api/routers/<domain>.py`.  Adding a new
 domain MUST include registering the router in `web.py` via `app.include_router`.
@@ -106,9 +106,10 @@ is documented in [queue-jobs.md](queue-jobs.md).
 |---|---|
 | `bridge.py` | `VoiceBridge` — single routing point for synthesis requests |
 | `bridge_remote.py` | HTTP dispatch to TTS Server |
-| `registry.py` | Engine metadata cache (5-second TTL; sourced from TTS Server `/health`) |
-| `voice/sdk.py` | `TTSRequest`, `TTSResult`, `TimingEvent`, `StudioTTSEngine` ABC |
-| `voice/base.py` | Base engine helpers shared by all engine implementations |
+| `registry.py` | Engine metadata cache (5-second TTL; sourced from TTS Server `GET /engines`) |
+| `tts_client.py` | Low-level HTTP client to the TTS Server (`ping()` hits `/ready`) |
+| `voice/sdk.py` | SDK dataclasses: `TTSRequest`, `TTSResult`, `TimingEvent`, etc. |
+| `voice/base.py` | `StudioTTSEngine` ABC + base engine helpers shared by all engine implementations |
 
 ### 3.5 `app/orchestration/`
 
@@ -164,8 +165,8 @@ New modules MUST NOT import `app/jobs/` for task dispatch.
 ```
 plugins/
   tts_<id>/
-    manifest.json     # engine_id, capabilities, behavior, resource needs; schema_version required
-    interface.py      # Engine entry class (implements StudioTTSEngine ABC from app/engines/voice/sdk.py)
+    manifest.json     # engine_id, capabilities, behavior, resource needs; studio_tts_manifest version required
+    interface.py      # Engine entry class (implements StudioTTSEngine ABC from app/engines/voice/base.py)
     plugin/           # Implementation code
     tests/            # Plugin-local tests; collected by pytest via pytest.ini
     fixtures/         # Optional test fixtures
@@ -328,7 +329,7 @@ attempts MUST be rejected, not silently corrected.
 
 **MUST:**
 
-- I1. New TTS engines MUST be placed in `plugins/tts_<id>/` with a `manifest.json` declaring `schema_version`.
+- I1. New TTS engines MUST be placed in `plugins/tts_<id>/` with a `manifest.json` declaring `studio_tts_manifest` (currently `"1.0"`).
 - I2. New API endpoints MUST live in `app/api/routers/<domain>.py` and be registered in `app/api/web.py`.
 - I3. New task types MUST live in `app/orchestration/tasks/<type>.py` and derive from `tasks/base.py`.
 - I4. Path helpers MUST be added to `app/utils/pathing.py`; all untrusted paths MUST pass through a helper from this module.

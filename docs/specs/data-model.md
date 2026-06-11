@@ -192,9 +192,9 @@ Records every job that has ever been submitted. This is the durable history; liv
 | `created_at` | REAL | Unix epoch seconds |
 | `updated_at` | REAL | Unix epoch seconds |
 
-### render_performance
+### render_performance_samples
 
-Stores per-render timing samples used for ETA prediction.
+Stores per-render timing samples used for ETA prediction. (Lives in the separate Studio operational DB, alongside a key/value `settings` table.)
 
 | Column | Type | Notes |
 |--------|------|-------|

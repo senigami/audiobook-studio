@@ -69,7 +69,7 @@ os.path.normpath(candidate).startswith(base + os.sep)
 |-----------|--------|
 | `tts_api_enabled` setting is `False` | 403 — checked at request time, not import time |
 | `tts_api_key` setting is empty | Open access (local-only default; no key required) |
-| Key present but does not match | 403 |
+| Key present but does not match (or missing when a key is configured) | 401 |
 | Key matches | Pass through to handler |
 
 ### Invariants
@@ -82,7 +82,7 @@ os.path.normpath(candidate).startswith(base + os.sep)
 
 ## Identifier Validation
 
-`validate_safe_identifier(value)` enforces the pattern `^[a-z0-9_-]{1,64}$`.
+`validate_safe_identifier(*, value, field_name)` (keyword-only args) enforces the pattern `^[a-z0-9_-]{1,64}$` and raises `ValueError` on mismatch.
 
 - MUST be applied to any identifier that reaches a filesystem path component (engine IDs, plugin IDs, voice bundle names).
 - MUST NOT be used as a substitute for path containment checks — use both when applicable.
@@ -112,10 +112,12 @@ os.path.normpath(candidate).startswith(base + os.sep)
 
 ### Redaction rules
 
+Redaction is driven by an explicit allowlist of field names, `_SECRET_FIELDS` (currently `{"tts_api_key"}`) — not by substring matching on key names.
+
 | Trigger | Replacement |
 |---------|-------------|
-| Key contains `api_key`, `token`, or `secret` (case-insensitive) | `"***"` when the value is non-empty |
-| Value is empty | Empty string preserved as-is |
+| Field name is in `_SECRET_FIELDS` and value is non-empty | `"***"` |
+| Field name is in `_SECRET_FIELDS` and value is empty | Empty string `""` |
 
 ### Invariants
 

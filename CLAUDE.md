@@ -11,6 +11,10 @@ Audiobook Studio is a local-first FastAPI + React app that turns manuscripts int
 - **Audio formats:** voice samples/previews are MP3 (`sample.mp3`, `samples/preview.mp3`); chapter/book render audio is WAV; portable voice bundles are MP3.
 - The release plan lives in `plans/final_release/` (doc 08 is the execution order). Where it conflicts with older `plans/` docs or other guidance in this file, the final_release folder wins.
 
+## Canonical specs (binding — read `docs/specs/README.md` first)
+
+`docs/specs/` is the source of truth for how the system works. Before changing behavior in any area, read `docs/specs/README.md` (the router index) and the matching spec — it tells you the contract you must preserve. Specs and code are jointly authoritative: when they disagree, resolve the drift explicitly (fix one, in the same change), never silently. Behavior changes MUST update the matching spec (bump `spec_version`, add a changelog row) in the same commit. The *why* behind architectural shapes lives in `docs/decisions/` (ADRs) — read the relevant ADR before reversing a structural decision.
+
 ## Testing standards (binding — see docs/specs/testing-standards.md)
 
 Authoritative spec: `docs/specs/testing-standards.md`.

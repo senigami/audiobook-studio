@@ -67,23 +67,23 @@ Callers that render a chapter-level bar MUST source progress from `job.progress`
 
 Progress is displayed on a **lane** — a logical unit of work (one rendered segment, one chapter batch). A lane has:
 
-- A `persistenceKey` — unique key; when it changes the bar treats this as a new lane and resets ETA state.
+- A `persistenceKey` — unique key; when it changes the bar treats this as a new lane and resets ETA state. The per-key highest displayed value is tracked in the module-level `progressMemory` map and acts as the lane's floor.
 - A `startedAt` timestamp — used as an anchor for velocity computation.
-- An `authoritativeFloor` — the minimum progress the bar will ever display for this lane.
 
-### 3.2 Required props (MUST be passed explicitly)
+### 3.2 Backward-motion / floor props
 
-| Prop                    | Type      | Description                                                           |
-|-------------------------|-----------|-----------------------------------------------------------------------|
-| `allowBackwardProgress` | `boolean` | Whether the bar may animate backward. MUST NOT be left to default.    |
-| `authoritativeFloor`    | `number`  | Minimum displayable progress (0–100). MUST NOT be left to default.    |
+| Prop                    | Type      | Default                  | Description                                                                 |
+|-------------------------|-----------|--------------------------|-----------------------------------------------------------------------------|
+| `allowBackwardProgress` | `boolean` | `!authoritativeFloor`    | Whether the bar may animate backward.                                       |
+| `authoritativeFloor`    | `boolean` | `false`                  | **Deprecated** — legacy on/off floor toggle. Prefer `allowBackwardProgress`. |
 
-**MUST** pass `allowBackwardProgress` and `authoritativeFloor` on every `PredictiveProgressBar` usage.
-**MUST NOT** rely on the component's internal defaults for either prop; they exist for runtime safety only.
+Both props are optional (`?`). `allowBackwardProgress` defaults to `!authoritativeFloor`. Note `authoritativeFloor` is a **boolean toggle**, not a numeric floor value — the actual numeric floor for a lane is the highest value recorded in `progressMemory` for its `persistenceKey`.
 
-### 3.3 Velocity-continuous lane construction
+**SHOULD** pass `allowBackwardProgress` explicitly on every `PredictiveProgressBar` usage (all production call sites do) rather than relying on the derived default. `authoritativeFloor` is retained only for backward compatibility.
 
-When a new lane begins (new `persistenceKey` or new `startedAt`), the bar initializes its velocity estimate from the **final velocity of the previous lane** rather than from zero. This prevents a jarring ETA jump at lane boundaries.
+### 3.3 Lane migration (smooth boundary transition)
+
+When the rendered lane changes, the bar runs a `LaneMigration` that interpolates the rendered `startAtMs` / `endAtMs` / `startProgress` from the previous lane to the new lane over a short duration (see `getRenderedStartAtMs` / `getRenderedEndAtMs` / `getRenderedStartProgress`). This prevents a jarring jump at lane boundaries. Note the `useEtaConfidence` hook itself **fully resets** its EMA/samples/trust on a lane change (it does not carry the previous lane's EMA forward) — continuity is achieved at the rendering layer, not in the confidence model.
 
 ### 3.4 Terminal lane and `done` transition
 
@@ -95,14 +95,14 @@ When a lane reaches a terminal status (`completed`, `failed`, `cancelled`):
 
 **MUST NOT** abruptly remove the bar on terminal status; the done transition MUST play first.
 
-### 3.5 `authoritativeFloor` semantics
+### 3.5 Floor semantics (`progressMemory`)
 
-The bar will never display a value below `authoritativeFloor`. This prevents visible regression when:
+When backward motion is disallowed (`allowBackwardProgress` falsy), the bar will not display a value below the lane's floor — the highest value previously recorded for the `persistenceKey` in `progressMemory`. This prevents visible regression when:
 - A server broadcast is delayed.
 - A reconnect replay delivers an older progress value.
 - The predictive model overshoots and then corrects.
 
-**MUST** pass `authoritativeFloor` equal to the highest confirmed progress value seen for the lane, not a static constant.
+The floor is maintained automatically per `persistenceKey`; callers do not pass a numeric floor value.
 
 ---
 
@@ -112,59 +112,69 @@ The hook maintains an adaptive model that gates whether an ETA label is shown an
 
 ### 4.1 Trust weight `w`
 
-`w` is a scalar in `[INITIAL_TRUST, MAX_TRUST]` that expresses how much the model trusts its velocity estimate.
-
-- Starts at `ETA_CONFIDENCE.INITIAL_TRUST` at lane start.
-- Ramps upward as more progress events arrive (evidence accumulates).
-- Transition is governed by `smoothstepRamp(evidenceCount)` — smooth cubic interpolation between bounds.
-- ETA is shown only when `w` exceeds an internal display threshold; below threshold the ETA label is hidden.
-
-### 4.2 EMA velocity smoothing
-
-Velocity (progress units per second) is smoothed with an exponential moving average:
+`w` is a scalar in `[0, 1]` that expresses how much the model trusts its smoothed ETA. It is **not** an evidence counter — it is computed each update as:
 
 ```
-velocity_ema = EMA_ALPHA * current_velocity + (1 - EMA_ALPHA) * velocity_ema
+base = max(1 - K * cv, BASE_FLOOR)        // stability-derived base trust
+ramp = smoothstepRamp(progress)           // progress-driven ramp (RAMP_START→RAMP_END)
+w    = clamp01(base + (1 - base) * ramp)
 ```
 
-`EMA_ALPHA` is defined in `ETA_CONFIDENCE` constants. A smaller alpha smooths more aggressively; a larger alpha responds faster to changes.
+- `base` starts at `ETA_CONFIDENCE.BASE_FLOOR` (the floor that keeps the backend ETA from being fully ignored).
+- `ramp` is `smoothstepRamp(progress)` — a smooth cubic of the **progress value**, 0 below `RAMP_START`, 1 above `RAMP_END`. (Not a function of an evidence/event count.)
+- `w` is consumed to widen the slope cap and to set the EMA alpha; there is no separate hard "display threshold" constant.
+
+### 4.2 EMA velocity / ETA smoothing
+
+The smoothed end-time is an exponential moving average whose alpha is derived from `w`:
+
+```
+alpha = ALPHA_MIN + (ALPHA_MAX - ALPHA_MIN) * w
+ema   = emaStep(ema, etaEndRaw, alpha)
+```
+
+A low `w` yields alpha near `ALPHA_MIN` (heavy smoothing); a high `w` yields alpha near `ALPHA_MAX` (near-raw tracking). There is no single fixed `EMA_ALPHA` constant.
 
 ### 4.3 Coefficient of variation (`cv`)
 
-`cv = std_dev(velocity_samples) / mean(velocity_samples)`
+`cv` is computed by `computeCv(samples, nowMs)` over a ring buffer of `N` end-time samples.
 
-High `cv` (unstable velocity) reduces the effective trust weight, suppressing ETA display when synthesis speed is erratic.
-
-**MUST NOT** show ETA when `cv` exceeds `CV_THRESHOLD`.
+High `cv` (unstable ETA) lowers `base` (`base = max(1 - K * cv, BASE_FLOOR)`), which lowers `w` and so increases smoothing. `cv` feeds a continuous scaling via `K` and `BASE_FLOOR`; there is **no** discrete `CV_THRESHOLD` that hard-hides the ETA.
 
 ### 4.4 `clampSlope`
 
-`clampSlope` prevents the displayed ETA from changing too rapidly between renders. It caps the rate of ETA change to a maximum slope, preventing jitter from sudden velocity spikes.
+`clampSlope` prevents the displayed ETA from changing too rapidly between renders. The slope cap is interpolated from `w`: `slopeCap = SLOPE_CAP_LOW + (SLOPE_CAP_HIGH - SLOPE_CAP_LOW) * w` — a low-trust (coasting) lane gets a tight cap, a high-trust lane is allowed looser ETA movement.
 
 ### 4.5 Stall detection
 
-If no progress events arrive for a lane, the velocity EMA **decays toward 0** over time. This causes the displayed ETA to extend toward infinity (or be hidden), signaling a potential stall to the user without requiring an explicit stall event from the backend.
+If no update arrives for longer than `STALL_MS` (10 s) while running, `getStallDecayedW()` decays the trust weight `w` toward 0 (decay factor `max(0, 1 - (stalledMs - STALL_MS) / (STALL_MS * 3))`). This suppresses confidence in the stale ETA, signaling a potential stall without requiring an explicit stall event from the backend.
 
 ### 4.6 Reset triggers
 
-The hook resets its full state (velocity history, trust weight, evidence count) when any of the following change:
+The hook resets its full state (ETA sample ring buffer, EMA, base trust, `lastUpdateMs`) when any of the following hold:
 
 | Trigger           | Effect                                    |
 |-------------------|-------------------------------------------|
 | New `persistenceKey` | Full reset; new lane                   |
 | New `startedAt`      | Full reset; task restarted             |
-| Terminal status      | Transition to done state; reset on next lane |
+| Status is `done`, `failed`, `cancelled`, **or `queued`** | Full reset |
 
 ### 4.7 Constants (`ETA_CONFIDENCE`)
 
-| Constant        | Role                                                              |
-|-----------------|-------------------------------------------------------------------|
-| `INITIAL_TRUST` | Starting trust weight for a new lane                              |
-| `MAX_TRUST`     | Upper bound on trust weight regardless of evidence                |
-| `EMA_ALPHA`     | Smoothing factor for velocity EMA                                 |
-| `CV_THRESHOLD`  | Maximum coefficient of variation before ETA is suppressed         |
+| Constant         | Value   | Role                                                          |
+|------------------|---------|---------------------------------------------------------------|
+| `ALPHA_MIN`      | `0.15`  | Minimum EMA alpha (heavy smoothing when trust is low)         |
+| `ALPHA_MAX`      | `0.85`  | Maximum EMA alpha (near-raw tracking when trust is high)      |
+| `RAMP_START`     | `0.55`  | Progress at which the progress-based trust ramp begins        |
+| `RAMP_END`       | `0.90`  | Progress at which the ramp reaches 1                          |
+| `K`              | `2.0`   | CV scaling factor for base trust (`1 - K*cv`)                 |
+| `BASE_FLOOR`     | `0.2`   | Minimum base trust (never fully ignore the backend ETA)       |
+| `N`              | `6`     | End-time samples in the CV ring buffer                        |
+| `SLOPE_CAP_LOW`  | `1.5`   | Slope cap at `w=0` (coasting, tight)                          |
+| `SLOPE_CAP_HIGH` | `4.0`   | Slope cap at `w=1` (trusted ETA, loose)                       |
+| `STALL_MS`       | `10000` | No-update stall duration before decaying `w` toward 0         |
 
-These constants are defined in `predictiveProgressBarHelpers.ts` and MUST NOT be duplicated elsewhere.
+These constants are defined in `ETA_CONFIDENCE` in `predictiveProgressBarHelpers.ts` and MUST NOT be duplicated elsewhere.
 
 ---
 
@@ -192,19 +202,19 @@ The following invariants are binding on all callers and on the bar implementatio
 
 ### Callers
 
-- **C1** — MUST pass `allowBackwardProgress` explicitly on every render.
-- **C2** — MUST pass `authoritativeFloor` explicitly on every render, set to the highest confirmed progress seen for the current lane.
+- **C1** — SHOULD pass `allowBackwardProgress` explicitly on every render rather than relying on the `!authoritativeFloor` derived default.
+- **C2** — MUST pass a stable `persistenceKey` per lane so the `progressMemory` floor is tracked correctly. (There is no numeric `authoritativeFloor` prop to pass; the floor is derived from `progressMemory`.)
 - **C3** — MUST NOT feed `segments.progress` into a chapter-level `PredictiveProgressBar`.
 - **C4** — MUST NOT remove `PredictiveProgressBar` from the DOM on terminal status without waiting for the done transition.
 
 ### Bar implementation
 
-- **I1** — The displayed value MUST never fall below `authoritativeFloor`.
-- **I2** — ETA MUST NOT be shown when trust weight `w` is below the display threshold.
-- **I3** — ETA MUST NOT be shown when `cv` exceeds `CV_THRESHOLD`.
+- **I1** — When backward motion is disallowed, the displayed value MUST never fall below the lane's `progressMemory` floor.
+- **I2** — A low trust weight `w` MUST increase ETA smoothing (alpha trends toward `ALPHA_MIN`) and tighten the slope cap toward `SLOPE_CAP_LOW`; the model MUST NOT present a high-confidence ETA when `w` is low.
+- **I3** — A high coefficient of variation `cv` MUST reduce base trust via `base = max(1 - K*cv, BASE_FLOOR)` (continuous), thereby damping the displayed ETA. (There is no discrete `CV_THRESHOLD` cutoff.)
 - **I4** — `doneTransitionPendingRef` MUST be set before the completion animation and cleared after dismissal.
-- **I5** — Velocity-continuous lane construction MUST carry forward the previous lane's final EMA velocity when a new lane begins.
-- **I6** — On stall (no incoming progress events), the velocity EMA MUST decay toward 0; the bar MUST NOT freeze the ETA display at a stale value indefinitely.
+- **I5** — On a lane boundary the `LaneMigration` MUST interpolate the rendered start/end/startProgress between lanes for a smooth transition. (The confidence hook resets its EMA on lane change — it does not carry velocity forward.)
+- **I6** — On stall (no update for > `STALL_MS`), `getStallDecayedW()` MUST decay the trust weight `w` toward 0; the bar MUST NOT present a high-confidence ETA at a stale value indefinitely.
 
 ### Backend (cross-reference `live-events.md`)
 

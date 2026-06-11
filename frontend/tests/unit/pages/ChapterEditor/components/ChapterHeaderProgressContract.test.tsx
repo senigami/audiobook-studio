@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useChapterStatus, ChapterScriptToolbar } from '@/pages/ChapterEditor/components/ChapterHeader';
 
 let capturedOnDebugSnapshot: ((snapshot: any) => void) | undefined;
+let capturedOnDisplayProgress: ((progress: number) => void) | undefined;
 let capturedCheckpointMode: string | undefined;
 let capturedState: string | undefined;
 let capturedAllowBackwardProgress: boolean | undefined;
@@ -20,8 +21,9 @@ let renderCount = 0;
 let mountCount = 0;
 
 vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () => ({
-  PredictiveProgressBar: ({ progress, etaBasis, etaSeconds, updatedAt, showEta, onDebugSnapshot, checkpointMode, state, allowBackwardProgress, transitionTickCount, dataTestId, persistenceKey, evidenceWeightFraction, predictive }: any) => {
+  PredictiveProgressBar: ({ progress, etaBasis, etaSeconds, updatedAt, showEta, onDebugSnapshot, onDisplayProgress, checkpointMode, state, allowBackwardProgress, transitionTickCount, dataTestId, persistenceKey, evidenceWeightFraction, predictive }: any) => {
     capturedOnDebugSnapshot = onDebugSnapshot;
+    capturedOnDisplayProgress = onDisplayProgress;
     capturedCheckpointMode = checkpointMode;
     capturedState = state;
     capturedAllowBackwardProgress = allowBackwardProgress;
@@ -96,6 +98,7 @@ describe('ChapterHeader progress contract', () => {
 
   beforeEach(() => {
     capturedOnDebugSnapshot = undefined;
+    capturedOnDisplayProgress = undefined;
     capturedCheckpointMode = undefined;
     capturedState = undefined;
     capturedAllowBackwardProgress = undefined;
@@ -502,7 +505,8 @@ describe('ChapterHeader progress contract', () => {
     expect(capturedTransitionTickCount).toBe(3);
   });
 
-  it('uses segment-scoped composite React key so active_segment_id changes cause clean remounts', () => {
+  it('uses segment-scoped composite React key so active_segment_id changes cause clean remounts after visual completion', () => {
+    vi.useFakeTimers();
     const baseJob = {
       id: 'job-key-test',
       engine: 'xtts',
@@ -536,6 +540,7 @@ describe('ChapterHeader progress contract', () => {
     expect(screen.getAllByTestId('chapter-header-segment-progress-bar')).toHaveLength(1);
     expect(mountCount).toBe(1);
 
+    // New active segment arrives while old bar hasn't visually completed yet.
     rerender(
       <TestHeaderWrapper
         chapter={mockChapter as any}
@@ -555,7 +560,22 @@ describe('ChapterHeader progress contract', () => {
       />
     );
 
+    // Bar should NOT remount yet — waiting for visual completion.
+    expect(mountCount).toBe(1);
+    expect(screen.getAllByTestId('chapter-header-segment-progress-bar')).toHaveLength(1);
+
+    // Simulate the visual bar reaching 1.0 via onDisplayProgress callback.
+    act(() => {
+      capturedOnDisplayProgress?.(1.0);
+    });
+    act(() => {
+      vi.advanceTimersByTime(50); // flush the pendingLatest catch-up timer
+    });
+
+    // Now the bar should have remounted (key changed to seg-2).
     expect(mountCount).toBe(2);
+
+    vi.useRealTimers();
   });
 
   it('bridges completed jobs (status=done) for a brief window before unmounting them', () => {
@@ -660,7 +680,8 @@ describe('ChapterHeader progress contract', () => {
     expect(screen.getByTestId('chapter-header-segment-progress-bar')).toBeInTheDocument();
   });
 
-  it('resets Segment Progress bar persistence identity and props when activeSegmentId changes within the same job', () => {
+  it('resets Segment Progress bar persistence identity and props when activeSegmentId changes within the same job (after visual completion)', () => {
+    vi.useFakeTimers();
     let generatingJob = {
       id: 'job-reset-test',
       status: 'running',
@@ -698,7 +719,7 @@ describe('ChapterHeader progress contract', () => {
     expect(capturedPersistenceKey).toBe('job-reset-test:seg-A');
     expect(capturedProgress).toBe(1.0);
 
-    // Switch active segment on the same job
+    // Switch active segment on the same job — bar should stay on seg-A until visual completion.
     generatingJob = {
       ...generatingJob,
       active_segment_id: 'seg-B',
@@ -707,8 +728,22 @@ describe('ChapterHeader progress contract', () => {
     };
     rerender(<TestComponent job={generatingJob} />);
 
+    // Still showing seg-A (awaiting visual completion).
+    expect(capturedPersistenceKey).toBe('job-reset-test:seg-A');
+
+    // Simulate visual bar reaching 1.0.
+    act(() => {
+      capturedOnDisplayProgress?.(1.0);
+    });
+    act(() => {
+      vi.advanceTimersByTime(50); // flush pendingLatest catch-up
+    });
+
+    // Now seg-B should be displayed.
     expect(capturedPersistenceKey).toBe('job-reset-test:seg-B');
     expect(capturedProgress).toBe(0.16);
+
+    vi.useRealTimers();
   });
 
   it('keeps Segment Progress visual targets exact while preserving computed confidence in selection debug state', () => {

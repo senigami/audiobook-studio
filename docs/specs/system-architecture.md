@@ -6,7 +6,7 @@ status: active
 created: 2026-06-10
 sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
          app/engines/watchdog.py, app/engines/bridge.py,
-         app/engines/bridge_remote.py, app/tts_server/tts_client.py,
+         app/engines/bridge_remote.py, app/engines/tts_client.py,
          app/tts_server/plugin_loader.py, app/orchestration/scheduler/orchestrator.py
 ```
 
@@ -51,7 +51,7 @@ use the Studio main-process API.
 - Mounting static file roots (built React bundle from `frontend/dist`).
 - Registering `startup_event` and `shutdown_event` lifecycle handlers.
 - Including all domain routers from `app/api/routers/` (`projects`, `chapters`,
-  `voices`, `queue`, `settings`, `generation`, `system`, `analysis`, `jobs`,
+  `voices`, `queue`, `settings`, `generation`, `system`, `analysis`,
   `migration`, `engines`).
 - Mounting the external TTS gateway sub-app at `/api/v1/tts`
   (see `app/api/tts_api.py`).
@@ -74,7 +74,8 @@ server is not blocked from accepting connections.
 
 The TTS Server exposes:
 
-- `GET /health` — engine status; polled by the watchdog heartbeat.
+- `GET /health` — full per-engine status payload.
+- `GET /ready` — cheap readiness probe; polled by the watchdog heartbeat.
 - `POST /synthesize` (and engine-specific routes) — synthesis dispatch.
 - Plugin settings endpoints used by `app/tts_server/settings_store.py`.
 
@@ -96,7 +97,7 @@ The sequence is deterministic and the steps below MUST execute in this order:
 | 3 | Migrate legacy project covers to project-local storage | `app/db/` |
 | 4 | **Snapshot** recoverable task contexts (BEFORE clearing stuck jobs) | `app/orchestration/scheduler/recovery.py` |
 | 5 | Clear stuck in-memory jobs (`queued`/`running`/`preparing`/`finalizing`) from `state.json` | `app/db/state_jobs.py` |
-| 6 | Reconcile SQLite `processing_queue` rows vs live `state.json` | `app/db/queue.py` |
+| 6 | Reconcile chapter statuses and SQLite `processing_queue` rows vs live `state.json` | `app/db/reconcile.py`, `app/db/queue.py` |
 | 7 | Register job listeners for WebSocket broadcast | `app/api/ws.py` |
 | 8 | `run_startup_recovery(contexts)` — re-submit interrupted tasks | `app/orchestration/scheduler/recovery.py` |
 | 9 | Restore pause state from settings | `app/orchestration/scheduler/resources.py` |
@@ -120,8 +121,9 @@ Responsibilities:
 - **Spawn** the TTS Server subprocess.
 - **Wait for READY** — read stdout until `READY:{port}` is received or a
   timeout is exceeded.
-- **Heartbeat poll** — periodically call `GET /health` on the TTS Server; if
-  the call fails or returns a non-OK status, trigger a restart.
+- **Heartbeat poll** — periodically call `GET /ready` (the cheap readiness
+  probe, via `TtsClient.ping()`) on the TTS Server; if the call fails or returns
+  a non-200 status, trigger a restart.
 - **Restart** the subprocess on failure, subject to a **circuit breaker** that
   stops restarting after N consecutive failures within a time window.
 
@@ -141,7 +143,7 @@ All synthesis requests from Studio to the TTS Server flow through this chain:
 ```
 app/engines/bridge.py  (VoiceBridge)
     └─► app/engines/bridge_remote.py  (HTTP dispatch)
-        └─► app/tts_server/tts_client.py  (low-level HTTP client)
+        └─► app/engines/tts_client.py  (low-level HTTP client)
             └─► TTS Server HTTP API
 ```
 
@@ -157,7 +159,7 @@ timeouts, and connection errors.
 
 Engine metadata (capabilities, `text_chunk_limit`, `progress_pattern`,
 resource needs) is cached with a 5-second TTL in
-`app/engines/registry.py` and sourced from `GET /health` on the TTS Server.
+`app/engines/registry.py` and sourced from `GET /engines` on the TTS Server.
 
 ---
 
@@ -178,7 +180,7 @@ plugins/tts_<id>/
 
 Plugin IDs MUST match the regex `^tts_[a-z][a-z0-9]{1,14}$`.
 
-`manifest.json` declares an explicit `schema_version` validated at load time.
+`manifest.json` declares an explicit `studio_tts_manifest` version (currently `"1.0"`) validated at load time.
 Key `behavior` fields: `text_chunk_limit` (max characters per synthesis call),
 `progress_pattern` (regex for parsing progress from engine output).
 
@@ -245,7 +247,7 @@ accidental ordering dependencies between imports.
 - I2. Synthesis requests from Studio MUST route through `VoiceBridge` → `bridge_remote.py` → `tts_client.py`; no code path MUST bypass this chain.
 - I3. The boot sequence MUST snapshot recoverable task contexts (step 4) before clearing stuck jobs (step 5).
 - I4. `app/db/__init__.py` MUST only run migrations when called explicitly; auto-migration on import is forbidden.
-- I5. Plugin manifests MUST declare an explicit `schema_version` that is validated at load time.
+- I5. Plugin manifests MUST declare an explicit `studio_tts_manifest` version (currently `"1.0"`) that is validated at load time.
 - I6. Plugin IDs MUST match `^tts_[a-z][a-z0-9]{1,14}$`.
 - I7. Engine metadata MUST be sourced from the TTS Server's `/health` response and cached in `app/engines/registry.py`.
 
