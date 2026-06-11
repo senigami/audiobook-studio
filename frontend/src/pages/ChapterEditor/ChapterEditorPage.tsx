@@ -19,6 +19,7 @@ import { PlaybackControls } from '@/pages/ChapterEditor/components/PlaybackContr
 // Extracted Hooks
 import { useChapterPlayback } from '@/hooks/useChapterPlayback';
 import { useChapterEditor } from '@/hooks/useChapterEditor';
+import { useRenderGroups } from '@/hooks/useRenderGroups';
 import { useSegmentHandoffQueue, getHandoffTransitions, recordExternalHandoffEvent } from '@/hooks/useSegmentHandoffQueue';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '@/utils/voiceProfiles';
 import { buildChunkGroups } from '@/utils/chunkGroups';
@@ -107,6 +108,9 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     handleGenerate,
     executeQueue
   } = useChapterEditor(chapterId, projectId, speakerProfiles, speakers, engines, chapterJobs, deferredSegmentUpdate, deferredChapterUpdate);
+
+  const renderGroupsRefreshKey = (deferredSegmentUpdate?.tick ?? 0) + (deferredChapterUpdate?.tick ?? 0);
+  const { count: renderGroupCount, firstSpanGroupNumber } = useRenderGroups(projectId, chapterId, renderGroupsRefreshKey);
 
   const [editorTab, setEditorTab] = useState<ChapterEditorTab>('script');
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
@@ -857,6 +861,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     }))}
                     activeCharacterId={selectedCharacterId}
                     speakers={speakers}
+                    groupNumberForSpan={firstSpanGroupNumber}
                   />
                 )}
                 {editorTab === 'script' && !scriptViewData && (
@@ -865,7 +870,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                 {editorTab === 'edit' && (
                   <EditTab
                     text={text} setText={setText} analysis={analysis} setAnalysis={setAnalysis}
-                    analyzing={analyzing} chapter={chapter} segmentsCount={segments.length}
+                    analyzing={analyzing} chapter={chapter} segmentsCount={renderGroupCount ?? segments.length}
                     hasUnsavedChanges={hasUnsavedChanges}
                     sourceTextMode={sourceTextMode}
                   />
@@ -881,7 +886,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
             selectedProfileName={selectedProfileName} setSelectedProfileName={setSelectedProfileName}
             expandedCharacterId={expandedCharacterId} setExpandedCharacterId={setExpandedCharacterId}
             onUpdateCharacterColor={handleUpdateCharacterColor}
-            segmentsCount={segments.length} wordCount={chapter.word_count || 0}
+            segmentsCount={renderGroupCount ?? segments.length} wordCount={chapter.word_count || 0}
             selectedVoice={localVoice}
             onVoiceChange={(v) => handleVoiceChange(v, (msg) => setConfirmConfig({ title: 'Voice Update Failed', message: msg, onConfirm: () => {}, confirmText: 'OK' }))}
             availableVoices={availableVoices}

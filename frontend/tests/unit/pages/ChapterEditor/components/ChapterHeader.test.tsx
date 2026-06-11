@@ -659,9 +659,9 @@ describe('ChapterHeader', () => {
       />
     );
 
-    // The status badge inside the progress bar should show 'Processing' (or 'Processing' text is in document)
-    // while the underlying store status is 'preparing'
-    expect(screen.getByText('Processing')).toBeInTheDocument();
+    // Segment bars use checkpointMode='segment' so no status pill is rendered.
+    // The state promotion (preparing → processing) is tested via useChapterStatus directly above.
+    expect(screen.queryByText('Processing')).toBeNull();
     expect(screen.queryByText('Preparing')).toBeNull();
   });
 
@@ -700,7 +700,8 @@ describe('ChapterHeader', () => {
       />
     );
 
-    expect(screen.getByText('Preparing')).toBeInTheDocument();
+    // Segment bars use checkpointMode='segment' so no status pill is rendered.
+    expect(screen.queryByText('Preparing')).toBeNull();
     expect(screen.queryByText('Processing')).toBeNull();
   });
 

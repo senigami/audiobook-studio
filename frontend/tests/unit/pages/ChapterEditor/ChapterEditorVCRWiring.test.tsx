@@ -18,6 +18,7 @@ vi.mock('@/api', () => ({
     fetchSegments: vi.fn(),
     fetchCharacters: vi.fn(),
     fetchScriptView: vi.fn(),
+    fetchChapterRenderGroups: vi.fn(),
   },
 }));
 
@@ -89,6 +90,7 @@ describe('ChapterEditor - VCR Wiring', () => {
     (api.fetchSegments as any).mockResolvedValue(localSegments);
     (api.fetchCharacters as any).mockResolvedValue([]);
     (api.fetchScriptView as any).mockResolvedValue(localScriptView);
+    (api.fetchChapterRenderGroups as any).mockResolvedValue({ count: 0, groups: [] });
   });
 
   it('wires Play button to playSegment for first segment when nothing is playing', async () => {

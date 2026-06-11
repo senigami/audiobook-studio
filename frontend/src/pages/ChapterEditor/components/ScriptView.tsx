@@ -42,6 +42,12 @@ interface ScriptViewProps {
   engines?: TtsEngine[];
   speakerProfiles?: SpeakerProfile[];
   speakers?: Speaker[];
+  /**
+   * When provided (and non-empty): maps the *first* span_id of each render group → its
+   * 1-based group number. Only spans present in this map receive a number label; all others
+   * are suppressed. When absent or empty, falls back to per-span sentence numbering.
+   */
+  groupNumberForSpan?: Map<string, number>;
 }
 
 const clamp01 = (value: number) => Math.max(0, Math.min(value, 1));
@@ -95,6 +101,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   engines = [],
   speakerProfiles = [],
   speakers = [],
+  groupNumberForSpan,
 }) => {
   const anyEnginesEnabled = useMemo(() => engines.some(e => e.enabled && e.status === 'ready'), [engines]);
   const [viewMode, setViewMode] = useState<'book' | 'script'>('book');
@@ -401,9 +408,15 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
           }
         }}
       >
-        {showNumbers && (
-          <span className="script-span-number">{span.order_index + 1}</span>
-        )}
+        {showNumbers && (() => {
+          const useGroupMode = groupNumberForSpan && groupNumberForSpan.size > 0;
+          if (useGroupMode) {
+            const groupNum = groupNumberForSpan!.get(span.id);
+            if (groupNum == null) return null;
+            return <span className="script-span-number" data-testid="span-number">{groupNum}</span>;
+          }
+          return <span className="script-span-number" data-testid="span-number">{span.order_index + 1}</span>;
+        })()}
 
         <span
           className={textClassName}
@@ -535,7 +548,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   };
 
   const renderScript = () => {
-    let lastCharId: string | null = null;
+    let lastCharId: string | null | undefined = undefined;
 
     return data.spans.map(span => {
       const char = span.character_id ? charMap.get(span.character_id) : null;

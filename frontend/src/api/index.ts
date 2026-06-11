@@ -165,6 +165,10 @@ export const api = {
     const res = await fetch(`/api/chapters/${chapterId}/script-view`);
     return parseApiResponse(res);
   },
+  fetchChapterRenderGroups: async (projectId: string, chapterId: string): Promise<import('@/api/types').RenderGroupsResponse> => {
+    const res = await fetch(`/api/projects/${projectId}/chapters/${chapterId}/render_groups`);
+    return parseApiResponse(res);
+  },
   saveScriptAssignments: async (chapterId: string, payload: ScriptAssignmentsUpdate): Promise<ScriptViewResponse> => {
     const res = await fetch(`/api/chapters/${chapterId}/script-view/assignments`, {
       method: 'PUT',

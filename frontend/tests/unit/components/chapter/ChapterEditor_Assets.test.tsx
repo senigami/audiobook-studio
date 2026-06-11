@@ -15,6 +15,7 @@ vi.mock('@/api', () => ({
     bakeChapter: vi.fn(),
     exportChapterAudio: vi.fn(),
     fetchScriptView: vi.fn(),
+    fetchChapterRenderGroups: vi.fn(),
     saveScriptAssignments: vi.fn(),
     compactScriptView: vi.fn(),
     previewSourceTextResync: vi.fn(),
@@ -72,6 +73,7 @@ describe('ChapterEditor - Assets & Voices', () => {
     (api.fetchSegments as any).mockResolvedValue(mockSegments);
     (api.fetchCharacters as any).mockResolvedValue([]);
     (api.fetchScriptView as any).mockResolvedValue(mockScriptView);
+    (api.fetchChapterRenderGroups as any).mockResolvedValue({ count: 0, groups: [] });
     (api.exportChapterAudio as any).mockResolvedValue(new Blob(['audio']));
     Object.defineProperty(window.URL, 'createObjectURL', { value: vi.fn(() => 'blob:mock'), writable: true });
     Object.defineProperty(window.URL, 'revokeObjectURL', { value: vi.fn(), writable: true });

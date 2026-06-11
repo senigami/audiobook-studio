@@ -7,17 +7,18 @@ from fastapi import APIRouter, Form, File, UploadFile, Request
 from fastapi.responses import JSONResponse
 
 from ...db import (
-    list_chapters, reconcile_project_audio, create_chapter, update_chapter, 
+    list_chapters, reconcile_project_audio, create_chapter, update_chapter,
     get_chapter, delete_chapter, reset_chapter_audio, get_connection,
-    get_chapter_segments, update_segment, update_segments_status_bulk, update_segments_bulk, 
+    get_chapter_segments, update_segment, update_segments_status_bulk, update_segments_bulk,
     sync_chapter_segments
 )
 from ...core import config
 from ...utils.text.textops import compute_chapter_metrics
-from ...db.state import get_jobs
+from ...db.state import get_jobs, get_settings
 from ...db.state import update_job
 from ...core.constants import DEFAULT_VOICE_SENTINEL
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
+from ...domain.chunk_groups import build_chunk_groups, load_chunk_segments
 
 # Sub-modules
 from .chapters_models import BulkStatusUpdate, BulkSegmentsUpdate
@@ -161,6 +162,31 @@ def cancel_chapter_generation_route(chapter_id: str):
         logger.error(f"Error cancelling chapter {chapter_id} in DB: {e}")
 
     return JSONResponse({"status": "ok", "cancelled_count": cancelled_count})
+
+
+@router.get("/projects/{project_id}/chapters/{chapter_id}/render_groups")
+def api_get_chapter_render_groups(project_id: str, chapter_id: str):
+    chapter = get_chapter(chapter_id)
+    if not chapter or chapter.get("project_id") != project_id:
+        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+
+    chapter_default = chapter.get("speaker_profile_name")
+    settings_default = get_settings().get("default_speaker_profile")
+    default_profile = chapter_default or settings_default or None
+
+    segments = load_chunk_segments(chapter_id)
+    groups = build_chunk_groups(segments, default_profile)
+
+    result = []
+    for idx, group in enumerate(groups):
+        result.append({
+            "index": idx,
+            "segment_ids": [seg["id"] for seg in group["segments"]],
+            "engine": group["engine"],
+            "char_count": group["text_length"],
+        })
+
+    return JSONResponse({"count": len(result), "groups": result})
 
 
 @router.get("/chapters/{chapter_id}/segments")

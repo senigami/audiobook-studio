@@ -690,7 +690,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
                         {showLabel && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>}
-                        {presentationState && (
+                        {presentationState && checkpointMode !== 'segment' && (
                             <span style={{
                                 fontSize: '0.58rem', textTransform: 'uppercase', letterSpacing: '0.08em',
                                 padding: '0.14rem 0.42rem', borderRadius: '999px', border: '1px solid rgba(0,0,0,0.08)',

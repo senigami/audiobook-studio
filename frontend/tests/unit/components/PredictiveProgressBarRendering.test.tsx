@@ -213,4 +213,32 @@ describe('PredictiveProgressBar - Rendering', () => {
         expect(screen.getByTestId('custom-test-id-bar')).toBeInTheDocument()
     })
 
+    it('hides the status pill when checkpointMode is segment', () => {
+        render(
+            <PredictiveProgressBar
+                progress={0.4}
+                label="Seg"
+                status="running"
+                showEta={false}
+                checkpointMode="segment"
+            />
+        )
+        // The pill text (e.g. 'Synthesizing' or 'Running') should not appear
+        expect(screen.queryByText(/synthesizing|running|preparing|finalizing/i)).toBeNull()
+    })
+
+    it('shows the status pill when checkpointMode is queue', () => {
+        render(
+            <PredictiveProgressBar
+                progress={0.4}
+                label="Q"
+                status="running"
+                showEta={false}
+                checkpointMode="queue"
+            />
+        )
+        // The pill text 'Rendering' is the queue-mode label for running
+        expect(screen.getByText('Rendering')).toBeTruthy()
+    })
+
 })
