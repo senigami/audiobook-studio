@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useDeferredWhileHeld } from '@/hooks/useDeferredWhileHeld';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { api } from '@/api';
 import type { Job, SegmentProgress, TtsEngine, SpeakerProfile } from '@/types';
@@ -61,6 +62,24 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   segmentUpdate,
   chapterUpdate
 }) => {
+  // Terminal-burst refetches land ~300–500ms after the job-done frame — exactly while the
+  // end-of-chapter completion animation + 500ms hold is mid-flight.  Gate the ticks so the
+  // full refetch (chapters + segments + scriptView) is deferred until the hold flushes,
+  // preventing main-thread jank from ScriptView re-renders during the animation.
+  // The handoff state is not yet available here (pageHandoff is created after
+  // useChapterEditor), so we maintain mirror state synced via effects below.
+  //
+  // Two different gates on purpose:
+  // - segmentUpdate defers only while a completion hold is pending (hasPending), so the
+  //   per-save mid-render refreshes keep flowing.
+  // - chapterUpdate (the heavy full reload) defers while ANY segment is still displayed:
+  //   the first terminal chapters.lifecycle tick arrives ~10ms BEFORE the job-done frame
+  //   that starts the hold, so gating it on hasPending alone would let it slip through.
+  const [handoffHeld, setHandoffHeld] = useState(false);
+  const [displayHeld, setDisplayHeld] = useState(false);
+  const deferredSegmentUpdate = useDeferredWhileHeld(segmentUpdate, handoffHeld);
+  const deferredChapterUpdate = useDeferredWhileHeld(chapterUpdate, displayHeld);
+
   const {
     chapter,
     title, setTitle,
@@ -87,7 +106,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     handleUpdateCharacterColor,
     handleGenerate,
     executeQueue
-  } = useChapterEditor(chapterId, projectId, speakerProfiles, speakers, engines, chapterJobs, segmentUpdate, chapterUpdate);
+  } = useChapterEditor(chapterId, projectId, speakerProfiles, speakers, engines, chapterJobs, deferredSegmentUpdate, deferredChapterUpdate);
 
   const [editorTab, setEditorTab] = useState<ChapterEditorTab>('script');
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
@@ -179,6 +198,45 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       recordExternalHandoffEvent('job_status', { status: job.status, jobId: job.id });
     }
   }, [job?.status, job?.id]);
+
+  // Keep the gate mirrors in sync with the handoff state. handoffHeld gates segment
+  // ticks during the completion hold; displayHeld gates the heavy chapter reload while
+  // any segment is still displayed (render in progress OR hold in flight).
+  useEffect(() => {
+    setHandoffHeld(pageHandoff.hasPending);
+  }, [pageHandoff.hasPending]);
+  useEffect(() => {
+    setDisplayHeld(pageHandoff.hasPending || pageHandoff.displayedSegmentId !== 'none');
+  }, [pageHandoff.hasPending, pageHandoff.displayedSegmentId]);
+
+  // Log deferred tick events into the handoff debug ring.
+  useEffect(() => {
+    if (handoffHeld && segmentUpdate !== undefined) {
+      recordExternalHandoffEvent('tick_deferred', { kind: 'segment', tick: segmentUpdate.tick });
+    }
+   
+  }, [segmentUpdate?.tick]);
+
+  useEffect(() => {
+    if (displayHeld && chapterUpdate !== undefined) {
+      recordExternalHandoffEvent('tick_deferred', { kind: 'chapter', tick: chapterUpdate.tick });
+    }
+   
+  }, [chapterUpdate?.tick]);
+
+  useEffect(() => {
+    if (!handoffHeld && deferredSegmentUpdate !== segmentUpdate && segmentUpdate !== undefined) {
+      recordExternalHandoffEvent('tick_released', { kind: 'segment', tick: deferredSegmentUpdate?.tick });
+    }
+   
+  }, [handoffHeld]);
+
+  useEffect(() => {
+    if (!displayHeld && deferredChapterUpdate !== chapterUpdate && chapterUpdate !== undefined) {
+      recordExternalHandoffEvent('tick_released', { kind: 'chapter', tick: deferredChapterUpdate?.tick });
+    }
+   
+  }, [displayHeld]);
 
   // The "active segment" used to drive the script view highlight and batch progress.
   // During the handoff hold (outgoing segment completing), this stays on the outgoing
