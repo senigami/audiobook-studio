@@ -217,4 +217,31 @@ describe('useSegmentHandoffQueue', () => {
 
     vi.useRealTimers();
   });
+
+  // -----------------------------------------------------------------------
+  // Bug 1 fix: entering COMPLETING state must set displayed progress to 1.0
+  // -----------------------------------------------------------------------
+  it('sets displayedProgress to 1.0 (not last-seen) when entering COMPLETING state due to segment change', () => {
+    // A@0.8 → B@0 batch: the hook enters COMPLETING for A.
+    // Since B's arrival proves A is done, displayed must show A@1.0 so the
+    // bar can animate forward to 100% naturally rather than stalling at 0.8.
+    const { result, rerender } = renderHook(
+      ({ segmentId, progress }: { segmentId: string; progress: number }) =>
+        useSegmentHandoffQueue({ jobId: 'job-1', segmentId, progress, status: 'running' }),
+      { initialProps: { segmentId: 'seg-A', progress: 0.8 } }
+    );
+
+    expect(result.current.displayedProgress).toBe(0.8);
+
+    // Batched arrival of B@0 (A never reached 1.0 in props before B started)
+    rerender({ segmentId: 'seg-B', progress: 0 });
+
+    // displayedSegmentId must still be A (completing state)
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+    expect(result.current.hasPending).toBe(true);
+    // displayedProgress must be forced to 1.0 (not 0.8)
+    expect(result.current.displayedProgress).toBe(1.0);
+    // etaSeconds must be nulled so the bar doesn't show a stale ETA
+    expect(result.current.displayedEtaSeconds).toBeNull();
+  });
 });

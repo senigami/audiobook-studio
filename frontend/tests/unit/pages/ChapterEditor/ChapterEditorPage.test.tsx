@@ -207,7 +207,7 @@ describe('ChapterEditor - Core Orchestration', () => {
   });
 
   it('switches active highlighting and progress to the second segment/render batch when active_segment_id updates', async () => {
-    const { Job } = await import('@/types');
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     const twoSegmentScriptView = {
       chapter_id: mockChapterId,
       base_revision_id: 'rev-1',
@@ -298,13 +298,27 @@ describe('ChapterEditor - Core Orchestration', () => {
       />
     );
 
-    // Re-query spans to get the current mounted elements
+    // During the handoff hold: seg-1 stays highlighted (outgoing bar animating to 100%).
+    // This is Bug-2 correct behavior — the script text fill must complete before the
+    // highlight moves to seg-2.
+    const holdSpan1 = screen.getByTestId('script-span-seg-1');
+    const holdSpan2 = screen.getByTestId('script-span-seg-2');
+    expect(holdSpan1).toHaveClass('is-book-rendering');
+    expect(holdSpan2).not.toHaveClass('is-book-rendering');
+
+    // Advance past the 3s safety timer (the progress bar mock never calls onDisplayProgress(1.0)
+    // in this test environment, so the safety fallback fires the flush).
+    await act(async () => {
+      vi.advanceTimersByTime(3100);
+    });
+
+    // After the safety timer: seg-2 is now active
     const updatedSpan1 = screen.getByTestId('script-span-seg-1');
     const updatedSpan2 = screen.getByTestId('script-span-seg-2');
-
-    // Assert highlighting switched to batch-2 / seg-2
     expect(updatedSpan1).not.toHaveClass('is-book-rendering');
     expect(updatedSpan2).toHaveClass('is-book-rendering');
+
+    vi.useRealTimers();
   });
 
   it('highlights the corresponding segment/batch span when segments.progress websocket event is received', async () => {

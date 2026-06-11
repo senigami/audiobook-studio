@@ -399,22 +399,33 @@ export const ChapterScriptToolbar: React.FC<{
   onSegmentDisplayProgress?: (progress: number) => void;
   onProgressBarDebugSnapshot?: (snapshot: any) => void;
   status: ReturnType<typeof useChapterStatus>;
+  /** Optional: lifted handoff queue state from the page so one instance drives both
+   *  the header bar AND the script text highlight.  When absent the toolbar creates
+   *  its own internal instance (used by existing tests). */
+  handoffState?: ReturnType<typeof useSegmentHandoffQueue>;
 }> = ({
   chapter, saving, hasUnsavedChanges, submitting, queueLabel = 'Queue', queueTitle = 'Queue Chapter',
   onQueue, onStopAll, onCopyDebugState, onCommitSourceText, canCommitSourceText, onSegmentDisplayProgress,
-  onProgressBarDebugSnapshot, status
+  onProgressBarDebugSnapshot, status, handoffState
 }) => {
   // Segment handoff queue: defer the bar swap until the outgoing bar visually reaches 100%.
+  // When the page lifts the hook (handoffState provided), use that instance so the script
+  // view's active-segment highlight shares the same display state. The internal hook must
+  // still be called unconditionally (rules of hooks), so it gets an inert sentinel input
+  // in that case — keeping it a no-op with no pending state or safety timers.
   const liveJob = status.liveSegmentProgressJob;
-  const handoff = useSegmentHandoffQueue({
-    jobId: liveJob?.id ?? '',
-    segmentId: liveJob?.active_segment_id ?? 'none',
-    progress: status.liveSegmentProgressValue,
-    status: liveJob?.status,
-    etaSeconds: status.segmentProgressBarSelection.selectedEtaSeconds,
-    etaBasis: status.segmentProgressBarSelection.selectedEtaBasis,
-    updatedAt: status.segmentProgressBarSelection.selectedUpdatedAt,
-  });
+  const internalHandoff = useSegmentHandoffQueue(handoffState
+    ? { jobId: '', segmentId: 'none', progress: 0 }
+    : {
+      jobId: liveJob?.id ?? '',
+      segmentId: liveJob?.active_segment_id ?? 'none',
+      progress: status.liveSegmentProgressValue,
+      status: liveJob?.status,
+      etaSeconds: status.segmentProgressBarSelection.selectedEtaSeconds,
+      etaBasis: status.segmentProgressBarSelection.selectedEtaBasis,
+      updatedAt: status.segmentProgressBarSelection.selectedUpdatedAt,
+    });
+  const handoff = handoffState ?? internalHandoff;
 
   // Forward display progress to both the caller and the handoff queue.
   // The handoff queue's notifyDisplayProgress internally detects visual completion

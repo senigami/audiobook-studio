@@ -157,6 +157,11 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
         }
         // Update hasPending state so the caller can observe it.
         setHasPending(true);
+        // The arrival of the next segment proves the outgoing segment is done.
+        // Force displayed progress to 1.0 (and clear ETA) so the visual bar
+        // animates forward to 100% naturally instead of stalling at whatever
+        // partial value A last reported.
+        setDisplayed(prev => ({ ...prev, progress: 1.0, etaSeconds: null }));
     }, [input.segmentId, input.progress, input.etaSeconds, input.updatedAt, input.status, setHasPending]);
 
     // Tracks whether we already called onVisualComplete for the current high-water
