@@ -232,9 +232,14 @@ def test_handle_voxtral_job_sample_test_renders_into_voice_profile_dir(tmp_path)
         Path(kwargs["out_wav"]).write_text("wav")
         return 0
 
+    def fake_wav_to_mp3(in_wav, out_mp3, on_output=None, cancel_check=None):
+        out_mp3.write_text("mp3 audio")
+        return 0
+
     with patch("app.db.speakers.get_profile_dir", return_value=tmp_path), \
          patch("plugins.tts_voxtral.plugin.studio.handler.get_speaker_settings", return_value={"voice_asset_id": "asset-1"}), \
          patch("plugins.tts_voxtral.plugin.studio.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("app.engines.audio_ops.wav_to_mp3", side_effect=fake_wav_to_mp3), \
          patch("plugins.tts_voxtral.plugin.studio.handler.update_job") as mock_update:
         result = handle_voxtral_job(
             "voxtral-sample", job, 0.0, lambda _line: None, lambda: False,
@@ -242,14 +247,16 @@ def test_handle_voxtral_job_sample_test_renders_into_voice_profile_dir(tmp_path)
         )
 
     assert result == "done"
-    assert (tmp_path / "sample.wav").exists()
+    # WAV is converted to MP3 and deleted; only MP3 remains
+    assert (tmp_path / "sample.mp3").exists()
+    assert not (tmp_path / "sample.wav").exists()
     assert captured["text"] == "Testing one two three."
     assert captured["profile_name"] == "VoiceA"
 
     errors = [c.kwargs.get("error") for c in mock_update.call_args_list if c.kwargs.get("error")]
     assert not any("project and chapter context" in e for e in errors)
     done_calls = [c for c in mock_update.call_args_list if c.kwargs.get("status") == "done"]
-    assert done_calls and done_calls[0].kwargs["output_wav"] == "sample.wav"
+    assert done_calls and done_calls[0].kwargs["output_mp3"] == "sample.mp3"
 
 
 def test_handle_voxtral_job_chapter_render_still_requires_context():

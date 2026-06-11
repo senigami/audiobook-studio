@@ -492,7 +492,7 @@ git diff --check
 
 ### Slice 7: WAV-First Cleanup For Voxtral And Normal Synthesis
 
-> **Status (2026-06-11): Implemented.** make_mp3/finalizing branches removed from the Voxtral and XTTS chapter handlers; queue-row display filenames always `.wav`. Contract recorded in `docs/specs/queue-jobs.md` §3.6 (1.1.0). Mixed render now records the true rendered-segment count in performance samples (Finding 10).
+> **Status (2026-06-11): Implemented.** make_mp3/finalizing branches removed from the Voxtral and XTTS chapter handlers; queue-row display filenames always `.wav`. Contract recorded in `docs/specs/queue-jobs.md` §3.6 (1.1.0). Mixed render now records the true rendered-segment count in performance samples (Finding 10). Voice-preview artifact policy finalized by owner ruling 2026-06-11: samples synthesize WAV then auto-convert to sample.mp3 (WAV deleted; WAV kept as fallback on conversion failure) — supersedes the interim WAV-only preview decision in Slice 8.
 
 Goal: ordinary synthesis does not use `finalizing` or MP3 conversion as part of the normal queue lifecycle.
 

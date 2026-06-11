@@ -189,10 +189,11 @@ async def build_speaker_profile(
         resolved_pdir = os.path.abspath(os.fspath(path))
 
         if resolved_pdir.startswith(trusted_voices_root + os.sep):
-            # Clear existing sample if it exists to ensure accurate building status
-            sample_path_full = os.path.normpath(os.path.join(resolved_pdir, "sample.wav"))
-            if sample_path_full.startswith(resolved_pdir + os.sep) and os.path.exists(sample_path_full):
-                os.unlink(sample_path_full)
+            # Clear existing sample (wav and mp3) to ensure accurate building status
+            for _sample_name in ("sample.wav", "sample.mp3"):
+                _sample_full = os.path.normpath(os.path.join(resolved_pdir, _sample_name))
+                if _sample_full.startswith(resolved_pdir + os.sep) and os.path.exists(_sample_full):
+                    os.unlink(_sample_full)
         else:
              return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
     except ValueError as e:
@@ -377,7 +378,7 @@ def test_speaker_profile(name: str, background_tasks: BackgroundTasks):
         return JSONResponse({
             "status": "ok",
             "job_id": jid,
-            "audio_url": preview_url or f"/out/voices/{url_path}/sample.wav"
+            "audio_url": preview_url or f"/out/voices/{url_path}/sample.mp3"
         })
     except Exception as e:
         from ...engines.errors import EngineUnavailableError

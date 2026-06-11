@@ -152,7 +152,8 @@ def test_speaker_profile_test_endpoint_allows_latent_without_raw_samples(mock_or
         response = client.post(f"/api/speaker-profiles/{name}/test")
 
     assert response.status_code == 200
-    assert response.json()["audio_url"] == f"/out/voices/{name}/Default/sample.wav"
+    # No sample file exists yet; fallback URL points to the expected mp3 artifact
+    assert response.json()["audio_url"] == f"/out/voices/{name}/Default/sample.mp3"
 
 def test_delete_profile(clean_voices):
     name = "DeleteMe"
@@ -412,3 +413,48 @@ def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
         assert meta["engine"] == "xtts"
     finally:
         delete_speaker(speaker_id)
+
+
+# ---------------------------------------------------------------------------
+# _voice_preview_url: mp3-preference tests
+# ---------------------------------------------------------------------------
+
+def test_voice_preview_url_prefers_mp3_over_wav(clean_voices, tmp_path):
+    """_voice_preview_url returns a /sample.mp3 URL when both mp3 and wav exist."""
+    from app.api.routers.voices_helpers import _voice_preview_url
+    name = "PreviewMp3"
+    profile_dir = _new_voice_profile_dir(name)
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text(json.dumps({"engine": "xtts"}))
+    (profile_dir / "sample.mp3").write_bytes(b"mp3data")
+    (profile_dir / "sample.wav").write_bytes(b"wavdata")
+
+    url = _voice_preview_url(name)
+    assert url is not None
+    assert url.endswith("sample.mp3"), f"Expected mp3 URL, got: {url}"
+
+
+def test_voice_preview_url_falls_back_to_wav_when_no_mp3(clean_voices, tmp_path):
+    """_voice_preview_url falls back to sample.wav when no mp3 exists."""
+    from app.api.routers.voices_helpers import _voice_preview_url
+    name = "PreviewWavOnly"
+    profile_dir = _new_voice_profile_dir(name)
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text(json.dumps({"engine": "xtts"}))
+    (profile_dir / "sample.wav").write_bytes(b"wavdata")
+
+    url = _voice_preview_url(name)
+    assert url is not None
+    assert url.endswith("sample.wav"), f"Expected wav fallback URL, got: {url}"
+
+
+def test_voice_preview_url_returns_none_when_no_sample(clean_voices, tmp_path):
+    """_voice_preview_url returns None when neither sample.mp3 nor sample.wav exists."""
+    from app.api.routers.voices_helpers import _voice_preview_url
+    name = "PreviewNoSample"
+    profile_dir = _new_voice_profile_dir(name)
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text(json.dumps({"engine": "xtts"}))
+
+    url = _voice_preview_url(name)
+    assert url is None

@@ -1,7 +1,7 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.1.0
+spec_version: 1.1.1
 status: active
 created: 2026-06-10
 sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
@@ -15,6 +15,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.1.1   | 2026-06-11 | §3.6 voice-sample exception: samples auto-convert WAV→sample.mp3 (owner ruling) |
 | 1.1.0   | 2026-06-11 | WAV-first synthesis (audit Slice 7): ordinary chapter synthesis never emits `finalizing` and never converts to MP3; `make_mp3` inert for ordinary synthesis (§3.6). Queue row authority lives in live-events.md §"Queue row authority". |
 | 1.0.2   | 2026-06-10 | B18: startup recovery wired — interrupted tasks are recovered and resumed instead of silently cancelled |
 | 1.0.1   | 2026-06-10 | B20: requeue now uses standard terminal-reset path; G4 resolved |
@@ -229,6 +230,13 @@ pipeline) or an explicit format request on the external TTS gateway
 (`/api/v1/tts`). The `Job.make_mp3` / task `make_mp3` fields remain in the
 contract for those explicit paths but are **inert for ordinary synthesis**;
 queue-row display filenames for chapter renders always use the `.wav` name.
+
+**Voice-sample exception (owner ruling 2026-06-11):** voice sample/preview jobs
+also synthesize WAV-first, but the result is then automatically converted to
+`sample.mp3` and the WAV is deleted (`finalize_sample_artifact`,
+`app/engines/audio_ops.py`); on conversion failure the WAV is kept and served
+as fallback. This matches `docs/specs/voice-bundles.md` (previews are MP3).
+Chapter renders are never auto-converted — assembly converts WAV → AAC.
 
 ---
 

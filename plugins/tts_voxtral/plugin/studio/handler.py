@@ -170,12 +170,29 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Voxtral synthesis failed.")
         return "failed"
 
-    logger.info(
-        "[%s-debug %s] marking done job=%s wav=%s",
-        j.engine,
-        time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
-        jid,
-        out_wav.name,
-    )
-    update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name)
+    # For sample jobs, convert WAV → MP3 and delete WAV
+    if _is_sample_job(j):
+        from app.engines.audio_ops import finalize_sample_artifact
+        final_path = finalize_sample_artifact(out_wav)
+        out_name = final_path.name
+        logger.info(
+            "[%s-debug %s] marking done job=%s artifact=%s",
+            j.engine,
+            time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+            jid,
+            out_name,
+        )
+        if final_path.suffix.lower() == ".mp3":
+            update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_mp3=out_name)
+        else:
+            update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_name)
+    else:
+        logger.info(
+            "[%s-debug %s] marking done job=%s wav=%s",
+            j.engine,
+            time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+            jid,
+            out_wav.name,
+        )
+        update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name)
     return "done"

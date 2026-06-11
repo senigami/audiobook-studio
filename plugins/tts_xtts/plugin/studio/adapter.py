@@ -41,7 +41,12 @@ def xtts_dispatch_adapter(jid: str, j: Job, start: float, on_output: Callable[[s
     spk = get_speaker_settings(j.speaker_profile)
 
     handle_xtts_job(
-        jid, j, start, on_output, cancel_check, 
-        sw, spk["speed"], pdir, out_wav, out_mp3, 
+        jid, j, start, on_output, cancel_check,
+        sw, spk["speed"], pdir, out_wav, out_mp3,
         text=text
     )
+
+    # For sample jobs, convert WAV → MP3 and delete WAV after successful synthesis
+    if is_sample_job and out_wav.exists():
+        from app.engines.audio_ops import finalize_sample_artifact
+        finalize_sample_artifact(out_wav)

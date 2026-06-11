@@ -90,9 +90,10 @@ def handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=None):
         pdir = VOICES_DIR / j.speaker_profile
     pdir.mkdir(parents=True, exist_ok=True)
 
-    # For voice_test or missing sample.wav, generate one. voice_build always rebuilds.
+    # For voice_test or missing sample (wav or mp3), generate one. voice_build always rebuilds.
     sample_path = pdir / "sample.wav"
-    if j.engine in ("voice_build", "voice_test") or not sample_path.exists():
+    sample_mp3_path = pdir / "sample.mp3"
+    if j.engine in ("voice_build", "voice_test") or not (sample_path.exists() or sample_mp3_path.exists()):
         on_output(f"Generating test sample for {j.speaker_profile}...\n")
         spk = voice_job_settings or get_speaker_settings(j.speaker_profile)
         sw = get_speaker_wavs(j.speaker_profile)
@@ -118,6 +119,10 @@ def handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=None):
         if rc != 0:
             _mark_queue_failed(jid, "Voice synthesis failed.")
             return
+
+        # Convert WAV → MP3 and delete WAV (voice samples are always MP3)
+        from ..engines.audio_ops import finalize_sample_artifact
+        sample_path = finalize_sample_artifact(sample_path, on_output=on_output, cancel_check=cancel_check)
 
         # After success: mark samples as built if this was a build job
         if j.engine == "voice_build" or j.engine == "voice_test":
