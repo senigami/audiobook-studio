@@ -219,7 +219,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
 
   const chapterRenderRenderingSegmentIds = useMemo(() => {
     const ids = new Set<string>();
-    if (!isChapterProcessing) return ids;
+    if (!isChapterProcessing && !pageHandoff.hasPending) return ids;
 
     // 1. Add optimistic highlights for segments being queued,
     // but only if they aren't already being handled by an active job's batch rendering
@@ -242,7 +242,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     }
 
     return ids;
-  }, [isChapterProcessing, generatingSegmentIds, liveSegmentJobIds, chapterRenderActiveSegmentId, chapterRenderActiveBatchSegmentIds]);
+  }, [isChapterProcessing, pageHandoff.hasPending, generatingSegmentIds, liveSegmentJobIds, chapterRenderActiveSegmentId, chapterRenderActiveBatchSegmentIds]);
 
   const chapterRenderQueuedSegmentIds = useMemo(() => {
     if (!job || !['queued', 'preparing', 'running'].includes(job.status)) return new Set<string>();

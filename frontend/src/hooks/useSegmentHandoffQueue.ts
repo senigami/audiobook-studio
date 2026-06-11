@@ -42,6 +42,12 @@ export interface SegmentHandoffState {
 }
 
 /**
+ * How long (ms) to hold the completed frame visible before flushing to the
+ * pending segment (or sentinel).  Exported so callers can advance fake timers.
+ */
+export const COMPLETION_HOLD_MS = 500;
+
+/**
  * Manages the display-layer queueing for segment-level progress bars in the
  * Chapter Editor.  When a new segment starts (segmentId changes) while the
  * current bar has not yet visually reached 100%, the swap is deferred.
@@ -51,9 +57,10 @@ export interface SegmentHandoffState {
  *   COMPLETING — displayedSegmentId is held at the old value; pendingRef holds
  *                the queued segment (pendingStart + pendingLatest).
  *   After onVisualComplete fires:
- *     1. displayedSegmentId swaps to the pending segment's id.
- *     2. displayedProgress is set to 0 (the start frame).
- *     3. On the next scheduler tick: displayedProgress advances to pendingLatest.progress.
+ *     1. A COMPLETION_HOLD_MS hold timer is started; displayed stays at 1.0.
+ *     2. When hold fires: displayedSegmentId swaps to the pending segment's id.
+ *     3. displayedProgress is set to 0 (the start frame).
+ *     4. On the next scheduler tick: displayedProgress advances to pendingLatest.progress.
  */
 export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHandoffState {
     const [displayed, setDisplayed] = useState<SegmentHandoffInput>(input);
@@ -74,6 +81,10 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
     // Ref to the onVisualComplete callback so the safety timer can call it without a
     // stale-closure dependency cycle (callback defined after the main effect).
     const onVisualCompleteRef = useRef<(() => void) | null>(null);
+    // Hold timer: after visual 100%, wait COMPLETION_HOLD_MS before flushing.
+    const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Guard against double-entry into the hold phase.
+    const holdActiveRef = useRef(false);
 
     // Keep displayedRef in sync with displayed state.
     useEffect(() => {
@@ -122,14 +133,40 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
             return;
         }
 
-        // If the *incoming* segmentId is the sentinel (liveJob disappeared), reset state
-        // immediately — no bar is visible so no deferral is needed.
+        // If the *incoming* segmentId is the sentinel (liveJob disappeared / end of chapter),
+        // and the displayed segment is a real segment with an animation in flight, treat this
+        // like a normal handoff: drive the displayed bar to 1.0, queue the sentinel as pending,
+        // then flush after the visual hold.
         if (input.segmentId === NO_SEGMENT) {
-            completingRef.current = false;
-            pendingRef.current = null;
-            setHasPending(false);
+            // If the displayed segment is already sentinel, or visual has already completed,
+            // reset immediately — nothing to animate.
+            if (currentDisplayed.segmentId === NO_SEGMENT || visualCompleteRef.current) {
+                completingRef.current = false;
+                pendingRef.current = null;
+                setHasPending(false);
+                visualCompleteRef.current = false;
+                setDisplayed(input);
+                return;
+            }
+            // Otherwise: enter COMPLETING with the sentinel as the pending segment.
+            // This lets the bar animate to 100% and hold before clearing.
+            completingRef.current = true;
             visualCompleteRef.current = false;
-            setDisplayed(input);
+
+            pendingRef.current = {
+                startFrame: input,
+                latestFrame: input,
+            };
+            // Arm the safety timer.
+            if (safetyTimerRef.current !== null) {
+                clearTimeout(safetyTimerRef.current);
+            }
+            safetyTimerRef.current = setTimeout(() => {
+                safetyTimerRef.current = null;
+                onVisualCompleteRef.current?.();
+            }, 3000);
+            setHasPending(true);
+            setDisplayed(prev => ({ ...prev, progress: 1.0, etaSeconds: null }));
             return;
         }
 
@@ -185,27 +222,61 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
             return;
         }
 
-        // Mount the pending segment at progress 0 (start frame).
-        const startFrame = { ...pending.startFrame, progress: 0 };
-        const latestFrame = pending.latestFrame;
-
-        completingRef.current = false;
-        pendingRef.current = null;
-        setHasPending(false);
-        visualCompleteRef.current = false;
-
-        setDisplayed(startFrame);
-        visualCompleteFiredRef.current = false;
-
-        // On the next tick: apply latestFrame so the bar visibly starts at 0,
-        // then catches up to current progress via the normal lane transition.
-        if (catchUpTimerRef.current !== null) {
-            clearTimeout(catchUpTimerRef.current);
+        // Guard against double-entry into the hold phase.
+        if (holdActiveRef.current) {
+            return;
         }
-        catchUpTimerRef.current = setTimeout(() => {
-            catchUpTimerRef.current = null;
-            setDisplayed(latestFrame);
-        }, 16); // one rAF-ish tick
+        holdActiveRef.current = true;
+
+        // Start the completion hold: keep the displayed frame at 1.0 for COMPLETION_HOLD_MS
+        // so the user can visually register the completion, then flush.
+        if (holdTimerRef.current !== null) {
+            clearTimeout(holdTimerRef.current);
+        }
+        holdTimerRef.current = setTimeout(() => {
+            holdTimerRef.current = null;
+            holdActiveRef.current = false;
+
+            // Capture latest pending at the time the hold fires (latest-wins update may
+            // have changed latestFrame while we were holding).
+            const flushedPending = pendingRef.current;
+
+            // A new segment arriving during the hold re-arms the safety timer; clear it
+            // here so a stray fire after the flush can't mark visual-complete and make
+            // the next handoff skip its animation.
+            if (safetyTimerRef.current !== null) {
+                clearTimeout(safetyTimerRef.current);
+                safetyTimerRef.current = null;
+            }
+
+            completingRef.current = false;
+            pendingRef.current = null;
+            setHasPending(false);
+            visualCompleteRef.current = false;
+            visualCompleteFiredRef.current = false;
+
+            if (!flushedPending || flushedPending.startFrame.segmentId === NO_SEGMENT) {
+                // Flushing to sentinel (end-of-chapter) or nothing pending — just clear.
+                setDisplayed(flushedPending?.latestFrame ?? displayedRef.current);
+                return;
+            }
+
+            // Mount the pending segment at progress 0 (start frame).
+            const startFrame = { ...flushedPending.startFrame, progress: 0 };
+            const latestFrame = flushedPending.latestFrame;
+
+            setDisplayed(startFrame);
+
+            // On the next tick: apply latestFrame so the bar visibly starts at 0,
+            // then catches up to current progress via the normal lane transition.
+            if (catchUpTimerRef.current !== null) {
+                clearTimeout(catchUpTimerRef.current);
+            }
+            catchUpTimerRef.current = setTimeout(() => {
+                catchUpTimerRef.current = null;
+                setDisplayed(latestFrame);
+            }, 16); // one rAF-ish tick
+        }, COMPLETION_HOLD_MS);
     }, []);
 
     // Keep onVisualCompleteRef current so the safety timer always calls the live callback.
@@ -230,6 +301,9 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
             }
             if (safetyTimerRef.current !== null) {
                 clearTimeout(safetyTimerRef.current);
+            }
+            if (holdTimerRef.current !== null) {
+                clearTimeout(holdTimerRef.current);
             }
         };
     }, []);

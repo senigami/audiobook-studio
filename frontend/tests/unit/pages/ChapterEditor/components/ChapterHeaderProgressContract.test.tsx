@@ -568,8 +568,12 @@ describe('ChapterHeader progress contract', () => {
     act(() => {
       capturedOnDisplayProgress?.(1.0);
     });
+    // Advance through the 500ms hold, then the 16ms catch-up tick.
     act(() => {
-      vi.advanceTimersByTime(50); // flush the pendingLatest catch-up timer
+      vi.advanceTimersByTime(500);
+    });
+    act(() => {
+      vi.advanceTimersByTime(16); // flush the pendingLatest catch-up timer
     });
 
     // Now the bar should have remounted (key changed to seg-2).
@@ -735,8 +739,12 @@ describe('ChapterHeader progress contract', () => {
     act(() => {
       capturedOnDisplayProgress?.(1.0);
     });
+    // Advance through the 500ms hold, then the 16ms catch-up tick.
     act(() => {
-      vi.advanceTimersByTime(50); // flush pendingLatest catch-up
+      vi.advanceTimersByTime(500);
+    });
+    act(() => {
+      vi.advanceTimersByTime(16); // flush pendingLatest catch-up
     });
 
     // Now seg-B should be displayed.

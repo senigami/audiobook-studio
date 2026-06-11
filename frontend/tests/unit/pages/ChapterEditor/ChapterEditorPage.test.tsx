@@ -306,10 +306,10 @@ describe('ChapterEditor - Core Orchestration', () => {
     expect(holdSpan1).toHaveClass('is-book-rendering');
     expect(holdSpan2).not.toHaveClass('is-book-rendering');
 
-    // Advance past the 3s safety timer (the progress bar mock never calls onDisplayProgress(1.0)
-    // in this test environment, so the safety fallback fires the flush).
+    // Advance past the 3s safety timer + 500ms hold (the progress bar mock never calls
+    // onDisplayProgress(1.0) in this test environment, so the safety fallback fires the flush).
     await act(async () => {
-      vi.advanceTimersByTime(3100);
+      vi.advanceTimersByTime(3600);
     });
 
     // After the safety timer: seg-2 is now active

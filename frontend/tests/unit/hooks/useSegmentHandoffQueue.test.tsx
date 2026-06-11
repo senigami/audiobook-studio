@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useSegmentHandoffQueue } from '@/hooks/useSegmentHandoffQueue';
+import { useSegmentHandoffQueue, COMPLETION_HOLD_MS } from '@/hooks/useSegmentHandoffQueue';
 
 describe('useSegmentHandoffQueue', () => {
   beforeEach(() => {
@@ -38,8 +38,9 @@ describe('useSegmentHandoffQueue', () => {
 
   // -----------------------------------------------------------------------
   // Test 2: pendingLatest accumulates while completing; on swap: mount at 0 then catch-up
+  // Now includes 500ms hold before flush.
   // -----------------------------------------------------------------------
-  it('captures pendingLatest frames and applies them one tick after mounting the pending segment', () => {
+  it('captures pendingLatest frames and applies them one tick after mounting the pending segment (after hold)', () => {
     vi.useFakeTimers();
 
     const { result, rerender } = renderHook(
@@ -64,13 +65,22 @@ describe('useSegmentHandoffQueue', () => {
       result.current.onVisualComplete();
     });
 
-    // After visual complete: seg-B should be mounted at 0 (start frame)
+    // DURING hold: seg-A still displayed, hasPending still true
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+    expect(result.current.hasPending).toBe(true);
+
+    // Advance through 500ms hold
+    act(() => {
+      vi.advanceTimersByTime(COMPLETION_HOLD_MS);
+    });
+
+    // After hold fires: seg-B should be mounted at 0 (start frame)
     expect(result.current.displayedSegmentId).toBe('seg-B');
     expect(result.current.displayedProgress).toBe(0);
 
     // After one tick (e.g. rAF / setTimeout): pendingLatest (0.45) should be applied
     act(() => {
-      vi.advanceTimersByTime(50);
+      vi.advanceTimersByTime(16);
     });
     expect(result.current.displayedProgress).toBe(0.45);
 
@@ -103,6 +113,7 @@ describe('useSegmentHandoffQueue', () => {
 
   // -----------------------------------------------------------------------
   // Test 4: Multiple fast segment starts — latest-wins for pendingStart identity
+  // Now includes 500ms hold before seg-C mounts.
   // -----------------------------------------------------------------------
   it('uses latest-wins for pendingStart when multiple START_SEGMENT frames arrive during completion', () => {
     vi.useFakeTimers();
@@ -120,11 +131,16 @@ describe('useSegmentHandoffQueue', () => {
     expect(result.current.displayedSegmentId).toBe('seg-A');
     expect(result.current.hasPending).toBe(true);
 
-    // Visual completes: seg-C (latest) should mount, not seg-B
+    // Visual completes; hold begins — still seg-A during hold
     act(() => {
       result.current.onVisualComplete();
     });
+    expect(result.current.displayedSegmentId).toBe('seg-A');
 
+    // Advance through hold — seg-C (latest) should mount, not seg-B
+    act(() => {
+      vi.advanceTimersByTime(COMPLETION_HOLD_MS);
+    });
     expect(result.current.displayedSegmentId).toBe('seg-C');
 
     vi.useRealTimers();
@@ -156,6 +172,8 @@ describe('useSegmentHandoffQueue', () => {
   // Test 6 (Bug 1): visualCompleteRef must be reset on mount so third segment queues
   // -----------------------------------------------------------------------
   it('queues a third segment (C) even though the first handoff (A→B) used the immediate-mount path', () => {
+    vi.useFakeTimers();
+
     const { result, rerender } = renderHook(
       ({ segmentId, progress }: { segmentId: string; progress: number }) =>
         useSegmentHandoffQueue({ jobId: 'job-1', segmentId, progress, status: 'running' }),
@@ -181,12 +199,15 @@ describe('useSegmentHandoffQueue', () => {
     rerender({ segmentId: 'seg-C', progress: 0 });
     expect(result.current.hasPending).toBe(true);
     expect(result.current.displayedSegmentId).toBe('seg-B');
+
+    vi.useRealTimers();
   });
 
   // -----------------------------------------------------------------------
-  // Test 7 (Bug 2): safety timeout flushes pending when old bar never reaches 100%
+  // Test 7 (Bug 2): safety timeout + hold flushes pending when bar never reaches 100%
+  // The safety timer fires after 3000ms, then the 500ms hold fires before flush.
   // -----------------------------------------------------------------------
-  it('force-flushes pending segment after 3000ms if onVisualComplete never fires', () => {
+  it('force-flushes pending segment after 3000ms safety + 500ms hold if onVisualComplete never fires', () => {
     vi.useFakeTimers();
 
     const { result, rerender } = renderHook(
@@ -200,9 +221,18 @@ describe('useSegmentHandoffQueue', () => {
     expect(result.current.hasPending).toBe(true);
     expect(result.current.displayedSegmentId).toBe('seg-A');
 
-    // Advance past the 3000ms safety timeout
+    // Advance past the 3000ms safety timeout — hold starts but seg-B not yet mounted
     act(() => {
       vi.advanceTimersByTime(3000);
+    });
+
+    // Still in hold phase (displayed is still seg-A, hasPending still true)
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+    expect(result.current.hasPending).toBe(true);
+
+    // Advance through the 500ms hold
+    act(() => {
+      vi.advanceTimersByTime(COMPLETION_HOLD_MS);
     });
 
     // B should now be mounted at progress 0
@@ -243,5 +273,129 @@ describe('useSegmentHandoffQueue', () => {
     expect(result.current.displayedProgress).toBe(1.0);
     // etaSeconds must be nulled so the bar doesn't show a stale ETA
     expect(result.current.displayedEtaSeconds).toBeNull();
+  });
+
+  // -----------------------------------------------------------------------
+  // NEW: End-of-chapter sentinel handoff
+  // -----------------------------------------------------------------------
+  it('end-of-chapter: defers sentinel when displayed is real and mid-animation', () => {
+    vi.useFakeTimers();
+
+    const { result, rerender } = renderHook(
+      ({ segmentId, progress }: { segmentId: string; progress: number }) =>
+        useSegmentHandoffQueue({ jobId: 'job-1', segmentId, progress, status: 'running' }),
+      { initialProps: { segmentId: 'seg-A', progress: 0.8 } }
+    );
+
+    // Job finishes: input becomes sentinel
+    rerender({ segmentId: 'none', progress: 0 });
+
+    // Displayed stays seg-A, driven to 1.0, hasPending true
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+    expect(result.current.displayedProgress).toBe(1.0);
+    expect(result.current.hasPending).toBe(true);
+
+    // Notify visual 100%
+    act(() => {
+      result.current.notifyDisplayProgress(1.0);
+    });
+
+    // During hold: still seg-A
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+    expect(result.current.hasPending).toBe(true);
+
+    // Advance through hold
+    act(() => {
+      vi.advanceTimersByTime(COMPLETION_HOLD_MS);
+    });
+
+    // Now sentinel is displayed, hasPending false
+    expect(result.current.displayedSegmentId).toBe('none');
+    expect(result.current.hasPending).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  // -----------------------------------------------------------------------
+  // NEW: 500ms hold mid-chapter
+  // -----------------------------------------------------------------------
+  it('500ms hold mid-chapter: segA still shown for full hold duration after visual 100%', () => {
+    vi.useFakeTimers();
+
+    const { result, rerender } = renderHook(
+      ({ segmentId, progress }: { segmentId: string; progress: number }) =>
+        useSegmentHandoffQueue({ jobId: 'job-1', segmentId, progress, status: 'running' }),
+      { initialProps: { segmentId: 'seg-A', progress: 0.8 } }
+    );
+
+    rerender({ segmentId: 'seg-B', progress: 0 });
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+
+    // Visual 100% fires
+    act(() => {
+      result.current.notifyDisplayProgress(1.0);
+    });
+
+    // Still seg-A during hold
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+    expect(result.current.hasPending).toBe(true);
+
+    // 499ms — still in hold
+    act(() => {
+      vi.advanceTimersByTime(499);
+    });
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+
+    // 1ms more → hold fires → seg-B mounted at 0
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(result.current.displayedSegmentId).toBe('seg-B');
+    expect(result.current.displayedProgress).toBe(0);
+
+    // 16ms catch-up tick
+    act(() => {
+      vi.advanceTimersByTime(16);
+    });
+    expect(result.current.displayedSegmentId).toBe('seg-B');
+
+    vi.useRealTimers();
+  });
+
+  // -----------------------------------------------------------------------
+  // NEW: Safety timer + hold for sentinel (end-of-chapter safety path)
+  // -----------------------------------------------------------------------
+  it('safety timer + hold flush to sentinel when notifyDisplayProgress never called (end-of-chapter)', () => {
+    vi.useFakeTimers();
+
+    const { result, rerender } = renderHook(
+      ({ segmentId, progress }: { segmentId: string; progress: number }) =>
+        useSegmentHandoffQueue({ jobId: 'job-1', segmentId, progress, status: 'running' }),
+      { initialProps: { segmentId: 'seg-A', progress: 0.8 } }
+    );
+
+    // Job ends: sentinel arrives
+    rerender({ segmentId: 'none', progress: 0 });
+    expect(result.current.hasPending).toBe(true);
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+
+    // Advance 3000ms safety timer — hold begins
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    // Still in hold
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+    expect(result.current.hasPending).toBe(true);
+
+    // Advance 500ms hold
+    act(() => {
+      vi.advanceTimersByTime(COMPLETION_HOLD_MS);
+    });
+
+    // Sentinel now displayed
+    expect(result.current.displayedSegmentId).toBe('none');
+    expect(result.current.hasPending).toBe(false);
+
+    vi.useRealTimers();
   });
 });

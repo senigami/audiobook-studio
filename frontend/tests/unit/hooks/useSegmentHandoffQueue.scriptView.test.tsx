@@ -9,7 +9,7 @@
  */
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { useSegmentHandoffQueue } from '@/hooks/useSegmentHandoffQueue';
+import { useSegmentHandoffQueue, COMPLETION_HOLD_MS } from '@/hooks/useSegmentHandoffQueue';
 
 describe('useSegmentHandoffQueue – script view / text-highlight integration', () => {
   // -----------------------------------------------------------------------
@@ -57,18 +57,24 @@ describe('useSegmentHandoffQueue – script view / text-highlight integration', 
     // B gets a progress update while holding
     rerender({ segmentId: 'seg-B', progress: 0.3 });
 
-    // Visual bar reaches 100% → handoff fires
+    // Visual bar reaches 100% → hold begins
     act(() => {
       result.current.notifyDisplayProgress(1.0);
     });
 
-    // B now active, mounted at 0
+    // Still seg-A during hold
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+
+    // Advance through 500ms hold → B now active, mounted at 0
+    act(() => {
+      vi.advanceTimersByTime(COMPLETION_HOLD_MS);
+    });
     expect(result.current.displayedSegmentId).toBe('seg-B');
     expect(result.current.displayedProgress).toBe(0);
 
     // After catch-up tick: B at its latest frame (0.3)
     act(() => {
-      vi.advanceTimersByTime(50);
+      vi.advanceTimersByTime(16);
     });
     expect(result.current.displayedSegmentId).toBe('seg-B');
     expect(result.current.displayedProgress).toBe(0.3);

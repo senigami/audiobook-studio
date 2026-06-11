@@ -62,6 +62,10 @@ export const useChapterStatus = (
   const [heldLiveJob, setHeldLiveJob] = React.useState<Job | undefined>(undefined);
   const heldLiveJobTimerRef = React.useRef<number | null>(null);
   const terminalJobIdBridgedRef = React.useRef<string | null>(null);
+  // Remembers the last job that had a non-null active_segment_id so we can
+  // patch those fields onto the terminal bridged job (which has null active_segment_id)
+  // to keep hasActiveSegment=true and the bar mounted during the handoff hold.
+  const lastSegmentActiveJobRef = React.useRef<Job | undefined>(undefined);
 
   React.useEffect(() => {
     if (generatingJob && ['preparing', 'running', 'finalizing'].includes(generatingJob.status)) {
@@ -70,11 +74,28 @@ export const useChapterStatus = (
         heldLiveJobTimerRef.current = null;
       }
       terminalJobIdBridgedRef.current = null;
+      // Track last job with a live active segment.
+      if (generatingJob.active_segment_id) {
+        lastSegmentActiveJobRef.current = generatingJob;
+      }
       setHeldLiveJob(generatingJob);
     } else if (generatingJob?.status === 'done' || generatingJob?.status === 'failed' || generatingJob?.status === 'cancelled') {
       if (terminalJobIdBridgedRef.current !== generatingJob.id) {
         terminalJobIdBridgedRef.current = generatingJob.id;
-        setHeldLiveJob(generatingJob);
+        // If the terminal job has no active_segment_id (common for done jobs), patch in
+        // the last known segment fields so the bar stays mounted during the handoff hold.
+        const lastSeg = lastSegmentActiveJobRef.current;
+        const bridged: Job = (lastSeg && !generatingJob.active_segment_id)
+          ? {
+              ...generatingJob,
+              active_segment_id: lastSeg.active_segment_id,
+              active_segment_progress: 1,
+              active_segment_eta_seconds: null,
+              active_segment_eta_basis: lastSeg.active_segment_eta_basis,
+              active_segment_updated_at: lastSeg.active_segment_updated_at,
+            }
+          : generatingJob;
+        setHeldLiveJob(bridged);
         if (heldLiveJobTimerRef.current !== null) {
           window.clearTimeout(heldLiveJobTimerRef.current);
         }
