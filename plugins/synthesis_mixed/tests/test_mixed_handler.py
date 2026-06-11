@@ -571,3 +571,134 @@ def test_render_segment_passes_voice_profile_dir_to_bridge(clean_db, tmp_path):
         "Voxtral voices without voice_asset_id will fail reference-audio resolution."
     )
     assert call_kwargs["voice_profile_dir"] == expected_profile_dir
+
+
+def test_handle_mixed_job_accumulates_synthesis_duration_when_bridge_returns_no_duration(clean_db, tmp_path):
+    """
+    When generate_via_bridge returns 0 (success) but TTSResult.duration_sec is None,
+    the handler must still persist a positive synthesis_duration_seconds via update_job
+    before calling record_engine_sample — otherwise record_engine_sample raises ValueError
+    and the orchestrator marks a completed job as failed.
+
+    Pre-fix: update_job is never called with synthesis_duration_seconds, so
+    record_engine_sample raises ValueError: synthesis_duration_seconds is mandatory.
+    Post-fix: the terminal update_job call sequence includes a synthesis_duration_seconds > 0,
+    and the handler returns ('done', None).
+    """
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+    segs = get_chapter_segments(cid)
+    update_segment(segs[0]["id"], speaker_profile_name="XTTS Voice")
+    update_segment(segs[1]["id"], speaker_profile_name="Voxtral Voice")
+
+    job = Job(
+        id="mixed-no-duration-job",
+        engine="mixed",
+        chapter_file=f"{cid}_0.txt",
+        status="queued",
+        created_at=time.time(),
+        project_id=pid,
+        chapter_id=cid,
+        speaker_profile="XTTS Voice",
+    )
+
+    def fake_generate_via_bridge(**kwargs):
+        # Simulates bridge returning rc=0 but no duration_sec (TTSResult.duration_sec=None)
+        Path(kwargs["out_wav"]).write_text("audio")
+        return 0
+
+    def fake_stitch(_pdir, _segments, out_wav, _on_output, _cancel_check):
+        Path(out_wav).write_text("stitched")
+        return 0
+
+    with timeout_after(5, "mixed handler should not hang"), \
+         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "v"} if name == "Voxtral Voice" else {"speed": 1.0}), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.synthesis_mixed.handler.update_job") as mock_update_job, \
+         patch("plugins.synthesis_mixed.handler.record_engine_sample"):
+        result, err = handle_mixed_job("mixed-no-duration-job", job, time.time(), lambda _line: None, lambda: False)
+
+    assert result == "done", f"handler returned {result!r} instead of 'done': {err}"
+
+    # The handler must have persisted synthesis_duration_seconds > 0 before status='done'
+    duration_updates = [
+        call.kwargs.get("synthesis_duration_seconds")
+        for call in mock_update_job.call_args_list
+        if call.kwargs.get("synthesis_duration_seconds") is not None
+    ]
+    assert duration_updates, "synthesis_duration_seconds was never passed to update_job"
+    assert all(d > 0 for d in duration_updates), f"synthesis_duration_seconds must be positive, got {duration_updates}"
+
+
+def test_handle_mixed_job_metrics_failure_does_not_change_done_status(clean_db, tmp_path):
+    """
+    If record_engine_sample raises ValueError (e.g. missing synthesis_duration_seconds),
+    the handler must NOT propagate the exception or allow the orchestrator to mark the
+    job failed. The handler must still return ('done', None).
+
+    This reproduces the production failure shape: successful render -> metrics recording
+    raises -> orchestrator marks done job as failed.
+
+    Pre-fix: the ValueError propagates out of handle_mixed_job.
+    Post-fix: it is caught with a logger.warning, handler returns ('done', None).
+    """
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+    segs = get_chapter_segments(cid)
+    update_segment(segs[0]["id"], speaker_profile_name="XTTS Voice")
+    update_segment(segs[1]["id"], speaker_profile_name="Voxtral Voice")
+
+    job = Job(
+        id="mixed-metrics-fail-job",
+        engine="mixed",
+        chapter_file=f"{cid}_0.txt",
+        status="queued",
+        created_at=time.time(),
+        project_id=pid,
+        chapter_id=cid,
+        speaker_profile="XTTS Voice",
+    )
+
+    def fake_generate_via_bridge(**kwargs):
+        Path(kwargs["out_wav"]).write_text("audio")
+        return 0
+
+    def fake_stitch(_pdir, _segments, out_wav, _on_output, _cancel_check):
+        Path(out_wav).write_text("stitched")
+        return 0
+
+    with timeout_after(5, "mixed handler should not hang"), \
+         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "v"} if name == "Voxtral Voice" else {"speed": 1.0}), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.synthesis_mixed.handler.update_job") as mock_update_job, \
+         patch("plugins.synthesis_mixed.handler.record_engine_sample", side_effect=ValueError("synthesis_duration_seconds is mandatory and must be positive")):
+        result, err = handle_mixed_job("mixed-metrics-fail-job", job, time.time(), lambda _line: None, lambda: False)
+
+    assert result == "done", f"handler returned {result!r} — metrics exception must not change job outcome"
+    assert err is None or "MP3" in str(err), f"unexpected error: {err}"
+
+    # Confirm no failed status was set after the done status
+    call_statuses = [call.kwargs.get("status") for call in mock_update_job.call_args_list if call.kwargs.get("status")]
+    assert "failed" not in call_statuses, f"update_job was called with status='failed' after metrics error: {call_statuses}"

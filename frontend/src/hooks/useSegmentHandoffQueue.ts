@@ -262,6 +262,20 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
             return;
         }
 
+        // H7 steady state: while the job remains failed/cancelled, late progress
+        // frames (e.g. a trailing segments.progress overlay re-delivering the last
+        // active segment) must not resurrect the cleared display. Normal mounting
+        // resumes when the status leaves the failure set (new run / requeue).
+        if (isNowTerminalFailure) {
+            if (currentDisplayed.segmentId !== NO_SEGMENT) {
+                // Defensive: if anything re-mounted between resets, clear it again.
+                recordHandoffTransition('terminal_failure_suppress', currentDisplayed.segmentId, { jobId: input.jobId });
+                setHasPending(false);
+                setDisplayed(prev => ({ ...prev, segmentId: NO_SEGMENT, progress: 0, etaSeconds: null }));
+            }
+            return;
+        }
+
         // Same segment: just update displayed progress directly (no queueing needed).
         if (input.segmentId === currentDisplayed.segmentId) {
             // If we're completing (old bar finishing) but same segmentId, just pass through.

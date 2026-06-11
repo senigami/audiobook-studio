@@ -247,6 +247,8 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     j.active_render_group_weight = weight_updates["active_render_group_weight"]
     update_job(jid, grouped_progress=0.0, **weight_updates, **_SKIP_LIVE_BROADCASTS)
 
+    total_synthesis_seconds: float = 0.0
+
     for index, group in enumerate(target_groups, start=1):
         if cancel_check():
             update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
@@ -314,7 +316,9 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
                     **_SKIP_LIVE_BROADCASTS,
                 )
 
+            _seg_start = time.monotonic()
             rc = _render_segment(engine, chunk_text, profile_name, seg_out, j.safe_mode, engine_on_output, cancel_check, task_id=jid)
+            total_synthesis_seconds += time.monotonic() - _seg_start
         except EngineBridgeError as exc:
             update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=str(exc))
             return "failed", str(exc)
@@ -454,6 +458,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         finished_at=time.time(),
         progress=1.0,
         output_wav=out_wav.name,
+        synthesis_duration_seconds=max(round(total_synthesis_seconds, 2), 0.01),
         **_group_weight_updates(tracking_groups, total_groups, active_index=0),
     )
 
@@ -464,6 +469,9 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     # job (it drives seconds_per_segment). Render-group count is tracked separately on
     # the job. Count the segments across the groups rendered here, not the group count.
     rendered_segment_count = sum(len(g.get("segments") or []) for g in target_groups)
-    record_engine_sample(j, start, chars, perf, rendered_segment_count)
+    try:
+        record_engine_sample(j, start, chars, perf, rendered_segment_count)
+    except Exception:
+        logger.warning("Failed to record engine sample for job %s — metrics not updated", jid, exc_info=True)
 
     return "done", None

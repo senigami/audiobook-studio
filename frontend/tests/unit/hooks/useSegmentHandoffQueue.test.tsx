@@ -604,6 +604,42 @@ describe('useSegmentHandoffQueue', () => {
   });
 
   // -----------------------------------------------------------------------
+  // H7: late frames while the job REMAINS failed must not resurrect the display
+  // (observed: a trailing segments.progress frame re-mounted the cleared
+  // segment ~6ms after the terminal_failure_reset)
+  // -----------------------------------------------------------------------
+  it('H7: stale segment input while status stays failed does not re-mount the segment', () => {
+    vi.useFakeTimers();
+
+    const { result, rerender } = renderHook(
+      (props: { segmentId: string; progress: number; status: string; updatedAt: number }) =>
+        useSegmentHandoffQueue({ jobId: 'job-1', segmentId: props.segmentId, progress: props.progress, status: props.status, updatedAt: props.updatedAt }),
+      { initialProps: { segmentId: 'seg-A', progress: 0.5, status: 'running', updatedAt: 100 } }
+    );
+
+    // Fail mid-animation: H7 reset clears the display.
+    rerender({ segmentId: 'seg-A', progress: 1, status: 'failed', updatedAt: 101 });
+    expect(result.current.displayedSegmentId).toBe('none');
+
+    // A late progress frame re-delivers the last segment while still failed
+    // (different updatedAt — the effect re-runs, as observed in production).
+    rerender({ segmentId: 'seg-A', progress: 1, status: 'failed', updatedAt: 102 });
+    expect(result.current.displayedSegmentId).toBe('none');
+    expect(result.current.hasPending).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(COMPLETION_HOLD_MS + 3000 + 100);
+    });
+    expect(result.current.displayedSegmentId).toBe('none');
+
+    // A NEW run (status leaves failure) resumes normal mounting.
+    rerender({ segmentId: 'seg-C', progress: 0, status: 'running', updatedAt: 103 });
+    expect(result.current.displayedSegmentId).toBe('seg-C');
+
+    vi.useRealTimers();
+  });
+
+  // -----------------------------------------------------------------------
   // H7 regression guard: 'done' still takes the completing→hold path
   // -----------------------------------------------------------------------
   it('H7 regression: done does NOT trigger immediate reset — takes completing→hold path', () => {

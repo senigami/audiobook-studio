@@ -1,7 +1,7 @@
 # Progress Presentation Contract
 
 ```
-spec_version: 1.3.0
+spec_version: 1.3.1
 status: active
 sources:
   - frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx
@@ -21,6 +21,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.3.1   | 2026-06-11 | H7 strengthened: steady-state failure suppresses late segment inputs (no resurrect after reset) |
 | 1.3.0   | 2026-06-11 | H7 added: terminal failure (failed/cancelled) resets handoff queue immediately — no completion animation, no hold |
 | 1.2.1   | 2026-06-11 | H4 strengthened: bar mount gate is handoff-aware directly; bridge alone is insufficient |
 | 1.2.0   | 2026-06-10 | Remaining-hold rule H6: swaps arriving after early visual completion serve out the rest of the 500 ms hold (§7) |
@@ -219,7 +220,7 @@ Rules:
 - **H4** — During COMPLETING/HOLD the page MUST keep the rendering-segment set and the header bar mounted even if the job is terminal, because the bar's display feedback is what drives visual completion. The bar's mount gate is handoff-aware directly (`liveSegmentProgressJob || hasPending || displayedSegmentId !== 'none'`); when mounted purely via the handoff (no live job), the bar renders with state `running` so the predictive lane keeps animating and firing `onDisplayProgress`. It MUST NOT rely solely on the terminal-job bridge, whose candidate selection can drop the job at end-of-chapter.
 - **H5** — The script text fill MUST follow the bar's *animated* display progress (fed back via `onSegmentDisplayProgress`), never raw stepped event data; the handoff decides only WHICH segment owns the fill. The fill resets to 0 keyed on the *displayed* segment identity.
 - **H6** — When the visual bar completes *before* the next swap arrives (segment data hits 1.0 while the job is still finishing; the next segment or sentinel lands later), the swap MUST serve out the *remaining* hold time: the hook records when visual completion occurred, and a swap arriving within `COMPLETION_HOLD_MS` is queued as pending and flushed when the remainder elapses. A swap arriving after the window mounts immediately.
-- **H7** — When the observed job status transitions to a terminal FAILURE state (`'failed'` or `'cancelled'`), the handoff MUST reset immediately: clear pending, set `displayedSegmentId` to `'none'`, cancel all hold/safety timers, and record a `terminal_failure_reset` ring event (with `jobId` and `priorDisplayedSegmentId`). No completion animation and no 500 ms hold — a failed render MUST NOT be presented as completing. The reset fires only on the non-terminal → failed/cancelled edge, not on steady-state (already-failed) renders. A terminal SUCCESS (`'done'`) is NOT a failure state and MUST keep the existing COMPLETING→HOLD path (H1/H2).
+- **H7** — When the observed job status transitions to a terminal FAILURE state (`'failed'` or `'cancelled'`), the handoff MUST reset immediately: clear pending, set `displayedSegmentId` to `'none'`, cancel all hold/safety timers, and record a `terminal_failure_reset` ring event (with `jobId` and `priorDisplayedSegmentId`). No completion animation and no 500 ms hold — a failed render MUST NOT be presented as completing. The reset fires on the non-terminal → failed/cancelled edge; additionally, while the status REMAINS failed/cancelled, late segment inputs (e.g. a trailing `segments.progress` overlay re-delivering the last active segment after the failure frame) MUST be suppressed — they must not re-mount the cleared display (`terminal_failure_suppress` ring event). Normal mounting resumes when the status leaves the failure set. A terminal SUCCESS (`'done'`) is NOT a failure state and MUST keep the existing COMPLETING→HOLD path (H1/H2).
 
 ---
 
