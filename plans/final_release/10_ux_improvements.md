@@ -35,6 +35,8 @@ Findings from a 2026-06-10 HIG-style design audit of the frontend. Goal: Apple-l
 - [ ] **U12 (S). Queue item cancel.** Allow cancelling a single queued job from the queue drawer (today only "Stop All" in the editor).
 - [ ] **U13 (M). First-run onboarding.** Empty-library state gains a 3-step checklist (Create project → Add voice → Import chapter & queue) instead of pushing users to the external wiki.
 - [ ] **U14 (S). Route transition discipline.** `.animate-in` (utilities.css:63) fires on every page nav — replace with a single shared route transition; audit Framer Motion usage for purpose vs noise.
+- [ ] **U15 (M). Layout & navigation design review — run FIRST in Stage 5.** (Owner request, 2026-06-11.) Map every navigation destination a user can reach (library page, project page, chapter page tabs — assemblies/backups/character definitions — and in-chapter selections), then redesign the information architecture for an Apple-style "don't make me think" experience: each screen has one obvious purpose, related actions are grouped, nothing competes for attention. Deliverable is a navigation map + proposed layout before any Stage 5 visual work, since its conclusions shape U1–U14 placement and U16.
+- [ ] **U16 (M). Unified audio player surface (segment vs chapter).** (Owner request, 2026-06-11.) The VCR-style segment player at the bottom of the Chapter Editor should become more prominent, and must coexist with the full rendered-chapter player without the two competing for space or attention. Candidate design: one player surface with a scope toggle (segment ↔ chapter) that swaps the loaded audio; evaluate during U15. Depends on U15's layout conclusions.
 
 ## Verification
 
