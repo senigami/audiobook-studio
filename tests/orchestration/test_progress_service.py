@@ -39,11 +39,14 @@ def test_publish_throttles_small_progress_churn():
         chapter_id="chapter-1",
     )
     assert emitted is not None
-    assert len(events) == 2
-    assert events[0][1] == "jobs"
-    assert events[1][1] == "jobs"
-    assert events[1][0]["payload"]["progress"] == 0.2
-    assert events[1][0]["payload"]["status"] == "running"
+    # lifecycle + queue.items (row-status authority) + chapter-scoped progress
+    assert len(events) == 3
+    assert all(channel == "jobs" for _, channel in events)
+    topics = [payload.get("topic") for payload, _ in events]
+    assert "queue.items" in topics
+    scoped = [payload for payload, _ in events if payload.get("topic") == "chapters.progress"]
+    assert scoped and scoped[0]["payload"]["progress"] == 0.2
+    assert scoped[0]["payload"]["status"] == "running"
 
     wall_now["value"] += 1.0
     monotonic_now["value"] += 1.0
@@ -56,7 +59,7 @@ def test_publish_throttles_small_progress_churn():
         chapter_id="chapter-1",
     )
     assert throttled is None
-    assert len(events) == 2
+    assert len(events) == 3
 
     wall_now["value"] += 1.0
     monotonic_now["value"] += 1.0
@@ -70,7 +73,7 @@ def test_publish_throttles_small_progress_churn():
     )
     assert emitted_again is not None
     assert emitted_again["progress"] == 0.28
-    assert len(events) == 3
+    assert len(events) == 4
 
 
 def test_publish_emits_heartbeat_after_silence():
@@ -84,7 +87,7 @@ def test_publish_emits_heartbeat_after_silence():
         message="Rendering",
         chapter_id="chapter-2",
     )
-    assert len(events) == 2
+    assert len(events) == 3
 
     wall_now["value"] += 11.0
     monotonic_now["value"] += 11.0
@@ -97,7 +100,7 @@ def test_publish_emits_heartbeat_after_silence():
         chapter_id="chapter-2",
     )
     assert repeated is not None
-    assert len(events) == 3
+    assert len(events) == 4
 
 
 def test_publish_allows_explicit_progress_regression_for_recovery():
@@ -111,7 +114,7 @@ def test_publish_allows_explicit_progress_regression_for_recovery():
         message="Rendering",
         chapter_id="chapter-3",
     )
-    assert len(events) == 2
+    assert len(events) == 3
 
     wall_now["value"] += 1.0
     monotonic_now["value"] += 1.0
@@ -128,7 +131,7 @@ def test_publish_allows_explicit_progress_regression_for_recovery():
     assert blocked_reset_event is not None
     assert blocked_reset_event["progress"] == 0.85
     assert blocked_reset_event["reason_code"] == "recovery_reconcile"
-    assert len(events) == 4
+    assert len(events) == 6
 
     wall_now["value"] += 1.0
     monotonic_now["value"] += 1.0
@@ -146,7 +149,7 @@ def test_publish_allows_explicit_progress_regression_for_recovery():
     assert reset_event is not None
     assert reset_event["progress"] == 0.0
     assert reset_event["reason_code"] == "recovery_reconcile"
-    assert len(events) == 5
+    assert len(events) == 7
 
 
 def test_monotonic_progress_and_eta_selection():
@@ -184,7 +187,7 @@ def test_publish_queued_reset_clears_progress_floor_without_explicit_flag():
         eta_seconds=0,
         message="Finished",
     )
-    assert len(events) == 1
+    assert len(events) == 2
 
     wall_now["value"] += 1.0
     monotonic_now["value"] += 1.0
@@ -198,7 +201,8 @@ def test_publish_queued_reset_clears_progress_floor_without_explicit_flag():
 
     assert queued_event is not None
     assert queued_event["progress"] == 0.0
-    assert len(events) == 2
+    # done->queued is a status transition: lifecycle + queue.items emitted.
+    assert len(events) == 4
 
 def test_publish_includes_explicit_eta_basis():
     service, events, wall_now, _ = _make_service()
@@ -244,7 +248,7 @@ def test_publish_includes_render_group_context():
     assert emitted["total_render_weight"] == 945
     assert emitted["completed_render_weight"] == 420
     assert emitted["active_render_group_weight"] == 525
-    assert len(events) == 2
+    assert len(events) == 3
     assert events[1][1] == "jobs"
     assert events[1][0]["payload"]["progress"] == 0.44
     assert events[1][0]["payload"]["status"] == "running"
@@ -262,3 +266,36 @@ def test_publish_remaps_finalizing_to_running():
     assert emitted["status"] == "running"
     assert emitted["progress"] == 0.91
     assert events[0][0]["payload"]["status"] == "finalizing"
+
+
+def test_publish_status_transition_emits_queue_item_status():
+    """Orchestrated transitions suppress the legacy ws job listener
+    (skip_job_updated), so the progress service itself MUST mirror every
+    status transition onto queue.items — the frontend row-status authority.
+    Regression: queue rows froze at 'preparing' for entire renders because
+    no queue_item_status frames were ever emitted for chapter jobs."""
+    service, events, wall_now, monotonic_now = _make_service()
+
+    service.publish(job_id="job-q", status="running", scope="job",
+                    parent_job_id="proj-1", chapter_id="chap-1", progress=0.1)
+    queue_frames = [p for p, _ in events if p.get("topic") == "queue.items"]
+    assert len(queue_frames) == 1
+    assert queue_frames[0]["eventKind"] == "queue_item_status"
+    assert queue_frames[0]["payload"]["status"] == "running"
+    assert queue_frames[0]["ids"]["jobId"] == "job-q"
+
+    # Progress-only update: no new queue.items frame.
+    events.clear()
+    monotonic_now["value"] += 1.0
+    service.publish(job_id="job-q", status="running", scope="job",
+                    parent_job_id="proj-1", chapter_id="chap-1", progress=0.4)
+    assert not [p for p, _ in events if p.get("topic") == "queue.items"]
+
+    # Terminal transition: queue.items done frame.
+    events.clear()
+    monotonic_now["value"] += 1.0
+    service.publish(job_id="job-q", status="completed", scope="job",
+                    parent_job_id="proj-1", chapter_id="chap-1", progress=1.0)
+    queue_frames = [p for p, _ in events if p.get("topic") == "queue.items"]
+    assert len(queue_frames) == 1
+    assert queue_frames[0]["payload"]["status"] == "done"

@@ -286,10 +286,12 @@ def test_progress_service_chapter_progress_sends_canonical_envelope():
         message="Synthesizing...",
     )
 
-    # Verify that the broadcaster received a lifecycle transition plus a canonical chapters.progress envelope.
-    assert len(broadcast_events) == 2
+    # Verify the broadcaster received the lifecycle transition, the queue.items
+    # row-status frame, and the canonical chapters.progress envelope.
+    assert len(broadcast_events) == 3
     events_by_topic = {e[0]["topic"]: (e[0], e[1]) for e in broadcast_events}
     assert "jobs.lifecycle" in events_by_topic
+    assert "queue.items" in events_by_topic
     assert "chapters.progress" in events_by_topic
 
     lifecycle_event, lifecycle_channel = events_by_topic["jobs.lifecycle"]
@@ -343,15 +345,18 @@ def test_progress_service_segment_progress_sends_canonical_envelope():
         message="Synthesizing segment...",
     )
 
-    # Verify that the broadcaster received a lifecycle transition plus a canonical segment progress envelope.
-    assert len(broadcast_events) == 2
+    # Verify the broadcaster received the lifecycle transition, the queue.items
+    # row-status frame (segment jobs are durable queue rows), and the canonical
+    # segment progress envelope.
+    assert len(broadcast_events) == 3
     lifecycle_event, lifecycle_channel = broadcast_events[0]
     assert lifecycle_channel == "jobs"
     assert lifecycle_event["topic"] == "jobs.lifecycle"
     assert lifecycle_event["eventKind"] == "job_lifecycle"
     assert lifecycle_event["payload"]["reasonCode"] == "START_SYNTHESIS"
+    assert broadcast_events[1][0]["topic"] == "queue.items"
 
-    event, channel = broadcast_events[1]
+    event, channel = broadcast_events[2]
     assert channel == "jobs"
     assert event["type"] == "studio_event"
     assert event["version"] == 1
@@ -403,8 +408,9 @@ def test_progress_service_dual_progress_emission():
         active_render_group_index=2,
     )
 
-    # We expect THREE events: jobs.lifecycle first, segments.progress second, chapters.progress third
-    assert len(broadcast_events) == 3
+    # We expect FOUR events: jobs.lifecycle, queue.items (row-status authority),
+    # segments.progress, chapters.progress
+    assert len(broadcast_events) == 4
 
     # 1. Lifecycle event
     lifecycle_event, lifecycle_channel = broadcast_events[0]
@@ -412,9 +418,10 @@ def test_progress_service_dual_progress_emission():
     assert lifecycle_event["topic"] == "jobs.lifecycle"
     assert lifecycle_event["eventKind"] == "job_lifecycle"
     assert lifecycle_event["payload"]["reasonCode"] == "START_SYNTHESIS"
+    assert broadcast_events[1][0]["topic"] == "queue.items"
 
     # 2. Segment progress event
-    seg_event, seg_channel = broadcast_events[1]
+    seg_event, seg_channel = broadcast_events[2]
     assert seg_channel == "jobs"
     assert seg_event["topic"] == "segments.progress"
     assert seg_event["eventKind"] == "segment_progress"
@@ -425,7 +432,7 @@ def test_progress_service_dual_progress_emission():
     assert seg_event["payload"]["segmentCount"] == 10
 
     # 3. Chapter progress event
-    chap_event, chap_channel = broadcast_events[2]
+    chap_event, chap_channel = broadcast_events[3]
     assert chap_channel == "jobs"
     assert chap_event["topic"] == "chapters.progress"
     assert chap_event["eventKind"] == "chapter_progress"
@@ -463,8 +470,9 @@ def test_progress_service_segment_eta_isolated_from_chapter_eta():
     )
 
     lifecycle_event = broadcast_events[0][0]
-    seg_event = broadcast_events[1][0]
-    chap_event = broadcast_events[2][0]
+    assert broadcast_events[1][0]["topic"] == "queue.items"
+    seg_event = broadcast_events[2][0]
+    chap_event = broadcast_events[3][0]
 
     assert lifecycle_event["topic"] == "jobs.lifecycle"
     assert seg_event["topic"] == "segments.progress"
@@ -505,8 +513,9 @@ def test_progress_service_completed_segment_does_not_inherit_chapter_eta():
     )
 
     lifecycle_event = broadcast_events[0][0]
-    seg_event = broadcast_events[1][0]
-    chap_event = broadcast_events[2][0]
+    assert broadcast_events[1][0]["topic"] == "queue.items"
+    seg_event = broadcast_events[2][0]
+    chap_event = broadcast_events[3][0]
 
     assert lifecycle_event["topic"] == "jobs.lifecycle"
     assert seg_event["topic"] == "segments.progress"
@@ -587,18 +596,21 @@ def test_progress_service_segment_completion_matching_outcome():
         message="Failure reason"
     )
 
-    # Expect lifecycle completion, segment completion event to MATCH the job outcome, and chapter progress.
-    assert len(broadcast_events) == 3
+    # Expect lifecycle completion, queue.items row status, segment completion
+    # event MATCHING the job outcome, and chapter progress.
+    assert len(broadcast_events) == 4
     lifecycle_event = broadcast_events[0][0]
     assert lifecycle_event["topic"] == "jobs.lifecycle"
     assert lifecycle_event["payload"]["status"] == "failed"
+    assert broadcast_events[1][0]["topic"] == "queue.items"
+    assert broadcast_events[1][0]["payload"]["status"] == "failed"
 
-    seg_event = broadcast_events[1][0]
+    seg_event = broadcast_events[2][0]
     assert seg_event["topic"] == "segments.progress"
     assert seg_event["ids"]["segmentId"] == "seg-2"
     assert seg_event["payload"]["status"] == "failed"
 
-    chap_event = broadcast_events[2][0]
+    chap_event = broadcast_events[3][0]
     assert chap_event["topic"] == "chapters.progress"
     assert chap_event["payload"]["status"] == "failed"
 
@@ -747,7 +759,7 @@ def test_meaningful_chapter_progress_emits_chapter_progress():
     assert chapter_event["payload"]["status"] == "running"
 
 
-def test_segment_progress_does_not_emit_queue_item_status():
+def test_segment_progress_ticks_do_not_emit_queue_item_status():
     from app.orchestration.progress.service import ProgressService
     broadcast_events = []
 
@@ -771,7 +783,9 @@ def test_segment_progress_does_not_emit_queue_item_status():
     )
     broadcast_events.clear()
 
-    # 2. Segment progress update (scope="segment")
+    # 2. Segment job first publish — a STATUS TRANSITION: segment jobs are
+    # durable queue rows, so this MUST carry a queue.items frame (row-status
+    # authority, live-events.md §"Queue row authority").
     service.publish(
         job_id="job-seg-1",
         status="running",
@@ -780,8 +794,20 @@ def test_segment_progress_does_not_emit_queue_item_status():
         chapter_id="chap-1",
         progress=0.25,
     )
+    transition_topics = {e[0]["topic"] for e in broadcast_events}
+    assert "queue.items" in transition_topics
+    broadcast_events.clear()
 
-    # Segment progress should emit segments.progress, but NOT queue.items status updates
+    # 3. Progress-only update (same status): segments.progress only — queue.items
+    # stays quiet for progress ticks.
+    service.publish(
+        job_id="job-seg-1",
+        status="running",
+        scope="segment",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        progress=0.5,
+    )
     events_by_topic = {e[0]["topic"]: e[0] for e in broadcast_events}
     assert "segments.progress" in events_by_topic
     assert "queue.items" not in events_by_topic
@@ -1085,7 +1111,7 @@ def test_progress_service_duplicate_same_eta_progress_prevents_timestamp_update(
         eta_seconds=30,
         updated_at=1000.0,
     )
-    assert len(emitted) == 2  # 1 lifecycle, 1 chapter.progress
+    assert len(emitted) == 3  # lifecycle, queue.items (row status), chapter.progress
     p1 = emitted[-1]["payload"]
     assert p1["etaSeconds"] == 30
     assert p1["etaUpdatedAt"] == 1000.0

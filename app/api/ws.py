@@ -329,6 +329,38 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
             )
             broadcast_studio_event(event)
 
+    def _emit_queue_item_status_frame() -> None:
+        """Emit the queue.items status frame for this transition.
+
+        queue.items is the sole row authority on the frontend (live-events.md
+        §"Queue row authority"); every queue-visible status transition MUST be
+        mirrored here or queue rows freeze at their last snapshot status.
+        """
+        q_status = str(merged.get("status") or "queued")
+        q_message = merged.get("message") or updates.get("message") or updates.get("log")
+        if q_status in ("failed", "cancelled"):
+            q_message = merged.get("error") or updates.get("error") or q_message
+        q_event = build_queue_item_status_event(
+            job_id=job_id,
+            status=q_status,
+            progress=merged.get("progress") or 0.0,
+            eta_seconds=updates.get("eta_seconds") or merged.get("eta_seconds"),
+            message=q_message,
+            reason_code=merged.get("reason_code"),
+            classification="job",
+            project_id=merged.get("project_id") or merged.get("parent_job_id"),
+            chapter_id=merged.get("chapter_id"),
+            started_at=merged.get("started_at"),
+            completed_at=(merged.get("finished_at") or merged.get("completed_at")) if q_status in ("done", "failed", "cancelled") else None,
+            custom_title=merged.get("custom_title"),
+            engine=merged.get("engine"),
+            produced_audio_length=merged.get("produced_audio_length") or merged.get("audio_length_seconds"),
+            produced_chars=merged.get("produced_chars"),
+            produced_segment_count=merged.get("produced_segment_count"),
+            source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
+        )
+        broadcast_studio_event(q_event)
+
     if classification == "chapter":
         if not skip_studio_job_event:
             status = str(merged.get("status") or "queued")
@@ -381,6 +413,8 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                 source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
             )
             broadcast_studio_event(event)
+        if not skip_job_updated and (status_changed or terminal_reset):
+            _emit_queue_item_status_frame()
         return
 
     if classification == "segment":
@@ -416,6 +450,8 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                 has_segment_support=True,
             )
             broadcast_studio_event(event)
+        if not skip_job_updated and (status_changed or terminal_reset):
+            _emit_queue_item_status_frame()
         return
 
     if classification == "job":

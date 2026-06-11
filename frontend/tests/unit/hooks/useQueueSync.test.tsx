@@ -1045,4 +1045,76 @@ describe('useQueueSync', () => {
     // Classification must not be changed by jobs.lifecycle
     expect(job?.classification).toBe('chapter');
   });
+
+  // ── Terminal jobs.lifecycle refetch safety net ────────────────────────────
+
+  it('refetches the queue when a TERMINAL jobs.lifecycle frame arrives for a known job', async () => {
+    // DEFENSE-IN-DEPTH: terminal jobs.lifecycle frames trigger a queue refetch in
+    // addition to (not instead of) their overlay handling. Refetching is legal under
+    // the row-authority rules — it re-reads the durable SQLite rows rather than
+    // mutating a row from the frame — and guarantees eventual consistency even if a
+    // queue.items frame is dropped.
+    const jobItem = {
+      id: 'terminal-refetch-job',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'running',
+      progress: 0.9,
+      classification: 'chapter',
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any)
+      .mockResolvedValueOnce([jobItem]) // bootstrap
+      .mockResolvedValueOnce([{ ...jobItem, status: 'done', progress: 1.0 }]); // terminal refetch
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(api.getProcessingQueue).toHaveBeenCalledTimes(1);
+
+    emitEvent('jobs.lifecycle', 'job_lifecycle', {
+      status: 'done',
+      reasonCode: 'JOB_DONE',
+      message: null,
+      updatedAt: Date.now() / 1000 + 5,
+    }, { jobId: 'terminal-refetch-job', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    await waitFor(() => {
+      expect(api.getProcessingQueue).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'terminal-refetch-job');
+      expect(job?.status).toBe('done');
+    });
+  });
+
+  it('does NOT refetch the queue for a non-terminal jobs.lifecycle frame', async () => {
+    const jobItem = {
+      id: 'nonterminal-no-refetch-job',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'running',
+      progress: 0.4,
+      classification: 'chapter',
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(api.getProcessingQueue).toHaveBeenCalledTimes(1);
+
+    emitEvent('jobs.lifecycle', 'job_lifecycle', {
+      status: 'running',
+      reasonCode: 'JOB_RUNNING',
+      message: null,
+      updatedAt: Date.now() / 1000 + 5,
+    }, { jobId: 'nonterminal-no-refetch-job', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    // Overlay handling still applies; the row exists, but no refetch fires.
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'nonterminal-no-refetch-job');
+      expect(job).toBeDefined();
+    });
+    expect(api.getProcessingQueue).toHaveBeenCalledTimes(1);
+  });
 });

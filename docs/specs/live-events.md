@@ -1,7 +1,7 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.2.0
+spec_version: 1.3.0
 status: active
 sources:
   - app/api/ws.py
@@ -17,6 +17,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.3.0   | 2026-06-11 | Producer obligation made real: every queue-visible job (chapter, segment, voice) emits `queue_item_status` on STATUS TRANSITIONS — from the progress service for orchestrated transitions and from `broadcast_job_updated` for handler-direct writes. Terminal `jobs.lifecycle` frames also trigger a client queue refetch (safety net). Previously chapter/segment jobs emitted no `queue_item_status` at all (the ws chapter branch returned early), so queue rows froze once Slice 5 removed status authority from other topics. |
 | 1.2.0   | 2026-06-11 | Row-authority guardrails (audit Slice 5): `queue.items` is the sole row authority; all other topics are overlay-only on existing rows (see "Queue row authority") |
 | 1.1.0   | 2026-06-10 | Removed `useJobs` periodic snapshot polling — snapshot hydration is event-driven only (owner ruling) |
 | 1.0.0   | 2026-06-10 | Initial canonical spec      |
@@ -399,9 +400,15 @@ Rules:
 
 - An overlay frame for a job id that is unknown in both the canonical snapshot and
   the live store MUST be dropped (dev builds may log it). It is NOT buffered: the
-  backend emits a `queue.items` frame for every status/progress/eta/display change
-  (`broadcast_job_updated`, `app/api/ws.py`), so the authoritative row arrives on
-  its own topic.
+  backend emits a `queue_item_status` frame on every STATUS TRANSITION of every
+  queue-visible job — from `ProgressService.publish` for orchestrated transitions
+  (which suppress the legacy listener via `skip_job_updated`) and from
+  `broadcast_job_updated` (`app/api/ws.py`) for handler-direct `update_job`
+  writes — so the authoritative row state arrives on its own topic. Progress-only
+  ticks do NOT emit `queue.items`; they flow on the scoped topics as overlays.
+- A terminal `jobs.lifecycle` frame (`done`/`failed`/`cancelled`) additionally
+  triggers a client queue REFETCH (`useQueueSync`) — a legal re-read of the
+  durable rows, guaranteeing eventual consistency if a queue.items frame drops.
 - Overlay application MUST preserve the row's current status (from store, then
   snapshot); a terminal `jobs.lifecycle` frame may be used **read-only** as the
   trigger for clearing segment-overlay fields (`applyTerminalLifecycleReset`), but

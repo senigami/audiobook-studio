@@ -1224,14 +1224,20 @@ def test_broadcast_job_updated_chapter_completion_emits_both(monkeypatch):
         {"status": "running", "progress": 0.8, "chapter_id": "chap-1", "project_id": "proj-1"},
     )
 
-    # We expect a lifecycle transition plus the chapter-scoped progress update.
-    assert len(messages) == 2
+    # We expect a lifecycle transition, the chapter-scoped progress update, and
+    # the queue.items status frame (queue.items is the row-status authority —
+    # live-events.md §"Queue row authority").
+    assert len(messages) == 3
     assert messages[0]["topic"] == "jobs.lifecycle"
     assert messages[0]["payload"]["status"] == "done"
     assert messages[0]["payload"]["reasonCode"] == "JOB_DONE"
 
     assert messages[1]["topic"] == "chapters.progress"
     assert messages[1]["payload"]["status"] == "done"
+
+    assert messages[2]["topic"] == "queue.items"
+    assert messages[2]["eventKind"] == "queue_item_status"
+    assert messages[2]["payload"]["status"] == "done"
 
 
 def test_broadcast_job_updated_chapter_completion_suppression(monkeypatch):
@@ -1878,3 +1884,54 @@ def test_broadcast_job_classification_force_broadcast_carries_voice_queue_metada
     assert payload["producedAudioLength"] == 26.4
     assert payload["producedChars"] == 400
     assert payload["producedSegmentCount"] == 1
+
+
+def test_broadcast_job_updated_chapter_status_change_emits_queue_item_status(monkeypatch):
+    """Chapter-classified jobs MUST emit queue.items status frames on status
+    transitions — the queue row's status authority is queue.items, and the
+    chapter branch previously returned before the queue emission (queue rows
+    froze at their snapshot status for entire renders)."""
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-chap-done",
+        {"status": "done", "progress": 1.0, "finished_at": 1781191246.8},
+        {"status": "running", "progress": 0.9, "chapter_id": "chap-123", "project_id": "proj-123",
+         "classification": "chapter", "custom_title": "chapter 1", "engine": "mixed"},
+    )
+
+    queue_frames = [m for m in messages if m["topic"] == "queue.items"]
+    assert len(queue_frames) == 1, f"expected one queue.items frame, got topics={[m['topic'] for m in messages]}"
+    frame = queue_frames[0]
+    assert frame["eventKind"] == "queue_item_status"
+    assert frame["payload"]["status"] == "done"
+    assert frame["ids"]["jobId"] == "job-chap-done"
+
+    # And chapters.progress still fires alongside it.
+    assert any(m["topic"] == "chapters.progress" for m in messages)
+
+
+def test_broadcast_job_updated_chapter_progress_only_does_not_emit_queue_items(monkeypatch):
+    """Progress-only updates (no status change) stay off queue.items — progress
+    flows on the scoped topic as an overlay."""
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-chap-tick",
+        {"progress": 0.7},
+        {"status": "running", "progress": 0.5, "chapter_id": "chap-123", "project_id": "proj-123",
+         "classification": "chapter"},
+    )
+    assert not any(m["topic"] == "queue.items" for m in messages)

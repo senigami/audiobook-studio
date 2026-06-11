@@ -27,7 +27,7 @@ export const useQueueSync = () => {
   const [queueCount, setQueueCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isReconnecting, setIsReconnecting] = useState(false);
-  const [activeSource, setActiveSource] = useState<'bootstrap' | 'reconnect' | 'refresh' | undefined>(undefined);
+  const [activeSource, setActiveSource] = useState<'bootstrap' | 'reconnect' | 'refresh' | 'terminal' | undefined>(undefined);
   const connected = useStudioSocketConnection();
 
   // Pure stores initialized once
@@ -56,7 +56,7 @@ export const useQueueSync = () => {
 
   const isFirstConnectRef = useRef(true);
 
-  const refreshQueue = useCallback(async (source: 'bootstrap' | 'reconnect' | 'refresh' = 'refresh') => {
+  const refreshQueue = useCallback(async (source: 'bootstrap' | 'reconnect' | 'refresh' | 'terminal' = 'refresh') => {
     // F4: Capture and increment the generation counter so concurrent hydrations
     // can detect when a newer one has superseded them.
     hydrationGenerationRef.current += 1;
@@ -184,6 +184,16 @@ export const useQueueSync = () => {
             const reasonCode = payload.reasonCode ?? payload.reason_code;
             if (event.topic === 'jobs.lifecycle' && reasonCode === 'QUEUE_INVALIDATED') {
               refreshQueue('refresh');
+            } else if (
+              event.topic === 'jobs.lifecycle' &&
+              ['done', 'failed', 'cancelled'].includes(rawUpdates.status)
+            ) {
+              // Defense-in-depth: a terminal lifecycle frame triggers a queue refetch in
+              // addition to the overlay handling above. Refetching re-reads the durable
+              // SQLite rows (legal under row-authority rules — it is not a row mutation
+              // from this frame) and guarantees eventual consistency for the row's
+              // status even if the authoritative queue.items frame is dropped.
+              refreshQueue('terminal');
             }
           }
         };
