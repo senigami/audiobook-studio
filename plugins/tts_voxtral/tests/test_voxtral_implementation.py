@@ -252,6 +252,9 @@ def test_handle_voxtral_job_sample_test_renders_into_voice_profile_dir(tmp_path)
     assert not (tmp_path / "sample.wav").exists()
     assert captured["text"] == "Testing one two three."
     assert captured["profile_name"] == "VoiceA"
+    # The engine resolves reference audio ONLY from an explicit profile dir
+    # (core stays portable); omitting it breaks voices without a voice_asset_id.
+    assert captured["voice_profile_dir"] == tmp_path
 
     errors = [c.kwargs.get("error") for c in mock_update.call_args_list if c.kwargs.get("error")]
     assert not any("project and chapter context" in e for e in errors)

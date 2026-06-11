@@ -89,14 +89,25 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         )
         return "failed"
 
-    if _is_sample_job(j):
-        # Voice preview/test: render into the voice profile directory.
+    # The engine resolves reference audio only from an explicit profile dir
+    # (the plugin core stays portable and never guesses storage paths), so
+    # every job must pass it — voices without a Mistral voice_asset_id fail
+    # otherwise ("No Voxtral voice_id or reference sample is available").
+    voice_profile_dir = None
+    if j.speaker_profile:
         from app.db.speakers import get_profile_dir as get_voice_profile_dir
         try:
-            pdir = get_voice_profile_dir(j.speaker_profile)
+            voice_profile_dir = get_voice_profile_dir(j.speaker_profile)
         except ValueError:
             from app.core.config import VOICES_DIR
-            pdir = VOICES_DIR / j.speaker_profile
+            voice_profile_dir = VOICES_DIR / j.speaker_profile
+
+    if _is_sample_job(j):
+        # Voice preview/test: render into the voice profile directory.
+        if voice_profile_dir is None:
+            update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Voice sample jobs require a speaker profile.")
+            return "failed"
+        pdir = voice_profile_dir
         out_wav = pdir / "sample.wav"
     else:
         if not j.project_id or not j.chapter_id:
@@ -139,6 +150,7 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
             voice_asset_id=spk.get("voice_asset_id"),
             model=spk.get("model"),
             reference_sample=spk.get("reference_sample"),
+            voice_profile_dir=voice_profile_dir,
             task_id=jid,
         )
         logger.info(
