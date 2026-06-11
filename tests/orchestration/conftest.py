@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+
 from unittest.mock import MagicMock
 import pytest
 
@@ -10,8 +12,28 @@ from app.orchestration.tasks.base import StudioTask, TaskContext, TaskResult
 from app.orchestration.scheduler.resources import ResourceClaim
 
 
+def join_recovery_threads(timeout: float = 10.0) -> list[str]:
+    """Join any background ``recovery-*`` submit threads spawned by recover().
+
+    TaskOrchestrator.recover() re-submits reconstructed tasks on daemon threads.
+    A thread that outlives its test runs a full submit() — including the
+    late-bound ``record_render_sample`` import — inside whatever patch window
+    the *next* test has open, corrupting its mock call counts (observed as the
+    CI-only ``assert 2 == 1`` flake in test_submit.py). Returns the names of
+    any threads still alive after the join timeout.
+    """
+    for t in threading.enumerate():
+        if t.name.startswith("recovery-"):
+            t.join(timeout=timeout)
+    return [t.name for t in threading.enumerate() if t.name.startswith("recovery-")]
+
+
 @pytest.fixture(autouse=True)
 def reset_global_orchestrator():
+    # A recovery thread leaked by an earlier test (any module) must not run
+    # inside this test's patch windows.
+    join_recovery_threads()
+
     import app.orchestration.scheduler.orchestrator as orch_mod
     orch_mod._GLOBAL_ORCHESTRATOR = None
 
@@ -21,6 +43,11 @@ def reset_global_orchestrator():
     _LISTENER_SNAPSHOT_SUPPORT.clear()
 
     yield
+
+    # Attribute any leak to the test that caused it instead of letting it
+    # corrupt an innocent later test.
+    leaked = join_recovery_threads()
+    assert not leaked, f"recovery threads leaked past test teardown: {leaked}"
 
     orch_mod._GLOBAL_ORCHESTRATOR = None
     _JOB_LISTENERS.clear()
