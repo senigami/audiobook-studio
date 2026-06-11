@@ -9,10 +9,12 @@ describe('ProjectLibrary', () => {
             if (url === '/api/projects') {
                 if (options?.method === 'POST') {
                     return Promise.resolve({
+                        ok: true,
                         json: () => Promise.resolve({ status: 'success', project_id: '123' })
                     })
                 }
                 return Promise.resolve({
+                    ok: true,
                     json: () => Promise.resolve([
                         {
                             id: 'project-1',
@@ -28,10 +30,12 @@ describe('ProjectLibrary', () => {
             }
             if (url.startsWith('/api/projects/project-1')) {
                 return Promise.resolve({
+                    ok: true,
                     json: () => Promise.resolve({ status: 'success' })
                 })
             }
             return Promise.resolve({
+                ok: true,
                 json: () => Promise.resolve({})
             })
         }) as any

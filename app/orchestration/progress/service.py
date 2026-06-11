@@ -402,12 +402,10 @@ class ProgressService:
                 status=status,
                 progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
                 started_at=started_at or (existing_job.started_at if existing_job and hasattr(existing_job, "started_at") else None) or (existing_job.get("started_at") if existing_job and isinstance(existing_job, dict) else None) or time.time(),
+                job_id=job_id,
                 message=message,
                 source=payload.get("source"),
             )
-            # Add jobId to IDs
-            if "ids" in voice_event:
-                voice_event["ids"]["jobId"] = job_id
 
             self.broadcaster(payload=voice_event, channel="jobs")
 

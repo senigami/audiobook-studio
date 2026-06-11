@@ -33,6 +33,46 @@ logger = logging.getLogger(__name__)
 _booted = False
 
 
+def run_startup_recovery(recovery_contexts: list) -> None:
+    """Re-submit interrupted tasks that were snapshotted before reconciliation.
+
+    This helper is called from the web.py startup sequence *after*
+    reconciliation and job-listener registration, so recovery progress events
+    reach the UI.  It is factored out here (boot.py) so tests can invoke it
+    directly without spinning uvicorn.
+
+    The ``recovery_contexts`` list must be captured *before* the stuck-job
+    clearing step so that evidence of interrupted work is not lost.
+
+    Controlled by the ``STUDIO_RECOVER_ON_STARTUP`` env var (default "1").
+    Set to "0" to disable.
+
+    Args:
+        recovery_contexts: Pre-snapshotted list of ``TaskContext`` objects.
+    """
+    import os  # noqa: PLC0415
+
+    enabled = os.environ.get("STUDIO_RECOVER_ON_STARTUP", "1") != "0"
+    if not enabled:
+        logger.info("Startup: Task recovery disabled (STUDIO_RECOVER_ON_STARTUP=0).")
+        return
+
+    if not recovery_contexts:
+        logger.info("Startup: No interrupted task(s) to recover.")
+        return
+
+    try:
+        from app.orchestration.scheduler.orchestrator import create_orchestrator  # noqa: PLC0415
+        orchestrator = create_orchestrator()
+        recovered = orchestrator.recover(contexts=recovery_contexts)
+        logger.info("Startup: recovered %d interrupted task(s).", len(recovered))
+    except Exception:
+        logger.warning(
+            "Startup Warning: Task recovery failed — interrupted tasks will not be resumed.",
+            exc_info=True,
+        )
+
+
 def boot_studio() -> None:
     """Run the full Studio 2.0 boot sequence.
 

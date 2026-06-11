@@ -5,6 +5,8 @@ from __future__ import annotations
 import importlib
 import json
 import logging
+import threading
+import time
 from functools import lru_cache
 from pathlib import Path
 
@@ -29,9 +31,35 @@ except ImportError:  # pragma: no cover
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Remote registry short-TTL cache
+# ---------------------------------------------------------------------------
+_REMOTE_CACHE_TTL: float = 5.0  # seconds
+_remote_cache: tuple[float, dict] | None = None  # (timestamp, registry)
+_remote_cache_lock = threading.Lock()
+
 
 def load_engine_registry() -> dict[str, EngineRegistrationModel]:
+    global _remote_cache  # noqa: PLW0603
+
+    # Check cache under lock
+    with _remote_cache_lock:
+        if _remote_cache is not None:
+            ts, cached = _remote_cache
+            if time.monotonic() - ts < _REMOTE_CACHE_TTL:
+                # An empty cached result means the remote was unavailable;
+                # apply the same local-manifest fallback as the fetch path.
+                if cached:
+                    return cached  # type: ignore[return-value]
+                return _load_local_registry()
+
+    # Fetch outside the lock — a duplicate concurrent fetch is acceptable
     remote = _load_tts_server_registry()
+
+    # Store result under lock (even empty dict, so we don't hammer on failure)
+    with _remote_cache_lock:
+        _remote_cache = (time.monotonic(), remote)
+
     if remote:
         return remote
     return _load_local_registry()
@@ -403,4 +431,12 @@ def _manifest_module_path(manifest_path: Path) -> str:
     return f"plugins.{engine_dir.name}.app_adapter"
 
 
-load_engine_registry.cache_clear = _load_local_registry.cache_clear
+def _cache_clear() -> None:
+    """Invalidate both the remote TTL cache and the local LRU cache."""
+    global _remote_cache  # noqa: PLW0603
+    with _remote_cache_lock:
+        _remote_cache = None
+    _load_local_registry.cache_clear()
+
+
+load_engine_registry.cache_clear = _cache_clear

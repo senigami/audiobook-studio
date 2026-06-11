@@ -11,11 +11,15 @@ these tasks with an API badge.
 
 from __future__ import annotations
 
+import logging
 import time
+from pathlib import Path
 from typing import Any
 
 from app.orchestration.scheduler.resources import ResourceClaim
 from app.orchestration.tasks.base import StudioTask, TaskContext, TaskResult
+
+logger = logging.getLogger(__name__)
 
 
 class ApiSynthesisTask(StudioTask):
@@ -91,6 +95,31 @@ class ApiSynthesisTask(StudioTask):
         """
         return self.to_task_context()
 
+    def _assert_voice_ref_containment(self) -> None:
+        """Belt-and-braces containment check for voice_ref paths (defense in depth).
+
+        Called immediately before dispatching to the bridge.  Logs and raises
+        on any path that was not already caught at the API boundary.
+        """
+        if not self.voice_ref:
+            return
+        if "/" not in self.voice_ref and "\\" not in self.voice_ref:
+            # Plain profile name — no filesystem traversal possible.
+            return
+        import os  # noqa: PLC0415
+        from app.core.config import VOICES_DIR, TRANSIENT_DIR  # noqa: PLC0415
+        candidate = os.path.normpath(self.voice_ref)
+        voices_norm = os.path.normpath(str(VOICES_DIR))
+        transient_norm = os.path.normpath(str(TRANSIENT_DIR))
+        in_voices = candidate == voices_norm or candidate.startswith(voices_norm + os.sep)
+        in_transient = candidate == transient_norm or candidate.startswith(transient_norm + os.sep)
+        if not (in_voices or in_transient):
+            logger.error(
+                "api_synthesis: voice_ref %r is outside allowed dirs for task %s — failing task",
+                self.voice_ref, self.task_id,
+            )
+            raise ValueError(f"voice_ref path is not within an allowed directory: {self.voice_ref}")
+
     def run(self) -> TaskResult:
         """Execute the synthesis via VoiceBridge.
 
@@ -103,6 +132,13 @@ class ApiSynthesisTask(StudioTask):
         Returns:
             TaskResult: Synthesis outcome.
         """
+        # Belt-and-braces: re-assert voice_ref containment before dispatching
+        # (defense in depth in case the API boundary check was bypassed).
+        try:
+            self._assert_voice_ref_containment()
+        except ValueError as exc:
+            return TaskResult(status="failed", message=str(exc), retriable=False)
+
         # Import lazily to avoid circular deps and stay behind the bridge boundary.
         from app.engines.bridge import create_voice_bridge  # noqa: PLC0415
 

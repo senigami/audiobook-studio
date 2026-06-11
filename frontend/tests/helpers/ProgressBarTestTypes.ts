@@ -10,7 +10,6 @@ export interface ProgressBarTestConfig {
   showEta: boolean;
   status: ProgressBarStatus;
   allowBackwardProgress: boolean;
-  evidenceWeightFraction: number;
   checkpointMode: ProgressBarCheckpointMode;
   etaBasis: 'remaining_from_update' | 'total_from_start';
   updatedAt?: number;
@@ -28,7 +27,6 @@ export const DEFAULT_CONFIG: ProgressBarTestConfig = {
   showEta: true,
   status: 'running',
   allowBackwardProgress: false,
-  evidenceWeightFraction: 0.8,
   checkpointMode: 'segment',
   etaBasis: 'total_from_start',
   transitionTickCount: 8,

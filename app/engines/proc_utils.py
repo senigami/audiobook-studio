@@ -331,16 +331,18 @@ def run_cmd_stream(
     from collections import deque
 
     if isinstance(cmd, (list, tuple)):
-        display_cmd = " ".join(shlex.quote(str(part)) for part in cmd)
+        popen_args = [str(part) for part in cmd]
     else:
-        display_cmd = str(cmd)
+        # Never execute through a shell: tokenize the string so a user-provided
+        # value cannot inject additional shell commands (py/command-line-injection).
+        popen_args = shlex.split(cmd)
 
+    display_cmd = " ".join(shlex.quote(part) for part in popen_args)
     logger.debug("Running command: %s", display_cmd)
 
     try:
         proc = subprocess.Popen(
-            cmd,
-            shell=isinstance(cmd, str),
+            popen_args,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             bufsize=0,  # Unbuffered

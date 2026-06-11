@@ -5,11 +5,12 @@ import { useProgressBarTest } from '@/hooks/useProgressBarTest';
 import { ProgressBarLaunchPanel } from '@/pages/DevProgressBar/components/ProgressBarLaunchPanel';
 import { ProgressBarUpdatePanel } from '@/pages/DevProgressBar/components/ProgressBarUpdatePanel';
 import { ProgressBarDebugPanel } from '@/pages/DevProgressBar/components/ProgressBarDebugPanel';
+import { SegmentContractDebugPanel } from '@/pages/DevProgressBar/components/SegmentContractDebugPanel';
 
 export const ProgressBarTestPage: React.FC = () => {
   const {
     launchConfig,
-    activeConfig, setActiveConfig,
+    activeConfig,
     renderToken,
     eventLog,
     manualStatus, setManualStatus,
@@ -22,6 +23,8 @@ export const ProgressBarTestPage: React.FC = () => {
     launchSampleRun,
     resetPreview,
     nudgeProgress,
+    finishRun,
+    setActiveAllowBackward,
     setStatus,
     setConfigStartedAtToNow,
     updateSource,
@@ -47,6 +50,8 @@ export const ProgressBarTestPage: React.FC = () => {
         </p>
       </section>
 
+      <SegmentContractDebugPanel />
+
       <div style={{ display: 'grid', gap: '1.25rem', gridTemplateColumns: 'minmax(320px, 0.95fr) minmax(360px, 1.05fr)' }}>
         <section style={{
           padding: '1.25rem',
@@ -66,7 +71,6 @@ export const ProgressBarTestPage: React.FC = () => {
           
           <ProgressBarUpdatePanel
             activeConfig={activeConfig}
-            setActiveConfig={setActiveConfig}
             manualProgressValue={manualProgressValue}
             setManualProgressValue={setManualProgressValue}
             manualEtaSeconds={manualEtaSeconds}
@@ -74,6 +78,8 @@ export const ProgressBarTestPage: React.FC = () => {
             manualStatus={manualStatus}
             setManualStatus={setManualStatus}
             nudgeProgress={nudgeProgress}
+            finishRun={finishRun}
+            setActiveAllowBackward={setActiveAllowBackward}
             applyManualUpdate={applyManualUpdate}
           />
         </section>
@@ -104,10 +110,9 @@ export const ProgressBarTestPage: React.FC = () => {
                 transitionTickCount={activeConfig.transitionTickCount}
                 backwardTransitionTickCount={activeConfig.backwardTransitionTickCount}
                 tickMs={activeConfig.tickMs}
-                evidenceWeightFraction={activeConfig.evidenceWeightFraction}
                 checkpointMode={activeConfig.checkpointMode}
                 onDebugSnapshot={setDebugSnapshot}
-            />
+              />
           </div>
 
           <ProgressBarDebugPanel

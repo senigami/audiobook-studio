@@ -240,6 +240,24 @@ async def analysis_error_handler(request: Request, exc: AnalysisError):
         content={"status": "error", "message": exc.message}
     )
 
+def _clear_terminal_jobs_from_snapshot() -> int:
+    """Remove done/failed/cancelled jobs from the in-memory state.json snapshot.
+
+    Called during startup after DB reconciliation has already consumed any terminal
+    job statuses it needed. The SQLite processing_queue table retains durable history;
+    this keeps the jobs_snapshot WebSocket message free of vestigial terminal entries
+    and prevents unbounded accumulation across restarts.
+
+    Returns the number of jobs cleared (0 if none).
+    """
+    from ..db.state import get_jobs, delete_jobs as _delete_jobs
+    terminal_jids = [jid for jid, j in get_jobs().items() if j.status in ("done", "failed", "cancelled")]
+    if terminal_jids:
+        _delete_jobs(terminal_jids)
+        logger.info(f"Startup: Cleared {len(terminal_jids)} terminal jobs from snapshot state (history retained in DB).")
+    return len(terminal_jids)
+
+
 # --- Lifecycle Events ---
 @app.on_event("startup")
 def startup_event():
@@ -271,6 +289,15 @@ def startup_event():
             logger.info("Startup: Migrated %s shared project cover(s) into project storage.", migrated)
     except Exception as e:
         logger.warning(f"Startup Warning: Project cover migration failed: {e}")
+
+    # 0. Snapshot recoverable task contexts BEFORE clearing stuck jobs or
+    #    reconciling the DB — the evidence is destroyed by those steps.
+    _recovery_contexts: list = []
+    try:
+        from ..orchestration.scheduler.recovery import load_recoverable_task_contexts
+        _recovery_contexts = load_recoverable_task_contexts()
+    except Exception as _e:
+        logger.warning("Startup Warning: Could not snapshot recoverable tasks: %s", _e)
 
     # 1. Clear out any stuck jobs from state.json
     from ..db.state import get_jobs, delete_jobs
@@ -308,12 +335,29 @@ def startup_event():
     except Exception as e:
         logger.warning(f"Startup Warning: Database reconciliation failed: {e}")
 
+    # 2b. Clear terminal jobs from state.json now that reconciliation has consumed
+    #     their statuses. The DB's processing_queue table retains the durable history;
+    #     removing them here keeps jobs_snapshot limited to active/recovered work and
+    #     prevents unbounded cross-restart accumulation in state.json.
+    try:
+        _clear_terminal_jobs_from_snapshot()
+    except Exception as e:
+        logger.warning(f"Startup Warning: Failed to clear terminal jobs from snapshot state: {e}")
+
     # 3. Register job listener for WebSocket updates
     from ..db.state import add_job_listener
     from ..orchestration.progress.broadcaster import configure_progress_broadcaster
     add_job_listener(broadcast_job_updated)
     configure_progress_broadcaster(lambda payload, _channel: manager.broadcast(payload))
     logger.info("Startup: Job listeners registered.")
+
+    # 3b. Recover interrupted tasks — must happen after listener registration so
+    #     recovery progress events broadcast to the UI.
+    try:
+        from ..core.boot import run_startup_recovery
+        run_startup_recovery(_recovery_contexts)
+    except Exception as _e:
+        logger.warning("Startup Warning: run_startup_recovery raised unexpectedly: %s", _e)
 
     # 4. Restore Pause State
     from ..db.state import get_settings

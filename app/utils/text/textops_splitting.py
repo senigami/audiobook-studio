@@ -189,22 +189,32 @@ def safe_split_long_sentences(text: str, target: int = SAFE_SPLIT_TARGET) -> str
             i = j
         return out
 
-    lines = text.split('\n')
-    processed_lines = []
-    for line in lines:
-        if not line.strip():
-            processed_lines.append("")
+    # Split on runs of blank lines to preserve paragraph/scene-break boundaries.
+    # Each element of `paragraphs` is either a non-empty paragraph block or
+    # a blank-line run (separator).  We identify separators as those whose
+    # stripped form is empty.
+    paragraph_blocks = re.split(r'(\n{2,})', text)
+    processed_blocks = []
+    for block in paragraph_blocks:
+        if not block.strip():
+            # Preserve the original blank-line run (or empty string) as-is.
+            processed_blocks.append(block)
             continue
 
-        pieces = []
-        for s, _, _ in split_sentences(line):
-            pieces.extend(split_one(s) if len(s) > target else [s])
-        processed_lines.append(" ".join(pieces))
+        # Process single-newline-separated lines within this paragraph block.
+        lines = block.split('\n')
+        processed_lines = []
+        for line in lines:
+            if not line.strip():
+                processed_lines.append("")
+                continue
+            pieces = []
+            for s, _, _ in split_sentences(line):
+                pieces.extend(split_one(s) if len(s) > target else [s])
+            processed_lines.append(" ".join(pieces))
+        processed_blocks.append("\n".join(processed_lines))
 
-    result = "\n".join(processed_lines)
-    # Final newline normalization
-    result = re.sub(r'\n{2,}', '\n', result)
-    return result.strip()
+    return "".join(processed_blocks).strip()
 
 
 def find_long_sentences(text: str, limit: int = SENT_CHAR_LIMIT, threshold: Optional[int] = None):

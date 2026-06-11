@@ -159,21 +159,10 @@ def _group_ready_audio_path(group: dict, pdir: Path) -> Path | None:
 
 
 def _persist_mixed_chapter_output(jid: str, chapter_id: str, output_path: Path) -> None:
-    from app.db import update_chapter, update_queue_item
+    from app.db import update_chapter
 
     generated_at = time.time()
     duration = get_audio_duration(output_path)
-
-    try:
-        update_queue_item(
-            jid,
-            "done",
-            audio_length_seconds=duration,
-            force_chapter_id=chapter_id,
-            output_file=output_path.name,
-        )
-    except Exception:
-        logger.warning("Failed to synchronize queue item %s completion metadata", jid, exc_info=True)
 
     try:
         update_chapter(

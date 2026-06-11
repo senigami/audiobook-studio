@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from ..engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
-from app.tts_server.settings_store import load_settings, save_settings
+from app.tts_server.settings_store import load_settings, save_settings, validate_engine_id, _contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ def save_engine_computer_speed_multiplier(engine_id: str, cps: float) -> None:
     The active plugin directory must already exist. Unknown or synthetic
     engines, such as non-TTS orchestration helpers, are ignored.
     """
+    validate_engine_id(engine_id)
     from app.tts_server.plugin_loader import get_plugin_dir  # noqa: PLC0415
 
     plugin_dir = get_plugin_dir(engine_id)
@@ -44,10 +45,11 @@ def save_engine_computer_speed_multiplier(engine_id: str, cps: float) -> None:
 
 def clear_engine_computer_speed_multiplier(engine_id: str) -> None:
     """Remove the persisted render speed calibration from plugin settings."""
+    validate_engine_id(engine_id)
     from app.tts_server.plugin_loader import get_plugin_dir  # noqa: PLC0415
 
     plugin_dir = get_plugin_dir(engine_id)
-    if not plugin_dir.is_dir():
+    if not plugin_dir.is_dir():  # lgtm[py/path-injection]
         logger.debug("Skipping speed calibration reset for missing plugin directory: %s", plugin_dir)
         return
 
@@ -59,6 +61,7 @@ def clear_engine_computer_speed_multiplier(engine_id: str) -> None:
 
 def clear_engine_computer_speed_baseline(engine_id: str) -> dict[str, Any]:
     """Clear all persisted calibration data so the next render starts from baseline."""
+    validate_engine_id(engine_id)
     clear_engine_computer_speed_multiplier(engine_id)
 
     samples_deleted = 0
@@ -88,6 +91,7 @@ def clear_engine_computer_speed_baseline(engine_id: str) -> dict[str, Any]:
 
 def get_engine_computer_speed_multiplier(engine_id: str) -> float:
     """Read the plugin-local render speed multiplier, defaulting to neutral speed."""
+    validate_engine_id(engine_id)
     from app.tts_server.plugin_loader import get_plugin_dir  # noqa: PLC0415
 
     plugin_dir = get_plugin_dir(engine_id)
@@ -105,10 +109,11 @@ def get_engine_computer_speed_multiplier(engine_id: str) -> float:
 
 def resolve_engine_settings_model(engine_id: str) -> str | None:
     """Return the plugin's configured model identifier when it has one."""
+    validate_engine_id(engine_id)
     from app.tts_server.plugin_loader import get_plugin_dir  # noqa: PLC0415
 
     plugin_dir = get_plugin_dir(engine_id)
-    if not plugin_dir.is_dir():
+    if not plugin_dir.is_dir():  # lgtm[py/path-injection]
         return None
 
     settings = load_settings(plugin_dir)
@@ -117,11 +122,14 @@ def resolve_engine_settings_model(engine_id: str) -> str | None:
         return normalize_tts_model(val)
 
     # Fall back to settings_schema.json default
-    schema_path = plugin_dir / "settings_schema.json"
+    try:
+        schema_path = _contained_path(plugin_dir, "settings_schema.json")  # lgtm[py/path-injection]
+    except ValueError:
+        return None
     if schema_path.is_file():
         try:
             import json
-            schema = json.loads(schema_path.read_text(encoding="utf-8"))
+            schema = json.loads(schema_path.read_text(encoding="utf-8"))  # lgtm[py/path-injection]
             default_val = schema.get("properties", {}).get("model", {}).get("default")
             if default_val is not None:
                 return normalize_tts_model(default_val)
@@ -143,6 +151,7 @@ def filter_history_for_engine_model(
     tts_model: str | None,
 ) -> list[dict[str, Any]]:
     """Select history for the same engine and, when known, the same TTS model."""
+    validate_engine_id(engine_id)
     engine_history = [sample for sample in history if sample.get("engine") == engine_id]
 
     # Resolve default model from settings schema to handle missing/historical model fields
@@ -150,11 +159,11 @@ def filter_history_for_engine_model(
     from app.tts_server.plugin_loader import get_plugin_dir  # noqa: PLC0415
     try:
         plugin_dir = get_plugin_dir(engine_id)
-        if plugin_dir.is_dir():
-            schema_path = plugin_dir / "settings_schema.json"
+        if plugin_dir.is_dir():  # lgtm[py/path-injection]
+            schema_path = _contained_path(plugin_dir, "settings_schema.json")  # lgtm[py/path-injection]
             if schema_path.is_file():
                 import json
-                schema = json.loads(schema_path.read_text(encoding="utf-8"))
+                schema = json.loads(schema_path.read_text(encoding="utf-8"))  # lgtm[py/path-injection]
                 default_model = schema.get("properties", {}).get("model", {}).get("default")
     except Exception:
         pass

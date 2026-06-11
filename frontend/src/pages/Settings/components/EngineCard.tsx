@@ -3,6 +3,7 @@ import { ChevronDown, Cloud, Play, ShieldCheck, Download, Trash2, ShieldAlert, L
 import type { TtsEngine } from '@/types';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
+import { PluginTrustModal, type PluginPreviewInfo } from '@/components/overlays/PluginTrustModal';
 import { ToggleButton } from '@/pages/Settings/components/SettingsComponents';
 import { getEngineUi, getEngineStatusLabel, getBadgeStyles } from '@/pages/Settings/settingsRouteHelpers';
 import { EngineMetadataPanel } from '@/pages/Settings/components/EngineMetadataPanel';
@@ -46,6 +47,10 @@ export const EngineCard: React.FC<{
   const [testResult, setTestResult] = useState(engine.last_test);
   const [removing, setRemoving] = useState(false);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  const [depsModal, setDepsModal] = useState<{ open: boolean; preview: PluginPreviewInfo | null }>({
+    open: false,
+    preview: null,
+  });
   const [activeScenario, setActiveScenario] = useState<any | null>(null);
   const [devLogs, setDevLogs] = useState<string[]>([]);
 
@@ -540,16 +545,34 @@ export const EngineCard: React.FC<{
                     addDevLog(activeScenario.dev_logs?.install || `Simulated: Installing dependencies for ${displayEngine.display_name}.`);
                     return;
                   }
+                  // Fetch requirements and show trust modal before installing.
                   setInstalling(true);
                   try {
-                    const res = await api.installEngineDependencies(displayEngine.engine_id);
-                    onShowNotification?.(res.message || 'Dependency installation completed.');
+                    const reqRes = await api.fetchEngineRequirements(displayEngine.engine_id);
+                    const requirements: string[] = Array.isArray(reqRes.requirements) ? reqRes.requirements : [];
+                    setDepsModal({
+                      open: true,
+                      preview: {
+                        engine_id: displayEngine.engine_id,
+                        display_name: displayEngine.display_name,
+                        version: displayEngine.version ?? null,
+                        requirements,
+                      },
+                    });
                   } catch (err: any) {
                     const msg = getErrorMessage(err);
-                    if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
-                    onShowNotification?.(`Installation failed: ${msg}`);
+                    if (engine.dev?.enabled) addDevLog(`Error fetching requirements: ${msg}`);
+                    // Fallback: proceed without requirements list if fetch failed.
+                    setDepsModal({
+                      open: true,
+                      preview: {
+                        engine_id: displayEngine.engine_id,
+                        display_name: displayEngine.display_name,
+                        version: displayEngine.version ?? null,
+                        requirements: [],
+                      },
+                    });
                   } finally {
-                    await onUpdate();
                     setInstalling(false);
                   }
                 }}
@@ -639,6 +662,28 @@ export const EngineCard: React.FC<{
             onAddLog={addDevLog}
           />
         )}
+
+        <PluginTrustModal
+          isOpen={depsModal.open}
+          preview={depsModal.preview}
+          mode="install-deps"
+          onCancel={() => setDepsModal({ open: false, preview: null })}
+          onConfirm={async () => {
+            setDepsModal({ open: false, preview: null });
+            setInstalling(true);
+            try {
+              const res = await api.installEngineDependencies(displayEngine.engine_id);
+              onShowNotification?.(res.message || 'Dependency installation completed.');
+            } catch (err: any) {
+              const msg = getErrorMessage(err);
+              if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
+              onShowNotification?.(`Installation failed: ${msg}`);
+            } finally {
+              await onUpdate();
+              setInstalling(false);
+            }
+          }}
+        />
       </div>
     </details>
   );

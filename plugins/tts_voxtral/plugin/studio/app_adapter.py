@@ -7,6 +7,7 @@ contract without leaking engine-specific request handling into orchestration.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import tempfile
@@ -19,6 +20,8 @@ from app.engines.errors import EngineExecutionError, EngineRequestError
 from app.engines.voice.base import BaseVoiceEngine
 from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
 from app.engines.models import EngineHealthModel, EngineManifestModel
+
+logger = logging.getLogger(__name__)
 
 INTENDED_UPSTREAM_CALLERS = (
     "app.engines.registry",
@@ -67,11 +70,8 @@ def _load_settings_schema() -> dict[str, object]:
     schema_path = Path(__file__).parents[2] / "settings_schema.json"
     try:
         return json.loads(schema_path.read_text(encoding="utf-8"))
-    except Exception:
-        # Fallback to local if plugin directory is missing (e.g. minimal dev environment)
-        local_path = Path(__file__).parents[2] / "settings_schema.json"
-        if local_path.exists():
-            return json.loads(local_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        logger.warning(f"Failed to load Voxtral settings schema from {schema_path}: {e}")
         return {}
 
 

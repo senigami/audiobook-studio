@@ -4,7 +4,8 @@ The Library is your control center for all audiobooks in progress.
 
 ## 📚 Managing the Library
 
-- **Browse**: View all projects as cards.
+- **Browse**: View all projects as cards or in list view.
+- **Sort**: Use the Library controls to sort projects by the current project metadata instead of hunting through cards manually.
 - **New Project**: Use the floating "+" button to start a new book.
 - **Delete**: Projects can be removed via the context menu on the project card. _Warning: This removes all associated audio and text._
 
@@ -46,12 +47,13 @@ Manage the personas within your project.
 
 ## 📝 Chapter Editor
 
-Clicking a chapter opens the **Chapter Editor**, which has four primary workflows:
+Clicking a chapter opens the **Chapter Editor**, which has been consolidated around the script, playback, and production flow rather than separate legacy tabs.
 
-1. **Edit**: Raw text entry and cleanup.
-2. **Production**: Quick voice assignment by highlighting text.
-3. **Performance**: Granular segment management, playback, and per-segment generation.
-4. **Preview**: See how the text will be partitioned by the engine.
+- **Script Editing**: Edit and review chapter text in the main script view.
+- **Voice Assignment**: Assign narration and character voices directly from the editor flow.
+- **Queueing and Rendering**: Queue the chapter or targeted chunks and watch live progress from the editor and Global Queue.
+- **Preview and Live Output**: Inspect render output and diagnostics without leaving the chapter.
+- **VCR Playback**: Use play, pause, stop, previous, and next controls for a more predictable listen-through workflow.
 
 ![Chapter Editor showing the Performance tab and audio segments](images/chapter-editor.jpg)
 

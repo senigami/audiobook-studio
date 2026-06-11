@@ -2,6 +2,7 @@ import pytest
 import os
 import importlib
 from unittest.mock import patch, MagicMock
+from tests.utils.timeout import timeout_after
 
 @pytest.fixture(autouse=True)
 def setup_test_voices(tmp_path, monkeypatch):
@@ -79,20 +80,49 @@ def mock_plugin_registry(monkeypatch):
 def test_queue_and_bake(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
+    from app.db.queue import get_queue
     pid = create_project("P1")
     cid = create_chapter(pid, "C1", "T1")
 
     # Add to queue
-    with patch("app.api.routers.generation.put_job"), patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+    with timeout_after(5, "queue route should not hang"), \
+         patch("app.api.routers.generation.put_job"), \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
         response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid})
         assert response.status_code == 200
         assert "queue_id" in response.json()
 
     # Bake
-    with patch("app.api.routers.generation.put_job"), patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+    with timeout_after(5, "bake route should not hang"), \
+         patch("app.api.routers.generation.put_job"), \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
         response = client.post(f"/api/generation/bake/{cid}")
         assert response.status_code == 200
-        assert "job_id" in response.json()
+        job_id = response.json()["job_id"]
+        assert job_id
+        assert any(row["id"] == job_id and row["custom_title"] == "C1" for row in get_queue())
+
+
+def test_standard_queue_preserves_split_part_after_metadata_upsert(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.queue import get_queue
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+
+    with timeout_after(5, "split-part queue route should not hang"), \
+         patch("app.api.routers.generation.put_job"), \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        response = client.post(
+            "/api/processing_queue",
+            data={"project_id": pid, "chapter_id": cid, "split_part": "2"},
+        )
+
+    assert response.status_code == 200
+    queue_id = response.json()["queue_id"]
+    row = next(item for item in get_queue() if item["id"] == queue_id)
+    assert row["split_part"] == 2
 
 
 def test_bake_chapter_mixed_engines_use_mixed_worker(clean_db, client):
@@ -217,6 +247,7 @@ def test_pause_resume(clean_db, client):
 def test_generate_segments(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
+    from app.db.queue import get_queue
     from app.db.segments import sync_chapter_segments, get_chapter_segments
     pid = create_project("P1")
     cid = create_chapter(pid, "C1", "Hello world.")
@@ -224,10 +255,14 @@ def test_generate_segments(clean_db, client):
     segs = get_chapter_segments(cid)
     sid = segs[0]['id']
 
-    with patch("app.api.routers.generation.put_job"), patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+    with timeout_after(5, "segment route should not hang"), \
+         patch("app.api.routers.generation.put_job"), \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
         response = client.post("/api/segments/generate", data={"segment_ids": sid})
         assert response.status_code == 200
-        assert "job_id" in response.json()
+        job_id = response.json()["job_id"]
+        assert job_id
+        assert any(row["id"] == job_id and row["custom_title"] == "C1: segment #1" for row in get_queue())
 
 
 
@@ -242,7 +277,8 @@ def test_generate_segments_single_engine_use_mixed_worker(clean_db, client):
     sync_chapter_segments(cid, "Hello world. Goodbye world.")
     segs = get_chapter_segments(cid)
 
-    with patch("app.api.routers.generation.put_job") as mock_put_job, \
+    with timeout_after(5, "segment worker selection should not hang"), \
+         patch("app.api.routers.generation.put_job") as mock_put_job, \
          patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"), \
          patch("app.db.speakers.get_profile_engine", return_value="xtts"):
         response = client.post("/api/segments/generate", data={"segment_ids": f"{segs[0]['id']},{segs[1]['id']}"})
@@ -261,13 +297,41 @@ def test_generate_segments_sets_segment_specific_queue_title(clean_db, client):
     sync_chapter_segments(cid, "Hello world. Goodbye world.")
     segs = get_chapter_segments(cid)
 
-    with patch("app.api.routers.generation.put_job") as mock_put_job, \
+    with timeout_after(5, "segment title selection should not hang"), \
+         patch("app.api.routers.generation.put_job") as mock_put_job, \
          patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"), \
          patch("app.db.speakers.get_profile_engine", return_value="xtts"):
         response = client.post("/api/segments/generate", data={"segment_ids": f"{segs[0]['id']},{segs[1]['id']}"})
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
         assert job.custom_title == "Overview: segment #1"
+
+
+def test_generate_segments_hydrates_segment_ids_without_live_job(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "Overview", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+    segs = get_chapter_segments(cid)
+    segment_ids = [segs[0]["id"], segs[1]["id"]]
+
+    with timeout_after(5, "segment queue hydration should not hang"), \
+         patch("app.api.routers.generation.put_job"), \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"), \
+         patch("app.db.speakers.get_profile_engine", return_value="xtts"):
+        response = client.post("/api/segments/generate", data={"segment_ids": ",".join(segment_ids)})
+
+    assert response.status_code == 200
+    job_id = response.json()["job_id"]
+
+    queue_response = client.get("/api/processing_queue")
+    assert queue_response.status_code == 200
+    row = next(item for item in queue_response.json() if item["id"] == job_id)
+    assert row["custom_title"] == "Overview: segment #1"
+    assert row["segment_ids"] == segment_ids
 
 
 def test_queue_chapter_without_bakeable_segments_uses_standard_engine(clean_db, client):

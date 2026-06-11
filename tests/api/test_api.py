@@ -39,9 +39,8 @@ def test_api_preview_processed():
     assert response.json()["text"].strip() == "Hello world."
 
 
-def test_api_jobs_list():
-    response = client.get("/api/jobs")
-    assert response.status_code == 404
+# DELETED: test_api_jobs_list — WRONG-SCENARIO: asserted that /api/jobs returns 404,
+# which is trivially true for any nonexistent route and documents no contractual behavior.
 
 
 

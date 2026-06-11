@@ -2,17 +2,17 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from app.engines.behavior import DEFAULT_SENT_CHAR_LIMIT as SENT_CHAR_LIMIT
 from app.utils.text.textops import sanitize_text, safe_split_long_sentences
 from app.engines.errors import EngineBridgeError
 from . import handler as xtts_facade
 from app.jobs.handlers.bridge_helpers import generate_via_bridge
 from .helpers import (
-    _profile_inputs_for_segment, 
-    _segment_group_weight, 
+    _profile_inputs_for_segment,
+    _segment_group_weight,
     _group_display_updates,
     _group_job_progress
 )
+from ._text_utils import join_group_text, build_segment_groups
 
 _SKIP_LIVE_BROADCASTS = {
     "skip_studio_job_event": True,
@@ -22,6 +22,8 @@ _SKIP_LIVE_BROADCASTS = {
 
 def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, speed, pdir):
     from app.db import get_chapter_segments, update_segment
+    from app.engines.behavior import get_text_chunk_limit
+    sent_char_limit = get_text_chunk_limit("xtts")
 
     all_segs = get_chapter_segments(j.chapter_id)
     requested_ids = set(j.segment_ids)
@@ -30,35 +32,17 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
         xtts_facade.update_job(jid, status="done", progress=1.0)
         return 0
 
-    gen_groups = []
-    if segs_to_gen:
-        current_group = [segs_to_gen[0]]
-        for i in range(1, len(segs_to_gen)):
-            prev = segs_to_gen[i-1]
-            curr = segs_to_gen[i]
-            prev_full_idx = next((idx for idx, s in enumerate(all_segs) if s['id'] == prev['id']), -1)
-            curr_full_idx = next((idx for idx, s in enumerate(all_segs) if s['id'] == curr['id']), -1)
-            trimmed_group_text = " ".join([s['text_content'] for s in current_group])
-            combined_len = len(trimmed_group_text) + 1 + len(curr['text_content'])
-            same_char = curr['character_id'] == prev['character_id']
-            is_consecutive = curr_full_idx == prev_full_idx + 1
-            fits_limit = combined_len <= SENT_CHAR_LIMIT
-            if same_char and is_consecutive and fits_limit:
-                current_group.append(curr)
-            else:
-                gen_groups.append(current_group)
-                current_group = [curr]
-        gen_groups.append(current_group)
+    gen_groups = build_segment_groups(segs_to_gen, all_segs, sent_char_limit)
 
     full_script = []
     path_to_group = {}
     for group in gen_groups:
         char_profile = group[0].get('speaker_profile_name')
         sw, voice_profile_dir = _profile_inputs_for_segment(char_profile, j.speaker_profile, default_sw)
-        combined_text = "".join([s['text_content'] for s in group])
+        combined_text = join_group_text(group)
         if j.safe_mode:
             combined_text = sanitize_text(combined_text)
-            combined_text = safe_split_long_sentences(combined_text, target=SENT_CHAR_LIMIT)
+            combined_text = safe_split_long_sentences(combined_text, target=sent_char_limit)
         first_sid = group[0]['id']
         seg_out = pdir / "segments" / f"{first_sid}.wav"
         seg_out.parent.mkdir(parents=True, exist_ok=True)
@@ -148,7 +132,8 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
                     **_group_display_updates(completed_groups[0], total_requested_groups, segment_progress, limit=1.0, active_index=min(completed_groups[0] + 1, total_requested_groups), group_weights=requested_group_weights),
                     **_SKIP_LIVE_BROADCASTS,
                 )
-            except: pass
+            except Exception:
+                xtts_facade.logger.warning("Failed to parse [PROGRESS] line: %r", line, exc_info=True)
 
     try:
         rc = generate_via_bridge(

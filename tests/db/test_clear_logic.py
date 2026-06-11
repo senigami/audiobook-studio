@@ -10,7 +10,7 @@ def test_clear_all_history():
 
     # 1. Add a dummy job first
     jid = uuid.uuid4().hex[:12]
-    j = Job(id=jid, engine="xtts", chapter_file="test_clear.txt", status="error", created_at=time.time())
+    j = Job(id=jid, engine="xtts", chapter_file="test_clear.txt", status="failed", created_at=time.time())
     put_job(j)
 
     # Verify it exists in state

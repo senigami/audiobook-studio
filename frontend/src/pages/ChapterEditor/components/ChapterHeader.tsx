@@ -1,11 +1,19 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { RefreshCw, Zap, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Copy, MoreVertical } from 'lucide-react';
 import type { Chapter, Job } from '@/types';
-import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
-import { deriveActiveBatchProgress } from '@/utils/chapterRenderProgress';
+import { PredictiveProgressBar, type PredictiveProgressBarProps } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
+import { buildSegmentProgressBarProps } from '@/components/progress/progressBarContracts';
 import { hasSegmentProgressCapability } from '@/utils/jobSelection';
+import { useSegmentHandoffQueue, recordExternalHandoffEvent } from '@/hooks/useSegmentHandoffQueue';
 
 const RECENT_DONE_WINDOW_SECONDS = 60;
+
+const clamp01 = (val: number) => Math.max(0, Math.min(val, 1));
+
+const getSegmentProvenanceFields = (job?: Job): Record<string, any> | null => {
+  const provenance = (job as any)?.segmentProgressSocketProvenance;
+  return provenance?.selectedFields ?? null;
+};
 
 export const useChapterStatus = (
   chapter: Chapter,
@@ -14,7 +22,7 @@ export const useChapterStatus = (
   queuePending: boolean = false,
   generatingSegmentIdsCount: number = 0,
   queueLocked: boolean = false,
-  activeRenderBatchIdFromPage?: string | null,
+  _activeRenderBatchIdFromPage?: string | null,
   activeRenderBatchWeight?: number | null
 ) => {
   const hasChapterAudio = !!(chapter.has_wav || chapter.has_mp3 || chapter.has_m4a);
@@ -54,6 +62,10 @@ export const useChapterStatus = (
   const [heldLiveJob, setHeldLiveJob] = React.useState<Job | undefined>(undefined);
   const heldLiveJobTimerRef = React.useRef<number | null>(null);
   const terminalJobIdBridgedRef = React.useRef<string | null>(null);
+  // Remembers the last job that had a non-null active_segment_id so we can
+  // patch those fields onto the terminal bridged job (which has null active_segment_id)
+  // to keep hasActiveSegment=true and the bar mounted during the handoff hold.
+  const lastSegmentActiveJobRef = React.useRef<Job | undefined>(undefined);
 
   React.useEffect(() => {
     if (generatingJob && ['preparing', 'running', 'finalizing'].includes(generatingJob.status)) {
@@ -62,11 +74,28 @@ export const useChapterStatus = (
         heldLiveJobTimerRef.current = null;
       }
       terminalJobIdBridgedRef.current = null;
+      // Track last job with a live active segment.
+      if (generatingJob.active_segment_id) {
+        lastSegmentActiveJobRef.current = generatingJob;
+      }
       setHeldLiveJob(generatingJob);
     } else if (generatingJob?.status === 'done' || generatingJob?.status === 'failed' || generatingJob?.status === 'cancelled') {
       if (terminalJobIdBridgedRef.current !== generatingJob.id) {
         terminalJobIdBridgedRef.current = generatingJob.id;
-        setHeldLiveJob(generatingJob);
+        // If the terminal job has no active_segment_id (common for done jobs), patch in
+        // the last known segment fields so the bar stays mounted during the handoff hold.
+        const lastSeg = lastSegmentActiveJobRef.current;
+        const bridged: Job = (lastSeg && !generatingJob.active_segment_id)
+          ? {
+              ...generatingJob,
+              active_segment_id: lastSeg.active_segment_id,
+              active_segment_progress: 1,
+              active_segment_eta_seconds: null,
+              active_segment_eta_basis: lastSeg.active_segment_eta_basis,
+              active_segment_updated_at: lastSeg.active_segment_updated_at,
+            }
+          : generatingJob;
+        setHeldLiveJob(bridged);
         if (heldLiveJobTimerRef.current !== null) {
           window.clearTimeout(heldLiveJobTimerRef.current);
         }
@@ -93,37 +122,60 @@ export const useChapterStatus = (
     };
   }, []);
 
-  const liveSegmentProgressJob = generatingJob && !['done', 'failed', 'cancelled'].includes(generatingJob.status)
+  const liveSegmentProgressJobCandidate = generatingJob && !['done', 'failed', 'cancelled'].includes(generatingJob.status)
     ? generatingJob
     : (heldLiveJob && ['done', 'failed', 'cancelled'].includes(heldLiveJob.status) && !(recentlyFinishedDoneJob && !hasChapterAudio) ? heldLiveJob : undefined);
 
-  const hasSegmentSupport = liveSegmentProgressJob
-    ? hasSegmentProgressCapability(liveSegmentProgressJob)
+  const hasSegmentSupport = liveSegmentProgressJobCandidate
+    ? hasSegmentProgressCapability(liveSegmentProgressJobCandidate)
     : false;
 
-  const liveProgressIsRenderBlock = !!liveSegmentProgressJob && hasSegmentSupport && (
-    (liveSegmentProgressJob.render_group_count ?? 0) > 0 ||
-    typeof liveSegmentProgressJob.active_render_batch_progress === 'number' ||
-    typeof liveSegmentProgressJob.active_render_batch_id === 'string'
-  );
-  const hasActiveSegment = !!liveSegmentProgressJob
-    && hasSegmentSupport
-    && !!liveSegmentProgressJob.active_segment_id;
-  const hasActiveRenderBatchProgress = !!liveSegmentProgressJob
-    && hasSegmentSupport
-    && (
-      typeof liveSegmentProgressJob.active_render_batch_progress === 'number' ||
-      typeof liveSegmentProgressJob.active_render_batch_id === 'string'
-    );
-  const liveSegmentProgressValue = liveSegmentProgressJob
-    ? (['finalizing', 'done', 'failed', 'cancelled'].includes(liveSegmentProgressJob.status)
-        ? 1
-        : hasActiveSegment
-            ? (liveSegmentProgressJob.active_segment_progress ?? 0)
-            : (hasActiveRenderBatchProgress || liveProgressIsRenderBlock)
-              ? deriveActiveBatchProgress(liveSegmentProgressJob, liveSegmentProgressJob.active_render_group_weight ?? 1, Date.now())
-              : (liveSegmentProgressJob.progress ?? 0))
+  const segmentProvenanceFields = getSegmentProvenanceFields(liveSegmentProgressJobCandidate);
+  const directActiveSegmentId = typeof liveSegmentProgressJobCandidate?.active_segment_id === 'string' && liveSegmentProgressJobCandidate.active_segment_id.length > 0
+    ? liveSegmentProgressJobCandidate.active_segment_id
+    : null;
+  const provenanceActiveSegmentId = typeof segmentProvenanceFields?.activeSegmentId === 'string' && segmentProvenanceFields.activeSegmentId.length > 0
+    ? segmentProvenanceFields.activeSegmentId
+    : null;
+  const selectedActiveSegmentId = directActiveSegmentId ?? provenanceActiveSegmentId;
+  const directActiveSegmentProgress = directActiveSegmentId && typeof liveSegmentProgressJobCandidate?.active_segment_progress === 'number'
+    ? clamp01(liveSegmentProgressJobCandidate.active_segment_progress)
+    : null;
+  const provenanceActiveSegmentProgress = typeof segmentProvenanceFields?.activeSegmentProgress === 'number'
+    ? clamp01(segmentProvenanceFields.activeSegmentProgress)
+    : null;
+  const selectedActiveSegmentProgress = directActiveSegmentProgress ?? provenanceActiveSegmentProgress;
+  const hasActiveSegment = hasSegmentSupport
+    && !!selectedActiveSegmentId
+    && typeof selectedActiveSegmentProgress === 'number';
+  const liveSegmentProgressValue = hasActiveSegment
+    ? selectedActiveSegmentProgress
     : 0;
+  const selectedSegmentEtaSeconds = directActiveSegmentId && typeof liveSegmentProgressJobCandidate?.active_segment_eta_seconds === 'number'
+    ? liveSegmentProgressJobCandidate.active_segment_eta_seconds
+    : (typeof segmentProvenanceFields?.etaSeconds === 'number' ? segmentProvenanceFields.etaSeconds : null);
+  const selectedSegmentEtaBasis = directActiveSegmentId && typeof liveSegmentProgressJobCandidate?.active_segment_eta_basis === 'string'
+    ? liveSegmentProgressJobCandidate.active_segment_eta_basis
+    : (typeof segmentProvenanceFields?.eta_basis === 'string' ? segmentProvenanceFields.eta_basis : null);
+  const selectedSegmentUpdatedAt = directActiveSegmentId && typeof liveSegmentProgressJobCandidate?.active_segment_updated_at === 'number'
+    ? liveSegmentProgressJobCandidate.active_segment_updated_at
+    : (typeof segmentProvenanceFields?.updatedAt === 'number' ? segmentProvenanceFields.updatedAt : null);
+  const selectedSegmentStartedAt = typeof segmentProvenanceFields?.started_at === 'number'
+    ? segmentProvenanceFields.started_at
+    : null;
+  const selectedSegmentReasonCode = typeof segmentProvenanceFields?.reasonCode === 'string'
+    ? segmentProvenanceFields.reasonCode
+    : liveSegmentProgressJobCandidate?.reason_code;
+  const liveSegmentProgressJob = hasActiveSegment && liveSegmentProgressJobCandidate
+    ? {
+        ...liveSegmentProgressJobCandidate,
+        active_segment_id: selectedActiveSegmentId,
+        active_segment_progress: selectedActiveSegmentProgress,
+        active_segment_eta_seconds: selectedSegmentEtaSeconds,
+        active_segment_eta_basis: selectedSegmentEtaBasis,
+        active_segment_updated_at: selectedSegmentUpdatedAt,
+      } as Job
+    : undefined;
 
   React.useEffect(() => {
     if (releaseHoldTimerRef.current !== null) {
@@ -171,23 +223,16 @@ export const useChapterStatus = (
 
   const valueSource = !liveSegmentProgressJob
     ? 'no_live_job'
-    : ['finalizing', 'done', 'failed', 'cancelled'].includes(liveSegmentProgressJob.status)
-      ? 'terminal_complete'
-      : hasActiveSegment
-        ? 'active_segment_progress'
-        : liveProgressIsRenderBlock
-        ? 'render_block_progress'
-        : 'job_progress';
+    : 'active_segment_progress';
 
   const CHUNK_CHAR_LIMIT = 500;
   const block_char_count = activeRenderBatchWeight ?? 0;
   const progressVal = liveSegmentProgressValue;
-  const clamp01 = (val: number) => Math.max(0, Math.min(val, 1));
   const coverageRatio = block_char_count > 0 ? clamp01(block_char_count / CHUNK_CHAR_LIMIT) : 1;
   const isSegmentStartAtZero = hasSegmentSupport && (
-    liveSegmentProgressJob?.reason_code === 'segment_start' ||
-    liveSegmentProgressJob?.reason_code === 'START_SEGMENT' ||
-    liveSegmentProgressJob?.reason_code === 'START_SYNTHESIS'
+    selectedSegmentReasonCode === 'segment_start' ||
+    selectedSegmentReasonCode === 'START_SEGMENT' ||
+    selectedSegmentReasonCode === 'START_SYNTHESIS'
   ) && progressVal === 0;
   const evidenceWeightFraction = typeof liveSegmentProgressJob?.confidence === 'number'
     ? liveSegmentProgressJob.confidence
@@ -202,7 +247,6 @@ export const useChapterStatus = (
     : hasActiveSegment
       ? (liveSegmentProgressJob.active_segment_updated_at != null ? 'active_segment_updated_at' : 'none')
       : (liveSegmentProgressJob.updated_at != null ? 'updated_at' : 'none');
-
   const segmentProgressBarSelection = {
     dataTestId: "chapter-header-segment-progress-bar",
     barMounted: !!liveSegmentProgressJob,
@@ -214,19 +258,19 @@ export const useChapterStatus = (
       ? liveSegmentProgressJob.active_segment_progress
       : null,
     selectedEtaSeconds: (hasSegmentSupport && liveSegmentProgressJob?.active_segment_id)
-      ? (liveSegmentProgressJob.active_segment_eta_seconds ?? null)
-      : (liveSegmentProgressJob?.eta_seconds ?? null),
+      ? (selectedSegmentEtaSeconds ?? null)
+      : null,
     selectedEtaBasis: (hasSegmentSupport && liveSegmentProgressJob?.active_segment_id)
-      ? (liveSegmentProgressJob.active_segment_eta_basis ?? (liveSegmentProgressJob.active_segment_eta_seconds != null ? 'remaining_from_update' : null))
-      : (liveSegmentProgressJob?.eta_basis ?? (liveSegmentProgressJob?.eta_seconds != null ? 'remaining_from_update' : null)),
-    selectedStartedAt: liveSegmentProgressJob?.started_at ?? null,
+      ? (selectedSegmentEtaBasis ?? (selectedSegmentEtaSeconds != null ? 'remaining_from_update' : null)) as PredictiveProgressBarProps['etaBasis'] | null
+      : null,
+    selectedStartedAt: selectedSegmentStartedAt,
     selectedUpdatedAt: (hasSegmentSupport && liveSegmentProgressJob?.active_segment_id)
-      ? (liveSegmentProgressJob.active_segment_updated_at ?? null)
-      : (liveSegmentProgressJob?.updated_at ?? null),
+      ? (selectedSegmentUpdatedAt ?? null)
+      : null,
     liveSegmentProgressValue,
-    liveSegmentProgressIsRenderBlock,
-    activeRenderBatchId: (hasSegmentSupport && (liveSegmentProgressJob?.active_segment_id || activeRenderBatchIdFromPage || liveSegmentProgressJob?.active_render_batch_id)) || null,
-    activeRenderBatchProgress: hasSegmentSupport ? (liveSegmentProgressJob?.active_segment_progress ?? liveSegmentProgressJob?.active_render_batch_progress ?? null) : null,
+    liveSegmentProgressIsRenderBlock: false,
+    activeRenderBatchId: (hasSegmentSupport && liveSegmentProgressJob?.active_segment_id) || null,
+    activeRenderBatchProgress: hasSegmentSupport ? (liveSegmentProgressJob?.active_segment_progress ?? null) : null,
     renderGroupCount: hasSegmentSupport ? (liveSegmentProgressJob?.render_group_count ?? null) : null,
     valueSource,
     progressSource: valueSource,
@@ -235,7 +279,6 @@ export const useChapterStatus = (
     evidenceWeightFraction,
     isSegmentStartAtZero
   };
-
   return {
     queueStatus, heldQueueStatus, effectiveQueueLocked, isQueued,
     liveSegmentProgressJob, liveSegmentProgressValue, hasChapterAudio,
@@ -362,6 +405,27 @@ export const ChapterTopBar: React.FC<{
   );
 };
 
+/** Tiny helper that records bar mount/unmount transitions into the handoff debug ring. */
+const BarMountInstrumentation: React.FC<{
+  mounted: boolean;
+  hasLiveJob: boolean;
+  hasPending: boolean;
+  displayedSegmentId: string;
+}> = ({ mounted, hasLiveJob, hasPending, displayedSegmentId }) => {
+  const prevRef = React.useRef<boolean | null>(null);
+  React.useEffect(() => {
+    if (prevRef.current !== null && prevRef.current !== mounted) {
+      recordExternalHandoffEvent(mounted ? 'bar_mounted' : 'bar_unmounted', {
+        hasLiveJob,
+        hasPending,
+        displayed: displayedSegmentId,
+      });
+    }
+    prevRef.current = mounted;
+  }, [mounted, hasLiveJob, hasPending, displayedSegmentId]);
+  return null;
+};
+
 export const ChapterScriptToolbar: React.FC<{
   chapter: Chapter;
   saving: boolean;
@@ -377,11 +441,42 @@ export const ChapterScriptToolbar: React.FC<{
   onSegmentDisplayProgress?: (progress: number) => void;
   onProgressBarDebugSnapshot?: (snapshot: any) => void;
   status: ReturnType<typeof useChapterStatus>;
+  /** Optional: lifted handoff queue state from the page so one instance drives both
+   *  the header bar AND the script text highlight.  When absent the toolbar creates
+   *  its own internal instance (used by existing tests). */
+  handoffState?: ReturnType<typeof useSegmentHandoffQueue>;
 }> = ({
   chapter, saving, hasUnsavedChanges, submitting, queueLabel = 'Queue', queueTitle = 'Queue Chapter',
   onQueue, onStopAll, onCopyDebugState, onCommitSourceText, canCommitSourceText, onSegmentDisplayProgress,
-  onProgressBarDebugSnapshot, status
+  onProgressBarDebugSnapshot, status, handoffState
 }) => {
+  // Segment handoff queue: defer the bar swap until the outgoing bar visually reaches 100%.
+  // When the page lifts the hook (handoffState provided), use that instance so the script
+  // view's active-segment highlight shares the same display state. The internal hook must
+  // still be called unconditionally (rules of hooks), so it gets an inert sentinel input
+  // in that case — keeping it a no-op with no pending state or safety timers.
+  const liveJob = status.liveSegmentProgressJob;
+  const internalHandoff = useSegmentHandoffQueue(handoffState
+    ? { jobId: '', segmentId: 'none', progress: 0 }
+    : {
+      jobId: liveJob?.id ?? '',
+      segmentId: liveJob?.active_segment_id ?? 'none',
+      progress: status.liveSegmentProgressValue,
+      status: liveJob?.status,
+      etaSeconds: status.segmentProgressBarSelection.selectedEtaSeconds,
+      etaBasis: status.segmentProgressBarSelection.selectedEtaBasis,
+      updatedAt: status.segmentProgressBarSelection.selectedUpdatedAt,
+    });
+  const handoff = handoffState ?? internalHandoff;
+
+  // Forward display progress to both the caller and the handoff queue.
+  // The handoff queue's notifyDisplayProgress internally detects visual completion
+  // (≥99.9%) and fires onVisualComplete when appropriate.
+  const handleDisplayProgress = useCallback((progress: number) => {
+    onSegmentDisplayProgress?.(progress);
+    handoff.notifyDisplayProgress(progress);
+  }, [onSegmentDisplayProgress, handoff]);
+
   return (
     <>
         {status.hasChapterAudio && (
@@ -480,53 +575,81 @@ export const ChapterScriptToolbar: React.FC<{
             </div>
         )}
 
-        {status.liveSegmentProgressJob && (
-            <div style={{ width: '180px', minWidth: '180px' }}>
-                <PredictiveProgressBar
-                    key={`${status.liveSegmentProgressJob.id}:${status.liveSegmentProgressJob.active_segment_id || 'none'}`}
-                    dataTestId="chapter-header-segment-progress-bar"
-                    progress={status.liveSegmentProgressValue}
-                    startedAt={status.liveSegmentProgressJob.started_at}
-                    etaSeconds={status.segmentProgressBarSelection.selectedEtaSeconds ?? undefined}
-                    etaBasis={(status.segmentProgressBarSelection.selectedEtaBasis ?? undefined) as 'remaining_from_update' | 'total_from_start' | undefined}
-                    updatedAt={status.segmentProgressBarSelection.selectedUpdatedAt ?? undefined}
-                    persistenceKey={`${status.liveSegmentProgressJob.id}:${status.liveSegmentProgressJob.active_segment_id || 'none'}`}
-                    status={status.liveSegmentProgressJob.status}
-                    state={
-                        status.liveSegmentProgressJob.status === 'preparing'
-                            ? (status.segmentProgressBarSelection.isSegmentStartAtZero ? 'processing' : 'preparing')
-                            : status.liveSegmentProgressJob.status === 'finalizing'
-                                ? 'finalizing'
-                                : status.liveSegmentProgressJob.status === 'running'
-                                    ? (status.liveSegmentProgressIsRenderBlock ? 'running' : 'processing')
-                                    : (status.liveSegmentProgressJob.status === 'error' ? 'failed' : status.liveSegmentProgressJob.status as any)
-                    }
-                    label="Segment Progress"
-                    predictive={true}
-                    allowBackwardProgress={false}
-                    evidenceWeightFraction={status.segmentProgressBarSelection.evidenceWeightFraction}
-                    checkpointMode={
-                        (status.liveSegmentProgressJob.segment_ids?.length || status.liveSegmentProgressJob.active_segment_id)
-                            ? 'segment'
-                            : (status.liveSegmentProgressJob.render_group_count ?? 0) > 0
-                            ? 'queue'
-                            : 'default'
-                    }
-                    transitionTickCount={
-                        (status.liveSegmentProgressJob.segment_ids?.length || status.liveSegmentProgressJob.active_segment_id)
-                            ? 3
-                            : (status.liveSegmentProgressJob.render_group_count ?? 0) > 0
-                            ? 12
-                            : 8
-                    }
-                    backwardTransitionTickCount={2}
-                    tickMs={250}
-                    showEta={false}
-                    onDisplayProgress={onSegmentDisplayProgress}
-                    onDebugSnapshot={onProgressBarDebugSnapshot}
-                />
-            </div>
-        )}
+        {(() => {
+            // H4 (spec §7): bar must stay mounted through the handoff COMPLETING/HOLD phase
+            // even after liveSegmentProgressJob goes undefined at end-of-chapter.
+            const barMountGate = !!(
+                status.liveSegmentProgressJob ||
+                handoff.hasPending ||
+                handoff.displayedSegmentId !== 'none'
+            );
+
+            // Guard: don't mount an empty bar in idle (no job, no pending, sentinel displayed).
+            if (!barMountGate) return null;
+
+            return (
+                <div style={{ width: '180px', minWidth: '180px' }}>
+                    {(() => {
+                        // Null-safe props: handoff values take priority; fall back to live job when present.
+                        const displayedJobId = handoff.displayedJobId || status.liveSegmentProgressJob?.id || '';
+                        const displayedSegmentId = handoff.displayedSegmentId !== 'none'
+                            ? handoff.displayedSegmentId
+                            : (status.liveSegmentProgressJob?.active_segment_id || 'none');
+                        // When the handoff is still showing the sentinel (hasn't processed the new segment yet),
+                        // prefer the live job's progress so the bar doesn't flash 0% before the handoff flushes.
+                        const displayedProgress = (handoff.displayedSegmentId !== 'none' || !status.liveSegmentProgressJob)
+                            ? handoff.displayedProgress
+                            : status.liveSegmentProgressValue;
+                        // Treat null the same as undefined for ETA/basis/updatedAt: a null
+                        // handoff value means the handoff is in a sentinel/transition state
+                        // (displayedEtaSeconds not yet populated from the incoming segment).
+                        // Fall through to the live selection so the bar receives the correct
+                        // segment-scoped ETA on the very first render rather than seeding the
+                        // 120s fallback and blending to the wrong value.
+                        const displayedEtaSeconds = (handoff.displayedEtaSeconds !== undefined && handoff.displayedEtaSeconds !== null)
+                            ? handoff.displayedEtaSeconds
+                            : status.segmentProgressBarSelection.selectedEtaSeconds;
+                        const displayedEtaBasis = (handoff.displayedEtaBasis !== undefined && handoff.displayedEtaBasis !== null)
+                            ? handoff.displayedEtaBasis
+                            : status.segmentProgressBarSelection.selectedEtaBasis;
+                        const displayedUpdatedAt = (handoff.displayedUpdatedAt !== undefined && handoff.displayedUpdatedAt !== null)
+                            ? handoff.displayedUpdatedAt
+                            : status.segmentProgressBarSelection.selectedUpdatedAt;
+
+                        // When mounted purely via handoff (no live job), use 'running' so the
+                        // predictive lane keeps animating and firing onDisplayProgress feedback.
+                        const liveJobStatus = status.liveSegmentProgressJob?.status ?? 'running';
+                        const progressBarConfig = buildSegmentProgressBarProps({
+                            jobId: displayedJobId,
+                            segmentId: displayedSegmentId,
+                            progress: displayedProgress,
+                            status: liveJobStatus,
+                            etaSeconds: displayedEtaSeconds,
+                            etaBasis: displayedEtaBasis as any,
+                            updatedAt: displayedUpdatedAt,
+                            state: liveJobStatus === 'preparing'
+                                ? (status.segmentProgressBarSelection.isSegmentStartAtZero ? 'processing' : 'preparing')
+                                : liveJobStatus === 'finalizing'
+                                    ? 'finalizing'
+                                    : liveJobStatus === 'running'
+                                        ? (status.liveSegmentProgressIsRenderBlock ? 'running' : 'processing')
+                                        : (liveJobStatus === 'error' ? 'failed' : liveJobStatus as any),
+                            onDisplayProgress: handleDisplayProgress,
+                            onDebugSnapshot: onProgressBarDebugSnapshot,
+                        });
+                        const { key, ...progressBarProps } = progressBarConfig;
+                        return <PredictiveProgressBar key={key} {...progressBarProps} />;
+                    })()}
+                </div>
+            );
+        })()}
+
+        <BarMountInstrumentation
+            mounted={!!(status.liveSegmentProgressJob || handoff.hasPending || handoff.displayedSegmentId !== 'none')}
+            hasLiveJob={!!status.liveSegmentProgressJob}
+            hasPending={handoff.hasPending}
+            displayedSegmentId={handoff.displayedSegmentId}
+        />
 
         {(status.generatingSegmentIdsCount > 0 || chapter?.audio_status === 'processing') && (
             <button

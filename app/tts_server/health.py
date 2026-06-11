@@ -7,9 +7,12 @@ summarising the overall server status.
 from __future__ import annotations
 
 import inspect
+import logging
 from typing import Any, TYPE_CHECKING
 
 from app.engines.enablement import can_enable_engine
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from app.tts_server.plugin_loader import LoadedPlugin
@@ -46,7 +49,8 @@ def engine_status(
         else:
             ok, msg = check_env()
     except Exception as exc:
-        plugin.setup_message = f"check_env() crashed: {exc}"
+        logger.exception("Plugin %s check_env() crashed", plugin.engine_id)
+        plugin.setup_message = "check_env() crashed (see server logs)."
         return STATUS_NEEDS_SETUP
 
     if not ok:

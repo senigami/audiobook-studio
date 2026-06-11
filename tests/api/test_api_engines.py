@@ -74,7 +74,7 @@ def test_list_engines_no_longer_falls_back_during_tts_server_startup(clean_db, c
         response = client.get("/api/engines")
 
     assert response.status_code == 503
-    assert response.json()["message"] == "TTS Server is starting up..."
+    assert response.json()["message"] == "TTS Server is unavailable"
 
 
 def test_update_engine_settings_and_refresh_delegate_to_bridge(clean_db, client):
@@ -136,7 +136,7 @@ def test_install_engine_dependencies_returns_tts_server_error(clean_db, client):
     assert response.status_code == 500
     assert response.json() == {
         "status": "error",
-        "message": "TTS Server returned 500 for install: Dependency installation failed: pip exited 1",
+        "message": "Failed to install engine dependencies",
     }
 
 
@@ -388,3 +388,95 @@ def test_get_engine_scenarios_invalid_structure_returns_400(client, tmp_path):
         response = client.get("/api/engines/mock-engine/dev/scenarios")
         assert response.status_code == 400
         assert "engine_detail must be an object" in response.json()["message"]
+
+
+# ---------------------------------------------------------------------------
+# Security tests: path-injection and stack-trace-exposure
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("traversal_id", [
+    # FastAPI normalises URL-level ../ before our code sees it, so the ids
+    # that actually reach the handler are those that survive routing.
+    # These are ids that pass routing but must be rejected by _check_engine_id.
+    ".hidden",
+    "UPPER",
+    "has-UPPER",
+    "123starts-digit",
+])
+def test_path_using_routes_reject_invalid_engine_id(client, tmp_path, traversal_id):
+    """Non-conforming engine ids must return 400 from path-using routes."""
+    # Routes that invoke _check_engine_id and touch the filesystem.
+    routes = [
+        ("GET", f"/api/engines/{traversal_id}/test/audio"),
+        ("POST", f"/api/engines/{traversal_id}/test"),
+        ("GET", f"/api/engines/{traversal_id}/dev/scenarios"),
+        ("GET", f"/api/engines/{traversal_id}/assets/assets/icon.svg"),
+    ]
+    for method, url in routes:
+        response = client.request(method, url)
+        assert response.status_code == 400, (
+            f"{method} {url!r} should return 400 for engine_id={traversal_id!r}, "
+            f"got {response.status_code}"
+        )
+        # Must not expose Python exception text
+        body = response.text
+        assert "Traceback" not in body
+        assert "Exception" not in body
+
+
+def test_invalid_engine_id_does_not_touch_disk(client, tmp_path, monkeypatch):
+    """An invalid engine id must not cause any filesystem access."""
+    # Patch load_engine_registry so it would be called if we got past validation.
+    registry_called = []
+
+    def fake_registry():
+        registry_called.append(True)
+        return {}
+
+    monkeypatch.setattr(
+        "app.engines.registry.load_engine_registry", fake_registry
+    )
+
+    # ".hidden" is an invalid id that makes it through routing.
+    response = client.get("/api/engines/.hidden/test/audio")
+    assert response.status_code == 400
+    # Registry must not have been consulted — validation fires first.
+    assert not registry_called, "Registry should not be called for invalid engine_id"
+
+
+def test_exception_in_handler_returns_generic_message(client, monkeypatch):
+    """An unexpected exception in a handler must not expose traceback/exception text."""
+    from unittest.mock import MagicMock
+
+    bridge = MagicMock()
+    bridge.run_test.side_effect = RuntimeError("internal detail that must not leak")
+
+    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+        response = client.post("/api/engines/mock-engine/test")
+
+    assert response.status_code == 500
+    body = response.json()
+    assert body["ok"] is False
+    # Generic message — no exception internals
+    assert "internal detail that must not leak" not in body["message"]
+    assert "Traceback" not in body["message"]
+    assert body["message"] == "Engine test failed"
+
+
+def test_unavailable_error_returns_generic_message_not_exception_text(client):
+    """EngineUnavailableError must not expose its message string to clients."""
+    from app.engines.errors import EngineUnavailableError
+
+    bridge = MagicMock()
+    bridge.describe_registry.side_effect = EngineUnavailableError(
+        "internal server address 10.0.0.1:5555 unreachable"
+    )
+
+    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+        response = client.get("/api/engines")
+
+    assert response.status_code == 503
+    body = response.json()
+    assert "10.0.0.1" not in body["message"]
+    assert body["message"] == "TTS Server is unavailable"

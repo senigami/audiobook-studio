@@ -598,8 +598,8 @@ def test_orchestrator_log_listener_captures_timing_model_metrics(clean_db, tmp_p
 
     job = mock_get_jobs().get(job_id)
     assert job.first_start_segment_at == t_seg
-    # chapter_load_seconds should be t_seg - t_start = 3.0
-    assert job.chapter_load_seconds == 3.0
+    # model_load_seconds should be t_seg - t_start = 3.0
+    assert job.model_load_seconds == 3.0
 
     # Send log line 4: SEGMENT_SAVED
     t_saved = t_start + 8.0
@@ -766,7 +766,7 @@ def test_orchestrator_records_render_sample_marker_timing(clean_db, tmp_path, mo
     assert sample["started_at"] == 100.0
     assert sample["completed_at"] == 125.0
     assert sample["duration_seconds"] == 25.0
-    assert sample["chapter_load_seconds"] == 10.0
+    assert sample["model_load_seconds"] == 10.0
     assert sample["sum_segment_render_seconds"] == 10.0
     # inter_group_overhead_seconds = post_start_window - sum_segment_render_seconds = (125-110) - 10 = 5.0
     assert sample["inter_group_overhead_seconds"] == 5.0
@@ -1094,13 +1094,13 @@ def test_structured_timing_derivation_segmented(clean_db, monkeypatch):
     assert sample["started_at"] == 100.0
     assert sample["completed_at"] == 135.0
     assert sample["duration_seconds"] == 35.0
-    assert sample["chapter_load_seconds"] == 5.0
+    assert sample["model_load_seconds"] == 5.0
     assert sample["sum_segment_render_seconds"] == 22.0
     assert sample["inter_group_overhead_seconds"] == 8.0 # DB formula
 
     # Verify the job state has the exact formulas derived
     job = jobs_db.get(job_id)
-    assert job.chapter_load_seconds == 5.0
+    assert job.model_load_seconds == 5.0
     assert job.synthesis_duration_seconds == 30.0
     assert job.sum_segment_render_seconds == 22.0
     assert job.inter_group_overhead_seconds == 2.0
@@ -1199,7 +1199,7 @@ def test_structured_timing_derivation_non_segmented(clean_db, monkeypatch):
     assert sample["started_at"] == 105.0
     assert sample["completed_at"] == 130.0
     assert sample["duration_seconds"] == 25.0
-    assert sample["chapter_load_seconds"] == 0.0
+    assert sample["model_load_seconds"] == 0.0
     assert sample["sum_segment_render_seconds"] == 25.0
     assert sample["inter_group_overhead_seconds"] == 0.0
 
@@ -1300,13 +1300,13 @@ def test_structured_timing_derivation_out_of_order(clean_db, monkeypatch):
     assert sample["started_at"] == 100.0
     assert sample["completed_at"] == 135.0
     assert sample["duration_seconds"] == 35.0
-    assert sample["chapter_load_seconds"] == 5.0
+    assert sample["model_load_seconds"] == 5.0
     assert sample["sum_segment_render_seconds"] == 22.0
     assert sample["inter_group_overhead_seconds"] == 8.0 # DB formula
 
     # Verify the job state has the exact formulas derived (inter_group_overhead must be 2.0 based on min/max time bounds)
     job = jobs_db.get(job_id)
-    assert job.chapter_load_seconds == 5.0
+    assert job.model_load_seconds == 5.0
     assert job.synthesis_duration_seconds == 30.0
     assert job.sum_segment_render_seconds == 22.0
     assert job.inter_group_overhead_seconds == 2.0
@@ -1445,6 +1445,6 @@ def test_structured_timing_fallback_when_absent(clean_db, monkeypatch):
     assert sample["started_at"] == 110.0
     assert sample["completed_at"] == 135.0
     assert sample["duration_seconds"] == 25.0
-    assert sample["chapter_load_seconds"] == 10.0
+    assert sample["model_load_seconds"] == 10.0
     assert sample["sum_segment_render_seconds"] == 10.0
     assert sample["inter_group_overhead_seconds"] == 5.0

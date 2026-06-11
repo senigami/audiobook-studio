@@ -647,7 +647,6 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                             ? 'queue'
                             : 'default'
                     }
-                    evidenceWeightFraction={selectedEvidenceWeightFraction}
                     transitionTickCount={
                         (job.segment_ids?.length || liveJob?.segment_ids?.length || activeSegmentId)
                             ? 3

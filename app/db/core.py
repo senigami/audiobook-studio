@@ -181,6 +181,7 @@ def init_db():
                     id TEXT PRIMARY KEY,
                     project_id TEXT,
                     chapter_id TEXT,
+                    segment_ids TEXT,
                     split_part INTEGER DEFAULT 0,
                     status TEXT DEFAULT 'queued',
                     created_at REAL,
@@ -251,6 +252,7 @@ def init_db():
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN error TEXT", "processing_queue.error")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN custom_title TEXT", "processing_queue.custom_title")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN engine TEXT", "processing_queue.engine")
+            add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN segment_ids TEXT", "processing_queue.segment_ids")
 
             # Migration: Ensure project_id and chapter_id allow NULLs for system tasks
             try:
@@ -270,6 +272,7 @@ def init_db():
                             id TEXT PRIMARY KEY,
                             project_id TEXT,
                             chapter_id TEXT,
+                            segment_ids TEXT,
                             split_part INTEGER DEFAULT 0,
                             status TEXT DEFAULT 'queued',
                             created_at REAL,
@@ -282,9 +285,40 @@ def init_db():
                             FOREIGN KEY (chapter_id) REFERENCES chapters (id) ON DELETE CASCADE
                         )
                     """)
-                    cursor.execute("""
-                        INSERT INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, started_at, completed_at, error, custom_title, engine)
-                        SELECT id, project_id, chapter_id, split_part, status, created_at, started_at, completed_at, NULL, custom_title, NULL
+                    cursor.execute("PRAGMA table_info(_processing_queue_old)")
+                    old_columns = {col[1] for col in cursor.fetchall()}
+                    copy_columns = [
+                        "id",
+                        "project_id",
+                        "chapter_id",
+                        "segment_ids",
+                        "split_part",
+                        "status",
+                        "created_at",
+                        "started_at",
+                        "completed_at",
+                        "error",
+                        "custom_title",
+                        "engine",
+                    ]
+                    defaults = {
+                        "segment_ids": "NULL",
+                        "split_part": "0",
+                        "status": "'queued'",
+                        "created_at": "NULL",
+                        "started_at": "NULL",
+                        "completed_at": "NULL",
+                        "error": "NULL",
+                        "custom_title": "NULL",
+                        "engine": "NULL",
+                    }
+                    select_exprs = [
+                        column if column in old_columns else defaults.get(column, "NULL")
+                        for column in copy_columns
+                    ]
+                    cursor.execute(f"""
+                        INSERT INTO processing_queue ({", ".join(copy_columns)})
+                        SELECT {", ".join(select_exprs)}
                         FROM _processing_queue_old
                     """)
                     cursor.execute("DROP TABLE _processing_queue_old")

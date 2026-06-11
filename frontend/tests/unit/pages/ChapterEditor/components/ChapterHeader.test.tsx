@@ -158,7 +158,8 @@ describe('ChapterHeader', () => {
 
     expect(screen.queryByTestId('progress-bar-segments')).toBeNull();
     expect(screen.getByTitle('Already processing')).toBeDisabled();
-    expect(screen.getByText('40%')).toBeInTheDocument();
+    expect(screen.queryByTestId('chapter-header-segment-progress-bar')).toBeNull();
+    expect(screen.getByText('Processing')).toBeInTheDocument();
 
     rerender(
       <TestHeaderWrapper
@@ -175,7 +176,7 @@ describe('ChapterHeader', () => {
         queueLocked={false}
         queuePending={false}
         job={undefined}
-        generatingJob={{ id: 'job-seg', engine: 'mixed', status: 'running', progress: 0.1, started_at: Date.now() / 1000, eta_seconds: 9, active_segment_id: 'seg-2', active_segment_progress: 0.1 } as any}
+        generatingJob={{ id: 'job-seg', engine: 'mixed', status: 'running', progress: 0.1, started_at: Date.now() / 1000, eta_seconds: 9, active_segment_id: 'seg-2', active_segment_progress: 0.1, hasSegmentSupport: true } as any}
         generatingSegmentIdsCount={1}
         queueLabel="Complete"
         queueTitle="Complete Chapter Audio"
@@ -191,7 +192,7 @@ describe('ChapterHeader', () => {
     expect(screen.getByTitle('Already processing')).toBeDisabled();
   });
 
-  it('uses active render-block progress for grouped chapter renders', () => {
+  it('does not use active render-block progress for the segment-only Chapter Header bar', () => {
     const onSegmentDisplayProgress = vi.fn();
 
     render(
@@ -227,8 +228,8 @@ describe('ChapterHeader', () => {
       />
     );
 
-    expect(screen.getByText('25%')).toBeInTheDocument();
-    expect(onSegmentDisplayProgress).toHaveBeenCalledWith(0.25);
+    expect(screen.queryByTestId('chapter-header-segment-progress-bar')).toBeNull();
+    expect(onSegmentDisplayProgress).not.toHaveBeenCalled();
   });
 
   it('exposes a copy debug state button when a handler is provided', () => {
@@ -295,7 +296,7 @@ describe('ChapterHeader', () => {
       isSegmentStartAtZero: false
     });
 
-    // 2. Terminal complete job
+    // 2. Terminal complete job without segment provenance
     const doneJob = {
       id: 'job-done',
       status: 'done',
@@ -303,10 +304,10 @@ describe('ChapterHeader', () => {
       finished_at: (Date.now() / 1000) - 120
     };
     rerender(<TestComponent job={doneJob as any} generatingJob={doneJob as any} />);
-    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('terminal_complete');
-    expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressValue).toBe(1);
+    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('no_live_job');
+    expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressValue).toBe(0);
 
-    // 3. Render block job
+    // 3. Render block job without active segment progress
     const renderBlockJob = {
       id: 'job-render',
       status: 'running',
@@ -317,10 +318,10 @@ describe('ChapterHeader', () => {
       hasSegmentSupport: true,
     };
     rerender(<TestComponent job={renderBlockJob as any} generatingJob={renderBlockJob as any} />);
-    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('render_block_progress');
-    expect(capturedStatus.segmentProgressBarSelection.activeRenderBatchId).toBe('batch-1');
-    expect(capturedStatus.segmentProgressBarSelection.activeRenderBatchProgress).toBe(0.6);
-    expect(capturedStatus.segmentProgressBarSelection.renderGroupCount).toBe(5);
+    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('no_live_job');
+    expect(capturedStatus.segmentProgressBarSelection.activeRenderBatchId).toBeNull();
+    expect(capturedStatus.segmentProgressBarSelection.activeRenderBatchProgress).toBeNull();
+    expect(capturedStatus.segmentProgressBarSelection.renderGroupCount).toBeNull();
 
     // 4. Active segment progress
     const activeSegJob = {
@@ -336,15 +337,15 @@ describe('ChapterHeader', () => {
     expect(capturedStatus.segmentProgressBarSelection.selectedActiveSegmentId).toBe('seg-123');
     expect(capturedStatus.segmentProgressBarSelection.selectedActiveSegmentProgress).toBe(0.45);
 
-    // 5. Job progress fallback
+    // 5. Job progress is not a segment progress fallback
     const jobProgJob = {
       id: 'job-fallback',
       status: 'running',
       progress: 0.77
     };
     rerender(<TestComponent job={jobProgJob as any} generatingJob={jobProgJob as any} />);
-    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('job_progress');
-    expect(capturedStatus.segmentProgressBarSelection.selectedJobProgress).toBe(0.77);
+    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('no_live_job');
+    expect(capturedStatus.segmentProgressBarSelection.selectedJobProgress).toBeNull();
 
     // 6. Active segment progress should win when both render-group and active-segment fields exist
     const mixedJob = {
@@ -361,7 +362,7 @@ describe('ChapterHeader', () => {
     rerender(<TestComponent job={mixedJob as any} generatingJob={mixedJob as any} />);
     expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('active_segment_progress');
     expect(capturedStatus.segmentProgressBarSelection.progressSource).toBe('active_segment_progress');
-    expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressIsRenderBlock).toBe(true);
+    expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressIsRenderBlock).toBe(false);
     expect(capturedStatus.liveSegmentProgressValue).toBe(0.85);
   });
   it('proves active_segment_progress wins over stale render-batch fields during a segment handoff', () => {
@@ -385,7 +386,7 @@ describe('ChapterHeader', () => {
     };
 
     render(<TestComponent job={mixedJob as any} generatingJob={mixedJob as any} />);
-    expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressIsRenderBlock).toBe(true);
+    expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressIsRenderBlock).toBe(false);
     expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('active_segment_progress');
     expect(capturedStatus.segmentProgressBarSelection.progressSource).toBe('active_segment_progress');
     expect(capturedStatus.liveSegmentProgressValue).toBe(0);
@@ -416,7 +417,7 @@ describe('ChapterHeader', () => {
     render(<TestComponent job={job as any} generatingJob={job as any} />);
 
     expect(capturedStatus.liveSegmentProgressValue).toBe(0.45);
-    expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressIsRenderBlock).toBe(true);
+    expect(capturedStatus.segmentProgressBarSelection.liveSegmentProgressIsRenderBlock).toBe(false);
 
     expect(capturedStatus.segmentProgressBarSelection.selectedEtaSeconds).toBe(15);
     expect(capturedStatus.segmentProgressBarSelection.selectedEtaBasis).toBe('segment_remaining');
@@ -452,15 +453,18 @@ describe('ChapterHeader', () => {
   it('proves evidenceWeightFraction is derived from block chars / max chars and clamped between 0 and 1 (with progress = 1)', () => {
     let capturedStatus: any = null;
     const TestComponent = ({ activeRenderBatchWeight }: { activeRenderBatchWeight?: number | null }) => {
-      const doneJob = React.useMemo(() => ({
-        id: 'job-done',
-        status: 'done' as const,
+      const activeSegmentJob = React.useMemo(() => ({
+        id: 'job-active-segment-confidence',
+        status: 'running' as const,
         progress: 1,
+        active_segment_id: 'seg-1',
+        active_segment_progress: 1,
+        hasSegmentSupport: true,
       }), []);
       capturedStatus = useChapterStatus(
         mockChapter as any,
         undefined,
-        doneJob as any,
+        activeSegmentJob as any,
         false,
         0,
         false,
@@ -496,6 +500,7 @@ describe('ChapterHeader', () => {
         progress: progress,
         active_segment_id: 'seg-1',
         active_segment_progress: progress,
+        hasSegmentSupport: true,
       }), [progress]);
       capturedStatus = useChapterStatus(
         mockChapter as any,
@@ -543,6 +548,7 @@ describe('ChapterHeader', () => {
       progress: 0.5,
       active_segment_id: 'seg-1',
       active_segment_progress: 0.5,
+      hasSegmentSupport: true,
     };
 
     // Render as a segment progress bar (generatingJob is activeJob)
@@ -556,9 +562,7 @@ describe('ChapterHeader', () => {
     const segmentConfidence = capturedStatus.segmentProgressBarSelection.evidenceWeightFraction;
     expect(segmentConfidence).toBeCloseTo(0.4); // 0.8 * 0.5 = 0.4
 
-    // Render as a chapter render bar (job is activeJob, generatingJob is undefined)
-    // Both segment bar and chapter render bar share the same activeJob and activeRenderBatchWeight.
-    // Let's prove that passing the same inputs results in the same evidenceWeightFraction.
+    // This value belongs only to the active segment contract; chapter progress is not a fallback.
     expect(segmentConfidence).toBe(0.4);
   });
 
@@ -720,7 +724,7 @@ describe('ChapterHeader', () => {
     const { rerender } = render(<TestComponent generatingJob={jobWithSegment as any} />);
     expect(capturedStatus.liveSegmentProgressValue).toBe(0.35);
 
-    // Case 2: No active segment is present, should fallback to deriveActiveBatchProgress
+    // Case 2: No active segment is present, so render batch progress must not feed the Segment Progress bar.
     const jobNoSegment = {
       id: 'job-no-seg',
       status: 'running',
@@ -733,8 +737,8 @@ describe('ChapterHeader', () => {
       hasSegmentSupport: true,
     };
     rerender(<TestComponent generatingJob={jobNoSegment as any} />);
-    // Since total_render_weight > 0 and active_segment_id is absent, it uses deriveActiveBatchProgress
-    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('render_block_progress');
+    expect(capturedStatus.segmentProgressBarSelection.valueSource).toBe('no_live_job');
+    expect(capturedStatus.segmentProgressBarSelection.barMounted).toBe(false);
   });
 
   it('regression: proves the segment bar progress remains stable across multiple renders/ticks for the active segment path', () => {
@@ -845,6 +849,8 @@ describe('ChapterHeader', () => {
       id: 'job-canonical-conf',
       status: 'running',
       progress: 0.5,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.5,
       confidence: 0.88,
       hasSegmentSupport: true,
     };

@@ -32,7 +32,9 @@ def clean_text_for_tts(text: str) -> str:
         ln = re.sub(pattern, lambda m: m.group(0).replace('.', ' '), ln)
 
         # Normalize fractions (444/7000 -> 444 out of 7000)
-        ln = re.sub(r'(\d+)/(\d+)', r'\1 out of \2', ln)
+        # Bound digit-group length to prevent polynomial backtracking on
+        # non-matching inputs (CodeQL py/polynomial-redos).
+        ln = re.sub(r'(\d{1,20})/(\d{1,20})', r'\1 out of \2', ln)
 
         # Strip leading dots/ellipses/punctuation
         ln = ln.lstrip(" .…!?,")
@@ -53,7 +55,9 @@ def clean_text_for_tts(text: str) -> str:
         # Collapse multiple spaces
         ln = re.sub(r' +', ' ', ln)
         # Remove spaces before punctuation
-        ln = re.sub(r' +([,;:])', r'\1', ln)
+        # Use explicit bounded quantifier to prevent polynomial backtracking
+        # on long non-matching whitespace runs (CodeQL py/polynomial-redos).
+        ln = re.sub(r' {1,500}([,;:])', r'\1', ln)
         # Remove redundant punctuation
         ln = re.sub(r'([!?])\.+', r'\1', ln)
         # Remove comma/semicolon/colon artifacts that end up directly before a
@@ -61,9 +65,11 @@ def clean_text_for_tts(text: str) -> str:
         # or ",'." introduced by dialogue splitting.
         ln = re.sub(r'([,;:])([\'"]?)([.!?])', r'\2\3', ln)
         # Remove stray spaces before quote+terminal punctuation like "word '."
-        ln = re.sub(r"\s+([\'\"])([.!?])", r"\1\2", ln)
+        # Use [ \t] instead of \s (no newlines on a single line) and cap
+        # quantifier to prevent polynomial backtracking (CodeQL py/polynomial-redos).
+        ln = re.sub(r"[ \t]{1,500}(['\"])([.!?])", r"\1\2", ln)
         # Also handle the inverse ordering produced during cleanup: "word .'"
-        ln = re.sub(r"\s+([.!?])([\'\"])", r"\1\2", ln)
+        ln = re.sub(r"[ \t]{1,500}([.!?])(['\"])", r"\1\2", ln)
         # Fix ., -> , and ,. -> . and .; -> ; etc
         ln = (
             ln.replace(".,", ",")
@@ -237,14 +243,40 @@ def pack_text_to_limit(
 
     # Split into blocks by literal newlines to respect paragraphing
     raw_lines = text.split('\n')
+
+    # Expand any line that exceeds limit into sub-lines via the sentence
+    # splitter, then hard-wrap any remaining sentence that still exceeds limit.
+    expanded_lines: list[str] = []
+    for line in raw_lines:
+        content = line.strip()
+        if len(content) <= limit:
+            expanded_lines.append(content)
+            continue
+        # Try sentence-level split first.
+        sentences = [s for s, _, _ in split_sentences(content)]
+        for sent in sentences:
+            if len(sent) <= limit:
+                expanded_lines.append(sent)
+            else:
+                # Hard-wrap at whitespace boundaries, never exceeding limit.
+                remaining = sent
+                while len(remaining) > limit:
+                    # Find last whitespace at or before limit.
+                    ws = remaining.rfind(" ", 0, limit)
+                    if ws <= 0:
+                        # No whitespace — force-cut at limit.
+                        expanded_lines.append(remaining[:limit])
+                        remaining = remaining[limit:]
+                    else:
+                        expanded_lines.append(remaining[:ws])
+                        remaining = remaining[ws + 1:]
+                if remaining:
+                    expanded_lines.append(remaining)
+
     packed = []
     current_chunk = ""
 
-    for line in raw_lines:
-        line_content = line.strip()
-        # If it's an empty line (paragraph break),
-        # we treat it as part of the previous or next chunk
-        # But we must ensure it doesn't break the chunking greedy logic.
+    for line_content in expanded_lines:
         separator = "\n" if current_chunk else ""
 
         if (current_chunk and (len(current_chunk) + len(separator) +

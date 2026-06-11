@@ -55,6 +55,12 @@ _cancelled_tasks: set[str] = set()
 _ready_port: int | None = None
 
 
+def _is_task_cancelled(task_id: str) -> bool:
+    """Thread-safe membership check; _cancelled_tasks is mutated under _state_lock."""
+    with _state_lock:
+        return task_id in _cancelled_tasks
+
+
 def set_ready_port(port: int) -> None:
     """Configure the port announced by the startup readiness hook."""
     global _ready_port
@@ -99,8 +105,33 @@ def load_plugins(plugins_dir: Path) -> None:
 @app.on_event("startup")
 def _announce_ready() -> None:
     """Announce readiness only after the ASGI app has fully started."""
+    _sweep_orphaned_staging_dirs()
     if _ready_port is not None:
         print(f"READY:{_ready_port}", flush=True)
+
+
+def _sweep_orphaned_staging_dirs() -> None:
+    """Remove leftover ``.preview_*`` staging dirs from prior runs.
+
+    The in-memory ``_staging`` map does not survive a restart, so any staging
+    dirs left on disk by an un-confirmed/un-cancelled preview would otherwise
+    leak permanently with no token to clean them. Sweep them on startup to
+    cap disk usage (defense against the preview disk-fill vector).
+    """
+    import shutil as _shutil
+
+    try:
+        if not _plugins_dir.exists():
+            return
+        for entry in _plugins_dir.iterdir():
+            if entry.is_dir() and entry.name.startswith(".preview_"):
+                try:
+                    _shutil.rmtree(entry)
+                    logger.info("Swept orphaned plugin staging dir: %s", entry.name)
+                except OSError as exc:
+                    logger.warning("Failed to sweep staging dir %s: %s", entry, exc)
+    except OSError as exc:
+        logger.warning("Failed to enumerate plugins dir for staging sweep: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -139,11 +170,15 @@ class SettingsUpdateRequest(BaseModel):
 @app.get("/health")
 def health() -> JSONResponse:
     """Overall server health and per-engine status."""
-    with _state_lock:
-        plugins_snapshot = list(_plugins)
-    payload = build_health_response(plugins_snapshot)
-    status_code = 200 if payload["status"] == "ok" else 207
-    return JSONResponse(content=payload, status_code=status_code)
+    try:
+        with _state_lock:
+            plugins_snapshot = list(_plugins)
+        payload = build_health_response(plugins_snapshot)
+        status_code = 200 if payload["status"] == "ok" else 207
+        return JSONResponse(content=payload, status_code=status_code)
+    except Exception:
+        logger.exception("Health check failed")
+        return JSONResponse(content={"status": "error"}, status_code=500)
 
 
 @app.get("/ready")
@@ -155,22 +190,33 @@ def ready() -> JSONResponse:
 @app.get("/engines")
 def list_engines() -> list[dict[str, Any]]:
     """List all loaded engine plugins."""
-    with _state_lock:
-        plugins_snapshot = list(_plugins)
-
-    result = []
-    for plugin in plugins_snapshot:
-        settings = load_settings(plugin.plugin_dir)
-        result.append(build_engine_detail(plugin, settings))
-    return result
+    try:
+        with _state_lock:
+            plugins_snapshot = list(_plugins)
+        result = []
+        for plugin in plugins_snapshot:
+            settings = load_settings(plugin.plugin_dir)
+            result.append(build_engine_detail(plugin, settings))
+        return result
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to list engines")
+        raise HTTPException(status_code=500, detail="Failed to list engines.")
 
 
 @app.get("/engines/{engine_id}")
 def get_engine(engine_id: str) -> dict[str, Any]:
     """Get detail for a single engine."""
-    plugin = _plugin_by_id(engine_id)
-    settings = load_settings(plugin.plugin_dir)
-    return build_engine_detail(plugin, settings)
+    try:
+        plugin = _plugin_by_id(engine_id)
+        settings = load_settings(plugin.plugin_dir)
+        return build_engine_detail(plugin, settings)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to get engine %s", engine_id)
+        raise HTTPException(status_code=500, detail="Failed to retrieve engine detail.")
 
 
 @app.get("/engines/{engine_id}/settings")
@@ -259,7 +305,8 @@ def update_engine_settings(
             save_state(plugin.plugin_dir, state)
 
     except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"Could not save settings: {exc}")
+        logger.exception("Could not save settings for engine %s", engine_id)
+        raise HTTPException(status_code=500, detail="Could not save settings.")
 
     return {"ok": True, "settings": merged}
 
@@ -395,7 +442,7 @@ def install_dependencies(engine_id: str) -> dict[str, Any]:
         raise
     except Exception as exc:
         logger.exception("Unexpected error installing dependencies for %s", engine_id)
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {exc}") from exc
+        raise HTTPException(status_code=500, detail="Internal engine error.") from exc
 
 
 @app.delete("/engines/{engine_id}")
@@ -427,7 +474,7 @@ def delete_engine(engine_id: str) -> dict[str, Any]:
         logger.error("Failed to delete plugin directory %s: %s", plugin.plugin_dir, exc)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to delete plugin directory: {exc}",
+            detail="Failed to delete plugin directory.",
         ) from exc
 
     # 3. Remove from memory.
@@ -477,9 +524,10 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
             detail=f"Engine {body.engine_id} is not ready (status: {status})",
         )
     if getattr(plugin, "verification_error", None):
+        logger.exception("Engine %s failed verification: %s", body.engine_id, plugin.verification_error)
         raise HTTPException(
             status_code=503,
-            detail=f"Engine {body.engine_id} failed verification: {plugin.verification_error}",
+            detail=f"Engine {body.engine_id} failed verification.",
         )
     if not plugin.verified:
         raise HTTPException(
@@ -522,7 +570,7 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
         language=str(request_dict.get("language", body.language)),
         script=request_dict.get("script") or body.script,  # type: ignore[arg-type]
         task_id=body.task_id,
-        cancel_check=lambda: (body.task_id in _cancelled_tasks) if body.task_id else False,
+        cancel_check=lambda: _is_task_cancelled(body.task_id) if body.task_id else False,
     )
 
     try:
@@ -538,9 +586,10 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
                 _cancelled_tasks.discard(body.task_id)
 
     if not result.ok:
+        logger.exception("Synthesis failed for engine %s: %s", body.engine_id, result.error)
         raise HTTPException(
             status_code=500,
-            detail=f"Synthesis failed: {result.error}",
+            detail="Synthesis failed.",
         )
 
     # 3. postprocess_audio
@@ -672,9 +721,10 @@ def preview(body: PreviewRequest) -> dict[str, Any]:
     result = plugin.engine.preview(req)
 
     if not result.ok:
+        logger.exception("Preview failed for engine %s: %s", body.engine_id, result.error)
         raise HTTPException(
             status_code=500,
-            detail=f"Preview failed: {result.error}",
+            detail="Preview failed.",
         )
 
     # 3. postprocess_audio
@@ -767,9 +817,13 @@ async def import_plugin(file: UploadFile = File(...)) -> dict[str, Any]:
         # 1. Path safety and member list
         members = zf.infolist()
         for member in members:
-            path = PurePosixPath(member.filename)
+            name = member.filename
+            # Reject Windows-style backslash separators — PurePosixPath won't split these
+            if "\\" in name:
+                raise HTTPException(status_code=400, detail=f"Unsafe path in zip: {name}")
+            path = PurePosixPath(name)
             if path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
-                raise HTTPException(status_code=400, detail=f"Unsafe path in zip: {member.filename}")
+                raise HTTPException(status_code=400, detail=f"Unsafe path in zip: {name}")
 
         # 2. Check for manifest.json
         manifest_names = [m.filename for m in members if m.filename.lower() == "manifest.json"]
@@ -779,7 +833,8 @@ async def import_plugin(file: UploadFile = File(...)) -> dict[str, Any]:
         try:
             manifest_data = json.loads(zf.read(manifest_names[0]).decode("utf-8"))
         except Exception as exc:
-            raise HTTPException(status_code=400, detail=f"Invalid manifest.json: {exc}") from exc
+            logger.exception("Failed to parse manifest.json in plugin zip")
+            raise HTTPException(status_code=400, detail="Invalid manifest.json.") from exc
 
         # 2b. Check for optional settings_schema.json
         schema_names = [m.filename for m in members if m.filename.lower() == "settings_schema.json"]
@@ -789,7 +844,8 @@ async def import_plugin(file: UploadFile = File(...)) -> dict[str, Any]:
                 if not isinstance(schema_data, dict):
                     raise ValueError("settings_schema.json must be a dictionary (object) at the root.")
             except Exception as exc:
-                raise HTTPException(status_code=400, detail=f"Invalid settings_schema.json: {exc}") from exc
+                logger.exception("Failed to parse settings_schema.json in plugin zip")
+                raise HTTPException(status_code=400, detail="Invalid settings_schema.json.") from exc
 
         # 3. Validate engine_id
         engine_id = manifest_data.get("engine_id")
@@ -813,12 +869,25 @@ async def import_plugin(file: UploadFile = File(...)) -> dict[str, Any]:
             staging_dir.mkdir(parents=True)
             zf.extractall(staging_dir)
 
+            # 5b. Post-extract containment check — guard against zip implementations
+            # that honour backslash separators on Windows or other bypass techniques.
+            staging_resolved = staging_dir.resolve()
+            for extracted in staging_dir.rglob("*"):
+                if not extracted.resolve().is_relative_to(staging_resolved):
+                    raise ValueError(f"Extracted path escapes staging dir: {extracted}")
+
             # 6. Atomic-ish move
             staging_dir.rename(target_dir)
+        except (ValueError, OSError) as exc:
+            if staging_dir.exists():
+                shutil.rmtree(staging_dir)
+            logger.exception("Failed to extract plugin zip to staging dir")
+            raise HTTPException(status_code=500, detail="Failed to extract plugin.") from exc
         except Exception as exc:
             if staging_dir.exists():
                 shutil.rmtree(staging_dir)
-            raise HTTPException(status_code=500, detail=f"Failed to extract plugin: {exc}") from exc
+            logger.exception("Unexpected error during plugin extraction")
+            raise HTTPException(status_code=500, detail="Failed to extract plugin.") from exc
 
     # 7. Refresh plugins in memory
     load_plugins(_plugins_dir)
@@ -827,4 +896,246 @@ async def import_plugin(file: UploadFile = File(...)) -> dict[str, Any]:
         "ok": True,
         "message": f"Successfully imported plugin {engine_id}",
         "engine_id": engine_id,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Plugin staging store — keyed by opaque UUID token
+# ---------------------------------------------------------------------------
+
+_staging_lock = threading.Lock()
+# token -> {"staging_dir": Path, "engine_id": str, "display_name": str,
+#           "version": str|None, "requirements": list[str]}
+_staging: dict[str, dict] = {}
+
+
+def _parse_requirements(req_text: str) -> list[str]:
+    """Return non-empty, non-comment requirement lines."""
+    lines = []
+    for line in req_text.splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            lines.append(stripped)
+    return lines
+
+
+@app.post("/plugins/preview")
+async def preview_plugin(file: UploadFile = File(...)) -> dict[str, Any]:
+    """Stage a plugin zip and return manifest metadata + requirements WITHOUT installing.
+
+    Returns ``{ok, engine_id, display_name, version, requirements, staging_token}``
+    where ``requirements`` is the list of non-comment lines from ``requirements.txt``
+    (empty list if no requirements file is present).  The caller MUST either
+    POST ``/plugins/confirm/{token}`` to complete the install or
+    DELETE ``/plugins/staging/{token}`` to discard.
+    """
+    import io
+    import json
+    import zipfile
+    import shutil
+    import re
+    import uuid
+    from pathlib import PurePosixPath
+
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        raise HTTPException(status_code=400, detail="Only .zip files are supported.")
+
+    content = await file.read()
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(content))
+    except zipfile.BadZipFile as exc:
+        raise HTTPException(status_code=400, detail="Invalid zip file.") from exc
+
+    with zf:
+        members = zf.infolist()
+        for member in members:
+            name = member.filename
+            if "\\" in name:
+                raise HTTPException(status_code=400, detail=f"Unsafe path in zip: {name}")
+            path = PurePosixPath(name)
+            if path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
+                raise HTTPException(status_code=400, detail=f"Unsafe path in zip: {name}")
+
+        manifest_names = [m.filename for m in members if m.filename.lower() == "manifest.json"]
+        if not manifest_names:
+            raise HTTPException(status_code=400, detail="Plugin zip is missing manifest.json")
+
+        try:
+            manifest_data = json.loads(zf.read(manifest_names[0]).decode("utf-8"))
+        except Exception as exc:
+            logger.exception("Failed to parse manifest.json in plugin zip")
+            raise HTTPException(status_code=400, detail="Invalid manifest.json.") from exc
+
+        schema_names = [m.filename for m in members if m.filename.lower() == "settings_schema.json"]
+        if schema_names:
+            try:
+                schema_data = json.loads(zf.read(schema_names[0]).decode("utf-8"))
+                if not isinstance(schema_data, dict):
+                    raise ValueError("settings_schema.json must be a dictionary (object) at the root.")
+            except Exception as exc:
+                logger.exception("Failed to parse settings_schema.json in plugin zip")
+                raise HTTPException(status_code=400, detail="Invalid settings_schema.json.") from exc
+
+        engine_id = manifest_data.get("engine_id")
+        if not engine_id:
+            raise HTTPException(status_code=400, detail="manifest.json missing engine_id")
+
+        if not re.fullmatch(r"[a-z][a-z0-9_]{1,14}", engine_id):
+            raise HTTPException(status_code=400, detail=f"Invalid engine_id: {engine_id}")
+
+        target_folder = f"tts_{engine_id}"
+        target_dir = _plugins_dir / target_folder
+        if target_dir.exists():
+            raise HTTPException(status_code=409, detail=f"Plugin folder {target_folder} already exists.")
+
+        # Read requirements before extraction — we only need the text content.
+        req_text = ""
+        req_names = [m.filename for m in members if m.filename.lower() == "requirements.txt"]
+        if req_names:
+            try:
+                req_text = zf.read(req_names[0]).decode("utf-8", errors="replace")
+            except Exception:
+                pass
+
+        requirements = _parse_requirements(req_text)
+
+        # Extract to staging but do NOT rename to final location yet.
+        token = uuid.uuid4().hex
+        staging_dir = _plugins_dir / f".preview_{token}"
+        try:
+            staging_dir.mkdir(parents=True)
+            zf.extractall(staging_dir)
+
+            staging_resolved = staging_dir.resolve()
+            for extracted in staging_dir.rglob("*"):
+                if not extracted.resolve().is_relative_to(staging_resolved):
+                    raise ValueError(f"Extracted path escapes staging dir: {extracted}")
+        except (ValueError, OSError) as exc:
+            if staging_dir.exists():
+                shutil.rmtree(staging_dir)
+            logger.exception("Failed to extract plugin zip to staging dir (preview)")
+            raise HTTPException(status_code=500, detail="Failed to stage plugin.") from exc
+        except Exception as exc:
+            if staging_dir.exists():
+                shutil.rmtree(staging_dir)
+            logger.exception("Unexpected error during plugin preview extraction")
+            raise HTTPException(status_code=500, detail="Failed to stage plugin.") from exc
+
+    display_name = manifest_data.get("display_name") or engine_id
+    version = manifest_data.get("version") or None
+
+    with _staging_lock:
+        _staging[token] = {
+            "staging_dir": staging_dir,
+            "engine_id": engine_id,
+            "display_name": display_name,
+            "version": version,
+            "requirements": requirements,
+        }
+
+    return {
+        "ok": True,
+        "engine_id": engine_id,
+        "display_name": display_name,
+        "version": version,
+        "requirements": requirements,
+        "staging_token": token,
+    }
+
+
+@app.post("/plugins/confirm/{token}")
+def confirm_plugin_import(token: str) -> dict[str, Any]:
+    """Complete a staged plugin import.
+
+    Moves the staging directory to the final plugin location and loads the plugin.
+    The staging entry is removed regardless of outcome.
+    """
+    import re
+    import shutil
+
+    if not re.fullmatch(r"[0-9a-f]{32}", token):
+        raise HTTPException(status_code=400, detail="Invalid staging token.")
+
+    with _staging_lock:
+        entry = _staging.pop(token, None)
+
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Staging token not found or already used.")
+
+    staging_dir: Path = entry["staging_dir"]
+    engine_id: str = entry["engine_id"]
+    target_dir = _plugins_dir / f"tts_{engine_id}"
+
+    if target_dir.exists():
+        if staging_dir.exists():
+            shutil.rmtree(staging_dir)
+        raise HTTPException(status_code=409, detail=f"Plugin folder tts_{engine_id} already exists.")
+
+    try:
+        staging_dir.rename(target_dir)
+    except OSError as exc:
+        if staging_dir.exists():
+            shutil.rmtree(staging_dir)
+        logger.exception("Failed to move staging dir to target for engine %s", engine_id)
+        raise HTTPException(status_code=500, detail="Failed to install plugin.") from exc
+
+    load_plugins(_plugins_dir)
+
+    return {
+        "ok": True,
+        "message": f"Successfully imported plugin {engine_id}",
+        "engine_id": engine_id,
+    }
+
+
+@app.delete("/plugins/staging/{token}")
+def cancel_plugin_staging(token: str) -> dict[str, Any]:
+    """Discard a staged plugin import and clean up the staging directory."""
+    import re
+    import shutil
+
+    if not re.fullmatch(r"[0-9a-f]{32}", token):
+        raise HTTPException(status_code=400, detail="Invalid staging token.")
+
+    with _staging_lock:
+        entry = _staging.pop(token, None)
+
+    if entry is None:
+        # Already consumed or never existed — treat as success (idempotent cancel).
+        return {"ok": True, "message": "Staging token not found (already cancelled or consumed)."}
+
+    staging_dir: Path = entry["staging_dir"]
+    if staging_dir.exists():
+        try:
+            import shutil as _shutil
+            _shutil.rmtree(staging_dir)
+        except OSError as exc:
+            logger.warning("Failed to remove staging dir %s: %s", staging_dir, exc)
+
+    return {"ok": True, "message": "Staging cancelled."}
+
+
+@app.get("/engines/{engine_id}/requirements")
+def get_engine_requirements(engine_id: str) -> dict[str, Any]:
+    """Return the requirements.txt lines for an installed engine.
+
+    Returns ``{ok, engine_id, requirements: list[str]}`` where ``requirements``
+    is the list of non-comment, non-empty lines.  Returns an empty list when
+    no ``requirements.txt`` is present.
+    """
+    plugin = _plugin_by_id(engine_id)
+    req_file = plugin.plugin_dir / "requirements.txt"
+    if not req_file.is_file():
+        return {"ok": True, "engine_id": engine_id, "requirements": []}
+
+    try:
+        req_text = req_file.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        logger.warning("Could not read requirements.txt for %s: %s", engine_id, exc)
+        raise HTTPException(status_code=500, detail="Could not read requirements file.") from exc
+
+    return {
+        "ok": True,
+        "engine_id": engine_id,
+        "requirements": _parse_requirements(req_text),
     }

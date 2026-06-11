@@ -30,6 +30,17 @@ os.environ["APP_TEST_MODE"] = "1"
 os.environ["DB_PATH"] = str(SESSION_TEMP / "test_audiobook_studio.db")
 os.environ["STUDIO_DB_PATH"] = str(SESSION_TEMP / "test_studio.db")
 os.environ["STATE_FILE"] = str(SESSION_TEMP / "test_state.json")
+
+# Session-default DB env. Several test fixtures repoint these env vars (and even
+# reload app.db.core) to per-test temp databases without restoring them, which
+# made render-history / DB assertions order-dependent. The autouse fixture below
+# resets these to the session defaults before every test; per-test fixtures that
+# need their own DB still override afterward (they run after the autouse fixture).
+_SESSION_DB_ENV = {
+    "DB_PATH": os.environ["DB_PATH"],
+    "STUDIO_DB_PATH": os.environ["STUDIO_DB_PATH"],
+    "STATE_FILE": os.environ["STATE_FILE"],
+}
 os.environ["UPLOAD_DIR"] = str(SESSION_TEMP / "uploads")
 os.environ["REPORT_DIR"] = str(SESSION_TEMP / "reports")
 os.environ["VOICES_DIR"] = str(SESSION_TEMP / "voices")
@@ -109,6 +120,17 @@ def _cleanup_test_runtime():
         set_paused(False)
         get_gpu_gate().reset()
         get_exclusive_gate().reset()
+    except Exception:
+        pass
+    # Join any lingering progress-heartbeat daemon threads so they cannot leak
+    # across tests (they stop quickly once their context manager exits, but a
+    # slow final report under coverage can outlive the 0.5s join in the task).
+    try:
+        import threading
+        current = threading.current_thread()
+        for t in threading.enumerate():
+            if t is not current and t.name.startswith("heartbeat-") and t.is_alive():
+                t.join(timeout=1.0)
     except Exception:
         pass
 
@@ -207,8 +229,26 @@ def clean_storage():
     """
     _cleanup_test_runtime()
 
+    # Reset DB env to the session defaults so a prior test's per-test DB (set via
+    # os.environ without restore) cannot leak into this one.
+    os.environ.update(_SESSION_DB_ENV)
+
     # Initialize/Reset the database
     init_db()
+
+    # The studio DB is shared for the whole session; init_db() does not clear the
+    # render_performance_samples table, so it would otherwise accumulate across tests
+    # and make render-history assertions order-dependent. Reset it each test.
+    try:
+        from app.db.core import get_studio_connection
+        _studio_conn = get_studio_connection()
+        try:
+            _studio_conn.execute("DELETE FROM render_performance_samples")
+            _studio_conn.commit()
+        finally:
+            _studio_conn.close()
+    except Exception:
+        pass
 
     # Clear in-memory state and state.json
     clear_all_jobs()

@@ -11,6 +11,7 @@ from ...db import (
     add_to_queue as db_add_to_queue, get_chapter_segments,
     get_connection
 )
+from ...db.queue import upsert_queue_row
 
 from ...orchestration.scheduler.resources import set_paused
 from ...db.models import Job
@@ -300,7 +301,8 @@ def api_add_to_queue(
             else:
                 temp_filename = f"chapter_{split_part}.txt"
 
-            temp_path = chapter_dir / temp_filename
+            from ...utils.pathing import secure_join_flat as _secure_join_flat
+            temp_path = _secure_join_flat(chapter_dir, temp_filename)
             temp_path.write_text(text_content or "", encoding="utf-8", errors="replace")
 
             segs = get_chapter_segments(chapter_id)
@@ -352,6 +354,15 @@ def api_add_to_queue(
             )
 
             put_job(j)
+            upsert_queue_row(
+                qid,
+                project_id=project_id,
+                chapter_id=chapter_id,
+                split_part=split_part,
+                status="queued",
+                custom_title=display_title,
+                engine=queue_engine,
+            )
 
             make_mp3 = bool(settings.get("make_mp3", False))
             audio_filename = f"{Path(temp_filename).stem}.mp3" if make_mp3 else f"{Path(temp_filename).stem}.wav"
@@ -466,6 +477,14 @@ def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
         custom_title=display_title,
     )
     put_job(j)
+    upsert_queue_row(
+        jid,
+        project_id=project_id,
+        chapter_id=chapter_id,
+        status="queued",
+        custom_title=display_title,
+        engine=queue_engine,
+    )
 
     make_mp3 = bool(settings.get("make_mp3", False))
     audio_filename = f"{chapter_id}_0.mp3" if make_mp3 else f"{chapter_id}_0.wav"
@@ -656,6 +675,15 @@ def api_generate_segments(
     broadcast_chapter_updated(chapter_id)
 
     put_job(job)
+    upsert_queue_row(
+        jid,
+        project_id=project_id,
+        chapter_id=chapter_id,
+        status="queued",
+        custom_title=segment_custom_title,
+        engine=queue_engine,
+        segment_ids=sids,
+    )
 
     orchestrator = create_orchestrator()
     task = SynthesisTask(

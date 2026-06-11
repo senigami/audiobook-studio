@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useDeferredWhileHeld } from '@/hooks/useDeferredWhileHeld';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { api } from '@/api';
 import type { Job, SegmentProgress, TtsEngine, SpeakerProfile } from '@/types';
@@ -18,6 +19,7 @@ import { PlaybackControls } from '@/pages/ChapterEditor/components/PlaybackContr
 // Extracted Hooks
 import { useChapterPlayback } from '@/hooks/useChapterPlayback';
 import { useChapterEditor } from '@/hooks/useChapterEditor';
+import { useSegmentHandoffQueue, getHandoffTransitions, recordExternalHandoffEvent } from '@/hooks/useSegmentHandoffQueue';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '@/utils/voiceProfiles';
 import { buildChunkGroups } from '@/utils/chunkGroups';
 import { getRawActiveRenderProgress } from '@/utils/chapterRenderProgress';
@@ -60,6 +62,24 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   segmentUpdate,
   chapterUpdate
 }) => {
+  // Terminal-burst refetches land ~300–500ms after the job-done frame — exactly while the
+  // end-of-chapter completion animation + 500ms hold is mid-flight.  Gate the ticks so the
+  // full refetch (chapters + segments + scriptView) is deferred until the hold flushes,
+  // preventing main-thread jank from ScriptView re-renders during the animation.
+  // The handoff state is not yet available here (pageHandoff is created after
+  // useChapterEditor), so we maintain mirror state synced via effects below.
+  //
+  // Two different gates on purpose:
+  // - segmentUpdate defers only while a completion hold is pending (hasPending), so the
+  //   per-save mid-render refreshes keep flowing.
+  // - chapterUpdate (the heavy full reload) defers while ANY segment is still displayed:
+  //   the first terminal chapters.lifecycle tick arrives ~10ms BEFORE the job-done frame
+  //   that starts the hold, so gating it on hasPending alone would let it slip through.
+  const [handoffHeld, setHandoffHeld] = useState(false);
+  const [displayHeld, setDisplayHeld] = useState(false);
+  const deferredSegmentUpdate = useDeferredWhileHeld(segmentUpdate, handoffHeld);
+  const deferredChapterUpdate = useDeferredWhileHeld(chapterUpdate, displayHeld);
+
   const {
     chapter,
     title, setTitle,
@@ -86,7 +106,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     handleUpdateCharacterColor,
     handleGenerate,
     executeQueue
-  } = useChapterEditor(chapterId, projectId, speakerProfiles, speakers, engines, chapterJobs, segmentUpdate, chapterUpdate);
+  } = useChapterEditor(chapterId, projectId, speakerProfiles, speakers, engines, chapterJobs, deferredSegmentUpdate, deferredChapterUpdate);
 
   const [editorTab, setEditorTab] = useState<ChapterEditorTab>('script');
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
@@ -152,10 +172,83 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   }, [job, chapter?.audio_status, chapterJobs]);
 
 
-  const chapterRenderActiveSegmentId = job?.active_segment_id || generatingSegmentJob?.active_segment_id || null;
+  const rawActiveSegmentId = job?.active_segment_id || generatingSegmentJob?.active_segment_id || null;
 
-  // When the active segment changes the header bar remounts with key={...segmentId...} and
-  // resets to 0. Mirror that reset here so letters don't show stale progress.
+  // Segment handoff queue at the page level: one instance drives BOTH the header
+  // progress bar and the script text highlight.  We feed it the raw job's active segment
+  // so it can hold the outgoing segment's identity and progress until the visual bar
+  // reaches 100%, ensuring the text fill completes before the highlight moves.
+  const rawActiveSegmentProgress = rawActiveSegmentId && typeof job?.active_segment_progress === 'number'
+    ? Math.max(0, Math.min(1, job.active_segment_progress))
+    : 0;
+  const pageHandoff = useSegmentHandoffQueue({
+    jobId: job?.id ?? '',
+    segmentId: rawActiveSegmentId ?? 'none',
+    progress: rawActiveSegmentProgress,
+    status: job?.status,
+    etaSeconds: rawActiveSegmentId && typeof job?.active_segment_eta_seconds === 'number'
+      ? job.active_segment_eta_seconds : null,
+    updatedAt: rawActiveSegmentId && typeof job?.active_segment_updated_at === 'number'
+      ? job.active_segment_updated_at : null,
+  });
+
+  // Record job status transitions into the handoff ring for debug correlation.
+  useEffect(() => {
+    if (job?.status) {
+      recordExternalHandoffEvent('job_status', { status: job.status, jobId: job.id });
+    }
+  }, [job?.status, job?.id]);
+
+  // Keep the gate mirrors in sync with the handoff state. handoffHeld gates segment
+  // ticks during the completion hold; displayHeld gates the heavy chapter reload while
+  // any segment is still displayed (render in progress OR hold in flight).
+  useEffect(() => {
+    setHandoffHeld(pageHandoff.hasPending);
+  }, [pageHandoff.hasPending]);
+  useEffect(() => {
+    setDisplayHeld(pageHandoff.hasPending || pageHandoff.displayedSegmentId !== 'none');
+  }, [pageHandoff.hasPending, pageHandoff.displayedSegmentId]);
+
+  // Log deferred tick events into the handoff debug ring.
+  useEffect(() => {
+    if (handoffHeld && segmentUpdate !== undefined) {
+      recordExternalHandoffEvent('tick_deferred', { kind: 'segment', tick: segmentUpdate.tick });
+    }
+   
+  }, [segmentUpdate?.tick]);
+
+  useEffect(() => {
+    if (displayHeld && chapterUpdate !== undefined) {
+      recordExternalHandoffEvent('tick_deferred', { kind: 'chapter', tick: chapterUpdate.tick });
+    }
+   
+  }, [chapterUpdate?.tick]);
+
+  useEffect(() => {
+    if (!handoffHeld && deferredSegmentUpdate !== segmentUpdate && segmentUpdate !== undefined) {
+      recordExternalHandoffEvent('tick_released', { kind: 'segment', tick: deferredSegmentUpdate?.tick });
+    }
+   
+  }, [handoffHeld]);
+
+  useEffect(() => {
+    if (!displayHeld && deferredChapterUpdate !== chapterUpdate && chapterUpdate !== undefined) {
+      recordExternalHandoffEvent('tick_released', { kind: 'chapter', tick: deferredChapterUpdate?.tick });
+    }
+   
+  }, [displayHeld]);
+
+  // The "active segment" used to drive the script view highlight and batch progress.
+  // During the handoff hold (outgoing segment completing), this stays on the outgoing
+  // segment so the text fill reaches 100% before the highlight moves to the next segment.
+  const chapterRenderActiveSegmentId = pageHandoff.hasPending || pageHandoff.displayedSegmentId !== 'none'
+    ? (pageHandoff.displayedSegmentId !== 'none' ? pageHandoff.displayedSegmentId : rawActiveSegmentId)
+    : rawActiveSegmentId;
+
+  // Reset the animated fill when the DISPLAYED segment changes (not the raw one):
+  // during a handoff hold the displayed segment stays on the outgoing segment, so
+  // its fill keeps animating to 100%; the reset lands exactly when the next
+  // segment mounts, so it starts at 0 instead of inheriting the previous fill.
   useEffect(() => {
     setLiveBarSegmentProgress(0);
   }, [chapterRenderActiveSegmentId]);
@@ -191,7 +284,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
 
   const chapterRenderRenderingSegmentIds = useMemo(() => {
     const ids = new Set<string>();
-    if (!isChapterProcessing) return ids;
+    if (!isChapterProcessing && !pageHandoff.hasPending) return ids;
 
     // 1. Add optimistic highlights for segments being queued,
     // but only if they aren't already being handled by an active job's batch rendering
@@ -214,7 +307,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     }
 
     return ids;
-  }, [isChapterProcessing, generatingSegmentIds, liveSegmentJobIds, chapterRenderActiveSegmentId, chapterRenderActiveBatchSegmentIds]);
+  }, [isChapterProcessing, pageHandoff.hasPending, generatingSegmentIds, liveSegmentJobIds, chapterRenderActiveSegmentId, chapterRenderActiveBatchSegmentIds]);
 
   const chapterRenderQueuedSegmentIds = useMemo(() => {
     if (!job || !['queued', 'preparing', 'running'].includes(job.status)) return new Set<string>();
@@ -257,7 +350,9 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     const activeJob = generatingSegmentJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingSegmentJob.status)
       ? generatingSegmentJob
       : (job && ['queued', 'preparing', 'running', 'finalizing'].includes(job.status) ? job : null);
-    const activeSpanId = activeJob?.active_segment_id;
+    // Use the handoff-aware active segment id so that during a hold the outgoing segment's
+    // batch gets the progress value (not the newly-started segment's batch).
+    const activeSpanId = chapterRenderActiveSegmentId;
     if (!activeSpanId || chapterRenderRenderingSegmentIds.size === 0) return progressById;
 
     const activeBatch = scriptViewData?.render_batches?.find(batch =>
@@ -266,9 +361,15 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     if (!activeBatch) return progressById;
 
     const rawProgress = getRawActiveRenderProgress(activeJob, 0);
-    progressById[activeBatch.id] = liveBarSegmentProgress > 0 ? liveBarSegmentProgress : rawProgress;
+    // The text fill must follow the bar's ANIMATED display value (fed back via
+    // onSegmentDisplayProgress), never the raw stepped data — raw frames arrive in
+    // ~16% jumps and would kill the predictive letter animation. The handoff decides
+    // WHICH segment gets the fill (chapterRenderActiveSegmentId above); during a hold
+    // the bar's data is driven to 1.0, so this animated value keeps climbing to 100%.
+    const effectiveProgress = liveBarSegmentProgress > 0 ? liveBarSegmentProgress : rawProgress;
+    progressById[activeBatch.id] = effectiveProgress;
     return progressById;
-  }, [chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans, liveBarSegmentProgress]);
+  }, [chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans, liveBarSegmentProgress, chapterRenderActiveSegmentId]);
 
 
   const {
@@ -583,6 +684,12 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
             }));
         })(),
       },
+      handoffTransitions: getHandoffTransitions(),
+      handoffState: {
+        displayedSegmentId: pageHandoff.displayedSegmentId,
+        displayedProgress: pageHandoff.displayedProgress,
+        hasPending: pageHandoff.hasPending,
+      },
       backend: (typeof window !== 'undefined' && (((window as any).__studioDebugSnapshots && (window as any).__studioDebugSnapshots.length > 0) || (window as any).__studioDebugLast)) ? {
         websocketDebugTrail: (window as any).__studioDebugSnapshots,
         lastSnapshot: (window as any).__studioDebugLast,
@@ -712,6 +819,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     onSegmentDisplayProgress={setLiveBarSegmentProgress}
                     onProgressBarDebugSnapshot={handleProgressBarDebugSnapshot}
                     status={status}
+                    handoffState={pageHandoff}
                   />
                 </EditorTabs>
 

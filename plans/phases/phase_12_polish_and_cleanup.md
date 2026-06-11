@@ -13,7 +13,7 @@
 | **VCR Controls** | **Complete** | VCR-style chapter playback controls added to Chapter Editor. |
 | **Queue Metadata** | **Complete** | Completed jobs show generated audio duration and content metrics. |
 | **Library list view and sorting** | **Complete** | Added list view and sort options to the Library main page. |
-| **Voice and plugin UX** | **Partial** | Dependency installation feedback and XTTS resolution complete. Voxtral chapter rendering and voice icons/tags remain open. |
+| **Voice and plugin UX** | **Partial** | Dependency installation feedback and XTTS resolution complete. Voxtral chapter rendering, voice icons/tags, and implementation of the documented Hugging Face voice bundle shape remain open. |
 | **Plugin-provided voice settings** | **Complete** | Per-voice plugin settings rendered in ScriptEditor via JsonSchemaForm. |
 | **Plugin boundary cleanup** | **Complete** | Core plugin code is portable; app-specific logic localized to adapters. |
 | **Legacy jobs API retirement** | **Complete** | Removed legacy request/response endpoints; WebSocket snapshots remain authoritative. |
@@ -33,9 +33,9 @@
 - [x] Fix plugin dependency installation UX (Install Deps button + feedback).
 - [x] Fix XTTS dependency detection and missing-package feedback.
 - [x] Surface plugin-defined per-voice controls in Voice Settings drawer/ScriptEditor.
-- [ ] Add voice image/icon upload and standardized 1:1 JPG processing.
-- [ ] Add searchable voice tags compatible with future search.
-- [ ] Align voice export bundles with Hugging Face-compatible layout.
+- [ ] Add voice image/icon upload and standardized 1:1 JPG processing, storing the result as the `voice.json.image` asset defined by `docs/specs/voice.schema.json`.
+- [ ] Add searchable voice tags and structured attributes backed by `docs/specs/voice-taxonomy.json`.
+- [ ] Align voice export bundles with the Hugging Face-compatible `voice.json` schema, `docs/specs/voice-bundle-template/`, generated README/frontmatter, preview sample widget, and engine asset references.
 - [ ] Implement Voxtral segment and bake rendering for chapter jobs.
 - [x] Audit default voice fallback so chapters do not silently default to Voxtral.
 - [x] Implement TTS plugin zip import/delete flows (Import done; Delete/Uninstall done).
@@ -46,6 +46,7 @@
 - [x] localize XTTS/Voxtral core logic for absolute portability.
 - [ ] Implement `check_output` interface in plugin adapters.
 - [ ] Update `app/jobs/reconcile.py` to use `engine.check_output(job)`.
+- [ ] Finalize plugin contract-version and callable-signature validation against the documented five-method StudioTTSEngine contract in `docs/handbook/content/plugin-sdk/engine-contract.json` and `docs/handbook/content/plugin-sdk/compatibility.json`.
 - [x] Retire legacy job request/response API endpoints.
 
 ### Documentation and Final Audit

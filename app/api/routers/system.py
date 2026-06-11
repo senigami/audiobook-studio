@@ -22,6 +22,24 @@ VOICES_DIR = config.VOICES_DIR
 
 logger = logging.getLogger(__name__)
 
+# Fields that hold secrets and must never be returned in plain text.
+_SECRET_FIELDS = {"tts_api_key"}
+# Sentinel returned to the client when a secret field is set.
+_REDACTED = "***"
+
+
+def _redact_settings(settings: dict) -> dict:
+    """Return a copy of *settings* with all secret fields redacted.
+
+    A field that is set (non-empty string) is replaced with ``'***'``.
+    A field that is unset/empty is replaced with ``''``.
+    """
+    out = dict(settings)
+    for field in _SECRET_FIELDS:
+        if field in out:
+            out[field] = _REDACTED if out[field] else ""
+    return out
+
 
 def get_voices_dir() -> Path:
     return VOICES_DIR
@@ -135,7 +153,7 @@ def api_home(
     return {
         "chapters": [],
         "jobs": jobs,
-        "settings": settings,
+        "settings": _redact_settings(settings),
         "engines": engines,
         "paused": is_paused(),
         "version": "2.0.0",
@@ -189,6 +207,13 @@ async def save_settings(
                     updates["default_engine"] = str(body["default_engine"]).strip().lower()
                 if "enabled_plugins" in body and isinstance(body["enabled_plugins"], dict):
                     updates["enabled_plugins"] = body["enabled_plugins"]
+                # Accept secret-field updates but silently ignore round-tripped
+                # redacted sentinel values so the real key is never overwritten.
+                for field in _SECRET_FIELDS:
+                    if field in body:
+                        new_val = str(body[field])
+                        if new_val != _REDACTED:
+                            updates[field] = new_val
         except Exception:
             logger.warning("Failed to parse JSON settings payload", exc_info=True)
 
@@ -217,7 +242,7 @@ async def save_settings(
     if updates:
         update_settings(updates)
 
-    return JSONResponse({"status": "ok", "settings": get_settings()})
+    return JSONResponse({"status": "ok", "settings": _redact_settings(get_settings())})
 
 
 @router.post("/system/render-stats/reset")

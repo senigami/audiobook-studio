@@ -38,6 +38,32 @@ def test_update_speaker_settings_traversal_blocked(mock_voices_root):
     meta = json.loads((outside_dir / "profile.json").read_text())
     assert "test_text" not in meta
 
+def test_new_profile_dir_traversal_rejected(mock_voices_root):
+    """_new_profile_dir must reject traversal names; nothing is created outside VOICES_DIR."""
+    from app.db.speakers import _new_profile_dir
+    import pytest
+
+    # "../x" goes through _profile_name_or_error first which rejects non-alphanumeric starts
+    with pytest.raises(ValueError):
+        _new_profile_dir(mock_voices_root, "../x")
+
+    # Confirm nothing was written outside voices_dir
+    outside = mock_voices_root.parent / "x"
+    assert not outside.exists()
+
+
+def test_new_profile_dir_traversal_variant_rejected(mock_voices_root):
+    """_new_profile_dir must reject traversal in the variant part of 'Speaker - ../escape'."""
+    from app.db.speakers import _new_profile_dir
+    import pytest
+
+    with pytest.raises(ValueError):
+        _new_profile_dir(mock_voices_root, "Speaker - ../escape")
+
+    outside = mock_voices_root.parent / "escape"
+    assert not outside.exists()
+
+
 def test_update_speaker_settings_success(mock_voices_root):
     profile_name = "SpeakerA"
     # Create V2 structure: voices/SpeakerA/Default/profile.json

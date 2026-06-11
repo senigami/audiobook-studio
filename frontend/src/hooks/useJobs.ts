@@ -16,6 +16,7 @@ import {
   copyRenderGroupFields,
   resolveEventUpdatedAt,
 } from '@/utils/jobEventAdapters';
+import { applyTerminalLifecycleReset } from '@/utils/jobEventUtils';
 
 const globalSegmentProgressUpdates: any[] = [];
 let nextSequenceNumber = 1;
@@ -41,6 +42,14 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
   const [loading, setLoading] = useState(true);
   const prevJobsRef = useRef<Record<string, Job>>({});
   const connected = useStudioSocketConnection();
+
+  // Keep callbacks in a ref so the subscribe effect below doesn't need them as deps.
+  // This prevents the subscription from tearing down and re-creating on every render
+  // when callers pass inline functions.
+  const callbacksRef = useRef({ onJobComplete, onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate });
+  useEffect(() => {
+    callbacksRef.current = { onJobComplete, onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate };
+  });
 
   const refreshJobs = useCallback(() => {
     if (connected) {
@@ -113,6 +122,8 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           if (updates.active_segment_eta_seconds !== undefined) nextUpdatesStale.active_segment_eta_seconds = updates.active_segment_eta_seconds;
           if (updates.active_segment_eta_basis !== undefined) nextUpdatesStale.active_segment_eta_basis = updates.active_segment_eta_basis;
           if (updates.active_segment_updated_at !== undefined) nextUpdatesStale.active_segment_updated_at = updates.active_segment_updated_at;
+          if (updates.hasSegmentSupport !== undefined) nextUpdatesStale.hasSegmentSupport = updates.hasSegmentSupport;
+          if (updates.has_segment_support !== undefined) nextUpdatesStale.has_segment_support = updates.has_segment_support;
           if (updates.project_id !== undefined) nextUpdatesStale.project_id = updates.project_id;
           if (updates.chapter_id !== undefined) nextUpdatesStale.chapter_id = updates.chapter_id;
           if (updates.segmentProgressSocketProvenance !== undefined) nextUpdatesStale.segmentProgressSocketProvenance = updates.segmentProgressSocketProvenance;
@@ -151,6 +162,8 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           (oldJob.progress ?? 0) <= 0;
 
         if (isSegmentJob) {
+          delete nextUpdates.classification;
+          delete nextUpdates.segment_ids;
           delete nextUpdates.eta_seconds;
           delete nextUpdates.eta_basis;
           delete nextUpdates.estimated_end_at;
@@ -283,18 +296,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           recordWebsocketDebugMessage('useJobs', data, raw, envelope);
           recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
           const lifecycleUpdates = adaptEventToJobUpdates(event);
-          if (['queued', 'preparing', 'finalizing', 'done', 'failed', 'cancelled'].includes(lifecycleUpdates.status || '')) {
-            lifecycleUpdates.eta_seconds = null;
-            lifecycleUpdates.eta_basis = null;
-            lifecycleUpdates.estimated_end_at = null;
-            lifecycleUpdates.active_segment_id = null;
-            lifecycleUpdates.active_segment_progress = 0;
-            lifecycleUpdates.active_segment_eta_seconds = null;
-            lifecycleUpdates.active_segment_eta_basis = null;
-            lifecycleUpdates.active_segment_updated_at = null;
-            lifecycleUpdates.active_render_batch_id = null;
-            lifecycleUpdates.active_render_batch_progress = null;
-          }
+          applyTerminalLifecycleReset(lifecycleUpdates, lifecycleUpdates.status);
           if (event.jobId) {
             applyJobUpdatedEvent({
               job_id: event.jobId,
@@ -304,7 +306,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           const reasonCode = payload.reasonCode ?? payload.reason_code;
           if (reasonCode === 'QUEUE_INVALIDATED') {
             refreshJobs();
-            if (onQueueUpdate) onQueueUpdate();
+            if (callbacksRef.current.onQueueUpdate) callbacksRef.current.onQueueUpdate();
           }
           break;
         }
@@ -317,7 +319,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           } else {
             recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
             if (event.eventKind === 'queue_paused') {
-              if (onPauseUpdate) onPauseUpdate(payload.paused ?? data.paused);
+              if (callbacksRef.current.onPauseUpdate) callbacksRef.current.onPauseUpdate(payload.paused ?? data.paused);
             } else if (event.jobId) {
               applyJobUpdatedEvent({
                 job_id: event.jobId,
@@ -346,7 +348,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
           recordLiveEventSubscriberObservation(envelope?.frameId, 'chapter-state', 'handled');
           const chapterId = event.chapterId || data.chapter_id;
-          if (onChapterUpdate && chapterId) onChapterUpdate(chapterId);
+          if (callbacksRef.current.onChapterUpdate && chapterId) callbacksRef.current.onChapterUpdate(chapterId);
           break;
         }
 
@@ -389,7 +391,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
 
             const rawEta = getVal('etaSeconds', 'eta_seconds');
             const rawEtaBasis = getVal('etaBasis', 'eta_basis');
-            const rawStarted = getVal('startedAt', 'started_at');
+            const rawHasSegmentSupport = getVal('hasSegmentSupport', 'has_segment_support');
             const parsedSegmentEta = rawEta === null || rawEta === undefined
               ? null
               : (typeof rawEta === 'number' ? rawEta : Number(rawEta));
@@ -404,6 +406,8 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
               active_segment_eta_seconds: segmentProg != null ? segmentEtaSeconds : null,
               active_segment_eta_basis: segmentProg != null && segmentEtaSeconds != null ? (rawEtaBasis || 'remaining_from_update') : null,
               active_segment_updated_at: segmentProg != null ? resolveEventUpdatedAt(event, payload) : null,
+              hasSegmentSupport: typeof rawHasSegmentSupport === 'boolean' ? rawHasSegmentSupport : undefined,
+              has_segment_support: typeof rawHasSegmentSupport === 'boolean' ? rawHasSegmentSupport : undefined,
               status: projectedStatus,
               reason_code: rawReasonCode,
               log: payload.message || payload.log,
@@ -412,10 +416,10 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
               db_started_at: typeof rawStartedAt === 'number' ? rawStartedAt : (typeof rawStartedAt === 'string' ? Date.parse(rawStartedAt) / 1000 : undefined),
             };
 
-            const segmentStartedAt = rawStarted !== undefined
-              ? (typeof rawStarted === 'number'
-                ? rawStarted
-                : (typeof rawStarted === 'string' ? Date.parse(rawStarted) / 1000 : rawStarted))
+            const segmentStartedAt = rawStartedAt !== undefined
+              ? (typeof rawStartedAt === 'number'
+                ? rawStartedAt
+                : (typeof rawStartedAt === 'string' ? Date.parse(rawStartedAt) / 1000 : rawStartedAt))
               : null;
 
             const trace = {
@@ -446,6 +450,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
                 activeSegmentProgress: segmentProg ?? null,
                 etaSeconds: projectedUpdates.active_segment_eta_seconds !== null && projectedUpdates.active_segment_eta_seconds !== undefined ? projectedUpdates.active_segment_eta_seconds : null,
                 eta_basis: projectedUpdates.active_segment_eta_basis || null,
+                hasSegmentSupport: projectedUpdates.hasSegmentSupport ?? null,
                 started_at: segmentStartedAt,
                 status: projectedStatus || null,
                 progress: payload.progress ?? null,
@@ -493,7 +498,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           recordWebsocketDebugMessage('useJobs', data, raw, envelope);
           recordLiveEventSubscriberObservation(envelope?.frameId, 'segment-state', 'handled');
           const chapterId = event.chapterId || data.chapter_id;
-          if (onSegmentsUpdate && chapterId) onSegmentsUpdate(chapterId);
+          if (callbacksRef.current.onSegmentsUpdate && chapterId) callbacksRef.current.onSegmentsUpdate(chapterId);
           break;
         }
 
@@ -517,14 +522,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         }
       }
     });
-  }, [
-    applyJobUpdatedEvent,
-    refreshJobs,
-    onQueueUpdate,
-    onPauseUpdate,
-    onSegmentsUpdate,
-    onChapterUpdate,
-  ]);
+  }, [applyJobUpdatedEvent, refreshJobs]);
 
 
   // Monitor jobs for completions to trigger global data refresh
@@ -536,17 +534,17 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
     });
 
     if (hasNewCompletion) {
-      onJobComplete?.();
+      callbacksRef.current.onJobComplete?.();
     }
     prevJobsRef.current = jobs;
-  }, [jobs, onJobComplete]);
+  }, [jobs]);
 
+  // Snapshot hydration is event-driven only: once on (re)connect, plus explicit
+  // refreshJobs() calls on queue-invalidation events. No periodic polling — the
+  // live event stream is the source of truth between snapshots.
   useEffect(() => {
     refreshJobs();
-    // Fallback polling: infrequent if WS is up, frequent if down
-    const timer = setInterval(refreshJobs, connected ? 60000 : 5000);
-    return () => clearInterval(timer);
-  }, [refreshJobs, connected]);
+  }, [refreshJobs]);
 
   return { jobs, loading, refreshJobs, testProgress, segmentProgress, segmentProgressUpdates: globalSegmentProgressUpdates };
 };

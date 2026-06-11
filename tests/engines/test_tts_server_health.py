@@ -64,7 +64,8 @@ class TestEngineStatus:
         plugin = _MockPlugin()
         plugin.engine = BrokenEngine()
         assert engine_status(plugin) == STATUS_NEEDS_SETUP
-        assert "check_env() crashed: crash" in plugin.setup_message
+        assert "check_env() crashed" in plugin.setup_message
+        assert "crash\"" not in plugin.setup_message and ": crash" not in plugin.setup_message  # exception text must not leak
 
     def test_needs_setup_when_check_env_fails_with_message(self):
         class FailingEngine:

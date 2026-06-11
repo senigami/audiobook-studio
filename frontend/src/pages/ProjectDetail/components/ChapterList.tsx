@@ -122,7 +122,6 @@ export const ChapterList: React.FC<ChapterListProps> = ({
             ? (((completedRenderWeight + (activeRenderGroupWeight * activeGroupProgress)) / totalRenderWeight) * 0.9)
             : 0;
           const backendGroupedProgress = activeJob?.grouped_progress ?? 0;
-          const evidenceWeightFraction = totalRenderWeight > 0 ? (activeRenderGroupWeight / totalRenderWeight) : 1;
           const progressValue = displayStatus === 'finalizing'
             ? 1
             : activeJob ? Math.max(activeJob.progress ?? 0, backendGroupedProgress, weightedGroupedProgress) : 0;
@@ -251,7 +250,6 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           predictive={true}
                           allowBackwardProgress={!isGroupedChapterJob}
                           checkpointMode={isGroupedChapterJob ? 'queue' : (isMainQueueSegmentItem(activeJob) ? 'segment' : 'default')}
-                          evidenceWeightFraction={isGroupedChapterJob ? evidenceWeightFraction : 1}
                           transitionTickCount={
                             isGroupedChapterJob
                                 ? 12

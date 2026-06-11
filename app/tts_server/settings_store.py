@@ -14,11 +14,41 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
+import re
 import time
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+_ENGINE_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
+
+
+def _contained_path(base: "Path | str", *parts: str) -> Path:
+    """Private copy of the containment helper for the tts_server layer.
+
+    Uses normpath+startswith — the form recognized by static analyzers as a
+    path-injection barrier.
+    """
+    base_norm = os.path.normpath(str(base))
+    candidate = os.path.normpath(os.path.join(base_norm, *parts))
+    if candidate != base_norm and not candidate.startswith(base_norm + os.sep):
+        raise ValueError("path escapes containment root")
+    return Path(candidate)
+
+
+def validate_engine_id(engine_id: str) -> None:
+    """Raise ValueError if *engine_id* is not a safe, well-formed identifier.
+
+    Valid engine ids match ``^[a-z][a-z0-9_-]{0,63}$``.  This blocks path
+    traversal strings such as ``../x``, ``a/b``, or ``..`` before they reach
+    the filesystem.
+    """
+    if not _ENGINE_ID_RE.match(engine_id):
+        raise ValueError(
+            f"Invalid engine_id {engine_id!r}: must match ^[a-z][a-z0-9_-]{{0,63}}$"
+        )
 
 
 def _engine_id_from_plugin_dir(plugin_dir: Path) -> str:
@@ -37,7 +67,10 @@ def _runtime_dir(plugin_dir: Path) -> Path:
 
 
 def _runtime_file(plugin_dir: Path, filename: str) -> Path:
-    return _runtime_dir(plugin_dir) / filename
+    from app.core.config import PLUGIN_DATA_DIR  # noqa: PLC0415
+
+    engine_id = _engine_id_from_plugin_dir(plugin_dir)
+    return _contained_path(PLUGIN_DATA_DIR, engine_id, filename)
 
 
 def load_settings(plugin_dir: Path) -> dict[str, Any]:

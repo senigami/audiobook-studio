@@ -55,6 +55,7 @@ export type LiveEventKind =
   | 'voice_test_progress'
   | 'system_event'
   | 'plugin_event'
+  | 'control'
   | 'unknown'
   | string;
 
@@ -398,6 +399,15 @@ export const normalizeStudioSocketEnvelope = (envelope: StudioSocketEnvelope): L
   if (!isRecord(envelope.data)) return normalizeUnknown(envelope, envelope.data);
 
   const type = rawTypeFor(envelope.data);
+
+  if (type === 'jobs_snapshot' || type === 'jobs_snapshot_request') {
+    return baseEvent(envelope, envelope.data as Record<string, unknown>, {
+      topic: 'system.events',
+      category: 'system',
+      eventKind: 'control',
+      payload: envelope.data,
+    }) as any;
+  }
 
   if (type === 'studio_event') {
     const data = envelope.data as any;

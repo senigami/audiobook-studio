@@ -55,7 +55,8 @@ class TestVerificationIsolation:
 
         result = verify_plugin(plugin)
         assert result.ok is False
-        assert "run_test() raised: run_test crash" in result.error
+        assert "run_test() raised an unhandled exception" in result.error
+        assert "run_test crash" not in result.error  # exception text must not leak
 
     def test_verify_does_not_depend_on_studio_voices(self, tmp_path):
         """Verification must not call into Studio voice resolution logic."""

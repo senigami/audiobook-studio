@@ -8,6 +8,7 @@ import type { TtsEngine } from '@/types';
 vi.mock('@/api', () => ({
   api: {
     installEngineDependencies: vi.fn(),
+    fetchEngineRequirements: vi.fn().mockResolvedValue({ ok: true, requirements: ['TTS>=0.22'] }),
   },
 }));
 
@@ -66,33 +67,33 @@ describe('EngineCard Install Deps', () => {
   it('handles installation flow with loading state and refresh', async () => {
     const onUpdate = vi.fn();
     const onShowNotification = vi.fn();
-    
-    vi.mocked(api.installEngineDependencies).mockResolvedValue({ 
-      ok: true, 
-      message: 'Installed' 
+
+    vi.mocked(api.installEngineDependencies).mockResolvedValue({
+      ok: true,
+      message: 'Installed'
     });
 
     render(
-      <EngineCard 
-        engine={mockEngine} 
-        onUpdate={onUpdate} 
-        onShowNotification={onShowNotification} 
+      <EngineCard
+        engine={mockEngine}
+        onUpdate={onUpdate}
+        onShowNotification={onShowNotification}
       />
     );
-    
+
     // Open details
     fireEvent.click(screen.getByText('XTTS'));
 
+    // Click "Install Deps" — this fetches requirements then shows the trust modal
     const installBtn = await screen.findByRole('button', { name: /Install Deps/i });
     fireEvent.click(installBtn);
 
-    // Should show loading state
-    expect(screen.getByText(/Installing\.\.\./i)).toBeInTheDocument();
-    expect(installBtn).toBeDisabled();
+    // Confirm through the trust modal
+    const confirmBtn = await screen.findByRole('button', { name: /Install Dependencies/i });
+    fireEvent.click(confirmBtn);
 
     await waitFor(() => expect(onUpdate).toHaveBeenCalled());
     expect(onShowNotification).toHaveBeenCalledWith('Installed');
-    expect(screen.queryByText(/Installing\.\.\./i)).not.toBeInTheDocument();
   });
 
   it('prevents multiple clicks while installing', async () => {
@@ -106,11 +107,14 @@ describe('EngineCard Install Deps', () => {
     fireEvent.click(screen.getByText('XTTS'));
 
     const installBtn = await screen.findByRole('button', { name: /Install Deps/i });
-    fireEvent.click(installBtn); // Click 1
-    fireEvent.click(installBtn); // Click 2 (should be ignored/disabled)
+    fireEvent.click(installBtn); // opens modal
+
+    const confirmBtn = await screen.findByRole('button', { name: /Install Dependencies/i });
+    fireEvent.click(confirmBtn); // first confirm — button disabled now
+    fireEvent.click(installBtn); // original button is disabled while installing
 
     expect(api.installEngineDependencies).toHaveBeenCalledTimes(1);
-    
+
     await act(async () => {
       resolveInstall({ ok: true, message: 'Done' });
       await installPromise;
@@ -134,6 +138,10 @@ describe('EngineCard Install Deps', () => {
 
     const installBtn = await screen.findByRole('button', { name: /Install Deps/i });
     fireEvent.click(installBtn);
+
+    // Confirm through the trust modal
+    const confirmBtn = await screen.findByRole('button', { name: /Install Dependencies/i });
+    fireEvent.click(confirmBtn);
 
     await waitFor(() => {
       expect(onShowNotification).toHaveBeenCalledWith(

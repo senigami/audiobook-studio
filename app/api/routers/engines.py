@@ -1,10 +1,82 @@
+import logging
+import os
+import re
 from pathlib import Path
 from typing import Any, Optional
 from fastapi import APIRouter, Body, File, UploadFile
 from fastapi.responses import JSONResponse, FileResponse
 from ...engines.bridge import create_voice_bridge
+from ...utils.pathing import contained_path
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/engines", tags=["engines"])
+
+# ---------------------------------------------------------------------------
+# Input-validation helpers
+# ---------------------------------------------------------------------------
+
+# Matches plugin folder suffixes like "tts_<name>" where <name> is 2–15
+# lowercase alphanumeric chars (same rule as _PLUGIN_FOLDER_RE in plugin_loader).
+_PLUGIN_FOLDER_RE = re.compile(r"^tts_[a-z][a-z0-9]{1,14}$")
+
+# Broader engine-id regex for routes that accept engine ids that may come from
+# the TTS Server registry (allows hyphens/underscores, up to 64 chars).
+_ENGINE_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
+
+
+def _check_engine_id(engine_id: str) -> Optional[JSONResponse]:
+    """Return a 400 JSONResponse if *engine_id* fails the strict format check.
+
+    Returns None when the id is acceptable so callers can do::
+
+        if err := _check_engine_id(engine_id):
+            return err
+    """
+    if not _ENGINE_ID_RE.match(engine_id):
+        return JSONResponse(
+            {"status": "error", "message": "Invalid engine_id format"},
+            status_code=400,
+        )
+    return None
+
+
+def _safe_resolve_plugin_dir(
+    *, engine_id: str, module_path: str
+) -> "tuple[Optional[Path], Optional[JSONResponse]]":
+    """Resolve the plugin directory and assert it stays inside PLUGINS_DIR.
+
+    Returns ``(path, None)`` on success or ``(None, error_response)`` on failure.
+    """
+    from app.core.config import PLUGINS_DIR  # noqa: PLC0415
+
+    plugin_dir = _resolve_plugin_dir(engine_id=engine_id, module_path=module_path)
+    if plugin_dir is None:
+        return None, JSONResponse(
+            {"ok": False, "message": "Could not resolve plugin directory"},
+            status_code=404,
+        )
+
+    try:
+        plugin_dir = contained_path(PLUGINS_DIR, plugin_dir.name)
+    except ValueError:
+        logger.warning(
+            "Plugin dir %s escapes PLUGINS_DIR %s for engine_id %r",
+            plugin_dir,
+            PLUGINS_DIR,
+            engine_id,
+        )
+        return None, JSONResponse(
+            {"ok": False, "message": "Could not resolve plugin directory"},
+            status_code=404,
+        )
+
+    return plugin_dir, None
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
 
 
 @router.get("")
@@ -14,10 +86,9 @@ def list_engines():
     bridge = create_voice_bridge()
     try:
         return bridge.describe_registry()
-    except EngineUnavailableError as exc:
-        # We no longer fall back to the local registry in production.
-        # This prevents masking TTS Server failures.
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable while listing engines", exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
 
 
 @router.put("/{engine_id}/settings")
@@ -28,13 +99,13 @@ def update_engine_settings(engine_id: str, settings: dict[str, Any] = Body(...))
     try:
         result = bridge.update_engine_settings(engine_id, settings)
         return JSONResponse(result)
-    except EngineUnavailableError as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable while updating settings for %r", engine_id, exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
     except NotImplementedError:
         return JSONResponse({"status": "error", "message": "Feature not implemented"}, status_code=501)
-    except Exception as exc:
-        import logging
-        logging.getLogger(__name__).error(f"Engine settings update failed: {exc}")
+    except Exception:
+        logger.exception("Engine settings update failed for %r", engine_id)
         return JSONResponse({"status": "error", "message": "Failed to update engine settings"}, status_code=500)
 
 
@@ -46,11 +117,11 @@ def clear_engine_setting(engine_id: str, setting_key: str):
     try:
         result = bridge.clear_engine_setting(engine_id, setting_key)
         return JSONResponse(result)
-    except EngineUnavailableError as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
-    except Exception as exc:
-        import logging
-        logging.getLogger(__name__).error(f"Engine setting reset failed: {exc}")
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable while clearing setting for %r", engine_id, exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
+    except Exception:
+        logger.exception("Engine setting reset failed for %r", engine_id)
         return JSONResponse({"status": "error", "message": "Failed to reset engine setting"}, status_code=500)
 
 
@@ -62,11 +133,11 @@ def refresh_plugins():
     try:
         result = bridge.refresh_plugins()
         return JSONResponse(result)
-    except EngineUnavailableError as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
-    except Exception as exc:
-        import logging
-        logging.getLogger(__name__).error(f"Plugin refresh failed: {exc}")
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable while refreshing plugins", exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
+    except Exception:
+        logger.exception("Plugin refresh failed")
         return JSONResponse({"status": "error", "message": "Failed to refresh plugins"}, status_code=500)
 
 
@@ -77,23 +148,30 @@ def verify_engine(engine_id: str):
     bridge = create_voice_bridge()
     try:
         return bridge.verify_engine(engine_id)
-    except EngineUnavailableError as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable while verifying %r", engine_id, exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
 
 
 @router.get("/{engine_id}/test/audio")
 def get_test_audio(engine_id: str):
     """Retrieve the latest test audio for an engine."""
+    if err := _check_engine_id(engine_id):
+        return err
+
     from ...engines.registry import load_engine_registry  # noqa: PLC0415
     registry = load_engine_registry()
     reg = registry.get(engine_id)
     if not reg:
         return JSONResponse({"ok": False, "message": "Engine not found"}, status_code=404)
 
-    plugin_dir = _resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
-    if not plugin_dir:
+    plugin_dir, err = _safe_resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
+    if err:
+        return err
+    try:
+        audio_path = contained_path(plugin_dir, "assets", "test_output.wav")
+    except ValueError:
         return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
-    audio_path = plugin_dir / "assets" / "test_output.wav"
 
     if not audio_path.exists():
         return JSONResponse({"ok": False, "message": "No test audio found"}, status_code=404)
@@ -103,6 +181,9 @@ def get_test_audio(engine_id: str):
 @router.post("/{engine_id}/test")
 def test_engine(engine_id: str):
     """Run a self-contained synthesis test on the engine."""
+    if err := _check_engine_id(engine_id):
+        return err
+
     from ...engines.errors import EngineUnavailableError
     bridge = create_voice_bridge()
 
@@ -118,10 +199,14 @@ def test_engine(engine_id: str):
         if not reg:
              return JSONResponse({"ok": False, "message": "Engine not found"}, status_code=404)
 
-        plugin_dir = _resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
-        if not plugin_dir:
-             return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
-        output_path = plugin_dir / "assets" / "test_output.wav"
+        plugin_dir, err = _safe_resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
+        if err:
+            return err
+        try:
+            output_path = contained_path(plugin_dir, "assets", "test_output.wav")
+            last_test_path = contained_path(plugin_dir, "assets", "last_test.json")
+        except ValueError:
+            return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
 
         if not output_path.exists():
              return JSONResponse({"ok": False, "message": "Test passed but output audio not found in plugin folder"}, status_code=404)
@@ -129,7 +214,6 @@ def test_engine(engine_id: str):
         import json
         import time
 
-        last_test_path = plugin_dir / "assets" / "last_test.json"
         last_test_path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "ok": True,
@@ -140,12 +224,12 @@ def test_engine(engine_id: str):
 
         return JSONResponse(payload)
 
-    except EngineUnavailableError as exc:
-        return JSONResponse({"ok": False, "message": str(exc)}, status_code=503)
-    except Exception as exc:
-        import logging
-        logging.getLogger(__name__).exception("Engine test failed")
-        return JSONResponse({"ok": False, "message": f"Engine test failed: {exc}"}, status_code=500)
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable while testing %r", engine_id, exc_info=True)
+        return JSONResponse({"ok": False, "message": "TTS Server is unavailable"}, status_code=503)
+    except Exception:
+        logger.exception("Engine test failed for %r", engine_id)
+        return JSONResponse({"ok": False, "message": "Engine test failed"}, status_code=500)
 
 
 @router.post("/{engine_id}/install")
@@ -156,18 +240,18 @@ def install_engine_dependencies(engine_id: str):
     bridge = create_voice_bridge()
     try:
         return bridge.install_dependencies(engine_id)
-    except EngineUnavailableError as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
-    except TtsServerError as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
-    except Exception as exc:
-        import logging
-
-        logging.getLogger(__name__).exception("Engine dependency installation failed")
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable while installing deps for %r", engine_id, exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
+    except TtsServerError:
+        logger.exception("TTS Server error installing deps for %r", engine_id)
+        return JSONResponse({"status": "error", "message": "Failed to install engine dependencies"}, status_code=500)
+    except Exception:
+        logger.exception("Engine dependency installation failed for %r", engine_id)
         return JSONResponse(
             {
                 "status": "error",
-                "message": f"Failed to install engine dependencies: {exc}",
+                "message": "Failed to install engine dependencies",
             },
             status_code=500,
         )
@@ -180,16 +264,124 @@ async def import_engine_plugin(file: UploadFile = File(...)):
     if not file.filename or not file.filename.lower().endswith(".zip"):
         return JSONResponse({"status": "error", "message": "Only .zip files are supported."}, status_code=400)
 
+    # Filename safety: must be a plain basename with no path separators.
+    safe_name = os.path.basename(file.filename)
+    if safe_name != file.filename:
+        return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=400)
+
     bridge = create_voice_bridge()
     try:
         content = await file.read()
-        return bridge.import_plugin(content, file.filename)
-    except TtsServerError as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
-    except Exception as exc:
-        import logging
-        logging.getLogger(__name__).exception("Plugin import failed")
-        return JSONResponse({"status": "error", "message": f"Plugin import failed: {exc}"}, status_code=500)
+        return bridge.import_plugin(content, safe_name)
+    except TtsServerError:
+        logger.exception("TTS Server error during plugin import")
+        return JSONResponse({"status": "error", "message": "Plugin import failed"}, status_code=500)
+    except Exception:
+        logger.exception("Plugin import failed")
+        return JSONResponse({"status": "error", "message": "Plugin import failed"}, status_code=500)
+
+
+@router.post("/preview")
+async def preview_engine_plugin(file: UploadFile = File(...)):
+    """Stage a plugin zip and return manifest metadata without installing.
+
+    Returns ``{ok, engine_id, display_name, version, requirements, staging_token}``.
+    Call ``POST /plugins/confirm/{token}`` to complete the install or
+    ``DELETE /plugins/staging/{token}`` to cancel.
+    """
+    from ...engines.errors import EngineUnavailableError
+    from ...engines.tts_client import TtsServerError
+
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        return JSONResponse({"status": "error", "message": "Only .zip files are supported."}, status_code=400)
+
+    safe_name = os.path.basename(file.filename)
+    if safe_name != file.filename:
+        return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=400)
+
+    bridge = create_voice_bridge()
+    try:
+        content = await file.read()
+        return bridge.preview_plugin(content, safe_name)
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable during plugin preview", exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
+    except TtsServerError:
+        logger.exception("TTS Server error during plugin preview")
+        return JSONResponse({"status": "error", "message": "Plugin preview failed"}, status_code=500)
+    except Exception:
+        logger.exception("Plugin preview failed")
+        return JSONResponse({"status": "error", "message": "Plugin preview failed"}, status_code=500)
+
+
+@router.post("/confirm/{token}")
+def confirm_engine_plugin(token: str):
+    """Complete a staged plugin import identified by staging_token."""
+    import re
+    from ...engines.errors import EngineUnavailableError
+    from ...engines.tts_client import TtsServerError
+
+    if not re.fullmatch(r"[0-9a-f]{32}", token):
+        return JSONResponse({"status": "error", "message": "Invalid staging token"}, status_code=400)
+
+    bridge = create_voice_bridge()
+    try:
+        return bridge.confirm_plugin_import(token)
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable during plugin confirm", exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
+    except TtsServerError:
+        logger.exception("TTS Server error during plugin confirm")
+        return JSONResponse({"status": "error", "message": "Plugin install failed"}, status_code=500)
+    except Exception:
+        logger.exception("Plugin confirm failed")
+        return JSONResponse({"status": "error", "message": "Plugin install failed"}, status_code=500)
+
+
+@router.delete("/staging/{token}")
+def cancel_engine_plugin_staging(token: str):
+    """Cancel and clean up a staged plugin import."""
+    import re
+    from ...engines.errors import EngineUnavailableError
+    from ...engines.tts_client import TtsServerError
+
+    if not re.fullmatch(r"[0-9a-f]{32}", token):
+        return JSONResponse({"status": "error", "message": "Invalid staging token"}, status_code=400)
+
+    bridge = create_voice_bridge()
+    try:
+        return bridge.cancel_plugin_staging(token)
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable during plugin staging cancel", exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
+    except TtsServerError:
+        logger.exception("TTS Server error during staging cancel")
+        return JSONResponse({"status": "error", "message": "Failed to cancel staging"}, status_code=500)
+    except Exception:
+        logger.exception("Plugin staging cancel failed")
+        return JSONResponse({"status": "error", "message": "Failed to cancel staging"}, status_code=500)
+
+
+@router.get("/{engine_id}/requirements")
+def get_engine_requirements(engine_id: str):
+    """Return the requirements.txt lines for an installed engine."""
+    if err := _check_engine_id(engine_id):
+        return err
+
+    from ...engines.errors import EngineUnavailableError
+    from ...engines.tts_client import TtsServerError
+    bridge = create_voice_bridge()
+    try:
+        return bridge.get_engine_requirements(engine_id)
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable while fetching requirements for %r", engine_id, exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
+    except TtsServerError:
+        logger.exception("TTS Server error fetching requirements for %r", engine_id)
+        return JSONResponse({"status": "error", "message": "Failed to fetch requirements"}, status_code=500)
+    except Exception:
+        logger.exception("Failed to fetch requirements for %r", engine_id)
+        return JSONResponse({"status": "error", "message": "Failed to fetch requirements"}, status_code=500)
 
 
 @router.delete("/{engine_id}")
@@ -206,22 +398,26 @@ def get_engine_logs(engine_id: str):
     bridge = create_voice_bridge()
     try:
         return bridge.get_logs(engine_id)
-    except EngineUnavailableError as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable while fetching logs for %r", engine_id, exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
 
 
 @router.get("/{engine_id}/dev/scenarios")
 def get_engine_scenarios(engine_id: str):
     """Fetch developer scenario fixtures for an engine."""
+    if err := _check_engine_id(engine_id):
+        return err
+
     from ...engines.registry import load_engine_registry  # noqa: PLC0415
     registry = load_engine_registry()
     reg = registry.get(engine_id)
     if not reg:
         return JSONResponse({"ok": False, "message": "Engine not found"}, status_code=404)
 
-    plugin_dir = _resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
-    if not plugin_dir:
-        return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
+    plugin_dir, err = _safe_resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
+    if err:
+        return err
 
     dev_config = getattr(reg.manifest, "dev", None)
     if dev_config is None:
@@ -234,9 +430,8 @@ def get_engine_scenarios(engine_id: str):
         return JSONResponse({"ok": False, "message": "No dev scenarios declared in manifest"}, status_code=404)
 
     # Path safety check
-    full_path = (plugin_dir / scenarios_path).resolve()
     try:
-        full_path.relative_to(plugin_dir.resolve())
+        full_path = contained_path(plugin_dir, scenarios_path)
     except ValueError:
         return JSONResponse({"ok": False, "message": "Scenario path escapes plugin directory"}, status_code=403)
 
@@ -247,7 +442,8 @@ def get_engine_scenarios(engine_id: str):
     try:
         data = json.loads(full_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        return JSONResponse({"ok": False, "message": f"Invalid JSON in scenarios file: {exc}"}, status_code=400)
+        logger.warning("Invalid JSON in scenarios file: %s", exc)
+        return JSONResponse({"ok": False, "message": "Invalid JSON in scenarios file"}, status_code=400)
 
     if not isinstance(data, dict):
         return JSONResponse({"ok": False, "message": "Scenarios file must be a JSON object at the root"}, status_code=400)
@@ -279,15 +475,18 @@ def get_engine_scenarios(engine_id: str):
 @router.get("/{engine_id}/assets/{asset_path:path}")
 def get_engine_asset(engine_id: str, asset_path: str):
     """Serve a static asset from a plugin's folder."""
+    if err := _check_engine_id(engine_id):
+        return err
+
     from ...engines.registry import load_engine_registry  # noqa: PLC0415
     registry = load_engine_registry()
     reg = registry.get(engine_id)
     if not reg:
         return JSONResponse({"ok": False, "message": "Engine not found"}, status_code=404)
 
-    plugin_dir = _resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
-    if not plugin_dir:
-        return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
+    plugin_dir, err = _safe_resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
+    if err:
+        return err
 
     # Security: only allow files inside assets/ and with specific extensions
     if not asset_path.startswith("assets/"):
@@ -297,9 +496,8 @@ def get_engine_asset(engine_id: str, asset_path: str):
     if Path(asset_path).suffix.lower() not in allowed_exts:
         return JSONResponse({"ok": False, "message": "Unsupported asset type"}, status_code=403)
 
-    full_path = (plugin_dir / asset_path).resolve()
     try:
-        full_path.relative_to(plugin_dir.resolve())
+        full_path = contained_path(plugin_dir, asset_path)
     except ValueError:
         return JSONResponse({"ok": False, "message": "Asset path escapes plugin directory"}, status_code=403)
 
@@ -330,7 +528,12 @@ def _resolve_plugin_dir(*, engine_id: str, module_path: str) -> Optional[Path]:
 
     parts = module_path.split(".")
     if len(parts) > 1 and parts[0] == "plugins":
-        return PLUGINS_DIR / parts[1]
+        folder = parts[1]
+        # Validate folder name against the plugin folder convention before
+        # using it to build a path.
+        if not _PLUGIN_FOLDER_RE.match(folder):
+            return None
+        return PLUGINS_DIR / folder
 
     safe_engine_id = "".join(ch for ch in engine_id if ch.isalnum() or ch in ("-", "_"))
     if safe_engine_id:
@@ -344,7 +547,6 @@ def reset_engine_calibration(engine_id: str, model: Optional[str] = None):
     """Reset calibration data (historical render samples and cached CPS) for an engine and optionally a model."""
     from app.db.performance import reset_engine_calibration_history
     from app.db.state_performance import clear_engine_cps_cache
-    import logging
 
     safe_engine_id = "".join(ch for ch in engine_id if ch.isalnum() or ch in ("-", "_"))
     if not safe_engine_id or safe_engine_id != engine_id:
@@ -354,6 +556,6 @@ def reset_engine_calibration(engine_id: str, model: Optional[str] = None):
         reset_engine_calibration_history(engine_id, model)
         clear_engine_cps_cache(engine_id)
         return JSONResponse({"status": "ok", "engine_id": engine_id})
-    except Exception as exc:
-        logging.getLogger(__name__).error("Failed to reset engine calibration: %s", exc, exc_info=True)
-        return JSONResponse({"status": "error", "message": f"Failed to reset calibration: {exc}"}, status_code=500)
+    except Exception:
+        logger.error("Failed to reset engine calibration for %r", engine_id, exc_info=True)
+        return JSONResponse({"status": "error", "message": "Failed to reset calibration"}, status_code=500)

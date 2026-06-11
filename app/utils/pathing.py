@@ -3,8 +3,25 @@ from pathlib import Path
 from typing import Optional
 
 
+def contained_path(base: "Path | str", *parts: str) -> Path:
+    """Join parts onto base and guarantee the result stays inside base.
+
+    Raises ValueError if the normalized path escapes base. This uses the
+    normpath+startswith form recognized by static analyzers as a
+    path-injection barrier.
+    """
+    base_norm = os.path.normpath(str(base))
+    candidate = os.path.normpath(os.path.join(base_norm, *parts))
+    if candidate != base_norm and not candidate.startswith(base_norm + os.sep):
+        raise ValueError("path escapes containment root")
+    return Path(candidate)
+
+
 def safe_basename(value: str) -> str:
-    return Path(value).name
+    name = Path(value).name
+    if not name or name in {".", ".."}:
+        raise ValueError(f"safe_basename produced an empty or dot-only result for: {value!r}")
+    return name
 
 
 def safe_stem(value: str) -> str:

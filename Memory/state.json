@@ -1,14 +1,13 @@
 {
-  "snapshot_version": 172,
-  "current_task": "Fix remaining PredictiveProgressBar terminal collapse bug using real QueueItem sequence",
-  "status": "terminal_collapse_and_parameter_retention_fixed",
+  "snapshot_version": 184,
+  "current_task": "Enable predictive animation and disable backward progress for segment progress",
+  "status": "predictive_segment_progress_verified",
   "last_committed_milestone": {
-    "title": "QueueItem terminal parameter retention during done-transition fixed",
-    "commit": "pending",
+    "title": "Segment progress bar predictive animation enabled and backward progress disabled",
+    "commit": "pending-checkpoint",
     "notes": [
-      "Synchronously derived active-to-done transition state (justTransitionedToDone) in QueueItem's render body to prevent state update lag from stripping startedAt/etaSeconds.",
-      "Replaced prevStatusRef ref-based tracking with React state-driven prevStatus/currentStatus updates to resolve the react-hooks/refs ESLint error.",
-      "Verified that all 56 Vitest timing and queue suite tests pass, including new production sequence regressions."
+      "Segment progress helper (progressBarContracts.ts) now sets predictive: true and allowBackwardProgress: false.",
+      "Associated unit tests in progressBarContracts.test.ts and ChapterHeaderProgressContract.test.tsx are updated and fully verified."
     ]
   },
   "active_constraints": [
@@ -46,6 +45,8 @@
     "Phase 12 item audit is complete. Verified complete: Library list/sort, Plugin dependency UX, Per-voice settings, Plugin boundary cleanup, Chapter Editor tab removal, VCR controls, Plugin ZIP import/delete, Queue output metadata, Legacy jobs API retirement.",
     "Chapter Editor live queue selection now prefers the active job over stale completed chapter jobs so live progress and queued spans stay visible without waiting for a reload.",
     "Chapter Editor progress no longer treats orphan active_segment_progress values as authoritative when active_segment_id is null; XTTS standard handler now suppresses pre-START_SEGMENT progress from active segment payloads.",
+    "Chapter Editor Segment Progress now ignores chapter progress, queue progress, render-batch progress, terminal job completion, and predictive timestamp math unless an active segments.progress contract frame or preserved segment provenance is present.",
+    "Segment progress now routes through buildSegmentProgressBarProps: no ETA prediction, no confidence-scaled visual targets, segment-keyed persistence, 3-tick local animation, and exact START_SEGMENT 0 percent handoffs.",
     "Phase 12 product backlog items such as voice icons, searchable voice tags, and Hugging Face-compatible export bundles remain open for the final polish pass.",
     "Chapter audio completion now recovers single-segment renders when stitching reports success but does not materialize the output WAV.",
     "Queue history now persists and renders failure reasons instead of only showing a generic failed status.",
@@ -73,7 +74,9 @@
     "QueueItem ETA source and updatedAt anchor selection is unified via explicit etaSource derivation, and the stabilization effect guards against overwriting live timestamps with older database values.",
     "DevProgressBar test harness is subscribed to segments.progress websocket events, displaying active source badges, full raw frame inspector JSON, and explicit ignored topics set (queue.items, chapters.progress, tts.logs) along with the last ignored event.",
     "Backend START_SEGMENT emissions now seed eta_seconds from the historical duration estimate so the first segment tick no longer starts with a null ETA, and the watchdog regression test covers that contract.",
-    "Progress consumer ingress is now audited: main queue ignores segment topics and rogue queue.items segment fields, segment progress ETA is preserved through stale timestamp paths, and synthetic handoff completions use SEGMENT_SAVED."
+    "Progress consumer ingress is now audited: main queue ignores segment topics and rogue queue.items segment fields, segment progress ETA is preserved through stale timestamp paths, and synthetic handoff completions use SEGMENT_SAVED.",
+    "Segment progress bar now uses predictive ticking animation (predictive=true) and prevents visual regressions by disabling backward progress (allowBackwardProgress=false).",
+    "Wiki pages now document the Phase 12 plugin-to-queue event stream contract, voice-test queue visibility rules, plugin Settings UX, WAV-first output behavior, per-voice plugin settings, voice bundle schema direction, Library list/sort controls, and Chapter Editor VCR playback."
   ],
   "phase_13_guidance": [
     "Phase 13 plan is plans/phases/phase_13_release_documentation_and_distribution.md.",
@@ -92,14 +95,14 @@
     "Prepare the voice icon and tagging implementation to improve large-library usability."
   ],
   "verification": {
-    "latest_backend_focus": "2026-06-04: Voice-sample START_SYNTHESIS timing aligned to real markers; pytest test_progress_logic.py (86 tests passed).",
-    "latest_frontend_focus": "2026-06-04: Fixed QueueItem terminal parameter retention and resolved ESLint react-hooks/refs errors; verified with Vitest timing/queue suites (56 tests passed).",
+    "latest_backend_focus": "2026-06-08: Fixed selected-segment queue identity persistence by storing processing_queue.segment_ids and passing selected ids from /api/segments/generate; verified generation, queue, websocket, DB queue, and progress regression suites passed.",
+    "latest_frontend_focus": "2026-06-09: Aligned segment progress with monotonic ETA-backed contract: no backward movement, visible segment ETA with 120s start default, ChapterHeader ETA forwarding, and segments.progress hasSegmentSupport preservation. Verified useJobs, progress contracts, PredictiveProgressBar lifecycle/transitions/timing, DevProgressBar, ChapterHeader segment contract, lint, build, and git diff --check.",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",
-    "latest_lint_focus": "2026-06-04: eslint passed on frontend with 7 existing warnings, ruff passed on backend.",
+    "latest_lint_focus": "2026-06-08: ruff passed for app/api/routers/generation.py and tests/api/test_api_generation.py; commit hook also ran Ruff/ESLint auto-fix checks cleanly.",
     "latest_frontend_event_stream_focus": "2026-05-22: Live Output route renamed to /event-stream and consumer filter toggles implemented; focused Vitest passed, full frontend Vitest passed (580 tests), frontend build passed, frontend lint passed, and git diff --check passed.",
     "latest_frontend_live_output_ownership": "2026-05-22: Removed the false jobs-state ownership from tts.logs so the Live Output subscribers column now reflects actual consumer handling.",
-    "latest_diff_check": "2026-06-04: git diff --check passed with 0 warnings/errors.",
+    "latest_diff_check": "2026-06-08: git diff --check passed after exact-mode segment progress zero handoff fix.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."
@@ -109,5 +112,8 @@
     "codex": "Lead architect, reviewer, integrator, verifier, checkpoint owner, and manual-QA caller.",
     "gemini": "Bounded worker for scoped patches and exploration only.",
     "memory": "Update Memory/state.json and Memory/session_logs.md after verified milestones; update .agent rules only for durable repo-level guidance."
-  }
+  },
+  "completed_followups": [
+    "2026-06-10: Queued Segment Progress bar swaps implemented as useSegmentHandoffQueue hook (frontend/src/hooks/useSegmentHandoffQueue.ts), wired into ChapterHeader. SEGMENT_SAVED holds the current bar until visual 100%; START_SEGMENT during completion queues (pendingStart + pendingLatest, latest-wins); after visual completion the next segment mounts at 0% then catches up next tick; 3s safety timer force-flushes if the old bar can never reach 100%."
+  ]
 }

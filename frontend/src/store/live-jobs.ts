@@ -205,12 +205,23 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       nextDelta.finished_at = null;
     }
 
+    const existingIsSegmentScoped = !!existing && isSegmentScopedJob({
+      segment_ids: existing.segment_ids ?? undefined,
+      custom_title: existing.custom_title,
+      classification: existing.classification,
+      parent_job_id: existing.parent_job_id,
+    });
+
     if (typeof event.classification === 'string') {
-      nextDelta.classification = event.classification;
+      if (!(existingIsSegmentScoped && event.classification === 'chapter')) {
+        nextDelta.classification = event.classification;
+      }
     } else if (event.scope === 'segment') {
       nextDelta.classification = 'segment';
     } else if (event.scope === 'chapter') {
-      nextDelta.classification = 'chapter';
+      if (!existingIsSegmentScoped) {
+        nextDelta.classification = 'chapter';
+      }
     }
 
     // 6. Metadata/Basis
@@ -240,13 +251,17 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     if (event.active_render_batch_progress !== undefined) {
       nextDelta.active_render_batch_progress = event.active_render_batch_progress;
     }
-    if (event.scope === 'segment') {
-      if (event.active_segment_id !== undefined) {
-        nextDelta.active_segment_id = event.active_segment_id;
-      }
-      if (event.active_segment_progress !== undefined) {
-        nextDelta.active_segment_progress = event.active_segment_progress;
-      }
+    // Clearing (explicit null) applies regardless of scope so callers can reset
+    // the active segment; setting a concrete value only applies on segment scope.
+    if (event.active_segment_id === null) {
+      nextDelta.active_segment_id = null;
+    } else if (event.scope === 'segment' && event.active_segment_id !== undefined) {
+      nextDelta.active_segment_id = event.active_segment_id;
+    }
+    if (event.active_segment_progress === null) {
+      nextDelta.active_segment_progress = null;
+    } else if (event.scope === 'segment' && event.active_segment_progress !== undefined) {
+      nextDelta.active_segment_progress = event.active_segment_progress;
     }
     if (event.render_group_count !== undefined) {
       nextDelta.render_group_count = event.render_group_count;

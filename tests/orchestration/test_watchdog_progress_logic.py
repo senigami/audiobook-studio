@@ -188,54 +188,18 @@ def test_sample_build_receives_markers_live():
     progress_events = [p for p in orc.published if p.get("status") == "running"]
     assert len(progress_events) >= 2
     assert any(p["progress"] == 0.0 for p in progress_events) # START_SYNTHESIS
-    # 50% scaled by 0.7 = 0.35
-    assert any(pytest.approx(p["progress"]) == 0.35 for p in progress_events)
-    marker_progress = next(p for p in progress_events if pytest.approx(p["progress"]) == 0.35)
+    # Voice-sample progress is reported unscaled: 50% -> 0.50
+    assert any(pytest.approx(p["progress"]) == 0.50 for p in progress_events)
+    marker_progress = next(p for p in progress_events if pytest.approx(p["progress"]) == 0.50)
     assert marker_progress["eta_seconds"] == 10
     assert marker_progress["reason_code"] == "SEGMENT_PROGRESS"
 
-# 4. Proving unrelated task_id markers are ignored.
-def test_log_listener_task_id_filtering():
-    orc = MockOrchestrator(voice_bridge=MagicMock())
-    context = TaskContext(task_id="my-job", task_type="synthesis")
-
-    # Create the listener logic as it is in orchestrator_helpers.py
-    # (Since it's a closure, we test the logic behavior via _dispatch or similar)
-    # Here we'll just test the logic directly using the same scaling rules.
-
-    def simulate_listener(line, line_task_id, ctx):
-        if line_task_id and line_task_id != ctx.task_id:
-            return None
-        if "[PROGRESS]" in line:
-            val_str = line.split("%")[0].split()[-1]
-            p = float(val_str) / 100.0
-            if ctx.task_type in {"sample_build", "sample_test"}:
-                p *= 0.7
-            return p
-        return None
-
-    # Matching
-    assert simulate_listener("[PROGRESS] 50% my-job", "my-job", context) == 0.5
-    # Unrelated
-    assert simulate_listener("[PROGRESS] 50% other-job", "other-job", context) is None
-    # No ID (fallback - should accept)
-    assert simulate_listener("[PROGRESS] 50%", None, context) == 0.5
-
-# 5. Proving PROGRESS 33 maps to approximately 0.231 and PROGRESS 100 maps to 0.7.
-def test_progress_scaling_math():
-    orc = MockOrchestrator(voice_bridge=MagicMock())
-    ctx_build = TaskContext(task_id="b1", task_type="sample_build")
-    ctx_synth = TaskContext(task_id="s1", task_type="synthesis")
-
-    def get_scaled(val_str, ctx):
-        p = float(val_str) / 100.0
-        if ctx.task_type in {"sample_build", "sample_test"}:
-            p *= 0.7
-        return p
-
-    assert get_scaled("33", ctx_build) == pytest.approx(0.231)
-    assert get_scaled("100", ctx_build) == pytest.approx(0.7)
-    assert get_scaled("100", ctx_synth) == 1.0
+# (tests 4 and 5 deleted — MOCKED-OUT/WRONG-SCENARIO)
+# test_log_listener_task_id_filtering: re-implemented the listener closure locally;
+#   never called app code. Real filtering coverage exists in test_sample_build_receives_markers_live.
+# test_progress_scaling_math: re-implemented the scaling math locally with a stale 0.7 factor
+#   that contradicts the production contract (voice samples are NOT scaled; see
+#   test_voice_sample_unscaled_progress in test_progress_logic.py). WRONG-SCENARIO.
 
 # 6. Proving started_at is NOT set during preparing, and IS set upon START_SYNTHESIS.
 def test_started_at_marker_driven():

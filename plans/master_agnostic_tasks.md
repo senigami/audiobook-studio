@@ -78,15 +78,15 @@
 - [x] Add TTS plugin zip import/delete flows (Import done; Uninstall done).
 - [x] Define standalone XTTS and Voxtral Web repo readiness for real repo ingestion: repo layout, CLI entry point, dependency install path, and a standalone CLI Builder Harness.
 - [x] Implement Studio Dev Mode as the authoritative UI preview path using plugin-provided scenario fixtures.
-- [ ] Add plugin contract-version and callable-signature compatibility verification.
+- [ ] Add plugin contract-version and callable-signature compatibility verification against the documented five-method StudioTTSEngine contract in `docs/handbook/content/plugin-sdk/engine-contract.json` and `docs/handbook/content/plugin-sdk/compatibility.json`.
 - [x] Surface plugin-defined per-voice controls in voice settings when supported.
 - [ ] Plan multilingual voice/text language support.
 - [ ] Implement Voxtral segment and bake rendering for chapter jobs.
 - [ ] Audit default voice fallback so chapters do not silently default to Voxtral.
 - [ ] Revisit voice settings placement outside the Script popup/right queue area.
-- [ ] Align voice export bundles with Hugging Face-compatible layout and settings metadata where practical.
-- [ ] Add voice image/icon upload, standardized 1:1 JPG processing, and character-surface icon display.
-- [ ] Add searchable voice tags compatible with future voice search/Hugging Face metadata.
+- [ ] Align voice export bundles with the documented Hugging Face-compatible `voice.json` shape in `docs/specs/voice.schema.json`, the loose bundle template in `docs/specs/voice-bundle-template/`, and generated model-card README/frontmatter.
+- [ ] Add voice image/icon upload, standardized 1:1 JPG processing, storage as the `voice.json.image` asset, and character-surface icon display.
+- [ ] Add searchable voice tags and structured attributes using `docs/specs/voice-taxonomy.json` so Studio metadata matches future Hugging Face discovery fields.
 - [ ] Verify system API surface for future third-party/LLM controller plugins.
 - [x] Show queue output metadata such as generated audio duration/length.
 - [x] Remove legacy Chapter Editor Production, Performance, and Preview tabs/code.

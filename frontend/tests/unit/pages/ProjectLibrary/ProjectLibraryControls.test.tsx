@@ -29,10 +29,12 @@ describe('ProjectLibrary Controls', () => {
         global.fetch = vi.fn((url) => {
             if (url === '/api/projects') {
                 return Promise.resolve({
+                    ok: true,
                     json: () => Promise.resolve(mockProjects)
                 })
             }
             return Promise.resolve({
+                ok: true,
                 json: () => Promise.resolve({})
             })
         }) as any

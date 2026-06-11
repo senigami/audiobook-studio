@@ -72,15 +72,21 @@ def put_job(job: Job) -> None:
         # Check for terminal-to-active reset
         existing_job = state["jobs"].get(job.id)
         is_terminal_reset = False
+        _snapshot_existing_status = existing_job.get("status") if existing_job else None
         if existing_job:
             old_status = existing_job.get("status")
             if old_status in ("done", "failed", "cancelled") and job.status in ("queued", "preparing"):
                 is_terminal_reset = True
+        # Snapshot derived values before releasing lock so post-lock broadcast
+        # uses consistent data even if a concurrent update_job interleaves.
+        _snapshot_is_terminal_reset = is_terminal_reset
+        _snapshot_previous_status = _snapshot_existing_status
+        _snapshot_status_changed = bool(existing_job and _snapshot_existing_status != job.status)
 
         state["jobs"][job.id] = asdict(job)
         _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
 
-    if is_terminal_reset:
+    if _snapshot_is_terminal_reset:
         try:
             from ..api.ws import broadcast_chapter_updated, broadcast_queue_update
             chapter_id = job.chapter_id
@@ -107,10 +113,10 @@ def put_job(job: Job) -> None:
             job.id,
             {
                 "skip_job_updated": True,
-                "terminal_reset": is_terminal_reset,
-                "reason_code": "JOB_RESET_TO_ACTIVE" if is_terminal_reset else None,
-                "previous_status": existing_job.get("status") if existing_job else None,
-                "status_changed": bool(existing_job and existing_job.get("status") != job.status),
+                "terminal_reset": _snapshot_is_terminal_reset,
+                "reason_code": "JOB_RESET_TO_ACTIVE" if _snapshot_is_terminal_reset else None,
+                "previous_status": _snapshot_previous_status,
+                "status_changed": _snapshot_status_changed,
             },
             current_job=asdict(job),
         )
@@ -120,6 +126,54 @@ def put_job(job: Job) -> None:
 
 
 def update_job(job_id: str, force_broadcast: bool = False, source: Optional[str] = None, **updates) -> None:
+    """Apply field updates to a job and broadcast changes to listeners.
+
+    Broadcast-flag routing
+    ----------------------
+    Three flags (passed as keyword args in ``**updates``, consumed before processing)
+    control what is emitted after the state write:
+
+    ``force_broadcast`` (bool, keyword-only positional param, default False)
+        - Bypasses the early-return guard that silently drops updates to jobs
+          already in a terminal state (done/failed/cancelled).
+        - Bypasses status-regression and progress-regression protection.
+        - Forces a broadcast to all ``_JOB_LISTENERS`` even when no fields
+          actually changed (``changed_fields`` is empty).
+        - Propagated as ``broadcast_dict["force_broadcast"] = True`` so
+          downstream listeners (e.g. ``broadcast_job_updated``) can distinguish
+          a forced ping from a real delta.
+        - Also triggers ``broadcast_queue_update`` for non-terminal statuses
+          (see below).
+
+    ``skip_job_updated`` (bool, in ``**updates``, default False)
+        - When True, ``broadcast_dict["skip_job_updated"] = True`` is set.
+        - Consumed by the ``broadcast_job_updated`` WebSocket handler to suppress
+          the per-job ``JOB_UPDATED`` WebSocket event that normally fires on every
+          update.  The SQLite queue sync and chapter/queue-invalidation broadcasts
+          are **not** affected.
+
+    ``skip_studio_job_event`` (bool, in ``**updates``, default False)
+        - When True, ``broadcast_dict["skip_studio_job_event"] = True`` is set.
+        - Consumed by the studio WebSocket layer to suppress the ``STUDIO_JOB``
+          envelope event.  All other broadcasts (queue sync, chapter invalidation,
+          listener loop) fire normally.
+
+    WebSocket topic summary (what fires and when)
+    ----------------------------------------------
+    ``_JOB_LISTENERS`` (all registered listeners, incl. ``broadcast_job_updated``):
+        Fires when ``changed_fields`` is non-empty **or** ``force_broadcast=True``.
+        Suppressed sub-events inside it: ``skip_job_updated``, ``skip_studio_job_event``.
+
+    ``broadcast_chapter_updated``:
+        Fires only on terminal status transitions (done/failed/cancelled) or
+        terminal-reset (terminal → queued/preparing) or ``force_broadcast=True``
+        while status/started_at is in ``changed_fields``.
+
+    ``broadcast_queue_update``:
+        Fires only when ``terminal_reset=True`` or ``force_broadcast=True`` and
+        the resulting status is **not** terminal (done/failed/cancelled).
+        Never fires for ordinary running/progress updates.
+    """
     skip_studio_job_event = updates.pop("skip_studio_job_event", False)
     skip_job_updated = updates.pop("skip_job_updated", False)
     if source is None:
@@ -153,6 +207,9 @@ def update_job(job_id: str, force_broadcast: bool = False, source: Optional[str]
             updates["eta_updated_at"] = None
 
         current_status = j.get("status")
+        # Capture status before any mutations so broadcast always reflects the
+        # real pre-update status, not a value clobbered mid-loop.
+        pre_update_status = current_status
         terminal_reset = current_status in ("done", "failed", "cancelled") and updates.get("status") in ("queued", "preparing")
         if not force_broadcast and current_status in ("done", "failed", "cancelled"):
             incoming_status = updates.get("status")
@@ -187,9 +244,17 @@ def update_job(job_id: str, force_broadcast: bool = False, source: Optional[str]
 
             if terminal_reset and k in ("finished_at", "started_at", "eta_seconds", "eta_basis", "estimated_end_at", "active_segment_id", "active_segment_progress", "active_render_batch_id", "active_render_batch_progress", "active_segment_eta_seconds", "active_segment_eta_basis", "active_segment_updated_at", "reason_code", "error"):
                 # A rerun of a terminal job should come back as a clean active job record.
+                # Clear the stale value first, then fall through to apply any caller-supplied
+                # value for this same key (e.g. an explicit started_at alongside status="queued").
                 if j.get(k) is not None:
                     j[k] = None
                     changed_fields.append(k)
+                # If the caller explicitly passed a value for this field, apply it now.
+                if k in updates and v is not None:
+                    if j.get(k) != v:
+                        j[k] = v
+                        if k not in changed_fields:
+                            changed_fields.append(k)
                 continue
 
             # 2. Progress regression protection
@@ -405,8 +470,8 @@ def update_job(job_id: str, force_broadcast: bool = False, source: Optional[str]
         if terminal_reset:
             broadcast_dict["terminal_reset"] = True
             broadcast_dict.setdefault("reason_code", "JOB_RESET_TO_ACTIVE")
-        broadcast_dict["previous_status"] = current_status
-        broadcast_dict["status_changed"] = current_status != j.get("status")
+        broadcast_dict["previous_status"] = pre_update_status
+        broadcast_dict["status_changed"] = pre_update_status != j.get("status")
         if source is not None:
             broadcast_dict["source"] = source
         if auto_updated_at is not None:
@@ -495,7 +560,16 @@ def purge_jobs_for_chapter(chapter_id: str) -> None:
             _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
             logger.debug("Purged %s stale jobs for chapter %s", len(to_delete), chapter_id)
 def requeue(job_id: str) -> None:
-    """Wipes job metadata and resets status to queued (Clean Slate Protocol)."""
+    """Wipes job metadata and resets status to queued (Clean Slate Protocol).
+
+    Routes through the standard terminal-reset path in update_job: status="queued"
+    from a terminal state triggers terminal_reset=True in the branch, which emits
+    terminal_reset=True and reason_code="JOB_RESET_TO_ACTIVE" in the broadcast dict,
+    plus the chapter/queue broadcasts — identically to any other terminal→active
+    transition.  Stale timing and ETA fields are passed as None so the terminal-reset
+    branch clears them; requeue-specific values (progress=0.0, log="", warning_count=0)
+    survive via the B5 caller-value-precedence rule.
+    """
     update_job(
         job_id,
         status="queued",
@@ -504,6 +578,8 @@ def requeue(job_id: str) -> None:
         started_at=None,
         finished_at=None,
         error=None,
+        eta_seconds=None,
+        eta_basis=None,
+        estimated_end_at=None,
         warning_count=0,
-        force_broadcast=True
     )

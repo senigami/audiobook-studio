@@ -13,6 +13,7 @@ from ...db import (
     get_chapter,
     list_chapters as db_list_chapters,
 )
+from ...db.queue import upsert_queue_row
 from ...core.config import get_project_dir, get_project_m4b_dir
 from ...utils.pathing import safe_join, safe_join_flat, find_secure_file
 from ...api.utils import SAFE_FILE_RE, preferred_audiobook_download_filename, probe_audiobook_metadata
@@ -238,6 +239,14 @@ def assemble_project(
         cover_path=cover_path
     )
     put_job(j)
+    upsert_queue_row(
+        jid,
+        project_id=project_id,
+        chapter_id=None,
+        status="queued",
+        custom_title=book_title,
+        engine="audiobook",
+    )
     update_job(jid, force_broadcast=True, status="queued", project_id=project_id, custom_title=book_title)
 
     orchestrator = create_orchestrator()

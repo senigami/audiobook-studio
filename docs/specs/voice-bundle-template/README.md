@@ -20,7 +20,7 @@ widget:
   - text: "The sun went down slow over the dry creek."
     example_title: "Gravel Road — preview"
     output:
-      url: samples/preview.wav
+      url: samples/preview.mp3
 ---
 
 <img src="icon.png" alt="Gravel Road" width="256" height="256" />

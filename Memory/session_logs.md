@@ -1913,3 +1913,137 @@
 - Guarded the registry-handler and local fallback dispatch paths against publishing early synthetic running status and startedAt timestamps for sample_build and sample_test tasks.
 - Prevented task_progress_reporter from setting render_started_at to time.time() at 0.0 progress for voice-sample tasks, ensuring starting timestamp is only populated on real synthesis start.
 - Verified pytest progress logic tests, Ruff linter, and git diff --check pass cleanly.
+
+# 2026-06-07 - Studio 2.0 Phase 12 wiki sync
+
+- Updated permanent wiki pages with the Phase 12 plugin-to-queue event stream contract, including topic ownership, lifecycle order, voice-test handling, and diagnostics separation.
+- Synced user-facing wiki notes for plugin import/dependency management, schema-driven engine settings, calibration display, WAV-first rendering, per-voice plugin settings, voice bundle schema direction, Library list/sort controls, and Chapter Editor VCR playback.
+- Verified documentation changes with git diff --check.
+
+# 2026-06-07 - User-facing wiki wording corrected
+
+- Removed internal development framing from the wiki, including the temporary "Unreleased / Phase 12 Wiki Sync" changelog entry.
+- Reworded recently added wiki text so it describes finished Studio 2.0 behavior rather than "newer" or "future" development direction.
+- Verified the wiki no longer contains the searched internal/incomplete markers and git diff --check passes.
+
+# 2026-06-07 - Queue and event-stream audit saved
+
+- Saved a repo audit report at `docs/audits/voice_queue_event_stream_audit.md`.
+- Captured the current queue writers, queue/topic ownership, Voxtral mapping, mixed-render mapping, and the main contract discrepancies for the next voice slice.
+- Synced Memory state to the audit milestone.
+
+# 2026-06-07 - Queue and event-stream audit refined
+
+- Expanded the audit report with the desired target shape for the broken items and a staged plan to converge on the contract.
+- Kept the report focused on queue ownership, voice-test telemetry, Voxtral WAV-first behavior, mixed-render completion, and XTTS progress semantics.
+
+# 2026-06-07 - Queue and event-stream audit rechecked
+
+- Rechecked the audit against current backend, plugin, and frontend queue/event consumers.
+- Corrected the report to include missing persistent queue-row inconsistencies for bake, segment, and assembly jobs.
+- Added the frontend main-queue consumer discrepancy and clarified that `finalizing` is normalized to `running` during state persistence even though stale finalizing branches still exist.
+
+# 2026-06-07 - Queue and event-stream audit adversarial review integrated
+
+- Updated `docs/audits/voice_queue_event_stream_audit.md` with adversarial-review corrections.
+- Split persistent queue-row ownership from live `queue.items` transport ownership.
+- Escalated bake/segment/assembly missing durable queue rows as a high-priority correctness gap, clarified frontend overlay-vs-row authority, and added the unresolved voice-preview MP3 policy decision.
+
+# 2026-06-07 - Queue and event-stream audit made worker-handoff ready
+
+- Expanded `docs/audits/voice_queue_event_stream_audit.md` into a standalone handoff document for implementation workers without prior queue context.
+- Added evidence anchors, explicit objectives and non-goals, priority ordering, files likely in scope, suggested first failing tests, acceptance criteria, and verification commands.
+- Kept the implementation decisions separate from audit findings so product choices such as voice-preview MP3 policy are not assumed.
+
+# 2026-06-07 - Queue and event-stream audit split into measurable stages
+
+- Broke the implementation plan in `docs/audits/voice_queue_event_stream_audit.md` into small independently verifiable slices.
+- Added per-slice scope, exclusions, measurable exit criteria, suggested tests, and verification commands.
+- Renamed the worker detail sections to match the slice numbers so the document has one staged implementation path.
+
+# 2026-06-07 - PR 123 checklist reordered
+
+- Updated GitHub PR #123 description with a single ordered remaining-work checklist.
+- Placed the queue/event-stream repair slices first, followed by Voxtral/plugin contract, voice metadata/export, docs, manual QA, stability, and final verification work.
+- Moved deferred/non-goal items out of the active checkbox list so the first checkbox represents the next implementation item.
+
+# 2026-06-08 - Queue/event-stream repair slices implemented and verified
+
+- Implemented durable queue-row creation for bake, segment, and assembly entrypoints, tightened voice-test telemetry to require `jobId`, removed the mixed-render direct queue write, and switched voice preview generation to WAV-only.
+- Added timeout guards to the slower pytest cases that exercise queue, websocket, voice, mixed-render, and XTTS flows.
+- Verified the combined regression suites passed after the final WAV-only preview and queue authority cleanup.
+
+# 2026-06-08 - Queue/event-stream adversarial review checkpoint
+
+- Found and fixed a split-part regression where the standard chapter metadata upsert could reset a nonzero `split_part` queue row back to `0`.
+- Added a focused regression test proving split-part queue rows preserve the requested part after display metadata is upserted.
+- Updated the queue/event-stream audit and wiki changelog so the permanent docs reflect the implemented contract and no longer preserve stale pre-fix wording as current guidance.
+- Verified Ruff, the focused split-part test, the broad affected backend queue/websocket/mixed/voice/XTTS/progress regression suites, `Memory/state.json`, and `git diff --check`.
+
+# 2026-06-08 - Segment queue identity regression fixed
+
+- Debug logs showed segment progress websocket frames reached 100% for two individual segments, but selected-segment queue rows could hydrate without durable `segment_ids` and then display as chapter-scoped work.
+- Added durable `processing_queue.segment_ids` storage, passed selected segment ids from `/api/segments/generate`, and hydrated the queue response back to a `segment_ids` array.
+- Fixed both frontend merge paths (`useJobs` and `live-jobs` overlays) so later chapter-scoped frames cannot downgrade an existing segment-scoped job.
+- Added red/green regressions for backend segment queue hydration, DB queue segment-id round-trip, useJobs classification preservation, and live-jobs overlay classification preservation.
+- Verified backend queue/generation/websocket/progress suites, frontend jobs/queue/hydration/chapter UI suites, Ruff, frontend lint/build, and `git diff --check`.
+
+# 2026-06-08 - Chapter Editor Segment Progress isolated from chapter progress
+
+- Debug logs showed `segments.progress` frames emitted correct per-segment 0-to-100 cycles, while the Chapter Editor header bar could still render from the merged chapter job state.
+- Removed the header segment bar fallback to chapter/job progress, render-batch progress, terminal job completion, and predictive timestamp math.
+- The header Segment Progress bar now mounts only when active segment contract fields or preserved `segments.progress` provenance are present, renders non-predictively, allows exact backward corrections, and preserves `SEGMENT_SAVED` provenance when later frames clear `active_segment_id`.
+- Verified red/green contract coverage plus ChapterHeader, ChapterEditorPage, ChapterEditor_Queue, useJobs, live-jobs, useQueueSync, hydration, ChapterList, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-08 - Exact segment progress 0% handoff fixed
+
+- Debug logs showed `START_SEGMENT` websocket frames already emitted `activeSegmentProgress: 0`, but `PredictiveProgressBar` still used predictive lane/ETA/memory logic even when `predictive={false}`.
+- Restored `PredictiveProgressBar` as a lane animator and moved segment policy into `buildSegmentProgressBarProps`, shared by ChapterHeader and `/progress-test` segment mode.
+- Segment progress now uses segment-keyed identity, 3-tick local animation, exact plugin progress targets, no ETA prediction fields, and no confidence scaling of the visual target.
+- Kept Anti-gravity's predictive duplicate-zero/no-startedAt behavior only for `predictive={true}` queue/chapter bars.
+- Verified red/green segment contract regressions plus all PredictiveProgressBar suites, ChapterHeader/ChapterEditor/DevProgressBar/queue-state affected suites, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-09 - Segment progress proof controls added
+
+- Added a Segment Contract Debug panel to `/progress-test` that routes directly through `buildSegmentProgressBarProps`, with Start Segment, Stop Segment, reset, slider/buttons, helper contract display, event log, and `onDisplayProgress` callback log.
+- Browser verification showed `START_SEGMENT` creates `debug-job:debug-segment-1` at 0% with no ETA, and a 40% target animates through intermediate display callbacks before reaching 40%.
+- Verified the DevProgressBar page tests, segment helper tests, PredictiveProgressBar lifecycle/transitions, ChapterHeader segment contract tests, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-09 - Progress-test live preview predictive path restored
+
+- User debug output showed the lower `/progress-test` Live Preview was still rendering through `buildSegmentProgressBarProps` when `checkpointMode=segment`, producing `predictive=false`, `endAtMs=null`, and no ETA despite launch config having `startedAt` and `etaSeconds`.
+- Removed that helper branch so the lower Live Preview always calls `PredictiveProgressBar` directly; the Segment Contract Debug panel remains the dedicated segment-helper proof surface.
+- Verified the DevProgressBar page tests, progress helper tests, PredictiveProgressBar lifecycle/transitions/timing tests, ChapterHeader segment contract tests, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-09 - Progress-test manual update harness cleaned up
+
+- Split the regular predictive update controls from the Segment Contract Debug controls with unique manual progress/ETA labels so the page can be tested and used without ambiguous selectors.
+- Centralized quick progress and Finish actions in `useProgressBarTest` so they mark the source as manual, stamp `updatedAt`, and write clear event-log entries.
+- Added regressions proving Send Update mutates the predictive debug payload and quick/finish controls no longer bypass live-update bookkeeping; verified focused and affected progress suites, lint, build, and `git diff --check`.
+
+# 2026-06-09 - Allow backward progress fixed
+
+- Fixed `PredictiveProgressBar` ETA-backed lane correction so `allowBackwardProgress=true` can move backward even when `startedAt` and `etaSeconds` are present.
+- Added an active Manual allow backward toggle on `/progress-test` so the current preview can be tested without relaunching.
+- Updated the predictive debug snapshot to report the actual backward migration decision for ETA-backed lanes.
+- Verified DevProgressBar, progress contracts, PredictiveProgressBar lifecycle/transitions/timing, ChapterHeader segment contract, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-09 - Segment progress contract aligned with ETA-backed monotonic rendering
+
+- Updated the shared segment progress helper so segment bars do not allow backward movement, show segment ETA, and seed `START_SEGMENT` at 0% with a 120-second ETA when no explicit ETA is present.
+- Passed active segment ETA/basis/updatedAt from ChapterHeader into the segment helper, and preserved `hasSegmentSupport` from `segments.progress` frames in `useJobs`.
+- Updated `/progress-test` Segment Contract Debug to simulate the same start-segment ETA shape used by real segment rendering.
+- Verified useJobs, progress contracts, PredictiveProgressBar lifecycle/transitions/timing, DevProgressBar, ChapterHeader segment contract, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-09 - Enabled segment progress predictive animation and disabled backward progress
+
+- Enabled predictive ticking animation and smooth interpolation (`predictive: true`) for segment progress bars in `progressBarContracts.ts` so progress advances continuously between socket events.
+- Enforced strictly monotonic forward progress (`allowBackwardProgress: false`) on segment progress tracking to prevent visual jumps or regressions.
+- Updated and verified the unit tests in `progressBarContracts.test.ts` and `ChapterHeaderProgressContract.test.tsx` to assert that `predictive` is `true` and `allowBackwardProgress` is `false`.
+- Ran the entire frontend test suite (all 776 tests passed), completed linting checks (`npm run lint`), and verified production compilation (`npm run build`).
+
+# 2026-06-10 - Queued segment-swap plan recorded
+
+- Next desired segment-progress implementation: do not immediately replace the visible segment bar/text driver when a new `START_SEGMENT` arrives while the previous segment is finishing.
+- Keep the previous segment mounted until its displayed progress reaches 100%; queue the next segment separately as `pendingStart` (the `START_SEGMENT` frame at 0% with ETA/updatedAt) plus `pendingLatest` (the newest progress frame received while waiting).
+- After the previous segment visually completes, mount the next segment from `pendingStart` at 0%/ETA, then apply `pendingLatest` on the next tick so the new segment visibly starts at zero before lane-changing to its latest known progress.

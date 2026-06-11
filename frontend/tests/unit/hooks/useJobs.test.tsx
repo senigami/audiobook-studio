@@ -1341,6 +1341,41 @@ describe('useJobs', () => {
     expect(job.active_segment_updated_at).toBe(300);
   });
 
+  it('preserves segment classification for segment-scoped jobs when chapter progress arrives', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({
+      type: 'jobs_snapshot',
+      jobs: [{
+        id: 'job-segment-scope',
+        status: 'running',
+        progress: 0,
+        project_id: 'proj-1',
+        chapter_id: 'chap-1',
+        segment_ids: ['seg-1', 'seg-2'],
+        classification: 'segment',
+      }],
+    });
+
+    emitEvent('segments.progress', 'segment_progress', {
+      status: 'running',
+      progress: 0.35,
+      updatedAt: 400,
+    }, { segmentId: 'seg-1', jobId: 'job-segment-scope', chapterId: 'chap-1', projectId: 'proj-1' });
+
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.2,
+      groupedProgress: 0.2,
+      updatedAt: 401,
+    }, { jobId: 'job-segment-scope', chapterId: 'chap-1', projectId: 'proj-1' });
+
+    const job = result.current.jobs['job-segment-scope'];
+    expect(job.classification).toBe('segment');
+    expect(job.segment_ids).toEqual(['seg-1', 'seg-2']);
+    expect(job.active_segment_id).toBe('seg-1');
+    expect(job.active_segment_progress).toBe(0.35);
+  });
+
   it('treats segment_start frames at 0 progress as preparing until real synthesis progress arrives', async () => {
     const { result } = renderHook(() => useJobs());
     emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-segment-start', status: 'running', progress: 0 }] });
@@ -1496,6 +1531,7 @@ describe('useJobs', () => {
       progress: 0.0,
       activeSegmentProgress: 0.0,
       etaSeconds: 20,
+      hasSegmentSupport: true,
       reasonCode: 'START_SEGMENT',
       updatedAt: 500,
     }, { jobId: 'job-start-segment', chapterId: 'chap-1', segmentId: 'seg-start' });
@@ -1506,6 +1542,8 @@ describe('useJobs', () => {
     expect(job?.active_segment_progress).toBe(0);
     expect(job?.active_segment_eta_seconds).toBe(20);
     expect(job?.active_segment_updated_at).toBe(500);
+    expect(job?.hasSegmentSupport).toBe(true);
+    expect(job?.has_segment_support).toBe(true);
   });
 
   it('transitions segment-scoped job out of preparing normally on first non-zero segments.progress frame', async () => {
@@ -1687,5 +1725,44 @@ describe('useJobs', () => {
     expect(updates.render_group_count).toBe(8);
     expect(updates.completed_render_groups).toBe(4);
     expect(updates.has_segment_support).toBe(true);
+  });
+
+  it('subscription remains active after rerenders with new inline callbacks (no dropped events)', () => {
+    // Verify the hook stays subscribed after multiple rerenders where the caller
+    // passes brand-new inline function references every time. If the subscription
+    // effect listed callbacks as deps, it would tear down on each rerender and events
+    // arriving during teardown would be silently dropped.
+    let renderCount = 0;
+
+    const { result, rerender } = renderHook(() => {
+      renderCount++;
+      const rc = renderCount; // capture to guarantee new closure on each render
+      return useJobs(
+        () => { void rc; },
+        undefined,
+        () => { void rc; },
+        (_chapterId: string) => { void rc; },
+        (_chapterId: string) => { void rc; }
+      );
+    });
+
+    // Force several rerenders — each produces fresh inline callback references
+    rerender();
+    rerender();
+    rerender();
+    rerender();
+
+    // After all the rerenders, publish a snapshot event. If the subscription had been
+    // torn down and not re-established (i.e., there's a gap), jobs state would not update.
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'jobs_snapshot',
+        jobs: [{ id: 'stable-job', status: 'done', progress: 1 }],
+      });
+    });
+
+    // Subscription was intact: the event was received and state updated.
+    expect(result.current.jobs['stable-job']).toBeDefined();
+    expect(result.current.jobs['stable-job'].status).toBe('done');
   });
 });

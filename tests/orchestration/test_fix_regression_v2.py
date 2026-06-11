@@ -59,6 +59,41 @@ def test_startup_recovery_clears_stuck_states():
     assert "stuck-finalizing" not in remaining
     assert "safe-done" in remaining
 
+def test_startup_step2b_clears_terminal_jobs_from_snapshot():
+    """_clear_terminal_jobs_from_snapshot() removes done/failed/cancelled jobs from
+    state.json while leaving active (queued) jobs intact.
+
+    Revert-check: rename/remove _clear_terminal_jobs_from_snapshot in web.py and
+    this test fails with ImportError or AssertionError because terminal jobs survive.
+    R2: mocks only the filesystem/network boundary (none needed here — state store is
+    the unit under test alongside the helper).
+    """
+    import time
+    from app.db.state import put_job, Job, get_jobs
+    from app.api.web import _clear_terminal_jobs_from_snapshot
+
+    # Seed: one active job, one done, one failed
+    put_job(Job(id="sb-active-queued", status="queued", created_at=time.time(), engine="xtts", chapter_file="a.txt"))
+    put_job(Job(id="sb-terminal-done", status="done", created_at=time.time(), engine="xtts", chapter_file="b.txt"))
+    put_job(Job(id="sb-terminal-failed", status="failed", created_at=time.time(), engine="xtts", chapter_file="c.txt"))
+
+    # Verify seeding
+    jobs = get_jobs()
+    assert "sb-active-queued" in jobs
+    assert "sb-terminal-done" in jobs
+    assert "sb-terminal-failed" in jobs
+
+    # Execute the helper (this is the unit under test — the same code called by startup_event step 2b)
+    cleared = _clear_terminal_jobs_from_snapshot()
+
+    # Terminal jobs must be gone; active job must survive
+    remaining = get_jobs()
+    assert "sb-terminal-done" not in remaining, "done job should be cleared by step 2b"
+    assert "sb-terminal-failed" not in remaining, "failed job should be cleared by step 2b"
+    assert "sb-active-queued" in remaining, "active queued job must not be cleared by step 2b"
+    assert cleared >= 2, "helper should report at least 2 cleared jobs"
+
+
 def test_startup_recovery_clears_stuck_chapter_status():
     from app.db.reconcile import reconcile_all_chapter_statuses
     from app.db.core import get_connection

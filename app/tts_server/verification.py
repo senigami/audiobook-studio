@@ -126,7 +126,7 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
         return VerificationResult(
             engine_id=engine_id,
             ok=False,
-            error=f"run_test() raised: {exc}",
+            error="run_test() raised an unhandled exception (see server logs).",
         )
 
 

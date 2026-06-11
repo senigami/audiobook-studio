@@ -36,10 +36,15 @@ export interface PredictiveProgressDebugSnapshot {
     migrationElapsedMs: number | null;
     migrationTicksTotal: number | null;
     migrationTicksElapsed: number | null;
-    evidenceWeightFraction: number | null;
     incomingProgress: number | null;
     effectiveTargetProgress: number | null;
     currentVisualAtUpdate: number | null;
+    // ETA confidence model fields (doc 15)
+    etaConfidenceW: number | null;
+    etaConfidenceBase: number | null;
+    etaConfidenceCv: number | null;
+    etaEndSmoothed: number | null;
+    slopeCappedVsRaw: number | null;
 }
 
 export const buildPredictiveProgressDebugSnapshot = ({
@@ -74,10 +79,14 @@ export const buildPredictiveProgressDebugSnapshot = ({
     migrationElapsedMs,
     migrationTicksTotal,
     migrationTicksElapsed,
-    evidenceWeightFraction,
     incomingProgress,
     effectiveTargetProgress,
     currentVisualAtUpdate,
+    etaConfidenceW,
+    etaConfidenceBase,
+    etaConfidenceCv,
+    etaEndSmoothed,
+    slopeCappedVsRaw,
 }: {
     memoryKey?: string;
     resolvedCheckpointMode: 'default' | 'queue' | 'segment';
@@ -110,10 +119,14 @@ export const buildPredictiveProgressDebugSnapshot = ({
     migrationElapsedMs: number | null;
     migrationTicksTotal: number | null;
     migrationTicksElapsed: number | null;
-    evidenceWeightFraction: number | null;
     incomingProgress: number | null;
     effectiveTargetProgress: number| null;
     currentVisualAtUpdate: number | null;
+    etaConfidenceW?: number | null;
+    etaConfidenceBase?: number | null;
+    etaConfidenceCv?: number | null;
+    etaEndSmoothed?: number | null;
+    slopeCappedVsRaw?: number | null;
 }): PredictiveProgressDebugSnapshot => ({
     memoryKey,
     resolvedCheckpointMode,
@@ -146,8 +159,12 @@ export const buildPredictiveProgressDebugSnapshot = ({
     migrationElapsedMs,
     migrationTicksTotal,
     migrationTicksElapsed,
-    evidenceWeightFraction,
     incomingProgress,
     effectiveTargetProgress,
     currentVisualAtUpdate,
+    etaConfidenceW: etaConfidenceW ?? null,
+    etaConfidenceBase: etaConfidenceBase ?? null,
+    etaConfidenceCv: etaConfidenceCv ?? null,
+    etaEndSmoothed: etaEndSmoothed ?? null,
+    slopeCappedVsRaw: slopeCappedVsRaw ?? null,
 });

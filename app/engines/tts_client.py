@@ -268,6 +268,34 @@ class TtsClient:
         files = {"file": (filename, file_content, "application/zip")}
         return self._post_files("/plugins/import", files=files)
 
+    def preview_plugin(self, file_content: bytes, filename: str) -> dict[str, Any]:
+        """POST /plugins/preview — stage a plugin zip and return manifest metadata.
+
+        Does NOT install; caller must confirm or cancel via the staging token.
+        """
+        files = {"file": (filename, file_content, "application/zip")}
+        return self._post_files("/plugins/preview", files=files)
+
+    def confirm_plugin_import(self, token: str) -> dict[str, Any]:
+        """POST /plugins/confirm/{token} — complete a staged plugin import."""
+        import re
+        safe_token = token if re.fullmatch(r"[0-9a-f]{32}", token) else ""
+        if not safe_token:
+            raise ValueError(f"Invalid staging token: {token!r}")
+        return self._post(f"/plugins/confirm/{safe_token}", payload={})
+
+    def cancel_plugin_staging(self, token: str) -> dict[str, Any]:
+        """DELETE /plugins/staging/{token} — discard staged plugin."""
+        import re
+        safe_token = token if re.fullmatch(r"[0-9a-f]{32}", token) else ""
+        if not safe_token:
+            raise ValueError(f"Invalid staging token: {token!r}")
+        return self._delete(f"/plugins/staging/{safe_token}")
+
+    def get_engine_requirements(self, engine_id: str) -> dict[str, Any]:
+        """GET /engines/{engine_id}/requirements — return requirements.txt lines."""
+        return self._get(f"/engines/{_safe_id(engine_id)}/requirements")
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------

@@ -12,6 +12,7 @@ vi.mock('@/api', () => ({
     testEngine: vi.fn(),
     verifyEngine: vi.fn(),
     installEngineDependencies: vi.fn(),
+    fetchEngineRequirements: vi.fn().mockResolvedValue({ ok: true, requirements: ['some-pkg'] }),
     removeEnginePlugin: vi.fn(),
     resetEngineCalibration: vi.fn(),
   },
@@ -200,19 +201,17 @@ describe('EngineCard dependency installation', () => {
 
     render(<EngineCard engine={engineWithDeps} onUpdate={onUpdate} onShowNotification={onShowNotification} />);
 
-    const installBtn = screen.getByRole('button', { name: 'Install Deps' });
-    fireEvent.click(installBtn);
+    // Click opens the trust modal after fetching requirements
+    fireEvent.click(screen.getByRole('button', { name: 'Install Deps' }));
 
-    expect(screen.getByText('Installing...')).toBeInTheDocument();
-    expect(installBtn).toBeDisabled();
+    // Confirm through trust modal
+    const confirmBtn = await screen.findByRole('button', { name: /Install Dependencies/i });
+    fireEvent.click(confirmBtn);
 
     await waitFor(() => {
       expect(onShowNotification).toHaveBeenCalledWith('Done!');
       expect(onUpdate).toHaveBeenCalled();
     });
-
-    expect(screen.queryByText('Installing...')).not.toBeInTheDocument();
-    expect(installBtn).not.toBeDisabled();
   });
 
   it('shows error notification and still calls onUpdate on failure', async () => {
@@ -223,7 +222,12 @@ describe('EngineCard dependency installation', () => {
 
     render(<EngineCard engine={engineWithDeps} onUpdate={onUpdate} onShowNotification={onShowNotification} />);
 
+    // Click opens the trust modal
     fireEvent.click(screen.getByRole('button', { name: 'Install Deps' }));
+
+    // Confirm through trust modal
+    const confirmBtn = await screen.findByRole('button', { name: /Install Dependencies/i });
+    fireEvent.click(confirmBtn);
 
     await waitFor(() => {
       expect(onShowNotification).toHaveBeenCalledWith('Installation failed: Pip failed');

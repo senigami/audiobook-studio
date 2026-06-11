@@ -92,12 +92,36 @@ export function useProgressBarTest() {
   };
 
   const nudgeProgress = (delta: number) => {
+    setUpdateSource('manual');
     setActiveConfig(prev => {
       const next = clamp01(prev.progress + delta);
       pushLog(`Progress nudged to ${Math.round(next * 100)}%`);
       setManualProgressValue(String(Math.round(next * 100)));
-      return { ...prev, progress: next };
+      return { ...prev, progress: next, updatedAt: nowUnixSeconds() };
     });
+  };
+
+  const finishRun = () => {
+    setUpdateSource('manual');
+    setActiveConfig(prev => ({
+      ...prev,
+      progress: 1,
+      status: 'finalizing',
+      updatedAt: nowUnixSeconds(),
+    }));
+    setManualProgressValue('100');
+    setManualStatus('finalizing');
+    pushLog('Progress finished to 100% with finalizing status.');
+  };
+
+  const setActiveAllowBackward = (enabled: boolean) => {
+    setUpdateSource('manual');
+    setActiveConfig(prev => ({
+      ...prev,
+      allowBackwardProgress: enabled,
+      updatedAt: nowUnixSeconds(),
+    }));
+    pushLog(`Manual allow backward ${enabled ? 'enabled' : 'disabled'}.`);
   };
 
   const setStatus = (status: ProgressBarStatus) => {
@@ -190,6 +214,8 @@ export function useProgressBarTest() {
     launchSampleRun,
     resetPreview,
     nudgeProgress,
+    finishRun,
+    setActiveAllowBackward,
     setStatus,
     setConfigStartedAtToNow,
     updateSource,

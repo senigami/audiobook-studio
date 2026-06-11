@@ -29,11 +29,12 @@ If you are new to GitHub or terminal setup, start with **Pinokio**.
 
 ## Release Information
 
-For brand-new users, the current `1.8.x` release line is the best place to begin. That release family is the first one intended to feel smooth across local XTTS production and optional Voxtral support:
+For brand-new users, the current Studio 2.0 release line is the best place to begin. It carries forward the stable local XTTS workflow and adds the plugin-based engine system used for XTTS, Voxtral, mixed rendering, and additional engines:
 
 - first-run setup
 - launcher scripts
 - voice portability
+- plugin-based engine management
 - engine-per-voice assignment
 - chapter generation
 - rebuild and queue UX

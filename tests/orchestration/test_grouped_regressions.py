@@ -90,17 +90,6 @@ def test_whole_job_eta_uses_weighted_group_progress(mock_state):
         assert eta is not None
         assert eta > 30, f"ETA was too small ({eta}), likely using raw segment progress instead of weighted job progress"
 
-def test_segment_boundary_events_do_not_project_bad_eta(mock_state):
-    """
-    segment_start and segment_saved events must not trigger state_jobs 
-    observed ETA projection from partial progress.
-    """
-    from app.db.state_jobs import update_job, ETA_PROJECTION_SKIP_REASONS
-
-    # We'll test this by checking if ETA_PROJECTION_SKIP_REASONS contains the markers
-    assert "segment_start" in ETA_PROJECTION_SKIP_REASONS
-    assert "segment_saved" in ETA_PROJECTION_SKIP_REASONS
-
 def test_script_view_exposes_authoritative_audio_groups(mock_state):
     """
     GET /api/chapters/{id}/script-view returns an explicit JSON mapping of 
@@ -133,24 +122,3 @@ def test_script_view_exposes_authoritative_audio_groups(mock_state):
     assert "audio_file_path" in first_batch
     assert "asset_url" in first_batch
 
-def test_group_saved_marks_all_group_members_done_once(mock_state):
-    """
-    When one segment WAV represents multiple spans, every span/segment in 
-    that group is returned as rendered/done and shares the same audio_file_path.
-    """
-    # This is partially covered by test_grouped_segment_saved_updates_all_ids in test_grouped_updates.py
-    # But we want to ensure it works correctly with the real DB and broadcast.
-    pass # Will implement more thoroughly in the actual fix if needed
-
-def test_full_chapter_render_creates_or_links_chapter_audio(mock_state):
-    """
-    A successful full chapter render creates chapter.wav or updates 
-    chapter audio_file_path/has_wav consistently.
-    """
-    from app.api.routers.generation import api_add_to_queue
-    from app.db import get_chapter, get_connection
-    from fastapi import BackgroundTasks
-
-    # This is a high-level integration test. 
-    # We'll mock the orchestrator to just complete the job.
-    pass

@@ -19,14 +19,19 @@ vi.mock('@/api', () => ({
     refreshPlugins: vi.fn(),
     updateEngineSettings: vi.fn(),
     clearEngineSetting: vi.fn(),
+    resetEngineCalibration: vi.fn(),
     verifyEngine: vi.fn(),
     installEngineDependencies: vi.fn(),
+    fetchEngineRequirements: vi.fn().mockResolvedValue({ ok: true, requirements: [] }),
     removeEnginePlugin: vi.fn(),
     fetchEngineLogs: vi.fn(),
     installPlugin: vi.fn(),
     resetRenderStats: vi.fn(),
     restartTtsServer: vi.fn(),
     importEnginePlugin: vi.fn(),
+    previewEnginePlugin: vi.fn(),
+    confirmEnginePlugin: vi.fn(),
+    cancelEnginePluginStaging: vi.fn(),
   },
 }));
 
@@ -266,9 +271,18 @@ describe('SettingsRoute', () => {
   });
 
   it('triggers file input selection and handles zip import', async () => {
-    const mockImport = vi.spyOn(api, 'importEnginePlugin').mockResolvedValue({
+    // New flow: preview → trust modal → confirm
+    vi.spyOn(api, 'previewEnginePlugin').mockResolvedValue({
       ok: true,
-      engine_id: 'new-plugin'
+      engine_id: 'new-plugin',
+      display_name: 'New Plugin',
+      version: '1.0.0',
+      requirements: [],
+      staging_token: 'a'.repeat(32),
+    });
+    vi.spyOn(api, 'confirmEnginePlugin').mockResolvedValue({
+      ok: true,
+      engine_id: 'new-plugin',
     });
 
     render(
@@ -286,8 +300,12 @@ describe('SettingsRoute', () => {
     const file = new File(['test'], 'plugin.zip', { type: 'application/zip' });
     fireEvent.change(fileInput, { target: { files: [file] } });
 
+    // Wait for trust modal and confirm
+    const confirmBtn = await screen.findByRole('button', { name: /Install Plugin/i });
+    fireEvent.click(confirmBtn);
+
     await waitFor(() => {
-      expect(mockImport).toHaveBeenCalledWith(file);
+      expect(api.confirmEnginePlugin).toHaveBeenCalledWith('a'.repeat(32));
       expect(defaultProps.onShowNotification).toHaveBeenCalledWith('Plugin new-plugin imported successfully.');
     });
   });
@@ -348,7 +366,9 @@ describe('SettingsRoute', () => {
     });
   });
 
-  it('persists engine settings and refreshes the registry', async () => {
+  // Generous timeout: this flow renders the full engines panel and has been
+  // observed to exceed the 5s default on slow CI runners.
+  it('persists engine settings and refreshes the registry', { timeout: 20000 }, async () => {
     render(
       <MemoryRouter initialEntries={['/settings/engines']}>
         <SettingsRoute {...defaultProps} />
@@ -359,7 +379,7 @@ describe('SettingsRoute', () => {
     const speakerNameInput = screen.getByDisplayValue('Narrator');
     fireEvent.change(speakerNameInput, { target: { value: 'Narrator Plus' } });
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Save Settings' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save Settings' }, { timeout: 10000 }));
 
     await waitFor(() => {
       expect(api.updateEngineSettings).toHaveBeenCalledWith('xtts-local', expect.objectContaining({
@@ -377,20 +397,32 @@ describe('SettingsRoute', () => {
     });
   });
 
-  it('resets the computed computer speed setting through the engine card', async () => {
+  it('resets the computed computer speed baseline through the engine card', async () => {
+    // Give XTTS a calibration summary so the "Reset Baseline" control is enabled.
+    const xttsWithCalibration = {
+      ...mockedEngines[0],
+      calibrated_cps: 12.5,
+      calibration_sample_count: 5,
+      calibration_since: 1_700_000_000,
+      calibration_confidence_percent: 85,
+    };
+    vi.mocked(api.fetchEngines).mockResolvedValue([xttsWithCalibration, mockedEngines[1]] as any);
     render(
       <MemoryRouter initialEntries={['/settings/engines']}>
-        <SettingsRoute {...defaultProps} />
+        <SettingsRoute {...defaultProps} engines={[xttsWithCalibration, mockedEngines[1]] as any} />
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByText('XTTS Local'));
-    fireEvent.click(screen.getByRole('button', { name: 'Reset Baseline' }));
+    const xttsHeader = await screen.findByText('XTTS Local');
+    fireEvent.click(xttsHeader);
+    // Each engine card renders its own calibration "Reset Baseline" button, so
+    // scope the query to the XTTS card rather than matching every engine's button.
+    const xttsCard = xttsHeader.closest('details') as HTMLElement;
+    fireEvent.click(within(xttsCard).getByRole('button', { name: 'Reset Baseline' }));
 
     await waitFor(() => {
-      expect(api.clearEngineSetting).toHaveBeenCalledWith('xtts-local', 'computer_speed_multiplier');
-      expect(defaultProps.onShowNotification).toHaveBeenCalledWith('XTTS Local baseline reset.');
-      expect(defaultProps.onRefresh).toHaveBeenCalled();
+      expect(api.resetEngineCalibration).toHaveBeenCalledWith('xtts-local');
+      expect(defaultProps.onShowNotification).toHaveBeenCalledWith('XTTS Local calibration history reset.');
     });
   });
 

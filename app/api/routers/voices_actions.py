@@ -196,13 +196,15 @@ async def build_speaker_profile(
         else:
              return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
     except ValueError as e:
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
+        logger.warning("Invalid speaker profile build request for %s: %s", name, e)
+        return JSONResponse({"status": "error", "message": "Invalid profile build request"}, status_code=400)
     except Exception as e:
         from ...engines.errors import EngineUnavailableError
         if isinstance(e, EngineUnavailableError):
-             return JSONResponse({"status": "error", "message": str(e)}, status_code=503)
-        logger.error(f"Error preparing path for profile {name}: {e}")
-        return JSONResponse({"status": "error", "message": f"Build failed: {e}"}, status_code=500)
+            logger.exception("Engine unavailable during profile build for %s", name)
+            return JSONResponse({"status": "error", "message": "The TTS engine is currently unavailable."}, status_code=503)
+        logger.exception("Error preparing path for profile %s", name)
+        return JSONResponse({"status": "error", "message": "Build failed"}, status_code=500)
 
     saved_files = []
     for f in files:
@@ -227,7 +229,10 @@ async def build_speaker_profile(
                     f.write(data)
 
         await anyio.to_thread.run_sync(save_file, content, dest)
-        saved_files.append(pathing.safe_basename(f.filename))
+        try:
+            saved_files.append(pathing.safe_basename(f.filename))
+        except ValueError:
+            saved_files.append("<unknown>")
 
     # Create build job
     jid = f"build-{uuid.uuid4().hex[:8]}"
@@ -253,7 +258,7 @@ async def build_speaker_profile(
         task_id=jid,
         speaker_profile=name,
         engine_id=engine,
-        output_path=Path(resolved_pdir) / "sample.mp3",
+        output_path=Path(resolved_pdir) / "sample.wav",
         voice_profile_dir=Path(resolved_pdir),
         test_text=spk_settings["test_text"],
         voice_job_settings=spk_settings,
@@ -351,7 +356,7 @@ def test_speaker_profile(name: str, background_tasks: BackgroundTasks):
             task_id=jid,
             speaker_profile=name,
             engine_id=engine,
-            output_path=pdir / "sample.mp3",
+            output_path=pdir / "sample.wav",
             voice_profile_dir=pdir,
             test_text=settings["test_text"],
             voice_job_settings=settings,
@@ -372,11 +377,12 @@ def test_speaker_profile(name: str, background_tasks: BackgroundTasks):
         return JSONResponse({
             "status": "ok",
             "job_id": jid,
-            "audio_url": preview_url or f"/out/voices/{url_path}/sample.mp3"
+            "audio_url": preview_url or f"/out/voices/{url_path}/sample.wav"
         })
     except Exception as e:
         from ...engines.errors import EngineUnavailableError
         if isinstance(e, EngineUnavailableError):
-             return JSONResponse({"status": "error", "message": str(e)}, status_code=503)
-        logger.error(f"Test failed for {name}: {e}")
+            logger.exception("Engine unavailable during profile test for %s", name)
+            return JSONResponse({"status": "error", "message": "The TTS engine is currently unavailable."}, status_code=503)
+        logger.exception("Test failed for %s", name)
         return JSONResponse({"status": "error", "message": "Test failed"}, status_code=500)

@@ -7,7 +7,7 @@
   "description": "A weathered, low Southern drawl. Reads like an old ranch hand telling a hard story.",
   "image": "icon.png",
   "samples": [
-    { "path": "samples/preview.wav", "text": "The sun went down slow over the dry creek.", "primary": true }
+    { "path": "samples/preview.mp3", "text": "The sun went down slow over the dry creek.", "primary": true }
   ],
   "languages": ["en-US"],
   "attributes": {

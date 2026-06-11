@@ -3,6 +3,7 @@ import os
 import json
 from unittest.mock import patch
 from app.db.core import init_db
+from tests.utils.timeout import timeout_after
 
 @pytest.fixture
 def client():
@@ -118,14 +119,18 @@ def test_project_audiobooks_and_assemble(clean_db, client):
 
     # Assemble
     from unittest.mock import patch
-    with patch("app.api.routers.projects_assembly.put_job") as mock_put_job, \
+    from app.db.queue import get_queue
+    with timeout_after(5, "assembly route should not hang"), \
+         patch("app.api.routers.projects_assembly.put_job") as mock_put_job, \
          patch("app.api.routers.projects_assembly.create_orchestrator") as mock_create_orch:
         mock_orch = mock_create_orch.return_value
         # We don't send 'chapters' list explicitly if we want it to use all chapters from project
-        response = client.post(f"/api/projects/{pid}/assemble", 
+        response = client.post(f"/api/projects/{pid}/assemble",
                                data={"title": "Book", "author": "Me", "narrator": "V1"})
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
-        assert "job_id" in response.json()
+        job_id = response.json()["job_id"]
+        assert job_id
+        assert any(row["id"] == job_id and row["custom_title"] == "P1" and row["engine"] == "audiobook" for row in get_queue())
         mock_put_job.assert_called_once()
         mock_orch.submit.assert_called_once()

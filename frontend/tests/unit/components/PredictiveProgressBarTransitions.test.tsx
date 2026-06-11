@@ -4,9 +4,10 @@ import { describe, it, expect, vi } from 'vitest'
 import { readPercent, advanceInTicks } from '@tests/helpers/PredictiveProgressBarTestHelpers'
 
 describe('PredictiveProgressBar - Transitions', () => {
-    it('applies a backend correction smoothly', async () => {
+    it('animates exact-mode target updates without ETA prediction', async () => {
         vi.useFakeTimers()
         vi.setSystemTime(91_000)
+        const onDisplayProgress = vi.fn()
         const { rerender } = render(
             <PredictiveProgressBar
                 progress={0}
@@ -16,6 +17,7 @@ describe('PredictiveProgressBar - Transitions', () => {
                 transitionTickCount={4}
                 tickMs={250}
                 predictive={false}
+                onDisplayProgress={onDisplayProgress}
             />
         )
         expect(screen.getByText('0%')).toBeTruthy()
@@ -28,10 +30,16 @@ describe('PredictiveProgressBar - Transitions', () => {
                 transitionTickCount={4}
                 tickMs={250}
                 predictive={false}
+                onDisplayProgress={onDisplayProgress}
             />
         )
-        expect(readPercent()).toBeLessThan(33)
-        advanceInTicks(1000)
+        expect(readPercent()).toBe(0)
+        advanceInTicks(500)
+        const midValue = readPercent()
+        expect(midValue).toBeGreaterThan(0)
+        expect(midValue).toBeLessThan(33)
+        expect(onDisplayProgress.mock.calls.some(([value]) => value > 0 && value < 0.33)).toBe(true)
+        advanceInTicks(500)
         expect(screen.getByText('33%')).toBeTruthy()
         vi.useRealTimers()
     })
@@ -123,33 +131,35 @@ describe('PredictiveProgressBar - Transitions', () => {
         vi.useRealTimers()
     })
 
-    it('honors evidenceWeightFraction by only moving a fraction of the distance toward target', () => {
+    it('evidenceWeightFraction is deprecated no-op: bar migrates to full incoming progress', () => {
+        // evidenceWeightFraction was removed per doc 15; trust is automatic.
+        // The bar should still migrate toward the full target progress (not half).
         vi.useFakeTimers()
         vi.setSystemTime(100_000)
         let captured: any = null
         const { rerender } = render(
-            <PredictiveProgressBar 
-                progress={0.1} 
-                status="running" 
-                transitionTickCount={4} 
+            <PredictiveProgressBar
+                progress={0.1}
+                status="running"
+                transitionTickCount={4}
                 tickMs={1000}
                 onDebugSnapshot={sn => captured = sn}
             />
         )
         rerender(
-            <PredictiveProgressBar 
-                progress={0.5} 
-                status="running" 
-                transitionTickCount={4} 
+            <PredictiveProgressBar
+                progress={0.5}
+                status="running"
+                transitionTickCount={4}
                 tickMs={1000}
-                evidenceWeightFraction={0.5}
                 onDebugSnapshot={sn => captured = sn}
             />
         )
-        expect(captured.effectiveTargetProgress).toBeCloseTo(0.3)
+        // effectiveTargetProgress is now the full incoming progress (0.5), not 0.3
+        expect(captured.effectiveTargetProgress).toBeCloseTo(0.5)
 
         act(() => { vi.advanceTimersByTime(4000) })
-        expect(readPercent()).toBe(30)
+        expect(readPercent()).toBe(50)
         vi.useRealTimers()
     })
 
@@ -182,6 +192,90 @@ describe('PredictiveProgressBar - Transitions', () => {
         expect(captured.isBackwardMigration).toBe(true)
         expect(captured.activeTransitionTickCount).toBe(2)
         expect(captured.migrationDurationMs).toBe(500)
+        vi.useRealTimers()
+    })
+
+    it('moves backward on ETA-backed lanes when allowBackwardProgress is true', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(100_000)
+        let captured: any = null
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0.6}
+                startedAt={50}
+                etaSeconds={200}
+                status="running"
+                allowBackwardProgress={true}
+                transitionTickCount={8}
+                backwardTransitionTickCount={2}
+                tickMs={250}
+                onDebugSnapshot={sn => captured = sn}
+            />
+        )
+
+        expect(readPercent()).toBe(60)
+
+        rerender(
+            <PredictiveProgressBar
+                progress={0.25}
+                startedAt={50}
+                etaSeconds={200}
+                status="running"
+                allowBackwardProgress={true}
+                transitionTickCount={8}
+                backwardTransitionTickCount={2}
+                tickMs={250}
+                onDebugSnapshot={sn => captured = sn}
+            />
+        )
+
+        expect(captured.isBackwardMigration).toBe(true)
+        expect(captured.activeTransitionTickCount).toBe(2)
+        act(() => { vi.advanceTimersByTime(500) })
+        expect(readPercent()).toBeLessThan(40)
+        expect(readPercent()).toBe(25)
+        vi.useRealTimers()
+    })
+
+    it('does not move backward on ETA-backed lanes when allowBackwardProgress is false', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(100_000)
+        let captured: any = null
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0.6}
+                startedAt={50}
+                etaSeconds={200}
+                status="running"
+                allowBackwardProgress={false}
+                transitionTickCount={8}
+                backwardTransitionTickCount={2}
+                tickMs={250}
+                onDebugSnapshot={sn => captured = sn}
+            />
+        )
+
+        expect(readPercent()).toBe(60)
+
+        rerender(
+            <PredictiveProgressBar
+                progress={0.25}
+                startedAt={50}
+                etaSeconds={200}
+                status="running"
+                allowBackwardProgress={false}
+                transitionTickCount={8}
+                backwardTransitionTickCount={2}
+                tickMs={250}
+                onDebugSnapshot={sn => captured = sn}
+            />
+        )
+
+        // Advance timers by 500ms
+        act(() => { vi.advanceTimersByTime(500) })
+        
+        // Without the fix, the lane migration causes progress to drop below 60%.
+        expect(readPercent()).toBeGreaterThanOrEqual(60)
         vi.useRealTimers()
     })
 
