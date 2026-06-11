@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useSegmentHandoffQueue, COMPLETION_HOLD_MS } from '@/hooks/useSegmentHandoffQueue';
 
 describe('useSegmentHandoffQueue', () => {
@@ -147,9 +147,11 @@ describe('useSegmentHandoffQueue', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 5: When no pending exists (normal flow), swaps immediately
+  // Test 5: When no pending exists, visual complete → new segment enters hold then swaps
   // -----------------------------------------------------------------------
-  it('swaps segment immediately when visual bar is already at 1.0 (no queue needed)', () => {
+  it('serves remaining hold when visual bar reaches 1.0 before new segment arrives, then swaps after hold', () => {
+    vi.useFakeTimers();
+
     // Simulate: bar already reported onVisualComplete before new segment arrives
     const { result, rerender } = renderHook(
       ({ segmentId, progress }: { segmentId: string; progress: number }) =>
@@ -157,21 +159,37 @@ describe('useSegmentHandoffQueue', () => {
       { initialProps: { segmentId: 'seg-A', progress: 1.0 } }
     );
 
-    // Mark visual complete with no pending
+    // Mark visual complete with no pending (early visual complete, no pending segment)
     act(() => {
       result.current.onVisualComplete();
     });
 
-    // New segment arrives after visual complete — should be displayed immediately
+    // New segment arrives — still within hold window, so hold is entered
     rerender({ segmentId: 'seg-B', progress: 0 });
+    // seg-A still displayed during remaining hold
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+    expect(result.current.hasPending).toBe(true);
+
+    // Advance through full hold
+    act(() => {
+      vi.advanceTimersByTime(COMPLETION_HOLD_MS);
+    });
     expect(result.current.displayedSegmentId).toBe('seg-B');
     expect(result.current.hasPending).toBe(false);
+
+    // Catch-up tick
+    act(() => {
+      vi.advanceTimersByTime(16);
+    });
+    expect(result.current.displayedSegmentId).toBe('seg-B');
+
+    vi.useRealTimers();
   });
 
   // -----------------------------------------------------------------------
-  // Test 6 (Bug 1): visualCompleteRef must be reset on mount so third segment queues
+  // Test 6 (Bug 1): visualCompleteRef must be reset on flush so third segment queues
   // -----------------------------------------------------------------------
-  it('queues a third segment (C) even though the first handoff (A→B) used the immediate-mount path', () => {
+  it('queues a third segment (C) even though the first handoff (A→B) used the remaining-hold path', () => {
     vi.useFakeTimers();
 
     const { result, rerender } = renderHook(
@@ -185,8 +203,15 @@ describe('useSegmentHandoffQueue', () => {
       result.current.notifyDisplayProgress(1.0);
     });
 
-    // B starts — should mount immediately via the immediate-mount path (ref was true)
+    // B starts — enters remaining-hold path (visual was complete, hold not yet elapsed)
     rerender({ segmentId: 'seg-B', progress: 0 });
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+    expect(result.current.hasPending).toBe(true);
+
+    // Advance through full hold — B now mounted
+    act(() => {
+      vi.advanceTimersByTime(COMPLETION_HOLD_MS);
+    });
     expect(result.current.displayedSegmentId).toBe('seg-B');
     expect(result.current.hasPending).toBe(false);
 
@@ -394,6 +419,124 @@ describe('useSegmentHandoffQueue', () => {
 
     // Sentinel now displayed
     expect(result.current.displayedSegmentId).toBe('none');
+    expect(result.current.hasPending).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  // -----------------------------------------------------------------------
+  // NEW (race fix): serves remaining hold when visual completes before sentinel arrives
+  // -----------------------------------------------------------------------
+  it('serves remaining hold when visual completes before sentinel arrives', () => {
+    vi.useFakeTimers();
+
+    const { result, rerender } = renderHook(
+      ({ segmentId, progress }: { segmentId: string; progress: number }) =>
+        useSegmentHandoffQueue({ jobId: 'job-1', segmentId, progress, status: 'running' }),
+      { initialProps: { segmentId: 'seg-A', progress: 0.8 } }
+    );
+
+    // Visual bar reaches 100% with no pending segment yet
+    act(() => {
+      result.current.notifyDisplayProgress(1.0);
+    });
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+    expect(result.current.hasPending).toBe(false);
+
+    // 200ms elapses before sentinel arrives (300ms of hold remaining)
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // Sentinel arrives — should NOT swap immediately; remaining hold = 300ms
+    rerender({ segmentId: 'none', progress: 0 });
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+    expect(result.current.hasPending).toBe(true);
+
+    // 299ms more — still in hold
+    act(() => {
+      vi.advanceTimersByTime(299);
+    });
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+
+    // 1ms more — hold fires, sentinel displayed
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(result.current.displayedSegmentId).toBe('none');
+    expect(result.current.hasPending).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  // -----------------------------------------------------------------------
+  // NEW (race fix): serves remaining hold when visual completes before next segment arrives
+  // -----------------------------------------------------------------------
+  it('serves remaining hold when visual completes before next real segment arrives', () => {
+    vi.useFakeTimers();
+
+    const { result, rerender } = renderHook(
+      ({ segmentId, progress }: { segmentId: string; progress: number }) =>
+        useSegmentHandoffQueue({ jobId: 'job-1', segmentId, progress, status: 'running' }),
+      { initialProps: { segmentId: 'seg-A', progress: 0.9 } }
+    );
+
+    // Visual bar reaches 100% — no pending yet
+    act(() => {
+      result.current.notifyDisplayProgress(1.0);
+    });
+    expect(result.current.hasPending).toBe(false);
+
+    // 200ms elapses, then seg-B arrives
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    rerender({ segmentId: 'seg-B', progress: 0 });
+    // Should hold for remaining ~300ms, not swap immediately
+    expect(result.current.displayedSegmentId).toBe('seg-A');
+    expect(result.current.hasPending).toBe(true);
+
+    // Advance through remaining hold (300ms) + catch-up tick (16ms)
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    // After hold: seg-B mounted at 0
+    expect(result.current.displayedSegmentId).toBe('seg-B');
+    expect(result.current.displayedProgress).toBe(0);
+
+    act(() => {
+      vi.advanceTimersByTime(16);
+    });
+    expect(result.current.displayedSegmentId).toBe('seg-B');
+
+    vi.useRealTimers();
+  });
+
+  // -----------------------------------------------------------------------
+  // NEW (race fix): swap is immediate when hold has already elapsed before swap arrives
+  // -----------------------------------------------------------------------
+  it('swap is immediate when hold already elapsed before swap arrives', () => {
+    vi.useFakeTimers();
+
+    const { result, rerender } = renderHook(
+      ({ segmentId, progress }: { segmentId: string; progress: number }) =>
+        useSegmentHandoffQueue({ jobId: 'job-1', segmentId, progress, status: 'running' }),
+      { initialProps: { segmentId: 'seg-A', progress: 0.9 } }
+    );
+
+    // Visual bar reaches 100% — no pending yet
+    act(() => {
+      result.current.notifyDisplayProgress(1.0);
+    });
+
+    // 600ms elapses — well past the 500ms hold
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+
+    // seg-B arrives after hold has elapsed — should mount immediately
+    rerender({ segmentId: 'seg-B', progress: 0 });
+    expect(result.current.displayedSegmentId).toBe('seg-B');
     expect(result.current.hasPending).toBe(false);
 
     vi.useRealTimers();
