@@ -113,7 +113,9 @@ def discover_plugins(plugins_dir: Path) -> list[LoadedPlugin]:
             plugin = _invalid_manifest_plugin(
                 plugin_dir=entry,
                 folder_name=folder_name,
-                load_error=str(exc) if isinstance(exc, PluginLoadError) else "Unexpected error while loading plugin (see server logs)",
+                load_error="Plugin configuration is invalid (see server logs)"
+                if isinstance(exc, PluginLoadError)
+                else "Unexpected error while loading plugin (see server logs)",
             )
             if plugin is not None:
                 loaded.append(plugin)
