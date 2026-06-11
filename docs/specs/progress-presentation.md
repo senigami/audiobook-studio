@@ -1,7 +1,7 @@
 # Progress Presentation Contract
 
 ```
-spec_version: 1.2.0
+spec_version: 1.2.1
 status: active
 sources:
   - frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx
@@ -21,6 +21,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.2.1   | 2026-06-11 | H4 strengthened: bar mount gate is handoff-aware directly; bridge alone is insufficient |
 | 1.2.0   | 2026-06-10 | Remaining-hold rule H6: swaps arriving after early visual completion serve out the rest of the 500 ms hold (§7) |
 | 1.1.0   | 2026-06-10 | Segment handoff queue: COMPLETING→HOLD state machine, end-of-chapter animation, 500 ms completion hold (§7) |
 | 1.0.0   | 2026-06-10 | Initial canonical spec  |
@@ -214,7 +215,7 @@ Rules:
 - **H1** — The end-of-chapter transition (real segment → no active segment, job terminal) MUST take the same COMPLETING→HOLD path as a mid-chapter handoff; it MUST NOT reset immediately. The pending frame is the sentinel (`'none'`), and the flush clears the display instead of mounting a next segment.
 - **H2** — The 500 ms completion hold applies to every flush, mid-chapter and end-of-chapter.
 - **H3** — A 3 s safety timer force-flushes if visual completion is never reported; the flush MUST clear any safety timer re-armed during the hold so a stray fire cannot mark visual-complete and make the next handoff skip its animation.
-- **H4** — During COMPLETING/HOLD the page MUST keep the rendering-segment set and the header bar mounted even if the job is terminal (the header's terminal-job bridge patches the last known active-segment fields onto the bridged job), because the bar's display feedback is what drives visual completion.
+- **H4** — During COMPLETING/HOLD the page MUST keep the rendering-segment set and the header bar mounted even if the job is terminal, because the bar's display feedback is what drives visual completion. The bar's mount gate is handoff-aware directly (`liveSegmentProgressJob || hasPending || displayedSegmentId !== 'none'`); when mounted purely via the handoff (no live job), the bar renders with state `running` so the predictive lane keeps animating and firing `onDisplayProgress`. It MUST NOT rely solely on the terminal-job bridge, whose candidate selection can drop the job at end-of-chapter.
 - **H5** — The script text fill MUST follow the bar's *animated* display progress (fed back via `onSegmentDisplayProgress`), never raw stepped event data; the handoff decides only WHICH segment owns the fill. The fill resets to 0 keyed on the *displayed* segment identity.
 - **H6** — When the visual bar completes *before* the next swap arrives (segment data hits 1.0 while the job is still finishing; the next segment or sentinel lands later), the swap MUST serve out the *remaining* hold time: the hook records when visual completion occurred, and a swap arriving within `COMPLETION_HOLD_MS` is queued as pending and flushed when the remainder elapses. A swap arriving after the window mounts immediately.
 

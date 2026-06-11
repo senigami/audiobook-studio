@@ -3,6 +3,7 @@ import React from 'react';
 import { render, screen, act, renderHook } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useChapterStatus, ChapterScriptToolbar } from '@/pages/ChapterEditor/components/ChapterHeader';
+import type { SegmentHandoffState } from '@/hooks/useSegmentHandoffQueue';
 
 let capturedOnDebugSnapshot: ((snapshot: any) => void) | undefined;
 let capturedOnDisplayProgress: ((progress: number) => void) | undefined;
@@ -641,12 +642,29 @@ describe('ChapterHeader progress contract', () => {
     expect(screen.getByTestId('chapter-header-segment-progress-bar')).toBeInTheDocument();
     expect(screen.getByTestId('chapter-header-segment-progress-bar')).toHaveTextContent('100%');
 
-    // Advance fake timers by 1600ms (more than 1500ms bridge)
+    // Advance through the done-bridge window (1500ms).
+    // After the bridge, liveSegmentProgressJob becomes undefined and the internal
+    // handoff queue enters sentinel_completing (H4): it keeps the bar mounted while
+    // the visual bar finishes and the handoff sentinel flush occurs.
     act(() => {
       vi.advanceTimersByTime(1600);
     });
 
-    // Now it should be unmounted!
+    // Bar is still mounted — handoff is mid-sentinel-completing (waiting for visual 100%).
+    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toBeInTheDocument();
+
+    // Advance through the 3s safety timer (no notifyDisplayProgress to drive visual completion).
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    // Advance through the 500ms completion hold.
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    // Now the handoff has flushed to sentinel (displayedSegmentId='none') and
+    // hasPending=false — the bar should be unmounted.
     expect(screen.queryByTestId('chapter-header-segment-progress-bar')).toBeNull();
 
     vi.useRealTimers();
@@ -895,5 +913,63 @@ describe('ChapterHeader progress contract', () => {
     render(<TestComponent generatingJob={jobWithAbsent as any} />);
     expect(capturedStatus.segmentProgressBarSelection.selectedActiveSegmentProgress).toBe(0.5);
     expect(capturedStatus.segmentProgressBarSelection.selectedActiveSegmentId).toBe('seg-1');
+  });
+
+  // -----------------------------------------------------------------------
+  // Test A (R1 revert-check): bar stays mounted via handoff when liveSegmentProgressJob is undefined
+  // Pre-change: mount guard was `status.liveSegmentProgressJob &&` → bar absent when job is undefined
+  // Post-change: guard also checks hasPending/displayedSegmentId → bar present during handoff
+  // -----------------------------------------------------------------------
+  it('(H4) keeps bar mounted when liveSegmentProgressJob is undefined but handoffState has a real displayedSegmentId and hasPending', () => {
+    // Build a stub SegmentHandoffState that looks mid-handoff:
+    // displayedSegmentId is a real segment, hasPending true, liveJob is undefined.
+    const handoffStub: SegmentHandoffState = {
+      displayedSegmentId: 'seg-handoff-live',
+      displayedProgress: 0.75,
+      displayedEtaSeconds: 5,
+      displayedEtaBasis: 'segment_remaining',
+      displayedUpdatedAt: 9999,
+      displayedJobId: 'job-handoff-live',
+      hasPending: true,
+      onVisualComplete: vi.fn(),
+      notifyDisplayProgress: vi.fn(),
+    };
+
+    // status with liveSegmentProgressJob === undefined (job went terminal, heldLiveJob expired)
+    const status = useChapterStatus_noHook();
+
+    function useChapterStatus_noHook() {
+      // Render a tiny component so we can call the hook legitimately.
+      let captured: ReturnType<typeof useChapterStatus> | null = null;
+      const Capture = () => {
+        captured = useChapterStatus(
+          mockChapter as any,
+          undefined, // job
+          undefined, // generatingJob — no live job
+          false,
+          0,
+          false
+        );
+        return null;
+      };
+      render(<Capture />);
+      return captured!;
+    }
+
+    render(
+      <ChapterScriptToolbar
+        chapter={mockChapter as any}
+        saving={false}
+        hasUnsavedChanges={false}
+        submitting={false}
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+        status={status}
+        handoffState={handoffStub}
+      />
+    );
+
+    // The progress bar must be in the document — mounted via handoff even though no live job.
+    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toBeInTheDocument();
   });
 });

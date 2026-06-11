@@ -135,7 +135,7 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
     const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     // Ref to the onVisualComplete callback so the safety timer can call it without a
     // stale-closure dependency cycle (callback defined after the main effect).
-    const onVisualCompleteRef = useRef<(() => void) | null>(null);
+    const onVisualCompleteRef = useRef<((source?: 'display' | 'safety') => void) | null>(null);
     // Hold timer: after visual 100%, wait COMPLETION_HOLD_MS before flushing.
     const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     // Guard against double-entry into the hold phase.
@@ -319,7 +319,7 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
             }
             safetyTimerRef.current = setTimeout(() => {
                 safetyTimerRef.current = null;
-                onVisualCompleteRef.current?.();
+                onVisualCompleteRef.current?.('safety');
             }, 3000);
             setHasPending(true);
             setDisplayed(prev => ({ ...prev, progress: 1.0, etaSeconds: null }));
@@ -346,7 +346,7 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
             }
             safetyTimerRef.current = setTimeout(() => {
                 safetyTimerRef.current = null;
-                onVisualCompleteRef.current?.();
+                onVisualCompleteRef.current?.('safety');
             }, 3000);
         }
         // Update hasPending state so the caller can observe it.

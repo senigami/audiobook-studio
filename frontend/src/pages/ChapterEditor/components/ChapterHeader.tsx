@@ -4,7 +4,7 @@ import type { Chapter, Job } from '@/types';
 import { PredictiveProgressBar, type PredictiveProgressBarProps } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import { buildSegmentProgressBarProps } from '@/components/progress/progressBarContracts';
 import { hasSegmentProgressCapability } from '@/utils/jobSelection';
-import { useSegmentHandoffQueue } from '@/hooks/useSegmentHandoffQueue';
+import { useSegmentHandoffQueue, recordExternalHandoffEvent } from '@/hooks/useSegmentHandoffQueue';
 
 const RECENT_DONE_WINDOW_SECONDS = 60;
 
@@ -405,6 +405,27 @@ export const ChapterTopBar: React.FC<{
   );
 };
 
+/** Tiny helper that records bar mount/unmount transitions into the handoff debug ring. */
+const BarMountInstrumentation: React.FC<{
+  mounted: boolean;
+  hasLiveJob: boolean;
+  hasPending: boolean;
+  displayedSegmentId: string;
+}> = ({ mounted, hasLiveJob, hasPending, displayedSegmentId }) => {
+  const prevRef = React.useRef<boolean | null>(null);
+  React.useEffect(() => {
+    if (prevRef.current !== null && prevRef.current !== mounted) {
+      recordExternalHandoffEvent(mounted ? 'bar_mounted' : 'bar_unmounted', {
+        hasLiveJob,
+        hasPending,
+        displayed: displayedSegmentId,
+      });
+    }
+    prevRef.current = mounted;
+  }, [mounted, hasLiveJob, hasPending, displayedSegmentId]);
+  return null;
+};
+
 export const ChapterScriptToolbar: React.FC<{
   chapter: Chapter;
   saving: boolean;
@@ -554,47 +575,75 @@ export const ChapterScriptToolbar: React.FC<{
             </div>
         )}
 
-        {status.liveSegmentProgressJob && (
-            <div style={{ width: '180px', minWidth: '180px' }}>
-                {(() => {
-                    // Use handoff-queue values so the bar stays mounted until visual 100%
-                    // before swapping to the next segment.
-                    const displayedJobId = handoff.displayedJobId || status.liveSegmentProgressJob.id;
-                    const displayedSegmentId = handoff.displayedSegmentId || status.liveSegmentProgressJob.active_segment_id || 'none';
-                    const displayedProgress = handoff.displayedProgress;
-                    const displayedEtaSeconds = handoff.displayedEtaSeconds !== undefined
-                        ? handoff.displayedEtaSeconds
-                        : status.segmentProgressBarSelection.selectedEtaSeconds;
-                    const displayedEtaBasis = handoff.displayedEtaBasis !== undefined
-                        ? handoff.displayedEtaBasis
-                        : status.segmentProgressBarSelection.selectedEtaBasis;
-                    const displayedUpdatedAt = handoff.displayedUpdatedAt !== undefined
-                        ? handoff.displayedUpdatedAt
-                        : status.segmentProgressBarSelection.selectedUpdatedAt;
+        {(() => {
+            // H4 (spec §7): bar must stay mounted through the handoff COMPLETING/HOLD phase
+            // even after liveSegmentProgressJob goes undefined at end-of-chapter.
+            const barMountGate = !!(
+                status.liveSegmentProgressJob ||
+                handoff.hasPending ||
+                handoff.displayedSegmentId !== 'none'
+            );
 
-                    const progressBarConfig = buildSegmentProgressBarProps({
-                        jobId: displayedJobId,
-                        segmentId: displayedSegmentId,
-                        progress: displayedProgress,
-                        status: status.liveSegmentProgressJob.status,
-                        etaSeconds: displayedEtaSeconds,
-                        etaBasis: displayedEtaBasis as any,
-                        updatedAt: displayedUpdatedAt,
-                        state: status.liveSegmentProgressJob.status === 'preparing'
-                            ? (status.segmentProgressBarSelection.isSegmentStartAtZero ? 'processing' : 'preparing')
-                            : status.liveSegmentProgressJob.status === 'finalizing'
-                                ? 'finalizing'
-                                : status.liveSegmentProgressJob.status === 'running'
-                                    ? (status.liveSegmentProgressIsRenderBlock ? 'running' : 'processing')
-                                    : (status.liveSegmentProgressJob.status === 'error' ? 'failed' : status.liveSegmentProgressJob.status as any),
-                        onDisplayProgress: handleDisplayProgress,
-                        onDebugSnapshot: onProgressBarDebugSnapshot,
-                    });
-                    const { key, ...progressBarProps } = progressBarConfig;
-                    return <PredictiveProgressBar key={key} {...progressBarProps} />;
-                })()}
-            </div>
-        )}
+            // Guard: don't mount an empty bar in idle (no job, no pending, sentinel displayed).
+            if (!barMountGate) return null;
+
+            return (
+                <div style={{ width: '180px', minWidth: '180px' }}>
+                    {(() => {
+                        // Null-safe props: handoff values take priority; fall back to live job when present.
+                        const displayedJobId = handoff.displayedJobId || status.liveSegmentProgressJob?.id || '';
+                        const displayedSegmentId = handoff.displayedSegmentId !== 'none'
+                            ? handoff.displayedSegmentId
+                            : (status.liveSegmentProgressJob?.active_segment_id || 'none');
+                        // When the handoff is still showing the sentinel (hasn't processed the new segment yet),
+                        // prefer the live job's progress so the bar doesn't flash 0% before the handoff flushes.
+                        const displayedProgress = (handoff.displayedSegmentId !== 'none' || !status.liveSegmentProgressJob)
+                            ? handoff.displayedProgress
+                            : status.liveSegmentProgressValue;
+                        const displayedEtaSeconds = handoff.displayedEtaSeconds !== undefined
+                            ? handoff.displayedEtaSeconds
+                            : status.segmentProgressBarSelection.selectedEtaSeconds;
+                        const displayedEtaBasis = handoff.displayedEtaBasis !== undefined
+                            ? handoff.displayedEtaBasis
+                            : status.segmentProgressBarSelection.selectedEtaBasis;
+                        const displayedUpdatedAt = handoff.displayedUpdatedAt !== undefined
+                            ? handoff.displayedUpdatedAt
+                            : status.segmentProgressBarSelection.selectedUpdatedAt;
+
+                        // When mounted purely via handoff (no live job), use 'running' so the
+                        // predictive lane keeps animating and firing onDisplayProgress feedback.
+                        const liveJobStatus = status.liveSegmentProgressJob?.status ?? 'running';
+                        const progressBarConfig = buildSegmentProgressBarProps({
+                            jobId: displayedJobId,
+                            segmentId: displayedSegmentId,
+                            progress: displayedProgress,
+                            status: liveJobStatus,
+                            etaSeconds: displayedEtaSeconds,
+                            etaBasis: displayedEtaBasis as any,
+                            updatedAt: displayedUpdatedAt,
+                            state: liveJobStatus === 'preparing'
+                                ? (status.segmentProgressBarSelection.isSegmentStartAtZero ? 'processing' : 'preparing')
+                                : liveJobStatus === 'finalizing'
+                                    ? 'finalizing'
+                                    : liveJobStatus === 'running'
+                                        ? (status.liveSegmentProgressIsRenderBlock ? 'running' : 'processing')
+                                        : (liveJobStatus === 'error' ? 'failed' : liveJobStatus as any),
+                            onDisplayProgress: handleDisplayProgress,
+                            onDebugSnapshot: onProgressBarDebugSnapshot,
+                        });
+                        const { key, ...progressBarProps } = progressBarConfig;
+                        return <PredictiveProgressBar key={key} {...progressBarProps} />;
+                    })()}
+                </div>
+            );
+        })()}
+
+        <BarMountInstrumentation
+            mounted={!!(status.liveSegmentProgressJob || handoff.hasPending || handoff.displayedSegmentId !== 'none')}
+            hasLiveJob={!!status.liveSegmentProgressJob}
+            hasPending={handoff.hasPending}
+            displayedSegmentId={handoff.displayedSegmentId}
+        />
 
         {(status.generatingSegmentIdsCount > 0 || chapter?.audio_status === 'processing') && (
             <button
