@@ -12,6 +12,8 @@ export type SegmentProgressBarInput = {
     etaSeconds?: number | null;
     etaBasis?: PredictiveProgressBarProps['etaBasis'] | null;
     updatedAt?: number | null;
+    /** reasonCode from the live event — used to suppress default ETA seeding for SEGMENT_PENDING. */
+    reasonCode?: string | null;
     onDisplayProgress?: PredictiveProgressBarProps['onDisplayProgress'];
     onDebugSnapshot?: PredictiveProgressBarProps['onDebugSnapshot'];
 };
@@ -30,14 +32,18 @@ export const buildSegmentProgressBarProps = ({
     etaSeconds,
     etaBasis,
     updatedAt,
+    reasonCode,
     onDisplayProgress,
     onDebugSnapshot,
 }: SegmentProgressBarInput): PredictiveProgressBarProps & { key: string } => {
     const identity = getSegmentProgressBarKey({ jobId, segmentId });
     const segmentProgress = clamp01(progress);
+    // SEGMENT_PENDING: engine not confirmed yet — keep null ETA so the bar is indeterminate.
+    // Only seed the default 120s ETA when the engine has confirmed (START_SEGMENT or no code).
+    const isSegmentPending = reasonCode === 'SEGMENT_PENDING';
     const seededEtaSeconds = typeof etaSeconds === 'number'
         ? etaSeconds
-        : (segmentProgress === 0 && (status === 'running' || state === 'processing') ? 120 : undefined);
+        : (!isSegmentPending && segmentProgress === 0 && (status === 'running' || state === 'processing') ? 120 : undefined);
     const seededEtaBasis = seededEtaSeconds != null ? (etaBasis ?? 'remaining_from_update') : undefined;
     return {
         key: identity,

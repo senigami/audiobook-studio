@@ -1875,4 +1875,33 @@ describe('useJobs', () => {
 
     expect(result.current.jobs['seg-job'].classification).toBe('chapter');
   });
+
+  it('SEGMENT_PENDING frame at progress 0 projects status "preparing" (engine not confirmed)', async () => {
+    // SEGMENT_PENDING is the announce-time frame emitted before the engine loads.
+    // The UI must show 'preparing', not 'running', until the canonical START_SEGMENT arrives.
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-seg', status: 'running', progress: 0.1 }] });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-pending', jobId: 'job-seg', chapterId: 'chap-1' },
+        payload: {
+          status: 'running',
+          progress: 0,
+          reasonCode: 'SEGMENT_PENDING',
+          message: 'Preparing engine for segment seg-pending...',
+          activeSegmentEtaSeconds: null,
+        },
+      });
+    });
+
+    const job = result.current.jobs['job-seg'];
+    expect(job).toBeDefined();
+    // progress 0 + SEGMENT_PENDING → stays 'preparing' (not 'running') until engine confirms
+    expect(job.status).toBe('preparing');
+  });
 });

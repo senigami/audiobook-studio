@@ -457,6 +457,49 @@ class OrchestratorHelpersMixin:
                 max_progress[0] = val
             return max_progress[0]
 
+        def _publish_segment_started(sid: str) -> None:
+            """Publish the canonical START_SEGMENT frame for *sid* at engine-confirmation time.
+
+            Called from two places:
+            1. [START_SYNTHESIS] branch — engine confirmed after announce (mixed-render pattern).
+            2. First PROGRESS branch — engines that skip START_SYNTHESIS entirely.
+            The clock (segment_starts[sid]) must already be set before calling this.
+            """
+            remaining_fraction = (
+                (total_weight - completed_weight[0]) / total_weight
+                if total_weight > 0 else 1.0
+            )
+            remaining_eta = (
+                int(round(expected_duration * remaining_fraction))
+                if expected_duration is not None and expected_duration > 0
+                else None
+            )
+            self._publish(
+                context=context,
+                status="running",
+                progress=_get_grouped_progress(),
+                eta_seconds=self._duration_to_eta_seconds(remaining_eta),
+                active_segment_eta_seconds=self._estimate_active_segment_eta_seconds(
+                    expected_duration=expected_duration,
+                    total_weight=total_weight,
+                    active_weight=id_to_weight.get(sid, 0),
+                    active_progress=0.0,
+                    started_at=segment_starts.get(sid),
+                    calibrated_cps=calibrated_cps,
+                ),
+                reason_code="START_SEGMENT",
+                message=f"Rendering segment {sid}...",
+                started_at=timing["render_started_at"],
+                active_segment_id=sid,
+                render_group_count=render_group_count,
+                completed_render_groups=completed_group_count[0],
+                active_render_group_index=active_render_group_index[0],
+                total_render_weight=total_weight,
+                completed_render_weight=completed_weight[0],
+                active_render_group_weight=id_to_weight.get(sid, 0),
+                grouped_progress=_get_grouped_progress(),
+            )
+
         def log_listener(line: str, line_task_id: Optional[str] = None):
             # If a task_id is present in the line, it MUST match ours.
             if line_task_id and line_task_id != context.task_id:
@@ -514,9 +557,14 @@ class OrchestratorHelpersMixin:
                 # Engine-confirmed clock: if a segment was already announced but not yet
                 # confirmed (mixed-render: START_SEGMENT before model load), record the
                 # engine-confirmed start time now so the model-load window is excluded.
-                if active_seg_id[0] and active_seg_id[0] not in segment_starts:
-                    segment_starts[active_seg_id[0]] = now_time
+                _pending_seg_id = active_seg_id[0] if active_seg_id[0] and active_seg_id[0] not in segment_starts else None
+                if _pending_seg_id:
+                    segment_starts[_pending_seg_id] = now_time
                 if marker_state["start_synthesis_emitted"]:
+                    # Subsequent START_SYNTHESIS (mixed renders emit one per group
+                    # subprocess): still confirm the pending segment before deduping.
+                    if _pending_seg_id:
+                        _publish_segment_started(_pending_seg_id)
                     return
                 marker_state["start_synthesis_emitted"] = True
                 if timing["render_started_at"] is None:
@@ -544,6 +592,9 @@ class OrchestratorHelpersMixin:
                     grouped_progress=_get_grouped_progress(),
                     force=False,
                 )
+                # If a segment was pending confirmation, now publish its canonical START_SEGMENT frame.
+                if _pending_seg_id:
+                    _publish_segment_started(_pending_seg_id)
 
             if matched_marker == "START_SEGMENT" or "[START_SEGMENT]" in line:
                 if timing.get("first_start_segment_at") is None:
@@ -597,21 +648,18 @@ class OrchestratorHelpersMixin:
                         if expected_duration is not None and expected_duration > 0
                         else None
                     )
+                    # Publish SEGMENT_PENDING (announce): engine has not confirmed yet.
+                    # active_segment_eta_seconds is None so the UI does not start pacing.
+                    # The canonical START_SEGMENT frame is emitted at engine confirmation
+                    # (START_SYNTHESIS or first PROGRESS line).
                     self._publish(
                         context=context,
                         status="running",
                         progress=_get_grouped_progress(),
                         eta_seconds=self._duration_to_eta_seconds(remaining_eta),
-                        active_segment_eta_seconds=self._estimate_active_segment_eta_seconds(
-                            expected_duration=expected_duration,
-                            total_weight=total_weight,
-                            active_weight=id_to_weight.get(sid, 0),
-                            active_progress=0.0,
-                            started_at=segment_starts.get(sid),
-                            calibrated_cps=calibrated_cps,
-                        ),
-                        reason_code="START_SEGMENT",
-                        message=f"Rendering segment {sid}...",
+                        active_segment_eta_seconds=None,
+                        reason_code="SEGMENT_PENDING",
+                        message=f"Preparing engine for segment {sid}...",
                         started_at=timing["render_started_at"],
                         active_segment_id=sid,
                         render_group_count=render_group_count,
@@ -622,6 +670,9 @@ class OrchestratorHelpersMixin:
                         active_render_group_weight=id_to_weight.get(sid, 0),
                         grouped_progress=_get_grouped_progress(),
                     )
+                    # Never confirm at announce: a prior START_SYNTHESIS belongs to an
+                    # earlier group's subprocess in mixed renders. Confirmation comes
+                    # only from the engine — its own START_SYNTHESIS or first PROGRESS.
                 except (IndexError, ValueError):
                     pass
 
@@ -634,8 +685,10 @@ class OrchestratorHelpersMixin:
                     timing["render_started_at"] = time.time()
                 # Engine-confirmed clock fallback: engines that skip START_SYNTHESIS but emit
                 # PROGRESS lines — confirm the segment start at first progress.
+                _progress_confirmed_seg = None
                 if active_seg_id[0] and active_seg_id[0] not in segment_starts:
                     segment_starts[active_seg_id[0]] = time.time()
+                    _progress_confirmed_seg = active_seg_id[0]
                 try:
                     if total_weight > 0:
                         active_seg_progress[0] = raw_progress
@@ -669,6 +722,11 @@ class OrchestratorHelpersMixin:
                         active_weight=id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0,
                         line=line,
                     )
+
+                    # If this is the first PROGRESS confirming an announced-but-unconfirmed
+                    # segment, publish the canonical START_SEGMENT frame first.
+                    if _progress_confirmed_seg:
+                        _publish_segment_started(_progress_confirmed_seg)
 
                     self._publish(
                         context=context,

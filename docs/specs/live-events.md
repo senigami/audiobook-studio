@@ -1,7 +1,7 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.4.1
+spec_version: 1.5.0
 status: active
 sources:
   - app/api/ws.py
@@ -17,6 +17,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.5.0   | 2026-06-11 | `SEGMENT_PENDING` reason code: `[START_SEGMENT]` marker now emits `SEGMENT_PENDING` (announce, no segment ETA) rather than `START_SEGMENT`. Canonical `START_SEGMENT` with ETA is emitted only at engine confirmation (`[START_SYNTHESIS]` or first `[PROGRESS]`). Frontends must not begin pacing a progress bar on `SEGMENT_PENDING`. |
 | 1.4.1   | 2026-06-11 | Engine-confirmed segment ETA clock: per-segment clock starts at engine confirmation (`[START_SYNTHESIS]` or first `[PROGRESS]`), not at `[START_SEGMENT]`; `[START_SEGMENT]` is an announcement that may precede model load. Duration falls back to announce time if no confirmation arrives before `[SEGMENT_SAVED]`. |
 | 1.4.0   | 2026-06-11 | Terminal ordering guarantee: per-job terminal latch at the broadcast chokepoint (`broadcast_job_updated` / `broadcast_segment_progress` in `app/api/ws.py`). After a job's terminal frame (`done`/`failed`/`cancelled`), no non-terminal frame for that job is broadcast on any topic unless the job legally re-enters via `queued`/`preparing` (requeue). Mirrors `ProgressService._should_emit`; frontend H7 suppression (progress-presentation.md) is now defense-in-depth. |
 | 1.3.1   | 2026-06-11 | `START_SEGMENT` allowed on `chapters.progress` (segment-capable engines surface the phase reason); mixed-render chapter progress is owned solely by the orchestrator marker pipeline — the mixed handler emits `[START_SEGMENT]`/`[SEGMENT_SAVED]`/`[PROGRESS]` markers and writes no chapter-level progress/ETA/group fields itself |
@@ -318,6 +319,34 @@ defense-in-depth; they are no longer load-bearing for this ordering.
 The orchestrator's `log_listener` maintains a per-segment render clock used to
 compute `active_segment_eta_seconds` and the `sum_segment_render_seconds` timing
 sample stored on the job.
+
+**Announce vs confirmation — two distinct published frames:**
+
+- **`[START_SEGMENT]` marker → `SEGMENT_PENDING` frame** (announcement): emitted
+  immediately when the `[START_SEGMENT]` log line is received. Payload carries
+  `active_segment_id`, chapter-level grouped progress, and group fields — but
+  `active_segment_eta_seconds` is `null` and `reason_code` is `"SEGMENT_PENDING"`.
+  Frontends must **not** begin pacing a progress bar on this frame; the engine has
+  not confirmed synthesis has started. In mixed renders this announcement arrives
+  ~19 seconds before the engine is ready.
+
+- **Engine confirmation → canonical `START_SEGMENT` frame** (clock start): emitted
+  from one of two confirmation sites:
+  1. `[START_SYNTHESIS]` — engine confirmed after model load (mixed-render pattern).
+  2. First `[PROGRESS]` line for the active segment — fallback for engines that skip
+     `[START_SYNTHESIS]`.
+  The canonical `START_SEGMENT` frame carries the same fields as the announce frame
+  plus a non-null `active_segment_eta_seconds`. In the PROGRESS-branch confirmation
+  this frame is published **before** the `SEGMENT_PROGRESS` frame.
+
+**No confirmation at announce:** A `[START_SEGMENT]` line never confirms the clock,
+even when a `[START_SYNTHESIS]` was seen earlier — in mixed renders that earlier
+signal belongs to a previous group's subprocess, and the next group still has to pay
+its own model load. In plain single-process renders (engine-emitted START_SEGMENT,
+model already warm), the segment shows SEGMENT_PENDING only until its first
+`[PROGRESS]` line — typically under two seconds. Mixed renders emit one
+`[START_SYNTHESIS]` per group subprocess; the job-level dedup of that marker must
+not suppress the per-segment confirmation for groups after the first.
 
 **Clock start rule (engine-confirmed):** The per-segment clock starts when the
 engine confirms synthesis has begun, not when the segment is announced:

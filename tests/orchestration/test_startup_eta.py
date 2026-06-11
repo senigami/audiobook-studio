@@ -1185,12 +1185,22 @@ def test_start_segment_proportional_eta(clean_db, tmp_path, monkeypatch):
     assert listener_cb[0] is not None
     listener = listener_cb[0]
 
-    # Start segment 1 (Group 1 - completed weight 0)
-    listener("Synthesizing: 0% ... [START_SEGMENT] seg-1")
-    # SEGMENT_SAVED advances completed_weight before the next START_SEGMENT.
-    listener("[SEGMENT_SAVED] /tmp/seg-1.wav")
-    listener("Synthesizing: 0% ... [START_SEGMENT] seg-2")
+    # Engine confirms synthesis has started (START_SYNTHESIS fires once for the job)
+    listener("[START_SYNTHESIS]")
+    # Announce publishes SEGMENT_PENDING only; the canonical START_SEGMENT frame is
+    # emitted at engine confirmation (here: the first progress line per segment).
+    with patch(
+        "app.engines.behavior.parse_engine_progress",
+        side_effect=lambda eng, line: 0.1 if "synth-progress" in line else None,
+    ):
+        listener("[START_SEGMENT] seg-1")
+        listener("synth-progress")
+        # SEGMENT_SAVED advances completed_weight before the next START_SEGMENT.
+        listener("[SEGMENT_SAVED] /tmp/seg-1.wav")
+        listener("[START_SEGMENT] seg-2")
+        listener("synth-progress")
 
+    # Under the new contract, START_SEGMENT ETA frames are emitted at engine confirmation.
     start_segment_etas = [eta for reason, eta in published_etas if reason == "START_SEGMENT"]
     assert len(start_segment_etas) == 2
     # First START_SEGMENT (seg-1): completed weight = 0, remaining_fraction = 1.0, eta should be ~60
@@ -1650,3 +1660,170 @@ def test_structured_timing_fallback_when_absent(clean_db, monkeypatch):
     assert sample["model_load_seconds"] == 10.0
     assert sample["sum_segment_render_seconds"] == 10.0
     assert sample["inter_group_overhead_seconds"] == 5.0
+
+
+# ---------------------------------------------------------------------------
+# SEGMENT_PENDING contract: announce vs engine-confirmation publish frames
+# ---------------------------------------------------------------------------
+
+def test_start_segment_announce_publishes_segment_pending(clean_db, tmp_path, monkeypatch):
+    """[START_SEGMENT] announce must publish reason_code SEGMENT_PENDING with null
+    active_segment_eta_seconds. Engine has not confirmed yet (mixed-render pattern:
+    ~19s model load between announce and START_SYNTHESIS).
+    RED-FIRST: currently publishes START_SEGMENT at announce time.
+    """
+    from unittest.mock import patch
+    job_id = "pending-announce-test"
+    seg_id = "segA"
+    save_path = "/tmp/segA.wav"
+
+    listener_cb, jobs_db, published_events = _make_listener_harness(
+        monkeypatch, job_id, seg_id, save_path
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    events_before = len(published_events)
+
+    # t=100: START_SEGMENT arrives BEFORE engine loads (mixed-render pattern)
+    with patch("time.time", return_value=100.0):
+        listener(f"[START_SEGMENT] {seg_id}")
+
+    # The publish triggered by [START_SEGMENT] must be SEGMENT_PENDING with no segment ETA
+    new_events = published_events[events_before:]
+    assert len(new_events) >= 1, "Expected at least one publish after [START_SEGMENT]"
+    announce_publish = new_events[0]
+    assert announce_publish.get("reason_code") == "SEGMENT_PENDING", (
+        f"Expected SEGMENT_PENDING at announce time, got {announce_publish.get('reason_code')!r}"
+    )
+    assert announce_publish.get("active_segment_eta_seconds") is None, (
+        f"Expected null active_segment_eta_seconds at announce time, "
+        f"got {announce_publish.get('active_segment_eta_seconds')!r}"
+    )
+    assert announce_publish.get("message") == f"Preparing engine for segment {seg_id}..."
+
+
+def test_start_synthesis_confirmation_publishes_start_segment(clean_db, tmp_path, monkeypatch):
+    """After [START_SEGMENT] announce, [START_SYNTHESIS] must trigger a canonical
+    START_SEGMENT publish with non-null active_segment_eta_seconds (clock has started).
+    """
+    from unittest.mock import patch
+    job_id = "synthesis-confirmation-test"
+    seg_id = "segB"
+    save_path = "/tmp/segB.wav"
+
+    listener_cb, jobs_db, published_events = _make_listener_harness(
+        monkeypatch, job_id, seg_id, save_path
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    # t=100: announce
+    with patch("time.time", return_value=100.0):
+        listener(f"[START_SEGMENT] {seg_id}")
+
+    events_before_synth = len(published_events)
+
+    # t=119: engine confirms via START_SYNTHESIS (after 19s model load)
+    with patch("time.time", return_value=119.0):
+        listener("[START_SYNTHESIS] task-id")
+
+    # Find the START_SEGMENT frame published after confirmation
+    new_events = published_events[events_before_synth:]
+    start_seg_events = [e for e in new_events if e.get("reason_code") == "START_SEGMENT"]
+    assert len(start_seg_events) >= 1, (
+        f"Expected a START_SEGMENT publish after [START_SYNTHESIS] confirmation, got: {new_events}"
+    )
+    confirmed_event = start_seg_events[0]
+    assert confirmed_event.get("active_segment_eta_seconds") is not None, (
+        "active_segment_eta_seconds must be non-null after engine confirmation"
+    )
+    assert confirmed_event.get("active_segment_id") == seg_id
+
+
+def test_progress_confirmation_publishes_start_segment_before_progress(clean_db, tmp_path, monkeypatch):
+    """When engine confirmation comes via first PROGRESS (no START_SYNTHESIS), the
+    START_SEGMENT frame must be published BEFORE the SEGMENT_PROGRESS frame.
+    """
+    from unittest.mock import patch
+    job_id = "progress-confirm-test"
+    seg_id = "segC"
+    save_path = "/tmp/segC.wav"
+
+    listener_cb, jobs_db, published_events = _make_listener_harness(
+        monkeypatch, job_id, seg_id, save_path
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    # t=100: announce
+    with patch("time.time", return_value=100.0):
+        listener(f"[START_SEGMENT] {seg_id}")
+
+    events_before_progress = len(published_events)
+
+    # Send a progress line that parse_engine_progress will recognize
+    with patch("time.time", return_value=119.0):
+        # Force a raw_progress parse by patching parse_engine_progress
+        with patch("app.engines.behavior.parse_engine_progress", return_value=0.5):
+            listener("some progress line for seg")
+
+    new_events = published_events[events_before_progress:]
+    reason_codes = [e.get("reason_code") for e in new_events]
+
+    # START_SEGMENT must appear before SEGMENT_PROGRESS in the sequence
+    assert "START_SEGMENT" in reason_codes, (
+        f"Expected START_SEGMENT in events after first PROGRESS, got: {reason_codes}"
+    )
+    assert "SEGMENT_PROGRESS" in reason_codes, (
+        f"Expected SEGMENT_PROGRESS after confirmation, got: {reason_codes}"
+    )
+    start_idx = reason_codes.index("START_SEGMENT")
+    progress_idx = reason_codes.index("SEGMENT_PROGRESS")
+    assert start_idx < progress_idx, (
+        f"START_SEGMENT must come before SEGMENT_PROGRESS; order was: {reason_codes}"
+    )
+
+
+def test_second_group_start_synthesis_still_confirms_segment(clean_db, tmp_path, monkeypatch):
+    """Mixed renders emit one [START_SYNTHESIS] per group subprocess. The dedup that keeps
+    job-level state from re-firing must NOT swallow the canonical START_SEGMENT confirmation
+    for groups after the first.
+    """
+    from unittest.mock import patch
+    job_id = "second-group-confirm-test"
+    seg_a = "segA"
+    save_path = "/tmp/segA.wav"
+
+    listener_cb, jobs_db, published_events = _make_listener_harness(
+        monkeypatch, job_id, seg_a, save_path
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    # Group 1 full cycle: announce -> confirm -> saved
+    with patch("time.time", return_value=100.0):
+        listener(f"[START_SEGMENT] {seg_a}")
+    with patch("time.time", return_value=119.0):
+        listener("[START_SYNTHESIS] task-id")
+    with patch("time.time", return_value=125.0):
+        listener(f"[SEGMENT_SAVED] {save_path}")
+
+    # Group 2: announce, then its own subprocess emits a second START_SYNTHESIS
+    seg_b = "segB"
+    with patch("time.time", return_value=126.0):
+        listener(f"[START_SEGMENT] {seg_b}")
+
+    events_before = len(published_events)
+    with patch("time.time", return_value=145.0):
+        listener("[START_SYNTHESIS] task-id")
+
+    new_events = published_events[events_before:]
+    start_seg_events = [
+        e for e in new_events
+        if e.get("reason_code") == "START_SEGMENT" and e.get("active_segment_id") == seg_b
+    ]
+    assert len(start_seg_events) >= 1, (
+        "Second group's START_SYNTHESIS must publish the canonical START_SEGMENT frame "
+        f"despite the job-level dedup; got reason codes: {[e.get('reason_code') for e in new_events]}"
+    )

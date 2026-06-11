@@ -395,6 +395,9 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
 
             const rawStatus = getVal('status', 'status');
             const rawReasonCode = getVal('reasonCode', 'reason_code');
+            // SEGMENT_PENDING is deliberately NOT included here: it is an announcement
+            // frame (engine not confirmed yet) so the segment stays in 'preparing' state
+            // until the canonical START_SEGMENT confirmation frame arrives.
             const isCanonicalSegmentStart = rawReasonCode === 'START_SEGMENT';
             const isSegmentAtZero = (segmentProg ?? 0) <= 0;
             const projectedStatus = isSegmentAtZero && !isCanonicalSegmentStart

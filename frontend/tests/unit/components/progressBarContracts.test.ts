@@ -47,6 +47,21 @@ describe('progressBarContracts', () => {
     expect(props.etaBasis).toBe('remaining_from_update');
   });
 
+  it('SEGMENT_PENDING at zero with null ETA does NOT seed the default 120s ETA', () => {
+    const props = buildSegmentProgressBarProps({
+      jobId: 'job-1',
+      segmentId: 'seg-2',
+      progress: 0,
+      status: 'running',
+      reasonCode: 'SEGMENT_PENDING',
+      // etaSeconds intentionally absent (null from backend)
+    });
+
+    // Must not seed 120s — engine has not confirmed yet
+    expect(props.etaSeconds).toBeUndefined();
+    expect(props.etaBasis).toBeUndefined();
+  });
+
   it('uses explicit segment ETA fields when provided by the segment event', () => {
     const props = buildSegmentProgressBarProps({
       jobId: 'job-1',

@@ -1,6 +1,9 @@
 """Contract tests for app.api.contracts.events envelope builders."""
 
-from app.api.contracts.events import build_chapter_progress_event
+from app.api.contracts.events import (
+    build_chapter_progress_event,
+    build_segment_progress_event,
+)
 
 
 def test_chapter_progress_event_preserves_start_segment_reason_code():
@@ -29,3 +32,27 @@ def test_chapter_progress_event_preserves_start_synthesis_reason_code():
         has_segment_support=True,
     )
     assert event["payload"]["reasonCode"] == "START_SYNTHESIS"
+
+
+def test_chapter_progress_event_passes_segment_pending():
+    """SEGMENT_PENDING must pass through chapters.progress unstripped."""
+    event = build_chapter_progress_event(
+        chapter_id="ch-1",
+        status="running",
+        progress=0.1,
+        reason_code="SEGMENT_PENDING",
+        has_segment_support=True,
+    )
+    assert event["payload"]["reasonCode"] == "SEGMENT_PENDING"
+
+
+def test_segment_progress_event_passes_segment_pending():
+    """SEGMENT_PENDING must pass through segments.progress unstripped."""
+    event = build_segment_progress_event(
+        segment_id="seg-1",
+        status="running",
+        progress=0.0,
+        reason_code="SEGMENT_PENDING",
+        has_segment_support=True,
+    )
+    assert event["payload"]["reasonCode"] == "SEGMENT_PENDING"
