@@ -170,11 +170,15 @@ class SettingsUpdateRequest(BaseModel):
 @app.get("/health")
 def health() -> JSONResponse:
     """Overall server health and per-engine status."""
-    with _state_lock:
-        plugins_snapshot = list(_plugins)
-    payload = build_health_response(plugins_snapshot)
-    status_code = 200 if payload["status"] == "ok" else 207
-    return JSONResponse(content=payload, status_code=status_code)
+    try:
+        with _state_lock:
+            plugins_snapshot = list(_plugins)
+        payload = build_health_response(plugins_snapshot)
+        status_code = 200 if payload["status"] == "ok" else 207
+        return JSONResponse(content=payload, status_code=status_code)
+    except Exception:
+        logger.exception("Health check failed")
+        return JSONResponse(content={"status": "error"}, status_code=500)
 
 
 @app.get("/ready")
@@ -186,22 +190,33 @@ def ready() -> JSONResponse:
 @app.get("/engines")
 def list_engines() -> list[dict[str, Any]]:
     """List all loaded engine plugins."""
-    with _state_lock:
-        plugins_snapshot = list(_plugins)
-
-    result = []
-    for plugin in plugins_snapshot:
-        settings = load_settings(plugin.plugin_dir)
-        result.append(build_engine_detail(plugin, settings))
-    return result
+    try:
+        with _state_lock:
+            plugins_snapshot = list(_plugins)
+        result = []
+        for plugin in plugins_snapshot:
+            settings = load_settings(plugin.plugin_dir)
+            result.append(build_engine_detail(plugin, settings))
+        return result
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to list engines")
+        raise HTTPException(status_code=500, detail="Failed to list engines.")
 
 
 @app.get("/engines/{engine_id}")
 def get_engine(engine_id: str) -> dict[str, Any]:
     """Get detail for a single engine."""
-    plugin = _plugin_by_id(engine_id)
-    settings = load_settings(plugin.plugin_dir)
-    return build_engine_detail(plugin, settings)
+    try:
+        plugin = _plugin_by_id(engine_id)
+        settings = load_settings(plugin.plugin_dir)
+        return build_engine_detail(plugin, settings)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to get engine %s", engine_id)
+        raise HTTPException(status_code=500, detail="Failed to retrieve engine detail.")
 
 
 @app.get("/engines/{engine_id}/settings")

@@ -138,18 +138,15 @@ async def synthesize(request: SynthesisRequest, req_context: Request, background
     """
     task_id = f"api_{uuid.uuid4().hex[:8]}"
 
-    # Validate the requested output format against a fixed allowlist. The value
-    # used downstream is the literal from the allowlist tuple selected by
-    # comparison — never the user-supplied string — so no user input flows into
-    # the filesystem path.
+    # Validate the requested output format against a fixed allowlist. Extension
+    # is taken from a literal dict keyed by the validated format so no
+    # user-supplied string flows into the filesystem path.
+    _FORMAT_EXTENSIONS: dict[str, str] = {"wav": ".wav", "mp3": ".mp3", "ogg": ".ogg", "flac": ".flac"}
     requested_format = request.output_format.lower()
-    output_format = None
-    for fmt in ("wav", "mp3", "ogg", "flac"):
-        if requested_format == fmt:
-            output_format = fmt
-            break
-    if output_format is None:
+    output_extension = _FORMAT_EXTENSIONS.get(requested_format)
+    if output_extension is None:
         raise HTTPException(status_code=400, detail="Unsupported output format.")
+    output_format = requested_format  # validated; only used for media_type and filename
 
     # Validate voice_ref at the API boundary — reject traversal attempts early.
     if request.voice_ref is not None:
@@ -158,7 +155,8 @@ async def synthesize(request: SynthesisRequest, req_context: Request, background
     # Ensure output directory exists
     output_dir = (TRANSIENT_DIR / "api").resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = (output_dir / f"{task_id}.{output_format}").resolve()
+    # Path uses the literal extension from the allowlist dict — no user input in the path.
+    output_path = (output_dir / task_id).with_suffix(output_extension).resolve()
     # Defense in depth: the served file must stay inside the API output dir.
     if not output_path.is_relative_to(output_dir):
         raise HTTPException(status_code=400, detail="Invalid output path.")
