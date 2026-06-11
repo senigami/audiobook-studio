@@ -60,6 +60,14 @@ def _chapter_uses_multiple_profiles(job) -> bool:
         return len(profiles) > 1
 
 
+def _is_sample_job(j) -> bool:
+    """Voice build/test and sample jobs have no chapter context by design."""
+    return (
+        getattr(j, "kind", None) in ("sample_build", "sample_test", "voice_build", "voice_test")
+        or j.engine in ("voice_build", "voice_test")
+    )
+
+
 def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
     from app.db import get_connection, update_segments_status_bulk
 
@@ -87,17 +95,32 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         )
         return "failed"
 
-    if not j.project_id or not j.chapter_id:
-        update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Voxtral jobs require project and chapter context.")
-        return "failed"
+    if _is_sample_job(j):
+        # Voice preview/test: render into the voice profile directory.
+        from app.db.speakers import get_profile_dir as get_voice_profile_dir
+        try:
+            pdir = get_voice_profile_dir(j.speaker_profile)
+        except ValueError:
+            from app.core.config import VOICES_DIR
+            pdir = VOICES_DIR / j.speaker_profile
+        out_wav = pdir / "sample.wav"
+        out_mp3 = pdir / "sample.mp3"
+    else:
+        if not j.project_id or not j.chapter_id:
+            update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Voxtral jobs require project and chapter context.")
+            return "failed"
 
-    pdir = get_chapter_dir(j.project_id, j.chapter_id)
+        pdir = get_chapter_dir(j.project_id, j.chapter_id)
+        out_wav = pdir / "chapter.wav"
+        out_mp3 = pdir / "chapter.mp3"
+
     pdir.mkdir(parents=True, exist_ok=True)
-    out_wav = pdir / "chapter.wav"
-    out_mp3 = pdir / "chapter.mp3"
 
     spk = get_speaker_settings(j.speaker_profile) if j.speaker_profile else {}
-    render_text = text or (_chapter_text_from_segments(j.chapter_id) if j.chapter_id else "")
+    if _is_sample_job(j):
+        render_text = text or str(spk.get("test_text") or "")
+    else:
+        render_text = text or (_chapter_text_from_segments(j.chapter_id) if j.chapter_id else "")
     logger.info(
         "[%s-debug %s] start job=%s chapter=%s profile=%s make_mp3=%s out_wav=%s out_mp3=%s text_len=%s",
         j.engine,

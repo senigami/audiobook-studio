@@ -206,3 +206,72 @@ def test_handle_voxtral_job_skips_live_finalizing_broadcasts(tmp_path):
     assert finalizing_calls
     assert finalizing_calls[0].kwargs["skip_studio_job_event"] is True
     assert finalizing_calls[0].kwargs["skip_job_updated"] is True
+
+
+def test_handle_voxtral_job_sample_test_renders_into_voice_profile_dir(tmp_path):
+    """A sample_test job has no project/chapter context and must not be
+    rejected by the chapter-context guard; it renders sample.wav into the
+    voice profile directory (regression: 'Voxtral jobs require project and
+    chapter context' on voice preview)."""
+    from app.db.models import Job
+    from plugins.tts_voxtral.plugin.studio.handler import handle_voxtral_job
+
+    job = Job(
+        id="voxtral-sample",
+        engine="voxtral",
+        kind="sample_test",
+        chapter_file="",
+        status="running",
+        created_at=0.0,
+        speaker_profile="VoiceA",
+    )
+
+    captured: dict = {}
+
+    def fake_generate_via_bridge(**kwargs):
+        captured.update(kwargs)
+        Path(kwargs["out_wav"]).write_text("wav")
+        return 0
+
+    with patch("app.db.speakers.get_profile_dir", return_value=tmp_path), \
+         patch("plugins.tts_voxtral.plugin.studio.handler.get_speaker_settings", return_value={"voice_asset_id": "asset-1"}), \
+         patch("plugins.tts_voxtral.plugin.studio.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_voxtral.plugin.studio.handler.update_job") as mock_update:
+        result = handle_voxtral_job(
+            "voxtral-sample", job, 0.0, lambda _line: None, lambda: False,
+            text="Testing one two three.",
+        )
+
+    assert result == "done"
+    assert (tmp_path / "sample.wav").exists()
+    assert captured["text"] == "Testing one two three."
+    assert captured["profile_name"] == "VoiceA"
+
+    errors = [c.kwargs.get("error") for c in mock_update.call_args_list if c.kwargs.get("error")]
+    assert not any("project and chapter context" in e for e in errors)
+    done_calls = [c for c in mock_update.call_args_list if c.kwargs.get("status") == "done"]
+    assert done_calls and done_calls[0].kwargs["output_wav"] == "sample.wav"
+
+
+def test_handle_voxtral_job_chapter_render_still_requires_context():
+    """Non-sample jobs keep the chapter-context guard."""
+    from app.db.models import Job
+    from plugins.tts_voxtral.plugin.studio.handler import handle_voxtral_job
+
+    job = Job(
+        id="voxtral-chapter",
+        engine="voxtral",
+        kind="synthesis",
+        chapter_file="chapter.txt",
+        status="running",
+        created_at=0.0,
+        speaker_profile="VoiceA",
+    )
+
+    with patch("plugins.tts_voxtral.plugin.studio.handler._chapter_uses_multiple_profiles", return_value=False), \
+         patch("plugins.tts_voxtral.plugin.studio.handler.update_job") as mock_update:
+        result = handle_voxtral_job("voxtral-chapter", job, 0.0, lambda _line: None, lambda: False)
+
+    assert result == "failed"
+    errors = [c.kwargs.get("error") for c in mock_update.call_args_list if c.kwargs.get("error")]
+    assert any("project and chapter context" in e for e in errors)
