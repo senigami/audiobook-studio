@@ -509,6 +509,19 @@ def cancel_task(task_id: str) -> dict[str, Any]:
     return {"ok": True, "task_id": task_id}
 
 
+def _engine_readiness_status(plugin) -> str:
+    """Resolve engine status with the persisted settings, like /engines does.
+
+    Settings-keyed engines (e.g. an API key stored in engine settings) report
+    needs_setup when check_env runs without them.
+    """
+    try:
+        current_settings = load_settings(plugin.plugin_dir)
+    except Exception:
+        current_settings = {}
+    return engine_status(plugin, current_settings=current_settings)
+
+
 @app.post("/synthesize")
 def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
     """Synthesize audio for a text request."""
@@ -517,7 +530,7 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
 
     plugin = _plugin_by_id(body.engine_id)
 
-    status = engine_status(plugin)
+    status = _engine_readiness_status(plugin)
     if status in {"needs_setup", "invalid_config"}:
         raise HTTPException(
             status_code=503,

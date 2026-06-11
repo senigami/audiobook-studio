@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from app.tts_server.health import (
@@ -222,3 +224,54 @@ class TestBuildHealthResponse:
         assert schema["x-ui"] == {"panel_title": "Cloudy Setup"}
         # Should NOT contain injected notice
         assert "privacy_notice" not in schema["x-ui"]
+
+
+class TestSettingsAwareReadiness:
+    """engine_status callers must pass persisted settings; a settings-keyed
+    engine (e.g. Voxtral's API key) otherwise reports needs_setup on /health
+    at boot and 503s on /synthesize even though it is verified (regression:
+    'Engine voxtral is not ready (status: needs_setup)' on sample render)."""
+
+    class _SettingsKeyedEngine:
+        def check_env(self, settings=None):
+            if (settings or {}).get("mistral_api_key"):
+                return True, "OK"
+            return False, "Voxtral requires a Mistral API key in engine settings or MISTRAL_API_KEY."
+
+        def info(self):
+            return {}
+
+        def settings_schema(self):
+            return {}
+
+        def hooks(self):
+            return {}
+
+    def _plugin(self, verified=True):
+        plugin = _MockPlugin(engine_id="voxkeyed", verified=verified)
+        plugin.engine = self._SettingsKeyedEngine()
+        plugin.plugin_dir = Path("/tmp/tts_voxkeyed")
+        return plugin
+
+    def test_build_health_response_uses_persisted_settings(self, monkeypatch):
+        import app.tts_server.health as health_mod
+
+        plugin = self._plugin(verified=True)
+        monkeypatch.setattr(
+            health_mod, "load_settings", lambda plugin_dir: {"mistral_api_key": "saved-key"}
+        )
+
+        payload = build_health_response([plugin])
+        assert payload["engines"][0]["status"] == "ready"
+        assert payload["status"] == "ok"
+
+    def test_synthesize_readiness_gate_uses_persisted_settings(self, monkeypatch):
+        import app.tts_server.server as server_mod
+
+        plugin = self._plugin(verified=True)
+        monkeypatch.setattr(
+            server_mod, "load_settings", lambda plugin_dir: {"mistral_api_key": "saved-key"}
+        )
+
+        status = server_mod._engine_readiness_status(plugin)
+        assert status == "ready"

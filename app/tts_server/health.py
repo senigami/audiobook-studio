@@ -11,6 +11,7 @@ import logging
 from typing import Any, TYPE_CHECKING
 
 from app.engines.enablement import can_enable_engine
+from app.tts_server.settings_store import load_settings
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,13 @@ def build_health_response(plugins: "list[LoadedPlugin]") -> dict[str, Any]:
     """
     engine_summaries = []
     for plugin in plugins:
-        status = engine_status(plugin)
+        # Settings-keyed engines (e.g. an API key in engine settings) report
+        # needs_setup unless check_env sees the persisted settings.
+        try:
+            current_settings = load_settings(plugin.plugin_dir)
+        except Exception:
+            current_settings = {}
+        status = engine_status(plugin, current_settings=current_settings)
         engine_summaries.append(
             {
                 "engine_id": plugin.engine_id,
