@@ -18,7 +18,7 @@ import { PlaybackControls } from '@/pages/ChapterEditor/components/PlaybackContr
 // Extracted Hooks
 import { useChapterPlayback } from '@/hooks/useChapterPlayback';
 import { useChapterEditor } from '@/hooks/useChapterEditor';
-import { useSegmentHandoffQueue } from '@/hooks/useSegmentHandoffQueue';
+import { useSegmentHandoffQueue, getHandoffTransitions, recordExternalHandoffEvent } from '@/hooks/useSegmentHandoffQueue';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '@/utils/voiceProfiles';
 import { buildChunkGroups } from '@/utils/chunkGroups';
 import { getRawActiveRenderProgress } from '@/utils/chapterRenderProgress';
@@ -172,6 +172,13 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     updatedAt: rawActiveSegmentId && typeof job?.active_segment_updated_at === 'number'
       ? job.active_segment_updated_at : null,
   });
+
+  // Record job status transitions into the handoff ring for debug correlation.
+  useEffect(() => {
+    if (job?.status) {
+      recordExternalHandoffEvent('job_status', { status: job.status, jobId: job.id });
+    }
+  }, [job?.status, job?.id]);
 
   // The "active segment" used to drive the script view highlight and batch progress.
   // During the handoff hold (outgoing segment completing), this stays on the outgoing
@@ -618,6 +625,12 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
               isCurrentJob: entry.jobId === (generatingSegmentJob?.id || propJob?.id),
             }));
         })(),
+      },
+      handoffTransitions: getHandoffTransitions(),
+      handoffState: {
+        displayedSegmentId: pageHandoff.displayedSegmentId,
+        displayedProgress: pageHandoff.displayedProgress,
+        hasPending: pageHandoff.hasPending,
       },
       backend: (typeof window !== 'undefined' && (((window as any).__studioDebugSnapshots && (window as any).__studioDebugSnapshots.length > 0) || (window as any).__studioDebugLast)) ? {
         websocketDebugTrail: (window as any).__studioDebugSnapshots,

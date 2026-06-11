@@ -1,5 +1,57 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 
+// ---------------------------------------------------------------------------
+// Debug ring buffer — module-level, allocation-cheap, max 200 entries.
+// Matches the progressMemory pattern in PredictiveProgressBar.
+// ---------------------------------------------------------------------------
+
+export interface HandoffTransition {
+    t: number;
+    event: string;
+    segmentId?: string;
+    detail?: Record<string, unknown>;
+}
+
+const RING_MAX = 200;
+const _ring: HandoffTransition[] = [];
+
+function recordHandoffTransition(event: string, segmentId?: string, detail?: Record<string, unknown>): void {
+    try {
+        if (_ring.length >= RING_MAX) {
+            _ring.shift();
+        }
+        const entry: HandoffTransition = { t: Date.now(), event };
+        if (segmentId !== undefined) entry.segmentId = segmentId;
+        if (detail !== undefined) entry.detail = detail;
+        _ring.push(entry);
+    } catch {
+        // never throw from instrumentation
+    }
+}
+
+/** Returns a shallow copy of all recorded handoff transitions. */
+export function getHandoffTransitions(): HandoffTransition[] {
+    return [..._ring];
+}
+
+/** Clears the ring buffer (for tests). */
+export function clearHandoffTransitions(): void {
+    _ring.length = 0;
+}
+
+/** Records an externally-sourced event into the same ring (for page-level callers). */
+export function recordExternalHandoffEvent(event: string, detail?: Record<string, unknown>): void {
+    recordHandoffTransition(event, undefined, detail);
+}
+
+// ---------------------------------------------------------------------------
+// display_progress throttle: track last bucket to avoid excessive entries.
+// Buckets: 0.25, 0.5, 0.75, 0.999
+// ---------------------------------------------------------------------------
+const DISPLAY_PROGRESS_BUCKETS = [0.25, 0.5, 0.75, 0.999];
+
+// ---------------------------------------------------------------------------
+
 export interface SegmentHandoffInput {
     jobId: string;
     segmentId: string;
@@ -89,6 +141,12 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
     // Guard against double-entry into the hold phase.
     const holdActiveRef = useRef(false);
 
+    // Tracks the last seen (segmentId, progress) for the `input` event to skip pure pass-throughs.
+    const lastInputKeyRef = useRef<string>('');
+
+    // Tracks last display_progress bucket crossed upward.
+    const lastDisplayBucketRef = useRef<number>(-1);
+
     // Keep displayedRef in sync with displayed state.
     useEffect(() => {
         displayedRef.current = displayed;
@@ -122,6 +180,9 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
         visualCompletedAtRef.current = null;
         visualCompleteFiredRef.current = false;
 
+        const targetId = flushedPending?.startFrame.segmentId ?? 'none';
+        recordHandoffTransition('flush', targetId, { target: flushedPending ? targetId : 'none' });
+
         if (!flushedPending || flushedPending.startFrame.segmentId === NO_SEGMENT) {
             // Flushing to sentinel (end-of-chapter) or nothing pending — just clear.
             setDisplayed(flushedPending?.latestFrame ?? displayedRef.current);
@@ -143,7 +204,7 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
             catchUpTimerRef.current = null;
             setDisplayed(latestFrame);
         }, 16); // one rAF-ish tick
-    }, []);  
+    }, []);
 
     // Tracks whether we already called onVisualComplete for the current high-water
     // visual progress, to avoid calling it multiple times as the bar hovers at ~1.0.
@@ -166,6 +227,17 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
             return;
         }
 
+        // segmentId changed — record input transition (skip same-segment pass-throughs above).
+        const inputKey = `${input.segmentId}:${input.progress}`;
+        if (inputKey !== lastInputKeyRef.current) {
+            lastInputKeyRef.current = inputKey;
+            recordHandoffTransition('input', input.segmentId, {
+                from: currentDisplayed.segmentId,
+                to: input.segmentId,
+                progress: input.progress,
+            });
+        }
+
         // segmentId changed. Check if visual is already complete or if we are NOT mid-animation.
         if (!completingRef.current && visualCompleteRef.current) {
             // Visual was already complete (e.g. bar reached 100 before new segment arrived).
@@ -175,6 +247,7 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
 
             if (remaining <= 0) {
                 // Hold has already elapsed — mount immediately and reset flags.
+                recordHandoffTransition('immediate_mount', input.segmentId, { elapsedMs: elapsed });
                 visualCompleteRef.current = false;
                 visualCompletedAtRef.current = null;
                 pendingRef.current = null;
@@ -184,6 +257,7 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
             }
 
             // Hold has not yet elapsed — enter COMPLETING/hold flow with remaining time.
+            recordHandoffTransition('remaining_hold_start', input.segmentId, { remainingMs: remaining });
             pendingRef.current = { startFrame: input, latestFrame: input };
             setHasPending(true);
             completingRef.current = true;
@@ -205,6 +279,7 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
         // If the previous segment was the sentinel (no real segment before), swap immediately.
         // This handles the "first segment arrives" case — no animation to wait for.
         if (currentDisplayed.segmentId === NO_SEGMENT) {
+            recordHandoffTransition('sentinel_reset', input.segmentId);
             completingRef.current = false;
             pendingRef.current = null;
             setHasPending(false);
@@ -230,6 +305,7 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
             }
             // Otherwise: enter COMPLETING with the sentinel as the pending segment.
             // This lets the bar animate to 100% and hold before clearing.
+            recordHandoffTransition('sentinel_completing', input.segmentId, { pending: input.segmentId });
             completingRef.current = true;
             visualCompleteRef.current = false;
 
@@ -251,6 +327,7 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
         }
 
         // New segment while bar has not visually finished.
+        recordHandoffTransition('completing_enter', input.segmentId, { pending: input.segmentId });
         completingRef.current = true;
         visualCompleteRef.current = false;
 
@@ -281,7 +358,7 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
         setDisplayed(prev => ({ ...prev, progress: 1.0, etaSeconds: null }));
     }, [input.segmentId, input.progress, input.etaSeconds, input.updatedAt, input.status, setHasPending, flushPending]);
 
-    const onVisualComplete = useCallback(() => {
+    const onVisualComplete = useCallback((source: 'display' | 'safety' = 'display') => {
         // Clear safety timer — flush is happening now (either natural or forced).
         if (safetyTimerRef.current !== null) {
             clearTimeout(safetyTimerRef.current);
@@ -289,6 +366,11 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
         }
 
         const pending = pendingRef.current;
+
+        recordHandoffTransition('visual_complete', displayedRef.current.segmentId, {
+            hasPending: !!pending,
+            source,
+        });
 
         if (!pending) {
             // No pending segment: simply mark that visual is complete so the next
@@ -310,6 +392,7 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
         if (holdTimerRef.current !== null) {
             clearTimeout(holdTimerRef.current);
         }
+        recordHandoffTransition('hold_start', displayedRef.current.segmentId, { holdMs: COMPLETION_HOLD_MS });
         holdTimerRef.current = setTimeout(() => {
             flushPending();
         }, COMPLETION_HOLD_MS);
@@ -321,9 +404,26 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
     }, [onVisualComplete]);
 
     const notifyDisplayProgress = useCallback((progress: number) => {
+        // Throttled display_progress recording: only on upward bucket crossings.
+        try {
+            for (const bucket of DISPLAY_PROGRESS_BUCKETS) {
+                if (progress >= bucket && lastDisplayBucketRef.current < bucket) {
+                    lastDisplayBucketRef.current = bucket;
+                    recordHandoffTransition('display_progress', displayedRef.current.segmentId, { progress });
+                    break;
+                }
+            }
+            // Reset bucket tracking when progress drops back below threshold (new segment mounted at 0).
+            if (progress < 0.25 && lastDisplayBucketRef.current >= 0) {
+                lastDisplayBucketRef.current = -1;
+            }
+        } catch {
+            // never throw
+        }
+
         if (progress >= 0.999 && !visualCompleteFiredRef.current) {
             visualCompleteFiredRef.current = true;
-            onVisualComplete();
+            onVisualComplete('display');
         } else if (progress < 0.999) {
             visualCompleteFiredRef.current = false;
         }
@@ -352,7 +452,7 @@ export function useSegmentHandoffQueue(input: SegmentHandoffInput): SegmentHando
         displayedUpdatedAt: displayed.updatedAt,
         displayedJobId: displayed.jobId,
         hasPending,
-        onVisualComplete,
+        onVisualComplete: () => onVisualComplete('display'),
         notifyDisplayProgress,
     };
 }
