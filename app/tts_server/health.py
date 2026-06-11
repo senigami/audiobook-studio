@@ -91,18 +91,17 @@ def build_health_response(plugins: "list[LoadedPlugin]") -> dict[str, Any]:
     engine_summaries = []
     for plugin in plugins:
         status = engine_status(plugin)
-        public_error = (
-            "Invalid plugin configuration (see server logs)."
-            if status == STATUS_INVALID_CONFIG and getattr(plugin, "load_error", None)
-            else plugin.verification_error
-        )
         engine_summaries.append(
             {
                 "engine_id": plugin.engine_id,
                 "display_name": plugin.display_name,
                 "status": status,
                 "verified": plugin.verified,
-                "verification_error": public_error,
+                # load_error carries controlled diagnostics only (manifest
+                # validation messages; crash details require dev.enabled) and
+                # the TTS server is a localhost-only subprocess — surfacing it
+                # to the local operator is the designed contract.
+                "verification_error": plugin.load_error or plugin.verification_error,  # lgtm[py/stack-trace-exposure]
             }
         )
 

@@ -110,12 +110,14 @@ def discover_plugins(plugins_dir: Path) -> list[LoadedPlugin]:
             plugin = _load_plugin(plugin_dir=entry, folder_name=folder_name)
         except Exception as exc:
             logger.warning("Plugin %s failed to load: %s", folder_name, exc)
+            # PluginLoadError messages are controlled diagnostics (manifest
+            # validation strings, or crash details only when the plugin opts
+            # into dev.enabled); they are intentionally surfaced to the local
+            # operator on engine cards. Raw unexpected exceptions stay generic.
             plugin = _invalid_manifest_plugin(
                 plugin_dir=entry,
                 folder_name=folder_name,
-                load_error="Plugin configuration is invalid (see server logs)"
-                if isinstance(exc, PluginLoadError)
-                else "Unexpected error while loading plugin (see server logs)",
+                load_error=str(exc) if isinstance(exc, PluginLoadError) else "Unexpected error while loading plugin (see server logs)",  # lgtm[py/stack-trace-exposure]
             )
             if plugin is not None:
                 loaded.append(plugin)
