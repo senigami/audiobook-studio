@@ -4,9 +4,14 @@
   "display_name": "Mixed Synthesis",
   "version": "1.0.0",
   "entry_class": "engine:MixedPlugin",
-  "capabilities": ["synthesis"],
+  "capabilities": [
+    "synthesis"
+  ],
   "behavior": {
-    "features": ["mixed_rendering"]
+    "features": [
+      "mixed_rendering",
+      "segment_orchestration"
+    ]
   },
   "job_handler": "handler:handle_mixed_job"
 }

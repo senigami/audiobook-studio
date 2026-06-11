@@ -174,17 +174,27 @@ def behavior_for_engine(
 
 @lru_cache(maxsize=64)
 def _load_full_manifest(engine_id: str) -> dict[str, Any]:
-    """Load the full manifest payload for an engine."""
+    """Load the full manifest payload for an engine.
+
+    Plugin folders are not all named ``tts_<engine_id>`` (e.g.
+    ``synthesis_mixed`` declares engine_id ``mixed``), so after the direct
+    path, fall back to matching any plugin manifest's declared engine_id.
+    """
     normalized_engine_id = str(engine_id or "").strip().lower()
     if not _ENGINE_ID_RE.match(normalized_engine_id):
         return {}
 
-    root = Path(__file__).resolve().parents[2]
-    manifest_path = root / "plugins" / f"tts_{normalized_engine_id}" / "manifest.json"
-    try:
-        return json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
+    plugins_root = Path(__file__).resolve().parents[2] / "plugins"
+    direct_path = plugins_root / f"tts_{normalized_engine_id}" / "manifest.json"
+    candidates = [direct_path] if direct_path.is_file() else sorted(plugins_root.glob("*/manifest.json"))
+    for manifest_path in candidates:
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if str(payload.get("engine_id") or "").strip().lower() == normalized_engine_id:
+            return payload
+    return {}
 
 
 @lru_cache(maxsize=64)
