@@ -1,13 +1,14 @@
 # Progress Presentation Contract
 
 ```
-spec_version: 1.0.0
+spec_version: 1.1.0
 status: active
 sources:
   - frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx
   - frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers.ts
   - frontend/src/components/progress/PredictiveProgressBar/useEtaConfidence.ts
   - frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarDebug.ts
+  - frontend/src/hooks/useSegmentHandoffQueue.ts
   - app/orchestration/progress/service.py
   - app/orchestration/progress/eta.py
   - docs/specs/live-events.md
@@ -20,6 +21,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.1.0   | 2026-06-10 | Segment handoff queue: COMPLETING→HOLD state machine, end-of-chapter animation, 500 ms completion hold (§7) |
 | 1.0.0   | 2026-06-10 | Initial canonical spec  |
 
 ---
@@ -196,7 +198,27 @@ These constants are defined in `ETA_CONFIDENCE` in `predictiveProgressBarHelpers
 
 ---
 
-## 7. Conformance Invariants
+## 7. Segment Handoff Queue (`useSegmentHandoffQueue`)
+
+`frontend/src/hooks/useSegmentHandoffQueue.ts` owns the display-layer queueing between consecutive segments in the Chapter Editor. One page-level instance drives BOTH the header segment bar and the script-view text fill/highlight.
+
+State machine:
+
+- **IDLE** — displayed identity tracks the job's `active_segment_id` directly.
+- **COMPLETING** — entered when the incoming segment identity changes while the displayed bar has not visually reached 100%. The displayed frame is immediately driven to `progress: 1.0, etaSeconds: null` so the bar/text animate forward; the incoming segment is queued as pending (latest-wins).
+- **HOLD** — when the visual bar reports ≥ 0.999 (`notifyDisplayProgress`), the completed frame is held for `COMPLETION_HOLD_MS` (500 ms) so the completion visually registers, then the pending segment is flushed (mounted at 0, caught up one tick later).
+
+Rules:
+
+- **H1** — The end-of-chapter transition (real segment → no active segment, job terminal) MUST take the same COMPLETING→HOLD path as a mid-chapter handoff; it MUST NOT reset immediately. The pending frame is the sentinel (`'none'`), and the flush clears the display instead of mounting a next segment.
+- **H2** — The 500 ms completion hold applies to every flush, mid-chapter and end-of-chapter.
+- **H3** — A 3 s safety timer force-flushes if visual completion is never reported; the flush MUST clear any safety timer re-armed during the hold so a stray fire cannot mark visual-complete and make the next handoff skip its animation.
+- **H4** — During COMPLETING/HOLD the page MUST keep the rendering-segment set and the header bar mounted even if the job is terminal (the header's terminal-job bridge patches the last known active-segment fields onto the bridged job), because the bar's display feedback is what drives visual completion.
+- **H5** — The script text fill MUST follow the bar's *animated* display progress (fed back via `onSegmentDisplayProgress`), never raw stepped event data; the handoff decides only WHICH segment owns the fill. The fill resets to 0 keyed on the *displayed* segment identity.
+
+---
+
+## 8. Conformance Invariants
 
 The following invariants are binding on all callers and on the bar implementation itself.
 
@@ -224,7 +246,7 @@ The following invariants are binding on all callers and on the bar implementatio
 
 ---
 
-## 8. Cross-References
+## 9. Cross-References
 
 | Topic                              | Canonical spec                        |
 |------------------------------------|---------------------------------------|
