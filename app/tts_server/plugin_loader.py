@@ -34,21 +34,6 @@ _CALLABLE_RE = re.compile(r"^[a-z_][a-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
 _IMPORT_TIMEOUT_SECONDS = 120
 
 
-def _check_env_accepts_settings(callable_obj: Any) -> bool:
-    """Return True when a plugin's check_env supports a settings keyword."""
-    import inspect  # noqa: PLC0415
-
-    try:
-        signature = inspect.signature(callable_obj)
-    except (TypeError, ValueError):
-        return False
-
-    return any(
-        param.kind == inspect.Parameter.VAR_KEYWORD or name == "settings"
-        for name, param in signature.parameters.items()
-    )
-
-
 class PluginLoadError(Exception):
     """Raised when a plugin cannot be loaded due to a configuration error."""
 
@@ -279,16 +264,9 @@ def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
     # them, otherwise a settings-keyed engine (e.g. an API key stored in
     # engine settings) fails check_env on every boot and its persisted
     # verification below is discarded.
+    from app.tts_server.health import call_check_env  # noqa: PLC0415
     try:
-        if _check_env_accepts_settings(engine.check_env):
-            from app.tts_server.settings_store import load_settings  # noqa: PLC0415
-            try:
-                current_settings = load_settings(plugin_dir)
-            except Exception:
-                current_settings = {}
-            ok, msg = engine.check_env(settings=current_settings)
-        else:
-            ok, msg = engine.check_env()
+        ok, msg = call_check_env(engine, plugin_dir)
     except Exception as exc:
         detail = str(exc) if dev_enabled else "unexpected error (see server logs)"
         raise PluginLoadError(f"check_env() raised an exception: {detail}") from exc
@@ -393,9 +371,14 @@ def _load_pip_plugin(ep: Any, plugins_dir: Path) -> LoadedPlugin:
     # Validate the result (same rules as folder plugins).
     _validate_manifest(manifest=manifest, folder_name=f"pip:{ep.name}")
 
-    # 4. Environment check.
+    # For pip plugins, we use a folder in plugins_dir for settings persistence.
+    plugin_dir = plugins_dir / f"tts_{ep.name}"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+
+    # 4. Environment check — settings-aware, same as folder plugins.
+    from app.tts_server.health import call_check_env  # noqa: PLC0415
     try:
-        ok, msg = engine.check_env()
+        ok, msg = call_check_env(engine, plugin_dir)
     except Exception as exc:
         raise PluginLoadError(f"check_env() raised {type(exc).__name__} (see server logs)") from exc
 
@@ -411,10 +394,6 @@ def _load_pip_plugin(ep: Any, plugins_dir: Path) -> LoadedPlugin:
                 settings_schema = json.loads(schema_str)
         except Exception:
             pass
-
-    # For pip plugins, we use a folder in plugins_dir for settings persistence.
-    plugin_dir = plugins_dir / f"tts_{ep.name}"
-    plugin_dir.mkdir(parents=True, exist_ok=True)
 
     # 6. Dependency check (from distribution if available)
     deps_ok = True

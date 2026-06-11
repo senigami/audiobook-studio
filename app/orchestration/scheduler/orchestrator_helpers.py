@@ -139,6 +139,19 @@ class OrchestratorHelpersMixin:
         task.set_progress_reporter(task_progress_reporter)
 
         def record_render_stats_if_completed(result: TaskResult, raw_result: dict | None = None) -> None:
+            # Stats recording is best-effort bookkeeping: it must never be able
+            # to convert a completed dispatch into a failed TaskResult, so the
+            # entire body is failure-isolated.
+            try:
+                _record_render_stats_inner(result, raw_result)
+            except Exception:
+                logger.warning(
+                    "Failed to record render performance sample for task %s.",
+                    context.task_id,
+                    exc_info=True,
+                )
+
+        def _record_render_stats_inner(result: TaskResult, raw_result: dict | None = None) -> None:
             if result.status != "completed":
                 return
 
@@ -945,12 +958,9 @@ class OrchestratorHelpersMixin:
                         record_render_stats_if_completed(task_result, raw_result=result)
                         return task_result
                     except Exception as exc:
-                        print(f"\n[DEBUG] Caught exc: {type(exc)}: {exc}")
                         logger.exception("Task %s: bridge dispatch raised.", context.task_id)
                         from app.engines.errors import EngineUnavailableError
-                        print(f"[DEBUG] EngineUnavailableError class: {EngineUnavailableError}")
                         is_retriable = isinstance(exc, EngineUnavailableError)
-                        print(f"[DEBUG] is_retriable: {is_retriable}")
                         import traceback
                         tb_summary = "".join(traceback.format_exception_only(type(exc), exc)).strip()
                         engine_id = getattr(j, "engine", "unknown")

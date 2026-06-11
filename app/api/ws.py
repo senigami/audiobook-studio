@@ -61,6 +61,40 @@ manager = ConnectionManager()
 _tts_log_line_sequences: dict[str, int] = {}
 _tts_log_line_sequences_lock = threading.Lock()
 
+_TERMINAL_STATUSES = {"done", "failed", "cancelled"}
+_LATCH_REENTRY_STATUSES = {"queued", "preparing"}
+_terminal_latched_jobs: set[str] = set()
+_terminal_latch_lock = threading.RLock()
+
+
+def _terminal_latched(job_id: str, prev_status: str | None, new_status: str | None) -> bool:
+    """True → drop all frames for this update (job already terminal, incoming
+    status is not a legal re-entry). Mirrors the ProgressService._should_emit
+    rule: prev terminal + curr not in {done, failed, cancelled, queued,
+    preparing} → don't emit."""
+    with _terminal_latch_lock:
+        if new_status in _LATCH_REENTRY_STATUSES:
+            _terminal_latched_jobs.discard(job_id)
+            return False
+        if new_status in _TERMINAL_STATUSES:
+            _terminal_latched_jobs.add(job_id)
+            return False
+        if job_id in _terminal_latched_jobs:
+            return True
+        if prev_status in _TERMINAL_STATUSES:
+            _terminal_latched_jobs.add(job_id)
+            return True
+        return False
+
+
+def clear_terminal_latch(job_id: str | None = None) -> None:
+    """Drop latch state for one job (removal/requeue) or all jobs (state reset)."""
+    with _terminal_latch_lock:
+        if job_id is None:
+            _terminal_latched_jobs.clear()
+        else:
+            _terminal_latched_jobs.discard(job_id)
+
 
 def _resolve_source(default: str) -> str:
     try:
@@ -274,6 +308,12 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
     prev_status = previous_status if previous_status is not None else (current_job.get("status") if current_job else None)
     new_status = updates.get("status", merged.get("status")) if updates else merged.get("status")
     status_changed = bool(status_changed_flag) if status_changed_flag is not None else (prev_status != new_status)
+
+    if terminal_reset:
+        clear_terminal_latch(job_id)
+    if _terminal_latched(job_id, prev_status, new_status):
+        logger.debug("Dropped post-terminal frame for job %s (status=%s)", job_id, new_status)
+        return
 
     prev_active_segment_id = current_job.get("active_segment_id") if current_job else None
     new_active_segment_id = updates.get("active_segment_id", merged.get("active_segment_id")) if updates else merged.get("active_segment_id")
@@ -508,6 +548,10 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
 
 
 def broadcast_segment_progress(job_id: str, chapter_id: str | None, segment_id: str, progress: float, source: str | None = None):
+    with _terminal_latch_lock:
+        if job_id in _terminal_latched_jobs:
+            logger.debug("Dropped post-terminal segment progress for job %s (segment %s)", job_id, segment_id)
+            return
     event = build_segment_progress_event(
         segment_id=segment_id,
         status="running",

@@ -1,7 +1,7 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.3.0
+spec_version: 1.4.0
 status: active
 sources:
   - app/api/ws.py
@@ -17,6 +17,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.4.0   | 2026-06-11 | Terminal ordering guarantee: per-job terminal latch at the broadcast chokepoint (`broadcast_job_updated` / `broadcast_segment_progress` in `app/api/ws.py`). After a job's terminal frame (`done`/`failed`/`cancelled`), no non-terminal frame for that job is broadcast on any topic unless the job legally re-enters via `queued`/`preparing` (requeue). Mirrors `ProgressService._should_emit`; frontend H7 suppression (progress-presentation.md) is now defense-in-depth. |
 | 1.3.0   | 2026-06-11 | Producer obligation made real: every queue-visible job (chapter, segment, voice) emits `queue_item_status` on STATUS TRANSITIONS — from the progress service for orchestrated transitions and from `broadcast_job_updated` for handler-direct writes. Terminal `jobs.lifecycle` frames also trigger a client queue refetch (safety net). Previously chapter/segment jobs emitted no `queue_item_status` at all (the ws chapter branch returned early), so queue rows froze once Slice 5 removed status authority from other topics. |
 | 1.2.0   | 2026-06-11 | Row-authority guardrails (audit Slice 5): `queue.items` is the sole row authority; all other topics are overlay-only on existing rows (see "Queue row authority") |
 | 1.1.0   | 2026-06-10 | Removed `useJobs` periodic snapshot polling — snapshot hydration is event-driven only (owner ruling) |
@@ -282,6 +283,34 @@ is **documented intent**, not enforced by a sequencing gate in the code.
 
 ---
 
+## Terminal ordering guarantee (per-job terminal latch)
+
+After a job's terminal frame (`done`/`failed`/`cancelled`) has been broadcast,
+the backend guarantees that **no further non-terminal frame for that job is
+broadcast on any topic** — unless the job legally re-enters via
+`queued`/`preparing` (requeue / terminal reset).
+
+Enforced by a per-job latch in `app/api/ws.py` (RLock-guarded module state),
+consulted at the top of `broadcast_job_updated` before any event building and
+read-only in `broadcast_segment_progress`. It mirrors the
+`ProgressService._should_emit` rule (prev terminal + curr not in
+`{done, failed, cancelled, queued, preparing}` → don't emit):
+
+- The latch **sets** on the first terminal status seen for a job id (and when a
+  stale snapshot shows the job already terminal).
+- Terminal frames themselves always pass (the final frame is delivered; repeat
+  terminal frames are still legal).
+- `queued`/`preparing` **unlatch** and pass — requeue restores normal flow.
+- Anything else while latched is **dropped** and logged at debug.
+- The latch is cleared on `terminal_reset` broadcasts, on job removal
+  (`delete_jobs`), and on `clear_all_jobs` (test/state reset), so entries do
+  not leak across runs.
+
+The frontend's H7 suppression rules (progress-presentation.md) remain as
+defense-in-depth; they are no longer load-bearing for this ordering.
+
+---
+
 ## Client contract
 
 ### Bus (`studioSocketBus.ts`)
@@ -427,6 +456,8 @@ Rules:
 - Round progress to 2 decimal places before broadcast.
 - Not broadcast `queue.items` invalidation for ordinary running/progress updates
   (only for terminal resets and explicit force-broadcast with non-terminal status).
+- Not broadcast a non-terminal frame for a job after its terminal frame, except
+  via the `queued`/`preparing` re-entry (see "Terminal ordering guarantee").
 
 **Client MUST:**
 - Enforce the queue row-authority table above: only `queue.items` creates,

@@ -28,6 +28,7 @@ from app.tts_server.performance_settings import (
 from app.tts_server.health import (
     build_engine_detail,
     build_health_response,
+    call_check_env,
     engine_status,
 )
 from app.engines.enablement import can_enable_engine
@@ -410,7 +411,7 @@ def install_dependencies(engine_id: str) -> dict[str, Any]:
             if plugin.engine is not None:
                 # Re-run check_env to update setup_message.
                 try:
-                    ok, msg = plugin.engine.check_env()
+                    ok, msg = call_check_env(plugin.engine, plugin.plugin_dir)
                     if ok:
                         plugin.setup_message = None
                     else:

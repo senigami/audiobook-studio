@@ -1935,3 +1935,123 @@ def test_broadcast_job_updated_chapter_progress_only_does_not_emit_queue_items(m
          "classification": "chapter"},
     )
     assert not any(m["topic"] == "queue.items" for m in messages)
+
+
+def test_terminal_latch_drops_late_nonterminal_frames_after_failure(monkeypatch):
+    """Regression (b88e13b8 class): after a job's terminal frame, a late frame
+    carrying a stale non-terminal snapshot must NOT broadcast on any topic —
+    no segments.progress resurrecting cleared UI."""
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-latch-fail",
+        {"status": "failed", "error": "boom"},
+        {"status": "running", "progress": 0.4, "chapter_id": "chap-l1", "project_id": "proj-l1",
+         "active_segment_id": "seg-1", "active_segment_progress": 0.5},
+    )
+    assert messages, "terminal frame itself must flow"
+    messages.clear()
+
+    # Stale frame produced from a pre-failure snapshot (the race that shipped b88e13b8).
+    broadcast_job_updated(
+        "job-latch-fail",
+        {"progress": 0.5, "active_segment_id": "seg-1", "active_segment_progress": 0.6},
+        {"status": "running", "progress": 0.4, "chapter_id": "chap-l1", "project_id": "proj-l1",
+         "active_segment_id": "seg-1", "active_segment_progress": 0.5},
+    )
+    assert messages == [], f"post-terminal non-terminal frames must be dropped, got {[m['topic'] for m in messages]}"
+
+
+def test_terminal_latch_drops_late_running_frame_via_segment_path(monkeypatch):
+    """broadcast_segment_progress (the direct segments.progress emitter) must
+    also honor the latch."""
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-latch-seg",
+        {"status": "cancelled"},
+        {"status": "running", "progress": 0.2, "chapter_id": "chap-l2", "project_id": "proj-l2"},
+    )
+    messages.clear()
+
+    from app.api.ws import broadcast_segment_progress
+    broadcast_segment_progress("job-latch-seg", "chap-l2", "seg-9", 0.7)
+    assert messages == [], "segments.progress after terminal must be dropped"
+
+
+def test_terminal_latch_allows_requeue_reentry(monkeypatch):
+    """failed → queued (requeue) is a legal re-entry: the queued frame flows and
+    subsequent running frames flow again."""
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-latch-requeue",
+        {"status": "failed", "error": "boom"},
+        {"status": "running", "progress": 0.4, "chapter_id": "chap-l3", "project_id": "proj-l3"},
+    )
+    messages.clear()
+
+    broadcast_job_updated(
+        "job-latch-requeue",
+        {"status": "queued", "progress": 0.0, "terminal_reset": True, "previous_status": "failed"},
+        {"status": "failed", "chapter_id": "chap-l3", "project_id": "proj-l3"},
+    )
+    assert any(m["topic"] == "chapters.progress" and m["payload"]["status"] == "queued" for m in messages)
+    messages.clear()
+
+    broadcast_job_updated(
+        "job-latch-requeue",
+        {"status": "running", "progress": 0.1},
+        {"status": "queued", "progress": 0.0, "chapter_id": "chap-l3", "project_id": "proj-l3"},
+    )
+    assert any(m["topic"] == "chapters.progress" and m["payload"]["status"] == "running" for m in messages)
+
+
+def test_terminal_latch_cleared_by_clear_all_jobs(monkeypatch, tmp_path):
+    """clear_all_jobs (the test/state reset) must drop latch entries so a reused
+    job id broadcasts normally."""
+    from unittest.mock import patch
+    from app.db.state import clear_all_jobs
+
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-latch-reset",
+        {"status": "done", "progress": 1.0},
+        {"status": "running", "progress": 0.9, "chapter_id": "chap-l4", "project_id": "proj-l4"},
+    )
+    messages.clear()
+
+    with patch("app.db.state.STATE_FILE", tmp_path / "state.json"):
+        clear_all_jobs()
+
+    broadcast_job_updated(
+        "job-latch-reset",
+        {"progress": 0.3},
+        {"status": "running", "progress": 0.2, "chapter_id": "chap-l4", "project_id": "proj-l4"},
+    )
+    assert any(m["topic"] == "chapters.progress" for m in messages), "latch must not survive clear_all_jobs"

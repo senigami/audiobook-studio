@@ -1,7 +1,7 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.1.1
+spec_version: 1.1.2
 status: active
 created: 2026-06-10
 sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
@@ -15,6 +15,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.1.2   | 2026-06-11 | Terminal latch at the ws broadcast chokepoint (live-events.md §"Terminal ordering guarantee"): terminal reset / `queued`/`preparing` re-entry unlatches; `delete_jobs`/`clear_all_jobs` clear latch entries (§3.5) |
 | 1.1.1   | 2026-06-11 | §3.6 voice-sample exception: samples auto-convert WAV→sample.mp3 (owner ruling) |
 | 1.1.0   | 2026-06-11 | WAV-first synthesis (audit Slice 7): ordinary chapter synthesis never emits `finalizing` and never converts to MP3; `make_mp3` inert for ordinary synthesis (§3.6). Queue row authority lives in live-events.md §"Queue row authority". |
 | 1.0.2   | 2026-06-10 | B18: startup recovery wired — interrupted tasks are recovered and resumed instead of silently cancelled |
@@ -219,6 +220,11 @@ These also fire from `put_job` when `put_job` detects a terminal → active
 status change.
 
 The `reason_code` in the broadcast dict is set to `"JOB_RESET_TO_ACTIVE"`.
+
+A terminal reset (or any `queued`/`preparing` re-entry) also unlatches the
+per-job terminal latch at the ws broadcast chokepoint, restoring normal frame
+flow; `delete_jobs` and `clear_all_jobs` clear latch entries for the removed
+job ids. See live-events.md §"Terminal ordering guarantee".
 
 ### 3.6 WAV-first synthesis (binding — audit Slice 7)
 

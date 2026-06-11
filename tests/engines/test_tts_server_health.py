@@ -275,3 +275,35 @@ class TestSettingsAwareReadiness:
 
         status = server_mod._engine_readiness_status(plugin)
         assert status == "ready"
+
+    def test_install_recovery_passes_persisted_settings_to_check_env(self, tmp_path, monkeypatch):
+        from types import SimpleNamespace
+
+        import app.tts_server.server as server_mod
+        from app.tts_server.settings_store import save_settings
+
+        plugin_dir = tmp_path / "tts_instkeyed"
+        plugin_dir.mkdir()
+        (plugin_dir / "requirements.txt").write_text("requests", encoding="utf-8")
+        save_settings(plugin_dir, {"mistral_api_key": "saved-key"})
+
+        plugin = _MockPlugin(engine_id="instkeyed", verified=True)
+        plugin.engine = self._SettingsKeyedEngine()
+        plugin.plugin_dir = plugin_dir
+        plugin.dependencies_satisfied = False
+        plugin.missing_dependencies = ["requests"]
+        plugin.setup_message = "Missing dependencies: requests."
+
+        monkeypatch.setattr(server_mod, "_plugin_by_id", lambda engine_id: plugin)
+        monkeypatch.setattr(
+            "subprocess.run",
+            lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="", stderr=""),
+        )
+        monkeypatch.setattr(
+            "app.tts_server.plugin_loader._check_dependencies", lambda plugin_dir: (True, [])
+        )
+
+        response = server_mod.install_dependencies("instkeyed")
+
+        assert response["ok"] is True
+        assert plugin.setup_message is None

@@ -107,10 +107,12 @@ class StudioTTSEngine(ABC):
     anything from ``app.*`` (Studio internals) — only from stdlib, their own
     declared dependencies, and the SDK types in ``app.engines.voice.sdk``.
 
-    The TTS Server calls these methods in order::
+    The TTS Server calls these methods in order, passing the engine's
+    persisted settings to ``check_env`` when its signature accepts a
+    ``settings`` keyword::
 
         engine = MyEngine()
-        ok, msg = engine.check_env()
+        ok, msg = engine.check_env(settings=persisted_settings)
         if ok:
             result = engine.synthesize(request)
     """

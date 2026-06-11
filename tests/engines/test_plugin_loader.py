@@ -548,6 +548,53 @@ class Engine:
 
         assert (plugins_dir / "tts_pipdirtest").is_dir()
 
+    def test_pip_plugin_check_env_receives_persisted_settings(self, tmp_path):
+        from app.tts_server.settings_store import save_settings
+
+        plugins_dir = tmp_path / "plugins"
+        plugins_dir.mkdir()
+
+        save_settings(plugins_dir / "tts_pipkeyed", {"mistral_api_key": "saved-key"})
+
+        class SettingsKeyedEngine:
+            def info(self):
+                return {}
+
+            def check_env(self, settings=None):
+                if (settings or {}).get("mistral_api_key"):
+                    return True, "OK"
+                return False, "Missing API key"
+
+            def check_request(self, req):
+                return True, "OK"
+
+            def synthesize(self, req):
+                return None
+
+            def settings_schema(self):
+                return {}
+
+        mock_ep = MagicMock()
+        mock_ep.name = "pipkeyed"
+        mock_ep.value = "pkg.mod:SettingsKeyedEngine"
+        del mock_ep.module
+        del mock_ep.attr
+        mock_ep.dist = None
+        mock_ep.load.return_value = SettingsKeyedEngine
+
+        with patch("importlib.metadata.entry_points") as mock_entry_points:
+            def side_effect(group=None):
+                if group == "studio.tts":
+                    return [mock_ep]
+                return {"studio.tts": [mock_ep]}
+            mock_entry_points.side_effect = side_effect
+
+            plugins = discover_plugins(plugins_dir)
+
+        pip_plugins = [p for p in plugins if p.engine_id == "pipkeyed"]
+        assert len(pip_plugins) == 1
+        assert pip_plugins[0].setup_message is None
+
 
 # ---------------------------------------------------------------------------
 # Dependency detection

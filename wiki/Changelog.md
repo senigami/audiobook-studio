@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.10] - 2026-06-11
+
+### Highlights
+
+- **No Frames After Terminal (Backend Guarantee)**: The websocket broadcast layer now enforces a per-job terminal latch — after a job reports `done`, `failed`, or `cancelled`, no stale non-terminal frame for that job can reach the UI on any topic. Requeued jobs (`queued`/`preparing`) unlatch and stream normally. This makes the frontend's failure-suppression rules defense-in-depth instead of load-bearing and prevents the class of bug where a trailing progress frame re-mounted UI the app had just cleared.
+- **Settings-Keyed Engines Stay Ready Everywhere**: Every engine readiness check now flows through one shared settings-aware helper. Engines whose `check_env` needs persisted settings (Voxtral's Mistral API key) no longer report "needs setup" after installing dependencies or when installed as pip plugins — the last two call sites that checked the environment without settings are fixed.
+- **Reference-Cloned Voices Always Resolve**: Bridge synthesis requests now derive the voice profile directory from the profile name automatically, so engines that resolve reference audio from the profile folder work on every render path (the remaining XTTS non-script paths were still missing it). The XTTS server engine's hidden fallback into Studio storage was removed — voice inputs come exclusively from the request.
+- **Completed Renders Can No Longer Flip to Failed**: All post-success bookkeeping (performance-sample recording, synthesis-duration persistence, timing derivation) is now failure-isolated at every dispatch path. A metrics or state-store error after a successful render is logged and skipped instead of converting the finished job to failed.
+- **Renders Survive TTS Server Restarts**: Engine registry lookups now serve the last-known-good plugin manifests when discovery transiently fails (e.g. while the watchdog restarts the TTS server), instead of resolving valid engines to nothing mid-render ("Voice requests must include engine_id" / "No valid segment audio was available to stitch").
+
 ## [2.0.9] - 2026-06-11
 
 ### Highlights

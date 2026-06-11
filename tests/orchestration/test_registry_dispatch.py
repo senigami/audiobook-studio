@@ -59,3 +59,32 @@ def test_dispatch_falls_back_to_task_run_if_no_handler(orchestrator):
 
         assert result.status == "completed"
         assert result.message == "task.run called"
+
+
+class MockBridgeTask(MockTask):
+    def to_bridge_request(self):
+        return {"engine_id": self.engine_id, "script_text": "hi", "output_path": "/tmp/out.wav"}
+
+
+def test_completed_bridge_dispatch_survives_malformed_timing_payload(orchestrator):
+    # Audit task 003: stats recording is best-effort bookkeeping — a TypeError
+    # while deriving timing from the raw bridge result must not convert a
+    # completed synthesis into a failed TaskResult.
+    task = MockBridgeTask("test_job_timing", engine_id="bridge_engine")
+
+    orchestrator.voice_bridge.synthesize.return_value = {
+        "status": "ok",
+        "timing": {
+            "engine_activity_started_at": None,
+            "chapter_render_started_at": "not-a-timestamp",
+            "chapter_render_completed_at": "also-not-a-timestamp",
+            "segments": [],
+        },
+    }
+
+    reg = JobHandlerRegistry()
+    with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry", return_value=reg):
+        context = task.describe()
+        result = orchestrator._dispatch(task=task, context=context)
+
+    assert result.status == "completed"

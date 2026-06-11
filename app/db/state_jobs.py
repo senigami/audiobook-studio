@@ -539,6 +539,9 @@ def delete_jobs(job_ids: list[str]) -> None:
             if jid in jobs:
                 del jobs[jid]
         _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
+    from ..api.ws import clear_terminal_latch
+    for jid in job_ids:
+        clear_terminal_latch(jid)
 
 
 def clear_all_jobs() -> None:
@@ -546,6 +549,8 @@ def clear_all_jobs() -> None:
         state = _load_state_no_lock()
         state["jobs"] = {}
         _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
+    from ..api.ws import clear_terminal_latch
+    clear_terminal_latch()
 
 
 def purge_jobs_for_chapter(chapter_id: str) -> None:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
 from app.engines.enablement import can_enable_engine
@@ -44,11 +45,11 @@ def engine_status(
         return STATUS_INVALID_CONFIG
 
     try:
-        check_env = plugin.engine.check_env
-        if _accepts_settings(check_env):
-            ok, msg = check_env(settings=current_settings or {})
-        else:
-            ok, msg = check_env()
+        ok, msg = call_check_env(
+            plugin.engine,
+            getattr(plugin, "plugin_dir", None),
+            settings=current_settings,
+        )
     except Exception as exc:
         logger.exception("Plugin %s check_env() crashed", plugin.engine_id)
         plugin.setup_message = "check_env() crashed (see server logs)."
@@ -65,6 +66,41 @@ def engine_status(
         return STATUS_UNVERIFIED
 
     return STATUS_READY
+
+
+def call_check_env(
+    engine: Any,
+    plugin_dir: Path | None,
+    *,
+    settings: dict[str, Any] | None = None,
+) -> tuple[bool, Any]:
+    """Call ``engine.check_env``, passing persisted settings when the engine accepts them.
+
+    This is the single entry point for environment checks: it owns signature
+    inspection and best-effort settings loading, so a settings-keyed engine
+    (e.g. an API key stored in engine settings) is never checked "bare".
+
+    Args:
+        engine: Plugin engine instance exposing ``check_env``.
+        plugin_dir: Plugin folder used to load persisted settings when no
+            explicit ``settings`` override is supplied. May be ``None``.
+        settings: Already-merged settings to pass instead of loading from disk.
+
+    Returns:
+        tuple[bool, Any]: The ``(ok, message)`` pair from ``check_env``.
+    """
+    check_env = engine.check_env
+    if not _accepts_settings(check_env):
+        return check_env()
+
+    if settings is None:
+        settings = {}
+        if plugin_dir is not None:
+            try:
+                settings = load_settings(plugin_dir)
+            except Exception:
+                settings = {}
+    return check_env(settings=settings)
 
 
 def _accepts_settings(callable_obj: Any) -> bool:

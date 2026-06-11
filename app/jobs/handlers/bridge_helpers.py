@@ -9,6 +9,21 @@ from ...engines.errors import EngineBridgeError
 
 logger = logging.getLogger(__name__)
 
+
+def _best_effort_profile_dir(profile_name: str) -> Path | None:
+    """Resolve a profile's voice directory so engines can find reference audio.
+
+    Engines never guess storage paths, so the dir must travel in the request;
+    deriving it here means callers only need to know the profile name.
+    """
+    try:
+        from app.db.speakers import get_profile_dir
+        return get_profile_dir(profile_name)
+    except Exception:
+        logger.debug("Could not resolve voice profile dir for %r", profile_name, exc_info=True)
+        return None
+
+
 def generate_via_bridge(
     *,
     engine: str,
@@ -52,6 +67,8 @@ def generate_via_bridge(
         request["reference_sample"] = reference_sample
     if model:
         request["model"] = model
+    if voice_profile_dir is None and profile_name:
+        voice_profile_dir = _best_effort_profile_dir(profile_name)
     if voice_profile_dir:
         request["voice_profile_dir"] = str(voice_profile_dir)
     if task_id:
@@ -65,8 +82,13 @@ def generate_via_bridge(
 
         synthesis_duration = response.get("duration_sec") or response.get("tts_server_result", {}).get("duration_sec")
         if synthesis_duration is not None and task_id:
-            from app.db.state import update_job
-            update_job(task_id, synthesis_duration_seconds=synthesis_duration)
+            # Best-effort bookkeeping: synthesis already succeeded, so a failure
+            # here must not surface as a synthesis failure.
+            try:
+                from app.db.state import update_job
+                update_job(task_id, synthesis_duration_seconds=synthesis_duration)
+            except Exception:
+                logger.warning("Failed to persist synthesis duration for task %s", task_id, exc_info=True)
 
         # If the bridge returned a different path (e.g. from a cache or temp file), move it to target
         audio_path = response.get("audio_path")

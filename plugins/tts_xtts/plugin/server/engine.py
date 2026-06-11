@@ -423,25 +423,14 @@ class XttsPlugin(StudioTTSEngine):
         if req.voice_ref:
             return req.voice_ref, None
 
-        # 1. Check if the directory was explicitly passed in settings (Studio 2.0 style)
+        # Voice inputs come exclusively from the request: the engine runs in
+        # the TTS Server process and never reaches into Studio storage to
+        # guess paths (bridge callers always send voice_profile_dir).
         vdir = req.settings.get("voice_profile_dir")
         if vdir:
             vdir_path = Path(vdir)
             if vdir_path.exists() and vdir_path.is_dir():
                 return None, vdir_path
-
-        # 2. Resolve a Studio voice profile id through the shared helper.
-        try:
-            from app.engines.voice_engines import resolve_voice_preview_inputs  # noqa: PLC0415
-
-            profile_id = req.settings.get("voice_profile_id", "")
-            if profile_id:
-                speaker_wav, voice_profile_dir = resolve_voice_preview_inputs(
-                    str(profile_id)
-                )
-                return speaker_wav, voice_profile_dir
-        except Exception:
-            pass
 
         return None, None
 
