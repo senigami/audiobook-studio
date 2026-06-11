@@ -39,10 +39,21 @@ const formatProgress = (value?: number | null) => {
 
 const formatGroup = (payload: any | undefined) => {
   if (!payload) return '-';
-  if (typeof payload.active_render_group_index !== 'number' && typeof payload.render_group_count !== 'number') {
-    return '-';
+  const count = payload.render_group_count;
+  if (typeof count !== 'number' || count <= 0) return '-';
+  // One convention for every frame type: the 1-based ordinal of the group
+  // currently being worked ("group N of M"). Segment frames carry the 0-based
+  // active index; chapter frames carry only the completed count, so the
+  // in-flight group is completed + 1 (capped at M once everything is done).
+  const idx = payload.active_render_group_index;
+  if (typeof idx === 'number') {
+    return `${Math.min(idx + 1, count)}/${count}`;
   }
-  return `${payload.active_render_group_index ?? '-'}/${payload.render_group_count ?? '-'}`;
+  const completed = payload.completed_render_groups;
+  if (typeof completed === 'number') {
+    return `${Math.min(completed + 1, count)}/${count}`;
+  }
+  return `-/${count}`;
 };
 
 const formatEta = (value?: number | null) => {
@@ -62,7 +73,11 @@ const jobProgressPayloadFor = (event: LiveEvent): any => {
     const payload = event.payload as any;
     return {
       progress: payload.progress,
-      active_render_group_index: payload.segmentIndex ?? payload.completedRenderGroups ?? payload.active_render_group_index ?? payload.completed_render_groups,
+      // Keep index and completed-count separate: they have different semantics
+      // (0-based position vs how many groups are finished). formatGroup decides
+      // how to derive the displayed ordinal from whichever is present.
+      active_render_group_index: payload.segmentIndex ?? payload.activeRenderGroupIndex ?? payload.active_render_group_index,
+      completed_render_groups: payload.completedRenderGroups ?? payload.completed_render_groups,
       render_group_count: payload.segmentCount ?? payload.renderGroupCount ?? payload.render_group_count,
       reason_code: payload.reasonCode ?? payload.reason_code,
       message: payload.message,
