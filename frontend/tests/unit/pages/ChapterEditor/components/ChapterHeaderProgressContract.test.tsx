@@ -972,4 +972,100 @@ describe('ChapterHeader progress contract', () => {
     // The progress bar must be in the document — mounted via handoff even though no live job.
     expect(screen.getByTestId('chapter-header-segment-progress-bar')).toBeInTheDocument();
   });
+
+  // -----------------------------------------------------------------------
+  // R1 revert-check: segment ETA (3s) must be used on first mount, not the 120s seed
+  // Pre-fix: handoff.displayedEtaSeconds === null is treated as authoritative (null !== undefined),
+  //          so the bar mounts with etaSeconds=null → seeded to 120s by buildSegmentProgressBarProps.
+  //          The ETA confidence model then blends 120s → 3s, producing ~26s displayed ETA.
+  // Post-fix: null handoff eta falls through to segmentProgressBarSelection.selectedEtaSeconds (3s).
+  // -----------------------------------------------------------------------
+  it('(ETA-LEAK) segment bar receives segment etaSeconds=3 on first mount, not the 120s seed, when handoffState.displayedEtaSeconds is null during sentinel transition', () => {
+    // Simulate the one-render window between:
+    //   1. liveSegmentProgressJob becoming truthy (active_segment_id arrived)
+    //   2. handoff sentinel_reset effect firing (displayedEtaSeconds still null)
+    // The page-lifted handoffState with displayedEtaSeconds=null mimics this window.
+    const handoffStubWithNullEta: SegmentHandoffState = {
+      displayedSegmentId: 'none',    // effect hasn't fired yet
+      displayedProgress: 0,
+      displayedEtaSeconds: null,     // ← the leaking null
+      displayedEtaBasis: null,
+      displayedUpdatedAt: null,
+      displayedJobId: '',
+      hasPending: false,
+      onVisualComplete: vi.fn(),
+      notifyDisplayProgress: vi.fn(),
+    };
+
+    const now = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    render(
+      <ChapterScriptToolbar
+        chapter={mockChapter as any}
+        saving={false}
+        hasUnsavedChanges={false}
+        submitting={false}
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+        status={{
+          queueStatus: null,
+          heldQueueStatus: null,
+          effectiveQueueLocked: false,
+          isQueued: false,
+          liveSegmentProgressJob: {
+            id: 'job-eta-leak',
+            status: 'running',
+            progress: 0,
+            active_segment_id: 'seg-eta',
+            active_segment_progress: 0,
+            active_segment_eta_seconds: 3,
+            active_segment_eta_basis: 'remaining_from_update',
+            active_segment_updated_at: now / 1000,
+            eta_seconds: 26,
+            hasSegmentSupport: true,
+          } as any,
+          liveSegmentProgressValue: 0,
+          hasChapterAudio: false,
+          generatingSegmentIdsCount: 1,
+          liveSegmentProgressIsRenderBlock: false,
+          segmentProgressBarSelection: {
+            dataTestId: 'chapter-header-segment-progress-bar',
+            barMounted: true,
+            selectedJobId: 'job-eta-leak',
+            selectedJobStatus: 'running',
+            selectedJobProgress: 0,
+            selectedActiveSegmentId: 'seg-eta',
+            selectedActiveSegmentProgress: 0,
+            selectedEtaSeconds: 3,           // ← correct segment eta
+            selectedEtaBasis: 'remaining_from_update' as any,
+            selectedStartedAt: null,
+            selectedUpdatedAt: now / 1000,
+            liveSegmentProgressValue: 0,
+            liveSegmentProgressIsRenderBlock: false,
+            activeRenderBatchId: 'seg-eta',
+            activeRenderBatchProgress: 0,
+            renderGroupCount: null,
+            valueSource: 'active_segment_progress',
+            progressSource: 'active_segment_progress',
+            selectedEtaSource: 'active_segment_eta_seconds',
+            selectedUpdatedAtSource: 'active_segment_updated_at',
+            evidenceWeightFraction: 1.0,
+            isSegmentStartAtZero: true,
+          },
+        }}
+        handoffState={handoffStubWithNullEta}
+      />
+    );
+
+    vi.useRealTimers();
+
+    // EXPECTED (post-fix): the bar receives the segment-scoped eta=3, not the 120s seed.
+    // PRE-FIX: capturedEtaSeconds === 120 because null falls through as authoritative.
+    expect(capturedEtaSeconds).toBe(3);
+    // Also: the bar must not show the chapter-level eta (26) or the 120s fallback.
+    expect(capturedEtaSeconds).not.toBe(120);
+    expect(capturedEtaSeconds).not.toBe(26);
+  });
 });

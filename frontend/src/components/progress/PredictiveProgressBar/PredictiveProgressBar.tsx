@@ -25,6 +25,7 @@ import {
     type PredictiveProgressDebugSnapshot,
 } from '@/components/progress/PredictiveProgressBar/predictiveProgressBarDebug';
 import { useEtaConfidence } from '@/components/progress/PredictiveProgressBar/useEtaConfidence';
+import { recordExternalHandoffEvent } from '@/hooks/useSegmentHandoffQueue';
 
 export type { PredictiveProgressDebugSnapshot } from '@/components/progress/PredictiveProgressBar/predictiveProgressBarDebug';
 
@@ -262,6 +263,9 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         slopeCappedVsRaw: number | null;
     }>({ w: 0, base: 0.2, cv: 0, etaEndSmoothed: null, slopeCappedVsRaw: null });
 
+    // Throttle state for lane_update instrumentation (segment checkpointMode only).
+    const laneUpdateThrottleRef = useRef<{ lastProgress: number; lastEndInMs: number | null } | null>(null);
+
     const updateLaneToTarget = (source: string, nextEndAtMs: number | null, nextProgress: number, instant = false) => {
         const nowMs = Date.now();
         const incomingProgress = clamp01(nextProgress);
@@ -306,6 +310,14 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 currentVisualAtUpdate: currentVisual,
                 isBackwardMigration: false,
             };
+
+            try {
+                if (checkpointMode === 'segment') {
+                    const endInMs = nextEndAtMs !== null ? Math.round(nextEndAtMs - nowMs) : null;
+                    laneUpdateThrottleRef.current = { lastProgress: effectiveIncomingProgress, lastEndInMs: endInMs };
+                    recordExternalHandoffEvent('lane_update', { source, progress: effectiveIncomingProgress, endInMs });
+                }
+            } catch { /* never throw from instrumentation */ }
             return;
         }
 
@@ -379,6 +391,14 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 currentVisualAtUpdate: currentVisual,
                 isBackwardMigration: false,
             };
+
+            try {
+                if (checkpointMode === 'segment') {
+                    const endInMs = desiredEndAtMs !== null ? Math.round(desiredEndAtMs - nowMs) : null;
+                    laneUpdateThrottleRef.current = { lastProgress: effectiveIncomingProgress, lastEndInMs: endInMs };
+                    recordExternalHandoffEvent('lane_update', { source, progress: effectiveIncomingProgress, endInMs });
+                }
+            } catch { /* never throw from instrumentation */ }
             return;
         }
 
@@ -415,6 +435,26 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             currentVisualAtUpdate: currentVisual,
             isBackwardMigration,
         };
+
+        // Lane instrumentation for segment checkpointMode (Task 3).
+        // Throttle: emit on initial mount or when progress moved ≥0.05 or endInMs changed by ≥30%.
+        try {
+            if (checkpointMode === 'segment') {
+                const endInMs = nextEndAtMs !== null ? Math.round(nextEndAtMs - nowMs) : null;
+                const prev = laneUpdateThrottleRef.current;
+                const isInitial = prev === null;
+                const progressDelta = prev !== null ? Math.abs(effectiveIncomingProgress - prev.lastProgress) : 0;
+                const endDelta = (prev !== null && prev.lastEndInMs !== null && endInMs !== null)
+                    ? Math.abs(endInMs - prev.lastEndInMs) / (Math.abs(prev.lastEndInMs) + 1)
+                    : 1; // treat null↔number transitions as a significant change
+                if (isInitial || progressDelta >= 0.05 || endDelta >= 0.30) {
+                    laneUpdateThrottleRef.current = { lastProgress: effectiveIncomingProgress, lastEndInMs: endInMs };
+                    recordExternalHandoffEvent('lane_update', { source, progress: effectiveIncomingProgress, endInMs });
+                }
+            }
+        } catch {
+            // never throw from instrumentation
+        }
     };
 
     const initialNow = Date.now();

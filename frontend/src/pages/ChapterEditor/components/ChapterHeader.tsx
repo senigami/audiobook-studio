@@ -600,13 +600,19 @@ export const ChapterScriptToolbar: React.FC<{
                         const displayedProgress = (handoff.displayedSegmentId !== 'none' || !status.liveSegmentProgressJob)
                             ? handoff.displayedProgress
                             : status.liveSegmentProgressValue;
-                        const displayedEtaSeconds = handoff.displayedEtaSeconds !== undefined
+                        // Treat null the same as undefined for ETA/basis/updatedAt: a null
+                        // handoff value means the handoff is in a sentinel/transition state
+                        // (displayedEtaSeconds not yet populated from the incoming segment).
+                        // Fall through to the live selection so the bar receives the correct
+                        // segment-scoped ETA on the very first render rather than seeding the
+                        // 120s fallback and blending to the wrong value.
+                        const displayedEtaSeconds = (handoff.displayedEtaSeconds !== undefined && handoff.displayedEtaSeconds !== null)
                             ? handoff.displayedEtaSeconds
                             : status.segmentProgressBarSelection.selectedEtaSeconds;
-                        const displayedEtaBasis = handoff.displayedEtaBasis !== undefined
+                        const displayedEtaBasis = (handoff.displayedEtaBasis !== undefined && handoff.displayedEtaBasis !== null)
                             ? handoff.displayedEtaBasis
                             : status.segmentProgressBarSelection.selectedEtaBasis;
-                        const displayedUpdatedAt = handoff.displayedUpdatedAt !== undefined
+                        const displayedUpdatedAt = (handoff.displayedUpdatedAt !== undefined && handoff.displayedUpdatedAt !== null)
                             ? handoff.displayedUpdatedAt
                             : status.segmentProgressBarSelection.selectedUpdatedAt;
 
