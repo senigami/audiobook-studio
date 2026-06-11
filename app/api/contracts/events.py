@@ -69,6 +69,9 @@ COMMAND_TOPIC_SCOPES = {
     "chapters.progress": {
         JobLifecycleCommand.JOB_PREPARING,
         JobLifecycleCommand.START_SYNTHESIS,
+        # Segment-capable engines publish START_SEGMENT at each render-group start;
+        # chapter progress frames surface it so the UI can show the phase reason.
+        JobLifecycleCommand.START_SEGMENT,
         JobLifecycleCommand.JOB_RESET_TO_ACTIVE,
         JobLifecycleCommand.JOB_FINALIZING,
         JobLifecycleCommand.JOB_DONE,
@@ -76,6 +79,7 @@ COMMAND_TOPIC_SCOPES = {
         # Allow string versions
         "JOB_PREPARING",
         "START_SYNTHESIS",
+        "START_SEGMENT",
         "JOB_RESET_TO_ACTIVE",
         "JOB_FINALIZING",
         "JOB_DONE",

@@ -220,7 +220,83 @@ def test_handle_mixed_job_groups_adjacent_segments_into_one_chunk(clean_db, tmp_
     assert (tmp_path / "segments" / expected_path).exists()
 
 
-def test_handle_mixed_job_progress_uses_render_group_count(clean_db, tmp_path):
+def test_handle_mixed_job_emits_segment_saved_markers_and_owns_no_chapter_progress(clean_db, tmp_path):
+    """The orchestrator is the single owner of chapter-level progress for mixed renders.
+
+    The handler must:
+    - emit [SEGMENT_SAVED] {absolute path} via on_output after each rendered group
+      (this is the only way the orchestrator accumulates completed weight), and
+    - make NO update_job call carrying 'progress' or 'grouped_progress' during the
+      render loop (terminal/status updates excluded).
+    """
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+    segs = get_chapter_segments(cid)
+    update_segment(segs[0]["id"], speaker_profile_name="XTTS Voice")
+    update_segment(segs[1]["id"], speaker_profile_name="Voxtral Voice")
+
+    job = Job(
+        id="mixed-marker-job",
+        engine="mixed",
+        chapter_file=f"{cid}_0.txt",
+        status="queued",
+        created_at=time.time(),
+        project_id=pid,
+        chapter_id=cid,
+        speaker_profile="XTTS Voice",
+    )
+
+    tmp_path = tmp_path / "audio"
+    tmp_path.mkdir()
+
+    def fake_generate_via_bridge(**kwargs):
+        on_output = kwargs.get("on_output")
+        if on_output:
+            on_output("[PROGRESS] 50%\n")
+        Path(kwargs["out_wav"]).write_text("audio")
+        return 0
+
+    def fake_stitch(_pdir, _segments, out_wav, _on_output, _cancel_check):
+        Path(out_wav).write_text("stitched")
+        return 0
+
+    output_lines: list[str] = []
+
+    with timeout_after(5, "mixed handler marker test should not hang"), \
+         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "v"} if name == "Voxtral Voice" else {"speed": 1.0}), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
+        result, _ = handle_mixed_job("mixed-marker-job", job, time.time(), output_lines.append, lambda: False)
+
+    assert result == "done"
+
+    expected_paths = [
+        str((tmp_path / "segments" / f"{segs[0]['id']}.wav").absolute()),
+        str((tmp_path / "segments" / f"{segs[1]['id']}.wav").absolute()),
+    ]
+    saved_lines = [line for line in output_lines if "[SEGMENT_SAVED]" in line]
+    assert saved_lines == [f"[SEGMENT_SAVED] {path}\n" for path in expected_paths]
+
+    # The handler must not write chapter-level progress; the orchestrator owns it.
+    for call in mock_update.call_args_list:
+        if call.kwargs.get("status"):
+            continue
+        assert "progress" not in call.kwargs, f"handler wrote chapter progress: {call.kwargs}"
+        assert "grouped_progress" not in call.kwargs, f"handler wrote grouped progress: {call.kwargs}"
+
+
+def test_handle_mixed_job_forwards_engine_progress_lines(clean_db, tmp_path):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
@@ -250,6 +326,10 @@ def test_handle_mixed_job_progress_uses_render_group_count(clean_db, tmp_path):
     def fake_generate_via_bridge(**kwargs):
         engine = kwargs["engine"]
         out_wav = kwargs["out_wav"]
+        on_output = kwargs.get("on_output")
+        if on_output:
+            on_output("[PROGRESS] 25%\n")
+            on_output("[PROGRESS] 75%\n")
         if engine == "xtts":
              Path(out_wav).write_text("xtts")
         else:
@@ -260,6 +340,8 @@ def test_handle_mixed_job_progress_uses_render_group_count(clean_db, tmp_path):
         Path(out_wav).write_text("stitched")
         return 0
 
+    output_lines: list[str] = []
+
     with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
@@ -269,15 +351,17 @@ def test_handle_mixed_job_progress_uses_render_group_count(clean_db, tmp_path):
          patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
          patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
          patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
-        result, _ = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
+        result, _ = handle_mixed_job("mixed-job", job, time.time(), output_lines.append, lambda: False)
 
     assert result == "done"
-    progress_updates = [
-        call.kwargs["progress"]
-        for call in mock_update.call_args_list
-        if "progress" in call.kwargs and call.kwargs.get("active_segment_id") is None and call.kwargs.get("status") is None
-    ]
-    assert 0.54 in progress_updates
+
+    # Engine [PROGRESS] lines must be forwarded verbatim — they are what feeds the
+    # orchestrator's marker pipeline (the single owner of chapter-level progress).
+    # 2 render groups (segments grouped by profile) x 2 progress lines each.
+    progress_lines = [line for line in output_lines if "[PROGRESS]" in line]
+    assert progress_lines == ["[PROGRESS] 25%\n", "[PROGRESS] 75%\n"] * 2
+    start_lines = [line for line in output_lines if "[START_SEGMENT]" in line]
+    assert len(start_lines) == 2
 
     for call in mock_update.call_args_list:
         status = call.kwargs.get("status")
@@ -287,7 +371,7 @@ def test_handle_mixed_job_progress_uses_render_group_count(clean_db, tmp_path):
         assert call.kwargs.get("skip_job_updated") is True
 
 
-def test_handle_mixed_job_progress_weights_short_final_group(clean_db, tmp_path):
+def test_handle_mixed_job_emits_marker_per_render_group(clean_db, tmp_path):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
@@ -321,6 +405,8 @@ def test_handle_mixed_job_progress_weights_short_final_group(clean_db, tmp_path)
         Path(out_wav).write_text("stitched")
         return 0
 
+    output_lines: list[str] = []
+
     with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
@@ -328,20 +414,23 @@ def test_handle_mixed_job_progress_weights_short_final_group(clean_db, tmp_path)
          patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
          patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
          patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
-         patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
-        result, _ = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
+         patch("plugins.synthesis_mixed.handler.update_job"):
+        result, _ = handle_mixed_job("mixed-job", job, time.time(), output_lines.append, lambda: False)
 
     assert result == "done"
-    progress_updates = [
-        call.kwargs["progress"]
-        for call in mock_update.call_args_list
-        if "progress" in call.kwargs and call.kwargs.get("active_segment_id") is None and call.kwargs.get("status") is None
-    ]
-    assert 0.45 in progress_updates
-    assert 0.85 in progress_updates
+    # Three chunk-limited render groups: each must announce START_SEGMENT with its
+    # leader id and report SEGMENT_SAVED with its absolute output path, in order.
+    start_lines = [line for line in output_lines if "[START_SEGMENT]" in line]
+    saved_lines = [line for line in output_lines if "[SEGMENT_SAVED]" in line]
+    assert len(start_lines) == 3
+    assert len(saved_lines) == 3
+    for start_line, saved_line in zip(start_lines, saved_lines):
+        leader_id = start_line.split("[START_SEGMENT]")[1].strip()
+        expected_path = (tmp_path / "segments" / f"{leader_id}.wav").absolute()
+        assert saved_line == f"[SEGMENT_SAVED] {expected_path}\n"
 
 
-def test_handle_mixed_segment_job_persists_intermediate_progress(clean_db, tmp_path):
+def test_handle_mixed_segment_job_forwards_progress_lines(clean_db, tmp_path):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
@@ -384,18 +473,21 @@ def test_handle_mixed_segment_job_persists_intermediate_progress(clean_db, tmp_p
          patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
          patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
          patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
-        result, _ = handle_mixed_job("mixed-segment-job", job, time.time(), lambda _line: None, lambda: False)
+        output_lines: list[str] = []
+        result, _ = handle_mixed_job("mixed-segment-job", job, time.time(), output_lines.append, lambda: False)
 
     assert result == "done"
-    intermediate_updates = [
-        call.kwargs
-        for call in mock_update.call_args_list
-        if call.kwargs.get("active_segment_id") == segment_id
-        and call.kwargs.get("active_segment_progress", 0) > 0
-    ]
-    assert intermediate_updates
-    assert intermediate_updates[0]["progress"] == 0.25
-    assert intermediate_updates[-1]["progress"] == 0.5
+    # The handler must forward engine progress lines untouched so the orchestrator
+    # (the single owner of chapter-level progress) can compute weighted progress.
+    progress_lines = [line for line in output_lines if "[PROGRESS]" in line]
+    assert progress_lines == ["[PROGRESS] 25%\n", "[PROGRESS] 50%\n"]
+    assert any(f"[START_SEGMENT] {segment_id}" in line for line in output_lines)
+    # And it must not push intermediate chapter-level progress into job state itself.
+    for call in mock_update.call_args_list:
+        if call.kwargs.get("status"):
+            continue
+        assert "progress" not in call.kwargs
+        assert "active_segment_progress" not in call.kwargs
 
 
 def test_handle_mixed_job_records_true_render_group_count(clean_db, tmp_path):
@@ -702,3 +794,57 @@ def test_handle_mixed_job_metrics_failure_does_not_change_done_status(clean_db, 
     # Confirm no failed status was set after the done status
     call_statuses = [call.kwargs.get("status") for call in mock_update_job.call_args_list if call.kwargs.get("status")]
     assert "failed" not in call_statuses, f"update_job was called with status='failed' after metrics error: {call_statuses}"
+
+
+def test_handle_mixed_job_wav_only_even_when_make_mp3_true(clean_db, tmp_path):
+    """WAV-first synthesis (queue-jobs.md §3.6): mixed chapter renders never
+    emit a finalizing phase nor convert to MP3, even with make_mp3=True."""
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+    segs = get_chapter_segments(cid)
+    update_segment(segs[0]["id"], speaker_profile_name="XTTS Voice")
+    update_segment(segs[1]["id"], speaker_profile_name="Voxtral Voice")
+
+    job = Job(
+        id="mixed-wav-only",
+        engine="mixed",
+        chapter_file=f"{cid}_0.txt",
+        status="queued",
+        created_at=time.time(),
+        project_id=pid,
+        chapter_id=cid,
+        speaker_profile="XTTS Voice",
+        make_mp3=True,
+    )
+
+    def fake_generate_via_bridge(**kwargs):
+        Path(kwargs["out_wav"]).write_text("audio")
+        return 0
+
+    def fake_stitch(_pdir, _segments, out_wav, _on_output, _cancel_check):
+        Path(out_wav).write_text("stitched")
+        return 0
+
+    with timeout_after(5, "mixed handler render should not hang"), \
+         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
+        result, _ = handle_mixed_job("mixed-wav-only", job, time.time(), lambda _line: None, lambda: False)
+
+    assert result == "done"
+    statuses = [c.kwargs.get("status") for c in mock_update.call_args_list if c.kwargs.get("status")]
+    assert "finalizing" not in statuses
+    done_calls = [c for c in mock_update.call_args_list if c.kwargs.get("status") == "done"]
+    assert done_calls and "output_mp3" not in done_calls[-1].kwargs
+    assert done_calls[-1].kwargs.get("output_wav", "").endswith(".wav")

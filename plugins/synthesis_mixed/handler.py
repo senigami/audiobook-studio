@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.domain.chunk_groups import build_chunk_groups, load_chunk_segments
 from app.core.config import get_chapter_dir
-from app.engines.audio_ops import get_audio_duration, stitch_segments, wav_to_mp3
+from app.engines.audio_ops import get_audio_duration, stitch_segments
 from app.engines.errors import EngineBridgeError
 from app.db.state import update_job
 from app.utils.text.textops import safe_split_long_sentences, sanitize_text
@@ -16,81 +16,8 @@ from app.db.state import get_performance_metrics
 
 logger = logging.getLogger(__name__)
 
-_SKIP_LIVE_BROADCASTS = {
-    "skip_studio_job_event": True,
-    "skip_job_updated": True,
-}
-
-
 def _group_weight(group: dict) -> int:
     return max(1, int(group.get("text_length") or 0))
-
-
-def _weighted_group_progress(
-    groups: list[dict],
-    completed_groups: int,
-    active_group_progress: float,
-    *,
-    limit: float,
-) -> float:
-    if not groups:
-        return round(limit, 2)
-
-    weights = [_group_weight(group) for group in groups]
-    total_weight = sum(weights)
-    if total_weight <= 0:
-        return round(limit, 2)
-
-    completed = max(0, min(completed_groups, len(groups)))
-    active = max(0.0, min(active_group_progress, 1.0))
-    completed_weight = sum(weights[:completed])
-    active_weight = weights[completed] if completed < len(groups) else 0
-    weighted_progress = (completed_weight + (active_weight * active)) / total_weight
-    return round(weighted_progress * limit, 2)
-
-
-def _group_weight_updates(
-    groups: list[dict],
-    completed_groups: int,
-    *,
-    active_index: int = 0,
-) -> dict:
-    weights = [_group_weight(group) for group in groups]
-    total_weight = sum(weights)
-    completed = max(0, min(completed_groups, len(weights)))
-    active_weight = 0
-    if active_index > 0:
-        active_position = min(active_index - 1, len(weights) - 1)
-        if active_position >= 0:
-            active_weight = weights[active_position]
-
-    return {
-        "render_group_count": len(groups),
-        "completed_render_groups": completed,
-        "active_render_group_index": active_index,
-        "total_render_weight": total_weight,
-        "completed_render_weight": sum(weights[:completed]),
-        "active_render_group_weight": active_weight,
-    }
-
-
-def _grouped_progress_updates(
-    groups: list[dict],
-    completed_groups: int,
-    active_group_progress: float,
-    *,
-    limit: float,
-    active_index: int = 0,
-) -> dict:
-    return {
-        "grouped_progress": _weighted_group_progress(
-            groups,
-            completed_groups,
-            active_group_progress,
-            limit=limit,
-        ),
-        **_group_weight_updates(groups, completed_groups, active_index=active_index),
-    }
 
 
 def _segment_output_path(pdir: Path, segment_id: str) -> Path:
@@ -141,10 +68,6 @@ def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav
         **settings
     )
 
-
-def _parse_engine_progress(engine_id: str, line: str) -> float | None:
-    from app.engines.behavior import parse_engine_progress
-    return parse_engine_progress(engine_id, line)
 
 def _group_needs_render(group: dict, pdir: Path) -> bool:
     expected_path = _chunk_output_path(pdir, group)
@@ -219,37 +142,20 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     pdir = get_chapter_dir(j.project_id, j.chapter_id)
     pdir.mkdir(parents=True, exist_ok=True)
     out_wav = pdir / f"{Path(j.chapter_file).stem}.wav"
-    out_mp3 = pdir / f"{Path(j.chapter_file).stem}.mp3"
 
     all_segments = load_chunk_segments(j.chapter_id)
     all_groups = build_chunk_groups(all_segments, j.speaker_profile)
     if j.segment_ids:
         target_ids = set(j.segment_ids)
         target_groups = [group for group in all_groups if any(segment["id"] in target_ids for segment in group["segments"])]
-        tracking_groups = target_groups
-        offset = 0
     elif j.is_bake:
         target_groups = [group for group in all_groups if _group_needs_render(group, pdir)]
-        tracking_groups = all_groups
-        offset = len(all_groups) - len(target_groups)
     else:
         target_groups = all_groups
-        tracking_groups = all_groups
-        offset = 0
-
-    total_groups = len(tracking_groups)
-    j.render_group_count = total_groups
-    j.completed_render_groups = offset
-    j.active_render_group_index = offset
-    weight_updates = _group_weight_updates(tracking_groups, offset, active_index=offset)
-    j.total_render_weight = weight_updates["total_render_weight"]
-    j.completed_render_weight = weight_updates["completed_render_weight"]
-    j.active_render_group_weight = weight_updates["active_render_group_weight"]
-    update_job(jid, grouped_progress=0.0, **weight_updates, **_SKIP_LIVE_BROADCASTS)
 
     total_synthesis_seconds: float = 0.0
 
-    for index, group in enumerate(target_groups, start=1):
+    for group in target_groups:
         if cancel_check():
             update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
             return "cancelled", "Cancelled."
@@ -260,23 +166,10 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         chunk_text = " ".join(group["text_parts"]).strip()
         seg_out = _chunk_output_path(pdir, group)
 
+        # The orchestrator's marker pipeline owns chapter-level progress:
+        # [START_SEGMENT] sets the active segment, [PROGRESS] lines drive weighted
+        # progress, and [SEGMENT_SAVED] accumulates the completed group weight.
         on_output(f"[START_SEGMENT] {segment_id}\n")
-        current_completed = offset + index - 1
-        j.completed_render_groups = current_completed
-        j.active_render_group_index = offset + index
-        update_job(
-            jid,
-            active_segment_id=segment_id,
-            active_segment_progress=0.0,
-            **_grouped_progress_updates(
-                tracking_groups,
-                current_completed,
-                0.0,
-                limit=1.0 if j.segment_ids else 0.9,
-                active_index=offset + index,
-            ),
-            **_SKIP_LIVE_BROADCASTS,
-        )
         for group_segment in group["segments"]:
             update_segment(
                 group_segment["id"],
@@ -289,35 +182,10 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             logger.warning("Failed to broadcast segment update for chapter %s", j.chapter_id, exc_info=True)
 
         try:
-            def engine_on_output(line: str) -> None:
-                on_output(line)
-                segment_progress = _parse_engine_progress(engine, line)
-                if segment_progress is None:
-                    return
-                progress_limit = 1.0 if j.segment_ids else 0.9
-                update_job(
-                    jid,
-                    force_broadcast=True,
-                    progress=_weighted_group_progress(
-                        tracking_groups,
-                        current_completed,
-                        segment_progress,
-                        limit=progress_limit,
-                    ),
-                    active_segment_id=segment_id,
-                    active_segment_progress=segment_progress,
-                    **_grouped_progress_updates(
-                        tracking_groups,
-                        current_completed,
-                        segment_progress,
-                        limit=progress_limit,
-                        active_index=offset + index,
-                    ),
-                    **_SKIP_LIVE_BROADCASTS,
-                )
-
             _seg_start = time.monotonic()
-            rc = _render_segment(engine, chunk_text, profile_name, seg_out, j.safe_mode, engine_on_output, cancel_check, task_id=jid)
+            # Forward engine output (including [PROGRESS] lines) untouched; the
+            # orchestrator parses them and computes weighted chapter progress.
+            rc = _render_segment(engine, chunk_text, profile_name, seg_out, j.safe_mode, on_output, cancel_check, task_id=jid)
             total_synthesis_seconds += time.monotonic() - _seg_start
         except EngineBridgeError as exc:
             update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=str(exc))
@@ -334,6 +202,11 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             )
             return "failed", msg
 
+        # Tell the orchestrator this group's output is saved so it can accumulate
+        # the completed weight. The path matches the task script's save_path
+        # (str(seg_out.absolute()) built from the same chapter dir + leader id).
+        on_output(f"[SEGMENT_SAVED] {seg_out.absolute()}\n")
+
         generated_at = time.time()
         group_sids = [gs["id"] for gs in group["segments"]]
         update_segments_bulk(
@@ -343,30 +216,6 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             audio_generated_at=generated_at,
         )
         clear_duplicate_segment_audio_paths(j.chapter_id, group_sids, seg_out.name)
-
-        progress_limit = 1.0 if j.segment_ids else 0.9
-        progress = _weighted_group_progress(
-            tracking_groups,
-            offset + index,
-            0.0,
-            limit=progress_limit,
-        )
-        j.completed_render_groups = offset + index
-        j.active_render_group_index = 0
-        update_job(
-            jid,
-            progress=progress,
-            active_segment_id=None,
-            active_segment_progress=0.0,
-            **_grouped_progress_updates(
-                tracking_groups,
-                offset + index,
-                0.0,
-                limit=progress_limit,
-                active_index=0,
-            ),
-            **_SKIP_LIVE_BROADCASTS,
-        )
 
     if j.segment_ids:
         try:
@@ -381,24 +230,14 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         except Exception:
             logger.warning("Failed to compute final segment progress for chapter %s", j.chapter_id, exc_info=True)
             final_p = 1.0
-        j.completed_render_groups = total_groups
         update_job(
             jid,
             status="done",
             progress=final_p,
             finished_at=time.time(),
-            **_grouped_progress_updates(tracking_groups, total_groups, 0.0, limit=1.0, active_index=0),
         )
         return "done", None
 
-    j.completed_render_groups = total_groups
-    update_job(
-        jid,
-        status="finalizing",
-        progress=max(getattr(j, "progress", 0.0), 0.91),
-        **_grouped_progress_updates(tracking_groups, total_groups, 0.0, limit=0.9, active_index=0),
-        **_SKIP_LIVE_BROADCASTS,
-    )
     segment_paths = []
     fresh_groups = build_chunk_groups(get_chapter_segments(j.chapter_id), j.speaker_profile)
     for group in fresh_groups:
@@ -421,37 +260,8 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         sids = [row["id"] for row in cursor.fetchall()]
         update_segments_status_bulk(sids, j.chapter_id, "done")
 
-    if j.make_mp3:
-        frc = wav_to_mp3(out_wav, out_mp3, on_output=on_output, cancel_check=cancel_check)
-        if frc == 0 and out_mp3.exists():
-            _persist_mixed_chapter_output(jid, j.chapter_id, out_mp3)
-            j.completed_render_groups = total_groups
-            update_job(
-                jid,
-                status="done",
-                finished_at=time.time(),
-                progress=1.0,
-                output_wav=out_wav.name,
-                output_mp3=out_mp3.name,
-                **_group_weight_updates(tracking_groups, total_groups, active_index=0),
-            )
-            return "done", None
-        _persist_mixed_chapter_output(jid, j.chapter_id, out_wav)
-        j.completed_render_groups = total_groups
-        update_job(
-            jid,
-            status="done",
-            finished_at=time.time(),
-            progress=1.0,
-            output_wav=out_wav.name,
-            error="MP3 conversion failed (using WAV fallback)",
-            **_group_weight_updates(tracking_groups, total_groups, active_index=0),
-        )
-        return "done", "MP3 conversion failed (using WAV fallback)"
-
     _persist_mixed_chapter_output(jid, j.chapter_id, out_wav)
 
-    j.completed_render_groups = total_groups
     update_job(
         jid,
         status="done",
@@ -459,7 +269,6 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         progress=1.0,
         output_wav=out_wav.name,
         synthesis_duration_seconds=max(round(total_synthesis_seconds, 2), 0.01),
-        **_group_weight_updates(tracking_groups, total_groups, active_index=0),
     )
 
     # Record metrics for the mixed engine performance history
