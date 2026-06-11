@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.11] - 2026-06-11
+
+### Highlights
+
+- **Interactive Demo on GitHub Pages**: A separate Vite build entry (`npm -C frontend run build:demo`) outputs the real production React components to `docs/demo/`, served under `/audiobook-studio/demo/`. The demo mounts the Global Queue, PredictiveProgressBar, and Live Output Table against a scripted render session replayed through the app's pub/sub bus — no backend required. Three stages are available: `live-output`, `queue`, and `progress`; deep-link via `#/stage/<id>`. The showcase page (`docs/v1.html`) now features a prominent "Try the Interactive Demo" CTA card and an iframe embed of the live-output stage. The `docs/index.html` nav links to both the showcase and the new demo. See [wiki/Live-Demos.md](Live-Demos) for stage deep-links and rebuild instructions.
+
 ## [2.0.10] - 2026-06-11
 
 ### Highlights

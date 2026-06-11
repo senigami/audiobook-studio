@@ -26,7 +26,7 @@ export interface ShellInputs {
   loading: boolean;
   connected: boolean;
   isReconnecting: boolean;
-  hydrationSource?: 'bootstrap' | 'reconnect' | 'refresh';
+  hydrationSource?: 'bootstrap' | 'terminal' | 'reconnect' | 'refresh';
   projectId?: string;
   projectTitle?: string;
   chapterTitle?: string;
@@ -91,7 +91,7 @@ export const deriveHydrationStatus = (inputs: {
   loading: boolean;
   connected: boolean;
   isReconnecting: boolean;
-  source?: 'bootstrap' | 'reconnect' | 'refresh';
+  source?: 'bootstrap' | 'terminal' | 'reconnect' | 'refresh';
 }): HydrationStatus => {
   if (inputs.loading || inputs.source === 'bootstrap') return 'bootstrap';
   if (inputs.source === 'reconnect') return 'recovering';

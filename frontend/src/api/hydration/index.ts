@@ -2,7 +2,7 @@ import type { ProcessingQueueItem, Status as LegacyStatus } from '@/types';
 import type { LiveOverlayState, OverlayDelta } from '@/store/live-jobs';
 import { isMainQueueSegmentItem, isSegmentScopedJob } from '@/utils/jobSelection';
 
-export type HydrationSource = 'bootstrap' | 'reconnect' | 'refresh' | 'terminal';
+export type HydrationSource = 'bootstrap' | 'terminal' | 'reconnect' | 'refresh';
 
 export interface HydrationSnapshot {
   items: ProcessingQueueItem[];

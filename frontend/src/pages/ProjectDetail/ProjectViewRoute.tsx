@@ -23,7 +23,7 @@ interface ProjectViewRouteProps {
   loading: boolean;
   connected: boolean;
   isReconnecting: boolean;
-  refreshingSource?: 'bootstrap' | 'reconnect' | 'refresh';
+  refreshingSource?: 'bootstrap' | 'terminal' | 'reconnect' | 'refresh';
   projectId?: string;
   projectTitle?: string;
   chapterTitle?: string;

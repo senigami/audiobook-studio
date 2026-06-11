@@ -9,6 +9,13 @@
       "autoPort": true
     },
     {
+      "name": "demo (Vite dev)",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd frontend && npx vite --config vite.demo.config.ts --port ${PORT:-5199}"],
+      "port": 5199,
+      "autoPort": true
+    },
+    {
       "name": "frontend (Vite dev)",
       "runtimeExecutable": "sh",
       "runtimeArgs": ["-c", "VITE_FRONTEND_PORT=${PORT:-5173} npm -C frontend run dev"],

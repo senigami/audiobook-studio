@@ -27,7 +27,7 @@ export const useQueueSync = () => {
   const [queueCount, setQueueCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isReconnecting, setIsReconnecting] = useState(false);
-  const [activeSource, setActiveSource] = useState<'bootstrap' | 'reconnect' | 'refresh' | 'terminal' | undefined>(undefined);
+  const [activeSource, setActiveSource] = useState<'bootstrap' | 'terminal' | 'reconnect' | 'refresh' | undefined>(undefined);
   const connected = useStudioSocketConnection();
 
   // Pure stores initialized once
@@ -56,7 +56,7 @@ export const useQueueSync = () => {
 
   const isFirstConnectRef = useRef(true);
 
-  const refreshQueue = useCallback(async (source: 'bootstrap' | 'reconnect' | 'refresh' | 'terminal' = 'refresh') => {
+  const refreshQueue = useCallback(async (source: 'bootstrap' | 'terminal' | 'reconnect' | 'refresh' = 'refresh') => {
     // F4: Capture and increment the generation counter so concurrent hydrations
     // can detect when a newer one has superseded them.
     hydrationGenerationRef.current += 1;

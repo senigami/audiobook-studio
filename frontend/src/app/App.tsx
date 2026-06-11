@@ -40,9 +40,9 @@ function App() {
     refreshQueue: originalRefreshQueue
   } = useQueueSync();
 
-  const [refreshingSource, setRefreshingSource] = useState<'bootstrap' | 'reconnect' | 'refresh' | undefined>(undefined);
+  const [refreshingSource, setRefreshingSource] = useState<'bootstrap' | 'terminal' | 'reconnect' | 'refresh' | undefined>(undefined);
 
-  const refreshQueue = useCallback(async (source: 'bootstrap' | 'reconnect' | 'refresh' = 'refresh') => {
+  const refreshQueue = useCallback(async (source: 'bootstrap' | 'terminal' | 'reconnect' | 'refresh' = 'refresh') => {
     setRefreshingSource(source);
     try {
       await originalRefreshQueue(source);
