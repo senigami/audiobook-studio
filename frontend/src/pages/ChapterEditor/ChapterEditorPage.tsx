@@ -180,23 +180,13 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     ? (pageHandoff.displayedSegmentId !== 'none' ? pageHandoff.displayedSegmentId : rawActiveSegmentId)
     : rawActiveSegmentId;
 
-  // liveBarSegmentProgress drives the text-fill letter animation in ScriptView.
-  // During a handoff hold the visual bar is animating A→100%, so we reflect the
-  // handoff's displayed progress (which is 1.0 when COMPLETING) rather than resetting
-  // to 0 when the raw active segment changes.
-  const handoffSegmentProgress = pageHandoff.displayedSegmentId !== 'none'
-    ? pageHandoff.displayedProgress
-    : 0;
-
+  // Reset the animated fill when the DISPLAYED segment changes (not the raw one):
+  // during a handoff hold the displayed segment stays on the outgoing segment, so
+  // its fill keeps animating to 100%; the reset lands exactly when the next
+  // segment mounts, so it starts at 0 instead of inheriting the previous fill.
   useEffect(() => {
-    // Only reset to 0 when we are NOT in a handoff hold — during hold the bar is
-    // animating the outgoing segment to 100%, and we don't want to flash to 0.
-    if (!pageHandoff.hasPending) {
-      setLiveBarSegmentProgress(0);
-    }
-    // pageHandoff.hasPending is read but deliberately not a dependency —
-    // only a segment identity change should trigger the reset.
-  }, [rawActiveSegmentId]);
+    setLiveBarSegmentProgress(0);
+  }, [chapterRenderActiveSegmentId]);
 
   const chapterRenderActiveBatchSegmentIds = useMemo(() => {
     if (!chapterRenderActiveSegmentId) return new Set<string>();
@@ -306,14 +296,15 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     if (!activeBatch) return progressById;
 
     const rawProgress = getRawActiveRenderProgress(activeJob, 0);
-    // During a handoff hold, handoffSegmentProgress reflects the displayed bar value (1.0),
-    // so the text fill animates forward to 100%.  Outside of hold it mirrors liveBarSegmentProgress.
-    const effectiveProgress = handoffSegmentProgress > 0 ? handoffSegmentProgress
-      : liveBarSegmentProgress > 0 ? liveBarSegmentProgress
-      : rawProgress;
+    // The text fill must follow the bar's ANIMATED display value (fed back via
+    // onSegmentDisplayProgress), never the raw stepped data — raw frames arrive in
+    // ~16% jumps and would kill the predictive letter animation. The handoff decides
+    // WHICH segment gets the fill (chapterRenderActiveSegmentId above); during a hold
+    // the bar's data is driven to 1.0, so this animated value keeps climbing to 100%.
+    const effectiveProgress = liveBarSegmentProgress > 0 ? liveBarSegmentProgress : rawProgress;
     progressById[activeBatch.id] = effectiveProgress;
     return progressById;
-  }, [chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans, liveBarSegmentProgress, chapterRenderActiveSegmentId, handoffSegmentProgress]);
+  }, [chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans, liveBarSegmentProgress, chapterRenderActiveSegmentId]);
 
 
   const {
