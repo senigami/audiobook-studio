@@ -85,6 +85,7 @@ class OrchestratorHelpersMixin:
             "synthesis_duration_seconds": None,
         }
         segment_starts = {}
+        segment_announced = {}
         marker_state = {
             "start_synthesis_emitted": False,
             "start_segment_ids": set(),
@@ -510,6 +511,11 @@ class OrchestratorHelpersMixin:
                         pass
 
             if matched_marker == "START_SYNTHESIS" or "[START_SYNTHESIS]" in line:
+                # Engine-confirmed clock: if a segment was already announced but not yet
+                # confirmed (mixed-render: START_SEGMENT before model load), record the
+                # engine-confirmed start time now so the model-load window is excluded.
+                if active_seg_id[0] and active_seg_id[0] not in segment_starts:
+                    segment_starts[active_seg_id[0]] = now_time
                 if marker_state["start_synthesis_emitted"]:
                     return
                 marker_state["start_synthesis_emitted"] = True
@@ -567,7 +573,10 @@ class OrchestratorHelpersMixin:
                     marker_state["start_segment_ids"].add(sid)
                     active_seg_id[0] = sid
                     active_seg_progress[0] = 0.0
-                    segment_starts[sid] = now_time
+                    # Record announce time; segment_starts is set later upon engine confirmation
+                    # (START_SYNTHESIS or first PROGRESS). This prevents model-load time from
+                    # being counted as synthesis time in mixed renders.
+                    segment_announced[sid] = now_time
                     active_render_group_index[0] = group_index_by_leader.get(sid, active_render_group_index[0])
                     trace(
                         "orchestrator.marker_start_segment",
@@ -623,6 +632,10 @@ class OrchestratorHelpersMixin:
             if raw_progress is not None:
                 if timing["render_started_at"] is None:
                     timing["render_started_at"] = time.time()
+                # Engine-confirmed clock fallback: engines that skip START_SYNTHESIS but emit
+                # PROGRESS lines — confirm the segment start at first progress.
+                if active_seg_id[0] and active_seg_id[0] not in segment_starts:
+                    segment_starts[active_seg_id[0]] = time.time()
                 try:
                     if total_weight > 0:
                         active_seg_progress[0] = raw_progress
@@ -717,9 +730,11 @@ class OrchestratorHelpersMixin:
                             line=line,
                         )
 
-                        # Capture timing
-                        if leader_id in segment_starts:
-                            seg_dur = now_time - segment_starts[leader_id]
+                        # Capture timing: prefer engine-confirmed start; fall back to announce
+                        # time for engines (e.g. Voxtral) that emit no confirmation signal.
+                        started = segment_starts.get(leader_id) or segment_announced.get(leader_id)
+                        if started is not None:
+                            seg_dur = now_time - started
                             timing["sum_segment_render_seconds"] += seg_dur
                             try:
                                 from app.db.state import update_job

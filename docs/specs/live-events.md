@@ -1,7 +1,7 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.4.0
+spec_version: 1.4.1
 status: active
 sources:
   - app/api/ws.py
@@ -17,6 +17,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.4.1   | 2026-06-11 | Engine-confirmed segment ETA clock: per-segment clock starts at engine confirmation (`[START_SYNTHESIS]` or first `[PROGRESS]`), not at `[START_SEGMENT]`; `[START_SEGMENT]` is an announcement that may precede model load. Duration falls back to announce time if no confirmation arrives before `[SEGMENT_SAVED]`. |
 | 1.4.0   | 2026-06-11 | Terminal ordering guarantee: per-job terminal latch at the broadcast chokepoint (`broadcast_job_updated` / `broadcast_segment_progress` in `app/api/ws.py`). After a job's terminal frame (`done`/`failed`/`cancelled`), no non-terminal frame for that job is broadcast on any topic unless the job legally re-enters via `queued`/`preparing` (requeue). Mirrors `ProgressService._should_emit`; frontend H7 suppression (progress-presentation.md) is now defense-in-depth. |
 | 1.3.1   | 2026-06-11 | `START_SEGMENT` allowed on `chapters.progress` (segment-capable engines surface the phase reason); mixed-render chapter progress is owned solely by the orchestrator marker pipeline — the mixed handler emits `[START_SEGMENT]`/`[SEGMENT_SAVED]`/`[PROGRESS]` markers and writes no chapter-level progress/ETA/group fields itself |
 | 1.3.0   | 2026-06-11 | Producer obligation made real: every queue-visible job (chapter, segment, voice) emits `queue_item_status` on STATUS TRANSITIONS — from the progress service for orchestrated transitions and from `broadcast_job_updated` for handler-direct writes. Terminal `jobs.lifecycle` frames also trigger a client queue refetch (safety net). Previously chapter/segment jobs emitted no `queue_item_status` at all (the ws chapter branch returned early), so queue rows froze once Slice 5 removed status authority from other topics. |
@@ -309,6 +310,35 @@ read-only in `broadcast_segment_progress`. It mirrors the
 
 The frontend's H7 suppression rules (progress-presentation.md) remain as
 defense-in-depth; they are no longer load-bearing for this ordering.
+
+---
+
+## Per-segment ETA clock semantics
+
+The orchestrator's `log_listener` maintains a per-segment render clock used to
+compute `active_segment_eta_seconds` and the `sum_segment_render_seconds` timing
+sample stored on the job.
+
+**Clock start rule (engine-confirmed):** The per-segment clock starts when the
+engine confirms synthesis has begun, not when the segment is announced:
+
+- `[START_SYNTHESIS]` — if an active segment has been announced (via `[START_SEGMENT]`)
+  but not yet confirmed, this line sets the confirmed start time. In mixed renders the
+  XTTS subprocess emits `[START_SYNTHESIS]` after the model finishes loading (~19s),
+  so using this timestamp avoids counting model-load time as synthesis time.
+- First `[PROGRESS]` line for the active segment — fallback confirmation for engines
+  that do not emit `[START_SYNTHESIS]` at all.
+
+**Announce time (`[START_SEGMENT]`):** `[START_SEGMENT]` records an announce
+timestamp only. It is emitted by the mixed handler *before* spawning the engine
+subprocess and may therefore precede model load by many seconds. It must not be
+used as the clock start for ETA or duration accounting.
+
+**Fallback (no confirmation before `[SEGMENT_SAVED]`):** If neither
+`[START_SYNTHESIS]` nor any `[PROGRESS]` arrives before `[SEGMENT_SAVED]` (e.g.
+fast remote-API engines such as Voxtral that complete before emitting synthesis
+markers), `sum_segment_render_seconds` falls back to `now − announce_time` so that
+timing samples are always recorded.
 
 ---
 

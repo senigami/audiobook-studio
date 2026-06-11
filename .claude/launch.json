@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend (FastAPI/uvicorn)",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "./venv/bin/python -m uvicorn run:app --port ${PORT:-8123}"],
+      "port": 8123,
+      "autoPort": true
+    },
+    {
+      "name": "frontend (Vite dev)",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "VITE_FRONTEND_PORT=${PORT:-5173} npm -C frontend run dev"],
+      "port": 5173,
+      "autoPort": true
+    }
+  ]
+}
