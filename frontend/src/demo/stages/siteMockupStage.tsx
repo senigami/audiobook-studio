@@ -19,6 +19,7 @@
  */
 
 import React, { useState } from 'react';
+import { saveThemePref } from '@/utils/theme';
 
 // ---------------------------------------------------------------------------
 // Shared primitives
@@ -569,6 +570,15 @@ const Rail: React.FC<{
   onChapterSelect: (n: number) => void;
 }> = ({ active, onSelect, collapsed, onToggle, inBook, activeBookTab, onBookTabSelect, activeChapter, onChapterSelect }) => {
   const [chapterMenuOpen, setChapterMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
+    document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
+  );
+  const toggleTheme = () => {
+    const next = theme === 'light' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = next;
+    saveThemePref(next);
+    setTheme(next);
+  };
 
   return (
     <div
@@ -831,6 +841,34 @@ const Rail: React.FC<{
           </div>
         ))}
       </div>
+      {/* Theme toggle */}
+      <button
+        type="button"
+        onClick={toggleTheme}
+        title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          width: '100%',
+          background: 'none',
+          border: 'none',
+          borderTop: '1px solid var(--border)',
+          padding: collapsed ? '8px 0' : '8px 14px',
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          cursor: 'pointer',
+          color: 'var(--text-muted)',
+          fontSize: '0.75rem',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-raised, rgba(128,128,128,0.08))'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
+      >
+        <span style={{ fontSize: '0.9rem', lineHeight: 1 }}>{theme === 'light' ? '🌙' : '☀️'}</span>
+        {!collapsed && (
+          <span>{theme === 'light' ? 'Dark mode' : 'Light mode'}</span>
+        )}
+      </button>
+      {/* Collapse chevron */}
       <div
         onClick={onToggle}
         style={{
