@@ -437,12 +437,17 @@ const RAIL_GROUPS: { group: string; items: { id: RailDest; icon: string; badge?:
   },
 ];
 
+const BOOK_STAGE_LINKS: BookTab[] = ['Manuscript', 'Casting', 'Studio', 'Review', 'Publish'];
+
 const Rail: React.FC<{
   active: RailDest;
   onSelect: (d: RailDest) => void;
   collapsed: boolean;
   onToggle: () => void;
-}> = ({ active, onSelect, collapsed, onToggle }) => (
+  inBook: boolean;
+  activeBookTab: BookTab;
+  onBookTabSelect: (t: BookTab) => void;
+}> = ({ active, onSelect, collapsed, onToggle, inBook, activeBookTab, onBookTabSelect }) => (
   <div
     style={{
       width: collapsed ? 52 : 190,
@@ -475,48 +480,158 @@ const Rail: React.FC<{
           {items.map(item => {
             const isActive = active === item.id;
             return (
-              <div
-                key={item.id}
-                onClick={() => onSelect(item.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: collapsed ? '7px 0' : '7px 14px',
-                  justifyContent: collapsed ? 'center' : 'flex-start',
-                  cursor: 'pointer',
-                  background: isActive ? 'var(--accent-tint-bg)' : 'transparent',
-                  borderLeft: isActive && !collapsed ? '3px solid var(--accent)' : '3px solid transparent',
-                  color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-                  fontSize: '0.78rem',
-                  fontWeight: isActive ? 700 : 400,
-                  position: 'relative',
-                }}
-              >
-                <span style={{ fontSize: '1rem', lineHeight: 1, flexShrink: 0 }}>{item.icon}</span>
-                {!collapsed && (
-                  <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {item.id}
-                  </span>
+              <React.Fragment key={item.id}>
+                <div
+                  onClick={() => onSelect(item.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: collapsed ? '7px 0' : '7px 14px',
+                    justifyContent: collapsed ? 'center' : 'flex-start',
+                    cursor: 'pointer',
+                    background: isActive ? 'var(--accent-tint-bg)' : 'transparent',
+                    borderLeft: isActive && !collapsed ? '3px solid var(--accent)' : '3px solid transparent',
+                    color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                    fontSize: '0.78rem',
+                    fontWeight: isActive ? 700 : 400,
+                    position: 'relative',
+                  }}
+                >
+                  <span style={{ fontSize: '1rem', lineHeight: 1, flexShrink: 0 }}>{item.icon}</span>
+                  {!collapsed && (
+                    <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {item.id}
+                    </span>
+                  )}
+                  {item.badge && (
+                    <span
+                      style={{
+                        fontSize: '0.58rem',
+                        fontWeight: 700,
+                        background: 'var(--accent)',
+                        color: '#fff',
+                        borderRadius: 10,
+                        padding: '1px 5px',
+                        position: collapsed ? 'absolute' : 'static',
+                        top: collapsed ? 4 : undefined,
+                        right: collapsed ? 4 : undefined,
+                      }}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+
+                {/* Contextual book hierarchy — shown below Library item when inBook */}
+                {item.id === 'Library' && inBook && (
+                  collapsed ? (
+                    /* Collapsed: single book icon */
+                    <div
+                      title="The Whispering Vale"
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        padding: '5px 0',
+                        background: 'var(--accent-tint-bg)',
+                        fontSize: '1rem',
+                        lineHeight: 1,
+                      }}
+                    >
+                      📕
+                    </div>
+                  ) : (
+                    /* Expanded: full tree block */
+                    <div
+                      style={{
+                        marginLeft: 14,
+                        borderLeft: '1px solid var(--border)',
+                        paddingLeft: 0,
+                        marginBottom: 2,
+                      }}
+                    >
+                      {/* Book title row */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '4px 10px 3px 10px',
+                        }}
+                      >
+                        <span style={{ fontSize: '0.75rem', lineHeight: 1, flexShrink: 0 }}>📕</span>
+                        <span
+                          style={{
+                            fontSize: '0.66rem',
+                            fontWeight: 600,
+                            color: 'var(--text-primary)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          The Whispering Vale
+                        </span>
+                      </div>
+
+                      {/* Stage links */}
+                      {BOOK_STAGE_LINKS.map(stage => {
+                        const isStageActive = activeBookTab === stage;
+                        return (
+                          <div key={stage}>
+                            <div
+                              onClick={() => onBookTabSelect(stage)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '3px 10px 3px 20px',
+                                cursor: 'pointer',
+                                background: isStageActive ? 'var(--accent-tint-bg)' : 'transparent',
+                                color: isStageActive ? 'var(--accent)' : 'var(--text-secondary)',
+                                fontSize: '0.65rem',
+                                fontWeight: isStageActive ? 700 : 400,
+                                borderLeft: isStageActive ? '2px solid var(--accent)' : '2px solid transparent',
+                                marginLeft: -1,
+                              }}
+                            >
+                              {stage}
+                            </div>
+
+                            {/* Chapter wayfinding — under Studio only */}
+                            {stage === 'Studio' && isStageActive && (
+                              <div
+                                title="chapter switching stays in Studio's chapter rail"
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                  padding: '2px 10px 3px 30px',
+                                  fontSize: '0.58rem',
+                                  color: 'var(--text-muted)',
+                                  lineHeight: 1.3,
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: '50%',
+                                    background: '#f59e0b',
+                                    flexShrink: 0,
+                                    display: 'inline-block',
+                                  }}
+                                />
+                                Ch 7 · The Crossing
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )
                 )}
-                {item.badge && (
-                  <span
-                    style={{
-                      fontSize: '0.58rem',
-                      fontWeight: 700,
-                      background: 'var(--accent)',
-                      color: '#fff',
-                      borderRadius: 10,
-                      padding: '1px 5px',
-                      position: collapsed ? 'absolute' : 'static',
-                      top: collapsed ? 4 : undefined,
-                      right: collapsed ? 4 : undefined,
-                    }}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </div>
+              </React.Fragment>
             );
           })}
         </div>
@@ -1672,9 +1787,11 @@ const BookHeaderStrip: React.FC = () => (
   </div>
 );
 
-const BookPane: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const [tab, setTab] = useState<BookTab>('Studio');
-
+const BookPane: React.FC<{
+  onBack: () => void;
+  activeTab: BookTab;
+  setActiveTab: (t: BookTab) => void;
+}> = ({ onBack, activeTab, setActiveTab }) => {
   return (
     <Col gap={0} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
       {/* Breadcrumb back link */}
@@ -1695,16 +1812,16 @@ const BookPane: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         {BOOK_TABS.map(t => (
           <div
             key={t}
-            onClick={() => setTab(t)}
+            onClick={() => setActiveTab(t)}
             style={{
               fontSize: '0.72rem',
-              fontWeight: tab === t ? 700 : 400,
+              fontWeight: activeTab === t ? 700 : 400,
               padding: '4px 12px',
               borderRadius: '6px 6px 0 0',
               cursor: 'pointer',
-              background: tab === t ? 'var(--accent-tint-bg)' : 'transparent',
-              color: tab === t ? 'var(--accent)' : 'var(--text-secondary)',
-              borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent',
+              background: activeTab === t ? 'var(--accent-tint-bg)' : 'transparent',
+              color: activeTab === t ? 'var(--accent)' : 'var(--text-secondary)',
+              borderBottom: activeTab === t ? '2px solid var(--accent)' : '2px solid transparent',
             }}
           >
             {t}
@@ -1715,11 +1832,11 @@ const BookPane: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       {/* Tab content — must fill remaining space */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, paddingTop: 10 }}>
-        {tab === 'Manuscript' && <ManuscriptPane />}
-        {tab === 'Casting' && <CastingPane />}
-        {tab === 'Studio' && <StudioPane />}
-        {tab === 'Review' && <ReviewPane />}
-        {tab === 'Publish' && <PublishPane />}
+        {activeTab === 'Manuscript' && <ManuscriptPane />}
+        {activeTab === 'Casting' && <CastingPane />}
+        {activeTab === 'Studio' && <StudioPane />}
+        {activeTab === 'Review' && <ReviewPane />}
+        {activeTab === 'Publish' && <PublishPane />}
       </div>
     </Col>
   );
@@ -2290,10 +2407,18 @@ const SiteMockup: React.FC = () => {
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [inBook, setInBook] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
+  const [activeBookTab, setActiveBookTab] = useState<BookTab>('Studio');
 
   const handleRailSelect = (dest: RailDest) => {
     setActiveRail(dest);
     if (dest !== 'Library') setInBook(false);
+  };
+
+  const handleBookTabSelect = (t: BookTab) => {
+    setActiveBookTab(t);
+    // Ensure we're in Library + book view when a stage link is clicked
+    setActiveRail('Library');
+    setInBook(true);
   };
 
   // Compute breadcrumb
@@ -2301,7 +2426,7 @@ const SiteMockup: React.FC = () => {
   if (activeRail !== 'Library') {
     breadcrumb = activeRail;
   } else if (inBook) {
-    breadcrumb = 'Library / The Whispering Vale / Studio';
+    breadcrumb = `Library / The Whispering Vale / ${activeBookTab}`;
   }
 
   return (
@@ -2318,7 +2443,7 @@ const SiteMockup: React.FC = () => {
           flexShrink: 0,
         }}
       >
-        North-star organization mockup v3 — current functionality represented. Queue drawer = check status from anywhere without losing your place.
+        North-star organization mockup v3 — current functionality represented. Queue drawer = check status from anywhere without losing your place. · v3.1 rail hierarchy
       </div>
 
       {/* App window — column: [top bar] / [rail + content] / [player bar] */}
@@ -2338,6 +2463,9 @@ const SiteMockup: React.FC = () => {
             onSelect={handleRailSelect}
             collapsed={railCollapsed}
             onToggle={() => setRailCollapsed(c => !c)}
+            inBook={inBook}
+            activeBookTab={activeBookTab}
+            onBookTabSelect={handleBookTabSelect}
           />
 
           {/* Content */}
@@ -2346,7 +2474,11 @@ const SiteMockup: React.FC = () => {
               <LibraryPane onOpenBook={() => setInBook(true)} />
             )}
             {activeRail === 'Library' && inBook && (
-              <BookPane onBack={() => setInBook(false)} />
+              <BookPane
+                onBack={() => setInBook(false)}
+                activeTab={activeBookTab}
+                setActiveTab={setActiveBookTab}
+              />
             )}
             {activeRail === 'Voices' && <VoicesPane />}
             {activeRail === 'Activity' && <ActivityPane />}

@@ -169,6 +169,7 @@ Decisions: **Q1 left rail** · **Q2 five stages** · **Q3 one ScriptView, two ro
   - **Book header strip** (cover w/ change, editable title/author, series, runtime + predicted, created, default-narrator chip → Casting) persists across all five stage tabs.
   - **Chapter rows carry their current powers**: per-chapter render progress bar, rebuild / export / download / reset / delete via overflow.
   - All of the above mocked in site mockup v3 (demo stage).
+  - **Rail contextual hierarchy (v3.1):** inside a book, the rail grows a nested block under Library — cover + book title, then the five stage links (synced with the in-page tabs), and a current-chapter wayfinding line under the active Studio link. Chapter *switching* stays in Studio's chapter rail (a 40-chapter book would swamp the rail; revisit as a Phase B test whether the rail should own chapter nav outright). Collapsed rail shows a 📕 icon.
 
 | # | Question | My lean |
 |---|---|---|
