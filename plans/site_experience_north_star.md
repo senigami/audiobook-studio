@@ -158,6 +158,8 @@ Decisions: **Q1 left rail** · **Q2 five stages** · **Q3 one ScriptView, two ro
 - **U16 amendment — waveform display in the player bar.** Audacity-style waveform strip, user-toggleable (persisted preference); bar expands in height when on. Library decision: **wavesurfer.js** (decode + peak cache + seek-on-click). Mocked in the styleguide U16 card.
 - **U1 approved** as specced (undo toasts replace confirm modals; modals remain only for project delete and bulk audio reset).
 - **U3 typography scale approved** as shown in the styleguide proposal.
+- **U8 card content set** (2026-06-12): catalog card shows voice icon (uploaded image), class/gender/age badges, one-line description, ▶ preview, single phase CTA + overflow. New feature recorded as doc 04 C6: copyable image prompt generated from attributes + description so user-made icons stay stylistically uniform.
+- **PENDING — full-site mockup.** Owner is reviewing this doc; next design deliverable is a mockup of the whole site interface (rail + pipeline + player together), NOT further piecemeal styleguide specimen enlargements. Hold U15 specimen-scale rework until that request comes.
 
 | # | Question | My lean |
 |---|---|---|

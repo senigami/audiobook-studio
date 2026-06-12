@@ -1111,12 +1111,42 @@ const U16Mock: React.FC = () => {
 
 const OVERFLOW_MENU_ITEMS = ['Rename', 'Duplicate', 'Export', 'Reset', 'Delete'];
 
-/** Individual U8 voice card with functional overflow popover */
-const U8VoiceCard: React.FC<{
+/** Attribute badge pill */
+const AttrBadge: React.FC<{ label: string }> = ({ label }) => (
+  <span
+    style={{
+      display: 'inline-block',
+      padding: '2px 7px',
+      borderRadius: 999,
+      fontSize: '0.625rem',
+      fontWeight: 500,
+      background: 'var(--surface-alt)',
+      color: 'var(--text-secondary)',
+      border: '1px solid var(--border)',
+      whiteSpace: 'nowrap',
+    }}
+  >
+    {label}
+  </span>
+);
+
+interface U8VoiceCardProps {
   phase: string;
   cta: string;
   ctaStyle: React.CSSProperties;
-}> = ({ phase, cta, ctaStyle }) => {
+  /** Emoji or short initials displayed in the avatar circle */
+  avatarEmoji: string;
+  /** Background color for the avatar circle (raw CSS color or variable) */
+  avatarBg: string;
+  name: string;
+  badges: string[];
+  description: string;
+}
+
+/** Individual U8 voice card with functional overflow popover */
+const U8VoiceCard: React.FC<U8VoiceCardProps> = ({
+  phase, cta, ctaStyle, avatarEmoji, avatarBg, name, badges, description,
+}) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const overflowRef = useRef<HTMLDivElement>(null);
 
@@ -1135,9 +1165,9 @@ const U8VoiceCard: React.FC<{
   return (
     <div
       style={{
-        minWidth: 200,
-        flex: '1 1 200px',
-        maxWidth: 240,
+        minWidth: 260,
+        flex: '1 1 260px',
+        maxWidth: 320,
         border: '1px solid var(--border)',
         borderRadius: 10,
         background: 'var(--surface)',
@@ -1147,14 +1177,32 @@ const U8VoiceCard: React.FC<{
         gap: 8,
       }}
     >
-      {/* Voice avatar + header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--accent-tint-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0 }}>
-          🎙
+      {/* Top row: avatar + name/phase + overflow */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* Voice icon — circular avatar ~40px, mocked with colored circle + emoji */}
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
+            background: avatarBg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.2rem',
+            flexShrink: 0,
+            border: '1px solid var(--border)',
+          }}
+        >
+          {avatarEmoji}
         </div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Studio Voice</div>
-          <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{phase}</div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {name}
+          </div>
+          <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {phase}
+          </div>
         </div>
         {/* Overflow button + popover */}
         <div ref={overflowRef} style={{ marginLeft: 'auto', position: 'relative', flexShrink: 0 }}>
@@ -1224,21 +1272,67 @@ const U8VoiceCard: React.FC<{
           )}
         </div>
       </div>
-      {/* Phase CTA */}
-      <button
-        type="button"
+
+      {/* Attribute badges row: class · gender · age */}
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        {badges.map(b => <AttrBadge key={b} label={b} />)}
+      </div>
+
+      {/* One-line description — ellipsized */}
+      <div
         style={{
-          borderRadius: 8,
-          padding: '6px 12px',
-          fontSize: '0.8125rem',
-          fontWeight: 600,
-          cursor: 'pointer',
-          width: '100%',
-          ...ctaStyle,
+          fontSize: '0.75rem',
+          color: 'var(--text-secondary)',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          lineHeight: 1.4,
         }}
+        title={description}
       >
-        {cta}
-      </button>
+        {description}
+      </div>
+
+      {/* CTA row: preview button + phase primary CTA */}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        {/* ▶ Preview button */}
+        <button
+          type="button"
+          aria-label="Preview voice"
+          style={{
+            flexShrink: 0,
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            border: '1px solid var(--border)',
+            background: 'var(--surface-alt)',
+            color: 'var(--text-secondary)',
+            fontSize: '0.8rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          ▶
+        </button>
+        {/* Phase primary CTA */}
+        <button
+          type="button"
+          style={{
+            borderRadius: 8,
+            padding: '6px 12px',
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            flex: 1,
+            ...ctaStyle,
+          }}
+        >
+          {cta}
+        </button>
+      </div>
+
       <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', textAlign: 'center' }}>
         ~{phase === 'empty' ? '6' : phase === 'has-samples' ? '5' : '4'} actions hidden in ⋯
       </div>
@@ -1248,11 +1342,47 @@ const U8VoiceCard: React.FC<{
 
 /** U8 — Voice card progressive disclosure */
 const U8Mock: React.FC = () => {
-  const phases = [
-    { phase: 'empty', cta: 'Add Samples', ctaStyle: { background: 'var(--surface-alt)', color: 'var(--text-secondary)', border: '1px dashed var(--border)' } as React.CSSProperties },
-    { phase: 'has-samples', cta: 'Build Voice', ctaStyle: { background: 'var(--accent)', color: '#fff', border: 'none' } as React.CSSProperties },
-    { phase: 'built', cta: 'Test Voice', ctaStyle: { background: 'var(--success)', color: '#fff', border: 'none' } as React.CSSProperties },
-    { phase: 'tested', cta: 'Use in Project', ctaStyle: { background: 'var(--accent)', color: '#fff', border: 'none' } as React.CSSProperties },
+  const phases: U8VoiceCardProps[] = [
+    {
+      phase: 'empty',
+      cta: 'Add Samples',
+      ctaStyle: { background: 'var(--surface-alt)', color: 'var(--text-secondary)', border: '1px dashed var(--border)' },
+      avatarEmoji: '🎩',
+      avatarBg: 'rgba(124, 58, 237, 0.12)',
+      name: 'Professor Vale',
+      badges: ['narrator', 'male', 'senior'],
+      description: 'Deep, authoritative narrator with a dry wit and precise diction.',
+    },
+    {
+      phase: 'has-samples',
+      cta: 'Build Voice',
+      ctaStyle: { background: 'var(--accent)', color: '#fff', border: 'none' },
+      avatarEmoji: '👵',
+      avatarBg: 'rgba(16, 185, 129, 0.12)',
+      name: 'Agatha Wren',
+      badges: ['character', 'female', 'elder'],
+      description: 'Warm, weathered grandmother voice with a slight Scottish lilt.',
+    },
+    {
+      phase: 'built',
+      cta: 'Test Voice',
+      ctaStyle: { background: 'var(--success)', color: '#fff', border: 'none' },
+      avatarEmoji: 'EM',
+      avatarBg: 'rgba(245, 158, 11, 0.12)',
+      name: 'Elena Marsh',
+      badges: ['narrator', 'female', 'adult'],
+      description: 'Warm, measured narrator with a slight rasp.',
+    },
+    {
+      phase: 'tested',
+      cta: 'Use in Project',
+      ctaStyle: { background: 'var(--accent)', color: '#fff', border: 'none' },
+      avatarEmoji: '🎙',
+      avatarBg: 'rgba(59, 130, 246, 0.12)',
+      name: 'Studio Voice',
+      badges: ['narrator', 'neutral', 'adult'],
+      description: 'Clean, neutral studio voice suitable for any genre.',
+    },
   ];
   return (
     <Card>
@@ -1265,11 +1395,15 @@ const U8Mock: React.FC = () => {
         Today each voice card shows 7–8 peer-level actions. The proposal derives a <code>voicePhase</code> from
         the voice&apos;s actual state and shows exactly one primary CTA for that phase, demoting other actions to
         an overflow (⋯) menu. This eliminates choice overload and surfaces the right next step.
+        Each card now also shows a circular voice icon (user-uploaded image, mocked here with an emoji or initials),
+        attribute badges (class · gender · age group), a one-line description, and a ▶ Preview button beside the CTA.
+        Attributes + description can generate a copyable image prompt to help users create a uniform voice icon
+        (owner direction, 2026-06-12).
         Click ⋯ to open the popover.
       </p>
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-        {phases.map(({ phase, cta, ctaStyle }) => (
-          <U8VoiceCard key={phase} phase={phase} cta={cta} ctaStyle={ctaStyle} />
+        {phases.map(props => (
+          <U8VoiceCard key={props.phase} {...props} />
         ))}
       </div>
     </Card>

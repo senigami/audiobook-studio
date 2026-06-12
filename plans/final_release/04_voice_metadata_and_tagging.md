@@ -316,6 +316,8 @@ Each is a decision the owner can veto — flag any objections before implementat
   Accepts multipart image, enforces 1:1 aspect ratio (crop or reject), saves as `voices/<Name>/icon.png`, updates `image` field in `voice.json`.
   _Acceptance: upload a 512×512 PNG → file saved, `voice.json` updated, `GET /api/voices/{id}` returns `image: "icon.png"`._
 
+- [ ] **C6 (owner direction, 2026-06-12). Copyable icon image prompt.** Beside the icon upload, generate a copy-to-clipboard image-generation prompt from the voice's attributes + description (e.g. "Portrait icon, 1:1, soft studio lighting: an elderly female character voice — warm, measured narrator with a slight rasp…"), with a fixed style preamble so user-generated icons stay relatively uniform across the catalog. Pure frontend string templating — no API call, no image generation in Studio. Mocked conceptually in styleguide U8.
+
 ### Phase D — Frontend (AI Voice Lab)
 
 These items are the open Phase 12 items for voice tags/icons. Implement after Phase C.
