@@ -169,7 +169,13 @@ Decisions: **Q1 left rail** · **Q2 five stages** · **Q3 one ScriptView, two ro
   - **Book header strip** (cover w/ change, editable title/author, series, runtime + predicted, created, default-narrator chip → Casting) persists across all five stage tabs.
   - **Chapter rows carry their current powers**: per-chapter render progress bar, rebuild / export / download / reset / delete via overflow.
   - All of the above mocked in site mockup v3 (demo stage).
-  - **Rail contextual hierarchy (v3.1):** inside a book, the rail grows a nested block under Library — cover + book title, then the five stage links (synced with the in-page tabs), and a current-chapter wayfinding line under the active Studio link. Chapter *switching* stays in Studio's chapter rail (a 40-chapter book would swamp the rail; revisit as a Phase B test whether the rail should own chapter nav outright). Collapsed rail shows a 📕 icon.
+  - **Rail contextual hierarchy (v3.1):** inside a book, the rail grows a nested block under Library — cover + book title, then the five stage links (synced with the in-page tabs). Collapsed rail shows a 📕 icon.
+- **Owner review round 4 (2026-06-12) — space + ownership decisions (binding, mocked in v3.2):**
+  - **No book header strip** — it taxed every stage's working space. Book metadata's canonical editor (cover change, title, author, narrator, series, runtime/created info) lives in **Publish** ("Book info"); **Manuscript** gets a collapsed "Book details ▸" disclosure with an "Edit in Publish →" link.
+  - **Default narrator = pinned first row of Casting** ("Narrator (default)" — fallback for any unassigned line). The default-narrator concept appears nowhere else.
+  - **Text editing happens ONLY in Studio book view** (edits re-analyze affected sections, keep/invalidate logic). Manuscript's preview is read-only.
+  - **Review annotations attach to SECTIONS (§N), not timestamps** — re-renders change audio timing, so timestamps would drift; section ids are stable. Annotations kept (owner: useful), with re-render-section remaining the primary gesture.
+  - **The rail owns chapter navigation** (overriding the round-3 hold): full chapter list with status orbs + render bars + the ⋯ action menu nests under the Studio stage link; Studio's in-page chapter rail is REMOVED and the prose column takes the width. Hidden when the rail is collapsed.
 
 | # | Question | My lean |
 |---|---|---|
