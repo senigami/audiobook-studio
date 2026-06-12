@@ -1005,3 +1005,149 @@ class TestContractVersionGate:
         assert data.get("engine_id") == "mixed", (
             f"tts_mixed engine_id must remain 'mixed'; got {data.get('engine_id')!r}"
         )
+
+
+# ---------------------------------------------------------------------------
+# S10 — callable-signature audit tests
+# ---------------------------------------------------------------------------
+
+class TestCallableSignatureAudit:
+    """_import_engine_class must validate parameter names/arity via inspect.signature."""
+
+    def _make_and_load(self, tmp_path, engine_src, folder_name="tts_sigtest"):
+        from app.tts_server.plugin_loader import _import_engine_class
+        plugin_dir = tmp_path / folder_name
+        plugin_dir.mkdir()
+        (plugin_dir / "engine.py").write_text(textwrap.dedent(engine_src), encoding="utf-8")
+        manifest = {
+            "studio_tts_manifest": "1.0",
+            "entry_class": "engine:TestEngine",
+        }
+        return _import_engine_class(manifest=manifest, plugin_dir=plugin_dir, folder_name=folder_name)
+
+    def test_correct_signatures_pass(self, tmp_path):
+        src = """
+from app.engines.voice.sdk import TTSRequest, TTSResult
+from app.engines.voice.base import StudioTTSEngine
+class TestEngine(StudioTTSEngine):
+    def info(self): return {}
+    def check_env(self): return True, "OK"
+    def check_request(self, req): return True, "OK"
+    def synthesize(self, req): return TTSResult(ok=True, output_path=req.output_path)
+    def settings_schema(self): return {}
+"""
+        cls = self._make_and_load(tmp_path, src)
+        assert cls.__name__ == "TestEngine"
+
+    def test_check_env_with_extra_optional_settings_kwarg_passes(self, tmp_path):
+        """check_env(self, settings=None) is a valid extension (voxtral pattern)."""
+        src = """
+from app.engines.voice.sdk import TTSRequest, TTSResult
+from app.engines.voice.base import StudioTTSEngine
+class TestEngine(StudioTTSEngine):
+    def info(self): return {}
+    def check_env(self, settings=None): return True, "OK"
+    def check_request(self, req): return True, "OK"
+    def synthesize(self, req): return TTSResult(ok=True, output_path=req.output_path)
+    def settings_schema(self): return {}
+"""
+        cls = self._make_and_load(tmp_path, src)
+        assert cls.__name__ == "TestEngine"
+
+    def test_check_request_wrong_param_name_raises(self, tmp_path):
+        """check_request(self, request) instead of check_request(self, req) must fail."""
+        src = """
+from app.engines.voice.sdk import TTSRequest, TTSResult
+from app.engines.voice.base import StudioTTSEngine
+class TestEngine(StudioTTSEngine):
+    def info(self): return {}
+    def check_env(self): return True, "OK"
+    def check_request(self, request): return True, "OK"
+    def synthesize(self, req): return TTSResult(ok=True, output_path=req.output_path)
+    def settings_schema(self): return {}
+"""
+        with pytest.raises(PluginLoadError, match="check_request"):
+            self._make_and_load(tmp_path, src)
+
+    def test_synthesize_zero_positional_raises(self, tmp_path):
+        """synthesize(self) missing 'req' must fail."""
+        src = """
+from app.engines.voice.sdk import TTSRequest, TTSResult
+from app.engines.voice.base import StudioTTSEngine
+class TestEngine(StudioTTSEngine):
+    def info(self): return {}
+    def check_env(self): return True, "OK"
+    def check_request(self, req): return True, "OK"
+    def synthesize(self): raise NotImplementedError
+    def settings_schema(self): return {}
+"""
+        with pytest.raises(PluginLoadError, match="synthesize"):
+            self._make_and_load(tmp_path, src)
+
+    def test_check_output_wrong_second_param_raises(self, tmp_path):
+        """check_output(self, req, res) — 'result' renamed to 'res' — must fail."""
+        src = """
+from app.engines.voice.sdk import TTSRequest, TTSResult
+from app.engines.voice.base import StudioTTSEngine
+class TestEngine(StudioTTSEngine):
+    def info(self): return {}
+    def check_env(self): return True, "OK"
+    def check_request(self, req): return True, "OK"
+    def synthesize(self, req): return TTSResult(ok=True, output_path=req.output_path)
+    def settings_schema(self): return {}
+    def check_output(self, req, res): return True, "OK"
+"""
+        with pytest.raises(PluginLoadError, match="check_output"):
+            self._make_and_load(tmp_path, src)
+
+    def test_optional_override_correct_passes(self, tmp_path):
+        """Overriding check_output with correct signature is fine."""
+        src = """
+from app.engines.voice.sdk import TTSRequest, TTSResult
+from app.engines.voice.base import StudioTTSEngine
+class TestEngine(StudioTTSEngine):
+    def info(self): return {}
+    def check_env(self): return True, "OK"
+    def check_request(self, req): return True, "OK"
+    def synthesize(self, req): return TTSResult(ok=True, output_path=req.output_path)
+    def settings_schema(self): return {}
+    def check_output(self, req, result): return True, "OK"
+"""
+        cls = self._make_and_load(tmp_path, src)
+        assert cls.__name__ == "TestEngine"
+
+    def test_error_message_names_the_method_and_expected_signature(self, tmp_path):
+        src = """
+from app.engines.voice.sdk import TTSRequest, TTSResult
+from app.engines.voice.base import StudioTTSEngine
+class TestEngine(StudioTTSEngine):
+    def info(self): return {}
+    def check_env(self): return True, "OK"
+    def check_request(self, wrong_name): return True, "OK"
+    def synthesize(self, req): return TTSResult(ok=True, output_path=req.output_path)
+    def settings_schema(self): return {}
+"""
+        with pytest.raises(PluginLoadError) as exc_info:
+            self._make_and_load(tmp_path, src)
+        msg = str(exc_info.value)
+        assert "check_request" in msg
+        assert "req" in msg
+
+    def test_bundled_xtts_engine_passes_signature_audit(self):
+        """Real XttsPlugin must pass the signature audit without error."""
+        from app.tts_server.plugin_loader import _validate_engine_signatures
+        from plugins.tts_xtts.plugin.server.engine import XttsPlugin
+        # Should not raise
+        _validate_engine_signatures(XttsPlugin, "XttsPlugin", "tts_xtts")
+
+    def test_bundled_voxtral_engine_passes_signature_audit(self):
+        """Real VoxtralPlugin must pass the signature audit without error."""
+        from app.tts_server.plugin_loader import _validate_engine_signatures
+        from plugins.tts_voxtral.plugin.server.engine import VoxtralPlugin
+        _validate_engine_signatures(VoxtralPlugin, "VoxtralPlugin", "tts_voxtral")
+
+    def test_bundled_mixed_engine_passes_signature_audit(self):
+        """Real MixedPlugin must pass the signature audit without error."""
+        from app.tts_server.plugin_loader import _validate_engine_signatures
+        from plugins.tts_mixed.engine import MixedPlugin
+        _validate_engine_signatures(MixedPlugin, "MixedPlugin", "tts_mixed")

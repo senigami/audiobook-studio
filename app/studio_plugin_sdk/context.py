@@ -455,10 +455,42 @@ class StudioPluginContext:
     # §3.3.12 Audio Operations
     # ------------------------------------------------------------------
 
-    def stitch_segments(self, segment_wavs: list[str], out_wav: str) -> None:
-        """Concatenate segment WAVs into a chapter WAV."""
-        from app.engines.audio_ops import stitch_segments  # noqa: PLC0415
-        stitch_segments(segment_wavs, out_wav)
+    def stitch_segments(
+        self,
+        segment_wavs: list[str],
+        out_wav: str,
+        *,
+        pdir: str | None = None,
+        on_output: Callable[[str], None] | None = None,
+        cancel_check: Callable[[], bool] | None = None,
+    ) -> int:
+        """Concatenate segment WAVs into a chapter WAV.
+
+        Args:
+            segment_wavs: Ordered list of segment WAV paths.
+            out_wav:      Destination chapter WAV path.
+            pdir:         Working directory passed to ffmpeg concat (required by the
+                          underlying audio_ops implementation; defaults to the parent
+                          directory of ``out_wav`` when omitted).
+            on_output:    Line-by-line ffmpeg stdout callback.  A no-op lambda is
+                          used when omitted.
+            cancel_check: Cancellation predicate polled between segments.  Always
+                          returns False when omitted.
+
+        Returns:
+            0 on success, non-zero on ffmpeg error.
+        """
+        from app.engines.audio_ops import stitch_segments as _stitch  # noqa: PLC0415
+        _pdir = Path(pdir) if pdir else Path(out_wav).parent
+        _on_output: Callable[[str], None] = on_output if on_output is not None else (lambda _: None)
+        _cancel_check: Callable[[], bool] = cancel_check if cancel_check is not None else (lambda: False)
+        return _stitch(
+            _pdir,
+            [Path(p) for p in segment_wavs],
+            Path(out_wav),
+            _on_output,
+            _cancel_check,
+        )
 
     def wav_to_mp3(self, in_wav: str, out_mp3: str) -> None:
         """Transcode WAV to MP3."""

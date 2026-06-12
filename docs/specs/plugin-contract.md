@@ -1,14 +1,16 @@
 # Plugin Contract
 
 ```
-spec_version: 1.2.0
+spec_version: 1.3.0
 status: active
 sources:
   - app/engines/voice/sdk.py
   - app/tts_server/plugin_loader.py
   - app/engines/registry.py
+  - app/studio_plugin_sdk/context.py
   - plugins/tts_xtts/manifest.json
   - plugins/tts_voxtral/manifest.json
+  - plugins/tts_mixed/manifest.json
 ```
 
 > **TL;DR:** Every TTS plugin is a folder (or pip entry point) with a `manifest.json` and a class implementing `StudioTTSEngine`; Studio treats the manifest as the source of truth for discovery, capabilities, resource requirements, and chunk limits.
@@ -20,6 +22,7 @@ sources:
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 | 1.1.0   | 2026-06-11 | Additive: optional `behavior.sanitize_categories` list; unknown names cause load error; absent means all categories applied (backward-compatible) |
 | 1.2.0   | 2026-06-11 | Additive: optional `check_output(req, result) -> tuple[bool, str]` method on `StudioTTSEngine`; default accept-all; TTS Server calls this after synthesize() and deletes artifact + returns `output_rejected` on (False, reason); crashing hook is failure-isolated (logs + accepts) |
+| 1.3.0   | 2026-06-12 | S10 closeout: (1) loader now validates all five required method signatures + declared optional overrides via `inspect.signature` at load time (wrong param name / insufficient arity → `PluginLoadError` naming the method and expected signature; extra optional params tolerated); (2) all four manifest version fields (`contract_version`, `sdk_version`, `settings_schema_version`, `event_envelope_version`) are hard-required since S8; (3) `check_output` §2.3 stale "does not exist yet" note corrected — the method has been in `base.py` since v1.2.0; (4) `ctx.stitch_segments` gains `on_output` and `cancel_check` optional params plus `pdir` (defaults to parent of `out_wav`); returns `int` (was `None`); (5) `ctx.finalize_sample_artifact`, `ctx.run_voice_job`, and `ctx.resolve_voice_preview_inputs` added to §3.3 tables; (6) in-tree plugin wrapper-boundary note: function-body `app.*` imports are tolerated in bake/segments/standard_handler because tests monkeypatch those targets directly (resolves with S9 dispatcher integration); standalone plugins must have zero `app.*` imports at any scope |
 
 ---
 

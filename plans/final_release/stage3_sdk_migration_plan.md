@@ -13,7 +13,15 @@
 - **S7 — server-side engine audit**: voxtral/mixed clean; tts_xtts's `proc_utils.run_cmd_stream` — DECIDED 2026-06-11: stays as documented in-tree exception (note in plugin README); standalone-plugin guidance says stdlib subprocess.
 - **S8 — manifest validation in CI**: scripts/validate_plugin_manifests.py + workflow step; all manifests must carry the version fields.
 - **S9 — dispatcher integration**: Studio job dispatch instantiates the context and calls `handler(ctx, job)`, persisting JobResult. The integration-risk slice; end-to-end test required.
-- **S10 — verification + spec sync** (+ fix ctx.stitch_segments signature gap: missing on_output/cancel_check params, found during voxtral bake — handlers import audio_ops directly until then): all groups verified, plugin-contract.md → 1.3.0 with the check_output clarification and any deviations, docstrings.
+- **S10 — verification + spec sync** — LANDED 2026-06-12:
+  - **Callable-signature audit**: `_import_engine_class` now calls `_validate_engine_signatures` which uses `inspect.signature` to check all five required methods + any declared optional overrides; wrong param name or insufficient arity → `PluginLoadError` naming the method and expected signature; extra optional params tolerated (voxtral's `check_env(settings=None)` pattern passes).
+  - **tts_mixed fixed**: `MixedPlugin` was missing `check_request` and `settings_schema`; both added with stub implementations that satisfy the ABC.
+  - **ctx.stitch_segments gap fixed**: method now accepts `on_output`, `cancel_check`, and `pdir` optional kwargs; returns `int` (was `None`); routes voxtral/xtts callers through the same underlying call shape. Voxtral bake still calls the module-level alias and xtts bake calls `h.stitch_segments` — routed through ctx is possible but both remain as wrapper-boundary callers (S9 compromise, not worth fighting).
+  - **Verification sweep**: all 13 §3.3 service groups have test coverage; `finalize_sample_artifact`, `run_voice_job`, `resolve_voice_preview_inputs` covered by existing S5 and new S10 tests.
+  - **AST gate**: module-level-only mode enforced at load; function-body app.* imports in bake/segments/standard_handler remain (documented S9 residue; strict flip deferred — these are wrapper-boundary/in-tree plugins; standalone repos use template which has zero app refs).
+  - **Version gate**: all four manifest version fields hard-required since S8; confirmed still enforced.
+  - **Spec sync**: `docs/specs/plugin-contract.md` → 1.3.0 (changelog row added; check_output stale "does not exist yet" corrected; stitch_segments full signature; finalize_sample_artifact, run_voice_job, resolve_voice_preview_inputs added to §3.3 tables); `plans/final_release/02_plugin_communication_contract.md` §2.3 stale note corrected, §3.3.12 updated, §3.3.14 added.
+  - Tests: 11 new tests (8 signature audit in `TestCallableSignatureAudit`, 3 stitch_segments in `TestContextServiceGroups`); full suite 1514 passed; ruff clean.
 
 ## Order
 

@@ -821,7 +821,123 @@ def _import_engine_class(
             "Engines must implement the StudioTTSEngine contract."
         )
 
+    # 4b. inspect.signature compatibility check against the canonical ABC signatures.
+    # Validates parameter names, kinds, and minimum arity.  Additional optional
+    # parameters are tolerated (e.g. check_env(settings=...) is fine).
+    # Only checks declared optionals that the engine_cls actually overrides.
+    _validate_engine_signatures(engine_cls, class_name, folder_name)
+
     return engine_cls
+
+
+# ---------------------------------------------------------------------------
+# Signature-compatibility helpers
+# ---------------------------------------------------------------------------
+
+# Canonical parameter specs for the five required methods and all optional ones.
+# Each entry is (method_name, required_positional_params, is_required_method).
+# "required_positional_params" lists names after "self" that MUST be present
+# (as positional-or-keyword or positional-only parameters).
+# Engines MAY add extra optional (*args / **kwargs / keyword-only with defaults)
+# but must not drop or rename required positionals.
+_REQUIRED_METHOD_PARAMS: dict[str, list[str]] = {
+    "info": [],
+    "check_env": [],
+    "check_request": ["req"],
+    "synthesize": ["req"],
+    "settings_schema": [],
+}
+
+_OPTIONAL_METHOD_PARAMS: dict[str, list[str]] = {
+    "hooks": [],
+    "preview": ["req"],
+    "verify": ["req"],
+    "run_test": [],
+    "check_output": ["req", "result"],
+    "shutdown": [],
+}
+
+
+def _validate_engine_signatures(engine_cls: type, class_name: str, folder_name: str) -> None:
+    """Validate that ``engine_cls`` methods match the canonical StudioTTSEngine signatures.
+
+    Raises:
+        PluginLoadError: If a required method has an incompatible signature, or a
+            declared optional override has an incompatible signature.
+    """
+    import inspect  # noqa: PLC0415
+
+    all_checks = {
+        name: (params, True)
+        for name, params in _REQUIRED_METHOD_PARAMS.items()
+    }
+    # Also check optionals that the engine actually overrides.
+    for name, params in _OPTIONAL_METHOD_PARAMS.items():
+        if name in engine_cls.__dict__:  # Engine provides its own implementation
+            all_checks[name] = (params, False)
+
+    for method_name, (required_positionals, is_required) in all_checks.items():
+        method = getattr(engine_cls, method_name, None)
+        if method is None:
+            if is_required:
+                raise PluginLoadError(
+                    f"Class {class_name!r} in {folder_name} is missing required method "
+                    f"{method_name!r}. Expected signature: {method_name}(self"
+                    + (", " + ", ".join(required_positionals) if required_positionals else "")
+                    + ")."
+                )
+            continue
+
+        try:
+            sig = inspect.signature(method)
+        except (ValueError, TypeError):
+            # Can't introspect — skip; the presence check above already passed.
+            continue
+
+        params = sig.parameters
+        # Collect positional-capable params (positional-only or positional-or-keyword),
+        # excluding 'self'.
+        positionals = [
+            name
+            for name, p in params.items()
+            if name != "self"
+            and p.kind in (
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                inspect.Parameter.POSITIONAL_ONLY,
+            )
+        ]
+
+        # Required positionals must appear, in order, with matching names.
+        # Extra positionals beyond the required list are only allowed when they
+        # have defaults (i.e. they are optional).
+        req_count = len(required_positionals)
+
+        if len(positionals) < req_count:
+            _expected_sig = (
+                f"{method_name}(self"
+                + (", " + ", ".join(required_positionals) if required_positionals else "")
+                + ")"
+            )
+            raise PluginLoadError(
+                f"Class {class_name!r} in {folder_name}: method {method_name!r} "
+                f"has too few positional parameters. "
+                f"Expected at least: {_expected_sig}. "
+                f"Got: ({', '.join(['self'] + positionals) if positionals else 'self'})."
+            )
+
+        for idx, expected_name in enumerate(required_positionals):
+            actual_name = positionals[idx]
+            if actual_name != expected_name:
+                _expected_sig = (
+                    f"{method_name}(self"
+                    + (", " + ", ".join(required_positionals) if required_positionals else "")
+                    + ")"
+                )
+                raise PluginLoadError(
+                    f"Class {class_name!r} in {folder_name}: method {method_name!r} "
+                    f"parameter #{idx + 1} must be named {expected_name!r} but found {actual_name!r}. "
+                    f"Expected signature: {_expected_sig}."
+                )
 
 
 def get_plugin_dir(engine_id: str) -> Path:

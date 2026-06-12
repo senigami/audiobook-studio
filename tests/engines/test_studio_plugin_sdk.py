@@ -269,11 +269,47 @@ class TestContextServiceGroups:
             assert result == str(tmp_path)
 
     # 3.3.12 Audio operations
-    def test_stitch_segments(self):
+    def test_stitch_segments_basic(self):
+        """ctx.stitch_segments routes to audio_ops with default pdir/callbacks."""
+        from pathlib import Path
         ctx = self._ctx()
-        with patch("app.engines.audio_ops.stitch_segments") as m:
-            ctx.stitch_segments(["/a.wav", "/b.wav"], "/out.wav")
-            m.assert_called_once_with(["/a.wav", "/b.wav"], "/out.wav")
+        with patch("app.engines.audio_ops.stitch_segments", return_value=0) as m:
+            rc = ctx.stitch_segments(["/a.wav", "/b.wav"], "/out.wav")
+        assert rc == 0
+        args = m.call_args[0]
+        # pdir defaults to parent of out_wav
+        assert args[0] == Path("/")           # parent of /out.wav
+        assert args[1] == [Path("/a.wav"), Path("/b.wav")]
+        assert args[2] == Path("/out.wav")
+        # on_output and cancel_check are callable stubs
+        assert callable(args[3])
+        assert callable(args[4])
+
+    def test_stitch_segments_explicit_on_output_cancel_check(self):
+        """Explicit on_output and cancel_check are forwarded."""
+        from pathlib import Path
+        ctx = self._ctx()
+
+        def on_out(line: str) -> None:
+            pass
+
+        def cancel() -> bool:
+            return False
+
+        with patch("app.engines.audio_ops.stitch_segments", return_value=0) as m:
+            ctx.stitch_segments(["/a.wav"], "/tmp/out.wav", on_output=on_out, cancel_check=cancel)
+        args = m.call_args[0]
+        assert args[3] is on_out
+        assert args[4] is cancel
+
+    def test_stitch_segments_explicit_pdir(self):
+        """Explicit pdir is forwarded as a Path."""
+        from pathlib import Path
+        ctx = self._ctx()
+        with patch("app.engines.audio_ops.stitch_segments", return_value=0) as m:
+            ctx.stitch_segments(["/a.wav"], "/tmp/out.wav", pdir="/work/dir")
+        args = m.call_args[0]
+        assert args[0] == Path("/work/dir")
 
     def test_wav_to_mp3(self):
         ctx = self._ctx()
