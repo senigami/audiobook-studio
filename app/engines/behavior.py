@@ -237,6 +237,38 @@ def uses_segment_orchestration(engine_id: str) -> bool:
 
 
 
+def get_sanitize_categories(
+    engine_id: str,
+    *,
+    behavior: Mapping[str, Any] | None = None,
+) -> tuple[str, ...] | None:
+    """Return the sanitize category list declared by the engine's manifest.
+
+    Returns ``None`` when the manifest does not declare ``sanitize_categories``
+    (meaning: apply all categories, preserving historical behaviour).
+    Returns a tuple of category names when the manifest declares a subset.
+
+    Args:
+        engine_id: Engine identifier.
+        behavior: Optional pre-resolved behavior mapping (skips manifest load).
+    """
+    normalized = behavior_for_engine(engine_id, behavior=behavior)
+    # sanitize_categories is stored in the raw manifest behavior block;
+    # normalize_behavior does not currently pass it through, so we read
+    # the raw manifest directly unless a behavior override is supplied.
+    if behavior is not None:
+        raw_cats = behavior.get("sanitize_categories")
+    else:
+        payload = _load_full_manifest(engine_id)
+        raw_cats = payload.get("behavior", {}).get("sanitize_categories")
+
+    if raw_cats is None:
+        return None
+    if not isinstance(raw_cats, list):
+        return None
+    return tuple(str(c) for c in raw_cats)
+
+
 def get_text_chunk_limit(engine_id: str) -> int:
     """Return the character limit for text chunks for a given engine."""
     behavior = behavior_for_engine(engine_id)

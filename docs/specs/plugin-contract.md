@@ -1,7 +1,7 @@
 # Plugin Contract
 
 ```
-spec_version: 1.0.0
+spec_version: 1.1.0
 status: active
 sources:
   - app/engines/voice/sdk.py
@@ -18,6 +18,7 @@ sources:
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
+| 1.1.0   | 2026-06-11 | Additive: optional `behavior.sanitize_categories` list; unknown names cause load error; absent means all categories applied (backward-compatible) |
 
 ---
 
@@ -71,6 +72,7 @@ All keys live inside an optional `behavior` object:
 | `progress_pattern`   | string  | Regex the engine logs against for progress extraction |
 | `timing_markers`     | object  | Named timing event labels emitted during synthesis |
 | `features`           | array   | Feature-flag strings consumed by Studio UI |
+| `sanitize_categories`| array   | Ordered subset of sanitization category names to apply (absent → all; unknown name → load error). Valid names: `quotes`, `acronyms`, `fractions`, `dashes`, `punct_spacing`, `ascii`, `terminal` |
 | `required_settings`  | array   | `[{name, message}]` — settings that must be populated before synthesis |
 | `synthesis_settings` | array   | Names of settings that are switchable per-synthesis call |
 

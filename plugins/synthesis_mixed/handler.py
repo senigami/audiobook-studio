@@ -9,6 +9,7 @@ from app.engines.audio_ops import get_audio_duration, stitch_segments
 from app.engines.errors import EngineBridgeError
 from app.db.state import update_job
 from app.utils.text.textops import safe_split_long_sentences, sanitize_text
+from app.engines.behavior import get_sanitize_categories
 from app.db.speakers import get_speaker_settings, get_profile_wavs as get_speaker_wavs, get_profile_dir as get_voice_profile_dir
 from app.jobs.handlers.bridge_helpers import generate_via_bridge
 from app.jobs.worker_metrics import record_engine_sample
@@ -43,7 +44,7 @@ def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav
 
     text = (text or "").strip()
     if safe_mode and has_behavior(engine_id, "sanitize_text"):
-        text = sanitize_text(text)
+        text = sanitize_text(text, get_sanitize_categories(engine_id))
         text = safe_split_long_sentences(text, target=get_text_split_target(engine_id))
 
     # Resolve the voice profile directory so engines like Voxtral can find

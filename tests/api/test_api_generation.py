@@ -189,7 +189,7 @@ def test_build_script_uses_chunk_group_engine_for_safe_text(monkeypatch, tmp_pat
         return text
 
     monkeypatch.setattr(generation, "get_text_split_target", lambda engine_id: 321 if engine_id == "manifest-engine" else 999)
-    monkeypatch.setattr(generation, "sanitize_text", lambda text: text)
+    monkeypatch.setattr(generation, "sanitize_text", lambda text, categories=None: text)
     monkeypatch.setattr(generation, "safe_split_long_sentences", fake_split)
 
     script = generation._build_script_for_chapter("chapter-1", "project-1", "Default Voice", safe_mode=True)

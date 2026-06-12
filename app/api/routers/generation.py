@@ -27,6 +27,7 @@ from ...engines.behavior import (
     uses_segment_orchestration,
     get_text_split_target,
     has_behavior,
+    get_sanitize_categories,
 )
 from ...domain.chunk_groups import build_chunk_groups
 from ...utils.text.textops import sanitize_text, safe_split_long_sentences
@@ -196,7 +197,7 @@ def _build_script_for_chapter(chapter_id: str, project_id: str, default_profile:
         if safe_mode:
             engine_id = group.get("engine") or resolve_profile_engine(profile_name, default_profile)
             if has_behavior(engine_id, "sanitize_text"):
-                processed = sanitize_text(processed)
+                processed = sanitize_text(processed, get_sanitize_categories(engine_id))
             processed = safe_split_long_sentences(processed, target=get_text_split_target(engine_id))
 
         # V2 segment path: chapters/{chapter_id}/segments/{first_segment_id}.wav

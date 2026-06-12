@@ -552,6 +552,26 @@ def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
             f"capabilities must include 'synthesis' in {folder_name}"
         )
 
+    # Validate optional behavior.sanitize_categories field.
+    behavior = manifest.get("behavior", {})
+    if isinstance(behavior, dict):
+        sanitize_cats = behavior.get("sanitize_categories")
+        if sanitize_cats is not None:
+            from app.utils.text.textops_cleaning import SANITIZE_CATEGORIES  # noqa: PLC0415
+            valid_names = set(SANITIZE_CATEGORIES.keys())
+            if not isinstance(sanitize_cats, list):
+                raise PluginLoadError(
+                    f"behavior.sanitize_categories must be a list in {folder_name}"
+                )
+            for cat in sanitize_cats:
+                if cat not in valid_names:
+                    raise PluginLoadError(
+                        f"behavior.sanitize_categories contains unknown category "
+                        f"{cat!r} in {folder_name}. "
+                        f"Valid names: {sorted(valid_names)}"
+                    )
+
+
 def _load_optional_json(path: Path) -> dict[str, Any]:
     """Load JSON from ``path`` when present, otherwise return an empty dict."""
     if not path.is_file():

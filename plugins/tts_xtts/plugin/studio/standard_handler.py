@@ -5,6 +5,7 @@ from pathlib import Path
 
 from app.domain.chunk_groups import build_chunk_groups
 from app.utils.text.textops import sanitize_text, safe_split_long_sentences
+from app.engines.behavior import get_sanitize_categories
 from app.engines.errors import EngineBridgeError
 from . import handler as xtts_facade
 from .helpers import _segment_group_weight
@@ -83,7 +84,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                         voice_profile_dir = None
                 processed = " ".join(group["text_parts"]).strip()
                 if j.safe_mode:
-                    processed = sanitize_text(processed)
+                    processed = sanitize_text(processed, get_sanitize_categories("xtts"))
                     processed = safe_split_long_sentences(processed, target=sent_char_limit)
 
                 seg_out = pdir / "segments" / f"{first['id']}.wav"

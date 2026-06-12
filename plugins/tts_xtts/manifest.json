@@ -43,6 +43,7 @@
     ],
     "text_chunk_limit": 500,
     "text_split_target": 450,
+    "sanitize_categories": ["quotes", "acronyms", "fractions", "dashes", "punct_spacing", "ascii", "terminal"],
     "progress_pattern": "\\[PROGRESS\\]\\s*(?P<value>\\d+(?:\\.\\d+)?)\\s*%",
     "timing_markers": {
       "ENGINE_ACTIVITY_STARTED": ["Loading XTTS model..."],
