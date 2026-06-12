@@ -841,49 +841,103 @@ const Rail: React.FC<{
           </div>
         ))}
       </div>
-      {/* Theme toggle */}
-      <button
-        type="button"
-        onClick={toggleTheme}
-        title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          width: '100%',
-          background: 'none',
-          border: 'none',
-          borderTop: '1px solid var(--border)',
-          padding: collapsed ? '8px 0' : '8px 14px',
-          justifyContent: collapsed ? 'center' : 'flex-start',
-          cursor: 'pointer',
-          color: 'var(--text-muted)',
-          fontSize: '0.75rem',
-        }}
-        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-raised, rgba(128,128,128,0.08))'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
-      >
-        <span style={{ fontSize: '0.9rem', lineHeight: 1 }}>{theme === 'light' ? '🌙' : '☀️'}</span>
-        {!collapsed && (
-          <span>{theme === 'light' ? 'Dark mode' : 'Light mode'}</span>
-        )}
-      </button>
-      {/* Collapse chevron */}
-      <div
-        onClick={onToggle}
-        style={{
-          padding: '8px',
-          display: 'flex',
-          justifyContent: collapsed ? 'center' : 'flex-end',
-          cursor: 'pointer',
-          borderTop: '1px solid var(--border)',
-          color: 'var(--text-muted)',
-          fontSize: '0.8rem',
-        }}
-        title={collapsed ? 'Expand rail' : 'Collapse rail'}
-      >
-        {collapsed ? '›' : '‹'}
-      </div>
+      {/* Rail bottom: expanded = one horizontal row (theme left, chevron right);
+                      collapsed = vertical stack (theme above, chevron below) */}
+      {collapsed ? (
+        <>
+          {/* Collapsed: theme icon */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              background: 'none',
+              border: 'none',
+              borderTop: '1px solid var(--border)',
+              padding: '8px 0',
+              cursor: 'pointer',
+              color: 'var(--text-muted)',
+              fontSize: '0.75rem',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-raised, rgba(128,128,128,0.08))'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
+          >
+            <span style={{ fontSize: '0.9rem', lineHeight: 1 }}>{theme === 'light' ? '🌙' : '☀️'}</span>
+          </button>
+          {/* Collapsed: chevron below */}
+          <div
+            onClick={onToggle}
+            style={{
+              padding: '8px',
+              display: 'flex',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              borderTop: '1px solid var(--border)',
+              color: 'var(--text-muted)',
+              fontSize: '0.8rem',
+            }}
+            title="Expand rail"
+          >
+            ›
+          </div>
+        </>
+      ) : (
+        /* Expanded: single horizontal row */
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            borderTop: '1px solid var(--border)',
+            flexShrink: 0,
+          }}
+        >
+          {/* Theme button — left, fills remaining space */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flex: 1,
+              background: 'none',
+              border: 'none',
+              borderRight: '1px solid var(--border)',
+              padding: '8px 14px',
+              cursor: 'pointer',
+              color: 'var(--text-muted)',
+              fontSize: '0.75rem',
+              minWidth: 0,
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-raised, rgba(128,128,128,0.08))'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
+          >
+            <span style={{ fontSize: '0.9rem', lineHeight: 1, flexShrink: 0 }}>{theme === 'light' ? '🌙' : '☀️'}</span>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {theme === 'light' ? 'Dark mode' : 'Light mode'}
+            </span>
+          </button>
+          {/* Chevron — right */}
+          <div
+            onClick={onToggle}
+            style={{
+              padding: '8px 12px',
+              cursor: 'pointer',
+              color: 'var(--text-muted)',
+              fontSize: '0.8rem',
+              flexShrink: 0,
+            }}
+            title="Collapse rail"
+          >
+            ‹
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -3712,69 +3766,142 @@ const SettingsPane: React.FC = () => {
 
       {/* About tab */}
       {activeTab === 'About' && (
-        <Col gap={6}>
-          <div
-            style={{
-              background: 'var(--surface-alt)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              overflow: 'hidden',
-            }}
-          >
-            {/* Version */}
+        <Col gap={10}>
+          {/* Top row: three stat cards */}
+          <Row gap={8} style={{ alignItems: 'stretch' }}>
+            {/* Studio Version card */}
             <div style={{
-              padding: '7px 12px',
-              borderBottom: '1px solid var(--border)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
+              flex: 1, background: 'var(--surface-alt)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '10px 12px',
             }}>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-primary)' }}>Studio version</span>
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>2.0.0</span>
-            </div>
-            {/* TTS server status */}
-            <div style={{
-              padding: '7px 12px',
-              borderBottom: '1px solid var(--border)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-primary)', flex: 1 }}>TTS server</span>
-              <span style={{ fontSize: '0.5rem', color: '#22c55e' }}>●</span>
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>running · port 7821 · uptime 3h 12m</span>
-            </div>
-            {/* Engine health mini-table */}
-            <div style={{ padding: '7px 12px', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>
-                Engine health
+              <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>
+                2.0.0
               </div>
-              <Col gap={3}>
-                {[
-                  { name: 'XTTS', status: 'healthy' },
-                  { name: 'Voxtral', status: 'healthy' },
-                  { name: 'Mixed', status: 'healthy' },
-                ].map(e => (
-                  <Row key={e.name} gap={6} style={{ alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)', flex: 1 }}>{e.name}</span>
-                    <span style={{ fontSize: '0.5rem', color: '#22c55e' }}>●</span>
-                    <span style={{ fontSize: '0.62rem', color: '#22c55e' }}>{e.status}</span>
-                  </Row>
-                ))}
-              </Col>
+              <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                Release Channel: Stable
+              </div>
+              <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 6 }}>
+                Studio Version
+              </div>
             </div>
-            {/* Production tally moved link */}
+
+            {/* Engine Plugins card */}
             <div style={{
-              padding: '7px 12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
+              flex: 1, background: 'var(--surface-alt)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '10px 12px',
             }}>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                Production tally moved to Activity →
-              </span>
-              <span style={{ fontSize: '0.65rem', color: 'var(--accent)', cursor: 'pointer' }}>›</span>
+              <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>
+                3 loaded
+              </div>
+              <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
+                Mixed Synthesis · Voxtral (Mistral AI) · XTTS (Local)
+              </div>
+              <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 6 }}>
+                Engine Plugins
+              </div>
             </div>
+
+            {/* Production Tally card */}
+            <div style={{
+              flex: 1, background: 'var(--surface-alt)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '10px 12px', position: 'relative',
+            }}>
+              {/* Reset button top-right */}
+              <div style={{ position: 'absolute', top: 8, right: 8 }}>
+                <Btn small>Reset</Btn>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>
+                  1h 2m
+                </span>
+                <span style={{ fontSize: '0.55rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  AUDIO
+                </span>
+              </div>
+              <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.5 }}>
+                9,504 words<br />53,145 characters
+              </div>
+              <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' }}>
+                ⟳ Tally since Jun 2, 2026
+              </div>
+              <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 6 }}>
+                Production Tally
+              </div>
+            </div>
+          </Row>
+
+          {/* Tally reset note */}
+          <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0 2px' }}>
+            Resetting tally starts a new count from now without deleting historical render rows.
+          </div>
+
+          {/* Runtime Diagnostics section */}
+          <div>
+            <div style={{
+              fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)',
+              textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6,
+            }}>
+              Runtime Diagnostics
+            </div>
+            <div style={{
+              background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden',
+            }}>
+              {/* Frontend Client */}
+              <div style={{ padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.66rem', fontWeight: 600, color: 'var(--text-primary)' }}>Frontend Client</div>
+                  <div style={{ fontSize: '0.57rem', color: 'var(--text-muted)' }}>online</div>
+                </div>
+                <Chip>http://127.0.0.1:5174</Chip>
+              </div>
+              {/* Backend Runtime */}
+              <div style={{ padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.66rem', fontWeight: 600, color: 'var(--text-primary)' }}>Backend Runtime</div>
+                  <div style={{ fontSize: '0.57rem', color: 'var(--text-muted)' }}>Service Bridge</div>
+                </div>
+                <Chip>Managed Subprocess (TTS Server @ 7862)</Chip>
+              </div>
+              {/* Orchestrator */}
+              <div style={{ padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.66rem', fontWeight: 600, color: 'var(--text-primary)' }}>Orchestrator</div>
+                </div>
+                <Chip>Studio 2.0</Chip>
+              </div>
+              {/* Backend API */}
+              <div style={{ padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.66rem', fontWeight: 600, color: 'var(--text-primary)' }}>Backend API</div>
+                  <div style={{ fontSize: '0.57rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                    http://127.0.0.1:8124 · port 8124 · Responding to Studio API requests.
+                  </div>
+                </div>
+                <Chip color="#22c55e">online</Chip>
+              </div>
+              {/* TTS Server */}
+              <div style={{ padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.66rem', fontWeight: 600, color: 'var(--text-primary)' }}>TTS Server</div>
+                  <div style={{ fontSize: '0.57rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                    http://127.0.0.1:7862 · port 7862 · Loaded plugins responded successfully.
+                  </div>
+                </div>
+                <Row gap={6} style={{ alignItems: 'center', flexShrink: 0 }}>
+                  <Chip color="#22c55e">healthy</Chip>
+                  <Btn small>Restart</Btn>
+                </Row>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer info box */}
+          <div style={{
+            border: '1px dashed var(--border)', borderRadius: 6, padding: '9px 12px',
+            fontSize: '0.6rem', color: 'var(--text-muted)', lineHeight: 1.6,
+          }}>
+            Audiobook Studio 2.0 is a modular platform powered by a decoupled TTS Server and plugin architecture.
+            The About tab provides diagnostic visibility into the service bridge, production efficiency, and runtime health.
           </div>
         </Col>
       )}
