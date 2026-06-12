@@ -22,7 +22,7 @@ IN: navigation shell (left rail), Activity page (real `/queue` route), global pl
 1.1 Create `frontend/src/app/layout/NavRail.tsx`:
 - Props: `items: NavGroup[]` where `NavGroup = { label: string; items: { to: string; label: string; icon: LucideIcon; badge?: number; kind?: 'route'|'drawer' }[] }`.
 - Groups per north star: CREATE (Library `/`, Voices `/voices`), MONITOR (Activity `/activity`, badge = live queue count), PLATFORM (Engines `/settings/engines` for now — real route in Phase C), MANAGE (Settings `/settings`). Developer group appended when `useDevMode()` is on (links from the Developer settings panel).
-- Collapsed mode (icons only, 56px) ↔ expanded (~200px); chevron toggle at rail bottom; persist in localStorage `studio-rail-collapsed` via a `utils/railState.ts` mirroring `devMode.ts` (subscribable so Layout reflows).
+- Collapsed mode (icons only, 56px) ↔ expanded (~200px); chevron toggle at rail bottom; persist in localStorage `studio-rail-collapsed` via a `utils/railState.ts` mirroring `devMode.ts` (subscribable so Layout reflows). **Owner amendment 2026-06-12:** while collapsed, hover/focus expands the rail as a temporary overlay (absolute-positioned over content, no layout reflow); re-collapses on mouse-leave/blur. Mocked interactively in styleguide U15.
 - Active state: NavLink route matching; drawer-kind items get `aria-pressed` + distinct open style (doc 10 U5 — drawer-open ≠ route-active).
 - ≤768px: rail hides entirely; the existing burger drawer (doc 07) renders the same `NavGroup[]` content — single source of nav truth, two presentations.
 - Styling: tokens only; respects `[data-theme]`.
@@ -48,7 +48,7 @@ IN: navigation shell (left rail), Activity page (real `/queue` route), global pl
 
 ## Step 4 — Player bar v1 (the U16 seam, minimal honest version)
 
-*Goal: ONE audio element/owner; the two existing players become controllers of it. No waveform yet (that's Phase D).* 
+*Goal: ONE audio element/owner; the two existing players become controllers of it. No waveform yet (that's Phase D). Owner decision 2026-06-12: when the waveform lands, it is a user-toggleable strip (persisted pref) that expands the bar's height; library is **wavesurfer.js**; mocked in styleguide U16. Design the bar v1 so the height-expansion slot exists (CSS only, no dependency now).*
 
 4.1 `frontend/src/store/playerBus.ts`: tiny module-state store (devMode.ts pattern + useSyncExternalStore hook `usePlayer()`): `{ scope: 'segment'|'chapter'|'preview', title, audioUrl, playing, positionSec, durationSec, queue?: {prev,next} callbacks }` + actions `load(source)`, `play/pause/stop/seek`, `clear()`. One `<audio>` element lives in the bar component; everything else dispatches.
 4.2 `frontend/src/app/layout/PlayerBar.tsx`: fixed bottom bar (height ~64px, `layering.ts` constant below modal): scope chip ("Segment 14 · Chapter 3" / "Chapter 3 — full render"), prev/next (rendered only when callbacks present), play/pause, seek slider, time, close (clear). Hidden entirely when nothing loaded (north-star Q6 lean). Mounted once in Layout; main content gets bottom padding when visible.

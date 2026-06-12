@@ -12,7 +12,7 @@
  *   5. Theme side-by-side
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import tokensCss from '@/theme/tokens.css?raw';
 import { parseTokens, groupTokens, type TokenEntry } from './parseTokens';
 import {
@@ -722,183 +722,537 @@ const LayoutThumb: React.FC<{
 );
 
 /** U15 — Navigation mockup */
-const U15Mock: React.FC = () => (
-  <Card>
-    <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
-      U15 — Navigation &amp; Information Architecture
-      <ProposedChip />
-      <OwnerDecisionChip />
-    </h3>
-    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
-      The current top-bar nav puts all destinations at the same visual weight, creating
-      competing attention across Library, Voices, Queue, Settings, and System. The proposed
-      grouped left-rail separates "Create" workflows (Library, Voices, Queue) from "Manage"
-      (Settings, System), giving each screen one obvious purpose. Decisions here shape where
-      U1–U14 controls live, so this runs first in Stage 5.
-    </p>
-    <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-      <LayoutThumb
-        label="(A) Current — top-bar nav"
-        caption="All destinations at equal weight; no grouping by purpose"
-      >
-        {/* Top bar */}
-        <div style={{ height: 36, background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 10px', gap: 8 }}>
-          <div style={{ width: 70, height: 12, background: 'var(--accent)', borderRadius: 4, opacity: 0.8 }} />
-          <div style={{ flex: 1 }} />
-          {['Library', 'Voices', 'Queue', '⚙'].map(label => (
-            <div key={label} style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', padding: '2px 6px', borderRadius: 4, background: 'var(--surface-alt)' }}>
-              {label}
-            </div>
-          ))}
-        </div>
-        {/* Content */}
-        <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {[1,2,3].map(i => (
-            <div key={i} style={{ height: 30, background: 'var(--surface-alt)', borderRadius: 6, border: '1px solid var(--border)' }} />
-          ))}
-        </div>
-      </LayoutThumb>
+const U15Mock: React.FC = () => {
+  const [railCollapsed, setRailCollapsed] = useState(false);
+  const [railHovered, setRailHovered] = useState(false);
 
-      <LayoutThumb
-        label="(B) Proposed — grouped left-rail"
-        caption="CREATE: Library, Voices, Queue | MANAGE: Settings, System"
-      >
-        {/* Top bar slim */}
-        <div style={{ height: 28, background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 10px' }}>
-          <div style={{ width: 60, height: 10, background: 'var(--accent)', borderRadius: 4, opacity: 0.8 }} />
-        </div>
-        <div style={{ display: 'flex', height: 'calc(100% - 28px)' }}>
-          {/* Left rail */}
-          <div style={{ width: 80, background: 'var(--surface)', borderRight: '1px solid var(--border)', padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ fontSize: '0.5rem', color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Create</div>
-            {['Library', 'Voices', 'Queue'].map((item, i) => (
-              <div key={item} style={{ fontSize: '0.55rem', padding: '3px 6px', borderRadius: 4, background: i === 0 ? 'var(--accent-tint-bg)' : 'transparent', color: i === 0 ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: i === 0 ? 600 : 400 }}>
-                {item}
-              </div>
-            ))}
+  // In collapsed state: hovering temporarily expands the rail as overlay
+  const railExpanded = !railCollapsed || railHovered;
+  const railWidth = railExpanded ? 80 : 28;
+
+  return (
+    <Card>
+      <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+        U15 — Navigation &amp; Information Architecture
+        <ProposedChip />
+        <OwnerDecisionChip />
+      </h3>
+      <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
+        The current top-bar nav puts all destinations at the same visual weight, creating
+        competing attention across Library, Voices, Queue, Settings, and System. The proposed
+        grouped left-rail separates "Create" workflows (Library, Voices, Queue) from "Manage"
+        (Settings, System), giving each screen one obvious purpose. Decisions here shape where
+        U1–U14 controls live, so this runs first in Stage 5.
+      </p>
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+        <LayoutThumb
+          label="(A) Current — top-bar nav"
+          caption="All destinations at equal weight; no grouping by purpose"
+        >
+          {/* Top bar */}
+          <div style={{ height: 36, background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 10px', gap: 8 }}>
+            <div style={{ width: 70, height: 12, background: 'var(--accent)', borderRadius: 4, opacity: 0.8 }} />
             <div style={{ flex: 1 }} />
-            <div style={{ fontSize: '0.5rem', color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Manage</div>
-            {['Settings', 'System'].map(item => (
-              <div key={item} style={{ fontSize: '0.55rem', padding: '3px 6px', borderRadius: 4, color: 'var(--text-muted)' }}>
-                {item}
+            {['Library', 'Voices', 'Queue', '⚙'].map(label => (
+              <div key={label} style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', padding: '2px 6px', borderRadius: 4, background: 'var(--surface-alt)' }}>
+                {label}
               </div>
             ))}
           </div>
           {/* Content */}
-          <div style={{ flex: 1, padding: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {[1,2,3].map(i => (
-              <div key={i} style={{ height: 26, background: 'var(--surface-alt)', borderRadius: 5, border: '1px solid var(--border)' }} />
+              <div key={i} style={{ height: 30, background: 'var(--surface-alt)', borderRadius: 6, border: '1px solid var(--border)' }} />
             ))}
           </div>
+        </LayoutThumb>
+
+        {/* Interactive proposed rail mock */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div
+            style={{
+              width: 280,
+              height: 200,
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              overflow: 'hidden',
+              background: 'var(--bg)',
+              flexShrink: 0,
+              position: 'relative',
+            }}
+          >
+            {/* Top bar slim */}
+            <div style={{ height: 28, background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 10px' }}>
+              <div style={{ width: 60, height: 10, background: 'var(--accent)', borderRadius: 4, opacity: 0.8 }} />
+            </div>
+            <div style={{ display: 'flex', height: 'calc(100% - 28px)', position: 'relative' }}>
+              {/* Left rail — collapses to icon-only, hover expands as overlay */}
+              <div
+                onMouseEnter={() => setRailHovered(true)}
+                onMouseLeave={() => setRailHovered(false)}
+                style={{
+                  width: railWidth,
+                  minWidth: railWidth,
+                  background: 'var(--surface)',
+                  borderRight: '1px solid var(--border)',
+                  padding: '8px 4px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                  transition: 'width 0.22s ease, min-width 0.22s ease',
+                  overflow: 'hidden',
+                  // When collapsed + hovered, float over content
+                  position: railCollapsed && railHovered ? 'absolute' : 'relative',
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  zIndex: railCollapsed && railHovered ? 10 : 'auto',
+                  boxShadow: railCollapsed && railHovered ? '2px 0 8px rgba(0,0,0,0.18)' : 'none',
+                }}
+              >
+                {railExpanded && (
+                  <div style={{ fontSize: '0.5rem', color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap', paddingLeft: 2 }}>Create</div>
+                )}
+                {[
+                  { label: 'Library', icon: '📚' },
+                  { label: 'Voices', icon: '🎙' },
+                  { label: 'Queue', icon: '⏳' },
+                ].map(({ label, icon }, i) => (
+                  <div
+                    key={label}
+                    title={railCollapsed && !railHovered ? label : undefined}
+                    style={{
+                      fontSize: '0.55rem',
+                      padding: '4px 4px',
+                      borderRadius: 4,
+                      background: i === 0 ? 'var(--accent-tint-bg)' : 'transparent',
+                      color: i === 0 ? 'var(--accent)' : 'var(--text-secondary)',
+                      fontWeight: i === 0 ? 600 : 400,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <span style={{ fontSize: '0.75rem', flexShrink: 0 }}>{icon}</span>
+                    {railExpanded && <span>{label}</span>}
+                  </div>
+                ))}
+                <div style={{ flex: 1 }} />
+                {railExpanded && (
+                  <div style={{ fontSize: '0.5rem', color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap', paddingLeft: 2 }}>Manage</div>
+                )}
+                {[
+                  { label: 'Settings', icon: '⚙️' },
+                  { label: 'System', icon: '🖥' },
+                ].map(({ label, icon }) => (
+                  <div
+                    key={label}
+                    title={railCollapsed && !railHovered ? label : undefined}
+                    style={{
+                      fontSize: '0.55rem',
+                      padding: '4px 4px',
+                      borderRadius: 4,
+                      color: 'var(--text-muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <span style={{ fontSize: '0.75rem', flexShrink: 0 }}>{icon}</span>
+                    {railExpanded && <span>{label}</span>}
+                  </div>
+                ))}
+                {/* Collapse/pin toggle */}
+                <button
+                  type="button"
+                  onClick={() => setRailCollapsed(c => !c)}
+                  title={railCollapsed ? 'Pin rail open' : 'Collapse rail'}
+                  style={{
+                    marginTop: 4,
+                    padding: '3px 4px',
+                    borderRadius: 4,
+                    background: 'none',
+                    border: '1px solid var(--border)',
+                    cursor: 'pointer',
+                    fontSize: '0.6rem',
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    gap: 2,
+                  }}
+                >
+                  <span>{railCollapsed ? '▶' : '◀'}</span>
+                  {railExpanded && <span style={{ whiteSpace: 'nowrap' }}>{railCollapsed ? 'Pin' : 'Collapse'}</span>}
+                </button>
+              </div>
+              {/* Content area — always fills remaining space */}
+              <div style={{ flex: 1, padding: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {[1,2,3].map(i => (
+                  <div key={i} style={{ height: 26, background: 'var(--surface-alt)', borderRadius: 5, border: '1px solid var(--border)' }} />
+                ))}
+              </div>
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              (B) Proposed — grouped left-rail (interactive)
+            </div>
+            <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', maxWidth: 280, marginTop: 2 }}>
+              Full rail → icon rail (manual collapse or medium viewport) → mobile drawer.
+            </div>
+          </div>
         </div>
-      </LayoutThumb>
-    </div>
-    <div style={{ marginTop: 12, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-      <strong>Tradeoffs:</strong> Left-rail requires ~80px horizontal space and changes muscle memory.
-      Top-bar is familiar but cannot express hierarchy. Decision needed before any Stage 5 visual work.
-    </div>
-  </Card>
-);
+      </div>
+      <div style={{ marginTop: 12, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+        <strong>Tradeoffs:</strong> Left-rail requires ~80px horizontal space and changes muscle memory.
+        Top-bar is familiar but cannot express hierarchy. Decision needed before any Stage 5 visual work.
+        Click the collapse button in the mock rail to toggle icon-only mode; hover to temporarily expand.
+      </div>
+    </Card>
+  );
+};
+
+/** Fake waveform SVG — varied bar heights to look plausible */
+const WaveformSVG: React.FC = () => {
+  const bars = [
+    12, 28, 18, 40, 32, 20, 44, 36, 22, 50, 42, 30, 48, 38, 24, 46, 34, 20, 40, 28,
+    16, 36, 50, 44, 26, 38, 18, 42, 30, 46, 22, 34, 50, 28, 40, 20, 44, 32, 18, 36,
+    48, 24, 38, 50, 28, 16, 42, 30, 44, 22,
+  ];
+  const totalBars = bars.length;
+  const barW = 4;
+  const gap = 2;
+  const svgW = totalBars * (barW + gap);
+  const svgH = 56;
+  const playheadX = svgW * 0.35;
+
+  return (
+    <svg
+      width="100%"
+      viewBox={`0 0 ${svgW} ${svgH}`}
+      preserveAspectRatio="xMidYMid meet"
+      style={{ display: 'block' }}
+    >
+      {bars.map((h, idx) => {
+        const x = idx * (barW + gap);
+        const isPlayed = x + barW / 2 < playheadX;
+        return (
+          <rect
+            key={idx}
+            x={x}
+            y={(svgH - h) / 2}
+            width={barW}
+            height={h}
+            rx={2}
+            fill={isPlayed ? 'var(--accent)' : 'var(--border)'}
+            opacity={isPlayed ? 0.9 : 0.6}
+          />
+        );
+      })}
+      {/* Playhead line */}
+      <line
+        x1={playheadX}
+        y1={0}
+        x2={playheadX}
+        y2={svgH}
+        stroke="var(--accent)"
+        strokeWidth={2}
+        opacity={0.9}
+      />
+    </svg>
+  );
+};
 
 /** U16 — Unified player mockup */
-const U16Mock: React.FC = () => (
-  <Card>
-    <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
-      U16 — Unified Audio Player Surface
-      <ProposedChip />
-      <OwnerDecisionChip />
-    </h3>
-    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
-      Today the Chapter Editor has a VCR-style segment player and a separate chapter-level player —
-      two separate surfaces that compete for space. The proposed design merges them into one persistent
-      bottom player with a scope toggle (Segment ↔ Chapter). Depends on U15's layout conclusions.
-    </p>
-    {/* Player mock */}
+const U16Mock: React.FC = () => {
+  const [waveformOn, setWaveformOn] = useState(false);
+
+  return (
+    <Card>
+      <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+        U16 — Unified Audio Player Surface
+        <ProposedChip />
+        <OwnerDecisionChip />
+      </h3>
+      <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
+        Today the Chapter Editor has a VCR-style segment player and a separate chapter-level player —
+        two separate surfaces that compete for space. The proposed design merges them into one persistent
+        bottom player with a scope toggle (Segment ↔ Chapter). Depends on U15&apos;s layout conclusions.
+      </p>
+      {/* Player mock */}
+      <div
+        style={{
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+          background: 'var(--surface)',
+          padding: '12px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          maxWidth: 560,
+          transition: 'height 0.22s ease',
+        }}
+      >
+        {/* Scope toggle + waveform button row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 4, flex: 1, justifyContent: 'center' }}>
+            {['Segment', 'Chapter'].map((label, i) => (
+              <div
+                key={label}
+                style={{
+                  padding: '4px 14px',
+                  borderRadius: 999,
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  background: i === 0 ? 'var(--accent)' : 'var(--surface-alt)',
+                  color: i === 0 ? '#fff' : 'var(--text-secondary)',
+                  border: '1px solid',
+                  borderColor: i === 0 ? 'var(--accent)' : 'var(--border)',
+                  cursor: 'pointer',
+                }}
+              >
+                {label}
+              </div>
+            ))}
+          </div>
+          {/* Waveform toggle */}
+          <button
+            type="button"
+            onClick={() => setWaveformOn(w => !w)}
+            title="Toggle waveform display"
+            style={{
+              padding: '4px 10px',
+              borderRadius: 6,
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              background: waveformOn ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+              color: waveformOn ? 'var(--accent)' : 'var(--text-muted)',
+              border: '1px solid',
+              borderColor: waveformOn ? 'var(--accent-tint-border, var(--accent))' : 'var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              transition: 'background 0.15s, color 0.15s',
+            }}
+          >
+            <span>〰</span>
+            <span>Wave</span>
+          </button>
+        </div>
+
+        {/* Waveform strip — expands in when toggled on */}
+        {waveformOn && (
+          <div
+            style={{
+              padding: '6px 0 2px',
+              borderRadius: 6,
+              background: 'var(--surface-alt)',
+              border: '1px solid var(--border)',
+              overflow: 'hidden',
+            }}
+          >
+            <WaveformSVG />
+          </div>
+        )}
+
+        {/* Label */}
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+          Segment 3 / Chapter 2 · &quot;The Awakening&quot;
+        </div>
+        {/* Scrubber */}
+        <div style={{ position: 'relative', height: 4, background: 'var(--border)', borderRadius: 99 }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: '38%', background: 'var(--accent)', borderRadius: 99 }} />
+          <div style={{ position: 'absolute', left: '38%', top: '50%', transform: 'translate(-50%, -50%)', width: 12, height: 12, background: 'var(--accent)', borderRadius: '50%', boxShadow: '0 0 0 3px var(--accent-tint-bg)' }} />
+        </div>
+        {/* Time */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+          <span>0:14</span>
+          <span>0:38</span>
+        </div>
+        {/* Transport */}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'center' }}>
+          {['⏮', '⏪', '▶', '⏩', '⏭'].map(icon => (
+            <div
+              key={icon}
+              style={{
+                width: 36,
+                height: 36,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '50%',
+                background: icon === '▶' ? 'var(--accent)' : 'var(--surface-alt)',
+                color: icon === '▶' ? '#fff' : 'var(--text-secondary)',
+                fontSize: icon === '▶' ? '1rem' : '0.875rem',
+                cursor: 'pointer',
+                border: '1px solid var(--border)',
+              }}
+            >
+              {icon}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ marginTop: 8, fontSize: '0.6875rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+        Waveform display (wavesurfer.js) — user-toggleable, persisted.
+      </div>
+      <div style={{ marginTop: 8, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+        Replaces competing VCR segment transport + chapter player. Scope toggle swaps loaded audio.
+        Chapter scope shows chapter-level ETA when no rendered audio yet.
+      </div>
+    </Card>
+  );
+};
+
+const OVERFLOW_MENU_ITEMS = ['Rename', 'Duplicate', 'Export', 'Reset', 'Delete'];
+
+/** Individual U8 voice card with functional overflow popover */
+const U8VoiceCard: React.FC<{
+  phase: string;
+  cta: string;
+  ctaStyle: React.CSSProperties;
+}> = ({ phase, cta, ctaStyle }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const overflowRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [menuOpen]);
+
+  return (
     <div
       style={{
+        minWidth: 200,
+        flex: '1 1 200px',
+        maxWidth: 240,
         border: '1px solid var(--border)',
         borderRadius: 10,
         background: 'var(--surface)',
-        padding: '12px 16px',
+        padding: 14,
         display: 'flex',
         flexDirection: 'column',
-        gap: 10,
-        maxWidth: 560,
+        gap: 8,
       }}
     >
-      {/* Scope toggle */}
-      <div style={{ display: 'flex', gap: 4, alignSelf: 'center' }}>
-        {['Segment', 'Chapter'].map((label, i) => (
-          <div
-            key={label}
+      {/* Voice avatar + header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--accent-tint-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0 }}>
+          🎙
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Studio Voice</div>
+          <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{phase}</div>
+        </div>
+        {/* Overflow button + popover */}
+        <div ref={overflowRef} style={{ marginLeft: 'auto', position: 'relative', flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => setMenuOpen(o => !o)}
+            aria-label="More actions"
             style={{
-              padding: '4px 14px',
-              borderRadius: 999,
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              background: i === 0 ? 'var(--accent)' : 'var(--surface-alt)',
-              color: i === 0 ? '#fff' : 'var(--text-secondary)',
-              border: '1px solid',
-              borderColor: i === 0 ? 'var(--accent)' : 'var(--border)',
-              cursor: 'pointer',
-            }}
-          >
-            {label}
-          </div>
-        ))}
-      </div>
-      {/* Label */}
-      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-        Segment 3 / Chapter 2 · &quot;The Awakening&quot;
-      </div>
-      {/* Scrubber */}
-      <div style={{ position: 'relative', height: 4, background: 'var(--border)', borderRadius: 99 }}>
-        <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: '38%', background: 'var(--accent)', borderRadius: 99 }} />
-        <div style={{ position: 'absolute', left: '38%', top: '50%', transform: 'translate(-50%, -50%)', width: 12, height: 12, background: 'var(--accent)', borderRadius: '50%', boxShadow: '0 0 0 3px var(--accent-tint-bg)' }} />
-      </div>
-      {/* Time */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-        <span>0:14</span>
-        <span>0:38</span>
-      </div>
-      {/* Transport */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'center' }}>
-        {['⏮', '⏪', '▶', '⏩', '⏭'].map(icon => (
-          <div
-            key={icon}
-            style={{
-              width: 36,
-              height: 36,
+              width: 28,
+              height: 28,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: '50%',
-              background: icon === '▶' ? 'var(--accent)' : 'var(--surface-alt)',
-              color: icon === '▶' ? '#fff' : 'var(--text-secondary)',
-              fontSize: icon === '▶' ? '1rem' : '0.875rem',
+              borderRadius: 6,
+              background: menuOpen ? 'var(--accent-tint-bg)' : 'transparent',
+              border: '1px solid',
+              borderColor: menuOpen ? 'var(--accent-tint-border, var(--border))' : 'transparent',
+              color: menuOpen ? 'var(--accent)' : 'var(--text-muted)',
               cursor: 'pointer',
-              border: '1px solid var(--border)',
+              fontSize: '1rem',
+              lineHeight: 1,
+              transition: 'background 0.12s, color 0.12s',
             }}
           >
-            {icon}
-          </div>
-        ))}
+            ⋯
+          </button>
+          {menuOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 'calc(100% + 4px)',
+                right: 0,
+                zIndex: 100,
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                boxShadow: 'var(--shadow-md, 0 4px 16px rgba(0,0,0,0.18))',
+                minWidth: 140,
+                overflow: 'hidden',
+              }}
+            >
+              {OVERFLOW_MENU_ITEMS.map(item => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setMenuOpen(false)}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '7px 14px',
+                    fontSize: '0.8125rem',
+                    color: item === 'Delete' ? 'var(--error, #dc2626)' : 'var(--text-primary)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontWeight: item === 'Delete' ? 600 : 400,
+                    borderTop: item === 'Delete' ? '1px solid var(--border)' : 'none',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-alt)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      {/* Phase CTA */}
+      <button
+        type="button"
+        style={{
+          borderRadius: 8,
+          padding: '6px 12px',
+          fontSize: '0.8125rem',
+          fontWeight: 600,
+          cursor: 'pointer',
+          width: '100%',
+          ...ctaStyle,
+        }}
+      >
+        {cta}
+      </button>
+      <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+        ~{phase === 'empty' ? '6' : phase === 'has-samples' ? '5' : '4'} actions hidden in ⋯
       </div>
     </div>
-    <div style={{ marginTop: 12, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-      Replaces competing VCR segment transport + chapter player. Scope toggle swaps loaded audio.
-      Chapter scope shows chapter-level ETA when no rendered audio yet.
-    </div>
-  </Card>
-);
+  );
+};
 
 /** U8 — Voice card progressive disclosure */
 const U8Mock: React.FC = () => {
   const phases = [
-    { phase: 'empty', cta: 'Add Samples', ctaStyle: { background: 'var(--surface-alt)', color: 'var(--text-secondary)', border: '1px dashed var(--border)' } },
-    { phase: 'has-samples', cta: 'Build Voice', ctaStyle: { background: 'var(--accent)', color: '#fff', border: 'none' } },
-    { phase: 'built', cta: 'Test Voice', ctaStyle: { background: 'var(--success)', color: '#fff', border: 'none' } },
-    { phase: 'tested', cta: 'Use in Project', ctaStyle: { background: 'var(--accent)', color: '#fff', border: 'none' } },
+    { phase: 'empty', cta: 'Add Samples', ctaStyle: { background: 'var(--surface-alt)', color: 'var(--text-secondary)', border: '1px dashed var(--border)' } as React.CSSProperties },
+    { phase: 'has-samples', cta: 'Build Voice', ctaStyle: { background: 'var(--accent)', color: '#fff', border: 'none' } as React.CSSProperties },
+    { phase: 'built', cta: 'Test Voice', ctaStyle: { background: 'var(--success)', color: '#fff', border: 'none' } as React.CSSProperties },
+    { phase: 'tested', cta: 'Use in Project', ctaStyle: { background: 'var(--accent)', color: '#fff', border: 'none' } as React.CSSProperties },
   ];
   return (
     <Card>
@@ -909,55 +1263,13 @@ const U8Mock: React.FC = () => {
       </h3>
       <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
         Today each voice card shows 7–8 peer-level actions. The proposal derives a <code>voicePhase</code> from
-        the voice's actual state and shows exactly one primary CTA for that phase, demoting other actions to
+        the voice&apos;s actual state and shows exactly one primary CTA for that phase, demoting other actions to
         an overflow (⋯) menu. This eliminates choice overload and surfaces the right next step.
+        Click ⋯ to open the popover.
       </p>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
         {phases.map(({ phase, cta, ctaStyle }) => (
-          <div
-            key={phase}
-            style={{
-              width: 160,
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              background: 'var(--surface)',
-              padding: 12,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}
-          >
-            {/* Voice avatar placeholder */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-tint-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>
-                🎙
-              </div>
-              <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>Studio Voice</div>
-                <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{phase}</div>
-              </div>
-              {/* Overflow */}
-              <div style={{ marginLeft: 'auto', fontSize: '1rem', color: 'var(--text-muted)', cursor: 'pointer' }}>⋯</div>
-            </div>
-            {/* Phase CTA */}
-            <button
-              type="button"
-              style={{
-                borderRadius: 8,
-                padding: '5px 10px',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                width: '100%',
-                ...ctaStyle,
-              }}
-            >
-              {cta}
-            </button>
-            <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-              ~{phase === 'empty' ? '6' : phase === 'has-samples' ? '5' : '4'} actions hidden in ⋯
-            </div>
-          </div>
+          <U8VoiceCard key={phase} phase={phase} cta={cta} ctaStyle={ctaStyle} />
         ))}
       </div>
     </Card>

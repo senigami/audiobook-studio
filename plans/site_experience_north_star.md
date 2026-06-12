@@ -152,6 +152,13 @@ What remains after Engines and Integrations move out: **Appearance** (theme), **
 
 Decisions: **Q1 left rail** · **Q2 five stages** · **Q3 one ScriptView, two routed modes** · **Q4 voice detail is a full page** · **Q5 Integrations ships docs-first with honest "coming" labels** · **Q6 player bar collapses when empty**. Phase A approved, to land as its own PR after #124 merges.
 
+**Follow-up decisions (owner, 2026-06-12, after reviewing the styleguide mockups):**
+
+- **Q1 amendment — rail must be manually collapsible.** Three states: full rail (icons + labels) → icon-only rail (~56px; via manual collapse toggle, persisted, or automatically at medium viewports) → mobile drawer (existing). In the collapsed state, hover/focus expands the rail as a temporary overlay without reflowing content. Owner accepted the rail over a top-bar-with-grouping alternative on the strength of Phase A shipping 6 grouped destinations into it from day one.
+- **U16 amendment — waveform display in the player bar.** Audacity-style waveform strip, user-toggleable (persisted preference); bar expands in height when on. Library decision: **wavesurfer.js** (decode + peak cache + seek-on-click). Mocked in the styleguide U16 card.
+- **U1 approved** as specced (undo toasts replace confirm modals; modals remain only for project delete and bulk audio reset).
+- **U3 typography scale approved** as shown in the styleguide proposal.
+
 | # | Question | My lean |
 |---|---|---|
 | 1 | Left rail vs. keeping top bar + adding a second-level nav? | Rail — hierarchy is the whole point (mockup in styleguide) |
