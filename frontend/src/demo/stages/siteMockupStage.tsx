@@ -1,5 +1,5 @@
 /**
- * siteMockupStage — North-star full-site organization mockup (medium fidelity v3.4).
+ * siteMockupStage — North-star full-site organization mockup (medium fidelity v3.5).
  *
  * Navigation:
  *   - Left rail items switch `activeRail` state.
@@ -66,13 +66,16 @@ const Label: React.FC<{ children: React.ReactNode; muted?: boolean }> = ({ child
   </div>
 );
 
-const Chip: React.FC<{ children: React.ReactNode; active?: boolean; color?: string }> = ({
+const Chip: React.FC<{ children: React.ReactNode; active?: boolean; color?: string; onClick?: () => void }> = ({
   children,
   active,
   color,
+  onClick,
 }) => (
   <span
+    onClick={onClick}
     style={{
+      cursor: onClick ? 'pointer' : 'default',
       fontSize: '0.6rem',
       padding: '2px 7px',
       borderRadius: 20,
@@ -115,6 +118,27 @@ const Btn: React.FC<{
   >
     {children}
   </div>
+);
+
+// Small dashed-border muted pill for future/planned features
+const PlannedChip: React.FC = () => (
+  <span
+    style={{
+      fontSize: '0.55rem',
+      padding: '1px 6px',
+      borderRadius: 20,
+      border: '1px dashed var(--text-muted)',
+      background: 'transparent',
+      color: 'var(--text-muted)',
+      whiteSpace: 'nowrap',
+      display: 'inline-flex',
+      alignItems: 'center',
+      fontStyle: 'italic',
+      flexShrink: 0,
+    }}
+  >
+    planned
+  </span>
 );
 
 const ProgressBar: React.FC<{ pct: number; height?: number; shimmer?: boolean }> = ({
@@ -2433,6 +2457,23 @@ const PublishPane: React.FC = () => (
           ))}
         </Col>
       </div>
+
+      {/* Phase D futures */}
+      <Col gap={6}>
+        <Label muted>Coming soon</Label>
+        <Row gap={8} style={{ alignItems: 'center', padding: '5px 8px', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 5 }}>
+          <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)', flex: 1 }}>
+            Loudness QA — RMS/peak check before export
+          </span>
+          <PlannedChip />
+        </Row>
+        <Row gap={8} style={{ alignItems: 'center', padding: '5px 8px', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 5 }}>
+          <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)', flex: 1 }}>
+            Pronunciation lexicon — book-level say-as rules
+          </span>
+          <PlannedChip />
+        </Row>
+      </Col>
     </Col>
   </Row>
 );
@@ -2511,8 +2552,205 @@ const DISCOVER_CARDS = [
   { name: 'ClearTone-F', pills: [{ label: 'Narrator', color: '#6366f1' }, { label: 'Female', color: '#ec4899' }], emoji: '🤗' },
 ];
 
+// ---------------------------------------------------------------------------
+// Voice Lab detail page
+
+const VoiceLab: React.FC<{ voice: typeof VOICE_CARDS[0]; onBack: () => void }> = ({ voice, onBack }) => {
+  const phaseSteps = ['Samples', 'Build', 'Test', 'Ready'] as const;
+  const currentPhase = 'Ready';
+  const SAMPLES = [
+    { name: 'sample_01.mp3', dur: '0:12' },
+    { name: 'sample_02.mp3', dur: '0:09' },
+    { name: 'sample_03.mp3', dur: '0:15' },
+  ];
+  return (
+    <Col gap={0} style={{ flex: 1, overflowY: 'auto' }}>
+      {/* Header */}
+      <div style={{ padding: '10px 14px 0', flexShrink: 0 }}>
+        <span
+          onClick={onBack}
+          style={{ fontSize: '0.65rem', color: 'var(--accent)', cursor: 'pointer' }}
+        >
+          ← Voices
+        </span>
+        {/* Large avatar + name + pills */}
+        <Row gap={12} style={{ alignItems: 'flex-start', marginTop: 10 }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: '50%',
+            background: 'var(--accent-tint-bg)',
+            border: '2px solid var(--accent)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '2rem', flexShrink: 0,
+          }}>
+            {voice.emoji}
+          </div>
+          <Col gap={4} style={{ flex: 1 }}>
+            <Row gap={8} style={{ alignItems: 'center' }}>
+              <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{voice.name}</span>
+              <Btn small>📋 Copy icon prompt</Btn>
+            </Row>
+            <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              image prompt from attributes + description — uniform icons
+            </div>
+            <Row gap={4} style={{ flexWrap: 'wrap', marginTop: 2 }}>
+              {voice.pills.map(p => <Chip key={p.label} color={p.color}>{p.label}</Chip>)}
+            </Row>
+            <div style={{ fontSize: '0.62rem', color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
+              A warm, expressive narrator voice suited for literary fiction and long-form narration. Trained on 4h 20m of clean studio recordings.
+            </div>
+          </Col>
+        </Row>
+
+        {/* Phase stepper */}
+        <Row gap={0} style={{ alignItems: 'center', marginTop: 14, marginBottom: 10 }}>
+          {phaseSteps.map((step, i) => {
+            const isActive = step === currentPhase;
+            const isPast = phaseSteps.indexOf(step) < phaseSteps.indexOf(currentPhase);
+            return (
+              <React.Fragment key={step}>
+                {i > 0 && (
+                  <div style={{ flex: 1, height: 1, background: isPast || isActive ? 'var(--accent)' : 'var(--border)' }} />
+                )}
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flexShrink: 0,
+                }}>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: '50%',
+                    background: isActive ? 'var(--accent)' : isPast ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+                    border: `2px solid ${isActive || isPast ? 'var(--accent)' : 'var(--border)'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '0.55rem', color: isActive ? '#fff' : isPast ? 'var(--accent)' : 'var(--text-muted)',
+                    fontWeight: 700,
+                  }}>
+                    {isPast ? '✓' : i + 1}
+                  </div>
+                  <span style={{
+                    fontSize: '0.55rem',
+                    color: isActive ? 'var(--accent)' : isPast ? 'var(--text-secondary)' : 'var(--text-muted)',
+                    fontWeight: isActive ? 700 : 400,
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {step}
+                  </span>
+                </div>
+              </React.Fragment>
+            );
+          })}
+        </Row>
+        <div style={{ borderBottom: '1px solid var(--border)', marginBottom: 14 }} />
+      </div>
+
+      {/* Sections */}
+      <Col gap={12} style={{ padding: '0 14px 14px' }}>
+        {/* Sample manager */}
+        <Col gap={6}>
+          <Label>Samples</Label>
+          <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+            {SAMPLES.map((s, i) => (
+              <Row key={s.name} gap={8} style={{
+                padding: '6px 10px', alignItems: 'center',
+                borderBottom: i < SAMPLES.length - 1 ? '1px solid var(--border)' : 'none',
+              }}>
+                <span style={{ fontSize: '0.62rem', color: 'var(--text-primary)', flex: 1 }}>{s.name}</span>
+                <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>{s.dur}</span>
+                <Btn small>▶</Btn>
+                <Btn small>✕</Btn>
+              </Row>
+            ))}
+          </div>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '5px 10px', border: '1px dashed var(--border)',
+            borderRadius: 6, background: 'var(--surface-alt)',
+          }}>
+            <span style={{ fontSize: '0.7rem' }}>⬆</span>
+            <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', flex: 1 }}>+ Add samples — drop MP3 or WAV here</span>
+            <Btn small>Choose file</Btn>
+          </div>
+        </Col>
+
+        {/* Variants */}
+        <Col gap={6}>
+          <Label>Variants</Label>
+          <Row gap={6} style={{ flexWrap: 'wrap' }}>
+            <Chip active>Default</Chip>
+            <Chip>Whisper</Chip>
+            <Btn small>+ Add variant</Btn>
+          </Row>
+        </Col>
+
+        {/* Engine settings */}
+        <Col gap={6}>
+          <Row gap={6} style={{ alignItems: 'center' }}>
+            <Label>Engine settings</Label>
+            <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              generated from plugin settings schema
+            </span>
+          </Row>
+          <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+            {[
+              { label: 'Temperature', value: '0.75' },
+              { label: 'Repetition penalty', value: '1.1' },
+              { label: 'Top-k', value: '50' },
+            ].map((row, i, arr) => (
+              <Row key={row.label} gap={8} style={{
+                padding: '6px 10px', alignItems: 'center',
+                borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+              }}>
+                <span style={{ fontSize: '0.62rem', color: 'var(--text-primary)', flex: 1 }}>{row.label}</span>
+                <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{row.value}</span>
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', cursor: 'pointer' }}>✎</span>
+              </Row>
+            ))}
+          </div>
+        </Col>
+
+        {/* Test strip */}
+        <Col gap={6}>
+          <Label>Test</Label>
+          <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px' }}>
+            <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
+              <div style={{
+                flex: 1, fontSize: '0.65rem', color: 'var(--text-secondary)',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 4, padding: '4px 8px',
+              }}>
+                The road wound down through silver birch and pale stone.
+              </div>
+              <Btn small primary>Generate test</Btn>
+            </Row>
+            <Row gap={6} style={{ alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', cursor: 'pointer' }}>▶</span>
+              <ProgressBar pct={42} height={3} />
+              <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>0:05 / 0:12</span>
+            </Row>
+          </div>
+        </Col>
+
+        {/* Export row */}
+        <Col gap={4}>
+          <Label>Export</Label>
+          <Row gap={8} style={{ alignItems: 'center' }}>
+            <Btn small>Export bundle (.zip)</Btn>
+            <Row gap={6} style={{ alignItems: 'center' }}>
+              <Btn small>Publish to Hugging Face</Btn>
+              <PlannedChip />
+            </Row>
+          </Row>
+        </Col>
+      </Col>
+    </Col>
+  );
+};
+
 const VoicesPane: React.FC = () => {
   const [voiceTab, setVoiceTab] = useState<'local' | 'discover'>('local');
+  const [selectedVoice, setSelectedVoice] = useState<typeof VOICE_CARDS[0] | null>(null);
+
+  if (selectedVoice) {
+    return <VoiceLab voice={selectedVoice} onBack={() => setSelectedVoice(null)} />;
+  }
+
   return (
     <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
       {/* Tab pills */}
@@ -2590,7 +2828,7 @@ const VoicesPane: React.FC = () => {
                 </Row>
                 <Row gap={4} style={{ marginTop: 6, justifyContent: 'center' }}>
                   <Btn small>▶ Preview</Btn>
-                  <Btn small primary>{v.cta}</Btn>
+                  <Btn small primary onClick={() => setSelectedVoice(v)}>{v.cta}</Btn>
                 </Row>
               </div>
             ))}
@@ -2600,11 +2838,32 @@ const VoicesPane: React.FC = () => {
 
       {voiceTab === 'discover' && (
         <>
-          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-            Community voices from Hugging Face — download to install locally.
+          {/* Search + facets */}
+          <Row gap={6} style={{ alignItems: 'center' }}>
+            <div style={{
+              flex: 1, display: 'flex', alignItems: 'center', gap: 6,
+              background: 'var(--surface-alt)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '4px 10px',
+            }}>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>🔍</span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Search voices…</span>
+            </div>
+          </Row>
+          <Row gap={6} style={{ flexWrap: 'wrap' }}>
+            {[
+              { label: 'Narrator', color: '#6366f1' },
+              { label: 'Male', color: '#3b82f6' },
+              { label: 'English', color: '#22c55e' },
+            ].map((f, i) => (
+              <Chip key={f.label} active={i === 0} color={i === 0 ? f.color : undefined}>{f.label}</Chip>
+            ))}
+            <Chip>+ Filter</Chip>
+          </Row>
+          <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+            Community voices from Hugging Face — install to use locally.
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(145px, 1fr))', gap: 8 }}>
-            {DISCOVER_CARDS.map(v => (
+            {DISCOVER_CARDS.map((v, idx) => (
               <div
                 key={v.name}
                 style={{
@@ -2630,7 +2889,15 @@ const VoicesPane: React.FC = () => {
                 <Row gap={3} style={{ marginTop: 5, justifyContent: 'center', flexWrap: 'wrap' }}>
                   {v.pills.map(p => <Chip key={p.label} color={p.color}>{p.label}</Chip>)}
                 </Row>
-                <Btn small style={{ marginTop: 6 }}>⬇ Download</Btn>
+                {idx === 1 ? (
+                  /* One card shows installing progress */
+                  <Col gap={3} style={{ marginTop: 6 }}>
+                    <span style={{ fontSize: '0.58rem', color: 'var(--accent)', fontStyle: 'italic' }}>installing… 64%</span>
+                    <ProgressBar pct={64} height={3} shimmer />
+                  </Col>
+                ) : (
+                  <Btn small style={{ marginTop: 6 }}>⬇ Install</Btn>
+                )}
               </div>
             ))}
           </div>
@@ -2643,14 +2910,109 @@ const VoicesPane: React.FC = () => {
 // ---------------------------------------------------------------------------
 // Activity pane
 
-const ActivityPane: React.FC = () => (
-  <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
-    <Row gap={12} style={{ alignItems: 'flex-start' }}>
-      <Col gap={8} style={{ flex: 2 }}>
-        <Label>Now</Label>
-        {IN_FLIGHT_JOBS.map(job => (
+const ActivityPane: React.FC = () => {
+  const [historyFilter, setHistoryFilter] = useState<'All' | 'Renders' | 'Samples' | 'API'>('All');
+  return (
+    <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
+      <Row gap={12} style={{ alignItems: 'flex-start' }}>
+        <Col gap={8} style={{ flex: 2 }}>
+          {/* Now header with pause button */}
+          <Row gap={6} style={{ alignItems: 'center' }}>
+            <Label>Now</Label>
+            <div style={{ flex: 1 }} />
+            <Btn small>⏸ Pause queue</Btn>
+          </Row>
+          {IN_FLIGHT_JOBS.map(job => (
+            <div
+              key={job.title}
+              style={{
+                background: 'var(--surface-alt)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                padding: '8px 10px',
+              }}
+            >
+              <Row gap={8} style={{ alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>
+                  {job.title}
+                </span>
+                <Chip>{job.engine}</Chip>
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{job.eta}</span>
+              </Row>
+              <Row gap={6} style={{ alignItems: 'center', marginBottom: 3 }}>
+                <ProgressBar pct={job.pct} />
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', flexShrink: 0 }}>{job.pct}%</span>
+              </Row>
+              <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>Segs {job.segs}</span>
+            </div>
+          ))}
+
+          {/* History header with filter chips */}
+          <Row gap={6} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+            <Label>History</Label>
+            {(['All', 'Renders', 'Samples', 'API'] as const).map(f => (
+              <Chip
+                key={f}
+                active={historyFilter === f}
+                onClick={() => setHistoryFilter(f)}
+              >
+                {f}
+              </Chip>
+            ))}
+          </Row>
           <div
-            key={job.title}
+            style={{
+              background: 'var(--surface-alt)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              overflow: 'hidden',
+            }}
+          >
+            {[
+              { job: 'Whispering Vale — Ch 6', engine: 'XTTS', dur: '14m 22s', ago: '2h ago', ok: true },
+              { job: 'Iron Meridian — Ch 2', engine: 'XTTS', dur: '11m 05s', ago: '3h ago', ok: true },
+              { job: 'Echoes of Ember — Ch 4', engine: 'Voxtral', dur: '9m 48s', ago: '5h ago', ok: true },
+              { job: 'Whispering Vale — Ch 5', engine: 'XTTS', dur: '13m 11s', ago: 'yesterday', ok: true },
+              { job: 'Iron Meridian — Ch 1', engine: 'Mixed', dur: '18m 33s', ago: '2d ago', ok: false },
+            ].map((row, i, arr) => (
+              <Row
+                key={row.job}
+                gap={6}
+                style={{
+                  padding: '5px 10px',
+                  borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                  alignItems: 'center',
+                }}
+              >
+                <span style={{ fontSize: '0.62rem', color: 'var(--text-primary)', flex: 3 }}>{row.job}</span>
+                <Chip>{row.engine}</Chip>
+                <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>{row.dur}</span>
+                <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>{row.ago}</span>
+                <Chip color={row.ok ? '#22c55e' : '#ef4444'}>{row.ok ? '✓' : '✗'}</Chip>
+              </Row>
+            ))}
+          </div>
+        </Col>
+
+        <Col gap={8} style={{ flex: 1 }}>
+          <Label>Stats</Label>
+          {/* Engine calibration mini-table */}
+          <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+            <div style={{ padding: '5px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', fontSize: '0.55rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Engine calibration
+            </div>
+            {[
+              { engine: 'XTTS', speed: '14.2 c/s', conf: 'high', color: '#22c55e' },
+              { engine: 'Voxtral', speed: '9.1 c/s', conf: 'med', color: '#f59e0b' },
+            ].map((e, i, arr) => (
+              <Row key={e.engine} gap={6} style={{ padding: '5px 10px', alignItems: 'center', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                <span style={{ fontSize: '0.62rem', color: 'var(--text-primary)', flex: 1 }}>{e.engine}</span>
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{e.speed}</span>
+                <span style={{ fontSize: '0.55rem', color: e.color }}>●{e.conf}</span>
+              </Row>
+            ))}
+          </div>
+          <div
             style={{
               background: 'var(--surface-alt)',
               border: '1px solid var(--border)',
@@ -2658,102 +3020,32 @@ const ActivityPane: React.FC = () => (
               padding: '8px 10px',
             }}
           >
-            <Row gap={8} style={{ alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>
-                {job.title}
-              </span>
-              <Chip>{job.engine}</Chip>
-              <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{job.eta}</span>
-            </Row>
-            <Row gap={6} style={{ alignItems: 'center', marginBottom: 3 }}>
-              <ProgressBar pct={job.pct} />
-              <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', flexShrink: 0 }}>{job.pct}%</span>
-            </Row>
-            <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>Segs {job.segs}</span>
+            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-primary)' }}>Production</div>
+            <div style={{ fontSize: '0.62rem', color: 'var(--text-secondary)', marginTop: 3 }}>
+              23h 41m generated · 312 chapters
+            </div>
+            {/* Mini bar chart sketch */}
+            <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', marginTop: 8, height: 24 }}>
+              {[6, 9, 14, 11, 18, 22, 17].map((h, i) => (
+                <div
+                  key={i}
+                  style={{
+                    flex: 1,
+                    height: `${h / 22 * 100}%`,
+                    background: i === 6 ? 'var(--accent)' : 'var(--border)',
+                    borderRadius: 2,
+                    opacity: 0.8,
+                  }}
+                />
+              ))}
+            </div>
+            <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginTop: 3 }}>Last 7 days</div>
           </div>
-        ))}
-
-        <Label>History</Label>
-        <div
-          style={{
-            background: 'var(--surface-alt)',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            overflow: 'hidden',
-          }}
-        >
-          {[
-            { job: 'Whispering Vale — Ch 6', engine: 'XTTS', dur: '14m 22s', ago: '2h ago', ok: true },
-            { job: 'Iron Meridian — Ch 2', engine: 'XTTS', dur: '11m 05s', ago: '3h ago', ok: true },
-            { job: 'Echoes of Ember — Ch 4', engine: 'Voxtral', dur: '9m 48s', ago: '5h ago', ok: true },
-            { job: 'Whispering Vale — Ch 5', engine: 'XTTS', dur: '13m 11s', ago: 'yesterday', ok: true },
-            { job: 'Iron Meridian — Ch 1', engine: 'Mixed', dur: '18m 33s', ago: '2d ago', ok: false },
-          ].map((row, i, arr) => (
-            <Row
-              key={row.job}
-              gap={6}
-              style={{
-                padding: '5px 10px',
-                borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
-                alignItems: 'center',
-              }}
-            >
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-primary)', flex: 3 }}>{row.job}</span>
-              <Chip>{row.engine}</Chip>
-              <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>{row.dur}</span>
-              <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>{row.ago}</span>
-              <Chip color={row.ok ? '#22c55e' : '#ef4444'}>{row.ok ? '✓' : '✗'}</Chip>
-            </Row>
-          ))}
-        </div>
-      </Col>
-
-      <Col gap={8} style={{ flex: 1 }}>
-        <Label>Stats</Label>
-        <div
-          style={{
-            background: 'var(--surface-alt)',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            padding: '8px 10px',
-          }}
-        >
-          <Chip active>XTTS · 14.2 chars/s</Chip>
-          <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: 6 }}>Voxtral · 10.8 chars/s</div>
-        </div>
-        <div
-          style={{
-            background: 'var(--surface-alt)',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            padding: '8px 10px',
-          }}
-        >
-          <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-primary)' }}>Production</div>
-          <div style={{ fontSize: '0.62rem', color: 'var(--text-secondary)', marginTop: 3 }}>
-            23h 41m generated · 312 chapters
-          </div>
-          {/* Mini bar chart sketch */}
-          <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', marginTop: 8, height: 24 }}>
-            {[6, 9, 14, 11, 18, 22, 17].map((h, i) => (
-              <div
-                key={i}
-                style={{
-                  flex: 1,
-                  height: `${h / 22 * 100}%`,
-                  background: i === 6 ? 'var(--accent)' : 'var(--border)',
-                  borderRadius: 2,
-                  opacity: 0.8,
-                }}
-              />
-            ))}
-          </div>
-          <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginTop: 3 }}>Last 7 days</div>
-        </div>
-      </Col>
-    </Row>
-  </Col>
-);
+        </Col>
+      </Row>
+    </Col>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Engines pane
@@ -2763,9 +3055,9 @@ const EnginesPane: React.FC = () => (
     <Label>Installed</Label>
     <Col gap={8}>
       {[
-        { name: 'XTTS v2', version: 'v2.0.3', desc: 'Local · GPU · High quality voice cloning', status: 'Active', ok: true },
-        { name: 'Voxtral', version: 'v1.1.0', desc: 'Local · CPU/GPU · Fast inference', status: 'Active', ok: true },
-        { name: 'Mixed', version: 'v1.0.1', desc: 'Routes across installed engines', status: 'Active', ok: true },
+        { name: 'XTTS v2', version: 'v2.0.3', desc: 'Local · GPU · High quality voice cloning', speed: '14.2 chars/s · high confidence' },
+        { name: 'Voxtral', version: 'v1.1.0', desc: 'Local · CPU/GPU · Fast inference', speed: '9.1 chars/s · medium confidence' },
+        { name: 'Mixed', version: 'v1.0.1', desc: 'Routes across installed engines', speed: null },
       ].map(e => (
         <div
           key={e.name}
@@ -2774,39 +3066,69 @@ const EnginesPane: React.FC = () => (
             border: '1px solid var(--border)',
             borderRadius: 6,
             padding: '8px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
           }}
         >
-          <span style={{ fontSize: '1.2rem' }}>🧩</span>
-          <div style={{ flex: 1 }}>
-            <Row gap={6} style={{ alignItems: 'center' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)' }}>{e.name}</span>
-              <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>{e.version}</span>
+          <Row gap={10} style={{ alignItems: 'center', marginBottom: e.speed ? 6 : 0 }}>
+            <span style={{ fontSize: '1.2rem' }}>🧩</span>
+            <div style={{ flex: 1 }}>
+              <Row gap={6} style={{ alignItems: 'center' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)' }}>{e.name}</span>
+                <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>{e.version}</span>
+              </Row>
+              <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{e.desc}</div>
+            </div>
+            <span style={{ fontSize: '0.5rem', color: '#22c55e' }}>●</span>
+            <Chip color="#22c55e">Active</Chip>
+            <Btn small>Configure</Btn>
+          </Row>
+          {e.speed && (
+            <Row gap={6} style={{ alignItems: 'center', marginLeft: 32 }}>
+              <Chip color="#0ea5e9">{e.speed}</Chip>
+              <span
+                style={{ fontSize: '0.58rem', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                Reset calibration
+              </span>
             </Row>
-            <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{e.desc}</div>
-          </div>
-          <span style={{ fontSize: '0.55rem', color: '#22c55e' }}>●</span>
-          <Chip color="#22c55e">{e.status}</Chip>
-          <Btn small>Configure</Btn>
+          )}
         </div>
       ))}
     </Col>
 
-    <Label>Browse store</Label>
-    <div
-      style={{
-        border: '2px dashed var(--border)',
-        borderRadius: 8,
-        padding: '14px',
-        textAlign: 'center',
-        background: 'var(--surface-alt)',
-      }}
-    >
-      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>GitHub plugin repos · Install from .zip · Trust model</div>
-      <Btn small style={{ marginTop: 8, display: 'inline-flex' }}>Browse</Btn>
-    </div>
+    {/* Browse store */}
+    <Row gap={6} style={{ alignItems: 'center' }}>
+      <Label>Browse store</Label>
+      <PlannedChip />
+      <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>plugin store — GitHub discovery</span>
+    </Row>
+    <Col gap={6}>
+      {[
+        { name: 'WhisperTTS', author: 'audio-lab', stars: 142 },
+        { name: 'CoquiLocal', author: 'coqui-community', stars: 89 },
+        { name: 'BarkPlugin', author: 'suno-dev', stars: 234 },
+      ].map(s => (
+        <div key={s.name} style={{
+          background: 'var(--surface-alt)', border: '1px solid var(--border)',
+          borderRadius: 6, padding: '7px 10px',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: '1rem' }}>🧩</span>
+          <div style={{ flex: 1 }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-primary)' }}>{s.name}</span>
+            <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginLeft: 6 }}>by {s.author}</span>
+          </div>
+          <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>⭐ {s.stars}</span>
+          <Btn small>Install</Btn>
+        </div>
+      ))}
+      <div style={{
+        fontSize: '0.58rem', color: '#92400e',
+        background: '#fef3c7', border: '1px solid #fbbf24',
+        borderRadius: 4, padding: '4px 10px',
+      }}>
+        plugins run unsandboxed — deps reviewed before install
+      </div>
+    </Col>
   </Col>
 );
 
@@ -2815,7 +3137,10 @@ const EnginesPane: React.FC = () => (
 
 const IntegrationsPane: React.FC = () => (
   <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
-    <Label>Gateway API</Label>
+    <Row gap={8} style={{ alignItems: 'center' }}>
+      <Label>Gateway API</Label>
+      <Chip color="#22c55e">23 requests today</Chip>
+    </Row>
     <div
       style={{
         background: 'var(--surface-alt)',
@@ -2833,18 +3158,12 @@ const IntegrationsPane: React.FC = () => (
       </Row>
       <Col gap={6}>
         {/* API key row */}
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 5,
-            padding: '6px 10px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', width: 50 }}>API Key</span>
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 5, padding: '6px 10px',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', width: 60, flexShrink: 0 }}>API Key</span>
           <span style={{ flex: 1, fontSize: '0.65rem', color: 'var(--text-secondary)', fontFamily: 'monospace', letterSpacing: '0.1em' }}>
             sk-••••••••••••ef4a
           </span>
@@ -2852,42 +3171,54 @@ const IntegrationsPane: React.FC = () => (
           <Btn small>Rotate</Btn>
         </div>
 
-        {/* Docs link */}
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 5,
-            padding: '6px 10px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', width: 50 }}>Docs</span>
-          <span style={{ flex: 1, fontSize: '0.62rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
-            /api/v1/tts/docs → Swagger UI
+        {/* Host binding row */}
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 5, padding: '6px 10px',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', width: 60, flexShrink: 0 }}>Host</span>
+          <span style={{ flex: 1, fontSize: '0.62rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+            127.0.0.1 (loopback)
           </span>
-          <Btn small>Open ↗</Btn>
+          <Row gap={4} style={{ alignItems: 'center' }}>
+            <Chip>LAN</Chip>
+            <PlannedChip />
+          </Row>
         </div>
 
-        {/* Rate limit */}
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 5,
-            padding: '6px 10px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', width: 50 }}>Rate</span>
-          <span style={{ flex: 1, fontSize: '0.62rem', color: 'var(--text-secondary)' }}>
-            60 req/min · unlimited chars
-          </span>
+        {/* Rate limit row */}
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 5, padding: '6px 10px',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', width: 60, flexShrink: 0 }}>Rate limit</span>
+          <span style={{ flex: 1, fontSize: '0.62rem', color: 'var(--text-secondary)' }}>60 req/min · unlimited chars</span>
           <Btn small>Edit</Btn>
+        </div>
+
+        {/* Queue priority row */}
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 5, padding: '6px 10px',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', width: 60, flexShrink: 0 }}>Priority</span>
+          <span style={{ flex: 1, fontSize: '0.62rem', color: 'var(--text-secondary)' }}>studio first ▾</span>
+        </div>
+
+        {/* Swagger docs link */}
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 5, padding: '6px 10px',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', width: 60, flexShrink: 0 }}>Docs</span>
+          <span style={{ flex: 1, fontSize: '0.62rem', color: 'var(--accent)', fontFamily: 'monospace', cursor: 'pointer' }}>
+            Swagger docs → /api/v1/tts/docs
+          </span>
+          <Btn small>Open ↗</Btn>
         </div>
       </Col>
     </div>
@@ -2910,13 +3241,13 @@ const SettingsPane: React.FC = () => (
         marginBottom: 4,
       }}
     >
-      Engines &amp; Integrations are under PLATFORM — Settings is intentionally thin.
+      Engines &amp; Integrations live under PLATFORM — Settings is intentionally thin.
     </div>
     {[
       {
         section: 'Appearance',
         rows: [
-          { label: 'Theme', value: 'System' },
+          { label: 'Theme', value: 'System ▾' },
           { label: 'Font scale', value: '100%' },
         ],
       },
@@ -2931,6 +3262,7 @@ const SettingsPane: React.FC = () => (
       {
         section: 'Advanced',
         rows: [
+          { label: 'Developer Mode', value: 'Off — reveals Developer tab + debug tools' },
           { label: 'Diagnostics', value: 'Off' },
           { label: 'Restart TTS server', value: '—' },
           { label: 'Reset all data', value: '—' },
@@ -2983,8 +3315,16 @@ const SettingsPane: React.FC = () => (
 // ---------------------------------------------------------------------------
 // Player bar (full width, waveform toggle)
 
+const PLAYER_SCOPES = [
+  'Chapter 7 · segment 14',
+  'Chapter 7 · full render',
+  'Voice preview · Elena Marsh',
+] as const;
+
 const PlayerBar: React.FC = () => {
   const [waveOpen, setWaveOpen] = useState(false);
+  const [scopeIdx, setScopeIdx] = useState(0);
+  const cycleScope = () => setScopeIdx(i => (i + 1) % PLAYER_SCOPES.length);
   return (
     <div
       style={{
@@ -3025,7 +3365,14 @@ const PlayerBar: React.FC = () => {
         >
           <div style={{ width: '38%', height: '100%', background: 'var(--accent)', borderRadius: 2 }} />
         </div>
-        <Chip>Ch 4 · seg 3</Chip>
+        {/* Clickable scope chip — cycles through scope modes */}
+        <div
+          onClick={cycleScope}
+          title="Click to cycle scope"
+          style={{ cursor: 'pointer' }}
+        >
+          <Chip active>{PLAYER_SCOPES[scopeIdx]}</Chip>
+        </div>
         <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
           02:14 / 28:10
         </span>
@@ -3099,7 +3446,7 @@ const SiteMockup: React.FC = () => {
           flexShrink: 0,
         }}
       >
-        North-star organization mockup — current functionality represented. Queue drawer = check status from anywhere without losing your place. · v3.4
+        North-star organization mockup — current functionality represented. Queue drawer = check status from anywhere without losing your place. · v3.5 — full-site integration + planned features
       </div>
 
       {/* App window — column: [top bar] / [rail + content] / [player bar] */}
@@ -3196,6 +3543,6 @@ export const siteMockupStage = {
   id: 'site-mockup',
   title: 'Site Mockup — North Star',
   description:
-    'Medium-fidelity full-site layout mockup v3.4 — current functionality represented: queue drawer slide-over, collapsible rail with full chapter list under Studio, book pipeline stages (Manuscript/Casting/Studio/Review/Publish), TopBar book identity cluster (cover chip + title + metadata → Publish), Studio book-view with speaker underlines + cast paint palette (4 swatches, 5 paintable sentences) + mixed-sentence callout + editable chip, follow-along Review player with section annotations, Publish canonical book info editor, and all rail destinations with realistic fake data. Manuscript v3.4: chapter lifecycle pills (Draft/Ready/Cast/Rendered), chapter editor panel with editable/read-only states + lock/unlock flow + amber warning banner, focus mode (✎ toggle), compact import row.',
+    'Medium-fidelity full-site layout mockup v3.5 — full-site integration + planned features: Voice Lab detail page (phase stepper, sample manager, variants, engine settings, test strip, export/HF publish), Discover tab search + facets + Install button + installing progress, Engines richer cards (speed chip, reset calibration, browse store with PlannedChip + trust note), Integrations host binding + LAN toggle (planned) + queue priority + Swagger docs link + stat chip, Activity pause queue button + history filter chips + engine calibration mini-table, Publish planned-feature rows (loudness QA, pronunciation lexicon), Settings developer mode row + appearance Theme dropdown, player bar scope chip cycles through 3 scope modes. PlannedChip used consistently for future features.',
   element: <SiteMockupElement />,
 };
