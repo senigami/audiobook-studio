@@ -15,16 +15,16 @@ All logic fixes, progress confidence model, security blockers, test-quality audi
 
 ## Stage 3 — Plugin contract (open, release-gating, longest pole)
 
-- [x] Manifest contract-version gate (2026-06-11).
+- [x] Manifest contract-version gate (2026-06-11); ENFORCED hard 2026-06-12 (S8).
 - [x] check_output QA hook + sanitize categories/overrides (2026-06-11, plugin-contract.md 1.2.0).
-- [ ] `StudioPluginContext` studio-side SDK finalized (doc 02 §3/4/6). (M)
-- [ ] Migrate all three plugins to zero `app.*` imports outside the SDK namespace (doc 02 §6 acceptance). (M)
-- [ ] Plugin template + AST no-app-imports validation (doc 03). (M)
-- [ ] Callable-signature compatibility audit vs the five-method contract. (S) *Clarify: release-gating or post-2.0 hardening?*
+- [x] `StudioPluginContext` SDK (S1, 2026-06-12: 13 service groups, 30+ methods, errors hierarchy).
+- [x] Plugin migrations: tts_xtts (S4), tts_voxtral (S5), synthesis_mixed→tts_mixed rename + migration (S6) — module-level app imports ZERO, enforced at load (S8); function-body residue dissolves in S9 (in flight).
+- [x] Plugin template + AST validation + CI manifest validator (S2/S8).
+- [ ] S9 dispatcher integration (in flight) → S10 verification + spec 1.3.0 + **callable-signature audit (owner: gates release)**. (M)
 
 ## Stage 4 — Voice metadata & standalone repos (open, gated on Stage 3)
 
-- [ ] Voice taxonomy/attributes/tags/icon upload/casting card, steps A1–F3 (doc 04; D7/D8 decisions recorded 2026-06-10 — implementation not started). (L)
+- [x] Voice taxonomy/attributes/tags/icon upload/casting card — Phases A–E DONE 2026-06-12 (taxonomy validation, idempotent v1-schema migration + D8 state split, metadata/search/cast/icon API, Voice Lab catalog UI with editor + facets, HF-aligned bundle export/import with README generation). Phase F (docs) remains. (was L; F is S)
 - [ ] Standalone GitHub plugin repos: discovery infra, XTTS/Voxtral extraction, tts_mixed rename, e2e (doc 05, 18 items, all blocked on Stage 3). (L)
 
 ## Stage 5 — Frontend polish (in progress)
@@ -51,7 +51,7 @@ All logic fixes, progress confidence model, security blockers, test-quality audi
 ## Cross-cutting / in flight
 
 - [x] Model warm-holding spike (doc 11 P10) — DONE 2026-06-11: persistent XTTS warm worker (keep_model_loaded, idle timeout, one-shot fallback).
-- [ ] Voxtral segment + bake rendering (PR #124). (M) *Scope decision: 2.0 or post?*
+- [x] Voxtral segment + bake rendering — DONE 2026-06-12 (owner: in scope); repair workflow engine-complete.
 - [ ] Generic plugin setup loop in run.sh/run.ps1 (implement or defer with rationale). (S)
 - [ ] Sub-sentence speaker assignment — design doc exists; v2.0 target per owner. (L)
 - [ ] Observed-work queue items (master_agnostic_tasks §Observed Work Queue).
