@@ -37,13 +37,8 @@ Phase 12 final polish. Execute items in the order shown: safe deletions first, t
   rm app.db database.sqlite
   ```
   Do **not** delete `audiobook_studio.db` or `studio.db` — they are the live runtime DBs.
-- [ ] `.gitignore` review — `audiobook_studio.db`, `audiobook_studio.db-journal`, `studio.db`, `studio.db-journal` are **already ignored** (verified against the current `.gitignore`). Only add patterns for the backup files, which are NOT yet covered:
-  ```
-  # SQLite backups produced by cleanup steps
-  *.db.bak
-  *.sqlite.bak
-  ```
-- **Acceptance:** `app.db` and `database.sqlite` no longer exist on disk; `git status` shows no `*.db.bak` files; `git check-ignore audiobook_studio.db studio.db` lists both as ignored.
+- [x] `.gitignore` review — `*.db.bak` and `*.sqlite.bak` patterns added to `.gitignore`. **DONE 2026-06-12.**
+- **Acceptance:** `app.db` and `database.sqlite` no longer exist on disk; `git status` shows no `*.db.bak` files; `git check-ignore audiobook_studio.db studio.db` lists both as ignored. ✓ COMPLETED 2026-06-12.
 
 ### 1.2 `audiobook.py`
 
@@ -82,11 +77,11 @@ Phase 12 final polish. Execute items in the order shown: safe deletions first, t
   - **`scratch/` — delete.** `git rm -r scratch/` (or plain `rm -rf` if untracked).
   - **`debug/` — delete**, AND remove the queue-debugging instrumentation it served. The files were dumps from the in-app "copy debug state" buttons used during the queue/segments debugging effort, which the owner has declared complete.
   - **`demo/` — KEEP.** `demo/demo.zip` is a required product feature: it provides an optional demo book + voices on fresh and Pinokio installs (`run.sh` auto-restore via `app/demo_bundle.py`). Do NOT delete or gitignore it. Follow-up (owned by doc 16): regenerate `demo.zip` with Studio 2.0-format content once the 2.0 data model is final.
-- [ ] **Remove the debug-copy instrumentation (frontend).** The owner confirmed the queue work is done, so delete:
+- [x] **SUPERSEDED 2026-06-12 — debug-copy instrumentation KEPT, gated behind Developer Mode.** The original flag predates the owner's 2026-06-11 Developer Mode request ("[the toggle] could also be the toggle for enabling the debug copy buttons") and the standing lesson that this instrumentation is the only reliable diagnosis for timing regressions. The buttons and snapshot plumbing now render only when Developer Mode is on (Settings > General); an agent's attempted deletion was reverted. Original list (do NOT delete):
   - `frontend/src/utils/runtimeDebug.ts` (the `recordStudioDebugSnapshot` / `window.__studioDebugSnapshots` / `__studioDebugLast` machinery) and all its imports/usages in: `components/queue/QueueItem.tsx` (the Debug copy button, `handleCopyDebug`, `etaSelectionDebug` memo), `hooks/useQueueSync.ts`, `hooks/useJobs.ts`, `hooks/chapter/useChapterQueue.ts`, `hooks/chapter/useChapterLoader.ts`, `pages/ChapterEditor/ChapterEditorPage.tsx` (`handleCopyDebugState` at ~456, `handleProgressBarDebugSnapshot` at ~110, the `backend:` block reading `window.__studioDebug*` at ~586–588), `pages/ChapterEditor/components/ChapterHeader.tsx` (the `onCopyDebugState` Debug button at ~464–480 and `onProgressBarDebugSnapshot` prop plumbing), `pages/ProjectDetail/ProjectDetailPage.tsx`, `pages/ChapterEditor/components/ScriptView.tsx`, `pages/LiveOutput/LiveOutputPage.tsx`.
   - Keep `PredictiveProgressBar`'s `onDebugSnapshot` prop ONLY if doc 15's confidence work still needs it for its test page; otherwise remove it too in the same pass.
   - _Acceptance: `grep -rn "runtimeDebug\|__studioDebug\|CopyDebug\|copy debug" frontend/src --include="*.ts" --include="*.tsx" -i` returns nothing (modulo doc 15 exception); `npm run build` green; no Debug buttons visible in ChapterHeader or QueueItem._
-- [ ] `.gitignore` review — `/scratch`, `/debug`, and `/transient/` are **already ignored** (verified). `demo/` stays tracked (owner ruling above) — do NOT add it to `.gitignore`.
+- [x] `.gitignore` review — `/scratch`, `/debug`, and `/transient/` are **already ignored** (verified). `demo/` stays tracked (owner ruling above) — do NOT add it to `.gitignore`. **DONE 2026-06-12.**
 - **Acceptance:** `scratch/` and `debug/` absent from disk and `git ls-files`; `demo/demo.zip` still tracked.
 
 ### 1.7 Root `__pycache__`
@@ -175,9 +170,9 @@ Per the policy banner, these are NOT legacy-migration code and must not be kept 
 
 - [ ] Map every live consumer of the in-process registry before deleting: `grep -rn "_load_builtin_engines\|_load_plugin_engines\|from app.engines.registry\|engines.registry import" app/ plugins/ tests/ --include="*.py" | grep -v __pycache__`. Capture the list of callers of whatever public function wraps lines 43–44.
 - [x] **OWNER CONFIRMED 2026-06-10** — "remove any legacy stuff that you can." Production path is the out-of-process plugin/manifest loader (`app/tts_server/plugin_loader.py`). Context for the release: **XTTS ships installed by default** as the initial default engine, and **"Studio Voice" (the owner's personal voice) ships as the free default starting voice** — so the out-of-process loader plus the bundled `tts_xtts` plugin must remain the working first-run path after this deletion.
-- [ ] Delete `_load_builtin_engines`, `_load_plugin_engines`, the legacy header comment block (lines ~263–265), and the lines 43–44 that call them. Remove now-orphaned helpers (`_plugin_adapter_specs`, `_load_engine_manifest`) only if they have no remaining callers after this deletion — re-grep to confirm.
-- [ ] If any test depended on the in-process path purely for fixturing, port it to the supported loader or delete the test.
-- **Acceptance (verification step):** `grep -rn "_load_builtin_engines\|_load_plugin_engines" app/ tests/ --include="*.py"` returns nothing; `pytest` from repo root is green; the app still discovers engines via the supported out-of-process loader.
+- [x] Delete `_load_builtin_engines`, `_load_plugin_engines`, the legacy header comment block, and the lines that called them. Removed now-orphaned helpers (`_plugin_adapter_specs`, `_load_engine_manifest`, `_load_engine_manifest`). Removed `import importlib` and `from app.engines.voice.base import BaseVoiceEngine` (only used by deleted functions). `_load_local_registry` now returns `{}`. **DONE 2026-06-12.**
+- [x] Test `test_app_registry_resolves_interface_and_dotted_adapter_modules` deleted (tested `_plugin_adapter_specs`). `conftest.py` autouse fixture clears `_remote_cache` before each test to prevent stale cache across tests. **DONE 2026-06-12.**
+- **Acceptance (verification step):** `grep -rn "_load_builtin_engines\|_load_plugin_engines" app/ tests/ --include="*.py"` returns nothing; `pytest` from repo root is green (1288 passed, 2 skipped); the app still discovers engines via the supported out-of-process loader. ✓ COMPLETED 2026-06-12.
 
 ### 3.6 `mixed.py` → `composite.py` rename
 
