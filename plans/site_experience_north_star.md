@@ -148,7 +148,9 @@ What remains after Engines and Integrations move out: **Appearance** (theme), **
 
 **Phase D (future): the new room.** Review — waveform, annotations→re-renders, pronunciation lexicon, loudness QA in Publish. The biggest net-new build, and the one that most differentiates Studio from "a TTS frontend."
 
-## 12. Open questions for the owner
+## 12. Open questions for the owner — ANSWERED 2026-06-11 (all leans accepted)
+
+Decisions: **Q1 left rail** · **Q2 five stages** · **Q3 one ScriptView, two routed modes** · **Q4 voice detail is a full page** · **Q5 Integrations ships docs-first with honest "coming" labels** · **Q6 player bar collapses when empty**. Phase A approved, to land as its own PR after #124 merges.
 
 | # | Question | My lean |
 |---|---|---|

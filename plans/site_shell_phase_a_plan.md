@@ -1,6 +1,6 @@
 # Phase A — Site Shell Implementation Plan (left rail · Activity page · player bar)
 
-*Companion to [site_experience_north_star.md](site_experience_north_star.md) §11 Phase A. Status: PLANNED — **gated on owner approving north-star Q1 (rail) and Q6 (player visibility)**. Written 2026-06-11 so any agent can execute it cold. Pure re-homing: no new features, no backend changes except one settings read. Each step passes `npm -C frontend run build` + full vitest before the next.*
+*Companion to [site_experience_north_star.md](site_experience_north_star.md) §11 Phase A. Status: **APPROVED 2026-06-11** (Q1 rail + Q6 collapse-when-empty confirmed). Execute as its OWN PR after #124 merges — do not start on the phase-12.3 branch. Written 2026-06-11 so any agent can execute it cold. Pure re-homing: no new features, no backend changes except one settings read. Each step passes `npm -C frontend run build` + full vitest before the next.*
 
 ## Scope fence
 
