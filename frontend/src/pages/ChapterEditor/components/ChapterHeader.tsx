@@ -5,6 +5,7 @@ import { PredictiveProgressBar, type PredictiveProgressBarProps } from '@/compon
 import { buildSegmentProgressBarProps } from '@/components/progress/progressBarContracts';
 import { hasSegmentProgressCapability } from '@/utils/jobSelection';
 import { useSegmentHandoffQueue, recordExternalHandoffEvent } from '@/hooks/useSegmentHandoffQueue';
+import { useDevMode } from '@/utils/devMode';
 
 const RECENT_DONE_WINDOW_SECONDS = 60;
 
@@ -450,6 +451,7 @@ export const ChapterScriptToolbar: React.FC<{
   onQueue, onStopAll, onCopyDebugState, onCommitSourceText, canCommitSourceText, onSegmentDisplayProgress,
   onProgressBarDebugSnapshot, status, handoffState
 }) => {
+  const devMode = useDevMode();
   // Segment handoff queue: defer the bar swap until the outgoing bar visually reaches 100%.
   // When the page lifts the hook (handoffState provided), use that instance so the script
   // view's active-segment highlight shares the same display state. The internal hook must
@@ -535,7 +537,7 @@ export const ChapterScriptToolbar: React.FC<{
             </button>
         )}
 
-        {onCopyDebugState && (
+        {onCopyDebugState && devMode && (
             <button
                 onClick={onCopyDebugState}
                 className="btn-ghost"

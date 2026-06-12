@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { ShieldCheck, PlugZap, Music, Palette } from 'lucide-react';
+import { ShieldCheck, PlugZap, Music, Palette, FlaskConical } from 'lucide-react';
 import type { Settings as AppSettings, SpeakerProfile, TtsEngine, Speaker } from '@/types';
 import { buildVoiceOptions } from '@/utils/voiceProfiles';
 import { SettingCard, ToggleButton } from '@/pages/Settings/components/SettingsComponents';
 import { loadThemePref, saveThemePref, type Theme } from '@/utils/theme';
+import { isDevModeEnabled, setDevModeEnabled, useDevMode } from '@/utils/devMode';
 
 interface GeneralSettingsPanelProps {
   settings: AppSettings | undefined;
@@ -24,6 +25,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
 }) => {
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>(loadThemePref);
+  const devMode = useDevMode();
 
   const handleThemeChange = (val: Theme) => {
     setTheme(val);
@@ -105,6 +107,29 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
               </select>
+            }
+          />
+        </div>
+      </section>
+
+      {/* Developer section */}
+      <section>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h3 style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+            Developer
+          </h3>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+          <SettingCard
+            icon={FlaskConical}
+            title="Developer Mode"
+            description="Show developer tools: testing pages and debug copy buttons."
+            action={
+              <ToggleButton
+                enabled={devMode}
+                busy={false}
+                onClick={() => setDevModeEnabled(!isDevModeEnabled())}
+              />
             }
           />
         </div>

@@ -107,11 +107,14 @@ describe('ChapterEditor - Core Orchestration', () => {
     (api.fetchCharacters as any).mockResolvedValue([]);
     (api.fetchScriptView as any).mockResolvedValue(mockScriptView);
     (api.fetchChapterRenderGroups as any).mockResolvedValue({ count: 0, groups: [] });
+    // Tests in this suite interact with the debug copy button, which requires dev mode.
+    localStorage.setItem('studio-dev-mode', 'true');
   });
 
   afterEach(() => {
     vi.useRealTimers();
     consoleErrorSpy.mockRestore();
+    localStorage.removeItem('studio-dev-mode');
   });
 
   it('renders loading state then editor', async () => {

@@ -232,7 +232,8 @@ describe('ChapterHeader', () => {
     expect(onSegmentDisplayProgress).not.toHaveBeenCalled();
   });
 
-  it('exposes a copy debug state button when a handler is provided', () => {
+  it('exposes a copy debug state button when a handler is provided (dev mode on)', () => {
+    localStorage.setItem('studio-dev-mode', 'true');
     const onCopyDebugState = vi.fn();
 
     render(
@@ -260,6 +261,7 @@ describe('ChapterHeader', () => {
 
     fireEvent.click(screen.getByTitle('Copy debug state'));
     expect(onCopyDebugState).toHaveBeenCalledTimes(1);
+    localStorage.removeItem('studio-dev-mode');
   });
 
   it('computes segmentProgressBarSelection correctly under various states', () => {

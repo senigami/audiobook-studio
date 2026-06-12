@@ -6,6 +6,7 @@ import { formatQueueContext } from '@/utils/queueLabels';
 import { shouldShowIndeterminateProgress, isMainQueueSegmentItem } from '@/utils/jobSelection';
 import { recordStudioDebugSnapshot } from '@/utils/runtimeDebug';
 import { getLiveEventAuditSnapshot } from '@/store/liveEventAuditStore';
+import { useDevMode } from '@/utils/devMode';
 
 interface QueueItemProps {
     job: ProcessingQueueItem;
@@ -30,6 +31,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     engines = [],
     onVisualPendingChange
 }) => {
+    const devMode = useDevMode();
     const latestSnapshotRef = React.useRef<any>(null);
     const handleDebugSnapshot = React.useCallback((snapshot: any) => {
         latestSnapshotRef.current = snapshot;
@@ -606,15 +608,17 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); void handleCopyDebug(); }}
-                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', borderRadius: '8px' }}
-                            className="hover-bg-accent"
-                            title="Copy Debug Info"
-                            data-testid={`debug-copy-btn-${job.id}`}
-                        >
-                            <Terminal size={18} strokeWidth={2} />
-                        </button>
+                        {devMode && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); void handleCopyDebug(); }}
+                                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', borderRadius: '8px' }}
+                                className="hover-bg-accent"
+                                title="Copy Debug Info"
+                                data-testid={`debug-copy-btn-${job.id}`}
+                            >
+                                <Terminal size={18} strokeWidth={2} />
+                            </button>
+                        )}
                         <button
                             onClick={(e) => { e.stopPropagation(); onRemove(job.id); }}
                             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', borderRadius: '8px' }}
