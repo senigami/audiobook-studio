@@ -19,6 +19,7 @@ import { demoTimeline } from './scenes';
 import { liveOutputStage } from './stages/liveOutputStage';
 import { queueStage } from './stages/queueStage';
 import { progressStage } from './stages/progressStage';
+import { StyleguidePage } from './styleguide/StyleguidePage';
 
 export const demoStages = [liveOutputStage, queueStage, progressStage];
 
@@ -33,9 +34,10 @@ const subscribeHash = (cb: () => void) => {
 
 const useHash = () => useSyncExternalStore(subscribeHash, getHash, getHash);
 
-const parseHash = (hash: string): { page: 'index' | 'stage'; stageId?: string } => {
+const parseHash = (hash: string): { page: 'index' | 'stage' | 'styleguide'; stageId?: string } => {
   // Tolerate a query string inside the hash (e.g. "#/stage/queue?embed=1").
   const path = hash.replace(/^#/, '').split('?')[0];
+  if (path === '/styleguide') return { page: 'styleguide' };
   const m = path.match(/^\/stage\/(.+)$/);
   if (m) return { page: 'stage', stageId: m[1] };
   return { page: 'index' };
@@ -169,9 +171,12 @@ export const DemoApp: React.FC = () => {
       )}
 
       {/* Main content */}
-      <main style={{ flex: 1, minHeight: 0, padding: embed ? 0 : '1.5rem 24px' }}>
+      <main style={{ flex: 1, minHeight: 0, padding: embed ? 0 : page === 'styleguide' ? 0 : '1.5rem 24px' }}>
         {page === 'index' && (
           <StageIndex />
+        )}
+        {page === 'styleguide' && (
+          <StyleguidePage />
         )}
         {page === 'stage' && activeStage && (
           <div style={{ height: embed ? '100vh' : 'calc(100vh - 140px)' }}>
@@ -222,6 +227,46 @@ export const DemoApp: React.FC = () => {
 // ---------------------------------------------------------------------------
 // Stage index grid
 
+const IndexCard: React.FC<{ href: string; title: string; description: string; accent?: boolean }> = ({
+  href, title, description, accent,
+}) => (
+  <a href={href} style={{ textDecoration: 'none' }}>
+    <div
+      style={{
+        background: accent ? 'var(--accent-tint-bg)' : 'var(--surface)',
+        border: `1px solid ${accent ? 'var(--accent-tint-border)' : 'var(--border)'}`,
+        borderRadius: 12,
+        padding: '1.25rem',
+        cursor: 'pointer',
+        transition: 'border-color 0.15s',
+        height: '100%',
+      }}
+      onMouseEnter={e =>
+        ((e.currentTarget as HTMLDivElement).style.borderColor = 'var(--accent)')
+      }
+      onMouseLeave={e =>
+        ((e.currentTarget as HTMLDivElement).style.borderColor = accent
+          ? 'var(--accent-tint-border)'
+          : 'var(--border)')
+      }
+    >
+      <div
+        style={{
+          fontWeight: 700,
+          fontSize: '1rem',
+          color: accent ? 'var(--accent)' : 'var(--text-primary)',
+          marginBottom: 6,
+        }}
+      >
+        {title}
+      </div>
+      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+        {description}
+      </div>
+    </div>
+  </a>
+);
+
 const StageIndex: React.FC = () => (
   <div>
     <h1
@@ -242,43 +287,19 @@ const StageIndex: React.FC = () => (
       }}
     >
       {demoStages.map(stage => (
-        <a
+        <IndexCard
           key={stage.id}
           href={`#/stage/${stage.id}`}
-          style={{ textDecoration: 'none' }}
-        >
-          <div
-            style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 12,
-              padding: '1.25rem',
-              cursor: 'pointer',
-              transition: 'border-color 0.15s',
-            }}
-            onMouseEnter={e =>
-              ((e.currentTarget as HTMLDivElement).style.borderColor = 'var(--accent)')
-            }
-            onMouseLeave={e =>
-              ((e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)')
-            }
-          >
-            <div
-              style={{
-                fontWeight: 700,
-                fontSize: '1rem',
-                color: 'var(--text-primary)',
-                marginBottom: 6,
-              }}
-            >
-              {stage.title}
-            </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-              {stage.description}
-            </div>
-          </div>
-        </a>
+          title={stage.title}
+          description={stage.description}
+        />
       ))}
+      <IndexCard
+        href="#/styleguide"
+        title="Design Spec Sheet"
+        description="Tokens, type rules, component states, and proposed redesign directions — a storybook-style reference for evaluating theming and design decisions."
+        accent
+      />
     </div>
   </div>
 );

@@ -1,0 +1,1248 @@
+/**
+ * StyleguidePage — design spec sheet for Audiobook Studio.
+ *
+ * A storybook-like page laying out the design system: tokens, type rules,
+ * component states, and PROPOSED design directions for owner review.
+ *
+ * Sections:
+ *   1. Color tokens (auto-generated from tokens.css — zero drift)
+ *   2. Typography — current vs proposed (U3)
+ *   3. Components — current states (live-mounted)
+ *   4. Proposed directions (U1, U3, U8, U15, U16 mockup gallery)
+ *   5. Theme side-by-side
+ */
+
+import React, { useMemo } from 'react';
+import tokensCss from '@/theme/tokens.css?raw';
+import { parseTokens, groupTokens, type TokenEntry } from './parseTokens';
+import {
+  PROPOSED_TYPE_SCALE,
+  PROPOSED_SPACE_SCALE,
+  PROPOSED_DURATION_SCALE,
+  AD_HOC_SIZES,
+} from './proposedTokens';
+import { GlassInput } from '@/components/forms/GlassInput';
+import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
+
+// ---------------------------------------------------------------------------
+// Shared primitives
+// ---------------------------------------------------------------------------
+
+const SECTION_IDS = {
+  colors: 'sg-colors',
+  typography: 'sg-typography',
+  components: 'sg-components',
+  proposals: 'sg-proposals',
+  theme: 'sg-theme',
+} as const;
+
+const SECTION_LABELS: Record<keyof typeof SECTION_IDS, string> = {
+  colors: '1. Color Tokens',
+  typography: '2. Typography',
+  components: '3. Components',
+  proposals: '4. Proposed Directions',
+  theme: '5. Theme Side-by-Side',
+};
+
+// ---------------------------------------------------------------------------
+// Layout helpers
+// ---------------------------------------------------------------------------
+
+const SectionWrapper: React.FC<{ id: string; title: string; children: React.ReactNode }> = ({
+  id, title, children,
+}) => (
+  <section
+    id={id}
+    style={{
+      marginBottom: '3rem',
+      scrollMarginTop: '56px',
+    }}
+  >
+    <h2
+      style={{
+        fontSize: '1.25rem',
+        fontWeight: 700,
+        color: 'var(--text-primary)',
+        marginBottom: '1rem',
+        paddingBottom: '0.5rem',
+        borderBottom: '2px solid var(--border)',
+      }}
+    >
+      {title}
+    </h2>
+    {children}
+  </section>
+);
+
+const SubSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+  <div style={{ marginBottom: '1.5rem' }}>
+    <h3
+      style={{
+        fontWeight: 600,
+        color: 'var(--text-secondary)',
+        marginBottom: '0.75rem',
+        textTransform: 'uppercase',
+        letterSpacing: '0.06em',
+        fontSize: '0.75rem',
+      }}
+    >
+      {title}
+    </h3>
+    {children}
+  </div>
+);
+
+const ProposedChip: React.FC = () => (
+  <span
+    style={{
+      display: 'inline-block',
+      background: 'rgba(245, 158, 11, 0.15)',
+      color: 'var(--warning-text, #92400e)',
+      border: '1px solid rgba(245, 158, 11, 0.35)',
+      borderRadius: 999,
+      fontSize: '0.6875rem',
+      fontWeight: 700,
+      letterSpacing: '0.07em',
+      textTransform: 'uppercase',
+      padding: '2px 10px',
+      verticalAlign: 'middle',
+      marginLeft: 8,
+    }}
+  >
+    PROPOSED
+  </span>
+);
+
+const OwnerDecisionChip: React.FC = () => (
+  <span
+    style={{
+      display: 'inline-block',
+      background: 'rgba(239, 68, 68, 0.1)',
+      color: 'var(--error-text, #991b1b)',
+      border: '1px solid rgba(239, 68, 68, 0.25)',
+      borderRadius: 999,
+      fontSize: '0.6875rem',
+      fontWeight: 700,
+      letterSpacing: '0.07em',
+      textTransform: 'uppercase',
+      padding: '2px 10px',
+      verticalAlign: 'middle',
+      marginLeft: 8,
+    }}
+  >
+    OWNER DECISION NEEDED
+  </span>
+);
+
+const Card: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({
+  children, style,
+}) => (
+  <div
+    style={{
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 'var(--radius-card, 12px)',
+      padding: '1.25rem',
+      ...style,
+    }}
+  >
+    {children}
+  </div>
+);
+
+const SpecimenCard: React.FC<{
+  label: string;
+  caption?: string;
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+}> = ({ label, caption, children, style }) => (
+  <div
+    style={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8,
+      ...style,
+    }}
+  >
+    <div
+      style={{
+        background: 'var(--surface-alt)',
+        border: '1px solid var(--border)',
+        borderRadius: 10,
+        padding: '1rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 60,
+      }}
+    >
+      {children}
+    </div>
+    <div>
+      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+        {label}
+      </div>
+      {caption && (
+        <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: 2 }}>
+          {caption}
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+// ---------------------------------------------------------------------------
+// Section 1: Color tokens
+// ---------------------------------------------------------------------------
+
+/** Detect if a CSS value looks like a color (not a shadow, var ref, px value, etc.) */
+function isColorValue(value: string): boolean {
+  const v = value.trim();
+  if (v.startsWith('#')) return true;
+  if (/^rgba?\s*\(/.test(v)) return true;
+  if (/^hsl/.test(v)) return true;
+  if (v === 'transparent' || v === 'inherit') return true;
+  return false;
+}
+
+function isShadowValue(value: string): boolean {
+  return /\d+px/.test(value) && !value.startsWith('#') && !value.startsWith('rgba');
+}
+
+function isRadiusValue(name: string): boolean {
+  return name.includes('radius');
+}
+
+const GROUP_LABELS: Record<string, string> = {
+  surface: 'Surfaces',
+  bg: 'Backgrounds',
+  background: 'Backgrounds (alias)',
+  text: 'Text',
+  accent: 'Accent / Brand Blue',
+  success: 'Success',
+  warning: 'Warning',
+  error: 'Error',
+  glass: 'Glass',
+  border: 'Borders',
+  shadow: 'Shadows',
+  progress: 'Progress Bars',
+  radius: 'Radius',
+  overlay: 'Overlay',
+  cloud: 'Cloud Engine',
+  as: 'Brand (AS)',
+  header: 'Header',
+  misc: 'Miscellaneous',
+};
+
+const ColorSwatch: React.FC<{ value: string; theme: 'light' | 'dark'; name: string }> = ({
+  value, theme, name,
+}) => {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 4,
+      }}
+    >
+      {/* Paint the parsed literal value, NOT var(--name): a CSS variable would
+          resolve against the page's ACTIVE theme, so the "light" column would
+          show dark values whenever the page itself is in dark mode. */}
+      <div
+        title={`${name} (${theme}): ${value}`}
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 8,
+          border: '1px solid rgba(0,0,0,0.12)',
+          background: value,
+          flexShrink: 0,
+        }}
+      />
+      <div
+        style={{
+          fontSize: '0.6875rem',
+          color: theme === 'dark' ? '#9ca3af' : 'var(--text-muted)',
+          maxWidth: 80,
+          textAlign: 'center',
+          wordBreak: 'break-all',
+        }}
+      >
+        {value.length > 22 ? value.slice(0, 22) + '…' : value}
+      </div>
+    </div>
+  );
+};
+
+const TokenRow: React.FC<{ entry: TokenEntry }> = ({ entry }) => {
+  const isColor = isColorValue(entry.lightValue) || isColorValue(entry.darkValue);
+  const isShadow = isShadowValue(entry.lightValue);
+  const isRadius = isRadiusValue(entry.name);
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '220px 1fr 80px 80px',
+        gap: 8,
+        alignItems: 'center',
+        padding: '6px 4px',
+        borderBottom: '1px solid var(--border)',
+        fontSize: '0.75rem',
+      }}
+    >
+      <code
+        style={{
+          fontFamily: 'monospace',
+          color: 'var(--text-primary)',
+          fontSize: '0.6875rem',
+          wordBreak: 'break-all',
+        }}
+      >
+        {entry.name}
+      </code>
+      <div style={{ color: 'var(--text-muted)', fontSize: '0.6875rem', wordBreak: 'break-word' }}>
+        {entry.comment || (entry.lightValue.length > 40 ? entry.lightValue.slice(0, 40) + '…' : entry.lightValue)}
+      </div>
+      {/* Light swatch */}
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        {isColor ? (
+          <ColorSwatch value={entry.lightValue} theme="light" name={entry.name} />
+        ) : isShadow ? (
+          <div
+            style={{
+              width: 36,
+              height: 20,
+              borderRadius: 6,
+              background: 'var(--surface)',
+              boxShadow: entry.lightValue,
+              border: '1px solid var(--border)',
+            }}
+          />
+        ) : isRadius ? (
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              background: 'var(--accent)',
+              borderRadius: entry.lightValue,
+              opacity: 0.7,
+            }}
+          />
+        ) : (
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', fontStyle: 'italic' }}>
+            {entry.lightValue.slice(0, 18)}
+          </span>
+        )}
+      </div>
+      {/* Dark swatch */}
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        {entry.darkValue && isColor ? (
+          <ColorSwatch value={entry.darkValue} theme="dark" name={entry.name} />
+        ) : entry.darkValue && isShadow ? (
+          <div data-theme="dark" style={{ background: '#0f1117', padding: 4, borderRadius: 6 }}>
+            <div
+              style={{
+                width: 36,
+                height: 20,
+                borderRadius: 6,
+                background: 'var(--surface)',
+                boxShadow: entry.darkValue,
+              }}
+            />
+          </div>
+        ) : (
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', fontStyle: 'italic' }}>
+            {entry.darkValue ? 'see dark' : '—'}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ColorTokensSection: React.FC<{ entries: TokenEntry[] }> = ({ entries }) => {
+  const groups = useMemo(() => groupTokens(entries), [entries]);
+
+  return (
+    <SectionWrapper id={SECTION_IDS.colors} title={SECTION_LABELS.colors}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
+        Auto-generated from <code>tokens.css</code> — light and dark values shown side-by-side.
+        Swatches use CSS variables directly so they stay in sync with the source file.
+      </p>
+      {/* Column header */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '220px 1fr 80px 80px',
+          gap: 8,
+          padding: '4px 4px',
+          marginBottom: 4,
+          fontSize: '0.6875rem',
+          fontWeight: 700,
+          color: 'var(--text-muted)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.07em',
+        }}
+      >
+        <span>Token</span>
+        <span>Comment / Value</span>
+        <span style={{ textAlign: 'center' }}>Light</span>
+        <span style={{ textAlign: 'center' }}>Dark</span>
+      </div>
+      {Array.from(groups.entries()).map(([group, groupEntries]) => (
+        <div key={group} style={{ marginBottom: '1.5rem' }}>
+          <div
+            style={{
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              color: 'var(--accent)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              marginBottom: 4,
+              marginTop: 12,
+            }}
+          >
+            {GROUP_LABELS[group] ?? group}
+          </div>
+          {groupEntries.map(entry => (
+            <TokenRow key={entry.name} entry={entry} />
+          ))}
+        </div>
+      ))}
+    </SectionWrapper>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Section 2: Typography
+// ---------------------------------------------------------------------------
+
+const TypographySection: React.FC = () => (
+  <SectionWrapper id={SECTION_IDS.typography} title={SECTION_LABELS.typography}>
+    <SubSection title="Current — 11 ad-hoc sizes (no type tokens)">
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
+        The current codebase has <strong>zero type tokens</strong> in <code>tokens.css</code>.
+        Font sizes are hard-coded inline throughout ~50 components spanning 0.625rem–2.75rem.
+        The rows below are live specimens at each size used today, labeled with where they appear.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {AD_HOC_SIZES.map(({ size, usedIn }) => (
+          <div
+            key={size}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '90px 1fr',
+              gap: 16,
+              alignItems: 'baseline',
+              padding: '6px 0',
+              borderBottom: '1px solid var(--border)',
+            }}
+          >
+            <code style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+              {size}
+            </code>
+            <div>
+              <span style={{ fontSize: size, color: 'var(--text-primary)', lineHeight: 1.3 }}>
+                The quick brown fox
+              </span>
+              <span
+                style={{
+                  marginLeft: 12,
+                  fontSize: '0.6875rem',
+                  color: 'var(--text-muted)',
+                  fontStyle: 'italic',
+                }}
+              >
+                — {usedIn}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </SubSection>
+
+    <SubSection title={`PROPOSED (U3) — 6-step semantic scale`}>
+      <div style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '0.75rem' }}>
+        <ProposedChip />
+        <span style={{ marginLeft: 8, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+          These token names do not exist yet. Rendered from local constants for owner review.
+        </span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {PROPOSED_TYPE_SCALE.map(step => (
+          <div
+            key={step.name}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '160px 60px 56px 1fr',
+              gap: 16,
+              alignItems: 'baseline',
+              padding: '8px 0',
+              borderBottom: '1px solid var(--border)',
+            }}
+          >
+            <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
+              {step.name}
+            </code>
+            <code style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+              {step.size}/{step.weight}
+            </code>
+            <span
+              style={{ fontSize: step.size, fontWeight: step.weight, color: 'var(--text-primary)', lineHeight: 1.2 }}
+            >
+              {step.label}
+            </span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              {step.usage}
+            </span>
+          </div>
+        ))}
+      </div>
+    </SubSection>
+
+    <SubSection title="PROPOSED (U3) — Spacing scale (--space-*)">
+      <div style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '0.75rem' }}>
+        <ProposedChip />
+      </div>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        {PROPOSED_SPACE_SCALE.map(step => (
+          <div key={step.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <div
+              style={{
+                width: step.value,
+                height: 32,
+                background: 'var(--accent)',
+                opacity: 0.7,
+                borderRadius: 3,
+                minWidth: 4,
+              }}
+            />
+            <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
+              {step.name}
+            </code>
+            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{step.value}</span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', maxWidth: 80, textAlign: 'center' }}>
+              {step.label.split(' — ')[0]}
+            </span>
+          </div>
+        ))}
+      </div>
+    </SubSection>
+
+    <SubSection title="PROPOSED (U3) — Motion duration tokens (--duration-*)">
+      <div style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '0.75rem' }}>
+        <ProposedChip />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {PROPOSED_DURATION_SCALE.map(step => (
+          <div
+            key={step.name}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '180px 80px 1fr',
+              gap: 16,
+              alignItems: 'center',
+              padding: '6px 0',
+              borderBottom: '1px solid var(--border)',
+            }}
+          >
+            <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
+              {step.name}
+            </code>
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+              {step.value}
+            </span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{step.usage}</span>
+          </div>
+        ))}
+      </div>
+    </SubSection>
+  </SectionWrapper>
+);
+
+// ---------------------------------------------------------------------------
+// Section 3: Components
+// ---------------------------------------------------------------------------
+
+const ButtonSpecimens: React.FC = () => (
+  <SubSection title="Buttons">
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 16 }}>
+      <SpecimenCard label=".btn-primary" caption="Rest state; hover darkens, :disabled dims">
+        <button className="btn-primary" type="button" style={{ fontSize: '0.875rem' }}>
+          Primary
+        </button>
+      </SpecimenCard>
+      <SpecimenCard label=".btn-primary :disabled" caption="Reduced opacity">
+        <button className="btn-primary" type="button" disabled style={{ fontSize: '0.875rem' }}>
+          Disabled
+        </button>
+      </SpecimenCard>
+      <SpecimenCard label=".btn-ghost" caption="Transparent bg, accent text on hover">
+        <button className="btn-ghost" type="button" style={{ fontSize: '0.875rem' }}>
+          Ghost
+        </button>
+      </SpecimenCard>
+      <SpecimenCard label=".btn-ghost :disabled">
+        <button className="btn-ghost" type="button" disabled style={{ fontSize: '0.875rem' }}>
+          Ghost Disabled
+        </button>
+      </SpecimenCard>
+      <SpecimenCard label=".btn-glass" caption="Glassmorphism surface">
+        <button className="btn-glass" type="button" style={{ fontSize: '0.875rem' }}>
+          Glass
+        </button>
+      </SpecimenCard>
+      <SpecimenCard label=".btn-success" caption="Green fill">
+        <button className="btn-success" type="button" style={{ fontSize: '0.875rem' }}>
+          Success
+        </button>
+      </SpecimenCard>
+      <SpecimenCard label=".btn-danger" caption="Red fill">
+        <button className="btn-danger" type="button" style={{ fontSize: '0.875rem' }}>
+          Danger
+        </button>
+      </SpecimenCard>
+      <SpecimenCard label=".btn-home" caption="Hero CTA — uses !important (Q5 pending)">
+        <button className="btn-home" type="button" style={{ fontSize: '0.875rem' }}>
+          Home CTA
+        </button>
+      </SpecimenCard>
+    </div>
+  </SubSection>
+);
+
+const InputSpecimens: React.FC = () => (
+  <SubSection title="GlassInput">
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+      <SpecimenCard label="Empty" caption="No value, placeholder visible">
+        <GlassInput placeholder="Placeholder text…" />
+      </SpecimenCard>
+      <SpecimenCard label="Filled" caption="Has value">
+        <GlassInput defaultValue="My audiobook project" />
+      </SpecimenCard>
+      <SpecimenCard label="Disabled" caption="opacity-dimmed, non-interactive">
+        <GlassInput defaultValue="Can't edit this" disabled />
+      </SpecimenCard>
+    </div>
+  </SubSection>
+);
+
+const ProgressSpecimens: React.FC = () => (
+  <SubSection title="PredictiveProgressBar">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <SpecimenCard label="Preparing — 0%" caption="Indeterminate preparing state">
+        <div style={{ width: '100%' }}>
+          <PredictiveProgressBar
+            progress={0}
+            status="preparing"
+            showEta={false}
+            showPercent
+            showLabel
+            label="Preparing"
+            allowBackwardProgress={false}
+          />
+        </div>
+      </SpecimenCard>
+      <SpecimenCard label="Running — 45% with ETA" caption="Live render in progress">
+        <div style={{ width: '100%' }}>
+          <PredictiveProgressBar
+            progress={0.45}
+            status="running"
+            showEta
+            showPercent
+            showLabel
+            label="Rendering chapter audio"
+            etaSeconds={62}
+            updatedAt={Date.now()}
+            allowBackwardProgress={false}
+          />
+        </div>
+      </SpecimenCard>
+      <SpecimenCard label="Done — 100%" caption="Terminal success state">
+        <div style={{ width: '100%' }}>
+          <PredictiveProgressBar
+            progress={1}
+            status="done"
+            showEta={false}
+            showPercent
+            showLabel
+            label="Complete"
+            allowBackwardProgress={false}
+          />
+        </div>
+      </SpecimenCard>
+    </div>
+  </SubSection>
+);
+
+const ComponentsSection: React.FC = () => (
+  <SectionWrapper id={SECTION_IDS.components} title={SECTION_LABELS.components}>
+    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
+      Live-mounted real components in static-prop states. Skipped (require heavy store context):
+      StatusOrb (depends on Chapter + Job types), NarratorCard (VoicesPage store), full Queue Drawer.
+    </p>
+    <ButtonSpecimens />
+    <InputSpecimens />
+    <ProgressSpecimens />
+  </SectionWrapper>
+);
+
+// ---------------------------------------------------------------------------
+// Section 4: Proposed directions
+// ---------------------------------------------------------------------------
+
+/** Thumbnail-scale layout mockup helper */
+const LayoutThumb: React.FC<{
+  label: string;
+  children: React.ReactNode;
+  caption?: string;
+}> = ({ label, children, caption }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div
+      style={{
+        width: 280,
+        height: 200,
+        border: '1px solid var(--border)',
+        borderRadius: 8,
+        overflow: 'hidden',
+        background: 'var(--bg)',
+        flexShrink: 0,
+        position: 'relative',
+      }}
+    >
+      {children}
+    </div>
+    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{label}</div>
+    {caption && (
+      <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', maxWidth: 280 }}>{caption}</div>
+    )}
+  </div>
+);
+
+/** U15 — Navigation mockup */
+const U15Mock: React.FC = () => (
+  <Card>
+    <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+      U15 — Navigation &amp; Information Architecture
+      <ProposedChip />
+      <OwnerDecisionChip />
+    </h3>
+    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
+      The current top-bar nav puts all destinations at the same visual weight, creating
+      competing attention across Library, Voices, Queue, Settings, and System. The proposed
+      grouped left-rail separates "Create" workflows (Library, Voices, Queue) from "Manage"
+      (Settings, System), giving each screen one obvious purpose. Decisions here shape where
+      U1–U14 controls live, so this runs first in Stage 5.
+    </p>
+    <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+      <LayoutThumb
+        label="(A) Current — top-bar nav"
+        caption="All destinations at equal weight; no grouping by purpose"
+      >
+        {/* Top bar */}
+        <div style={{ height: 36, background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 10px', gap: 8 }}>
+          <div style={{ width: 70, height: 12, background: 'var(--accent)', borderRadius: 4, opacity: 0.8 }} />
+          <div style={{ flex: 1 }} />
+          {['Library', 'Voices', 'Queue', '⚙'].map(label => (
+            <div key={label} style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', padding: '2px 6px', borderRadius: 4, background: 'var(--surface-alt)' }}>
+              {label}
+            </div>
+          ))}
+        </div>
+        {/* Content */}
+        <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {[1,2,3].map(i => (
+            <div key={i} style={{ height: 30, background: 'var(--surface-alt)', borderRadius: 6, border: '1px solid var(--border)' }} />
+          ))}
+        </div>
+      </LayoutThumb>
+
+      <LayoutThumb
+        label="(B) Proposed — grouped left-rail"
+        caption="CREATE: Library, Voices, Queue | MANAGE: Settings, System"
+      >
+        {/* Top bar slim */}
+        <div style={{ height: 28, background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 10px' }}>
+          <div style={{ width: 60, height: 10, background: 'var(--accent)', borderRadius: 4, opacity: 0.8 }} />
+        </div>
+        <div style={{ display: 'flex', height: 'calc(100% - 28px)' }}>
+          {/* Left rail */}
+          <div style={{ width: 80, background: 'var(--surface)', borderRight: '1px solid var(--border)', padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ fontSize: '0.5rem', color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Create</div>
+            {['Library', 'Voices', 'Queue'].map((item, i) => (
+              <div key={item} style={{ fontSize: '0.55rem', padding: '3px 6px', borderRadius: 4, background: i === 0 ? 'var(--accent-tint-bg)' : 'transparent', color: i === 0 ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: i === 0 ? 600 : 400 }}>
+                {item}
+              </div>
+            ))}
+            <div style={{ flex: 1 }} />
+            <div style={{ fontSize: '0.5rem', color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Manage</div>
+            {['Settings', 'System'].map(item => (
+              <div key={item} style={{ fontSize: '0.55rem', padding: '3px 6px', borderRadius: 4, color: 'var(--text-muted)' }}>
+                {item}
+              </div>
+            ))}
+          </div>
+          {/* Content */}
+          <div style={{ flex: 1, padding: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {[1,2,3].map(i => (
+              <div key={i} style={{ height: 26, background: 'var(--surface-alt)', borderRadius: 5, border: '1px solid var(--border)' }} />
+            ))}
+          </div>
+        </div>
+      </LayoutThumb>
+    </div>
+    <div style={{ marginTop: 12, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+      <strong>Tradeoffs:</strong> Left-rail requires ~80px horizontal space and changes muscle memory.
+      Top-bar is familiar but cannot express hierarchy. Decision needed before any Stage 5 visual work.
+    </div>
+  </Card>
+);
+
+/** U16 — Unified player mockup */
+const U16Mock: React.FC = () => (
+  <Card>
+    <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+      U16 — Unified Audio Player Surface
+      <ProposedChip />
+      <OwnerDecisionChip />
+    </h3>
+    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
+      Today the Chapter Editor has a VCR-style segment player and a separate chapter-level player —
+      two separate surfaces that compete for space. The proposed design merges them into one persistent
+      bottom player with a scope toggle (Segment ↔ Chapter). Depends on U15's layout conclusions.
+    </p>
+    {/* Player mock */}
+    <div
+      style={{
+        border: '1px solid var(--border)',
+        borderRadius: 10,
+        background: 'var(--surface)',
+        padding: '12px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        maxWidth: 560,
+      }}
+    >
+      {/* Scope toggle */}
+      <div style={{ display: 'flex', gap: 4, alignSelf: 'center' }}>
+        {['Segment', 'Chapter'].map((label, i) => (
+          <div
+            key={label}
+            style={{
+              padding: '4px 14px',
+              borderRadius: 999,
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              background: i === 0 ? 'var(--accent)' : 'var(--surface-alt)',
+              color: i === 0 ? '#fff' : 'var(--text-secondary)',
+              border: '1px solid',
+              borderColor: i === 0 ? 'var(--accent)' : 'var(--border)',
+              cursor: 'pointer',
+            }}
+          >
+            {label}
+          </div>
+        ))}
+      </div>
+      {/* Label */}
+      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+        Segment 3 / Chapter 2 · &quot;The Awakening&quot;
+      </div>
+      {/* Scrubber */}
+      <div style={{ position: 'relative', height: 4, background: 'var(--border)', borderRadius: 99 }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: '38%', background: 'var(--accent)', borderRadius: 99 }} />
+        <div style={{ position: 'absolute', left: '38%', top: '50%', transform: 'translate(-50%, -50%)', width: 12, height: 12, background: 'var(--accent)', borderRadius: '50%', boxShadow: '0 0 0 3px var(--accent-tint-bg)' }} />
+      </div>
+      {/* Time */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+        <span>0:14</span>
+        <span>0:38</span>
+      </div>
+      {/* Transport */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'center' }}>
+        {['⏮', '⏪', '▶', '⏩', '⏭'].map(icon => (
+          <div
+            key={icon}
+            style={{
+              width: 36,
+              height: 36,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '50%',
+              background: icon === '▶' ? 'var(--accent)' : 'var(--surface-alt)',
+              color: icon === '▶' ? '#fff' : 'var(--text-secondary)',
+              fontSize: icon === '▶' ? '1rem' : '0.875rem',
+              cursor: 'pointer',
+              border: '1px solid var(--border)',
+            }}
+          >
+            {icon}
+          </div>
+        ))}
+      </div>
+    </div>
+    <div style={{ marginTop: 12, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+      Replaces competing VCR segment transport + chapter player. Scope toggle swaps loaded audio.
+      Chapter scope shows chapter-level ETA when no rendered audio yet.
+    </div>
+  </Card>
+);
+
+/** U8 — Voice card progressive disclosure */
+const U8Mock: React.FC = () => {
+  const phases = [
+    { phase: 'empty', cta: 'Add Samples', ctaStyle: { background: 'var(--surface-alt)', color: 'var(--text-secondary)', border: '1px dashed var(--border)' } },
+    { phase: 'has-samples', cta: 'Build Voice', ctaStyle: { background: 'var(--accent)', color: '#fff', border: 'none' } },
+    { phase: 'built', cta: 'Test Voice', ctaStyle: { background: 'var(--success)', color: '#fff', border: 'none' } },
+    { phase: 'tested', cta: 'Use in Project', ctaStyle: { background: 'var(--accent)', color: '#fff', border: 'none' } },
+  ];
+  return (
+    <Card>
+      <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+        U8 — Voice Card Progressive Disclosure
+        <ProposedChip />
+        <OwnerDecisionChip />
+      </h3>
+      <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
+        Today each voice card shows 7–8 peer-level actions. The proposal derives a <code>voicePhase</code> from
+        the voice's actual state and shows exactly one primary CTA for that phase, demoting other actions to
+        an overflow (⋯) menu. This eliminates choice overload and surfaces the right next step.
+      </p>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        {phases.map(({ phase, cta, ctaStyle }) => (
+          <div
+            key={phase}
+            style={{
+              width: 160,
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              background: 'var(--surface)',
+              padding: 12,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
+            {/* Voice avatar placeholder */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-tint-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>
+                🎙
+              </div>
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>Studio Voice</div>
+                <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{phase}</div>
+              </div>
+              {/* Overflow */}
+              <div style={{ marginLeft: 'auto', fontSize: '1rem', color: 'var(--text-muted)', cursor: 'pointer' }}>⋯</div>
+            </div>
+            {/* Phase CTA */}
+            <button
+              type="button"
+              style={{
+                borderRadius: 8,
+                padding: '5px 10px',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                width: '100%',
+                ...ctaStyle,
+              }}
+            >
+              {cta}
+            </button>
+            <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+              ~{phase === 'empty' ? '6' : phase === 'has-samples' ? '5' : '4'} actions hidden in ⋯
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+};
+
+/** U1 — Undo toast vs confirm modal */
+const U1Mock: React.FC = () => (
+  <Card>
+    <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+      U1 — Undo Toast (replace most ConfirmModals)
+      <ProposedChip />
+      <OwnerDecisionChip />
+    </h3>
+    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
+      <code>ConfirmModal</code> is invoked from ~14 sites and defaults <code>isDestructive=true</code>,
+      blocking the user with a modal for low-stakes reversible operations. The proposed rule: non-project
+      deletes (chapter, sample, voice reset, chapter-audio reset) → immediate action + 5 s undo toast.
+      Keep modal only for project delete and bulk audio reset.
+    </p>
+    <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      {/* Undo toast mock */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--success)', marginBottom: 2 }}>
+          PROPOSED — non-destructive ops
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            padding: '10px 16px',
+            boxShadow: 'var(--shadow-md)',
+            minWidth: 280,
+          }}
+        >
+          <span style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+            Chapter deleted
+          </span>
+          <div style={{ flex: 1 }} />
+          <button type="button" style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 8px', borderRadius: 6, textDecoration: 'underline' }}>
+            Undo
+          </button>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(5 s)</span>
+        </div>
+        {/* Progress sliver */}
+        <div style={{ height: 3, background: 'var(--border)', borderRadius: 99 }}>
+          <div style={{ width: '60%', height: '100%', background: 'var(--accent)', borderRadius: 99, transition: 'width 0.2s linear' }} />
+        </div>
+      </div>
+
+      {/* Struck-through modal mock */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, opacity: 0.55 }}>
+        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--error)', marginBottom: 2, textDecoration: 'line-through' }}>
+          REPLACED — non-destructive confirm modal
+        </div>
+        <div
+          style={{
+            border: '1px solid var(--error-tint-border)',
+            borderRadius: 10,
+            background: 'var(--surface)',
+            padding: '12px 16px',
+            minWidth: 240,
+            boxShadow: 'var(--shadow-md)',
+            textDecoration: 'line-through',
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 8, color: 'var(--text-primary)' }}>Delete chapter?</div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 12 }}>This cannot be undone.</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ flex: 1, padding: '5px', textAlign: 'center', background: 'var(--surface-alt)', borderRadius: 6, fontSize: '0.75rem', color: 'var(--text-muted)' }}>Cancel</div>
+            <div style={{ flex: 1, padding: '5px', textAlign: 'center', background: 'var(--error)', borderRadius: 6, fontSize: '0.75rem', color: '#fff' }}>Delete</div>
+          </div>
+        </div>
+        <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', maxWidth: 240 }}>
+          Modal kept only for: project delete, bulk audio reset.
+        </div>
+      </div>
+    </div>
+  </Card>
+);
+
+/** U3 cross-link */
+const U3Crosslink: React.FC = () => (
+  <Card>
+    <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+      U3 — Semantic Type Scale
+      <ProposedChip />
+    </h3>
+    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', lineHeight: 1.6 }}>
+      The full type-scale mockup (live specimens, spacing, and duration tokens) lives in Section 2.
+    </p>
+    <a
+      href={`#${SECTION_IDS.typography}`}
+      style={{
+        display: 'inline-block',
+        padding: '6px 14px',
+        background: 'var(--accent-tint-bg)',
+        color: 'var(--accent)',
+        border: '1px solid var(--accent-tint-border)',
+        borderRadius: 8,
+        fontSize: '0.875rem',
+        fontWeight: 600,
+        textDecoration: 'none',
+      }}
+    >
+      Go to Section 2 — Typography
+    </a>
+  </Card>
+);
+
+const ProposalsSection: React.FC = () => (
+  <SectionWrapper id={SECTION_IDS.proposals} title={SECTION_LABELS.proposals}>
+    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.25rem', lineHeight: 1.6 }}>
+      Static token-styled mockups for proposals from doc 10 UX Improvements. Each shows a rationale
+      and a visual mock. <strong>No production code has been changed</strong> to build these — approve
+      by reading, then implement in the separate phase.
+    </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <U15Mock />
+      <U16Mock />
+      <U8Mock />
+      <U1Mock />
+      <U3Crosslink />
+    </div>
+  </SectionWrapper>
+);
+
+// ---------------------------------------------------------------------------
+// Section 5: Theme side-by-side
+// ---------------------------------------------------------------------------
+
+const CompositeSpecimen: React.FC = () => (
+  <div
+    style={{
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 'var(--radius-card, 12px)',
+      padding: '1.25rem',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 12,
+      width: 280,
+    }}
+  >
+    <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
+      Chapter 2 — The Awakening
+    </div>
+    <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+      The morning light filtered through the blinds, casting pale stripes across the wooden floor.
+    </div>
+    <GlassInput placeholder="Search within chapter…" />
+    <div>
+      <PredictiveProgressBar
+        progress={0.62}
+        status="running"
+        showEta
+        showPercent
+        showLabel
+        label="Rendering"
+        etaSeconds={28}
+        updatedAt={Date.now()}
+        allowBackwardProgress={false}
+      />
+    </div>
+    <div style={{ display: 'flex', gap: 8 }}>
+      <button className="btn-primary" type="button" style={{ fontSize: '0.8rem', flex: 1 }}>Queue</button>
+      <button className="btn-ghost" type="button" style={{ fontSize: '0.8rem', flex: 1 }}>Export</button>
+    </div>
+  </div>
+);
+
+const ThemeSection: React.FC = () => (
+  <SectionWrapper id={SECTION_IDS.theme} title={SECTION_LABELS.theme}>
+    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
+      The same composite specimen rendered in both themes simultaneously — so any future token edit
+      can be reviewed in both contexts on one screen.
+    </p>
+    <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+      <div>
+        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+          Light
+        </div>
+        <div data-theme="light" style={{ background: '#f8fafc', padding: 16, borderRadius: 12, border: '1px solid #e6eaf2' }}>
+          <CompositeSpecimen />
+        </div>
+      </div>
+      <div>
+        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+          Dark
+        </div>
+        <div data-theme="dark" style={{ background: '#0f1117', padding: 16, borderRadius: 12, border: '1px solid #2d3148' }}>
+          <CompositeSpecimen />
+        </div>
+      </div>
+    </div>
+  </SectionWrapper>
+);
+
+// ---------------------------------------------------------------------------
+// Sticky section nav
+// ---------------------------------------------------------------------------
+
+const SectionNav: React.FC = () => (
+  <nav
+    aria-label="Styleguide sections"
+    style={{
+      position: 'sticky',
+      top: 0,
+      zIndex: 50,
+      background: 'var(--surface)',
+      borderBottom: '1px solid var(--border)',
+      padding: '0 24px',
+      display: 'flex',
+      gap: 4,
+      overflowX: 'auto',
+    }}
+  >
+    {(Object.keys(SECTION_IDS) as (keyof typeof SECTION_IDS)[]).map(key => (
+      <a
+        key={key}
+        href={`#${SECTION_IDS[key]}`}
+        style={{
+          display: 'block',
+          padding: '10px 12px',
+          fontSize: '0.8rem',
+          fontWeight: 600,
+          color: 'var(--text-secondary)',
+          textDecoration: 'none',
+          whiteSpace: 'nowrap',
+          borderBottom: '2px solid transparent',
+          transition: 'color 0.15s, border-color 0.15s',
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLAnchorElement).style.color = 'var(--accent)';
+          (e.currentTarget as HTMLAnchorElement).style.borderBottomColor = 'var(--accent)';
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLAnchorElement).style.color = 'var(--text-secondary)';
+          (e.currentTarget as HTMLAnchorElement).style.borderBottomColor = 'transparent';
+        }}
+      >
+        {SECTION_LABELS[key]}
+      </a>
+    ))}
+  </nav>
+);
+
+// ---------------------------------------------------------------------------
+// Root page
+// ---------------------------------------------------------------------------
+
+export const StyleguidePage: React.FC = () => {
+  const entries = useMemo(() => parseTokens(tokensCss), []);
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+      <SectionNav />
+      <div
+        style={{
+          maxWidth: 960,
+          margin: '0 auto',
+          padding: '2rem 24px',
+        }}
+      >
+        <div style={{ marginBottom: '2rem' }}>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
+            Design Spec Sheet
+          </h1>
+          <p style={{ fontSize: '0.9375rem', color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 680 }}>
+            Auto-generated token registry, live component specimens, and static mockups of proposed
+            design directions from doc 10 (UX Improvements). Intended to make theming and redesign
+            decisions cheap to evaluate — no production code changes needed to read and approve.
+          </p>
+        </div>
+
+        <ColorTokensSection entries={entries} />
+        <TypographySection />
+        <ComponentsSection />
+        <ProposalsSection />
+        <ThemeSection />
+      </div>
+    </div>
+  );
+};

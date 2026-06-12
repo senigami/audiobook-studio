@@ -20,6 +20,7 @@ REST reads come from a static fixture implementation — no network calls are ma
 | Live Event Stream stage | https://senigami.github.io/audiobook-studio/demo/#/stage/live-output |
 | Queue stage | https://senigami.github.io/audiobook-studio/demo/#/stage/queue |
 | Progress stage | https://senigami.github.io/audiobook-studio/demo/#/stage/progress |
+| Design Spec Sheet (styleguide) | https://senigami.github.io/audiobook-studio/demo/#/styleguide |
 
 ## Deep-linking to a stage
 
