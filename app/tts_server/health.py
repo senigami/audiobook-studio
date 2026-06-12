@@ -200,6 +200,11 @@ def build_engine_detail(
     if not schema and getattr(plugin, "settings_schema", None):
         schema = plugin.settings_schema
 
+    # Inject sanitize_overrides into the schema for engines that declare
+    # sanitize_categories.  This is the single injection chokepoint — plugin
+    # settings_schema.json files are NOT hand-edited.
+    schema = _inject_sanitize_overrides_schema(schema, manifest)
+
     enabled = bool(current_settings.get("enabled"))
     setup_message = getattr(plugin, "setup_message", None)
     if status == STATUS_INVALID_CONFIG:
@@ -239,6 +244,71 @@ def build_engine_detail(
         "logo_url": _resolve_logo_url(plugin),
         "built_in": manifest.get("built_in", False),
     }
+
+
+_SANITIZE_CATEGORY_DESCRIPTIONS: dict[str, str] = {
+    "quotes": "Convert curly/smart quotes to straight quotes and strip double quotes.",
+    "acronyms": "Collapse dotted acronyms (e.g. A.B.C. -> A B C) to prevent TTS mis-pronunciation.",
+    "fractions": "Expand digit fractions (e.g. 3/4 -> 3 out of 4).",
+    "dashes": "Replace em-dashes with commas and ellipses with periods.",
+    "punct_spacing": "Fix punctuation spacing artifacts and collapse duplicate punctuation.",
+    "ascii": "Strip non-ASCII characters that can cause TTS hallucinations.",
+    "terminal": "Ensure text ends with terminal punctuation.",
+}
+
+_SANITIZE_CATEGORY_TITLES: dict[str, str] = {
+    "quotes": "Normalize Quotes",
+    "acronyms": "Expand Acronyms",
+    "fractions": "Expand Fractions",
+    "dashes": "Normalize Dashes & Ellipses",
+    "punct_spacing": "Fix Punctuation Spacing",
+    "ascii": "Strip Non-ASCII Characters",
+    "terminal": "Ensure Terminal Punctuation",
+}
+
+
+def _inject_sanitize_overrides_schema(schema: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of *schema* with a ``sanitize_overrides`` object property injected.
+
+    The injection only happens when the engine's manifest declares
+    ``behavior.sanitize_categories``.  Each declared category becomes a boolean
+    sub-property (default ``true``).  The schema is never mutated in place.
+
+    Non-declaring engines are returned unchanged.
+    """
+    behavior = manifest.get("behavior") or {}
+    declared = behavior.get("sanitize_categories")
+    if not declared or not isinstance(declared, list):
+        return schema
+
+    sub_props: dict[str, Any] = {}
+    for cat in declared:
+        cat_str = str(cat)
+        sub_props[cat_str] = {
+            "type": "boolean",
+            "title": _SANITIZE_CATEGORY_TITLES.get(cat_str, cat_str.replace("_", " ").title()),
+            "description": _SANITIZE_CATEGORY_DESCRIPTIONS.get(cat_str, ""),
+            "default": True,
+        }
+
+    overrides_prop: dict[str, Any] = {
+        "type": "object",
+        "title": "Text Sanitization Overrides",
+        "description": (
+            "Enable or disable individual text sanitization categories for this engine. "
+            "Disabled categories are skipped; all categories are enabled by default."
+        ),
+        "properties": sub_props,
+        "default": {},
+    }
+
+    # Deep-copy schema to avoid mutating the original.
+    import copy
+    schema_copy = copy.deepcopy(schema) if schema else {}
+    if not isinstance(schema_copy.get("properties"), dict):
+        schema_copy["properties"] = {}
+    schema_copy["properties"]["sanitize_overrides"] = overrides_prop
+    return schema_copy
 
 
 def _resolve_logo_url(plugin: "LoadedPlugin") -> str | None:

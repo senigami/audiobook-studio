@@ -307,3 +307,49 @@ class TestSettingsAwareReadiness:
 
         assert response["ok"] is True
         assert plugin.setup_message is None
+
+
+class TestSanitizeOverridesSchemaInjection:
+    """_inject_sanitize_overrides_schema injects sanitize_overrides into the
+    schema for declaring engines and leaves non-declaring engines unchanged."""
+
+    def _plugin_with_categories(self, categories):
+        plugin = _MockPlugin(engine_id="testeng")
+        plugin.manifest = {"behavior": {"sanitize_categories": categories}}
+        return plugin
+
+    def test_declaring_engine_gains_sanitize_overrides_property(self):
+        plugin = self._plugin_with_categories(["quotes", "dashes", "ascii"])
+        detail = build_engine_detail(plugin, {})
+        schema = detail["settings_schema"]
+        assert "sanitize_overrides" in schema["properties"]
+
+    def test_injected_property_contains_exactly_declared_categories(self):
+        declared = ["quotes", "dashes", "ascii"]
+        plugin = self._plugin_with_categories(declared)
+        detail = build_engine_detail(plugin, {})
+        overrides_prop = detail["settings_schema"]["properties"]["sanitize_overrides"]
+        assert overrides_prop["type"] == "object"
+        assert set(overrides_prop["properties"].keys()) == set(declared)
+
+    def test_each_injected_sub_property_is_boolean_default_true(self):
+        plugin = self._plugin_with_categories(["quotes", "terminal"])
+        detail = build_engine_detail(plugin, {})
+        sub_props = detail["settings_schema"]["properties"]["sanitize_overrides"]["properties"]
+        for cat in ("quotes", "terminal"):
+            assert sub_props[cat]["type"] == "boolean"
+            assert sub_props[cat]["default"] is True
+
+    def test_non_declaring_engine_schema_unchanged(self):
+        plugin = _MockPlugin(engine_id="plain")
+        plugin.manifest = {"behavior": {}}  # no sanitize_categories
+        detail = build_engine_detail(plugin, {})
+        assert "sanitize_overrides" not in (detail["settings_schema"].get("properties") or {})
+
+    def test_injection_does_not_mutate_original_schema(self):
+        from app.tts_server.health import _inject_sanitize_overrides_schema
+        original_schema = {"type": "object", "properties": {"speed": {"type": "number"}}}
+        manifest = {"behavior": {"sanitize_categories": ["quotes"]}}
+        result = _inject_sanitize_overrides_schema(original_schema, manifest)
+        assert "sanitize_overrides" not in original_schema.get("properties", {})
+        assert "sanitize_overrides" in result["properties"]

@@ -128,4 +128,65 @@ describe('JsonSchemaForm', () => {
     expect(screen.getByText('Not yet computed')).toBeInTheDocument();
     expect(screen.queryByText(/characters\/sec/)).not.toBeInTheDocument();
   });
+
+  describe('nested boolean-object property (sanitize_overrides)', () => {
+    const sanitizeSchema = {
+      properties: {
+        sanitize_overrides: {
+          type: 'object',
+          title: 'Text Sanitization Overrides',
+          description: 'Enable or disable individual text sanitization categories.',
+          properties: {
+            quotes: { type: 'boolean', title: 'Normalize Quotes', default: true },
+            dashes: { type: 'boolean', title: 'Normalize Dashes & Ellipses', default: true },
+          },
+          default: {},
+        },
+      },
+    };
+
+    it('renders the group title and sub-category toggles', () => {
+      render(
+        <JsonSchemaForm
+          schema={sanitizeSchema}
+          values={{}}
+          onSave={vi.fn()}
+          busy={false}
+          engineVerified={true}
+        />,
+      );
+
+      expect(screen.getByText('Text Sanitization Overrides')).toBeInTheDocument();
+      expect(screen.getByText('Normalize Quotes')).toBeInTheDocument();
+      expect(screen.getByText('Normalize Dashes & Ellipses')).toBeInTheDocument();
+    });
+
+    it('calls onSave with the nested overrides object when a sub-toggle is clicked', async () => {
+      const onSave = vi.fn();
+
+      render(
+        <JsonSchemaForm
+          schema={sanitizeSchema}
+          values={{ sanitize_overrides: { quotes: true, dashes: true } }}
+          onSave={onSave}
+          busy={false}
+          engineVerified={true}
+        />,
+      );
+
+      // Click the "Normalize Quotes" toggle button (first ToggleButton rendered)
+      const toggleButtons = screen.getAllByRole('button');
+      fireEvent.click(toggleButtons[0]);
+
+      // The Save Settings button should now appear (values changed)
+      const saveBtn = await screen.findByRole('button', { name: /save settings/i });
+      fireEvent.click(saveBtn);
+
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sanitize_overrides: expect.objectContaining({ quotes: false }),
+        }),
+      );
+    });
+  });
 });

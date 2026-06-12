@@ -75,6 +75,65 @@ export const JsonSchemaForm: React.FC<{
             const propUi = prop?.['x-ui'] || {};
             const isReadOnly = !!prop.readOnly;
             const isLocked = (!!propUi.requires_verification && !engineVerified) || isReadOnly;
+
+            // Render nested boolean-object properties (e.g. sanitize_overrides) as
+            // a grouped toggle section.
+            if (prop.type === 'object' && prop.properties && !isReadOnly) {
+              const subProps: Record<string, any> = prop.properties;
+              const subValues: Record<string, any> = (localValues[key] && typeof localValues[key] === 'object')
+                ? localValues[key]
+                : {};
+              const handleSubChange = (subKey: string, value: boolean) => {
+                const current = (localValues[key] && typeof localValues[key] === 'object') ? { ...localValues[key] } : {};
+                handleChange(key, { ...current, [subKey]: value });
+              };
+              return (
+                <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  <label style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                    {prop.title || key}
+                  </label>
+                  {prop.description && (
+                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                      {prop.description}
+                    </p>
+                  )}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem',
+                    padding: '0.75rem',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-dim)',
+                  }}>
+                    {Object.entries(subProps).map(([subKey, subProp]: [string, any]) => {
+                      const subValue = subValues[subKey] ?? subProp.default ?? true;
+                      return (
+                        <div key={subKey} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <ToggleButton
+                              enabled={!!subValue}
+                              busy={false}
+                              disabled={false}
+                              onClick={() => handleSubChange(subKey, !subValue)}
+                            />
+                            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                              {subProp.title || subKey}
+                            </span>
+                          </div>
+                          {subProp.description && (
+                            <p style={{ margin: '0 0 0 2.5rem', fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                              {subProp.description}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            }
+
             return (
           <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
