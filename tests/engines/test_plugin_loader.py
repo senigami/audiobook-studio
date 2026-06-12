@@ -71,8 +71,13 @@ def _make_plugin_dir(
 
 
 def _minimal_manifest(engine_id="mock", entry_class="engine:MockEngine", cloud=False, network=False):
+    # All four version fields are required (S8 gate flip — missing → PluginLoadError).
     return {
         "studio_tts_manifest": "1.0",
+        "contract_version": "1.0",
+        "sdk_version": "1.0",
+        "settings_schema_version": "1.0",
+        "event_envelope_version": "1.0",
         "engine_id": engine_id,
         "display_name": "Mock Engine",
         "entry_class": entry_class,
@@ -237,6 +242,10 @@ class Engine:
 """)
         (plugins_dir / "tts_dotted" / "manifest.json").write_text(json.dumps({
             "studio_tts_manifest": "1.0",
+            "contract_version": "1.0",
+            "sdk_version": "1.0",
+            "settings_schema_version": "1.0",
+            "event_envelope_version": "1.0",
             "engine_id": "dotted",
             "display_name": "Dotted Engine",
             "entry_class": "pkg.mod:Engine",
@@ -279,6 +288,10 @@ class Engine:
             json.dumps(
                 {
                     "studio_tts_manifest": "1.0",
+                    "contract_version": "1.0",
+                    "sdk_version": "1.0",
+                    "settings_schema_version": "1.0",
+                    "event_envelope_version": "1.0",
                     "engine_id": "iface",
                     "display_name": "Interface Engine",
                     "entry_class": "interface:InterfaceEngine",
@@ -329,6 +342,10 @@ class Engine:
             json.dumps(
                 {
                     "studio_tts_manifest": "1.0",
+                    "contract_version": "1.0",
+                    "sdk_version": "1.0",
+                    "settings_schema_version": "1.0",
+                    "event_envelope_version": "1.0",
                     "engine_id": "nested",
                     "display_name": "Nested Engine",
                     "entry_class": "plugin.server.engine:NestedEngine",
@@ -425,6 +442,10 @@ class TestPipDiscovery:
         (plugins_dir / "tts_folder").mkdir()
         (plugins_dir / "tts_folder" / "manifest.json").write_text(json.dumps({
             "studio_tts_manifest": "1.0",
+            "contract_version": "1.0",
+            "sdk_version": "1.0",
+            "settings_schema_version": "1.0",
+            "event_envelope_version": "1.0",
             "engine_id": "folderengine",
             "display_name": "Folder Engine",
             "entry_class": "engine:Engine",
@@ -448,6 +469,10 @@ class Engine:
         mock_dist = MagicMock()
         mock_dist.read_text.return_value = json.dumps({
             "studio_tts_manifest": "1.0",
+            "contract_version": "1.0",
+            "sdk_version": "1.0",
+            "settings_schema_version": "1.0",
+            "event_envelope_version": "1.0",
             "engine_id": "pipengine",
             "display_name": "Pip Engine",
             "entry_class": "pip_package.module:Engine",
@@ -489,6 +514,10 @@ class Engine:
         (plugins_dir / "tts_clash").mkdir()
         (plugins_dir / "tts_clash" / "manifest.json").write_text(json.dumps({
             "studio_tts_manifest": "1.0",
+            "contract_version": "1.0",
+            "sdk_version": "1.0",
+            "settings_schema_version": "1.0",
+            "event_envelope_version": "1.0",
             "engine_id": "clash",
             "display_name": "Folder Clash",
             "entry_class": "engine:Engine",

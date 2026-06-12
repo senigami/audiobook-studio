@@ -193,6 +193,10 @@ def test_manifest_validation_unknown_category_raises():
 
     manifest = {
         "studio_tts_manifest": "1.0",
+        "contract_version": "1.0",
+        "sdk_version": "1.0",
+        "settings_schema_version": "1.0",
+        "event_envelope_version": "1.0",
         "engine_id": "testengine",
         "display_name": "Test",
         "entry_class": "interface:TestEngine",
@@ -211,6 +215,10 @@ def test_manifest_validation_known_categories_accepted():
 
     manifest = {
         "studio_tts_manifest": "1.0",
+        "contract_version": "1.0",
+        "sdk_version": "1.0",
+        "settings_schema_version": "1.0",
+        "event_envelope_version": "1.0",
         "engine_id": "testengine",
         "display_name": "Test",
         "entry_class": "interface:TestEngine",
@@ -229,6 +237,10 @@ def test_manifest_validation_absent_sanitize_categories_accepted():
 
     manifest = {
         "studio_tts_manifest": "1.0",
+        "contract_version": "1.0",
+        "sdk_version": "1.0",
+        "settings_schema_version": "1.0",
+        "event_envelope_version": "1.0",
         "engine_id": "testengine",
         "display_name": "Test",
         "entry_class": "interface:TestEngine",

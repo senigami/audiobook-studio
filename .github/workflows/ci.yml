@@ -11,6 +11,21 @@ permissions:
   contents: read
 
 jobs:
+  # 0. Plugin manifest validation — fast, no heavy deps, runs on every event.
+  validate-plugin-manifests:
+    name: Validate plugin manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate bundled plugin manifests
+        run: python scripts/validate_plugin_manifests.py
+
   # 1. The "Quick" check - only for local/pushes, NOT PRs
   backend-quick:
     name: Backend (Quick)

@@ -130,3 +130,85 @@ class TestASTGateForbidden:
         violations = check_studio_handler_imports(plugin_dir)
         assert len(violations) == 1
         assert "app.db.state" in violations[0]
+
+
+# ---------------------------------------------------------------------------
+# AST gate: module_level_only mode (S8 load-time enforcement)
+# ---------------------------------------------------------------------------
+
+class TestASTGateModuleLevelOnly:
+    """module_level_only=True skips function-body imports (S4-S6 residue)."""
+
+    def test_function_body_import_tolerated(self, tmp_path: Path):
+        """Function-body app.* import is not flagged in module_level_only mode."""
+        source = (
+            "def handle_job(ctx, job):\n"
+            "    from app.db.state import get_jobs\n"
+            "    return None\n"
+        )
+        plugin_dir = _make_studio_handler(tmp_path, source)
+        violations = check_studio_handler_imports(plugin_dir, module_level_only=True)
+        assert violations == []
+
+    def test_module_level_import_still_flagged(self, tmp_path: Path):
+        """Module-level app.* import IS flagged even in module_level_only mode."""
+        source = (
+            "from app.db.state import get_jobs\n"
+            "\ndef handle_job(ctx, job):\n    return None\n"
+        )
+        plugin_dir = _make_studio_handler(tmp_path, source)
+        violations = check_studio_handler_imports(plugin_dir, module_level_only=True)
+        assert len(violations) == 1
+        assert "app.db.state" in violations[0]
+
+    def test_strict_mode_catches_function_body(self, tmp_path: Path):
+        """Strict mode (module_level_only=False) still catches function-body imports."""
+        source = (
+            "def handle_job(ctx, job):\n"
+            "    from app.db.state import get_jobs\n"
+            "    return None\n"
+        )
+        plugin_dir = _make_studio_handler(tmp_path, source)
+        violations = check_studio_handler_imports(plugin_dir, module_level_only=False)
+        assert len(violations) == 1
+
+
+# ---------------------------------------------------------------------------
+# AST gate: app_adapter.py exclusion
+# ---------------------------------------------------------------------------
+
+class TestASTGateAdapterExclusion:
+    """Files named app_adapter.py and adapter.py are excluded from the gate."""
+
+    def _make_adapter_file(self, tmp_path: Path, filename: str, source: str) -> Path:
+        studio = tmp_path / "plugin" / "studio"
+        studio.mkdir(parents=True, exist_ok=True)
+        (studio / filename).write_text(source, encoding="utf-8")
+        return tmp_path
+
+    def test_app_adapter_module_level_import_skipped(self, tmp_path: Path):
+        """app_adapter.py with module-level app.* import is not flagged."""
+        source = "from app.engines.voice.base import StudioTTSEngine\n"
+        plugin_dir = self._make_adapter_file(tmp_path, "app_adapter.py", source)
+        violations = check_studio_handler_imports(plugin_dir, module_level_only=True)
+        assert violations == []
+
+    def test_adapter_module_level_import_skipped(self, tmp_path: Path):
+        """adapter.py with module-level app.* import is not flagged."""
+        source = "from app.db.models import Job\n"
+        plugin_dir = self._make_adapter_file(tmp_path, "adapter.py", source)
+        violations = check_studio_handler_imports(plugin_dir, module_level_only=True)
+        assert violations == []
+
+    def test_handler_py_alongside_adapter_still_checked(self, tmp_path: Path):
+        """handler.py in same directory is still checked even when adapter.py exists."""
+        studio = tmp_path / "plugin" / "studio"
+        studio.mkdir(parents=True)
+        (studio / "adapter.py").write_text("from app.db.models import Job\n", encoding="utf-8")
+        (studio / "handler.py").write_text(
+            "from app.db.state import get_jobs\n\ndef handle_job(ctx, job):\n    return None\n",
+            encoding="utf-8",
+        )
+        violations = check_studio_handler_imports(tmp_path, module_level_only=True)
+        assert len(violations) == 1
+        assert "handler.py" in violations[0]

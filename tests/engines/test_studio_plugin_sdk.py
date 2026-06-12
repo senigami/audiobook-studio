@@ -338,6 +338,10 @@ class MockEngine(StudioTTSEngine):
 
 _BASE_MANIFEST = {
     "studio_tts_manifest": "1.0",
+    "contract_version": "1.0",
+    "sdk_version": "1.0",
+    "settings_schema_version": "1.0",
+    "event_envelope_version": "1.0",
     "engine_id": "mock",
     "display_name": "Mock",
     "entry_class": "engine:MockEngine",
@@ -348,7 +352,7 @@ _VERSION_FIELDS = ["contract_version", "sdk_version", "settings_schema_version",
 
 
 class TestVersionFieldValidation:
-    """present+wrong → PluginLoadError; missing → warning; present+right → OK."""
+    """present+wrong → PluginLoadError; missing → PluginLoadError (S8 gate flip); present+right → OK."""
 
     @pytest.mark.parametrize("vfield", _VERSION_FIELDS)
     def test_wrong_value_raises_plugin_load_error(self, tmp_path, vfield):
@@ -358,15 +362,13 @@ class TestVersionFieldValidation:
             _validate_manifest(manifest=manifest, folder_name="tts_mock")
 
     @pytest.mark.parametrize("vfield", _VERSION_FIELDS)
-    def test_missing_field_emits_warning_not_error(self, tmp_path, vfield, caplog):
-        from app.tts_server.plugin_loader import _validate_manifest
-        import logging
+    def test_missing_field_raises_plugin_load_error(self, tmp_path, vfield):
+        """S8 gate flip: missing version field is now a hard PluginLoadError."""
+        from app.tts_server.plugin_loader import _validate_manifest, PluginLoadError
         manifest = {**_BASE_MANIFEST}
         manifest.pop(vfield, None)
-        with caplog.at_level(logging.WARNING, logger="app.tts_server.plugin_loader"):
+        with pytest.raises(PluginLoadError, match=vfield):
             _validate_manifest(manifest=manifest, folder_name="tts_mock")
-        assert any(vfield in r.message for r in caplog.records), \
-            f"Expected deprecation warning mentioning {vfield!r}"
 
     @pytest.mark.parametrize("vfield", _VERSION_FIELDS)
     def test_correct_value_accepted_without_error(self, tmp_path, vfield):
