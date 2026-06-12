@@ -14,3 +14,4 @@ mistralai
 # See plugins/tts_xtts/requirements.txt
 beautifulsoup4
 psutil
+jsonschema>=4.0

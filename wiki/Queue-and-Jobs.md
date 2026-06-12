@@ -44,11 +44,13 @@ The system tracks **Characters Per Second (CPS)** and uses it to provide:
 
 ## 🛠️ Job Types
 
-- **XTTS Generation**: Creating audio for a segment.
-- **Voxtral Generation**: Creating preview or render audio through the optional Mistral-backed Voxtral path.
-- **Mixed Generation**: Rendering displayed chunk groups that may contain XTTS or Voxtral sections depending on the assigned voice profiles.
-- **Baking**: Stitching segments into a chapter file.
-- **Assembly**: Creating the final `.m4b` file.
+- **XTTS Generation** (`synthesis`): Creating audio for a segment using the local XTTS engine.
+- **Voxtral Generation** (`synthesis`): Creating preview or render audio through the optional Mistral-backed Voxtral path.
+- **Mixed Generation** (`mixed`): Rendering displayed chunk groups that may contain XTTS or Voxtral sections depending on the assigned voice profiles.
+- **Baking**: Not a separate job type — baking is the `is_bake` flag on a synthesis job. It means the job will stitch completed segments into a chapter WAV when it finishes.
+- **Assembly** (`assembly`): Creating the final `.m4b` file.
+- **Voice Build** (`voice_build`): Building an XTTS speaker profile (latent) from uploaded voice samples. Appears in the queue when you trigger a profile rebuild from the AI Voice Lab.
+- **Voice Test** (`voice_test`): Generating a voice preview clip to audition a profile. Appears in the queue and reports progress on the `voice.test` websocket topic.
 
 ## Chunk-Aware Rendering
 
@@ -60,16 +62,23 @@ The system tracks **Characters Per Second (CPS)** and uses it to provide:
 
 Studio 2.0 uses named websocket topics so plugins, orchestration, and the frontend agree on who owns each piece of live state.
 
-For queue-visible work, the important topics are:
+The full set of stable topics (authoritative spec: `docs/specs/live-events.md`):
 
-- `queue.items`: authoritative queue-row creation, status updates, refresh invalidation, and pause state.
-- `jobs.lifecycle`: job-level lifecycle such as `queued`, `preparing`, `running`, `done`, `failed`, and `cancelled`.
-- `chapters.progress`: chapter-level render progress only.
-- `segments.progress`: segment-level progress only.
-- `voice.test`: voice preview/test progress only.
-- `tts.logs`: diagnostics and live engine log output only.
+| Topic | What it carries |
+|---|---|
+| `jobs.lifecycle` | Job-level lifecycle: `queued`, `preparing`, `running`, `finalizing`, `done`, `failed`, `cancelled`. |
+| `queue.items` | Authoritative queue-row creation, status updates, refresh invalidation, and pause state. This is the sole authority for queue rows; other topics are overlay-only. |
+| `chapters.lifecycle` | Chapter-level create/update/delete events. |
+| `chapters.progress` | Chapter-level render progress only. |
+| `segments.lifecycle` | Segment-level create/update/delete events. |
+| `segments.progress` | Segment-level progress, segment-started, and segment-saved events. |
+| `voice.test` | Voice preview/test progress only. |
+| `tts.logs` | Diagnostics and live engine log output. Queue rows must not infer status from these logs. |
+| `system.events` | System-level events (server health, plugin state changes). |
+| `projects.lifecycle` | Project-level invalidation events. |
+| `plugins.<id>.<area>` | Plugin-defined events; shape is declared by each plugin via `build_plugin_event`. |
 
-The queue lifecycle for any queue-visible render path is:
+The documented-intent ordering for any queue-visible render path is:
 
 1. Create or refresh the queue row as `queued` on `queue.items`.
 2. Emit `JOB_PREPARING` on `jobs.lifecycle`.
@@ -78,6 +87,8 @@ The queue lifecycle for any queue-visible render path is:
 5. Emit a terminal state on `jobs.lifecycle`.
 6. Emit a terminal `queue_item_status` on `queue.items`.
 7. Emit `queue_item_invalidated` only when a snapshot refresh is needed.
+
+In practice the exact ordering may vary slightly; consult `docs/specs/live-events.md` for the authoritative contract.
 
 Voice preview/test jobs follow the same queue visibility rules, but their scoped progress belongs on `voice.test`, not `chapters.progress`. They still need a `jobId` so the frontend can connect the voice-test frame to the visible queue row.
 

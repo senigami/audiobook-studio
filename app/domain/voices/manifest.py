@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,49 @@ def save_voice_manifest(voice_dir: Path, manifest: Dict[str, Any]) -> bool:
     except Exception as e:
         logger.error("Failed to save voice manifest: %s", e)
         return False
+
+
+def load_and_validate_voice_manifest(voice_dir: Path) -> Tuple[Dict[str, Any], bool]:
+    """Load voice.json and apply lenient taxonomy validation (Phase A, A2+A3).
+
+    Performs:
+    - Loads raw manifest from disk via ``load_voice_manifest``.
+    - Checks ``taxonomy_version`` compatibility (warning only; loads regardless).
+    - Validates ``attributes`` against controlled vocabulary; unknown enum values
+      are demoted to ``tags[]`` rather than causing a load failure (taxonomy §5).
+    - Sets ``_untagged`` sentinel (True) when required attributes are absent (D7).
+    - Stores ``_taxonomy_version`` on the returned dict for caller inspection.
+
+    Returns:
+        (manifest_dict, is_untagged)
+    """
+    from .taxonomy import check_taxonomy_version, validate_and_degrade_attributes
+
+    manifest = load_voice_manifest(voice_dir)
+    if not manifest:
+        return manifest, True  # missing file → treat as untagged
+
+    taxonomy_version = manifest.get("taxonomy_version")
+    check_taxonomy_version(taxonomy_version)
+
+    attributes = manifest.get("attributes")
+    tags = list(manifest.get("tags") or [])
+
+    cleaned_attrs, updated_tags, is_untagged = validate_and_degrade_attributes(
+        attributes, tags
+    )
+
+    # Mutate in place — manifest is a fresh dict from json.load
+    if cleaned_attrs is not None:
+        manifest["attributes"] = cleaned_attrs
+    elif "attributes" in manifest:
+        del manifest["attributes"]
+
+    manifest["tags"] = updated_tags
+    manifest["_untagged"] = is_untagged
+    manifest["_taxonomy_version"] = taxonomy_version
+
+    return manifest, is_untagged
 
 
 def get_voice_storage_version(voice_dir: Path) -> int:

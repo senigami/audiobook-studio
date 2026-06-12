@@ -9,12 +9,6 @@ Global configuration for Audiobook Studio. Settings is a full page with its own 
 - **Default Engine** and **Default Voice**: The bottom of the voice cascade. A chapter uses its own voice if set, then the project default, then these.
 - **Developer Mode**: Reveals the Developer tab (links to the internal testing pages: progress-bar harness, event stream, design spec sheet, and the TTS API docs) and enables the debug copy buttons in the chapter toolbar and queue items. Off by default; intended for plugin authors and troubleshooting sessions.
 
-## XTTS and Voxtral
-
-- `XTTS (Local)` remains the default private path.
-- `Voxtral (Cloud)` is optional and stays hidden until you save a Mistral API key and enable it.
-- Turning Voxtral off hides the UI again, but your saved key can remain in Settings for later.
-
 ## TTS Engines
 
 The **TTS Engines** tab is the control center for Studio 2.0 plugins.
@@ -30,6 +24,8 @@ The **TTS Engines** tab is the control center for Studio 2.0 plugins.
 - **Install Dependencies**: If a plugin declares `requirements.txt`, Settings can surface missing dependencies and offer an install action.
 - **Plugin Removal**: User-installed plugins can be uninstalled from the engine card. Built-in plugins are protected by their manifest and cannot be removed from the UI.
 
+Voxtral credentials (Mistral API key, model selection, enable toggle) are engine-level settings. Expand the Voxtral engine card in this tab to configure them. There is no global Voxtral toggle in the General tab.
+
 Plugin-specific runtime settings are stored under Studio-managed plugin data, not inside the plugin source folder.
 
 ### Plugin Trust
@@ -39,6 +35,21 @@ Plugin-specific runtime settings are stored under Studio-managed plugin data, no
 When you import a plugin zip or click **Install Deps**, Studio shows a confirmation dialog listing the engine name, version, and every dependency line before anything is installed. Dependency lines that reference a remote URL (`git+`, `http://`, `https://`) are marked **REMOTE** because they pull and execute code from the internet at install time.
 
 Only install plugins from sources you trust. Plugin signing and a verified-publisher registry are planned for a future Studio release.
+
+## API
+
+The **API** tab documents the built-in TTS gateway that lets other tools send synthesis requests to your Studio instance (`/api/v1/tts`), and links to its interactive Swagger docs. The gateway features below are real and active, but the tab does not yet offer form controls for them; a full configuration page is planned.
+
+How each is configured today:
+
+- **API Key**: callers send `Authorization: Bearer <key>`. The expected key is the `tts_api_key` application setting; when it is empty, authentication is skipped (open access on loopback).
+- **Rate Limiting**: requests are rate-limited per caller by the gateway's built-in limiter.
+- **Queue Priority**: API synthesis jobs are ordered against Studio jobs by the `TTS_API_PRIORITY` environment variable: `studio_first` (default) keeps your own renders ahead of API callers, `equal` interleaves them, `api_first` inverts it. See [[Queue and Jobs]].
+- **Network exposure**: Studio binds to loopback (`127.0.0.1`) by default. To reach it from other machines, launch with a different host binding and set an API key first.
+
+## About
+
+The **About** tab shows the installed Studio version, the TTS server runtime status, and health information for each loaded engine plugin. Use it to confirm the server is running and that engine plugins loaded cleanly after an upgrade or plugin import.
 
 ## Rendering Output
 

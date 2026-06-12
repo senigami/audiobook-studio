@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Docs] - 2026-06-11
+
+### Wiki accuracy pass (W5–W20)
+
+- Settings.md: removed nonexistent global Voxtral settings from General section; corrected Stability Mode name; added API tab, About tab, and Default Engine/Voice sections; added Voxtral pointer under TTS Engines.
+- Troubleshooting-and-FAQ.md: corrected Voxtral enable steps to use TTS Engines tab; replaced nonexistent "Performance tab" reference with Script view.
+- Library-and-Projects.md: added Assemblies and Backups tab sections; documented hold-to-skim, seek slider, and keyboard shortcuts for VCR playback; fixed image caption.
+- Getting-Started.md: reframed demo library restore as automatic on any fresh install, not Pinokio-only.
+- Queue-and-Jobs.md: added voice_build and voice_test job types; clarified baking as a flag; expanded websocket topics table from 6 to all 10 stable topics plus plugin namespace; softened lifecycle ordering to documented-intent.
+- Voices-and-Voice-Profiles.md: added per-voice plugin settings workflow section.
+
 ## [2.0.12] - 2026-06-11
 
 ### Highlights

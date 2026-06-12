@@ -44,6 +44,19 @@ Each **Voice** always has at least one variant (usually the "Default" variant). 
 - **Per-Voice Plugin Settings**: Engines can expose selected settings for individual voices. Common overrides such as speed and model can travel with the voice profile, while plugin-specific controls appear only when the plugin declares them.
 - **Sample Styling Tip**: The first sample tends to anchor the voice most strongly, while later samples add nuance. Mixing clean examples with different delivery styles can help shape a more interesting profile.
 
+## Per-Voice Plugin Settings
+
+Engines can declare per-voice overrides in their plugin manifest. When overrides are declared, the expanded variant card shows a settings group for that engine's per-voice controls (for example, a speed multiplier or a model variant selector).
+
+To configure per-voice settings:
+
+1. Expand the voice card in the AI Voice Lab.
+2. Select the variant you want to adjust.
+3. If the assigned engine declares per-voice overrides, a settings panel appears below the sample list.
+4. Change the values and save. The overrides are stored in Studio-managed plugin data alongside the voice profile and travel with the voice when you export a bundle.
+
+Per-project or per-chapter voice selection does not affect these stored overrides — they are part of the voice profile itself.
+
 ## Engine Per Voice
 
 - XTTS and Voxtral appear together in the same Voices tab.
