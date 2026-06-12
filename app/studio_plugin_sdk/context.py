@@ -470,6 +470,16 @@ class StudioPluginContext:
         from app.engines.audio_ops import get_audio_duration  # noqa: PLC0415
         return get_audio_duration(Path(path))
 
+    def finalize_sample_artifact(self, wav_path: Path) -> Path:
+        """Convert a voice-sample WAV to MP3, delete WAV on success, return the final path.
+
+        On conversion failure the WAV is kept and its path is returned.
+        Wraps ``app.engines.audio_ops.finalize_sample_artifact``.
+        Added in S5 (gap found during tts_voxtral handler migration).
+        """
+        from app.engines.audio_ops import finalize_sample_artifact  # noqa: PLC0415
+        return finalize_sample_artifact(wav_path)
+
     # ------------------------------------------------------------------
     # §3.3.13 Text Preparation
     # ------------------------------------------------------------------

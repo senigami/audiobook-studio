@@ -1,18 +1,67 @@
+from __future__ import annotations
 import time
 import logging
 from pathlib import Path
 
-from app.core.config import get_chapter_dir
-from app.engines.errors import EngineBridgeError
-from app.db.state import update_job
-from app.db.speakers import get_speaker_settings
-from app.jobs.handlers.bridge_helpers import generate_via_bridge
-
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Module-level SDK context factory (lazy singleton)
+# ---------------------------------------------------------------------------
+
+_ctx_instance = None
+
+
+def _get_ctx():
+    """Return the shared StudioPluginContext for the voxtral engine."""
+    global _ctx_instance  # noqa: PLW0603
+    if _ctx_instance is None:
+        try:
+            from studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
+        except ImportError:
+            from app.studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
+        _ctx_instance = StudioPluginContext("voxtral")
+    return _ctx_instance
+
+
+# ---------------------------------------------------------------------------
+# Module-level residue wrappers — kept so existing tests that monkeypatch
+# ``plugins.tts_voxtral.plugin.studio.handler.<name>`` still intercept calls.
+# The real implementations are loaded lazily inside each wrapper.
+# Resolves when S9 test patch targets move to the context.  (S4 residue
+# convention.)
+# ---------------------------------------------------------------------------
+
+def update_job(jid, **kwargs):
+    """Residue wrapper for app.db.state.update_job — patchable by legacy tests."""
+    from app.db.state import update_job as _fn  # noqa: PLC0415
+    return _fn(jid, **kwargs)
+
+
+def get_chapter_dir(project_id, chapter_id):
+    """Residue wrapper for app.core.config.get_chapter_dir — patchable by legacy tests."""
+    from app.core.config import get_chapter_dir as _fn  # noqa: PLC0415
+    return _fn(project_id, chapter_id)
+
+
+def get_speaker_settings(profile_name):
+    """Residue wrapper for app.db.speakers.get_speaker_settings — patchable by legacy tests."""
+    from app.db.speakers import get_speaker_settings as _fn  # noqa: PLC0415
+    return _fn(profile_name)
+
+
+def generate_via_bridge(**kwargs):
+    """Residue wrapper for bridge_helpers.generate_via_bridge — patchable by legacy tests."""
+    from app.jobs.handlers.bridge_helpers import generate_via_bridge as _fn  # noqa: PLC0415
+    return _fn(**kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Private helpers (DB queries — kept as late imports so test patches intercept)
+# ---------------------------------------------------------------------------
 
 def _chapter_text_from_segments(chapter_id: str) -> str:
-    from app.db import get_connection
+    from app.db import get_connection  # noqa: PLC0415
 
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -32,7 +81,7 @@ def _chapter_uses_multiple_profiles(job) -> bool:
     if not job.chapter_id:
         return False
 
-    from app.db import get_connection
+    from app.db import get_connection  # noqa: PLC0415
 
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -62,8 +111,12 @@ def _is_sample_job(j) -> bool:
     )
 
 
+# ---------------------------------------------------------------------------
+# Public handler
+# ---------------------------------------------------------------------------
+
 def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
-    from app.db import get_connection, update_segments_status_bulk
+    ctx = _get_ctx()
 
     if cancel_check():
         update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
@@ -95,12 +148,12 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
     # otherwise ("No Voxtral voice_id or reference sample is available").
     voice_profile_dir = None
     if j.speaker_profile:
-        from app.db.speakers import get_profile_dir as get_voice_profile_dir
         try:
-            voice_profile_dir = get_voice_profile_dir(j.speaker_profile)
+            voice_profile_dir_str = ctx.get_voice_profile_dir(j.speaker_profile)
+            if voice_profile_dir_str is not None:
+                voice_profile_dir = Path(voice_profile_dir_str)
         except ValueError:
-            from app.core.config import VOICES_DIR
-            voice_profile_dir = VOICES_DIR / j.speaker_profile
+            voice_profile_dir = Path(ctx.get_voices_dir()) / j.speaker_profile
 
     if _is_sample_job(j):
         # Voice preview/test: render into the voice profile directory.
@@ -139,6 +192,11 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         return "failed"
 
     try:
+        from app.studio_plugin_sdk.errors import BridgeError  # noqa: PLC0415
+    except ImportError:
+        from app.engines.errors import EngineBridgeError as BridgeError  # noqa: PLC0415
+
+    try:
         logger.info("[%s-debug %s] calling generate_via_bridge (%s) job=%s", j.engine, time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), j.engine, jid)
         rc = generate_via_bridge(
             engine=j.engine,
@@ -161,7 +219,7 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
             rc,
             out_wav.exists(),
         )
-    except EngineBridgeError as exc:
+    except BridgeError as exc:
         logger.info("[%s-debug %s] generate_via_bridge error job=%s error=%s", j.engine, time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), jid, exc)
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=str(exc))
         return "failed"
@@ -184,8 +242,7 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
 
     # For sample jobs, convert WAV → MP3 and delete WAV
     if _is_sample_job(j):
-        from app.engines.audio_ops import finalize_sample_artifact
-        final_path = finalize_sample_artifact(out_wav)
+        final_path = ctx.finalize_sample_artifact(out_wav)
         out_name = final_path.name
         logger.info(
             "[%s-debug %s] marking done job=%s artifact=%s",
