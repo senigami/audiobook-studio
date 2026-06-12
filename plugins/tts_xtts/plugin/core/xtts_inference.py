@@ -264,6 +264,25 @@ def _run_serve_job(job: dict, tts, xtts_model, device) -> int:
 
     def _get_latents(speaker_wav_paths, vpdir=None):
         import hashlib as _hashlib
+
+        # Mirror the one-shot path's .pth branch (see get_latents() ~line 569):
+        # if the speaker ref is already a pre-computed latent file, load it directly
+        # without attempting audio decoding (which explodes on .pth input).
+        if (
+            isinstance(speaker_wav_paths, str)
+            and speaker_wav_paths.lower().endswith(".pth")
+            and os.path.exists(speaker_wav_paths)
+        ):
+            try:
+                latents = torch.load(speaker_wav_paths, map_location=device, weights_only=False)
+                return latents["gpt_cond_latent"], latents["speaker_embedding"]
+            except Exception as exc:
+                _emit_stderr_line(
+                    f"Warning: failed to load pre-computed latents from {speaker_wav_paths}: {exc}",
+                    flush=True,
+                )
+                raise
+
         wav_input, combined_paths = _normalize_speaker_wav_paths(speaker_wav_paths, vpdir)
         if wav_input is None and not vpdir:
             raise ValueError("No speaker WAVs or voice profile directory available")
