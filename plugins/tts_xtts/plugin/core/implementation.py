@@ -20,6 +20,39 @@ XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(XTTS_ENV_DIR_DEFAULT)))
 XTTS_ENV_PYTHON = Path(os.getenv("XTTS_ENV_PYTHON", str(XTTS_ENV_DIR / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))))
 XTTS_ENV_ACTIVATE = XTTS_ENV_DIR / ("Scripts/Activate.ps1" if os.name == "nt" else "bin/activate")
 
+# Module-level warm worker manager (lazy singleton).
+# Replaced/cleared in tests via _reset_warm_worker() below.
+_warm_worker_manager: "Any | None" = None
+_warm_worker_lock = __import__("threading").Lock()
+
+
+def _get_warm_worker_manager(idle_seconds: int = 300):
+    """Return the module-level WarmWorkerManager, creating it on first call."""
+    global _warm_worker_manager
+    with _warm_worker_lock:
+        if _warm_worker_manager is None:
+            from .warm_worker import WarmWorkerManager  # noqa: PLC0415
+            env = os.environ.copy()
+            env["PYTHONUNBUFFERED"] = "1"
+            _warm_worker_manager = WarmWorkerManager(
+                XTTS_ENV_PYTHON,
+                idle_seconds=idle_seconds,
+                env=env,
+            )
+        return _warm_worker_manager
+
+
+def _reset_warm_worker() -> None:
+    """Shut down and discard the warm worker — for tests."""
+    global _warm_worker_manager
+    with _warm_worker_lock:
+        if _warm_worker_manager is not None:
+            try:
+                _warm_worker_manager.shutdown()
+            except Exception:
+                pass
+            _warm_worker_manager = None
+
 
 
 @lru_cache(maxsize=1)
@@ -49,6 +82,7 @@ def xtts_generate(
     speed: float = 1.0,
     voice_profile_dir: Path | None = None,
     task_id: str | None = None,
+    engine_settings: dict[str, Any] | None = None,
 ) -> int:
     """Invoke XTTS inference via subprocess."""
 
@@ -108,6 +142,38 @@ def xtts_generate(
     env["PYTHONUNBUFFERED"] = "1"
     emit_diagnostics(on_output, "Launching XTTS inference...\n")
     emit_diagnostics(on_output, "XTTS may take a while on first use while models load, caches warm, or assets download.\n")
+
+    # Warm-worker path: if keep_model_loaded is enabled, try to run through the
+    # persistent worker instead of a fresh subprocess.
+    # Settings come from engine_settings (request) if provided, else manifest behavior.
+    # XTTS_WARM_WORKER_DISABLED=1 disables the path entirely (used in unit tests).
+    _settings = engine_settings or {}
+    behavior = _get_local_behavior()
+    _disabled_by_env = os.environ.get("XTTS_WARM_WORKER_DISABLED", "") == "1"
+    keep_loaded = (not _disabled_by_env) and bool(_settings.get("keep_model_loaded", behavior.get("keep_model_loaded", True)))
+    if keep_loaded:
+        idle_secs = int(_settings.get("keep_model_loaded_idle_seconds", behavior.get("keep_model_loaded_idle_seconds", 300)))
+        if idle_secs > 0:
+            job: dict[str, Any] = {
+                "text": text,
+                "language": "en",
+                "repetition_penalty": 2.0,
+                "speed": speed,
+                "out_path": str(out_wav),
+            }
+            if speaker_wav:
+                job["speaker_wav"] = speaker_wav
+            if voice_profile_dir is not None:
+                job["voice_profile_dir"] = str(voice_profile_dir)
+            if task_id:
+                job["task_id"] = task_id
+            manager = _get_warm_worker_manager(idle_secs)
+            rc = manager.run_job(job, on_output, cancel_check)
+            if rc != -1:  # -1 signals fallback to one-shot
+                return rc
+            # Fallback: manager signalled worker crash — fall through to one-shot.
+            emit_diagnostics(on_output, "Warm worker unavailable; falling back to one-shot subprocess.\n")
+
     return run_cmd_stream(cmd, on_output, cancel_check, env=env)
 
 
@@ -119,6 +185,7 @@ def xtts_generate_script(
     speed: float = 1.0,
     voice_profile_dir: Path | None = None,
     task_id: str | None = None,
+    engine_settings: dict[str, Any] | None = None,
 ) -> int:
     """Invoke XTTS script-based inference via subprocess."""
 
@@ -157,6 +224,32 @@ def xtts_generate_script(
     env["PYTHONUNBUFFERED"] = "1"
     emit_diagnostics(on_output, "Launching XTTS inference...\n")
     emit_diagnostics(on_output, "XTTS may take a while on first use while models load, caches warm, or assets download.\n")
+
+    # Warm-worker path for script-based synthesis.
+    _settings2 = engine_settings or {}
+    behavior = _get_local_behavior()
+    _disabled_by_env2 = os.environ.get("XTTS_WARM_WORKER_DISABLED", "") == "1"
+    keep_loaded = (not _disabled_by_env2) and bool(_settings2.get("keep_model_loaded", behavior.get("keep_model_loaded", True)))
+    if keep_loaded:
+        idle_secs = int(_settings2.get("keep_model_loaded_idle_seconds", behavior.get("keep_model_loaded_idle_seconds", 300)))
+        if idle_secs > 0:
+            script_job: dict[str, Any] = {
+                "script_json": str(script_json_path),
+                "language": "en",
+                "repetition_penalty": 2.0,
+                "speed": speed,
+                "out_path": str(out_wav),
+            }
+            if voice_profile_dir is not None:
+                script_job["voice_profile_dir"] = str(voice_profile_dir)
+            if task_id:
+                script_job["task_id"] = task_id
+            manager = _get_warm_worker_manager(idle_secs)
+            rc = manager.run_job(script_job, on_output, cancel_check)
+            if rc != -1:
+                return rc
+            emit_diagnostics(on_output, "Warm worker unavailable; falling back to one-shot subprocess.\n")
+
     return run_cmd_stream(cmd, on_output, cancel_check, env=env)
 
 

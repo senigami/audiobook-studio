@@ -344,6 +344,7 @@ class XttsPlugin(StudioTTSEngine):
                         cancel_check=req.cancel_check or (lambda: False),
                         speed=speed,
                         task_id=req.task_id,
+                        engine_settings=req.settings,
                     )
                 finally:
                     script_path.unlink(missing_ok=True)
@@ -358,6 +359,7 @@ class XttsPlugin(StudioTTSEngine):
                     speed=speed,
                     voice_profile_dir=voice_profile_dir,
                     task_id=req.task_id,
+                    engine_settings=req.settings,
                 )
 
             try:
@@ -441,6 +443,7 @@ class XttsPlugin(StudioTTSEngine):
                 speed=speed,
                 voice_profile_dir=voice_profile_dir,
                 task_id=req.task_id,
+                engine_settings=req.settings,
             )
         except Exception as exc:
             return TTSResult(ok=False, error=f"XTTS preview raised: {exc}")
@@ -454,8 +457,12 @@ class XttsPlugin(StudioTTSEngine):
         return TTSResult(ok=True, output_path=str(output_path))
 
     def shutdown(self) -> None:
-        """No persistent resources to clean up for XTTS plugin."""
-        pass
+        """Terminate the warm worker if one is running."""
+        try:
+            from ..core.implementation import _reset_warm_worker  # noqa: PLC0415
+            _reset_warm_worker()
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -491,6 +498,7 @@ class XttsPlugin(StudioTTSEngine):
         speed: float,
         voice_profile_dir: Path | None,
         task_id: str | None,
+        engine_settings: dict | None = None,
     ) -> int:
         """Delegate synthesis to the XTTS runtime generator."""
         from ..core.implementation import xtts_generate as _gen  # noqa: PLC0415
@@ -505,6 +513,7 @@ class XttsPlugin(StudioTTSEngine):
             speed=speed,
             voice_profile_dir=voice_profile_dir,
             task_id=task_id,
+            engine_settings=engine_settings,
         )
 
     @staticmethod
@@ -516,6 +525,7 @@ class XttsPlugin(StudioTTSEngine):
         cancel_check,
         speed: float,
         task_id: str | None,
+        engine_settings: dict | None = None,
     ) -> int:
         """Delegate script synthesis to the XTTS batch generator."""
         from ..core.implementation import xtts_generate_script as _gen_script  # noqa: PLC0415
@@ -527,6 +537,7 @@ class XttsPlugin(StudioTTSEngine):
             cancel_check=cancel_check,
             speed=speed,
             task_id=task_id,
+            engine_settings=engine_settings,
         )
 
     @staticmethod
