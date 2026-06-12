@@ -20,11 +20,11 @@ All logic fixes, progress confidence model, security blockers, test-quality audi
 - [x] `StudioPluginContext` SDK (S1, 2026-06-12: 13 service groups, 30+ methods, errors hierarchy).
 - [x] Plugin migrations: tts_xtts (S4), tts_voxtral (S5), synthesis_mixed→tts_mixed rename + migration (S6) — module-level app imports ZERO, enforced at load (S8); function-body residue dissolves in S9 (in flight).
 - [x] Plugin template + AST validation + CI manifest validator (S2/S8).
-- [ ] S9 dispatcher integration (in flight) → S10 verification + spec 1.3.0 + **callable-signature audit (owner: gates release)**. (M)
+- [x] S9 dispatcher ctx injection + S10 closeout DONE 2026-06-12: signature audit enforced at load (caught MixedPlugin missing two required methods), plugin-contract.md 1.3.0. **STAGE 3 COMPLETE (S1–S10).**
 
 ## Stage 4 — Voice metadata & standalone repos (open, gated on Stage 3)
 
-- [x] Voice taxonomy/attributes/tags/icon upload/casting card — Phases A–E DONE 2026-06-12 (taxonomy validation, idempotent v1-schema migration + D8 state split, metadata/search/cast/icon API, Voice Lab catalog UI with editor + facets, HF-aligned bundle export/import with README generation). Phase F (docs) remains. (was L; F is S)
+- [x] Voice taxonomy/attributes/tags/icon upload/casting card — Phases A–E DONE 2026-06-12 (taxonomy validation, idempotent v1-schema migration + D8 state split, metadata/search/cast/icon API, Voice Lab catalog UI with editor + facets, HF-aligned bundle export/import with README generation). Phase F docs DONE 2026-06-12 — doc 04 FULLY EXECUTED A–F.
 - [ ] Standalone GitHub plugin repos: discovery infra, XTTS/Voxtral extraction, tts_mixed rename, e2e (doc 05, 18 items, all blocked on Stage 3). (L)
 
 ## Stage 5 — Frontend polish (in progress)
