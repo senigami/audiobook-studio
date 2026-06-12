@@ -2047,3 +2047,8 @@
 - Next desired segment-progress implementation: do not immediately replace the visible segment bar/text driver when a new `START_SEGMENT` arrives while the previous segment is finishing.
 - Keep the previous segment mounted until its displayed progress reaches 100%; queue the next segment separately as `pendingStart` (the `START_SEGMENT` frame at 0% with ETA/updatedAt) plus `pendingLatest` (the newest progress frame received while waiting).
 - After the previous segment visually completes, mount the next segment from `pendingStart` at 0%/ETA, then apply `pendingLatest` on the next tick so the new segment visibly starts at zero before lane-changing to its latest known progress.
+
+# 2026-06-12 - R1-T3 NavRail verified
+
+- Implemented the grouped shell rail at `frontend/src/app/layout/NavRail.tsx` with dev-mode Developer links, queue badges, collapse persistence, hover-expanded overlay, and the theme/chevron bottom controls.
+- Added the rail width tokens, overlay layering, and component CSS, then verified the focused NavRail test file, frontend lint, and `git diff --check`.

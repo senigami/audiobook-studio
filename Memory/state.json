@@ -1,13 +1,13 @@
 {
-  "snapshot_version": 184,
-  "current_task": "Enable predictive animation and disable backward progress for segment progress",
-  "status": "predictive_segment_progress_verified",
+  "snapshot_version": 185,
+  "current_task": "Implement site_redesign_rollout R1-T3 NavRail component",
+  "status": "nav_rail_verified",
   "last_committed_milestone": {
-    "title": "Segment progress bar predictive animation enabled and backward progress disabled",
-    "commit": "pending-checkpoint",
+    "title": "NavRail grouped shell rail implemented for site redesign rollout",
+    "commit": "HEAD",
     "notes": [
-      "Segment progress helper (progressBarContracts.ts) now sets predictive: true and allowBackwardProgress: false.",
-      "Associated unit tests in progressBarContracts.test.ts and ChapterHeaderProgressContract.test.tsx are updated and fully verified."
+      "frontend/src/app/layout/NavRail.tsx now renders grouped nav items, dev-mode developer routes, queue badges, collapse persistence, hover overlay expansion, and theme toggling.",
+      "Rail width tokens, overlay layering, and rail component styles were added, then verified with the focused NavRail vitest, frontend lint, and git diff --check."
     ]
   },
   "active_constraints": [
@@ -96,13 +96,13 @@
   ],
   "verification": {
     "latest_backend_focus": "2026-06-08: Fixed selected-segment queue identity persistence by storing processing_queue.segment_ids and passing selected ids from /api/segments/generate; verified generation, queue, websocket, DB queue, and progress regression suites passed.",
-    "latest_frontend_focus": "2026-06-09: Aligned segment progress with monotonic ETA-backed contract: no backward movement, visible segment ETA with 120s start default, ChapterHeader ETA forwarding, and segments.progress hasSegmentSupport preservation. Verified useJobs, progress contracts, PredictiveProgressBar lifecycle/transitions/timing, DevProgressBar, ChapterHeader segment contract, lint, build, and git diff --check.",
+    "latest_frontend_focus": "2026-06-12: Implemented and verified the site redesign R1-T3 NavRail slice with grouped shell nav, dev-mode group gating, queue badge rendering, collapse persistence, hover overlay expansion, theme toggling, focused Vitest, frontend lint, and git diff --check.",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",
     "latest_lint_focus": "2026-06-08: ruff passed for app/api/routers/generation.py and tests/api/test_api_generation.py; commit hook also ran Ruff/ESLint auto-fix checks cleanly.",
     "latest_frontend_event_stream_focus": "2026-05-22: Live Output route renamed to /event-stream and consumer filter toggles implemented; focused Vitest passed, full frontend Vitest passed (580 tests), frontend build passed, frontend lint passed, and git diff --check passed.",
     "latest_frontend_live_output_ownership": "2026-05-22: Removed the false jobs-state ownership from tts.logs so the Live Output subscribers column now reflects actual consumer handling.",
-    "latest_diff_check": "2026-06-08: git diff --check passed after exact-mode segment progress zero handoff fix.",
+    "latest_diff_check": "2026-06-12: git diff --check passed after NavRail component, style, and token updates.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."

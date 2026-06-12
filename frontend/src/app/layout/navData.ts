@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+  BarChart2,
   FlaskConical,
   Library,
   Mic,
@@ -7,7 +8,6 @@ import {
   Puzzle,
   Radio,
   Settings,
-  Zap,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -34,7 +34,7 @@ const BASE_NAV_GROUPS: NavGroup[] = [
   {
     group: 'MONITOR',
     items: [
-      { id: 'activity', label: 'Activity', path: '/activity', icon: Zap, badge: 'queue' },
+      { id: 'activity', label: 'Activity', path: '/activity', icon: BarChart2, badge: 'queue' },
     ],
   },
   {
