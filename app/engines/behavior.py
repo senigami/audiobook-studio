@@ -177,7 +177,7 @@ def _load_full_manifest(engine_id: str) -> dict[str, Any]:
     """Load the full manifest payload for an engine.
 
     Plugin folders are not all named ``tts_<engine_id>`` (e.g.
-    ``synthesis_mixed`` declares engine_id ``mixed``), so after the direct
+    ``tts_mixed`` declares engine_id ``mixed``), so after the direct
     path, fall back to matching any plugin manifest's declared engine_id.
     """
     normalized_engine_id = str(engine_id or "").strip().lower()

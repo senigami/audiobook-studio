@@ -7,8 +7,8 @@ allowed.
 
 The function is exposed for use in tests and (eventually) in the loader itself.
 Enforcement at load time is intentionally DEFERRED: bundled plugins (tts_xtts,
-tts_voxtral, synthesis_mixed) still use direct ``app.*`` imports until they are
-migrated in S4–S6.  Wire the call in ``_load_plugin`` when those slices land
+tts_voxtral) still use direct ``app.*`` imports until they are
+migrated in S4–S6.  tts_mixed (renamed from synthesis_mixed in S6) is migrated.  Wire the call in ``_load_plugin`` when those slices land
 (search for "S4" to find the right insertion point).
 """
 

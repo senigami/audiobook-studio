@@ -208,7 +208,7 @@ class SynthesisTask(StudioTask):
             )
 
         from app.db.models import Job  # noqa: PLC0415
-        from plugins.synthesis_mixed.handler import handle_mixed_job  # noqa: PLC0415
+        from plugins.tts_mixed.handler import handle_mixed_job  # noqa: PLC0415
 
         # Reconstruct a Job-like object for the local handler
         j = Job(

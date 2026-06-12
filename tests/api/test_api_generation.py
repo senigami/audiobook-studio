@@ -789,7 +789,7 @@ def test_mixed_generation_orchestration_integration(clean_db, client, monkeypatc
     with patch("app.api.routers.generation.put_job"), \
          patch("app.api.routers.generation.update_job"), \
          patch("app.api.routers.generation.resolve_tts_engine_for_profiles", return_value=("xtts", ["xtts", "voxtral"])), \
-         patch("plugins.synthesis_mixed.handler.handle_mixed_job", return_value=("done", None)) as mock_mixed_handler, \
+         patch("plugins.tts_mixed.handler.handle_mixed_job", return_value=("done", None)) as mock_mixed_handler, \
          patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
          patch("app.orchestration.scheduler.orchestrator.release_task_resources"):
 
@@ -863,16 +863,16 @@ def test_queue_chapter_mixed_render_runs_end_to_end(clean_db, client, monkeypatc
 
     with patch("app.api.routers.generation.get_chapter_dir", return_value=chapter_dir), \
          patch("app.core.config.get_chapter_dir", return_value=chapter_dir), \
-         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=chapter_dir), \
+         patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=chapter_dir), \
          patch("app.api.routers.generation.resolve_tts_engine_for_profiles", return_value=("xtts", ["xtts", "voxtral"])), \
          patch("app.engines.voice_engines.resolve_profile_engine", side_effect=lambda name, fallback_engine=None, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
          patch("app.api.routers.generation.resolve_profile_engine", side_effect=lambda name, fallback_engine=None, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voice2" else {"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.tts_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voice2" else {"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
          patch("app.api.routers.generation.broadcast_queue_update"), \
          patch("app.api.routers.generation.broadcast_chapter_updated"), \
          patch("app.api.ws.broadcast_segments_updated"), \

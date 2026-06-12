@@ -944,7 +944,7 @@ class TestContractVersionGate:
         import os
         from pathlib import Path as _Path
         plugins_dir = _Path(os.environ["PLUGINS_DIR"])
-        for folder in ["tts_xtts", "tts_voxtral", "synthesis_mixed"]:
+        for folder in ["tts_xtts", "tts_voxtral", "tts_mixed"]:
             manifest_path = plugins_dir / folder / "manifest.json"
             assert manifest_path.is_file(), f"{folder}/manifest.json not found"
             data = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -952,3 +952,27 @@ class TestContractVersionGate:
                 f"{folder}/manifest.json has studio_tts_manifest={data.get('studio_tts_manifest')!r}, "
                 f"expected {SUPPORTED_MANIFEST_VERSION!r}"
             )
+
+    def test_tts_mixed_manifest_declares_built_in(self):
+        """tts_mixed/manifest.json must declare built_in=true (S6: builtin protection)."""
+        import os
+        from pathlib import Path as _Path
+        plugins_dir = _Path(os.environ["PLUGINS_DIR"])
+        manifest_path = plugins_dir / "tts_mixed" / "manifest.json"
+        assert manifest_path.is_file(), "tts_mixed/manifest.json not found"
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        assert data.get("built_in") is True, (
+            f"tts_mixed/manifest.json missing built_in=true; got {data.get('built_in')!r}"
+        )
+
+    def test_tts_mixed_engine_id_is_mixed(self):
+        """tts_mixed/manifest.json must keep engine_id='mixed' (job queue references)."""
+        import os
+        from pathlib import Path as _Path
+        plugins_dir = _Path(os.environ["PLUGINS_DIR"])
+        manifest_path = plugins_dir / "tts_mixed" / "manifest.json"
+        assert manifest_path.is_file(), "tts_mixed/manifest.json not found"
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        assert data.get("engine_id") == "mixed", (
+            f"tts_mixed engine_id must remain 'mixed'; got {data.get('engine_id')!r}"
+        )

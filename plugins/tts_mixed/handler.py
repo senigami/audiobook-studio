@@ -3,19 +3,17 @@ import logging
 import time
 from pathlib import Path
 
-from app.domain.chunk_groups import build_chunk_groups, load_chunk_segments
-from app.core.config import get_chapter_dir
-from app.engines.audio_ops import get_audio_duration, stitch_segments
-from app.engines.errors import EngineBridgeError
-from app.db.state import update_job
-from app.utils.text.textops import safe_split_long_sentences, sanitize_text
-from app.engines.behavior import get_sanitize_categories
-from app.db.speakers import get_speaker_settings, get_profile_wavs as get_speaker_wavs, get_profile_dir as get_voice_profile_dir
-from app.jobs.handlers.bridge_helpers import generate_via_bridge
-from app.jobs.worker_metrics import record_engine_sample
-from app.db.state import get_performance_metrics
-
 logger = logging.getLogger(__name__)
+
+
+def _get_ctx():
+    """Return a StudioPluginContext singleton (mirrors S4/S5 ctx factory pattern)."""
+    import app.studio_plugin_sdk as _sdk  # noqa: PLC0415
+    import sys  # noqa: PLC0415
+    sys.modules.setdefault("studio_plugin_sdk", _sdk)
+    from app.studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
+    return StudioPluginContext(engine_id="mixed")
+
 
 def _group_weight(group: dict) -> int:
     return max(1, int(group.get("text_length") or 0))
@@ -33,12 +31,54 @@ def _chunk_output_path(pdir: Path, chunk: dict) -> Path:
     return sdir / f"{chunk['segments'][0]['id']}.wav"
 
 
+def get_chapter_dir(project_id, chapter_id):
+    from app.core.config import get_chapter_dir as _get_chapter_dir  # noqa: PLC0415
+    return _get_chapter_dir(project_id, chapter_id)
+
+
+def get_speaker_settings(profile_name):
+    from app.db.speakers import get_speaker_settings as _get  # noqa: PLC0415
+    return _get(profile_name)
+
+
+def get_speaker_wavs(profile_name):
+    from app.db.speakers import get_profile_wavs  # noqa: PLC0415
+    return get_profile_wavs(profile_name)
+
+
+def get_voice_profile_dir(profile_name):
+    from app.db.speakers import get_profile_dir  # noqa: PLC0415
+    return get_profile_dir(profile_name)
+
+
+def generate_via_bridge(**kwargs):
+    from app.jobs.handlers.bridge_helpers import generate_via_bridge as _gen  # noqa: PLC0415
+    return _gen(**kwargs)
+
+
+def stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check):
+    from app.engines.audio_ops import stitch_segments as _stitch  # noqa: PLC0415
+    return _stitch(pdir, segment_paths, out_wav, on_output, cancel_check)
+
+
+def update_job(jid, **kwargs):
+    from app.db.state import update_job as _update_job  # noqa: PLC0415
+    return _update_job(jid, **kwargs)
+
+
+def record_engine_sample(j, start, chars, perf, rendered_segment_count):
+    from app.jobs.worker_metrics import record_engine_sample as _record  # noqa: PLC0415
+    return _record(j, start, chars, perf, rendered_segment_count)
+
+
 def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav: Path, safe_mode: bool, on_output, cancel_check, task_id: str | None = None) -> int:
     if not profile_name:
         on_output(f"[error] No profile is assigned for this segment ({engine_id}).\n")
         return 1
 
-    from app.engines.behavior import extract_engine_settings, has_behavior, get_text_split_target
+    from app.engines.behavior import extract_engine_settings, has_behavior, get_text_split_target, get_sanitize_categories  # noqa: PLC0415
+    from app.utils.text.textops import safe_split_long_sentences, sanitize_text  # noqa: PLC0415
+
     spk = get_speaker_settings(profile_name)
     settings = extract_engine_settings(engine_id, spk)
 
@@ -52,7 +92,7 @@ def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav
     try:
         pdir = get_voice_profile_dir(profile_name)
     except ValueError:
-        from app.core.config import VOICES_DIR
+        from app.core.config import VOICES_DIR  # noqa: PLC0415
         pdir = VOICES_DIR / profile_name
 
     # Synthesis request with generic settings extraction
@@ -92,7 +132,8 @@ def _group_ready_audio_path(group: dict, pdir: Path) -> Path | None:
 
 
 def _persist_mixed_chapter_output(jid: str, chapter_id: str, output_path: Path) -> None:
-    from app.db import update_chapter
+    from app.db import update_chapter  # noqa: PLC0415
+    from app.engines.audio_ops import get_audio_duration  # noqa: PLC0415
 
     generated_at = time.time()
     duration = get_audio_duration(output_path)
@@ -118,7 +159,7 @@ def _persist_mixed_chapter_output(jid: str, chapter_id: str, output_path: Path) 
 
 
 def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
-    from app.db import (
+    from app.db import (  # noqa: PLC0415
         clear_duplicate_segment_audio_paths,
         get_chapter_segments,
         get_connection,
@@ -126,7 +167,10 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         update_segments_bulk,
         update_segments_status_bulk,
     )
-    from app.api.ws import broadcast_segments_updated
+    from app.api.ws import broadcast_segments_updated  # noqa: PLC0415
+    from app.domain.chunk_groups import build_chunk_groups, load_chunk_segments  # noqa: PLC0415
+    from app.db.state import get_performance_metrics  # noqa: PLC0415
+    from app.engines.errors import EngineBridgeError  # noqa: PLC0415
 
     if cancel_check():
         update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
@@ -225,7 +269,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             pass
 
         try:
-            from app.db.chapters import get_chapter_segments_counts
+            from app.db.chapters import get_chapter_segments_counts  # noqa: PLC0415
             done_c, total_c = get_chapter_segments_counts(j.chapter_id)
             final_p = round(done_c / total_c, 2) if total_c > 0 else 1.0
         except Exception:

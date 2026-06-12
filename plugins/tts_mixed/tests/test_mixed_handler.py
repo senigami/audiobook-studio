@@ -8,7 +8,7 @@ import pytest
 
 from app.engines.errors import EngineBridgeError
 from app.db.models import Job
-from plugins.synthesis_mixed.handler import handle_mixed_job
+from plugins.tts_mixed.handler import handle_mixed_job
 from tests.utils.timeout import timeout_after
 
 
@@ -64,15 +64,15 @@ def test_handle_mixed_job_renders_and_stitches(clean_db, tmp_path):
         return 0
 
     with timeout_after(5, "mixed handler render should not hang"), \
-         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
-         patch("plugins.synthesis_mixed.handler.update_job"):
+         patch("plugins.tts_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.tts_mixed.handler.update_job"):
         result, _ = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
         refreshed = get_chapter_segments(cid)
         chapter = get_chapter(cid)
@@ -116,16 +116,16 @@ def test_handle_mixed_job_does_not_write_queue_row_directly(clean_db, tmp_path):
         return 0
 
     with timeout_after(5, "mixed handler completion should not hang"), \
-         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.tts_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
          patch("app.db.update_queue_item") as mock_update_queue, \
-         patch("plugins.synthesis_mixed.handler.update_job") as mock_update_job:
+         patch("plugins.tts_mixed.handler.update_job") as mock_update_job:
         result, _ = handle_mixed_job("mixed-job-no-queue-write", job, time.time(), lambda _line: None, lambda: False)
 
     assert result == "done"
@@ -155,14 +155,14 @@ def test_handle_mixed_job_returns_bridge_failure_message(clean_db, tmp_path):
         speaker_profile="XTTS Voice",
     )
 
-    with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+    with patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=EngineBridgeError("Bridge concrete failure")), \
-         patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
+         patch("plugins.tts_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=EngineBridgeError("Bridge concrete failure")), \
+         patch("plugins.tts_mixed.handler.update_job") as mock_update:
         status, message = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
 
     assert status == "failed"
@@ -201,14 +201,14 @@ def test_handle_mixed_job_groups_adjacent_segments_into_one_chunk(clean_db, tmp_
         Path(kwargs["out_wav"]).write_text("xtts")
         return 0
 
-    with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+    with patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge) as mock_bridge, \
-         patch("plugins.synthesis_mixed.handler.update_job"):
+         patch("plugins.tts_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge) as mock_bridge, \
+         patch("plugins.tts_mixed.handler.update_job"):
         result, _ = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
         refreshed = get_chapter_segments(cid)
 
@@ -268,15 +268,15 @@ def test_handle_mixed_job_emits_segment_saved_markers_and_owns_no_chapter_progre
     output_lines: list[str] = []
 
     with timeout_after(5, "mixed handler marker test should not hang"), \
-         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "v"} if name == "Voxtral Voice" else {"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
-         patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
+         patch("plugins.tts_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "v"} if name == "Voxtral Voice" else {"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.tts_mixed.handler.update_job") as mock_update:
         result, _ = handle_mixed_job("mixed-marker-job", job, time.time(), output_lines.append, lambda: False)
 
     assert result == "done"
@@ -342,15 +342,15 @@ def test_handle_mixed_job_forwards_engine_progress_lines(clean_db, tmp_path):
 
     output_lines: list[str] = []
 
-    with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+    with patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
-         patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
+         patch("plugins.tts_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.tts_mixed.handler.update_job") as mock_update:
         result, _ = handle_mixed_job("mixed-job", job, time.time(), output_lines.append, lambda: False)
 
     assert result == "done"
@@ -407,14 +407,14 @@ def test_handle_mixed_job_emits_marker_per_render_group(clean_db, tmp_path):
 
     output_lines: list[str] = []
 
-    with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+    with patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
-         patch("plugins.synthesis_mixed.handler.update_job"):
+         patch("plugins.tts_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.tts_mixed.handler.update_job"):
         result, _ = handle_mixed_job("mixed-job", job, time.time(), output_lines.append, lambda: False)
 
     assert result == "done"
@@ -465,14 +465,14 @@ def test_handle_mixed_segment_job_forwards_progress_lines(clean_db, tmp_path):
         Path(kwargs["out_wav"]).write_text("xtts")
         return 0
 
-    with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+    with patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
+         patch("plugins.tts_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.update_job") as mock_update:
         output_lines: list[str] = []
         result, _ = handle_mixed_job("mixed-segment-job", job, time.time(), output_lines.append, lambda: False)
 
@@ -523,16 +523,16 @@ def test_handle_mixed_job_records_true_render_group_count(clean_db, tmp_path):
         return 0
 
     with timeout_after(5, "mixed metrics test should not hang"), \
-         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "v"} if name == "Voxtral Voice" else {"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
-         patch("plugins.synthesis_mixed.handler.update_job"), \
-         patch("plugins.synthesis_mixed.handler.record_engine_sample") as mock_record:
+         patch("plugins.tts_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "v"} if name == "Voxtral Voice" else {"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.tts_mixed.handler.update_job"), \
+         patch("plugins.tts_mixed.handler.record_engine_sample") as mock_record:
         result, _ = handle_mixed_job("mixed-metrics-job", job, time.time(), lambda _line: None, lambda: False)
 
     assert result == "done"
@@ -587,16 +587,16 @@ def test_handle_mixed_job_bake_metrics_uses_rendered_chars_only(clean_db, tmp_pa
         Path(out_wav).write_text("stitched")
         return 0
 
-    with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+    with patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "xtts"), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
-         patch("plugins.synthesis_mixed.handler.update_job"), \
-         patch("plugins.synthesis_mixed.handler.record_engine_sample") as mock_record:
+         patch("plugins.tts_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.tts_mixed.handler.update_job"), \
+         patch("plugins.tts_mixed.handler.record_engine_sample") as mock_record:
 
         handle_mixed_job("bake-job", job, time.time(), lambda _line: None, lambda: False)
 
@@ -622,7 +622,7 @@ def test_render_segment_passes_voice_profile_dir_to_bridge(clean_db, tmp_path):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
-    from plugins.synthesis_mixed.handler import _render_segment
+    from plugins.tts_mixed.handler import _render_segment
 
     pid = create_project("P2")
     cid = create_chapter(pid, "C2", "Hello voxtral.")
@@ -642,9 +642,9 @@ def test_render_segment_passes_voice_profile_dir_to_bridge(clean_db, tmp_path):
 
     out_wav = tmp_path / "out.wav"
 
-    with patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=expected_profile_dir), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=capturing_bridge):
+    with patch("plugins.tts_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=expected_profile_dir), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=capturing_bridge):
         rc = _render_segment(
             "voxtral",
             "Hello voxtral.",
@@ -709,16 +709,16 @@ def test_handle_mixed_job_accumulates_synthesis_duration_when_bridge_returns_no_
         return 0
 
     with timeout_after(5, "mixed handler should not hang"), \
-         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "v"} if name == "Voxtral Voice" else {"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
-         patch("plugins.synthesis_mixed.handler.update_job") as mock_update_job, \
-         patch("plugins.synthesis_mixed.handler.record_engine_sample"):
+         patch("plugins.tts_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "v"} if name == "Voxtral Voice" else {"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.tts_mixed.handler.update_job") as mock_update_job, \
+         patch("plugins.tts_mixed.handler.record_engine_sample"):
         result, err = handle_mixed_job("mixed-no-duration-job", job, time.time(), lambda _line: None, lambda: False)
 
     assert result == "done", f"handler returned {result!r} instead of 'done': {err}"
@@ -776,16 +776,16 @@ def test_handle_mixed_job_metrics_failure_does_not_change_done_status(clean_db, 
         return 0
 
     with timeout_after(5, "mixed handler should not hang"), \
-         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "v"} if name == "Voxtral Voice" else {"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
-         patch("plugins.synthesis_mixed.handler.update_job") as mock_update_job, \
-         patch("plugins.synthesis_mixed.handler.record_engine_sample", side_effect=ValueError("synthesis_duration_seconds is mandatory and must be positive")):
+         patch("plugins.tts_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "v"} if name == "Voxtral Voice" else {"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.tts_mixed.handler.update_job") as mock_update_job, \
+         patch("plugins.tts_mixed.handler.record_engine_sample", side_effect=ValueError("synthesis_duration_seconds is mandatory and must be positive")):
         result, err = handle_mixed_job("mixed-metrics-fail-job", job, time.time(), lambda _line: None, lambda: False)
 
     assert result == "done", f"handler returned {result!r} — metrics exception must not change job outcome"
@@ -831,15 +831,15 @@ def test_handle_mixed_job_wav_only_even_when_make_mp3_true(clean_db, tmp_path):
         return 0
 
     with timeout_after(5, "mixed handler render should not hang"), \
-         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
-         patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
+         patch("plugins.tts_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.tts_mixed.handler.update_job") as mock_update:
         result, _ = handle_mixed_job("mixed-wav-only", job, time.time(), lambda _line: None, lambda: False)
 
     assert result == "done"

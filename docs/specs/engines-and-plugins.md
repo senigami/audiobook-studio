@@ -184,7 +184,7 @@ from `GET /engines`.
 |---------------|------|-------|
 | `tts_xtts` | Local, GPU | 13 languages; voice cloning; script synthesis; runs in `~/xtts-env` separate venv due to conflicting deps |
 | `tts_voxtral` | Cloud (Mistral AI) | 6 languages; requires `mistral_api_key` setting to be populated before synthesis |
-| `synthesis_mixed` | Adapter / orchestration | Composite plugin that delegates to other engines based on plan |
+| `tts_mixed` | Adapter / orchestration | Composite plugin that delegates to other engines based on plan |
 
 XTTS requires its heavy dependencies (`TTS`, PyTorch with CUDA) in the separate
 `~/xtts-env` virtualenv. `requirements.txt` deliberately excludes them. This is a
