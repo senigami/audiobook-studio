@@ -2,50 +2,50 @@
 
 > **Status: READY FOR IMPLEMENTATION.**
 > Decision record + extraction steps for moving TTS engine plugins from the main repo into
-> standalone GitHub repositories. Supersedes `plans/v2_engine_bundle_gitlab_distribution.md`
-> (GitLab) — see §1 for the decision record and the step to mark that doc superseded.
+> standalone GitHub repositories. Supersedes `plans/v2_engine_bundle_github_distribution.md`
+> (GitHub) — see §1 for the decision record and the step to mark that doc superseded.
 > Pre-requisite: sibling plans **02 (Plugin Communication Contract)** and **03 (Plugin
 > Interface Template)** must be complete before the extraction steps in §4 begin.
 
 ---
 
-## 1. Decision record — GitHub, not GitLab
+## 1. Decision record — GitHub, not GitHub (historically)
 
 | Attribute | Decision |
 |---|---|
 | **Host** | **GitHub** (`github.com`) |
 | **Discovery tag** | GitHub topic: `audiobook-studio-tts` |
-| **Supersedes** | `plans/v2_engine_bundle_gitlab_distribution.md` (GitLab) |
+| **Supersedes** | `plans/v2_engine_bundle_github_distribution.md` (GitHub) |
 | **Date** | 2026-06-10 |
-| **Rationale** | Owner preference. GitHub is the primary development host for this project; keeping engine repos on the same platform simplifies contributor workflow, CI/CD, and token management. All technical decisions in the GitLab spec (clone/pull install model, topic-based discovery, manifest distribution block, offline-fallback bundle) are preserved — only the host changes. |
+| **Rationale** | Owner preference. GitHub is the primary development host for this project; keeping engine repos on the same platform simplifies contributor workflow, CI/CD, and token management. All technical decisions in the GitHub spec (clone/pull install model, topic-based discovery, manifest distribution block, offline-fallback bundle) are preserved — only the host changes. |
 
-**Nothing else changes from the GitLab spec:** install = `git clone`; update = `git pull`;
+**Nothing else changes from the GitHub spec:** install = `git clone`; update = `git pull`;
 heavy model weights download separately on first run; offline XTTS bundle ships in the
 installer; community engines show a trust warning.
 
-### 1.1 Step: mark the GitLab spec superseded
+### 1.1 Step: mark the GitHub spec superseded
 
-- [ ] **Add a SUPERSEDED banner to `plans/v2_engine_bundle_gitlab_distribution.md`.**
+- [ ] **Add a SUPERSEDED banner to `plans/v2_engine_bundle_github_distribution.md`.**
   Insert the following block immediately after the title line:
 
   ```
   > **SUPERSEDED by `plans/final_release/05_standalone_plugin_repos.md`.**
-  > Host changed from GitLab to GitHub. All technical decisions in this doc remain valid
-  > except references to GitLab APIs and URLs, which are replaced by their GitHub equivalents.
+  > Host changed from GitHub to GitHub. All technical decisions in this doc remain valid
+  > except references to GitHub APIs and URLs, which are replaced by their GitHub equivalents.
   > Do not implement from this doc. Kept for historical reference only.
   ```
 
   _Acceptance: the file opens and the banner is the first body text visible._
 
-### 1.2 GitHub equivalents for GitLab-specific details
+### 1.2 GitHub equivalents for GitHub-specific details
 
-| GitLab concept | GitHub equivalent |
+| GitHub concept | GitHub equivalent |
 |---|---|
-| GitLab topic (`audiobook-studio-tts`) | GitHub repository topic `audiobook-studio-tts` |
-| GitLab Projects API (`/api/v4/projects?topic=…`) | GitHub Search API (`GET /search/repositories?q=topic:audiobook-studio-tts`) |
-| Official GitLab group `audiobook-studio/…` | GitHub org `audiobook-studio` (or the owner's account until the org exists) |
-| GitLab personal access token | GitHub personal access token (PAT); public repos need no token for read-only search |
-| `git_url: https://gitlab.com/…` | `git_url: https://github.com/…` |
+| GitHub topic (`audiobook-studio-tts`) | GitHub repository topic `audiobook-studio-tts` |
+| GitHub Search API (historical /api/v4/projects?topic=…) | GitHub Search API (`GET /search/repositories?q=topic:audiobook-studio-tts`) |
+| Official GitHub group `audiobook-studio/…` | GitHub org `audiobook-studio` (or the owner's account until the org exists) |
+| GitHub personal access token | GitHub personal access token (PAT); public repos need no token for read-only search |
+| `git_url: https://github.com/…` | `git_url: https://github.com/…` |
 
 The `distribution` block in `manifest.json` becomes:
 
@@ -61,8 +61,7 @@ The `distribution` block in `manifest.json` becomes:
 }
 ```
 
-- `repo` replaces `project` (GitLab used `group/repo` path; GitHub calls it the same thing
-  but the field is renamed to avoid confusion with "project" boards).
+- `repo` replaces `project` (GitHub uses same path structure but the field is renamed to avoid confusion with "project" boards).
 - `host` is now `"github"`. The Studio installer client switches API calls accordingly.
 
 ---
@@ -167,7 +166,7 @@ tts-<engine-name>/               # GitHub repo name (hyphenated)
 
 **Decision: keep `plugins/` as the on-disk folder through the 2.0 release.**
 
-The GitLab spec proposed renaming to `tts_engines/`. That rename is a breaking change for
+The GitHub spec proposed renaming to `tts_engines/`. That rename is a breaking change for
 any user who has manually placed plugins, for all documentation, and for path references
 scattered throughout the codebase — with no user-visible value at release time.
 
@@ -222,7 +221,7 @@ scattered throughout the codebase — with no user-visible value at release time
 
 - [ ] **X5. Update the in-tree copy.**
   Add the `distribution` block to the existing `plugins/tts_xtts/manifest.json` in the main
-  repo so it carries its repo reference (same behavior as described in the GitLab spec §8:
+  repo so it carries its repo reference (same behavior as described in the GitHub spec §8:
   the bundled copy is a real repo install, just pre-seeded).
   _Acceptance: `plugins/tts_xtts/manifest.json` has a `distribution.git_url` pointing to the GitHub repo._
 
@@ -295,16 +294,16 @@ inter-dependencies and may run in parallel.
 
 - [ ] **0.1** Complete sibling plan 02 (Plugin Communication Contract); SDK published.
 - [ ] **0.2** Complete sibling plan 03 (Plugin Interface Template); template repo exists.
-- [ ] **0.3** Mark `plans/v2_engine_bundle_gitlab_distribution.md` SUPERSEDED (§1.1).
+- [ ] **0.3** Mark `plans/v2_engine_bundle_github_distribution.md` SUPERSEDED (§1.1).
 
 ### Group 1 — Discovery infrastructure
 
 - [ ] **1.1** Update `app/tts_server/plugin_loader.py`: add `BUILTIN_PLUGINS` allowlist (§4.4 / M1).
-- [ ] **1.2** Update Studio engine browser API client to use GitHub Search API (`topic:audiobook-studio-tts`) instead of GitLab Projects API.
+- [ ] **1.2** Update Studio engine browser API client to use GitHub Search API (`topic:audiobook-studio-tts`) instead of GitHub Search Repositories API.
 - [ ] **1.3** Decide where `distribution` is validated. `plugin_loader._validate_manifest`
   does **not** currently read or validate any `distribution` block, so a `distribution.host`
   of `"github"` is accepted today as an ignored extra field — no loader change is required for
-  the engine to load. The GitHub-vs-GitLab handling lives in the Studio-side engine browser /
+  the engine to load. The GitHub-vs-GitHub handling lives in the Studio-side engine browser /
   installer client (item 1.2), which is the component that reads `distribution.host` to pick
   the API. If `distribution` is later promoted to a validated field, add a `host` check there;
   do not block engine loading on it.
@@ -369,7 +368,7 @@ inter-dependencies and may run in parallel.
 
 ## 6. References
 
-- `plans/v2_engine_bundle_gitlab_distribution.md` — superseded; GitLab version of this plan
+- `plans/v2_engine_bundle_github_distribution.md` — superseded; GitHub version of this plan
 - `plans/v2_plugin_sdk.md` — plugin contract, `StudioTTSEngine` base class, `plugin_loader.py`
 - `app/tts_server/plugin_loader.py` — current discovery implementation
 - `plans/final_release/02_plugin_communication_contract.md` — SDK publication (pre-requisite)

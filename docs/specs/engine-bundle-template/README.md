@@ -1,13 +1,13 @@
 # Example TTS — engine bundle template
 
-A copyable skeleton for an Audiobook Studio TTS engine, distributed as a **GitLab repo**.
-See `plans/v2_engine_bundle_gitlab_distribution.md` and `plans/v2_plugin_sdk.md`.
+A copyable skeleton for an Audiobook Studio TTS engine, distributed as a **GitHub repo**.
+See `plans/v2_engine_bundle_github_distribution.md` and `plans/v2_plugin_sdk.md`.
 
 ## How distribution works (Stable Diffusion style)
 
 - The **repo is the package.** Users install it with `git clone`, update with `git pull`,
   and uninstall by deleting the folder.
-- Studio finds it by browsing the GitLab **topic** `audiobook-studio-tts`, or by pasting
+- Studio finds it by browsing the GitHub **topic** `audiobook-studio-tts`, or by pasting
   the repo URL ("Install from URL").
 - Updates surface as an alert in **Settings → TTS Engines** with per-engine **Update** and
   **Update all**.
@@ -16,14 +16,14 @@ See `plans/v2_engine_bundle_gitlab_distribution.md` and `plans/v2_plugin_sdk.md`
 
 ## Make your own
 
-1. Create a GitLab repo named **`tts_<engine_id>`** (e.g. `tts_exampletts`) and copy these
+1. Create a GitHub repo named **`tts_<engine_id>`** (e.g. `tts_exampletts`) and copy these
    files in.
 2. Edit `manifest.json` — set `engine_id`, `display_name`, `entry_class`, `resource_profile`,
    `supported_voice_asset_types`, and the `distribution` block (`git_url`, `project`).
 3. Implement the five `StudioTTSEngine` methods in `engine.py`
    (`info`, `check_env`, `check_request`, `synthesize`, `settings_schema`).
 4. Describe settings in `settings_schema.json` and runtime deps in `requirements.txt`.
-5. Add the repo **topic** `audiobook-studio-tts` on GitLab so Studio's browser lists it.
+5. Add the repo **topic** `audiobook-studio-tts` on GitHub so Studio's browser lists it.
 
 ## Files
 

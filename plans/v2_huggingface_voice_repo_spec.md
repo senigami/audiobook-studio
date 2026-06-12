@@ -4,8 +4,8 @@
 > voice takes on the **Hugging Face Hub** (the voice host) so it (a) renders well on the HF
 > page — icon, playable sample, description, full tag set — and (b) is read **natively** by
 > Audiobook Studio after download. Tag values come from
-> `plans/v2_voice_tag_taxonomy.md`. Engines are hosted separately on GitLab — see
-> `plans/v2_engine_bundle_gitlab_distribution.md`. Research sources at the bottom.
+> `plans/v2_voice_tag_taxonomy.md`. Engines are hosted separately on GitHub — see
+> `plans/v2_engine_bundle_github_distribution.md`. Research sources at the bottom.
 
 ## 1. Goal
 
@@ -21,7 +21,7 @@ We ship a **template + generator** so voices assume this shape automatically.
 
 ## 2. Host & repo type decision
 
-- **Host: Hugging Face Hub.** (Engines live on GitLab; voices live on HF.)
+- **Host: Hugging Face Hub.** (Engines live on GitHub; voices live on HF.)
 - **Repo type: model repo.** Chosen because the **`widget` field with `output: url:` makes
   the HF page show a playable sample with no live inference** — the cleanest way to "listen
   right there on the page." `pipeline_tag: text-to-speech` categorizes it; cards render

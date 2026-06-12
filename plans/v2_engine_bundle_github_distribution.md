@@ -1,12 +1,11 @@
-# Spec: TTS Engine Bundle — GitLab Distribution & Install/Update
+# Spec: TTS Engine Bundle — GitHub Distribution & Install/Update
 
-> **SUPERSEDED.** Owner decision 2026-06-11: standalone engine repos will live on **GitHub**, not GitLab.
 > This document is superseded by `plans/final_release/05_standalone_plugin_repos.md` (doc 05),
 > which is the authoritative spec for plugin distribution. Do not implement from this file.
 
 
 > **Status: FINAL DRAFT for review, research-backed.** Defines how TTS **engine plugins**
-> are packaged, hosted on **GitLab**, discovered by tag, and installed/updated — the
+> are packaged, hosted on **GitHub**, discovered by tag, and installed/updated — the
 > Stable-Diffusion-style "browse a tag, pull it down, install" model, for engines. Voices
 > are separate and live on Hugging Face (`plans/v2_huggingface_voice_repo_spec.md`). Builds
 > directly on the plugin contract in `plans/v2_plugin_sdk.md` and the namespace rename in
@@ -14,10 +13,10 @@
 
 ## 1. Goal
 
-- TTS engines become **self-contained GitLab repos**, not files bundled inside the app.
-- Users **browse GitLab by a known topic** (e.g. `audiobook-studio-tts`), pick an engine,
+- TTS engines become **self-contained GitHub repos**, not files bundled inside the app.
+- Users **browse GitHub by a known topic** (e.g. `audiobook-studio-tts`), pick an engine,
   and **install** it; Studio **fetches updates on install** and can update later.
-- **XTTS is the default engine**, auto-installed from its own GitLab repo on first run, so
+- **XTTS is the default engine**, auto-installed from its own GitHub repo on first run, so
   it ships and updates independently of the app.
 - Third-party engines are supported but clearly gated (they run code).
 
@@ -39,7 +38,7 @@ An installed engine lives at `tts_engines/tts_<engine_id>/`. Folder name must ma
 Extends the existing plugin layout (`plans/v2_plugin_sdk.md`):
 
 ```
-tts_<engine_id>/                 # GitLab repo root == installed folder
+tts_<engine_id>/                 # GitHub repo root == installed folder
 ├── manifest.json               # SDK manifest + distribution block (§4)
 ├── engine.py                   # StudioTTSEngine implementation (entry_class)
 ├── requirements.txt            # Python deps (Install Dependencies action)
@@ -67,10 +66,10 @@ comes from and how to update it:
   "supported_voice_asset_types": ["xtts_latents"],
   "requires_network": false,
   "distribution": {
-    "host": "gitlab",
-    "base_url": "https://gitlab.com",
+    "host": "GitHub",
+    "base_url": "https://GitHub.com",
     "project": "audiobook-studio/tts-xtts",
-    "git_url": "https://gitlab.com/audiobook-studio/tts-xtts.git",
+    "git_url": "https://GitHub.com/audiobook-studio/tts-xtts.git",
     "topic": "audiobook-studio-tts",
     "pin_ref": null,
     "official": true
@@ -78,13 +77,13 @@ comes from and how to update it:
 }
 ```
 
-- `host` / `base_url` — `gitlab` and an instance URL (supports self-hosted GitLab).
+- `host` / `base_url` — `GitHub` and an instance URL (supports self-hosted GitHub).
 - `project` — `group/repo` path (or numeric project id), used for the discovery/API lookup.
 - `git_url` — the clone URL. **Install = `git clone` this; update = `git pull`** (the
   Stable Diffusion / ComfyUI model — see §6).
-- `topic` — the GitLab topic used for discovery (anchor: **`audiobook-studio-tts`**).
+- `topic` — the GitHub topic used for discovery (anchor: **`audiobook-studio-tts`**).
 - `pin_ref` — optional tag/branch to lock to; `null` tracks the default branch.
-- `official` — true only for engines under the official Audiobook Studio GitLab group;
+- `official` — true only for engines under the official Audiobook Studio GitHub group;
   Studio shows third-party engines with a trust warning.
 
 `engine_version` is semver, read from the cloned `manifest.json`, and compared during
@@ -98,17 +97,17 @@ update checks.
 
 ## 5. Discovery (browse by topic, or paste a URL)
 
-The "registry" is just GitLab itself — no separate index file to maintain:
+The "registry" is just GitHub itself — no separate index file to maintain:
 
-- The engine browser queries GitLab's Projects API filtered by topic:
+- The engine browser queries GitHub's Projects API filtered by topic:
   `GET {base_url}/api/v4/projects?topic=audiobook-studio-tts&order_by=star_count`.
 - For each project, read its `manifest.json` + `README.md` + `icon.png` (and latest tag)
   for card display (name, version, description, resource profile, official badge).
 - Results render as cards (icon, description, version, "Official"/"Community" badge,
   Install button) — the ComfyUI-Manager / Civitai pattern.
-- **Install from URL:** the user can also paste any GitLab repo URL directly (like A1111's
+- **Install from URL:** the user can also paste any GitHub repo URL directly (like A1111's
   "Install from URL"), bypassing search.
-- Self-hosted/alternate GitLab instances: user can add extra `base_url`s to search.
+- Self-hosted/alternate GitHub instances: user can add extra `base_url`s to search.
 
 ## 6. Install (clone it down)
 
@@ -147,9 +146,9 @@ A fresh clone always gets the latest code, so a new install is never stale.
 ## 8. XTTS default & built-ins
 
 - **XTTS is the default engine.** On first run, if `tts_engines/tts_xtts/` is absent,
-  Studio auto-installs it by cloning the official GitLab repo
-  (`https://gitlab.com/audiobook-studio/tts-xtts.git`). Its model weights then download on
-  first synthesis, as they do today. _(The XTTS GitLab repo does not exist yet — it must be
+  Studio auto-installs it by cloning the official GitHub repo
+  (`https://GitHub.com/audiobook-studio/tts-xtts.git`). Its model weights then download on
+  first synthesis, as they do today. _(The XTTS GitHub repo does not exist yet — it must be
   created before release.)_
 - **The included copy is a real repo install, just pre-seeded.** When XTTS ships bundled
   (offline fallback below), it still carries its full `distribution` block (the repo
@@ -162,15 +161,15 @@ A fresh clone always gets the latest code, so a new install is never stale.
   app installer so a no-network first run still works; the cached copy is treated as
   installed (with its repo metadata intact) and `git pull`s normally once online.
 - **Voxtral (cloud)** is an optional, opt-in cloud engine (an example, not pre-installed),
-  distributed as a GitLab bundle but cloud-backed (`requires_network: true`, hidden until a
+  distributed as a GitHub bundle but cloud-backed (`requires_network: true`, hidden until a
   Mistral key is added).
-- **Migration:** the engines currently bundled in `plugins/` move to their own GitLab repos
+- **Migration:** the engines currently bundled in `plugins/` move to their own GitHub repos
   and into `tts_engines/`; the in-app copies are removed in favor of cloned bundles (XTTS
   via auto-clone / cached fallback).
 
 ## 9. Security & trust
 
-- **HTTPS only**; verify official engines resolve under the official GitLab group before
+- **HTTPS only**; verify official engines resolve under the official GitHub group before
   showing the "Official" badge.
 - **Validate before executing:** strict folder-name + `manifest.json` validation, and
   `min_app_version` check, all before any Python import.
@@ -179,14 +178,14 @@ A fresh clone always gets the latest code, so a new install is never stale.
   serious than installing a voice (data) and the UI must say so.
 - **Network disclosure:** engines with `requires_network: true` disclose what leaves the
   machine (consistent with the cloud-engine disclosure rules).
-- **Token:** GitLab personal access token is optional (public read needs none); required
+- **Token:** GitHub personal access token is optional (public read needs none); required
   only for private/self-hosted projects. Stored as a secret, never logged or bundled.
 
 ## 10. Decisions & remaining questions
 
 Decided:
 - **Distribution = git clone / git pull** (Stable Diffusion / ComfyUI model). The repo is
-  the package; no release-asset or package-registry step. Discovery via GitLab topic, plus
+  the package; no release-asset or package-registry step. Discovery via GitHub topic, plus
   paste-a-URL install. Heavy weights download separately on first run.
 - **Update UX:** Settings → TTS Engines shows an alert of available updates with per-engine
   **Update** and **Update all** (SD-style).
@@ -199,7 +198,7 @@ Decided:
   alert, but never updates an engine without the user clicking Update / Update all.
 - **Offline bundle = yes.** Ship a cached XTTS copy in the installer for offline first-run.
   It carries its repo metadata so it uninstalls, re-downloads, and updates like any other
-  engine (see §8). _(Depends on the XTTS GitLab repo being created — not yet made.)_
+  engine (see §8). _(Depends on the XTTS GitHub repo being created — not yet made.)_
 
 No open distribution questions remain.
 
@@ -209,7 +208,7 @@ No open distribution questions remain.
   https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Extensions
 - ComfyUI Manager (git-clone install model, node list) —
   https://github.com/Comfy-Org/ComfyUI-Manager
-- GitLab Projects API (filter by topic) — https://docs.gitlab.com/api/projects/
-- GitLab Topics API — https://docs.gitlab.com/api/topics/
+- GitHub Projects API (filter by topic) — https://docs.GitHub.com/api/projects/
+- GitHub Topics API — https://docs.GitHub.com/api/topics/
 - Builds on: `plans/v2_plugin_sdk.md`, `plans/v2_voice_system_interface.md`,
   `plans/master_agnostic_tasks.md`.

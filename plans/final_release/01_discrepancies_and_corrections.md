@@ -85,26 +85,26 @@ Post-feature-implementation: both topics are covered by wiki pages linked from `
 
 ---
 
-### P-1: `v2_engine_bundle_gitlab_distribution.md` specifies GitLab; owner decision is GitHub
+### P-1: `v2_engine_bundle_github_distribution.md` specifies GitHub; owner decision is GitHub
 
 **Discrepancy**
-`plans/v2_engine_bundle_gitlab_distribution.md` hard-codes GitLab as the distribution host (repo URLs, API endpoints, `"host": "gitlab"` in manifest). The owner decision is that standalone engine repos will live on **GitHub**, not GitLab. The plan also has no phase assignment.
+`plans/v2_engine_bundle_github_distribution.md` hard-codes GitHub as the distribution host (repo URLs, API endpoints, `"host": "github"` in manifest). The owner decision is that standalone engine repos will live on **GitHub**, not GitHub. The plan also has no phase assignment.
 
 **Evidence**
-- `plans/v2_engine_bundle_gitlab_distribution.md` lines 1, 4, 12–13, 65–66, 68, 76, 80, 82, 96–106, 145–147, 160: all references are GitLab-specific.
+- `plans/v2_engine_bundle_github_distribution.md` lines 1, 4, 12–13, 65–66, 68, 76, 80, 82, 96–106, 145–147, 160: all references are GitHub-specific.
 - No phase assignment anywhere in the file or `Memory/state.json`.
 
 **Correction**
-- [ ] Rename `plans/v2_engine_bundle_gitlab_distribution.md` to `plans/v2_engine_bundle_github_distribution.md`.
-- [ ] In the renamed file, replace every occurrence of "gitlab" / "GitLab" / `https://gitlab.com` with "github" / "GitHub" / `https://github.com`.
-- [ ] Replace `"host": "gitlab"` with `"host": "github"` in all manifest examples.
-- [ ] Replace GitLab Projects API calls (`/api/v4/projects?topic=…`) with the GitHub Search Repositories API (`GET https://api.github.com/search/repositories?q=topic:audiobook-studio-tts`).
-- [ ] Replace all `gitlab.com/audiobook-studio/` URL patterns with `github.com/audiobook-studio/`.
-- [x] Add a header note: "**Scheduled by:** `plans/final_release/05_standalone_plugin_repos.md`. No independent phase assignment." *(done 2026-06-11 — SUPERSEDED note added to `plans/v2_engine_bundle_gitlab_distribution.md`; full rename/rewrite deferred to doc 05)*
-- [ ] Update `plans/master_agnostic_plan.md` line that references the old filename to point to the renamed file.
+- [x] Rename `plans/v2_engine_bundle_github_distribution.md` to `plans/v2_engine_bundle_github_distribution.md`.
+- [x] In the renamed file, replace every occurrence of "github" / "GitHub" / `https://github.com` with "github" / "GitHub" / `https://github.com`.
+- [x] Replace `"host": "github"` with `"host": "github"` in all manifest examples.
+- [x] Replace GitHub Projects API calls (`/api/v4/projects?topic=…`) with the GitHub Search Repositories API (`GET https://api.github.com/search/repositories?q=topic:audiobook-studio-tts`).
+- [x] Replace all `github.com/audiobook-studio/` URL patterns with `github.com/audiobook-studio/`.
+- [x] Add a header note: "**Scheduled by:** `plans/final_release/05_standalone_plugin_repos.md`. No independent phase assignment." *(done 2026-06-11 — SUPERSEDED note added to `plans/v2_engine_bundle_github_distribution.md`; full rename/rewrite deferred to doc 05)*
+- [x] Update `plans/master_agnostic_plan.md` line that references the old filename to point to the renamed file.
 
 **Acceptance**
-The word "GitLab" does not appear in the renamed distribution plan. The file header cites `05_standalone_plugin_repos.md` as its scheduling authority.
+The word "GitHub" does not appear in the renamed distribution plan. The file header cites `05_standalone_plugin_repos.md` as its scheduling authority.
 
 ---
 
@@ -172,11 +172,11 @@ The contradiction is resolved: either both plan lines are checked as N/A (file a
 ### P-5: `plugins/` → `tts_engines/` rename referenced in two plans but absent from `v2_plugin_sdk.md`
 
 **Discrepancy**
-`plans/master_agnostic_plan.md` lines 28–35 and the (to-be-renamed) GitLab distribution plan both reference a future rename of `plugins/` to `tts_engines/`. `plans/v2_plugin_sdk.md` is the canonical SDK contract document and makes no mention of this future rename, leaving the canonical directory name ambiguous.
+`plans/master_agnostic_plan.md` lines 28–35 and the (to-be-renamed) GitHub distribution plan both reference a future rename of `plugins/` to `tts_engines/`. `plans/v2_plugin_sdk.md` is the canonical SDK contract document and makes no mention of this future rename, leaving the canonical directory name ambiguous.
 
 **Evidence**
 - `plans/master_agnostic_plan.md` lines 28–35: future rename candidate `tts_engines/` noted.
-- `plans/v2_engine_bundle_gitlab_distribution.md` (passim): uses `tts_<engine_id>/` as top-level folder naming but does not explicitly call the host directory `tts_engines/`.
+- `plans/v2_engine_bundle_github_distribution.md` (passim): uses `tts_<engine_id>/` as top-level folder naming but does not explicitly call the host directory `tts_engines/`.
 - `plans/v2_plugin_sdk.md` line 16: `plugins/` used throughout with no rename note.
 
 **Correction**
@@ -328,7 +328,7 @@ The table below maps each discrepancy to the `plans/final_release/` document tha
 | W-2 | `sample.mp3` in Getting-Started should be `sample.wav` | `00_overview.md` (wiki maintenance, no dedicated doc) |
 | W-3 | No wiki pages on responsive design, theming, or GitHub plugin distribution | `07_frontend_themes_and_responsive.md`, `05_standalone_plugin_repos.md` |
 | W-4 | Mixed rendering not named as a job type in Concepts wiki | `00_overview.md` (wiki maintenance, no dedicated doc) |
-| P-1 | Distribution plan specifies GitLab; owner decision is GitHub | `05_standalone_plugin_repos.md` |
+| P-1 | Distribution plan specifies GitHub; owner decision is GitHub | `05_standalone_plugin_repos.md` |
 | P-2 | Phase 11 open checkpoint checkbox vs. `state.json` closeout_ready | `00_overview.md` (housekeeping, self-contained) |
 | P-3 | `mixed.py` → `composite.py` rename deferred to Phase 13 scope gap | `06_code_organization_cleanup.md` |
 | P-4 | Voice casting plan is DRAFT with no scheduled phase | `04_voice_metadata_and_tagging.md` |

@@ -21,7 +21,7 @@ Goal: correct behavior before any reorganization, so later refactors are verifie
 Goal: delete what shouldn't exist so the contract work refactors only living code.
 
 - [ ] **2a. Repo + dead-code cleanup** — doc 06 (root cruft, 0-byte DBs, legacy engine path deletion, frontend stubs, dev-route gating, App.tsx split). Owner confirms the flagged destructive steps.
-- [ ] **2b. Phase 11 formal closeout + plan-file corrections** — doc 01 P-items (checkpoint Phase 11, supersede the GitLab doc, sync phase docs).
+- [ ] **2b. Phase 11 formal closeout + plan-file corrections** — doc 01 P-items (checkpoint Phase 11, supersede the GitHub doc, sync phase docs).
 - [ ] **Gate:** builds green; greps in doc 06 all pass; no `OWNER_CONFIRMED` flags left unresolved.
 
 ## Stage 3 — The plugin contract (the heart)

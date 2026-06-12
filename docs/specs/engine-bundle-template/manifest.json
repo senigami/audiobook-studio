@@ -13,13 +13,13 @@
   "settings_schema_version": "1.0",
   "author": "Your Name",
   "license": "MIT",
-  "homepage": "https://gitlab.com/your-namespace/tts-exampletts",
+  "homepage": "https://github.com/your-namespace/tts-exampletts",
   "test_text": "This is an Example TTS verification test.",
   "distribution": {
-    "host": "gitlab",
-    "base_url": "https://gitlab.com",
+    "host": "github",
+    "base_url": "https://github.com",
     "project": "your-namespace/tts-exampletts",
-    "git_url": "https://gitlab.com/your-namespace/tts-exampletts.git",
+    "git_url": "https://github.com/your-namespace/tts-exampletts.git",
     "topic": "audiobook-studio-tts",
     "pin_ref": null,
     "official": false

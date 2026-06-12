@@ -11,7 +11,7 @@ All logic fixes, progress confidence model, security blockers, test-quality audi
 ## Stage 2 — Clean house (open, release-gating)
 
 - [ ] Repo + dead-code cleanup per doc 06 — `OWNER_CONFIRMED` deletion flags need owner sign-off before executing. (L)
-- [ ] Phase 11 plan-file checkpoint + GitLab-doc supersede notes (doc 01). (S)
+- [ ] Phase 11 plan-file checkpoint + GitHub-doc supersede notes (doc 01). (S)
 
 ## Stage 3 — Plugin contract (open, release-gating, longest pole)
 
