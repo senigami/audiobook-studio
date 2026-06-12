@@ -13,7 +13,7 @@
 - **S7 — server-side engine audit**: voxtral/mixed clean; tts_xtts's `proc_utils.run_cmd_stream` — DECIDED 2026-06-11: stays as documented in-tree exception (note in plugin README); standalone-plugin guidance says stdlib subprocess.
 - **S8 — manifest validation in CI**: scripts/validate_plugin_manifests.py + workflow step; all manifests must carry the version fields.
 - **S9 — dispatcher integration**: Studio job dispatch instantiates the context and calls `handler(ctx, job)`, persisting JobResult. The integration-risk slice; end-to-end test required.
-- **S10 — verification + spec sync**: all groups verified, plugin-contract.md → 1.3.0 with the check_output clarification and any deviations, docstrings.
+- **S10 — verification + spec sync** (+ fix ctx.stitch_segments signature gap: missing on_output/cancel_check params, found during voxtral bake — handlers import audio_ops directly until then): all groups verified, plugin-contract.md → 1.3.0 with the check_output clarification and any deviations, docstrings.
 
 ## Order
 

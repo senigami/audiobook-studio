@@ -3,6 +3,9 @@ import time
 import logging
 from pathlib import Path
 
+from .segments import handle_voxtral_segments
+from .bake import handle_voxtral_bake
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -122,17 +125,7 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
         return "cancelled"
 
-    if j.segment_ids or j.is_bake:
-        update_job(
-            jid,
-            status="failed",
-            finished_at=time.time(),
-            progress=1.0,
-            error="Voxtral segment and bake rendering land in a later issue.",
-        )
-        return "failed"
-
-    if _chapter_uses_multiple_profiles(j):
+    if _chapter_uses_multiple_profiles(j) and not (j.segment_ids or j.is_bake):
         update_job(
             jid,
             status="failed",
@@ -154,6 +147,21 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
                 voice_profile_dir = Path(voice_profile_dir_str)
         except ValueError:
             voice_profile_dir = Path(ctx.get_voices_dir()) / j.speaker_profile
+
+    # Route segment-targeted and bake jobs before the standard/sample branch.
+    if j.segment_ids or j.is_bake:
+        if not j.project_id or not j.chapter_id:
+            update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Voxtral jobs require project and chapter context.")
+            return "failed"
+        pdir = get_chapter_dir(j.project_id, j.chapter_id)
+        pdir.mkdir(parents=True, exist_ok=True)
+        spk = get_speaker_settings(j.speaker_profile) if j.speaker_profile else {}
+        if j.segment_ids:
+            rc = handle_voxtral_segments(jid, j, start, on_output, cancel_check, pdir, voice_profile_dir, spk)
+        else:
+            out_wav = pdir / (Path(j.chapter_file).stem + ".wav" if j.chapter_file else "chapter.wav")
+            rc = handle_voxtral_bake(jid, j, start, on_output, cancel_check, pdir, out_wav, voice_profile_dir, spk)
+        return "done" if rc == 0 else "failed"
 
     if _is_sample_job(j):
         # Voice preview/test: render into the voice profile directory.

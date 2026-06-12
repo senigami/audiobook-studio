@@ -18,7 +18,9 @@
       "voxtral": "interface:handle_voxtral_job"
     },
     "kind_handlers": {
-      "standard": "interface:handle_voxtral_job"
+      "standard": "interface:handle_voxtral_job",
+      "segment": "interface:handle_voxtral_job",
+      "bake": "interface:handle_voxtral_job"
     }
   },
   "behavior": {
