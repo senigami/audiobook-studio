@@ -296,7 +296,7 @@ function Test-VenvPythonHealthy($EnvDir) {
     }
 }
 
-function Sync-PythonRequirements($PythonInfo, $EnvDir, $RequirementsFile, $Label) {
+function Sync-PythonRequirements($PythonInfo, $EnvDir, $RequirementsFile, $Label, [string[]]$ExtraPipArgs = @()) {
     $PythonExe = Join-Path $EnvDir "Scripts/python.exe"
     $PipExe = Join-Path $EnvDir "Scripts/pip.exe"
     $StampFile = Join-Path $EnvDir ".requirements.stamp"
@@ -319,7 +319,7 @@ function Sync-PythonRequirements($PythonInfo, $EnvDir, $RequirementsFile, $Label
         Write-Step "Creating $Label environment"
         Invoke-Python $PythonInfo @("-m", "venv", $EnvDir)
     }
-    
+
     if (-not (Test-Path $PipExe)) {
         & $PythonExe -m ensurepip --upgrade
     }
@@ -328,11 +328,49 @@ function Sync-PythonRequirements($PythonInfo, $EnvDir, $RequirementsFile, $Label
         Write-Step "Installing $Label dependencies"
         & $PythonExe -m pip install --upgrade pip
         if ($LASTEXITCODE -ne 0) { Fail "Failed to upgrade pip in $Label environment" }
-        & $PythonExe -m pip install -r $RequirementsFile
+        $installArgs = @("-m", "pip", "install") + $ExtraPipArgs + @("-r", $RequirementsFile)
+        & $PythonExe @installArgs
         if ($LASTEXITCODE -ne 0) { Fail "Failed to install $Label dependencies" }
         Copy-Item $RequirementsFile $StampFile -Force
     } else {
         Write-Step "$Label dependencies already up to date"
+    }
+}
+
+# Detect the appropriate torch backend and return extra pip args for the XTTS install.
+# Override: set TORCH_BACKEND env var to cuda, mps, or cpu to skip detection.
+function Select-TorchBackend {
+    $override = $env:TORCH_BACKEND
+    if ($override) {
+        Write-Step "Torch backend override: $override"
+    } elseif (Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) {
+        nvidia-smi *>$null
+        if ($LASTEXITCODE -eq 0) {
+            $override = "cuda"
+        } else {
+            $override = "cpu"
+        }
+    } else {
+        $override = "cpu"
+    }
+
+    switch ($override.ToLower()) {
+        "cuda" {
+            Write-Step "Torch backend: CUDA (nvidia-smi detected) — using https://download.pytorch.org/whl/cu128"
+            return @("--index-url", "https://download.pytorch.org/whl/cu128")
+        }
+        "mps" {
+            Write-Step "Torch backend: MPS — using default PyPI wheels"
+            return @()
+        }
+        "cpu" {
+            Write-Step "Torch backend: CPU-only — using https://download.pytorch.org/whl/cpu"
+            return @("--index-url", "https://download.pytorch.org/whl/cpu")
+        }
+        default {
+            Write-Step "Torch backend: unknown override '$override'; falling back to default PyPI wheels"
+            return @()
+        }
     }
 }
 
@@ -464,7 +502,8 @@ if (-not $PythonInfo) {
 Write-Step "Using Python: $($PythonInfo.Command)"
 Ensure-FfmpegReady
 Sync-PythonRequirements $PythonInfo $AppVenv (Join-Path $Root "requirements.txt") "app"
-Sync-PythonRequirements $PythonInfo $TtsEnvDir (Join-Path $Root "plugins/tts_xtts/requirements.txt") "XTTS"
+$XttsTorchArgs = Select-TorchBackend
+Sync-PythonRequirements $PythonInfo $TtsEnvDir (Join-Path $Root "plugins/tts_xtts/requirements.txt") "XTTS" $XttsTorchArgs
 Ensure-FrontendReady
 Maybe-RestoreDemoBundle $PythonInfo
 

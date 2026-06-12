@@ -5,7 +5,8 @@ pydantic>=2.0.0
 
 # Inference Environment Dependencies
 # Using the Idiap community fork for maintenance (2026)
-coqui-tts @ git+https://github.com/idiap/coqui-ai-TTS.git@main
+# Pinned 2026-06-12: ca2cf5155bca892ea820ad384400efbfac41b178 (main at time of pin)
+coqui-tts @ git+https://github.com/idiap/coqui-ai-TTS.git@ca2cf5155bca892ea820ad384400efbfac41b178
 
 # Specific dependencies for compatibility with the Idiap fork
 coqpit-config==0.2.4
