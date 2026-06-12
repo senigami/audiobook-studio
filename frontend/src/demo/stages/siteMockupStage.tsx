@@ -1,5 +1,5 @@
 /**
- * siteMockupStage — North-star full-site organization mockup (medium fidelity v3.3).
+ * siteMockupStage — North-star full-site organization mockup (medium fidelity v3.4).
  *
  * Navigation:
  *   - Left rail items switch `activeRail` state.
@@ -17,6 +17,13 @@
  *     Speaker key legend removed (palette replaces it).
  *   - Manuscript "Book details ▸" disclosure row removed (superseded by TopBar identity).
  *   - Caption updated to v3.3.
+ *
+ * v3.4 changes:
+ *   - ManuscriptPane: chapter lifecycle pills (Draft/Ready/Cast/Rendered).
+ *   - ManuscriptPane: chapter editor panel (replaces read-only preview).
+ *   - ManuscriptPane: focus mode (✎ toggle hides table + import, centered column).
+ *   - ManuscriptPane: compact import dropzone (one row under chapter table).
+ *   - Caption updated to v3.4.
  */
 
 import React, { useState } from 'react';
@@ -977,129 +984,481 @@ type BookTab = 'Manuscript' | 'Casting' | 'Studio' | 'Review' | 'Publish';
 const BOOK_TABS: BookTab[] = ['Manuscript', 'Casting', 'Studio', 'Review', 'Publish'];
 
 // ---------------------------------------------------------------------------
-// Manuscript pane
+// Manuscript pane — v3.4
+
+// Chapter lifecycle data for ManuscriptPane
+// ch1-3 Rendered, ch4 Cast, ch5 Ready, ch6-7 Draft
+// ch6 "The Hollow Road" is the default selected chapter (spec says ch6, using that title from spec)
+type ChapterLifecycle = 'Draft' | 'Ready' | 'Cast' | 'Rendered';
+
+const MANUSCRIPT_CHAPTERS: { n: number; title: string; words: number; lifecycle: ChapterLifecycle }[] = [
+  { n: 1, title: 'The Hollow Road',       words: 2814, lifecycle: 'Rendered' },
+  { n: 2, title: 'Ember in the Dark',     words: 3102, lifecycle: 'Rendered' },
+  { n: 3, title: 'Voices Underground',    words: 2650, lifecycle: 'Rendered' },
+  { n: 4, title: 'A Vale at Dusk',        words: 3440, lifecycle: 'Cast'     },
+  { n: 5, title: 'Silver and Stone',      words: 2980, lifecycle: 'Ready'    },
+  { n: 6, title: 'The Hollow Road',       words: 3210, lifecycle: 'Draft'    },
+  { n: 7, title: 'Whispers at Threshold', words: 2775, lifecycle: 'Draft'    },
+];
+
+const LIFECYCLE_COLORS: Record<ChapterLifecycle, string> = {
+  Draft:    '#6b7280',
+  Ready:    '#3b82f6',
+  Cast:     '#8b5cf6',
+  Rendered: '#22c55e',
+};
+
+const LifecyclePill: React.FC<{ lifecycle: ChapterLifecycle }> = ({ lifecycle }) => {
+  const c = LIFECYCLE_COLORS[lifecycle];
+  return (
+    <span style={{
+      fontSize: '0.55rem',
+      padding: '1px 6px',
+      borderRadius: 20,
+      border: `1px solid ${c}55`,
+      background: c + '22',
+      color: c,
+      whiteSpace: 'nowrap',
+      display: 'inline-flex',
+      alignItems: 'center',
+      fontWeight: 600,
+    }}>
+      {lifecycle}
+    </span>
+  );
+};
 
 const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ onSwitchToPublish: _onSwitchToPublish }) => {
-  return (
-    <Col gap={8} style={{ flex: 1 }}>
-      {/* Main content row */}
-      <Row gap={10} style={{ flex: 1, alignItems: 'stretch' }}>
-        {/* Chapter table */}
-        <Col gap={0} style={{ flex: 2, background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-          {/* Header */}
-          <Row
-            gap={0}
-            style={{
-              padding: '5px 10px',
-              borderBottom: '1px solid var(--border)',
-              background: 'var(--surface)',
-            }}
-          >
-            {['#', 'Title', 'Words', 'Status'].map((h, i) => (
-              <div
-                key={h}
-                style={{
-                  fontSize: '0.58rem',
-                  fontWeight: 700,
-                  color: 'var(--text-muted)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                  flex: i === 1 ? 3 : 1,
-                  textAlign: i > 1 ? 'right' : 'left',
-                }}
-              >
-                {h}
-              </div>
-            ))}
-          </Row>
-          {CHAPTERS.map((ch, i) => (
-            <Row
-              key={ch.n}
-              gap={0}
+  // Default selected: ch6 (index 5, lifecycle Draft)
+  const [selectedChapterN, setSelectedChapterN] = useState<number>(6);
+  const [unlockedChapters, setUnlockedChapters] = useState<Set<number>>(new Set());
+  const [showWarning, setShowWarning] = useState<number | null>(null);
+  const [focusMode, setFocusMode] = useState(false);
+
+  const selectedChapter = MANUSCRIPT_CHAPTERS.find(c => c.n === selectedChapterN)!;
+  const isProduced = selectedChapter.lifecycle === 'Cast' || selectedChapter.lifecycle === 'Rendered';
+  const isUnlocked = unlockedChapters.has(selectedChapterN);
+  const isEditable = !isProduced || isUnlocked;
+
+  const handleChapterClick = (n: number) => {
+    setSelectedChapterN(n);
+    setShowWarning(null);
+  };
+
+  const handleEditClick = () => {
+    setShowWarning(selectedChapterN);
+  };
+
+  const handleEditAnyway = () => {
+    setUnlockedChapters(prev => new Set([...prev, selectedChapterN]));
+    setShowWarning(null);
+  };
+
+  // Editor panel (right side)
+  const EditorPanel = (
+    <Col gap={0} style={{
+      flex: 1,
+      background: 'var(--surface-alt)',
+      border: '1px solid var(--border)',
+      borderRadius: 6,
+      overflow: 'hidden',
+      minWidth: 0,
+    }}>
+      {/* Editor header */}
+      <Row gap={6} style={{
+        padding: '6px 10px',
+        borderBottom: '1px solid var(--border)',
+        background: 'var(--surface)',
+        alignItems: 'center',
+        flexShrink: 0,
+      }}>
+        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>
+          Ch {selectedChapter.n} · {selectedChapter.title}
+        </span>
+
+        {/* Focus mode toggle */}
+        <div
+          onClick={() => setFocusMode(f => !f)}
+          style={{
+            fontSize: '0.58rem',
+            padding: '2px 7px',
+            borderRadius: 20,
+            cursor: 'pointer',
+            border: `1px solid ${focusMode ? 'var(--accent)' : 'var(--border)'}`,
+            background: focusMode ? 'var(--accent-tint-bg)' : 'transparent',
+            color: focusMode ? 'var(--accent)' : 'var(--text-muted)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 3,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {focusMode ? 'Exit focus' : 'Focus ✎'}
+        </div>
+
+        {/* Status chip */}
+        {isEditable ? (
+          <span style={{
+            fontSize: '0.55rem',
+            padding: '1px 7px',
+            borderRadius: 10,
+            border: '1px solid #22c55e55',
+            background: '#22c55e18',
+            color: '#22c55e',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 3,
+            whiteSpace: 'nowrap',
+          }}>
+            editing — autosaved ✓
+          </span>
+        ) : (
+          <span style={{
+            fontSize: '0.55rem',
+            padding: '1px 7px',
+            borderRadius: 10,
+            border: '1px solid var(--border)',
+            background: 'var(--surface)',
+            color: 'var(--text-muted)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 3,
+            whiteSpace: 'nowrap',
+          }}>
+            🔒 read-only — this chapter is cast &amp; rendered
+          </span>
+        )}
+      </Row>
+
+      {/* Produced + unlocked amber strip */}
+      {isProduced && isUnlocked && (
+        <div style={{
+          fontSize: '0.58rem',
+          color: '#92400e',
+          background: '#fef3c7',
+          borderBottom: '1px solid #fbbf24',
+          padding: '3px 10px',
+          flexShrink: 0,
+        }}>
+          editing a produced chapter
+        </div>
+      )}
+
+      {/* Warning banner */}
+      {showWarning === selectedChapterN && (
+        <div style={{
+          background: '#fffbeb',
+          border: '1px solid #fbbf2488',
+          borderRadius: 0,
+          padding: '8px 10px',
+          flexShrink: 0,
+          borderBottom: '1px solid var(--border)',
+        }}>
+          <div style={{ fontSize: '0.62rem', color: '#92400e', marginBottom: 6, lineHeight: 1.5 }}>
+            Editing re-analyzes this chapter. Voice assignments are matched best-effort — some may be lost.
+          </div>
+          <Row gap={6}>
+            <div
+              onClick={handleEditAnyway}
               style={{
-                padding: '5px 10px',
-                borderBottom: i < CHAPTERS.length - 1 ? '1px solid var(--border)' : 'none',
-                alignItems: 'center',
+                fontSize: '0.6rem', fontWeight: 700, padding: '3px 10px', borderRadius: 5,
+                background: '#f59e0b', border: '1px solid #d97706', color: '#fff', cursor: 'pointer',
               }}
             >
-              <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', flex: 1 }}>{ch.n}</div>
-              <div style={{ fontSize: '0.62rem', color: 'var(--text-primary)', fontWeight: 500, flex: 3 }}>{ch.title}</div>
-              <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>{ch.words.toLocaleString()}</div>
-              <div style={{ flex: 1, textAlign: 'right' }}>
-                <StatusPill status={ch.status} />
-              </div>
-            </Row>
-          ))}
-        </Col>
-
-        {/* Right panel */}
-        <Col gap={8} style={{ flex: 1 }}>
-          {/* Import dropzone */}
-          <div
-            style={{
-              border: '2px dashed var(--border)',
-              borderRadius: 8,
-              padding: '16px 12px',
-              textAlign: 'center',
-              background: 'var(--surface-alt)',
-            }}
-          >
-            <div style={{ fontSize: '1.4rem', marginBottom: 4 }}>📄</div>
-            <div style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--text-primary)' }}>Import</div>
-            <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: 3 }}>
-              Drop .txt · .epub · .docx
+              Edit anyway
             </div>
-            <Btn small style={{ marginTop: 8, display: 'inline-flex' }}>Choose file</Btn>
-          </div>
+            <div
+              onClick={() => setShowWarning(null)}
+              style={{
+                fontSize: '0.6rem', fontWeight: 600, padding: '3px 10px', borderRadius: 5,
+                background: 'var(--surface-alt)', border: '1px solid var(--border)',
+                color: 'var(--text-secondary)', cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </div>
+          </Row>
+        </div>
+      )}
 
-          {/* Chapter preview — read-only */}
-          <div
-            style={{
-              flex: 1,
-              background: 'var(--surface-alt)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              padding: '8px 10px',
-              overflow: 'hidden',
-            }}
-          >
-            <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
-              <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', flex: 1 }}>
-                Chapter 1 Preview
-              </div>
-              {/* Read-only chip */}
-              <span
-                style={{
-                  fontSize: '0.55rem',
-                  padding: '1px 6px',
-                  borderRadius: 10,
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface)',
-                  color: 'var(--text-muted)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 3,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                🔒 read-only — edit text in Studio
-              </span>
-            </Row>
+      {/* Editor body */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
+        {isEditable ? (
+          <Col gap={8}>
+            {/* Two short prose paragraphs as placeholder */}
+            <div
+              contentEditable
+              suppressContentEditableWarning
+              style={{
+                fontSize: '0.72rem',
+                lineHeight: 1.75,
+                color: 'var(--text-primary)',
+                outline: 'none',
+                background: 'transparent',
+                minHeight: 40,
+              }}
+            >
+              The road wound down through silver birch and pale stone, the kind of road that remembers every foot that has ever crossed it. Maren pulled her cloak tighter against the chill that rose from the valley floor.
+            </div>
+            <div
+              contentEditable
+              suppressContentEditableWarning
+              style={{
+                fontSize: '0.72rem',
+                lineHeight: 1.75,
+                color: 'var(--text-primary)',
+                outline: 'none',
+                background: 'transparent',
+                minHeight: 40,
+              }}
+            >
+              The vale smelled of old rain and something older still — loam and iron and time. Far above, an owl called once, then fell silent.
+            </div>
+          </Col>
+        ) : (
+          <Col gap={8}>
+            {/* Read-only prose */}
             {[
-              'The road wound down through silver birch and pale stone…',
-              'Maren pulled her cloak tighter. The vale smelled of old rain.',
-              '"They say the warden never sleeps," Dov said quietly.',
-              'She did not answer. The lantern swayed in the still air.',
+              'The road wound down through silver birch and pale stone, the kind of road that remembers every foot that has ever crossed it.',
+              'Maren pulled her cloak tighter against the chill that rose from the valley floor.',
+              'The vale smelled of old rain and something older still — loam and iron and time.',
+              'Far above, an owl called once, then fell silent.',
             ].map((line, i) => (
-              <div key={i} style={{ fontSize: '0.62rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 2 }}>
+              <div key={i} style={{ fontSize: '0.72rem', lineHeight: 1.75, color: 'var(--text-secondary)' }}>
                 {line}
               </div>
             ))}
-            <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
-              … +2,810 words
+          </Col>
+        )}
+      </div>
+
+      {/* Footer: word count + edit button */}
+      <div style={{
+        padding: '5px 10px',
+        borderTop: '1px solid var(--border)',
+        background: 'var(--surface)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        flexShrink: 0,
+      }}>
+        <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', flex: 1 }}>
+          1,842 words
+        </span>
+        {!isEditable && showWarning !== selectedChapterN && (
+          <div
+            onClick={handleEditClick}
+            style={{
+              fontSize: '0.6rem', fontWeight: 600, padding: '2px 8px', borderRadius: 5,
+              background: 'var(--surface-alt)', border: '1px solid var(--border)',
+              color: 'var(--text-secondary)', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center',
+            }}
+          >
+            Edit text
+          </div>
+        )}
+      </div>
+    </Col>
+  );
+
+  // Focus mode: hide table + import, center editor column
+  if (focusMode) {
+    return (
+      <Col gap={0} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', position: 'relative' }}>
+        {/* Muted note about rail */}
+        <div style={{
+          fontSize: '0.55rem',
+          color: 'var(--text-muted)',
+          fontStyle: 'italic',
+          padding: '3px 0 6px',
+          alignSelf: 'flex-start',
+        }}>
+          rail auto-collapses in focus mode
+        </div>
+        <div style={{ width: '100%', maxWidth: 620, flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* Larger font override for focus mode — wrap editor in a font-size context */}
+          <Col gap={0} style={{
+            flex: 1,
+            background: 'var(--surface-alt)',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            overflow: 'hidden',
+          }}>
+            {/* Focus header */}
+            <Row gap={6} style={{
+              padding: '6px 10px',
+              borderBottom: '1px solid var(--border)',
+              background: 'var(--surface)',
+              alignItems: 'center',
+              flexShrink: 0,
+            }}>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>
+                Ch {selectedChapter.n} · {selectedChapter.title}
+              </span>
+              <span style={{
+                fontSize: '0.55rem', padding: '1px 7px', borderRadius: 10,
+                border: '1px solid #22c55e55', background: '#22c55e18', color: '#22c55e',
+                display: 'inline-flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap',
+              }}>
+                editing — autosaved ✓
+              </span>
+              <div
+                onClick={() => setFocusMode(false)}
+                style={{
+                  fontSize: '0.58rem', padding: '2px 7px', borderRadius: 20, cursor: 'pointer',
+                  border: '1px solid var(--accent)', background: 'var(--accent-tint-bg)',
+                  color: 'var(--accent)', whiteSpace: 'nowrap',
+                }}
+              >
+                Exit focus
+              </div>
+            </Row>
+
+            {/* Focus body — slightly larger font */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
+              <Col gap={10}>
+                <div
+                  contentEditable
+                  suppressContentEditableWarning
+                  style={{
+                    fontSize: '0.82rem',
+                    lineHeight: 1.85,
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    background: 'transparent',
+                  }}
+                >
+                  The road wound down through silver birch and pale stone, the kind of road that remembers every foot that has ever crossed it. Maren pulled her cloak tighter against the chill that rose from the valley floor.
+                </div>
+                <div
+                  contentEditable
+                  suppressContentEditableWarning
+                  style={{
+                    fontSize: '0.82rem',
+                    lineHeight: 1.85,
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    background: 'transparent',
+                  }}
+                >
+                  The vale smelled of old rain and something older still — loam and iron and time. Far above, an owl called once, then fell silent.
+                </div>
+              </Col>
             </div>
+
+            <div style={{
+              padding: '5px 10px',
+              borderTop: '1px solid var(--border)',
+              background: 'var(--surface)',
+              flexShrink: 0,
+            }}>
+              <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>1,842 words</span>
+            </div>
+          </Col>
+        </div>
+      </Col>
+    );
+  }
+
+  return (
+    <Col gap={8} style={{ flex: 1 }}>
+      {/* Main content row: chapter table (left) + editor panel (right) */}
+      <Row gap={10} style={{ flex: 1, alignItems: 'stretch' }}>
+        {/* Left: chapter table + compact import row */}
+        <Col gap={6} style={{ flex: 2, minWidth: 0 }}>
+          {/* + New chapter button above table */}
+          <Row gap={6} style={{ alignItems: 'center' }}>
+            <Btn small>+ New chapter</Btn>
+          </Row>
+
+          {/* Chapter table */}
+          <Col gap={0} style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+            {/* Header */}
+            <Row
+              gap={0}
+              style={{
+                padding: '5px 10px',
+                borderBottom: '1px solid var(--border)',
+                background: 'var(--surface)',
+              }}
+            >
+              {['#', 'Title', 'Words', 'Stage'].map((h, i) => (
+                <div
+                  key={h}
+                  style={{
+                    fontSize: '0.58rem',
+                    fontWeight: 700,
+                    color: 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    flex: i === 1 ? 3 : 1,
+                    textAlign: i > 1 ? 'right' : 'left',
+                  }}
+                >
+                  {h}
+                </div>
+              ))}
+            </Row>
+            {MANUSCRIPT_CHAPTERS.map((ch, i) => {
+              const isSelected = ch.n === selectedChapterN;
+              return (
+                <Row
+                  key={ch.n}
+                  gap={0}
+                  onClick={() => handleChapterClick(ch.n)}
+                  style={{
+                    padding: '5px 10px',
+                    borderBottom: i < MANUSCRIPT_CHAPTERS.length - 1 ? '1px solid var(--border)' : 'none',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    background: isSelected ? 'var(--accent-tint-bg)' : 'transparent',
+                    borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
+                  }}
+                >
+                  <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', flex: 1 }}>{ch.n}</div>
+                  <div style={{
+                    fontSize: '0.62rem',
+                    color: isSelected ? 'var(--accent)' : 'var(--text-primary)',
+                    fontWeight: isSelected ? 700 : 500,
+                    flex: 3,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {ch.title}
+                  </div>
+                  <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>
+                    {ch.words.toLocaleString()}
+                  </div>
+                  <div style={{ flex: 1, textAlign: 'right' }}>
+                    <LifecyclePill lifecycle={ch.lifecycle} />
+                  </div>
+                </Row>
+              );
+            })}
+          </Col>
+
+          {/* Compact import row */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '5px 10px',
+            border: '1px dashed var(--border)',
+            borderRadius: 6,
+            background: 'var(--surface-alt)',
+          }}>
+            <span style={{ fontSize: '0.7rem' }}>⬆</span>
+            <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', flex: 1 }}>
+              Import text/EPUB — drops into new chapters
+            </span>
+            <Btn small>Choose file</Btn>
           </div>
         </Col>
+
+        {/* Right: chapter editor panel */}
+        {EditorPanel}
       </Row>
     </Col>
   );
@@ -2740,7 +3099,7 @@ const SiteMockup: React.FC = () => {
           flexShrink: 0,
         }}
       >
-        North-star organization mockup — current functionality represented. Queue drawer = check status from anywhere without losing your place. · v3.3
+        North-star organization mockup — current functionality represented. Queue drawer = check status from anywhere without losing your place. · v3.4
       </div>
 
       {/* App window — column: [top bar] / [rail + content] / [player bar] */}
@@ -2837,6 +3196,6 @@ export const siteMockupStage = {
   id: 'site-mockup',
   title: 'Site Mockup — North Star',
   description:
-    'Medium-fidelity full-site layout mockup v3.3 — current functionality represented: queue drawer slide-over, collapsible rail with full chapter list under Studio, book pipeline stages (Manuscript/Casting/Studio/Review/Publish), TopBar book identity cluster (cover chip + title + metadata → Publish), Studio book-view with speaker underlines + cast paint palette (4 swatches, 5 paintable sentences) + mixed-sentence callout + editable chip, follow-along Review player with section annotations, Publish canonical book info editor, and all rail destinations with realistic fake data.',
+    'Medium-fidelity full-site layout mockup v3.4 — current functionality represented: queue drawer slide-over, collapsible rail with full chapter list under Studio, book pipeline stages (Manuscript/Casting/Studio/Review/Publish), TopBar book identity cluster (cover chip + title + metadata → Publish), Studio book-view with speaker underlines + cast paint palette (4 swatches, 5 paintable sentences) + mixed-sentence callout + editable chip, follow-along Review player with section annotations, Publish canonical book info editor, and all rail destinations with realistic fake data. Manuscript v3.4: chapter lifecycle pills (Draft/Ready/Cast/Rendered), chapter editor panel with editable/read-only states + lock/unlock flow + amber warning banner, focus mode (✎ toggle), compact import row.',
   element: <SiteMockupElement />,
 };
