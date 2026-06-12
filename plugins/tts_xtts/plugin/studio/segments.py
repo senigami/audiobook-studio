@@ -3,7 +3,10 @@ import logging
 import time
 from pathlib import Path
 
-from studio_plugin_sdk.errors import BridgeError
+try:
+    from studio_plugin_sdk.errors import BridgeError  # alias registered by plugin_loader
+except ImportError:
+    from app.studio_plugin_sdk.errors import BridgeError  # fallback for test/direct import
 from .helpers import (
     _profile_inputs_for_segment,
     _segment_group_weight,
@@ -25,25 +28,47 @@ def _get_ctx():
     """Return the shared StudioPluginContext for the xtts engine."""
     global _ctx_instance  # noqa: PLW0603
     if _ctx_instance is None:
-        from studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
+        try:
+            from studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
+        except ImportError:
+            from app.studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
         _ctx_instance = StudioPluginContext("xtts")
     return _ctx_instance
 
 
-_SKIP_LIVE_BROADCASTS = {
-    "broadcast": False,
-}
+# ---------------------------------------------------------------------------
+# Module-level patchable alias for generate_via_bridge.
+# Tests patch ``plugins.tts_xtts.plugin.studio.segments.generate_via_bridge``.
+# ---------------------------------------------------------------------------
+
+def generate_via_bridge(*args, **kwargs):
+    """Module-level alias for bridge_helpers.generate_via_bridge — patchable."""
+    from app.jobs.handlers.bridge_helpers import generate_via_bridge as _fn  # noqa: PLC0415
+    return _fn(*args, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Lazy handler accessor — avoids circular import at module body level.
+# ---------------------------------------------------------------------------
+
+def _handler():
+    from . import handler  # noqa: PLC0415
+    return handler
 
 
 def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, speed, pdir):
     ctx = _get_ctx()
+    h = _handler()
     sent_char_limit = ctx.get_text_chunk_limit("xtts")
+    # Late imports from app.db / textops so tests patching those modules intercept the calls.
+    from app.db import get_chapter_segments as _get_segs, update_segment as _update_seg  # noqa: PLC0415
+    from app.utils.text.textops import safe_split_long_sentences as _split  # noqa: PLC0415
 
-    all_segs = ctx.get_chapter_segments(j.chapter_id)
+    all_segs = _get_segs(j.chapter_id)
     requested_ids = set(j.segment_ids)
     segs_to_gen = [s for s in all_segs if s['id'] in requested_ids]
     if not segs_to_gen:
-        ctx.update_job_progress(jid, status="done", progress=1.0)
+        h.update_job(jid, status="done", progress=1.0)
         return 0
 
     gen_groups = build_segment_groups(segs_to_gen, all_segs, sent_char_limit)
@@ -56,7 +81,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
         combined_text = join_group_text(group)
         if j.safe_mode:
             combined_text = ctx.sanitize_text(combined_text)
-            combined_text = ctx.split_long_sentences(combined_text, sent_char_limit)
+            combined_text = _split(combined_text, target=sent_char_limit)
         first_sid = group[0]['id']
         seg_out = pdir / "segments" / f"{first_sid}.wav"
         seg_out.parent.mkdir(parents=True, exist_ok=True)
@@ -73,10 +98,11 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
     j.render_group_count = total_requested_groups
     j.completed_render_groups = 0
     j.active_render_group_index = 0
-    ctx.update_job_progress(
+    h.update_job(
         jid,
         **_group_display_updates(0, total_requested_groups, 0.0, limit=1.0, group_weights=requested_group_weights),
-        **_SKIP_LIVE_BROADCASTS,
+        skip_studio_job_event=True,
+        skip_job_updated=True,
     )
 
     def gen_on_output(line):
@@ -87,7 +113,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
             if group:
                 seg_filename = Path(saved_path).name
                 for s in group:
-                    ctx.update_segment(s['id'], broadcast=True, audio_status='done', audio_file_path=seg_filename, audio_generated_at=time.time())
+                    _update_seg(s['id'], audio_status='done', audio_file_path=seg_filename, audio_generated_at=time.time())
                 completed_groups[0] += 1
                 j.completed_render_groups = completed_groups[0]
                 j.active_render_group_index = 0
@@ -98,13 +124,14 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
                     limit=1.0,
                     group_weights=requested_group_weights,
                 )
-                ctx.update_job_progress(
+                h.update_job(
                     jid,
                     progress=prog,
                     active_segment_id=None,
                     active_segment_progress=0.0,
                     **_group_display_updates(completed_groups[0], total_requested_groups, 0.0, limit=1.0, group_weights=requested_group_weights),
-                    **_SKIP_LIVE_BROADCASTS,
+                    skip_studio_job_event=True,
+                    skip_job_updated=True,
                 )
 
         if "[START_SEGMENT]" in line:
@@ -117,14 +144,15 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
                 limit=1.0,
                 group_weights=requested_group_weights,
             )
-            ctx.update_job_progress(
+            h.update_job(
                 jid,
-                broadcast=True,
+                force_broadcast=True,
                 progress=base_progress,
                 active_segment_id=asid,
                 active_segment_progress=0.0,
                 **_group_display_updates(completed_groups[0], total_requested_groups, 0.0, limit=1.0, active_index=min(completed_groups[0] + 1, total_requested_groups), group_weights=requested_group_weights),
-                **_SKIP_LIVE_BROADCASTS,
+                skip_studio_job_event=True,
+                skip_job_updated=True,
             )
 
         if "[PROGRESS]" in line:
@@ -138,19 +166,20 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
                     limit=1.0,
                     group_weights=requested_group_weights,
                 )
-                ctx.update_job_progress(
+                h.update_job(
                     jid,
-                    broadcast=True,
+                    force_broadcast=True,
                     progress=overall_progress,
                     active_segment_progress=segment_progress,
                     **_group_display_updates(completed_groups[0], total_requested_groups, segment_progress, limit=1.0, active_index=min(completed_groups[0] + 1, total_requested_groups), group_weights=requested_group_weights),
-                    **_SKIP_LIVE_BROADCASTS,
+                    skip_studio_job_event=True,
+                    skip_job_updated=True,
                 )
             except Exception:
                 logger.warning("Failed to parse [PROGRESS] line: %r", line, exc_info=True)
 
     try:
-        rc = ctx.generate_via_bridge(
+        rc = generate_via_bridge(
             engine="xtts",
             text="",
             out_wav=pdir / f"output_{j.id}.wav",
@@ -177,7 +206,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
     try:
         done_c, total_c = ctx.get_chapter_segments_counts(j.chapter_id)
         final_p = round(done_c / total_c, 2) if total_c > 0 else 1.0
-        ctx.update_job_progress(jid, status="done", progress=final_p, finished_at=time.time())
+        h.update_job(jid, status="done", progress=final_p, finished_at=time.time())
     except Exception:
-        ctx.update_job_progress(jid, status="done", progress=1.0, finished_at=time.time())
+        h.update_job(jid, status="done", progress=1.0, finished_at=time.time())
     return rc

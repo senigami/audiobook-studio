@@ -238,15 +238,24 @@ class StudioPluginContext:
     def build_chunk_groups(
         self,
         segments: list[dict[str, Any]],
-        char_limit: int,
-    ) -> list[list[dict[str, Any]]]:
-        """Group consecutive segments by speaker and character limit.
+        char_limit: int | None = None,
+        *,
+        default_profile: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Group consecutive segments by speaker into render groups.
 
-        Wraps ``app.domain.chunk_groups.build_chunk_groups``.  The char_limit
-        parameter corresponds to the engine's ``text_chunk_limit``.
+        Wraps ``app.domain.chunk_groups.build_chunk_groups``.
+        ``char_limit`` is accepted for API symmetry but the underlying
+        grouper does not yet split on character count (S10 work); it is
+        preserved here so callers that pass it do not break.
+        ``default_profile`` is forwarded as the fallback speaker profile.
+
+        Note: the return type is ``list[dict]`` (each dict has a
+        ``segments`` key), NOT ``list[list[dict]]``; callers must iterate
+        ``group["segments"]``.
         """
         from app.domain.chunk_groups import build_chunk_groups  # noqa: PLC0415
-        return build_chunk_groups(segments, default_profile=None)
+        return build_chunk_groups(segments, default_profile=default_profile)
 
     def load_chunk_segments(
         self,
@@ -273,6 +282,7 @@ class StudioPluginContext:
         speed: float = 1.0,
         script: list[dict[str, Any]] | None = None,
         task_id: str | None = None,
+        safe_mode: bool = True,
     ) -> int:
         """Send a synthesis request to the TTS Server via the bridge.
 
@@ -289,6 +299,7 @@ class StudioPluginContext:
             speed=speed,
             script=script,
             task_id=task_id,
+            safe_mode=safe_mode,
         )
 
     # ------------------------------------------------------------------
@@ -444,27 +455,10 @@ class StudioPluginContext:
     # §3.3.12 Audio Operations
     # ------------------------------------------------------------------
 
-    def stitch_segments(
-        self,
-        segment_wavs: list[str],
-        out_wav: str,
-        *,
-        on_output: Callable[[str], None] | None = None,
-        cancel_check: Callable[[], bool] | None = None,
-    ) -> int:
-        """Concatenate segment WAVs into a chapter WAV.
-
-        Returns 0 on success, non-zero on failure.  ``on_output`` and
-        ``cancel_check`` are passed to the underlying ffmpeg stitcher when
-        supplied; if omitted, no-op stubs are used.
-        """
-        from app.engines.audio_ops import stitch_segments as _stitch  # noqa: PLC0415
-        _wav_paths = [Path(p) for p in segment_wavs]
-        _out = Path(out_wav)
-        _on_output = on_output or (lambda _line: None)
-        _cancel = cancel_check or (lambda: False)
-        # audio_ops.stitch_segments(pdir, segment_wavs, output_path, on_output, cancel_check)
-        return _stitch(_out.parent, _wav_paths, _out, _on_output, _cancel)
+    def stitch_segments(self, segment_wavs: list[str], out_wav: str) -> None:
+        """Concatenate segment WAVs into a chapter WAV."""
+        from app.engines.audio_ops import stitch_segments  # noqa: PLC0415
+        stitch_segments(segment_wavs, out_wav)
 
     def wav_to_mp3(self, in_wav: str, out_mp3: str) -> None:
         """Transcode WAV to MP3."""
@@ -480,9 +474,15 @@ class StudioPluginContext:
     # §3.3.13 Text Preparation
     # ------------------------------------------------------------------
 
-    def sanitize_text(self, text: str) -> str:
-        """Apply safe-mode text sanitization."""
+    def sanitize_text(self, text: str, categories: Any = None) -> str:
+        """Apply safe-mode text sanitization.
+
+        ``categories`` is forwarded to the underlying sanitizer when supplied;
+        obtain a category config via ``get_sanitize_categories(engine_id)``.
+        """
         from app.utils.text.textops_cleaning import sanitize_text  # noqa: PLC0415
+        if categories is not None:
+            return sanitize_text(text, categories)
         return sanitize_text(text)
 
     def split_long_sentences(self, text: str, char_limit: int) -> list[str]:

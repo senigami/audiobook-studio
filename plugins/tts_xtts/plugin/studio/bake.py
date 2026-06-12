@@ -4,7 +4,10 @@ import time
 import shutil
 from pathlib import Path
 
-from studio_plugin_sdk.errors import BridgeError
+try:
+    from studio_plugin_sdk.errors import BridgeError  # alias registered by plugin_loader
+except ImportError:
+    from app.studio_plugin_sdk.errors import BridgeError  # fallback for test/direct import
 from .helpers import (
     _profile_inputs_for_segment,
     _segment_group_weight,
@@ -25,17 +28,47 @@ def _get_ctx():
     """Return the shared StudioPluginContext for the xtts engine."""
     global _ctx_instance  # noqa: PLW0603
     if _ctx_instance is None:
-        from studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
+        try:
+            from studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
+        except ImportError:
+            from app.studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
         _ctx_instance = StudioPluginContext("xtts")
     return _ctx_instance
 
 
+# ---------------------------------------------------------------------------
+# Module-level patchable name for generate_via_bridge.
+# Tests patch ``plugins.tts_xtts.plugin.studio.bake.generate_via_bridge``.
+# The function itself lives in app.jobs.handlers.bridge_helpers but we keep a
+# module-level alias here so existing test patches work without modification.
+# ---------------------------------------------------------------------------
+
+def generate_via_bridge(*args, **kwargs):
+    """Module-level alias for bridge_helpers.generate_via_bridge — patchable."""
+    from app.jobs.handlers.bridge_helpers import generate_via_bridge as _fn  # noqa: PLC0415
+    return _fn(*args, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Lazy handler accessor — avoids circular import at module body level.
+# handler.py imports bake.py; bake imports handler lazily at call time.
+# ---------------------------------------------------------------------------
+
+def _handler():
+    from . import handler  # noqa: PLC0415
+    return handler
+
+
 def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav):
     ctx = _get_ctx()
+    h = _handler()
     sent_char_limit = ctx.get_text_chunk_limit("xtts")
+    # Late imports from app.db (facade) so tests that patch app.db.* intercept these calls.
+    from app.db import get_chapter_segments as _get_segs, update_segment as _update_seg  # noqa: PLC0415
+    from app.utils.text.textops import safe_split_long_sentences as _split  # noqa: PLC0415
 
     on_output(f"Baking Chapter {j.chapter_id} starting...\n")
-    segs = ctx.get_chapter_segments(j.chapter_id)
+    segs = _get_segs(j.chapter_id)
 
     def _group_needs_render(group: dict, _pdir: Path) -> bool:
         expected_name = f"{group['segments'][0]['id']}.wav"
@@ -49,7 +82,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                 return True
         return False
 
-    all_groups = ctx.build_chunk_groups(segs, char_limit=sent_char_limit)
+    all_groups = ctx.build_chunk_groups(segs, default_profile=j.speaker_profile)
     missing_groups = [group for group in all_groups if _group_needs_render(group, pdir)]
 
     total_missing_groups = len(all_groups)
@@ -65,7 +98,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
             combined_text = " ".join([s['text_content'] for s in group["segments"]])
             if j.safe_mode:
                 combined_text = ctx.sanitize_text(combined_text)
-                combined_text = ctx.split_long_sentences(combined_text, sent_char_limit)
+                combined_text = _split(combined_text, target=sent_char_limit)
             sid = group["segments"][0]['id']
             seg_out = pdir / "segments" / f"{sid}.wav"
             seg_out.parent.mkdir(parents=True, exist_ok=True)
@@ -80,10 +113,11 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
         j.render_group_count = total_missing_groups
         j.completed_render_groups = offset
         j.active_render_group_index = offset
-        ctx.update_job_fields(
+        h.update_job(
             jid,
-            broadcast=False,
             **_group_display_updates(offset, total_missing_groups, 0.0, limit=0.9, active_index=offset, group_weights=missing_group_weights),
+            skip_studio_job_event=True,
+            skip_job_updated=True,
         )
 
         def bake_on_output(line):
@@ -94,7 +128,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                 if group_segs:
                     seg_filename = Path(saved_path).name
                     for s in group_segs:
-                        ctx.update_segment(s['id'], audio_status='done', audio_file_path=seg_filename, audio_generated_at=time.time())
+                        _update_seg(s['id'], audio_status='done', audio_file_path=seg_filename, audio_generated_at=time.time())
                     completed_groups[0] += 1
                     j.completed_render_groups = completed_groups[0]
                     j.active_render_group_index = 0
@@ -105,13 +139,14 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                         limit=0.9,
                         group_weights=missing_group_weights,
                     )
-                    ctx.update_job_fields(
+                    h.update_job(
                         jid,
-                        broadcast=False,
                         progress=prog,
                         active_segment_id=None,
                         active_segment_progress=0.0,
                         **_group_display_updates(completed_groups[0], total_missing_groups, 0.0, limit=0.9, group_weights=missing_group_weights),
+                        skip_studio_job_event=True,
+                        skip_job_updated=True,
                     )
 
             if "[START_SEGMENT]" in line:
@@ -124,13 +159,15 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                     limit=0.9,
                     group_weights=missing_group_weights,
                 )
-                ctx.update_job_fields(
+                h.update_job(
                     jid,
-                    broadcast=True,
+                    force_broadcast=True,
                     progress=base_progress,
                     active_segment_id=asid,
                     active_segment_progress=0.0,
                     **_group_display_updates(completed_groups[0], total_missing_groups, 0.0, limit=0.9, active_index=min(completed_groups[0] + 1, total_missing_groups), group_weights=missing_group_weights),
+                    skip_studio_job_event=True,
+                    skip_job_updated=True,
                 )
 
             if "[PROGRESS]" in line:
@@ -144,19 +181,21 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                         limit=0.9,
                         group_weights=missing_group_weights,
                     )
-                    ctx.update_job_fields(
+                    h.update_job(
                         jid,
-                        broadcast=True,
+                        force_broadcast=True,
                         progress=overall_progress,
                         active_segment_progress=segment_progress,
                         **_group_display_updates(completed_groups[0], total_missing_groups, segment_progress, limit=0.9, active_index=min(completed_groups[0] + 1, total_missing_groups), group_weights=missing_group_weights),
+                        skip_studio_job_event=True,
+                        skip_job_updated=True,
                     )
                 except Exception:
                     logger.warning("Failed to parse [PROGRESS] line: %r", line, exc_info=True)
 
         scratch_wav = pdir / f"output_{j.id}.wav"
         try:
-            rc = ctx.generate_via_bridge(
+            rc = generate_via_bridge(
                 engine="xtts",
                 text="",
                 out_wav=scratch_wav,
@@ -175,14 +214,15 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
 
     # Final Stitch
     if cancel_check(): return
-    ctx.update_job_fields(
+    h.update_job(
         jid,
-        broadcast=False,
         status="running",
         progress=0.91,
         **_group_display_updates(total_missing_groups, total_missing_groups, 0.0, limit=0.9, group_weights=missing_group_weights if missing_groups else []),
+        skip_studio_job_event=True,
+        skip_job_updated=True,
     )
-    fresh_segs = ctx.get_chapter_segments(j.chapter_id)
+    fresh_segs = _get_segs(j.chapter_id)
     segment_paths = []
     last_path = None
     for s in fresh_segs:
@@ -193,15 +233,10 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                 last_path = spath
 
     if not segment_paths:
-        ctx.update_job_progress(jid, status="failed", error="No valid audio segments found to stitch.")
+        h.update_job(jid, status="failed", error="No valid audio segments found to stitch.")
         return
 
-    rc = ctx.stitch_segments(
-        [str(p) for p in segment_paths],
-        str(out_wav),
-        on_output=on_output,
-        cancel_check=cancel_check,
-    )
+    rc = h.stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
     if (rc != 0 or not out_wav.exists()) and len(segment_paths) == 1 and segment_paths[0].exists():
         try:
             shutil.copy2(segment_paths[0], out_wav)
@@ -210,9 +245,10 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
             pass
 
     if rc == 0 and out_wav.exists():
-        duration = ctx.get_audio_duration(str(out_wav))
-        ctx.update_queue_item(jid, status="done", audio_length_seconds=duration, output_file=out_wav.name)
+        duration = h.get_audio_duration(out_wav)
+        from app.db import update_queue_item  # noqa: PLC0415
+        update_queue_item(jid, "done", audio_length_seconds=duration, output_file=out_wav.name)
         return 0
     else:
-        ctx.update_job_progress(jid, status="failed", error=f"Stitching failed (rc={rc})")
+        h.update_job(jid, status="failed", error=f"Stitching failed (rc={rc})")
         return rc
