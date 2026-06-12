@@ -4,6 +4,8 @@ import { BrandLogo } from '@/components/layout/BrandLogo';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { StudioShellState } from '@/app/navigation/model';
 import { LAYERS } from '@/app/layout/layering';
+import { NavRail } from '@/app/layout/NavRail';
+import { TopBar } from '@/app/layout/TopBar';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -156,6 +158,32 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
         </div>
       </header>
 
+      <div className="shell-grid">
+        <NavRail queueCount={queueCount} />
+
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <TopBar
+            shellState={shellState}
+            queueCount={queueCount}
+            isQueueOpen={isQueueOpen}
+            onToggleQueue={onToggleQueue}
+          />
+
+          <main className="mobile-padding" style={{
+            flex: 1,
+            width: '100%',
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '3rem 2.5rem'
+          }}>
+            <div style={{ maxWidth: '1600px', width: '100%', margin: '0 auto' }}>
+              {children}
+            </div>
+          </main>
+        </div>
+      </div>
+
       {/* Mobile nav backdrop — tap to close drawer */}
       {navOpen && (
         <div
@@ -164,21 +192,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
           aria-hidden="true"
         />
       )}
-
-      <main className="mobile-padding" style={{
-        flex: 1,
-        marginTop: 'var(--header-height, 72px)',
-        width: '100%',
-        minHeight: 'calc(100vh - 72px)',
-        position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '3rem 2.5rem'
-      }}>
-        <div style={{ maxWidth: '1600px', width: '100%', margin: '0 auto' }}>
-          {children}
-        </div>
-      </main>
     </div>
   );
 };

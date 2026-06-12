@@ -144,6 +144,15 @@
   box-shadow: var(--shadow-md);
 }
 
+.shell-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: stretch;
+  width: 100%;
+  min-height: calc(100dvh - var(--header-height, 72px));
+  margin-top: var(--header-height, 72px);
+}
+
 .chapter-header {
   width: 100%;
 }
