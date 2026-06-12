@@ -42,6 +42,43 @@ def generate_via_bridge(**kwargs):
 
 
 # ---------------------------------------------------------------------------
+# Module-level patchable aliases for DB helpers.
+# ---------------------------------------------------------------------------
+
+def get_chapter_segments(chapter_id: str):
+    """Module-level alias for app.db.get_chapter_segments — patchable by tests."""
+    from app.db import get_chapter_segments as _fn  # noqa: PLC0415
+    return _fn(chapter_id)
+
+
+def update_segment(segment_id: str, **kwargs):
+    """Module-level alias for app.db.update_segment — patchable by tests."""
+    from app.db import update_segment as _fn  # noqa: PLC0415
+    return _fn(segment_id, **kwargs)
+
+
+def update_queue_item(job_id: str, status: str, **kwargs):
+    """Module-level alias — patchable by tests.
+
+    Preserves positional (job_id, status) call signature.
+    """
+    from app.db import update_queue_item as _fn  # noqa: PLC0415
+    return _fn(job_id, status, **kwargs)
+
+
+def stitch_segments(*args, **kwargs):
+    """Module-level alias for audio_ops.stitch_segments — patchable by tests."""
+    from app.engines.audio_ops import stitch_segments as _fn  # noqa: PLC0415
+    return _fn(*args, **kwargs)
+
+
+def get_audio_duration(path):
+    """Module-level alias for audio_ops.get_audio_duration — patchable by tests."""
+    from app.engines.audio_ops import get_audio_duration as _fn  # noqa: PLC0415
+    return _fn(path)
+
+
+# ---------------------------------------------------------------------------
 # Lazy handler accessor — avoids circular import at module body level.
 # ---------------------------------------------------------------------------
 
@@ -71,7 +108,8 @@ def handle_voxtral_bake(jid, j, start, on_output, cancel_check, pdir, out_wav, v
 
     sanitize_cats = ctx.get_sanitize_categories("voxtral")
 
-    from app.db import get_chapter_segments as _get_segs, update_segment as _update_seg  # noqa: PLC0415
+    _get_segs = get_chapter_segments
+    _update_seg = update_segment
 
     on_output(f"Baking Chapter {j.chapter_id} starting...\n")
     segs = _get_segs(j.chapter_id)
@@ -219,7 +257,6 @@ def handle_voxtral_bake(jid, j, start, on_output, cancel_check, pdir, out_wav, v
         h.update_job(jid, status="failed", error="No valid audio segments found to stitch.")
         return 1
 
-    from app.engines.audio_ops import stitch_segments  # noqa: PLC0415
     rc = stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
     if (rc != 0 or not out_wav.exists()) and len(segment_paths) == 1 and segment_paths[0].exists():
         try:
@@ -229,8 +266,6 @@ def handle_voxtral_bake(jid, j, start, on_output, cancel_check, pdir, out_wav, v
             pass
 
     if rc == 0 and out_wav.exists():
-        from app.engines.audio_ops import get_audio_duration  # noqa: PLC0415
-        from app.db import update_queue_item  # noqa: PLC0415
         duration = get_audio_duration(out_wav)
         update_queue_item(jid, "done", audio_length_seconds=duration, output_file=out_wav.name)
         return 0

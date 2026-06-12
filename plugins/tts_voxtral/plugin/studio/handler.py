@@ -59,14 +59,28 @@ def generate_via_bridge(**kwargs):
     return _fn(**kwargs)
 
 
+def get_db_connection():
+    """Module-level alias for app.db.get_connection — patchable by tests."""
+    from app.db import get_connection as _fn  # noqa: PLC0415
+    return _fn()
+
+
+def _get_bridge_error():
+    """Return EngineBridgeError — module-level, patchable by tests.
+
+    Returns ``app.engines.errors.EngineBridgeError`` which is the superclass of
+    both the internal engine error and ``app.studio_plugin_sdk.errors.BridgeError``.
+    """
+    from app.engines.errors import EngineBridgeError  # noqa: PLC0415
+    return EngineBridgeError
+
+
 # ---------------------------------------------------------------------------
-# Private helpers (DB queries — kept as late imports so test patches intercept)
+# Private helpers (DB queries)
 # ---------------------------------------------------------------------------
 
 def _chapter_text_from_segments(chapter_id: str) -> str:
-    from app.db import get_connection  # noqa: PLC0415
-
-    with get_connection() as conn:
+    with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -84,9 +98,7 @@ def _chapter_uses_multiple_profiles(job) -> bool:
     if not job.chapter_id:
         return False
 
-    from app.db import get_connection  # noqa: PLC0415
-
-    with get_connection() as conn:
+    with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -199,10 +211,7 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="No text was available for Voxtral synthesis.")
         return "failed"
 
-    try:
-        from app.studio_plugin_sdk.errors import BridgeError  # noqa: PLC0415
-    except ImportError:
-        from app.engines.errors import EngineBridgeError as BridgeError  # noqa: PLC0415
+    BridgeError = _get_bridge_error()
 
     try:
         logger.info("[%s-debug %s] calling generate_via_bridge (%s) job=%s", j.engine, time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), j.engine, jid)

@@ -50,6 +50,38 @@ def generate_via_bridge(*args, **kwargs):
 
 
 # ---------------------------------------------------------------------------
+# Module-level patchable aliases for DB helpers (replaces late function-body
+# imports so tests can patch at the plugin module boundary instead of app.*).
+# ---------------------------------------------------------------------------
+
+def get_chapter_segments(chapter_id: str):
+    """Module-level alias for app.db.get_chapter_segments — patchable by tests."""
+    from app.db import get_chapter_segments as _fn  # noqa: PLC0415
+    return _fn(chapter_id)
+
+
+def update_segment(segment_id: str, **kwargs):
+    """Module-level alias for app.db.update_segment — patchable by tests."""
+    from app.db import update_segment as _fn  # noqa: PLC0415
+    return _fn(segment_id, **kwargs)
+
+
+def update_queue_item(job_id: str, status: str, **kwargs):
+    """Module-level alias — patchable by tests.
+
+    Preserves the positional (job_id, status) call signature used in handler code.
+    """
+    from app.db import update_queue_item as _fn  # noqa: PLC0415
+    return _fn(job_id, status, **kwargs)
+
+
+def safe_split_long_sentences(text: str, *, target: int) -> str:
+    """Module-level alias for textops.safe_split_long_sentences — patchable by tests."""
+    from app.utils.text.textops import safe_split_long_sentences as _fn  # noqa: PLC0415
+    return _fn(text, target=target)
+
+
+# ---------------------------------------------------------------------------
 # Lazy handler accessor — avoids circular import at module body level.
 # handler.py imports bake.py; bake imports handler lazily at call time.
 # ---------------------------------------------------------------------------
@@ -63,9 +95,9 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
     ctx = _get_ctx()
     h = _handler()
     sent_char_limit = ctx.get_text_chunk_limit("xtts")
-    # Late imports from app.db (facade) so tests that patch app.db.* intercept these calls.
-    from app.db import get_chapter_segments as _get_segs, update_segment as _update_seg  # noqa: PLC0415
-    from app.utils.text.textops import safe_split_long_sentences as _split  # noqa: PLC0415
+    _get_segs = get_chapter_segments
+    _update_seg = update_segment
+    _split = safe_split_long_sentences
 
     on_output(f"Baking Chapter {j.chapter_id} starting...\n")
     segs = _get_segs(j.chapter_id)
@@ -246,7 +278,6 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
 
     if rc == 0 and out_wav.exists():
         duration = h.get_audio_duration(out_wav)
-        from app.db import update_queue_item  # noqa: PLC0415
         update_queue_item(jid, "done", audio_length_seconds=duration, output_file=out_wav.name)
         return 0
     else:

@@ -6,13 +6,25 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+_ctx_instance = None
+
+
 def _get_ctx():
     """Return a StudioPluginContext singleton (mirrors S4/S5 ctx factory pattern)."""
-    import app.studio_plugin_sdk as _sdk  # noqa: PLC0415
-    import sys  # noqa: PLC0415
-    sys.modules.setdefault("studio_plugin_sdk", _sdk)
-    from app.studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
-    return StudioPluginContext(engine_id="mixed")
+    global _ctx_instance  # noqa: PLW0603
+    if _ctx_instance is None:
+        import app.studio_plugin_sdk as _sdk  # noqa: PLC0415
+        import sys  # noqa: PLC0415
+        sys.modules.setdefault("studio_plugin_sdk", _sdk)
+        from app.studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
+        _ctx_instance = StudioPluginContext(engine_id="mixed")
+    return _ctx_instance
+
+
+def set_ctx(ctx) -> None:
+    """Override the module-level ctx singleton — used by the dispatcher for injection."""
+    global _ctx_instance  # noqa: PLW0603
+    _ctx_instance = ctx
 
 
 def _group_weight(group: dict) -> int:
@@ -71,13 +83,127 @@ def record_engine_sample(j, start, chars, perf, rendered_segment_count):
     return _record(j, start, chars, perf, rendered_segment_count)
 
 
+# ---------------------------------------------------------------------------
+# Module-level patchable aliases for app.engines.behavior, textops, and DB.
+# ---------------------------------------------------------------------------
+
+def extract_engine_settings(engine_id, spk):
+    from app.engines.behavior import extract_engine_settings as _fn  # noqa: PLC0415
+    return _fn(engine_id, spk)
+
+
+def has_behavior(engine_id, feature):
+    from app.engines.behavior import has_behavior as _fn  # noqa: PLC0415
+    return _fn(engine_id, feature)
+
+
+def get_text_split_target(engine_id):
+    from app.engines.behavior import get_text_split_target as _fn  # noqa: PLC0415
+    return _fn(engine_id)
+
+
+def get_sanitize_categories(engine_id):
+    from app.engines.behavior import get_sanitize_categories as _fn  # noqa: PLC0415
+    return _fn(engine_id)
+
+
+def safe_split_long_sentences(text, *, target):
+    from app.utils.text.textops import safe_split_long_sentences as _fn  # noqa: PLC0415
+    return _fn(text, target=target)
+
+
+def sanitize_text(text, categories=None):
+    from app.utils.text.textops import sanitize_text as _fn  # noqa: PLC0415
+    if categories is not None:
+        return _fn(text, categories)
+    return _fn(text)
+
+
+def get_voices_dir():
+    from app.core.config import VOICES_DIR  # noqa: PLC0415
+    return VOICES_DIR
+
+
+def update_chapter(chapter_id, **kwargs):
+    from app.db import update_chapter as _fn  # noqa: PLC0415
+    return _fn(chapter_id, **kwargs)
+
+
+def get_audio_duration(path):
+    from app.engines.audio_ops import get_audio_duration as _fn  # noqa: PLC0415
+    return _fn(path)
+
+
+def get_chapter_segments(chapter_id):
+    from app.db import get_chapter_segments as _fn  # noqa: PLC0415
+    return _fn(chapter_id)
+
+
+def get_connection():
+    from app.db import get_connection as _fn  # noqa: PLC0415
+    return _fn()
+
+
+def update_segment(segment_id, **kwargs):
+    from app.db import update_segment as _fn  # noqa: PLC0415
+    return _fn(segment_id, **kwargs)
+
+
+def update_segments_bulk(segment_ids, **kwargs):
+    from app.db import update_segments_bulk as _fn  # noqa: PLC0415
+    return _fn(segment_ids, **kwargs)
+
+
+def update_segments_status_bulk(sids, chapter_id, status):
+    from app.db import update_segments_status_bulk as _fn  # noqa: PLC0415
+    return _fn(sids, chapter_id, status)
+
+
+def clear_duplicate_segment_audio_paths(chapter_id, group_sids, filename):
+    from app.db import clear_duplicate_segment_audio_paths as _fn  # noqa: PLC0415
+    return _fn(chapter_id, group_sids, filename)
+
+
+def broadcast_segments_updated(chapter_id):
+    from app.api.ws import broadcast_segments_updated as _fn  # noqa: PLC0415
+    return _fn(chapter_id)
+
+
+def build_chunk_groups(segments, speaker_profile):
+    from app.domain.chunk_groups import build_chunk_groups as _fn  # noqa: PLC0415
+    return _fn(segments, speaker_profile)
+
+
+def load_chunk_segments(chapter_id):
+    from app.domain.chunk_groups import load_chunk_segments as _fn  # noqa: PLC0415
+    return _fn(chapter_id)
+
+
+def get_performance_metrics():
+    from app.db.state import get_performance_metrics as _fn  # noqa: PLC0415
+    return _fn()
+
+
+def get_chapter_segments_counts(chapter_id):
+    from app.db.chapters import get_chapter_segments_counts as _fn  # noqa: PLC0415
+    return _fn(chapter_id)
+
+
+def _get_engine_bridge_error():
+    """Return EngineBridgeError class (module-level — patchable by tests).
+
+    Returns ``app.engines.errors.EngineBridgeError`` which is the base class
+    for both the internal engine error AND ``app.studio_plugin_sdk.errors.BridgeError``,
+    so a single ``except EngineBridgeError`` catches both.
+    """
+    from app.engines.errors import EngineBridgeError  # noqa: PLC0415
+    return EngineBridgeError
+
+
 def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav: Path, safe_mode: bool, on_output, cancel_check, task_id: str | None = None) -> int:
     if not profile_name:
         on_output(f"[error] No profile is assigned for this segment ({engine_id}).\n")
         return 1
-
-    from app.engines.behavior import extract_engine_settings, has_behavior, get_text_split_target, get_sanitize_categories  # noqa: PLC0415
-    from app.utils.text.textops import safe_split_long_sentences, sanitize_text  # noqa: PLC0415
 
     spk = get_speaker_settings(profile_name)
     settings = extract_engine_settings(engine_id, spk)
@@ -92,8 +218,7 @@ def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav
     try:
         pdir = get_voice_profile_dir(profile_name)
     except ValueError:
-        from app.core.config import VOICES_DIR  # noqa: PLC0415
-        pdir = VOICES_DIR / profile_name
+        pdir = get_voices_dir() / profile_name
 
     # Synthesis request with generic settings extraction
     return generate_via_bridge(
@@ -132,9 +257,6 @@ def _group_ready_audio_path(group: dict, pdir: Path) -> Path | None:
 
 
 def _persist_mixed_chapter_output(jid: str, chapter_id: str, output_path: Path) -> None:
-    from app.db import update_chapter  # noqa: PLC0415
-    from app.engines.audio_ops import get_audio_duration  # noqa: PLC0415
-
     generated_at = time.time()
     duration = get_audio_duration(output_path)
 
@@ -159,18 +281,7 @@ def _persist_mixed_chapter_output(jid: str, chapter_id: str, output_path: Path) 
 
 
 def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
-    from app.db import (  # noqa: PLC0415
-        clear_duplicate_segment_audio_paths,
-        get_chapter_segments,
-        get_connection,
-        update_segment,
-        update_segments_bulk,
-        update_segments_status_bulk,
-    )
-    from app.api.ws import broadcast_segments_updated  # noqa: PLC0415
-    from app.domain.chunk_groups import build_chunk_groups, load_chunk_segments  # noqa: PLC0415
-    from app.db.state import get_performance_metrics  # noqa: PLC0415
-    from app.engines.errors import EngineBridgeError  # noqa: PLC0415
+    EngineBridgeError = _get_engine_bridge_error()
 
     if cancel_check():
         update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
@@ -269,7 +380,6 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             pass
 
         try:
-            from app.db.chapters import get_chapter_segments_counts  # noqa: PLC0415
             done_c, total_c = get_chapter_segments_counts(j.chapter_id)
             final_p = round(done_c / total_c, 2) if total_c > 0 else 1.0
         except Exception:

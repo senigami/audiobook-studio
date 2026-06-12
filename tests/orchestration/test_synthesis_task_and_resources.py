@@ -129,6 +129,29 @@ class TestSynthesisTask:
         # But let's check what it DOES.
         assert result.status == "failed"
 
+    def test_run_injects_ctx_into_mixed_handler_before_dispatch(self):
+        """S9 E2E: SynthesisTask.run constructs a StudioPluginContext and injects it
+        via set_ctx before calling handle_mixed_job.  The handler receives the
+        dispatcher-owned ctx (observable via plugins.tts_mixed.handler._ctx_instance).
+        """
+        import plugins.tts_mixed.handler as mixed_handler
+        from app.studio_plugin_sdk import StudioPluginContext
+
+        task = self._make(engine_id="mixed")
+        captured_ctx = {}
+
+        def fake_handle_mixed_job(**kwargs):
+            captured_ctx["ctx"] = mixed_handler._ctx_instance
+            return "done", None
+
+        with patch("plugins.tts_mixed.handler.handle_mixed_job", side_effect=fake_handle_mixed_job):
+            result = task.run()
+
+        assert result.status == "completed"
+        assert isinstance(captured_ctx.get("ctx"), StudioPluginContext), (
+            "Dispatcher must inject a StudioPluginContext via set_ctx before handle_mixed_job"
+        )
+
     def test_orchestrator_can_submit_synthesis_task(self):
         from app.orchestration.scheduler.orchestrator import TaskOrchestrator
         progress = MagicMock()
