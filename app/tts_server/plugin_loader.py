@@ -26,6 +26,43 @@ logger = logging.getLogger(__name__)
 # Matches tts_<name> where <name> is 2–15 lowercase alphanumeric characters.
 _PLUGIN_FOLDER_RE = re.compile(r"^tts_[a-z][a-z0-9]{1,14}$")
 
+# ---------------------------------------------------------------------------
+# Register studio_plugin_sdk as a sys.modules alias so TTS Server subprocess
+# code can ``import studio_plugin_sdk`` even though the package lives under
+# ``app.studio_plugin_sdk``.  Done once at module import time (not inside a
+# function) because the loader module is always imported before any plugin
+# is loaded — there are no side-effect concerns here.
+# ---------------------------------------------------------------------------
+def _register_sdk_alias() -> None:
+    import app.studio_plugin_sdk as _sdk_pkg  # noqa: PLC0415
+    import app.studio_plugin_sdk.context as _ctx  # noqa: PLC0415
+    import app.studio_plugin_sdk.errors as _err  # noqa: PLC0415
+
+    if "studio_plugin_sdk" not in sys.modules:
+        sys.modules["studio_plugin_sdk"] = _sdk_pkg
+    if "studio_plugin_sdk.context" not in sys.modules:
+        sys.modules["studio_plugin_sdk.context"] = _ctx
+    if "studio_plugin_sdk.errors" not in sys.modules:
+        sys.modules["studio_plugin_sdk.errors"] = _err
+
+
+try:
+    _register_sdk_alias()
+except Exception as _sdk_err:  # pragma: no cover
+    logger.warning("Could not register studio_plugin_sdk alias: %s", _sdk_err)
+
+# ---------------------------------------------------------------------------
+# Version fields added in S1.  Current supported values (one set per field).
+# A follow-up slice (S8) will flip missing→error once the plugin template
+# ships with these fields pre-populated.
+# ---------------------------------------------------------------------------
+_SUPPORTED_VERSION_FIELDS: dict[str, set[str]] = {
+    "contract_version": {"1.0"},
+    "sdk_version": {"1.0"},
+    "settings_schema_version": {"1.0"},
+    "event_envelope_version": {"1.0"},
+}
+
 # Regex for callable fields: "module:ClassName" or "package.module:function_name"
 _CALLABLE_RE = re.compile(r"^[a-z_][a-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -551,6 +588,34 @@ def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
         raise PluginLoadError(
             f"capabilities must include 'synthesis' in {folder_name}"
         )
+
+    # ---------------------------------------------------------------------------
+    # Staged version-field validation (S1).
+    # If a field is PRESENT its value must be in the supported set — wrong
+    # value is a hard load error.  If a field is ABSENT it is accepted today
+    # with a deprecation warning; a follow-up slice (S8) will flip this to
+    # a hard error once the plugin template ships the fields pre-populated.
+    # ---------------------------------------------------------------------------
+    for vfield, supported in _SUPPORTED_VERSION_FIELDS.items():
+        value = manifest.get(vfield)
+        if value is None:
+            logger.warning(
+                "Plugin '%s' manifest is missing '%s'. "
+                "This will become a hard error in a future Studio release. "
+                "Add \"%s\": \"%s\" to your manifest.json.",
+                folder_name,
+                vfield,
+                vfield,
+                next(iter(supported)),
+            )
+        else:
+            str_value = str(value).strip()
+            if str_value not in supported:
+                raise PluginLoadError(
+                    f"Plugin '{folder_name}' declares {vfield}={str_value!r} "
+                    f"but this loader only supports {sorted(supported)}. "
+                    "Update the plugin manifest or install a compatible version of Studio."
+                )
 
     # Validate optional behavior.sanitize_categories field.
     behavior = manifest.get("behavior", {})
