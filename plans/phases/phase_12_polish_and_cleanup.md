@@ -60,5 +60,5 @@
 - [ ] GitHub plugin search and direct download.
 - [ ] Hugging Face direct voice search/download.
 - [ ] Multilingual voice/text language implementation (planning only in Phase 12).
-- [ ] Rename `mixed.py` -> `composite.py`.
+- [x] Rename `mixed.py` -> `composite.py`. *(closed N/A 2026-06-11 — no `mixed.py` module exists; `synthesis_mixed` is a plugin package, not a file to rename)*
 - [ ] Third-party/LLM controller plugin system (foundation only in Phase 12).

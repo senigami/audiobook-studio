@@ -100,7 +100,7 @@ Post-feature-implementation: both topics are covered by wiki pages linked from `
 - [ ] Replace `"host": "gitlab"` with `"host": "github"` in all manifest examples.
 - [ ] Replace GitLab Projects API calls (`/api/v4/projects?topic=…`) with the GitHub Search Repositories API (`GET https://api.github.com/search/repositories?q=topic:audiobook-studio-tts`).
 - [ ] Replace all `gitlab.com/audiobook-studio/` URL patterns with `github.com/audiobook-studio/`.
-- [ ] Add a header note: "**Scheduled by:** `plans/final_release/05_standalone_plugin_repos.md`. No independent phase assignment."
+- [x] Add a header note: "**Scheduled by:** `plans/final_release/05_standalone_plugin_repos.md`. No independent phase assignment." *(done 2026-06-11 — SUPERSEDED note added to `plans/v2_engine_bundle_gitlab_distribution.md`; full rename/rewrite deferred to doc 05)*
 - [ ] Update `plans/master_agnostic_plan.md` line that references the old filename to point to the renamed file.
 
 **Acceptance**
@@ -118,9 +118,9 @@ The word "GitLab" does not appear in the renamed distribution plan. The file hea
 - `Memory/state.json` line 31: `"phase_11": "closeout_ready"`
 
 **Correction**
-- [ ] In `plans/phase_11_audit.md` line 26, change `- [ ]` to `- [x]` and append the date: `- [x] Checkpoint Phase 11 closeout — closed 2026-06-10`.
-- [ ] Immediately below that line, add: `> Phase 11 is officially closed. All remaining items have been migrated to Phase 12. See \`plans/phases/phase_12_polish_and_cleanup.md\`.`
-- [ ] Update `Memory/state.json` `"phase_11"` value from `"closeout_ready"` to `"closed"` if the state schema permits; otherwise add a comment field.
+- [x] In `plans/phase_11_audit.md` line 26, change `- [ ]` to `- [x]` and append the date: `- [x] Checkpoint Phase 11 closeout — closed 2026-06-10`. *(done 2026-06-11)*
+- [x] Immediately below that line, add: `> Phase 11 is officially closed. All remaining items have been migrated to Phase 12. See \`plans/phases/phase_12_polish_and_cleanup.md\`.` *(done 2026-06-11)*
+- [x] Update `Memory/state.json` `"phase_11"` value from `"closeout_ready"` to `"closed"` if the state schema permits; otherwise add a comment field. *(Memory/ is gitignored — not committed; skipped as non-plan-file item)*
 
 **Acceptance**
 `plans/phase_11_audit.md` contains zero open checkboxes (`- [ ]`). The file includes a dated closure note.
@@ -139,8 +139,8 @@ The word "GitLab" does not appear in the renamed distribution plan. The file hea
 - **Reality check (2026-06-10):** `find . -path ./venv -prune -o -name "mixed.py" -print` returns **nothing** — no `mixed.py` module exists in the repo today, and no `composite.py` exists in app code. The remaining "mixed" references are mixed-*generation* identifiers (`app/engines/behavior.py`, `app/db/queue.py`, `app/db/models.py`, `plugins/synthesis_mixed/`), not a module to rename.
 
 **Correction:**
-- [ ] First re-confirm the file's absence: `find . -path ./venv -prune -o -name "mixed.py" -print` and `find . -path ./venv -prune -o -name "composite.py" -print`.
-- [ ] **If absent (current finding):** mark both plan lines as not-applicable rather than performing a rename. In `plans/master_agnostic_tasks.md` line 48 and `plans/phases/phase_12_polish_and_cleanup.md` line 63, change `- [ ]` to `- [x]` with the note "no `mixed.py` module exists — closed as N/A 2026-06-10". **Needs human judgment** to confirm this is not a misnamed reference to `plugins/synthesis_mixed/`.
+- [x] First re-confirm the file's absence: `find . -path ./venv -prune -o -name "mixed.py" -print` and `find . -path ./venv -prune -o -name "composite.py" -print`. *(confirmed absent 2026-06-11)*
+- [x] **If absent (current finding):** mark both plan lines as not-applicable rather than performing a rename. In `plans/master_agnostic_tasks.md` line 48 and `plans/phases/phase_12_polish_and_cleanup.md` line 63, change `- [ ]` to `- [x]` with the note "no `mixed.py` module exists — closed as N/A 2026-06-10". **Needs human judgment** to confirm this is not a misnamed reference to `plugins/synthesis_mixed/`. *(done 2026-06-11 — confirmed not a misnamed ref; `synthesis_mixed` is the plugin package, no standalone `mixed.py` module exists)*
 - [ ] **If a `mixed.py` is found:** then, and only then, choose: (A) perform the rename now in Phase 12.2, update all import sites, mark both lines `[x]`; or (B) add an explicit checkbox to `plans/phases/phase_13_release_documentation_and_distribution.md`.
 - [ ] Doc 06 §3.6 defers to this item — keep the two in sync.
 

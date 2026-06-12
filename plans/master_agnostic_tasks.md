@@ -45,7 +45,7 @@
 - [x] Update `app/engines/behavior.py` to remove all `is_built_in` checks
 
 ## Phase 7: API & Routing
-- [ ] Rename `mixed.py` -> `composite.py` (Deferred to Phase 13)
+- [x] Rename `mixed.py` -> `composite.py` (Deferred to Phase 13) *(closed N/A 2026-06-11 — no `mixed.py` module exists)*
 - [/] Update composite/mixed rendering to use metadata-driven progress and sanitization hooks
 - [x] Remove `/{name}/voxtral-voice-id` route in `app/api/routers/voices_actions.py`
 - [x] Remove `/out/xtts/{filename}` route from app routing

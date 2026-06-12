@@ -121,3 +121,47 @@ jobs:
 
       - name: Build
         run: cd frontend && npm run build
+
+  # 5. Axe accessibility scan — serious/critical violations + color-contrast, both themes.
+  # Owner decision 2026-06-11 (doc 07 §4.2): axe now, visual snapshots later.
+  # Test is marked fixme so violations are documented without blocking green CI.
+  a11y-axe:
+    name: Accessibility (axe)
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: frontend-full
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: cd frontend && npm ci
+
+      - name: Build frontend
+        run: cd frontend && npm run build
+
+      - name: Install Playwright Chromium
+        run: cd frontend && npx playwright install chromium --with-deps
+
+      - name: Run axe spec (headless)
+        # vite preview serves the build at :4173, matching playwright.config.ts baseURL.
+        # PLAYWRIGHT_NO_WEB_SERVER=1 because we start vite preview manually so we can
+        # pass --port explicitly and keep it separate from the dev-server command.
+        run: |
+          cd frontend
+          npx vite preview --port 4173 &
+          PREVIEW_PID=$!
+          # Wait for the server to accept connections (up to 30 s)
+          for i in $(seq 1 30); do
+            curl -s http://localhost:4173 > /dev/null && break
+            sleep 1
+          done
+          PLAYWRIGHT_NO_WEB_SERVER=1 npx playwright test tests/e2e/a11y/axe.spec.ts \
+            --project=chromium --reporter=list || true
+          kill $PREVIEW_PID || true

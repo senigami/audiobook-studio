@@ -1,5 +1,10 @@
 # Spec: TTS Engine Bundle — GitLab Distribution & Install/Update
 
+> **SUPERSEDED.** Owner decision 2026-06-11: standalone engine repos will live on **GitHub**, not GitLab.
+> This document is superseded by `plans/final_release/05_standalone_plugin_repos.md` (doc 05),
+> which is the authoritative spec for plugin distribution. Do not implement from this file.
+
+
 > **Status: FINAL DRAFT for review, research-backed.** Defines how TTS **engine plugins**
 > are packaged, hosted on **GitLab**, discovered by tag, and installed/updated — the
 > Stable-Diffusion-style "browse a tag, pull it down, install" model, for engines. Voices

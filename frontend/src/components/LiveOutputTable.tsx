@@ -3,7 +3,7 @@ import type { LiveEvent, LiveEventRecord } from '@/api/contracts/liveEvents';
 import {
   clearLiveEventAudit,
   getLiveEventAuditSnapshot,
-  subscribeLiveEventAudit,
+  subscribeThrottled,
 } from '@/store/liveEventAuditStore';
 import { TOPIC_FILTERS, type TopicFilterId } from '@/config/liveEventTopics';
 
@@ -162,8 +162,9 @@ export const LiveOutputTable: React.FC<LiveOutputTableProps> = ({
   hiddenTopics: controlledHiddenTopics,
   onHiddenTopicsChange,
 }) => {
+  // P1: subscribeThrottled coalesces a burst of frames to one render per rAF.
   const records = useSyncExternalStore(
-    subscribeLiveEventAudit,
+    subscribeThrottled,
     getLiveEventAuditSnapshot,
     getLiveEventAuditSnapshot,
   );
