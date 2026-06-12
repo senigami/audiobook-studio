@@ -16,7 +16,7 @@ Pinokio handles setup and launch for you, and can optionally install demo conten
 ### Want to preview before installing?
 
 **[Try the Interactive Demo](https://senigami.github.io/audiobook-studio/demo/)**  
-The real production UI running live in your browser — queue, progress bars, status transitions — against a scripted render session. No backend, no install required. See [[Live-Demos]] for stage deep-links and technical notes.
+The real production UI (queue, progress bars, status transitions) running live in your browser against a scripted render session. No backend, no install required. See [[Live-Demos]] for stage deep-links and technical notes.
 
 **[Open the Showcase Page](https://senigami.github.io/audiobook-studio/)**  
 Hear audio samples, review features, and see how the workflow works before installing anything.

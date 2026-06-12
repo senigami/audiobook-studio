@@ -32,11 +32,13 @@ The system tracks **Characters Per Second (CPS)** and uses it to provide:
 - When a new checkpoint arrives, the ETA model changes future pacing and eases toward the new estimate instead of directly teleporting the bar to a new width.
 - Grouped chapter renders use weighted render-group progress, so a short final group contributes less than a much larger earlier group.
 - Progress starts at synthesis start, not model load or queue preparation. The `START_SYNTHESIS` event should line up with the engine beginning audio generation.
+- Per-segment timing works the same way: when a segment is announced, the editor shows "Preparing engine for segment..." with no countdown while the engine loads its model. The segment's ETA clock and pacing begin only when the engine confirms it has started. Model-load time never counts against the segment estimate.
+- Group counters read as a 1-based position everywhere: a four-group chapter shows 1/4 through 4/4 on both segment and chapter frames.
 - When a job completes, the visible bar is allowed to finish its final move to 100% before the row leaves the active queue.
 
 ### New Features & Fixes
 - **Global Queue ETA**: Added an "Approx. X minutes remaining" badge to the processing queue header that tracks cumulative work across all active and queued tasks.
-- **Reliable Queue Reordering**: Fixed a timestamp inversion bug and implemented in-memory synchronization, ensuring the background worker strictly follows the UI priority.
+- **Reliable Queue Reordering**: Fixed a timestamp inversion bug and added in-memory synchronization so the background worker strictly follows the UI priority.
 - **Enhanced Progress Visuals**: Progress bars now blend predictive updates and backend checkpoints without hard-snapping, while keeping active width transitions enabled so larger corrections still feel continuous.
 - **Locked-in Test Suite**: Added 11 regression tests covering ETA calculations, database joins, and in-memory queue synchronization logic.
 
@@ -85,6 +87,10 @@ Diagnostics are deliberately separate. A plugin may send model-load lines, setup
 
 - **Global Pause**: You can pause the entire queue if you need to free up system resources.
 - **Cancel**: Stop a specific job. If it's the 'Running' job, it may take a few seconds to terminate the subprocess.
+
+## Output Quality Checks
+
+Engines can validate their own rendered audio before a job completes. If an engine rejects its output (for example, XTTS detecting audio far too short for the text, which usually means truncation), the file is discarded and the job fails with the engine's reason shown verbatim in the queue row. The job is not retried automatically; requeue it once you have addressed the cause.
 
 ---
 

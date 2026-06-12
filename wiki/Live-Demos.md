@@ -1,17 +1,17 @@
 # Live Demos
 
-Audiobook Studio ships an interactive demo that runs the real production UI components against a scripted render session — no backend, no install required.
+Audiobook Studio ships an interactive demo that runs the real production UI components against a scripted render session. There is no backend and nothing to install.
 
 ## What the demo shows
 
-The demo mounts the actual React components from the production build and replays a scripted chapter-render arc through the app's pub/sub event bus (`publishStudioSocketMessage`). Every live component responds exactly as it does in production:
+The demo mounts the actual React components from the production build and replays a scripted chapter render through the app's pub/sub event bus (`publishStudioSocketMessage`). Every live component responds exactly as it does in production:
 
-- **Live Event Stream** — real-time event table showing topic, event kind, job/chapter/segment IDs, progress, ETA, and group ticking as the scripted session plays
-- **Queue** — Processing Now / Up Next / History sections filling as the render arc progresses
-- **Progress bars** — PredictiveProgressBar with preparing → running → finalizing → done lane behavior and ETA countdown
-- **Voice Lab** — real NarratorCard components showing 4 demo voices across key states (READY, BUILD TO TEST, NO SAMPLES) with engine badges; voice previews are silent placeholders
+- **Live Event Stream**: the event table as the scripted session plays, with topic, event kind, job/chapter/segment IDs, progress, ETA, and the group counter ticking 1/4 through 4/4.
+- **Queue**: Processing Now, Up Next, and History sections filling as the render arc progresses.
+- **Progress bars**: PredictiveProgressBar walking through preparing, running, finalizing, and done, with a live ETA countdown.
+- **Voice Lab**: real NarratorCard components showing 4 demo voices in different states (READY, BUILD TO TEST, NO SAMPLES) with engine badges. Voice previews are silent placeholders.
 
-REST reads come from a static fixture implementation — no network calls are made.
+REST reads come from a static fixture implementation, so the demo makes no network calls.
 
 ## Links
 
@@ -28,16 +28,16 @@ REST reads come from a static fixture implementation — no network calls are ma
 
 Stages are routed by hash: `#/stage/<id>`. The stage IDs exported by `DemoApp.tsx` are:
 
-- `live-output` — Live Output Table (real-time event stream)
-- `queue` — Global Queue with Processing Now / Up Next / History
-- `progress` — PredictiveProgressBar with full lane transitions
-- `voice-lab` — Voice Lab with real NarratorCard components (READY, BUILD TO TEST, NO SAMPLES states)
+- `live-output`: the Live Output Table (event stream)
+- `queue`: the Global Queue with Processing Now / Up Next / History
+- `progress`: PredictiveProgressBar with full lane transitions
+- `voice-lab`: NarratorCards in READY, BUILD TO TEST, and NO SAMPLES states
 
-Append `?embed=1` to hide the demo header (used for iframe embeds in the showcase page).
+Append `?embed=1` to hide the demo header. The showcase page uses this for its iframe embed.
 
 ## Technical notes
 
-The demo is a separate Vite build entry (`frontend/vite.demo.config.ts`) that outputs to `docs/demo/`. It is served under the `/audiobook-studio/demo/` base path on GitHub Pages. The scripted session is defined in `frontend/src/demo/scenes/` using typed frames built from the live-event contracts (`liveEvents.ts` v1.5.0) — no capture of a live backend session is needed.
+The demo is a separate Vite build entry (`frontend/vite.demo.config.ts`) that outputs to `docs/demo/` and is served under the `/audiobook-studio/demo/` base path on GitHub Pages. The scripted session lives in `frontend/src/demo/scenes/` as typed frames built from the live-event contracts (`liveEvents.ts` v1.5.0), so the demo stays correct against contract changes without capturing a live backend session.
 
 To rebuild the demo from source:
 
@@ -45,4 +45,4 @@ To rebuild the demo from source:
 npm -C frontend run build:demo
 ```
 
-This must be run at release time to keep the demo in sync with the production UI (noted in the release checklist, doc 08).
+Run this at release time so the demo matches the production UI (it is on the release checklist, doc 08).
