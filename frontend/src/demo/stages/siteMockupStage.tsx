@@ -3164,7 +3164,8 @@ const ActivityPane: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
-// Engines pane — v3.6: expandable XTTS config, plugin toolbar, trust dialog
+// Engines pane — v3.7: real-app-fidelity engine cards (expandable XTTS + Voxtral),
+// plugin toolbar, trust dialog
 
 const SANITIZE_TOGGLES = [
   { label: 'quotes', on: true },
@@ -3176,8 +3177,22 @@ const SANITIZE_TOGGLES = [
   { label: 'terminal punctuation', on: false },
 ];
 
+// Shared header chip styles
+const statusChip = (color: string) => ({
+  fontSize: '0.52rem', fontWeight: 700, padding: '1px 6px', borderRadius: 4,
+  border: `1px solid ${color}`, color, background: 'transparent',
+  display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap' as const,
+});
+
+const onPill = {
+  fontSize: '0.52rem', fontWeight: 700, padding: '1px 7px', borderRadius: 10,
+  background: 'var(--accent)', color: '#fff', display: 'inline-flex', alignItems: 'center',
+  whiteSpace: 'nowrap' as const,
+};
+
 const EnginesPane: React.FC = () => {
   const [xttsExpanded, setXttsExpanded] = useState(false);
+  const [voxtralExpanded, setVoxtralExpanded] = useState(true);
   const [sanitizeToggles, setSanitizeToggles] = useState<boolean[]>(SANITIZE_TOGGLES.map(t => t.on));
   const [showTrustDialog, setShowTrustDialog] = useState(false);
 
@@ -3252,49 +3267,48 @@ const EnginesPane: React.FC = () => {
 
       <Label>Installed</Label>
       <Col gap={8}>
-        {/* XTTS — expandable */}
-        <div
-          style={{
-            background: 'var(--surface-alt)',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            overflow: 'hidden',
-          }}
-        >
+        {/* ── XTTS v2 — expandable ─────────────────────────────────────── */}
+        <div style={{
+          background: 'var(--surface-alt)',
+          border: '1px solid var(--border)',
+          borderRadius: 6,
+          overflow: 'hidden',
+        }}>
+          {/* Header row */}
           <div style={{ padding: '8px 12px' }}>
-            <Row gap={10} style={{ alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: '1.2rem' }}>🧩</span>
-              <div style={{ flex: 1 }}>
-                <Row gap={6} style={{ alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)' }}>XTTS v2</span>
-                  <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>v2.0.3</span>
-                  {/* built-in lock chip */}
-                  <span style={{
-                    fontSize: '0.52rem', padding: '1px 5px', borderRadius: 10,
-                    border: '1px solid var(--border)', background: 'var(--surface)',
-                    color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 2,
-                  }}>
-                    🔒 built-in
-                  </span>
-                </Row>
-                <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Local · GPU · High quality voice cloning</div>
-              </div>
-              <span style={{ fontSize: '0.5rem', color: '#22c55e' }}>●</span>
-              <Chip color="#22c55e">Active</Chip>
-              <div
+            <Row gap={8} style={{ alignItems: 'center' }}>
+              {/* Expand chevron */}
+              <span
                 onClick={() => setXttsExpanded(e => !e)}
-                style={{
-                  fontSize: '0.62rem', fontWeight: 600, padding: '2px 8px', borderRadius: 5,
-                  border: `1px solid ${xttsExpanded ? 'var(--accent)' : 'var(--border)'}`,
-                  background: xttsExpanded ? 'var(--accent-tint-bg)' : 'var(--surface)',
-                  color: xttsExpanded ? 'var(--accent)' : 'var(--text-secondary)',
-                  cursor: 'pointer', whiteSpace: 'nowrap',
-                }}
+                style={{ fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0, userSelect: 'none' }}
               >
-                Configure {xttsExpanded ? '▴' : '▾'}
+                {xttsExpanded ? '▾' : '›'}
+              </span>
+              {/* Avatar circle */}
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%',
+                background: 'var(--accent-tint-bg)', border: '1px solid var(--accent)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.8rem', flexShrink: 0,
+              }}>
+                🧩
               </div>
+              {/* Name + sub-line */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  XTTS v2
+                </div>
+                <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>xtts · v2.0.3</div>
+              </div>
+              {/* Right-side chips */}
+              <Row gap={4} style={{ alignItems: 'center', flexShrink: 0 }}>
+                <span style={onPill}>ON</span>
+                <span style={statusChip('#22c55e')}>READY</span>
+                <span style={statusChip('#0ea5e9')}>VERIFIED</span>
+              </Row>
             </Row>
-            <Row gap={6} style={{ alignItems: 'center', marginLeft: 32 }}>
+            {/* Calibration sub-row (XTTS keeps inline calibration) */}
+            <Row gap={6} style={{ alignItems: 'center', marginLeft: 44, marginTop: 4 }}>
               <Chip color="#0ea5e9">14.2 chars/s · high confidence</Chip>
               <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}>
                 Reset calibration
@@ -3302,7 +3316,7 @@ const EnginesPane: React.FC = () => {
             </Row>
           </div>
 
-          {/* Expandable config panel */}
+          {/* Expandable config panel — Engine settings, Sanitize, Output QA */}
           {xttsExpanded && (
             <div style={{ borderTop: '1px solid var(--border)', background: 'var(--surface)', padding: '10px 12px' }}>
               {/* Engine settings group */}
@@ -3385,35 +3399,176 @@ const EnginesPane: React.FC = () => {
           )}
         </div>
 
-        {/* Voxtral */}
-        <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px' }}>
-          <Row gap={10} style={{ alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: '1.2rem' }}>🧩</span>
-            <div style={{ flex: 1 }}>
+        {/* ── Voxtral (Mistral AI) — expandable ───────────────────────────── */}
+        <div style={{
+          background: 'var(--surface-alt)',
+          border: '1px solid var(--border)',
+          borderRadius: 6,
+          overflow: 'hidden',
+        }}>
+          {/* Header row */}
+          <div style={{ padding: '8px 12px' }}>
+            <Row gap={8} style={{ alignItems: 'center' }}>
+              {/* Expand chevron */}
+              <span
+                onClick={() => setVoxtralExpanded(e => !e)}
+                style={{ fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0, userSelect: 'none' }}
+              >
+                {voxtralExpanded ? '▾' : '›'}
+              </span>
+              {/* Avatar circle */}
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%',
+                background: 'rgba(139,92,246,0.12)', border: '1px solid #8b5cf6',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.8rem', flexShrink: 0,
+              }}>
+                ☁
+              </div>
+              {/* Name + sub-line */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  Voxtral (Mistral AI)
+                </div>
+                <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>voxtral · v1.0.0</div>
+              </div>
+              {/* Right-side: cloud icon + ON + READY + VERIFIED */}
+              <Row gap={4} style={{ alignItems: 'center', flexShrink: 0 }}>
+                <span style={{ fontSize: '0.7rem', color: '#8b5cf6' }} title="Cloud engine">☁</span>
+                <span style={onPill}>ON</span>
+                <span style={statusChip('#22c55e')}>READY</span>
+                <span style={statusChip('#0ea5e9')}>VERIFIED</span>
+              </Row>
+            </Row>
+          </div>
+
+          {/* Expanded panel */}
+          {voxtralExpanded && (
+            <div style={{ borderTop: '1px solid var(--border)', background: 'var(--surface)', padding: '10px 12px' }}>
+
+              {/* 1. Voice Generation Speed */}
+              <div style={{ marginBottom: 10 }}>
+                <Row gap={6} style={{ alignItems: 'center', marginBottom: 5 }}>
+                  <div style={{ fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', flex: 1 }}>
+                    Voice Generation Speed
+                  </div>
+                  <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}>
+                    Reset Baseline
+                  </span>
+                </Row>
+                <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', marginBottom: 4 }}>
+                  {/* Highlighted strip */}
+                  <div style={{
+                    padding: '5px 10px',
+                    background: 'var(--accent-tint-bg)',
+                    borderBottom: '1px solid var(--border)',
+                  }}>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      51.4 characters/sec, 24% confidence
+                    </div>
+                    <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>
+                      from 5 samples since 6/10/2026
+                    </div>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.58rem', color: '#d97706', marginBottom: 3 }}>
+                  ⚠ Generate more text-to-speech renders to improve confidence in this speed estimate.
+                </div>
+                <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  This calibrates Studio's render-time estimates and does not change voice speaking speed.
+                </div>
+              </div>
+
+              {/* 2. Engine attribution */}
+              <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+                Engine by Mistral AI.{' '}
+                <span style={{ color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}>
+                  View Documentation
+                </span>
+              </div>
+
+              {/* 3. Privacy banner */}
+              <div style={{
+                fontSize: '0.6rem', color: '#92400e',
+                background: '#fef3c7', border: '1px solid #fbbf24',
+                borderRadius: 4, padding: '5px 8px',
+                marginBottom: 10, lineHeight: 1.5,
+              }}>
+                ☁ Privacy: cloud engines may send text and optional reference audio to external servers.
+              </div>
+
+              {/* 4. Schema-driven config box */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>
+                  Configuration
+                </div>
+                <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+                  {/* Mistral API Key */}
+                  <Row gap={8} style={{ padding: '5px 10px', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-primary)', flex: 1 }}>Mistral API Key</span>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'monospace', letterSpacing: '0.1em' }}>••••••••</span>
+                    <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', cursor: 'pointer' }}>✎</span>
+                  </Row>
+                  {/* Model */}
+                  <Row gap={8} style={{ padding: '5px 10px', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.62rem', color: 'var(--text-primary)' }}>Model</div>
+                      <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Mistral TTS model to use for synthesis.</div>
+                    </div>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>voxtral-mini-tts-2603 ▾</span>
+                  </Row>
+                  {/* Output Format */}
+                  <Row gap={8} style={{ padding: '5px 10px', alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.62rem', color: 'var(--text-primary)' }}>Output Format</div>
+                      <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Audio format for synthesis output.</div>
+                    </div>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)' }}>wav ▾</span>
+                  </Row>
+                </div>
+              </div>
+
+              {/* 5. Latest test sample */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>
+                  Latest Test Sample
+                </div>
+                <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px' }}>
+                  <Row gap={8} style={{ alignItems: 'center' }}>
+                    {/* Mini player */}
+                    <Row gap={5} style={{ alignItems: 'center', flex: 1 }}>
+                      <span style={{ fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-primary)' }}>▶</span>
+                      <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>0:00 / 0:03</span>
+                      <div style={{ flex: 1, height: 2, background: 'var(--border)', borderRadius: 2, minWidth: 30 }}>
+                        <div style={{ width: '0%', height: '100%', background: 'var(--accent)', borderRadius: 2 }} />
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>🔊</span>
+                    </Row>
+                    <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      Generated at: 6/11/2026, 10:09:47 AM
+                    </span>
+                  </Row>
+                </div>
+              </div>
+
+              {/* 6. Footer actions */}
               <Row gap={6} style={{ alignItems: 'center' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)' }}>Voxtral</span>
-                <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>v1.1.0</span>
+                <Btn small>▶ Run Test</Btn>
                 <span style={{
-                  fontSize: '0.52rem', padding: '1px 5px', borderRadius: 10,
-                  border: '1px solid var(--border)', background: 'var(--surface)',
-                  color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 2,
+                  fontSize: '0.6rem', fontWeight: 600, padding: '2px 8px', borderRadius: 5,
+                  border: '1px solid var(--border)', color: 'var(--text-muted)',
+                  background: 'var(--surface-alt)', cursor: 'not-allowed', opacity: 0.5,
+                  display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap',
                 }}>
-                  🔒 built-in
+                  🛡 Verified
+                </span>
+                <div style={{ flex: 1 }} />
+                <span style={{ fontSize: '0.6rem', color: '#ef4444', cursor: 'pointer', textDecoration: 'underline', flexShrink: 0 }}>
+                  🗑 Uninstall
                 </span>
               </Row>
-              <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Local · CPU/GPU · Fast inference</div>
             </div>
-            <span style={{ fontSize: '0.5rem', color: '#22c55e' }}>●</span>
-            <Chip color="#22c55e">Active</Chip>
-            <Btn small>Install deps</Btn>
-            <Btn small>Configure</Btn>
-          </Row>
-          <Row gap={6} style={{ alignItems: 'center', marginLeft: 32 }}>
-            <Chip color="#0ea5e9">9.1 chars/s · medium confidence</Chip>
-            <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}>
-              Reset calibration
-            </span>
-          </Row>
+          )}
         </div>
 
         {/* Mixed */}

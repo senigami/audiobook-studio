@@ -92,7 +92,7 @@ export const EngineCard: React.FC<{
   const enablementMessage = displayEngine.enablement_message || setupMessage || dependencyMessage || (!displayEngine.enabled && !canEnable ? 'Resolve engine setup before enabling this plugin.' : '');
   const hideSettingsPanel = Boolean(
     uiMetadata?.hidden ||
-    (uiMetadata?.hide_settings_when_not_ready && displayEngine.status !== 'ready') ||
+    (uiMetadata?.hide_settings_when_not_ready && displayEngine.status !== 'ready' && displayEngine.status !== 'unverified') ||
     (uiMetadata?.hide_settings_when_unverified && !displayEngine.verified)
   );
   const calibrationSince = formatCalibrationSince(displayEngine.calibration_since);

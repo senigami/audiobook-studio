@@ -192,6 +192,49 @@ describe('EngineCard developer scenarios', () => {
   });
 });
 
+describe('EngineCard hide_settings_when_not_ready gate', () => {
+  const xttsLikeEngine = {
+    engine_id: 'tts_xtts',
+    display_name: 'XTTS',
+    status: 'unverified' as const,
+    verified: false,
+    enabled: false,
+    version: '2.0.0',
+    local: true,
+    cloud: false,
+    network: false,
+    languages: ['en'],
+    capabilities: ['tts'],
+    resource: {},
+    author: 'Coqui',
+    homepage: '',
+    can_enable: false,
+    settings_schema: {
+      properties: {
+        model_path: {
+          type: 'string',
+          title: 'Model Path',
+        },
+      },
+      'x-ui': {
+        hide_settings_when_not_ready: true,
+      },
+    },
+    current_settings: { model_path: '/models/xtts' },
+    dev: { enabled: false },
+  } as any;
+
+  it('keeps settings form visible when status is unverified even with hide_settings_when_not_ready flag', () => {
+    render(<EngineCard engine={xttsLikeEngine} onUpdate={vi.fn()} />);
+    expect(screen.getByText('Model Path')).toBeInTheDocument();
+  });
+
+  it('hides settings form when status is needs_setup and hide_settings_when_not_ready flag is set', () => {
+    render(<EngineCard engine={{ ...xttsLikeEngine, status: 'needs_setup' }} onUpdate={vi.fn()} />);
+    expect(screen.queryByText('Model Path')).not.toBeInTheDocument();
+  });
+});
+
 describe('EngineCard dependency installation', () => {
   it('shows "Installing..." and disables the button during install, then calls onUpdate and shows notification on success', async () => {
     const engineWithDeps = { ...voxtralEngine, dependencies_satisfied: false, missing_dependencies: ['some-pkg'] };
