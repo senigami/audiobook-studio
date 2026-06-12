@@ -20,6 +20,7 @@ import type {
   Speaker,
 } from '@/types';
 import { getVoiceProfileEngine, formatVoiceEngineLabel, buildVoiceOptions } from '@/utils/voiceProfiles';
+import { computeSpanRenderProgress, batchEngineStatus as computeBatchEngineStatus } from '@/pages/ChapterEditor/scriptViewProgress';
 import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
 import '@/pages/ChapterEditor/components/ScriptView.css';
 
@@ -48,8 +49,6 @@ interface ScriptViewProps {
    */
   groupNumberForSpan?: Map<string, number>;
 }
-
-const clamp01 = (value: number) => Math.max(0, Math.min(value, 1));
 
 // ---------------------------------------------------------------------------
 // ScriptSpanItem — memo'd leaf so progress-frame re-renders don't cascade to
@@ -290,30 +289,8 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   }, [speakerProfiles]);
 
 
-  const engineIsEnabled = (engineId: string | null | undefined) => {
-    if (engines.length === 0) {
-      return true;
-    }
-    if (!engineId || engineId === 'unknown') {
-      return anyEnginesEnabled;
-    }
-    return engines.some(engine => engine.engine_id === engineId && engine.enabled && engine.status === 'ready');
-  };
-
-  const batchEngineStatus = (spanIds: string[]) => {
-    const enginesForBatch = new Set<string>();
-    spanIds.forEach(spanId => {
-      const span = spanMap.get(spanId);
-      const engineId = span?.speaker_profile_name ? profileEngineMap.get(span.speaker_profile_name) || null : null;
-      if (engineId) enginesForBatch.add(engineId);
-    });
-
-    const unavailable = Array.from(enginesForBatch).find(engineId => !engineIsEnabled(engineId));
-    return {
-      canGenerate: unavailable ? false : anyEnginesEnabled,
-      unavailableEngine: unavailable,
-    };
-  };
+  const batchEngineStatus = (spanIds: string[]) =>
+    computeBatchEngineStatus(spanIds, spanMap, profileEngineMap, engines, anyEnginesEnabled);
 
   const isPlayingSpan = (spanId: string) => {
     if (playingSpanIds) return playingSpanIds.has(spanId);
@@ -324,34 +301,16 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
 
   const getRenderingTextProgress = (batch: ScriptRenderBatch | undefined, span: ScriptSpan) => {
     if (!batch) return { litCount: 0, showCursor: false };
-
     const batchSpans = batch.span_ids
       .map(spanId => spanMap.get(spanId))
       .filter((candidate): candidate is ScriptSpan => !!candidate);
-
-    const progress = clamp01(renderingBatchProgressById[batch.id] ?? 0);
-
-    const lengths = batchSpans.map(candidate => Array.from(getDisplayText(candidate)).length);
-    const totalChars = lengths.reduce((sum, length) => sum + length, 0);
-    const globalLitCount = Math.floor(progress * totalChars);
-
-    let offset = 0;
-    for (let index = 0; index < batchSpans.length; index += 1) {
-      const candidate = batchSpans[index];
-      const length = lengths[index];
-      const spanStart = offset;
-      const spanEnd = spanStart + length;
-      offset = spanEnd;
-
-      if (candidate.id !== span.id) continue;
-
-      return {
-        litCount: Math.max(0, Math.min(globalLitCount - spanStart, length)),
-        showCursor: globalLitCount >= spanStart && globalLitCount < spanEnd,
-      };
-    }
-
-    return { litCount: 0, showCursor: false };
+    return computeSpanRenderProgress(
+      batch,
+      span,
+      batchSpans,
+      renderingBatchProgressById[batch.id] ?? 0,
+      getDisplayText,
+    );
   };
 
   const availableVoices = useMemo(() => {

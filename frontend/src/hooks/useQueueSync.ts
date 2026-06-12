@@ -10,8 +10,7 @@ import { createLiveJobsStore } from '@/store/live-jobs';
 import { createHydrationCoordinator, selectActiveQueueCount } from '@/api/hydration';
 import { subscribeStudioSocketMessages } from '@/store/studioSocketBus';
 import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
-import { adaptEventToJobUpdates } from '@/utils/jobEventAdapters';
-import { applyTerminalLifecycleReset } from '@/utils/jobEventUtils';
+import { dispatchQueueEvent, QUEUE_HANDLED_TOPICS } from '@/utils/queueEventDispatcher';
 import { pickOverlayFields } from '@/utils/queueOverlayFields';
 
 const FALLBACK_POLL_MS = 60000;
@@ -117,93 +116,40 @@ export const useQueueSync = () => {
       const event = record.event;
       const payload = event.payload as any;
 
-      if (
-        event.topic === 'jobs.lifecycle' ||
-        event.topic === 'queue.items' ||
-        event.topic === 'chapters.lifecycle' ||
-        event.topic === 'chapters.progress'
-      ) {
-        recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
+      if (!QUEUE_HANDLED_TOPICS.has(event.topic)) return;
 
-        // F3: Helper that performs the actual state mutation. When the snapshot
-        // has not yet landed we capture it as a closure and push it onto the
-        // pending buffer; it will be replayed in order once the snapshot is set.
-        const applyEvent = () => {
-          if (event.topic === 'queue.items' && event.eventKind === 'queue_item_invalidated') {
-            recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-            refreshQueue('refresh');
-          } else if (event.topic === 'queue.items' && event.eventKind === 'queue_paused') {
-            recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-            refreshQueue('refresh');
-          } else if (event.topic === 'chapters.lifecycle') {
-            recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-            refreshQueue('refresh');
-          } else if (event.jobId) {
-            const isQueueAuthority = event.topic === 'queue.items';
-            if (!isQueueAuthority) {
-              // Non-queue.items topics (jobs.lifecycle, chapters.progress) are overlay-only:
-              // they must not create a new row. Skip if the job is not already known.
-              const knownInSnapshot = lastSnapshotRef.current?.items.some(
-                (item: any) => item.id === event.jobId
-              );
-              const knownInStore = !!storeRef.current.getState().eventsById[event.jobId!];
-              if (!knownInSnapshot && !knownInStore) {
-                if (process.env.NODE_ENV === 'development') {
-                  console.debug(
-                    `[useQueueSync] overlay-only topic "${event.topic}" skipped for unknown job "${event.jobId}" — queue.items is row authority`
-                  );
-                }
-                return;
-              }
-            }
+      recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
 
-            recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-            const rawUpdates = adaptEventToJobUpdates(event);
-            let updates: Record<string, any>;
-            if (isQueueAuthority) {
-              updates = rawUpdates;
-            } else {
-              // Overlay-only topics: strip identity/classification fields but preserve
-              // the current effective status so applyJobUpdated does not overwrite
-              // the snapshot status with its 'queued' default.
-              updates = pickOverlayFields(rawUpdates);
-              const snapshotStatus = lastSnapshotRef.current?.items.find(
-                (item: any) => item.id === event.jobId
-              )?.status;
-              const storeStatus = storeRef.current.getState().eventsById[event.jobId!]?.status;
-              const currentStatus = storeStatus ?? snapshotStatus;
-              if (currentStatus !== undefined) updates.status = currentStatus;
-              // For jobs.lifecycle terminal frames: clear ETA/active-segment overlay fields
-              // (read rawUpdates.status for the trigger check only — it is NOT written to updates).
-              if (event.topic === 'jobs.lifecycle') {
-                applyTerminalLifecycleReset(updates, rawUpdates.status);
-              }
-            }
-            storeRef.current.applyJobUpdated(event.jobId, updates);
-            updateDerivedState();
-            const reasonCode = payload.reasonCode ?? payload.reason_code;
-            if (event.topic === 'jobs.lifecycle' && reasonCode === 'QUEUE_INVALIDATED') {
-              refreshQueue('refresh');
-            } else if (
-              event.topic === 'jobs.lifecycle' &&
-              ['done', 'failed', 'cancelled'].includes(rawUpdates.status)
-            ) {
-              // Defense-in-depth: a terminal lifecycle frame triggers a queue refetch in
-              // addition to the overlay handling above. Refetching re-reads the durable
-              // SQLite rows (legal under row-authority rules — it is not a row mutation
-              // from this frame) and guarantees eventual consistency for the row's
-              // status even if the authoritative queue.items frame is dropped.
-              refreshQueue('terminal');
-            }
-          }
-        };
+      // F3: Helper that performs the actual state mutation. When the snapshot
+      // has not yet landed we capture it as a closure and push it onto the
+      // pending buffer; it will be replayed in order once the snapshot is set.
+      const applyEvent = () => {
+        const result = dispatchQueueEvent(event, payload, {
+          refreshQueue,
+          applyJobUpdated: (jobId, updates) => storeRef.current.applyJobUpdated(jobId, updates),
+          pickOverlay: pickOverlayFields,
+          isHydrated: () => !!lastSnapshotRef.current,
+          getSnapshotStatus: (jobId) =>
+            lastSnapshotRef.current?.items.find((item: any) => item.id === jobId)?.status,
+          getStoreStatus: (jobId) =>
+            storeRef.current.getState().eventsById[jobId]?.status,
+          isKnownInSnapshot: (jobId) =>
+            !!lastSnapshotRef.current?.items.some((item: any) => item.id === jobId),
+          isKnownInStore: (jobId) =>
+            !!storeRef.current.getState().eventsById[jobId],
+          updateDerivedState,
+        });
 
-        if (!lastSnapshotRef.current) {
-          // Snapshot not yet available — buffer the event for replay after hydration.
-          pendingEventsRef.current.push(applyEvent);
-        } else {
-          applyEvent();
+        if (result.action !== 'unhandled' && result.action !== 'skipped') {
+          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
         }
+      };
+
+      if (!lastSnapshotRef.current) {
+        // Snapshot not yet available — buffer the event for replay after hydration.
+        pendingEventsRef.current.push(applyEvent);
+      } else {
+        applyEvent();
       }
     });
   }, [updateDerivedState, refreshQueue]);
