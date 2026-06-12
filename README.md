@@ -7,7 +7,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg)](https://nodejs.org/)
 
-**[▶ Try the interactive demo — no install required](https://senigami.github.io/audiobook-studio/demo/)**
+**[▶ Try the interactive demo (no install required)](https://senigami.github.io/audiobook-studio/demo/)**
 &nbsp;·&nbsp; [Live showcase with audio samples](https://senigami.github.io/audiobook-studio/) &nbsp;·&nbsp; [Install with Pinokio](https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio)
 
 ![Audiobook Studio](assets/Promo.png)
