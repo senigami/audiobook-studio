@@ -6,7 +6,7 @@ also go here.*
 
 ## Task log
 
-(nothing executed yet)
+2026-06-12 R1-T1 done build-skipped-existing-demo-type-errors HEAD
 
 ## Found bugs (do not fix mid-phase — triaged at R6)
 
@@ -14,4 +14,4 @@ also go here.*
 
 ## Open questions for the owner
 
-(none logged yet)
+- 2026-06-12: `npm -C frontend run build` currently fails in untouched `frontend/src/demo/stages/siteMockup/*` files. Per owner direction, continue rollout tasks and note this as an external build blocker for the other agent instead of stopping local frontend shell work.
