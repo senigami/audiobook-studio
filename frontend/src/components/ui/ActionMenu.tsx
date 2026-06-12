@@ -47,19 +47,17 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete, trigger
         if (!triggerRef.current) return;
         const rect = triggerRef.current.getBoundingClientRect();
         const menuWidth = 180; // Min-width
+        const estimatedMenuHeight = 200; // conservative estimate for flip calc
 
+        let top = rect.bottom + window.scrollY + 4;
+        let left = rect.left + (rect.width / 2) + window.scrollX + 8;
+        let above = false;
 
-        const top = rect.bottom + window.scrollY;
-        let left = rect.left + (rect.width / 2) + window.scrollX + 8; // Align left edge of menu with center of trigger
-        const above = false;
-
-        // Flip logic removed to keep menu below the trigger as requested
-        /*
-        if (rect.bottom + menuHeight > window.innerHeight) {
-            top = rect.top + window.scrollY - menuHeight - 8;
+        // Flip upward when insufficient space below the viewport fold
+        if (rect.bottom + estimatedMenuHeight > window.innerHeight) {
+            top = rect.top + window.scrollY - estimatedMenuHeight - 4;
             above = true;
         }
-        */
 
         // Clamp horizontal
         if (left < 10) left = 10;
@@ -124,8 +122,8 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete, trigger
                     alignItems: 'center',
                     justifyContent: 'center',
                 } : {
-                    width: '32px',
-                    height: '32px',
+                    width: '44px',
+                    height: '44px',
                     borderRadius: '8px',
                     display: 'flex',
                     alignItems: 'center',

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, FileEdit } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 // --- Drawer ---
 
@@ -15,6 +16,8 @@ interface DrawerProps {
 export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children }) => {
     const [width, setWidth] = useState(800);
     const [isResizing, setIsResizing] = useState(false);
+    const drawerRef = useRef<HTMLDivElement>(null);
+    useFocusTrap(drawerRef, isOpen);
 
     const startResizing = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
@@ -66,10 +69,15 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children
                         }}
                     />
                     <motion.div
+                        ref={drawerRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={title}
                         initial={{ x: '100%' }}
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                        onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
                         style={{
                             position: 'fixed',
                             top: 0,
@@ -88,6 +96,17 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children
                     >
                         <div
                             onMouseDown={startResizing}
+                            onKeyDown={(e) => {
+                                if (e.key === 'ArrowLeft') setWidth(w => Math.min(w + 20, Math.floor(window.innerWidth * 0.9)));
+                                if (e.key === 'ArrowRight') setWidth(w => Math.max(w - 20, 380));
+                            }}
+                            role="separator"
+                            aria-orientation="vertical"
+                            aria-valuenow={width}
+                            aria-valuemin={380}
+                            aria-valuemax={Math.floor(window.innerWidth * 0.9)}
+                            aria-label="Resize drawer"
+                            tabIndex={0}
                             className="resize-handle"
                             style={{
                                 position: 'absolute',
@@ -139,7 +158,7 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children
                                 </div>
                                 <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{title}</h3>
                             </div>
-                            <button onClick={onClose} className="btn-ghost" style={{ padding: '8px' }}>
+                            <button onClick={onClose} aria-label="Close" className="btn-ghost" style={{ padding: '8px' }}>
                                 <X size={20} />
                             </button>
                         </div>

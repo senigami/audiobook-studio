@@ -75,31 +75,31 @@
 }
 
 .btn-home {
-  background: var(--surface) !important;
-  color: var(--text-secondary) !important;
-  border: 1px solid var(--border) !important;
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-sm);
 }
 
 .btn-home:hover:not(:disabled) {
-  background: var(--accent-glow) !important;
-  color: var(--accent) !important;
-  border-color: var(--accent) !important;
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-color: var(--accent);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
 
 .btn-home:active:not(:disabled) {
-  background: var(--accent-active) !important;
-  color: var(--text-on-accent) !important;
-  border-color: var(--accent-active) !important;
+  background: var(--accent-active);
+  color: var(--text-on-accent);
+  border-color: var(--accent-active);
   transform: translateY(0);
 }
 
 .btn-home.primary {
-  border: 2px solid var(--accent) !important;
-  color: var(--accent) !important;
+  border: 2px solid var(--accent);
+  color: var(--accent);
 }
 
 .btn-danger {
@@ -120,7 +120,11 @@
 
 .action-menu-item {
   position: relative;
-  outline: none;
+}
+
+.action-menu-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .action-menu-item.standard:hover {
@@ -227,7 +231,6 @@
 
 .input-group input:focus,
 .input-group textarea:focus {
-  outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-glow);
 }
@@ -240,7 +243,6 @@
   padding: 0.5rem 0.75rem;
   font-size: 0.9rem;
   transition: all 0.2s ease;
-  outline: none;
 }
 
 .input-field:focus {
@@ -255,7 +257,6 @@
   color: var(--text-primary);
   padding: 0.5rem 0.75rem;
   font-size: 0.9rem;
-  outline: none;
   cursor: pointer;
 }
 
@@ -390,7 +391,6 @@
   font-size: 0.9rem;
   transition: all 0.2s ease;
   width: 100%;
-  outline: none;
 }
 
 .form-input:focus {

@@ -443,7 +443,16 @@ function App() {
         confirmText={confirmConfig?.confirmText}
       />
 
-      {/* Simple Toast */}
+      {/* Simple Toast — always-mounted live region so AT announces the message */}
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 9999, pointerEvents: 'none' }}
+      >
+        <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+          {toast?.visible ? toast.message : ''}
+        </span>
+      </div>
       <AnimatePresence>
         {toast?.visible && (
           <motion.div

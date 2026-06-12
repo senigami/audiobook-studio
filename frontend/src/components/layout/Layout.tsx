@@ -111,6 +111,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
                 onMouseEnter={() => setHoveredTab(item.id)}
                 onMouseLeave={() => setHoveredTab(null)}
                 aria-current={activeTab === item.id ? 'page' : undefined}
+                aria-label={item.label}
                 className="btn-ghost"
                 style={{
                   display: 'flex',

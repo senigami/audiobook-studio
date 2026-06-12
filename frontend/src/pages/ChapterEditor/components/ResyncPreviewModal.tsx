@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, RefreshCw, X, CheckCircle, Info } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 export interface ResyncPreviewData {
   total_segments_before: number;
@@ -26,24 +27,35 @@ export const ResyncPreviewModal: React.FC<ResyncPreviewModalProps> = ({
   onCancel,
   loading
 }) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, isOpen);
+
+  const handleEscape = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape' && !loading) onCancel();
+  }, [onCancel, loading]);
+
   return (
     <AnimatePresence>
       {isOpen && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 2000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '1.5rem'
-        }}>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.5rem'
+          }}
+          onKeyDown={handleEscape}
+        >
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={!loading ? onCancel : undefined}
+            aria-hidden="true"
             style={{
               position: 'absolute',
               inset: 0,
@@ -54,6 +66,10 @@ export const ResyncPreviewModal: React.FC<ResyncPreviewModalProps> = ({
 
           {/* Modal Content */}
           <motion.div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="resync-modal-title"
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -85,15 +101,22 @@ export const ResyncPreviewModal: React.FC<ResyncPreviewModalProps> = ({
               }}>
                 {data?.is_destructive ? <AlertTriangle size={24} /> : <CheckCircle size={24} />}
               </div>
-              <button 
+              <button
                 onClick={onCancel}
                 disabled={loading}
-                style={{ 
-                  background: 'none', 
-                  border: 'none', 
-                  color: 'var(--text-muted)', 
+                aria-label="Close"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
                   cursor: loading ? 'not-allowed' : 'pointer',
-                  padding: '4px'
+                  padding: '10px',
+                  minWidth: '40px',
+                  minHeight: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '8px'
                 }}
               >
                 <X size={20} />
@@ -101,7 +124,7 @@ export const ResyncPreviewModal: React.FC<ResyncPreviewModalProps> = ({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              <h3 id="resync-modal-title" style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                 Source Text Resync Preview
               </h3>
               <p style={{ fontSize: '0.925rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>

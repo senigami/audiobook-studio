@@ -41,6 +41,9 @@
   --shadow-xl:
     0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 
+  /* RGB channel tokens (for rgba() usage) */
+  --accent-rgb: 43, 110, 255;
+
   /* Brand tokens */
   --as-ink: #0f172a; /* sleek slate-dark */
   --as-muted: #64748b; /* soft-slate */

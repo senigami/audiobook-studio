@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { RefreshCw, Zap, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Copy, MoreVertical } from 'lucide-react';
+import { RefreshCw, Zap, CheckCircle, Pencil, ChevronLeft, ChevronRight, Copy, MoreVertical } from 'lucide-react';
 import type { Chapter, Job } from '@/types';
 import { PredictiveProgressBar, type PredictiveProgressBarProps } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import { buildSegmentProgressBarProps } from '@/components/progress/progressBarContracts';
@@ -669,7 +669,7 @@ export const ChapterScriptToolbar: React.FC<{
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--surface-light)', padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
             <span style={{ fontSize: '0.8rem', color: saving ? 'var(--warning)' : (hasUnsavedChanges ? 'var(--accent)' : 'var(--success-text)'), display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {saving ? <RefreshCw size={14} className="animate-spin" /> : (hasUnsavedChanges ? <AlertTriangle size={14} /> : <CheckCircle size={14} color="var(--success)" />)}
+                {saving ? <RefreshCw size={14} className="animate-spin" /> : (hasUnsavedChanges ? <Pencil size={14} /> : <CheckCircle size={14} color="var(--success)" />)}
                 {saving ? 'Saving...' : (hasUnsavedChanges ? 'Unsaved' : 'Saved')}
             </span>
         </div>

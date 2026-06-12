@@ -4,18 +4,18 @@ Findings from a 2026-06-10 HIG-style design audit of the frontend. Goal: Apple-l
 
 ## Quick wins (each under 1 hour)
 
-- [ ] **Q1.** Add missing `--accent-rgb: 43, 110, 255;` token to `frontend/src/theme/tokens.css` — `rgba(var(--accent-rgb), …)` in `VoicesTabContent.tsx:58` currently renders transparent. *(Also pick up `--accent-tint`, tracked in doc 07.)*
-- [ ] **Q2.** `ConfirmModal.tsx` + `ResyncPreviewModal`: add `role="dialog" aria-modal="true" aria-labelledby` (h3 id). *(Overlaps doc 11 A1 — do once.)*
-- [ ] **Q3.** Create-project modal in `ProjectLibraryPage.tsx:228-360`: wrap in `<AnimatePresence>` with an `exit` animation — currently snaps off.
-- [ ] **Q4.** `ActionMenu.tsx:129`: default trigger 32×32 → 44×44 (HIG minimum touch target).
-- [ ] **Q5.** Remove the `!important` block from `.btn-home` (`components.css:77-103`); rewrite with normal specificity.
-- [ ] **Q6.** Verify Enter-submits on the project Title input (`ProjectLibraryPage.tsx:293`).
-- [ ] **Q7.** Delete the dead `/queue` route (`App.tsx:260-278`) — the effect at `App.tsx:131-138` redirects to the drawer before it ever renders.
-- [ ] **Q8.** `ConfirmModal.tsx:99` X button: `padding: '4px'` → `'10px'` (≥40×40 hit area).
-- [ ] **Q9.** Toast container in `App.tsx`: add `aria-live="polite" aria-atomic="true"`. *(Overlaps doc 11 A6.)*
-- [ ] **Q10.** `ActionMenu.tsx:56-60`: restore/fix the commented-out flip-up logic so menus near the viewport bottom open upward.
-- [ ] **Q11.** `ChapterScriptToolbar` (in `ChapterHeader.tsx:546-551`): replace `AlertTriangle` for the normal "Unsaved" state with a neutral dot/pencil — alert iconography is for errors.
-- [ ] **Q12.** `ProjectLibraryPage.tsx`: when `projects.length === 0 && !loading`, skip the hero and render only the centered empty state with one primary "New Project" CTA (currently two competing start-here signals).
+- [x] **Q1.** Add missing `--accent-rgb: 43, 110, 255;` token to `frontend/src/theme/tokens.css`. Done 2026-06-11; `--accent-tint` was already present from the step-1 token audit.
+- [x] **Q2.** `ConfirmModal.tsx` + `ResyncPreviewModal`: `role="dialog" aria-modal="true" aria-labelledby` added. Done 2026-06-11 together with A1.
+- [x] **Q3.** Create-project modal wrapped in `<AnimatePresence>` with `exit` animation. Done 2026-06-11.
+- [x] **Q4.** `ActionMenu.tsx` default trigger 32×32 → 44×44. Done 2026-06-11.
+- [x] **Q5.** `.btn-home` `!important` removed; normal specificity. Done 2026-06-11.
+- [x] **Q6.** Enter-submits on Title input — already worked (input is inside a `<form onSubmit=…>`). Verified 2026-06-11; no code change needed.
+- [ ] **Q7.** Delete the dead `/queue` route (`App.tsx:260-278`) — skipped per instruction; handled by the approved Phase A plan.
+- [x] **Q8.** `ConfirmModal.tsx` X button padding 4px → 10px with minWidth/minHeight 40px. Done 2026-06-11.
+- [x] **Q9.** Toast container: always-mounted `aria-live="polite" aria-atomic="true"` region added to `App.tsx`. Done 2026-06-11.
+- [x] **Q10.** `ActionMenu` flip-up logic restored: opens upward when insufficient viewport space below. Done 2026-06-11.
+- [x] **Q11.** `ChapterScriptToolbar` "Unsaved" icon changed from `AlertTriangle` to `Pencil`. Done 2026-06-11.
+- [x] **Q12.** `ProjectLibraryPage`: empty-state branch renders centered empty state + single "New Project" CTA; hero skipped when `projects.length === 0`. Done 2026-06-11.
 
 ## Ranked improvements
 
