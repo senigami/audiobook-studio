@@ -294,6 +294,9 @@ def mock_tts_server_watchdog(monkeypatch):
     """
     from unittest.mock import MagicMock
     import app.engines.watchdog
+    import app.engines.registry as _registry_mod
+    # Clear the TTL cache so each test fetches fresh from the mocked TTS Server.
+    _registry_mod._remote_cache = None
     import app.engines.registry
     import app.engines.bridge_remote
 
