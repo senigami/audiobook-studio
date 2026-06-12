@@ -44,7 +44,7 @@ All logic fixes, progress confidence model, security blockers, test-quality audi
 - [x] Live demo (doc 14 steps 1–7; four stages + styleguide).
 - [ ] Demo/showcase release-checklist wiring: `sync:showcase-tokens` + `build:demo` at release (doc 14 step 8). (S)
 - [ ] v1.html screenshot refresh to current 2.0 UI. (S)
-- [ ] **GATE: Pinokio PK1–PK4** (pin Coqui fork, torch backend selection, public wrapper repo, no absolute paths) + PK7 demo bundle 2.0 refresh (depends on Stage 4 voice schema) + PK8 first-run smoke. (M)
+- [ ] **GATE: Pinokio** — PK1 fork pinned + PK2 torch backend selection DONE 2026-06-12; PK4 audit clean (zero machine paths in wrapper). Remaining: PK3 publish wrapper repo (owner), PK7 demo bundle 2.0 refresh (voice schema now final — unblocked), PK8 first-run smoke. (S-M)
 - [ ] **GATE: SP9 specs conformance pass** — every spec checklist vs shipped code before the tag (doc 18). SP2 depends on Stage 3, SP3 on Stage 4, SP7 on Pinokio. (M)
 - [ ] Release notes + install validation matrix + promo assets (Phase 13). (L)
 
