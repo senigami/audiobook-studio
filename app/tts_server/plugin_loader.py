@@ -29,6 +29,10 @@ _PLUGIN_FOLDER_RE = re.compile(r"^tts_[a-z][a-z0-9]{1,14}$")
 # Regex for callable fields: "module:ClassName" or "package.module:function_name"
 _CALLABLE_RE = re.compile(r"^[a-z_][a-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
 
+# The only manifest contract version this loader accepts.  Every plugin
+# manifest must carry ``"studio_tts_manifest": SUPPORTED_MANIFEST_VERSION``.
+SUPPORTED_MANIFEST_VERSION = "1.0"
+
 
 # Maximum seconds allowed for a plugin's __init__ / module load.
 _IMPORT_TIMEOUT_SECONDS = 120
@@ -495,10 +499,11 @@ def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
             )
 
     manifest_version = str(manifest["studio_tts_manifest"]).strip()
-    if manifest_version != "1.0":
+    if manifest_version != SUPPORTED_MANIFEST_VERSION:
         raise PluginLoadError(
-            f"Unsupported studio_tts_manifest version {manifest_version!r} in {folder_name}. "
-            "Supported versions: '1.0'."
+            f"Plugin '{folder_name}' declares studio_tts_manifest={manifest_version!r} "
+            f"but this loader only supports {SUPPORTED_MANIFEST_VERSION!r}. "
+            "Update the plugin manifest or install a compatible version of Studio."
         )
 
     engine_id = str(manifest["engine_id"]).strip()

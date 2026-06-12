@@ -11,6 +11,7 @@ import pytest
 
 from app.tts_server.plugin_loader import (
     PluginLoadError,
+    SUPPORTED_MANIFEST_VERSION,
     discover_plugins,
     _PLUGIN_FOLDER_RE,
 )
@@ -394,7 +395,8 @@ class TestManifestValidation:
         assert len(result) == 1
         assert result[0].engine_id == "mock"
         assert result[0].load_error
-        assert "Unsupported studio_tts_manifest version '9.0'" in result[0].load_error
+        assert "9.0" in result[0].load_error
+        assert "studio_tts_manifest" in result[0].load_error
         detail = build_engine_detail(result[0], {})
         assert detail["status"] == "invalid_config"
         assert detail["enablement_message"]
@@ -890,3 +892,63 @@ class TestSettingsAwareVerificationRestore:
         assert plugin.verified is True
         # And check_env with the persisted settings means no setup message.
         assert plugin.load_error is None
+
+# ---------------------------------------------------------------------------
+# Contract version gate (studio_tts_manifest field)
+# ---------------------------------------------------------------------------
+
+class TestContractVersionGate:
+    """Verify that the studio_tts_manifest version field is enforced at discovery.
+
+    The constant SUPPORTED_MANIFEST_VERSION is the single source of truth for
+    what version strings the loader accepts.  These tests cover:
+      - valid version → plugin loads
+      - missing field → rejected with actionable message
+      - future major version → rejected with clear diagnostic
+      - all three bundled plugins still load (manifest smoke-test)
+    """
+
+    def test_valid_version_loads(self, tmp_path):
+        manifest = _minimal_manifest("vgate")
+        assert manifest["studio_tts_manifest"] == SUPPORTED_MANIFEST_VERSION
+        _make_plugin_dir(tmp_path, "tts_vgate", manifest, _mock_engine_src())
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].engine_id == "vgate"
+        assert result[0].load_error is None
+
+    def test_missing_contract_version_field_rejected_with_message(self, tmp_path):
+        manifest = _minimal_manifest("vmissing")
+        del manifest["studio_tts_manifest"]
+        _make_plugin_dir(tmp_path, "tts_vmissing", manifest, _mock_engine_src())
+        result = discover_plugins(tmp_path)
+        # Plugin surfaces as invalid_config (not silently dropped).
+        assert len(result) == 1
+        assert result[0].load_error is not None
+        err = result[0].load_error.lower()
+        assert "studio_tts_manifest" in err
+
+    def test_future_major_version_rejected_with_message(self, tmp_path):
+        manifest = _minimal_manifest("vfuture")
+        manifest["studio_tts_manifest"] = "2.0"
+        _make_plugin_dir(tmp_path, "tts_vfuture", manifest, _mock_engine_src())
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].load_error is not None
+        err = result[0].load_error
+        assert "2.0" in err
+        assert SUPPORTED_MANIFEST_VERSION in err
+
+    def test_bundled_plugins_have_valid_contract_version(self):
+        """All three bundled plugins carry studio_tts_manifest == SUPPORTED_MANIFEST_VERSION."""
+        import os
+        from pathlib import Path as _Path
+        plugins_dir = _Path(os.environ["PLUGINS_DIR"])
+        for folder in ["tts_xtts", "tts_voxtral", "synthesis_mixed"]:
+            manifest_path = plugins_dir / folder / "manifest.json"
+            assert manifest_path.is_file(), f"{folder}/manifest.json not found"
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            assert data.get("studio_tts_manifest") == SUPPORTED_MANIFEST_VERSION, (
+                f"{folder}/manifest.json has studio_tts_manifest={data.get('studio_tts_manifest')!r}, "
+                f"expected {SUPPORTED_MANIFEST_VERSION!r}"
+            )
