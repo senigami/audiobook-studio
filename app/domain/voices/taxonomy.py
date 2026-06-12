@@ -171,6 +171,13 @@ def validate_and_degrade_attributes(
     return cleaned if cleaned else None, tags, is_untagged
 
 
+def get_valid_values(field: str) -> list[str] | None:
+    """Return the sorted list of valid values for a taxonomy field, or None if unknown."""
+    _ensure_loaded()
+    vs = _VALID_VALUES.get(field)
+    return sorted(vs) if vs is not None else None
+
+
 def validate_attributes_strict(attributes: dict[str, Any]) -> list[str]:
     """Strict validation used on the PATCH /metadata write path.
 
@@ -186,12 +193,19 @@ def validate_attributes_strict(attributes: dict[str, Any]) -> list[str]:
             errors.append(f"Unknown attribute field: {field!r}")
             continue
 
+        valid_sorted = sorted(valid_set)
         if isinstance(value, list):
             for item in value:
                 if item not in valid_set:
-                    errors.append(f"Invalid value {item!r} for attribute {field!r}")
+                    errors.append(
+                        f"Invalid value {item!r} for attribute {field!r}. "
+                        f"Valid values: {valid_sorted}"
+                    )
         else:
             if value not in valid_set:
-                errors.append(f"Invalid value {value!r} for attribute {field!r}")
+                errors.append(
+                    f"Invalid value {value!r} for attribute {field!r}. "
+                    f"Valid values: {valid_sorted}"
+                )
 
     return errors

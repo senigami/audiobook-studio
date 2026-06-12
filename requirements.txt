@@ -15,3 +15,4 @@ mistralai
 beautifulsoup4
 psutil
 jsonschema>=4.0
+pillow
