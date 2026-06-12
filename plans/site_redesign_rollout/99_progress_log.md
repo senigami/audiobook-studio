@@ -7,6 +7,7 @@ also go here.*
 ## Task log
 
 2026-06-12 R1-T1 done build-skipped-existing-demo-type-errors HEAD
+2026-06-12 R1-T2 done build-skipped-existing-demo-type-errors HEAD
 
 ## Found bugs (do not fix mid-phase — triaged at R6)
 
