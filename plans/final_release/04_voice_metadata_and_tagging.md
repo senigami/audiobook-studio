@@ -352,11 +352,14 @@ These items are the open Phase 12 items for voice tags/icons. Implement after Ph
 
 ### Phase F — Docs
 
-- [ ] **F1. Update `docs/user-guide/voice-tags-icons.md` (Phase 12 stub) with the tag taxonomy table, icon requirements, and a walkthrough of the tag editor.**
+- [x] **F1. Update `docs/user-guide/voice-tags-icons.md` (Phase 12 stub) with the tag taxonomy table, icon requirements, and a walkthrough of the tag editor.**
+  _Done 2026-06-12. Created `docs/user-guide/voice-tags-icons.md` with the full taxonomy table (from `docs/specs/voice-taxonomy.json`), icon upload requirements (1:1, PNG-normalized, 422 on non-square), and a step-by-step walkthrough of the NarratorCard "Not tagged" badge, Edit Metadata modal, attribute selects, free tags, and icon crop flow._
 
-- [ ] **F2. Update `docs/specs/voice.schema.json` docstring/description fields if any cardinalities were clarified during implementation.**
+- [x] **F2. Update `docs/specs/voice.schema.json` docstring/description fields if any cardinalities were clarified during implementation.**
+  _Done 2026-06-12. Reviewed all `description` fields in `voice.schema.json`. No stale descriptions found. D8 (default_variant lives in state.json, not voice.json) is already reflected by the schema having `additionalProperties: false` and no `default_variant` property. The use_case HF alias (as-use-*) is an exporter concern, not a schema description concern. No changes needed._
 
-- [ ] **F3. Update `Memory/state.json` Phase 12 open items to mark voice tags, icon upload, and searchable tags as complete when each Phase D step is done.**
+- [x] **F3. Update `Memory/state.json` Phase 12 open items to mark voice tags, icon upload, and searchable tags as complete when each Phase D step is done.**
+  _N/A 2026-06-12. `Memory/` is gitignored and absent in this working tree (see CLAUDE.md: "Don't assume it exists"). Cannot update a file that does not exist in the repo._
 
 ---
 

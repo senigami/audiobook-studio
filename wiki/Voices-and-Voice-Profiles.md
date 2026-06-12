@@ -87,6 +87,25 @@ The bundle format supports both local Studio imports and Hugging Face-compatible
 
 When sharing a bundle, keep engine compatibility in mind. A voice built for `XTTS (Local)` will include assets under `assets/xtts/`, while a cloud or remote engine may rely on provider-specific IDs or reference samples instead.
 
+## Tags, attributes and icons
+
+Every voice can carry structured metadata that powers catalog search and the AI casting
+assistant. Attributes come from a fixed taxonomy with nine fields. Three of them (`class`,
+`gender`, `age`) are required for full casting participation; the rest are optional. A voice
+that is missing any required attribute shows a **"Not tagged"** chip on its card.
+
+To tag a voice, open the kebab menu on the voice card and choose **Edit Metadata**. The
+modal presents dropdowns for single-value fields (class, gender, age, accent, pace) and
+multi-chip selectors for array fields (tone, timbre, use case, quality). There is also a
+free-tag input for open-ended descriptors like `cowboy` or `grandmother`, and an icon
+upload slot that requires a square image (the UI offers a crop step if the image is not
+already 1:1). Saving writes the data to `voice.json` on disk.
+
+Once a voice is tagged, it appears in attribute-filtered searches and receives scored
+recommendations in the "Suggest voices" casting panel. Voices with no attributes still
+appear in unfiltered views but are scored on description text only, so tagging is worth
+doing before casting a project.
+
 ---
 
 [[Home]] | [[Recording Guide]] | [[Concepts]]
