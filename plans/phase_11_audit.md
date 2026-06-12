@@ -23,7 +23,8 @@ Phase 11 is closeout-ready. The major V1 runtime fallbacks have been removed, au
 - [x] Frontend engine-agnostic cleanup
 - [x] Bootstrap and documentation cleanup
 - [x] Focused backend/frontend verification for completed cleanup areas
-- [ ] Checkpoint Phase 11 closeout after current docs and fallback fix land
+- [x] Checkpoint Phase 11 closeout — closed 2026-06-11
+> Phase 11 is officially closed. All remaining items have been migrated to Phase 12. See `plans/phases/phase_12_polish_and_cleanup.md`.
 
 ## Triage Rule
 

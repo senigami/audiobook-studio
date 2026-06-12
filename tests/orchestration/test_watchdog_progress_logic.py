@@ -304,13 +304,15 @@ def test_log_listener_progress_is_monotonic():
 
     # Progress values published should be:
     # 1. 0.0 (from START_SYNTHESIS)
-    # 2. 0.0 (from START_SEGMENT)
-    # 3. 0.0 (from initial segment progress parsed)
-    # 4. 0.225 (from 50% segment progress)
-    # 5. 0.45 (from 100% segment progress)
-    # 6. 0.45 (remains at 0.45 because of monotonicity clamp, NOT 0.09)
+    # 2. 0.0 (from SEGMENT_PENDING announce at [START_SEGMENT])
+    # 3. 0.0 (preparing downgrade republish)
+    # 4. 0.225 (canonical START_SEGMENT — confirmation inside the first PROGRESS branch,
+    #    grouped progress already includes the parsed 50%)
+    # 5. 0.225 (from 50% segment progress)
+    # 6. 0.45 (from 100% segment progress)
+    # 7. 0.45 (remains at 0.45 because of monotonicity clamp, NOT 0.09)
     progress_values = [p["progress"] for p in running_events]
-    assert progress_values == [0.0, 0.0, 0.0, 0.225, 0.45, 0.45]
+    assert progress_values == [0.0, 0.0, 0.0, 0.225, 0.225, 0.45, 0.45]
 
 
 def test_start_segment_eta_uses_active_block_chars():
@@ -326,6 +328,8 @@ def test_start_segment_eta_uses_active_block_chars():
             wd._drain_stream(None, "stdout", MockStream([
                 "[START_SYNTHESIS] script-1\n",
                 "[START_SEGMENT] segA\n",
+                # Canonical START_SEGMENT is emitted at engine confirmation (first PROGRESS)
+                "[PROGRESS] 0% script-1\n",
             ]))
             return {"status": "ok"}
 

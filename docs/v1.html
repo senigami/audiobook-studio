@@ -15,24 +15,219 @@
       rel="stylesheet"
     />
     <style>
-      :root {
-        --bg: #f7f9fc;
-        --surface: #ffffff;
-        --surface-alt: #f1f5f9;
-        --accent: #2b6eff;
-        --accent-hover: #1e4fbc;
-        --accent-secondary: #ff8a1f;
-        --info-tint: #eaf1ff;
-        --text-primary: #0b1220;
-        --text-secondary: #4b5563;
-        --text-muted: #94a3b8;
-        --border: #e2e8f0;
-        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-        --shadow-md:
-          0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        --shadow-lg:
-          0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-      }
+      /* BEGIN GENERATED TOKENS (scripts/sync_showcase_tokens.mjs) */
+:root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-alt: #f1f5f9;
+  --accent: #2b6eff;
+  --accent-secondary: #ff8a1f;
+  --accent-hover: #1d54da;
+  --accent-active: #1642b5;
+  --accent-glow: rgba(43, 110, 255, 0.1);
+  --success: #10b981;
+  --success-muted: #d1fae5;
+  --success-text: #065f46;
+  --error: #ef4444;
+  --error-text: #991b1b;
+  --warning: #f59e0b;
+  --warning-text: #92400e;
+  --glass-hover: rgba(0, 0, 0, 0.04);
+  --error-glow: rgba(239, 68, 68, 0.1);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --border: #e6eaf2;
+  --glass: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --surface-light: #f8fafc;
+  --background: var(--bg);
+  --text: var(--text-primary);
+  --header-height: 72px;
+
+  /* Unified Design Tokens */
+  --radius-button: 10px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
+  --radius-round: 9999px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  /* Brand tokens */
+  --as-ink: #0f172a; /* sleek slate-dark */
+  --as-muted: #64748b; /* soft-slate */
+  --as-blue: #2b6eff; /* brand-blue */
+  --as-amber: #f97316; /* brand-orange */
+  --as-info-tint: #f0f7ff; /* very soft blue tint */
+
+  /* Missing tokens — added Step 1 */
+  --accent-tint: rgba(99, 102, 241, 0.12);       /* soft accent background */
+  --success-strong: #059669;                      /* filled success button/badge bg */
+  --success-strong-hover: #047857;               /* hover state for success-strong */
+  --success-text: #15803d;                       /* success status text */
+  --warning-text-strong: #b45309;               /* warning/caution inline text */
+  --text-on-accent: #ffffff;                    /* text on colored accent surfaces */
+  --glass-surface-light: rgba(248, 249, 252, 0.78); /* panel glass in light mode */
+  --glass-subtle: rgba(255, 255, 255, 0.05);    /* very subtle glass tint */
+
+  /* Semantic surface/state tints */
+  --overlay-backdrop: rgba(0, 0, 0, 0.4);         /* modal/drawer scrim */
+  --surface-white: #ffffff;                        /* explicit white surface (btn-glass, select-glass) */
+  --surface-pressed: #e2e8f0;                      /* pressed/active glass btn */
+  --border-muted: #cbd5e1;                         /* muted border (lighter than --border) */
+  --surface-code: #1a1a1a;                         /* code/log panel dark bg */
+  --surface-code-border: #1e293b;                  /* code panel border */
+  --text-code-muted: #d4d4d4;                      /* code panel default text */
+  --text-code-info: #38bdf8;                       /* code panel info/timestamp text */
+  --warning-tint-bg: rgba(245, 158, 11, 0.08);    /* warning surface tint */
+  --warning-tint-border: rgba(245, 158, 11, 0.24); /* warning surface border */
+  --warning-text: #92400e;                         /* warning body text (darker amber) */
+  --error-tint-bg: rgba(239, 68, 68, 0.1);        /* error surface tint */
+  --error-tint-border: rgba(239, 68, 68, 0.2);    /* error surface border */
+  --error-text-strong: #b91c1c;                   /* error body text (darker red) */
+  --accent-tint-bg: rgba(43, 110, 255, 0.12);     /* accent-blue surface tint (brand blue) */
+  --accent-tint-border: rgba(43, 110, 255, 0.2);  /* accent-blue surface border */
+  --surface-tinted-light: rgba(240, 247, 255, 0.9); /* very light blue tinted surface */
+  --surface-glass-white: rgba(255, 255, 255, 0.8); /* glass white (higher opacity) */
+  --surface-glass-half: rgba(255, 255, 255, 0.5); /* 50% glass white */
+  --surface-dim: rgba(0, 0, 0, 0.03);             /* barely-there dark tint */
+  --success-tint-bg: rgba(16, 185, 129, 0.1);     /* success surface tint */
+  --success-color: #10b981;                        /* success status color (= --success alias) */
+  --accent-focus-ring: rgba(43, 110, 255, 0.08);  /* focus ring glow around inputs */
+  --cloud-tint-bg: rgba(14, 165, 233, 0.12);      /* cloud-engine accent tint */
+  --cloud-color: #0ea5e9;                          /* cloud engine icon/text color */
+
+  /* Progress bar visual state tokens */
+  --progress-track: rgba(0, 0, 0, 0.05);           /* progress bar track background */
+  --progress-finalizing-fill: rgba(191, 219, 254, 0.34); /* finalizing state fill color */
+  --progress-finalizing-glow: rgba(59, 130, 246, 0.45);  /* finalizing glow shadow */
+  --progress-preparing-fill: rgba(248, 250, 252, 0.96);  /* preparing indeterminate fill */
+  --progress-preparing-glow: rgba(226, 232, 240, 0.45);  /* preparing glow shadow */
+  --progress-badge-running: rgba(37, 99, 235, 0.10);     /* running/processing badge bg */
+  --progress-badge-preparing: rgba(245, 158, 11, 0.12);  /* preparing badge bg */
+  --progress-badge-finalizing: rgba(59, 130, 246, 0.10); /* finalizing badge bg */
+  --progress-badge-default: rgba(100, 116, 139, 0.10);   /* default/queued badge bg */
+  --progress-badge-border: rgba(0, 0, 0, 0.08);          /* badge border */
+  --progress-done-fill: linear-gradient(90deg, rgba(16, 185, 129, 0.82) 0%, rgba(34, 197, 94, 0.98) 100%);
+  --progress-done-glow: rgba(34, 197, 94, 0.45);
+  --progress-failed-fill: linear-gradient(90deg, rgba(239, 68, 68, 0.82) 0%, rgba(185, 28, 28, 0.98) 100%);
+  --progress-failed-glow: rgba(239, 68, 68, 0.40);
+  --progress-queued-fill: rgba(148, 163, 184, 0.12);
+}
+
+[data-theme="dark"] {
+  /* Surfaces */
+  --bg:                   #0f1117;
+  --background:           #0f1117;
+  --surface:              #1a1d27;
+  --surface-alt:          #22263a;
+  --surface-light:        #1a1d27;
+  --surface-white:        #1a1d27;
+  --surface-pressed:      #2d3148;
+  --surface-tinted-light: rgba(30, 40, 70, 0.9);
+  --surface-glass-white:  rgba(26, 29, 39, 0.85);
+  --surface-glass-half:   rgba(26, 29, 39, 0.5);
+  --surface-dim:          rgba(0, 0, 0, 0.15);
+  --surface-code:         #0d0f14;
+  --surface-code-border:  #2d3148;
+
+  /* Text */
+  --text-primary:         #e8eaf0;
+  --text-secondary:       #9ca3af;
+  --text-muted:           #6b7280;
+  --text:                 var(--text-primary);
+  --text-code-muted:      #b0b8c8;
+  --text-code-info:       #38bdf8;
+
+  /* Brand tokens */
+  --as-ink:               #e8eaf0;
+  --as-muted:             #9ca3af;
+
+  /* Borders */
+  --border:               #2d3148;
+  --border-muted:         #3d4460;
+
+  /* Glass */
+  --glass:                rgba(15, 17, 23, 0.85);
+  --glass-border:         rgba(255, 255, 255, 0.08);
+  --glass-hover:          rgba(255, 255, 255, 0.06);
+  --glass-surface-light:  rgba(15, 17, 23, 0.78);
+  --glass-subtle:         rgba(0, 0, 0, 0.25);
+
+  /* Accent tints */
+  --accent-tint:          rgba(99, 102, 241, 0.18);
+  --accent-tint-bg:       rgba(43, 110, 255, 0.15);
+  --accent-tint-border:   rgba(43, 110, 255, 0.3);
+  --accent-glow:          rgba(43, 110, 255, 0.15);
+  --accent-focus-ring:    rgba(43, 110, 255, 0.15);
+
+  /* Success */
+  --success:              #10b981;
+  --success-muted:        rgba(16, 185, 129, 0.15);
+  --success-strong:       #10b981;
+  --success-strong-hover: #059669;
+  --success-text:         #34d399;
+  --success-color:        #10b981;
+  --success-tint-bg:      rgba(16, 185, 129, 0.12);
+
+  /* Warning */
+  --warning:              #f59e0b;
+  --warning-text:         #fbbf24;
+  --warning-text-strong:  #f59e0b;
+  --warning-tint-bg:      rgba(245, 158, 11, 0.12);
+  --warning-tint-border:  rgba(245, 158, 11, 0.3);
+
+  /* Error */
+  --error:                #f87171;
+  --error-text:           #fca5a5;
+  --error-text-strong:    #f87171;
+  --error-tint-bg:        rgba(239, 68, 68, 0.15);
+  --error-tint-border:    rgba(239, 68, 68, 0.3);
+  --error-glow:           rgba(239, 68, 68, 0.15);
+
+  /* Cloud */
+  --cloud-tint-bg:        rgba(14, 165, 233, 0.15);
+  --cloud-color:          #38bdf8;
+
+  /* Overlay */
+  --overlay-backdrop:     rgba(0, 0, 0, 0.65);
+
+  /* Shadows — deeper on dark */
+  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md:  0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.25);
+  --shadow-lg:  0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  --shadow-xl:  0 20px 25px -5px rgba(0, 0, 0, 0.45), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+
+  /* Progress bar visual states */
+  --progress-track:            rgba(255, 255, 255, 0.06);
+  --progress-finalizing-fill:  rgba(96, 165, 250, 0.3);
+  --progress-finalizing-glow:  rgba(59, 130, 246, 0.5);
+  --progress-preparing-fill:   rgba(51, 65, 85, 0.96);
+  --progress-preparing-glow:   rgba(71, 85, 105, 0.45);
+  --progress-badge-running:    rgba(99, 102, 241, 0.18);
+  --progress-badge-preparing:  rgba(245, 158, 11, 0.18);
+  --progress-badge-finalizing: rgba(59, 130, 246, 0.18);
+  --progress-badge-default:    rgba(148, 163, 184, 0.15);
+  --progress-badge-border:     rgba(255, 255, 255, 0.08);
+  --progress-queued-fill:      rgba(148, 163, 184, 0.1);
+}
+
+/* ------------------------------------------------------------------
+   Legacy token aliases — vars used by v1.html that were renamed or
+   removed from tokens.css. Each maps to the closest current value.
+   Do NOT hand-edit — regenerate via: node scripts/sync_showcase_tokens.mjs
+   ------------------------------------------------------------------ */
+:root {
+  /* --info-tint → closest current token */ --legacyinfo-tint: #f0f7ff;
+  --info-tint: var(--legacyinfo-tint);
+}
+/* END GENERATED TOKENS */
 
       * {
         margin: 0;
@@ -1108,21 +1303,20 @@
           />
         </div>
         <p class="brand-tagline">
-          Professional AI Production Pipeline for Long-Form Narration
+          Local-first audiobook production with AI voice cloning
         </p>
         <span class="badge" style="margin-top: 2rem"
-          >Local-first with optional Voxtral</span
+          >Local-first · optional cloud voices · no subscription</span
         >
       </header>
 
       <section class="hero-pod">
         <div class="hero-content">
-          <h2 class="hero-h2">Hear the Machine Walk You Through</h2>
+          <h2 class="hero-h2">Hear the studio explain itself</h2>
           <p class="hero-p">
-            This isn't just a static demo. Every word of the audio preview was
-            synthesized using <strong>Audiobook Studio</strong>. Listen to a
-            live showcase of our narration engine explaining its own
-            architecture.
+            Every word in the audio below was synthesized by Audiobook Studio.
+            Listen to the narration engine walk through its own workflow, then
+            try the interactive demo to see the real production UI in your browser.
           </p>
           <div class="audio-demo">
             <span class="audio-label"
@@ -1183,6 +1377,32 @@
         </div>
       </section>
 
+      <!-- Interactive Demo CTA -->
+      <section style="margin: 4rem 0; text-align: center;">
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 28px; padding: 3rem 2rem; box-shadow: var(--shadow-lg); max-width: 900px; margin: 0 auto;">
+          <span class="badge" style="background: #eef6ff; color: var(--accent); display: inline-block; margin-bottom: 1rem;">Interactive demo</span>
+          <h2 style="font-size: 1.75rem; font-weight: 800; color: var(--text-primary); margin: 0 0 1rem;">
+            ▶ Try the real UI in your browser
+          </h2>
+          <p style="color: var(--text-secondary); max-width: 640px; margin: 0 auto 1.5rem; line-height: 1.7;">
+            The production UI — queue, progress bars, status transitions — running live against a scripted render session. No backend, no install needed.
+          </p>
+          <a href="demo/" class="button" style="margin-bottom: 2rem; display: inline-flex;">
+            Open interactive demo →
+          </a>
+          <div style="margin-top: 2rem; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow-md);">
+            <iframe
+              src="demo/#/stage/live-output?embed=1"
+              width="100%"
+              height="480"
+              loading="lazy"
+              title="Audiobook Studio — Live Output Stage Demo"
+              style="display: block; border: none;"
+            ></iframe>
+          </div>
+        </div>
+      </section>
+
       <section class="tour-section">
         <div class="section-header">
           <span
@@ -1190,7 +1410,7 @@
             style="background: #fff8eb; color: var(--accent-secondary)"
             >The Studio Tour</span
           >
-          <h2>Complete Control Over Every Word</h2>
+          <h2>Complete control over every word</h2>
         </div>
 
         <div class="tour-grid">
@@ -1310,7 +1530,7 @@
       <section class="tour-section" style="margin-top: 6rem; background: var(--surface); border: 1px solid var(--border); padding: 4rem 2rem; border-radius: 40px; box-shadow: var(--shadow-lg);">
         <div class="section-header">
           <span class="badge">Optional Demo Content</span>
-          <h2>Explore a Finished Workflow on Day One</h2>
+          <h2>Explore a finished workflow on day one</h2>
           <p style="color: var(--text-secondary); max-width: 760px; margin: 0 auto;">
             When you install via Pinokio, you can opt into our predefined demo library so you can start clicking buttons, queueing audio, and listening to characters without building any assets first.
           </p>
@@ -1346,7 +1566,7 @@
       <section class="compare-section">
         <div class="section-header">
           <span class="badge">Honest Comparison</span>
-          <h2>Why a Local Audiobook Workflow Matters</h2>
+          <h2>Why a local audiobook workflow matters</h2>
           <p
             style="
               color: var(--text-secondary);
@@ -1355,8 +1575,10 @@
             "
           >
             ElevenLabs is polished and easy to start with. Audiobook Studio is
-            strongest in different places: privacy, ownership, and the freedom
-            to keep fixing a book without watching credits disappear.
+            strongest in different places: privacy, ownership, and the freedom to
+            keep fixing a book without watching credits disappear. A 600,000-character
+            book can cost $99–$330+ per production cycle on hosted tools once corrections start.
+            Here, corrections cost nothing extra.
           </p>
         </div>
 
@@ -1625,7 +1847,7 @@
       </section>
 
       <section class="cta-box">
-        <h2>Ready to Try Audiobook Studio?</h2>
+        <h2>Get started with Audiobook Studio</h2>
         <p
           style="
             color: var(--text-secondary);
@@ -1635,7 +1857,7 @@
             margin-right: auto;
           "
         >
-          Choose the path that fits you best:
+          Pick the path that fits your comfort level:
         </p>
 
         <div style="text-align: left; max-width: 600px; margin: 0 auto; margin-bottom: 2rem;">

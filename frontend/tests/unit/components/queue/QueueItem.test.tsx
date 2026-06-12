@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueueItem } from '@/components/queue/QueueItem';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
 
 // Mock PredictiveProgressBar so we can inspect its props
@@ -33,6 +33,15 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
 }));
 
 describe('QueueItem Stable ETA TDD', () => {
+  beforeEach(() => {
+    // Tests in this suite interact with the debug copy button, which requires dev mode.
+    localStorage.setItem('studio-dev-mode', 'true');
+  });
+
+  afterEach(() => {
+    localStorage.removeItem('studio-dev-mode');
+  });
+
   const defaultProps = {
     job: {
       id: 'job-1',

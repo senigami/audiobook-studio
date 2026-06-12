@@ -38,6 +38,18 @@ class TtsServerResponseError(TtsServerError):
     """The TTS Server returned an unexpected HTTP status code."""
 
 
+class TtsServerOutputRejectedError(TtsServerError):
+    """The TTS Server's check_output hook rejected the synthesized artifact.
+
+    The artifact has already been deleted server-side before this error is
+    raised.  ``reason`` carries the engine's rejection message verbatim.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(f"output_rejected: {reason}")
+        self.reason = reason
+
+
 class TtsClient:
     """Synchronous HTTP client for the TTS Server.
 
@@ -387,8 +399,22 @@ class TtsClient:
 
 
 def _raise_for_status(resp: httpx.Response, url: str) -> None:
-    """Raise TtsServerResponseError for non-success status codes."""
+    """Raise TtsServerResponseError for non-success status codes.
+
+    Raises ``TtsServerOutputRejectedError`` (a subclass of ``TtsServerError``)
+    when the response body carries ``{"error": "output_rejected"}``.
+    """
     if resp.status_code not in (200, 201, 207):
+        # Check for structured output_rejected payload before generic error.
+        try:
+            payload = resp.json()
+        except ValueError:
+            payload = None
+
+        if isinstance(payload, dict) and payload.get("error") == "output_rejected":
+            reason = str(payload.get("reason", "engine rejected its own output"))
+            raise TtsServerOutputRejectedError(reason)
+
         detail = _response_error_detail(resp)
         raise TtsServerResponseError(
             f"TTS Server returned {resp.status_code} for {url}: {detail}"

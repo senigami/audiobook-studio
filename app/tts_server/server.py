@@ -28,6 +28,7 @@ from app.tts_server.performance_settings import (
 from app.tts_server.health import (
     build_engine_detail,
     build_health_response,
+    call_check_env,
     engine_status,
 )
 from app.engines.enablement import can_enable_engine
@@ -410,7 +411,7 @@ def install_dependencies(engine_id: str) -> dict[str, Any]:
             if plugin.engine is not None:
                 # Re-run check_env to update setup_message.
                 try:
-                    ok, msg = plugin.engine.check_env()
+                    ok, msg = call_check_env(plugin.engine, plugin.plugin_dir)
                     if ok:
                         plugin.setup_message = None
                     else:
@@ -509,6 +510,19 @@ def cancel_task(task_id: str) -> dict[str, Any]:
     return {"ok": True, "task_id": task_id}
 
 
+def _engine_readiness_status(plugin) -> str:
+    """Resolve engine status with the persisted settings, like /engines does.
+
+    Settings-keyed engines (e.g. an API key stored in engine settings) report
+    needs_setup when check_env runs without them.
+    """
+    try:
+        current_settings = load_settings(plugin.plugin_dir)
+    except Exception:
+        current_settings = {}
+    return engine_status(plugin, current_settings=current_settings)
+
+
 @app.post("/synthesize")
 def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
     """Synthesize audio for a text request."""
@@ -517,7 +531,7 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
 
     plugin = _plugin_by_id(body.engine_id)
 
-    status = engine_status(plugin)
+    status = _engine_readiness_status(plugin)
     if status in {"needs_setup", "invalid_config"}:
         raise HTTPException(
             status_code=503,
@@ -595,6 +609,39 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
     # 3. postprocess_audio
     if result.output_path:
         h.postprocess_audio(result.output_path, merged_settings)
+
+    # 4. check_output QA hook — failure-isolated: a crashing hook logs + accepts.
+    try:
+        qa_ok, qa_reason = plugin.engine.check_output(req, result)
+    except Exception:
+        logger.warning(
+            "check_output() raised for engine %s — treating as accepted",
+            body.engine_id,
+            exc_info=True,
+        )
+        qa_ok, qa_reason = True, "OK"
+
+    if not qa_ok:
+        # Delete the rejected artifact so it never enters the validated-artifact cache.
+        if result.output_path:
+            try:
+                import os as _os
+                _os.remove(result.output_path)
+            except OSError:
+                logger.warning(
+                    "Could not delete rejected artifact %s for engine %s",
+                    result.output_path,
+                    body.engine_id,
+                )
+        logger.warning(
+            "Engine %s rejected its own output: %s",
+            body.engine_id,
+            qa_reason,
+        )
+        return JSONResponse(
+            content={"ok": False, "error": "output_rejected", "reason": qa_reason},
+            status_code=422,
+        )
 
     timing_dict = None
     if getattr(result, "timing", None) is not None:

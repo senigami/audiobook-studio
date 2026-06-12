@@ -137,6 +137,7 @@ sync_python_requirements() {
   local env_dir="$1"
   local requirements_file="$2"
   local label="$3"
+  local extra_pip_args="${4:-}"
   local stamp_file="$env_dir/.requirements.stamp"
   local python_exe="$env_dir/bin/python"
   local check_script="$(dirname "$requirements_file")/scripts/check_env.py"
@@ -156,11 +157,50 @@ sync_python_requirements() {
   if [[ ! -f "$stamp_file" ]] || ! cmp -s "$requirements_file" "$stamp_file"; then
     log "Installing ${label} dependencies"
     "$env_dir/bin/python" -m pip install --upgrade pip
-    "$env_dir/bin/python" -m pip install -r "$requirements_file"
+    if [[ -n "$extra_pip_args" ]]; then
+      # shellcheck disable=SC2086
+      "$env_dir/bin/python" -m pip install $extra_pip_args -r "$requirements_file"
+    else
+      "$env_dir/bin/python" -m pip install -r "$requirements_file"
+    fi
     cp "$requirements_file" "$stamp_file"
   else
     log "${label} dependencies already up to date"
   fi
+}
+
+# Detect the appropriate torch backend and return extra pip args for the XTTS install.
+# Override: set TORCH_BACKEND=cuda|mps|cpu to skip detection.
+select_torch_backend() {
+  local override="${TORCH_BACKEND:-}"
+  if [[ -n "$override" ]]; then
+    log "Torch backend override: ${override}"
+  elif command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
+    override="cuda"
+  elif [[ "$(uname -s)" == "Darwin" ]] && [[ "$(uname -m)" == "arm64" ]]; then
+    override="mps"
+  else
+    override="cpu"
+  fi
+
+  case "$override" in
+    cuda)
+      log "Torch backend: CUDA (nvidia-smi detected) — using https://download.pytorch.org/whl/cu128"
+      printf '%s' "--index-url https://download.pytorch.org/whl/cu128"
+      ;;
+    mps)
+      log "Torch backend: MPS (Darwin arm64) — using default PyPI wheels"
+      printf '%s' ""
+      ;;
+    cpu)
+      log "Torch backend: CPU-only — using https://download.pytorch.org/whl/cpu"
+      printf '%s' "--index-url https://download.pytorch.org/whl/cpu"
+      ;;
+    *)
+      log "Torch backend: unknown override '${override}'; falling back to default PyPI wheels"
+      printf '%s' ""
+      ;;
+  esac
 }
 
 ensure_frontend_ready() {
@@ -261,7 +301,8 @@ PYTHON_BIN="$(pick_python || bootstrap_conda_python)"
 log "Using Python: $PYTHON_BIN"
 ensure_ffmpeg_ready
 sync_python_requirements "$APP_VENV" "$DIR/requirements.txt" "app"
-sync_python_requirements "$TTS_ENV_DIR" "$DIR/plugins/tts_xtts/requirements.txt" "XTTS"
+XTTS_TORCH_ARGS="$(select_torch_backend)"
+sync_python_requirements "$TTS_ENV_DIR" "$DIR/plugins/tts_xtts/requirements.txt" "XTTS" "$XTTS_TORCH_ARGS"
 ensure_frontend_ready
 maybe_restore_demo_bundle
 

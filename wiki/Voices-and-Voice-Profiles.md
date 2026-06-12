@@ -44,6 +44,19 @@ Each **Voice** always has at least one variant (usually the "Default" variant). 
 - **Per-Voice Plugin Settings**: Engines can expose selected settings for individual voices. Common overrides such as speed and model can travel with the voice profile, while plugin-specific controls appear only when the plugin declares them.
 - **Sample Styling Tip**: The first sample tends to anchor the voice most strongly, while later samples add nuance. Mixing clean examples with different delivery styles can help shape a more interesting profile.
 
+## Per-Voice Plugin Settings
+
+Engines can declare per-voice overrides in their plugin manifest. When overrides are declared, the expanded variant card shows a settings group for that engine's per-voice controls (for example, a speed multiplier or a model variant selector).
+
+To configure per-voice settings:
+
+1. Expand the voice card in the AI Voice Lab.
+2. Select the variant you want to adjust.
+3. If the assigned engine declares per-voice overrides, a settings panel appears below the sample list.
+4. Change the values and save. The overrides are stored in Studio-managed plugin data alongside the voice profile and travel with the voice when you export a bundle.
+
+Per-project or per-chapter voice selection does not affect these stored overrides — they are part of the voice profile itself.
+
 ## Engine Per Voice
 
 - XTTS and Voxtral appear together in the same Voices tab.
@@ -73,6 +86,25 @@ The canonical bundle layout (see `docs/specs/voice-bundle-template/`) is:
 The bundle format supports both local Studio imports and Hugging Face-compatible distribution. On Hugging Face, the `README.md` YAML front-matter wires the `widget … output.url` to `samples/preview.mp3`, making the sample playable directly on the repo page without live inference.
 
 When sharing a bundle, keep engine compatibility in mind. A voice built for `XTTS (Local)` will include assets under `assets/xtts/`, while a cloud or remote engine may rely on provider-specific IDs or reference samples instead.
+
+## Tags, attributes and icons
+
+Every voice can carry structured metadata that powers catalog search and the AI casting
+assistant. Attributes come from a fixed taxonomy with nine fields. Three of them (`class`,
+`gender`, `age`) are required for full casting participation; the rest are optional. A voice
+that is missing any required attribute shows a **"Not tagged"** chip on its card.
+
+To tag a voice, open the kebab menu on the voice card and choose **Edit Metadata**. The
+modal presents dropdowns for single-value fields (class, gender, age, accent, pace) and
+multi-chip selectors for array fields (tone, timbre, use case, quality). There is also a
+free-tag input for open-ended descriptors like `cowboy` or `grandmother`, and an icon
+upload slot that requires a square image (the UI offers a crop step if the image is not
+already 1:1). Saving writes the data to `voice.json` on disk.
+
+Once a voice is tagged, it appears in attribute-filtered searches and receives scored
+recommendations in the "Suggest voices" casting panel. Voices with no attributes still
+appear in unfiltered views but are scored on description text only, so tagging is worth
+doing before casting a project.
 
 ---
 

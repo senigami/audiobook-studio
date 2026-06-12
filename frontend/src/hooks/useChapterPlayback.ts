@@ -168,7 +168,12 @@ export function useChapterPlayback(
   const stopPlayback = () => {
     stopSkim();
     if (audioPlayerRef.current) {
+      // Clear all handlers before pausing so stale-closure callbacks can't fire
+      // after the element is discarded (P4: audio element handler leak fix).
+      audioPlayerRef.current.onplay = null;
       audioPlayerRef.current.onpause = null;
+      audioPlayerRef.current.onended = null;
+      audioPlayerRef.current.onerror = null;
       audioPlayerRef.current.ontimeupdate = null;
       audioPlayerRef.current.onloadedmetadata = null;
       audioPlayerRef.current.pause();

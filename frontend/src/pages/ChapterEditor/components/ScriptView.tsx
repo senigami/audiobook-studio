@@ -20,8 +20,8 @@ import type {
   Speaker,
 } from '@/types';
 import { getVoiceProfileEngine, formatVoiceEngineLabel, buildVoiceOptions } from '@/utils/voiceProfiles';
+import { computeSpanRenderProgress, batchEngineStatus as computeBatchEngineStatus } from '@/pages/ChapterEditor/scriptViewProgress';
 import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
-import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '@/utils/runtimeDebug';
 import '@/pages/ChapterEditor/components/ScriptView.css';
 
 interface ScriptViewProps {
@@ -42,9 +42,156 @@ interface ScriptViewProps {
   engines?: TtsEngine[];
   speakerProfiles?: SpeakerProfile[];
   speakers?: Speaker[];
+  /**
+   * When provided (and non-empty): maps the *first* span_id of each render group → its
+   * 1-based group number. Only spans present in this map receive a number label; all others
+   * are suppressed. When absent or empty, falls back to per-span sentence numbering.
+   */
+  groupNumberForSpan?: Map<string, number>;
 }
 
-const clamp01 = (value: number) => Math.max(0, Math.min(value, 1));
+// ---------------------------------------------------------------------------
+// ScriptSpanItem — memo'd leaf so progress-frame re-renders don't cascade to
+// every span. All per-span state is passed as primitive/stable props so
+// React.memo's shallow comparison can bail out on unrelated frames.
+// ---------------------------------------------------------------------------
+interface ScriptSpanItemProps {
+  span: ScriptSpan;
+  mode: 'book' | 'script';
+  char: Character | null | undefined;
+  isPending: boolean;
+  isRendering: boolean;
+  isQueued: boolean;
+  isPlaying: boolean;
+  isReady: boolean;
+  canPlay: boolean;
+  litCount: number;
+  showCursor: boolean;
+  displayText: string;
+  canGenerate: boolean;
+  unavailableEngine: string | null | undefined;
+  anyEnginesEnabled: boolean;
+  batchSpanIds: string[] | undefined;
+  showNumbers: boolean;
+  /** Resolved display number; null means use fallbackNumber; undefined means suppress entirely. */
+  groupNumber: number | null | undefined;
+  fallbackNumber: number;
+  activeCharacterId: string | null | undefined;
+  assignableVoices: ReturnType<typeof buildVoiceOptions>;
+  onAssign?: (spanIds: string[]) => void;
+  onPlaySpan?: (spanId: string) => void;
+  onAssignToCharacter?: (spanIds: string[], characterId: string | null, profileName: string | null) => void;
+  onGenerateBatch?: (spanIds: string[]) => void | Promise<void>;
+}
+
+const ScriptSpanItem = React.memo<ScriptSpanItemProps>(({
+  span,
+  mode,
+  char,
+  isPending,
+  isRendering,
+  isQueued,
+  isPlaying,
+  isReady,
+  canPlay,
+  litCount,
+  showCursor,
+  displayText,
+  canGenerate,
+  unavailableEngine,
+  anyEnginesEnabled,
+  batchSpanIds,
+  showNumbers,
+  groupNumber,
+  fallbackNumber,
+  activeCharacterId,
+  assignableVoices,
+  onAssign,
+  onPlaySpan,
+  onAssignToCharacter,
+  onGenerateBatch,
+}) => {
+  const isHighlighted = !!(char && activeCharacterId === char.id);
+
+  const textClassName = [
+    'script-span-text',
+    mode === 'script'
+      ? (isRendering ? 'script-span-text-rendering' : isQueued ? 'script-span-text-queued' : isPending ? 'script-span-text-pending' : '')
+      : (isRendering ? 'script-span-text-book-rendering' : isQueued ? 'script-span-text-book-queued' : isPending ? 'script-span-text-book-pending' : ''),
+    isPlaying ? 'script-span-text-playing' : '',
+    isReady ? 'script-span-text-ready' : 'script-span-text-muted',
+  ].filter(Boolean).join(' ');
+
+  return (
+    <span
+      data-span-id={span.id}
+      data-testid={`script-span-${span.id}`}
+      data-render-status={isRendering ? 'rendering' : isQueued ? 'queued' : isPending ? 'pending' : isReady ? 'rendered' : 'idle'}
+      className={`script-span ${char ? 'is-assigned' : ''} ${isHighlighted ? 'is-highlighted' : ''} ${isPlaying ? 'is-playing' : ''} ${mode === 'book' && isRendering ? 'is-book-rendering' : ''} ${mode === 'book' && isQueued ? 'is-book-queued' : ''} ${mode === 'book' && isPending && !isRendering && !isQueued ? 'is-book-pending' : ''} ${mode === 'script' && isRendering ? 'is-rendering' : ''} ${mode === 'script' && isQueued ? 'is-queued' : ''} ${mode === 'script' && isPending && !isRendering && !isQueued ? 'is-pending' : ''} ${activeCharacterId ? 'is-paintable' : ''}`}
+      style={char ? ({ '--script-span-accent': char.color } as React.CSSProperties) : undefined}
+      onClick={(e) => {
+        const selection = window.getSelection();
+        if (selection && !selection.isCollapsed) return;
+        if (activeCharacterId) {
+          e.stopPropagation();
+          onAssign?.([span.id]);
+        }
+      }}
+    >
+      {showNumbers && groupNumber !== undefined && (
+        <span className="script-span-number" data-testid="span-number">
+          {groupNumber ?? fallbackNumber}
+        </span>
+      )}
+
+      <span className={textClassName}>
+        {isRendering
+          ? <SegmentProgressText text={displayText} litCount={litCount} showCursor={showCursor} />
+          : displayText}
+      </span>
+
+      <div className="span-controls">
+        <VoiceProfileSelect
+          value={char?.speaker_profile_name || ''}
+          onChange={(profileName) => {
+            const selectedOption = assignableVoices.find(option => option.value === profileName);
+            onAssignToCharacter?.([span.id], selectedOption?.character_id || null, selectedOption?.profile_name || profileName || null);
+          }}
+          options={assignableVoices}
+          defaultLabel="Default"
+          className="span-control-select"
+        />
+        <button
+          className="span-control-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPlaySpan?.(span.id);
+          }}
+          title="Play Audio"
+          disabled={!canPlay}
+        >
+          <Play size={14} fill={canPlay ? 'currentColor' : 'none'} />
+        </button>
+        <button
+          className="span-control-btn"
+          data-testid={`generate-span-${span.id}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (batchSpanIds && canGenerate) onGenerateBatch?.(batchSpanIds);
+          }}
+          title={!canGenerate
+            ? (unavailableEngine
+                ? `Engine ${formatVoiceEngineLabel(unavailableEngine)} is disabled in Settings`
+                : 'All engines disabled')
+            : (!anyEnginesEnabled ? 'All engines disabled' : (isReady ? 'Rebuild' : 'Generate'))}
+          disabled={isPending || !canGenerate || !onGenerateBatch}
+        >
+          {isReady ? <RotateCcw size={14} /> : <WandSparkles size={14} />}
+        </button>
+      </div>
+    </span>
+  );
+});
 
 const SegmentProgressText: React.FC<{ text: string; litCount: number; showCursor: boolean }> = ({ text, litCount, showCursor }) => {
   const letters = Array.from(text);
@@ -95,6 +242,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   engines = [],
   speakerProfiles = [],
   speakers = [],
+  groupNumberForSpan,
 }) => {
   const anyEnginesEnabled = useMemo(() => engines.some(e => e.enabled && e.status === 'ready'), [engines]);
   const [viewMode, setViewMode] = useState<'book' | 'script'>('book');
@@ -103,8 +251,6 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   const [pendingSelection, setPendingSelection] = useState<ScriptRangeAssignment | null>(null);
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const shouldLogRenderDebug = import.meta.env.DEV || shouldEnableStudioDebugLogging();
-  const renderDebugSignatureRef = useRef('');
 
   const spanMap = useMemo(() => {
     const map = new Map<string, ScriptSpan>();
@@ -142,84 +288,9 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     );
   }, [speakerProfiles]);
 
-  useEffect(() => {
-    if (!shouldLogRenderDebug) return;
 
-    const activeBatchesDebug = data.render_batches
-      ?.filter(batch => batch.span_ids.some(id => renderingSpanIds.has(id)))
-      .map(batch => {
-        const batchSpans = batch.span_ids
-          .map(spanId => spanMap.get(spanId))
-          .filter((candidate): candidate is ScriptSpan => !!candidate);
-        const progress = renderingBatchProgressById[batch.id] ?? 0;
-        const lengths = batchSpans.map(candidate => Array.from(getDisplayText(candidate)).length);
-        const totalChars = lengths.reduce((sum, length) => sum + length, 0);
-        const globalLitCount = Math.floor(progress * totalChars);
-        return {
-          batchId: batch.id,
-          spanIds: batch.span_ids,
-          textLengths: lengths,
-          totalChars,
-          litCount: globalLitCount,
-          progressValueUsed: progress,
-        };
-      }) ?? [];
-
-    const debugSnapshot = {
-      chapterId: data.chapter_id,
-      totalSpans: data.spans?.length ?? 0,
-      pendingSpanCount: pendingSpanIds.size,
-      pendingSpanSample: Array.from(pendingSpanIds).slice(0, 12),
-      audioGroupCount: data.audio_groups?.length ?? 0,
-      renderedAudioGroupCount: data.audio_groups?.filter(group => group.status === 'rendered').length ?? 0,
-      renderBatchCount: data.render_batches?.length ?? 0,
-      readySpanCount: data.spans?.filter(span => span.status === 'rendered').length ?? 0,
-      renderingSpanIds: Array.from(renderingSpanIds),
-      renderingBatchProgressById,
-      activeBatches: activeBatchesDebug,
-    };
-    const nextSignature = JSON.stringify(debugSnapshot);
-    if (nextSignature !== renderDebugSignatureRef.current) {
-      renderDebugSignatureRef.current = nextSignature;
-      recordStudioDebugSnapshot('script-view', debugSnapshot);
-    }
-  }, [
-    shouldLogRenderDebug,
-    data.chapter_id,
-    data.spans,
-    data.audio_groups,
-    data.render_batches,
-    pendingSpanIds,
-    renderingSpanIds,
-    renderingBatchProgressById,
-    spanMap,
-    showSafeText,
-  ]);
-
-  const engineIsEnabled = (engineId: string | null | undefined) => {
-    if (engines.length === 0) {
-      return true;
-    }
-    if (!engineId || engineId === 'unknown') {
-      return anyEnginesEnabled;
-    }
-    return engines.some(engine => engine.engine_id === engineId && engine.enabled && engine.status === 'ready');
-  };
-
-  const batchEngineStatus = (spanIds: string[]) => {
-    const enginesForBatch = new Set<string>();
-    spanIds.forEach(spanId => {
-      const span = spanMap.get(spanId);
-      const engineId = span?.speaker_profile_name ? profileEngineMap.get(span.speaker_profile_name) || null : null;
-      if (engineId) enginesForBatch.add(engineId);
-    });
-
-    const unavailable = Array.from(enginesForBatch).find(engineId => !engineIsEnabled(engineId));
-    return {
-      canGenerate: unavailable ? false : anyEnginesEnabled,
-      unavailableEngine: unavailable,
-    };
-  };
+  const batchEngineStatus = (spanIds: string[]) =>
+    computeBatchEngineStatus(spanIds, spanMap, profileEngineMap, engines, anyEnginesEnabled);
 
   const isPlayingSpan = (spanId: string) => {
     if (playingSpanIds) return playingSpanIds.has(spanId);
@@ -230,34 +301,16 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
 
   const getRenderingTextProgress = (batch: ScriptRenderBatch | undefined, span: ScriptSpan) => {
     if (!batch) return { litCount: 0, showCursor: false };
-
     const batchSpans = batch.span_ids
       .map(spanId => spanMap.get(spanId))
       .filter((candidate): candidate is ScriptSpan => !!candidate);
-
-    const progress = clamp01(renderingBatchProgressById[batch.id] ?? 0);
-
-    const lengths = batchSpans.map(candidate => Array.from(getDisplayText(candidate)).length);
-    const totalChars = lengths.reduce((sum, length) => sum + length, 0);
-    const globalLitCount = Math.floor(progress * totalChars);
-
-    let offset = 0;
-    for (let index = 0; index < batchSpans.length; index += 1) {
-      const candidate = batchSpans[index];
-      const length = lengths[index];
-      const spanStart = offset;
-      const spanEnd = spanStart + length;
-      offset = spanEnd;
-
-      if (candidate.id !== span.id) continue;
-
-      return {
-        litCount: Math.max(0, Math.min(globalLitCount - spanStart, length)),
-        showCursor: globalLitCount >= spanStart && globalLitCount < spanEnd,
-      };
-    }
-
-    return { litCount: 0, showCursor: false };
+    return computeSpanRenderProgress(
+      batch,
+      span,
+      batchSpans,
+      renderingBatchProgressById[batch.id] ?? 0,
+      getDisplayText,
+    );
   };
 
   const availableVoices = useMemo(() => {
@@ -371,88 +424,41 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     const displayText = getDisplayText(span);
     const batchStatus = batch ? batchEngineStatus(batch.span_ids) : { canGenerate: false, unavailableEngine: null as string | null };
 
-    const isHighlighted = char && activeCharacterId === char.id;
-
-    const textClassName = [
-      'script-span-text',
-      mode === 'script'
-        ? (isRendering ? 'script-span-text-rendering' : isQueued ? 'script-span-text-queued' : isPending ? 'script-span-text-pending' : '')
-        : (isRendering ? 'script-span-text-book-rendering' : isQueued ? 'script-span-text-book-queued' : isPending ? 'script-span-text-book-pending' : ''),
-      isPlaying ? 'script-span-text-playing' : '',
-      isReady ? 'script-span-text-ready' : 'script-span-text-muted',
-    ].filter(Boolean).join(' ');
+    // Determine group number for this span (null = use fallback ordinal, undefined = suppress).
+    const useGroupMode = !!(groupNumberForSpan && groupNumberForSpan.size > 0);
+    const groupNumber: number | null | undefined = useGroupMode
+      ? (groupNumberForSpan!.has(span.id) ? groupNumberForSpan!.get(span.id) : undefined)
+      : null;  // null = show fallback ordinal
 
     return (
-      <span
+      <ScriptSpanItem
         key={span.id}
-        data-span-id={span.id}
-        data-testid={`script-span-${span.id}`}
-        data-render-status={isRendering ? 'rendering' : isQueued ? 'queued' : isPending ? 'pending' : isReady ? 'rendered' : 'idle'}
-        className={`script-span ${char ? 'is-assigned' : ''} ${isHighlighted ? 'is-highlighted' : ''} ${isPlaying ? 'is-playing' : ''} ${mode === 'book' && isRendering ? 'is-book-rendering' : ''} ${mode === 'book' && isQueued ? 'is-book-queued' : ''} ${mode === 'book' && isPending && !isRendering && !isQueued ? 'is-book-pending' : ''} ${mode === 'script' && isRendering ? 'is-rendering' : ''} ${mode === 'script' && isQueued ? 'is-queued' : ''} ${mode === 'script' && isPending && !isRendering && !isQueued ? 'is-pending' : ''} ${activeCharacterId ? 'is-paintable' : ''}`}
-        style={char ? ({ '--script-span-accent': char.color } as React.CSSProperties) : undefined}
-        onClick={(e) => {
-          // If we have a selection, don't trigger whole-span assignment yet
-          const selection = window.getSelection();
-          if (selection && !selection.isCollapsed) return;
-
-          if (activeCharacterId) {
-            e.stopPropagation();
-            onAssign?.([span.id]);
-          }
-        }}
-      >
-        {showNumbers && (
-          <span className="script-span-number">{span.order_index + 1}</span>
-        )}
-
-        <span
-          className={textClassName}
-        >
-          {isRendering
-            ? <SegmentProgressText text={displayText} litCount={renderingTextProgress.litCount} showCursor={renderingTextProgress.showCursor} />
-            : displayText}
-        </span>
-
-        <div className="span-controls">
-          <VoiceProfileSelect
-            value={char?.speaker_profile_name || ''}
-            onChange={(profileName) => {
-              const selectedOption = assignableVoices.find(option => option.value === profileName);
-              onAssignToCharacter?.([span.id], selectedOption?.character_id || null, selectedOption?.profile_name || profileName || null);
-            }}
-            options={assignableVoices}
-            defaultLabel="Default"
-            className="span-control-select"
-          />
-          <button
-            className="span-control-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              onPlaySpan?.(span.id);
-            }}
-            title="Play Audio"
-            disabled={!canPlay}
-          >
-            <Play size={14} fill={canPlay ? 'currentColor' : 'none'} />
-          </button>
-          <button
-            className="span-control-btn"
-            data-testid={`generate-span-${span.id}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (batch && batchStatus.canGenerate) onGenerateBatch?.(batch.span_ids);
-            }}
-            title={!batchStatus.canGenerate
-              ? (batchStatus.unavailableEngine
-                  ? `Engine ${formatVoiceEngineLabel(batchStatus.unavailableEngine)} is disabled in Settings`
-                  : 'All engines disabled')
-              : (!anyEnginesEnabled ? 'All engines disabled' : (isReady ? 'Rebuild' : 'Generate'))}
-            disabled={isPending || !batchStatus.canGenerate || !onGenerateBatch}
-          >
-            {isReady ? <RotateCcw size={14} /> : <WandSparkles size={14} />}
-          </button>
-        </div>
-      </span>
+        span={span}
+        mode={mode}
+        char={char}
+        isPending={isPending}
+        isRendering={isRendering}
+        isQueued={isQueued}
+        isPlaying={isPlaying}
+        isReady={isReady}
+        canPlay={canPlay}
+        litCount={renderingTextProgress.litCount}
+        showCursor={renderingTextProgress.showCursor}
+        displayText={displayText}
+        canGenerate={batchStatus.canGenerate ?? false}
+        unavailableEngine={batchStatus.unavailableEngine}
+        anyEnginesEnabled={anyEnginesEnabled}
+        batchSpanIds={batch?.span_ids}
+        showNumbers={showNumbers}
+        groupNumber={groupNumber}
+        fallbackNumber={span.order_index + 1}
+        activeCharacterId={activeCharacterId}
+        assignableVoices={assignableVoices}
+        onAssign={onAssign}
+        onPlaySpan={onPlaySpan}
+        onAssignToCharacter={onAssignToCharacter}
+        onGenerateBatch={onGenerateBatch}
+      />
     );
   };
 
@@ -535,7 +541,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   };
 
   const renderScript = () => {
-    let lastCharId: string | null = null;
+    let lastCharId: string | null | undefined = undefined;
 
     return data.spans.map(span => {
       const char = span.character_id ? charMap.get(span.character_id) : null;

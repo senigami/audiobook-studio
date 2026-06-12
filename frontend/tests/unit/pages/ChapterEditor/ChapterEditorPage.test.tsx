@@ -16,6 +16,7 @@ vi.mock('@/api', () => ({
     bakeChapter: vi.fn(),
     exportChapterAudio: vi.fn(),
     fetchScriptView: vi.fn(),
+    fetchChapterRenderGroups: vi.fn(),
     saveScriptAssignments: vi.fn(),
     compactScriptView: vi.fn(),
     previewSourceTextResync: vi.fn(),
@@ -105,11 +106,15 @@ describe('ChapterEditor - Core Orchestration', () => {
     (api.fetchSegments as any).mockResolvedValue(mockSegments);
     (api.fetchCharacters as any).mockResolvedValue([]);
     (api.fetchScriptView as any).mockResolvedValue(mockScriptView);
+    (api.fetchChapterRenderGroups as any).mockResolvedValue({ count: 0, groups: [] });
+    // Tests in this suite interact with the debug copy button, which requires dev mode.
+    localStorage.setItem('studio-dev-mode', 'true');
   });
 
   afterEach(() => {
     vi.useRealTimers();
     consoleErrorSpy.mockRestore();
+    localStorage.removeItem('studio-dev-mode');
   });
 
   it('renders loading state then editor', async () => {

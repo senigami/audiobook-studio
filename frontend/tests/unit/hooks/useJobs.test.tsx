@@ -940,9 +940,17 @@ describe('useJobs', () => {
     expect(job.active_segment_progress).toBe(0.85);
   });
 
-  it('preserves project_id and chapter_id on segments.progress updates in the jobs store', async () => {
+  it('preserves project_id and chapter_id on segments.progress updates in the jobs store (overlay on existing job)', async () => {
+    // CONTRACT CHANGE (Slice 5): segments.progress is overlay-only on existing rows —
+    // it must not create a new job entry. The job must already exist (e.g. from a
+    // jobs_snapshot) for segments.progress to apply active-segment overlay fields.
+    // Old behavior: segments.progress for an unknown job created a new entry.
+    // New behavior: the frame is a no-op for unknown jobs.
     const { result } = renderHook(() => useJobs());
-    emit({ type: 'jobs_snapshot', jobs: [] });
+    emit({
+      type: 'jobs_snapshot',
+      jobs: [{ id: 'job-seg-1', status: 'running', progress: 0, project_id: 'proj-1', chapter_id: 'chap-1' }],
+    });
 
     act(() => {
       publishStudioSocketMessage({
@@ -964,6 +972,7 @@ describe('useJobs', () => {
 
     const job = result.current.jobs['job-seg-1'];
     expect(job).toBeDefined();
+    // project_id and chapter_id come from the snapshot and must be preserved
     expect(job.project_id).toBe('proj-1');
     expect(job.chapter_id).toBe('chap-1');
   });
@@ -1764,5 +1773,135 @@ describe('useJobs', () => {
     // Subscription was intact: the event was received and state updated.
     expect(result.current.jobs['stable-job']).toBeDefined();
     expect(result.current.jobs['stable-job'].status).toBe('done');
+  });
+
+  // ── Slice 5: Row-Authority Guardrails ────────────────────────────────────
+
+  it('[S5] chapters.progress frame for an UNKNOWN job id does NOT create a job entry', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [] });
+
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.5,
+      groupedProgress: null,
+      etaSeconds: 20,
+      message: null,
+      reasonCode: null,
+      renderGroupCount: null,
+      completedRenderGroups: null,
+    }, { jobId: 'unknown-chapters-job', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    expect(result.current.jobs['unknown-chapters-job']).toBeUndefined();
+  });
+
+  it('[S5] chapters.progress overlay updates progress on an existing job', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'known-job', status: 'running', progress: 0.1 }] });
+
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.7,
+      groupedProgress: null,
+      etaSeconds: 10,
+      message: null,
+      reasonCode: null,
+      renderGroupCount: null,
+      completedRenderGroups: null,
+    }, { jobId: 'known-job', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    expect(result.current.jobs['known-job'].progress).toBeGreaterThanOrEqual(0.7);
+  });
+
+  it('[S5] voice.test frame for an unknown job id does NOT create a job entry', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [] });
+
+    emitEvent('voice.test', 'voice_test_progress', {
+      voiceName: 'Narrator',
+      status: 'running',
+      progress: 0.4,
+      startedAt: Date.now() / 1000,
+      message: null,
+    }, { jobId: 'unknown-voice-job' });
+
+    expect(result.current.jobs['unknown-voice-job']).toBeUndefined();
+  });
+
+  it('[S5] voice.test frame for an existing job updates progress but NOT status', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'voice-existing', status: 'running', progress: 0.1 }] });
+
+    emitEvent('voice.test', 'voice_test_progress', {
+      voiceName: 'Narrator',
+      status: 'done',
+      progress: 0.8,
+      startedAt: Date.now() / 1000,
+      message: null,
+    }, { jobId: 'voice-existing' });
+
+    // progress may update but status must NOT change via voice.test
+    expect(result.current.jobs['voice-existing'].status).toBe('running');
+  });
+
+  it('[S5] segments.progress does NOT create a job entry for an unknown job id', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [] });
+
+    emitEvent('segments.progress', 'segment_progress', {
+      status: 'running',
+      progress: 0.5,
+      segmentIndex: 0,
+      segmentCount: 5,
+      message: null,
+      reasonCode: null,
+    }, { jobId: 'unknown-seg-job', chapterId: 'chap-1', segmentId: 'seg-1' });
+
+    expect(result.current.jobs['unknown-seg-job']).toBeUndefined();
+  });
+
+  it('[S5] segments.progress does NOT reclassify an existing job', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'seg-job', status: 'running', progress: 0, classification: 'chapter' }] });
+
+    emitEvent('segments.progress', 'segment_progress', {
+      status: 'running',
+      progress: 0.5,
+      segmentIndex: 0,
+      segmentCount: 5,
+      message: null,
+      reasonCode: null,
+    }, { jobId: 'seg-job', chapterId: 'chap-1', segmentId: 'seg-1' });
+
+    expect(result.current.jobs['seg-job'].classification).toBe('chapter');
+  });
+
+  it('SEGMENT_PENDING frame at progress 0 projects status "preparing" (engine not confirmed)', async () => {
+    // SEGMENT_PENDING is the announce-time frame emitted before the engine loads.
+    // The UI must show 'preparing', not 'running', until the canonical START_SEGMENT arrives.
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-seg', status: 'running', progress: 0.1 }] });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-pending', jobId: 'job-seg', chapterId: 'chap-1' },
+        payload: {
+          status: 'running',
+          progress: 0,
+          reasonCode: 'SEGMENT_PENDING',
+          message: 'Preparing engine for segment seg-pending...',
+          activeSegmentEtaSeconds: null,
+        },
+      });
+    });
+
+    const job = result.current.jobs['job-seg'];
+    expect(job).toBeDefined();
+    // progress 0 + SEGMENT_PENDING → stays 'preparing' (not 'running') until engine confirms
+    expect(job.status).toBe('preparing');
   });
 });

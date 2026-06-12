@@ -16,18 +16,60 @@ import json
 import logging
 import re
 import sys
-import types
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+
+from app.studio_plugin_sdk._import_utils import ensure_plugin_package_hierarchy as _ensure_plugin_package_hierarchy
 
 logger = logging.getLogger(__name__)
 
 # Matches tts_<name> where <name> is 2–15 lowercase alphanumeric characters.
 _PLUGIN_FOLDER_RE = re.compile(r"^tts_[a-z][a-z0-9]{1,14}$")
 
+# ---------------------------------------------------------------------------
+# Register studio_plugin_sdk as a sys.modules alias so TTS Server subprocess
+# code can ``import studio_plugin_sdk`` even though the package lives under
+# ``app.studio_plugin_sdk``.  Done once at module import time (not inside a
+# function) because the loader module is always imported before any plugin
+# is loaded — there are no side-effect concerns here.
+# ---------------------------------------------------------------------------
+def _register_sdk_alias() -> None:
+    import app.studio_plugin_sdk as _sdk_pkg  # noqa: PLC0415
+    import app.studio_plugin_sdk.context as _ctx  # noqa: PLC0415
+    import app.studio_plugin_sdk.errors as _err  # noqa: PLC0415
+
+    if "studio_plugin_sdk" not in sys.modules:
+        sys.modules["studio_plugin_sdk"] = _sdk_pkg
+    if "studio_plugin_sdk.context" not in sys.modules:
+        sys.modules["studio_plugin_sdk.context"] = _ctx
+    if "studio_plugin_sdk.errors" not in sys.modules:
+        sys.modules["studio_plugin_sdk.errors"] = _err
+
+
+try:
+    _register_sdk_alias()
+except Exception as _sdk_err:  # pragma: no cover
+    logger.warning("Could not register studio_plugin_sdk alias: %s", _sdk_err)
+
+# ---------------------------------------------------------------------------
+# Version fields added in S1.  Current supported values (one set per field).
+# A follow-up slice (S8) will flip missing→error once the plugin template
+# ships with these fields pre-populated.
+# ---------------------------------------------------------------------------
+_SUPPORTED_VERSION_FIELDS: dict[str, set[str]] = {
+    "contract_version": {"1.0"},
+    "sdk_version": {"1.0"},
+    "settings_schema_version": {"1.0"},
+    "event_envelope_version": {"1.0"},
+}
+
 # Regex for callable fields: "module:ClassName" or "package.module:function_name"
 _CALLABLE_RE = re.compile(r"^[a-z_][a-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
+
+# The only manifest contract version this loader accepts.  Every plugin
+# manifest must carry ``"studio_tts_manifest": SUPPORTED_MANIFEST_VERSION``.
+SUPPORTED_MANIFEST_VERSION = "1.0"
 
 
 # Maximum seconds allowed for a plugin's __init__ / module load.
@@ -110,10 +152,14 @@ def discover_plugins(plugins_dir: Path) -> list[LoadedPlugin]:
             plugin = _load_plugin(plugin_dir=entry, folder_name=folder_name)
         except Exception as exc:
             logger.warning("Plugin %s failed to load: %s", folder_name, exc)
+            # PluginLoadError messages are controlled diagnostics (manifest
+            # validation strings, or crash details only when the plugin opts
+            # into dev.enabled); they are intentionally surfaced to the local
+            # operator on engine cards. Raw unexpected exceptions stay generic.
             plugin = _invalid_manifest_plugin(
                 plugin_dir=entry,
                 folder_name=folder_name,
-                load_error=str(exc) if isinstance(exc, PluginLoadError) else "Unexpected error while loading plugin (see server logs)",
+                load_error=str(exc) if isinstance(exc, PluginLoadError) else "Unexpected error while loading plugin (see server logs)",  # lgtm[py/stack-trace-exposure]
             )
             if plugin is not None:
                 loaded.append(plugin)
@@ -237,6 +283,18 @@ def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
     # 2. Validate manifest fields.
     _validate_manifest(manifest=manifest, folder_name=folder_name)
 
+    # 2b. AST import gate (S8 — module-level only mode).
+    # Enforces no module-level app.* imports in plugin/studio/ handler files.
+    # Function-body app.* imports are tolerated in module_level_only=True mode
+    # (S4–S6 residue in bake/segments/standard_handler) until S9 dispatcher
+    # integration lands.  Strict mode (module_level_only=False) is used by
+    # scripts/validate_plugin_manifests.py and will replace this in S9.
+    from app.tts_server.plugin_validation import validate_studio_handlers, StudioHandlerImportError  # noqa: PLC0415
+    try:
+        validate_studio_handlers(plugin_dir, raise_on_violation=True, module_level_only=True)
+    except StudioHandlerImportError as exc:
+        raise PluginLoadError(str(exc)) from exc
+
     # 3. Import engine class.
     engine_cls = _import_engine_class(
         manifest=manifest,
@@ -256,9 +314,13 @@ def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
             f"Failed to instantiate {engine_cls.__name__}: {detail}"
         ) from exc
 
-    # 5. Environment check.
+    # 5. Environment check — with persisted settings when the engine accepts
+    # them, otherwise a settings-keyed engine (e.g. an API key stored in
+    # engine settings) fails check_env on every boot and its persisted
+    # verification below is discarded.
+    from app.tts_server.health import call_check_env  # noqa: PLC0415
     try:
-        ok, msg = engine.check_env()
+        ok, msg = call_check_env(engine, plugin_dir)
     except Exception as exc:
         detail = str(exc) if dev_enabled else "unexpected error (see server logs)"
         raise PluginLoadError(f"check_env() raised an exception: {detail}") from exc
@@ -359,13 +421,27 @@ def _load_pip_plugin(ep: Any, plugins_dir: Path) -> LoadedPlugin:
             manifest["entry_class"] = ep.value
     if not manifest.get("capabilities"):
         manifest["capabilities"] = ["synthesis"]
+    # Auto-inject version fields for pip plugins that predate S8.
+    for _vf, _vval in (
+        ("contract_version", "1.0"),
+        ("sdk_version", "1.0"),
+        ("settings_schema_version", "1.0"),
+        ("event_envelope_version", "1.0"),
+    ):
+        if not manifest.get(_vf):
+            manifest[_vf] = _vval
 
     # Validate the result (same rules as folder plugins).
     _validate_manifest(manifest=manifest, folder_name=f"pip:{ep.name}")
 
-    # 4. Environment check.
+    # For pip plugins, we use a folder in plugins_dir for settings persistence.
+    plugin_dir = plugins_dir / f"tts_{ep.name}"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+
+    # 4. Environment check — settings-aware, same as folder plugins.
+    from app.tts_server.health import call_check_env  # noqa: PLC0415
     try:
-        ok, msg = engine.check_env()
+        ok, msg = call_check_env(engine, plugin_dir)
     except Exception as exc:
         raise PluginLoadError(f"check_env() raised {type(exc).__name__} (see server logs)") from exc
 
@@ -381,10 +457,6 @@ def _load_pip_plugin(ep: Any, plugins_dir: Path) -> LoadedPlugin:
                 settings_schema = json.loads(schema_str)
         except Exception:
             pass
-
-    # For pip plugins, we use a folder in plugins_dir for settings persistence.
-    plugin_dir = plugins_dir / f"tts_{ep.name}"
-    plugin_dir.mkdir(parents=True, exist_ok=True)
 
     # 6. Dependency check (from distribution if available)
     deps_ok = True
@@ -486,10 +558,11 @@ def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
             )
 
     manifest_version = str(manifest["studio_tts_manifest"]).strip()
-    if manifest_version != "1.0":
+    if manifest_version != SUPPORTED_MANIFEST_VERSION:
         raise PluginLoadError(
-            f"Unsupported studio_tts_manifest version {manifest_version!r} in {folder_name}. "
-            "Supported versions: '1.0'."
+            f"Plugin '{folder_name}' declares studio_tts_manifest={manifest_version!r} "
+            f"but this loader only supports {SUPPORTED_MANIFEST_VERSION!r}. "
+            "Update the plugin manifest or install a compatible version of Studio."
         )
 
     engine_id = str(manifest["engine_id"]).strip()
@@ -537,6 +610,47 @@ def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
         raise PluginLoadError(
             f"capabilities must include 'synthesis' in {folder_name}"
         )
+
+    # ---------------------------------------------------------------------------
+    # Version-field validation (S8 gate flip — was warn, now hard error).
+    # All four contract version fields are REQUIRED.  A missing or unrecognised
+    # value raises PluginLoadError so the problem is visible in the engine card
+    # rather than silently degraded.  Strict mode (enforced since S8).
+    # ---------------------------------------------------------------------------
+    for vfield, supported in _SUPPORTED_VERSION_FIELDS.items():
+        value = manifest.get(vfield)
+        if value is None:
+            raise PluginLoadError(
+                f"Plugin '{folder_name}' manifest is missing required field '{vfield}'. "
+                f"Add \"{vfield}\": \"{next(iter(supported))}\" to manifest.json."
+            )
+        str_value = str(value).strip()
+        if str_value not in supported:
+            raise PluginLoadError(
+                f"Plugin '{folder_name}' declares {vfield}={str_value!r} "
+                f"but this loader only supports {sorted(supported)}. "
+                "Update the plugin manifest or install a compatible version of Studio."
+            )
+
+    # Validate optional behavior.sanitize_categories field.
+    behavior = manifest.get("behavior", {})
+    if isinstance(behavior, dict):
+        sanitize_cats = behavior.get("sanitize_categories")
+        if sanitize_cats is not None:
+            from app.utils.text.textops_cleaning import SANITIZE_CATEGORIES  # noqa: PLC0415
+            valid_names = set(SANITIZE_CATEGORIES.keys())
+            if not isinstance(sanitize_cats, list):
+                raise PluginLoadError(
+                    f"behavior.sanitize_categories must be a list in {folder_name}"
+                )
+            for cat in sanitize_cats:
+                if cat not in valid_names:
+                    raise PluginLoadError(
+                        f"behavior.sanitize_categories contains unknown category "
+                        f"{cat!r} in {folder_name}. "
+                        f"Valid names: {sorted(valid_names)}"
+                    )
+
 
 def _load_optional_json(path: Path) -> dict[str, Any]:
     """Load JSON from ``path`` when present, otherwise return an empty dict."""
@@ -707,33 +821,123 @@ def _import_engine_class(
             "Engines must implement the StudioTTSEngine contract."
         )
 
+    # 4b. inspect.signature compatibility check against the canonical ABC signatures.
+    # Validates parameter names, kinds, and minimum arity.  Additional optional
+    # parameters are tolerated (e.g. check_env(settings=...) is fine).
+    # Only checks declared optionals that the engine_cls actually overrides.
+    _validate_engine_signatures(engine_cls, class_name, folder_name)
+
     return engine_cls
 
 
-def _ensure_plugin_package_hierarchy(
-    *,
-    package_name: str,
-    plugin_dir: Path,
-    module_parts: list[str],
-) -> None:
-    """Create isolated package modules for a plugin's internal imports."""
-    current_name = package_name
-    current_path = plugin_dir
-    if current_name not in sys.modules:
-        module = types.ModuleType(current_name)
-        module.__path__ = [str(current_path)]
-        module.__file__ = str(current_path / "__init__.py")
-        sys.modules[current_name] = module
+# ---------------------------------------------------------------------------
+# Signature-compatibility helpers
+# ---------------------------------------------------------------------------
 
-    for part in module_parts:
-        current_name = f"{current_name}.{part}"
-        current_path = current_path / part
-        if current_name in sys.modules:
+# Canonical parameter specs for the five required methods and all optional ones.
+# Each entry is (method_name, required_positional_params, is_required_method).
+# "required_positional_params" lists names after "self" that MUST be present
+# (as positional-or-keyword or positional-only parameters).
+# Engines MAY add extra optional (*args / **kwargs / keyword-only with defaults)
+# but must not drop or rename required positionals.
+_REQUIRED_METHOD_PARAMS: dict[str, list[str]] = {
+    "info": [],
+    "check_env": [],
+    "check_request": ["req"],
+    "synthesize": ["req"],
+    "settings_schema": [],
+}
+
+_OPTIONAL_METHOD_PARAMS: dict[str, list[str]] = {
+    "hooks": [],
+    "preview": ["req"],
+    "verify": ["req"],
+    "run_test": [],
+    "check_output": ["req", "result"],
+    "shutdown": [],
+}
+
+
+def _validate_engine_signatures(engine_cls: type, class_name: str, folder_name: str) -> None:
+    """Validate that ``engine_cls`` methods match the canonical StudioTTSEngine signatures.
+
+    Raises:
+        PluginLoadError: If a required method has an incompatible signature, or a
+            declared optional override has an incompatible signature.
+    """
+    import inspect  # noqa: PLC0415
+
+    all_checks = {
+        name: (params, True)
+        for name, params in _REQUIRED_METHOD_PARAMS.items()
+    }
+    # Also check optionals that the engine actually overrides.
+    for name, params in _OPTIONAL_METHOD_PARAMS.items():
+        if name in engine_cls.__dict__:  # Engine provides its own implementation
+            all_checks[name] = (params, False)
+
+    for method_name, (required_positionals, is_required) in all_checks.items():
+        method = getattr(engine_cls, method_name, None)
+        if method is None:
+            if is_required:
+                raise PluginLoadError(
+                    f"Class {class_name!r} in {folder_name} is missing required method "
+                    f"{method_name!r}. Expected signature: {method_name}(self"
+                    + (", " + ", ".join(required_positionals) if required_positionals else "")
+                    + ")."
+                )
             continue
-        module = types.ModuleType(current_name)
-        module.__path__ = [str(current_path)]
-        module.__file__ = str(current_path / "__init__.py")
-        sys.modules[current_name] = module
+
+        try:
+            sig = inspect.signature(method)
+        except (ValueError, TypeError):
+            # Can't introspect — skip; the presence check above already passed.
+            continue
+
+        params = sig.parameters
+        # Collect positional-capable params (positional-only or positional-or-keyword),
+        # excluding 'self'.
+        positionals = [
+            name
+            for name, p in params.items()
+            if name != "self"
+            and p.kind in (
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                inspect.Parameter.POSITIONAL_ONLY,
+            )
+        ]
+
+        # Required positionals must appear, in order, with matching names.
+        # Extra positionals beyond the required list are only allowed when they
+        # have defaults (i.e. they are optional).
+        req_count = len(required_positionals)
+
+        if len(positionals) < req_count:
+            _expected_sig = (
+                f"{method_name}(self"
+                + (", " + ", ".join(required_positionals) if required_positionals else "")
+                + ")"
+            )
+            raise PluginLoadError(
+                f"Class {class_name!r} in {folder_name}: method {method_name!r} "
+                f"has too few positional parameters. "
+                f"Expected at least: {_expected_sig}. "
+                f"Got: ({', '.join(['self'] + positionals) if positionals else 'self'})."
+            )
+
+        for idx, expected_name in enumerate(required_positionals):
+            actual_name = positionals[idx]
+            if actual_name != expected_name:
+                _expected_sig = (
+                    f"{method_name}(self"
+                    + (", " + ", ".join(required_positionals) if required_positionals else "")
+                    + ")"
+                )
+                raise PluginLoadError(
+                    f"Class {class_name!r} in {folder_name}: method {method_name!r} "
+                    f"parameter #{idx + 1} must be named {expected_name!r} but found {actual_name!r}. "
+                    f"Expected signature: {_expected_sig}."
+                )
 
 
 def get_plugin_dir(engine_id: str) -> Path:

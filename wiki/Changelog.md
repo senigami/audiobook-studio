@@ -2,11 +2,64 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Docs] - 2026-06-11
+
+### Wiki accuracy pass (W5–W20)
+
+- Settings.md: removed nonexistent global Voxtral settings from General section; corrected Stability Mode name; added API tab, About tab, and Default Engine/Voice sections; added Voxtral pointer under TTS Engines.
+- Troubleshooting-and-FAQ.md: corrected Voxtral enable steps to use TTS Engines tab; replaced nonexistent "Performance tab" reference with Script view.
+- Library-and-Projects.md: added Assemblies and Backups tab sections; documented hold-to-skim, seek slider, and keyboard shortcuts for VCR playback; fixed image caption.
+- Getting-Started.md: reframed demo library restore as automatic on any fresh install, not Pinokio-only.
+- Queue-and-Jobs.md: added voice_build and voice_test job types; clarified baking as a flag; expanded websocket topics table from 6 to all 10 stable topics plus plugin namespace; softened lifecycle ordering to documented-intent.
+- Voices-and-Voice-Profiles.md: added per-voice plugin settings workflow section.
+
+## [2.0.12] - 2026-06-11
+
+### Highlights
+
+- **Dark Theme**: Settings > General now has a Theme selector (System / Light / Dark). System follows your OS preference live. The whole UI switches through semantic design tokens, so every page, the queue, and the chapter editor invert together with no flash of the wrong theme on load.
+- **Developer Mode**: A toggle in Settings > General reveals a Developer tab linking the internal testing pages (progress-bar harness, live event stream, design spec sheet, TTS API docs) and enables the debug copy buttons in the chapter toolbar and queue items. Off by default.
+- **Honest Segment Timing**: A segment now announces itself as "Preparing engine..." with no countdown while the engine loads its model; the ETA clock and progress pacing start only when the engine confirms synthesis has begun. Model-load time no longer pollutes segment estimates, which fixes mixed renders showing wild ETAs during the roughly 19-second XTTS model load per group.
+- **Consistent Group Counters**: Render-group counters read as a 1-based position (1/4 through 4/4) on both segment and chapter frames. Previously one surface counted from 0 while another counted completed groups, which looked like an extra phantom group.
+- **Output Quality Checks**: Engines can validate their own rendered audio. XTTS rejects output whose implied reading speed is impossibly fast for the text (a truncation symptom); rejected renders are discarded and the job fails with the engine's reason shown in the queue. Configurable per engine (`Max Plausible Speech Rate`, 0 disables).
+- **Per-Engine Text Cleanup Categories**: Text sanitization is now split into named categories (quotes, acronyms, fractions, dashes, punctuation spacing, ASCII, terminal punctuation). Engine manifests declare which categories apply, and each declaring engine gets per-category override toggles in its settings, so engines that use brackets or braces for emotion cues can keep them.
+- **Voice Lab Demo Stage + Design Spec Sheet**: The interactive demo gained a `voice-lab` stage (real NarratorCards in their key states) and a `#/styleguide` page: an auto-generated token registry, type-scale proposal, component specimens, and mockups of proposed design directions, viewable in light and dark side by side.
+- **Mobile Navigation**: At narrow widths the navigation collapses behind a burger button with a slide-in drawer; the chapter editor stacks its columns below 1100px; wide tables scroll horizontally instead of overflowing.
+- **Security**: All dependency advisories cleared (react-router 7.17, vitest 3.2.6, plus transitive fixes); `npm audit` reports zero vulnerabilities.
+
+## [2.0.11] - 2026-06-11
+
+### Highlights
+
+- **Interactive Demo on GitHub Pages**: A separate Vite build entry (`npm -C frontend run build:demo`) outputs the real production React components to `docs/demo/`, served under `/audiobook-studio/demo/`. The demo mounts the Global Queue, PredictiveProgressBar, and Live Output Table against a scripted render session replayed through the app's pub/sub bus, with no backend required. Four stages are available: `live-output`, `queue`, `progress`, and `voice-lab`; deep-link via `#/stage/<id>`. The showcase page (`docs/v1.html`) now features a prominent "Try the Interactive Demo" CTA card and an iframe embed of the live-output stage. The `docs/index.html` nav links to both the showcase and the new demo. See [wiki/Live-Demos.md](Live-Demos) for stage deep-links and rebuild instructions.
+
+## [2.0.10] - 2026-06-11
+
+### Highlights
+
+- **No Frames After Terminal (Backend Guarantee)**: The websocket broadcast layer now enforces a per-job terminal latch: after a job reports `done`, `failed`, or `cancelled`, no stale non-terminal frame for that job can reach the UI on any topic. Requeued jobs (`queued`/`preparing`) unlatch and stream normally. This makes the frontend's failure-suppression rules defense-in-depth instead of load-bearing and prevents the class of bug where a trailing progress frame re-mounted UI the app had just cleared.
+- **Settings-Keyed Engines Stay Ready Everywhere**: Every engine readiness check now flows through one shared settings-aware helper. Engines whose `check_env` needs persisted settings (Voxtral's Mistral API key) no longer report "needs setup" after installing dependencies or when installed as pip plugins; the last two call sites that checked the environment without settings are fixed.
+- **Reference-Cloned Voices Always Resolve**: Bridge synthesis requests now derive the voice profile directory from the profile name automatically, so engines that resolve reference audio from the profile folder work on every render path (the remaining XTTS non-script paths were still missing it). The XTTS server engine's hidden fallback into Studio storage was removed; voice inputs come exclusively from the request.
+- **Completed Renders Can No Longer Flip to Failed**: All post-success bookkeeping (performance-sample recording, synthesis-duration persistence, timing derivation) is now failure-isolated at every dispatch path. A metrics or state-store error after a successful render is logged and skipped instead of converting the finished job to failed.
+- **Renders Survive TTS Server Restarts**: Engine registry lookups now serve the last-known-good plugin manifests when discovery transiently fails (e.g. while the watchdog restarts the TTS server), instead of resolving valid engines to nothing mid-render ("Voice requests must include engine_id" / "No valid segment audio was available to stitch").
+
+## [2.0.9] - 2026-06-11
+
+### Highlights
+
+- **WAV-First Chapter Synthesis**: Ordinary chapter renders now always finish as WAV. The hidden in-lifecycle MP3 conversion (and its `finalizing` status phase) has been removed from the XTTS and Voxtral engines; MP3 is produced only by explicit export/assembly actions or by format requests on the external TTS API.
+- **MP3 Voice Previews**: Voice samples and previews now follow the standard pipeline: synthesize as WAV, then automatically convert to `sample.mp3` and remove the WAV (with WAV kept as a fallback if conversion fails). Preview URLs prefer the MP3, and exported voice bundles now always carry their `sample.mp3`.
+- **Queue Row Authority**: The live queue now treats `queue.items` websocket frames as the single authority for queue rows. Progress and voice-test events can only update live overlay fields (progress, ETA, active segment) on rows that already exist; they can no longer create phantom rows or change a row's status.
+- **Voxtral Voice Previews Fixed**: Testing a Voxtral voice no longer fails with "Voxtral jobs require project and chapter context"; voice previews render into the voice profile like other engines.
+- **Accurate Segment Counts**: The source-text analysis footer, character sidebar, and the script-view Numbers toggle now show true render groups (the engine-sized text blocks that actually render) instead of sentence counts, served by a new read-only `render_groups` endpoint.
+- **Mixed Render Metrics**: Mixed renders now record the true rendered-segment count in performance history instead of a fallback.
+- **Chapter Editor Polish**: Removed the redundant status pill inside segment progress bars; the script view shows "Narrator" instead of a blank speaker column when no speakers are assigned.
+
 ## [2.0.8] - 2026-06-09
 
 ### Highlights
 
-- **Enabled Segment Progress Predictive Interpolation**: Enabled predictive ticking animation and smooth interpolation (`predictive: true`) for segment progress bars in the Chapter Editor, allowing progress to advance continuously and smoothly between socket events.
+- **Enabled Segment Progress Predictive Interpolation**: Enabled predictive ticking animation and smooth interpolation (`predictive: true`) for segment progress bars in the Chapter Editor, so progress advances continuously between socket events.
 - **Disabled Segment Progress Backward Regressions**: Enforced strictly monotonic forward progress (`allowBackwardProgress: false`) on segment progress tracking to prevent visual jumps or regressions from minor backend updates.
 
 ## [2.0.7] - 2026-06-08
@@ -14,7 +67,7 @@ All notable changes to this project will be documented in this file.
 ### Highlights
 
 - **Queue Rows Survive Reloads Across More Job Types**: Bake, segment-generation, voice build/test, mixed-render, and audiobook assembly jobs now use durable queue rows consistently, so active and completed work remains visible after refresh. Split-part chapter queue items also preserve their requested part number when display metadata is added.
-- **Voice Test Event Streams Carry Job Identity**: Voice preview/test telemetry now emits on `voice.test` with a required job id while the actual queue row remains on `queue.items`, making the live queue, diagnostics, and event stream easier to reconcile.
+- **Voice Test Event Streams Carry Job Identity**: Voice preview/test telemetry now emits on `voice.test` with a required job id while the actual queue row remains on `queue.items`, which makes the live queue, diagnostics, and event stream easier to reconcile.
 - **Voice Previews Are WAV-First**: Voice preview generation now writes and serves `sample.wav` on the active path. MP3 generation remains an explicit export/download concern instead of a background preview side effect.
 - **Mixed Rendering Uses The Shared Queue Completion Path**: Mixed rendering no longer writes directly to the queue table during completion, reducing drift between persistent queue state and live job updates.
 - **Chapter Editor Segment Progress Is Segment-Only**: The Chapter Editor Segment Progress bar now renders only from active segment progress events or preserved segment progress provenance. Chapter progress, queue progress, render-batch progress, and terminal job completion no longer leak into the per-segment bar.

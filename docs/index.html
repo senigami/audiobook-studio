@@ -27,7 +27,8 @@
         <a href="coming-soon-developers.html">For Developers</a>
         <a href="coming-soon-hobbyists.html">For Everyone</a>
         <a href="handbook/index.html">Handbook</a>
-        <a href="v1.html">Live Demo</a>
+        <a href="v1.html">Showcase</a>
+        <a href="demo/">Interactive Demo</a>
         <a href="https://github.com/senigami/audiobook-studio">GitHub</a>
       </div>
     </nav>
@@ -37,23 +38,26 @@
       <header class="hero">
         <img class="logo" src="assets/logo.png" alt="Audiobook Studio" />
         <span class="badge badge-soon">Studio 2.0 · Coming Soon</span>
-        <h1>Turn manuscripts into finished audiobooks — on your own machine.</h1>
+        <h1>Local audiobook production with AI voice cloning. No subscription. No per-word bill.</h1>
         <p class="lede">
-          Audiobook Studio 2.0 is a ground-up rearchitecture: a managed plugin
-          <strong>TTS Server</strong>, installable voice engines, a shareable voice
-          library, and AI voice casting — all local-first, with no per-word cost.
+          Audiobook Studio runs on your machine. You assign voices to characters,
+          repair individual lines, and assemble a finished audiobook without sending
+          your manuscript or cloned voices to a paid cloud service.
+          A full 600,000-character book costs $99+ per production cycle on hosted tools like ElevenLabs.
+          Here, corrections cost nothing extra.
         </p>
         <div class="btn-row">
-          <a class="btn btn-primary" href="https://github.com/senigami/audiobook-studio">★ Get notified on GitHub</a>
-          <a class="btn btn-ghost" href="#whats-new">See what's new in 2.0</a>
+          <a class="btn btn-primary" href="demo/">▶ Try the interactive demo — no install</a>
+          <a class="btn btn-ghost" href="https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio">Install with Pinokio</a>
+          <a class="btn btn-ghost" href="#whats-new">What's new in 2.0</a>
         </div>
       </header>
 
       <!-- WHAT'S NEW -->
       <section class="section" id="whats-new">
         <div class="section-header">
-          <span class="badge">The 2.0 Rearchitecture</span>
-          <h2>Everything that makes 2.0 different</h2>
+          <span class="badge">The 2.0 rearchitecture</span>
+          <h2>What's new in 2.0</h2>
           <p>
             Studio 2.0 moves synthesis into a managed, crash-isolated TTS Server and
             opens up engines and voices as installable, shareable bundles.
@@ -63,27 +67,26 @@
         <div class="grid grid-3">
           <div class="card">
             <div class="ico">🧩</div>
-            <h3>Managed TTS Server &amp; plugins</h3>
+            <h3>Managed TTS Server</h3>
             <p>
-              Engines run in a separate, crash-isolated process managed by Studio. An
-              engine can fall over without taking your work down.
+              Engines run in a separate process managed by Studio. An engine can crash
+              without taking your project or queue down with it.
             </p>
           </div>
           <div class="card">
-            <div class="ico">🔀</div>
-            <h3>Engine registry &amp; voice bridge</h3>
+            <div class="ico">🎭</div>
+            <h3>Per-character voices, mixed engines</h3>
             <p>
-              One clean boundary routes every synthesis request, so voices stay
-              independent of any single engine.
+              Assign a different voice to each character. A single chapter can mix
+              local XTTS voices with optional cloud voices at the segment level.
             </p>
           </div>
           <div class="card">
             <div class="ico">⬇️</div>
             <h3>Install engines like Stable Diffusion</h3>
             <p>
-              Browse a tag, clone it down, and it's installed. Engines are normal
-              repos you can update with a click. <strong>XTTS</strong> is the local
-              default; cloud engines are optional and opt-in.
+              Browse a tag, clone a repo, and the engine is installed. <strong>XTTS</strong> is the local
+              default; cloud engines are opt-in.
             </p>
             <span class="tag">Planned for 2.0</span>
           </div>
@@ -91,8 +94,8 @@
             <div class="ico">🎙️</div>
             <h3>A real voice library</h3>
             <p>
-              Voices carry an icon, a playable sample, a description, and rich tags —
-              browse, download, and share them like a proper library.
+              Voices carry an icon, a playable sample, a description, and rich tags.
+              Browse, download, and share them as portable bundles.
             </p>
             <span class="tag">Planned for 2.0</span>
           </div>
@@ -100,14 +103,14 @@
             <div class="ico">🤖</div>
             <h3>AI voice casting</h3>
             <p>
-              Describe a character and get matched to the right voice from your
-              library, with a reason for every pick. You stay in control.
+              Describe a character and get matched to a voice from your library, with
+              a reason for every pick. You keep final say.
             </p>
             <span class="tag">Planned for 2.0</span>
           </div>
           <div class="card">
             <div class="ico">🔒</div>
-            <h3>Local-first &amp; private</h3>
+            <h3>Local-first and private</h3>
             <p>
               Your manuscript, samples, and output stay on your machine. Anything that
               leaves is explicit, opt-in, and clearly disclosed.
@@ -118,23 +121,23 @@
             <h3>TTS gateway API</h3>
             <p>
               Use Studio as a local text-to-speech backend over HTTP for your own
-              scripts and apps, through the engines you've installed.
+              scripts and apps, through the engines you have installed.
             </p>
           </div>
           <div class="card">
             <div class="ico">📦</div>
             <h3>Plugin SDK</h3>
             <p>
-              A small, published contract (five methods) lets anyone wrap a new engine
-              and share it. Built-in engines use the exact same path.
+              Five methods and a manifest file let anyone wrap a new engine
+              and share it. Built-in engines use the same contract.
             </p>
           </div>
           <div class="card">
             <div class="ico">♻️</div>
-            <h3>Robust queue &amp; recovery</h3>
+            <h3>Queue and recovery</h3>
             <p>
-              Reliable progress, reuse of unchanged audio, and recovery after a
-              restart — completion is decided by validated artifacts, not loose files.
+              Progress is reliable, unchanged audio gets reused, and work recovers
+              cleanly after a restart.
             </p>
           </div>
         </div>
@@ -143,11 +146,11 @@
       <!-- AUDIO DEMO (reused assets) -->
       <section class="section">
         <div class="section-header">
-          <span class="badge">Hear It</span>
-          <h2>Local by default, cloud when you choose</h2>
+          <span class="badge">Hear it</span>
+          <h2>Same voice, two engines</h2>
           <p>
-            The same line, generated locally and through an optional cloud engine.
-            Local needs no account and no per-word cost.
+            The same line, generated locally with XTTS and through the optional
+            Voxtral cloud engine. Local needs no account and costs nothing to run.
           </p>
         </div>
         <div class="grid grid-2">
@@ -167,27 +170,29 @@
       <!-- AUDIENCE SPLIT -->
       <section class="section">
         <div class="section-header">
-          <span class="badge">Who It's For</span>
-          <h2>Pick your path into 2.0</h2>
+          <span class="badge">Who it's for</span>
+          <h2>Two paths into the project</h2>
         </div>
         <div class="audience">
           <div class="card">
             <div class="ico">🛠️</div>
-            <h3>Developers &amp; integrators</h3>
+            <h3>Developers and integrators</h3>
             <p>
-              The TTS gateway API, the plugin SDK, GitLab engine bundles, and Hugging
-              Face voice bundles — extensible, scriptable, self-hostable.
+              HTTP gateway API with OpenAPI docs, a five-method plugin SDK, GitHub
+              engine bundles, and a documented voice bundle spec for Hugging Face.
+              Self-hostable, scriptable, extensible.
             </p>
-            <a class="btn btn-ghost" href="coming-soon-developers.html">Build on Studio 2.0 →</a>
+            <a class="btn btn-ghost" href="coming-soon-developers.html">Developer details →</a>
           </div>
           <div class="card">
             <div class="ico">🏡</div>
-            <h3>Hobbyists &amp; accessibility</h3>
+            <h3>Hobbyists and writers</h3>
             <p>
-              Free, private, and easy. Turn any text into natural speech on your own
-              computer — for your stories, your projects, or read-aloud.
+              One-click install with Pinokio, an optional demo library to explore on
+              day one, and a local voice cloning workflow that costs nothing to run
+              once you are set up.
             </p>
-            <a class="btn btn-ghost" href="coming-soon-hobbyists.html">See what you can make →</a>
+            <a class="btn btn-ghost" href="coming-soon-hobbyists.html">What you can make →</a>
           </div>
         </div>
       </section>
@@ -195,16 +200,16 @@
       <!-- CTA -->
       <section class="section">
         <div class="callout soon">
-          <span class="badge badge-soon">Coming Soon</span>
-          <h2>Audiobook Studio 2.0 is on the way</h2>
+          <span class="badge badge-soon">Coming soon</span>
+          <h2>2.0 is in development — 1.x is available today</h2>
           <p>
-            1.x is available today. Star the repo to follow 2.0's progress, or try the
-            current version now.
+            The interactive demo runs in your browser right now with no install.
+            Or install the current version with Pinokio and start making audio.
           </p>
           <div class="btn-row" style="justify-content: center;">
-            <a class="btn btn-primary" href="https://github.com/senigami/audiobook-studio">★ Follow on GitHub</a>
-            <a class="btn btn-ghost" href="https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio">Install today with Pinokio</a>
-            <a class="btn btn-ghost" href="v1.html">Try the live demo</a>
+            <a class="btn btn-primary" href="demo/">▶ Try the interactive demo</a>
+            <a class="btn btn-ghost" href="https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio">Install with Pinokio</a>
+            <a class="btn btn-ghost" href="https://github.com/senigami/audiobook-studio">★ Follow on GitHub</a>
           </div>
         </div>
       </section>

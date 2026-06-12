@@ -74,6 +74,9 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
     const [selectedMoveSpeakerId, setSelectedMoveSpeakerId] = useState<string>('');
     const [isMovingVariant, setIsMovingVariant] = useState(false);
     const [engineFilter, setEngineFilter] = useState<'all' | 'disabled' | VoiceEngine>('all');
+    const [classFilter, setClassFilter] = useState<string>('');
+    const [genderFilter, setGenderFilter] = useState<string>('');
+    const [ageFilter, setAgeFilter] = useState<string>('');
     const [exportVoiceName, setExportVoiceName] = useState<string | null>(null);
     const [includeSourceWavs, setIncludeSourceWavs] = useState(false);
     const [isImportingVoice, setIsImportingVoice] = useState(false);
@@ -131,6 +134,9 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
         selectedMoveSpeakerId, setSelectedMoveSpeakerId,
         isMovingVariant, setIsMovingVariant,
         engineFilter, setEngineFilter,
+        classFilter, setClassFilter,
+        genderFilter, setGenderFilter,
+        ageFilter, setAgeFilter,
         exportVoiceName, setExportVoiceName,
         includeSourceWavs, setIncludeSourceWavs,
         isImportingVoice, setIsImportingVoice,

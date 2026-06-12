@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from app.tts_server.health import (
@@ -222,3 +224,132 @@ class TestBuildHealthResponse:
         assert schema["x-ui"] == {"panel_title": "Cloudy Setup"}
         # Should NOT contain injected notice
         assert "privacy_notice" not in schema["x-ui"]
+
+
+class TestSettingsAwareReadiness:
+    """engine_status callers must pass persisted settings; a settings-keyed
+    engine (e.g. Voxtral's API key) otherwise reports needs_setup on /health
+    at boot and 503s on /synthesize even though it is verified (regression:
+    'Engine voxtral is not ready (status: needs_setup)' on sample render)."""
+
+    class _SettingsKeyedEngine:
+        def check_env(self, settings=None):
+            if (settings or {}).get("mistral_api_key"):
+                return True, "OK"
+            return False, "Voxtral requires a Mistral API key in engine settings or MISTRAL_API_KEY."
+
+        def info(self):
+            return {}
+
+        def settings_schema(self):
+            return {}
+
+        def hooks(self):
+            return {}
+
+    def _plugin(self, verified=True):
+        plugin = _MockPlugin(engine_id="voxkeyed", verified=verified)
+        plugin.engine = self._SettingsKeyedEngine()
+        plugin.plugin_dir = Path("/tmp/tts_voxkeyed")
+        return plugin
+
+    def test_build_health_response_uses_persisted_settings(self, monkeypatch):
+        import app.tts_server.health as health_mod
+
+        plugin = self._plugin(verified=True)
+        monkeypatch.setattr(
+            health_mod, "load_settings", lambda plugin_dir: {"mistral_api_key": "saved-key"}
+        )
+
+        payload = build_health_response([plugin])
+        assert payload["engines"][0]["status"] == "ready"
+        assert payload["status"] == "ok"
+
+    def test_synthesize_readiness_gate_uses_persisted_settings(self, monkeypatch):
+        import app.tts_server.server as server_mod
+
+        plugin = self._plugin(verified=True)
+        monkeypatch.setattr(
+            server_mod, "load_settings", lambda plugin_dir: {"mistral_api_key": "saved-key"}
+        )
+
+        status = server_mod._engine_readiness_status(plugin)
+        assert status == "ready"
+
+    def test_install_recovery_passes_persisted_settings_to_check_env(self, tmp_path, monkeypatch):
+        from types import SimpleNamespace
+
+        import app.tts_server.server as server_mod
+        from app.tts_server.settings_store import save_settings
+
+        plugin_dir = tmp_path / "tts_instkeyed"
+        plugin_dir.mkdir()
+        (plugin_dir / "requirements.txt").write_text("requests", encoding="utf-8")
+        save_settings(plugin_dir, {"mistral_api_key": "saved-key"})
+
+        plugin = _MockPlugin(engine_id="instkeyed", verified=True)
+        plugin.engine = self._SettingsKeyedEngine()
+        plugin.plugin_dir = plugin_dir
+        plugin.dependencies_satisfied = False
+        plugin.missing_dependencies = ["requests"]
+        plugin.setup_message = "Missing dependencies: requests."
+
+        monkeypatch.setattr(server_mod, "_plugin_by_id", lambda engine_id: plugin)
+        monkeypatch.setattr(
+            "subprocess.run",
+            lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="", stderr=""),
+        )
+        monkeypatch.setattr(
+            "app.tts_server.plugin_loader._check_dependencies", lambda plugin_dir: (True, [])
+        )
+
+        response = server_mod.install_dependencies("instkeyed")
+
+        assert response["ok"] is True
+        assert plugin.setup_message is None
+
+
+class TestSanitizeOverridesSchemaInjection:
+    """_inject_sanitize_overrides_schema injects sanitize_overrides into the
+    schema for declaring engines and leaves non-declaring engines unchanged."""
+
+    def _plugin_with_categories(self, categories):
+        plugin = _MockPlugin(engine_id="testeng")
+        plugin.manifest = {"behavior": {"sanitize_categories": categories}}
+        return plugin
+
+    def test_declaring_engine_gains_sanitize_overrides_property(self):
+        plugin = self._plugin_with_categories(["quotes", "dashes", "ascii"])
+        detail = build_engine_detail(plugin, {})
+        schema = detail["settings_schema"]
+        assert "sanitize_overrides" in schema["properties"]
+
+    def test_injected_property_contains_exactly_declared_categories(self):
+        declared = ["quotes", "dashes", "ascii"]
+        plugin = self._plugin_with_categories(declared)
+        detail = build_engine_detail(plugin, {})
+        overrides_prop = detail["settings_schema"]["properties"]["sanitize_overrides"]
+        assert overrides_prop["type"] == "object"
+        assert set(overrides_prop["properties"].keys()) == set(declared)
+
+    def test_each_injected_sub_property_is_boolean_default_true(self):
+        plugin = self._plugin_with_categories(["quotes", "terminal"])
+        detail = build_engine_detail(plugin, {})
+        sub_props = detail["settings_schema"]["properties"]["sanitize_overrides"]["properties"]
+        for cat in ("quotes", "terminal"):
+            assert sub_props[cat]["type"] == "boolean"
+            assert sub_props[cat]["default"] is True
+
+    def test_non_declaring_engine_schema_unchanged(self):
+        plugin = _MockPlugin(engine_id="plain")
+        plugin.manifest = {"behavior": {}}  # no sanitize_categories
+        detail = build_engine_detail(plugin, {})
+        assert "sanitize_overrides" not in (detail["settings_schema"].get("properties") or {})
+
+    def test_injection_does_not_mutate_original_schema(self):
+        from app.tts_server.health import _inject_sanitize_overrides_schema
+        original_schema = {"type": "object", "properties": {"speed": {"type": "number"}}}
+        manifest = {"behavior": {"sanitize_categories": ["quotes"]}}
+        result = _inject_sanitize_overrides_schema(original_schema, manifest)
+        assert "sanitize_overrides" not in original_schema.get("properties", {})
+        assert "sanitize_overrides" in result["properties"]

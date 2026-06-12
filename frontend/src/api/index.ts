@@ -165,6 +165,10 @@ export const api = {
     const res = await fetch(`/api/chapters/${chapterId}/script-view`);
     return parseApiResponse(res);
   },
+  fetchChapterRenderGroups: async (projectId: string, chapterId: string): Promise<import('@/api/types').RenderGroupsResponse> => {
+    const res = await fetch(`/api/projects/${projectId}/chapters/${chapterId}/render_groups`);
+    return parseApiResponse(res);
+  },
   saveScriptAssignments: async (chapterId: string, payload: ScriptAssignmentsUpdate): Promise<ScriptViewResponse> => {
     const res = await fetch(`/api/chapters/${chapterId}/script-view/assignments`, {
       method: 'PUT',
@@ -442,6 +446,38 @@ export const api = {
     const formData = new FormData();
     formData.append('file', file);
     const res = await fetch('/api/voices/bundle/import', { method: 'POST', body: formData });
+    return parseApiResponse(res);
+  },
+
+  // --- Voice Metadata (Phase C endpoints) ---
+  listVoicesWithMetadata: async (): Promise<import('@/types').VoiceMetadata[]> => {
+    const res = await fetch('/api/voices/');
+    return parseApiResponse(res);
+  },
+  patchVoiceMetadata: async (
+    voiceId: string,
+    patch: {
+      description?: string;
+      attributes?: import('@/types').VoiceAttributes;
+      tags?: string[];
+      languages?: string[];
+    }
+  ): Promise<import('@/types').VoiceMetadata> => {
+    const res = await fetch(`/api/voices/${encodeURIComponent(voiceId)}/metadata`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    // Surface 422 verbatim — caller catches the thrown Error.message
+    return parseApiResponse(res);
+  },
+  uploadVoiceIcon: async (voiceId: string, file: File): Promise<{ status: string; image: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`/api/voices/${encodeURIComponent(voiceId)}/icon`, {
+      method: 'POST',
+      body: formData,
+    });
     return parseApiResponse(res);
   },
 };

@@ -91,4 +91,27 @@ describe('useSegmentHandoffQueue debug ring buffer', () => {
     const safetyFire = visualCompletes.find(e => (e.detail as any)?.source === 'safety');
     expect(safetyFire).toBeDefined();
   });
+
+  // -----------------------------------------------------------------------
+  // H7: ring buffer records terminal_failure_reset with jobId and prior segment
+  // -----------------------------------------------------------------------
+  it('records terminal_failure_reset ring event with jobId and prior displayedSegmentId', () => {
+    const { result, rerender } = renderHook(
+      (props: { segmentId: string; progress: number; status: string }) =>
+        useSegmentHandoffQueue({ jobId: 'job-fail-1', segmentId: props.segmentId, progress: props.progress, status: props.status }),
+      { initialProps: { segmentId: 'seg-A', progress: 0.5, status: 'running' } }
+    );
+
+    // Queue a pending segment
+    rerender({ segmentId: 'seg-B', progress: 0, status: 'running' });
+
+    // Transition to failed
+    rerender({ segmentId: 'seg-B', progress: 0, status: 'failed' });
+
+    const transitions = getHandoffTransitions();
+    const resetEvent = transitions.find(t => t.event === 'terminal_failure_reset');
+    expect(resetEvent).toBeDefined();
+    expect((resetEvent!.detail as any)?.jobId).toBe('job-fail-1');
+    expect((resetEvent!.detail as any)?.priorDisplayedSegmentId).toBe('seg-A');
+  });
 });

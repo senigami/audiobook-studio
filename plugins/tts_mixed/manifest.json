@@ -1,0 +1,22 @@
+{
+  "studio_tts_manifest": "1.0",
+  "contract_version": "1.0",
+  "sdk_version": "1.0",
+  "settings_schema_version": "1.0",
+  "event_envelope_version": "1.0",
+  "engine_id": "mixed",
+  "display_name": "Mixed Synthesis",
+  "version": "1.0.0",
+  "entry_class": "engine:MixedPlugin",
+  "built_in": true,
+  "capabilities": [
+    "synthesis"
+  ],
+  "behavior": {
+    "features": [
+      "mixed_rendering",
+      "segment_orchestration"
+    ]
+  },
+  "job_handler": "handler:handle_mixed_job"
+}

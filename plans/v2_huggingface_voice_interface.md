@@ -4,7 +4,7 @@
 > **Hugging Face Hub**. The concrete on-Hub shape is `plans/v2_huggingface_voice_repo_spec.md`;
 > the metadata/tags come from `plans/v2_voice_tag_taxonomy.md` and
 > `plans/v2_voice_metadata_and_casting.md`. **Voices live on Hugging Face; engines live on
-> GitLab** (`plans/v2_engine_bundle_gitlab_distribution.md`) — this document is voices only.
+> GitHub** (`plans/v2_engine_bundle_github_distribution.md`) — this document is voices only.
 
 The goal is to let users **bring a voice in from Hugging Face** and **publish voices to
 it**, mapping each to a first-class Studio `VoiceProfile` with full metadata, without
@@ -20,8 +20,8 @@ Hugging Face is the **voice host**. This covers three flows, all voice-only:
 3. **Upload/export** a Studio voice to the Hub (loose files via token) or as a
    `.asvoice.zip` for manual upload.
 
-Engine plugins are **out of scope here** — they are hosted and installed from GitLab; see
-`plans/v2_engine_bundle_gitlab_distribution.md`.
+Engine plugins are **out of scope here** — they are hosted and installed from GitHub; see
+`plans/v2_engine_bundle_github_distribution.md`.
 
 ## 2. Objectives
 
@@ -91,8 +91,8 @@ the metadata proposal):
   `as-*` tags automatically.
 - Both paths use the shape in `plans/v2_huggingface_voice_repo_spec.md`.
 
-> **Engines are not here.** TTS engine plugins are hosted on GitLab and installed/updated
-> through `plans/v2_engine_bundle_gitlab_distribution.md`.
+> **Engines are not here.** TTS engine plugins are hosted on GitHub and installed/updated
+> through `plans/v2_engine_bundle_github_distribution.md`.
 
 ## 7. Security, licensing, privacy
 
@@ -106,7 +106,7 @@ the metadata proposal):
 - **Disclosure:** any download or off-machine call is shown in the UI, consistent with the
   cloud-engine disclosure rules.
 - **Voices are data, not code.** Importing a voice never executes third-party code, so its
-  trust bar is lower than installing an engine (which does — see the GitLab engine spec §9).
+  trust bar is lower than installing an engine (which does — see the GitHub engine spec §9).
 
 ## 8. AI-handoff documentation note
 
@@ -119,7 +119,7 @@ everyday-simple; keep the integration contract exact.
 ## 9. Decisions & remaining questions
 
 Decided (this round):
-- **Voices host = Hugging Face; engines host = GitLab.**
+- **Voices host = Hugging Face; engines host = GitHub.**
 - **Delivery:** Export → zip; direct Upload → loose files; manual upload documented.
 - **Token:** optional — public browse/import needs none; required only to upload or to read
   private repos.
@@ -136,5 +136,5 @@ Still open (minor):
 - `plans/v2_huggingface_voice_repo_spec.md` (the on-Hub bundle shape)
 - `plans/v2_voice_tag_taxonomy.md` (tags)
 - `plans/v2_voice_metadata_and_casting.md` (metadata & casting)
-- `plans/v2_engine_bundle_gitlab_distribution.md` (engines — separate host)
+- `plans/v2_engine_bundle_github_distribution.md` (engines — separate host)
 - `plans/v2_voice_system_interface.md`, `plans/implementation/voice_engine_impl.md`

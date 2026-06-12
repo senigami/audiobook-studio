@@ -19,7 +19,7 @@ export const AddChapterModal: React.FC<AddChapterModalProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--overlay-backdrop)', backdropFilter: 'blur(4px)' }}>
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel" style={{ width: '100%', maxWidth: '600px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid var(--border)' }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Add New Chapter</h3>
             <form onSubmit={(e) => { e.preventDefault(); onSubmit(title, text, file); }} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -76,7 +76,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({ isOpen, onCl
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--overlay-backdrop)', backdropFilter: 'blur(4px)' }}>
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel" style={{ width: '100%', maxWidth: '600px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid var(--border)' }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Edit Project Details</h3>
             <form onSubmit={(e) => { e.preventDefault(); onSubmit({...data, cover}); }} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -122,8 +122,8 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({ isOpen, onCl
 export const CoverImageModal: React.FC<{ isOpen: boolean; onClose: () => void; imagePath: string }> = ({ isOpen, onClose, imagePath }) => {
   if (!isOpen) return null;
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
-        <img src={imagePath} alt="Cover" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()} />
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--overlay-backdrop)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
+        <img src={imagePath} alt="Cover" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: '8px', boxShadow: 'var(--shadow-xl)' }} onClick={e => e.stopPropagation()} />
     </div>
   );
 };

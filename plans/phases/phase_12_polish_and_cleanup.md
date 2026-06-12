@@ -44,9 +44,9 @@
 - [x] Enriched queue metadata for completed jobs (audio length, chars, segments).
 - [x] Chapter Editor backend dead-code audit and production infrastructure pruning.
 - [x] localize XTTS/Voxtral core logic for absolute portability.
-- [ ] Implement `check_output` interface in plugin adapters.
-- [ ] Update `app/jobs/reconcile.py` to use `engine.check_output(job)`.
-- [ ] Finalize plugin contract-version and callable-signature validation against the documented five-method StudioTTSEngine contract in `docs/handbook/content/plugin-sdk/engine-contract.json` and `docs/handbook/content/plugin-sdk/compatibility.json`.
+- [ ] Implement `check_output` interface in plugin adapters. *(Detailed design ready: `plans/plugin_contract_qa_hooks_plan.md` — SDK ABC default + TTS-server invocation; the reconcile.py wording below is obsolete.)*
+- [x] ~~Update `app/jobs/reconcile.py` to use `engine.check_output(job)`~~ — resolved 2026-06-11: `app/jobs/reconcile.py` no longer exists (deleted in the clean break); the check_output invocation point moves to the TTS server `/synthesize` path per the plan above.
+- [ ] Finalize plugin contract-version and callable-signature validation against the documented five-method StudioTTSEngine contract *(contract-VERSION gate landed 2026-06-11: `SUPPORTED_MANIFEST_VERSION` + tests in plugin_loader; callable-signature audit remains)* in `docs/handbook/content/plugin-sdk/engine-contract.json` and `docs/handbook/content/plugin-sdk/compatibility.json`.
 - [x] Retire legacy job request/response API endpoints.
 
 ### Documentation and Final Audit
@@ -60,5 +60,5 @@
 - [ ] GitHub plugin search and direct download.
 - [ ] Hugging Face direct voice search/download.
 - [ ] Multilingual voice/text language implementation (planning only in Phase 12).
-- [ ] Rename `mixed.py` -> `composite.py`.
+- [x] Rename `mixed.py` -> `composite.py`. *(closed N/A 2026-06-11 — no `mixed.py` module exists; `synthesis_mixed` is a plugin package, not a file to rename)*
 - [ ] Third-party/LLM controller plugin system (foundation only in Phase 12).

@@ -6,7 +6,7 @@
     <title>Build on Audiobook Studio 2.0 | For Developers &amp; Integrators</title>
     <meta
       name="description"
-      content="Audiobook Studio 2.0 for developers: a local TTS gateway API, a five-method plugin SDK, GitLab engine bundles you install like Stable Diffusion, and Hugging Face voice bundles with a documented voice.json spec."
+      content="Audiobook Studio 2.0 for developers: a local TTS gateway API, a five-method plugin SDK, GitHub engine bundles you install like Stable Diffusion, and Hugging Face voice bundles with a documented voice.json spec."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -35,16 +35,19 @@
 
     <div class="container">
       <header class="hero">
-        <span class="badge badge-soon">Studio 2.0 · Coming Soon</span>
+        <span class="badge badge-soon">Studio 2.0 · Coming soon</span>
         <h1>Build on Audiobook Studio 2.0</h1>
         <p class="lede">
-          A local-first audiobook engine you can script, extend, and self-host. Drive it
-          over HTTP, ship your own TTS engine as a plugin, and publish voices the whole
-          ecosystem can read.
+          A local-first audiobook engine you can script, extend, and self-host.
+          Drive synthesis over HTTP with a real OpenAPI gateway, ship your own TTS
+          engine as a plugin using a five-method contract, and publish voices the
+          whole ecosystem can read via a documented bundle spec. Built-in engines
+          use the exact same path as community plugins.
         </p>
         <div class="btn-row">
-          <a class="btn btn-primary" href="https://github.com/senigami/audiobook-studio">★ Follow development</a>
-          <a class="btn btn-ghost" href="#sdk">See the SDK</a>
+          <a class="btn btn-primary" href="#sdk">See the plugin SDK</a>
+          <a class="btn btn-ghost" href="#api">Gateway API</a>
+          <a class="btn btn-ghost" href="https://github.com/senigami/audiobook-studio">★ Follow development</a>
         </div>
       </header>
 
@@ -96,14 +99,14 @@ curl -X POST http://127.0.0.1:8123/api/v1/tts/synthesize \
       <!-- ENGINES -->
       <section class="section narrow" id="engines">
         <div class="section-header">
-          <span class="badge">Engine Bundles · GitLab</span>
+          <span class="badge">Engine Bundles · GitHub</span>
           <h2>Install engines like Stable Diffusion</h2>
-          <p>An engine is just a GitLab repo. Browse a tag, clone it down, update with a pull.</p>
+          <p>An engine is just a GitHub repo. Browse a tag, clone it down, update with a pull.</p>
         </div>
         <div class="grid grid-2">
           <div class="card">
             <h3>Discover</h3>
-            <p>Browse the GitLab topic <code>audiobook-studio-tts</code>, or paste a repo URL directly.</p>
+            <p>Browse the GitHub topic <code>audiobook-studio-tts</code>, or paste a repo URL directly.</p>
           </div>
           <div class="card">
             <h3>Install &amp; update</h3>
@@ -111,7 +114,7 @@ curl -X POST http://127.0.0.1:8123/api/v1/tts/synthesize \
           </div>
           <div class="card">
             <h3>Self-host friendly</h3>
-            <p>Point at gitlab.com or your own GitLab instance. Heavy model weights download separately, so clones stay small.</p>
+            <p>Point at github.com or your own GitHub instance. Heavy model weights download separately, so clones stay small.</p>
           </div>
           <div class="card">
             <h3>Safe by design</h3>
@@ -153,13 +156,18 @@ curl -X POST http://127.0.0.1:8123/api/v1/tts/synthesize \
 
       <section class="section">
         <div class="callout">
-          <span class="badge badge-soon">Coming Soon</span>
-          <h2>The specs are open while we build</h2>
-          <p>Follow along, read the draft specs and templates, and shape 2.0 before it ships.</p>
+          <span class="badge badge-soon">Coming soon</span>
+          <h2>The specs and SDK template are readable now</h2>
+          <p>
+            The plugin contract, voice bundle spec, and a copyable engine template are
+            already in the repo. The gateway API surface is firming up for 2.0 — the
+            snippet above is illustrative but the shape is stable. Follow the repo to
+            know when the first stable release lands.
+          </p>
           <div class="btn-row" style="justify-content: center;">
-            <a class="btn btn-primary" href="https://github.com/senigami/audiobook-studio">★ Follow on GitHub</a>
-            <a class="btn btn-ghost" href="handbook/index.html#plugin-sdk/overview">Open the dev handbook</a>
-            <a class="btn btn-ghost" href="https://github.com/senigami/audiobook-studio/tree/main/docs/specs">Read the specs</a>
+            <a class="btn btn-primary" href="https://github.com/senigami/audiobook-studio/tree/main/docs/specs">Read the specs</a>
+            <a class="btn btn-ghost" href="handbook/index.html#plugin-sdk/overview">Dev handbook</a>
+            <a class="btn btn-ghost" href="https://github.com/senigami/audiobook-studio">★ Follow on GitHub</a>
           </div>
         </div>
       </section>

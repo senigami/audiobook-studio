@@ -10,8 +10,8 @@ import { createLiveJobsStore } from '@/store/live-jobs';
 import { createHydrationCoordinator, selectActiveQueueCount } from '@/api/hydration';
 import { subscribeStudioSocketMessages } from '@/store/studioSocketBus';
 import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
-import { adaptEventToJobUpdates } from '@/utils/jobEventAdapters';
-import { applyTerminalLifecycleReset } from '@/utils/jobEventUtils';
+import { dispatchQueueEvent, QUEUE_HANDLED_TOPICS } from '@/utils/queueEventDispatcher';
+import { pickOverlayFields } from '@/utils/queueOverlayFields';
 
 const FALLBACK_POLL_MS = 60000;
 // Grace window for reconnect overlay pruning. Events that arrive on the websocket
@@ -26,7 +26,7 @@ export const useQueueSync = () => {
   const [queueCount, setQueueCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isReconnecting, setIsReconnecting] = useState(false);
-  const [activeSource, setActiveSource] = useState<'bootstrap' | 'reconnect' | 'refresh' | undefined>(undefined);
+  const [activeSource, setActiveSource] = useState<'bootstrap' | 'terminal' | 'reconnect' | 'refresh' | undefined>(undefined);
   const connected = useStudioSocketConnection();
 
   // Pure stores initialized once
@@ -55,7 +55,7 @@ export const useQueueSync = () => {
 
   const isFirstConnectRef = useRef(true);
 
-  const refreshQueue = useCallback(async (source: 'bootstrap' | 'reconnect' | 'refresh' = 'refresh') => {
+  const refreshQueue = useCallback(async (source: 'bootstrap' | 'terminal' | 'reconnect' | 'refresh' = 'refresh') => {
     // F4: Capture and increment the generation counter so concurrent hydrations
     // can detect when a newer one has superseded them.
     hydrationGenerationRef.current += 1;
@@ -116,48 +116,40 @@ export const useQueueSync = () => {
       const event = record.event;
       const payload = event.payload as any;
 
-      if (
-        event.topic === 'jobs.lifecycle' ||
-        event.topic === 'queue.items' ||
-        event.topic === 'chapters.lifecycle' ||
-        event.topic === 'chapters.progress'
-      ) {
-        recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
+      if (!QUEUE_HANDLED_TOPICS.has(event.topic)) return;
 
-        // F3: Helper that performs the actual state mutation. When the snapshot
-        // has not yet landed we capture it as a closure and push it onto the
-        // pending buffer; it will be replayed in order once the snapshot is set.
-        const applyEvent = () => {
-          if (event.topic === 'queue.items' && event.eventKind === 'queue_item_invalidated') {
-            recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-            refreshQueue('refresh');
-          } else if (event.topic === 'queue.items' && event.eventKind === 'queue_paused') {
-            recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-            refreshQueue('refresh');
-          } else if (event.topic === 'chapters.lifecycle') {
-            recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-            refreshQueue('refresh');
-          } else if (event.jobId) {
-            recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
-            const updates = adaptEventToJobUpdates(event);
-            if (event.topic === 'jobs.lifecycle') {
-              applyTerminalLifecycleReset(updates, updates.status);
-            }
-            storeRef.current.applyJobUpdated(event.jobId, updates);
-            updateDerivedState();
-            const reasonCode = payload.reasonCode ?? payload.reason_code;
-            if (event.topic === 'jobs.lifecycle' && reasonCode === 'QUEUE_INVALIDATED') {
-              refreshQueue('refresh');
-            }
-          }
-        };
+      recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
 
-        if (!lastSnapshotRef.current) {
-          // Snapshot not yet available — buffer the event for replay after hydration.
-          pendingEventsRef.current.push(applyEvent);
-        } else {
-          applyEvent();
+      // F3: Helper that performs the actual state mutation. When the snapshot
+      // has not yet landed we capture it as a closure and push it onto the
+      // pending buffer; it will be replayed in order once the snapshot is set.
+      const applyEvent = () => {
+        const result = dispatchQueueEvent(event, payload, {
+          refreshQueue,
+          applyJobUpdated: (jobId, updates) => storeRef.current.applyJobUpdated(jobId, updates),
+          pickOverlay: pickOverlayFields,
+          isHydrated: () => !!lastSnapshotRef.current,
+          getSnapshotStatus: (jobId) =>
+            lastSnapshotRef.current?.items.find((item: any) => item.id === jobId)?.status,
+          getStoreStatus: (jobId) =>
+            storeRef.current.getState().eventsById[jobId]?.status,
+          isKnownInSnapshot: (jobId) =>
+            !!lastSnapshotRef.current?.items.some((item: any) => item.id === jobId),
+          isKnownInStore: (jobId) =>
+            !!storeRef.current.getState().eventsById[jobId],
+          updateDerivedState,
+        });
+
+        if (result.action !== 'unhandled' && result.action !== 'skipped') {
+          recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
         }
+      };
+
+      if (!lastSnapshotRef.current) {
+        // Snapshot not yet available — buffer the event for replay after hydration.
+        pendingEventsRef.current.push(applyEvent);
+      } else {
+        applyEvent();
       }
     });
   }, [updateDerivedState, refreshQueue]);

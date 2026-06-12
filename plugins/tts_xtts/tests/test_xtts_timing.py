@@ -44,7 +44,7 @@ def test_xtts_adapter_timing_payload_contains_raw_anchors_and_segments(tmp_path)
         settings={"speed": 1.0},
     )
 
-    def mock_generate_script_side_effect(script_json_path, out_wav, on_output, cancel_check, speed, task_id):
+    def mock_generate_script_side_effect(script_json_path, out_wav, on_output, cancel_check, speed, task_id, engine_settings=None):
         # Simulate stdout logs printing segment markers
         on_output("[START_SEGMENT] seg-1\n")
         time.sleep(0.01)

@@ -162,7 +162,9 @@ def test_voxtral_verify_passes_saved_settings_to_model_check(monkeypatch):
     assert seen == {"settings": {"mistral_api_key": "saved-key"}, "strict": True}
 
 
-def test_handle_voxtral_job_skips_live_finalizing_broadcasts(tmp_path):
+def test_handle_voxtral_job_wav_only_even_when_make_mp3_true(tmp_path):
+    """Chapter synthesis always completes WAV-only. make_mp3=True must not trigger
+    MP3 conversion or a finalizing status phase in the ordinary synthesis lifecycle."""
     from app.db.models import Job
     from plugins.tts_voxtral.plugin.studio.handler import handle_voxtral_job
 
@@ -178,15 +180,8 @@ def test_handle_voxtral_job_skips_live_finalizing_broadcasts(tmp_path):
         make_mp3=True,
     )
 
-    out_wav = tmp_path / "chapter.wav"
-    out_mp3 = tmp_path / "chapter.mp3"
-
     def fake_generate_via_bridge(**kwargs):
         Path(kwargs["out_wav"]).write_text("wav")
-        return 0
-
-    def fake_wav_to_mp3(in_wav, out_mp3_path, on_output=None, cancel_check=None):
-        Path(out_mp3_path).write_text("mp3")
         return 0
 
     with patch("plugins.tts_voxtral.plugin.studio.handler._chapter_text_from_segments", return_value="hello world"), \
@@ -194,15 +189,98 @@ def test_handle_voxtral_job_skips_live_finalizing_broadcasts(tmp_path):
          patch("plugins.tts_voxtral.plugin.studio.handler.get_chapter_dir", return_value=tmp_path), \
          patch("plugins.tts_voxtral.plugin.studio.handler.get_speaker_settings", return_value={"voice_asset_id": "asset-1"}), \
          patch("plugins.tts_voxtral.plugin.studio.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("plugins.tts_voxtral.plugin.studio.handler.wav_to_mp3", side_effect=fake_wav_to_mp3), \
          patch("plugins.tts_voxtral.plugin.studio.handler.update_job") as mock_update:
         result = handle_voxtral_job("voxtral-job", job, 0.0, lambda _line: None, lambda: False)
 
     assert result == "done"
-    assert out_wav.exists()
-    assert out_mp3.exists()
+    assert (tmp_path / "chapter.wav").exists()
 
+    # No finalizing status must be emitted
     finalizing_calls = [call for call in mock_update.call_args_list if call.kwargs.get("status") == "finalizing"]
-    assert finalizing_calls
-    assert finalizing_calls[0].kwargs["skip_studio_job_event"] is True
-    assert finalizing_calls[0].kwargs["skip_job_updated"] is True
+    assert not finalizing_calls, "finalizing must not be emitted in ordinary chapter synthesis"
+
+    # Terminal call must set output_wav and must NOT set output_mp3
+    done_calls = [c for c in mock_update.call_args_list if c.kwargs.get("status") == "done"]
+    assert done_calls, "expected at least one done update_job call"
+    terminal = done_calls[-1]
+    assert terminal.kwargs.get("output_wav") == "chapter.wav"
+    assert "output_mp3" not in terminal.kwargs, "output_mp3 must not appear in terminal WAV-only completion"
+
+
+def test_handle_voxtral_job_sample_test_renders_into_voice_profile_dir(tmp_path):
+    """A sample_test job has no project/chapter context and must not be
+    rejected by the chapter-context guard; it renders sample.wav into the
+    voice profile directory (regression: 'Voxtral jobs require project and
+    chapter context' on voice preview)."""
+    from app.db.models import Job
+    from plugins.tts_voxtral.plugin.studio.handler import handle_voxtral_job
+
+    job = Job(
+        id="voxtral-sample",
+        engine="voxtral",
+        kind="sample_test",
+        chapter_file="",
+        status="running",
+        created_at=0.0,
+        speaker_profile="VoiceA",
+    )
+
+    captured: dict = {}
+
+    def fake_generate_via_bridge(**kwargs):
+        captured.update(kwargs)
+        Path(kwargs["out_wav"]).write_text("wav")
+        return 0
+
+    def fake_wav_to_mp3(in_wav, out_mp3, on_output=None, cancel_check=None):
+        out_mp3.write_text("mp3 audio")
+        return 0
+
+    with patch("app.db.speakers.get_profile_dir", return_value=tmp_path), \
+         patch("plugins.tts_voxtral.plugin.studio.handler.get_speaker_settings", return_value={"voice_asset_id": "asset-1"}), \
+         patch("plugins.tts_voxtral.plugin.studio.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("app.engines.audio_ops.wav_to_mp3", side_effect=fake_wav_to_mp3), \
+         patch("plugins.tts_voxtral.plugin.studio.handler.update_job") as mock_update:
+        result = handle_voxtral_job(
+            "voxtral-sample", job, 0.0, lambda _line: None, lambda: False,
+            text="Testing one two three.",
+        )
+
+    assert result == "done"
+    # WAV is converted to MP3 and deleted; only MP3 remains
+    assert (tmp_path / "sample.mp3").exists()
+    assert not (tmp_path / "sample.wav").exists()
+    assert captured["text"] == "Testing one two three."
+    assert captured["profile_name"] == "VoiceA"
+    # The engine resolves reference audio ONLY from an explicit profile dir
+    # (core stays portable); omitting it breaks voices without a voice_asset_id.
+    assert captured["voice_profile_dir"] == tmp_path
+
+    errors = [c.kwargs.get("error") for c in mock_update.call_args_list if c.kwargs.get("error")]
+    assert not any("project and chapter context" in e for e in errors)
+    done_calls = [c for c in mock_update.call_args_list if c.kwargs.get("status") == "done"]
+    assert done_calls and done_calls[0].kwargs["output_mp3"] == "sample.mp3"
+
+
+def test_handle_voxtral_job_chapter_render_still_requires_context():
+    """Non-sample jobs keep the chapter-context guard."""
+    from app.db.models import Job
+    from plugins.tts_voxtral.plugin.studio.handler import handle_voxtral_job
+
+    job = Job(
+        id="voxtral-chapter",
+        engine="voxtral",
+        kind="synthesis",
+        chapter_file="chapter.txt",
+        status="running",
+        created_at=0.0,
+        speaker_profile="VoiceA",
+    )
+
+    with patch("plugins.tts_voxtral.plugin.studio.handler._chapter_uses_multiple_profiles", return_value=False), \
+         patch("plugins.tts_voxtral.plugin.studio.handler.update_job") as mock_update:
+        result = handle_voxtral_job("voxtral-chapter", job, 0.0, lambda _line: None, lambda: False)
+
+    assert result == "failed"
+    errors = [c.kwargs.get("error") for c in mock_update.call_args_list if c.kwargs.get("error")]
+    assert any("project and chapter context" in e for e in errors)

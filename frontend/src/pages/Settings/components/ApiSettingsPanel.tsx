@@ -5,7 +5,7 @@ import { apiExampleStyle } from '@/pages/Settings/settingsRouteHelpers';
 export const ApiSettingsPanel: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      <div style={{ padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', background: 'linear-gradient(135deg, var(--surface-light) 0%, var(--surface) 100%)', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+      <div style={{ padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', background: 'linear-gradient(135deg, var(--surface-light) 0%, var(--surface) 100%)', boxShadow: 'var(--shadow-md)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
           <div style={{ padding: '0.6rem', borderRadius: '12px', background: 'var(--accent-tint)', color: 'var(--accent)' }}>
             <Server size={24} />
@@ -19,14 +19,14 @@ export const ApiSettingsPanel: React.FC = () => {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
-          <div style={{ padding: '1.25rem', borderRadius: '14px', background: 'rgba(255,255,255,0.5)', border: '1px solid var(--border)' }}>
+          <div style={{ padding: '1.25rem', borderRadius: '14px', background: 'var(--surface-glass-half)', border: '1px solid var(--border)' }}>
             <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', fontWeight: 800, color: 'var(--accent)' }}>Unified Orchestration</h3>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
               Use the <code>/api</code> endpoints to manage projects, chapters, and long-running generation jobs. 
               Studio handles chunking, engine routing, and file management automatically.
             </p>
           </div>
-          <div style={{ padding: '1.25rem', borderRadius: '14px', background: 'rgba(255,255,255,0.5)', border: '1px solid var(--border)' }}>
+          <div style={{ padding: '1.25rem', borderRadius: '14px', background: 'var(--surface-glass-half)', border: '1px solid var(--border)' }}>
             <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', fontWeight: 800, color: 'var(--accent)' }}>Direct Synthesis</h3>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
               Call the <code>TTS Server</code> directly for raw text-to-audio requests. 
@@ -36,7 +36,7 @@ export const ApiSettingsPanel: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', borderRadius: '14px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)', color: '#92400e' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', borderRadius: '14px', background: 'var(--warning-tint-bg)', border: '1px solid var(--warning-tint-border)', color: 'var(--warning-text)' }}>
         <ShieldAlert size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
         <div>
           <h4 style={{ margin: '0 0 0.35rem 0', fontSize: '0.9rem', fontWeight: 900 }}>Security Note</h4>

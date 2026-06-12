@@ -11,9 +11,14 @@ from .manifest import (
     save_voice_manifest,
     load_variant_manifest,
     save_variant_manifest,
+    load_voice_state,
+    save_voice_state,
     CURRENT_VOICE_STORAGE_VERSION
 )
 from ...core import config
+
+# Exposed so tests can patch it directly
+VOICES_DIR = config.VOICES_DIR
 
 logger = logging.getLogger(__name__)
 SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
@@ -200,3 +205,142 @@ def migrate_voice_variant(src_dir: Path, voice_name: str, variant_name: str) -> 
     save_variant_manifest(variant_dir, meta)
 
     return True
+
+
+# ---------------------------------------------------------------------------
+# Phase B — migrate voice.json files to the v1.0 bundle schema
+# ---------------------------------------------------------------------------
+
+BUNDLE_SPEC = "audiobook-studio-voice"
+BUNDLE_SPEC_VERSION = "1.0"
+BUNDLE_TAXONOMY_VERSION = "1.0"
+
+# Fields that belong in voice.json bundle schema
+_SCHEMA_FORBIDDEN_FIELDS = {"version", "default_variant"}
+
+
+def _migrate_one_voice_to_v1_schema(voice_root: Path) -> None:
+    """Migrate a single voice root's voice.json to the v1.0 bundle schema.
+
+    Idempotent: voices that already have spec_version=1.0 are only checked for
+    residual forbidden fields (``version``, ``default_variant``).
+
+    Decision references:
+      D6 — labels[] → tags[]
+      D7 — attributes absent (no placeholder)
+      D8 — default_variant moves to state.json; integer version dropped
+    """
+    manifest = load_voice_manifest(voice_root)
+    if not manifest:
+        return  # no voice.json — skip silently
+
+    changed = False
+
+    # --- D8: add spec identity fields if absent ---
+    if manifest.get("spec") != BUNDLE_SPEC:
+        manifest["spec"] = BUNDLE_SPEC
+        changed = True
+    if manifest.get("spec_version") != BUNDLE_SPEC_VERSION:
+        manifest["spec_version"] = BUNDLE_SPEC_VERSION
+        changed = True
+    if manifest.get("taxonomy_version") != BUNDLE_TAXONOMY_VERSION:
+        manifest["taxonomy_version"] = BUNDLE_TAXONOMY_VERSION
+        changed = True
+
+    # --- D8: move default_variant to state.json ---
+    default_variant = manifest.pop("default_variant", None)
+    if default_variant is not None:
+        state = load_voice_state(voice_root)
+        if "default_variant" not in state:
+            state["default_variant"] = default_variant
+            save_voice_state(voice_root, state)
+        changed = True
+
+    # --- D8: drop integer version field (superseded by spec_version) ---
+    if "version" in manifest:
+        del manifest["version"]
+        changed = True
+
+    # --- D6: migrate labels[] to tags[] ---
+    labels = manifest.pop("labels", None)
+    if labels is not None:
+        existing_tags: list = list(manifest.get("tags") or [])
+        existing_set = set(existing_tags)
+        for label in labels:
+            if label and label not in existing_set:
+                existing_tags.append(label)
+                existing_set.add(label)
+        manifest["tags"] = existing_tags
+        changed = True
+
+    # --- D7: never write attributes block during migration ---
+    # (If a pre-existing migration wrote one accidentally, do NOT remove it here
+    # because the voice may have been user-tagged since.  Only omit on fresh migration.)
+    # We simply do not add one.
+
+    # --- B1-f: copy preview_audio from default variant's profile.json into samples[] ---
+    # Only act if no samples[] present already.
+    if not manifest.get("samples"):
+        state = load_voice_state(voice_root)
+        chosen_variant = state.get("default_variant") or default_variant
+        samples: list[dict] = []
+        # Check default variant first, then any variant
+        variant_dirs = sorted(
+            [d for d in voice_root.iterdir() if d.is_dir() and (d / "profile.json").exists()],
+            key=lambda d: (d.name != chosen_variant, d.name),
+        )
+        for variant_dir in variant_dirs:
+            profile = load_variant_manifest(variant_dir)
+            preview_audio = profile.get("preview_audio")
+            if preview_audio:
+                entry: dict = {"path": preview_audio}
+                preview_text = profile.get("preview_text")
+                if preview_text:
+                    entry["text"] = preview_text
+                # Only the default/first variant's sample is primary
+                entry["primary"] = len(samples) == 0
+                samples.append(entry)
+        if samples:
+            manifest["samples"] = samples
+            changed = True
+
+    if changed:
+        save_voice_manifest(voice_root, manifest)
+
+
+def migrate_voices_to_v1_schema(voices_root: Path | None = None) -> bool:
+    """Migrate all voice.json files under voices_root to the v1.0 bundle schema.
+
+    Idempotent: safe to run multiple times.  Non-destructive: existing fields
+    are preserved or moved (not deleted) unless the schema explicitly forbids
+    them (``version``, ``default_variant``).
+
+    Args:
+        voices_root: Directory containing voice subdirectories.  Defaults to
+            ``config.VOICES_DIR`` when not supplied.
+
+    Returns:
+        True on success; False if a fatal error prevented completion.
+    """
+    if voices_root is None:
+        voices_root = config.VOICES_DIR
+
+    if not voices_root.exists():
+        return True
+
+    try:
+        for entry in voices_root.iterdir():
+            if not entry.is_dir():
+                continue
+            if not (entry / "voice.json").exists():
+                continue
+            try:
+                _migrate_one_voice_to_v1_schema(entry)
+            except Exception:
+                logger.error(
+                    "Failed to migrate voice %r to v1 schema", entry.name, exc_info=True
+                )
+        return True
+    except Exception:
+        logger.error("migrate_voices_to_v1_schema: fatal error", exc_info=True)
+        return False

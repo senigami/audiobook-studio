@@ -73,20 +73,20 @@ powershell -ExecutionPolicy Bypass -File .\run.ps1 -Port 9000
 
 ## Exploring the Demo Library
 
-If you installed Audiobook Studio via Pinokio and chose to include the **optional demo library**, you will be able to explore an almost-finished production immediately after opening the application. This gives an excellent overview of the completed workflow.
+On any fresh install where `projects/` and `voices/` are both empty, the launcher (`run.sh` / `run.ps1`) automatically restores demo content from `demo/demo.zip`. This happens regardless of how you installed Studio — via Pinokio, the launcher scripts, or a manual setup. The path to the zip is overridable via the `AUDIOBOOK_STUDIO_DEMO_ZIP` environment variable if you want to supply your own demo package.
 
 **1. The Demo Project**  
-Immediately after installation, the Demo Project will appear in your Library home page. This allows you to dive straight into a working layout.
+After a fresh install, the Demo Project appears in your Library home page, giving you a working layout to explore immediately.
 
 ![Demo Project Listing](images/demoproject.png)
 
 **2. Inside the Chapters Tab**  
-Click into the demo project to see what chapters look like. While it intentionally skips the full text here, it lists the chapters and allows you to instantly listen, queue audio generation, or build the entire audiobook to M4B directly from this view.
+Click into the demo project to see what chapters look like. It lists the chapters and lets you listen, queue audio generation, or build the entire audiobook to M4B from this view.
 
 ![Demo Chapters View](images/demochapters.png)
 
 **3. Included Voice Profiles**  
-Under the Voices tab, you will find the bundled voices included with the demo project. You do not need to hunt for voice samples; these voices are pre-configured and can be dropped straight into any other project you create moving forward!
+Under the Voices tab you will find the bundled voices included with the demo project. These are pre-configured and can be used in any other project you create.
 
 ![Demo Voices Setup](images/demovoices.png)
 

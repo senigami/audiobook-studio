@@ -316,6 +316,8 @@ Each is a decision the owner can veto — flag any objections before implementat
   Accepts multipart image, enforces 1:1 aspect ratio (crop or reject), saves as `voices/<Name>/icon.png`, updates `image` field in `voice.json`.
   _Acceptance: upload a 512×512 PNG → file saved, `voice.json` updated, `GET /api/voices/{id}` returns `image: "icon.png"`._
 
+- [ ] **C6 (owner direction, 2026-06-12). Copyable icon image prompt.** Beside the icon upload, generate a copy-to-clipboard image-generation prompt from the voice's attributes + description (e.g. "Portrait icon, 1:1, soft studio lighting: an elderly female character voice — warm, measured narrator with a slight rasp…"), with a fixed style preamble so user-generated icons stay relatively uniform across the catalog. Pure frontend string templating — no API call, no image generation in Studio. Mocked conceptually in styleguide U8.
+
 ### Phase D — Frontend (AI Voice Lab)
 
 These items are the open Phase 12 items for voice tags/icons. Implement after Phase C.
@@ -352,11 +354,29 @@ These items are the open Phase 12 items for voice tags/icons. Implement after Ph
 
 ### Phase F — Docs
 
-- [ ] **F1. Update `docs/user-guide/voice-tags-icons.md` (Phase 12 stub) with the tag taxonomy table, icon requirements, and a walkthrough of the tag editor.**
+- [x] **F1. Update `docs/user-guide/voice-tags-icons.md` (Phase 12 stub) with the tag taxonomy table, icon requirements, and a walkthrough of the tag editor.**
+  _Done 2026-06-12. Created `docs/user-guide/voice-tags-icons.md` with the full taxonomy table (from `docs/specs/voice-taxonomy.json`), icon upload requirements (1:1, PNG-normalized, 422 on non-square), and a step-by-step walkthrough of the NarratorCard "Not tagged" badge, Edit Metadata modal, attribute selects, free tags, and icon crop flow._
 
-- [ ] **F2. Update `docs/specs/voice.schema.json` docstring/description fields if any cardinalities were clarified during implementation.**
+- [x] **F2. Update `docs/specs/voice.schema.json` docstring/description fields if any cardinalities were clarified during implementation.**
+  _Done 2026-06-12. Reviewed all `description` fields in `voice.schema.json`. No stale descriptions found. D8 (default_variant lives in state.json, not voice.json) is already reflected by the schema having `additionalProperties: false` and no `default_variant` property. The use_case HF alias (as-use-*) is an exporter concern, not a schema description concern. No changes needed._
 
-- [ ] **F3. Update `Memory/state.json` Phase 12 open items to mark voice tags, icon upload, and searchable tags as complete when each Phase D step is done.**
+- [x] **F3. Update `Memory/state.json` Phase 12 open items to mark voice tags, icon upload, and searchable tags as complete when each Phase D step is done.**
+  _N/A 2026-06-12. `Memory/` is gitignored and absent in this working tree (see CLAUDE.md: "Don't assume it exists"). Cannot update a file that does not exist in the repo._
+
+### Phase G — Taxonomy v2 (RE-OPENED into 2.0 scope — owner, 2026-06-12)
+
+*The owner's original ask included these categories; they were missed in the v1.0 taxonomy. This re-opens the voice schema for 2.0 and RE-BLOCKS Pinokio PK7 (demo bundle) until it lands. Additive only: v1.0 voices stay valid; new fields optional in the lenient path, with the same strict-on-edit rule as D7.*
+
+- [ ] **G1. Taxonomy v2 vocabularies** in `docs/specs/voice-taxonomy.json` (version bump + changelog):
+  - `language` — multi-value (bilingual voices), BCP-47-ish friendly names (start: english, spanish, french, german, …; extensible).
+  - `accent` — single-value (british, american, australian, irish, scottish, southern-us, …).
+  - `style` — **multi-value**: conversational, narration, characters, social media, educational, advertisement, entertainment.
+- [ ] **G2. Schema + validation**: `voice.schema.json` gains the three optional attribute fields (multi = arrays); `validate_and_degrade_attributes` handles them (invalid values → tags, per D7); migration untouched (fields optional).
+- [ ] **G3. API + casting**: metadata PATCH accepts them with strict 422s + valid-values payload; search/cast filtering extends to the new fields (multi-value = any-match); casting card serializes them.
+- [ ] **G4. UI**: Edit Metadata modal gains the three fields (style/language as multi-select chips); catalog cards render category-tinted pills in fixed order (class · gender · age · extended · tags) with the +N tap-to-expand overflow — visual spec mocked + approved in styleguide U8 (2026-06-12). Pill tints: class/gender/age distinct hues; extended shares one hue; free tags neutral ghost.
+  - Pill color decision (owner, 2026-06-12): Apple-style muted tinted fills + same-hue text/low-alpha border — NOT colored outlines on neutral fill; no leading icons.
+- [ ] **G5. HF bundles**: README generator emits `as-language-*`, `as-accent-*`, `as-style-*` tags; export gate accepts v2 fields.
+- [ ] **G6. Docs**: taxonomy table in `docs/user-guide/voice-tags-icons.md` + wiki updated; spec changelog rows.
 
 ---
 

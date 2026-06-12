@@ -1,7 +1,7 @@
 import React from 'react';
 import { User, Plus, Search } from 'lucide-react';
 import { NarratorCard } from '@/pages/Voices/components/NarratorCard';
-import type { SpeakerProfile, TtsEngine, VoiceEngine } from '@/types';
+import type { SpeakerProfile, TtsEngine, VoiceEngine, VoiceMetadata } from '@/types';
 
 interface VoicesTabContentProps {
     voices: any[];
@@ -24,6 +24,8 @@ interface VoicesTabContentProps {
     engines: TtsEngine[];
     onCreateClick: () => void;
     onEditTestText: (profile: SpeakerProfile) => void;
+    voiceMetadataMap?: Map<string, VoiceMetadata>;
+    onEditMetadata?: (voiceGroupId: string, voiceName: string) => void;
 }
 
 export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
@@ -46,7 +48,9 @@ export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
     setExpandedVoiceId,
     engines,
     onCreateClick,
-    onEditTestText
+    onEditTestText,
+    voiceMetadataMap,
+    onEditMetadata,
 }) => {
     return (
         <div style={{ flex: 1, overflowY: 'auto', padding: '2rem' }}>
@@ -55,7 +59,7 @@ export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
                     <div style={{ 
                         padding: '60px', 
                         textAlign: 'center', 
-                        background: 'rgba(var(--accent-rgb), 0.02)', 
+                        background: 'var(--surface-dim)',
                         borderRadius: '24px', 
                         border: '2px dashed var(--border)' 
                     }}>
@@ -99,35 +103,41 @@ export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
                     </div>
                 ) : (
                     <>
-                        {filteredVoices.map(voice => (
-                            <NarratorCard
-                                key={voice.id}
-                                speaker={{ 
-                                    id: voice.id.startsWith('unassigned-') ? '' : voice.id, 
-                                    name: voice.name, 
-                                    default_profile_name: voice.profiles[0]?.name || null, 
-                                    created_at: 0, 
-                                    updated_at: 0 
-                                }}
-                                profiles={voice.profiles}
-                                onRefresh={onRefresh}
-                                onTest={handleTest}
-                                onDelete={handleDelete}
-                                onMoveVariant={onMoveVariant}
-                                onEditTestText={onEditTestText}
-                                onBuildNow={handleBuildNow}
-                                testProgress={testProgress}
-                                requestConfirm={handleRequestConfirm}
-                                buildingProfiles={buildingProfiles}
-                                onAddVariantClick={(s) => onAddVariant(s, voice.profiles)}
-                                onSetDefaultClick={onSetDefault}
-                                onRenameClick={onRename}
-                                onExportVoice={onExportVoice}
-                                isExpanded={expandedVoiceId === voice.id}
-                                onToggleExpand={() => setExpandedVoiceId(expandedVoiceId === voice.id ? null : voice.id)}
-                                engines={engines}
-                            />
-                        ))}
+                        {filteredVoices.map(voice => {
+                            const meta = voiceMetadataMap?.get(voice.id);
+                            const isUntagged = meta?.is_untagged ?? false;
+                            return (
+                                <NarratorCard
+                                    key={voice.id}
+                                    speaker={{
+                                        id: voice.id.startsWith('unassigned-') ? '' : voice.id,
+                                        name: voice.name,
+                                        default_profile_name: voice.profiles[0]?.name || null,
+                                        created_at: 0,
+                                        updated_at: 0
+                                    }}
+                                    profiles={voice.profiles}
+                                    onRefresh={onRefresh}
+                                    onTest={handleTest}
+                                    onDelete={handleDelete}
+                                    onMoveVariant={onMoveVariant}
+                                    onEditTestText={onEditTestText}
+                                    onBuildNow={handleBuildNow}
+                                    testProgress={testProgress}
+                                    requestConfirm={handleRequestConfirm}
+                                    buildingProfiles={buildingProfiles}
+                                    onAddVariantClick={(s) => onAddVariant(s, voice.profiles)}
+                                    onSetDefaultClick={onSetDefault}
+                                    onRenameClick={onRename}
+                                    onExportVoice={onExportVoice}
+                                    isExpanded={expandedVoiceId === voice.id}
+                                    onToggleExpand={() => setExpandedVoiceId(expandedVoiceId === voice.id ? null : voice.id)}
+                                    engines={engines}
+                                    isUntagged={isUntagged}
+                                    onEditMetadata={() => onEditMetadata?.(voice.id, voice.name)}
+                                />
+                            );
+                        })}
                     </>
                 )}
             </div>

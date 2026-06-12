@@ -3,24 +3,40 @@ from typing import Iterable, Optional
 import threading
 
 _DISCOVERY_LOCK = threading.Lock()
-_IN_DISCOVERY = False
+# Thread-local guard: prevents same-thread re-entrant recursion (describe_registry
+# can re-enter normalize paths), but does NOT block concurrent threads — each thread
+# runs its own independent discovery so list_tts_engines() never transiently returns []
+# due to another thread being mid-discovery.
+_DISCOVERY_STATE = threading.local()
+# Last successful describe_registry() result, served when a fresh discovery raises
+# (e.g. TTS server restarting under the watchdog) so valid persisted engines don't
+# transiently resolve to "" mid-render. Guarded by _DISCOVERY_LOCK; populated lazily
+# on the first successful call (never at import time). Recursion-guard returns ([])
+# never touch the cache.
+_LAST_GOOD_MANIFESTS: Optional[list[dict]] = None
 
 def _get_registry_manifests() -> list[dict]:
     """Helper to fetch engine registry manifests once without recursion."""
-    global _IN_DISCOVERY
-    if _IN_DISCOVERY:
+    global _LAST_GOOD_MANIFESTS
+    if getattr(_DISCOVERY_STATE, 'in_discovery', False):
         return []
-    _IN_DISCOVERY = True
+    _DISCOVERY_STATE.in_discovery = True
     try:
         from ..engines.bridge import create_voice_bridge
         bridge = create_voice_bridge()
-        return bridge.describe_registry()
+        manifests = bridge.describe_registry()
+        with _DISCOVERY_LOCK:
+            _LAST_GOOD_MANIFESTS = manifests
+        return manifests
     except Exception as e:
         import logging
         logging.getLogger(__name__).debug("Registry discovery failed: %s", e)
+        with _DISCOVERY_LOCK:
+            if _LAST_GOOD_MANIFESTS is not None:
+                return _LAST_GOOD_MANIFESTS
         return []
     finally:
-        _IN_DISCOVERY = False
+        _DISCOVERY_STATE.in_discovery = False
 
 
 def select_runtime_engine_candidate(registry_entries: list[dict], settings: Optional[dict] = None) -> str:

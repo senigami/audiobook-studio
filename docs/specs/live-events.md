@@ -1,7 +1,7 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.1.0
+spec_version: 1.5.0
 status: active
 sources:
   - app/api/ws.py
@@ -17,6 +17,12 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.5.0   | 2026-06-11 | `SEGMENT_PENDING` reason code: `[START_SEGMENT]` marker now emits `SEGMENT_PENDING` (announce, no segment ETA) rather than `START_SEGMENT`. Canonical `START_SEGMENT` with ETA is emitted only at engine confirmation (`[START_SYNTHESIS]` or first `[PROGRESS]`). Frontends must not begin pacing a progress bar on `SEGMENT_PENDING`. |
+| 1.4.1   | 2026-06-11 | Engine-confirmed segment ETA clock: per-segment clock starts at engine confirmation (`[START_SYNTHESIS]` or first `[PROGRESS]`), not at `[START_SEGMENT]`; `[START_SEGMENT]` is an announcement that may precede model load. Duration falls back to announce time if no confirmation arrives before `[SEGMENT_SAVED]`. |
+| 1.4.0   | 2026-06-11 | Terminal ordering guarantee: per-job terminal latch at the broadcast chokepoint (`broadcast_job_updated` / `broadcast_segment_progress` in `app/api/ws.py`). After a job's terminal frame (`done`/`failed`/`cancelled`), no non-terminal frame for that job is broadcast on any topic unless the job legally re-enters via `queued`/`preparing` (requeue). Mirrors `ProgressService._should_emit`; frontend H7 suppression (progress-presentation.md) is now defense-in-depth. |
+| 1.3.1   | 2026-06-11 | `START_SEGMENT` allowed on `chapters.progress` (segment-capable engines surface the phase reason); mixed-render chapter progress is owned solely by the orchestrator marker pipeline — the mixed handler emits `[START_SEGMENT]`/`[SEGMENT_SAVED]`/`[PROGRESS]` markers and writes no chapter-level progress/ETA/group fields itself |
+| 1.3.0   | 2026-06-11 | Producer obligation made real: every queue-visible job (chapter, segment, voice) emits `queue_item_status` on STATUS TRANSITIONS — from the progress service for orchestrated transitions and from `broadcast_job_updated` for handler-direct writes. Terminal `jobs.lifecycle` frames also trigger a client queue refetch (safety net). Previously chapter/segment jobs emitted no `queue_item_status` at all (the ws chapter branch returned early), so queue rows froze once Slice 5 removed status authority from other topics. |
+| 1.2.0   | 2026-06-11 | Row-authority guardrails (audit Slice 5): `queue.items` is the sole row authority; all other topics are overlay-only on existing rows (see "Queue row authority") |
 | 1.1.0   | 2026-06-10 | Removed `useJobs` periodic snapshot polling — snapshot hydration is event-driven only (owner ruling) |
 | 1.0.0   | 2026-06-10 | Initial canonical spec      |
 
@@ -280,6 +286,91 @@ is **documented intent**, not enforced by a sequencing gate in the code.
 
 ---
 
+## Terminal ordering guarantee (per-job terminal latch)
+
+After a job's terminal frame (`done`/`failed`/`cancelled`) has been broadcast,
+the backend guarantees that **no further non-terminal frame for that job is
+broadcast on any topic** — unless the job legally re-enters via
+`queued`/`preparing` (requeue / terminal reset).
+
+Enforced by a per-job latch in `app/api/ws.py` (RLock-guarded module state),
+consulted at the top of `broadcast_job_updated` before any event building and
+read-only in `broadcast_segment_progress`. It mirrors the
+`ProgressService._should_emit` rule (prev terminal + curr not in
+`{done, failed, cancelled, queued, preparing}` → don't emit):
+
+- The latch **sets** on the first terminal status seen for a job id (and when a
+  stale snapshot shows the job already terminal).
+- Terminal frames themselves always pass (the final frame is delivered; repeat
+  terminal frames are still legal).
+- `queued`/`preparing` **unlatch** and pass — requeue restores normal flow.
+- Anything else while latched is **dropped** and logged at debug.
+- The latch is cleared on `terminal_reset` broadcasts, on job removal
+  (`delete_jobs`), and on `clear_all_jobs` (test/state reset), so entries do
+  not leak across runs.
+
+The frontend's H7 suppression rules (progress-presentation.md) remain as
+defense-in-depth; they are no longer load-bearing for this ordering.
+
+---
+
+## Per-segment ETA clock semantics
+
+The orchestrator's `log_listener` maintains a per-segment render clock used to
+compute `active_segment_eta_seconds` and the `sum_segment_render_seconds` timing
+sample stored on the job.
+
+**Announce vs confirmation — two distinct published frames:**
+
+- **`[START_SEGMENT]` marker → `SEGMENT_PENDING` frame** (announcement): emitted
+  immediately when the `[START_SEGMENT]` log line is received. Payload carries
+  `active_segment_id`, chapter-level grouped progress, and group fields — but
+  `active_segment_eta_seconds` is `null` and `reason_code` is `"SEGMENT_PENDING"`.
+  Frontends must **not** begin pacing a progress bar on this frame; the engine has
+  not confirmed synthesis has started. In mixed renders this announcement arrives
+  ~19 seconds before the engine is ready.
+
+- **Engine confirmation → canonical `START_SEGMENT` frame** (clock start): emitted
+  from one of two confirmation sites:
+  1. `[START_SYNTHESIS]` — engine confirmed after model load (mixed-render pattern).
+  2. First `[PROGRESS]` line for the active segment — fallback for engines that skip
+     `[START_SYNTHESIS]`.
+  The canonical `START_SEGMENT` frame carries the same fields as the announce frame
+  plus a non-null `active_segment_eta_seconds`. In the PROGRESS-branch confirmation
+  this frame is published **before** the `SEGMENT_PROGRESS` frame.
+
+**No confirmation at announce:** A `[START_SEGMENT]` line never confirms the clock,
+even when a `[START_SYNTHESIS]` was seen earlier — in mixed renders that earlier
+signal belongs to a previous group's subprocess, and the next group still has to pay
+its own model load. In plain single-process renders (engine-emitted START_SEGMENT,
+model already warm), the segment shows SEGMENT_PENDING only until its first
+`[PROGRESS]` line — typically under two seconds. Mixed renders emit one
+`[START_SYNTHESIS]` per group subprocess; the job-level dedup of that marker must
+not suppress the per-segment confirmation for groups after the first.
+
+**Clock start rule (engine-confirmed):** The per-segment clock starts when the
+engine confirms synthesis has begun, not when the segment is announced:
+
+- `[START_SYNTHESIS]` — if an active segment has been announced (via `[START_SEGMENT]`)
+  but not yet confirmed, this line sets the confirmed start time. In mixed renders the
+  XTTS subprocess emits `[START_SYNTHESIS]` after the model finishes loading (~19s),
+  so using this timestamp avoids counting model-load time as synthesis time.
+- First `[PROGRESS]` line for the active segment — fallback confirmation for engines
+  that do not emit `[START_SYNTHESIS]` at all.
+
+**Announce time (`[START_SEGMENT]`):** `[START_SEGMENT]` records an announce
+timestamp only. It is emitted by the mixed handler *before* spawning the engine
+subprocess and may therefore precede model load by many seconds. It must not be
+used as the clock start for ETA or duration accounting.
+
+**Fallback (no confirmation before `[SEGMENT_SAVED]`):** If neither
+`[START_SYNTHESIS]` nor any `[PROGRESS]` arrives before `[SEGMENT_SAVED]` (e.g.
+fast remote-API engines such as Voxtral that complete before emitting synthesis
+markers), `sum_segment_render_seconds` falls back to `now − announce_time` so that
+timing samples are always recorded.
+
+---
+
 ## Client contract
 
 ### Bus (`studioSocketBus.ts`)
@@ -378,6 +469,42 @@ mutations. The queue state derives exclusively from `jobs.lifecycle`, `queue.ite
 
 ---
 
+## Queue row authority (binding — audit Slice 5)
+
+`queue.items` is the **only** topic with row authority over main queue rows.
+Enforced in `useQueueSync.ts` (row creation guard + overlay-field stripping) and
+`useJobs.ts` (unknown-job guards); the allowed overlay fields are the exported
+`QUEUE_OVERLAY_FIELDS` constant in `frontend/src/utils/queueOverlayFields.ts`.
+
+| Capability | `queue.items` | `jobs.lifecycle` | `chapters.progress` / `segments.progress` / `voice.test` | `chapters.lifecycle` |
+|---|---|---|---|---|
+| Create a queue row | ✅ | ❌ | ❌ | ❌ |
+| Change row identity / classification (kind, engine, title, project, chapter) | ✅ | ❌ | ❌ | ❌ |
+| Change row lifecycle **status** | ✅ | ❌ | ❌ | ❌ |
+| Drive terminal retention / removal | ✅ | ❌ | ❌ | ❌ |
+| Update live overlay fields (`QUEUE_OVERLAY_FIELDS`) on an **existing** row | ✅ | ✅ | ✅ | ❌ |
+| Trigger refetch / invalidation | ✅ (`queue_item_invalidated`) | ❌ | ❌ | ✅ |
+
+Rules:
+
+- An overlay frame for a job id that is unknown in both the canonical snapshot and
+  the live store MUST be dropped (dev builds may log it). It is NOT buffered: the
+  backend emits a `queue_item_status` frame on every STATUS TRANSITION of every
+  queue-visible job — from `ProgressService.publish` for orchestrated transitions
+  (which suppress the legacy listener via `skip_job_updated`) and from
+  `broadcast_job_updated` (`app/api/ws.py`) for handler-direct `update_job`
+  writes — so the authoritative row state arrives on its own topic. Progress-only
+  ticks do NOT emit `queue.items`; they flow on the scoped topics as overlays.
+- A terminal `jobs.lifecycle` frame (`done`/`failed`/`cancelled`) additionally
+  triggers a client queue REFETCH (`useQueueSync`) — a legal re-read of the
+  durable rows, guaranteeing eventual consistency if a queue.items frame drops.
+- Overlay application MUST preserve the row's current status (from store, then
+  snapshot); a terminal `jobs.lifecycle` frame may be used **read-only** as the
+  trigger for clearing segment-overlay fields (`applyTerminalLifecycleReset`), but
+  its status is never written to the row.
+- The audit-era allowance for `jobs.lifecycle` to refresh queue-visible data is
+  retired; it is an overlay topic for queue purposes.
+
 ## Invariants
 
 **Server MUST:**
@@ -389,8 +516,12 @@ mutations. The queue state derives exclusively from `jobs.lifecycle`, `queue.ite
 - Round progress to 2 decimal places before broadcast.
 - Not broadcast `queue.items` invalidation for ordinary running/progress updates
   (only for terminal resets and explicit force-broadcast with non-terminal status).
+- Not broadcast a non-terminal frame for a job after its terminal frame, except
+  via the `queued`/`preparing` re-entry (see "Terminal ordering guarantee").
 
 **Client MUST:**
+- Enforce the queue row-authority table above: only `queue.items` creates,
+  reclassifies, status-transitions, or retires main queue rows.
 - Use `publishStudioSocketMessage` as the single injection point (not raw listener
   calls) so the audit store record is always created before subscribers run.
 - Not infer queue-row status from `tts.logs` frames.

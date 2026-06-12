@@ -13,6 +13,8 @@ import { GeneralSettingsPanel } from '@/pages/Settings/components/GeneralSetting
 import { EnginesPanel } from '@/pages/Settings/components/EnginesPanel';
 import { ApiSettingsPanel } from '@/pages/Settings/components/ApiSettingsPanel';
 import { AboutSettingsPanel } from '@/pages/Settings/components/AboutSettingsPanel';
+import { DeveloperSettingsPanel } from '@/pages/Settings/components/DeveloperSettingsPanel';
+import { useDevMode } from '@/utils/devMode';
 
 interface SettingsRouteProps {
   settings: AppSettings | undefined;
@@ -34,10 +36,19 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
   onShowNotification
 }) => {
   const { pathname } = useLocation();
+  const devMode = useDevMode();
   const canonicalPathname = useMemo(() => normalizeSettingsPath(pathname), [pathname]);
   const activeTab = useMemo(() => getActiveSettingsTab(canonicalPathname), [canonicalPathname]);
+  const visibleTabs = useMemo(
+    () => SETTINGS_TABS.filter((tab) => !tab.devOnly || devMode),
+    [devMode]
+  );
 
   if (!VALID_SETTINGS_PATHS.has(canonicalPathname)) {
+    return <Navigate to="/settings" replace />;
+  }
+  // Redirect away from /settings/developer if dev mode is off
+  if (activeTab.id === 'developer' && !devMode) {
     return <Navigate to="/settings" replace />;
   }
 
@@ -65,7 +76,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
               placeItems: 'center',
               color: 'var(--accent)',
               background: 'var(--accent-glow)',
-              border: '1px solid rgba(43, 110, 255, 0.12)',
+              border: '1px solid var(--accent-focus-ring)',
             }}
           >
             <SettingsIcon size={24} />
@@ -102,7 +113,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
             top: 'calc(var(--header-height, 72px) + 1.5rem)',
           }}
         >
-          {SETTINGS_TABS.map((tab) => (
+          {visibleTabs.map((tab) => (
             <SettingsTabLink key={tab.id} tab={tab} active={tab.id === activeTab.id} />
           ))}
         </nav>
@@ -128,6 +139,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
           )}
           {activeTab.id === 'api' && <ApiSettingsPanel />}
           {activeTab.id === 'about' && <AboutSettingsPanel onRefresh={onRefresh} />}
+          {activeTab.id === 'developer' && <DeveloperSettingsPanel />}
         </div>
       </div>
     </section>

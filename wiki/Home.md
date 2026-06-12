@@ -15,8 +15,11 @@ Pinokio handles setup and launch for you, and can optionally install demo conten
 
 ### Want to preview before installing?
 
-**[Open the Live Demo / Showcase](https://senigami.github.io/audiobook-studio/)**  
-Hear samples, review features, and see how the workflow works before installing anything.
+**[Try the Interactive Demo](https://senigami.github.io/audiobook-studio/demo/)**  
+The real production UI (queue, progress bars, status transitions) running live in your browser against a scripted render session. No backend, no install required. See [[Live-Demos]] for stage deep-links and technical notes.
+
+**[Open the Showcase Page](https://senigami.github.io/audiobook-studio/)**  
+Hear audio samples, review features, and see how the workflow works before installing anything.
 
 ### Want the full repo and scripts?
 
@@ -43,7 +46,9 @@ For brand-new users, the current Studio 2.0 release line is the best place to be
 ## Quick Links
 
 - **[Pinokio Install](https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio)** - Easiest install path
-- **[Live Demo / Showcase](https://senigami.github.io/audiobook-studio/)** - Hear examples and preview the app
+- **[Interactive Demo](https://senigami.github.io/audiobook-studio/demo/)** - Live UI components running against a scripted session (no install)
+- **[Live Demo / Showcase](https://senigami.github.io/audiobook-studio/)** - Hear audio samples and review features
+- **[Live Demos](https://github.com/senigami/audiobook-studio/wiki/Live-Demos)** - Stage deep-links and demo technical notes
 - **[Getting Started](https://github.com/senigami/audiobook-studio/wiki/Getting-Started)** - Recommended setup and first run
 - **[Concepts](https://github.com/senigami/audiobook-studio/wiki/Concepts)** - Core architecture and terminology
 - **[Library and Projects](https://github.com/senigami/audiobook-studio/wiki/Library-and-Projects)** - Managing books and assemblies

@@ -187,3 +187,25 @@ class TestResourceClaim:
         manifest = type("M", (), {})()
         claim = ResourceClaim.from_engine_manifest(manifest)
         assert claim.gpu is False
+
+
+def test_run_post_success_bookkeeping_cannot_fail_the_task(monkeypatch, tmp_path):
+    # Audit task 003: a raise while persisting synthesis_duration_seconds after
+    # a successful synthesize must not flip the result to failed.
+    from unittest.mock import MagicMock, patch
+
+    task = ApiSynthesisTask(
+        task_id="api-job-1",
+        engine_id="xtts",
+        text="Hello",
+        output_path=str(tmp_path / "out.wav"),
+    )
+
+    mock_bridge = MagicMock()
+    mock_bridge.synthesize.return_value = {"status": "ok", "duration_sec": 2.0}
+
+    with patch("app.engines.bridge.create_voice_bridge", return_value=mock_bridge), \
+         patch("app.db.state.update_job", side_effect=RuntimeError("state store unavailable")):
+        result = task.run()
+
+    assert result.status == "completed"

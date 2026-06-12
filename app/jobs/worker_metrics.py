@@ -72,7 +72,10 @@ def record_engine_sample(job, start: float, chars: int, perf: dict, source_segme
 
     synthesis_dur = _job_field(persisted, "synthesis_duration_seconds", _job_field(job, "synthesis_duration_seconds"))
     if not synthesis_dur or synthesis_dur <= 0:
-        raise ValueError("synthesis_duration_seconds is mandatory and must be positive")
+        # Bookkeeping is best-effort: a job that finished without reporting a
+        # duration is skipped, never failed retroactively.
+        logger.warning("Skipping render sample for job %s: synthesis_duration_seconds missing or non-positive", job_id)
+        return
     base_cps = chars / synthesis_dur
     from ..db.performance import record_render_sample
 
@@ -98,7 +101,6 @@ def record_engine_sample(job, start: float, chars: int, perf: dict, source_segme
         )
     except ValueError as exc:
         logger.warning("Rejected logging sample due to contract validation error: %s", exc)
-        raise
 
     # Re-derive robust CPS logic has been removed/quarantined in favor of calibrated model parameters in studio.db
     pass

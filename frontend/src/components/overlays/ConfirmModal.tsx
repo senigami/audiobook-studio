@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertCircle, X } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface ConfirmModalProps {
     isOpen: boolean;
@@ -30,34 +31,49 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     // If it's an alert, default confirm text to 'Close' if not provided
     const finalConfirmText = confirmText || (isAlert ? 'Close' : 'Confirm');
 
+    const dialogRef = useRef<HTMLDivElement>(null);
+    useFocusTrap(dialogRef, isOpen);
+
+    const handleEscape = useCallback((e: React.KeyboardEvent) => {
+        if (e.key === 'Escape') onCancel();
+    }, [onCancel]);
+
     return (
         <AnimatePresence>
             {isOpen && (
-                <div style={{
-                    position: 'fixed',
-                    inset: 0,
-                    zIndex: 2000,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '1.5rem'
-                }}>
+                <div
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 2000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '1.5rem'
+                    }}
+                    onKeyDown={handleEscape}
+                >
                     {/* Backdrop */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onCancel}
+                        aria-hidden="true"
                         style={{
                             position: 'absolute',
                             inset: 0,
-                            background: 'rgba(15, 23, 42, 0.4)',
+                            background: 'var(--overlay-backdrop)',
                             backdropFilter: 'blur(8px)',
                         }}
                     />
 
                     {/* Modal Content */}
                     <motion.div
+                        ref={dialogRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="confirm-modal-title"
                         initial={{ opacity: 0, scale: 0.95, y: 10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -77,11 +93,11 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                         }}
                     >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div style={{ 
-                                width: '48px', 
-                                height: '48px', 
-                                borderRadius: '12px', 
-                                background: isDestructive ? 'rgba(239, 68, 68, 0.1)' : 'rgba(var(--accent-rgb), 0.1)',
+                            <div style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '12px',
+                                background: isDestructive ? 'var(--error-tint-bg)' : 'var(--accent-glow)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -89,14 +105,21 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                             }}>
                                 <AlertCircle size={24} />
                             </div>
-                            <button 
+                            <button
                                 onClick={onCancel}
-                                style={{ 
-                                    background: 'none', 
-                                    border: 'none', 
-                                    color: 'var(--text-muted)', 
+                                aria-label="Close dialog"
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'var(--text-muted)',
                                     cursor: 'pointer',
-                                    padding: '4px'
+                                    padding: '10px',
+                                    minWidth: '40px',
+                                    minHeight: '40px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    borderRadius: '8px'
                                 }}
                             >
                                 <X size={20} />
@@ -104,7 +127,12 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>{title}</h3>
+                            <h3
+                                id="confirm-modal-title"
+                                style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}
+                            >
+                                {title}
+                            </h3>
                             <p style={{ fontSize: '0.925rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
                                 {projectName ? (
                                     <>
@@ -116,7 +144,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
                         <div style={{ display: 'flex', gap: '12px', marginTop: '0.5rem' }}>
                             {!isAlert && (
-                                <button 
+                                <button
                                     onClick={onCancel}
                                     className="btn-ghost"
                                     style={{ flex: 1, padding: '0.75rem', borderRadius: '12px' }}
@@ -124,12 +152,12 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                                     {cancelText}
                                 </button>
                             )}
-                            <button 
+                            <button
                                 onClick={onConfirm}
                                 className={isDestructive && !isAlert ? 'btn-danger' : 'btn-primary'}
-                                style={{ 
-                                    flex: 1, 
-                                    padding: '0.75rem', 
+                                style={{
+                                    flex: 1,
+                                    padding: '0.75rem',
                                     borderRadius: '12px',
                                     backgroundColor: isDestructive && !isAlert ? 'var(--error)' : 'var(--accent)',
                                     color: 'white',

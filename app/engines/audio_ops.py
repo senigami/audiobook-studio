@@ -57,6 +57,45 @@ def get_audio_duration(file_path: Path) -> float:
         return 0.0
 
 
+def finalize_sample_artifact(
+    wav_path: Path,
+    *,
+    on_output: Callable[[str], None] | None = None,
+    cancel_check: Callable[[], bool] | None = None,
+) -> Path:
+    """Convert a voice-sample WAV to MP3, delete the WAV on success, return the MP3 path.
+
+    On conversion failure (nonzero return code or missing output), the WAV is kept and
+    its path is returned so callers can still serve the preview.
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    mp3_path = wav_path.with_suffix(".mp3")
+    try:
+        rc = wav_to_mp3(wav_path, mp3_path, on_output=on_output, cancel_check=cancel_check)
+    except Exception as exc:
+        logger.warning("finalize_sample_artifact: wav_to_mp3 raised %s — keeping WAV %s", exc, wav_path)
+        return wav_path
+
+    if rc != 0 or not mp3_path.exists():
+        logger.warning(
+            "finalize_sample_artifact: conversion returned rc=%s, mp3_exists=%s — keeping WAV %s",
+            rc,
+            mp3_path.exists(),
+            wav_path,
+        )
+        return wav_path
+
+    try:
+        wav_path.unlink()
+    except OSError as exc:
+        logger.warning("finalize_sample_artifact: could not delete WAV %s: %s", wav_path, exc)
+
+    return mp3_path
+
+
 def stitch_segments(
     pdir: Path,
     segment_wavs: list[Path],

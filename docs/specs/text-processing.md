@@ -1,6 +1,6 @@
 # SP6 — Text Processing Spec
 
-**spec_version:** 1.0.1  
+**spec_version:** 1.1.0  
 **status:** active  
 **owner:** Studio 2.0
 
@@ -10,6 +10,7 @@
 
 | Version | Date       | Author      | Notes                         |
 |---------|------------|-------------|-------------------------------|
+| 1.1.0   | 2026-06-11 | Studio team | Stage 6 groups exposed read-only at `GET /projects/{pid}/chapters/{cid}/render_groups` (`build_chunk_groups` over ordered segments); UI "segment" counts and the script-view Numbers toggle MUST derive from this canonical computation, not sentence-row counts |
 | 1.0.1   | 2026-06-10 | Studio team | B19: Stage 6 grouping budget now uses `get_text_chunk_limit(engine_id)` (manifest-sourced) — constant-based limit removed from grouper, bake, and standard handler |
 | 1.0.0   | 2026-06-10 | Studio team | Initial spec from implemented behavior |
 
@@ -272,6 +273,22 @@ manifest, falling back to `DEFAULT_ENGINE_TEXT_CHUNK_LIMIT = 500`.
 - The size budget formula is:
   `combined_len = len(" ".join(existing_texts)) + 1 + len(next_text)`
   which exactly mirrors the separator used by `join_group_text`.
+
+### Canonical exposure (read-only)
+
+`GET /projects/{project_id}/chapters/{chapter_id}/render_groups`
+(`app/api/routers/chapters.py`) returns the Stage 6 grouping for a chapter as
+`{count, groups: [{index, segment_ids, engine, char_count}]}`, computed by
+`build_chunk_groups(load_chunk_segments(chapter_id), default_profile)` where
+`default_profile` is the chapter's `speaker_profile_name` falling back to the
+settings `default_speaker_profile` — the same resolution queue submissions use.
+
+**Contract:**
+- Any UI surface presenting a "segment" count for rendering (analysis footer,
+  character sidebar, script-view Numbers toggle) MUST derive from this
+  computation, never from sentence-row counts (`chapter_segments` cardinality).
+- The endpoint is read-only and MUST NOT mutate segments or trigger grouping
+  side effects.
 
 ### Group text join
 

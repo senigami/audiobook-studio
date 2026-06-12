@@ -617,4 +617,59 @@ describe('ScriptView', () => {
     const rebuildButtons = s2Span?.querySelectorAll('button[title="Rebuild"]');
     expect(rebuildButtons?.length).toBe(1);
   });
+
+  it('shows Narrator label for all-null character_id spans in script mode', () => {
+    const allNullData: ScriptViewResponse = {
+      chapter_id: 'chap-null',
+      base_revision_id: 'rev-null',
+      paragraphs: [
+        { id: 'pn1', span_ids: ['sn1'] },
+        { id: 'pn2', span_ids: ['sn2'] },
+      ],
+      spans: [
+        {
+          id: 'sn1',
+          order_index: 0,
+          text: 'First narrator line.',
+          sanitized_text: 'First narrator line.',
+          character_id: null,
+          speaker_profile_name: null,
+          status: 'draft',
+          audio_file_path: null,
+          audio_generated_at: null,
+          char_count: 20,
+          sanitized_char_count: 20,
+        },
+        {
+          id: 'sn2',
+          order_index: 1,
+          text: 'Second narrator line.',
+          sanitized_text: 'Second narrator line.',
+          character_id: null,
+          speaker_profile_name: null,
+          status: 'draft',
+          audio_file_path: null,
+          audio_generated_at: null,
+          char_count: 21,
+          sanitized_char_count: 21,
+        },
+      ],
+      render_batches: [],
+      audio_groups: [],
+    };
+
+    render(
+      <ScriptView
+        data={allNullData}
+        characters={[]}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set()}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Script'));
+    // The first span must show 'Narrator' even though lastCharId starts as null
+    expect(screen.getAllByText('Narrator').length).toBeGreaterThan(0);
+  });
 });

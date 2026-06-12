@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { Layout } from '@/components/layout/Layout'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect } from 'vitest'
@@ -106,6 +106,49 @@ describe('Layout', () => {
         expect(screen.getByText('Queue')).toBeTruthy()
         expect(screen.getByText('5')).toBeTruthy()
         expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'recovering')
+    })
+
+    it('burger button toggles nav open state', () => {
+        render(
+            <MemoryRouter>
+                <Layout {...defaultProps} />
+            </MemoryRouter>
+        )
+
+        const burger = screen.getByRole('button', { name: /Open navigation/i })
+        expect(burger.getAttribute('aria-expanded')).toBe('false')
+
+        // Open
+        fireEvent.click(burger)
+        expect(burger.getAttribute('aria-expanded')).toBe('true')
+
+        // Close
+        fireEvent.click(burger)
+        expect(burger.getAttribute('aria-expanded')).toBe('false')
+    })
+
+    it('mobile nav backdrop click closes the drawer', () => {
+        render(
+            <MemoryRouter>
+                <Layout {...defaultProps} />
+            </MemoryRouter>
+        )
+
+        // Open drawer
+        const burger = screen.getByRole('button', { name: /Open navigation/i })
+        fireEvent.click(burger)
+        expect(burger.getAttribute('aria-expanded')).toBe('true')
+
+        // Backdrop should now be present
+        const backdrop = document.querySelector('.mobile-nav-backdrop')
+        expect(backdrop).toBeTruthy()
+
+        // Clicking backdrop closes drawer
+        fireEvent.click(backdrop!)
+        expect(burger.getAttribute('aria-expanded')).toBe('false')
+
+        // Backdrop should no longer be in DOM
+        expect(document.querySelector('.mobile-nav-backdrop')).toBeNull()
     })
 
     it('uses shell state to mark settings as the active global tab', () => {

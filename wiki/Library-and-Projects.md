@@ -45,6 +45,21 @@ Manage the personas within your project.
 
 ![Characters tab showing persona mapping to AI voices](images/characters-tab.jpg)
 
+### 3. Assemblies Tab
+
+The Assemblies tab is where you compile and download the finished audiobook. It shows the assembly history as a receipt-style list: each entry displays when the assembly ran, file duration, file size, and a "Latest" badge on the most recent export. Use **Assemble Audiobook** (top right of the Project View) to start a new assembly.
+
+Assembly uses incremental concatenation — it stitches existing M4A chapter encodes together without re-encoding, so subsequent assemblies after partial chapter updates are fast.
+
+### 4. Backups Tab
+
+The Backups tab lets you save or download dated ZIP snapshots of the project.
+
+- **Save**: Writes a backup to the `backups/` folder inside the project directory. The backup can include or exclude rendered audio (use the `include_audio` option).
+- **Download**: Creates the same ZIP and sends it to your browser immediately without saving a copy locally.
+- Saved backups are listed with their timestamp and comment. Each row has a download link so you can retrieve it later.
+- Backup files use the `.zip` extension (or `.abf` for older bundle-format files).
+
 ## 📝 Chapter Editor
 
 Clicking a chapter opens the **Chapter Editor**, which has been consolidated around the script, playback, and production flow rather than separate legacy tabs.
@@ -53,9 +68,9 @@ Clicking a chapter opens the **Chapter Editor**, which has been consolidated aro
 - **Voice Assignment**: Assign narration and character voices directly from the editor flow.
 - **Queueing and Rendering**: Queue the chapter or targeted chunks and watch live progress from the editor and Global Queue.
 - **Preview and Live Output**: Inspect render output and diagnostics without leaving the chapter.
-- **VCR Playback**: Use play, pause, stop, previous, and next controls for a more predictable listen-through workflow.
+- **VCR Playback**: Play, pause, and stop controls for a predictable listen-through workflow. Hold the skip-backward or skip-forward buttons to skim through audio at speed; release to resume normal playback. A seek slider with timestamps lets you jump to any point in the chapter. The only keyboard shortcuts are **Space** (play/pause) and **Escape** (stop); there are no prev/next keyboard shortcuts.
 
-![Chapter Editor showing the Performance tab and audio segments](images/chapter-editor.jpg)
+![Chapter Editor showing the Script view and audio segments](images/chapter-editor.jpg)
 
 ## 📦 Export and Assembly
 

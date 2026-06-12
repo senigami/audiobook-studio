@@ -70,7 +70,7 @@ export const AssemblyPanel: React.FC<AssemblyPanelProps> = ({
                             justifyContent: 'center',
                             flexShrink: 0,
                             border: '1px solid var(--border)',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            boxShadow: 'var(--shadow-sm)'
                         }}>
                             {a.cover_url ? (
                                 <img src={a.cover_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />

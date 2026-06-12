@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import inspect
 import logging
+from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
 from app.engines.enablement import can_enable_engine
+from app.tts_server.settings_store import load_settings
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +45,11 @@ def engine_status(
         return STATUS_INVALID_CONFIG
 
     try:
-        check_env = plugin.engine.check_env
-        if _accepts_settings(check_env):
-            ok, msg = check_env(settings=current_settings or {})
-        else:
-            ok, msg = check_env()
+        ok, msg = call_check_env(
+            plugin.engine,
+            getattr(plugin, "plugin_dir", None),
+            settings=current_settings,
+        )
     except Exception as exc:
         logger.exception("Plugin %s check_env() crashed", plugin.engine_id)
         plugin.setup_message = "check_env() crashed (see server logs)."
@@ -64,6 +66,41 @@ def engine_status(
         return STATUS_UNVERIFIED
 
     return STATUS_READY
+
+
+def call_check_env(
+    engine: Any,
+    plugin_dir: Path | None,
+    *,
+    settings: dict[str, Any] | None = None,
+) -> tuple[bool, Any]:
+    """Call ``engine.check_env``, passing persisted settings when the engine accepts them.
+
+    This is the single entry point for environment checks: it owns signature
+    inspection and best-effort settings loading, so a settings-keyed engine
+    (e.g. an API key stored in engine settings) is never checked "bare".
+
+    Args:
+        engine: Plugin engine instance exposing ``check_env``.
+        plugin_dir: Plugin folder used to load persisted settings when no
+            explicit ``settings`` override is supplied. May be ``None``.
+        settings: Already-merged settings to pass instead of loading from disk.
+
+    Returns:
+        tuple[bool, Any]: The ``(ok, message)`` pair from ``check_env``.
+    """
+    check_env = engine.check_env
+    if not _accepts_settings(check_env):
+        return check_env()
+
+    if settings is None:
+        settings = {}
+        if plugin_dir is not None:
+            try:
+                settings = load_settings(plugin_dir)
+            except Exception:
+                settings = {}
+    return check_env(settings=settings)
 
 
 def _accepts_settings(callable_obj: Any) -> bool:
@@ -90,14 +127,24 @@ def build_health_response(plugins: "list[LoadedPlugin]") -> dict[str, Any]:
     """
     engine_summaries = []
     for plugin in plugins:
-        status = engine_status(plugin)
+        # Settings-keyed engines (e.g. an API key in engine settings) report
+        # needs_setup unless check_env sees the persisted settings.
+        try:
+            current_settings = load_settings(plugin.plugin_dir)
+        except Exception:
+            current_settings = {}
+        status = engine_status(plugin, current_settings=current_settings)
         engine_summaries.append(
             {
                 "engine_id": plugin.engine_id,
                 "display_name": plugin.display_name,
                 "status": status,
                 "verified": plugin.verified,
-                "verification_error": plugin.load_error or plugin.verification_error,
+                # load_error carries controlled diagnostics only (manifest
+                # validation messages; crash details require dev.enabled) and
+                # the TTS server is a localhost-only subprocess — surfacing it
+                # to the local operator is the designed contract.
+                "verification_error": plugin.load_error or plugin.verification_error,  # lgtm[py/stack-trace-exposure]
             }
         )
 
@@ -153,6 +200,11 @@ def build_engine_detail(
     if not schema and getattr(plugin, "settings_schema", None):
         schema = plugin.settings_schema
 
+    # Inject sanitize_overrides into the schema for engines that declare
+    # sanitize_categories.  This is the single injection chokepoint — plugin
+    # settings_schema.json files are NOT hand-edited.
+    schema = _inject_sanitize_overrides_schema(schema, manifest)
+
     enabled = bool(current_settings.get("enabled"))
     setup_message = getattr(plugin, "setup_message", None)
     if status == STATUS_INVALID_CONFIG:
@@ -192,6 +244,71 @@ def build_engine_detail(
         "logo_url": _resolve_logo_url(plugin),
         "built_in": manifest.get("built_in", False),
     }
+
+
+_SANITIZE_CATEGORY_DESCRIPTIONS: dict[str, str] = {
+    "quotes": "Convert curly/smart quotes to straight quotes and strip double quotes.",
+    "acronyms": "Collapse dotted acronyms (e.g. A.B.C. -> A B C) to prevent TTS mis-pronunciation.",
+    "fractions": "Expand digit fractions (e.g. 3/4 -> 3 out of 4).",
+    "dashes": "Replace em-dashes with commas and ellipses with periods.",
+    "punct_spacing": "Fix punctuation spacing artifacts and collapse duplicate punctuation.",
+    "ascii": "Strip non-ASCII characters that can cause TTS hallucinations.",
+    "terminal": "Ensure text ends with terminal punctuation.",
+}
+
+_SANITIZE_CATEGORY_TITLES: dict[str, str] = {
+    "quotes": "Normalize Quotes",
+    "acronyms": "Expand Acronyms",
+    "fractions": "Expand Fractions",
+    "dashes": "Normalize Dashes & Ellipses",
+    "punct_spacing": "Fix Punctuation Spacing",
+    "ascii": "Strip Non-ASCII Characters",
+    "terminal": "Ensure Terminal Punctuation",
+}
+
+
+def _inject_sanitize_overrides_schema(schema: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of *schema* with a ``sanitize_overrides`` object property injected.
+
+    The injection only happens when the engine's manifest declares
+    ``behavior.sanitize_categories``.  Each declared category becomes a boolean
+    sub-property (default ``true``).  The schema is never mutated in place.
+
+    Non-declaring engines are returned unchanged.
+    """
+    behavior = manifest.get("behavior") or {}
+    declared = behavior.get("sanitize_categories")
+    if not declared or not isinstance(declared, list):
+        return schema
+
+    sub_props: dict[str, Any] = {}
+    for cat in declared:
+        cat_str = str(cat)
+        sub_props[cat_str] = {
+            "type": "boolean",
+            "title": _SANITIZE_CATEGORY_TITLES.get(cat_str, cat_str.replace("_", " ").title()),
+            "description": _SANITIZE_CATEGORY_DESCRIPTIONS.get(cat_str, ""),
+            "default": True,
+        }
+
+    overrides_prop: dict[str, Any] = {
+        "type": "object",
+        "title": "Text Sanitization Overrides",
+        "description": (
+            "Enable or disable individual text sanitization categories for this engine. "
+            "Disabled categories are skipped; all categories are enabled by default."
+        ),
+        "properties": sub_props,
+        "default": {},
+    }
+
+    # Deep-copy schema to avoid mutating the original.
+    import copy
+    schema_copy = copy.deepcopy(schema) if schema else {}
+    if not isinstance(schema_copy.get("properties"), dict):
+        schema_copy["properties"] = {}
+    schema_copy["properties"]["sanitize_overrides"] = overrides_prop
+    return schema_copy
 
 
 def _resolve_logo_url(plugin: "LoadedPlugin") -> str | None:

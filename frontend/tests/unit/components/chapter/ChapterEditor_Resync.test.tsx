@@ -15,6 +15,7 @@ vi.mock('@/api', () => ({
     bakeChapter: vi.fn(),
     exportChapterAudio: vi.fn(),
     fetchScriptView: vi.fn(),
+    fetchChapterRenderGroups: vi.fn(),
     saveScriptAssignments: vi.fn(),
     compactScriptView: vi.fn(),
     previewSourceTextResync: vi.fn(),
@@ -75,6 +76,7 @@ describe('ChapterEditor - Source Text & Resync', () => {
     (api.fetchSegments as any).mockResolvedValue(mockSegments);
     (api.fetchCharacters as any).mockResolvedValue([]);
     (api.fetchScriptView as any).mockResolvedValue(mockScriptView);
+    (api.fetchChapterRenderGroups as any).mockResolvedValue({ count: 0, groups: [] });
   });
 
   afterEach(() => {

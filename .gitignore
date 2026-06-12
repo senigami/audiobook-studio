@@ -168,3 +168,7 @@ __pypackages__/
 plugins/*/assets/test_output.wav
 /Memory
 /debug
+
+# SQLite backups produced by cleanup steps
+*.db.bak
+*.sqlite.bak

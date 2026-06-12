@@ -59,7 +59,7 @@ export const PluginTrustModal: React.FC<PluginTrustModalProps> = ({
             style={{
               position: 'absolute',
               inset: 0,
-              background: 'rgba(15, 23, 42, 0.4)',
+              background: 'var(--overlay-backdrop)',
               backdropFilter: 'blur(8px)',
             }}
           />
@@ -91,11 +91,11 @@ export const PluginTrustModal: React.FC<PluginTrustModalProps> = ({
                   width: '48px',
                   height: '48px',
                   borderRadius: '12px',
-                  background: 'rgba(245, 158, 11, 0.1)',
+                  background: 'var(--warning-tint-bg)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#d97706',
+                  color: 'var(--warning-text)',
                 }}
               >
                 <ShieldAlert size={24} />
@@ -130,7 +130,7 @@ export const PluginTrustModal: React.FC<PluginTrustModalProps> = ({
               style={{
                 padding: '0.85rem 1rem',
                 borderRadius: '12px',
-                background: 'rgba(0,0,0,0.03)',
+                background: 'var(--surface-dim)',
                 border: '1px solid var(--border)',
                 display: 'flex',
                 flexDirection: 'column',
@@ -167,7 +167,7 @@ export const PluginTrustModal: React.FC<PluginTrustModalProps> = ({
                     overflowY: 'auto',
                     borderRadius: '10px',
                     border: '1px solid var(--border)',
-                    background: '#1a1a1a',
+                    background: 'var(--surface-code)',
                   }}
                 >
                   {preview.requirements.map((line, i) => {
@@ -180,9 +180,9 @@ export const PluginTrustModal: React.FC<PluginTrustModalProps> = ({
                           fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                           fontSize: '0.78rem',
                           lineHeight: 1.5,
-                          color: remote ? '#fbbf24' : '#d4d4d4',
-                          background: remote ? 'rgba(245,158,11,0.08)' : 'transparent',
-                          borderBottom: i < preview.requirements.length - 1 ? '1px solid #2a2a2a' : 'none',
+                          color: remote ? 'var(--warning)' : 'var(--text-code-muted)',
+                          background: remote ? 'var(--warning-tint-bg)' : 'transparent',
+                          borderBottom: i < preview.requirements.length - 1 ? '1px solid var(--surface-code-border)' : 'none',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '0.5rem',
@@ -194,8 +194,8 @@ export const PluginTrustModal: React.FC<PluginTrustModalProps> = ({
                             style={{
                               fontSize: '0.65rem',
                               fontWeight: 900,
-                              background: 'rgba(245,158,11,0.18)',
-                              color: '#fbbf24',
+                              background: 'var(--warning-tint-border)',
+                              color: 'var(--warning)',
                               padding: '1px 4px',
                               borderRadius: '3px',
                               letterSpacing: '0.04em',
@@ -212,7 +212,7 @@ export const PluginTrustModal: React.FC<PluginTrustModalProps> = ({
                 </div>
               )}
               {hasRemote && (
-                <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.8rem', color: '#d97706', lineHeight: 1.5 }}>
+                <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.8rem', color: 'var(--warning-text)', lineHeight: 1.5 }}>
                   One or more dependencies pull code directly from a remote URL (highlighted above). These execute immediately at install time.
                 </p>
               )}
@@ -238,8 +238,8 @@ export const PluginTrustModal: React.FC<PluginTrustModalProps> = ({
                   flex: 1,
                   padding: '0.75rem',
                   borderRadius: '12px',
-                  background: hasRemote ? '#d97706' : 'var(--accent)',
-                  color: 'white',
+                  background: hasRemote ? 'var(--warning-text-strong)' : 'var(--accent)',
+                  color: 'var(--text-on-accent)',
                   border: 'none',
                   fontWeight: 700,
                   cursor: 'pointer',

@@ -20,7 +20,7 @@ Phases 0–11 of the v2 conversion are complete; the app runs v2-only (TaskOrche
 | [02](02_plugin_communication_contract.md) | **The plugin communication contract**: server-side `StudioTTSEngine`, the new studio-side `StudioPluginContext` SDK (calls + callbacks with full signatures), manifest + versioning rules, event/topic mapping, migration plan |
 | [03](03_plugin_interface_template.md) | Copyable standalone-plugin template (`docs/specs/plugin_template/`) — the "fill in these functions" checklist for plugin authors |
 | [04](04_voice_metadata_and_tagging.md) | Voice attributes (taxonomy v1.0), tag/icon UI, AI casting card + recommendation contract |
-| [05](05_standalone_plugin_repos.md) | Standalone **GitHub** plugin repos (supersedes the GitLab plan): repo shape, install/update flow, extraction steps |
+| [05](05_standalone_plugin_repos.md) | Standalone **GitHub** plugin repos (supersedes the GitHub plan): repo shape, install/update flow, extraction steps |
 | [06](06_code_organization_cleanup.md) | Repo cleanup: root cruft, legacy-path deletion, dead stubs, frontend reorganization |
 | [07](07_frontend_themes_and_responsive.md) | Design tokens, light/dark theme, responsive completion, viewport×theme verification |
 | [08](08_release_sequence.md) | **The execution order** — six stages from stabilization to v2.0.0 |

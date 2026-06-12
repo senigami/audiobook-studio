@@ -172,17 +172,16 @@ class StudioTTSEngine(ABC):
         """
 ```
 
-### 2.3 New Method — `check_output` (to be added before 2.0 release)
+### 2.3 Optional Method — `check_output`
 
-This method does not exist yet in `app/engines/voice/base.py`. It is defined
-here as the contract target for the reconcile/verification step and must be
-added to `StudioTTSEngine` (with the default body below) as part of this plan.
+This method is **already present** in `app/engines/voice/base.py` as a
+concrete (non-abstract) optional override. The default accepts every result.
 
 ```python
     def check_output(self, req: TTSRequest, result: TTSResult) -> tuple[bool, str]:
         """Validate rendered artifact quality after synthesis.
 
-        Called by the Studio reconcile pass after synthesize() returns ok=True.
+        Called by the TTS Server immediately after synthesize() returns ok=True.
         The engine may inspect the written file (e.g. check duration, silence
         ratio, or expected speaker fingerprint).
 
@@ -192,13 +191,15 @@ added to `StudioTTSEngine` (with the default body below) as part of this plan.
 
         Returns:
             tuple[bool, str]: (True, 'OK') when the artifact passes QA;
-            (False, reason) when it must be discarded and re-queued.
+            (False, reason) when it must be discarded.
         """
         return True, "OK"  # default: accept all
 ```
 
-The default implementation accepts every result. Engines that can detect
-silence, truncation, or speaker mismatch should override this.
+Engines that can detect silence, truncation, or speaker mismatch should
+override this. The TTS Server deletes the artifact and returns
+`output_rejected` on `(False, reason)`. Exceptions inside the hook are
+failure-isolated (logged + artifact accepted).
 
 ### 2.4 TTSRequest Field Table
 
@@ -556,14 +557,37 @@ ctx.get_voices_dir() -> str
 #### 3.3.12 Audio Operations (bake / stitch)
 
 ```python
-ctx.stitch_segments(segment_wavs: list[str], out_wav: str) -> None
-"""Concatenate segment WAVs into a chapter WAV. Replaces app.engines.audio_ops.stitch_segments."""
+ctx.stitch_segments(
+    segment_wavs: list[str],
+    out_wav: str,
+    *,
+    pdir: str | None = None,
+    on_output: Callable[[str], None] | None = None,
+    cancel_check: Callable[[], bool] | None = None,
+) -> int
+"""Concatenate segment WAVs into a chapter WAV via ffmpeg concat.
+
+Args:
+    segment_wavs: Ordered list of segment WAV absolute paths.
+    out_wav:      Destination chapter WAV absolute path.
+    pdir:         Working directory for ffmpeg temp files; defaults to
+                  the parent directory of out_wav when omitted.
+    on_output:    Line-by-line ffmpeg stdout callback; no-op when omitted.
+    cancel_check: Cancellation predicate; always returns False when omitted.
+
+Returns 0 on success, non-zero on ffmpeg error.
+Replaces app.engines.audio_ops.stitch_segments."""
 
 ctx.wav_to_mp3(in_wav: str, out_mp3: str) -> None
 """Transcode WAV to MP3. Replaces app.engines.audio_ops.wav_to_mp3."""
 
 ctx.get_audio_duration(path: str) -> float
 """Return audio duration in seconds. Replaces app.engines.audio_ops.get_audio_duration."""
+
+ctx.finalize_sample_artifact(wav_path: Path) -> Path
+"""Convert a voice-sample WAV to MP3, delete WAV on success, return the final path.
+On conversion failure the WAV is kept and its path is returned.
+Replaces app.engines.audio_ops.finalize_sample_artifact (added in S5)."""
 ```
 
 #### 3.3.13 Text Preparation
@@ -580,15 +604,35 @@ ctx.get_text_chunk_limit(engine_id: str) -> int
 """Engine character chunk limit. Replaces app.engines.behavior.get_text_chunk_limit."""
 ```
 
+#### 3.3.14 Voice Job Delegation
+
+```python
+ctx.run_voice_job(job: JobSpec) -> JobResult
+"""Delegate to the shared voice-build/test handler.
+
+Wraps app.jobs.worker_voice.handle_voice_job. Plugin handlers for
+voice_build / voice_test / voice_task kinds should call this rather than
+importing the worker directly."""
+
+ctx.resolve_voice_preview_inputs(
+    profile_name: str,
+    *,
+    engine: str | None = None,
+) -> dict[str, Any]
+"""Resolve voice preview inputs for a profile.
+
+Returns a dict with keys:
+    voice_ref (str | None)            — absolute path to the primary voice WAV
+    voice_profile_dir (str | None)    — absolute path to the profile directory
+Wraps app.engines.voice_engines.resolve_voice_preview_inputs."""
+```
+
 > **Coverage rule.** `StudioPluginContext` must expose a method for **every**
 > `app.*` symbol currently imported by any studio-side handler under `plugins/`.
 > The full set was derived by `grep -rn "from app\." plugins/*/plugin/studio/`.
-> Notable handler dependencies still served only through the context:
-> `resolve_voice_preview_inputs` (voice preview) and `handle_voice_job` (the
-> shared voice-build/test handler) are wrapped as `ctx.resolve_voice_preview_inputs(...)`
-> and `ctx.run_voice_job(job)` respectively. If a migration step (§6) uncovers
-> an `app.*` import with no context equivalent, **add the wrapper to the context
-> first** — do not leave a residual `app.*` import in a plugin.
+> If a migration step (§6) uncovers an `app.*` import with no context
+> equivalent, **add the wrapper to the context first** — do not leave a
+> residual `app.*` import in a plugin.
 
 ---
 

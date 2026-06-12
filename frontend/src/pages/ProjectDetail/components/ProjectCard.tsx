@@ -27,7 +27,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
             animate={{ opacity: 1, y: 0 }}
             onMouseEnter={() => onHover(project.id)}
             onMouseLeave={() => onHover(null)}
-            whileHover={{ y: -4, boxShadow: '0 12px 24px -10px rgba(0,0,0,0.15)' }}
+            whileHover={{ y: -4, boxShadow: 'var(--shadow-lg)' }}
             onClick={() => onClick(project.id)}
             style={{ 
                 cursor: 'pointer',

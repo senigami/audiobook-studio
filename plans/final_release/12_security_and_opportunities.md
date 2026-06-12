@@ -45,6 +45,7 @@ Ranked by value-for-effort for the audiobook-author audience:
 8. **Onboarding tour (S)** — first-run guided path to first audio; complements doc 10 U13.
 9. **Local insights dashboard (S)** — words/hours produced, render speed trends, voice usage; all from existing DB, zero telemetry.
 10. **Listening review mode with annotations (L)** — waveform playback, timestamped issue notes that convert to re-render jobs. The biggest workflow gap, but large.
+    - *First step (owner request, 2026-06-11):* a **waveform visualization spike** — determine what's needed to render a waveform with a playhead bar on the VCR-style segment player (and anywhere else audio appears), level of effort, and where it's practical (short segment audio: yes; very long chapter audio: evaluate downsampled peaks or skip). Spike only — no implementation commitment yet.
 11. **Project templates (S)** — save/restore structure + cast + settings for series authors.
 12. **Export presets (M)** — named ACX/podcast/M4B/custom output configs at assembly.
 13. **Crash-recovery checkpoints (M)** — persist task state periodically; on boot offer resume/discard for interrupted jobs (extends existing startup reconciliation).

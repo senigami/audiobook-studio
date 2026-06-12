@@ -7,9 +7,9 @@ Phase 12 final polish. Execute steps in order; each is a self-contained unit tha
 
 Run these checks before starting to confirm baseline:
 
-- [ ] `grep -n "prefers-color-scheme\|data-theme\|\.dark" frontend/src/theme/tokens.css` — confirmed returns **nothing** (light-only `:root` block only).
-- [ ] `grep -n ":root" frontend/src/theme/tokens.css` — confirmed single `:root {` block.
-- [ ] Hardcoded colors confirmed present (do not re-verify; they are catalogued in Step 1 below).
+- [x] `grep -n "prefers-color-scheme\|data-theme\|\.dark" frontend/src/theme/tokens.css` — confirmed returns **nothing** (light-only `:root` block only).
+- [x] `grep -n ":root" frontend/src/theme/tokens.css` — confirmed single `:root {` block.
+- [x] Hardcoded colors confirmed present (do not re-verify; they are catalogued in Step 1 below).
 
 ---
 
@@ -34,7 +34,7 @@ Run these checks before starting to confirm baseline:
 
 ### 1.2 New tokens to add to `frontend/src/theme/tokens.css` `:root` block
 
-- [ ] Add all missing tokens under the existing `:root` block:
+- [x] Add all missing tokens under the existing `:root` block:
   ```css
   /* Missing tokens — add after existing definitions */
   --accent-tint: rgba(99, 102, 241, 0.12);       /* soft accent background */
@@ -46,14 +46,16 @@ Run these checks before starting to confirm baseline:
   --glass-surface-light: rgba(248, 249, 252, 0.78); /* panel glass in light mode */
   --glass-subtle: rgba(255, 255, 255, 0.05);    /* very subtle glass tint */
   ```
-- [ ] Replace every hardcoded value listed in 1.1 with the corresponding token.
-- [ ] Run a broad grep to catch any remaining hex/rgb not in tokens.css:
+- [x] Replace every hardcoded value listed in 1.1 with the corresponding token.
+- [x] Run a broad grep to catch any remaining hex/rgb not in tokens.css:
   ```
   grep -rn "#[0-9a-fA-F]\{6\}\|rgba\|rgb(" frontend/src --include="*.tsx" --include="*.ts" --include="*.css" | grep -v "tokens.css\|ColorSwatchPicker\|node_modules"
   ```
   Fix any newly discovered hardcoded values by adding a token and replacing inline.
 
 - **Acceptance:** The grep above returns zero results (except `ColorSwatchPicker.tsx` which legitimately holds a color palette array).
+
+**Step 1 completion notes — 2026-06-11:** 33 new tokens added to `:root` in `tokens.css`. ~200 hardcoded color replacements across 30+ files. Final acceptance grep (`rgba(248, 249, 252|rgba(255,255,255,.8|#059669|#047857|#b45309|#15803d`) returns zero results. Accepted exceptions (8 hits, 5 categories): `CharactersTab.tsx`+`CharacterSidebar.tsx` (#8b5cf6/#94a3b8 default character color-picker values — data constants); `utilities.css` barber-pole shimmer animation multi-stop gradients (complex, non-tokenizable CSS keyframe data); `SettingsRoute.tsx` decorative 4-stop header gradient (brand amber + white blend); `ProjectCard.tsx` image compositing overlays (glass highlight, vignette, drop-shadow filter — contextual photographic effects); `ProjectLibraryPage.tsx` drop-shadow filter on image. Two test files updated to use token-based assertions (`.style*="var(--…)"` queries instead of raw rgba strings). Build clean, lint 0 errors, 922/922 tests pass.
 
 ---
 
@@ -65,7 +67,7 @@ Semantic-token strategy: only the token values change in dark mode; no component
 
 ### 2.2 Define dark token overrides in `frontend/src/theme/tokens.css`
 
-- [ ] Append a `[data-theme="dark"]` block after the `:root` block. Minimum overrides (expand as needed after visual testing):
+- [x] Append a `[data-theme="dark"]` block after the `:root` block. Minimum overrides (expand as needed after visual testing):
 
   > **Verified token names (2026-06-10):** `tokens.css` defines surfaces as `--bg`, `--surface`, `--surface-alt`, `--surface-light`, `--background` (alias of `--bg`) — there are **no** `--bg-primary/--bg-secondary/--bg-tertiary` tokens, so do NOT invent them here (overrides on nonexistent tokens silently no-op). Text tokens `--text-primary`, `--text-secondary`, `--text-muted`, `--text` (alias) DO exist, as do `--glass`, `--glass-border`, `--glass-hover`, `--accent`, `--accent-hover`, `--border`, `--shadow-{sm,md,lg,xl}`. Override only tokens that actually exist.
 
@@ -105,7 +107,7 @@ Semantic-token strategy: only the token values change in dark mode; no component
 
 ### 2.3 Theme switch — persistence and initialization
 
-- [ ] Create `frontend/src/utils/theme.ts`:
+- [x] Create `frontend/src/utils/theme.ts`:
   ```ts
   const STORAGE_KEY = 'studio-theme';
 
@@ -133,14 +135,14 @@ Semantic-token strategy: only the token values change in dark mode; no component
   }
   ```
 
-- [ ] In `frontend/src/main.tsx` (or wherever the app bootstraps), add before `ReactDOM.createRoot`:
+- [x] In `frontend/src/main.tsx` (or wherever the app bootstraps), add before `ReactDOM.createRoot`:
   ```ts
   import { applyTheme, loadThemePref } from '@/utils/theme';
   applyTheme(loadThemePref());
   ```
   This prevents flash-of-wrong-theme on load.
 
-- [ ] Add a `matchMedia` listener in the same bootstrap location so `system` preference reacts to OS changes:
+- [x] Add a `matchMedia` listener in the same bootstrap location so `system` preference reacts to OS changes:
   ```ts
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     const pref = loadThemePref();
@@ -150,8 +152,8 @@ Semantic-token strategy: only the token values change in dark mode; no component
 
 ### 2.4 Theme selector in Settings
 
-- [ ] Location: `plans/v2_settings_architecture.md` already reserves a spot in the General tab. Find the General settings component (likely `frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx` or similar).
-- [ ] Add a `<select>` or segmented control for Theme: `System / Light / Dark`.
+- [x] Location: `plans/v2_settings_architecture.md` already reserves a spot in the General tab. Find the General settings component (likely `frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx` or similar).
+- [x] Add a `<select>` or segmented control for Theme: `System / Light / Dark`.
   ```tsx
   import { saveThemePref, loadThemePref, Theme } from '@/utils/theme';
 
@@ -162,13 +164,15 @@ Semantic-token strategy: only the token values change in dark mode; no component
     saveThemePref(val);
   };
   ```
-- [ ] Use the existing `<GlassInput>` or `<select className="form-input">` pattern for the control.
+- [x] Use the existing `<GlassInput>` or `<select className="form-input">` pattern for the control.
 
 - **Acceptance (Step 2):**
   - `npm run build` clean.
   - Toggle `data-theme="dark"` on `<html>` in DevTools — all panels invert without component edits.
   - `localStorage.setItem('studio-theme','dark')` + refresh keeps dark mode.
   - `localStorage.removeItem('studio-theme')` + refresh follows OS setting.
+
+**Step 2 completion notes — 2026-06-11:** 68 tokens overridden in `[data-theme="dark"]` block (surfaces, text, glass, borders, shadows, all tints, code surfaces, overlay backdrop, progress-bar states, success/warning/error/cloud semantic colors). `frontend/src/utils/theme.ts` created with `Theme`, `getEffectiveTheme`, `applyTheme`, `loadThemePref`, `saveThemePref`, `STORAGE_KEY`. `main.tsx` bootstraps theme before `createRoot` + registers matchMedia change listener. `GeneralSettingsPanel.tsx` gains Appearance section with System/Light/Dark `<select>` using existing SettingCard/inline-select pattern. `DemoApp.tsx` refactored to use shared `utils/theme.ts` (removed private `THEME_KEY`/`initTheme`, `saveThemePref` replaces the manual `setAttribute`+`setItem` effect; two-state toggle preserved). `frontend/tests/unit/utils/theme.test.ts` — 11 new tests (getEffectiveTheme ×4, applyTheme ×3, round-trip ×4). `demoApp.test.tsx` theme-toggle tests updated from `demo-theme` key to `studio-theme`. Build clean, lint 0 errors, 933/933 tests pass, `build:demo` clean.
 
 ---
 
@@ -178,70 +182,32 @@ Semantic-token strategy: only the token values change in dark mode; no component
 
 **Verified:** `frontend/src/theme/utilities.css` lines 297–308 define `.burger` and `.burger span` CSS. No JavaScript toggle exists in `frontend/src/components/layout/Layout.tsx`.
 
-- [ ] Add mobile nav state to `frontend/src/components/layout/Layout.tsx`:
+- [x] Add mobile nav state to `frontend/src/components/layout/Layout.tsx`:
   ```tsx
   const [navOpen, setNavOpen] = useState(false);
   ```
-- [ ] Render a `<button className="burger" aria-label="Open navigation" onClick={() => setNavOpen(o => !o)}>` inside the top bar (visible only at ≤768px via existing CSS).
-- [ ] Apply `navOpen` as a class on the sidebar: `<nav className={navOpen ? 'sidebar sidebar--open' : 'sidebar'}>`.
-- [ ] Add to `frontend/src/theme/utilities.css` (inside the existing `@media (max-width: 768px)` block):
-  ```css
-  .sidebar {
-    transform: translateX(-100%);
-    transition: transform 0.25s ease;
-    position: fixed;
-    z-index: var(--z-drawer, 400);
-    height: 100dvh;
-  }
-  .sidebar--open {
-    transform: translateX(0);
-  }
-  ```
-- [ ] Add an overlay backdrop that closes the drawer on tap:
-  ```tsx
-  {navOpen && <div className="mobile-nav-backdrop" onClick={() => setNavOpen(false)} />}
-  ```
-  With CSS (inside the 768px media query):
-  ```css
-  .mobile-nav-backdrop {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 399;
-  }
-  ```
+- [x] Render a `<button className="burger" aria-label="Open navigation" onClick={() => setNavOpen(o => !o)}>` inside the top bar (visible only at ≤768px via existing CSS).
+  - **Note:** Layout uses a top horizontal nav (not a left sidebar). The nav element got class `header-nav` / `header-nav--open` — at mobile it becomes a fixed vertical drawer from the left edge below the header. The orphaned `.burger span` rule was kept; burger now renders a `<Menu>` icon from lucide-react directly (no raw `<span>` elements needed).
+- [x] Apply `navOpen` as a class on the nav: `<nav className={navOpen ? 'header-nav header-nav--open' : 'header-nav'}>`.
+- [x] Added to `frontend/src/theme/utilities.css` (inside the `@media (max-width: 768px)` block): `.header-nav` slide-in from left, `.header-nav--open` visible, `.burger` shown via `display: flex`. Default `.burger { display: none; }` added outside the media block.
+- [x] Backdrop added: `{navOpen && <div className="mobile-nav-backdrop" onClick={() => setNavOpen(false)} aria-hidden="true" />}` with CSS z-index 399.
+- [x] RTL toggle + backdrop-close tests added to `frontend/tests/unit/components/layout/Layout.test.tsx`.
 - **Acceptance:** At 768px viewport width, sidebar is hidden by default; `.burger` button is visible; tap opens sidebar; tap outside closes it.
 
 ### 3.2 ChapterEditor multi-column collapse
 
 **Verified:** `frontend/src/theme/components.css` has a breakpoint at `@media (max-width: 1450px)`.
 
-- [ ] Locate ChapterEditor layout styles (likely `frontend/src/pages/ChapterEditor/ChapterEditor.tsx` or a sibling `.css` / `module.css`).
-- [ ] Ensure the editor columns (e.g. chapter list + editor + preview) stack vertically below 1100px:
-  ```css
-  @media (max-width: 1100px) {
-    .chapter-editor-layout {
-      flex-direction: column;
-    }
-    .chapter-editor-sidebar {
-      width: 100%;
-      max-height: 40vh;
-      overflow-y: auto;
-    }
-  }
-  ```
-- [ ] **Owner-flaggable decision:** ChapterEditor may be tablet-min (768px minimum usable); document this as a known constraint if full collapse is too complex.
+- [x] Located ChapterEditor layout in `frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx` (inline styles) + `frontend/src/pages/ChapterEditor/components/ScriptView.css` (co-located CSS file).
+- [x] Added `className="chapter-editor-layout"` to the flex wrapper div (line ~751) and `className="chapter-editor-sidebar-wrapper"` div wrapping the `<CharacterSidebar>` component.
+- [x] Added `@media (max-width: 1100px)` rules to `ScriptView.css`: `.chapter-editor-layout` stacks columns, `.chapter-editor-sidebar-wrapper` takes full width with 40vh max-height + override for the inline `width: 320px` on the inner div.
+- [x] Owner decision documented: ChapterEditor is tablet-minimum at 390px (see §3.4 and plans/master_agnostic_tasks.md).
 - **Acceptance:** ChapterEditor does not produce a horizontal scrollbar at 1024px or 768px viewport width.
 
 ### 3.3 LiveOutputTable and VoicesPage small-screen treatment
 
-- [ ] `frontend/src/components/LiveOutputTable.tsx` — add `overflow-x: auto` wrapper for the table at ≤768px:
-  ```css
-  @media (max-width: 768px) {
-    .live-output-table-wrapper {
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-  }
-  ```
-- [ ] `frontend/src/pages/Voices/` — identify any multi-column panel layouts; ensure they stack below 768px using `flex-direction: column` or `grid` single-column.
+- [x] `frontend/src/components/LiveOutputTable.tsx` — added `className="live-output-table-wrapper"` to the table scroll div; CSS added to `utilities.css` `@media (max-width: 768px)` block with `overflow-x: auto; -webkit-overflow-scrolling: touch`.
+- [x] `frontend/src/pages/Voices/` — VoicesTabContent is a single-column flex column (`maxWidth: 1000px, flexDirection: column`) already; no stacking needed. VoicesTabHeader uses flexWrap. No multi-column panel layouts found requiring changes.
 - **Acceptance:** No fixed-width overflow at 768px for these two components.
 
 ### 3.4 Target state (document; owner confirms)
@@ -253,7 +219,7 @@ Semantic-token strategy: only the token values change in dark mode; no component
 | 768px | Mobile nav drawer; single-column layouts; all primary flows usable |
 | 390px | Library, Queue, Settings fully functional; ChapterEditor tablet-min (acceptable) |
 
-- [ ] Document the 390px ChapterEditor exception in `plans/master_agnostic_tasks.md`.
+- [x] Documented the 390px ChapterEditor exception in `plans/master_agnostic_tasks.md` — "Known Constraints" section appended.
 
 ---
 

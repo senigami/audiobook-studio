@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable
 
-from app.engines.errors import EngineUnavailableError
+from app.engines.errors import EngineOutputRejectedError, EngineUnavailableError
 from app.engines.bridge_utils import (
     extract_engine_id,
     extract_synthesis_settings,
@@ -22,7 +22,7 @@ class RemoteBridgeHandler:
 
     def synthesize(self, request: dict[str, Any]) -> dict[str, Any]:
         """Route synthesis to TTS Server."""
-        from app.engines.tts_client import TtsServerError
+        from app.engines.tts_client import TtsServerError, TtsServerOutputRejectedError
         engine_id = extract_engine_id(request)
         client = self._get_tts_client()
 
@@ -37,6 +37,8 @@ class RemoteBridgeHandler:
                 script=request.get("script"),
                 task_id=request.get("task_id"),
             )
+        except TtsServerOutputRejectedError as exc:
+            raise EngineOutputRejectedError(exc.reason) from exc
         except TtsServerError as exc:
             raise EngineUnavailableError(f"TTS Server synthesis failed: {exc}") from exc
 

@@ -174,17 +174,27 @@ def behavior_for_engine(
 
 @lru_cache(maxsize=64)
 def _load_full_manifest(engine_id: str) -> dict[str, Any]:
-    """Load the full manifest payload for an engine."""
+    """Load the full manifest payload for an engine.
+
+    Plugin folders are not all named ``tts_<engine_id>`` (e.g.
+    ``tts_mixed`` declares engine_id ``mixed``), so after the direct
+    path, fall back to matching any plugin manifest's declared engine_id.
+    """
     normalized_engine_id = str(engine_id or "").strip().lower()
     if not _ENGINE_ID_RE.match(normalized_engine_id):
         return {}
 
-    root = Path(__file__).resolve().parents[2]
-    manifest_path = root / "plugins" / f"tts_{normalized_engine_id}" / "manifest.json"
-    try:
-        return json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
+    plugins_root = Path(__file__).resolve().parents[2] / "plugins"
+    direct_path = plugins_root / f"tts_{normalized_engine_id}" / "manifest.json"
+    candidates = [direct_path] if direct_path.is_file() else sorted(plugins_root.glob("*/manifest.json"))
+    for manifest_path in candidates:
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if str(payload.get("engine_id") or "").strip().lower() == normalized_engine_id:
+            return payload
+    return {}
 
 
 @lru_cache(maxsize=64)
@@ -225,6 +235,97 @@ def uses_segment_orchestration(engine_id: str) -> bool:
 
 
 
+
+
+def get_sanitize_categories(
+    engine_id: str,
+    *,
+    behavior: Mapping[str, Any] | None = None,
+    persisted_settings: Mapping[str, Any] | None = None,
+) -> tuple[str, ...] | None:
+    """Return the effective sanitize category list for an engine.
+
+    Resolution order:
+      1. Start with the manifest-declared ``sanitize_categories``.
+      2. If the engine's persisted settings contain a ``sanitize_overrides``
+         dict, intersect: only keep categories where the override value is
+         truthy (or absent, defaulting to enabled).
+      3. Categories are returned in ``DEFAULT_CATEGORY_ORDER`` order.
+
+    Returns ``None`` when the manifest does not declare ``sanitize_categories``
+    (meaning: apply all categories, preserving historical behaviour).
+    Returns a tuple of category names (may be empty) after override filtering.
+
+    Args:
+        engine_id: Engine identifier.
+        behavior: Optional pre-resolved behavior mapping (skips manifest load).
+        persisted_settings: Optional already-loaded settings dict.  When
+            ``None`` the settings are loaded from disk.
+    """
+    # sanitize_categories is stored in the raw manifest behavior block;
+    # normalize_behavior does not currently pass it through, so we read
+    # the raw manifest directly unless a behavior override is supplied.
+    if behavior is not None:
+        raw_cats = behavior.get("sanitize_categories")
+    else:
+        payload = _load_full_manifest(engine_id)
+        raw_cats = payload.get("behavior", {}).get("sanitize_categories")
+
+    if raw_cats is None:
+        return None
+    if not isinstance(raw_cats, list):
+        return None
+
+    declared: tuple[str, ...] = tuple(str(c) for c in raw_cats)
+
+    # Apply user per-category overrides from persisted engine settings.
+    if persisted_settings is None:
+        persisted_settings = _load_persisted_settings(engine_id)
+
+    overrides = persisted_settings.get("sanitize_overrides") if persisted_settings else None
+    if not overrides or not isinstance(overrides, Mapping):
+        # No overrides stored — return declared set unchanged.
+        return declared
+
+    # Filter: keep categories that are not explicitly disabled.
+    # Unknown keys in overrides are ignored (additive-safe).
+    from app.utils.text.textops_cleaning import DEFAULT_CATEGORY_ORDER  # noqa: PLC0415
+    effective = tuple(
+        cat for cat in DEFAULT_CATEGORY_ORDER
+        if cat in declared and overrides.get(cat, True)
+    )
+    return effective
+
+
+def _load_persisted_settings(engine_id: str) -> dict[str, Any]:
+    """Load persisted engine settings from the plugin data dir.
+
+    Returns an empty dict on any error so callers treat absent settings as
+    all-defaults-enabled.
+    """
+    try:
+        from app.tts_server.settings_store import load_settings  # noqa: PLC0415
+        from app.core.config import PLUGINS_DIR  # noqa: PLC0415
+
+        # Try the conventional plugin folder name first.
+        plugins_root = Path(__file__).resolve().parents[2] / "plugins"
+        plugin_dir = plugins_root / f"tts_{engine_id}"
+        if not plugin_dir.is_dir():
+            # Fall back: scan for a manifest whose engine_id matches.
+            for candidate in sorted(plugins_root.glob("*/manifest.json")):
+                try:
+                    import json as _json
+                    data = _json.loads(candidate.read_text(encoding="utf-8"))
+                    if str(data.get("engine_id") or "").strip().lower() == engine_id:
+                        plugin_dir = candidate.parent
+                        break
+                except (OSError, ValueError):
+                    continue
+            else:
+                return {}
+        return load_settings(plugin_dir)
+    except Exception:
+        return {}
 
 
 def get_text_chunk_limit(engine_id: str) -> int:

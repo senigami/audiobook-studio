@@ -1,7 +1,7 @@
 import React from 'react';
-import { SlidersHorizontal, PlugZap, Server, BadgeInfo } from 'lucide-react';
+import { SlidersHorizontal, PlugZap, Server, BadgeInfo, FlaskConical } from 'lucide-react';
 
-export type SettingsTabId = 'general' | 'engines' | 'api' | 'about';
+export type SettingsTabId = 'general' | 'engines' | 'api' | 'about' | 'developer';
 
 export interface SettingsTab {
   id: SettingsTabId;
@@ -9,6 +9,7 @@ export interface SettingsTab {
   path: string;
   description: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+  devOnly?: boolean;
 }
 
 export const SETTINGS_TABS: SettingsTab[] = [
@@ -40,6 +41,14 @@ export const SETTINGS_TABS: SettingsTab[] = [
     description: 'Studio version, runtime health, and system information.',
     icon: BadgeInfo,
   },
+  {
+    id: 'developer',
+    label: 'Developer',
+    path: '/settings/developer',
+    description: 'Testing pages, debug tools, and API documentation.',
+    icon: FlaskConical,
+    devOnly: true,
+  },
 ];
 
 export const VALID_SETTINGS_PATHS = new Set(SETTINGS_TABS.map((tab) => tab.path));
@@ -48,6 +57,7 @@ export const getActiveSettingsTab = (pathname: string): SettingsTab => {
   if (pathname === '/settings/engines') return SETTINGS_TABS[1];
   if (pathname === '/settings/api') return SETTINGS_TABS[2];
   if (pathname === '/settings/about') return SETTINGS_TABS[3];
+  if (pathname === '/settings/developer') return SETTINGS_TABS[4];
   return SETTINGS_TABS[0];
 };
 

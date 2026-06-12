@@ -1,25 +1,51 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useMatch } from 'react-router-dom';
 import { api } from '@/api';
 import { Layout } from '@/components/layout/Layout';
-import { VoicesTab } from '@/pages/Voices/VoicesPage';
 import { ProjectLibrary } from '@/pages/ProjectLibrary/ProjectLibraryPage';
-import { ProjectView } from '@/pages/ProjectDetail/ProjectDetailPage';
 import { GlobalQueue } from '@/components/queue/GlobalQueue';
-import { ProgressBarTestPage } from '@/pages/DevProgressBar/DevProgressBarPage';
 import { useJobs } from '@/hooks/useJobs';
 import { useQueueSync } from '@/hooks/useQueueSync';
 import { useStudioSocketTransport } from '@/hooks/useStudioSocketTransport';
 import { useInitialData } from '@/hooks/useInitialData';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { createStudioShellState } from '@/app/layout/StudioShell';
-import { ProjectViewRoute } from '@/pages/ProjectDetail/ProjectViewRoute';
 import { QueueRoute } from '@/pages/Queue/QueueRoute';
-import { SettingsRoute } from '@/pages/Settings';
 import type { Chapter, Project } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from '@/pages/Voices/components/VoiceUtils';
-import { LiveOutputPage } from '@/pages/LiveOutput/LiveOutputPage';
+
+const VoicesTab = lazy(() => import('@/pages/Voices/VoicesPage').then(m => ({ default: m.VoicesTab })));
+const ProjectView = lazy(() => import('@/pages/ProjectDetail/ProjectDetailPage').then(m => ({ default: m.ProjectView })));
+const ProjectViewRoute = lazy(() => import('@/pages/ProjectDetail/ProjectViewRoute').then(m => ({ default: m.ProjectViewRoute })));
+const SettingsRoute = lazy(() => import('@/pages/Settings').then(m => ({ default: m.SettingsRoute })));
+const ProgressBarTestPage = lazy(() => import('@/pages/DevProgressBar/DevProgressBarPage').then(m => ({ default: m.ProgressBarTestPage })));
+const LiveOutputPage = lazy(() => import('@/pages/LiveOutput/LiveOutputPage').then(m => ({ default: m.LiveOutputPage })));
+
+function RouteFallback() {
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '200px',
+      }}
+    >
+      <div
+        className="animate-spin"
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: '50%',
+          border: '2px solid var(--accent-glow)',
+          borderTopColor: 'var(--accent)',
+        }}
+      />
+    </div>
+  );
+}
 
 function App() {
   const navigate = useNavigate();
@@ -40,9 +66,9 @@ function App() {
     refreshQueue: originalRefreshQueue
   } = useQueueSync();
 
-  const [refreshingSource, setRefreshingSource] = useState<'bootstrap' | 'reconnect' | 'refresh' | undefined>(undefined);
+  const [refreshingSource, setRefreshingSource] = useState<'bootstrap' | 'terminal' | 'reconnect' | 'refresh' | undefined>(undefined);
 
-  const refreshQueue = useCallback(async (source: 'bootstrap' | 'reconnect' | 'refresh' = 'refresh') => {
+  const refreshQueue = useCallback(async (source: 'bootstrap' | 'terminal' | 'reconnect' | 'refresh' = 'refresh') => {
     setRefreshingSource(source);
     try {
       await originalRefreshQueue(source);
@@ -224,6 +250,7 @@ function App() {
           position: 'relative'
         }}>
           <div style={{ flex: 1 }}>
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<ProjectLibrary onSelectProject={(id) => navigate(`/project/${id}`)} />} />
               <Route path="/project/:projectId" element={
@@ -331,6 +358,7 @@ function App() {
               <Route path="/event-stream" element={<LiveOutputPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            </Suspense>
           </div>
 
           </div>
@@ -345,7 +373,7 @@ function App() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'rgba(248, 249, 252, 0.78)',
+            background: 'var(--glass-surface-light)',
             backdropFilter: 'blur(10px)',
           }}
         >
@@ -415,7 +443,16 @@ function App() {
         confirmText={confirmConfig?.confirmText}
       />
 
-      {/* Simple Toast */}
+      {/* Simple Toast — always-mounted live region so AT announces the message */}
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 9999, pointerEvents: 'none' }}
+      >
+        <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+          {toast?.visible ? toast.message : ''}
+        </span>
+      </div>
       <AnimatePresence>
         {toast?.visible && (
           <motion.div
@@ -429,7 +466,7 @@ function App() {
               transform: 'translateX(-50%)',
               zIndex: 9999,
               background: 'var(--as-ink)',
-              color: 'white',
+              color: 'var(--text-on-accent)',
               padding: '12px 20px',
               borderRadius: '12px',
               boxShadow: 'var(--shadow-lg)',
@@ -440,7 +477,7 @@ function App() {
               fontWeight: 600,
               minWidth: '300px',
               justifyContent: 'space-between',
-              border: '1px solid rgba(255,255,255,0.1)'
+              border: '1px solid var(--glass-border)'
             }}
           >
             <span>{toast.message}</span>
@@ -452,7 +489,7 @@ function App() {
                 }}
                 style={{
                   background: 'var(--accent)',
-                  color: 'white',
+                  color: 'var(--text-on-accent)',
                   padding: '4px 10px',
                   borderRadius: '6px',
                   fontSize: '0.75rem',

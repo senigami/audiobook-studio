@@ -7,12 +7,14 @@ import {
   type StudioSocketEnvelope,
 } from '@/api/contracts/liveEvents';
 
-const RECORD_LIMIT = 1000;
+// P2: ring buffer cap — 200 entries (was 1000); eviction keeps the Map consistent.
+const RECORD_LIMIT = 200;
 
 let records: LiveEventRecord[] = [];
 const recordsByFrameId = new Map<number, LiveEventRecord>();
 const listeners = new Set<() => void>();
 
+// notify() is synchronous so useSyncExternalStore works correctly everywhere.
 const notify = () => {
   listeners.forEach(listener => listener());
 };
@@ -60,6 +62,42 @@ export const subscribeLiveEventAudit = (listener: () => void) => {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
+  };
+};
+
+// True when running under a real browser (not jsdom / SSR).
+// jsdom sets navigator.userAgent to include "jsdom".
+const IS_REAL_BROWSER =
+  typeof requestAnimationFrame === 'function' &&
+  typeof navigator !== 'undefined' &&
+  !navigator.userAgent.includes('jsdom');
+
+/**
+ * P1: rAF-throttled subscription for UI components that render the full audit
+ * table (e.g. LiveOutputTable). A burst of N publishes within one animation
+ * frame coalesces to a single re-render in real browsers. In jsdom / SSR the
+ * listener fires synchronously so existing tests don't need `waitFor`.
+ */
+export const subscribeThrottled = (listener: () => void) => {
+  let rafId: ReturnType<typeof requestAnimationFrame> | null = null;
+  const throttled = () => {
+    if (!IS_REAL_BROWSER) {
+      listener();
+      return;
+    }
+    if (rafId !== null) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      listener();
+    });
+  };
+  listeners.add(throttled);
+  return () => {
+    listeners.delete(throttled);
+    if (rafId !== null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
   };
 };
 

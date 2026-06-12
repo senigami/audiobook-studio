@@ -6,12 +6,23 @@ import type { VoiceEngine } from '@/types';
 
 const COMPACT_TOOLBAR_WIDTH = 960;
 
+interface FacetOption { id: string; label: string; }
+
 interface VoicesTabHeaderProps {
     searchQuery: string;
     setSearchQuery: (query: string) => void;
     engineFilter: 'all' | 'disabled' | VoiceEngine;
     setEngineFilter: (filter: 'all' | 'disabled' | VoiceEngine) => void;
     engineFilterOptions: Array<{ key: 'all' | 'disabled' | VoiceEngine; label: string }>;
+    classFilter?: string;
+    setClassFilter?: (v: string) => void;
+    classOptions?: FacetOption[];
+    genderFilter?: string;
+    setGenderFilter?: (v: string) => void;
+    genderOptions?: FacetOption[];
+    ageFilter?: string;
+    setAgeFilter?: (v: string) => void;
+    ageOptions?: FacetOption[];
     isImportingVoice: boolean;
     exportVoiceDisabled: boolean;
     importInputRef: React.RefObject<HTMLInputElement | null>;
@@ -27,6 +38,15 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
     engineFilter,
     setEngineFilter,
     engineFilterOptions,
+    classFilter = '',
+    setClassFilter,
+    classOptions = [],
+    genderFilter = '',
+    setGenderFilter,
+    genderOptions = [],
+    ageFilter = '',
+    setAgeFilter,
+    ageOptions = [],
     isImportingVoice,
     exportVoiceDisabled,
     importInputRef,
@@ -100,6 +120,71 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
                         );
                     })}
                 </div>
+
+                {/* Facet filter pills — class / gender / age */}
+                {(classOptions.length > 0 || genderOptions.length > 0 || ageOptions.length > 0) && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        {classOptions.length > 0 && (
+                            <>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>CLASS</span>
+                                {classOptions.map(opt => {
+                                    const active = classFilter === opt.id;
+                                    return (
+                                        <button
+                                            key={opt.id}
+                                            onClick={() => setClassFilter?.(active ? '' : opt.id)}
+                                            aria-pressed={active}
+                                            className={active ? 'btn-primary' : 'btn-glass'}
+                                            style={{ height: '30px', borderRadius: '999px', padding: '0 10px', fontSize: '0.72rem', fontWeight: 800 }}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    );
+                                })}
+                                {genderOptions.length > 0 && <span style={{ width: '1px', height: '20px', background: 'var(--border)' }} />}
+                            </>
+                        )}
+                        {genderOptions.length > 0 && (
+                            <>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>GENDER</span>
+                                {genderOptions.map(opt => {
+                                    const active = genderFilter === opt.id;
+                                    return (
+                                        <button
+                                            key={opt.id}
+                                            onClick={() => setGenderFilter?.(active ? '' : opt.id)}
+                                            aria-pressed={active}
+                                            className={active ? 'btn-primary' : 'btn-glass'}
+                                            style={{ height: '30px', borderRadius: '999px', padding: '0 10px', fontSize: '0.72rem', fontWeight: 800 }}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    );
+                                })}
+                                {ageOptions.length > 0 && <span style={{ width: '1px', height: '20px', background: 'var(--border)' }} />}
+                            </>
+                        )}
+                        {ageOptions.length > 0 && (
+                            <>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>AGE</span>
+                                {ageOptions.map(opt => {
+                                    const active = ageFilter === opt.id;
+                                    return (
+                                        <button
+                                            key={opt.id}
+                                            onClick={() => setAgeFilter?.(active ? '' : opt.id)}
+                                            aria-pressed={active}
+                                            className={active ? 'btn-primary' : 'btn-glass'}
+                                            style={{ height: '30px', borderRadius: '999px', padding: '0 10px', fontSize: '0.72rem', fontWeight: 800 }}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    );
+                                })}
+                            </>
+                        )}
+                    </div>
+                )}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>

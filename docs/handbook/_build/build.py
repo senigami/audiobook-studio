@@ -115,7 +115,7 @@ page("overview/studio-2-at-a-glance",
     "<strong>Managed TTS Server</strong> runs engines in a separate, supervised process.",
     "A <strong>task orchestrator</strong> replaces the old single worker loop.",
     "An <strong>engine registry</strong> and <strong>voice bridge</strong> keep voices independent of engines.",
-    "Engines install from GitLab; voices come from a Hugging Face library."]),
+    "Engines install from GitHub; voices come from a Hugging Face library."]),
   h2("A managed TTS Server"),
   p("<strong>Synthesis no longer runs inside the app.</strong> A dedicated TTS Server process hosts the voice engines, manages GPU memory, and exposes a clean internal API. Studio supervises it with a watchdog and restarts it if it stops responding. An engine can crash without taking down the app or losing your work."),
   h2("A task orchestrator"),
@@ -124,7 +124,7 @@ page("overview/studio-2-at-a-glance",
   p("<strong>One boundary routes every synthesis request.</strong> The registry knows what engines are installed and what they can do; the voice bridge is the only path that hands a request to an engine. Because a voice's identity is kept separate from any engine's assets, the same voice can move between engines without being rebuilt."),
   tip("You can add, update, or swap engines without rewrites rippling into the queue, the editor, or your projects."),
   h2("Installable engines &amp; a voice library"),
-  p("<strong>Engines and voices are bundles you can install and share.</strong> Engines are GitLab repos you install like Stable Diffusion extensions (clone to install, pull to update). Voices come from a Hugging Face library with icons, playable samples, and rich tags."),
+  p("<strong>Engines and voices are bundles you can install and share.</strong> Engines are GitHub repos you install like Stable Diffusion extensions (clone to install, pull to update). Voices come from a Hugging Face library with icons, playable samples, and rich tags."),
   future("the engine browser, the Hugging Face voice library, and AI voice casting are part of the 2.0 rollout."),
   h2("What stayed the same"),
   p("The workflow you already know — projects, chapters, voices, generate, assemble — is intact. 2.0 changes the machinery underneath, not the shape of producing a book."))
@@ -200,7 +200,7 @@ page("overview/feature-highlights",
   ul([
     "<strong>Plugin SDK.</strong> Wrap any TTS engine behind a small contract and publish it.",
     "<strong>External API.</strong> Use Studio as a local text-to-speech backend for your own scripts."]),
-  future("installable engines from GitLab, a Hugging Face voice library, and AI voice casting. See " + L("../plugin-sdk/overview.html", "Plugin SDK") + "."),
+  future("installable engines from GitHub, a Hugging Face voice library, and AI voice casting. See " + L("../plugin-sdk/overview.html", "Plugin SDK") + "."),
   h2("Where to go next"),
   p("Ready to install? Head to " + L("../getting-started/requirements.html", "Getting Started") + ". Want the concepts first? Start with " + L("../concepts/content-hierarchy.html", "Core Concepts") + "."))
 
@@ -425,7 +425,7 @@ page("concepts/engines-overview",
   h2("Composite synthesis"),
   p("<strong>A chapter can mix engines.</strong> Composite synthesis stitches output from multiple engines/voices into one chapter. See " + L("../engines/composite.html", "Composite Synthesis") + "."),
   h2("Plugins add more"),
-  p("<strong>Engines are installable.</strong> Beyond the default, you can add engines as plugins from GitLab. See the " + L("../plugin-sdk/overview.html", "Plugin SDK") + "."))
+  p("<strong>Engines are installable.</strong> Beyond the default, you can add engines as plugins from GitHub. See the " + L("../plugin-sdk/overview.html", "Plugin SDK") + "."))
 
 page("concepts/production-pipeline",
   "The Production Pipeline",
@@ -565,7 +565,7 @@ page("whats-new/at-a-glance",
   h2("What users feel day-to-day"),
   p("<strong>More reliability and less lost work.</strong> Crashes are contained, progress is steadier, and restarts recover. Voices get icons and tags; playback and the editor are smoother."),
   h2("What developers gain"),
-  p("<strong>Clean extension points.</strong> A five-method plugin SDK, installable engines from GitLab, shareable voices on Hugging Face, and a documented gateway API. See " + L("at-a-glance.html", "this section") + "'s other pages for detail."))
+  p("<strong>Clean extension points.</strong> A five-method plugin SDK, installable engines from GitHub, shareable voices on Hugging Face, and a documented gateway API. See " + L("at-a-glance.html", "this section") + "'s other pages for detail."))
 
 page("whats-new/architectural-shifts",
   "Architectural Shifts",
@@ -603,7 +603,7 @@ page("whats-new/new-capabilities",
     "<strong>Predictive progress</strong> with ETAs, and <strong>VCR-style playback</strong> in the editor."]),
   h2("Voice library"),
   p("<strong>Voices gain icons and tags</strong>, making a real, searchable library. See " + L("../user-guide/voice-tags-icons.html", "Voice Icons &amp; Tags") + "."),
-  future("installable engines from GitLab, the Hugging Face voice library, and AI voice casting land as part of the 2.0 rollout."))
+  future("installable engines from GitHub, the Hugging Face voice library, and AI voice casting land as part of the 2.0 rollout."))
 
 page("whats-new/migration",
   "Migration Notes",
@@ -960,7 +960,7 @@ page("plugin-sdk/anatomy",
       "  README.md  icon.png  # shown in the engine browser\n"
       "  tests/               # plugin-local tests + fixtures"),
   h2("Why self-contained"),
-  p("<strong>Everything an engine needs lives in its folder</strong> so it can be published as its own GitLab repo and installed with a clone. See " + L("../api/overview.html", "the API") + " for driving Studio, and " + L("template.html", "Using the Template") + " to start."),
+  p("<strong>Everything an engine needs lives in its folder</strong> so it can be published as its own GitHub repo and installed with a clone. See " + L("../api/overview.html", "the API") + " for driving Studio, and " + L("template.html", "Using the Template") + " to start."),
   note("Heavy model weights are not committed to the repo — they download on first use, keeping the bundle small."))
 
 page("plugin-sdk/manifest",
@@ -982,7 +982,7 @@ page("plugin-sdk/manifest",
     ["<code>supported_languages</code> / <code>supported_voice_asset_types</code>", "What it can do."],
     ["<code>requires_network</code>", "Cloud engines disclose off-machine calls."]]),
   h2("Distribution block"),
-  p("<strong>Engines install from GitLab by git clone and update by git pull.</strong> The <code>distribution</code> block carries the <code>git_url</code>, <code>project</code>, discovery <code>topic</code>, and an optional <code>pin_ref</code>. See " + L("install-import.html", "Installing &amp; Updating Engines") + "."),
+  p("<strong>Engines install from GitHub by git clone and update by git pull.</strong> The <code>distribution</code> block carries the <code>git_url</code>, <code>project</code>, discovery <code>topic</code>, and an optional <code>pin_ref</code>. See " + L("install-import.html", "Installing &amp; Updating Engines") + "."),
   h2("Behavior metadata"),
   p("Behavior fields (chunk limits, progress patterns, per-voice settings) let core behavior come from data — see " + L("behavior-metadata.html", "Behavior Metadata") + "."))
 
@@ -1081,11 +1081,11 @@ page("plugin-sdk/dev-mode",
 
 page("plugin-sdk/install-import",
   "Installing &amp; Updating Engines",
-  "Installing engines from GitLab, importing by zip, and keeping them updated.",
+  "Installing engines from GitHub, importing by zip, and keeping them updated.",
   "Engines install like Stable Diffusion extensions: browse, clone, and update with a click. You can also import a zip directly.",
   soon("the in-app engine browser is part of the 2.0 rollout."),
   glance([
-    "Browse the GitLab topic <code>audiobook-studio-tts</code>, or paste a repo URL.",
+    "Browse the GitHub topic <code>audiobook-studio-tts</code>, or paste a repo URL.",
     "Install = git clone; update = git pull.",
     "Updates show as a notify-only alert in Settings → TTS Engines.",
     "Import a zip or delete an engine from the UI."]),
@@ -1111,7 +1111,7 @@ page("plugin-sdk/template",
     "Edit <code>manifest.json</code> (id, entry class, capabilities, distribution).",
     "Describe options in <code>settings_schema.json</code> and deps in <code>requirements.txt</code>.",
     "Implement <code>info / check_env / check_request / synthesize / settings_schema</code>.",
-    "Add the GitLab topic <code>audiobook-studio-tts</code> so Studio's browser finds it."]),
+    "Add the GitHub topic <code>audiobook-studio-tts</code> so Studio's browser finds it."]),
   p("See " + L("engine-contract.html", "Engine Contract &amp; Hooks") + " and " + L("testing.html", "Testing Your Plugin") + "."))
 
 page("plugin-sdk/testing",

@@ -189,7 +189,7 @@ def test_build_script_uses_chunk_group_engine_for_safe_text(monkeypatch, tmp_pat
         return text
 
     monkeypatch.setattr(generation, "get_text_split_target", lambda engine_id: 321 if engine_id == "manifest-engine" else 999)
-    monkeypatch.setattr(generation, "sanitize_text", lambda text: text)
+    monkeypatch.setattr(generation, "sanitize_text", lambda text, categories=None: text)
     monkeypatch.setattr(generation, "safe_split_long_sentences", fake_split)
 
     script = generation._build_script_for_chapter("chapter-1", "project-1", "Default Voice", safe_mode=True)
@@ -789,7 +789,7 @@ def test_mixed_generation_orchestration_integration(clean_db, client, monkeypatc
     with patch("app.api.routers.generation.put_job"), \
          patch("app.api.routers.generation.update_job"), \
          patch("app.api.routers.generation.resolve_tts_engine_for_profiles", return_value=("xtts", ["xtts", "voxtral"])), \
-         patch("plugins.synthesis_mixed.handler.handle_mixed_job", return_value=("done", None)) as mock_mixed_handler, \
+         patch("plugins.tts_mixed.handler.handle_mixed_job", return_value=("done", None)) as mock_mixed_handler, \
          patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
          patch("app.orchestration.scheduler.orchestrator.release_task_resources"):
 
@@ -863,16 +863,16 @@ def test_queue_chapter_mixed_render_runs_end_to_end(clean_db, client, monkeypatc
 
     with patch("app.api.routers.generation.get_chapter_dir", return_value=chapter_dir), \
          patch("app.core.config.get_chapter_dir", return_value=chapter_dir), \
-         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=chapter_dir), \
+         patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=chapter_dir), \
          patch("app.api.routers.generation.resolve_tts_engine_for_profiles", return_value=("xtts", ["xtts", "voxtral"])), \
          patch("app.engines.voice_engines.resolve_profile_engine", side_effect=lambda name, fallback_engine=None, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
          patch("app.api.routers.generation.resolve_profile_engine", side_effect=lambda name, fallback_engine=None, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voice2" else {"speed": 1.0}), \
-         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.tts_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voice2" else {"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
          patch("app.api.routers.generation.broadcast_queue_update"), \
          patch("app.api.routers.generation.broadcast_chapter_updated"), \
          patch("app.api.ws.broadcast_segments_updated"), \
@@ -901,3 +901,35 @@ def test_queue_chapter_mixed_render_runs_end_to_end(clean_db, client, monkeypatc
     assert chapter["audio_file_path"] == "chapter.wav"
     assert all(row["audio_status"] == "done" for row in segment_rows)
     assert all(row["audio_file_path"] for row in segment_rows)
+
+
+def test_queue_chapter_mixed_engine_builds_weighted_script(clean_db, client):
+    """Mixed jobs must carry the per-group script so the orchestrator gets
+    render-group weights — without them every segment frame is published with
+    the FULL chapter ETA (observed: every segments.progress frame pinned at
+    85s) and chapter progress collapses to the raw active-segment progress."""
+    from app.db.state import update_settings
+    update_settings({"enabled_plugins": {"voxtral": True}, "mistral_api_key": "abc123"})
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+
+    with patch("app.api.routers.generation.get_chapter_segments", return_value=[
+        {"speaker_profile_name": "SingleEngine Voice", "audio_status": "unprocessed", "audio_file_path": None},
+        {"speaker_profile_name": "Voxtral Voice", "audio_status": "unprocessed", "audio_file_path": None},
+    ]), \
+         patch("app.api.routers.generation.put_job"), \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit") as mock_submit, \
+         patch("app.db.speakers.get_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if "Voxtral" in (name or "") else "xtts"):
+        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid, "speaker_profile": "SingleEngine Voice"})
+        assert response.status_code == 200
+        task = mock_submit.call_args.args[0]
+        assert task.engine_id == "mixed"
+        assert task.script, "mixed synthesis task must carry the weighted per-group script"
+        for entry in task.script:
+            assert entry.get("ids"), entry
+            assert entry.get("weight", 0) >= 1, entry

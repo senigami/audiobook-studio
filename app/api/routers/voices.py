@@ -8,6 +8,7 @@ from . import (
     voices_actions,
     voices_characters,
     voices_narrators,
+    voices_metadata,
 )
 
 # Re-export internal helpers and settings used by tests and other modules
@@ -45,3 +46,6 @@ router.include_router(voices_bundles.router, prefix="/api/voices")
 
 # Action routes (build, test, settings, samples)
 router.include_router(voices_actions.router, prefix="/api/speaker-profiles")
+
+# Metadata routes (Phase C — attributes, tags, description, search, casting, icon)
+router.include_router(voices_metadata.router, prefix="/api/voices")

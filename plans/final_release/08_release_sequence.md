@@ -21,7 +21,7 @@ Goal: correct behavior before any reorganization, so later refactors are verifie
 Goal: delete what shouldn't exist so the contract work refactors only living code.
 
 - [ ] **2a. Repo + dead-code cleanup** — doc 06 (root cruft, 0-byte DBs, legacy engine path deletion, frontend stubs, dev-route gating, App.tsx split). Owner confirms the flagged destructive steps.
-- [ ] **2b. Phase 11 formal closeout + plan-file corrections** — doc 01 P-items (checkpoint Phase 11, supersede the GitLab doc, sync phase docs).
+- [ ] **2b. Phase 11 formal closeout + plan-file corrections** — doc 01 P-items (checkpoint Phase 11, supersede the GitHub doc, sync phase docs).
 - [ ] **Gate:** builds green; greps in doc 06 all pass; no `OWNER_CONFIRMED` flags left unresolved.
 
 ## Stage 3 — The plugin contract (the heart)
@@ -55,7 +55,11 @@ Can start in parallel with Stage 4 (different files); finish before Stage 6.
 - [ ] **6b. Live demo revamp** — doc 14 (interim step 9 webm clips may land any time after Stage 1).
 - [ ] **6c. Pinokio distribution** — doc 16: blockers PK1–PK4 (pin Coqui fork, torch backend selection, public wrapper repo, no machine paths), demo.zip 2.0 refresh (PK7, depends on doc 04), first-run smoke test PK8 (XTTS default engine + Studio Voice default voice + demo restore).
 - [ ] **6d. Canonical specs conformance** — doc 18 SP9: every spec written (per-stage schedule in doc 18) and cross-checked against shipped code; mismatches filed and fixed.
-- [ ] **6e. Phase 13 deliverables** — release notes, install validation (macOS/Windows/Linux, Pinokio), promo assets, `build:demo` in the release checklist.
+- [ ] **6e. Phase 13 deliverables** — release notes, install validation (macOS/Windows/Linux, Pinokio), promo assets. The release commit must include the following steps in order before tagging:
+    1. `npm -C frontend run sync:showcase-tokens` — regenerates the token region in `docs/v1.html` from the current `tokens.css`; commit the result.
+    2. `npm -C frontend run build:demo` — rebuilds the interactive demo into `docs/demo/`; commit the result.
+    3. Tag `v2.0.0` only after both outputs are verified (no stale tokens, `docs/demo/index.html` present).
+    *(doc 14 step 8 — wired into release checklist 2026-06-11)*
 - [ ] **Gate:** Phase 13 plan checklist complete; doc 16 PK1–PK4 + PK8 green; doc 18 SP9 conformance pass clean; tag `v2.0.0`.
 
 ## Post-release backlog (explicitly NOT gating)

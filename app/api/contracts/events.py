@@ -18,6 +18,7 @@ class JobLifecycleCommand(str, Enum):
     JOB_PREPARING = "JOB_PREPARING"
     START_SYNTHESIS = "START_SYNTHESIS"
     START_SEGMENT = "START_SEGMENT"
+    SEGMENT_PENDING = "SEGMENT_PENDING"
     SEGMENT_PROGRESS = "SEGMENT_PROGRESS"
     SEGMENT_SAVED = "SEGMENT_SAVED"
     JOB_RESET_TO_ACTIVE = "JOB_RESET_TO_ACTIVE"
@@ -69,6 +70,11 @@ COMMAND_TOPIC_SCOPES = {
     "chapters.progress": {
         JobLifecycleCommand.JOB_PREPARING,
         JobLifecycleCommand.START_SYNTHESIS,
+        # Segment-capable engines publish START_SEGMENT at each render-group start;
+        # chapter progress frames surface it so the UI can show the phase reason.
+        # SEGMENT_PENDING is the announce-time frame (before engine confirmation).
+        JobLifecycleCommand.START_SEGMENT,
+        JobLifecycleCommand.SEGMENT_PENDING,
         JobLifecycleCommand.JOB_RESET_TO_ACTIVE,
         JobLifecycleCommand.JOB_FINALIZING,
         JobLifecycleCommand.JOB_DONE,
@@ -76,6 +82,8 @@ COMMAND_TOPIC_SCOPES = {
         # Allow string versions
         "JOB_PREPARING",
         "START_SYNTHESIS",
+        "START_SEGMENT",
+        "SEGMENT_PENDING",
         "JOB_RESET_TO_ACTIVE",
         "JOB_FINALIZING",
         "JOB_DONE",
@@ -83,10 +91,12 @@ COMMAND_TOPIC_SCOPES = {
     },
     "segments.progress": {
         JobLifecycleCommand.START_SEGMENT,
+        JobLifecycleCommand.SEGMENT_PENDING,
         JobLifecycleCommand.SEGMENT_PROGRESS,
         JobLifecycleCommand.SEGMENT_SAVED,
         # Allow string versions
         "START_SEGMENT",
+        "SEGMENT_PENDING",
         "SEGMENT_PROGRESS",
         "SEGMENT_SAVED",
     },

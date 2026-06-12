@@ -667,16 +667,16 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
 
     if (barOnly) {
         return (
-            <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden' }} data-testid={dataTestId ?? "progress-bar-tiny"}>
+            <div style={{ height: '6px', background: 'var(--progress-track)', borderRadius: '3px', overflow: 'hidden' }} data-testid={dataTestId ?? "progress-bar-tiny"}>
                 <div
                     key={stablePhaseKey}
                     className={visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName}
                     style={{
                         height: '100%',
                         width: indeterminate ? '100%' : (isDoneStatus(visualState) && localProgress < 1.0) ? formatStylePercent(localProgress) : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : formatStylePercent(localProgress),
-                        background: visualState === 'finalizing' ? 'rgba(191, 219, 254, 0.34)' : terminalFillStyle?.background ?? 'var(--accent)',
+                        background: visualState === 'finalizing' ? 'var(--progress-finalizing-fill)' : terminalFillStyle?.background ?? 'var(--accent)',
                         opacity: terminalStatusText && (isQueuedStatus(visualState) || isCancelledStatus(visualState)) ? 0.55 : 1,
-                        boxShadow: terminalFillStyle?.boxShadow ?? (visualState === 'finalizing' ? '0 0 15px rgba(59, 130, 246, 0.45)' : '0 0 15px var(--accent)'),
+                        boxShadow: terminalFillStyle?.boxShadow ?? (visualState === 'finalizing' ? '0 0 15px var(--progress-finalizing-glow)' : '0 0 15px var(--accent)'),
                         transition: (shouldAnimateWidth && !isTerminalStatus(visualState)) || (isDoneStatus(visualState) && localProgress < 1.0) ? 'width 0.25s linear' : 'none'
                     }}
                 />
@@ -690,11 +690,11 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
                         {showLabel && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>}
-                        {presentationState && (
+                        {presentationState && checkpointMode !== 'segment' && (
                             <span style={{
                                 fontSize: '0.58rem', textTransform: 'uppercase', letterSpacing: '0.08em',
-                                padding: '0.14rem 0.42rem', borderRadius: '999px', border: '1px solid rgba(0,0,0,0.08)',
-                                background: presentationState === 'running' || presentationState === 'processing' ? 'rgba(37, 99, 235, 0.10)' : presentationState === 'preparing' ? 'rgba(245, 158, 11, 0.12)' : presentationState === 'finalizing' ? 'rgba(59, 130, 246, 0.10)' : 'rgba(100, 116, 139, 0.10)',
+                                padding: '0.14rem 0.42rem', borderRadius: '999px', border: '1px solid var(--progress-badge-border)',
+                                background: presentationState === 'running' || presentationState === 'processing' ? 'var(--progress-badge-running)' : presentationState === 'preparing' ? 'var(--progress-badge-preparing)' : presentationState === 'finalizing' ? 'var(--progress-badge-finalizing)' : 'var(--progress-badge-default)',
                                 color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap',
                             }}>
                                 {displayStatusLabel}
@@ -717,16 +717,16 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                     </div>
                 </div>
             )}
-            <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{ height: '6px', background: 'var(--progress-track)', borderRadius: '3px', overflow: 'hidden' }}>
                 <div
                     key={stablePhaseKey}
                     className={visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName}
                     style={{
                         height: '100%',
                         width: indeterminate ? (visualState === 'preparing' ? '0%' : visualState === 'finalizing' ? '100%' : '35%') : (isDoneStatus(visualState) && localProgress < 1.0) ? formatStylePercent(localProgress) : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : formatStylePercent(localProgress),
-                        background: visualState === 'finalizing' ? 'rgba(191, 219, 254, 0.34)' : (indeterminate && preparingIndeterminate ? 'rgba(248, 250, 252, 0.96)' : terminalFillStyle?.background ?? 'var(--accent)'),
+                        background: visualState === 'finalizing' ? 'var(--progress-finalizing-fill)' : (indeterminate && preparingIndeterminate ? 'var(--progress-preparing-fill)' : terminalFillStyle?.background ?? 'var(--accent)'),
                         opacity: terminalStatusText && (isQueuedStatus(visualState) || isCancelledStatus(visualState)) ? 0.55 : 1,
-                        boxShadow: visualState === 'finalizing' ? '0 0 15px rgba(59, 130, 246, 0.45)' : (indeterminate && preparingIndeterminate ? '0 0 10px rgba(226,232,240,0.45)' : terminalFillStyle?.boxShadow ?? '0 0 15px var(--accent)'),
+                        boxShadow: visualState === 'finalizing' ? '0 0 15px var(--progress-finalizing-glow)' : (indeterminate && preparingIndeterminate ? '0 0 10px var(--progress-preparing-glow)' : terminalFillStyle?.boxShadow ?? '0 0 15px var(--accent)'),
                         transition: (shouldAnimateWidth && !isTerminalStatus(visualState)) || (isDoneStatus(visualState) && localProgress < 1.0) ? 'width 0.25s linear' : 'none'
                     }}
                 />

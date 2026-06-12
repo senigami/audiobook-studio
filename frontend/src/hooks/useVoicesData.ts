@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from 'react';
-import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '@/types';
+import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine, VoiceMetadata } from '@/types';
 import { formatVoiceEngineLabel, getVariantDisplayName, getVoiceProfileEngine } from '@/utils/voiceProfiles';
 
 interface UseVoicesDataProps {
@@ -10,6 +10,10 @@ interface UseVoicesDataProps {
     searchQuery: string;
     engineFilter: 'all' | 'disabled' | VoiceEngine;
     exportVoiceName: string | null;
+    voiceMetadataMap?: Map<string, VoiceMetadata>;
+    classFilter?: string;
+    genderFilter?: string;
+    ageFilter?: string;
 }
 
 export function useVoicesData({
@@ -19,7 +23,11 @@ export function useVoicesData({
     engines,
     searchQuery,
     engineFilter,
-    exportVoiceName
+    exportVoiceName,
+    voiceMetadataMap,
+    classFilter = '',
+    genderFilter = '',
+    ageFilter = '',
 }: UseVoicesDataProps) {
     const buildVoiceGroups = useCallback((profiles: SpeakerProfile[]) => {
         const groupedVoices = (speakers || []).map(speaker => {
@@ -82,12 +90,21 @@ export function useVoicesData({
     const filteredVoices = useMemo(() => {
         return voices.filter(v => {
             const query = searchQuery.toLowerCase();
-            const matchesSearch = v.name.toLowerCase().includes(query) || 
-                   v.profiles.some((p: SpeakerProfile) => getVariantDisplayName(p).toLowerCase().includes(query));
+            const meta = voiceMetadataMap?.get(v.id);
+            const matchesSearch = query === '' || (
+                v.name.toLowerCase().includes(query) ||
+                v.profiles.some((p: SpeakerProfile) => getVariantDisplayName(p).toLowerCase().includes(query)) ||
+                (meta?.description?.toLowerCase().includes(query) ?? false) ||
+                (meta?.tags?.some(t => t.toLowerCase().includes(query)) ?? false)
+            );
             const matchesEngine = engineFilter === 'all' || engineFilter === 'disabled' || v.profiles.some((p: SpeakerProfile) => getVoiceProfileEngine(p) === engineFilter);
-            return matchesSearch && matchesEngine;
+            const attrs = meta?.attributes;
+            const matchesClass = !classFilter || attrs?.class === classFilter;
+            const matchesGender = !genderFilter || attrs?.gender === genderFilter;
+            const matchesAge = !ageFilter || attrs?.age === ageFilter;
+            return matchesSearch && matchesEngine && matchesClass && matchesGender && matchesAge;
         }).sort((a, b) => a.name.localeCompare(b.name));
-    }, [voices, searchQuery, engineFilter]);
+    }, [voices, searchQuery, engineFilter, voiceMetadataMap, classFilter, genderFilter, ageFilter]);
 
     const engineFilterOptions = useMemo(() => {
         const engineCounts = activeSpeakerProfiles.reduce((acc, profile) => {

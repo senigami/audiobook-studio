@@ -27,6 +27,7 @@ from ...engines.behavior import (
     uses_segment_orchestration,
     get_text_split_target,
     has_behavior,
+    get_sanitize_categories,
 )
 from ...domain.chunk_groups import build_chunk_groups
 from ...utils.text.textops import sanitize_text, safe_split_long_sentences
@@ -196,7 +197,7 @@ def _build_script_for_chapter(chapter_id: str, project_id: str, default_profile:
         if safe_mode:
             engine_id = group.get("engine") or resolve_profile_engine(profile_name, default_profile)
             if has_behavior(engine_id, "sanitize_text"):
-                processed = sanitize_text(processed)
+                processed = sanitize_text(processed, get_sanitize_categories(engine_id))
             processed = safe_split_long_sentences(processed, target=get_text_split_target(engine_id))
 
         # V2 segment path: chapters/{chapter_id}/segments/{first_segment_id}.wav
@@ -365,7 +366,7 @@ def api_add_to_queue(
             )
 
             make_mp3 = bool(settings.get("make_mp3", False))
-            audio_filename = f"{Path(temp_filename).stem}.mp3" if make_mp3 else f"{Path(temp_filename).stem}.wav"
+            audio_filename = f"{Path(temp_filename).stem}.wav"
 
             # Resolve voice directory/reference for single-engine bridge synthesis
             voice_ref = None
@@ -487,7 +488,7 @@ def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
     )
 
     make_mp3 = bool(settings.get("make_mp3", False))
-    audio_filename = f"{chapter_id}_0.mp3" if make_mp3 else f"{chapter_id}_0.wav"
+    audio_filename = f"{chapter_id}_0.wav"
 
     # Resolve voice directory/reference for single-engine bridge synthesis
     voice_ref = None

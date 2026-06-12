@@ -73,6 +73,12 @@ import { QueueItem } from '@/components/queue/QueueItem';
 describe('Global Queue Components', () => {
     beforeEach(() => {
         resetLiveEventAuditForTests();
+        // Tests in this suite interact with the debug copy button, which requires dev mode.
+        localStorage.setItem('studio-dev-mode', 'true');
+    });
+
+    afterEach(() => {
+        localStorage.removeItem('studio-dev-mode');
     });
 
     const mockJob = {

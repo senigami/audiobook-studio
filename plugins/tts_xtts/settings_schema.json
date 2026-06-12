@@ -57,6 +57,28 @@
       "enum": ["v2"],
       "default": "v2"
     },
+    "max_chars_per_second": {
+      "type": "number",
+      "title": "Max Plausible Speech Rate (chars/sec)",
+      "description": "Output QA cap: if rendered audio implies a speech rate faster than this (characters divided by duration), it is flagged as likely truncated and rejected. Normal speech is ~12-15 chars/sec; the default 60 only catches clearly broken output. Set to 0 to disable.",
+      "minimum": 0,
+      "maximum": 200,
+      "default": 60.0
+    },
+    "keep_model_loaded": {
+      "type": "boolean",
+      "title": "Keep Model Loaded",
+      "description": "When enabled, XTTS keeps the voice model loaded in a background process between renders instead of reloading it each time. This saves roughly 19 seconds per render group but uses more memory while the model is warm. Disable this on machines where memory is limited.",
+      "default": true
+    },
+    "keep_model_loaded_idle_seconds": {
+      "type": "integer",
+      "title": "Model Idle Timeout (seconds)",
+      "description": "How long to keep the model loaded after the last render before releasing it. Set to 0 to disable the timeout entirely (the model stays loaded until Studio restarts or Keep Model Loaded is turned off). Requires Keep Model Loaded to be enabled.",
+      "minimum": 0,
+      "maximum": 86400,
+      "default": 300
+    },
     "computer_speed_multiplier": {
       "type": "number",
       "title": "Computer Speed",

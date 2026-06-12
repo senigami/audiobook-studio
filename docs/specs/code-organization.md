@@ -178,7 +178,7 @@ New TTS engines MUST be added as `plugins/tts_<id>/` directories.  No engine
 registration is needed in core code; discovery is automatic via
 `app/tts_server/plugin_loader.py`.
 
-Shipped plugins: `tts_xtts`, `tts_voxtral`, `synthesis_mixed`.
+Shipped plugins: `tts_xtts`, `tts_voxtral`, `tts_mixed`.
 
 ---
 

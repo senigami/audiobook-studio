@@ -21,20 +21,6 @@ def _profile_inputs_for_segment(char_profile, job_default_profile, default_sw):
     return sw, voice_profile_dir
 
 
-def _generate_direct_xtts(text, j, out_wav, on_output, cancel_check, default_sw, speed):
-    from app.jobs.handlers.bridge_helpers import generate_via_bridge
-    return generate_via_bridge(
-        engine="xtts",
-        text=text,
-        out_wav=out_wav,
-        profile_name=j.speaker_profile,
-        safe_mode=j.safe_mode,
-        on_output=on_output,
-        cancel_check=cancel_check,
-        speed=speed,
-    )
-
-
 def _group_job_progress(
     completed_units: int,
     total_units: int,

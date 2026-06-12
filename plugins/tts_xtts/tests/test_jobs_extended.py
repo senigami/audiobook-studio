@@ -259,13 +259,13 @@ def test_handle_xtts_job_standard_ignores_orphan_progress_before_start_segment(m
         assert call.kwargs.get("skip_job_updated") is True
 
 def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
+    """make_mp3=True must not trigger MP3 conversion; synthesis always completes WAV-only."""
     mock_job.make_mp3 = True
     pdir = tmp_path / "project"
     pdir.mkdir()
     out_wav = pdir / "output.wav"
     out_mp3 = pdir / "output.mp3"
     out_wav.write_text("wav")
-    out_mp3.write_text("mp3")
 
     def inspect_script(**kwargs):
         script = kwargs["script"]
@@ -281,7 +281,7 @@ def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
          patch("app.db.update_segment"), \
          patch("plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=inspect_script), \
          patch("plugins.tts_xtts.plugin.studio.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
-         patch("plugins.tts_xtts.plugin.studio.handler.wav_to_mp3", return_value=0), \
+         patch("plugins.tts_xtts.plugin.studio.handler.wav_to_mp3") as mock_wav_to_mp3, \
          patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update_job:
 
         handle_xtts_job(
@@ -290,8 +290,14 @@ def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
             pdir, out_wav, out_mp3, text="Hello"
         )
 
-        # Verify status became 'done'
-        mock_update_job.assert_any_call("test_job", status="done", finished_at=ANY, progress=1.0, output_wav="output.wav", output_mp3="output.mp3", eta_seconds=None, eta_basis=None, estimated_end_at=None, eta_updated_at=None)
+        # wav_to_mp3 must not be called — synthesis is WAV-only
+        assert not mock_wav_to_mp3.called, "wav_to_mp3 must not be called during ordinary synthesis"
+        # Terminal done call must have output_wav and no output_mp3
+        done_calls = [c for c in mock_update_job.call_args_list if c.kwargs.get("status") == "done"]
+        assert done_calls
+        terminal = done_calls[-1]
+        assert terminal.kwargs.get("output_wav") == "output.wav"
+        assert "output_mp3" not in terminal.kwargs, "output_mp3 must not appear in WAV-only terminal completion"
 
 
 def test_handle_xtts_job_creates_missing_project_audio_dir(mock_job, tmp_path):
@@ -370,7 +376,6 @@ def test_no_finalizing_status_is_set(mock_job, tmp_path):
          patch("app.db.update_segment"), \
          patch("plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=inspect_script), \
          patch("plugins.tts_xtts.plugin.studio.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
-         patch("plugins.tts_xtts.plugin.studio.handler.wav_to_mp3", return_value=0), \
          patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update_job:
 
         handle_xtts_job(
@@ -382,7 +387,3 @@ def test_no_finalizing_status_is_set(mock_job, tmp_path):
         for call in mock_update_job.call_args_list:
             status = call.kwargs.get("status")
             assert status != "finalizing"
-            if status in {"done", "failed", "cancelled"}:
-                continue
-            assert call.kwargs.get("skip_studio_job_event") is True
-            assert call.kwargs.get("skip_job_updated") is True

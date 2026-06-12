@@ -390,11 +390,14 @@ def test_mandatory_synthesis_duration_contract(clean_db):
 
 
 def test_record_engine_sample_contract_enforcement(clean_db, clean_state):
+    # The worker layer skips (never raises) on a missing/invalid duration —
+    # bookkeeping must not be able to fail a finished job (audit task 003).
+    # The hard mandatory-duration contract lives in record_render_sample and
+    # is covered by test_mandatory_synthesis_duration_contract.
     from app.jobs.worker_metrics import record_engine_sample
     from app.db.state import put_job
     from app.db.models import Job
 
-    # 1. Job with missing synthesis_duration_seconds must raise ValueError
     job_missing = Job(
         id="job-missing-synth",
         engine="engine-a",
@@ -405,10 +408,8 @@ def test_record_engine_sample_contract_enforcement(clean_db, clean_state):
         synthesis_duration_seconds=None
     )
     put_job(job_missing)
-    with pytest.raises(ValueError, match="synthesis_duration_seconds is mandatory"):
-        record_engine_sample(job_missing, time.time() - 8, 100, {})
+    record_engine_sample(job_missing, time.time() - 8, 100, {})
 
-    # 2. Job with negative synthesis_duration_seconds must raise ValueError
     job_negative = Job(
         id="job-negative-synth",
         engine="engine-a",
@@ -419,8 +420,9 @@ def test_record_engine_sample_contract_enforcement(clean_db, clean_state):
         synthesis_duration_seconds=-2.0
     )
     put_job(job_negative)
-    with pytest.raises(ValueError, match="synthesis_duration_seconds is mandatory"):
-        record_engine_sample(job_negative, time.time() - 8, 100, {})
+    record_engine_sample(job_negative, time.time() - 8, 100, {})
+
+    assert get_render_history() == []
 
 
 def test_state_performance_initialization_isolation(tmp_path):

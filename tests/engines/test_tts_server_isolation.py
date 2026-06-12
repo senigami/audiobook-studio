@@ -23,8 +23,13 @@ def _make_plugin_dir(
     return plugin_dir
 
 def _minimal_manifest(engine_id="mock", entry_class="engine:MockEngine"):
+    # All four version fields required (S8 gate flip).
     return {
         "studio_tts_manifest": "1.0",
+        "contract_version": "1.0",
+        "sdk_version": "1.0",
+        "settings_schema_version": "1.0",
+        "event_envelope_version": "1.0",
         "engine_id": engine_id,
         "display_name": f"Mock {engine_id}",
         "entry_class": entry_class,

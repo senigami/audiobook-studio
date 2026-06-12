@@ -203,7 +203,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                                                 fontSize: '0.8rem',
                                                 padding: '6px 10px',
                                                 borderRadius: '6px',
-                                                background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
+                                                background: idx % 2 === 0 ? 'var(--glass-subtle)' : 'transparent',
                                                 transition: 'background 0.2s',
                                                 ...(s.is_new ? {
                                                     background: 'rgba(var(--accent-rgb), 0.05)',
@@ -223,7 +223,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                                                         width: '24px',
                                                         height: '24px',
                                                         borderRadius: '6px',
-                                                        background: playingSample === s.name ? 'var(--accent-glow)' : 'rgba(255,255,255,0.05)',
+                                                        background: playingSample === s.name ? 'var(--accent-glow)' : 'var(--glass-subtle)',
                                                         border: playingSample === s.name ? '1px solid var(--accent)' : '1px solid var(--border-light)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -236,7 +236,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                                                 </button>
 
                                                 {s.is_new && (
-                                                    <span style={{ color: 'var(--accent)', fontSize: '0.65rem', fontWeight: 700, background: 'rgba(var(--accent-rgb), 0.1)', padding: '2px 4px', borderRadius: '4px' }}>NEW</span>
+                                                    <span style={{ color: 'var(--accent)', fontSize: '0.65rem', fontWeight: 700, background: 'var(--accent-glow)', padding: '2px 4px', borderRadius: '4px' }}>NEW</span>
                                                 )}
                                                 <span style={{ color: 'var(--text-primary)', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                     {s.name}

@@ -208,7 +208,12 @@ class SynthesisTask(StudioTask):
             )
 
         from app.db.models import Job  # noqa: PLC0415
-        from plugins.synthesis_mixed.handler import handle_mixed_job  # noqa: PLC0415
+        from plugins.tts_mixed.handler import handle_mixed_job, set_ctx as _set_mixed_ctx  # noqa: PLC0415
+        from app.studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
+
+        # Construct and inject the engine-scoped ctx before dispatch so the
+        # handler uses the dispatcher's context (enables mock injection in tests).
+        _set_mixed_ctx(StudioPluginContext(engine_id="mixed"))
 
         # Reconstruct a Job-like object for the local handler
         j = Job(

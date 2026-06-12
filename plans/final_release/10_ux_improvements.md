@@ -4,25 +4,25 @@ Findings from a 2026-06-10 HIG-style design audit of the frontend. Goal: Apple-l
 
 ## Quick wins (each under 1 hour)
 
-- [ ] **Q1.** Add missing `--accent-rgb: 43, 110, 255;` token to `frontend/src/theme/tokens.css` — `rgba(var(--accent-rgb), …)` in `VoicesTabContent.tsx:58` currently renders transparent. *(Also pick up `--accent-tint`, tracked in doc 07.)*
-- [ ] **Q2.** `ConfirmModal.tsx` + `ResyncPreviewModal`: add `role="dialog" aria-modal="true" aria-labelledby` (h3 id). *(Overlaps doc 11 A1 — do once.)*
-- [ ] **Q3.** Create-project modal in `ProjectLibraryPage.tsx:228-360`: wrap in `<AnimatePresence>` with an `exit` animation — currently snaps off.
-- [ ] **Q4.** `ActionMenu.tsx:129`: default trigger 32×32 → 44×44 (HIG minimum touch target).
-- [ ] **Q5.** Remove the `!important` block from `.btn-home` (`components.css:77-103`); rewrite with normal specificity.
-- [ ] **Q6.** Verify Enter-submits on the project Title input (`ProjectLibraryPage.tsx:293`).
-- [ ] **Q7.** Delete the dead `/queue` route (`App.tsx:260-278`) — the effect at `App.tsx:131-138` redirects to the drawer before it ever renders.
-- [ ] **Q8.** `ConfirmModal.tsx:99` X button: `padding: '4px'` → `'10px'` (≥40×40 hit area).
-- [ ] **Q9.** Toast container in `App.tsx`: add `aria-live="polite" aria-atomic="true"`. *(Overlaps doc 11 A6.)*
-- [ ] **Q10.** `ActionMenu.tsx:56-60`: restore/fix the commented-out flip-up logic so menus near the viewport bottom open upward.
-- [ ] **Q11.** `ChapterScriptToolbar` (in `ChapterHeader.tsx:546-551`): replace `AlertTriangle` for the normal "Unsaved" state with a neutral dot/pencil — alert iconography is for errors.
-- [ ] **Q12.** `ProjectLibraryPage.tsx`: when `projects.length === 0 && !loading`, skip the hero and render only the centered empty state with one primary "New Project" CTA (currently two competing start-here signals).
+- [x] **Q1.** Add missing `--accent-rgb: 43, 110, 255;` token to `frontend/src/theme/tokens.css`. Done 2026-06-11; `--accent-tint` was already present from the step-1 token audit.
+- [x] **Q2.** `ConfirmModal.tsx` + `ResyncPreviewModal`: `role="dialog" aria-modal="true" aria-labelledby` added. Done 2026-06-11 together with A1.
+- [x] **Q3.** Create-project modal wrapped in `<AnimatePresence>` with `exit` animation. Done 2026-06-11.
+- [x] **Q4.** `ActionMenu.tsx` default trigger 32×32 → 44×44. Done 2026-06-11.
+- [x] **Q5.** `.btn-home` `!important` removed; normal specificity. Done 2026-06-11.
+- [x] **Q6.** Enter-submits on Title input — already worked (input is inside a `<form onSubmit=…>`). Verified 2026-06-11; no code change needed.
+- [ ] **Q7.** Delete the dead `/queue` route (`App.tsx:260-278`) — skipped per instruction; handled by the approved Phase A plan.
+- [x] **Q8.** `ConfirmModal.tsx` X button padding 4px → 10px with minWidth/minHeight 40px. Done 2026-06-11.
+- [x] **Q9.** Toast container: always-mounted `aria-live="polite" aria-atomic="true"` region added to `App.tsx`. Done 2026-06-11.
+- [x] **Q10.** `ActionMenu` flip-up logic restored: opens upward when insufficient viewport space below. Done 2026-06-11.
+- [x] **Q11.** `ChapterScriptToolbar` "Unsaved" icon changed from `AlertTriangle` to `Pencil`. Done 2026-06-11.
+- [x] **Q12.** `ProjectLibraryPage`: empty-state branch renders centered empty state + single "New Project" CTA; hero skipped when `projects.length === 0`. Done 2026-06-11.
 
 ## Ranked improvements
 
-- [ ] **U1 (M). Undo toasts instead of confirm dialogs.** `ConfirmModal` is invoked from ~14 sites and defaults `isDestructive=true`. Reclassify: chapter rename / sample delete / voice reset / chapter-audio reset → immediate action + 5s undo toast (extend the existing `showToast` action pattern in `App.tsx:121-126` into a `useUndoToast()` hook); keep a modal only for project delete and bulk audio reset. Remove the `requestConfirm` prop-drilling chain (VoicesPage → VoicesTabContent → NarratorCard → VariantEditor).
+- [ ] **U1 (M). Undo toasts instead of confirm dialogs.** *(Design APPROVED by owner 2026-06-12 — implement as specced.)* `ConfirmModal` is invoked from ~14 sites and defaults `isDestructive=true`. Reclassify: chapter rename / sample delete / voice reset / chapter-audio reset → immediate action + 5s undo toast (extend the existing `showToast` action pattern in `App.tsx:121-126` into a `useUndoToast()` hook); keep a modal only for project delete and bulk audio reset. Remove the `requestConfirm` prop-drilling chain (VoicesPage → VoicesTabContent → NarratorCard → VariantEditor).
   *Accept:* deleting a chapter shows an undo toast and the action is recoverable within the window; only project delete still shows a modal.
 - [ ] **U2 (M). Focus management everywhere.** One `useFocusTrap(ref, isOpen)` hook applied to `ConfirmModal`, create-project modal, `ResyncPreviewModal`, and the queue `Drawer` (`pages/Voices/components/VoiceUtils.tsx`); focus first element on open, restore trigger focus on close. *(Joint with doc 11 A1/A2.)*
-- [ ] **U3 (M). Semantic type scale.** `tokens.css` has zero type tokens; 11 ad-hoc font sizes exist (0.625rem–2.75rem). Add a 6-step `--type-*` scale (title 1.5rem/700, headline 1.125/600, body 0.9375/400, callout 0.875/400, caption 0.75/500, micro 0.6875/600), replace inline sizes in `ProjectLibraryPage`, `ChapterHeader`, `ScriptView`, `ConfirmModal`; delete anything below micro (the 0.65rem/0.625rem labels in `components.css:308` are unreadable).
+- [ ] **U3 (M). Semantic type scale.** *(Design APPROVED by owner 2026-06-12 via styleguide typography section.)* `tokens.css` has zero type tokens; 11 ad-hoc font sizes exist (0.625rem–2.75rem). Add a 6-step `--type-*` scale (title 1.5rem/700, headline 1.125/600, body 0.9375/400, callout 0.875/400, caption 0.75/500, micro 0.6875/600), replace inline sizes in `ProjectLibraryPage`, `ChapterHeader`, `ScriptView`, `ConfirmModal`; delete anything below micro (the 0.65rem/0.625rem labels in `components.css:308` are unreadable).
   Also add `--space-*` and `--duration-*` tokens (spacing and motion durations are ad-hoc today).
 - [ ] **U4 (S). Startup experience.** Replace the full-screen startup overlay (`App.tsx:308-355`, zIndex 2000) with skeleton library cards + a thin top progress bar; reserve the blocking overlay for server-not-ready only.
 - [ ] **U5 (S). Queue drawer affordances.** Global shortcut (e.g. Cmd+Shift+Q); distinct active style for drawer-open vs route-active in `Layout.tsx:93-137`; badge → true pill (`border-radius: 999px`) with stable accent colors.
@@ -35,6 +35,10 @@ Findings from a 2026-06-10 HIG-style design audit of the frontend. Goal: Apple-l
 - [ ] **U12 (S). Queue item cancel.** Allow cancelling a single queued job from the queue drawer (today only "Stop All" in the editor).
 - [ ] **U13 (M). First-run onboarding.** Empty-library state gains a 3-step checklist (Create project → Add voice → Import chapter & queue) instead of pushing users to the external wiki.
 - [ ] **U14 (S). Route transition discipline.** `.animate-in` (utilities.css:63) fires on every page nav — replace with a single shared route transition; audit Framer Motion usage for purpose vs noise.
+- [ ] **U15 (M). Layout & navigation design review — run FIRST in Stage 5.** (Owner request, 2026-06-11.) Map every navigation destination a user can reach (library page, project page, chapter page tabs — assemblies/backups/character definitions — and in-chapter selections), then redesign the information architecture for an Apple-style "don't make me think" experience: each screen has one obvious purpose, related actions are grouped, nothing competes for attention. Deliverable is a navigation map + proposed layout before any Stage 5 visual work, since its conclusions shape U1–U14 placement and U16.
+  **Mockup viewable now at `/demo/#/styleguide` → Section 4 (Proposed Directions) → U15.**
+- [ ] **U16 (M). Unified audio player surface (segment vs chapter).** (Owner request, 2026-06-11.) The VCR-style segment player at the bottom of the Chapter Editor should become more prominent, and must coexist with the full rendered-chapter player without the two competing for space or attention. Candidate design: one player surface with a scope toggle (segment ↔ chapter) that swaps the loaded audio; evaluate during U15. Depends on U15's layout conclusions.
+  **Mockup viewable now at `/demo/#/styleguide` → Section 4 (Proposed Directions) → U16.**
 
 ## Verification
 

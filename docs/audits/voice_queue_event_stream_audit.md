@@ -419,6 +419,8 @@ git diff --check
 
 ### Slice 5: Frontend Row Authority Guardrails
 
+> **Status (2026-06-11): Implemented.** `useQueueSync.ts`/`useJobs.ts` enforce queue.items-only row authority; allowed overlay fields live in `frontend/src/utils/queueOverlayFields.ts` (`QUEUE_OVERLAY_FIELDS`). Contract recorded in `docs/specs/live-events.md` §"Queue row authority" (1.2.0).
+
 Goal: frontend live overlays remain useful, but non-`queue.items` topics cannot create or reclassify main queue rows.
 
 Scope:
@@ -490,6 +492,8 @@ git diff --check
 
 ### Slice 7: WAV-First Cleanup For Voxtral And Normal Synthesis
 
+> **Status (2026-06-11): Implemented.** make_mp3/finalizing branches removed from the Voxtral and XTTS chapter handlers; queue-row display filenames always `.wav`. Contract recorded in `docs/specs/queue-jobs.md` §3.6 (1.1.0). Mixed render now records the true rendered-segment count in performance samples (Finding 10). Voice-preview artifact policy finalized by owner ruling 2026-06-11: samples synthesize WAV then auto-convert to sample.mp3 (WAV deleted; WAV kept as fallback on conversion failure) — supersedes the interim WAV-only preview decision in Slice 8.
+
 Goal: ordinary synthesis does not use `finalizing` or MP3 conversion as part of the normal queue lifecycle.
 
 Scope:
@@ -558,6 +562,8 @@ git diff --check
 ```
 
 ### Slice 9: Contract Documentation And Final Cross-Checks
+
+> **Status (2026-06-11): Implemented.** Row authority: `docs/specs/live-events.md` 1.2.0 §"Queue row authority". WAV-first: `docs/specs/queue-jobs.md` 1.1.0 §3.6. Plugin-author guidance: `docs/plugin-guide.md` queue/lifecycle section.
 
 Goal: make the finished contract discoverable for plugin authors and prevent regressions.
 

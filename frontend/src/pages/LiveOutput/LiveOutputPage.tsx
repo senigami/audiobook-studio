@@ -5,6 +5,7 @@ import { LIVE_EVENT_CONSUMERS, LIVE_EVENT_CONSUMER_TOPIC_IDS } from '@/config/li
 import { ALL_TOPIC_FILTER_IDS, type TopicFilterId } from '@/config/liveEventTopics';
 import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
 import { getWebsocketRecentMessages } from '@/utils/runtimeDebug';
+import { subscribeLiveEventAudit } from '@/store/liveEventAuditStore';
 
 const consumerTopicIds = (id: string): TopicFilterId[] => {
   const topicIds = LIVE_EVENT_CONSUMER_TOPIC_IDS[id];
@@ -25,11 +26,19 @@ export const LiveOutputPage: React.FC = () => {
   const connected = useStudioSocketConnection();
   const [socketTrace, setSocketTrace] = React.useState(() => getWebsocketRecentMessages());
 
+  // P5: subscribe to the audit store instead of polling every 250 ms.
+  // Socket-trace updates are gated on page visibility so background tabs skip work.
   React.useEffect(() => {
-    const syncTrace = () => setSocketTrace(getWebsocketRecentMessages());
-    syncTrace();
-    const interval = window.setInterval(syncTrace, 250);
-    return () => window.clearInterval(interval);
+    const syncTrace = () => {
+      if (document.visibilityState === 'hidden') return;
+      setSocketTrace(getWebsocketRecentMessages());
+    };
+    const unsubscribe = subscribeLiveEventAudit(syncTrace);
+    document.addEventListener('visibilitychange', syncTrace);
+    return () => {
+      unsubscribe();
+      document.removeEventListener('visibilitychange', syncTrace);
+    };
   }, []);
 
   const showConsumerTopics = (consumerId: string) => {
@@ -44,7 +53,7 @@ export const LiveOutputPage: React.FC = () => {
         padding: '1.25rem 1.5rem',
         borderRadius: '20px',
         border: '1px solid var(--border)',
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.92), rgba(246,248,252,0.92))',
+        background: 'linear-gradient(180deg, var(--surface-white), var(--surface))',
         boxShadow: 'var(--shadow-md)',
         flexShrink: 0
       }}>
@@ -117,7 +126,7 @@ export const LiveOutputPage: React.FC = () => {
               padding: '0.75rem',
               borderRadius: '8px',
               border: '1px solid var(--border)',
-              background: 'var(--surface-muted, rgba(0,0,0,0.03))',
+              background: 'var(--surface-dim)',
               maxHeight: '18rem',
               overflow: 'auto',
               whiteSpace: 'pre-wrap',

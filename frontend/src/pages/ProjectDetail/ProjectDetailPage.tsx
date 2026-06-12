@@ -28,7 +28,6 @@ import { AssemblyPanel } from '@/pages/ProjectDetail/components/AssemblyPanel';
 import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
 import { ProjectBackupsPanel } from '@/components/ProjectBackupsPanel';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
-import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '@/utils/runtimeDebug';
 
 // Extracted Hooks
 import { useProjectActions } from '@/hooks/useProjectActions';
@@ -82,7 +81,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   const [hasResolvedInitialVoice, setHasResolvedInitialVoice] = useState(false);
   const [isExporting, setIsExporting] = useState<string | null>(null);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  const shouldLogLoadTimings = import.meta.env.DEV || shouldEnableStudioDebugLogging();
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -126,44 +124,22 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   const loadData = async (isTransition = false) => {
     if (!effectiveProjectId) return;
     if (isTransition) setLoading(true);
-    const loadStartedAt = performance.now();
     try {
-      const projectFetchStartedAt = performance.now();
       const [projData, chapsData, charsData] = await Promise.all([
         api.fetchProject(effectiveProjectId),
         api.fetchChapters(effectiveProjectId),
         api.fetchCharacters(effectiveProjectId)
       ]);
-      if (shouldLogLoadTimings) {
-        recordStudioDebugSnapshot('load:project snapshot', {
-          projectId: effectiveProjectId,
-          ms: Math.round(performance.now() - projectFetchStartedAt),
-        });
-      }
       setProject(projData);
       setChapters(chapsData);
       setCharacters(charsData);
       try {
-        const audiobooksFetchStartedAt = performance.now();
         const audiobooksData = await api.fetchProjectAudiobooks(effectiveProjectId);
         setAvailableAudiobooks(audiobooksData || []);
-        if (shouldLogLoadTimings) {
-          recordStudioDebugSnapshot('load:project audiobooks', {
-            projectId: effectiveProjectId,
-            ms: Math.round(performance.now() - audiobooksFetchStartedAt),
-          });
-        }
       } catch (err) { setAvailableAudiobooks([]); }
     } catch (e) {
       console.error(e);
     } finally {
-      if (shouldLogLoadTimings) {
-        recordStudioDebugSnapshot('load:project view complete', {
-          projectId: effectiveProjectId,
-          ms: Math.round(performance.now() - loadStartedAt),
-          transition: isTransition,
-        });
-      }
       setLoading(false);
     }
   };
@@ -378,8 +354,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
           <div style={{
             margin: '0.5rem 0',
             padding: '1rem',
-            background: 'rgba(239, 68, 68, 0.1)',
-            border: '1px solid rgba(239, 68, 68, 0.2)',
+            background: 'var(--error-tint-bg)',
+            border: '1px solid var(--error-tint-border)',
             borderRadius: '8px',
             color: 'var(--text-primary)',
             fontSize: '0.875rem',
@@ -390,7 +366,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
           }}>
             <span style={{ fontSize: '1.25rem' }}>⚠️</span>
             <div style={{ flex: 1 }}>
-              <strong style={{ display: 'block', marginBottom: '0.25rem', color: '#ef4444' }}>Project Default Voice Engine Unavailable</strong>
+              <strong style={{ display: 'block', marginBottom: '0.25rem', color: 'var(--error)' }}>Project Default Voice Engine Unavailable</strong>
               <span>{projectVoiceStatus.message}</span>
             </div>
           </div>

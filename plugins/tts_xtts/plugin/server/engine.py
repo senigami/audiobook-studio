@@ -146,6 +146,51 @@ class XttsPlugin(StudioTTSEngine):
 
         return True, "OK"
 
+    def check_output(self, req: TTSRequest, result: TTSResult) -> tuple[bool, str]:
+        """Reject artifacts that are suspiciously short (likely truncated).
+
+        Rules:
+        - duration == 0: always reject.
+        - implied speech rate (chars / duration) above max_chars_per_second:
+          reject — no real voice speaks that fast, so the audio is truncated.
+        The threshold is a MAXIMUM plausible rate (default 60 chars/sec; normal
+        speech is ~12-15). Set to 0 to skip the rate check.
+        """
+        import wave as _wave
+        import contextlib as _contextlib
+
+        duration = result.duration_sec
+
+        # If TTSResult didn't populate duration, probe the file directly.
+        if duration is None and result.output_path:
+            try:
+                with _contextlib.closing(_wave.open(result.output_path, "r")) as wf:
+                    frames = wf.getnframes()
+                    rate = wf.getframerate()
+                    duration = frames / float(rate) if rate > 0 else 0.0
+            except Exception:
+                duration = None
+
+        if duration is not None and duration == 0:
+            return False, "rendered audio has zero duration (synthesis produced silence or empty file)"
+
+        if duration is not None and duration > 0:
+            threshold = float((req.settings or {}).get("max_chars_per_second", 60.0))
+            if threshold > 0:
+                char_count = len(req.text or "")
+                if char_count > 0:
+                    min_secs = char_count / threshold
+                    if duration < min_secs:
+                        implied = char_count / duration
+                        return (
+                            False,
+                            f"audio too short ({duration:.2f}s) for {char_count} chars — "
+                            f"implied {implied:.0f} chars/sec exceeds the {threshold:.0f}/sec "
+                            f"plausibility cap (likely truncated)",
+                        )
+
+        return True, "OK"
+
     def settings_schema(self) -> dict[str, Any]:
         """Return the XTTS settings JSON Schema."""
         schema_path = Path(__file__).parents[2] / "settings_schema.json"
@@ -299,6 +344,7 @@ class XttsPlugin(StudioTTSEngine):
                         cancel_check=req.cancel_check or (lambda: False),
                         speed=speed,
                         task_id=req.task_id,
+                        engine_settings=req.settings,
                     )
                 finally:
                     script_path.unlink(missing_ok=True)
@@ -313,6 +359,7 @@ class XttsPlugin(StudioTTSEngine):
                     speed=speed,
                     voice_profile_dir=voice_profile_dir,
                     task_id=req.task_id,
+                    engine_settings=req.settings,
                 )
 
             try:
@@ -396,6 +443,7 @@ class XttsPlugin(StudioTTSEngine):
                 speed=speed,
                 voice_profile_dir=voice_profile_dir,
                 task_id=req.task_id,
+                engine_settings=req.settings,
             )
         except Exception as exc:
             return TTSResult(ok=False, error=f"XTTS preview raised: {exc}")
@@ -409,8 +457,12 @@ class XttsPlugin(StudioTTSEngine):
         return TTSResult(ok=True, output_path=str(output_path))
 
     def shutdown(self) -> None:
-        """No persistent resources to clean up for XTTS plugin."""
-        pass
+        """Terminate the warm worker if one is running."""
+        try:
+            from ..core.implementation import _reset_warm_worker  # noqa: PLC0415
+            _reset_warm_worker()
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -423,25 +475,14 @@ class XttsPlugin(StudioTTSEngine):
         if req.voice_ref:
             return req.voice_ref, None
 
-        # 1. Check if the directory was explicitly passed in settings (Studio 2.0 style)
+        # Voice inputs come exclusively from the request: the engine runs in
+        # the TTS Server process and never reaches into Studio storage to
+        # guess paths (bridge callers always send voice_profile_dir).
         vdir = req.settings.get("voice_profile_dir")
         if vdir:
             vdir_path = Path(vdir)
             if vdir_path.exists() and vdir_path.is_dir():
                 return None, vdir_path
-
-        # 2. Resolve a Studio voice profile id through the shared helper.
-        try:
-            from app.engines.voice_engines import resolve_voice_preview_inputs  # noqa: PLC0415
-
-            profile_id = req.settings.get("voice_profile_id", "")
-            if profile_id:
-                speaker_wav, voice_profile_dir = resolve_voice_preview_inputs(
-                    str(profile_id)
-                )
-                return speaker_wav, voice_profile_dir
-        except Exception:
-            pass
 
         return None, None
 
@@ -457,6 +498,7 @@ class XttsPlugin(StudioTTSEngine):
         speed: float,
         voice_profile_dir: Path | None,
         task_id: str | None,
+        engine_settings: dict | None = None,
     ) -> int:
         """Delegate synthesis to the XTTS runtime generator."""
         from ..core.implementation import xtts_generate as _gen  # noqa: PLC0415
@@ -471,6 +513,7 @@ class XttsPlugin(StudioTTSEngine):
             speed=speed,
             voice_profile_dir=voice_profile_dir,
             task_id=task_id,
+            engine_settings=engine_settings,
         )
 
     @staticmethod
@@ -482,6 +525,7 @@ class XttsPlugin(StudioTTSEngine):
         cancel_check,
         speed: float,
         task_id: str | None,
+        engine_settings: dict | None = None,
     ) -> int:
         """Delegate script synthesis to the XTTS batch generator."""
         from ..core.implementation import xtts_generate_script as _gen_script  # noqa: PLC0415
@@ -493,6 +537,7 @@ class XttsPlugin(StudioTTSEngine):
             cancel_check=cancel_check,
             speed=speed,
             task_id=task_id,
+            engine_settings=engine_settings,
         )
 
     @staticmethod

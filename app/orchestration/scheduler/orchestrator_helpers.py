@@ -1,7 +1,18 @@
-"""Internal implementation helpers for the Studio 2.0 TaskOrchestrator."""
+"""Internal implementation helpers for the Studio 2.0 TaskOrchestrator.
+
+This module composes OrchestratorHelpersMixin from three focused sub-modules:
+  - orchestrator_eta.py     — duration/ETA estimation
+  - orchestrator_publish.py — progress publication, context-to-job, output relay
+  - (dispatch + reconcile remain here — they are tightly coupled closure state)
+
+All names that tests patch via
+  "app.orchestration.scheduler.orchestrator_helpers.<name>"
+remain importable from this module (re-export façade where needed).
+"""
 
 from __future__ import annotations
 
+import inspect
 import logging
 import time
 from pathlib import Path
@@ -10,8 +21,11 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 from app.orchestration.progress.eta import estimate_eta_seconds
 from app.orchestration.tasks.base import TaskResult
 from app.utils.render_trace import trace
-from app.jobs.registry import get_handler_registry, initialize_default_handlers
+from app.jobs.registry import get_handler_registry, initialize_default_handlers  # noqa: F401 (re-export for patch targets)
 from app.db.models import Job
+
+from app.orchestration.scheduler.orchestrator_eta import OrchestratorEtaMixin
+from app.orchestration.scheduler.orchestrator_publish import OrchestratorPublishMixin
 
 if TYPE_CHECKING:
     from app.orchestration.tasks.base import StudioTask, TaskContext
@@ -19,10 +33,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class OrchestratorHelpersMixin:
+class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
     """Internal implementation details for TaskOrchestrator.
 
     Extracted to keep orchestrator.py focused on high-level workflows.
+    Sub-behaviours live in orchestrator_eta.py and orchestrator_publish.py;
+    this module owns _reconcile_task and _dispatch (which carries a large
+    closure that tightly captures local timing state).
     """
 
     def _reconcile_task(self, context: TaskContext) -> dict[str, Any]:
@@ -85,6 +102,7 @@ class OrchestratorHelpersMixin:
             "synthesis_duration_seconds": None,
         }
         segment_starts = {}
+        segment_announced = {}
         marker_state = {
             "start_synthesis_emitted": False,
             "start_segment_ids": set(),
@@ -139,6 +157,19 @@ class OrchestratorHelpersMixin:
         task.set_progress_reporter(task_progress_reporter)
 
         def record_render_stats_if_completed(result: TaskResult, raw_result: dict | None = None) -> None:
+            # Stats recording is best-effort bookkeeping: it must never be able
+            # to convert a completed dispatch into a failed TaskResult, so the
+            # entire body is failure-isolated.
+            try:
+                _record_render_stats_inner(result, raw_result)
+            except Exception:
+                logger.warning(
+                    "Failed to record render performance sample for task %s.",
+                    context.task_id,
+                    exc_info=True,
+                )
+
+        def _record_render_stats_inner(result: TaskResult, raw_result: dict | None = None) -> None:
             if result.status != "completed":
                 return
 
@@ -443,6 +474,49 @@ class OrchestratorHelpersMixin:
                 max_progress[0] = val
             return max_progress[0]
 
+        def _publish_segment_started(sid: str) -> None:
+            """Publish the canonical START_SEGMENT frame for *sid* at engine-confirmation time.
+
+            Called from two places:
+            1. [START_SYNTHESIS] branch — engine confirmed after announce (mixed-render pattern).
+            2. First PROGRESS branch — engines that skip START_SYNTHESIS entirely.
+            The clock (segment_starts[sid]) must already be set before calling this.
+            """
+            remaining_fraction = (
+                (total_weight - completed_weight[0]) / total_weight
+                if total_weight > 0 else 1.0
+            )
+            remaining_eta = (
+                int(round(expected_duration * remaining_fraction))
+                if expected_duration is not None and expected_duration > 0
+                else None
+            )
+            self._publish(
+                context=context,
+                status="running",
+                progress=_get_grouped_progress(),
+                eta_seconds=self._duration_to_eta_seconds(remaining_eta),
+                active_segment_eta_seconds=self._estimate_active_segment_eta_seconds(
+                    expected_duration=expected_duration,
+                    total_weight=total_weight,
+                    active_weight=id_to_weight.get(sid, 0),
+                    active_progress=0.0,
+                    started_at=segment_starts.get(sid),
+                    calibrated_cps=calibrated_cps,
+                ),
+                reason_code="START_SEGMENT",
+                message=f"Rendering segment {sid}...",
+                started_at=timing["render_started_at"],
+                active_segment_id=sid,
+                render_group_count=render_group_count,
+                completed_render_groups=completed_group_count[0],
+                active_render_group_index=active_render_group_index[0],
+                total_render_weight=total_weight,
+                completed_render_weight=completed_weight[0],
+                active_render_group_weight=id_to_weight.get(sid, 0),
+                grouped_progress=_get_grouped_progress(),
+            )
+
         def log_listener(line: str, line_task_id: Optional[str] = None):
             # If a task_id is present in the line, it MUST match ours.
             if line_task_id and line_task_id != context.task_id:
@@ -497,7 +571,17 @@ class OrchestratorHelpersMixin:
                         pass
 
             if matched_marker == "START_SYNTHESIS" or "[START_SYNTHESIS]" in line:
+                # Engine-confirmed clock: if a segment was already announced but not yet
+                # confirmed (mixed-render: START_SEGMENT before model load), record the
+                # engine-confirmed start time now so the model-load window is excluded.
+                _pending_seg_id = active_seg_id[0] if active_seg_id[0] and active_seg_id[0] not in segment_starts else None
+                if _pending_seg_id:
+                    segment_starts[_pending_seg_id] = now_time
                 if marker_state["start_synthesis_emitted"]:
+                    # Subsequent START_SYNTHESIS (mixed renders emit one per group
+                    # subprocess): still confirm the pending segment before deduping.
+                    if _pending_seg_id:
+                        _publish_segment_started(_pending_seg_id)
                     return
                 marker_state["start_synthesis_emitted"] = True
                 if timing["render_started_at"] is None:
@@ -525,6 +609,9 @@ class OrchestratorHelpersMixin:
                     grouped_progress=_get_grouped_progress(),
                     force=False,
                 )
+                # If a segment was pending confirmation, now publish its canonical START_SEGMENT frame.
+                if _pending_seg_id:
+                    _publish_segment_started(_pending_seg_id)
 
             if matched_marker == "START_SEGMENT" or "[START_SEGMENT]" in line:
                 if timing.get("first_start_segment_at") is None:
@@ -554,7 +641,10 @@ class OrchestratorHelpersMixin:
                     marker_state["start_segment_ids"].add(sid)
                     active_seg_id[0] = sid
                     active_seg_progress[0] = 0.0
-                    segment_starts[sid] = now_time
+                    # Record announce time; segment_starts is set later upon engine confirmation
+                    # (START_SYNTHESIS or first PROGRESS). This prevents model-load time from
+                    # being counted as synthesis time in mixed renders.
+                    segment_announced[sid] = now_time
                     active_render_group_index[0] = group_index_by_leader.get(sid, active_render_group_index[0])
                     trace(
                         "orchestrator.marker_start_segment",
@@ -575,21 +665,18 @@ class OrchestratorHelpersMixin:
                         if expected_duration is not None and expected_duration > 0
                         else None
                     )
+                    # Publish SEGMENT_PENDING (announce): engine has not confirmed yet.
+                    # active_segment_eta_seconds is None so the UI does not start pacing.
+                    # The canonical START_SEGMENT frame is emitted at engine confirmation
+                    # (START_SYNTHESIS or first PROGRESS line).
                     self._publish(
                         context=context,
                         status="running",
                         progress=_get_grouped_progress(),
                         eta_seconds=self._duration_to_eta_seconds(remaining_eta),
-                        active_segment_eta_seconds=self._estimate_active_segment_eta_seconds(
-                            expected_duration=expected_duration,
-                            total_weight=total_weight,
-                            active_weight=id_to_weight.get(sid, 0),
-                            active_progress=0.0,
-                            started_at=segment_starts.get(sid),
-                            calibrated_cps=calibrated_cps,
-                        ),
-                        reason_code="START_SEGMENT",
-                        message=f"Rendering segment {sid}...",
+                        active_segment_eta_seconds=None,
+                        reason_code="SEGMENT_PENDING",
+                        message=f"Preparing engine for segment {sid}...",
                         started_at=timing["render_started_at"],
                         active_segment_id=sid,
                         render_group_count=render_group_count,
@@ -600,6 +687,9 @@ class OrchestratorHelpersMixin:
                         active_render_group_weight=id_to_weight.get(sid, 0),
                         grouped_progress=_get_grouped_progress(),
                     )
+                    # Never confirm at announce: a prior START_SYNTHESIS belongs to an
+                    # earlier group's subprocess in mixed renders. Confirmation comes
+                    # only from the engine — its own START_SYNTHESIS or first PROGRESS.
                 except (IndexError, ValueError):
                     pass
 
@@ -610,6 +700,12 @@ class OrchestratorHelpersMixin:
             if raw_progress is not None:
                 if timing["render_started_at"] is None:
                     timing["render_started_at"] = time.time()
+                # Engine-confirmed clock fallback: engines that skip START_SYNTHESIS but emit
+                # PROGRESS lines — confirm the segment start at first progress.
+                _progress_confirmed_seg = None
+                if active_seg_id[0] and active_seg_id[0] not in segment_starts:
+                    segment_starts[active_seg_id[0]] = time.time()
+                    _progress_confirmed_seg = active_seg_id[0]
                 try:
                     if total_weight > 0:
                         active_seg_progress[0] = raw_progress
@@ -643,6 +739,11 @@ class OrchestratorHelpersMixin:
                         active_weight=id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0,
                         line=line,
                     )
+
+                    # If this is the first PROGRESS confirming an announced-but-unconfirmed
+                    # segment, publish the canonical START_SEGMENT frame first.
+                    if _progress_confirmed_seg:
+                        _publish_segment_started(_progress_confirmed_seg)
 
                     self._publish(
                         context=context,
@@ -704,9 +805,11 @@ class OrchestratorHelpersMixin:
                             line=line,
                         )
 
-                        # Capture timing
-                        if leader_id in segment_starts:
-                            seg_dur = now_time - segment_starts[leader_id]
+                        # Capture timing: prefer engine-confirmed start; fall back to announce
+                        # time for engines (e.g. Voxtral) that emit no confirmation signal.
+                        started = segment_starts.get(leader_id) or segment_announced.get(leader_id)
+                        if started is not None:
+                            seg_dur = now_time - started
                             timing["sum_segment_render_seconds"] += seg_dur
                             try:
                                 from app.db.state import update_job
@@ -812,7 +915,6 @@ class OrchestratorHelpersMixin:
                 start_time = timing["render_started_at"] or time.time()
 
                 # Inspect handler or just try with start
-                import inspect
                 sig = inspect.signature(handler)
 
                 kwargs = {
@@ -945,12 +1047,9 @@ class OrchestratorHelpersMixin:
                         record_render_stats_if_completed(task_result, raw_result=result)
                         return task_result
                     except Exception as exc:
-                        print(f"\n[DEBUG] Caught exc: {type(exc)}: {exc}")
                         logger.exception("Task %s: bridge dispatch raised.", context.task_id)
                         from app.engines.errors import EngineUnavailableError
-                        print(f"[DEBUG] EngineUnavailableError class: {EngineUnavailableError}")
                         is_retriable = isinstance(exc, EngineUnavailableError)
-                        print(f"[DEBUG] is_retriable: {is_retriable}")
                         import traceback
                         tb_summary = "".join(traceback.format_exception_only(type(exc), exc)).strip()
                         engine_id = getattr(j, "engine", "unknown")
@@ -987,359 +1086,6 @@ class OrchestratorHelpersMixin:
         finally:
             if wd:
                 wd.unregister_log_listener(log_listener)
-
-    def _estimate_task_duration(self, *, task: StudioTask, context: TaskContext) -> float | None:
-        """Estimate render duration without publishing it during preparation."""
-        try:
-            text = context.payload.get("test_text") or context.payload.get("script_text", "")
-            engine_id = context.payload.get("engine_id", "synthesis")
-            duration = task.get_expected_duration(text, engine_id)
-            return float(duration) if duration else None
-        except Exception:
-            return None
-
-    @staticmethod
-    def _duration_to_eta_seconds(duration: float | None) -> int | None:
-        """Normalize an optional duration estimate for websocket payloads."""
-        if duration is None or duration <= 0:
-            return None
-        return max(1, int(round(duration)))
-
-    @staticmethod
-    def _observed_remaining_seconds(*, started_at: float | None, progress: float, expected_duration: float | None = None) -> int | None:
-        """Estimate remaining render time from raw engine progress."""
-        if started_at is None or progress <= 0:
-            return None
-        if progress >= 0.995:
-            return 1
-        elapsed = max(0.0, time.time() - started_at)
-        if elapsed <= 0:
-            return None
-        extrapolated = elapsed * (1.0 - progress) / progress
-
-        if expected_duration is not None and progress < 0.15:
-            alpha = progress / 0.15
-            remaining = alpha * extrapolated + (1 - alpha) * expected_duration
-        else:
-            remaining = extrapolated
-
-        return max(1, int(round(remaining)))
-
-    @staticmethod
-    def _estimate_active_segment_eta_seconds(
-        *,
-        expected_duration: float | None,
-        total_weight: int | float,
-        active_weight: int | float,
-        active_progress: float,
-        started_at: float | None = None,
-        calibrated_cps: float | None = None,
-    ) -> int | None:
-        """Estimate ETA for the active render group, not the whole chapter."""
-        active_total = max(int(active_weight), 0)
-        if active_total <= 0:
-            return OrchestratorHelpersMixin._duration_to_eta_seconds(expected_duration)
-
-        progress = max(0.0, min(float(active_progress), 1.0))
-        completed_units = max(0, min(int(round(active_total * progress)), active_total))
-
-        baseline_cps = None
-        if calibrated_cps is not None:
-            baseline_cps = calibrated_cps
-        elif expected_duration is not None and expected_duration > 0 and total_weight > 0:
-            baseline_cps = float(total_weight) / float(expected_duration)
-        else:
-            from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
-            baseline_cps = DEFAULT_BASELINE_ENGINE_CPS
-
-        observed_cps = None
-        if started_at is not None and progress > 0:
-            elapsed = max(0.0, time.time() - started_at)
-            if elapsed > 0:
-                observed_cps = (active_total * progress) / elapsed
-
-        return estimate_eta_seconds(
-            completed_units=completed_units,
-            total_units=active_total,
-            observed_cps=observed_cps,
-            baseline_cps=baseline_cps,
-        )
-
-    def _publish(
-        self,
-        *,
-        context: TaskContext,
-        status: str,
-        progress: float | None = None,
-        eta_seconds: int | None = None,
-        active_segment_eta_seconds: int | None = None,
-        eta_confidence: str | None = None,
-        message: str | None = None,
-        reason_code: str | None = None,
-        waiting_reason: str | None = None,
-        started_at: float | None = None,
-        active_segment_id: str | None = None,
-        active_segment_progress: float | None = None,
-        render_group_count: int | None = None,
-        completed_render_groups: int | None = None,
-        active_render_group_index: int | None = None,
-        total_render_weight: int | None = None,
-        completed_render_weight: int | None = None,
-        active_render_group_weight: int | None = None,
-        grouped_progress: float | None = None,
-        allow_progress_regression: bool = False,
-        force: bool = False,
-    ) -> None:
-        """Publish a progress event through the ProgressService and sync with state."""
-        state_status = "done" if status == "completed" else status
-        if state_status == "finalizing":
-            state_status = "running"
-
-        # Resolve has_segment_support capability from engine
-        has_segment_support = False
-        if context.payload:
-            engine_id = context.payload.get("engine_id") or context.payload.get("engine")
-            if engine_id:
-                from app.engines.behavior import uses_segment_orchestration, supports_segment_rendering
-                has_segment_support = bool(
-                    uses_segment_orchestration(engine_id) or supports_segment_rendering(engine_id)
-                )
-
-        # Stop 0% synthesis_progress from flipping status to running prematurely
-        has_started = (started_at is not None)
-        if not has_started:
-            try:
-                from app.db.state import get_jobs  # noqa: PLC0415
-                existing_job = get_jobs().get(context.task_id)
-                if existing_job and existing_job.started_at is not None:
-                    has_started = True
-            except Exception:
-                pass
-
-        if state_status == "running" and reason_code in ("synthesis_progress", "SEGMENT_PROGRESS") and (progress is None or progress == 0.0):
-            if not has_started:
-                state_status = "preparing"
-
-        if has_started and state_status == "preparing":
-            state_status = "running"
-        state_progress = progress
-        if state_progress is None:
-            if state_status == "done":
-                state_progress = 1.0
-            elif context.task_type in {"sample_build", "sample_test"}:
-                # Provide synthetic progress fallbacks for voice tasks ONLY if no task-reported progress is available
-                progress_map = {
-                    "queued": 0.0,
-                    "preparing": 0.0,
-                    "running": 0.0, # start at 0.0, real task will report progress via heartbeat
-                    "finalizing": 0.9,
-                }
-                state_progress = progress_map.get(state_status, 0.0)
-            else:
-                state_progress = 0.0
-        # Safety: Do not emit eta_seconds=0 for active jobs; it's better to show no ETA than a false zero.
-        if eta_seconds == 0 and state_status not in {"done", "failed", "cancelled"}:
-            eta_seconds = None
-
-        finished_at = time.time() if state_status in {"done", "failed", "cancelled"} else None
-        updated_at = time.time()
-        trace(
-            "orchestrator.publish",
-            job_id=context.task_id,
-            project_id=context.project_id,
-            chapter_id=context.chapter_id,
-            status=state_status,
-            progress=state_progress,
-            eta_seconds=eta_seconds,
-            active_segment_eta_seconds=active_segment_eta_seconds,
-            eta_confidence=eta_confidence,
-            reason_code=reason_code,
-            message=message,
-            started_at=started_at,
-            active_segment_id=active_segment_id,
-            active_segment_progress=active_segment_progress,
-            force=force,
-        )
-        try:
-            # Sync with the persistent state.json for UI visibility and polling.
-            # We import lazily to stay behind the state boundary.
-            from app.db.state import get_jobs, put_job, update_job, Job  # noqa: PLC0415
-
-            # Anti-Regression: If this is an update to an existing job, don't allow progress to regress
-            # unless the status itself has regressed (e.g. requeued).
-            existing_job = get_jobs().get(context.task_id)
-            if existing_job and state_status == existing_job.status and state_progress is not None:
-                if state_progress < (existing_job.progress or 0.0):
-                    state_progress = existing_job.progress
-
-            # Determine scope
-            scope = "chapter"
-            if context.task_type in {"sample_build", "sample_test", "voice_build", "voice_test"}:
-                scope = "voice_test"
-            elif context.payload and context.payload.get("segment_ids"):
-                scope = "segment"
-
-            # self.progress_service must be available on the target class
-            self.progress_service.publish(
-                job_id=context.task_id,
-                status=state_status,
-                scope=scope,
-                parent_job_id=context.project_id,
-                chapter_id=context.chapter_id,
-                progress=state_progress,
-                eta_seconds=eta_seconds,
-                eta_confidence=eta_confidence,
-                message=message,
-                reason_code=reason_code,
-                waiting_reason=waiting_reason,
-                started_at=started_at,
-                active_segment_id=active_segment_id,
-                active_segment_progress=active_segment_progress,
-                active_segment_eta_seconds=active_segment_eta_seconds,
-                render_group_count=render_group_count,
-                completed_render_groups=completed_render_groups,
-                active_render_group_index=active_render_group_index,
-                total_render_weight=total_render_weight,
-                completed_render_weight=completed_render_weight,
-                active_render_group_weight=active_render_group_weight,
-                grouped_progress=grouped_progress,
-                allow_progress_regression=allow_progress_regression,
-                force=force,
-                updated_at=updated_at,
-                has_segment_support=has_segment_support,
-            )
-
-            # Initialize job state if this is the first event (usually 'queued')
-            if not existing_job:
-                job = Job(
-                    id=context.task_id,
-                    engine=getattr(context, "task_type", "synthesis"),  # type: ignore[arg-type]
-                    status=state_status,  # type: ignore[arg-type]
-                    created_at=time.time(),
-                    updated_at=updated_at,
-                    started_at=started_at,
-                    project_id=context.project_id,
-                    chapter_id=context.chapter_id,
-                    speaker_profile=context.payload.get("speaker_profile"),
-                    progress=state_progress or 0.0,
-                    finished_at=finished_at,
-                    error=message if state_status == "failed" else None,
-                    eta_seconds=eta_seconds,
-                    eta_confidence=eta_confidence,
-                    active_segment_id=active_segment_id,
-                    active_segment_progress=active_segment_progress,
-                    active_segment_eta_seconds=active_segment_eta_seconds,
-                    active_segment_eta_basis="remaining_from_update" if active_segment_eta_seconds is not None else None,
-                    active_segment_updated_at=updated_at if active_segment_eta_seconds is not None else None,
-                    render_group_count=render_group_count,
-                    completed_render_groups=completed_render_groups,
-                    active_render_group_index=active_render_group_index,
-                    total_render_weight=total_render_weight,
-                    completed_render_weight=completed_render_weight,
-                    active_render_group_weight=active_render_group_weight,
-                    grouped_progress=grouped_progress,
-                    has_segment_support=has_segment_support,
-                )
-                put_job(job)
-            else:
-                updates: dict[str, object | None] = {
-                    "status": state_status,
-                    "progress": state_progress,
-                    "message": message,
-                    "reason_code": reason_code,
-                    "updated_at": updated_at,
-                    "active_segment_id": active_segment_id,
-                    "active_segment_progress": active_segment_progress,
-                    "active_segment_eta_seconds": active_segment_eta_seconds,
-                    "active_segment_eta_basis": "remaining_from_update" if active_segment_eta_seconds is not None else None,
-                    "active_segment_updated_at": updated_at if active_segment_eta_seconds is not None else None,
-                    "render_group_count": render_group_count,
-                    "completed_render_groups": completed_render_groups,
-                    "active_render_group_index": active_render_group_index,
-                    "total_render_weight": total_render_weight,
-                    "completed_render_weight": completed_render_weight,
-                    "active_render_group_weight": active_render_group_weight,
-                    "grouped_progress": grouped_progress,
-                    "has_segment_support": has_segment_support,
-                }
-                if eta_seconds is not None:
-                    updates["eta_seconds"] = eta_seconds
-                if eta_confidence is not None:
-                    updates["eta_confidence"] = eta_confidence
-                if started_at is not None:
-                    updates["started_at"] = started_at
-                if finished_at is not None:
-                    updates["finished_at"] = finished_at
-                if state_status == "failed":
-                    updates["error"] = message or "Task failed."
-                elif state_status == "done":
-                    updates["error"] = None
-                    # Ensure chapter-level audio is linked by propagating output filenames
-                    output_path = context.payload.get("output_path")
-                    if output_path:
-                        from pathlib import Path
-                        fname = Path(output_path).name
-                        if fname.lower().endswith(".mp3"):
-                            updates["output_mp3"] = fname
-                        else:
-                            updates["output_wav"] = fname
-                update_job(context.task_id, force_broadcast=force, skip_studio_job_event=True, skip_job_updated=True, **updates)
-
-
-
-        except Exception:
-            logger.exception(
-                "Failed to publish progress event for task %s (status=%s).",
-                context.task_id,
-                status,
-            )
-
-    def _context_to_job(self, context: TaskContext) -> Job:
-        """Convert a TaskContext into a Job shim for the legacy handler registry."""
-        payload = context.payload or {}
-        engine_id = str(payload.get("engine_id") or payload.get("engine") or "")
-        from app.engines.behavior import uses_segment_orchestration, supports_segment_rendering
-        has_segment_support = bool(
-            uses_segment_orchestration(engine_id) or supports_segment_rendering(engine_id)
-        )
-        return Job(
-            id=context.task_id,
-            engine=engine_id,
-            kind=str(context.task_type),
-            status="running",
-            created_at=context.submitted_at or time.time(),
-            project_id=context.project_id,
-            chapter_id=context.chapter_id,
-            chapter_file=str(payload.get("chapter_file") or Path(payload.get("output_path", "")).name),
-            speaker_profile=payload.get("voice_profile_id") or payload.get("speaker_profile"),
-            safe_mode=payload.get("safe_mode", True),
-            make_mp3=payload.get("make_mp3", False),
-            is_bake=payload.get("is_bake", False),
-            segment_ids=payload.get("segment_ids"),
-            custom_title=payload.get("custom_title") or payload.get("book_title"),
-            author_meta=payload.get("author") or payload.get("author_meta"),
-            narrator_meta=payload.get("narrator") or payload.get("narrator_meta"),
-            chapter_list=payload.get("chapters"),
-            cover_path=str(payload.get("cover_path")) if payload.get("cover_path") else None,
-            has_segment_support=has_segment_support,
-        )
-
-    def _relay_output_wrapper(self, task: StudioTask) -> Callable[[str], None]:
-        """Return a callback that relays output lines to the orchestrator's log listener."""
-        def on_output(line: str) -> None:
-            if not line.strip():
-                return
-            # Use the task's internal relay if available
-            relay = getattr(task, "_relay_output", None)
-            if callable(relay):
-                relay(line)
-            else:
-                # Fallback: broadcast directly to watchdog
-                from app.engines.watchdog import get_watchdog
-                wd = get_watchdog()
-                if wd:
-                    wd._broadcast_log(line, task_id=task.task_id)
-        return on_output
 
 
 def _claim_to_dict(claim: object | None) -> dict[str, object]:

@@ -34,8 +34,8 @@ export const EditTab: React.FC<EditTabProps> = ({
       {isEditable && hasUnsavedChanges && isTextChanged && (
           <div style={{ 
               display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', 
-              background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)', 
-              borderRadius: '10px', color: 'rgb(146, 64, 14)', fontSize: '0.88rem' 
+              background: 'var(--warning-tint-bg)', border: '1px solid var(--warning-tint-border)',
+              borderRadius: '10px', color: 'var(--warning-text)', fontSize: '0.88rem'
           }}>
               <AlertTriangle size={18} style={{ flexShrink: 0 }} />
               <div>
@@ -132,8 +132,8 @@ export const EditTab: React.FC<EditTabProps> = ({
                   <div style={{ width: '1px', height: '16px', background: 'var(--border)', flexShrink: 0 }} />
                   <div style={{
                       display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                      background: analysis.uncleanable === 0 ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.1)',
-                      border: `1px solid ${analysis.uncleanable === 0 ? 'rgba(34,197,94,0.25)' : 'rgba(245,158,11,0.25)'}`,
+                      background: analysis.uncleanable === 0 ? 'var(--success-tint-bg)' : 'var(--warning-tint-bg)',
+                      border: `1px solid ${analysis.uncleanable === 0 ? 'var(--success-muted)' : 'var(--warning-tint-border)'}`,
                       borderRadius: '6px', padding: '0.2rem 0.5rem'
                   }}>
                       <AlertTriangle size={11} color={analysis.uncleanable === 0 ? 'var(--success-text)' : 'var(--warning)'} />
@@ -144,7 +144,7 @@ export const EditTab: React.FC<EditTabProps> = ({
                   {analysis.uncleanable > 0 && (
                       <div style={{
                           display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                          background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
+                          background: 'var(--error-tint-bg)', border: '1px solid var(--error-tint-border)',
                           borderRadius: '6px', padding: '0.2rem 0.5rem', cursor: 'pointer'
                       }}
                           onClick={() => setAnalysis((prev: any) => ({ ...prev, _showUncleanable: !prev?._showUncleanable }))}
@@ -162,8 +162,8 @@ export const EditTab: React.FC<EditTabProps> = ({
       {analysis?.uncleanable > 0 && analysis?._showUncleanable && (
           <div style={{
               flexShrink: 0,
-              background: 'rgba(239,68,68,0.05)',
-              border: '1px solid rgba(239,68,68,0.25)',
+              background: 'var(--error-glow)',
+              border: '1px solid var(--error-tint-border)',
               borderRadius: '10px',
               padding: '0.75rem 1rem',
               display: 'flex',

@@ -27,6 +27,7 @@ os.environ["AUDIOBOOK_BASE_DIR"] = str(SESSION_TEMP)
 REAL_ROOT = Path(__file__).resolve().parent
 os.environ["PLUGINS_DIR"] = str(REAL_ROOT / "plugins")
 os.environ["APP_TEST_MODE"] = "1"
+os.environ.setdefault("XTTS_WARM_WORKER_DISABLED", "1")  # prevent warm-worker subprocess in unit tests
 os.environ["DB_PATH"] = str(SESSION_TEMP / "test_audiobook_studio.db")
 os.environ["STUDIO_DB_PATH"] = str(SESSION_TEMP / "test_studio.db")
 os.environ["STATE_FILE"] = str(SESSION_TEMP / "test_state.json")
@@ -293,6 +294,9 @@ def mock_tts_server_watchdog(monkeypatch):
     """
     from unittest.mock import MagicMock
     import app.engines.watchdog
+    import app.engines.registry as _registry_mod
+    # Clear the TTL cache so each test fetches fresh from the mocked TTS Server.
+    _registry_mod._remote_cache = None
     import app.engines.registry
     import app.engines.bridge_remote
 

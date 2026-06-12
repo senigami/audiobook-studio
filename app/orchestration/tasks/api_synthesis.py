@@ -148,8 +148,13 @@ class ApiSynthesisTask(StudioTask):
             status = result.get("status", "ok")
             synthesis_duration = result.get("duration_sec")
             if synthesis_duration is not None:
-                from app.db.state import update_job
-                update_job(self.task_id, synthesis_duration_seconds=synthesis_duration)
+                # Best-effort bookkeeping: synthesis already succeeded, so a
+                # failure here must not flip the result to failed.
+                try:
+                    from app.db.state import update_job  # noqa: PLC0415
+                    update_job(self.task_id, synthesis_duration_seconds=synthesis_duration)
+                except Exception:
+                    logger.warning("Failed to persist synthesis duration for task %s", self.task_id, exc_info=True)
             return TaskResult(
                 status="completed" if status == "ok" else "failed",
                 message=result.get("message"),

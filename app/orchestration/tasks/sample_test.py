@@ -122,9 +122,13 @@ class SampleTestTask(StudioTask):
 
         self.report_progress(1.0, message="Preview synthesis finished.", reason_code="synthesis_finished")
 
-
         if not self.output_path.parent.exists():
             self.output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # 1b. Convert WAV → MP3 and delete WAV (voice samples are always MP3)
+        from app.engines.audio_ops import finalize_sample_artifact
+        final_path = finalize_sample_artifact(self.output_path)
+        self.output_path = final_path
 
         # 2. Update Speaker Settings (Preview only)
         try:

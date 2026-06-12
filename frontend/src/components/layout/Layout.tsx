@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mic, Settings as SettingsIcon, Zap, Library } from 'lucide-react';
+import { Mic, Settings as SettingsIcon, Zap, Library, Menu } from 'lucide-react';
 import { BrandLogo } from '@/components/layout/BrandLogo';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { StudioShellState } from '@/app/navigation/model';
@@ -18,6 +18,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
   const location = useLocation();
   const navigate = useNavigate();
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
+  const [navOpen, setNavOpen] = useState(false);
 
   const getActiveTab = () => {
     if (isQueueOpen) return 'queue';
@@ -72,7 +73,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
         justifyContent: 'space-between',
         padding: '0 2rem',
         zIndex: LAYERS.HEADER,
-        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        backgroundColor: 'var(--glass)',
         backdropFilter: 'blur(20px)',
         borderBottom: '1px solid var(--border)',
       }}>
@@ -85,8 +86,18 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
             <BrandLogo scale={0.8} showIcon={true} />
           </div>
 
+          {/* Burger button — visible only at ≤768px via CSS */}
+          <button
+            className="burger"
+            aria-label="Open navigation"
+            aria-expanded={navOpen}
+            onClick={() => setNavOpen(o => !o)}
+          >
+            <Menu size={20} />
+          </button>
+
           {/* Navigation Section */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <nav className={`header-nav${navOpen ? ' header-nav--open' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             {navItems.map((item) => (
               <button
                 key={item.id}
@@ -100,6 +111,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
                 onMouseEnter={() => setHoveredTab(item.id)}
                 onMouseLeave={() => setHoveredTab(null)}
                 aria-current={activeTab === item.id ? 'page' : undefined}
+                aria-label={item.label}
                 className="btn-ghost"
                 style={{
                   display: 'flex',
@@ -143,6 +155,15 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
           {headerRight}
         </div>
       </header>
+
+      {/* Mobile nav backdrop — tap to close drawer */}
+      {navOpen && (
+        <div
+          className="mobile-nav-backdrop"
+          onClick={() => setNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
       <main className="mobile-padding" style={{
         flex: 1,

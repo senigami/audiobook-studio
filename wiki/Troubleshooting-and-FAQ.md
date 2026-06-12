@@ -26,8 +26,8 @@ Check the **Logs** in the Queue sidebar. Common reasons include:
 
 ### 4. How do I fix "Long Sentence" warnings?
 
-- Go to the **Performance** tab.
-- Look for segments highlighted in Yellow or Red.
+- Open the chapter in the **Chapter Editor** and switch to the **Script** view.
+- Look for segments highlighted in yellow or red.
 - Manually split the segment into two smaller ones using the editor.
 
 ## 🛠️ Common Workflows
@@ -47,9 +47,9 @@ Check the **Logs** in the Queue sidebar. Common reasons include:
 
 ### How to Enable Voxtral
 
-1. Open **Settings**.
-2. Paste your Mistral API key.
-3. Turn **Voxtral Enabled** on.
+1. Open **Settings** and go to the **TTS Engines** tab.
+2. Expand the **Voxtral** engine card.
+3. Enter your Mistral API key in the engine form and enable the plugin.
 4. Create or edit a voice profile and switch its engine to `Voxtral (Cloud)`.
 
 ---

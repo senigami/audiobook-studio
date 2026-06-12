@@ -1,6 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "studio_tts_manifest": "1.0",
+  "contract_version": "1.0",
+  "sdk_version": "1.0",
+  "settings_schema_version": "1.0",
+  "event_envelope_version": "1.0",
   "engine_id": "voxtral",
   "display_name": "Voxtral (Mistral AI)",
   "version": "1.0.0",
@@ -14,7 +18,9 @@
       "voxtral": "interface:handle_voxtral_job"
     },
     "kind_handlers": {
-      "standard": "interface:handle_voxtral_job"
+      "standard": "interface:handle_voxtral_job",
+      "segment": "interface:handle_voxtral_job",
+      "bake": "interface:handle_voxtral_job"
     }
   },
   "behavior": {

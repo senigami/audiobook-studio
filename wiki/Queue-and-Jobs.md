@@ -32,21 +32,25 @@ The system tracks **Characters Per Second (CPS)** and uses it to provide:
 - When a new checkpoint arrives, the ETA model changes future pacing and eases toward the new estimate instead of directly teleporting the bar to a new width.
 - Grouped chapter renders use weighted render-group progress, so a short final group contributes less than a much larger earlier group.
 - Progress starts at synthesis start, not model load or queue preparation. The `START_SYNTHESIS` event should line up with the engine beginning audio generation.
+- Per-segment timing works the same way: when a segment is announced, the editor shows "Preparing engine for segment..." with no countdown while the engine loads its model. The segment's ETA clock and pacing begin only when the engine confirms it has started. Model-load time never counts against the segment estimate.
+- Group counters read as a 1-based position everywhere: a four-group chapter shows 1/4 through 4/4 on both segment and chapter frames.
 - When a job completes, the visible bar is allowed to finish its final move to 100% before the row leaves the active queue.
 
 ### New Features & Fixes
 - **Global Queue ETA**: Added an "Approx. X minutes remaining" badge to the processing queue header that tracks cumulative work across all active and queued tasks.
-- **Reliable Queue Reordering**: Fixed a timestamp inversion bug and implemented in-memory synchronization, ensuring the background worker strictly follows the UI priority.
+- **Reliable Queue Reordering**: Fixed a timestamp inversion bug and added in-memory synchronization so the background worker strictly follows the UI priority.
 - **Enhanced Progress Visuals**: Progress bars now blend predictive updates and backend checkpoints without hard-snapping, while keeping active width transitions enabled so larger corrections still feel continuous.
 - **Locked-in Test Suite**: Added 11 regression tests covering ETA calculations, database joins, and in-memory queue synchronization logic.
 
 ## 🛠️ Job Types
 
-- **XTTS Generation**: Creating audio for a segment.
-- **Voxtral Generation**: Creating preview or render audio through the optional Mistral-backed Voxtral path.
-- **Mixed Generation**: Rendering displayed chunk groups that may contain XTTS or Voxtral sections depending on the assigned voice profiles.
-- **Baking**: Stitching segments into a chapter file.
-- **Assembly**: Creating the final `.m4b` file.
+- **XTTS Generation** (`synthesis`): Creating audio for a segment using the local XTTS engine.
+- **Voxtral Generation** (`synthesis`): Creating preview or render audio through the optional Mistral-backed Voxtral path.
+- **Mixed Generation** (`mixed`): Rendering displayed chunk groups that may contain XTTS or Voxtral sections depending on the assigned voice profiles.
+- **Baking**: Not a separate job type — baking is the `is_bake` flag on a synthesis job. It means the job will stitch completed segments into a chapter WAV when it finishes.
+- **Assembly** (`assembly`): Creating the final `.m4b` file.
+- **Voice Build** (`voice_build`): Building an XTTS speaker profile (latent) from uploaded voice samples. Appears in the queue when you trigger a profile rebuild from the AI Voice Lab.
+- **Voice Test** (`voice_test`): Generating a voice preview clip to audition a profile. Appears in the queue and reports progress on the `voice.test` websocket topic.
 
 ## Chunk-Aware Rendering
 
@@ -58,16 +62,23 @@ The system tracks **Characters Per Second (CPS)** and uses it to provide:
 
 Studio 2.0 uses named websocket topics so plugins, orchestration, and the frontend agree on who owns each piece of live state.
 
-For queue-visible work, the important topics are:
+The full set of stable topics (authoritative spec: `docs/specs/live-events.md`):
 
-- `queue.items`: authoritative queue-row creation, status updates, refresh invalidation, and pause state.
-- `jobs.lifecycle`: job-level lifecycle such as `queued`, `preparing`, `running`, `done`, `failed`, and `cancelled`.
-- `chapters.progress`: chapter-level render progress only.
-- `segments.progress`: segment-level progress only.
-- `voice.test`: voice preview/test progress only.
-- `tts.logs`: diagnostics and live engine log output only.
+| Topic | What it carries |
+|---|---|
+| `jobs.lifecycle` | Job-level lifecycle: `queued`, `preparing`, `running`, `finalizing`, `done`, `failed`, `cancelled`. |
+| `queue.items` | Authoritative queue-row creation, status updates, refresh invalidation, and pause state. This is the sole authority for queue rows; other topics are overlay-only. |
+| `chapters.lifecycle` | Chapter-level create/update/delete events. |
+| `chapters.progress` | Chapter-level render progress only. |
+| `segments.lifecycle` | Segment-level create/update/delete events. |
+| `segments.progress` | Segment-level progress, segment-started, and segment-saved events. |
+| `voice.test` | Voice preview/test progress only. |
+| `tts.logs` | Diagnostics and live engine log output. Queue rows must not infer status from these logs. |
+| `system.events` | System-level events (server health, plugin state changes). |
+| `projects.lifecycle` | Project-level invalidation events. |
+| `plugins.<id>.<area>` | Plugin-defined events; shape is declared by each plugin via `build_plugin_event`. |
 
-The queue lifecycle for any queue-visible render path is:
+The documented-intent ordering for any queue-visible render path is:
 
 1. Create or refresh the queue row as `queued` on `queue.items`.
 2. Emit `JOB_PREPARING` on `jobs.lifecycle`.
@@ -77,6 +88,8 @@ The queue lifecycle for any queue-visible render path is:
 6. Emit a terminal `queue_item_status` on `queue.items`.
 7. Emit `queue_item_invalidated` only when a snapshot refresh is needed.
 
+In practice the exact ordering may vary slightly; consult `docs/specs/live-events.md` for the authoritative contract.
+
 Voice preview/test jobs follow the same queue visibility rules, but their scoped progress belongs on `voice.test`, not `chapters.progress`. They still need a `jobId` so the frontend can connect the voice-test frame to the visible queue row.
 
 Diagnostics are deliberately separate. A plugin may send model-load lines, setup logs, progress text, and synthesis messages to `tts.logs`, but the queue must not infer row state from those logs.
@@ -85,6 +98,10 @@ Diagnostics are deliberately separate. A plugin may send model-load lines, setup
 
 - **Global Pause**: You can pause the entire queue if you need to free up system resources.
 - **Cancel**: Stop a specific job. If it's the 'Running' job, it may take a few seconds to terminate the subprocess.
+
+## Output Quality Checks
+
+Engines can validate their own rendered audio before a job completes. If an engine rejects its output (for example, XTTS detecting audio far too short for the text, which usually means truncation), the file is discarded and the job fails with the engine's reason shown verbatim in the queue row. The job is not retried automatically; requeue it once you have addressed the cause.
 
 ---
 

@@ -12,8 +12,10 @@ from .manifest import (
     CURRENT_VOICE_STORAGE_VERSION,
     load_variant_manifest,
     load_voice_manifest,
+    load_voice_state,
     save_variant_manifest,
     save_voice_manifest,
+    save_voice_state,
 )
 
 from ...core.config import SAFE_VOICE_NAME_RE
@@ -21,12 +23,207 @@ BUNDLE_SCHEMA_VERSION = 1
 BUNDLE_MANIFEST_FILENAME = "bundle.json"
 VOICE_MANIFEST_FILENAME = "voice.json"
 VARIANT_MANIFEST_FILENAME = "profile.json"
+README_FILENAME = "README.md"
 PREVIEW_ASSET_NAMES = {"sample.mp3", "sample.wav"}
 MODEL_ASSET_NAMES = {"latent.pth"}
+
+# Path to the canonical bundle schema (voice.schema.json)
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_BUNDLE_SCHEMA_PATH = _REPO_ROOT / "docs" / "specs" / "voice.schema.json"
+
+# Fields that are runtime-operational and MUST NOT appear in exported voice.json
+_EXPORT_STRIP_FIELDS = {"version", "default_variant", "_untagged", "_taxonomy_version"}
 
 
 class VoiceBundleError(ValueError):
     pass
+
+
+def _load_bundle_schema() -> Dict[str, Any]:
+    """Load docs/specs/voice.schema.json once per process (cached on module)."""
+    try:
+        with _BUNDLE_SCHEMA_PATH.open(encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception as exc:
+        raise VoiceBundleError(f"Could not load bundle schema: {exc}") from exc
+
+
+_CACHED_BUNDLE_SCHEMA: Dict[str, Any] = {}
+
+
+def _get_bundle_schema() -> Dict[str, Any]:
+    global _CACHED_BUNDLE_SCHEMA
+    if not _CACHED_BUNDLE_SCHEMA:
+        _CACHED_BUNDLE_SCHEMA = _load_bundle_schema()
+    return _CACHED_BUNDLE_SCHEMA
+
+
+def validate_voice_manifest_strict(voice_manifest: Dict[str, Any]) -> None:
+    """Validate voice.json against voice.schema.json with strict rules.
+
+    Raises VoiceBundleError with an actionable message on any failure.
+    Used exclusively on the export path (Phase E, E1).
+    """
+    try:
+        import jsonschema
+    except ImportError as exc:
+        raise VoiceBundleError("jsonschema package is required for export validation") from exc
+
+    schema = _get_bundle_schema()
+    errors = list(jsonschema.Draft202012Validator(schema).iter_errors(voice_manifest))
+    if not errors:
+        return
+
+    # Build a human-readable message
+    messages = []
+    for err in errors:
+        path = " → ".join(str(p) for p in err.absolute_path) if err.absolute_path else "root"
+        messages.append(f"{path}: {err.message}")
+    raise VoiceBundleError(
+        f"Voice manifest failed schema validation ({len(errors)} error(s)). "
+        + " | ".join(messages)
+    )
+
+
+def _as_tag(field: str, value: str) -> str:
+    """Convert an attribute field + value to a namespaced HF tag (as-<field>-<value>)."""
+    # Shorten field names per the template: use_case → use, quality keeps its name
+    field_alias = {
+        "use_case": "use",
+    }
+    f = field_alias.get(field, field)
+    return f"as-{f}-{value}"
+
+
+def generate_readme_md(voice_manifest: Dict[str, Any]) -> str:
+    """Generate a HuggingFace-compatible README.md from a voice.json manifest.
+
+    The output matches the shape in docs/specs/voice-bundle-template/README.md:
+    - YAML frontmatter with license, language, pipeline_tag, library_name, tags, widget
+    - Icon img tag
+    - # <name> heading
+    - description
+    - attributes table
+    - import instructions
+
+    The README is generated; callers should not hand-edit it in a real bundle.
+    """
+    name = voice_manifest.get("name", "Voice")
+    description = voice_manifest.get("description", "")
+    image = voice_manifest.get("image", "icon.png")
+    license_str = voice_manifest.get("license", "")
+    languages = voice_manifest.get("languages", [])
+    attributes = voice_manifest.get("attributes") or {}
+    free_tags = list(voice_manifest.get("tags") or [])
+
+    # Build HF tags list
+    hf_tags: List[str] = ["audiobook-studio-voice", "audiobook-studio-spec-v1", "text-to-speech"]
+
+    # as-* namespaced attribute tags
+    scalar_fields = ("class", "gender", "age", "accent", "pace")
+    array_fields = ("tone", "timbre", "use_case", "quality")
+
+    for field in scalar_fields:
+        val = attributes.get(field)
+        if val:
+            hf_tags.append(_as_tag(field, val))
+
+    for field in array_fields:
+        vals = attributes.get(field) or []
+        for val in vals:
+            hf_tags.append(_as_tag(field, val))
+
+    # Append free tags
+    hf_tags.extend(free_tags)
+
+    # Determine primary sample for widget
+    samples = voice_manifest.get("samples") or []
+    primary_sample = next((s for s in samples if s.get("primary")), samples[0] if samples else None)
+    sample_path = primary_sample["path"] if primary_sample else "samples/preview.mp3"
+    sample_text = (primary_sample or {}).get("text", "")
+
+    # Build language list for frontmatter
+    lang_short = [lang.split("-")[0] for lang in languages] or ["en"]
+
+    # YAML frontmatter
+    lines: List[str] = ["---"]
+    if license_str:
+        lines.append(f"license: {license_str}")
+    lines.append("language:")
+    for lang in lang_short:
+        lines.append(f"  - {lang}")
+    lines.append("pipeline_tag: text-to-speech")
+    lines.append("library_name: audiobook-studio")
+    lines.append("tags:")
+    for tag in hf_tags:
+        lines.append(f"  - {tag}")
+    if primary_sample:
+        lines.append("widget:")
+        lines.append(f'  - text: "{sample_text}"')
+        lines.append(f'    example_title: "{name} — preview"')
+        lines.append("    output:")
+        lines.append(f"      url: {sample_path}")
+    lines.append("---")
+    lines.append("")
+
+    # Body
+    if image:
+        lines.append(f'<img src="{image}" alt="{name}" width="256" height="256" />')
+        lines.append("")
+    lines.append(f"# {name}")
+    lines.append("")
+    if description:
+        lines.append(description)
+        lines.append("")
+
+    # Attributes table
+    if attributes:
+        attr_rows: List[tuple[str, str]] = []
+        if attributes.get("class"):
+            attr_rows.append(("Class", attributes["class"].capitalize()))
+        if attributes.get("gender"):
+            attr_rows.append(("Gender", attributes["gender"].capitalize()))
+        if attributes.get("age"):
+            attr_rows.append(("Age", attributes["age"].replace("-", " ").title()))
+        if attributes.get("accent"):
+            attr_rows.append(("Accent", attributes["accent"]))
+        if attributes.get("tone"):
+            attr_rows.append(("Tone", ", ".join(attributes["tone"])))
+        if attributes.get("timbre"):
+            attr_rows.append(("Timbre", ", ".join(attributes["timbre"])))
+        if attributes.get("pace"):
+            attr_rows.append(("Pace", attributes["pace"].capitalize()))
+        if attributes.get("use_case"):
+            attr_rows.append(("Best for", ", ".join(
+                uc.replace("-", " ") for uc in attributes["use_case"]
+            )))
+        if attr_rows:
+            lines.append("| Attribute | Value |")
+            lines.append("| --- | --- |")
+            for label, value in attr_rows:
+                lines.append(f"| {label} | {value} |")
+            lines.append("")
+
+    lines.append(
+        "_This voice follows the Audiobook Studio voice spec v1. Download it and drop it into "
+        "`tts_voices/`, or import the `.asvoice.zip` from the Voices tab — Studio reads `voice.json` "
+        "and registers it automatically._"
+    )
+    lines.append("")
+    lines.append("<!--")
+    lines.append(
+        "This README is GENERATED from voice.json by the Studio exporter. Don't hand-edit it for a"
+    )
+    lines.append(
+        "real bundle; edit voice.json and regenerate so the page and the machine spec never drift."
+    )
+    lines.append(
+        "The `widget … output.url` above is what makes the sample playable right on the HF page."
+    )
+    lines.append("-->")
+    lines.append("")
+
+    return "\n".join(lines)
 
 
 def _require_safe_name(name: str, label: str = "voice") -> str:
@@ -92,10 +289,22 @@ def export_voice_bundle(voices_root: Path, voice_name: str, *, include_source_wa
         raise VoiceBundleError("Voice has no variants to export")
 
     voice_manifest = load_voice_manifest(voice_root)
-    voice_manifest["version"] = CURRENT_VOICE_STORAGE_VERSION
     voice_manifest["name"] = voice_name
-    if not voice_manifest.get("default_variant"):
-        voice_manifest["default_variant"] = "Default" if any(v.name == "Default" for v in variants) else variants[0].name
+    # D8: drop fields that are forbidden by the bundle schema's additionalProperties:false.
+    # `version` (integer storage marker) and `default_variant` (operational, lives in
+    # state.json after Phase B migration) must not appear in the exported voice.json.
+    for _field in _EXPORT_STRIP_FIELDS:
+        voice_manifest.pop(_field, None)
+    # Recover default_variant from state.json for any operational logic (none currently).
+    _state = load_voice_state(voice_root)
+    _default_variant = (
+        _state.get("default_variant")
+        or ("Default" if any(v.name == "Default" for v in variants) else variants[0].name)
+    )
+
+    # E1: Strict schema validation gate — exports must produce valid voice.json.
+    # This runs BEFORE writing any bytes so failures are clean raises.
+    validate_voice_manifest_strict(voice_manifest)
 
     variant_entries = []
     included_asset_classes = {"voice_manifest", "variant_manifest"}
@@ -103,6 +312,11 @@ def export_voice_bundle(voices_root: Path, voice_name: str, *, include_source_wa
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(VOICE_MANIFEST_FILENAME, json.dumps(voice_manifest, indent=2))
+
+        # E2: Generate and include HF-compatible README.md.
+        readme_content = generate_readme_md(voice_manifest)
+        zf.writestr(README_FILENAME, readme_content)
+        included_asset_classes.add("readme")
 
         for variant_dir in variants:
             variant_manifest = load_variant_manifest(variant_dir)
@@ -188,10 +402,13 @@ def _safe_copy_name(voices_root: Path, desired_name: str) -> str:
         idx += 1
 
 
+_ROOT_LEVEL_ACCEPTED = {VOICE_MANIFEST_FILENAME, BUNDLE_MANIFEST_FILENAME, README_FILENAME}
+
+
 def _valid_payload_paths(paths: Iterable[PurePosixPath]) -> List[PurePosixPath]:
     accepted: List[PurePosixPath] = []
     for path in paths:
-        if len(path.parts) == 1 and path.name in {VOICE_MANIFEST_FILENAME, BUNDLE_MANIFEST_FILENAME}:
+        if len(path.parts) == 1 and path.name in _ROOT_LEVEL_ACCEPTED:
             accepted.append(path)
             continue
         if len(path.parts) == 2:
@@ -248,11 +465,21 @@ def import_voice_bundle(voices_root: Path, bundle_bytes: bytes) -> Dict[str, Any
             target_root = staging_root / imported_voice_name
             target_root.mkdir(parents=True)
 
-            voice_manifest["version"] = CURRENT_VOICE_STORAGE_VERSION
+            # D8: separate operational state from the schema-compliant voice.json.
+            # - `version` (integer runtime marker) must NOT appear in voice.json.
+            # - `default_variant` is operational; it belongs in state.json only.
+            # Determine default_variant before stripping it from the manifest.
+            _default_variant = (
+                voice_manifest.get("default_variant")
+                or ("Default" if any(path.parts[0] == "Default" for path in variant_profile_paths) else variant_profile_paths[0].parts[0])
+            )
+            for _field in _EXPORT_STRIP_FIELDS:
+                voice_manifest.pop(_field, None)
             voice_manifest["name"] = imported_voice_name
-            if not voice_manifest.get("default_variant"):
-                voice_manifest["default_variant"] = "Default" if any(path.parts[0] == "Default" for path in variant_profile_paths) else variant_profile_paths[0].parts[0]
             save_voice_manifest(target_root, voice_manifest)
+
+            # Write operational state.json — Studio-managed, never exported.
+            save_voice_state(target_root, {"default_variant": _default_variant})
 
             variants = []
             for profile_path in sorted(variant_profile_paths, key=lambda p: p.parts[0].lower()):
