@@ -25,9 +25,9 @@ export const ProgressBarLaunchPanel: React.FC<ProgressBarLaunchPanelProps> = ({
       padding: '1rem',
       borderRadius: '14px',
       border: '1px solid var(--border)',
-      background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,253,0.96))',
+      background: 'linear-gradient(180deg, var(--surface-white), var(--surface))',
       boxShadow: 'var(--shadow-sm)',
-      borderLeft: '4px solid rgba(84, 107, 255, 0.75)',
+      borderLeft: '4px solid var(--accent)',
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
         <div>
@@ -47,7 +47,7 @@ export const ProgressBarLaunchPanel: React.FC<ProgressBarLaunchPanelProps> = ({
           fontWeight: 800,
           letterSpacing: '0.04em',
           textTransform: 'uppercase',
-          background: 'rgba(84, 107, 255, 0.12)',
+          background: 'var(--accent-tint)',
           color: 'var(--accent)',
         }}>
           Initial snapshot

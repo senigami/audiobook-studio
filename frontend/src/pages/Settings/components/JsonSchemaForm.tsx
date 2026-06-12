@@ -97,7 +97,7 @@ export const JsonSchemaForm: React.FC<{
                   padding: '0.65rem',
                   borderRadius: '10px',
                   border: '1px solid var(--border)',
-                  background: 'rgba(0,0,0,0.025)',
+                  background: 'var(--surface-dim)',
                   fontSize: '0.9rem',
                   fontWeight: 800,
                   color: 'var(--text-primary)',
@@ -185,7 +185,7 @@ export const JsonSchemaForm: React.FC<{
               </p>
             )}
             {isLocked && !isReadOnly && (
-              <p style={{ margin: 0, fontSize: '0.78rem', color: '#b45309', lineHeight: 1.4, fontWeight: 700 }}>
+              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--warning-text-strong)', lineHeight: 1.4, fontWeight: 700 }}>
                 {propUi.locked_message || 'Verification required before enabling this setting.'}
               </p>
             )}

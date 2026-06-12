@@ -113,7 +113,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete, trigger
                     if (!disabled) setIsOpen(!isOpen);
                 }}
                 aria-label="More actions"
-                whileHover={disabled ? {} : (trigger ? { scale: 1.05 } : { backgroundColor: 'rgba(15, 23, 42, 0.08)', color: 'var(--accent)' })}
+                whileHover={disabled ? {} : (trigger ? { scale: 1.05 } : { backgroundColor: 'var(--glass-hover)', color: 'var(--accent)' })}
                 whileTap={disabled ? {} : { scale: 0.92 }}
                 style={trigger ? {
                     background: 'none',
@@ -130,7 +130,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete, trigger
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: 'rgba(255, 255, 255, 0.9)',
+                    background: 'var(--surface-glass-white)',
                     backdropFilter: 'blur(4px)',
                     border: '1px solid var(--border)',
                     color: 'var(--text-muted)',
@@ -160,7 +160,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete, trigger
                             minWidth: menuRect?.width ?? 180,
                             background: 'var(--surface-light)',
                             borderRadius: '12px',
-                            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3)',
+                            boxShadow: 'var(--shadow-xl)',
                             border: '1px solid var(--border)',
                             overflow: 'hidden',
                             zIndex: 99999,

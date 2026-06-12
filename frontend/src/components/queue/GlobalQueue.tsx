@@ -273,7 +273,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                     {localPaused && (
-                        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: '12px', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', gap: '12px', color: '#d97706' }}>
+                        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ background: 'var(--warning-tint-bg)', border: '1px solid var(--warning-tint-border)', borderRadius: '12px', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--warning-text)' }}>
                             <Pause size={18} fill="currentColor" />
                             <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Processing is currently paused. Resume to continue the queue.</span>
                         </motion.div>

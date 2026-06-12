@@ -47,4 +47,155 @@
   --as-blue: #2b6eff; /* brand-blue */
   --as-amber: #f97316; /* brand-orange */
   --as-info-tint: #f0f7ff; /* very soft blue tint */
+
+  /* Missing tokens — added Step 1 */
+  --accent-tint: rgba(99, 102, 241, 0.12);       /* soft accent background */
+  --success-strong: #059669;                      /* filled success button/badge bg */
+  --success-strong-hover: #047857;               /* hover state for success-strong */
+  --success-text: #15803d;                       /* success status text */
+  --warning-text-strong: #b45309;               /* warning/caution inline text */
+  --text-on-accent: #ffffff;                    /* text on colored accent surfaces */
+  --glass-surface-light: rgba(248, 249, 252, 0.78); /* panel glass in light mode */
+  --glass-subtle: rgba(255, 255, 255, 0.05);    /* very subtle glass tint */
+
+  /* Semantic surface/state tints */
+  --overlay-backdrop: rgba(0, 0, 0, 0.4);         /* modal/drawer scrim */
+  --surface-white: #ffffff;                        /* explicit white surface (btn-glass, select-glass) */
+  --surface-pressed: #e2e8f0;                      /* pressed/active glass btn */
+  --border-muted: #cbd5e1;                         /* muted border (lighter than --border) */
+  --surface-code: #1a1a1a;                         /* code/log panel dark bg */
+  --surface-code-border: #1e293b;                  /* code panel border */
+  --text-code-muted: #d4d4d4;                      /* code panel default text */
+  --text-code-info: #38bdf8;                       /* code panel info/timestamp text */
+  --warning-tint-bg: rgba(245, 158, 11, 0.08);    /* warning surface tint */
+  --warning-tint-border: rgba(245, 158, 11, 0.24); /* warning surface border */
+  --warning-text: #92400e;                         /* warning body text (darker amber) */
+  --error-tint-bg: rgba(239, 68, 68, 0.1);        /* error surface tint */
+  --error-tint-border: rgba(239, 68, 68, 0.2);    /* error surface border */
+  --error-text-strong: #b91c1c;                   /* error body text (darker red) */
+  --accent-tint-bg: rgba(43, 110, 255, 0.12);     /* accent-blue surface tint (brand blue) */
+  --accent-tint-border: rgba(43, 110, 255, 0.2);  /* accent-blue surface border */
+  --surface-tinted-light: rgba(240, 247, 255, 0.9); /* very light blue tinted surface */
+  --surface-glass-white: rgba(255, 255, 255, 0.8); /* glass white (higher opacity) */
+  --surface-glass-half: rgba(255, 255, 255, 0.5); /* 50% glass white */
+  --surface-dim: rgba(0, 0, 0, 0.03);             /* barely-there dark tint */
+  --success-tint-bg: rgba(16, 185, 129, 0.1);     /* success surface tint */
+  --success-color: #10b981;                        /* success status color (= --success alias) */
+  --accent-focus-ring: rgba(43, 110, 255, 0.08);  /* focus ring glow around inputs */
+  --cloud-tint-bg: rgba(14, 165, 233, 0.12);      /* cloud-engine accent tint */
+  --cloud-color: #0ea5e9;                          /* cloud engine icon/text color */
+
+  /* Progress bar visual state tokens */
+  --progress-track: rgba(0, 0, 0, 0.05);           /* progress bar track background */
+  --progress-finalizing-fill: rgba(191, 219, 254, 0.34); /* finalizing state fill color */
+  --progress-finalizing-glow: rgba(59, 130, 246, 0.45);  /* finalizing glow shadow */
+  --progress-preparing-fill: rgba(248, 250, 252, 0.96);  /* preparing indeterminate fill */
+  --progress-preparing-glow: rgba(226, 232, 240, 0.45);  /* preparing glow shadow */
+  --progress-badge-running: rgba(37, 99, 235, 0.10);     /* running/processing badge bg */
+  --progress-badge-preparing: rgba(245, 158, 11, 0.12);  /* preparing badge bg */
+  --progress-badge-finalizing: rgba(59, 130, 246, 0.10); /* finalizing badge bg */
+  --progress-badge-default: rgba(100, 116, 139, 0.10);   /* default/queued badge bg */
+  --progress-badge-border: rgba(0, 0, 0, 0.08);          /* badge border */
+  --progress-done-fill: linear-gradient(90deg, rgba(16, 185, 129, 0.82) 0%, rgba(34, 197, 94, 0.98) 100%);
+  --progress-done-glow: rgba(34, 197, 94, 0.45);
+  --progress-failed-fill: linear-gradient(90deg, rgba(239, 68, 68, 0.82) 0%, rgba(185, 28, 28, 0.98) 100%);
+  --progress-failed-glow: rgba(239, 68, 68, 0.40);
+  --progress-queued-fill: rgba(148, 163, 184, 0.12);
+}
+
+[data-theme="dark"] {
+  /* Surfaces */
+  --bg:                   #0f1117;
+  --background:           #0f1117;
+  --surface:              #1a1d27;
+  --surface-alt:          #22263a;
+  --surface-light:        #1a1d27;
+  --surface-white:        #1a1d27;
+  --surface-pressed:      #2d3148;
+  --surface-tinted-light: rgba(30, 40, 70, 0.9);
+  --surface-glass-white:  rgba(26, 29, 39, 0.85);
+  --surface-glass-half:   rgba(26, 29, 39, 0.5);
+  --surface-dim:          rgba(0, 0, 0, 0.15);
+  --surface-code:         #0d0f14;
+  --surface-code-border:  #2d3148;
+
+  /* Text */
+  --text-primary:         #e8eaf0;
+  --text-secondary:       #9ca3af;
+  --text-muted:           #6b7280;
+  --text:                 var(--text-primary);
+  --text-code-muted:      #b0b8c8;
+  --text-code-info:       #38bdf8;
+
+  /* Brand tokens */
+  --as-ink:               #e8eaf0;
+  --as-muted:             #9ca3af;
+
+  /* Borders */
+  --border:               #2d3148;
+  --border-muted:         #3d4460;
+
+  /* Glass */
+  --glass:                rgba(15, 17, 23, 0.85);
+  --glass-border:         rgba(255, 255, 255, 0.08);
+  --glass-hover:          rgba(255, 255, 255, 0.06);
+  --glass-surface-light:  rgba(15, 17, 23, 0.78);
+  --glass-subtle:         rgba(0, 0, 0, 0.25);
+
+  /* Accent tints */
+  --accent-tint:          rgba(99, 102, 241, 0.18);
+  --accent-tint-bg:       rgba(43, 110, 255, 0.15);
+  --accent-tint-border:   rgba(43, 110, 255, 0.3);
+  --accent-glow:          rgba(43, 110, 255, 0.15);
+  --accent-focus-ring:    rgba(43, 110, 255, 0.15);
+
+  /* Success */
+  --success:              #10b981;
+  --success-muted:        rgba(16, 185, 129, 0.15);
+  --success-strong:       #10b981;
+  --success-strong-hover: #059669;
+  --success-text:         #34d399;
+  --success-color:        #10b981;
+  --success-tint-bg:      rgba(16, 185, 129, 0.12);
+
+  /* Warning */
+  --warning:              #f59e0b;
+  --warning-text:         #fbbf24;
+  --warning-text-strong:  #f59e0b;
+  --warning-tint-bg:      rgba(245, 158, 11, 0.12);
+  --warning-tint-border:  rgba(245, 158, 11, 0.3);
+
+  /* Error */
+  --error:                #f87171;
+  --error-text:           #fca5a5;
+  --error-text-strong:    #f87171;
+  --error-tint-bg:        rgba(239, 68, 68, 0.15);
+  --error-tint-border:    rgba(239, 68, 68, 0.3);
+  --error-glow:           rgba(239, 68, 68, 0.15);
+
+  /* Cloud */
+  --cloud-tint-bg:        rgba(14, 165, 233, 0.15);
+  --cloud-color:          #38bdf8;
+
+  /* Overlay */
+  --overlay-backdrop:     rgba(0, 0, 0, 0.65);
+
+  /* Shadows — deeper on dark */
+  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md:  0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.25);
+  --shadow-lg:  0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  --shadow-xl:  0 20px 25px -5px rgba(0, 0, 0, 0.45), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+
+  /* Progress bar visual states */
+  --progress-track:            rgba(255, 255, 255, 0.06);
+  --progress-finalizing-fill:  rgba(96, 165, 250, 0.3);
+  --progress-finalizing-glow:  rgba(59, 130, 246, 0.5);
+  --progress-preparing-fill:   rgba(51, 65, 85, 0.96);
+  --progress-preparing-glow:   rgba(71, 85, 105, 0.45);
+  --progress-badge-running:    rgba(99, 102, 241, 0.18);
+  --progress-badge-preparing:  rgba(245, 158, 11, 0.18);
+  --progress-badge-finalizing: rgba(59, 130, 246, 0.18);
+  --progress-badge-default:    rgba(148, 163, 184, 0.15);
+  --progress-badge-border:     rgba(255, 255, 255, 0.08);
+  --progress-queued-fill:      rgba(148, 163, 184, 0.1);
 }

@@ -51,7 +51,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                         style={{
                             position: 'absolute',
                             inset: 0,
-                            background: 'rgba(15, 23, 42, 0.4)',
+                            background: 'var(--overlay-backdrop)',
                             backdropFilter: 'blur(8px)',
                         }}
                     />
@@ -81,7 +81,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                                 width: '48px', 
                                 height: '48px', 
                                 borderRadius: '12px', 
-                                background: isDestructive ? 'rgba(239, 68, 68, 0.1)' : 'rgba(var(--accent-rgb), 0.1)',
+                                background: isDestructive ? 'var(--error-tint-bg)' : 'var(--accent-glow)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',

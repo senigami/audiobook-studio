@@ -1,6 +1,6 @@
 .btn-primary {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--text-on-accent);
   box-shadow: var(--shadow-sm);
 }
 
@@ -23,23 +23,23 @@
 
 .btn-success {
   background: var(--success);
-  color: #ffffff;
+  color: var(--text-on-accent);
   box-shadow: var(--shadow-sm);
 }
 
 .btn-success:hover:not(:disabled) {
-  background: #059669; /* darker success */
+  background: var(--success-strong); /* darker success */
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
 
 .btn-success:active:not(:disabled) {
-  background: #047857;
+  background: var(--success-strong-hover);
   transform: translateY(0);
 }
 
 .btn-glass {
-  background: #ffffff;
+  background: var(--surface-white);
   color: var(--text-primary);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
@@ -47,11 +47,11 @@
 
 .btn-glass:hover:not(:disabled) {
   background: var(--surface-alt);
-  border-color: #cbd5e1;
+  border-color: var(--border-muted);
 }
 
 .btn-glass:active:not(:disabled) {
-  background: #e2e8f0;
+  background: var(--surface-pressed);
 }
 
 .btn-glass:disabled {
@@ -92,7 +92,7 @@
 
 .btn-home:active:not(:disabled) {
   background: var(--accent-active) !important;
-  color: #ffffff !important;
+  color: var(--text-on-accent) !important;
   border-color: var(--accent-active) !important;
   transform: translateY(0);
 }
@@ -110,7 +110,7 @@
 
 .btn-danger:hover:not(:disabled) {
   background: var(--error-glow);
-  color: #ef4444;
+  color: var(--error);
   border-color: var(--error);
 }
 
@@ -249,7 +249,7 @@
 }
 
 .select-glass {
-  background: #ffffff;
+  background: var(--surface-white);
   border: 1px solid var(--border);
   border-radius: var(--radius-button);
   color: var(--text-primary);
@@ -295,7 +295,7 @@
 }
 
 .engine-chunk:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-subtle);
   border-color: var(--accent);
 }
 
@@ -326,7 +326,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f1f5f9;
+  background: var(--surface-alt);
   border-radius: 50%;
   color: var(--accent);
 }

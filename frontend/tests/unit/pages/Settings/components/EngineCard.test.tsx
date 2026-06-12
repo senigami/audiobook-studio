@@ -352,7 +352,7 @@ describe('EngineCard dependency installation', () => {
 
     const textEl = screen.getByText('33.4 characters/sec, 60% confidence');
     const blockContainer = textEl.closest('div')?.parentElement;
-    expect(blockContainer).toHaveStyle({ borderColor: 'rgba(217, 119, 6, 0.24)' });
+    expect(blockContainer?.getAttribute('style')).toContain('var(--warning-tint-border)');
 
     // High confidence (>= 70)
     const highConfEngine = {
@@ -363,7 +363,7 @@ describe('EngineCard dependency installation', () => {
       calibration_since: Date.UTC(2026, 4, 30, 16, 0, 0) / 1000,
     };
     rerender(<EngineCard engine={highConfEngine} onUpdate={vi.fn()} />);
-    expect(blockContainer).toHaveStyle({ borderColor: 'rgba(43, 110, 255, 0.16)' });
+    expect(blockContainer?.getAttribute('style')).toContain('var(--accent-focus-ring)');
   });
 
   it('proves helper text appears only when calibration_confidence_percent is below 70', () => {

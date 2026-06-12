@@ -233,7 +233,7 @@ describe('DemoApp theme toggle', () => {
   beforeEach(() => {
     window.location.hash = '#/';
     document.documentElement.removeAttribute('data-theme');
-    localStorage.removeItem('demo-theme');
+    localStorage.removeItem('studio-theme');
   });
 
   it('toggle button flips data-theme on documentElement', async () => {
@@ -252,12 +252,12 @@ describe('DemoApp theme toggle', () => {
     expect(flipped).not.toBe(initial);
   });
 
-  it('persists theme to localStorage', async () => {
+  it('persists theme to localStorage under the shared studio-theme key', async () => {
     render(<DemoApp />);
     const toggleBtn = await screen.findByRole('button', { name: /theme/i });
     fireEvent.click(toggleBtn);
 
-    const stored = localStorage.getItem('demo-theme');
+    const stored = localStorage.getItem('studio-theme');
     expect(['light', 'dark']).toContain(stored);
   });
 });

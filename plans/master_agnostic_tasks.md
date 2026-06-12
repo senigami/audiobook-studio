@@ -107,3 +107,8 @@
 - [ ] Reserve a future plain `plugins/` space for non-engine app-behavior extensions once the engine bundle rename is complete.
 - [ ] Update docs, plugin templates, and discovery code to distinguish engine bundles from app-behavior plugins.
 - [ ] Move engine-owned tests, fixtures, and helper files into the owning engine bundle so XTTS/Voxtral can be extracted as self-contained repos later.
+
+
+## Known Constraints
+
+- **ChapterEditor at 390px (tablet-minimum):** The ChapterEditor layout stacks columns below 1100px (sidebar moves below content, capped at 40vh). At 390px the editor is functional but dense — full usability at that viewport is not a target for the current release. The Library, Queue, Settings, and Voices pages are fully functional at 390px. This is an accepted constraint documented at plans/final_release/07_frontend_themes_and_responsive.md §3.4.

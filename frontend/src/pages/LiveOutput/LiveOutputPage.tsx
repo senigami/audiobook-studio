@@ -44,7 +44,7 @@ export const LiveOutputPage: React.FC = () => {
         padding: '1.25rem 1.5rem',
         borderRadius: '20px',
         border: '1px solid var(--border)',
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.92), rgba(246,248,252,0.92))',
+        background: 'linear-gradient(180deg, var(--surface-white), var(--surface))',
         boxShadow: 'var(--shadow-md)',
         flexShrink: 0
       }}>
@@ -117,7 +117,7 @@ export const LiveOutputPage: React.FC = () => {
               padding: '0.75rem',
               borderRadius: '8px',
               border: '1px solid var(--border)',
-              background: 'var(--surface-muted, rgba(0,0,0,0.03))',
+              background: 'var(--surface-dim)',
               maxHeight: '18rem',
               overflow: 'auto',
               whiteSpace: 'pre-wrap',

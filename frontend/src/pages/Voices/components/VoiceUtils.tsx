@@ -60,7 +60,7 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children
                         style={{
                             position: 'fixed',
                             inset: 0,
-                            background: 'rgba(15, 23, 42, 0.4)',
+                            background: 'var(--overlay-backdrop)',
                             backdropFilter: 'blur(4px)',
                             zIndex: 2000
                         }}
@@ -78,7 +78,7 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children
                             width: `${width}px`,
                             maxWidth: '95vw',
                             background: 'var(--surface)',
-                            boxShadow: '-10px 0 30px rgba(0,0,0,0.1)',
+                            boxShadow: 'var(--shadow-lg)',
                             zIndex: 2001,
                             display: 'flex',
                             flexDirection: 'column',
@@ -110,7 +110,7 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children
                                 background: isResizing ? 'var(--accent)' : 'var(--surface-alt)',
                                 borderRadius: '4px',
                                 border: '1px solid var(--border)',
-                                boxShadow: isResizing ? '0 0 10px var(--accent-glow)' : '0 2px 4px rgba(0,0,0,0.1)',
+                                boxShadow: isResizing ? '0 0 10px var(--accent-glow)' : 'var(--shadow-sm)',
                                 transition: 'all 0.2s ease',
                                 opacity: isResizing ? 1 : 0.8
                             }}>
@@ -234,7 +234,7 @@ export const SpeedPopover: React.FC<SpeedPopoverProps> = ({ value, onChange, tri
                     width: '240px',
                     background: 'var(--surface-light)',
                     borderRadius: '16px',
-                    boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.4)',
+                    boxShadow: 'var(--shadow-xl)',
                     border: '1px solid var(--border)',
                     padding: '1.25rem',
                     zIndex: 99999,

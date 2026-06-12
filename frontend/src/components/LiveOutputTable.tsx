@@ -94,7 +94,7 @@ const formatConfidence = (value?: number | null) => {
   const pct = Math.round(value * 100);
   if (pct < 50) {
     return (
-      <span style={{ color: 'var(--text-warning, #d97706)', fontWeight: 600 }}>
+      <span style={{ color: 'var(--warning-text)', fontWeight: 600 }}>
         ⚠️ {pct}%
       </span>
     );
@@ -265,7 +265,7 @@ export const LiveOutputTable: React.FC<LiveOutputTableProps> = ({
         </span>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
+      <div className="live-output-table-wrapper" style={{ flex: 1, minHeight: 0, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}>
           <thead style={{ position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
             <tr>

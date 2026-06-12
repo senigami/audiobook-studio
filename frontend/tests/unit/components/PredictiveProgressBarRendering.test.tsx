@@ -96,7 +96,7 @@ describe('PredictiveProgressBar - Rendering', () => {
             />
         )
         expect(screen.getByText('Complete')).toBeTruthy()
-        const bar = container.querySelector('div[style*="linear-gradient(90deg, rgba(16, 185, 129"]') as HTMLElement
+        const bar = container.querySelector('div[style*="var(--progress-done-fill)"]') as HTMLElement
         expect(bar).toBeTruthy()
     })
 

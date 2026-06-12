@@ -65,7 +65,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
               placeItems: 'center',
               color: 'var(--accent)',
               background: 'var(--accent-glow)',
-              border: '1px solid rgba(43, 110, 255, 0.12)',
+              border: '1px solid var(--accent-focus-ring)',
             }}
           >
             <SettingsIcon size={24} />

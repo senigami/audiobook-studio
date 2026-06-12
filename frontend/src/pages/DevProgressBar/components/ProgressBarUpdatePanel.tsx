@@ -37,9 +37,9 @@ export const ProgressBarUpdatePanel: React.FC<ProgressBarUpdatePanelProps> = ({
         padding: '1rem',
         borderRadius: '14px',
         border: '1px solid var(--border)',
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,253,0.96))',
+        background: 'linear-gradient(180deg, var(--surface-white), var(--surface))',
         boxShadow: 'var(--shadow-sm)',
-        borderLeft: '4px solid rgba(22, 163, 74, 0.75)',
+        borderLeft: '4px solid var(--success)',
       }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
           <div>
@@ -59,8 +59,8 @@ export const ProgressBarUpdatePanel: React.FC<ProgressBarUpdatePanelProps> = ({
             fontWeight: 800,
             letterSpacing: '0.04em',
             textTransform: 'uppercase',
-            background: 'rgba(22, 163, 74, 0.12)',
-            color: 'rgb(22, 163, 74)',
+            background: 'var(--success-tint-bg)',
+            color: 'var(--success)',
           }}>
             Live mutations
           </span>

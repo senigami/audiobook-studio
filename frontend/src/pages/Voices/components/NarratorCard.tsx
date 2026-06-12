@@ -69,11 +69,11 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     const activeEngineBadge = {
         label: activeEngineInfo?.display_name || formatVoiceEngineLabel(activeEngine),
         bg: !activeEngineSelectable
-            ? 'rgba(var(--accent-rgb), 0.08)'
-            : (isCloudEngine ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)'),
+            ? 'var(--accent-focus-ring)'
+            : (isCloudEngine ? 'var(--cloud-tint-bg)' : 'var(--accent-tint-bg)'),
         color: !activeEngineSelectable
             ? 'var(--text-muted)'
-            : (isCloudEngine ? '#0ea5e9' : 'var(--accent)')
+            : (isCloudEngine ? 'var(--cloud-color)' : 'var(--accent)')
     };
 
     const handleAddVariant = () => onAddVariantClick(speaker, profiles.length);
@@ -92,7 +92,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
             (p.samples?.length || 0) > 0
         );
 
-        if (buildingProfiles[p.name]) return { label: 'BUILDING...', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
+        if (buildingProfiles[p.name]) return { label: 'BUILDING...', color: 'var(--accent)', bg: 'var(--accent-glow)' };
 
         if (!selectable) {
             return { label: 'DISABLED', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
@@ -104,7 +104,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
             const reasons = p.rebuild_reasons || [];
 
             if (reasons.includes('no_preview')) {
-                return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
+                return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'var(--accent-glow)' };
             }
 
             let label = isRebuildEngine ? 'REBUILD REQUIRED' : 'PREVIEW STALE';
@@ -112,16 +112,16 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
             else if (reasons.includes('settings_changed')) label = 'SETTINGS CHANGED';
             else if (reasons.includes('samples_missing')) label = 'SAMPLES MISSING';
 
-            return { label, color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' };
+            return { label, color: 'var(--warning-text)', bg: 'var(--warning-tint-bg)' };
         }
 
         if (!p.preview_url) {
             if (!hasBuildMaterial) {
                 return { label: 'NOT READY', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
             }
-            return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
+            return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'var(--accent-glow)' };
         }
-        return { label: 'READY', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
+        return { label: 'READY', color: 'var(--success)', bg: 'var(--success-tint-bg)' };
     };
 
     const status = getStatusInfo(activeProfile as SpeakerProfile);
@@ -167,8 +167,8 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 border: '2px solid var(--border-light)',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                                color: 'white'
+                                boxShadow: 'var(--shadow-sm)',
+                                color: 'var(--text-on-accent)'
                             }}>
                                 <RefreshCw size={10} style={{ width: '10px', height: '10px' }} />
                             </div>
@@ -319,11 +319,11 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                                 fontSize: '0.62rem',
                                                 fontWeight: 800,
                                                 background: isActive
-                                                    ? 'rgba(255,255,255,0.2)'
-                                                    : (engines.find(e => e.engine_id === (getVoiceProfileEngine(p) || 'unknown'))?.cloud ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)'),
+                                                    ? 'var(--glass-subtle)'
+                                                    : (engines.find(e => e.engine_id === (getVoiceProfileEngine(p) || 'unknown'))?.cloud ? 'var(--cloud-tint-bg)' : 'var(--accent-tint-bg)'),
                                                 color: isActive
-                                                    ? 'white'
-                                                    : (engines.find(e => e.engine_id === (getVoiceProfileEngine(p) || 'unknown'))?.cloud ? '#0ea5e9' : 'var(--accent)')
+                                                    ? 'var(--text-on-accent)'
+                                                    : (engines.find(e => e.engine_id === (getVoiceProfileEngine(p) || 'unknown'))?.cloud ? 'var(--cloud-color)' : 'var(--accent)')
                                             }}>
                                                 {(engines.find(e => e.engine_id === (getVoiceProfileEngine(p) || 'unknown'))?.display_name || formatVoiceEngineLabel(getVoiceProfileEngine(p))).substring(0, 2).toUpperCase()}
                                             </span>

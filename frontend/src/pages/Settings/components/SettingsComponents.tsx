@@ -156,7 +156,7 @@ export const RuntimeServiceRow: React.FC<{ service: RuntimeService; onRestart?: 
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <span style={{ fontSize: '0.8rem', fontWeight: 800, color: service.healthy ? '#15803d' : '#b45309' }}>
+        <span style={{ fontSize: '0.8rem', fontWeight: 800, color: service.healthy ? 'var(--success-text)' : 'var(--warning-text-strong)' }}>
           {statusLabel}
         </span>
         {canRestart && (

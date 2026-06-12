@@ -229,17 +229,17 @@ export const getTerminalStatusText = (visualState: string | undefined) =>
 export const getTerminalFillStyle = (visualState: string | undefined): React.CSSProperties | null =>
     isDoneStatus(visualState)
         ? {
-            background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.82) 0%, rgba(34, 197, 94, 0.98) 100%)',
-            boxShadow: '0 0 15px rgba(34, 197, 94, 0.45)',
+            background: 'var(--progress-done-fill)',
+            boxShadow: '0 0 15px var(--progress-done-glow)',
         }
         : isFailedStatus(visualState)
         ? {
-            background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.82) 0%, rgba(185, 28, 28, 0.98) 100%)',
-            boxShadow: '0 0 15px rgba(239, 68, 68, 0.40)',
+            background: 'var(--progress-failed-fill)',
+            boxShadow: '0 0 15px var(--progress-failed-glow)',
         }
         : isQueuedStatus(visualState) || isCancelledStatus(visualState)
         ? {
-            background: 'rgba(148, 163, 184, 0.12)',
+            background: 'var(--progress-queued-fill)',
             boxShadow: 'none',
         }
         : null;

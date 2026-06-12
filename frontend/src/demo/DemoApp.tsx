@@ -13,6 +13,7 @@
  */
 
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
+import { loadThemePref, saveThemePref } from '@/utils/theme';
 import { DemoStage } from './DemoStage';
 import { demoTimeline } from './scenes';
 import { liveOutputStage } from './stages/liveOutputStage';
@@ -40,16 +41,10 @@ const parseHash = (hash: string): { page: 'index' | 'stage'; stageId?: string } 
   return { page: 'index' };
 };
 
-const THEME_KEY = 'demo-theme';
-
 const initTheme = (): 'light' | 'dark' => {
-  try {
-    const stored = localStorage.getItem(THEME_KEY);
-    if (stored === 'light' || stored === 'dark') return stored;
-  } catch {
-    // ignore
-  }
-  return 'light';
+  const pref = loadThemePref();
+  // Demo only supports two-state toggle (light/dark); treat 'system' as 'light' default.
+  return pref === 'dark' ? 'dark' : 'light';
 };
 
 const isEmbedMode = () => {
@@ -70,14 +65,9 @@ export const DemoApp: React.FC = () => {
   const [toast, setToast] = useState<string | null>(null);
   const embed = isEmbedMode();
 
-  // Apply theme to root element
+  // Apply theme to root element via the shared theme utility.
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    try {
-      localStorage.setItem(THEME_KEY, theme);
-    } catch {
-      // ignore
-    }
+    saveThemePref(theme);
   }, [theme]);
 
   // Listen for demo-blocked-action events

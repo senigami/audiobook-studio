@@ -378,8 +378,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
           <div style={{
             margin: '0.5rem 0',
             padding: '1rem',
-            background: 'rgba(239, 68, 68, 0.1)',
-            border: '1px solid rgba(239, 68, 68, 0.2)',
+            background: 'var(--error-tint-bg)',
+            border: '1px solid var(--error-tint-border)',
             borderRadius: '8px',
             color: 'var(--text-primary)',
             fontSize: '0.875rem',
@@ -390,7 +390,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
           }}>
             <span style={{ fontSize: '1.25rem' }}>⚠️</span>
             <div style={{ flex: 1 }}>
-              <strong style={{ display: 'block', marginBottom: '0.25rem', color: '#ef4444' }}>Project Default Voice Engine Unavailable</strong>
+              <strong style={{ display: 'block', marginBottom: '0.25rem', color: 'var(--error)' }}>Project Default Voice Engine Unavailable</strong>
               <span>{projectVoiceStatus.message}</span>
             </div>
           </div>

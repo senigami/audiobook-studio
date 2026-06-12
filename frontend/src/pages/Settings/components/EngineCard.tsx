@@ -189,11 +189,11 @@ export const EngineCard: React.FC<{
                 <span style={{
                   fontSize: '0.62rem',
                   fontWeight: 900,
-                  background: 'rgba(244, 114, 182, 0.1)',
+                  background: 'var(--accent-glow)',
                   color: 'var(--accent)',
                   padding: '1px 4px',
                   borderRadius: '4px',
-                  border: '1px solid rgba(244, 114, 182, 0.2)',
+                  border: '1px solid var(--accent-tint-border)',
                   letterSpacing: '0.05em'
                 }}>
                   DEV
@@ -206,7 +206,7 @@ export const EngineCard: React.FC<{
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-          {displayEngine.cloud && <Cloud size={15} color="#92400e" />}
+          {displayEngine.cloud && <Cloud size={15} color="var(--warning-text)" />}
           <div style={{ marginRight: '0.5rem' }}>
             <ToggleButton
               enabled={displayEngine.enabled}
@@ -275,8 +275,8 @@ export const EngineCard: React.FC<{
                 marginBottom: '1.25rem',
                 padding: '1rem',
                 borderRadius: '16px',
-                border: '1px solid rgba(43, 110, 255, 0.2)',
-                background: 'linear-gradient(180deg, rgba(240, 247, 255, 0.94), rgba(245, 250, 255, 0.85))',
+                border: '1px solid var(--accent-tint-border)',
+                background: 'linear-gradient(180deg, var(--surface-tinted-light), var(--surface))',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
@@ -319,8 +319,8 @@ export const EngineCard: React.FC<{
                   gap: '0.75rem',
                   padding: '0.85rem 1rem',
                   borderRadius: '12px',
-                  border: isLowConfidence ? '1px solid rgba(217, 119, 6, 0.24)' : '1px solid rgba(43, 110, 255, 0.16)',
-                  background: isLowConfidence ? 'rgba(245, 158, 11, 0.04)' : 'rgba(255,255,255,0.72)',
+                  border: isLowConfidence ? '1px solid var(--warning-tint-border)' : '1px solid var(--accent-focus-ring)',
+                  background: isLowConfidence ? 'var(--warning-tint-bg)' : 'var(--surface-glass-half)',
                 }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.28rem' }}>
@@ -346,7 +346,7 @@ export const EngineCard: React.FC<{
                 </div>
               </div>
               {isLowConfidence && (
-                <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.82rem', color: '#b45309', fontWeight: 600, lineHeight: 1.5 }}>
+                <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.82rem', color: 'var(--warning-text-strong)', fontWeight: 600, lineHeight: 1.5 }}>
                   Generate more text-to-speech renders to improve confidence in this speed estimate.
                 </p>
               )}
@@ -375,9 +375,9 @@ export const EngineCard: React.FC<{
               gap: '0.6rem',
               padding: '0.85rem',
               borderRadius: '12px',
-              border: `1px solid ${uiMetadata?.privacy_tone === 'warning' ? 'rgba(217, 119, 6, 0.25)' : 'var(--border)'}`,
-              background: uiMetadata?.privacy_tone === 'warning' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(0,0,0,0.03)',
-              color: uiMetadata?.privacy_tone === 'warning' ? '#92400e' : 'var(--text-secondary)',
+              border: `1px solid ${uiMetadata?.privacy_tone === 'warning' ? 'var(--warning-tint-border)' : 'var(--border)'}`,
+              background: uiMetadata?.privacy_tone === 'warning' ? 'var(--warning-tint-bg)' : 'var(--surface-dim)',
+              color: uiMetadata?.privacy_tone === 'warning' ? 'var(--warning-text)' : 'var(--text-secondary)',
               fontSize: '0.82rem',
             }}
           >
@@ -395,9 +395,9 @@ export const EngineCard: React.FC<{
               gap: '0.75rem',
               padding: '0.9rem',
               borderRadius: '12px',
-              border: '1px solid rgba(245, 158, 11, 0.24)',
-              background: 'rgba(245, 158, 11, 0.08)',
-              color: '#92400e',
+              border: '1px solid var(--warning-tint-border)',
+              background: 'var(--warning-tint-bg)',
+              color: 'var(--warning-text)',
               fontSize: '0.82rem',
               lineHeight: 1.55,
             }}
@@ -409,7 +409,7 @@ export const EngineCard: React.FC<{
                 {setupMessage || 'This engine is waiting on a setup step before it can be used.'}
               </span>
               {dependencyMessage && (
-                <div style={{ marginTop: '0.2rem', padding: '0.4rem 0.6rem', background: 'rgba(0,0,0,0.04)', borderRadius: '6px', fontSize: '0.78rem', fontStyle: 'italic' }}>
+                <div style={{ marginTop: '0.2rem', padding: '0.4rem 0.6rem', background: 'var(--surface-dim)', borderRadius: '6px', fontSize: '0.78rem', fontStyle: 'italic' }}>
                   Missing: {dependencyMessage}
                 </div>
               )}
@@ -432,8 +432,8 @@ export const EngineCard: React.FC<{
             marginBottom: '1rem',
             padding: '1.25rem',
             borderRadius: '16px',
-            border: '1px solid rgba(43, 110, 255, 0.2)',
-            background: 'linear-gradient(180deg, rgba(240, 247, 255, 0.94), rgba(245, 250, 255, 0.85))'
+            border: '1px solid var(--accent-tint-border)',
+            background: 'linear-gradient(180deg, var(--surface-tinted-light), var(--surface))'
           }}>
             {(engineUi || settingsSchema?.description) && (
               <div style={{ marginBottom: '1.5rem' }}>
@@ -457,7 +457,7 @@ export const EngineCard: React.FC<{
         )}
 
         {testResult && testResult.ok && (
-          <div style={{ marginTop: '1.25rem', padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: '12px', border: '1px solid var(--border)', animation: 'fade-in 0.3s ease-out' }}>
+          <div style={{ marginTop: '1.25rem', padding: '1rem', background: 'var(--surface-dim)', borderRadius: '12px', border: '1px solid var(--border)', animation: 'fade-in 0.3s ease-out' }}>
              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                <span style={{ fontSize: '0.72rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                  Latest Test Sample
@@ -584,9 +584,9 @@ export const EngineCard: React.FC<{
                   borderRadius: '10px',
                   fontSize: '0.8rem',
                   fontWeight: 800,
-                  color: '#92400e',
-                  background: 'rgba(245, 158, 11, 0.08)',
-                  border: '1px solid rgba(245, 158, 11, 0.2)',
+                  color: 'var(--warning-text)',
+                  background: 'var(--warning-tint-bg)',
+                  border: '1px solid var(--warning-tint-border)',
                   opacity: (saving || installing) ? 0.5 : 1
                 }}
               >
@@ -611,7 +611,7 @@ export const EngineCard: React.FC<{
                   borderRadius: '10px',
                   fontSize: '0.8rem',
                   fontWeight: 800,
-                  color: '#b91c1c',
+                  color: 'var(--error-text-strong)',
                   opacity: removing ? 0.5 : 1
                 }}
               >

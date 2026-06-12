@@ -345,7 +345,7 @@ function App() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'rgba(248, 249, 252, 0.78)',
+            background: 'var(--glass-surface-light)',
             backdropFilter: 'blur(10px)',
           }}
         >
@@ -429,7 +429,7 @@ function App() {
               transform: 'translateX(-50%)',
               zIndex: 9999,
               background: 'var(--as-ink)',
-              color: 'white',
+              color: 'var(--text-on-accent)',
               padding: '12px 20px',
               borderRadius: '12px',
               boxShadow: 'var(--shadow-lg)',
@@ -440,7 +440,7 @@ function App() {
               fontWeight: 600,
               minWidth: '300px',
               justifyContent: 'space-between',
-              border: '1px solid rgba(255,255,255,0.1)'
+              border: '1px solid var(--glass-border)'
             }}
           >
             <span>{toast.message}</span>
@@ -452,7 +452,7 @@ function App() {
                 }}
                 style={{
                   background: 'var(--accent)',
-                  color: 'white',
+                  color: 'var(--text-on-accent)',
                   padding: '4px 10px',
                   borderRadius: '6px',
                   fontSize: '0.75rem',

@@ -73,8 +73,8 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     const playIconColor = isPlaying ? 'var(--surface)' : 'var(--text-primary)';
     const engineBadge = {
         label: activeEngine?.display_name || formatVoiceEngineLabel(engine),
-        bg: isCloudEngine ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)',
-        color: isCloudEngine ? '#0ea5e9' : 'var(--accent)'
+        bg: isCloudEngine ? 'var(--cloud-tint-bg)' : 'var(--accent-tint-bg)',
+        color: isCloudEngine ? 'var(--cloud-color)' : 'var(--accent)'
     };
 
     useEffect(() => {
@@ -110,8 +110,8 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
             {isRebuildRequired && profile.rebuild_reasons && profile.rebuild_reasons.length > 0 && (
                 <div style={{
                     padding: '8px 12px',
-                    background: 'rgba(var(--warning-rgb), 0.05)',
-                    border: '1px solid rgba(var(--warning-rgb), 0.2)',
+                    background: 'var(--warning-tint-bg)',
+                    border: '1px solid var(--warning-tint-border)',
                     borderRadius: '8px',
                     display: 'flex',
                     alignItems: 'center',
@@ -169,7 +169,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                     alignItems: 'center',
                     borderBottom: 'none',
                     transition: 'border-bottom 0.2s',
-                    background: 'rgba(var(--accent-rgb), 0.02)'
+                    background: 'var(--surface-dim)'
                 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
@@ -408,7 +408,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
             <div style={{
                 padding: '1.25rem',
                 borderTop: '1px solid var(--border-light)',
-                background: 'rgba(239, 68, 68, 0.02)',
+                background: 'var(--surface-dim)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',

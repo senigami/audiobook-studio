@@ -47,9 +47,9 @@ export const ProgressBarDebugPanel: React.FC<ProgressBarDebugPanelProps> = ({
               fontSize: '0.75rem',
               fontWeight: 700,
               textTransform: 'uppercase',
-              background: updateSource === 'socket' ? 'rgba(59, 130, 246, 0.15)' : updateSource === 'manual' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(107, 114, 128, 0.15)',
-              color: updateSource === 'socket' ? 'rgb(37, 99, 235)' : updateSource === 'manual' ? 'rgb(5, 150, 105)' : 'rgb(75, 85, 99)',
-              border: `1px solid ${updateSource === 'socket' ? 'rgba(59, 130, 246, 0.3)' : updateSource === 'manual' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(107, 114, 128, 0.3)'}`,
+              background: updateSource === 'socket' ? 'var(--progress-badge-finalizing)' : updateSource === 'manual' ? 'var(--success-tint-bg)' : 'var(--progress-badge-default)',
+              color: updateSource === 'socket' ? 'var(--accent)' : updateSource === 'manual' ? 'var(--success)' : 'var(--text-muted)',
+              border: `1px solid ${updateSource === 'socket' ? 'var(--accent-focus-ring)' : updateSource === 'manual' ? 'var(--success-muted)' : 'var(--progress-badge-border)'}`,
             }}>
               {updateSource === 'socket' ? 'Socket event' : updateSource === 'manual' ? 'Manual update' : 'Launch config'}
             </span>
@@ -183,13 +183,13 @@ export const ProgressBarDebugPanel: React.FC<ProgressBarDebugPanelProps> = ({
               padding: '0.35rem 0.75rem',
               borderRadius: '8px',
               border: '1px solid var(--border)',
-              background: 'white',
+              background: 'var(--surface-white)',
               fontSize: '0.75rem',
               fontWeight: 600,
               color: 'var(--text-secondary)',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              boxShadow: 'var(--shadow-sm)',
             }}
           >
             <Clipboard size={14} />
@@ -240,13 +240,13 @@ export const ProgressBarDebugPanel: React.FC<ProgressBarDebugPanelProps> = ({
               padding: '0.35rem 0.75rem',
               borderRadius: '8px',
               border: '1px solid var(--border)',
-              background: 'white',
+              background: 'var(--surface-white)',
               fontSize: '0.75rem',
               fontWeight: 600,
               color: 'var(--text-secondary)',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              boxShadow: 'var(--shadow-sm)',
             }}
           >
             <Clipboard size={14} />

@@ -37,7 +37,7 @@ export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, v
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'rgba(0,0,0,0.4)',
+            background: 'var(--overlay-backdrop)',
             backdropFilter: 'blur(4px)'
         }}>
             <motion.div 
@@ -123,7 +123,7 @@ export const RenameVoiceModal: React.FC<RenameVoiceModalProps> = ({ isOpen, onCl
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'rgba(0,0,0,0.4)',
+            background: 'var(--overlay-backdrop)',
             backdropFilter: 'blur(4px)'
         }}>
             <motion.div 
@@ -199,7 +199,7 @@ export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClos
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'rgba(0,0,0,0.4)',
+            background: 'var(--overlay-backdrop)',
             backdropFilter: 'blur(4px)'
         }}>
             <motion.div 
@@ -288,7 +288,7 @@ export const MoveVariantModal: React.FC<MoveVariantModalProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'rgba(0,0,0,0.4)',
+            background: 'var(--overlay-backdrop)',
             backdropFilter: 'blur(4px)'
         }}>
             <motion.div 

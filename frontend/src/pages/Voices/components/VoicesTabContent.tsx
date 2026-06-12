@@ -55,7 +55,7 @@ export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
                     <div style={{ 
                         padding: '60px', 
                         textAlign: 'center', 
-                        background: 'rgba(var(--accent-rgb), 0.02)', 
+                        background: 'var(--surface-dim)',
                         borderRadius: '24px', 
                         border: '2px dashed var(--border)' 
                     }}>

@@ -232,7 +232,7 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
       {error && (
-        <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#b91c1c', fontSize: '0.85rem', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+        <div style={{ padding: '1rem', borderRadius: '12px', background: 'var(--error-tint-bg)', color: 'var(--error-text-strong)', fontSize: '0.85rem', border: '1px solid var(--error-tint-border)' }}>
           {error}
         </div>
       )}
@@ -295,8 +295,8 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
           </div>
           <div
             style={{
-              background: '#1a1a1a',
-              color: '#d4d4d4',
+              background: 'var(--surface-code)',
+              color: 'var(--text-code-muted)',
               padding: '1.25rem',
               borderRadius: '16px',
               fontSize: '0.75rem',
@@ -305,8 +305,8 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
               overflowY: 'auto',
               whiteSpace: 'pre-wrap',
               lineHeight: 1.5,
-              border: '1px solid #333',
-              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
+              border: '1px solid var(--surface-code-border)',
+              boxShadow: 'inset 0 2px 4px var(--progress-track)'
             }}
           >
             {fetchingLogs && !combinedLogs ? (

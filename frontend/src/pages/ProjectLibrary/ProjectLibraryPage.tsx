@@ -223,7 +223,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
             {showModal && (
                 <div style={{
                     position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)'
+                    background: 'var(--overlay-backdrop)', backdropFilter: 'blur(4px)'
                 }}>
                     <motion.div 
                         initial={{ opacity: 0, scale: 0.95 }}

@@ -54,7 +54,7 @@ export const EngineDevPanel: React.FC<EngineDevPanelProps> = ({ engine, onScenar
               padding: '0.4rem 0.6rem',
               borderRadius: '6px',
               border: !activeScenario ? '1px solid var(--accent)' : '1px solid var(--border)',
-              background: !activeScenario ? 'rgba(244, 114, 182, 0.05)' : 'white',
+              background: !activeScenario ? 'var(--accent-glow)' : 'var(--surface-white)',
               fontSize: '0.75rem',
               fontWeight: !activeScenario ? 700 : 500,
               cursor: 'pointer',
@@ -67,7 +67,7 @@ export const EngineDevPanel: React.FC<EngineDevPanelProps> = ({ engine, onScenar
           {loading ? (
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Loading...</div>
           ) : error ? (
-            <div style={{ fontSize: '0.7rem', color: '#ef4444', background: 'rgba(239, 68, 68, 0.05)', padding: '0.4rem', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--error)', background: 'var(--error-glow)', padding: '0.4rem', borderRadius: '6px', border: '1px solid var(--error-tint-border)' }}>
               {error}
             </div>
           ) : scenarios.map(s => (
@@ -79,7 +79,7 @@ export const EngineDevPanel: React.FC<EngineDevPanelProps> = ({ engine, onScenar
                 padding: '0.4rem 0.6rem',
                 borderRadius: '6px',
                 border: activeScenario?.id === s.id ? '1px solid var(--accent)' : '1px solid var(--border)',
-                background: activeScenario?.id === s.id ? 'rgba(244, 114, 182, 0.05)' : 'white',
+                background: activeScenario?.id === s.id ? 'var(--accent-glow)' : 'var(--surface-white)',
                 fontSize: '0.75rem',
                 fontWeight: activeScenario?.id === s.id ? 900 : 500,
                 cursor: 'pointer',
@@ -103,19 +103,19 @@ export const EngineDevPanel: React.FC<EngineDevPanelProps> = ({ engine, onScenar
           </div>
 
           <div style={{
-            background: '#0f172a',
+            background: 'var(--surface-code)',
             borderRadius: '12px',
             padding: '1rem',
             minHeight: '120px',
             maxHeight: '200px',
             overflowY: 'auto',
             overflowX: 'hidden',
-            border: '1px solid #1e293b'
+            border: '1px solid var(--surface-code-border)'
           }}>
             {showJson ? (
               <pre style={{
                 margin: 0,
-                color: '#38bdf8',
+                color: 'var(--text-code-info)',
                 fontSize: '0.7rem',
                 fontFamily: 'monospace',
                 whiteSpace: 'pre-wrap',
@@ -126,9 +126,9 @@ export const EngineDevPanel: React.FC<EngineDevPanelProps> = ({ engine, onScenar
               </pre>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                {logs.length === 0 && <div style={{ color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic' }}>No dev logs yet...</div>}
+                {logs.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontStyle: 'italic' }}>No dev logs yet...</div>}
                 {logs.map((log, i) => (
-                  <div key={i} style={{ color: '#94a3b8', fontSize: '0.7rem', fontFamily: 'monospace', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{log}</div>
+                  <div key={i} style={{ color: 'var(--text-code-muted)', fontSize: '0.7rem', fontFamily: 'monospace', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{log}</div>
                 ))}
               </div>
             )}

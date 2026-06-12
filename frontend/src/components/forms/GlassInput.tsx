@@ -56,7 +56,7 @@ export const GlassInput: React.FC<GlassInputProps> = ({
                     background: 'var(--surface)',
                     border: '1px solid',
                     borderColor: isFocused ? 'var(--accent)' : 'var(--border)',
-                    boxShadow: isFocused ? '0 0 0 4px rgba(var(--accent-rgb), 0.08)' : 'none',
+                    boxShadow: isFocused ? '0 0 0 4px var(--accent-focus-ring)' : 'none',
                     fontSize: '0.9rem',
                     width: '100%',
                     transition: 'all 0.2s ease',

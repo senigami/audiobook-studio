@@ -101,7 +101,7 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                 </div>
 
                 {activeEngine?.settings_schema && synthesisSettings.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.5rem', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.02)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.5rem', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface-dim)' }}>
                         <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>PLUGIN SETTINGS</label>
                         <JsonSchemaForm
                             schema={activeEngine.settings_schema}

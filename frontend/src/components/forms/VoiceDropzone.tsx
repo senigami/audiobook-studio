@@ -152,7 +152,7 @@ export const VoiceDropzone: React.FC<VoiceDropzoneProps> = ({ files = [], onFile
                             style={{
                                 position: 'absolute',
                                 inset: -2,
-                                background: 'rgba(43, 110, 255, 0.05)',
+                                background: 'var(--accent-glow)',
                                 backdropFilter: 'blur(2px)',
                                 borderRadius: 'var(--radius-card)',
                                 border: '2px solid var(--accent)',

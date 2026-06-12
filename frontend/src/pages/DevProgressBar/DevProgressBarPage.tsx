@@ -38,7 +38,7 @@ export const ProgressBarTestPage: React.FC = () => {
         padding: '1.5rem',
         borderRadius: '20px',
         border: '1px solid var(--border)',
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.92), rgba(246,248,252,0.92))',
+        background: 'linear-gradient(180deg, var(--surface-white), var(--surface))',
         boxShadow: 'var(--shadow-md)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.35rem' }}>
@@ -88,7 +88,7 @@ export const ProgressBarTestPage: React.FC = () => {
           padding: '1.25rem',
           borderRadius: '18px',
           border: '1px solid var(--border)',
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,252,255,0.98))',
+          background: 'linear-gradient(180deg, var(--surface-white), var(--surface-tinted-light))',
           boxShadow: 'var(--shadow-sm)',
         }}>
           <h2 style={{ marginTop: 0 }}>Live Preview</h2>

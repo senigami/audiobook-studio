@@ -730,8 +730,8 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         <div style={{
           margin: '1rem 1.5rem 0 1.5rem',
           padding: '1rem',
-          background: 'rgba(239, 68, 68, 0.1)',
-          border: '1px solid rgba(239, 68, 68, 0.2)',
+          background: 'var(--error-tint-bg)',
+          border: '1px solid var(--error-tint-border)',
           borderRadius: '8px',
           color: 'var(--text-primary)',
           fontSize: '0.875rem',
@@ -742,13 +742,13 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         }}>
           <span style={{ fontSize: '1.25rem' }}>⚠️</span>
           <div style={{ flex: 1 }}>
-            <strong style={{ display: 'block', marginBottom: '0.25rem', color: '#ef4444' }}>Voice Engine Unavailable</strong>
+            <strong style={{ display: 'block', marginBottom: '0.25rem', color: 'var(--error)' }}>Voice Engine Unavailable</strong>
             <span>{queueVoiceStatus.message}</span>
           </div>
         </div>
       )}
 
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div className="chapter-editor-layout" style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1.5rem', overflow: 'hidden', minHeight: 0 }}>
             <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 <EditorTabs
@@ -880,6 +880,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
             </div>
         </div>
 
+        <div className="chapter-editor-sidebar-wrapper">
         <CharacterSidebar
             characters={characters} speakers={speakers} speakerProfiles={speakerProfiles} engines={engines}
             selectedCharacterId={selectedCharacterId} setSelectedCharacterId={setSelectedCharacterId}
@@ -893,6 +894,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
             defaultVoiceLabel={chapterDefaultVoiceLabel}
             submitting={submitting}
         />
+        </div>
       </div>
 
       <div style={{ padding: '0 1.5rem 1.5rem 1.5rem', flexShrink: 0 }}>

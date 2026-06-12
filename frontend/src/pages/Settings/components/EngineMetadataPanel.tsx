@@ -31,12 +31,12 @@ export const EngineMetadataPanel: React.FC<{
       marginBottom: unframed ? '0' : '1rem',
       padding: unframed ? '0' : '1rem',
       borderRadius: unframed ? '0' : '16px',
-      border: unframed ? 'none' : '1px solid rgba(43, 110, 255, 0.2)',
-      background: unframed ? 'transparent' : 'linear-gradient(180deg, rgba(240, 247, 255, 0.9), rgba(245, 250, 255, 0.72))'
+      border: unframed ? 'none' : '1px solid var(--accent-tint-border)',
+      background: unframed ? 'transparent' : 'linear-gradient(180deg, var(--surface-tinted-light), var(--surface))'
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.9rem' }}>
         <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-start' }}>
-          <div style={{ width: 30, height: 30, borderRadius: '10px', display: 'grid', placeItems: 'center', color: 'var(--accent)', background: 'rgba(43, 110, 255, 0.12)', flexShrink: 0 }}>
+          <div style={{ width: 30, height: 30, borderRadius: '10px', display: 'grid', placeItems: 'center', color: 'var(--accent)', background: 'var(--accent-tint-bg)', flexShrink: 0 }}>
             <KeyRound size={16} />
           </div>
           <div>
@@ -60,7 +60,7 @@ export const EngineMetadataPanel: React.FC<{
           href={helpUrl}
           target="_blank"
           rel="noreferrer"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', color: 'var(--accent)', textDecoration: 'none', fontWeight: 900, fontSize: '0.83rem', marginBottom: '0.9rem', padding: '0.55rem 0.75rem', borderRadius: '999px', border: '1px solid rgba(43, 110, 255, 0.15)', background: 'rgba(255,255,255,0.8)', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', color: 'var(--accent)', textDecoration: 'none', fontWeight: 900, fontSize: '0.83rem', marginBottom: '0.9rem', padding: '0.55rem 0.75rem', borderRadius: '999px', border: '1px solid var(--accent-focus-ring)', background: 'var(--surface-glass-white)', boxShadow: 'var(--shadow-sm)' }}
         >
           <CircleHelp size={14} />
           {helpLabel}
@@ -75,9 +75,9 @@ export const EngineMetadataPanel: React.FC<{
             gap: '8px',
             padding: '10px 12px',
             borderRadius: '10px',
-            border: privacyTone === 'warning' ? '1px solid rgba(217, 119, 6, 0.28)' : '1px solid rgba(43, 110, 255, 0.18)',
-            background: privacyTone === 'warning' ? 'rgba(245, 158, 11, 0.09)' : 'rgba(239, 246, 255, 0.72)',
-            color: privacyTone === 'warning' ? '#92400e' : 'var(--text-secondary)',
+            border: privacyTone === 'warning' ? '1px solid var(--warning-tint-border)' : '1px solid var(--accent-tint-border)',
+            background: privacyTone === 'warning' ? 'var(--warning-tint-bg)' : 'var(--surface-tinted-light)',
+            color: privacyTone === 'warning' ? 'var(--warning-text)' : 'var(--text-secondary)',
             fontSize: '0.78rem',
             lineHeight: 1.5,
             marginBottom: '0.9rem',

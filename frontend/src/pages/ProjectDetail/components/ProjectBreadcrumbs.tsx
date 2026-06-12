@@ -44,7 +44,7 @@ export const ProjectBreadcrumbs: React.FC<ProjectBreadcrumbsProps> = ({
         flexWrap: 'wrap',
         gap: '0.5rem',
         padding: '0.75rem 2.5rem',
-        background: 'rgba(255, 255, 255, 0.5)',
+        background: 'var(--surface-glass-half)',
         backdropFilter: 'blur(10px)',
         borderBottom: '1px solid var(--border)',
         margin: '0 -2.5rem 1rem -2.5rem', // Bleed out to match Layout padding

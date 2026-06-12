@@ -47,7 +47,7 @@ export const ResyncPreviewModal: React.FC<ResyncPreviewModalProps> = ({
             style={{
               position: 'absolute',
               inset: 0,
-              background: 'rgba(15, 23, 42, 0.4)',
+              background: 'var(--overlay-backdrop)',
               backdropFilter: 'blur(8px)',
             }}
           />
@@ -77,7 +77,7 @@ export const ResyncPreviewModal: React.FC<ResyncPreviewModalProps> = ({
                 width: '48px', 
                 height: '48px', 
                 borderRadius: '12px', 
-                background: data?.is_destructive ? 'rgba(245, 158, 11, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+                background: data?.is_destructive ? 'var(--warning-tint-bg)' : 'var(--success-tint-bg)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -136,9 +136,9 @@ export const ResyncPreviewModal: React.FC<ResyncPreviewModalProps> = ({
 
                 {/* Warning / Success Box */}
                 {data.lost_assignments_count > 0 ? (
-                  <div style={{ 
-                    padding: '1rem', background: 'rgba(239, 68, 68, 0.05)', 
-                    border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px',
+                  <div style={{
+                    padding: '1rem', background: 'var(--error-glow)',
+                    border: '1px solid var(--error-tint-border)', borderRadius: '12px',
                     display: 'flex', flexDirection: 'column', gap: '0.75rem'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--error)', fontWeight: 700, fontSize: '0.9rem' }}>
@@ -154,7 +154,7 @@ export const ResyncPreviewModal: React.FC<ResyncPreviewModalProps> = ({
                         {data.affected_character_names.map(name => (
                           <span key={name} style={{ 
                             fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.4rem', 
-                            background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', 
+                            background: 'var(--error-tint-bg)', color: 'var(--error)',
                             borderRadius: '4px' 
                           }}>
                             {name}
@@ -164,9 +164,9 @@ export const ResyncPreviewModal: React.FC<ResyncPreviewModalProps> = ({
                     )}
                   </div>
                 ) : (
-                  <div style={{ 
-                    padding: '1rem', background: 'rgba(34, 197, 94, 0.05)', 
-                    border: '1px solid rgba(34, 197, 94, 0.2)', borderRadius: '12px',
+                  <div style={{
+                    padding: '1rem', background: 'var(--success-tint-bg)',
+                    border: '1px solid var(--success-muted)', borderRadius: '12px',
                     display: 'flex', alignItems: 'center', gap: '0.75rem'
                   }}>
                     <CheckCircle size={20} color="var(--success)" />
