@@ -19,9 +19,10 @@ import { demoTimeline } from './scenes';
 import { liveOutputStage } from './stages/liveOutputStage';
 import { queueStage } from './stages/queueStage';
 import { progressStage } from './stages/progressStage';
+import { voiceLabStage } from './stages/voiceLabStage';
 import { StyleguidePage } from './styleguide/StyleguidePage';
 
-export const demoStages = [liveOutputStage, queueStage, progressStage];
+export const demoStages = [liveOutputStage, queueStage, progressStage, voiceLabStage];
 
 // ---------------------------------------------------------------------------
 // Hash routing helpers

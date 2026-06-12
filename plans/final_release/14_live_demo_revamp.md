@@ -15,7 +15,7 @@ Rejected alternatives: screen-recording videos (stale on every UI change, no int
 1. **Global queue, live** — Processing Now / Up Next / History sections filling as the scripted session plays; drag-reorder enabled on the Up Next list.
 2. **PredictiveProgressBar** — a chapter rendering with real preparing → running → finalizing → done lane behavior and ETA.
 3. **StatusOrbs** — chapter rows transitioning states during playback.
-4. **AI Voice Lab** — 3–4 seeded NarratorCards with variants, engine badges, and playable pre-rendered `sample.mp3` previews.
+4. **AI Voice Lab** — 3–4 seeded NarratorCards with variants, engine badges, and playable pre-rendered `sample.mp3` previews. *(voice-lab stage shipped 2026-06-11 with real NarratorCards + placeholder preview tones; real sample.mp3 assets still wanted.)*
 5. **Chapter Editor (read-only)** — ScriptView with per-segment voice assignment colors and segments lighting up as "rendered" during playback.
 6. **Library** — seeded project cards as the entry view.
 7. Light/dark theme toggle once doc 07 lands — a free, impressive demo feature.

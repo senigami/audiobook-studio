@@ -9,6 +9,7 @@ The demo mounts the actual React components from the production build and replay
 - **Live Event Stream** — real-time event table showing topic, event kind, job/chapter/segment IDs, progress, ETA, and group ticking as the scripted session plays
 - **Queue** — Processing Now / Up Next / History sections filling as the render arc progresses
 - **Progress bars** — PredictiveProgressBar with preparing → running → finalizing → done lane behavior and ETA countdown
+- **Voice Lab** — real NarratorCard components showing 4 demo voices across key states (READY, BUILD TO TEST, NO SAMPLES) with engine badges; voice previews are silent placeholders
 
 REST reads come from a static fixture implementation — no network calls are made.
 
@@ -20,6 +21,7 @@ REST reads come from a static fixture implementation — no network calls are ma
 | Live Event Stream stage | https://senigami.github.io/audiobook-studio/demo/#/stage/live-output |
 | Queue stage | https://senigami.github.io/audiobook-studio/demo/#/stage/queue |
 | Progress stage | https://senigami.github.io/audiobook-studio/demo/#/stage/progress |
+| Voice Lab stage | https://senigami.github.io/audiobook-studio/demo/#/stage/voice-lab |
 | Design Spec Sheet (styleguide) | https://senigami.github.io/audiobook-studio/demo/#/styleguide |
 
 ## Deep-linking to a stage
@@ -29,6 +31,7 @@ Stages are routed by hash: `#/stage/<id>`. The stage IDs exported by `DemoApp.ts
 - `live-output` — Live Output Table (real-time event stream)
 - `queue` — Global Queue with Processing Now / Up Next / History
 - `progress` — PredictiveProgressBar with full lane transitions
+- `voice-lab` — Voice Lab with real NarratorCard components (READY, BUILD TO TEST, NO SAMPLES states)
 
 Append `?embed=1` to hide the demo header (used for iframe embeds in the showcase page).
 
