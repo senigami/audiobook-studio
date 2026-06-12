@@ -6,17 +6,37 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 
+def _make_voice_json(voice_name: str) -> dict:
+    """Build a schema-valid v1 voice.json for use in export tests."""
+    voice_id = voice_name.lower().replace(" ", "-")
+    return {
+        "spec": "audiobook-studio-voice",
+        "spec_version": "1.0",
+        "taxonomy_version": "1.0",
+        "id": voice_id,
+        "name": voice_name,
+        "description": f"Test voice {voice_name}.",
+        "image": "icon.png",
+        "samples": [{"path": "samples/preview.mp3", "text": "Test.", "primary": True}],
+        "languages": ["en-US"],
+        "attributes": {
+            "class": "human",
+            "gender": "neutral",
+            "age": "adult",
+        },
+        "tags": [],
+    }
+
+
 def _write_voice_root(root: Path, voice_name: str = "Dracula") -> Path:
     voice_root = root / voice_name
     default_dir = voice_root / "Default"
     angry_dir = voice_root / "Angry"
     default_dir.mkdir(parents=True)
     angry_dir.mkdir(parents=True)
-    (voice_root / "voice.json").write_text(json.dumps({
-        "version": 2,
-        "name": voice_name,
-        "default_variant": "Default",
-    }))
+    (voice_root / "voice.json").write_text(json.dumps(_make_voice_json(voice_name)))
+    # state.json tracks default_variant (D8 split)
+    (voice_root / "state.json").write_text(json.dumps({"default_variant": "Default"}))
     (default_dir / "profile.json").write_text(json.dumps({
         "variant_name": "Default",
         "engine": "xtts",
@@ -73,11 +93,8 @@ def test_export_voice_bundle_includes_engine_declared_test_sample(clean_db, voic
     voice_root = voices_root / "CloudVoice"
     default_dir = voice_root / "Default"
     default_dir.mkdir(parents=True)
-    (voice_root / "voice.json").write_text(json.dumps({
-        "version": 2,
-        "name": "CloudVoice",
-        "default_variant": "Default",
-    }))
+    (voice_root / "voice.json").write_text(json.dumps(_make_voice_json("CloudVoice")))
+    (voice_root / "state.json").write_text(json.dumps({"default_variant": "Default"}))
     (default_dir / "profile.json").write_text(json.dumps({
         "variant_name": "Default",
         "engine": "voxtral",
@@ -118,7 +135,10 @@ def test_import_voice_bundle_duplicate_creates_suffixed_copy(clean_db, voices_ro
     assert (voices_root / "Dracula 2" / "Angry" / "source.wav").exists()
     imported_manifest = json.loads((voices_root / "Dracula 2" / "voice.json").read_text())
     assert imported_manifest["name"] == "Dracula 2"
-    assert imported_manifest["default_variant"] == "Default"
+    # D8: default_variant lives in state.json, NOT in voice.json
+    assert "default_variant" not in imported_manifest
+    imported_state = json.loads((voices_root / "Dracula 2" / "state.json").read_text())
+    assert imported_state["default_variant"] == "Default"
 
 
 def test_import_voice_bundle_rejects_invalid_archives(clean_db, voices_root, client):
