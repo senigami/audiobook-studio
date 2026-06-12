@@ -307,6 +307,28 @@ describe('App', () => {
     expect(liveOutputLink).toBeUndefined()
   })
 
+  it('navigating to the lazy /voices route resolves and renders content after suspense', async () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    // Wait for the app shell to load
+    await waitFor(() => {
+      expect(screen.getByText(/Audiobook/i)).toBeTruthy()
+    })
+
+    // Navigate to the lazy /voices route
+    const voicesTab = screen.getByText('Voices')
+    fireEvent.click(voicesTab)
+
+    // The lazy chunk resolves and the Voices heading becomes visible
+    await waitFor(() => {
+      expect(screen.getByText('Voices', { selector: 'h2' })).toBeTruthy()
+    })
+  })
+
   it('renders live socket messages on the standalone page', async () => {
     render(
       <MemoryRouter initialEntries={['/event-stream']}>

@@ -1,25 +1,51 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useMatch } from 'react-router-dom';
 import { api } from '@/api';
 import { Layout } from '@/components/layout/Layout';
-import { VoicesTab } from '@/pages/Voices/VoicesPage';
 import { ProjectLibrary } from '@/pages/ProjectLibrary/ProjectLibraryPage';
-import { ProjectView } from '@/pages/ProjectDetail/ProjectDetailPage';
 import { GlobalQueue } from '@/components/queue/GlobalQueue';
-import { ProgressBarTestPage } from '@/pages/DevProgressBar/DevProgressBarPage';
 import { useJobs } from '@/hooks/useJobs';
 import { useQueueSync } from '@/hooks/useQueueSync';
 import { useStudioSocketTransport } from '@/hooks/useStudioSocketTransport';
 import { useInitialData } from '@/hooks/useInitialData';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { createStudioShellState } from '@/app/layout/StudioShell';
-import { ProjectViewRoute } from '@/pages/ProjectDetail/ProjectViewRoute';
 import { QueueRoute } from '@/pages/Queue/QueueRoute';
-import { SettingsRoute } from '@/pages/Settings';
 import type { Chapter, Project } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from '@/pages/Voices/components/VoiceUtils';
-import { LiveOutputPage } from '@/pages/LiveOutput/LiveOutputPage';
+
+const VoicesTab = lazy(() => import('@/pages/Voices/VoicesPage').then(m => ({ default: m.VoicesTab })));
+const ProjectView = lazy(() => import('@/pages/ProjectDetail/ProjectDetailPage').then(m => ({ default: m.ProjectView })));
+const ProjectViewRoute = lazy(() => import('@/pages/ProjectDetail/ProjectViewRoute').then(m => ({ default: m.ProjectViewRoute })));
+const SettingsRoute = lazy(() => import('@/pages/Settings').then(m => ({ default: m.SettingsRoute })));
+const ProgressBarTestPage = lazy(() => import('@/pages/DevProgressBar/DevProgressBarPage').then(m => ({ default: m.ProgressBarTestPage })));
+const LiveOutputPage = lazy(() => import('@/pages/LiveOutput/LiveOutputPage').then(m => ({ default: m.LiveOutputPage })));
+
+function RouteFallback() {
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '200px',
+      }}
+    >
+      <div
+        className="animate-spin"
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: '50%',
+          border: '2px solid var(--accent-glow)',
+          borderTopColor: 'var(--accent)',
+        }}
+      />
+    </div>
+  );
+}
 
 function App() {
   const navigate = useNavigate();
@@ -224,6 +250,7 @@ function App() {
           position: 'relative'
         }}>
           <div style={{ flex: 1 }}>
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<ProjectLibrary onSelectProject={(id) => navigate(`/project/${id}`)} />} />
               <Route path="/project/:projectId" element={
@@ -331,6 +358,7 @@ function App() {
               <Route path="/event-stream" element={<LiveOutputPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            </Suspense>
           </div>
 
           </div>
