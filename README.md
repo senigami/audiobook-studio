@@ -1,55 +1,43 @@
-![Listen to the Audiobook Studio overview](assets/Promo.png)
-
-## Hear It In Action
-
-Listen to the overview demo, explore the interface, and get a better feel for how Audiobook Studio sounds in practice.
-
-[Open the Live Showcase](https://senigami.github.io/audiobook-studio/)
-
-The live showcase also includes the fuller feature and cost comparison with ElevenLabs.
-
-## Choose Your Start
-
-![Choose Your Start](assets/demoproject.png)
-
-Whether you want to preview the app, install it the easy way, or build from source, start with the path that fits your comfort level:
-
-### Just want to see what it does?
-
-**[Open the Live Demo / Showcase](https://senigami.github.io/audiobook-studio/)**
-Listen to real samples, see the interface, and get a quick feel for the workflow before installing anything.
-
-### Want the easiest install?
-
-**[Install Audiobook Studio with Pinokio](https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio)**
-Best for most people. Pinokio handles the setup for you and can optionally install a demo library with sample voices so you can explore the app right away.
-
-![Pinokio Install](assets/pinokioinstall.png)
-
-### Want manual control or developer setup?
-
-**[Install from Source on GitHub](https://github.com/senigami/audiobook-studio)**
-Best for developers or advanced users who want the full repo, direct scripts, and manual control over the environment.
-
-### Need detailed help?
-
-**[Read the Wiki / Getting Started Guide](https://github.com/senigami/audiobook-studio/wiki)**
-Step-by-step documentation, concepts, troubleshooting, and workflow guides.
-
 # Audiobook Studio
 
-### Local AI audiobook production with voice cloning, chapter repair, and long-form workflow control
+**Local-first audiobook production with AI voice cloning. Runs on your machine. No subscription. No per-word bill.**
 
 [![Build Status](https://github.com/senigami/audiobook-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/senigami/audiobook-studio/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg)](https://nodejs.org/)
 
-**Audiobook Studio** is a local-first production app for turning manuscripts into polished audiobooks with AI voices you control.
+**[▶ Try the interactive demo — no install required](https://senigami.github.io/audiobook-studio/demo/)**
+&nbsp;·&nbsp; [Live showcase with audio samples](https://senigami.github.io/audiobook-studio/) &nbsp;·&nbsp; [Install with Pinokio](https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio)
 
-It is built for real long-form work, not just one-click text-to-speech. You can assign voices to characters, repair individual segments, requeue partial chapters, build portable voice profiles, and assemble finished books without sending your manuscript or cloned voices to a paid cloud service.
+![Audiobook Studio](assets/Promo.png)
 
-XTTS remains the private local-default engine. Voxtral is available as an optional cloud voice engine after you add your own Mistral API key in Settings.
+---
+
+Audiobook Studio is a local production app for turning manuscripts into finished audiobooks. You assign voices to characters, repair individual lines, requeue partial chapters, and assemble a finished book without sending your manuscript or cloned voices to a paid cloud service. A full 600,000-character book costs $99–$330+ per production cycle on hosted tools like ElevenLabs once corrections start. Here, corrections cost nothing extra.
+
+## Get started
+
+### Easiest: one click with Pinokio
+
+**[Install Audiobook Studio with Pinokio](https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio)**
+Pinokio handles the setup and can install a demo library with sample voices so you can explore right away.
+
+![Pinokio Install](assets/pinokioinstall.png)
+
+### From source
+
+**[Clone from GitHub](https://github.com/senigami/audiobook-studio)**
+For developers or anyone who wants direct control over the environment and scripts.
+
+### Documentation
+
+**[Read the Wiki](https://github.com/senigami/audiobook-studio/wiki)**
+Step-by-step setup, feature walkthroughs, and troubleshooting.
+
+**Audiobook Studio** is built for real long-form work, not just one-click text-to-speech. You can assign voices to characters, repair individual segments, requeue partial chapters, build portable voice profiles, and assemble finished books without sending your manuscript or cloned voices to a paid cloud service.
+
+XTTS is the private local-default engine. Voxtral is available as an optional cloud voice engine after you add your own Mistral API key in Settings.
 
 > [!IMPORTANT]
 > **This is the current recommended release line for new users.**
