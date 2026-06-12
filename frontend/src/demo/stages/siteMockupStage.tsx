@@ -1,5 +1,5 @@
 /**
- * siteMockupStage — North-star full-site organization mockup (medium fidelity v3.5).
+ * siteMockupStage — North-star full-site organization mockup (medium fidelity v3.6).
  *
  * Navigation:
  *   - Left rail items switch `activeRail` state.
@@ -9,21 +9,13 @@
  *   - Top bar "Queue" button slides a ~340px drawer over the right side WITHOUT
  *     changing the current page (the key "check status from anywhere" workflow).
  *
- * v3.3 changes:
- *   - TopBar: when inside a book, breadcrumb shows cover chip + bold title + muted
- *     metadata run; clicking that cluster opens Publish tab (book info editor).
- *   - Studio: right-column cast palette (paint mode) with 4 swatches; clicking a
- *     swatch arms paint mode; clicking prose sentences assigns the armed speaker.
- *     Speaker key legend removed (palette replaces it).
- *   - Manuscript "Book details ▸" disclosure row removed (superseded by TopBar identity).
- *   - Caption updated to v3.3.
- *
- * v3.4 changes:
- *   - ManuscriptPane: chapter lifecycle pills (Draft/Ready/Cast/Rendered).
- *   - ManuscriptPane: chapter editor panel (replaces read-only preview).
- *   - ManuscriptPane: focus mode (✎ toggle hides table + import, centered column).
- *   - ManuscriptPane: compact import dropzone (one row under chapter table).
- *   - Caption updated to v3.4.
+ * v3.6 changes:
+ *   - SettingsPane: sub-tabs General / About / Developer (wired dev-mode toggle).
+ *   - EnginesPane: XTTS expandable config panel (engine settings, sanitize toggles,
+ *     Output QA); plugin toolbar (Import .zip, Refresh); Voxtral "Install deps";
+ *     MyCustomTTS user-installed card with Uninstall + trust dialog mock.
+ *   - VoiceLab Variants: rows with engine settings summary + pencil; caption.
+ *   - Caption updated to v3.6.
  */
 
 import React, { useState } from 'react';
@@ -2672,10 +2664,42 @@ const VoiceLab: React.FC<{ voice: typeof VOICE_CARDS[0]; onBack: () => void }> =
         {/* Variants */}
         <Col gap={6}>
           <Label>Variants</Label>
-          <Row gap={6} style={{ flexWrap: 'wrap' }}>
-            <Chip active>Default</Chip>
-            <Chip>Whisper</Chip>
+          {/* Variant rows with engine settings summary */}
+          <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+            {[
+              { name: 'Default', isDefault: true, speed: '1.0', temp: '0.65' },
+              { name: 'Soft-spoken', isDefault: false, speed: '1.0', temp: '0.65' },
+            ].map((variant, i, arr) => (
+              <Row key={variant.name} gap={8} style={{
+                padding: '6px 10px', alignItems: 'center',
+                borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+              }}>
+                {variant.isDefault && (
+                  <span style={{ fontSize: '0.65rem', color: '#f59e0b', flexShrink: 0 }} title="default variant">★</span>
+                )}
+                <span style={{
+                  fontSize: '0.65rem',
+                  fontWeight: variant.isDefault ? 700 : 400,
+                  color: variant.isDefault ? 'var(--accent)' : 'var(--text-primary)',
+                  flex: 1,
+                }}>
+                  {variant.name}
+                  {variant.isDefault && (
+                    <span style={{ fontSize: '0.55rem', fontWeight: 400, color: 'var(--text-muted)', marginLeft: 5 }}>(default)</span>
+                  )}
+                </span>
+                <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontFamily: 'monospace', flexShrink: 0 }}>
+                  speed {variant.speed} · temp {variant.temp}
+                </span>
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0 }}>✎</span>
+              </Row>
+            ))}
+          </div>
+          <Row gap={6} style={{ alignItems: 'center' }}>
             <Btn small>+ Add variant</Btn>
+            <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              per-variant engine settings override the engine defaults
+            </span>
           </Row>
         </Col>
 
@@ -3048,89 +3072,341 @@ const ActivityPane: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
-// Engines pane
+// Engines pane — v3.6: expandable XTTS config, plugin toolbar, trust dialog
 
-const EnginesPane: React.FC = () => (
-  <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
-    <Label>Installed</Label>
-    <Col gap={8}>
-      {[
-        { name: 'XTTS v2', version: 'v2.0.3', desc: 'Local · GPU · High quality voice cloning', speed: '14.2 chars/s · high confidence' },
-        { name: 'Voxtral', version: 'v1.1.0', desc: 'Local · CPU/GPU · Fast inference', speed: '9.1 chars/s · medium confidence' },
-        { name: 'Mixed', version: 'v1.0.1', desc: 'Routes across installed engines', speed: null },
-      ].map(e => (
+const SANITIZE_TOGGLES = [
+  { label: 'quotes', on: true },
+  { label: 'acronyms', on: true },
+  { label: 'fractions', on: true },
+  { label: 'dashes', on: true },
+  { label: 'punctuation spacing', on: true },
+  { label: 'ASCII', on: true },
+  { label: 'terminal punctuation', on: false },
+];
+
+const EnginesPane: React.FC = () => {
+  const [xttsExpanded, setXttsExpanded] = useState(false);
+  const [sanitizeToggles, setSanitizeToggles] = useState<boolean[]>(SANITIZE_TOGGLES.map(t => t.on));
+  const [showTrustDialog, setShowTrustDialog] = useState(false);
+
+  const toggleSanitize = (i: number) => {
+    setSanitizeToggles(prev => prev.map((v, idx) => idx === i ? !v : v));
+  };
+
+  return (
+    <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
+      {/* Plugin toolbar */}
+      <Row gap={6} style={{ alignItems: 'center' }}>
+        <Btn small onClick={() => setShowTrustDialog(true)}>⬆ Import plugin (.zip)</Btn>
+        <Btn small>↺ Refresh</Btn>
+      </Row>
+
+      {/* Trust dialog mock */}
+      {showTrustDialog && (
+        <div style={{
+          background: 'var(--surface)',
+          border: '1px solid #fbbf24',
+          borderRadius: 8,
+          padding: '12px 14px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+        }}>
+          <Row gap={8} style={{ alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>
+              Install plugin
+            </span>
+            <span
+              onClick={() => setShowTrustDialog(false)}
+              style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.8rem' }}
+            >
+              ✕
+            </span>
+          </Row>
+          <Row gap={6} style={{ alignItems: 'center', marginBottom: 4 }}>
+            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-primary)' }}>MyCustomTTS</span>
+            <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>v0.3</span>
+          </Row>
+          <Col gap={3} style={{ marginBottom: 8 }}>
+            {[
+              { name: 'torch>=2.0', remote: false },
+              { name: 'transformers>=4.38', remote: false },
+              { name: 'mycustomtts-weights @ https://example.com/weights.tar.gz', remote: true },
+            ].map((dep, i) => (
+              <Row key={i} gap={6} style={{ alignItems: 'center' }}>
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', fontFamily: 'monospace', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {dep.name}
+                </span>
+                {dep.remote && (
+                  <span style={{ fontSize: '0.55rem', fontWeight: 700, color: '#d97706', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>
+                    REMOTE
+                  </span>
+                )}
+              </Row>
+            ))}
+          </Col>
+          <div style={{
+            fontSize: '0.6rem', color: '#92400e',
+            background: '#fef3c7', border: '1px solid #fbbf24',
+            borderRadius: 4, padding: '5px 8px',
+            marginBottom: 10, lineHeight: 1.5,
+          }}>
+            Plugins run unsandboxed — install only from sources you trust.
+          </div>
+          <Row gap={6}>
+            <Btn primary small onClick={() => setShowTrustDialog(false)}>Install</Btn>
+            <Btn small onClick={() => setShowTrustDialog(false)}>Cancel</Btn>
+          </Row>
+        </div>
+      )}
+
+      <Label>Installed</Label>
+      <Col gap={8}>
+        {/* XTTS — expandable */}
         <div
-          key={e.name}
           style={{
             background: 'var(--surface-alt)',
             border: '1px solid var(--border)',
             borderRadius: 6,
-            padding: '8px 12px',
+            overflow: 'hidden',
           }}
         >
-          <Row gap={10} style={{ alignItems: 'center', marginBottom: e.speed ? 6 : 0 }}>
+          <div style={{ padding: '8px 12px' }}>
+            <Row gap={10} style={{ alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontSize: '1.2rem' }}>🧩</span>
+              <div style={{ flex: 1 }}>
+                <Row gap={6} style={{ alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)' }}>XTTS v2</span>
+                  <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>v2.0.3</span>
+                  {/* built-in lock chip */}
+                  <span style={{
+                    fontSize: '0.52rem', padding: '1px 5px', borderRadius: 10,
+                    border: '1px solid var(--border)', background: 'var(--surface)',
+                    color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 2,
+                  }}>
+                    🔒 built-in
+                  </span>
+                </Row>
+                <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Local · GPU · High quality voice cloning</div>
+              </div>
+              <span style={{ fontSize: '0.5rem', color: '#22c55e' }}>●</span>
+              <Chip color="#22c55e">Active</Chip>
+              <div
+                onClick={() => setXttsExpanded(e => !e)}
+                style={{
+                  fontSize: '0.62rem', fontWeight: 600, padding: '2px 8px', borderRadius: 5,
+                  border: `1px solid ${xttsExpanded ? 'var(--accent)' : 'var(--border)'}`,
+                  background: xttsExpanded ? 'var(--accent-tint-bg)' : 'var(--surface)',
+                  color: xttsExpanded ? 'var(--accent)' : 'var(--text-secondary)',
+                  cursor: 'pointer', whiteSpace: 'nowrap',
+                }}
+              >
+                Configure {xttsExpanded ? '▴' : '▾'}
+              </div>
+            </Row>
+            <Row gap={6} style={{ alignItems: 'center', marginLeft: 32 }}>
+              <Chip color="#0ea5e9">14.2 chars/s · high confidence</Chip>
+              <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}>
+                Reset calibration
+              </span>
+            </Row>
+          </div>
+
+          {/* Expandable config panel */}
+          {xttsExpanded && (
+            <div style={{ borderTop: '1px solid var(--border)', background: 'var(--surface)', padding: '10px 12px' }}>
+              {/* Engine settings group */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>
+                  Engine settings
+                </div>
+                <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+                  {[
+                    { label: 'Speed', value: '1.0' },
+                    { label: 'Temperature', value: '0.65' },
+                    { label: 'Repetition penalty', value: '2.0' },
+                    { label: 'Top-k', value: '50' },
+                  ].map((row, i, arr) => (
+                    <Row key={row.label} gap={8} style={{
+                      padding: '5px 10px', alignItems: 'center',
+                      borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                    }}>
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-primary)', flex: 1 }}>{row.label}</span>
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{row.value}</span>
+                      <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', cursor: 'pointer' }}>✎</span>
+                    </Row>
+                  ))}
+                </div>
+                <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 3 }}>
+                  generated from plugin settings_schema
+                </div>
+              </div>
+
+              {/* Sanitize overrides */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>
+                  Text cleanup (sanitize) overrides
+                </div>
+                <Row gap={5} style={{ flexWrap: 'wrap' }}>
+                  {SANITIZE_TOGGLES.map((tog, i) => (
+                    <span
+                      key={tog.label}
+                      onClick={() => toggleSanitize(i)}
+                      style={{
+                        cursor: 'pointer',
+                        fontSize: '0.6rem',
+                        padding: '2px 7px',
+                        borderRadius: 20,
+                        border: `1px solid ${sanitizeToggles[i] ? 'var(--accent)' : 'var(--border)'}`,
+                        background: sanitizeToggles[i] ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+                        color: sanitizeToggles[i] ? 'var(--accent)' : 'var(--text-muted)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 3,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {sanitizeToggles[i] ? '✓' : '✗'} {tog.label}
+                    </span>
+                  ))}
+                </Row>
+                <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 3 }}>
+                  per-engine category overrides
+                </div>
+              </div>
+
+              {/* Output QA */}
+              <div>
+                <div style={{ fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>
+                  Output QA
+                </div>
+                <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+                  <Row gap={8} style={{ padding: '5px 10px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-primary)', flex: 1 }}>Max plausible speech rate</span>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>60 chars/s (0 = off)</span>
+                    <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', cursor: 'pointer' }}>✎</span>
+                  </Row>
+                </div>
+                <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 3 }}>
+                  rejects truncated renders
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Voxtral */}
+        <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px' }}>
+          <Row gap={10} style={{ alignItems: 'center', marginBottom: 6 }}>
             <span style={{ fontSize: '1.2rem' }}>🧩</span>
             <div style={{ flex: 1 }}>
               <Row gap={6} style={{ alignItems: 'center' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)' }}>{e.name}</span>
-                <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>{e.version}</span>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)' }}>Voxtral</span>
+                <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>v1.1.0</span>
+                <span style={{
+                  fontSize: '0.52rem', padding: '1px 5px', borderRadius: 10,
+                  border: '1px solid var(--border)', background: 'var(--surface)',
+                  color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 2,
+                }}>
+                  🔒 built-in
+                </span>
               </Row>
-              <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{e.desc}</div>
+              <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Local · CPU/GPU · Fast inference</div>
+            </div>
+            <span style={{ fontSize: '0.5rem', color: '#22c55e' }}>●</span>
+            <Chip color="#22c55e">Active</Chip>
+            <Btn small>Install deps</Btn>
+            <Btn small>Configure</Btn>
+          </Row>
+          <Row gap={6} style={{ alignItems: 'center', marginLeft: 32 }}>
+            <Chip color="#0ea5e9">9.1 chars/s · medium confidence</Chip>
+            <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}>
+              Reset calibration
+            </span>
+          </Row>
+        </div>
+
+        {/* Mixed */}
+        <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px' }}>
+          <Row gap={10} style={{ alignItems: 'center' }}>
+            <span style={{ fontSize: '1.2rem' }}>🧩</span>
+            <div style={{ flex: 1 }}>
+              <Row gap={6} style={{ alignItems: 'center' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)' }}>Mixed</span>
+                <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>v1.0.1</span>
+                <span style={{
+                  fontSize: '0.52rem', padding: '1px 5px', borderRadius: 10,
+                  border: '1px solid var(--border)', background: 'var(--surface)',
+                  color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 2,
+                }}>
+                  🔒 built-in
+                </span>
+              </Row>
+              <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Routes across installed engines</div>
             </div>
             <span style={{ fontSize: '0.5rem', color: '#22c55e' }}>●</span>
             <Chip color="#22c55e">Active</Chip>
             <Btn small>Configure</Btn>
           </Row>
-          {e.speed && (
-            <Row gap={6} style={{ alignItems: 'center', marginLeft: 32 }}>
-              <Chip color="#0ea5e9">{e.speed}</Chip>
-              <span
-                style={{ fontSize: '0.58rem', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}
-              >
-                Reset calibration
-              </span>
-            </Row>
-          )}
         </div>
-      ))}
-    </Col>
 
-    {/* Browse store */}
-    <Row gap={6} style={{ alignItems: 'center' }}>
-      <Label>Browse store</Label>
-      <PlannedChip />
-      <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>plugin store — GitHub discovery</span>
-    </Row>
-    <Col gap={6}>
-      {[
-        { name: 'WhisperTTS', author: 'audio-lab', stars: 142 },
-        { name: 'CoquiLocal', author: 'coqui-community', stars: 89 },
-        { name: 'BarkPlugin', author: 'suno-dev', stars: 234 },
-      ].map(s => (
-        <div key={s.name} style={{
-          background: 'var(--surface-alt)', border: '1px solid var(--border)',
-          borderRadius: 6, padding: '7px 10px',
-          display: 'flex', alignItems: 'center', gap: 8,
-        }}>
-          <span style={{ fontSize: '1rem' }}>🧩</span>
-          <div style={{ flex: 1 }}>
-            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-primary)' }}>{s.name}</span>
-            <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginLeft: 6 }}>by {s.author}</span>
-          </div>
-          <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>⭐ {s.stars}</span>
-          <Btn small>Install</Btn>
+        {/* MyCustomTTS — user-installed, shows Uninstall */}
+        <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px' }}>
+          <Row gap={10} style={{ alignItems: 'center' }}>
+            <span style={{ fontSize: '1.2rem' }}>🧩</span>
+            <div style={{ flex: 1 }}>
+              <Row gap={6} style={{ alignItems: 'center' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)' }}>MyCustomTTS</span>
+                <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>v0.3</span>
+                <Chip color="#8b5cf6">user-installed</Chip>
+              </Row>
+              <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Third-party plugin · GPU · Custom model</div>
+            </div>
+            <span style={{ fontSize: '0.5rem', color: '#22c55e' }}>●</span>
+            <Chip color="#22c55e">Active</Chip>
+            <Btn small>Configure</Btn>
+            <span style={{ fontSize: '0.6rem', color: '#ef4444', cursor: 'pointer', textDecoration: 'underline', flexShrink: 0 }}>
+              Uninstall
+            </span>
+          </Row>
         </div>
-      ))}
-      <div style={{
-        fontSize: '0.58rem', color: '#92400e',
-        background: '#fef3c7', border: '1px solid #fbbf24',
-        borderRadius: 4, padding: '4px 10px',
-      }}>
-        plugins run unsandboxed — deps reviewed before install
-      </div>
+      </Col>
+
+      {/* Browse store */}
+      <Row gap={6} style={{ alignItems: 'center' }}>
+        <Label>Browse store</Label>
+        <PlannedChip />
+        <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>plugin store — GitHub discovery</span>
+      </Row>
+      <Col gap={6}>
+        {[
+          { name: 'WhisperTTS', author: 'audio-lab', stars: 142 },
+          { name: 'CoquiLocal', author: 'coqui-community', stars: 89 },
+          { name: 'BarkPlugin', author: 'suno-dev', stars: 234 },
+        ].map(s => (
+          <div key={s.name} style={{
+            background: 'var(--surface-alt)', border: '1px solid var(--border)',
+            borderRadius: 6, padding: '7px 10px',
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <span style={{ fontSize: '1rem' }}>🧩</span>
+            <div style={{ flex: 1 }}>
+              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-primary)' }}>{s.name}</span>
+              <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginLeft: 6 }}>by {s.author}</span>
+            </div>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>⭐ {s.stars}</span>
+            <Btn small onClick={() => setShowTrustDialog(true)}>Install</Btn>
+          </div>
+        ))}
+        <div style={{
+          fontSize: '0.58rem', color: '#92400e',
+          background: '#fef3c7', border: '1px solid #fbbf24',
+          borderRadius: 4, padding: '4px 10px',
+        }}>
+          plugins run unsandboxed — deps reviewed before install
+        </div>
+      </Col>
     </Col>
-  </Col>
-);
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Integrations pane
@@ -3226,91 +3502,293 @@ const IntegrationsPane: React.FC = () => (
 );
 
 // ---------------------------------------------------------------------------
-// Settings pane
+// Settings pane — v3.6: three sub-tabs General / About / Developer
 
-const SettingsPane: React.FC = () => (
-  <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
-    <div
-      style={{
-        fontSize: '0.62rem',
-        color: 'var(--text-muted)',
-        background: 'var(--accent-tint-bg)',
-        border: '1px solid var(--border)',
-        borderRadius: 4,
-        padding: '4px 10px',
-        marginBottom: 4,
-      }}
-    >
-      Engines &amp; Integrations live under PLATFORM — Settings is intentionally thin.
-    </div>
-    {[
-      {
-        section: 'Appearance',
-        rows: [
-          { label: 'Theme', value: 'System ▾' },
-          { label: 'Font scale', value: '100%' },
-        ],
-      },
-      {
-        section: 'Defaults',
-        rows: [
-          { label: 'Default engine', value: 'XTTS v2' },
-          { label: 'Default voice', value: 'Studio Voice' },
-          { label: 'Stability mode', value: 'Balanced' },
-        ],
-      },
-      {
-        section: 'Advanced',
-        rows: [
-          { label: 'Developer Mode', value: 'Off — reveals Developer tab + debug tools' },
-          { label: 'Diagnostics', value: 'Off' },
-          { label: 'Restart TTS server', value: '—' },
-          { label: 'Reset all data', value: '—' },
-        ],
-      },
-      {
-        section: 'About',
-        rows: [
-          { label: 'Version', value: '2.0.0-rc1 · build a4f9c' },
-          { label: 'Production tally', value: '23h 41m generated' },
-        ],
-      },
-    ].map(({ section, rows }) => (
-      <Col key={section} gap={6}>
-        <Label>{section}</Label>
-        <div
-          style={{
-            background: 'var(--surface-alt)',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            overflow: 'hidden',
-          }}
-        >
-          {rows.map((row, i) => (
+const SettingsPane: React.FC = () => {
+  const [settingsTab, setSettingsTab] = useState<'General' | 'About' | 'Developer'>('General');
+  const [devMode, setDevMode] = useState(false);
+
+  const SETTINGS_TABS: ('General' | 'About' | 'Developer')[] = devMode
+    ? ['General', 'About', 'Developer']
+    : ['General', 'About'];
+
+  // If dev mode was on and is toggled off, hide dev tab
+  const activeTab = settingsTab === 'Developer' && !devMode ? 'General' : settingsTab;
+
+  return (
+    <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
+      {/* Sub-tab pills */}
+      <Row gap={6}>
+        {SETTINGS_TABS.map(tab => (
+          <div
+            key={tab}
+            onClick={() => setSettingsTab(tab)}
+            style={{
+              fontSize: '0.68rem',
+              fontWeight: 600,
+              padding: '3px 12px',
+              borderRadius: 20,
+              cursor: 'pointer',
+              border: `1px solid ${activeTab === tab ? 'var(--accent)' : 'var(--border)'}`,
+              background: activeTab === tab ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+              color: activeTab === tab ? 'var(--accent)' : 'var(--text-secondary)',
+            }}
+          >
+            {tab}
+          </div>
+        ))}
+      </Row>
+
+      {/* General tab */}
+      {activeTab === 'General' && (
+        <Col gap={6}>
+          <div
+            style={{
+              fontSize: '0.62rem',
+              color: 'var(--text-muted)',
+              background: 'var(--accent-tint-bg)',
+              border: '1px solid var(--border)',
+              borderRadius: 4,
+              padding: '4px 10px',
+              marginBottom: 2,
+            }}
+          >
+            Engines &amp; Integrations live under PLATFORM — Settings is intentionally thin.
+          </div>
+          <div
+            style={{
+              background: 'var(--surface-alt)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              overflow: 'hidden',
+            }}
+          >
+            {/* Theme */}
             <div
-              key={row.label}
               style={{
                 fontSize: '0.68rem',
-                color: 'var(--text-secondary)',
                 padding: '7px 12px',
-                borderBottom: i < rows.length - 1 ? '1px solid var(--border)' : 'none',
+                borderBottom: '1px solid var(--border)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
               }}
             >
-              <span style={{ color: 'var(--text-primary)' }}>{row.label}</span>
+              <span style={{ color: 'var(--text-primary)' }}>Theme</span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>System ▾</span>
+            </div>
+            {/* Stability Mode */}
+            <div
+              style={{
+                fontSize: '0.68rem',
+                padding: '7px 12px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Col gap={1} style={{ flex: 1 }}>
+                <span style={{ color: 'var(--text-primary)' }}>Stability Mode</span>
+                <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  conservative text cleanup before synthesis
+                </span>
+              </Col>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Off ▾</span>
+            </div>
+            {/* Default Engine */}
+            <div
+              style={{
+                fontSize: '0.68rem',
+                padding: '7px 12px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span style={{ color: 'var(--text-primary)' }}>Default Engine</span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>XTTS v2 ▾</span>
+            </div>
+            {/* Default Voice */}
+            <div
+              style={{
+                fontSize: '0.68rem',
+                padding: '7px 12px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span style={{ color: 'var(--text-primary)' }}>Default Voice</span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Studio Voice ▾</span>
+            </div>
+            {/* Developer Mode — wired toggle */}
+            <div
+              style={{
+                fontSize: '0.68rem',
+                padding: '7px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+              }}
+              onClick={() => {
+                const next = !devMode;
+                setDevMode(next);
+                if (!next && settingsTab === 'Developer') setSettingsTab('General');
+              }}
+            >
+              <span style={{ color: 'var(--text-primary)' }}>Developer Mode</span>
+              {/* Toggle look */}
               <Row gap={8} style={{ alignItems: 'center' }}>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{row.value}</span>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>›</span>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                  {devMode ? 'On' : 'Off'}
+                </span>
+                <div style={{
+                  width: 28,
+                  height: 14,
+                  borderRadius: 7,
+                  background: devMode ? 'var(--accent)' : 'var(--border)',
+                  position: 'relative',
+                  flexShrink: 0,
+                  transition: 'background 0.15s',
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    top: 2,
+                    left: devMode ? 16 : 2,
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    background: '#fff',
+                    transition: 'left 0.15s',
+                  }} />
+                </div>
               </Row>
             </div>
-          ))}
-        </div>
-      </Col>
-    ))}
-  </Col>
-);
+          </div>
+        </Col>
+      )}
+
+      {/* About tab */}
+      {activeTab === 'About' && (
+        <Col gap={6}>
+          <div
+            style={{
+              background: 'var(--surface-alt)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              overflow: 'hidden',
+            }}
+          >
+            {/* Version */}
+            <div style={{
+              padding: '7px 12px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-primary)' }}>Studio version</span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>2.0.0</span>
+            </div>
+            {/* TTS server status */}
+            <div style={{
+              padding: '7px 12px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-primary)', flex: 1 }}>TTS server</span>
+              <span style={{ fontSize: '0.5rem', color: '#22c55e' }}>●</span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>running · port 7821 · uptime 3h 12m</span>
+            </div>
+            {/* Engine health mini-table */}
+            <div style={{ padding: '7px 12px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>
+                Engine health
+              </div>
+              <Col gap={3}>
+                {[
+                  { name: 'XTTS', status: 'healthy' },
+                  { name: 'Voxtral', status: 'healthy' },
+                  { name: 'Mixed', status: 'healthy' },
+                ].map(e => (
+                  <Row key={e.name} gap={6} style={{ alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)', flex: 1 }}>{e.name}</span>
+                    <span style={{ fontSize: '0.5rem', color: '#22c55e' }}>●</span>
+                    <span style={{ fontSize: '0.62rem', color: '#22c55e' }}>{e.status}</span>
+                  </Row>
+                ))}
+              </Col>
+            </div>
+            {/* Production tally moved link */}
+            <div style={{
+              padding: '7px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                Production tally moved to Activity →
+              </span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--accent)', cursor: 'pointer' }}>›</span>
+            </div>
+          </div>
+        </Col>
+      )}
+
+      {/* Developer tab — only visible when dev mode on */}
+      {activeTab === 'Developer' && devMode && (
+        <Col gap={6}>
+          <div
+            style={{
+              background: 'var(--surface-alt)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              overflow: 'hidden',
+            }}
+          >
+            {[
+              { label: 'Progress harness', href: '/debug/progress' },
+              { label: 'Event stream', href: '/debug/events' },
+              { label: 'Design spec sheet', href: '/debug/design' },
+              { label: 'TTS API Swagger', href: '/api/v1/tts/docs' },
+            ].map((link, i, arr) => (
+              <div
+                key={link.label}
+                style={{
+                  padding: '7px 12px',
+                  borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                }}
+              >
+                <span style={{ fontSize: '0.68rem', color: 'var(--accent)' }}>{link.label}</span>
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                  {link.href} ↗
+                </span>
+              </div>
+            ))}
+          </div>
+          <div style={{
+            fontSize: '0.6rem',
+            color: 'var(--text-muted)',
+            fontStyle: 'italic',
+            padding: '2px 4px',
+          }}>
+            enables debug-copy buttons in queue + chapter toolbar
+          </div>
+        </Col>
+      )}
+    </Col>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Player bar (full width, waveform toggle)
@@ -3446,7 +3924,7 @@ const SiteMockup: React.FC = () => {
           flexShrink: 0,
         }}
       >
-        North-star organization mockup — current functionality represented. Queue drawer = check status from anywhere without losing your place. · v3.5 — full-site integration + planned features
+        North-star organization mockup — current functionality represented. Queue drawer = check status from anywhere without losing your place. · v3.6 — all settings surfaces represented
       </div>
 
       {/* App window — column: [top bar] / [rail + content] / [player bar] */}
@@ -3543,6 +4021,6 @@ export const siteMockupStage = {
   id: 'site-mockup',
   title: 'Site Mockup — North Star',
   description:
-    'Medium-fidelity full-site layout mockup v3.5 — full-site integration + planned features: Voice Lab detail page (phase stepper, sample manager, variants, engine settings, test strip, export/HF publish), Discover tab search + facets + Install button + installing progress, Engines richer cards (speed chip, reset calibration, browse store with PlannedChip + trust note), Integrations host binding + LAN toggle (planned) + queue priority + Swagger docs link + stat chip, Activity pause queue button + history filter chips + engine calibration mini-table, Publish planned-feature rows (loudness QA, pronunciation lexicon), Settings developer mode row + appearance Theme dropdown, player bar scope chip cycles through 3 scope modes. PlannedChip used consistently for future features.',
+    'Medium-fidelity full-site layout mockup v3.6 — all settings surfaces represented: Settings sub-tabs (General/About/Developer with wired dev-mode toggle), Engines expandable XTTS config panel (engine settings, sanitize overrides, Output QA), plugin toolbar (Import .zip / Refresh), Voxtral Install deps, MyCustomTTS user-installed card with Uninstall + trust dialog mock, Voice Lab Variants as rows with engine settings summary + pencil. Previous: Voice Lab detail page, Discover tab, Activity, Publish, Integrations, player bar scope chip.',
   element: <SiteMockupElement />,
 };
