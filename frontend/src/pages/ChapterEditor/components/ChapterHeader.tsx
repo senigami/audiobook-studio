@@ -3,18 +3,14 @@ import { RefreshCw, Zap, CheckCircle, Pencil, ChevronLeft, ChevronRight, Copy, M
 import type { Chapter, Job } from '@/types';
 import { PredictiveProgressBar, type PredictiveProgressBarProps } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import { buildSegmentProgressBarProps } from '@/components/progress/progressBarContracts';
-import { hasSegmentProgressCapability } from '@/utils/jobSelection';
 import { useSegmentHandoffQueue, recordExternalHandoffEvent } from '@/hooks/useSegmentHandoffQueue';
 import { useDevMode } from '@/utils/devMode';
+import { selectSegmentProgressFields } from '@/utils/segmentProgressSelection';
+import { useQueueStatusHoldTimer } from '@/hooks/useQueueStatusHoldTimer';
 
 const RECENT_DONE_WINDOW_SECONDS = 60;
 
 const clamp01 = (val: number) => Math.max(0, Math.min(val, 1));
-
-const getSegmentProvenanceFields = (job?: Job): Record<string, any> | null => {
-  const provenance = (job as any)?.segmentProgressSocketProvenance;
-  return provenance?.selectedFields ?? null;
-};
 
 export const useChapterStatus = (
   chapter: Chapter,
@@ -52,10 +48,12 @@ export const useChapterStatus = (
               : recentlyFinishedDoneJob && !hasChapterAudio
                 ? 'Finalizing'
                 : null;
-  const [heldQueueStatus, setHeldQueueStatus] = React.useState<string | null>(null);
-  const releaseHoldTimerRef = React.useRef<number | null>(null);
-  const lastActiveQueueStatusRef = React.useRef<string | null>(null);
-  const holdUntilRef = React.useRef<number>(0);
+  const { heldQueueStatus } = useQueueStatusHoldTimer({
+    rawQueueStatus,
+    hasChapterAudio,
+    audioStatus: chapter.audio_status,
+    recentlyFinishedDoneJob,
+  });
   const queueStatus = heldQueueStatus ?? rawQueueStatus;
   const effectiveQueueLocked = queueLocked || !!queueStatus || chapter.audio_status === 'processing';
   const isQueued = queueStatus === 'Queued';
@@ -127,100 +125,17 @@ export const useChapterStatus = (
     ? generatingJob
     : (heldLiveJob && ['done', 'failed', 'cancelled'].includes(heldLiveJob.status) && !(recentlyFinishedDoneJob && !hasChapterAudio) ? heldLiveJob : undefined);
 
-  const hasSegmentSupport = liveSegmentProgressJobCandidate
-    ? hasSegmentProgressCapability(liveSegmentProgressJobCandidate)
-    : false;
-
-  const segmentProvenanceFields = getSegmentProvenanceFields(liveSegmentProgressJobCandidate);
-  const directActiveSegmentId = typeof liveSegmentProgressJobCandidate?.active_segment_id === 'string' && liveSegmentProgressJobCandidate.active_segment_id.length > 0
-    ? liveSegmentProgressJobCandidate.active_segment_id
-    : null;
-  const provenanceActiveSegmentId = typeof segmentProvenanceFields?.activeSegmentId === 'string' && segmentProvenanceFields.activeSegmentId.length > 0
-    ? segmentProvenanceFields.activeSegmentId
-    : null;
-  const selectedActiveSegmentId = directActiveSegmentId ?? provenanceActiveSegmentId;
-  const directActiveSegmentProgress = directActiveSegmentId && typeof liveSegmentProgressJobCandidate?.active_segment_progress === 'number'
-    ? clamp01(liveSegmentProgressJobCandidate.active_segment_progress)
-    : null;
-  const provenanceActiveSegmentProgress = typeof segmentProvenanceFields?.activeSegmentProgress === 'number'
-    ? clamp01(segmentProvenanceFields.activeSegmentProgress)
-    : null;
-  const selectedActiveSegmentProgress = directActiveSegmentProgress ?? provenanceActiveSegmentProgress;
-  const hasActiveSegment = hasSegmentSupport
-    && !!selectedActiveSegmentId
-    && typeof selectedActiveSegmentProgress === 'number';
-  const liveSegmentProgressValue = hasActiveSegment
-    ? selectedActiveSegmentProgress
-    : 0;
-  const selectedSegmentEtaSeconds = directActiveSegmentId && typeof liveSegmentProgressJobCandidate?.active_segment_eta_seconds === 'number'
-    ? liveSegmentProgressJobCandidate.active_segment_eta_seconds
-    : (typeof segmentProvenanceFields?.etaSeconds === 'number' ? segmentProvenanceFields.etaSeconds : null);
-  const selectedSegmentEtaBasis = directActiveSegmentId && typeof liveSegmentProgressJobCandidate?.active_segment_eta_basis === 'string'
-    ? liveSegmentProgressJobCandidate.active_segment_eta_basis
-    : (typeof segmentProvenanceFields?.eta_basis === 'string' ? segmentProvenanceFields.eta_basis : null);
-  const selectedSegmentUpdatedAt = directActiveSegmentId && typeof liveSegmentProgressJobCandidate?.active_segment_updated_at === 'number'
-    ? liveSegmentProgressJobCandidate.active_segment_updated_at
-    : (typeof segmentProvenanceFields?.updatedAt === 'number' ? segmentProvenanceFields.updatedAt : null);
-  const selectedSegmentStartedAt = typeof segmentProvenanceFields?.started_at === 'number'
-    ? segmentProvenanceFields.started_at
-    : null;
-  const selectedSegmentReasonCode = typeof segmentProvenanceFields?.reasonCode === 'string'
-    ? segmentProvenanceFields.reasonCode
-    : liveSegmentProgressJobCandidate?.reason_code;
-  const liveSegmentProgressJob = hasActiveSegment && liveSegmentProgressJobCandidate
-    ? {
-        ...liveSegmentProgressJobCandidate,
-        active_segment_id: selectedActiveSegmentId,
-        active_segment_progress: selectedActiveSegmentProgress,
-        active_segment_eta_seconds: selectedSegmentEtaSeconds,
-        active_segment_eta_basis: selectedSegmentEtaBasis,
-        active_segment_updated_at: selectedSegmentUpdatedAt,
-      } as Job
-    : undefined;
-
-  React.useEffect(() => {
-    if (releaseHoldTimerRef.current !== null) {
-      window.clearTimeout(releaseHoldTimerRef.current);
-      releaseHoldTimerRef.current = null;
-    }
-
-    if (rawQueueStatus) {
-      lastActiveQueueStatusRef.current = rawQueueStatus;
-      holdUntilRef.current = Date.now() + 400;
-      if (heldQueueStatus !== rawQueueStatus) {
-        setHeldQueueStatus(rawQueueStatus);
-      }
-      return;
-    }
-
-    const shouldBridge = !hasChapterAudio
-      && chapter.audio_status !== 'done'
-      && holdUntilRef.current > Date.now()
-      && !!lastActiveQueueStatusRef.current;
-
-    if (shouldBridge) {
-      const bridged = recentlyFinishedDoneJob ? 'Finalizing' : lastActiveQueueStatusRef.current;
-      if (heldQueueStatus !== bridged) {
-        setHeldQueueStatus(bridged);
-      }
-      const remainingMs = Math.max(0, holdUntilRef.current - Date.now());
-      releaseHoldTimerRef.current = window.setTimeout(() => {
-        setHeldQueueStatus(null);
-        releaseHoldTimerRef.current = null;
-      }, remainingMs);
-      return;
-    }
-
-    if (heldQueueStatus !== null) {
-      setHeldQueueStatus(null);
-    }
-  }, [rawQueueStatus, hasChapterAudio, chapter.audio_status, recentlyFinishedDoneJob, heldQueueStatus]);
-
-  React.useEffect(() => () => {
-    if (releaseHoldTimerRef.current !== null) {
-      window.clearTimeout(releaseHoldTimerRef.current);
-    }
-  }, []);
+  const {
+    hasSegmentSupport,
+    hasActiveSegment,
+    liveSegmentProgressValue,
+    selectedSegmentEtaSeconds,
+    selectedSegmentEtaBasis,
+    selectedSegmentUpdatedAt,
+    selectedSegmentStartedAt,
+    selectedSegmentReasonCode,
+    liveSegmentProgressJob,
+  } = selectSegmentProgressFields(liveSegmentProgressJobCandidate);
 
   const valueSource = !liveSegmentProgressJob
     ? 'no_live_job'

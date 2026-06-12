@@ -5,8 +5,9 @@ import type { ProcessingQueueItem, Job } from '@/types';
 import { formatQueueContext } from '@/utils/queueLabels';
 import { shouldShowIndeterminateProgress, isMainQueueSegmentItem } from '@/utils/jobSelection';
 import { recordStudioDebugSnapshot } from '@/utils/runtimeDebug';
-import { getLiveEventAuditSnapshot } from '@/store/liveEventAuditStore';
 import { useDevMode } from '@/utils/devMode';
+import { selectEtaSource, selectEtaSourceTimestamp } from '@/utils/queueItemEtaSelection';
+import { buildQueueItemDebugPayload } from '@/utils/queueItemDebugPayload';
 
 interface QueueItemProps {
     job: ProcessingQueueItem;
@@ -40,37 +41,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const isTrulyActive = ['preparing', 'running', 'processing', 'finalizing'].includes(status);
     const rawStarted = job.started_at ?? liveJob?.started_at;
     const preferLiveEta = (isTrulyActive && typeof liveJob?.eta_seconds === 'number' && liveJob.eta_seconds > 0);
-    const selectEtaSource = (): 'liveJob' | 'job' | 'fallback' => {
-        const hasLiveEta = typeof liveJob?.eta_seconds === 'number' && liveJob.eta_seconds > 0;
-        const hasJobEta = typeof job.eta_seconds === 'number' && job.eta_seconds > 0;
-
-        if (hasLiveEta && hasJobEta) {
-            const liveTime = liveJob.eta_updated_at ?? liveJob.updated_at ?? 0;
-            const jobTime = job.eta_updated_at ?? job.updated_at ?? 0;
-            if (liveTime >= jobTime) {
-                return 'liveJob';
-            } else {
-                return 'job';
-            }
-        }
-
-        if (hasLiveEta) {
-            return 'liveJob';
-        }
-
-        if (hasJobEta) {
-            return 'job';
-        }
-
-        if (job.eta_seconds !== undefined && job.eta_seconds !== null) {
-            return 'job';
-        }
-        if (typeof liveJob?.eta_seconds === 'number') {
-            return 'liveJob';
-        }
-        return 'fallback';
-    };
-    const etaSource = selectEtaSource();
+    const etaSource = selectEtaSource(job, liveJob, isTrulyActive);
 
     const rawEtaSeconds = etaSource === 'liveJob'
         ? liveJob?.eta_seconds
@@ -85,22 +56,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const estimatedEndAt = isTrulyActive && typeof rawEtaSeconds === 'number' && rawEtaSeconds > 0
         ? undefined
         : (job.estimated_end_at ?? liveJob?.estimated_end_at);
-    const selectEtaSourceTimestamp = (): number | null | undefined => {
-        if (etaSource === 'liveJob') {
-            return (typeof liveJob?.eta_seconds === 'number' && liveJob.eta_seconds > 0 ? liveJob.eta_updated_at : undefined)
-                ?? (typeof job.eta_seconds === 'number' && job.eta_seconds > 0 ? job.eta_updated_at : undefined)
-                ?? liveJob?.updated_at
-                ?? job.updated_at;
-        }
-        if (etaSource === 'job') {
-            return (typeof job.eta_seconds === 'number' && job.eta_seconds > 0 ? job.eta_updated_at : undefined)
-                ?? (typeof liveJob?.eta_seconds === 'number' && liveJob.eta_seconds > 0 ? liveJob.eta_updated_at : undefined)
-                ?? job.updated_at
-                ?? liveJob?.updated_at;
-        }
-        return liveJob?.updated_at ?? job.updated_at;
-    };
-    const updatedAt = selectEtaSourceTimestamp();
+    const updatedAt = selectEtaSourceTimestamp(etaSource, job, liveJob);
     const rawUpdatedAt = job.updated_at ?? liveJob?.updated_at;
     const isVoiceBuildJob = job.engine === 'voice_build' || liveJob?.engine === 'voice_build';
     const isSegmentJob = isVoiceBuildJob || isMainQueueSegmentItem(job) || (liveJob ? isMainQueueSegmentItem(liveJob) : false);
@@ -427,85 +383,14 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     ]);
 
     const handleCopyDebug = React.useCallback(async () => {
-        const lastActive = lastActiveDiagnosticsRef.current || {};
-        const isActive = ['running', 'processing', 'finalizing'].includes(displayStatus);
-        const payload = {
-            job,
-            liveJob,
-            displayStatus,
-            selectedProgress: isActive ? progress : (lastActive.progress ?? progress),
-            jobProgress,
-            activeSegmentProgress,
-            rawStarted,
-            stableStarted: isActive ? stableStarted : (lastActive.stableStarted ?? stableStarted),
-            startedPassedToProgressBar: isActive ? started : (lastActive.startedPassedToProgressBar ?? started),
-            jobEtaSeconds: job.eta_seconds,
-            liveJobEtaSeconds: liveJob?.eta_seconds,
-            selectedRawEtaSeconds: isActive ? rawEtaSeconds : (lastActive.selectedRawEtaSeconds ?? rawEtaSeconds),
-            stableEta: (isActive && typeof stableEta === 'number' && stableEta > 0) ? stableEta : (lastActive.stableEta ?? stableEta),
-            etaSecondsPassedToProgressBar: (isActive && typeof derivedEtaSeconds === 'number' && derivedEtaSeconds > 0) ? derivedEtaSeconds : (lastActive.etaSecondsPassedToProgressBar ?? derivedEtaSeconds),
-            jobEtaBasis: job.eta_basis,
-            liveJobEtaBasis: liveJob?.eta_basis,
-            jobEtaUpdatedAt: job.eta_updated_at,
-            liveJobEtaUpdatedAt: liveJob?.eta_updated_at,
-            etaUpdatedAt: updatedAt,
-            etaSource,
-            selectedEtaBasis: isActive ? (derivedEtaBasis ?? etaBasis) : (lastActive.selectedEtaBasis ?? (derivedEtaBasis ?? etaBasis)),
-            updatedAt: isActive ? derivedUpdatedAt : (lastActive.updatedAt ?? derivedUpdatedAt),
-            derivedUpdatedAt: isActive ? derivedUpdatedAt : (lastActive.derivedUpdatedAt ?? derivedUpdatedAt),
-            estimatedEndAt,
-            derivedEstimatedEndAt: isActive ? derivedEstimatedEndAt : (lastActive.derivedEstimatedEndAt ?? derivedEstimatedEndAt),
-            derivedEtaSeconds: (isActive && typeof derivedEtaSeconds === 'number' && derivedEtaSeconds > 0) ? derivedEtaSeconds : (lastActive.derivedEtaSeconds ?? derivedEtaSeconds),
-            stableUpdatedAt: isActive ? stableUpdatedAt : (lastActive.stableUpdatedAt ?? stableUpdatedAt),
-            stableEtaBasis: isActive ? stableEtaBasis : (lastActive.stableEtaBasis ?? stableEtaBasis),
-            etaSourcePath: isActive ? etaSourcePath : (lastActive.etaSourcePath ?? etaSourcePath),
-            etaSourceReason: isActive ? etaSourceReason : (lastActive.etaSourceReason ?? etaSourceReason),
-            etaSelectionDebug,
-            lastActiveEtaSelectionDebug: lastActive.etaSelectionDebug,
-            persistenceKey: activeSegmentId ? `${job.id}:${activeSegmentId}` : job.id,
-            checkpointMode: (job.segment_ids?.length || liveJob?.segment_ids?.length || activeSegmentId)
-                ? 'segment'
-                : (job.render_group_count || liveJob?.render_group_count)
-                ? 'queue'
-                : 'default',
-            confidence: selectedEvidenceWeightFraction,
-            evidenceWeightFraction: selectedEvidenceWeightFraction,
-            transitionTickCount: (job.segment_ids?.length || liveJob?.segment_ids?.length || activeSegmentId)
-                ? 3
-                : (job.render_group_count || liveJob?.render_group_count)
-                ? 12
-                : 8,
-            tickMs: 250,
-            latestProgressBarSnapshot: latestSnapshotRef.current,
-            recentAuditFrames: getLiveEventAuditSnapshot()
-                .filter(record => record.event.jobId === job.id && (
-                    record.event.topic === 'jobs.lifecycle'
-                    || record.event.topic === 'queue.items'
-                    || record.event.topic === 'chapters.progress'
-                ))
-                .map(record => {
-                    const ev = record.event;
-                    const p = ev.payload as any;
-                    return {
-                        frameId: ev.frameId,
-                        receivedAt: ev.receivedAt,
-                        eventKind: ev.eventKind,
-                        payload: {
-                            status: p?.status,
-                            progress: p?.progress,
-                            etaSeconds: p?.etaSeconds,
-                            etaUpdatedAt: p?.etaUpdatedAt,
-                            etaBasis: p?.etaBasis,
-                            startedAt: p?.startedAt,
-                            updatedAt: p?.updatedAt,
-                            estimatedEndAt: p?.estimatedEndAt,
-                            confidence: p?.confidence,
-                        },
-                        reasonCode: p?.reasonCode,
-                        source: ev.source,
-                    };
-                }),
-        };
+        const payload = buildQueueItemDebugPayload({
+            job, liveJob, displayStatus, progress, jobProgress, activeSegmentProgress,
+            rawStarted, stableStarted, started, rawEtaSeconds, stableEta, derivedEtaSeconds,
+            derivedEtaBasis, etaBasis, updatedAt, derivedUpdatedAt, estimatedEndAt,
+            derivedEstimatedEndAt, activeSegmentId, stableUpdatedAt, stableEtaBasis,
+            etaSource, etaSourcePath, etaSourceReason, etaSelectionDebug,
+            selectedEvidenceWeightFraction, lastActiveDiagnosticsRef, latestSnapshotRef,
+        });
 
         if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
             try {

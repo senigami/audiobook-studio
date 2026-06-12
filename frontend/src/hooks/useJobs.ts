@@ -10,13 +10,12 @@ import {
   subscribeStudioSocketMessages,
 } from '@/store/studioSocketBus';
 import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
-import { isSegmentScopedJob } from '@/utils/jobSelection';
 import {
   adaptEventToJobUpdates,
-  copyRenderGroupFields,
-  resolveEventUpdatedAt,
 } from '@/utils/jobEventAdapters';
 import { applyTerminalLifecycleReset } from '@/utils/jobEventUtils';
+import { applyJobUpdated } from '@/utils/jobUpdateReducer';
+import { buildSegmentsProgressProjection } from '@/utils/segmentsProgressProjector';
 
 const globalSegmentProgressUpdates: any[] = [];
 let nextSequenceNumber = 1;
@@ -24,16 +23,6 @@ let nextSequenceNumber = 1;
 export const resetGlobalSegmentProgressUpdates = () => {
   globalSegmentProgressUpdates.length = 0;
   nextSequenceNumber = 1;
-};
-
-const STATUS_PRIORITY: Record<string, number> = {
-  done: 5,
-  failed: 5,
-  cancelled: 5,
-  finalizing: 4,
-  running: 3,
-  preparing: 2,
-  queued: 1,
 };
 
 export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, onPauseUpdate?: (paused: boolean) => void, onSegmentsUpdate?: (chapterId: string) => void, onChapterUpdate?: (chapterId: string) => void) => {
@@ -63,214 +52,40 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
   const [testProgress, setTestProgress] = useState<Record<string, { progress: number; started_at?: number }>>({});
 
   const applyJobUpdatedEvent = useCallback((data: any) => {
-    const { job_id, updates } = data;
-    setJobs(prev => {
-      const oldJob = prev[job_id];
-      if (!oldJob) {
-        if (data._overlayOnly) {
-          // Overlay-only topics must not create new rows
-          return prev;
-        }
-        const newJob = { id: job_id, ...updates } as Job;
-        liveJobsRef.current = { ...prev, [job_id]: newJob };
-        return liveJobsRef.current;
-      }
+    const { job_id } = data;
+    let { updates } = data;
 
+    // Stamp the module-level sequence number before the pure reducer runs
+    // (sequence is side-effectful and belongs at the hook boundary, not in the pure function).
+    if (updates.segmentProgressSocketProvenance) {
       const prov = updates.segmentProgressSocketProvenance;
-      const nextUpdates = { ...updates } as Record<string, any>;
-      const sourceTopic = typeof nextUpdates.source_topic === 'string' ? nextUpdates.source_topic : undefined;
-      delete nextUpdates.source_topic;
+      const entry = {
+        sequence: nextSequenceNumber++,
+        receivedAt: prov.rawEnvelope?.receivedAt || new Date().toISOString(),
+        emittedAt: prov.rawEnvelope?.emittedAt || prov.rawEnvelope?.emitted_at || null,
+        topic: prov.consumedTopic,
+        eventKind: prov.rawEnvelope?.eventKind || null,
+        jobId: prov.rawEnvelope?.jobId || null,
+        chapterId: prov.rawEnvelope?.chapterId || null,
+        segmentId: prov.rawEnvelope?.segmentId || null,
+        activeSegmentId: prov.selectedFields?.activeSegmentId || null,
+        activeSegmentProgress: prov.selectedFields?.activeSegmentProgress ?? null,
+        progress: prov.selectedFields?.progress ?? null,
+        etaSeconds: prov.selectedFields?.etaSeconds ?? null,
+        etaBasis: prov.selectedFields?.eta_basis || prov.selectedFields?.etaBasis || null,
+        status: prov.selectedFields?.status || null,
+        reasonCode: prov.selectedFields?.reasonCode || null,
+        updatedAt: prov.selectedFields?.updatedAt || null,
+        renderedJobId: prov.rawEnvelope?.jobId || null,
+      };
+      globalSegmentProgressUpdates.push(entry);
+      if (globalSegmentProgressUpdates.length > 20) globalSegmentProgressUpdates.shift();
+      updates = { ...updates, segmentProgressSocketProvenance: { ...prov, _sequencedEntry: entry } };
+    }
 
-      Object.keys(nextUpdates).forEach(key => {
-        if (nextUpdates[key] === undefined) {
-          delete nextUpdates[key];
-        }
-      });
-
-      if (prov) {
-        const entry = {
-          sequence: nextSequenceNumber++,
-          receivedAt: prov.rawEnvelope?.receivedAt || new Date().toISOString(),
-          emittedAt: prov.rawEnvelope?.emittedAt || prov.rawEnvelope?.emitted_at || null,
-          topic: prov.consumedTopic,
-          eventKind: prov.rawEnvelope?.eventKind || null,
-          jobId: prov.rawEnvelope?.jobId || null,
-          chapterId: prov.rawEnvelope?.chapterId || null,
-          segmentId: prov.rawEnvelope?.segmentId || null,
-          activeSegmentId: prov.selectedFields?.activeSegmentId || null,
-          activeSegmentProgress: prov.selectedFields?.activeSegmentProgress ?? null,
-          progress: prov.selectedFields?.progress ?? null,
-          etaSeconds: prov.selectedFields?.etaSeconds ?? null,
-          etaBasis: prov.selectedFields?.eta_basis || prov.selectedFields?.etaBasis || null,
-          status: prov.selectedFields?.status || null,
-          reasonCode: prov.selectedFields?.reasonCode || null,
-          updatedAt: prov.selectedFields?.updatedAt || null,
-          renderedJobId: prov.rawEnvelope?.jobId || null,
-        };
-
-        const oldHistory = (oldJob as any).segmentProgressUpdates || [];
-        const newHistory = [entry, ...oldHistory].slice(0, 20);
-
-        globalSegmentProgressUpdates.push(entry);
-        if (globalSegmentProgressUpdates.length > 20) {
-          globalSegmentProgressUpdates.shift();
-        }
-
-        nextUpdates.segmentProgressUpdates = newHistory;
-      }
-
-      if (
-        typeof oldJob.updated_at === 'number'
-        && typeof updates?.updated_at === 'number'
-        && updates.updated_at < oldJob.updated_at
-      ) {
-        if (updates.active_segment_id !== undefined || updates.active_segment_progress !== undefined) {
-          const nextUpdatesStale: Record<string, any> = {};
-          if (updates.active_segment_id !== undefined) nextUpdatesStale.active_segment_id = updates.active_segment_id;
-          if (updates.active_segment_progress !== undefined) nextUpdatesStale.active_segment_progress = updates.active_segment_progress;
-          if (updates.active_segment_eta_seconds !== undefined) nextUpdatesStale.active_segment_eta_seconds = updates.active_segment_eta_seconds;
-          if (updates.active_segment_eta_basis !== undefined) nextUpdatesStale.active_segment_eta_basis = updates.active_segment_eta_basis;
-          if (updates.active_segment_updated_at !== undefined) nextUpdatesStale.active_segment_updated_at = updates.active_segment_updated_at;
-          if (updates.hasSegmentSupport !== undefined) nextUpdatesStale.hasSegmentSupport = updates.hasSegmentSupport;
-          if (updates.has_segment_support !== undefined) nextUpdatesStale.has_segment_support = updates.has_segment_support;
-          if (updates.project_id !== undefined) nextUpdatesStale.project_id = updates.project_id;
-          if (updates.chapter_id !== undefined) nextUpdatesStale.chapter_id = updates.chapter_id;
-          if (updates.segmentProgressSocketProvenance !== undefined) nextUpdatesStale.segmentProgressSocketProvenance = updates.segmentProgressSocketProvenance;
-          if (nextUpdates.segmentProgressUpdates !== undefined) nextUpdatesStale.segmentProgressUpdates = nextUpdates.segmentProgressUpdates;
-          return { ...prev, [job_id]: { ...oldJob, ...nextUpdatesStale } };
-        }
-        return prev;
-      }
-
-      const isNotSegmentProgress = sourceTopic !== 'segments.progress';
-      if (isNotSegmentProgress) {
-        const incomingStatusForReset = typeof nextUpdates.status === 'string' ? nextUpdates.status : undefined;
-        const canCarryExplicitSegmentReset = sourceTopic === 'jobs.lifecycle'
-          || (sourceTopic === 'queue.items' && ['done', 'failed', 'cancelled'].includes(incomingStatusForReset || ''));
-        const hasExplicitSegmentReset = canCarryExplicitSegmentReset && (
-          nextUpdates.active_segment_id === null ||
-          nextUpdates.active_segment_progress === 0 ||
-          nextUpdates.active_segment_eta_seconds === null ||
-          nextUpdates.active_segment_eta_basis === null ||
-          nextUpdates.active_segment_updated_at === null ||
-          nextUpdates.active_render_batch_id === null ||
-          nextUpdates.active_render_batch_progress === null
-        );
-
-        if (!hasExplicitSegmentReset) {
-          delete nextUpdates.active_segment_id;
-          delete nextUpdates.active_segment_progress;
-          delete nextUpdates.active_segment_eta_seconds;
-          delete nextUpdates.active_segment_eta_basis;
-          delete nextUpdates.active_segment_updated_at;
-        }
-
-        const isSegmentJob = isSegmentScopedJob(oldJob);
-        const isPreparingZeroProgress = oldJob.status === 'preparing' &&
-          (oldJob.active_segment_progress ?? 0) <= 0 &&
-          (oldJob.progress ?? 0) <= 0;
-
-        if (isSegmentJob) {
-          delete nextUpdates.classification;
-          delete nextUpdates.segment_ids;
-          delete nextUpdates.eta_seconds;
-          delete nextUpdates.eta_basis;
-          delete nextUpdates.estimated_end_at;
-        }
-
-        if ((oldJob.active_segment_id || isSegmentJob) && isPreparingZeroProgress) {
-          delete nextUpdates.status;
-        }
-      }
-
-      const excludeSegmentFields = sourceTopic !== 'segments.progress';
-      copyRenderGroupFields(nextUpdates, updates as Record<string, any>, excludeSegmentFields);
-      const incomingStatus = typeof nextUpdates.status === 'string' ? nextUpdates.status : undefined;
-      const currentStatus = typeof oldJob.status === 'string' ? oldJob.status : undefined;
-
-      const dbUpdatedAt = updates.db_updated_at;
-      const dbStartedAt = updates.db_started_at;
-
-      const oldUpdatedAt = oldJob.updated_at;
-      const oldFinishedAt = oldJob.finished_at;
-      const oldStartedAt = oldJob.started_at;
-
-      const hasOldTimestamps = typeof oldUpdatedAt === 'number' || typeof oldFinishedAt === 'number' || typeof oldStartedAt === 'number';
-      const hasIncomingDbTimestamps = typeof dbUpdatedAt === 'number' || typeof dbStartedAt === 'number';
-
-      const isRollbackStatus = ['queued', 'preparing', 'running'].includes(incomingStatus || '');
-
-      const isNewerRun = isRollbackStatus && (
-        (hasIncomingDbTimestamps && (
-          !hasOldTimestamps ||
-          (typeof dbUpdatedAt === 'number' && (
-            (typeof oldUpdatedAt !== 'number' || dbUpdatedAt > oldUpdatedAt) &&
-            (typeof oldFinishedAt !== 'number' || dbUpdatedAt > oldFinishedAt)
-          )) ||
-          (typeof dbStartedAt === 'number' && (
-            (typeof oldStartedAt !== 'number' || dbStartedAt > oldStartedAt)
-          ))
-        )) ||
-        (!hasIncomingDbTimestamps && (
-          (!['done', 'failed', 'cancelled'].includes(currentStatus || '') || hasOldTimestamps) &&
-          (typeof updates.updated_at === 'number' && (
-            (typeof oldUpdatedAt !== 'number' || updates.updated_at > oldUpdatedAt) &&
-            (typeof oldFinishedAt !== 'number' || updates.updated_at > oldFinishedAt)
-          ))
-        ))
-      );
-
-      if (incomingStatus && currentStatus) {
-        const incomingPriority = STATUS_PRIORITY[incomingStatus] ?? 0;
-        const currentPriority = STATUS_PRIORITY[currentStatus] ?? 0;
-
-        if (!isNewerRun) {
-          if (currentPriority >= 5 && incomingPriority < currentPriority) {
-            if (nextUpdates.active_segment_id !== undefined || nextUpdates.active_segment_progress !== undefined) {
-              delete nextUpdates.status;
-              delete nextUpdates.progress;
-            } else {
-              return prev;
-            }
-          } else if (incomingPriority < currentPriority) {
-            delete nextUpdates.status;
-          }
-        }
-      }
-
-      if (typeof nextUpdates.progress === 'number') {
-        const currentProgress = typeof oldJob.progress === 'number' ? oldJob.progress : 0;
-        const effectiveStatus = (nextUpdates.status as string | undefined) ?? currentStatus;
-        if (!isNewerRun && !['queued', 'preparing'].includes(effectiveStatus || '') && nextUpdates.progress < currentProgress) {
-          delete nextUpdates.progress;
-        }
-      }
-
-      const effectiveStatus = (nextUpdates.status as string | undefined) ?? currentStatus;
-      if (
-        !isNewerRun &&
-        typeof oldJob.started_at === 'number'
-        && typeof nextUpdates.started_at === 'number'
-        && ['running', 'processing', 'finalizing', 'done'].includes(effectiveStatus || '')
-        && nextUpdates.started_at !== oldJob.started_at
-      ) {
-        delete nextUpdates.started_at;
-      }
-
-      if (
-        typeof oldJob.eta_seconds === 'number'
-        && typeof nextUpdates.eta_seconds === 'number'
-        && ['running', 'processing', 'finalizing'].includes(effectiveStatus || '')
-      ) {
-        const currentEta = oldJob.eta_seconds;
-        const nextEta = nextUpdates.eta_seconds;
-        if (Math.abs(nextEta - currentEta) < 1) {
-          delete nextUpdates.eta_seconds;
-        }
-      }
-
-      const newJob = { ...oldJob, ...nextUpdates };
-      const next = { ...prev, [job_id]: newJob };
+    setJobs(prev => {
+      const next = applyJobUpdated(prev, job_id, updates, { overlayOnly: data._overlayOnly });
+      if (next === null) return prev;
       liveJobsRef.current = next;
       return next;
     });
@@ -373,13 +188,8 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           recordWebsocketDebugMessage('useJobs', data, raw, envelope);
           recordLiveEventSubscriberObservation(envelope?.frameId, 'segment-state', 'handled');
 
-          const getVal = (keyCamel: string, keySnake: string) => {
-            if (payload[keyCamel] !== undefined) return payload[keyCamel];
-            if (payload[keySnake] !== undefined) return payload[keySnake];
-            return undefined;
-          };
-
-          const segmentProg = getVal('activeSegmentProgress', 'active_segment_progress') ?? payload.progress;
+          const { projectedUpdates, trace } = buildSegmentsProgressProjection(event, payload, envelope, raw);
+          const segmentProg = projectedUpdates.active_segment_progress;
 
           if (event.segmentId) {
             const next: SegmentProgress = {
@@ -393,110 +203,6 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           if (event.jobId && liveJobsRef.current[event.jobId]) {
             recordLiveEventSubscriberObservation(envelope?.frameId, 'chapter-state', 'handled');
 
-            const rawStatus = getVal('status', 'status');
-            const rawReasonCode = getVal('reasonCode', 'reason_code');
-            // SEGMENT_PENDING is deliberately NOT included here: it is an announcement
-            // frame (engine not confirmed yet) so the segment stays in 'preparing' state
-            // until the canonical START_SEGMENT confirmation frame arrives.
-            const isCanonicalSegmentStart = rawReasonCode === 'START_SEGMENT';
-            const isSegmentAtZero = (segmentProg ?? 0) <= 0;
-            const projectedStatus = isSegmentAtZero && !isCanonicalSegmentStart
-              ? 'preparing'
-              : (rawStatus && rawStatus !== 'done' && rawStatus !== 'failed' && rawStatus !== 'cancelled')
-                ? rawStatus
-                : undefined;
-
-            const rawUpdatedAt = getVal('updatedAt', 'updated_at');
-            const rawStartedAt = getVal('startedAt', 'started_at');
-
-            const rawEta = getVal('etaSeconds', 'eta_seconds');
-            const rawEtaBasis = getVal('etaBasis', 'eta_basis');
-            const rawHasSegmentSupport = getVal('hasSegmentSupport', 'has_segment_support');
-            const parsedSegmentEta = rawEta === null || rawEta === undefined
-              ? null
-              : (typeof rawEta === 'number' ? rawEta : Number(rawEta));
-            const segmentEtaSeconds = Number.isFinite(parsedSegmentEta) ? parsedSegmentEta : null;
-
-            const projectedUpdates: any = {
-              source_topic: 'segments.progress',
-              project_id: event.projectId,
-              chapter_id: event.chapterId,
-              active_segment_id: event.segmentId || null,
-              active_segment_progress: segmentProg ?? null,
-              active_segment_eta_seconds: segmentProg != null ? segmentEtaSeconds : null,
-              active_segment_eta_basis: segmentProg != null && segmentEtaSeconds != null ? (rawEtaBasis || 'remaining_from_update') : null,
-              active_segment_updated_at: segmentProg != null ? resolveEventUpdatedAt(event, payload) : null,
-              hasSegmentSupport: typeof rawHasSegmentSupport === 'boolean' ? rawHasSegmentSupport : undefined,
-              has_segment_support: typeof rawHasSegmentSupport === 'boolean' ? rawHasSegmentSupport : undefined,
-              status: projectedStatus,
-              reason_code: rawReasonCode,
-              log: payload.message || payload.log,
-              updated_at: resolveEventUpdatedAt(event, payload),
-              db_updated_at: typeof rawUpdatedAt === 'number' ? rawUpdatedAt : (typeof rawUpdatedAt === 'string' ? Date.parse(rawUpdatedAt) / 1000 : undefined),
-              db_started_at: typeof rawStartedAt === 'number' ? rawStartedAt : (typeof rawStartedAt === 'string' ? Date.parse(rawStartedAt) / 1000 : undefined),
-            };
-
-            const segmentStartedAt = rawStartedAt !== undefined
-              ? (typeof rawStartedAt === 'number'
-                ? rawStartedAt
-                : (typeof rawStartedAt === 'string' ? Date.parse(rawStartedAt) / 1000 : rawStartedAt))
-              : null;
-
-            const trace = {
-              rawEnvelope: {
-                frameId: envelope?.frameId || null,
-                receivedAt: envelope?.receivedAt || null,
-                topic: event.topic,
-                eventKind: event.eventKind,
-                projectId: event.projectId,
-                chapterId: event.chapterId,
-                jobId: event.jobId,
-                segmentId: event.segmentId,
-                raw: raw || null,
-                payload: payload,
-              },
-              consumedTopic: "segments.progress",
-              ignoredTopics: ["tts.logs", "queue.items", "chapters.progress"],
-              selectedFields: {
-                topic: event.topic,
-                eventKind: event.eventKind,
-                frameId: envelope?.frameId || null,
-                receivedAt: envelope?.receivedAt || null,
-                projectId: event.projectId,
-                chapterId: event.chapterId,
-                jobId: event.jobId,
-                segmentId: event.segmentId,
-                activeSegmentId: event.segmentId || null,
-                activeSegmentProgress: segmentProg ?? null,
-                etaSeconds: projectedUpdates.active_segment_eta_seconds !== null && projectedUpdates.active_segment_eta_seconds !== undefined ? projectedUpdates.active_segment_eta_seconds : null,
-                eta_basis: projectedUpdates.active_segment_eta_basis || null,
-                hasSegmentSupport: projectedUpdates.hasSegmentSupport ?? null,
-                started_at: segmentStartedAt,
-                status: projectedStatus || null,
-                progress: payload.progress ?? null,
-                reasonCode: rawReasonCode || null,
-                updatedAt: projectedUpdates.updated_at,
-              },
-              ignoredFields: Object.keys(payload).filter(
-                k => ![
-                  'activeSegmentId', 'active_segment_id',
-                  'activeSegmentProgress', 'active_segment_progress',
-                  'etaSeconds', 'eta_seconds',
-                  'etaBasis', 'eta_basis',
-                  'startedAt', 'started_at',
-                  'status',
-                  'progress',
-                  'reasonCode', 'reason_code',
-                  'updatedAt', 'updated_at',
-                  'confidence',
-                  'etaUpdatedAt', 'eta_updated_at',
-                  'segmentIndex', 'segment_index',
-                  'segmentCount', 'segment_count',
-                  'message',
-                  'hasSegmentSupport', 'has_segment_support'
-                ].includes(k)
-              )
-            };
             projectedUpdates.segmentProgressSocketProvenance = trace;
 
             // Remove undefined keys so we don't clear existing job keys unless intended
