@@ -159,7 +159,8 @@ Decisions: **Q1 left rail** · **Q2 five stages** · **Q3 one ScriptView, two ro
 - **U1 approved** as specced (undo toasts replace confirm modals; modals remain only for project delete and bulk audio reset).
 - **U3 typography scale approved** as shown in the styleguide proposal.
 - **U8 card content set** (2026-06-12): catalog card shows voice icon (uploaded image), class/gender/age badges, one-line description, ▶ preview, single phase CTA + overflow. New feature recorded as doc 04 C6: copyable image prompt generated from attributes + description so user-made icons stay stylistically uniform.
-- **PENDING — full-site mockup.** Owner is reviewing this doc; next design deliverable is a mockup of the whole site interface (rail + pipeline + player together), NOT further piecemeal styleguide specimen enlargements. Hold U15 specimen-scale rework until that request comes.
+- **Full-site mockup SHIPPED (2026-06-12)** as demo stage "siteMockupStage" (first card in the demo index): navigable rail → all destinations, Library→Book pipeline with the 5 stage tabs, bottom player bar, collapsible rail. Low fidelity by owner direction — layout/organization only; flesh out per-page after layout agreement.
+- **Owner review round 2 (2026-06-12):** player bar = full-width bottom dock clarified (not part of the rail); Activity page confirmed as the global "what's going on" surface (in-flight + ETA + history + stats); Q6 refined — bar is HIDDEN when nothing is loaded (not grayed out; no false affordance). **All remaining north-star recommendations approved as written.** Next: owner reviews the full-site mockup, then per-page layout iteration.
 
 | # | Question | My lean |
 |---|---|---|
