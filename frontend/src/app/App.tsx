@@ -18,6 +18,7 @@ import { Drawer } from '@/pages/Voices/components/VoiceUtils';
 const VoicesTab = lazy(() => import('@/pages/Voices/VoicesPage').then(m => ({ default: m.VoicesTab })));
 const ProjectView = lazy(() => import('@/pages/ProjectDetail/ProjectDetailPage').then(m => ({ default: m.ProjectView })));
 const ProjectViewRoute = lazy(() => import('@/pages/ProjectDetail/ProjectViewRoute').then(m => ({ default: m.ProjectViewRoute })));
+const ActivityPage = lazy(() => import('@/pages/Activity/ActivityPage'));
 const SettingsRoute = lazy(() => import('@/pages/Settings').then(m => ({ default: m.SettingsRoute })));
 const ProgressBarTestPage = lazy(() => import('@/pages/DevProgressBar/DevProgressBarPage').then(m => ({ default: m.ProgressBarTestPage })));
 const LiveOutputPage = lazy(() => import('@/pages/LiveOutput/LiveOutputPage').then(m => ({ default: m.LiveOutputPage })));
@@ -332,6 +333,17 @@ function App() {
                     />
                   )}
                 </QueueRoute>
+              } />
+              <Route path="/activity" element={
+                <ActivityPage
+                  paused={initialData?.paused || false}
+                  jobs={jobs}
+                  queue={mergedQueue}
+                  loading={queueLoading}
+                  onRefresh={() => refreshQueue('refresh')}
+                  connected={connected}
+                  isReconnecting={isReconnecting}
+                />
               } />
               <Route path="/voices" element={
                 <VoicesTab

@@ -91,6 +91,19 @@ describe('App', () => {
           json: () => Promise.resolve({ id: 'c1', project_id: 'p1', title: 'Chapter 1', sort_order: 0, audio_status: 'done' })
         })
       }
+      if (url === '/api/chapters/c1/script-view') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            chapter_id: 'c1',
+            base_revision_id: null,
+            paragraphs: [],
+            spans: [],
+            render_batches: [],
+            audio_groups: [],
+          })
+        })
+      }
       if (url === '/api/speakers') {
         return Promise.resolve({
           ok: true,
@@ -109,7 +122,7 @@ describe('App', () => {
     )
     
     await waitFor(() => {
-      expect(screen.getByText(/Audiobook/i)).toBeTruthy()
+      expect(screen.getByTestId('layout-root')).toBeTruthy()
     })
   })
 
@@ -121,7 +134,7 @@ describe('App', () => {
       </MemoryRouter>
     )
     await waitFor(() => {
-      expect(screen.getByText(/Audiobook/i)).toBeTruthy()
+      expect(screen.getByTestId('layout-root')).toBeTruthy()
     })
     expect(activeConnections).toBe(1)
   })
@@ -194,22 +207,36 @@ describe('App', () => {
       </MemoryRouter>
     )
     await waitFor(() => {
-        expect(screen.getByText(/Audiobook/i)).toBeTruthy()
+        expect(screen.getByTestId('layout-root')).toBeTruthy()
     })
 
-    const queueTab = screen.getByText('Queue')
+    const queueTab = screen.getAllByRole('button', { name: 'Queue' })[0]
     fireEvent.click(queueTab)
 
     await waitFor(() => {
         expect(screen.getByText(/Queue is empty/i)).toBeTruthy()
     })
 
-    const voicesTab = screen.getByText('Voices')
+    const voicesTab = screen.getAllByRole('button', { name: 'Voices' })[0]
     fireEvent.click(voicesTab)
 
     await waitFor(() => {
         expect(screen.getByText('Voices', { selector: 'h2' })).toBeTruthy()
     })
+  })
+
+  it('opens the activity page', async () => {
+    render(
+      <MemoryRouter initialEntries={['/activity']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Global Queue')).toBeTruthy()
+    })
+
+    expect(screen.getByText('Stats')).toBeTruthy()
   })
 
   it('opens the progress bar test page', async () => {
@@ -235,7 +262,9 @@ describe('App', () => {
       expect(screen.getByRole('heading', { name: 'TTS Engines' })).toBeTruthy()
     })
 
-    expect(screen.getByRole('button', { name: /Settings/i })).toHaveAttribute('aria-current', 'page')
+    expect(
+      screen.getAllByRole('button', { name: /Settings/i }).some((button) => button.getAttribute('aria-current') === 'page')
+    ).toBe(true)
   })
 
   it('opens deep-linked settings tabs directly on first load', async () => {
@@ -298,7 +327,7 @@ describe('App', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText(/Audiobook/i)).toBeTruthy()
+      expect(screen.getByTestId('layout-root')).toBeTruthy()
     })
 
     // Check that there is no nav link pointing to the secret path
@@ -316,11 +345,11 @@ describe('App', () => {
 
     // Wait for the app shell to load
     await waitFor(() => {
-      expect(screen.getByText(/Audiobook/i)).toBeTruthy()
+      expect(screen.getByTestId('layout-root')).toBeTruthy()
     })
 
     // Navigate to the lazy /voices route
-    const voicesTab = screen.getByText('Voices')
+    const voicesTab = screen.getAllByRole('button', { name: 'Voices' })[0]
     fireEvent.click(voicesTab)
 
     // The lazy chunk resolves and the Voices heading becomes visible
