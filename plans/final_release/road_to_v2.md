@@ -32,8 +32,8 @@ All logic fixes, progress confidence model, security blockers, test-quality audi
 - [x] Tokens + dark theme + theme switcher (doc 07 §0–2, 2026-06-11).
 - [x] Responsive completion incl. mobile nav drawer (doc 07 §3, 2026-06-11; 390px ChapterEditor tablet-min documented).
 - [x] Route code-splitting + vendor chunks (entry 876→346 kB, 2026-06-11; doc 11 P7).
-- [ ] Doc 10 quick wins Q1–Q12 (Q7 dead-route handled by Phase A plan). (M) — *in flight 2026-06-11*
-- [ ] **GATE: accessibility blockers A1–A3 + A9** (dialog semantics/focus traps, drawer, nav names, :focus-visible) — WCAG AA (doc 11). (M)
+- [x] Doc 10 quick wins Q1–Q12 (Q7 → Phase A) — DONE 2026-06-11.
+- [x] **GATE: accessibility blockers A1–A3 + A9** — DONE 2026-06-11 (useFocusTrap, dialog semantics, :focus-visible ring).
 - [ ] Doc 11 perf items P1–P6 (rAF-throttle LiveOutputTable, audit ring buffer, ScriptView memo, audio element reuse, visibility gating, interval dedup). (M)
 - [ ] Doc 10 ranked U1–U14 — *decide per item: 2.0 vs Phase B/C of the north star.* U15/U16 are answered by the north star decisions (rail + pipeline + player bar), executing as Phase A/B PRs post-#124.
 - [ ] Playwright/axe baseline strategy decision (CI-generated on Linux recommended), then doc 07 step 4. (S)
@@ -50,18 +50,18 @@ All logic fixes, progress confidence model, security blockers, test-quality audi
 
 ## Cross-cutting / in flight
 
-- [x] Model warm-holding spike (doc 11 P10) — *in flight 2026-06-11: persistent XTTS inference worker.*
+- [x] Model warm-holding spike (doc 11 P10) — DONE 2026-06-11: persistent XTTS warm worker (keep_model_loaded, idle timeout, one-shot fallback).
 - [ ] Voxtral segment + bake rendering (PR #124). (M) *Scope decision: 2.0 or post?*
 - [ ] Generic plugin setup loop in run.sh/run.ps1 (implement or defer with rationale). (S)
 - [ ] Sub-sentence speaker assignment — design doc exists; v2.0 target per owner. (L)
 - [ ] Observed-work queue items (master_agnostic_tasks §Observed Work Queue).
 
-## Contradictions to resolve (found in the 2026-06-11 audit)
+## Decisions — RESOLVED 2026-06-11 (owner)
 
-1. **Stage 6 timing**: doc 08 calls Stage 6 "Phase 13" (reads post-tag) but doc 18 says SP9 gates the v2.0.0 tag. Decide which.
-2. **Stage 3 exit bar**: manifest version gate alone vs full signature validation.
-3. **Stage 4 start condition**: D7/D8 approvals recorded — confirm implementation can start once Stage 3 exits, no further sign-off.
-
-## Owner decisions queue
-
-1. Stage 6 timing (above). 2. Signature-audit gating. 3. Voxtral segment/bake scope. 4. Sub-sentence assignment scope for 2.0. 5. Playwright baseline strategy. 6. Doc 06 `OWNER_CONFIRMED` deletions sign-off.
+1. **Stage 6 GATES the v2.0.0 tag** (Pinokio PK1-PK4, SP9 conformance, wiki corrections before tag; promo/release notes may trail by days).
+2. **Signature audit gates release** (small item; wrong-signature plugins must fail at load).
+3. **Voxtral segment/bake rendering: in scope for 2.0.**
+4. Sub-sentence assignment: v2.0 target (decided earlier).
+5. **Baselines: axe in CI now, visual snapshots later** (when CI has a fixed Linux runner).
+6. **Doc 06 deletions: authorized in full** — execute all OWNER_CONFIRMED items, one commit each, suite green per commit.
+7. **Stage 4a voice metadata: START NOW** (does not depend on Stage 3).
