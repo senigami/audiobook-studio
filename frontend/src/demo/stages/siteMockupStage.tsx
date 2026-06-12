@@ -1,5 +1,5 @@
 /**
- * siteMockupStage — North-star full-site organization mockup (medium fidelity v3.2).
+ * siteMockupStage — North-star full-site organization mockup (medium fidelity v3.3).
  *
  * Navigation:
  *   - Left rail items switch `activeRail` state.
@@ -9,16 +9,14 @@
  *   - Top bar "Queue" button slides a ~340px drawer over the right side WITHOUT
  *     changing the current page (the key "check status from anywhere" workflow).
  *
- * v3.2 changes:
- *   - BookHeaderStrip removed; book metadata split into Publish (canonical editor)
- *     and Manuscript (collapsed disclosure row).
- *   - Casting: Narrator pinned as always-first row with accent-tint background.
- *   - Manuscript chapter preview: read-only lock chip.
- *   - Studio book view: editable chip row above prose.
- *   - Review annotations: section chips (§N) instead of timestamps; caption added.
- *   - Chapters moved into left rail under Studio stage link; chapter rail removed
- *     from StudioPane; freed width goes to prose column.
- *   - Caption updated to v3.2.
+ * v3.3 changes:
+ *   - TopBar: when inside a book, breadcrumb shows cover chip + bold title + muted
+ *     metadata run; clicking that cluster opens Publish tab (book info editor).
+ *   - Studio: right-column cast palette (paint mode) with 4 swatches; clicking a
+ *     swatch arms paint mode; clicking prose sentences assigns the armed speaker.
+ *     Speaker key legend removed (palette replaces it).
+ *   - Manuscript "Book details ▸" disclosure row removed (superseded by TopBar identity).
+ *   - Caption updated to v3.3.
  */
 
 import React, { useState } from 'react';
@@ -344,72 +342,152 @@ const TopBar: React.FC<{
   breadcrumb: string;
   queueOpen: boolean;
   onToggleQueue: () => void;
-}> = ({ breadcrumb, queueOpen, onToggleQueue }) => (
-  <div
-    style={{
-      height: 36,
-      flexShrink: 0,
-      background: 'var(--surface)',
-      borderBottom: '1px solid var(--border)',
-      display: 'flex',
-      alignItems: 'center',
-      padding: '0 14px',
-      gap: 10,
-      zIndex: 10,
-    }}
-  >
-    {/* Breadcrumb */}
-    <span style={{ flex: 1, fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-      {breadcrumb.split(' / ').map((seg, i, arr) => (
-        <React.Fragment key={seg}>
-          <span style={{ color: i === arr.length - 1 ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: i === arr.length - 1 ? 600 : 400 }}>
-            {seg}
-          </span>
-          {i < arr.length - 1 && <span style={{ margin: '0 4px', color: 'var(--text-muted)' }}>›</span>}
-        </React.Fragment>
-      ))}
-    </span>
+  inBook?: boolean;
+  activeBookTab?: BookTab;
+  onSwitchToPublish?: () => void;
+}> = ({ breadcrumb, queueOpen, onToggleQueue, inBook, activeBookTab, onSwitchToPublish }) => {
+  // When inside a book, breadcrumb = "Library / <book-identity> / <stage>"
+  // Split off the last segment (stage name) to render separately.
+  const segments = breadcrumb.split(' / ');
+  const stageSeg = inBook ? segments[segments.length - 1] : null;
 
-    {/* Connection dot */}
-    <span style={{ fontSize: '0.5rem', color: '#22c55e' }}>●</span>
-    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Connected</span>
-
-    {/* Queue button */}
+  return (
     <div
-      onClick={onToggleQueue}
       style={{
-        display: 'inline-flex',
+        height: 36,
+        flexShrink: 0,
+        background: 'var(--surface)',
+        borderBottom: '1px solid var(--border)',
+        display: 'flex',
         alignItems: 'center',
+        padding: '0 14px',
         gap: 6,
-        fontSize: '0.68rem',
-        fontWeight: 600,
-        padding: '3px 10px',
-        borderRadius: 6,
-        border: `1px solid ${queueOpen ? 'var(--accent)' : 'var(--border)'}`,
-        background: queueOpen ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-        color: queueOpen ? 'var(--accent)' : 'var(--text-primary)',
-        cursor: 'pointer',
+        zIndex: 10,
+        minWidth: 0,
       }}
     >
-      ⚡ Queue
-      <span
+      {/* Breadcrumb — Library segment */}
+      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', flexShrink: 0 }}>Library</span>
+      <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', flexShrink: 0 }}>›</span>
+
+      {inBook ? (
+        <>
+          {/* Book identity cluster — cover chip + title + metadata, all clickable → Publish */}
+          <div
+            onClick={onSwitchToPublish}
+            title="Edit book info in Publish"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              cursor: 'pointer',
+              minWidth: 0,
+              overflow: 'hidden',
+              flexShrink: 1,
+              maxWidth: 340,
+            }}
+          >
+            {/* Tiny cover chip: 18×24 */}
+            <div style={{
+              width: 18,
+              height: 24,
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, var(--accent-tint-bg) 0%, var(--border) 100%)',
+              border: '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '0.7rem',
+              lineHeight: 1,
+              flexShrink: 0,
+            }}>
+              📕
+            </div>
+            {/* Bold book title */}
+            <span style={{
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              flexShrink: 1,
+            }}>
+              The Whispering Vale
+            </span>
+            {/* Muted metadata run */}
+            <span style={{
+              fontSize: '0.6rem',
+              color: 'var(--text-muted)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              flexShrink: 2,
+            }}>
+              R.E. Hartley · The Vale Cycle #1 · 6h 12m · pred 6h 28m
+            </span>
+          </div>
+
+          {/* Separator + stage name */}
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', flexShrink: 0 }}>›</span>
+          <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 }}>
+            {stageSeg}
+          </span>
+        </>
+      ) : (
+        /* Non-book: just render remaining breadcrumb segments */
+        segments.slice(1).map((seg, i) => (
+          <React.Fragment key={seg}>
+            {i > 0 && <span style={{ margin: '0 2px', color: 'var(--text-muted)', fontSize: '0.7rem' }}>›</span>}
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-primary)', fontWeight: 600 }}>{seg}</span>
+          </React.Fragment>
+        ))
+      )}
+
+      <div style={{ flex: 1 }} />
+
+      {/* Connection dot */}
+      <span style={{ fontSize: '0.5rem', color: '#22c55e' }}>●</span>
+      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Connected</span>
+
+      {/* Queue button */}
+      <div
+        onClick={onToggleQueue}
         style={{
-          fontSize: '0.58rem',
-          fontWeight: 700,
-          background: 'var(--accent)',
-          color: '#fff',
-          borderRadius: 10,
-          padding: '0 5px',
-          lineHeight: '14px',
-          height: 14,
-          display: 'inline-block',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          fontSize: '0.68rem',
+          fontWeight: 600,
+          padding: '3px 10px',
+          borderRadius: 6,
+          border: `1px solid ${queueOpen ? 'var(--accent)' : 'var(--border)'}`,
+          background: queueOpen ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+          color: queueOpen ? 'var(--accent)' : 'var(--text-primary)',
+          cursor: 'pointer',
+          flexShrink: 0,
         }}
       >
-        2
-      </span>
+        ⚡ Queue
+        <span
+          style={{
+            fontSize: '0.58rem',
+            fontWeight: 700,
+            background: 'var(--accent)',
+            color: '#fff',
+            borderRadius: 10,
+            padding: '0 5px',
+            lineHeight: '14px',
+            height: 14,
+            display: 'inline-block',
+          }}
+        >
+          2
+        </span>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Rail
@@ -901,81 +979,9 @@ const BOOK_TABS: BookTab[] = ['Manuscript', 'Casting', 'Studio', 'Review', 'Publ
 // ---------------------------------------------------------------------------
 // Manuscript pane
 
-const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ onSwitchToPublish }) => {
-  const [detailsOpen, setDetailsOpen] = useState(false);
-
+const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ onSwitchToPublish: _onSwitchToPublish }) => {
   return (
     <Col gap={8} style={{ flex: 1 }}>
-      {/* Book details disclosure row */}
-      <div
-        style={{
-          background: 'var(--surface-alt)',
-          border: '1px solid var(--border)',
-          borderRadius: 6,
-          overflow: 'hidden',
-          flexShrink: 0,
-        }}
-      >
-        {/* Collapsed trigger row */}
-        <div
-          onClick={() => setDetailsOpen(o => !o)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '5px 10px',
-            cursor: 'pointer',
-            fontSize: '0.65rem',
-            color: 'var(--text-secondary)',
-            fontWeight: 500,
-          }}
-        >
-          <span>📖 Book details</span>
-          <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>
-            {detailsOpen ? '▾' : '▸'}
-          </span>
-        </div>
-        {/* Expanded summary */}
-        {detailsOpen && (
-          <div
-            style={{
-              padding: '0 10px 8px 10px',
-              borderTop: '1px solid var(--border)',
-            }}
-          >
-            <Row gap={8} style={{ alignItems: 'flex-start', marginTop: 6 }}>
-              <div style={{
-                fontSize: '1.6rem',
-                lineHeight: 1,
-                flexShrink: 0,
-              }}>
-                📕
-              </div>
-              <Col gap={3} style={{ flex: 1 }}>
-                <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-primary)' }}>The Whispering Vale</div>
-                <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>E. Holloway</div>
-                <div style={{ fontSize: '0.57rem', color: 'var(--accent)', fontStyle: 'italic' }}>The Vale Cycle · #1</div>
-                <Row gap={4} style={{ flexWrap: 'wrap', marginTop: 2 }}>
-                  <Chip>6h 12m</Chip>
-                  <Chip>Created 2026-05-14</Chip>
-                </Row>
-              </Col>
-            </Row>
-            <div
-              onClick={onSwitchToPublish}
-              style={{
-                marginTop: 6,
-                fontSize: '0.6rem',
-                color: 'var(--accent)',
-                cursor: 'pointer',
-              }}
-            >
-              Edit in Publish →
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Main content row */}
       <Row gap={10} style={{ flex: 1, alignItems: 'stretch' }}>
         {/* Chapter table */}
@@ -1297,7 +1303,7 @@ const CastingPane: React.FC = () => (
 );
 
 // ---------------------------------------------------------------------------
-// Studio pane — chapter rail removed; prose column gets the freed width
+// Studio pane — chapter rail removed; prose column + right cast palette
 
 const SCRIPT_LINES = [
   { speaker: 'Narrator', color: '#22c55e', text: 'The gate groaned open on rusted hinges.' },
@@ -1309,14 +1315,55 @@ const SCRIPT_LINES = [
   { speaker: 'Dov', color: '#f59e0b', text: '"Right." He exhaled. "Right."' },
 ];
 
+// Paintable sentence ids
+const PAINTABLE_SENTENCE_IDS = ['s1', 's2', 's3', 's4', 's5'] as const;
+type SentenceId = typeof PAINTABLE_SENTENCE_IDS[number];
+
+const CAST_SWATCHES: { id: string; name: string; dot: string; avatar: string }[] = [
+  { id: 'Narrator', name: 'Narrator (default)', dot: '#6b7280', avatar: '🎙' },
+  { id: 'Maren',    name: 'Maren',              dot: '#6366f1', avatar: '👩' },
+  { id: 'Dov',      name: 'Dov',                dot: '#f59e0b', avatar: '🧑' },
+  { id: 'ElderRowan', name: 'Elder Rowan',       dot: '#0d9488', avatar: '🧓' },
+];
+
+const SPEAKER_COLOR: Record<string, string> = {
+  Narrator: '#22c55e',
+  Maren: '#6366f1',
+  Dov: '#f59e0b',
+  ElderRowan: '#0d9488',
+};
+
 const StudioPane: React.FC = () => {
   const [viewMode, setViewMode] = useState<'book' | 'script'>('book');
   const [safeText, setSafeText] = useState(false);
   const [showNumbers, setShowNumbers] = useState(false);
+  // Paint mode state
+  const [armedSwatch, setArmedSwatch] = useState<string | null>(null);
+  const [sentenceSpeaker, setSentenceSpeaker] = useState<Record<SentenceId, string>>({
+    s1: 'Narrator',
+    s2: 'Maren',
+    s3: 'Dov',
+    s4: 'Narrator',
+    s5: 'Dov',
+  });
 
-  const narratorColor = '#22c55e';
-  const marenColor = '#6366f1';
-  const dovColor = '#f59e0b';
+  const handleSwatchClick = (id: string) => {
+    setArmedSwatch(prev => (prev === id ? null : id));
+  };
+
+  const handleSentenceClick = (sid: SentenceId) => {
+    if (!armedSwatch) return;
+    setSentenceSpeaker(prev => ({ ...prev, [sid]: armedSwatch }));
+  };
+
+  const speakerUnderline = (sid: SentenceId) => {
+    const sp = sentenceSpeaker[sid];
+    const color = SPEAKER_COLOR[sp] ?? '#6b7280';
+    return { borderBottom: `2px solid ${color}`, paddingBottom: 1, cursor: armedSwatch ? 'crosshair' : 'default' };
+  };
+
+  const marenColor = sentenceSpeaker.s2 ? SPEAKER_COLOR[sentenceSpeaker.s2] : '#6366f1';
+  const dovColor = sentenceSpeaker.s3 ? SPEAKER_COLOR[sentenceSpeaker.s3] : '#f59e0b';
 
   return (
     /* No chapter rail — it lives in the left rail now */
@@ -1384,193 +1431,314 @@ const StudioPane: React.FC = () => {
         </div>
       </div>
 
-      {/* Content area */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
-        {viewMode === 'book' ? (
-          <Col gap={10}>
-            {/* Editable chip row */}
-            <div
-              style={{
-                fontSize: '0.58rem',
-                color: 'var(--accent)',
-                background: 'var(--accent-tint-bg)',
-                border: '1px solid var(--accent)',
-                borderRadius: 4,
-                padding: '3px 8px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <span>✏</span>
-              <span>editable — edits re-analyze affected sections only</span>
+      {/* Main row: prose + cast palette */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {/* Content area — prose */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
+          {/* Paint-mode floating chip */}
+          {armedSwatch && (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: '0.6rem',
+              padding: '3px 8px',
+              marginBottom: 8,
+              borderRadius: 20,
+              background: (SPEAKER_COLOR[armedSwatch] ?? '#6b7280') + '22',
+              border: `1px solid ${(SPEAKER_COLOR[armedSwatch] ?? '#6b7280')}55`,
+              color: SPEAKER_COLOR[armedSwatch] ?? '#6b7280',
+            }}>
+              🖌 painting: {armedSwatch === 'ElderRowan' ? 'Elder Rowan' : armedSwatch} — click sentences to assign
             </div>
+          )}
 
-            {/* Safe text notice */}
-            {safeText && (
-              <div style={{
-                fontSize: '0.58rem',
-                color: 'var(--accent)',
-                background: 'var(--accent-tint-bg)',
-                border: '1px solid var(--accent)',
-                borderRadius: 4,
-                padding: '3px 8px',
-              }}>
-                safe text is per-engine — may differ per section by voice
-              </div>
-            )}
-
-            {/* Paragraph 1 — mostly narrator, one rendered sentence */}
-            <div style={{ fontSize: '0.72rem', lineHeight: 1.75, color: 'var(--text-primary)' }}>
-              {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§1</span>}
-              {safeText
-                ? 'The road went down through pale trees and old stone.'
-                : 'The road wound down through silver birch and pale stone, the kind of road that remembers every foot that has ever crossed it.'
-              }{' '}
-              {/* Rendered sentence — green tint + play affordance */}
-              <span style={{
-                background: 'rgba(34,197,94,0.10)',
-                borderRadius: 3,
-                padding: '1px 3px',
-                cursor: 'pointer',
-                position: 'relative',
-                display: 'inline',
-              }}>
-                <span style={{ fontSize: '0.6rem', marginRight: 3, color: '#22c55e' }}>▶</span>
-                {safeText ? 'Maren pulled her cloak close.' : 'Maren pulled her cloak tighter against the chill that rose from the valley floor.'}
-              </span>{' '}
-              {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§2</span>}
-              {safeText ? 'The vale smelled of rain.' : 'The vale smelled of old rain and something older still — loam and iron and time.'}
-            </div>
-
-            {/* Paragraph 2 — dialogue with speaker underlines */}
-            <div style={{ fontSize: '0.72rem', lineHeight: 1.75, color: 'var(--text-primary)' }}>
-              {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§3</span>}
-              {/* Maren dialogue */}
-              <span style={{
-                borderBottom: `2px solid ${marenColor}`,
-                paddingBottom: 1,
-              }}>
-                {'"Stay close to me.'}
-              </span>{' '}
-              <span style={{
-                borderBottom: `2px solid ${marenColor}`,
-                paddingBottom: 1,
-              }}>
-                {safeText ? 'The warden moves at dusk."' : "The warden's lantern moves at dusk, and it moves fast.\""}
-              </span>{' '}
-              {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§4</span>}
-              {/* In-progress / rendering sentence */}
-              <span style={{
-                background: 'var(--accent-tint-bg)',
-                borderRadius: 3,
-                padding: '1px 3px',
-                display: 'inline',
-              }}>
-                {safeText ? 'Dov tightened his grip.' : 'Dov tightened his grip on the satchel and said nothing for a long moment.'}
-                <span style={{ fontSize: '0.55rem', color: 'var(--accent)', fontStyle: 'italic', marginLeft: 5 }}>
-                  rendering…
-                </span>
-              </span>{' '}
-              {/* Dov response */}
-              <span style={{
-                borderBottom: `2px solid ${dovColor}`,
-                paddingBottom: 1,
-              }}>
-                {'"How close exactly?"'}
-              </span>
-            </div>
-
-            {/* Paragraph 3 — mixed sentence callout */}
-            <div style={{ fontSize: '0.72rem', lineHeight: 1.75, color: 'var(--text-primary)', position: 'relative' }}>
-              {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§5</span>}
-              {safeText ? 'The vale took them.' : 'Far above, an owl called once, then fell silent.'}{' '}
-              {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§6</span>}
-              {/* Mixed sentence: quoted span = Dov, rest = narrator */}
-              <span title='Mixed: "He excelled," = Dov; rest = Narrator'>
-                <span style={{ borderBottom: `2px solid ${dovColor}`, paddingBottom: 1 }}>
-                  {'"He excelled,"'}
-                </span>
-                {' Dove said, rising from his chair.'}
-              </span>
-              {/* Callout chip */}
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                marginLeft: 6,
-                fontSize: '0.52rem',
-                color: dovColor,
-                background: dovColor + '18',
-                border: `1px solid ${dovColor}55`,
-                borderRadius: 10,
-                padding: '1px 6px',
-                cursor: 'default',
-                verticalAlign: 'middle',
-              }}>
-                sub-sentence assignment (planned)
-              </span>
-            </div>
-
-            {/* Speaker key */}
-            <Row gap={10} style={{ marginTop: 4, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Speaker key:</span>
-              {[
-                { label: 'Narrator', color: narratorColor, note: 'no underline / neutral' },
-                { label: 'Maren', color: marenColor },
-                { label: 'Dov', color: dovColor },
-              ].map(s => (
-                <Row key={s.label} gap={4} style={{ alignItems: 'center' }}>
-                  {s.note
-                    ? <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>Narrator — no underline</span>
-                    : <>
-                        <span style={{ width: 16, height: 2, background: s.color, display: 'inline-block', borderRadius: 1 }} />
-                        <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>{s.label}</span>
-                      </>
-                  }
-                </Row>
-              ))}
-            </Row>
-          </Col>
-        ) : (
-          /* Script view */
-          <Col gap={0}>
-            <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 8 }}>
-              Script view — final read-through / play-script preview
-            </div>
-            {SCRIPT_LINES.map((line, i) => (
+          {viewMode === 'book' ? (
+            <Col gap={10}>
+              {/* Editable chip row */}
               <div
-                key={i}
                 style={{
-                  marginBottom: 6,
-                  borderRadius: 6,
-                  padding: '5px 8px',
-                  background: line.rendering ? 'var(--accent-tint-bg)' : 'transparent',
-                  border: line.rendering ? '1px solid var(--accent)' : '1px solid transparent',
+                  fontSize: '0.58rem',
+                  color: 'var(--accent)',
+                  background: 'var(--accent-tint-bg)',
+                  border: '1px solid var(--accent)',
+                  borderRadius: 4,
+                  padding: '3px 8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
                 }}
               >
-                <Row gap={6} style={{ alignItems: 'center', marginBottom: 2 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: line.color, display: 'inline-block', flexShrink: 0 }} />
-                  <span style={{ fontSize: '0.58rem', fontWeight: 700, color: line.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    {line.speaker}
-                  </span>
-                  {line.rendering && (
-                    <span style={{ fontSize: '0.55rem', color: 'var(--accent)', fontStyle: 'italic', marginLeft: 4 }}>
-                      rendering…
-                    </span>
-                  )}
-                </Row>
-                <div style={{ fontSize: '0.68rem', color: 'var(--text-primary)', lineHeight: 1.5, paddingLeft: 13 }}>
-                  {line.text}
-                </div>
-                {line.rendering && (
-                  <div style={{ marginTop: 4, paddingLeft: 13 }}>
-                    <ProgressBar pct={64} height={3} shimmer />
-                  </div>
-                )}
+                <span>✏</span>
+                <span>editable — edits re-analyze affected sections only</span>
               </div>
-            ))}
+
+              {/* Safe text notice */}
+              {safeText && (
+                <div style={{
+                  fontSize: '0.58rem',
+                  color: 'var(--accent)',
+                  background: 'var(--accent-tint-bg)',
+                  border: '1px solid var(--accent)',
+                  borderRadius: 4,
+                  padding: '3px 8px',
+                }}>
+                  safe text is per-engine — may differ per section by voice
+                </div>
+              )}
+
+              {/* Paragraph 1 — mostly narrator, one rendered sentence */}
+              <div style={{ fontSize: '0.72rem', lineHeight: 1.75, color: 'var(--text-primary)' }}>
+                {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§1</span>}
+                {/* Paintable sentence s1 */}
+                <span
+                  style={speakerUnderline('s1')}
+                  onClick={() => handleSentenceClick('s1')}
+                >
+                  {safeText
+                    ? 'The road went down through pale trees and old stone.'
+                    : 'The road wound down through silver birch and pale stone, the kind of road that remembers every foot that has ever crossed it.'
+                  }
+                </span>{' '}
+                {/* Rendered sentence — green tint + play affordance */}
+                <span style={{
+                  background: 'rgba(34,197,94,0.10)',
+                  borderRadius: 3,
+                  padding: '1px 3px',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  display: 'inline',
+                }}>
+                  <span style={{ fontSize: '0.6rem', marginRight: 3, color: '#22c55e' }}>▶</span>
+                  {safeText ? 'Maren pulled her cloak close.' : 'Maren pulled her cloak tighter against the chill that rose from the valley floor.'}
+                </span>{' '}
+                {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§2</span>}
+                {/* Paintable sentence s2 */}
+                <span
+                  style={speakerUnderline('s2')}
+                  onClick={() => handleSentenceClick('s2')}
+                >
+                  {safeText ? 'The vale smelled of rain.' : 'The vale smelled of old rain and something older still — loam and iron and time.'}
+                </span>
+              </div>
+
+              {/* Paragraph 2 — dialogue with speaker underlines */}
+              <div style={{ fontSize: '0.72rem', lineHeight: 1.75, color: 'var(--text-primary)' }}>
+                {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§3</span>}
+                {/* Maren dialogue — paintable s3 */}
+                <span
+                  style={{ ...speakerUnderline('s3') }}
+                  onClick={() => handleSentenceClick('s3')}
+                >
+                  {'"Stay close to me.'}
+                </span>{' '}
+                <span style={{
+                  borderBottom: `2px solid ${marenColor}`,
+                  paddingBottom: 1,
+                }}>
+                  {safeText ? 'The warden moves at dusk."' : "The warden's lantern moves at dusk, and it moves fast.\""}
+                </span>{' '}
+                {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§4</span>}
+                {/* In-progress / rendering sentence */}
+                <span style={{
+                  background: 'var(--accent-tint-bg)',
+                  borderRadius: 3,
+                  padding: '1px 3px',
+                  display: 'inline',
+                }}>
+                  {safeText ? 'Dov tightened his grip.' : 'Dov tightened his grip on the satchel and said nothing for a long moment.'}
+                  <span style={{ fontSize: '0.55rem', color: 'var(--accent)', fontStyle: 'italic', marginLeft: 5 }}>
+                    rendering…
+                  </span>
+                </span>{' '}
+                {/* Dov response — paintable s4 */}
+                <span
+                  style={speakerUnderline('s4')}
+                  onClick={() => handleSentenceClick('s4')}
+                >
+                  {'"How close exactly?"'}
+                </span>
+              </div>
+
+              {/* Paragraph 3 — mixed sentence callout */}
+              <div style={{ fontSize: '0.72rem', lineHeight: 1.75, color: 'var(--text-primary)', position: 'relative' }}>
+                {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§5</span>}
+                {/* Paintable sentence s5 */}
+                <span
+                  style={speakerUnderline('s5')}
+                  onClick={() => handleSentenceClick('s5')}
+                >
+                  {safeText ? 'The vale took them.' : 'Far above, an owl called once, then fell silent.'}
+                </span>{' '}
+                {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§6</span>}
+                {/* Mixed sentence: quoted span = Dov, rest = narrator */}
+                <span title='Mixed: "He excelled," = Dov; rest = Narrator'>
+                  <span style={{ borderBottom: `2px solid ${dovColor}`, paddingBottom: 1 }}>
+                    {'"He excelled,"'}
+                  </span>
+                  {' Dove said, rising from his chair.'}
+                </span>
+                {/* Callout chip */}
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  marginLeft: 6,
+                  fontSize: '0.52rem',
+                  color: dovColor,
+                  background: dovColor + '18',
+                  border: `1px solid ${dovColor}55`,
+                  borderRadius: 10,
+                  padding: '1px 6px',
+                  cursor: 'default',
+                  verticalAlign: 'middle',
+                }}>
+                  sub-sentence assignment (planned)
+                </span>
+              </div>
+            </Col>
+          ) : (
+            /* Script view */
+            <Col gap={0}>
+              <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 8 }}>
+                Script view — final read-through / play-script preview
+              </div>
+              {SCRIPT_LINES.map((line, i) => (
+                <div
+                  key={i}
+                  style={{
+                    marginBottom: 6,
+                    borderRadius: 6,
+                    padding: '5px 8px',
+                    background: line.rendering ? 'var(--accent-tint-bg)' : 'transparent',
+                    border: line.rendering ? '1px solid var(--accent)' : '1px solid transparent',
+                  }}
+                >
+                  <Row gap={6} style={{ alignItems: 'center', marginBottom: 2 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: line.color, display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ fontSize: '0.58rem', fontWeight: 700, color: line.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {line.speaker}
+                    </span>
+                    {line.rendering && (
+                      <span style={{ fontSize: '0.55rem', color: 'var(--accent)', fontStyle: 'italic', marginLeft: 4 }}>
+                        rendering…
+                      </span>
+                    )}
+                  </Row>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-primary)', lineHeight: 1.5, paddingLeft: 13 }}>
+                    {line.text}
+                  </div>
+                  {line.rendering && (
+                    <div style={{ marginTop: 4, paddingLeft: 13 }}>
+                      <ProgressBar pct={64} height={3} shimmer />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </Col>
+          )}
+        </div>
+
+        {/* Cast palette — right column, ~150px */}
+        <div
+          style={{
+            width: 150,
+            flexShrink: 0,
+            borderLeft: '1px solid var(--border)',
+            background: 'var(--surface)',
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '8px 0 0',
+          }}
+        >
+          {/* Header */}
+          <div style={{
+            fontSize: '0.6rem',
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'var(--text-muted)',
+            padding: '0 10px 6px',
+            borderBottom: '1px solid var(--border)',
+            flexShrink: 0,
+          }}>
+            Cast
+          </div>
+
+          {/* Swatch list */}
+          <Col gap={0} style={{ flex: 1, padding: '6px 0' }}>
+            {CAST_SWATCHES.map(sw => {
+              const isArmed = armedSwatch === sw.id;
+              return (
+                <div
+                  key={sw.id}
+                  onClick={() => handleSwatchClick(sw.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    padding: '5px 10px',
+                    cursor: 'pointer',
+                    background: isArmed ? sw.dot + '18' : 'transparent',
+                    borderLeft: isArmed ? `3px solid ${sw.dot}` : '3px solid transparent',
+                    outline: isArmed ? `1px solid ${sw.dot}44` : 'none',
+                    outlineOffset: -1,
+                  }}
+                >
+                  {/* Color dot */}
+                  <span style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: sw.dot,
+                    flexShrink: 0,
+                    display: 'inline-block',
+                    boxShadow: isArmed ? `0 0 0 2px ${sw.dot}44` : 'none',
+                  }} />
+                  {/* Avatar circle */}
+                  <div style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: '50%',
+                    background: sw.dot + '22',
+                    border: `1px solid ${sw.dot}55`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.7rem',
+                    flexShrink: 0,
+                  }}>
+                    {sw.avatar}
+                  </div>
+                  {/* Name */}
+                  <span style={{
+                    fontSize: '0.6rem',
+                    fontWeight: isArmed ? 700 : 400,
+                    color: isArmed ? sw.dot : 'var(--text-secondary)',
+                    lineHeight: 1.3,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    flex: 1,
+                  }}>
+                    {sw.name}
+                  </span>
+                </div>
+              );
+            })}
           </Col>
-        )}
+
+          {/* Footnote */}
+          <div style={{
+            padding: '6px 10px 8px',
+            borderTop: '1px solid var(--border)',
+            fontSize: '0.52rem',
+            color: 'var(--text-muted)',
+            fontStyle: 'italic',
+            lineHeight: 1.4,
+          }}>
+            paint a voice, then click text to assign — sub-sentence spans planned
+          </div>
+        </div>
       </div>
 
       {/* Render controls strip */}
@@ -2544,13 +2712,19 @@ const SiteMockup: React.FC = () => {
     setInBook(true);
   };
 
-  // Compute breadcrumb
+  // Compute breadcrumb string (TopBar uses this; when inBook it also reads inBook/activeBookTab directly)
   let breadcrumb = 'Library';
   if (activeRail !== 'Library') {
     breadcrumb = activeRail;
   } else if (inBook) {
     breadcrumb = `Library / The Whispering Vale / ${activeBookTab}`;
   }
+
+  const handleSwitchToPublish = () => {
+    setActiveBookTab('Publish');
+    setActiveRail('Library');
+    setInBook(true);
+  };
 
   return (
     <Col gap={0} style={{ height: '100%', position: 'relative' }}>
@@ -2566,7 +2740,7 @@ const SiteMockup: React.FC = () => {
           flexShrink: 0,
         }}
       >
-        North-star organization mockup — current functionality represented. Queue drawer = check status from anywhere without losing your place. · v3.2
+        North-star organization mockup — current functionality represented. Queue drawer = check status from anywhere without losing your place. · v3.3
       </div>
 
       {/* App window — column: [top bar] / [rail + content] / [player bar] */}
@@ -2576,6 +2750,9 @@ const SiteMockup: React.FC = () => {
           breadcrumb={breadcrumb}
           queueOpen={queueOpen}
           onToggleQueue={() => setQueueOpen(o => !o)}
+          inBook={inBook && activeRail === 'Library'}
+          activeBookTab={activeBookTab}
+          onSwitchToPublish={handleSwitchToPublish}
         />
 
         {/* Middle row: rail + content — drawer is scoped here so it does NOT cover player bar */}
@@ -2660,6 +2837,6 @@ export const siteMockupStage = {
   id: 'site-mockup',
   title: 'Site Mockup — North Star',
   description:
-    'Medium-fidelity full-site layout mockup v3.2 — current functionality represented: queue drawer slide-over, collapsible rail with full chapter list under Studio, book pipeline stages (Manuscript/Casting/Studio/Review/Publish), Studio book-view with speaker underlines + mixed-sentence callout + editable chip, follow-along Review player with section annotations, Publish canonical book info editor, and all rail destinations with realistic fake data.',
+    'Medium-fidelity full-site layout mockup v3.3 — current functionality represented: queue drawer slide-over, collapsible rail with full chapter list under Studio, book pipeline stages (Manuscript/Casting/Studio/Review/Publish), TopBar book identity cluster (cover chip + title + metadata → Publish), Studio book-view with speaker underlines + cast paint palette (4 swatches, 5 paintable sentences) + mixed-sentence callout + editable chip, follow-along Review player with section annotations, Publish canonical book info editor, and all rail destinations with realistic fake data.',
   element: <SiteMockupElement />,
 };
