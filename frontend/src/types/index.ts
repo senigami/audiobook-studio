@@ -249,6 +249,32 @@ export interface Speaker {
   updated_at: number;
 }
 
+/** Voice attributes — controlled vocabularies per docs/specs/voice-taxonomy.json v1.0 */
+export interface VoiceAttributes {
+  class?: string;
+  gender?: string;
+  age?: string;
+  accent?: string;
+  tone?: string[];
+  timbre?: string[];
+  pace?: string;
+  use_case?: string[];
+  quality?: string[];
+}
+
+/** Full metadata for a voice — returned by GET /api/voices/ and PATCH /api/voices/{id}/metadata */
+export interface VoiceMetadata {
+  id: string;
+  name: string;
+  description?: string;
+  image?: string;
+  languages?: string[];
+  attributes?: VoiceAttributes;
+  tags?: string[];
+  /** True when the attributes block is absent (voice has not been tagged yet) */
+  is_untagged: boolean;
+}
+
 export interface Job {
   id: string;
   engine: Engine;

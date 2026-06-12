@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Speaker, SpeakerProfile, TtsEngine } from '@/types';
-import { User, RefreshCw, ChevronUp, Star, FileEdit, Trash2, Plus, Download } from 'lucide-react';
+import { User, RefreshCw, ChevronUp, Star, FileEdit, Trash2, Plus, Download, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { VariantEditor } from '@/pages/Voices/components/VariantEditor';
@@ -21,6 +21,10 @@ interface NarratorCardProps {
     onRenameClick: (speaker: Speaker) => void;
     onExportVoice?: (voiceName: string) => void;
     onSetDefaultClick: (profileName: string) => void;
+    /** True when this voice has no attributes block — nudges the user to tag it */
+    isUntagged?: boolean;
+    /** Opens the metadata editor for this voice */
+    onEditMetadata?: () => void;
     isExpanded: boolean;
     onToggleExpand: () => void;
     buildingProfiles: Record<string, boolean>;
@@ -33,7 +37,9 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     onEditTestText, onBuildNow, requestConfirm,
     onAddVariantClick, onRenameClick, onExportVoice, onSetDefaultClick, isExpanded, onToggleExpand, onMoveVariant,
     buildingProfiles,
-    engines = []
+    engines = [],
+    isUntagged = false,
+    onEditMetadata,
 }) => {
     const defaultProfileName = getDefaultVoiceProfileName(profiles);
     const defaultProfile =
@@ -223,6 +229,31 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                 fontWeight: 800,
                                 letterSpacing: '0.02em'
                             }}>{activeEngineBadge.label}</span>
+                            {isUntagged && (
+                                <button
+                                    type="button"
+                                    title="This voice has no metadata tags. Click to add tags and improve voice search and casting."
+                                    aria-label="Voice not tagged — click to add metadata"
+                                    onClick={(e) => { e.stopPropagation(); onEditMetadata?.(); }}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        fontSize: '0.65rem',
+                                        padding: '2px 8px',
+                                        background: 'var(--warning-tint-bg)',
+                                        color: 'var(--warning-text)',
+                                        borderRadius: '100px',
+                                        fontWeight: 800,
+                                        letterSpacing: '0.02em',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    <Tag size={10} />
+                                    Not tagged
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -235,6 +266,11 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                 icon: Star,
                                 disabled: (profiles.find(p => p.name === activeProfileId) || {} as any).is_default,
                                 onClick: () => onSetDefaultClick(activeProfileId)
+                            },
+                            {
+                                label: 'Edit Metadata',
+                                icon: Tag,
+                                onClick: () => onEditMetadata?.()
                             },
                             {
                                 label: 'Rename Voice',
