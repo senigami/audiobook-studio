@@ -112,3 +112,15 @@
 ## Known Constraints
 
 - **ChapterEditor at 390px (tablet-minimum):** The ChapterEditor layout stacks columns below 1100px (sidebar moves below content, capped at 40vh). At 390px the editor is functional but dense — full usability at that viewport is not a target for the current release. The Library, Queue, Settings, and Voices pages are fully functional at 390px. This is an accepted constraint documented at plans/final_release/07_frontend_themes_and_responsive.md §3.4.
+
+## Observed Work Queue (2026-06-11 overnight run — noted while working, not yet scheduled)
+
+- [ ] **Frontend bundle code-splitting**: main build is one 868 kB chunk (Vite warns). Lazy-load route components (`React.lazy` per page) — biggest wins: ChapterEditor, Settings, DevProgressBar.
+- [ ] **`--z-drawer` token**: mobile nav drawer CSS uses `var(--z-drawer, 400)` fallback; define the token in tokens.css as part of U10 z-index consolidation (layering.ts as the source).
+- [ ] **Playwright visual + axe baselines** (doc 07 step 4, deferred): screenshot baselines are machine-specific — decide strategy (generate in CI on linux, commit from there) before enabling; axe color-contrast scan can land independently of snapshots.
+- [ ] **v1.html screenshots stale** (doc 14 step 7 remainder): re-shoot showcase screenshots on current 2.0 UI (post dark-theme).
+- [ ] **react-refresh lint warnings (11)**: demo stage files co-export descriptor objects with components; either split descriptor/component files or add a scoped eslint disable with justification.
+- [ ] **`app/jobs` naming debt**: `worker_helpers/worker_metrics/worker_voice` are legacy-named but LIVE (imported by synthesis_mixed and tts_xtts plugins). Rename/move under `app/orchestration/` requires coordinated plugin-import updates — do alongside the `tts_engines/` namespace rename above. (`app/jobs/reconcile.py` checklist item: already deleted; verified 2026-06-11.)
+- [ ] **Settings → API tab honesty**: panel is documentation-only but its sidebar blurb promises auth/queue-priority config; either trim the blurb now or implement the Integrations page (north star Phase C).
+- [ ] **Demo transport nits** (from adversarial review, non-blocking): `restart()` leaves playback paused; `play()` at non-looping timeline end is a no-op; shim `warnedRoutes` is module-global across install cycles.
+- [ ] **Owner decisions pending in plan docs**: north star Q1–Q6 (`plans/site_experience_north_star.md`); sanitize per-category override granularity + check_output retry policy (`plans/plugin_contract_qa_hooks_plan.md`); Phase A execution gate (`plans/site_shell_phase_a_plan.md`).
