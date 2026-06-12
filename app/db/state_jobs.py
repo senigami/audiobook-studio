@@ -7,6 +7,13 @@ from typing import Dict, Any, Optional
 
 from ..utils.render_trace import trace
 from .models import Job
+from .state_job_guards import (
+    should_drop_terminal_update,
+    apply_status_regression_guard,
+    normalize_segment_fields,
+    apply_terminal_eta_cleanup,
+    is_terminal_reset as _is_terminal_reset,
+)
 from .state_helpers import (
     _STATE_LOCK, _JOB_LISTENERS, _LISTENER_SNAPSHOT_SUPPORT, _load_state_no_lock, _atomic_write_text, get_state_file,
     _cache_listener_snapshot_support, STATE_FILE, SAFE_OUTPUT_FILE_RE
@@ -187,60 +194,31 @@ def update_job(job_id: str, force_broadcast: bool = False, source: Optional[str]
         if not j:
             return
 
-        # Normalize segment and batch progress when their respective IDs are None
-        effective_active_seg_id = updates.get("active_segment_id") if "active_segment_id" in updates else j.get("active_segment_id")
-        if effective_active_seg_id is None:
-            updates["active_segment_progress"] = 0.0
-            updates["active_segment_eta_seconds"] = None
-            updates["active_segment_eta_basis"] = None
-            updates["active_segment_updated_at"] = None
+        # Guard 3: Normalize segment / batch fields
+        updates = normalize_segment_fields(j, updates)
 
-        effective_active_batch_id = updates.get("active_render_batch_id") if "active_render_batch_id" in updates else j.get("active_render_batch_id")
-        if effective_active_batch_id is None:
-            updates["active_render_batch_progress"] = None
-
-        target_status = updates.get("status") or j.get("status")
-        if target_status in ("done", "failed", "cancelled"):
-            updates["eta_seconds"] = None
-            updates["eta_basis"] = None
-            updates["estimated_end_at"] = None
-            updates["eta_updated_at"] = None
+        # Guard 4: Clear ETA on terminal status
+        updates = apply_terminal_eta_cleanup(updates, j)
 
         current_status = j.get("status")
         # Capture status before any mutations so broadcast always reflects the
         # real pre-update status, not a value clobbered mid-loop.
         pre_update_status = current_status
-        terminal_reset = current_status in ("done", "failed", "cancelled") and updates.get("status") in ("queued", "preparing")
-        if not force_broadcast and current_status in ("done", "failed", "cancelled"):
-            incoming_status = updates.get("status")
-            if incoming_status not in ("queued", "preparing"):
-                # Drop updates to terminal jobs
-                return
+        terminal_reset = _is_terminal_reset(current_status, updates)
+        # Guard 1: Drop stale updates to terminal jobs
+        if should_drop_terminal_update(current_status, updates, force_broadcast):
+            return
 
 
         # Apply updates with protection
         changed_fields = []
         for k, v in updates.items():
-            # 1. Status regression protection
+            # 1. Status regression protection (Guard 2)
             if k == "status":
-                current_status = j.get("status")
-                # Higher number = more advanced state
-                status_priority = {
-                    "done": 5, "failed": 5, "cancelled": 5, 
-                    "finalizing": 4, "running": 3, "preparing": 2, "queued": 1, None: 0
-                }
-                new_p = status_priority.get(v, 0)
-                old_p = status_priority.get(current_status, 0)
-                if not force_broadcast and new_p < old_p:
-                    # Allow regression only if explicitly resetting (e.g. back to queued from a terminal state)
-                    # But if we're in the middle of a run, don't let a stray 'queued' msg win.
-                    is_reset = v == "queued" and current_status in ("done", "failed", "cancelled")
-                    if not is_reset and (v == "queued" and current_status in ("preparing", "running", "finalizing")):
-                        logger.debug("Preventing status regression for %s: %s -> %s", job_id, current_status, v)
-                        continue
-                    elif not is_reset:
-                        logger.debug("Preventing status regression for %s: %s -> %s", job_id, current_status, v)
-                        continue
+                apply_it, reason = apply_status_regression_guard(j.get("status"), v, force_broadcast)
+                if not apply_it:
+                    logger.debug("Preventing status regression for %s: %s", job_id, reason)
+                    continue
 
             if terminal_reset and k in ("finished_at", "started_at", "eta_seconds", "eta_basis", "estimated_end_at", "active_segment_id", "active_segment_progress", "active_render_batch_id", "active_render_batch_progress", "active_segment_eta_seconds", "active_segment_eta_basis", "active_segment_updated_at", "reason_code", "error"):
                 # A rerun of a terminal job should come back as a clean active job record.

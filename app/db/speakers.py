@@ -11,9 +11,22 @@ from .core import _db_lock, get_connection
 from ..utils.pathing import safe_basename, safe_join, safe_join_flat, find_secure_file, secure_join_flat, contained_path
 from ..core import config
 from ..engines.voice_engines import get_default_profile_engine, list_tts_engines
+from .speaker_paths import (
+    resolve_existing_profile_dir as _resolve_existing_profile_dir,
+    new_profile_dir as _new_profile_dir_impl,
+    _profile_dir_has_assets,
+    _profile_name_or_error,
+    SAFE_PROFILE_NAME_RE as _SPEAKER_PATHS_NAME_RE,
+)
+from .speaker_naming import (
+    infer_variant_name,
+    infer_speaker_name,
+    is_default_profile_name,
+    looks_like_uuid as _looks_like_uuid_impl,
+)
 
 logger = logging.getLogger(__name__)
-SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
+SAFE_PROFILE_NAME_RE = _SPEAKER_PATHS_NAME_RE
 
 DEFAULT_SPEAKER_TEST_TEXT = (
     "The mysterious traveler, bathed in the soft glow of the azure twilight, "
@@ -31,154 +44,17 @@ def _infer_profile_engine(meta: Optional[Dict[str, Any]] = None) -> str:
     return str(meta.get("engine") or "").strip().lower()
 
 
-def _profile_name_or_error(profile_name: str) -> str:
-    if not SAFE_PROFILE_NAME_RE.fullmatch(profile_name):
-        raise ValueError(f"Invalid profile name: {profile_name}")
-    return profile_name
-
-
-def _profile_dir_has_assets(profile_dir: Path) -> bool:
-    if not profile_dir.exists() or not profile_dir.is_dir():
-        return False
-    if find_secure_file(profile_dir, "profile.json"):
-        return True
-    # If it's a v2 voice root (voice.json), it's NOT a playable profile directory itself.
-    if find_secure_file(profile_dir, "voice.json"):
-        return False
-    # Check for loose wav discovery
-    try:
-        for entry in os.scandir(profile_dir):
-            if entry.is_file() and entry.name.endswith(".wav"):
-                return True
-    except OSError:
-        pass
-    return False
+def _looks_like_uuid(value: Optional[str]) -> bool:
+    return _looks_like_uuid_impl(value)
 
 
 def _existing_profile_dir(profile_name: str) -> Optional[Path]:
     """Internal helper to resolve an existing profile directory in V2 nested storage."""
-    voices_dir = config.VOICES_DIR
-    profile_name = _profile_name_or_error(profile_name)
-    voices_root = os.fspath(voices_dir) if hasattr(voices_dir, "resolve") else str(voices_dir)
-    voices_root = os.path.abspath(os.path.realpath(voices_root))
-
-    # Rule 8: Enumerate trusted root and match by entry.name
-    try:
-        entries = {e.name: e for e in os.scandir(voices_root) if e.is_dir()}
-    except OSError:
-        return None
-
-    # V2 Nested resolution: "Dracula - Angry" -> voices/Dracula/Angry
-    if " - " in profile_name:
-        parts = [s.strip() for s in profile_name.split(" - ", 1)]
-        if len(parts) == 2:
-            v_name, var_name = parts
-            if v_name in entries:
-                voice_root = entries[v_name]
-                try:
-                    voice_root_resolved = os.path.abspath(os.path.realpath(voice_root.path))
-                    if voice_root_resolved != voices_root and not voice_root_resolved.startswith(voices_root + os.sep):
-                        return None
-                    sub_entries = {e.name: e for e in os.scandir(voice_root_resolved) if e.is_dir()}
-                    if var_name in sub_entries:
-                        nested = sub_entries[var_name]
-                        if _profile_dir_has_assets(Path(nested.path)):
-                            return Path(nested.path)
-                except OSError:
-                    pass
-
-    # V2 Base voice default: "Dracula" -> voices/Dracula/Default
-    if profile_name in entries:
-        voice_root = entries[profile_name]
-        try:
-            voice_root_resolved = os.path.abspath(os.path.realpath(voice_root.path))
-            if voice_root_resolved != voices_root and not voice_root_resolved.startswith(voices_root + os.sep):
-                return None
-
-            voice_root_path = Path(voice_root_resolved)
-
-            # If it's a V2 voice root (has voice.json), we prefer the "Default" sub-variant.
-            if find_secure_file(voice_root_path, "voice.json"):
-                sub_entries = {e.name: e for e in os.scandir(voice_root_resolved) if e.is_dir()}
-                # Use the explicitly marked default variant from voice.json if Default is missing
-                target_variant = "Default"
-                if "Default" not in sub_entries:
-                    try:
-                        # Check state.json first (D8 migration moves default_variant there),
-                        # then fall back to voice.json for pre-migration compatibility.
-                        from ..domain.voices.manifest import load_voice_state
-                        state = load_voice_state(voice_root_path)
-                        if state.get("default_variant"):
-                            target_variant = state["default_variant"]
-                        else:
-                            with open(voice_root_path / "voice.json", "r", encoding="utf-8") as f:
-                                v_meta = json.loads(f.read())
-                                target_variant = v_meta.get("default_variant", "Default")
-                    except Exception:
-                        pass
-                if target_variant in sub_entries:
-                    nested_target = sub_entries[target_variant]
-                    if _profile_dir_has_assets(Path(nested_target.path)):
-                        return Path(nested_target.path)
-        except OSError:
-            pass
-
-    return None
+    return _resolve_existing_profile_dir(config.VOICES_DIR, profile_name)
 
 
 def _new_profile_dir(voices_dir: Path, profile_name: str) -> Path:
-    name = _profile_name_or_error(profile_name)
-
-    try:
-        if " - " in name:
-            parts = [s.strip() for s in name.split(" - ", 1)]
-            if len(parts) == 2:
-                safe_part0 = safe_basename(parts[0])
-                safe_part1 = safe_basename(parts[1])
-                return contained_path(voices_dir, safe_part0, safe_part1)
-            else:
-                safe_name = safe_basename(name)
-                return contained_path(voices_dir, safe_name)
-        else:
-            safe_name = safe_basename(name)
-            return contained_path(voices_dir, safe_name)
-    except (OSError, ValueError, RuntimeError):
-        raise ValueError(f"Invalid profile path: {profile_name}")
-
-
-def infer_variant_name(profile_name: str) -> str:
-    if " - " in profile_name:
-        variant = profile_name.split(" - ", 1)[1].strip()
-        return variant or "Default"
-    return "Default"
-
-
-def _looks_like_uuid(value: Optional[str]) -> bool:
-    if not value or not isinstance(value, str):
-        return False
-    try:
-        uuid.UUID(value)
-        return True
-    except (ValueError, TypeError, AttributeError):
-        return False
-
-
-def infer_speaker_name(profile_name: str, meta: Optional[Dict[str, Any]] = None) -> str:
-    meta = dict(meta or {})
-    variant_name = str(meta.get("variant_name") or infer_variant_name(profile_name) or "Default").strip() or "Default"
-    if " - " not in profile_name:
-        return profile_name
-
-    base_name, suffix = profile_name.split(" - ", 1)
-    if variant_name == "Default" or suffix.strip() == variant_name:
-        return base_name.strip() or profile_name
-    return base_name.strip() or profile_name
-
-
-def is_default_profile_name(profile_name: str, meta: Optional[Dict[str, Any]] = None) -> bool:
-    meta = dict(meta or {})
-    variant_name = str(meta.get("variant_name") or infer_variant_name(profile_name) or "Default").strip() or "Default"
-    return variant_name == "Default" or " - " not in profile_name
+    return _new_profile_dir_impl(voices_dir, profile_name)
 
 
 def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
