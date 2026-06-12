@@ -1,5 +1,5 @@
 /**
- * siteMockupStage — North-star full-site organization mockup (medium fidelity v2).
+ * siteMockupStage — North-star full-site organization mockup (medium fidelity v3).
  *
  * Navigation:
  *   - Left rail items switch `activeRail` state.
@@ -8,6 +8,13 @@
  *   - Chevron at rail bottom toggles collapsed (icon-only ~56px) vs expanded.
  *   - Top bar "Queue" button slides a ~340px drawer over the right side WITHOUT
  *     changing the current page (the key "check status from anywhere" workflow).
+ *
+ * v3 changes:
+ *   - Book header strip on all pipeline stage tabs (cover, title/author/series/runtime/narrator).
+ *   - Studio stage re-centred on Book view (prose paragraphs, speaker underlines, mixed-sentence
+ *     callout, safe-text / section-number toggles, upgraded chapter rail with progress bars + menu).
+ *   - Review stage: follow-along player with scrolling text panel + annotations column.
+ *   - Library Continue cards: cover + series line for metadata presence.
  */
 
 import React, { useState } from 'react';
@@ -559,6 +566,8 @@ const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }) => (
       {[
         {
           title: 'The Whispering Vale',
+          author: 'E. Holloway',
+          series: 'The Vale Cycle · #1',
           statusLine: 'Studio · Chapter 7 rendering',
           pct: 64,
           eta: '12m left',
@@ -566,6 +575,8 @@ const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }) => (
         },
         {
           title: 'Echoes of Ember',
+          author: 'R. Ashby',
+          series: 'Ember Sequence · #2',
           statusLine: 'Review · 3 notes open',
           pct: null,
           eta: null,
@@ -588,16 +599,35 @@ const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }) => (
             alignItems: 'flex-start',
           }}
         >
-          <span style={{ fontSize: '1.7rem', lineHeight: 1, flexShrink: 0 }}>{book.emoji}</span>
-          <Col gap={4} style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+          {/* Cover thumbnail */}
+          <div style={{
+            width: 36,
+            height: 50,
+            borderRadius: 4,
+            background: 'linear-gradient(135deg, var(--accent-tint-bg) 0%, var(--border) 100%)',
+            border: '1px solid var(--border)',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.3rem',
+            lineHeight: 1,
+          }}>
+            {book.emoji}
+          </div>
+          <Col gap={3} style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
               {book.title}
             </div>
-            <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>{book.author}</div>
+            <div style={{ fontSize: '0.57rem', color: 'var(--accent)', fontStyle: 'italic', lineHeight: 1.2 }}>
+              {book.series}
+            </div>
+            <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginTop: 1 }}>
               {book.statusLine}
             </div>
             {book.pct !== null && (
-              <Row gap={6} style={{ alignItems: 'center' }}>
+              <Row gap={6} style={{ alignItems: 'center', marginTop: 1 }}>
                 <ProgressBar pct={book.pct} height={3} />
                 <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', flexShrink: 0 }}>
                   {book.eta}
@@ -918,157 +948,502 @@ const SCRIPT_LINES = [
   { speaker: 'Dov', color: '#f59e0b', text: '"Right." He exhaled. "Right."' },
 ];
 
-const StudioPane: React.FC = () => (
-  <Row gap={0} style={{ flex: 1, alignItems: 'stretch' }}>
-    {/* Chapter rail */}
-    <Col
-      gap={0}
-      style={{
-        width: 120,
-        flexShrink: 0,
-        background: 'var(--surface)',
-        borderRight: '1px solid var(--border)',
-        overflowY: 'auto',
-      }}
-    >
-      <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)', fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-        Chapters
-      </div>
-      {CHAPTERS.map((ch) => {
-        const isActive = ch.n === 4;
-        const orb = ch.status === 'Published' ? '#22c55e' : ch.status === 'Studio' ? '#f59e0b' : ch.status === 'Review' ? '#ec4899' : '#6b7280';
-        return (
-          <div
-            key={ch.n}
-            style={{
-              padding: '6px 8px',
-              background: isActive ? 'var(--accent-tint-bg)' : 'transparent',
-              borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              cursor: 'pointer',
-            }}
-          >
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: orb, display: 'inline-block', flexShrink: 0 }} />
-            <span style={{ fontSize: '0.6rem', color: isActive ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: isActive ? 700 : 400, lineHeight: 1.3 }}>
-              {ch.n}. {ch.title}
-            </span>
-          </div>
-        );
-      })}
-    </Col>
+// Chapter render progress percentages for the rail (indexed by ch.n - 1)
+const CHAPTER_RENDER_PCT = [100, 100, 80, 60, 30, 0, 0];
 
-    {/* Center: script + controls */}
-    <Col gap={0} style={{ flex: 1, overflow: 'hidden' }}>
-      {/* Script area */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px' }}>
-        {SCRIPT_LINES.map((line, i) => (
-          <div
-            key={i}
-            style={{
-              marginBottom: 6,
-              borderRadius: 6,
-              padding: '5px 8px',
-              background: line.rendering ? 'var(--accent-tint-bg)' : 'transparent',
-              border: line.rendering ? '1px solid var(--accent)' : '1px solid transparent',
-              position: 'relative',
-            }}
-          >
-            <Row gap={6} style={{ alignItems: 'center', marginBottom: 2 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: line.color, display: 'inline-block', flexShrink: 0 }} />
-              <span style={{ fontSize: '0.58rem', fontWeight: 700, color: line.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {line.speaker}
-              </span>
-              {line.rendering && (
-                <span style={{ fontSize: '0.55rem', color: 'var(--accent)', fontStyle: 'italic', marginLeft: 4 }}>
-                  rendering…
-                </span>
-              )}
-            </Row>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-primary)', lineHeight: 1.5, paddingLeft: 13 }}>
-              {line.text}
-            </div>
-            {line.rendering && (
-              <div style={{ marginTop: 4, paddingLeft: 13 }}>
-                <ProgressBar pct={64} height={3} shimmer />
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+const StudioPane: React.FC = () => {
+  const [viewMode, setViewMode] = useState<'book' | 'script'>('book');
+  const [safeText, setSafeText] = useState(false);
+  const [showNumbers, setShowNumbers] = useState(false);
+  const [chapterMenuOpen, setChapterMenuOpen] = useState(false);
 
-      {/* Render controls strip */}
-      <div
+  // Speaker colors from CHARACTERS (Maren=#6366f1, Dov=#f59e0b, Narrator=none/neutral)
+  const narratorColor = '#22c55e';
+  const marenColor = '#6366f1';
+  const dovColor = '#f59e0b';
+
+  return (
+    <Row gap={0} style={{ flex: 1, alignItems: 'stretch', minHeight: 0 }}>
+      {/* Chapter rail — upgraded */}
+      <Col
+        gap={0}
         style={{
+          width: 130,
           flexShrink: 0,
-          borderTop: '1px solid var(--border)',
-          padding: '6px 12px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
           background: 'var(--surface)',
+          borderRight: '1px solid var(--border)',
+          overflowY: 'auto',
         }}
       >
-        <Btn primary small>▶ Render chapter</Btn>
-        <Btn small>Render remaining</Btn>
-        <div style={{ flex: 1 }} />
-        <Chip active>XTTS v2</Chip>
-        <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>ETA ~12m</span>
-      </div>
-    </Col>
-  </Row>
-);
+        <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)', fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Chapters
+        </div>
+        {CHAPTERS.map((ch) => {
+          const isActive = ch.n === 4;
+          const orb = ch.status === 'Published' ? '#22c55e' : ch.status === 'Studio' ? '#f59e0b' : ch.status === 'Review' ? '#ec4899' : '#6b7280';
+          const renderPct = CHAPTER_RENDER_PCT[ch.n - 1] ?? 0;
+          return (
+            <div
+              key={ch.n}
+              style={{
+                padding: '6px 8px',
+                background: isActive ? 'var(--accent-tint-bg)' : 'transparent',
+                borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent',
+                cursor: 'pointer',
+                position: 'relative',
+              }}
+            >
+              <Row gap={5} style={{ alignItems: 'center' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: orb, display: 'inline-block', flexShrink: 0 }} />
+                <span style={{ fontSize: '0.6rem', color: isActive ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: isActive ? 700 : 400, lineHeight: 1.3, flex: 1 }}>
+                  {ch.n}. {ch.title}
+                </span>
+                {isActive && (
+                  <span
+                    onClick={e => { e.stopPropagation(); setChapterMenuOpen(m => !m); }}
+                    style={{ fontSize: '0.65rem', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}
+                    title="Chapter actions"
+                  >
+                    ⋯
+                  </span>
+                )}
+              </Row>
+              {/* Per-chapter render progress bar */}
+              {renderPct > 0 && (
+                <div style={{ marginTop: 4, paddingLeft: 12 }}>
+                  <ProgressBar pct={renderPct} height={2} shimmer={renderPct < 100 && renderPct > 0} />
+                </div>
+              )}
+              {renderPct === 0 && (
+                <div style={{ marginTop: 4, paddingLeft: 12 }}>
+                  <div style={{ height: 2, borderRadius: 1, background: 'var(--border)' }} />
+                </div>
+              )}
+              {/* Chapter action menu (active chapter only) */}
+              {isActive && chapterMenuOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 4,
+                    zIndex: 20,
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 6,
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+                    minWidth: 140,
+                    padding: '4px 0',
+                  }}
+                >
+                  {['Rebuild audio', 'Export', 'Download', 'Reset audio', 'Delete'].map((action) => (
+                    <div
+                      key={action}
+                      onClick={() => setChapterMenuOpen(false)}
+                      style={{
+                        fontSize: '0.65rem',
+                        padding: '5px 12px',
+                        color: action === 'Delete' ? '#ef4444' : 'var(--text-primary)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {action}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </Col>
+
+      {/* Center: view-mode area + controls */}
+      <Col gap={0} style={{ flex: 1, overflow: 'hidden' }}>
+        {/* View mode pills row */}
+        <div
+          style={{
+            padding: '6px 12px',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            background: 'var(--surface)',
+            flexShrink: 0,
+          }}
+        >
+          {(['book', 'script'] as const).map(mode => (
+            <div
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              style={{
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                padding: '3px 10px',
+                borderRadius: 20,
+                cursor: 'pointer',
+                border: `1px solid ${viewMode === mode ? 'var(--accent)' : 'var(--border)'}`,
+                background: viewMode === mode ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+                color: viewMode === mode ? 'var(--accent)' : 'var(--text-secondary)',
+                textTransform: 'capitalize',
+              }}
+            >
+              {mode === 'book' ? 'Book view' : 'Script view'}
+            </div>
+          ))}
+          <div style={{ flex: 1 }} />
+          {/* Dev-ish toggles */}
+          <div
+            onClick={() => setSafeText(s => !s)}
+            style={{
+              fontSize: '0.6rem',
+              padding: '2px 8px',
+              borderRadius: 20,
+              cursor: 'pointer',
+              border: `1px solid ${safeText ? 'var(--accent)' : 'var(--border)'}`,
+              background: safeText ? 'var(--accent-tint-bg)' : 'transparent',
+              color: safeText ? 'var(--accent)' : 'var(--text-muted)',
+            }}
+          >
+            Safe text
+          </div>
+          <div
+            onClick={() => setShowNumbers(n => !n)}
+            style={{
+              fontSize: '0.6rem',
+              padding: '2px 8px',
+              borderRadius: 20,
+              cursor: 'pointer',
+              border: `1px solid ${showNumbers ? 'var(--accent)' : 'var(--border)'}`,
+              background: showNumbers ? 'var(--accent-tint-bg)' : 'transparent',
+              color: showNumbers ? 'var(--accent)' : 'var(--text-muted)',
+            }}
+          >
+            #
+          </div>
+        </div>
+
+        {/* Content area */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
+          {viewMode === 'book' ? (
+            <Col gap={10}>
+              {/* Safe text notice */}
+              {safeText && (
+                <div style={{
+                  fontSize: '0.58rem',
+                  color: 'var(--accent)',
+                  background: 'var(--accent-tint-bg)',
+                  border: '1px solid var(--accent)',
+                  borderRadius: 4,
+                  padding: '3px 8px',
+                }}>
+                  safe text is per-engine — may differ per section by voice
+                </div>
+              )}
+
+              {/* Paragraph 1 — mostly narrator, one rendered sentence */}
+              <div style={{ fontSize: '0.72rem', lineHeight: 1.75, color: 'var(--text-primary)' }}>
+                {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§1</span>}
+                {safeText
+                  ? 'The road went down through pale trees and old stone.'
+                  : 'The road wound down through silver birch and pale stone, the kind of road that remembers every foot that has ever crossed it.'
+                }{' '}
+                {/* Rendered sentence — green tint + play affordance */}
+                <span style={{
+                  background: 'rgba(34,197,94,0.10)',
+                  borderRadius: 3,
+                  padding: '1px 3px',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  display: 'inline',
+                }}>
+                  <span style={{ fontSize: '0.6rem', marginRight: 3, color: '#22c55e' }}>▶</span>
+                  {safeText ? 'Maren pulled her cloak close.' : 'Maren pulled her cloak tighter against the chill that rose from the valley floor.'}
+                </span>{' '}
+                {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§2</span>}
+                {safeText ? 'The vale smelled of rain.' : 'The vale smelled of old rain and something older still — loam and iron and time.'}
+              </div>
+
+              {/* Paragraph 2 — dialogue with speaker underlines */}
+              <div style={{ fontSize: '0.72rem', lineHeight: 1.75, color: 'var(--text-primary)' }}>
+                {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§3</span>}
+                {/* Maren dialogue */}
+                <span style={{
+                  borderBottom: `2px solid ${marenColor}`,
+                  paddingBottom: 1,
+                }}>
+                  {'"Stay close to me.'}
+                </span>{' '}
+                <span style={{
+                  borderBottom: `2px solid ${marenColor}`,
+                  paddingBottom: 1,
+                }}>
+                  {safeText ? 'The warden moves at dusk."' : "The warden's lantern moves at dusk, and it moves fast.\""}
+                </span>{' '}
+                {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§4</span>}
+                {/* In-progress / rendering sentence */}
+                <span style={{
+                  background: 'var(--accent-tint-bg)',
+                  borderRadius: 3,
+                  padding: '1px 3px',
+                  display: 'inline',
+                }}>
+                  {safeText ? 'Dov tightened his grip.' : 'Dov tightened his grip on the satchel and said nothing for a long moment.'}
+                  <span style={{ fontSize: '0.55rem', color: 'var(--accent)', fontStyle: 'italic', marginLeft: 5 }}>
+                    rendering…
+                  </span>
+                </span>{' '}
+                {/* Dov response */}
+                <span style={{
+                  borderBottom: `2px solid ${dovColor}`,
+                  paddingBottom: 1,
+                }}>
+                  {'"How close exactly?"'}
+                </span>
+              </div>
+
+              {/* Paragraph 3 — mixed sentence callout */}
+              <div style={{ fontSize: '0.72rem', lineHeight: 1.75, color: 'var(--text-primary)', position: 'relative' }}>
+                {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§5</span>}
+                {safeText ? 'The vale took them.' : 'Far above, an owl called once, then fell silent.'}{' '}
+                {showNumbers && <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginRight: 4 }}>§6</span>}
+                {/* Mixed sentence: quoted span = Dov, rest = narrator */}
+                <span title='Mixed: "He excelled," = Dov; rest = Narrator'>
+                  <span style={{ borderBottom: `2px solid ${dovColor}`, paddingBottom: 1 }}>
+                    {'"He excelled,"'}
+                  </span>
+                  {' Dove said, rising from his chair.'}
+                </span>
+                {/* Callout chip */}
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  marginLeft: 6,
+                  fontSize: '0.52rem',
+                  color: dovColor,
+                  background: dovColor + '18',
+                  border: `1px solid ${dovColor}55`,
+                  borderRadius: 10,
+                  padding: '1px 6px',
+                  cursor: 'default',
+                  verticalAlign: 'middle',
+                }}>
+                  sub-sentence assignment (planned)
+                </span>
+              </div>
+
+              {/* Speaker key */}
+              <Row gap={10} style={{ marginTop: 4, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Speaker key:</span>
+                {[
+                  { label: 'Narrator', color: narratorColor, note: 'no underline / neutral' },
+                  { label: 'Maren', color: marenColor },
+                  { label: 'Dov', color: dovColor },
+                ].map(s => (
+                  <Row key={s.label} gap={4} style={{ alignItems: 'center' }}>
+                    {s.note
+                      ? <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>Narrator — no underline</span>
+                      : <>
+                          <span style={{ width: 16, height: 2, background: s.color, display: 'inline-block', borderRadius: 1 }} />
+                          <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>{s.label}</span>
+                        </>
+                    }
+                  </Row>
+                ))}
+              </Row>
+            </Col>
+          ) : (
+            /* Script view */
+            <Col gap={0}>
+              <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 8 }}>
+                Script view — final read-through / play-script preview
+              </div>
+              {SCRIPT_LINES.map((line, i) => (
+                <div
+                  key={i}
+                  style={{
+                    marginBottom: 6,
+                    borderRadius: 6,
+                    padding: '5px 8px',
+                    background: line.rendering ? 'var(--accent-tint-bg)' : 'transparent',
+                    border: line.rendering ? '1px solid var(--accent)' : '1px solid transparent',
+                  }}
+                >
+                  <Row gap={6} style={{ alignItems: 'center', marginBottom: 2 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: line.color, display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ fontSize: '0.58rem', fontWeight: 700, color: line.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {line.speaker}
+                    </span>
+                    {line.rendering && (
+                      <span style={{ fontSize: '0.55rem', color: 'var(--accent)', fontStyle: 'italic', marginLeft: 4 }}>
+                        rendering…
+                      </span>
+                    )}
+                  </Row>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-primary)', lineHeight: 1.5, paddingLeft: 13 }}>
+                    {line.text}
+                  </div>
+                  {line.rendering && (
+                    <div style={{ marginTop: 4, paddingLeft: 13 }}>
+                      <ProgressBar pct={64} height={3} shimmer />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </Col>
+          )}
+        </div>
+
+        {/* Render controls strip */}
+        <div
+          style={{
+            flexShrink: 0,
+            borderTop: '1px solid var(--border)',
+            padding: '6px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: 'var(--surface)',
+          }}
+        >
+          <Btn primary small>▶ Render chapter</Btn>
+          <Btn small>Render remaining</Btn>
+          <div style={{ flex: 1 }} />
+          <Chip active>XTTS v2</Chip>
+          <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>ETA ~12m</span>
+        </div>
+      </Col>
+    </Row>
+  );
+};
+
+const REVIEW_SENTENCES = [
+  { text: 'The road wound down through silver birch and pale stone.', state: 'past' },
+  { text: 'Maren pulled her cloak tighter against the chill.', state: 'past' },
+  { text: 'The vale smelled of old rain and something older still.', state: 'playing' },
+  { text: '"Stay close to me," she said quietly.', state: 'rerendering' },
+  { text: 'Dov tightened his grip on the satchel.', state: 'future' },
+  { text: 'Far above, an owl called once, then fell silent.', state: 'future' },
+  { text: '"Right," he exhaled. "Right."', state: 'future' },
+];
 
 const ReviewPane: React.FC = () => (
-  <Col gap={8} style={{ flex: 1 }}>
-    {/* Waveform strip */}
+  <Col gap={0} style={{ flex: 1, minHeight: 0 }}>
+    {/* Transport row + waveform */}
     <div
       style={{
         background: 'var(--surface-alt)',
         border: '1px solid var(--border)',
         borderRadius: 6,
         padding: '6px 10px',
+        marginBottom: 8,
+        flexShrink: 0,
       }}
     >
-      <Row gap={8} style={{ alignItems: 'center', marginBottom: 6 }}>
-        <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>
-          Chapter 4 · A Vale at Dusk
-        </span>
-        <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>12:34 / 28:10</span>
-        <Btn small>▶</Btn>
+      {/* Transport controls */}
+      <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
+        <span style={{ fontSize: '0.8rem', cursor: 'pointer' }}>⏮</span>
+        <span style={{ fontSize: '0.72rem', cursor: 'pointer', color: 'var(--text-muted)' }}>⏪5s</span>
+        <span style={{ fontSize: '0.9rem', cursor: 'pointer', color: 'var(--accent)' }}>▶</span>
+        <span style={{ fontSize: '0.72rem', cursor: 'pointer', color: 'var(--text-muted)' }}>5s⏩</span>
+        <Chip active>Chapter 7</Chip>
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>02:14 / 24:38</span>
       </Row>
-      <WaveformSvg height={36} />
+      <WaveformSvg height={32} />
     </div>
 
-    {/* Annotation list */}
-    <Label>Annotations</Label>
-    <Col gap={6}>
-      {[
-        { ts: '0:42', note: "Mispronounced 'Vale' — needs re-render" },
-        { ts: '3:18', note: 'Pause too long after sentence end' },
-        { ts: '9:05', note: "Narrator volume dips on 'stone'" },
-      ].map(ann => (
-        <div
-          key={ann.ts}
-          style={{
-            background: 'var(--surface-alt)',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            padding: '6px 10px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-          }}
-        >
-          <Chip>{ann.ts}</Chip>
-          <span style={{ flex: 1, fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
-            {ann.note}
-          </span>
-          <Btn small>Re-render segment</Btn>
+    {/* Body: text panel + annotations column */}
+    <Row gap={10} style={{ flex: 1, alignItems: 'stretch', minHeight: 0 }}>
+      {/* Text follow-along panel */}
+      <Col gap={0} style={{ flex: 2, minHeight: 0 }}>
+        <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 6 }}>
+          text follows playback — auto-scroll, tap a sentence to seek
         </div>
-      ))}
-    </Col>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <Col gap={3}>
+            {REVIEW_SENTENCES.map((s, i) => {
+              const isPlaying = s.state === 'playing';
+              const isPast = s.state === 'past';
+              const isRerendering = s.state === 'rerendering';
+              return (
+                <div
+                  key={i}
+                  style={{
+                    fontSize: '0.7rem',
+                    lineHeight: 1.65,
+                    color: isPast ? 'var(--text-muted)' : 'var(--text-primary)',
+                    padding: '3px 6px',
+                    borderRadius: 4,
+                    background: isPlaying
+                      ? 'var(--accent-tint-bg)'
+                      : isRerendering
+                      ? 'rgba(139,92,246,0.08)'
+                      : 'transparent',
+                    border: isPlaying
+                      ? '1px solid var(--accent)'
+                      : isRerendering
+                      ? '1px solid #8b5cf655'
+                      : '1px solid transparent',
+                    cursor: 'pointer',
+                    fontWeight: isPlaying ? 600 : 400,
+                    opacity: isPast ? 0.55 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <span style={{ flex: 1 }}>{s.text}</span>
+                  {isRerendering && (
+                    <span style={{ fontSize: '0.52rem', color: '#8b5cf6', fontStyle: 'italic', whiteSpace: 'nowrap' }}>
+                      re-rendering — highlight follows progress, like Studio build view
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </Col>
+        </div>
+      </Col>
+
+      {/* Annotations column */}
+      <Col gap={8} style={{ flex: 1, minHeight: 0 }}>
+        <Label>Annotations</Label>
+        <Col gap={6} style={{ flex: 1, overflowY: 'auto' }}>
+          {[
+            { ts: '0:42', note: "Mispronounced 'Vale' — needs re-render" },
+            { ts: '3:18', note: 'Pause too long after sentence end' },
+            { ts: '9:05', note: "Narrator volume dips on 'stone'" },
+          ].map(ann => (
+            <div
+              key={ann.ts}
+              style={{
+                background: 'var(--surface-alt)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                padding: '6px 8px',
+              }}
+            >
+              <Row gap={6} style={{ alignItems: 'center', marginBottom: 4 }}>
+                <Chip>{ann.ts}</Chip>
+                <span style={{ flex: 1, fontSize: '0.62rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  {ann.note}
+                </span>
+              </Row>
+              <Btn small>Re-render section</Btn>
+            </div>
+          ))}
+          <div
+            style={{
+              fontSize: '0.62rem',
+              color: 'var(--accent)',
+              cursor: 'pointer',
+              padding: '4px 2px',
+            }}
+          >
+            + Add note at 02:14
+          </div>
+        </Col>
+      </Col>
+    </Row>
   </Col>
 );
 
@@ -1176,13 +1551,147 @@ const PublishPane: React.FC = () => (
   </Row>
 );
 
+// ---------------------------------------------------------------------------
+// Book header strip — shown on ALL 5 pipeline stage tabs
+
+const BookHeaderStrip: React.FC = () => (
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      padding: '8px 0 10px',
+      borderBottom: '1px solid var(--border)',
+      flexShrink: 0,
+    }}
+  >
+    {/* Cover thumbnail with hover-chip affordance */}
+    <div
+      style={{
+        width: 44,
+        height: 60,
+        borderRadius: 5,
+        background: 'linear-gradient(135deg, #6366f133 0%, #8b5cf633 100%)',
+        border: '1px solid var(--border)',
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '1.6rem',
+        position: 'relative',
+        cursor: 'pointer',
+      }}
+      title="Change cover"
+    >
+      📕
+      <span
+        style={{
+          position: 'absolute',
+          bottom: 2,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          fontSize: '0.46rem',
+          background: 'rgba(0,0,0,0.55)',
+          color: '#fff',
+          borderRadius: 3,
+          padding: '1px 4px',
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+        }}
+      >
+        Change
+      </span>
+    </div>
+
+    {/* Title / author / series / runtime column */}
+    <Col gap={3} style={{ flex: 1, minWidth: 0 }}>
+      {/* Title row */}
+      <Row gap={5} style={{ alignItems: 'center' }}>
+        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.15 }}>
+          The Whispering Vale
+        </span>
+        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', cursor: 'pointer' }} title="Edit title">✏</span>
+      </Row>
+      {/* Author + edit */}
+      <Row gap={5} style={{ alignItems: 'center' }}>
+        <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>E. Holloway</span>
+        <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', cursor: 'pointer' }} title="Edit author">✏</span>
+      </Row>
+      {/* Series chip */}
+      <Row gap={5} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+        <Chip color="#8b5cf6">The Vale Cycle · #1</Chip>
+        <Chip>6h 12m</Chip>
+        <span style={{ fontSize: '0.57rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+          predicted 6h 28m
+        </span>
+      </Row>
+      {/* Created date */}
+      <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>Created 2026-05-14</span>
+    </Col>
+
+    {/* Default narrator chip */}
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '5px 9px',
+        background: 'var(--surface-alt)',
+        border: '1px solid var(--border)',
+        borderRadius: 20,
+        cursor: 'pointer',
+        flexShrink: 0,
+      }}
+      title="Go to Casting to change default narrator"
+    >
+      {/* Avatar circle */}
+      <div
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: '50%',
+          background: 'var(--accent-tint-bg)',
+          border: '1px solid var(--accent)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '0.65rem',
+          flexShrink: 0,
+        }}
+      >
+        🎙
+      </div>
+      <Col gap={0}>
+        <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', lineHeight: 1 }}>Default narrator</span>
+        <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 }}>
+          Elena Marsh
+        </span>
+      </Col>
+      <span style={{ fontSize: '0.55rem', color: 'var(--accent)', marginLeft: 2 }}>→ Casting</span>
+    </div>
+  </div>
+);
+
 const BookPane: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const [tab, setTab] = useState<BookTab>('Manuscript');
+  const [tab, setTab] = useState<BookTab>('Studio');
 
   return (
-    <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
+    <Col gap={0} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
+      {/* Breadcrumb back link */}
+      <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
+        <span
+          onClick={onBack}
+          style={{ fontSize: '0.65rem', color: 'var(--accent)', cursor: 'pointer' }}
+        >
+          ← Library
+        </span>
+      </Row>
+
+      {/* Book header strip — shown on all tabs */}
+      <BookHeaderStrip />
+
       {/* Stage tabs */}
-      <Row gap={2} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 4 }}>
+      <Row gap={2} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 0, marginTop: 8 }}>
         {BOOK_TABS.map(t => (
           <div
             key={t}
@@ -1202,19 +1711,16 @@ const BookPane: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </div>
         ))}
         <div style={{ flex: 1 }} />
-        <span
-          onClick={onBack}
-          style={{ fontSize: '0.65rem', color: 'var(--accent)', cursor: 'pointer', alignSelf: 'center' }}
-        >
-          ← Library
-        </span>
       </Row>
 
-      {tab === 'Manuscript' && <ManuscriptPane />}
-      {tab === 'Casting' && <CastingPane />}
-      {tab === 'Studio' && <StudioPane />}
-      {tab === 'Review' && <ReviewPane />}
-      {tab === 'Publish' && <PublishPane />}
+      {/* Tab content — must fill remaining space */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, paddingTop: 10 }}>
+        {tab === 'Manuscript' && <ManuscriptPane />}
+        {tab === 'Casting' && <CastingPane />}
+        {tab === 'Studio' && <StudioPane />}
+        {tab === 'Review' && <ReviewPane />}
+        {tab === 'Publish' && <PublishPane />}
+      </div>
     </Col>
   );
 };
@@ -1812,7 +2318,7 @@ const SiteMockup: React.FC = () => {
           flexShrink: 0,
         }}
       >
-        North-star organization mockup v2 — medium fidelity. Queue drawer = check status from anywhere without losing your place.
+        North-star organization mockup v3 — current functionality represented. Queue drawer = check status from anywhere without losing your place.
       </div>
 
       {/* App window — column: [top bar] / [rail + content] / [player bar] */}
@@ -1897,6 +2403,6 @@ export const siteMockupStage = {
   id: 'site-mockup',
   title: 'Site Mockup — North Star',
   description:
-    'Medium-fidelity full-site layout mockup: queue drawer slide-over, collapsible rail, book pipeline stages (Manuscript/Casting/Studio/Review/Publish), waveform player bar, and all rail destinations with realistic fake data.',
+    'Medium-fidelity full-site layout mockup v3 — current functionality represented: queue drawer slide-over, collapsible rail, book header strip, book pipeline stages (Manuscript/Casting/Studio/Review/Publish), Studio book-view with speaker underlines + mixed-sentence callout, follow-along Review player, and all rail destinations with realistic fake data.',
   element: <SiteMockupElement />,
 };
