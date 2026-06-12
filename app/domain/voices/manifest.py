@@ -99,6 +99,64 @@ def load_and_validate_voice_manifest(voice_dir: Path) -> Tuple[Dict[str, Any], b
     return manifest, is_untagged
 
 
+VOICE_STATE_FILENAME = "state.json"
+
+
+def load_voice_state(voice_dir: Path) -> Dict[str, Any]:
+    """Load the operational state file (state.json) for a voice root.
+
+    state.json is Studio-managed and never exported.  Returns an empty dict
+    when the file is absent or unreadable.
+    """
+    try:
+        from ...core.config import VOICES_DIR
+
+        trusted_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
+        state_path = os.path.abspath(
+            os.path.realpath(os.path.join(os.fspath(voice_dir), VOICE_STATE_FILENAME))
+        )
+
+        if not state_path.startswith(trusted_root + os.sep):
+            logger.warning("Blocking voice state load outside voices root: %s", state_path)
+            return {}
+
+        if not os.path.exists(state_path):
+            return {}
+
+        with open(state_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as exc:
+        logger.warning("Failed to load voice state: %s", exc)
+        return {}
+
+
+def save_voice_state(voice_dir: Path, state: Dict[str, Any]) -> bool:
+    """Persist the operational state file (state.json) for a voice root atomically."""
+    try:
+        from ...core.config import VOICES_DIR
+
+        trusted_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
+        state_path = os.path.abspath(
+            os.path.realpath(os.path.join(os.fspath(voice_dir), VOICE_STATE_FILENAME))
+        )
+        tmp_path = state_path + ".tmp"
+
+        if not (
+            state_path.startswith(trusted_root + os.sep)
+            and tmp_path.startswith(trusted_root + os.sep)
+        ):
+            logger.error("Blocking voice state save outside voices root: %s", state_path)
+            return False
+
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2)
+        os.replace(tmp_path, state_path)
+        return True
+    except Exception as exc:
+        logger.error("Failed to save voice state: %s", exc)
+        return False
+
+
 def get_voice_storage_version(voice_dir: Path) -> int:
     """Helper to get the storage version of a voice root. Returns 0 if missing."""
     manifest = load_voice_manifest(voice_dir)

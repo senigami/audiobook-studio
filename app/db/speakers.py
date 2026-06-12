@@ -104,9 +104,16 @@ def _existing_profile_dir(profile_name: str) -> Optional[Path]:
                 target_variant = "Default"
                 if "Default" not in sub_entries:
                     try:
-                        with open(voice_root_path / "voice.json", "r", encoding="utf-8") as f:
-                            v_meta = json.loads(f.read())
-                            target_variant = v_meta.get("default_variant", "Default")
+                        # Check state.json first (D8 migration moves default_variant there),
+                        # then fall back to voice.json for pre-migration compatibility.
+                        from ..domain.voices.manifest import load_voice_state
+                        state = load_voice_state(voice_root_path)
+                        if state.get("default_variant"):
+                            target_variant = state["default_variant"]
+                        else:
+                            with open(voice_root_path / "voice.json", "r", encoding="utf-8") as f:
+                                v_meta = json.loads(f.read())
+                                target_variant = v_meta.get("default_variant", "Default")
                     except Exception:
                         pass
                 if target_variant in sub_entries:

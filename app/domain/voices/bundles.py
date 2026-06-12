@@ -12,6 +12,7 @@ from .manifest import (
     CURRENT_VOICE_STORAGE_VERSION,
     load_variant_manifest,
     load_voice_manifest,
+    load_voice_state,
     save_variant_manifest,
     save_voice_manifest,
 )
@@ -92,10 +93,18 @@ def export_voice_bundle(voices_root: Path, voice_name: str, *, include_source_wa
         raise VoiceBundleError("Voice has no variants to export")
 
     voice_manifest = load_voice_manifest(voice_root)
-    voice_manifest["version"] = CURRENT_VOICE_STORAGE_VERSION
     voice_manifest["name"] = voice_name
-    if not voice_manifest.get("default_variant"):
-        voice_manifest["default_variant"] = "Default" if any(v.name == "Default" for v in variants) else variants[0].name
+    # D8: drop fields that are forbidden by the bundle schema's additionalProperties:false.
+    # `version` (integer storage marker) and `default_variant` (operational, lives in
+    # state.json after Phase B migration) must not appear in the exported voice.json.
+    voice_manifest.pop("version", None)
+    voice_manifest.pop("default_variant", None)
+    # Recover default_variant from state.json for any operational logic (none currently).
+    _state = load_voice_state(voice_root)
+    _default_variant = (
+        _state.get("default_variant")
+        or ("Default" if any(v.name == "Default" for v in variants) else variants[0].name)
+    )
 
     variant_entries = []
     included_asset_classes = {"voice_manifest", "variant_manifest"}
