@@ -146,6 +146,51 @@ class XttsPlugin(StudioTTSEngine):
 
         return True, "OK"
 
+    def check_output(self, req: TTSRequest, result: TTSResult) -> tuple[bool, str]:
+        """Reject artifacts that are suspiciously short (likely truncated).
+
+        Rules:
+        - duration == 0: always reject.
+        - implied speech rate (chars / duration) above max_chars_per_second:
+          reject — no real voice speaks that fast, so the audio is truncated.
+        The threshold is a MAXIMUM plausible rate (default 60 chars/sec; normal
+        speech is ~12-15). Set to 0 to skip the rate check.
+        """
+        import wave as _wave
+        import contextlib as _contextlib
+
+        duration = result.duration_sec
+
+        # If TTSResult didn't populate duration, probe the file directly.
+        if duration is None and result.output_path:
+            try:
+                with _contextlib.closing(_wave.open(result.output_path, "r")) as wf:
+                    frames = wf.getnframes()
+                    rate = wf.getframerate()
+                    duration = frames / float(rate) if rate > 0 else 0.0
+            except Exception:
+                duration = None
+
+        if duration is not None and duration == 0:
+            return False, "rendered audio has zero duration (synthesis produced silence or empty file)"
+
+        if duration is not None and duration > 0:
+            threshold = float((req.settings or {}).get("max_chars_per_second", 60.0))
+            if threshold > 0:
+                char_count = len(req.text or "")
+                if char_count > 0:
+                    min_secs = char_count / threshold
+                    if duration < min_secs:
+                        implied = char_count / duration
+                        return (
+                            False,
+                            f"audio too short ({duration:.2f}s) for {char_count} chars — "
+                            f"implied {implied:.0f} chars/sec exceeds the {threshold:.0f}/sec "
+                            f"plausibility cap (likely truncated)",
+                        )
+
+        return True, "OK"
+
     def settings_schema(self) -> dict[str, Any]:
         """Return the XTTS settings JSON Schema."""
         schema_path = Path(__file__).parents[2] / "settings_schema.json"

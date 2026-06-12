@@ -245,6 +245,23 @@ class StudioTTSEngine(ABC):
         """
         return self.synthesize(req)
 
+    def check_output(self, req: TTSRequest, result: TTSResult) -> tuple[bool, str]:
+        """Validate rendered artifact quality after synthesis.
+
+        Called by the TTS Server immediately after synthesize() returns ok=True.
+        The engine may inspect the written file (e.g. check duration, silence
+        ratio, or expected speaker fingerprint).
+
+        Args:
+            req:    The original TTSRequest that produced this result.
+            result: The TTSResult returned by synthesize().
+
+        Returns:
+            tuple[bool, str]: (True, 'OK') when the artifact passes QA;
+            (False, reason) when it must be discarded.
+        """
+        return True, "OK"  # default: accept all
+
     def shutdown(self) -> None:
         """Optional cleanup when the engine is unloaded.
 

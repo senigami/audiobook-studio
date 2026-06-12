@@ -57,6 +57,14 @@
       "enum": ["v2"],
       "default": "v2"
     },
+    "max_chars_per_second": {
+      "type": "number",
+      "title": "Max Plausible Speech Rate (chars/sec)",
+      "description": "Output QA cap: if rendered audio implies a speech rate faster than this (characters divided by duration), it is flagged as likely truncated and rejected. Normal speech is ~12-15 chars/sec; the default 60 only catches clearly broken output. Set to 0 to disable.",
+      "minimum": 0,
+      "maximum": 200,
+      "default": 60.0
+    },
     "computer_speed_multiplier": {
       "type": "number",
       "title": "Computer Speed",

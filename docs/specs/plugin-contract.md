@@ -1,7 +1,7 @@
 # Plugin Contract
 
 ```
-spec_version: 1.1.0
+spec_version: 1.2.0
 status: active
 sources:
   - app/engines/voice/sdk.py
@@ -19,6 +19,7 @@ sources:
 |---------|------------|------------------------|
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 | 1.1.0   | 2026-06-11 | Additive: optional `behavior.sanitize_categories` list; unknown names cause load error; absent means all categories applied (backward-compatible) |
+| 1.2.0   | 2026-06-11 | Additive: optional `check_output(req, result) -> tuple[bool, str]` method on `StudioTTSEngine`; default accept-all; TTS Server calls this after synthesize() and deletes artifact + returns `output_rejected` on (False, reason); crashing hook is failure-isolated (logs + accepts) |
 
 ---
 
@@ -143,6 +144,7 @@ All five methods MUST be implemented or plugin load fails:
 | `preview` | `(req: TTSRequest) -> TTSResult` | Delegates to `synthesize` |
 | `verify` | `(req: TTSRequest) -> VerificationResult` | Skipped; engine treated as unverifiable |
 | `run_test` | `() -> VerificationResult` | Engine can never reach `ready` status |
+| `check_output` | `(req: TTSRequest, result: TTSResult) -> tuple[bool, str]` | Returns `(True, 'OK')` — accept all; called after synthesize() succeeds; return `(False, reason)` to reject artifact |
 | `shutdown` | `() -> None` | No cleanup on unload |
 
 ---

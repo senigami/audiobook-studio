@@ -21,3 +21,17 @@ class EngineNotReadyError(EngineBridgeError):
 
 class EngineExecutionError(EngineBridgeError):
     """Raised when an engine began execution but failed before completion."""
+
+
+class EngineOutputRejectedError(EngineBridgeError):
+    """Raised when an engine's check_output hook rejects the synthesized artifact.
+
+    The artifact has already been deleted by the TTS Server before this error
+    reaches Studio.  The ``reason`` attribute carries the engine's rejection
+    message verbatim.  Jobs that receive this error are failed immediately with
+    no automatic retry.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(f"output_rejected: {reason}")
+        self.reason = reason

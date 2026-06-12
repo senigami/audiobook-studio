@@ -610,6 +610,39 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
     if result.output_path:
         h.postprocess_audio(result.output_path, merged_settings)
 
+    # 4. check_output QA hook — failure-isolated: a crashing hook logs + accepts.
+    try:
+        qa_ok, qa_reason = plugin.engine.check_output(req, result)
+    except Exception:
+        logger.warning(
+            "check_output() raised for engine %s — treating as accepted",
+            body.engine_id,
+            exc_info=True,
+        )
+        qa_ok, qa_reason = True, "OK"
+
+    if not qa_ok:
+        # Delete the rejected artifact so it never enters the validated-artifact cache.
+        if result.output_path:
+            try:
+                import os as _os
+                _os.remove(result.output_path)
+            except OSError:
+                logger.warning(
+                    "Could not delete rejected artifact %s for engine %s",
+                    result.output_path,
+                    body.engine_id,
+                )
+        logger.warning(
+            "Engine %s rejected its own output: %s",
+            body.engine_id,
+            qa_reason,
+        )
+        return JSONResponse(
+            content={"ok": False, "error": "output_rejected", "reason": qa_reason},
+            status_code=422,
+        )
+
     timing_dict = None
     if getattr(result, "timing", None) is not None:
         t = result.timing
