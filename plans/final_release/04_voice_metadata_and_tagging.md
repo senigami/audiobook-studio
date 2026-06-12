@@ -363,6 +363,21 @@ These items are the open Phase 12 items for voice tags/icons. Implement after Ph
 - [x] **F3. Update `Memory/state.json` Phase 12 open items to mark voice tags, icon upload, and searchable tags as complete when each Phase D step is done.**
   _N/A 2026-06-12. `Memory/` is gitignored and absent in this working tree (see CLAUDE.md: "Don't assume it exists"). Cannot update a file that does not exist in the repo._
 
+### Phase G — Taxonomy v2 (RE-OPENED into 2.0 scope — owner, 2026-06-12)
+
+*The owner's original ask included these categories; they were missed in the v1.0 taxonomy. This re-opens the voice schema for 2.0 and RE-BLOCKS Pinokio PK7 (demo bundle) until it lands. Additive only: v1.0 voices stay valid; new fields optional in the lenient path, with the same strict-on-edit rule as D7.*
+
+- [ ] **G1. Taxonomy v2 vocabularies** in `docs/specs/voice-taxonomy.json` (version bump + changelog):
+  - `language` — multi-value (bilingual voices), BCP-47-ish friendly names (start: english, spanish, french, german, …; extensible).
+  - `accent` — single-value (british, american, australian, irish, scottish, southern-us, …).
+  - `style` — **multi-value**: conversational, narration, characters, social media, educational, advertisement, entertainment.
+- [ ] **G2. Schema + validation**: `voice.schema.json` gains the three optional attribute fields (multi = arrays); `validate_and_degrade_attributes` handles them (invalid values → tags, per D7); migration untouched (fields optional).
+- [ ] **G3. API + casting**: metadata PATCH accepts them with strict 422s + valid-values payload; search/cast filtering extends to the new fields (multi-value = any-match); casting card serializes them.
+- [ ] **G4. UI**: Edit Metadata modal gains the three fields (style/language as multi-select chips); catalog cards render category-tinted pills in fixed order (class · gender · age · extended · tags) with the +N tap-to-expand overflow — visual spec mocked + approved in styleguide U8 (2026-06-12). Pill tints: class/gender/age distinct hues; extended shares one hue; free tags neutral ghost.
+  - Pill color decision (owner, 2026-06-12): Apple-style muted tinted fills + same-hue text/low-alpha border — NOT colored outlines on neutral fill; no leading icons.
+- [ ] **G5. HF bundles**: README generator emits `as-language-*`, `as-accent-*`, `as-style-*` tags; export gate accepts v2 fields.
+- [ ] **G6. Docs**: taxonomy table in `docs/user-guide/voice-tags-icons.md` + wiki updated; spec changelog rows.
+
 ---
 
 ## 4. References

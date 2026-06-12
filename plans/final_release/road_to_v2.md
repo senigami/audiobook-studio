@@ -24,7 +24,8 @@ All logic fixes, progress confidence model, security blockers, test-quality audi
 
 ## Stage 4 — Voice metadata & standalone repos (open, gated on Stage 3)
 
-- [x] Voice taxonomy/attributes/tags/icon upload/casting card — Phases A–E DONE 2026-06-12 (taxonomy validation, idempotent v1-schema migration + D8 state split, metadata/search/cast/icon API, Voice Lab catalog UI with editor + facets, HF-aligned bundle export/import with README generation). Phase F docs DONE 2026-06-12 — doc 04 FULLY EXECUTED A–F.
+- [x] Voice taxonomy/attributes/tags/icon upload/casting card — Phases A–E DONE 2026-06-12 (taxonomy validation, idempotent v1-schema migration + D8 state split, metadata/search/cast/icon API, Voice Lab catalog UI with editor + facets, HF-aligned bundle export/import with README generation). Phase F docs DONE 2026-06-12 — doc 04 A–F executed.
+- [ ] **Taxonomy v2 (doc 04 Phase G, RE-OPENED 2026-06-12 — owner's original ask, missed in v1.0):** language (multi) + accent (single) + style (multi) attributes; category-tinted pills + +N overflow UI (approved in styleguide U8); HF as-* tags. Additive schema bump. **Re-blocks PK7** until landed. (M)
 - [ ] Standalone GitHub plugin repos: discovery infra, XTTS/Voxtral extraction, tts_mixed rename, e2e (doc 05, 18 items, all blocked on Stage 3). (L)
 
 ## Stage 5 — Frontend polish (in progress)
@@ -44,7 +45,7 @@ All logic fixes, progress confidence model, security blockers, test-quality audi
 - [x] Live demo (doc 14 steps 1–7; four stages + styleguide).
 - [ ] Demo/showcase release-checklist wiring: `sync:showcase-tokens` + `build:demo` at release (doc 14 step 8). (S)
 - [ ] v1.html screenshot refresh to current 2.0 UI. (S)
-- [ ] **GATE: Pinokio** — PK1 fork pinned + PK2 torch backend selection DONE 2026-06-12; PK4 audit clean (zero machine paths in wrapper). Remaining: PK3 publish wrapper repo (owner), PK7 demo bundle 2.0 refresh (voice schema now final — unblocked), PK8 first-run smoke. (S-M)
+- [ ] **GATE: Pinokio** — PK1 fork pinned + PK2 torch backend selection DONE 2026-06-12; PK4 audit clean (zero machine paths in wrapper). Remaining: PK3 publish wrapper repo (owner), PK7 demo bundle 2.0 refresh (**re-blocked 2026-06-12** on doc 04 Phase G taxonomy v2), PK8 first-run smoke. (S-M)
 - [ ] **GATE: SP9 specs conformance pass** — every spec checklist vs shipped code before the tag (doc 18). SP2 depends on Stage 3, SP3 on Stage 4, SP7 on Pinokio. (M)
 - [ ] Release notes + install validation matrix + promo assets (Phase 13). (L)
 

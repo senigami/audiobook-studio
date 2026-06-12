@@ -1111,24 +1111,200 @@ const U16Mock: React.FC = () => {
 
 const OVERFLOW_MENU_ITEMS = ['Rename', 'Duplicate', 'Export', 'Reset', 'Delete'];
 
-/** Attribute badge pill */
-const AttrBadge: React.FC<{ label: string }> = ({ label }) => (
-  <span
+// ---------------------------------------------------------------------------
+// Category-tinted pill taxonomy (U8 v2 — 2026-06-12)
+// ---------------------------------------------------------------------------
+
+/**
+ * Tint definitions for each pill category.
+ * Low-alpha backgrounds read on both light and dark surfaces.
+ * Text uses a medium-strength hue value that passes contrast on both themes.
+ */
+const CATEGORY_TINTS = {
+  /** Voice class: narrator, character — violet/purple */
+  class: {
+    bg: 'rgba(124, 58, 237, 0.13)',
+    text: 'rgb(109, 40, 217)',
+    border: 'rgba(124, 58, 237, 0.28)',
+  },
+  /** Gender — blue */
+  gender: {
+    bg: 'rgba(37, 99, 235, 0.12)',
+    text: 'rgb(37, 99, 235)',
+    border: 'rgba(37, 99, 235, 0.26)',
+  },
+  /** Age group — amber/warm */
+  age: {
+    bg: 'rgba(217, 119, 6, 0.13)',
+    text: 'rgb(180, 83, 9)',
+    border: 'rgba(217, 119, 6, 0.28)',
+  },
+  /** Extended taxonomy: language, accent, style — teal/slate */
+  extended: {
+    bg: 'rgba(15, 118, 110, 0.11)',
+    text: 'rgb(15, 118, 110)',
+    border: 'rgba(15, 118, 110, 0.24)',
+  },
+  /** Free-form tags — neutral ghost */
+  tag: {
+    bg: 'transparent',
+    text: 'var(--text-muted)',
+    border: 'var(--border)',
+  },
+} as const;
+
+type PillCategory = keyof typeof CATEGORY_TINTS;
+
+/** Canonical class keywords (voice class attribute values) */
+const CLASS_VALUES = new Set(['narrator', 'character', 'assistant', 'custom']);
+/** Canonical gender keywords */
+const GENDER_VALUES = new Set(['male', 'female', 'neutral', 'nonbinary']);
+/** Canonical age keywords */
+const AGE_VALUES = new Set(['child', 'teen', 'young', 'adult', 'middle', 'senior', 'elder']);
+/** Extended taxonomy keywords */
+const EXTENDED_KEYS = new Set(['english', 'british', 'american', 'australian', 'irish', 'scottish', 'narration', 'educational', 'conversational', 'dramatic', 'news', 'casual']);
+
+function pillCategory(label: string): PillCategory {
+  const l = label.toLowerCase();
+  if (CLASS_VALUES.has(l)) return 'class';
+  if (GENDER_VALUES.has(l)) return 'gender';
+  if (AGE_VALUES.has(l)) return 'age';
+  if (EXTENDED_KEYS.has(l)) return 'extended';
+  return 'tag';
+}
+
+const CATEGORY_ORDER: PillCategory[] = ['class', 'gender', 'age', 'extended', 'tag'];
+
+function sortedPills(labels: string[]): string[] {
+  return [...labels].sort((a, b) => {
+    const ai = CATEGORY_ORDER.indexOf(pillCategory(a));
+    const bi = CATEGORY_ORDER.indexOf(pillCategory(b));
+    return ai - bi;
+  });
+}
+
+/** Single category-tinted pill */
+const AttrPill: React.FC<{ label: string; category?: PillCategory }> = ({ label, category }) => {
+  const cat = category ?? pillCategory(label);
+  const tint = CATEGORY_TINTS[cat];
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        padding: '2px 7px',
+        borderRadius: 999,
+        fontSize: '0.625rem',
+        fontWeight: cat === 'tag' ? 400 : 500,
+        background: tint.bg,
+        color: tint.text,
+        border: `1px solid ${tint.border}`,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+    </span>
+  );
+};
+
+/** Legacy alias — used by cards without extended taxonomy */
+const AttrBadge: React.FC<{ label: string }> = ({ label }) => <AttrPill label={label} />;
+
+// ---------------------------------------------------------------------------
+// Pill legend row
+// ---------------------------------------------------------------------------
+
+const PillLegend: React.FC = () => (
+  <div
     style={{
-      display: 'inline-block',
-      padding: '2px 7px',
-      borderRadius: 999,
-      fontSize: '0.625rem',
-      fontWeight: 500,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      flexWrap: 'wrap',
+      padding: '6px 10px',
       background: 'var(--surface-alt)',
-      color: 'var(--text-secondary)',
       border: '1px solid var(--border)',
-      whiteSpace: 'nowrap',
+      borderRadius: 8,
+      marginBottom: 12,
     }}
   >
-    {label}
-  </span>
+    <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginRight: 4 }}>
+      Pill key:
+    </span>
+    {(['class', 'gender', 'age', 'extended', 'tag'] as PillCategory[]).map(cat => (
+      <span key={cat} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <AttrPill label={cat} category={cat} />
+      </span>
+    ))}
+  </div>
 );
+
+// ---------------------------------------------------------------------------
+// Overflow pill row (used by Elena Marsh extended-taxonomy card)
+// ---------------------------------------------------------------------------
+
+interface OverflowPillRowProps {
+  /** All pills in display order (pre-sorted by category) */
+  pills: string[];
+  /** How many to show before collapsing (default: 5 = class+gender+age + 2 more) */
+  alwaysShow?: number;
+}
+
+const OverflowPillRow: React.FC<OverflowPillRowProps> = ({ pills, alwaysShow = 5 }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const visible = pills.slice(0, alwaysShow);
+  const hidden = pills.slice(alwaysShow);
+  const overflowCount = hidden.length;
+
+  return (
+    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+      {visible.map(p => <AttrPill key={p} label={p} />)}
+      {overflowCount > 0 && !expanded && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            padding: '2px 7px',
+            borderRadius: 999,
+            fontSize: '0.625rem',
+            fontWeight: 600,
+            background: 'rgba(15, 118, 110, 0.11)',
+            color: 'rgb(15, 118, 110)',
+            border: '1px solid rgba(15, 118, 110, 0.24)',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          +{overflowCount}
+        </button>
+      )}
+      {expanded && hidden.map(p => <AttrPill key={p} label={p} />)}
+      {expanded && overflowCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            padding: '2px 7px',
+            borderRadius: 999,
+            fontSize: '0.625rem',
+            fontWeight: 500,
+            background: 'transparent',
+            color: 'var(--text-muted)',
+            border: '1px solid var(--border)',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          less
+        </button>
+      )}
+    </div>
+  );
+};
 
 interface U8VoiceCardProps {
   phase: string;
@@ -1141,11 +1317,13 @@ interface U8VoiceCardProps {
   name: string;
   badges: string[];
   description: string;
+  /** When true, pill row uses OverflowPillRow with sorted pills */
+  useOverflow?: boolean;
 }
 
 /** Individual U8 voice card with functional overflow popover */
 const U8VoiceCard: React.FC<U8VoiceCardProps> = ({
-  phase, cta, ctaStyle, avatarEmoji, avatarBg, name, badges, description,
+  phase, cta, ctaStyle, avatarEmoji, avatarBg, name, badges, description, useOverflow,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const overflowRef = useRef<HTMLDivElement>(null);
@@ -1273,10 +1451,14 @@ const U8VoiceCard: React.FC<U8VoiceCardProps> = ({
         </div>
       </div>
 
-      {/* Attribute badges row: class · gender · age */}
-      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-        {badges.map(b => <AttrBadge key={b} label={b} />)}
-      </div>
+      {/* Attribute badges row: class · gender · age [· extended · tags] */}
+      {useOverflow ? (
+        <OverflowPillRow pills={sortedPills(badges)} alwaysShow={5} />
+      ) : (
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {sortedPills(badges).map(b => <AttrBadge key={b} label={b} />)}
+        </div>
+      )}
 
       {/* One-line description — ellipsized */}
       <div
@@ -1370,8 +1552,10 @@ const U8Mock: React.FC = () => {
       avatarEmoji: 'EM',
       avatarBg: 'rgba(245, 158, 11, 0.12)',
       name: 'Elena Marsh',
-      badges: ['narrator', 'female', 'adult'],
-      description: 'Warm, measured narrator with a slight rasp.',
+      // Extended taxonomy: class · gender · age + language · accent · style×3
+      badges: ['narrator', 'female', 'adult', 'english', 'british', 'narration', 'educational', 'conversational'],
+      description: 'Warm, measured narrator with a British accent — narration, education, conversational.',
+      useOverflow: true,
     },
     {
       phase: 'tested',
@@ -1396,11 +1580,19 @@ const U8Mock: React.FC = () => {
         the voice&apos;s actual state and shows exactly one primary CTA for that phase, demoting other actions to
         an overflow (⋯) menu. This eliminates choice overload and surfaces the right next step.
         Each card now also shows a circular voice icon (user-uploaded image, mocked here with an emoji or initials),
-        attribute badges (class · gender · age group), a one-line description, and a ▶ Preview button beside the CTA.
+        <strong> category-tinted attribute pills</strong> (class · gender · age — each category carries a distinct
+        hue that works in both light and dark themes), a one-line description, and a ▶ Preview button beside the CTA.
+        Pills are always ordered: <em>class · gender · age</em>, then extended attributes, then free-form tags.
         Attributes + description can generate a copyable image prompt to help users create a uniform voice icon
-        (owner direction, 2026-06-12).
+        (owner direction, 2026-06-12).{' '}
+        <strong>Extended taxonomy (language, accent, style) re-opened into 2.0 scope — owner, 2026-06-12:</strong>{' '}
+        style is multi-select (e.g. narration + educational + conversational); accent is single-value.
+        When a card carries more pills than fit, identity pills (class/gender/age) plus 2 extended always show;
+        the remainder collapse into a <em>+N</em> pill — tap/click to expand inline (tap-friendly, no hover-only).
+        See Elena Marsh card for the live specimen.
         Click ⋯ to open the popover.
       </p>
+      <PillLegend />
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
         {phases.map(props => (
           <U8VoiceCard key={props.phase} {...props} />
