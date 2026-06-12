@@ -1,11 +1,9 @@
 from __future__ import annotations
+import logging
 import time
 from pathlib import Path
 
-from app.utils.text.textops import sanitize_text, safe_split_long_sentences
-from app.engines.errors import EngineBridgeError
-from . import handler as xtts_facade
-from app.jobs.handlers.bridge_helpers import generate_via_bridge
+from studio_plugin_sdk.errors import BridgeError
 from .helpers import (
     _profile_inputs_for_segment,
     _segment_group_weight,
@@ -14,22 +12,38 @@ from .helpers import (
 )
 from ._text_utils import join_group_text, build_segment_groups
 
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Module-level SDK context factory (lazy singleton)
+# ---------------------------------------------------------------------------
+
+_ctx_instance = None
+
+
+def _get_ctx():
+    """Return the shared StudioPluginContext for the xtts engine."""
+    global _ctx_instance  # noqa: PLW0603
+    if _ctx_instance is None:
+        from studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
+        _ctx_instance = StudioPluginContext("xtts")
+    return _ctx_instance
+
+
 _SKIP_LIVE_BROADCASTS = {
-    "skip_studio_job_event": True,
-    "skip_job_updated": True,
+    "broadcast": False,
 }
 
 
 def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, speed, pdir):
-    from app.db import get_chapter_segments, update_segment
-    from app.engines.behavior import get_text_chunk_limit
-    sent_char_limit = get_text_chunk_limit("xtts")
+    ctx = _get_ctx()
+    sent_char_limit = ctx.get_text_chunk_limit("xtts")
 
-    all_segs = get_chapter_segments(j.chapter_id)
+    all_segs = ctx.get_chapter_segments(j.chapter_id)
     requested_ids = set(j.segment_ids)
     segs_to_gen = [s for s in all_segs if s['id'] in requested_ids]
     if not segs_to_gen:
-        xtts_facade.update_job(jid, status="done", progress=1.0)
+        ctx.update_job_progress(jid, status="done", progress=1.0)
         return 0
 
     gen_groups = build_segment_groups(segs_to_gen, all_segs, sent_char_limit)
@@ -41,8 +55,8 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
         sw, voice_profile_dir = _profile_inputs_for_segment(char_profile, j.speaker_profile, default_sw)
         combined_text = join_group_text(group)
         if j.safe_mode:
-            combined_text = sanitize_text(combined_text)
-            combined_text = safe_split_long_sentences(combined_text, target=sent_char_limit)
+            combined_text = ctx.sanitize_text(combined_text)
+            combined_text = ctx.split_long_sentences(combined_text, sent_char_limit)
         first_sid = group[0]['id']
         seg_out = pdir / "segments" / f"{first_sid}.wav"
         seg_out.parent.mkdir(parents=True, exist_ok=True)
@@ -59,7 +73,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
     j.render_group_count = total_requested_groups
     j.completed_render_groups = 0
     j.active_render_group_index = 0
-    xtts_facade.update_job(
+    ctx.update_job_progress(
         jid,
         **_group_display_updates(0, total_requested_groups, 0.0, limit=1.0, group_weights=requested_group_weights),
         **_SKIP_LIVE_BROADCASTS,
@@ -73,7 +87,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
             if group:
                 seg_filename = Path(saved_path).name
                 for s in group:
-                    update_segment(s['id'], broadcast=True, audio_status='done', audio_file_path=seg_filename, audio_generated_at=time.time())
+                    ctx.update_segment(s['id'], broadcast=True, audio_status='done', audio_file_path=seg_filename, audio_generated_at=time.time())
                 completed_groups[0] += 1
                 j.completed_render_groups = completed_groups[0]
                 j.active_render_group_index = 0
@@ -84,7 +98,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
                     limit=1.0,
                     group_weights=requested_group_weights,
                 )
-                xtts_facade.update_job(
+                ctx.update_job_progress(
                     jid,
                     progress=prog,
                     active_segment_id=None,
@@ -103,9 +117,9 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
                 limit=1.0,
                 group_weights=requested_group_weights,
             )
-            xtts_facade.update_job(
+            ctx.update_job_progress(
                 jid,
-                force_broadcast=True,
+                broadcast=True,
                 progress=base_progress,
                 active_segment_id=asid,
                 active_segment_progress=0.0,
@@ -124,19 +138,19 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
                     limit=1.0,
                     group_weights=requested_group_weights,
                 )
-                xtts_facade.update_job(
+                ctx.update_job_progress(
                     jid,
-                    force_broadcast=True,
+                    broadcast=True,
                     progress=overall_progress,
                     active_segment_progress=segment_progress,
                     **_group_display_updates(completed_groups[0], total_requested_groups, segment_progress, limit=1.0, active_index=min(completed_groups[0] + 1, total_requested_groups), group_weights=requested_group_weights),
                     **_SKIP_LIVE_BROADCASTS,
                 )
             except Exception:
-                xtts_facade.logger.warning("Failed to parse [PROGRESS] line: %r", line, exc_info=True)
+                logger.warning("Failed to parse [PROGRESS] line: %r", line, exc_info=True)
 
     try:
-        rc = generate_via_bridge(
+        rc = ctx.generate_via_bridge(
             engine="xtts",
             text="",
             out_wav=pdir / f"output_{j.id}.wav",
@@ -147,8 +161,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
             script=full_script,
             task_id=jid,
         )
-    except EngineBridgeError as exc:
-        logger = xtts_facade.logger
+    except BridgeError as exc:
         logger.error("Bridge synthesis failed in xtts_segments: %s", exc)
         return 1
     finally:
@@ -156,17 +169,15 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
         if scratch.exists(): scratch.unlink()
 
         try:
-            from app.api.ws import broadcast_segments_updated
-            broadcast_segments_updated(j.chapter_id)
+            ctx.broadcast_segments_updated(j.chapter_id)
         except Exception:
             pass
 
     # Accurate Resumption: Update progress based on total segments
     try:
-        from app.db.chapters import get_chapter_segments_counts
-        done_c, total_c = get_chapter_segments_counts(j.chapter_id)
+        done_c, total_c = ctx.get_chapter_segments_counts(j.chapter_id)
         final_p = round(done_c / total_c, 2) if total_c > 0 else 1.0
-        xtts_facade.update_job(jid, status="done", progress=final_p, finished_at=time.time())
+        ctx.update_job_progress(jid, status="done", progress=final_p, finished_at=time.time())
     except Exception:
-        xtts_facade.update_job(jid, status="done", progress=1.0, finished_at=time.time())
+        ctx.update_job_progress(jid, status="done", progress=1.0, finished_at=time.time())
     return rc

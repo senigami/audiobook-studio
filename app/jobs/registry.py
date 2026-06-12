@@ -2,8 +2,9 @@ from __future__ import annotations
 import logging
 import re
 import sys
-import types
 from typing import Callable, Dict, Any, Optional, TYPE_CHECKING
+
+from app.studio_plugin_sdk._import_utils import ensure_plugin_package_hierarchy as _ensure_plugin_package_hierarchy
 
 if TYPE_CHECKING:
     from ..db.models import Job
@@ -192,23 +193,3 @@ def _load_plugin_callable(*, plugin_dir, folder_name: str, handler_spec: str) ->
         logger.error("Handler function %s not found in %s", func_name, module_path)
         return None
     return handler_func
-
-
-def _ensure_plugin_package_hierarchy(*, package_name: str, plugin_dir, module_parts: list[str]) -> None:
-    current_name = package_name
-    current_path = plugin_dir
-    if current_name not in sys.modules:
-        module = types.ModuleType(current_name)
-        module.__path__ = [str(current_path)]
-        module.__file__ = str(current_path / "__init__.py")
-        sys.modules[current_name] = module
-
-    for part in module_parts:
-        current_name = f"{current_name}.{part}"
-        current_path = current_path / part
-        if current_name in sys.modules:
-            continue
-        module = types.ModuleType(current_name)
-        module.__path__ = [str(current_path)]
-        module.__file__ = str(current_path / "__init__.py")
-        sys.modules[current_name] = module

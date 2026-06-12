@@ -16,10 +16,11 @@ import json
 import logging
 import re
 import sys
-import types
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+
+from app.studio_plugin_sdk._import_utils import ensure_plugin_package_hierarchy as _ensure_plugin_package_hierarchy
 
 logger = logging.getLogger(__name__)
 
@@ -807,32 +808,6 @@ def _import_engine_class(
         )
 
     return engine_cls
-
-
-def _ensure_plugin_package_hierarchy(
-    *,
-    package_name: str,
-    plugin_dir: Path,
-    module_parts: list[str],
-) -> None:
-    """Create isolated package modules for a plugin's internal imports."""
-    current_name = package_name
-    current_path = plugin_dir
-    if current_name not in sys.modules:
-        module = types.ModuleType(current_name)
-        module.__path__ = [str(current_path)]
-        module.__file__ = str(current_path / "__init__.py")
-        sys.modules[current_name] = module
-
-    for part in module_parts:
-        current_name = f"{current_name}.{part}"
-        current_path = current_path / part
-        if current_name in sys.modules:
-            continue
-        module = types.ModuleType(current_name)
-        module.__path__ = [str(current_path)]
-        module.__file__ = str(current_path / "__init__.py")
-        sys.modules[current_name] = module
 
 
 def get_plugin_dir(engine_id: str) -> Path:

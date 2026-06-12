@@ -14,13 +14,26 @@ class StudioException(Exception):
     """Base class for all Studio plugin SDK exceptions."""
 
 
-class BridgeError(StudioException):
+# Resolve EngineBridgeError at module load time (late import to avoid side
+# effects during a bare `import studio_plugin_sdk.errors` in the TTS Server
+# subprocess where app.* isn't available).  Falls back to StudioException so
+# the module is importable standalone.
+try:
+    from app.engines.errors import EngineBridgeError as _EngineBridgeError  # noqa: PLC0415
+    _BridgeErrorBase = _EngineBridgeError
+except ImportError:
+    _BridgeErrorBase = StudioException  # type: ignore[assignment]
+
+
+class BridgeError(StudioException, _BridgeErrorBase):  # type: ignore[valid-base]
     """Raised when the TTS bridge cannot complete a synthesis request.
 
     This is the SDK-visible alias for ``app.engines.errors.EngineBridgeError``.
-    Handlers that currently catch ``EngineBridgeError`` can switch their import
-    to ``from studio_plugin_sdk.errors import BridgeError`` with no other change
-    required — the exception hierarchy is compatible in both directions.
+    ``BridgeError`` is also a subclass of ``EngineBridgeError`` so that:
+    - ``except BridgeError`` catches exceptions raised by the bridge, and
+    - legacy ``except EngineBridgeError`` clauses continue to catch
+      ``BridgeError`` instances.
+    The exception hierarchy is compatible in both directions.
     """
 
 

@@ -383,6 +383,20 @@ class StudioPluginContext:
         from app.db.segments import cleanup_orphaned_segments  # noqa: PLC0415
         cleanup_orphaned_segments(chapter_id)
 
+    def update_job_fields(self, job_id: str, *, broadcast: bool = False, **fields: Any) -> None:
+        """Low-level pass-through for arbitrary job row updates.
+
+        Prefer ``update_job_progress`` for the standard set of job state
+        fields.  Use this method only for engine-specific render-tracking
+        fields not covered by ``update_job_progress`` (e.g.
+        ``total_render_weight``, ``completed_render_weight``,
+        ``active_render_group_weight``, ``grouped_progress``).
+
+        Added in S4 (gap found during tts_xtts handler migration).
+        """
+        from app.db.state_jobs import update_job  # noqa: PLC0415
+        update_job(job_id, force_broadcast=broadcast, **fields)
+
     def update_queue_item(self, job_id: str, **fields: Any) -> None:
         """Low-level queue row write.  Prefer update_job_progress / update_queue_row.
 
@@ -430,10 +444,27 @@ class StudioPluginContext:
     # §3.3.12 Audio Operations
     # ------------------------------------------------------------------
 
-    def stitch_segments(self, segment_wavs: list[str], out_wav: str) -> None:
-        """Concatenate segment WAVs into a chapter WAV."""
-        from app.engines.audio_ops import stitch_segments  # noqa: PLC0415
-        stitch_segments(segment_wavs, out_wav)
+    def stitch_segments(
+        self,
+        segment_wavs: list[str],
+        out_wav: str,
+        *,
+        on_output: Callable[[str], None] | None = None,
+        cancel_check: Callable[[], bool] | None = None,
+    ) -> int:
+        """Concatenate segment WAVs into a chapter WAV.
+
+        Returns 0 on success, non-zero on failure.  ``on_output`` and
+        ``cancel_check`` are passed to the underlying ffmpeg stitcher when
+        supplied; if omitted, no-op stubs are used.
+        """
+        from app.engines.audio_ops import stitch_segments as _stitch  # noqa: PLC0415
+        _wav_paths = [Path(p) for p in segment_wavs]
+        _out = Path(out_wav)
+        _on_output = on_output or (lambda _line: None)
+        _cancel = cancel_check or (lambda: False)
+        # audio_ops.stitch_segments(pdir, segment_wavs, output_path, on_output, cancel_check)
+        return _stitch(_out.parent, _wav_paths, _out, _on_output, _cancel)
 
     def wav_to_mp3(self, in_wav: str, out_mp3: str) -> None:
         """Transcode WAV to MP3."""
@@ -466,6 +497,24 @@ class StudioPluginContext:
         """Engine character chunk limit from manifest."""
         from app.engines.behavior import get_text_chunk_limit  # noqa: PLC0415
         return get_text_chunk_limit(engine_id)
+
+    def get_sanitize_categories(self, engine_id: str) -> Any:
+        """Return the sanitization category config for the named engine.
+
+        Wraps ``app.engines.behavior.get_sanitize_categories``.
+        Added in S4 (gap found during tts_xtts handler migration).
+        """
+        from app.engines.behavior import get_sanitize_categories  # noqa: PLC0415
+        return get_sanitize_categories(engine_id)
+
+    def get_chapter_segments_counts(self, chapter_id: str) -> tuple[int, int]:
+        """Return (done_count, total_count) for segments in a chapter.
+
+        Wraps ``app.db.chapters.get_chapter_segments_counts``.
+        Added in S4 (gap found during tts_xtts handler migration).
+        """
+        from app.db.chapters import get_chapter_segments_counts  # noqa: PLC0415
+        return get_chapter_segments_counts(chapter_id)
 
     # ------------------------------------------------------------------
     # Extra methods mentioned in doc 02 text (outside the tables)
