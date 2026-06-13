@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { AlignLeft, BookOpen, Eye, Hash } from 'lucide-react';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import { selectChapterEditorJobs } from '@/pages/Book/lib/chapterJobs';
+import { AnalysisStrip } from '@/pages/Book/studio/AnalysisStrip';
 import { CastPalette } from '@/pages/Book/studio/CastPalette';
 import { useStudioChapter } from '@/pages/Book/studio/useStudioChapter';
 import { ScriptView } from '@/pages/ChapterEditor/components/ScriptView';
@@ -67,6 +68,8 @@ export function StudioStage() {
 
   const {
     chapter,
+    analysis,
+    analyzing,
     scriptViewData,
     scriptViewLoading,
     segments,
@@ -109,7 +112,7 @@ export function StudioStage() {
 
   return (
     <section className="book-stage-studio" data-testid="stage-studio" aria-label="Studio">
-      <div className="studio-stage__toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+      <div className="studio-stage__toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
         <div className="script-view-toggle-group">
           <button
             type="button"
@@ -152,6 +155,15 @@ export function StudioStage() {
           </button>
         </div>
       </div>
+
+      <AnalysisStrip
+        bookId={bookId}
+        chapterId={activeChapterId}
+        chapter={chapter}
+        analysis={analysis}
+        analyzing={analyzing}
+        segmentsCount={chapter?.total_segments_count ?? segments.length}
+      />
 
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'stretch', minHeight: 0 }}>
         <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>

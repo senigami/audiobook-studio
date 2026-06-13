@@ -13,6 +13,18 @@ vi.mock('@/pages/Book/studio/useStudioChapter', () => ({
   useStudioChapter: vi.fn(),
 }));
 
+vi.mock('@/pages/Book/studio/AnalysisStrip', () => ({
+  AnalysisStrip: ({ bookId, chapterId, analysis, analyzing }: any) => (
+    <div
+      data-testid="analysis-strip"
+      data-book-id={bookId}
+      data-chapter-id={chapterId}
+      data-has-analysis={String(Boolean(analysis))}
+      data-analyzing={String(Boolean(analyzing))}
+    />
+  ),
+}));
+
 vi.mock('@/pages/Book/studio/CastPalette', () => ({
   CastPalette: ({ selectedCharacterId, setSelectedCharacterId, setSelectedProfileName }: any) => (
     <button
@@ -64,6 +76,8 @@ function buildChapter(id: string, audio_status = 'ready') {
 function mockStudioChapter(chapterId: string, overrides: Record<string, unknown> = {}) {
   mockUseStudioChapter.mockReturnValue({
     chapter: { id: chapterId, title: chapterId, text_content: 'text', word_count: 2 } as never,
+    analysis: null,
+    analyzing: false,
     segments: [],
     scriptViewData: {
       chapter_id: chapterId,
@@ -178,6 +192,8 @@ describe('StudioStage', () => {
     mockStudioChapter('c2', {
       selectedCharacterId: 'char-1',
       selectedProfileName: 'Profile 1',
+      analysis: { char_count: 101 },
+      analyzing: true,
     });
 
     render(
@@ -197,6 +213,10 @@ describe('StudioStage', () => {
     expect(screen.getByTestId('script-view')).toHaveAttribute('data-safe-text', 'false');
     expect(screen.getByTestId('script-view')).toHaveAttribute('data-show-numbers', 'false');
     expect(screen.getByTestId('script-view')).toHaveAttribute('data-active-character-id', 'char-1');
+    expect(screen.getByTestId('analysis-strip')).toHaveAttribute('data-book-id', 'book-1');
+    expect(screen.getByTestId('analysis-strip')).toHaveAttribute('data-chapter-id', 'c2');
+    expect(screen.getByTestId('analysis-strip')).toHaveAttribute('data-has-analysis', 'true');
+    expect(screen.getByTestId('analysis-strip')).toHaveAttribute('data-analyzing', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: /script view/i }));
     expect(screen.getByTestId('script-view')).toHaveAttribute('data-view-mode', 'script');
