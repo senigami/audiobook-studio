@@ -4,10 +4,10 @@
 import React, { useState } from 'react';
 import { saveThemePref } from '@/utils/theme';
 import {
-  Row, Col, ProgressBar,
+  ProgressBar,
   CHAPTERS, CHAPTER_RENDER_PCT, BOOK_STAGE_LINKS,
-  RailDest, BookTab,
 } from './shared';
+import type { RailDest, BookTab } from './shared';
 
 const RAIL_GROUPS: { group: string; items: { id: RailDest; icon: string; badge?: string }[] }[] = [
   {

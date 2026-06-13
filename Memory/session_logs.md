@@ -2052,3 +2052,8 @@
 
 - Implemented the grouped shell rail at `frontend/src/app/layout/NavRail.tsx` with dev-mode Developer links, queue badges, collapse persistence, hover-expanded overlay, and the theme/chevron bottom controls.
 - Added the rail width tokens, overlay layering, and component CSS, then verified the focused NavRail test file, frontend lint, and `git diff --check`.
+
+# 2026-06-12 - R1-T9 integrations route verified
+
+- Re-homed the API guide to `frontend/src/pages/Integrations/components/ApiGuidePanel.tsx` and added `frontend/src/pages/Integrations/IntegrationsPage.tsx` plus the `/integrations` app route.
+- Redirected `/settings/api` to `/integrations`, kept `apiExampleStyle` in `frontend/src/pages/Settings/settingsRouteHelpers.ts`, and verified the focused Integrations, SettingsRoute, and App Vitest slice plus frontend lint and `git diff --check`.

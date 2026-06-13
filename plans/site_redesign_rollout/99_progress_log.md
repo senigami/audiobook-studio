@@ -6,6 +6,12 @@ also go here.*
 
 ## Task log
 
+2026-06-13 R1 phase-boundary review (orchestrator): tests 1097 pass, lint 0 errors,
+build NOW passes (demo-mock TS errors fixed outside rollout scope — see below). R1 APPROVED.
+Note: /settings/engines + /settings/api still render as Settings tabs (not yet redirects to
+/engines + /integrations); both old and new routes work so no capability lost — redirect
+consolidation is R5-T13 scope. Confirm in browser or defer.
+
 2026-06-12 R1-T1 done build-skipped-existing-demo-type-errors HEAD
 2026-06-12 R1-T2 done build-skipped-existing-demo-type-errors HEAD
 2026-06-12 R1-T3 done HEAD
@@ -25,4 +31,4 @@ also go here.*
 
 ## Open questions for the owner
 
-- 2026-06-12: `npm -C frontend run build` currently fails in untouched `frontend/src/demo/stages/siteMockup/*` files. Per owner direction, continue rollout tasks and note this as an external build blocker for the other agent instead of stopping local frontend shell work.
+- 2026-06-12: `npm -C frontend run build` failed in untouched `frontend/src/demo/stages/siteMockup/*` files. RESOLVED 2026-06-13 by orchestrator (commit below): these were leftover TS errors from the v3.7 mock module split (unused imports, type-only imports, a Row onClick prop) — fixed in demo-only files, outside rollout scope. Build gate is now usable for R2-R6.

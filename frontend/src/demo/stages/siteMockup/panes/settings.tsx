@@ -131,7 +131,7 @@ export const SettingsPane: React.FC = () => {
                 { label: 'Backend Runtime', sub: 'Service Bridge', chip: 'Managed Subprocess (TTS Server @ 7862)', chipColor: undefined as string | undefined },
                 { label: 'Orchestrator', sub: undefined, chip: 'Studio 2.0', chipColor: undefined as string | undefined },
                 { label: 'Backend API', sub: 'http://127.0.0.1:8124 · port 8124 · Responding to Studio API requests.', chip: 'online', chipColor: '#22c55e' },
-              ].map((row, i) => (
+              ].map((row) => (
                 <div key={row.label} style={{ padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: '0.66rem', fontWeight: 600, color: 'var(--text-primary)' }}>{row.label}</div>

@@ -24,7 +24,8 @@
  */
 
 import React, { useState } from 'react';
-import { Col, Row, Chip, Btn, ProgressBar, WaveformSvg, IN_FLIGHT_JOBS, QUEUED_JOBS, BOOK_TABS, BookTab, RailDest } from './siteMockup/shared';
+import { Col, Row, Chip, ProgressBar, WaveformSvg, IN_FLIGHT_JOBS, QUEUED_JOBS, BOOK_TABS } from './siteMockup/shared';
+import type { BookTab, RailDest } from './siteMockup/shared';
 import { Rail } from './siteMockup/rail';
 import { LibraryPane } from './siteMockup/panes/library';
 import { ManuscriptPane, CastingPane, ReviewPane } from './siteMockup/panes/book';
@@ -238,7 +239,7 @@ const TopBar: React.FC<{
   inBook?: boolean;
   activeBookTab?: BookTab;
   onSwitchToPublish?: () => void;
-}> = ({ breadcrumb, queueOpen, onToggleQueue, inBook, activeBookTab, onSwitchToPublish }) => {
+}> = ({ breadcrumb, queueOpen, onToggleQueue, inBook, onSwitchToPublish }) => {
   const segments = breadcrumb.split(' / ');
   const stageSeg = inBook ? segments[segments.length - 1] : null;
 

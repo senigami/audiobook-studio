@@ -357,7 +357,7 @@ const RecordingGuideModal: React.FC<{ onClose: () => void }> = ({ onClose }) => 
                 {[
                   'The road stretched ahead through fields of pale silver grass.',
                   'She turned the page slowly, as if afraid of what she\'d find.',
-                ].map((prompt, i, arr) => (
+                ].map((prompt, i) => (
                   <Row key={prompt} gap={8} style={{
                     padding: '6px 10px', alignItems: 'flex-start',
                     borderTop: '1px solid var(--border)',

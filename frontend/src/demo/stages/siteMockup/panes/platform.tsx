@@ -2,7 +2,7 @@
  * siteMockup/panes/platform.tsx — EnginesPane + IntegrationsPane
  */
 import React, { useState } from 'react';
-import { Row, Col, Label, Chip, Btn, ProgressBar, PlannedChip, statusChip, onPill } from '../shared';
+import { Row, Col, Label, Chip, Btn, PlannedChip, statusChip, onPill } from '../shared';
 
 const SANITIZE_TOGGLES = [
   { label: 'quotes', on: true },

@@ -3,12 +3,13 @@
  */
 import React from 'react';
 
-export const Row: React.FC<{ gap?: number; children: React.ReactNode; style?: React.CSSProperties }> = ({
+export const Row: React.FC<{ gap?: number; children: React.ReactNode; style?: React.CSSProperties; onClick?: () => void }> = ({
   gap = 8,
   children,
   style,
+  onClick,
 }) => (
-  <div style={{ display: 'flex', gap, alignItems: 'stretch', ...style }}>
+  <div onClick={onClick} style={{ display: 'flex', gap, alignItems: 'stretch', ...style }}>
     {children}
   </div>
 );
