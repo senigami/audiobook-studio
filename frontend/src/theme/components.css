@@ -367,6 +367,124 @@
   pointer-events: auto;
 }
 
+.mobile-nav-drawer {
+  position: fixed;
+  inset: var(--header-height, 64px) auto 0 0;
+  z-index: var(--z-drawer, 400);
+  display: flex;
+  flex-direction: column;
+  width: min(20rem, 86vw);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+.mobile-nav-drawer__content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0;
+  overflow-y: auto;
+}
+
+.mobile-nav-drawer__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.mobile-nav-drawer__group-label {
+  padding: 0.45rem 0.875rem 0.125rem;
+  color: var(--text-muted);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mobile-nav-drawer__group-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-nav-drawer__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.875rem;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-nav-drawer__item:hover,
+.mobile-nav-drawer__item--active {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.mobile-nav-drawer__item--active {
+  border-left-color: var(--accent);
+  font-weight: 600;
+}
+
+.mobile-nav-drawer__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mobile-nav-drawer__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.3125rem;
+  border-radius: var(--radius-round);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.mobile-nav-drawer__bottom {
+  padding: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.mobile-nav-drawer__theme {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: var(--radius-button);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mobile-nav-drawer__theme:hover {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
 .top-bar {
   display: flex;
   align-items: center;

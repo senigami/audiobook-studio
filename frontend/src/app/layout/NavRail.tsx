@@ -1,22 +1,14 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Moon, SunMedium } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { buildNavGroups, getActiveNavId } from '@/app/layout/navData';
 import { LAYERS } from '@/app/layout/layering';
 import { setRailCollapsed, useRailCollapsed } from '@/utils/railState';
 import { useDevMode } from '@/utils/devMode';
-import { saveThemePref } from '@/utils/theme';
+import { useThemeToggle } from '@/utils/theme';
 
 interface NavRailProps {
   queueCount?: number;
-}
-
-function getCurrentTheme(): 'light' | 'dark' {
-  if (typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark') {
-    return 'dark';
-  }
-
-  return 'light';
 }
 
 export function NavRail({ queueCount }: NavRailProps) {
@@ -25,29 +17,15 @@ export function NavRail({ queueCount }: NavRailProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [hoverExpanded, setHoverExpanded] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => getCurrentTheme());
+  const { ThemeIcon, themeLabel, themeAriaLabel, handleThemeToggle } = useThemeToggle();
 
   const groups = useMemo(() => buildNavGroups(devMode), [devMode]);
   const activeNavId = getActiveNavId(location.pathname);
   const showOverlay = collapsed && hoverExpanded;
 
-  const handleThemeToggle = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-
-    if (typeof document !== 'undefined') {
-      document.documentElement.dataset.theme = next;
-    }
-
-    saveThemePref(next);
-    setTheme(next);
-  };
-
   const renderRailContent = (variant: 'expanded' | 'collapsed') => {
     const showLabels = variant === 'expanded';
     const compact = variant === 'collapsed';
-    const ThemeIcon = theme === 'dark' ? SunMedium : Moon;
-    const themeLabel = theme === 'dark' ? 'Light mode' : 'Dark mode';
-    const themeAriaLabel = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
     const ChevronIcon = compact ? ChevronRight : ChevronLeft;
     const chevronLabel = compact ? 'Expand rail' : 'Collapse rail';
 

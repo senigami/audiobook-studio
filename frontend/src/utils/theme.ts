@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { Moon, SunMedium } from 'lucide-react';
+
 export const STORAGE_KEY = 'studio-theme';
 
 export type Theme = 'light' | 'dark' | 'system';
@@ -32,4 +35,38 @@ export function saveThemePref(pref: Theme): void {
     // ignore storage errors (e.g. private browsing quota)
   }
   applyTheme(pref);
+}
+
+function getCurrentTheme(): 'light' | 'dark' {
+  if (typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark') {
+    return 'dark';
+  }
+
+  return 'light';
+}
+
+export function useThemeToggle() {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => getCurrentTheme());
+  const ThemeIcon = theme === 'dark' ? SunMedium : Moon;
+  const themeLabel = theme === 'dark' ? 'Light mode' : 'Dark mode';
+  const themeAriaLabel = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+
+  const handleThemeToggle = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+
+    if (typeof document !== 'undefined') {
+      document.documentElement.dataset.theme = next;
+    }
+
+    saveThemePref(next);
+    setTheme(next);
+  };
+
+  return {
+    theme,
+    ThemeIcon,
+    themeLabel,
+    themeAriaLabel,
+    handleThemeToggle,
+  };
 }

@@ -158,9 +158,11 @@ describe('Layout', () => {
 
     fireEvent.click(burger);
     expect(burger.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('complementary', { name: 'Mobile navigation' })).toBeTruthy();
 
     fireEvent.click(burger);
     expect(burger.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('complementary', { name: 'Mobile navigation' })).toBeNull();
   });
 
   it('mobile nav backdrop click closes the drawer', () => {
@@ -173,6 +175,7 @@ describe('Layout', () => {
     const burger = screen.getByRole('button', { name: /Open navigation/i });
     fireEvent.click(burger);
     expect(burger.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('complementary', { name: 'Mobile navigation' })).toBeTruthy();
 
     const backdrop = document.querySelector('.mobile-nav-backdrop');
     expect(backdrop).toBeTruthy();
@@ -180,6 +183,7 @@ describe('Layout', () => {
     fireEvent.click(backdrop!);
     expect(burger.getAttribute('aria-expanded')).toBe('false');
     expect(document.querySelector('.mobile-nav-backdrop')).toBeNull();
+    expect(screen.queryByRole('complementary', { name: 'Mobile navigation' })).toBeNull();
   });
 
   it('uses shell state to mark settings as the active global tab', () => {

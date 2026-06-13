@@ -4,6 +4,7 @@ import { BrandLogo } from '@/components/layout/BrandLogo';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { StudioShellState } from '@/app/navigation/model';
 import { LAYERS } from '@/app/layout/layering';
+import { MobileNavDrawer } from '@/app/layout/MobileNavDrawer';
 import { NavRail } from '@/app/layout/NavRail';
 import { TopBar } from '@/app/layout/TopBar';
 
@@ -99,7 +100,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
           </button>
 
           {/* Navigation Section */}
-          <nav className={`header-nav${navOpen ? ' header-nav--open' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <nav className="header-nav" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             {navItems.map((item) => (
               <button
                 key={item.id}
@@ -184,14 +185,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
         </div>
       </div>
 
-      {/* Mobile nav backdrop — tap to close drawer */}
-      {navOpen && (
-        <div
-          className="mobile-nav-backdrop"
-          onClick={() => setNavOpen(false)}
-          aria-hidden="true"
-        />
-      )}
+      <MobileNavDrawer open={navOpen} onClose={() => setNavOpen(false)} queueCount={queueCount} />
     </div>
   );
 };
