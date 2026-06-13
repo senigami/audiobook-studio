@@ -149,8 +149,7 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: stretch;
   width: 100%;
-  min-height: calc(100dvh - var(--header-height, 72px));
-  margin-top: var(--header-height, 72px);
+  min-height: 100dvh;
 }
 
 .chapter-header {
@@ -369,7 +368,7 @@
 
 .mobile-nav-drawer {
   position: fixed;
-  inset: var(--header-height, 64px) auto 0 0;
+  inset: var(--header-height, 56px) auto 0 0;
   z-index: var(--z-drawer, 400);
   display: flex;
   flex-direction: column;

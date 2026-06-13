@@ -31,26 +31,26 @@ describe('Layout', () => {
       </MemoryRouter>,
     );
 
-    const legacyHeader = document.querySelector('.header-container');
-    expect(legacyHeader).toBeTruthy();
-    expect(within(legacyHeader as HTMLElement).getByLabelText(/Audiobook Studio/i)).toBeTruthy();
-    expect(document.querySelector('.top-bar__brand-btn')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Audiobook Studio home/i })).toBeTruthy();
+    expect(document.querySelector('.top-bar')).toBeTruthy();
+    expect(document.querySelector('.header-container')).toBeNull();
+    expect(document.querySelector('.header-nav')).toBeNull();
   });
 
-  it('keeps the legacy header navigation available while the new shell mounts beside it', () => {
+  it('renders the rail as the primary navigation surface', () => {
     render(
       <MemoryRouter>
         <Layout {...defaultProps} />
       </MemoryRouter>,
     );
 
-    const legacyNav = document.querySelector('.header-nav');
-    expect(legacyNav).toBeTruthy();
-
-    expect(within(legacyNav as HTMLElement).getByRole('button', { name: /Library/i })).toBeTruthy();
-    expect(within(legacyNav as HTMLElement).getByRole('button', { name: /Voices/i })).toBeTruthy();
-    expect(within(legacyNav as HTMLElement).getByRole('button', { name: /Queue/i })).toBeTruthy();
-    expect(within(legacyNav as HTMLElement).getByRole('button', { name: /Settings/i })).toBeTruthy();
+    const rail = screen.getByRole('navigation', { name: 'Primary' });
+    expect(within(rail).getByRole('button', { name: 'Library' })).toBeTruthy();
+    expect(within(rail).getByRole('button', { name: 'Voices' })).toBeTruthy();
+    expect(within(rail).getByRole('button', { name: 'Activity' })).toBeTruthy();
+    expect(within(rail).getByRole('button', { name: 'Engines' })).toBeTruthy();
+    expect(within(rail).getByRole('button', { name: 'Integrations' })).toBeTruthy();
+    expect(within(rail).getByRole('button', { name: 'Settings' })).toBeTruthy();
   });
 
   it('renders the grouped rail and top bar inside the new shell grid', () => {
@@ -105,9 +105,8 @@ describe('Layout', () => {
       </MemoryRouter>,
     );
 
-    const legacyNav = document.querySelector('.header-nav');
-    expect(legacyNav).toBeTruthy();
-    expect(within(legacyNav as HTMLElement).getByRole('button', { name: /Library/i })).toHaveAttribute('aria-current', 'page');
+    const rail = screen.getByRole('navigation', { name: 'Primary' });
+    expect(within(rail).getByRole('button', { name: 'Library' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'ready');
   });
 
@@ -195,14 +194,13 @@ describe('Layout', () => {
     });
 
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/settings/engines']}>
         <Layout {...defaultProps} shellState={shellState} />
       </MemoryRouter>,
     );
 
-    const legacyNav = document.querySelector('.header-nav');
-    expect(legacyNav).toBeTruthy();
-    expect(within(legacyNav as HTMLElement).getByRole('button', { name: /Settings/i })).toHaveAttribute('aria-current', 'page');
+    const rail = screen.getByRole('navigation', { name: 'Primary' });
+    expect(within(rail).getByRole('button', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('navigates home when the brand button is clicked', () => {

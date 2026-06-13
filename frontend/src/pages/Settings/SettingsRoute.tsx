@@ -114,7 +114,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
             flexDirection: 'column',
             gap: '0.35rem',
             position: 'sticky',
-            top: 'calc(var(--header-height, 72px) + 1.5rem)',
+            top: 'calc(var(--header-height, 56px) + 1.5rem)',
           }}
         >
           {visibleTabs.map((tab) => (

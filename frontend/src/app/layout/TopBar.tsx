@@ -9,6 +9,7 @@ type TopBarShellState = Pick<StudioShellState, 'navigation' | 'hydration'>;
 interface TopBarProps {
   breadcrumb?: ReactNode;
   identitySlot?: ReactNode;
+  mobileNavButton?: ReactNode;
   shellState?: TopBarShellState;
   queueCount?: number;
   isQueueOpen?: boolean;
@@ -57,6 +58,7 @@ function getConnectionState(status?: TopBarShellState['hydration']['status']): {
 export function TopBar({
   breadcrumb,
   identitySlot,
+  mobileNavButton,
   shellState,
   queueCount,
   isQueueOpen,
@@ -69,6 +71,8 @@ export function TopBar({
 
   return (
     <header className="top-bar">
+      {mobileNavButton}
+
       <button
         type="button"
         className="top-bar__brand-btn"
