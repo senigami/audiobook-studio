@@ -1263,6 +1263,105 @@
   min-width: 0;
 }
 
+.publish-stage {
+  display: grid;
+  grid-template-columns: minmax(22rem, 0.9fr) minmax(18rem, 0.7fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.book-info-card,
+.publish-stage__exports {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.book-info-card {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+}
+
+.book-info-card__cover {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.book-info-card__cover-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 2 / 3;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-light);
+  color: var(--text-muted);
+  overflow: hidden;
+}
+
+.book-info-card__cover-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.book-info-card__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.book-info-card__field {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.book-info-card__field > span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.book-info-card__chips,
+.publish-stage__export-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.book-info-card__chips span {
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-round);
+  background: var(--surface-alt);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.publish-stage__exports h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.publish-stage__exports p,
+.publish-stage__empty-export {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
 .activity-page {
   display: flex;
   flex: 1 1 auto;

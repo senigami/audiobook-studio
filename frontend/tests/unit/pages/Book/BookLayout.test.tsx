@@ -83,7 +83,8 @@ describe('BookLayout', () => {
       expect(screen.getByTestId('pathname')).toHaveTextContent('/book/book-1/publish');
     });
 
-    expect(screen.getByTestId('stage-publish')).toHaveTextContent('Publish');
+    expect(screen.getByRole('region', { name: 'Publish' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Book info' })).toBeInTheDocument();
   });
 
   it('persists the selected stage when a stage tab is clicked', () => {

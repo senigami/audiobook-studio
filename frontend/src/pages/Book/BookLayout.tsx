@@ -5,6 +5,7 @@ import type { Job, SegmentProgress, Settings, Speaker, SpeakerProfile, TtsEngine
 import { BookDataProvider, useBookDataContext } from '@/pages/Book/BookDataContext';
 import { CastingStage } from '@/pages/Book/stages/CastingStage';
 import { ManuscriptStage } from '@/pages/Book/stages/ManuscriptStage';
+import { PublishStage } from '@/pages/Book/stages/PublishStage';
 import {
   BOOK_STAGE_LABELS,
   BOOK_STAGES,
@@ -54,6 +55,9 @@ function StageContent({ stage }: { stage: BookStage }) {
   }
   if (stage === 'casting') {
     return <CastingStage />;
+  }
+  if (stage === 'publish') {
+    return <PublishStage />;
   }
 
   return <StagePlaceholder stage={stage} />;
