@@ -267,7 +267,22 @@ describe('App', () => {
     ).toBe(true)
   })
 
-  it('opens deep-linked settings tabs directly on first load', async () => {
+  it('opens the standalone integrations page', async () => {
+    render(
+      <MemoryRouter initialEntries={['/integrations']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Integrations' })).toBeTruthy()
+    })
+
+    expect(screen.getByRole('heading', { name: 'Security Note' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'View Swagger Docs' })).toHaveAttribute('href', '/api/v1/tts/docs')
+  })
+
+  it('redirects deep-linked api settings tabs to integrations', async () => {
     render(
       <MemoryRouter initialEntries={['/settings/api/']}>
         <App />
@@ -275,10 +290,10 @@ describe('App', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'API' })).toBeTruthy()
+      expect(screen.getByRole('heading', { name: 'Integrations' })).toBeTruthy()
     })
 
-    expect(screen.getByText('Developer Integration Guide')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Security Note' })).toBeTruthy()
   })
 
   it('opens a chapter route by resolving the parent project from chapter details', async () => {

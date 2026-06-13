@@ -31,7 +31,7 @@ export const SETTINGS_TABS: SettingsTab[] = [
     id: 'api',
     label: 'API',
     path: '/settings/api',
-    description: 'Local API access, authentication, and queue priority.',
+    description: 'Moved to Platform -> Integrations.',
     icon: Server,
   },
   {

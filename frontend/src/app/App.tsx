@@ -17,6 +17,7 @@ import { Drawer } from '@/pages/Voices/components/VoiceUtils';
 
 const VoicesTab = lazy(() => import('@/pages/Voices/VoicesPage').then(m => ({ default: m.VoicesTab })));
 const EnginesPage = lazy(() => import('@/pages/Engines').then(m => ({ default: m.EnginesPage })));
+const IntegrationsPage = lazy(() => import('@/pages/Integrations').then(m => ({ default: m.IntegrationsPage })));
 const ProjectView = lazy(() => import('@/pages/ProjectDetail/ProjectDetailPage').then(m => ({ default: m.ProjectView })));
 const ProjectViewRoute = lazy(() => import('@/pages/ProjectDetail/ProjectViewRoute').then(m => ({ default: m.ProjectViewRoute })));
 const ActivityPage = lazy(() => import('@/pages/Activity/ActivityPage'));
@@ -354,6 +355,7 @@ function App() {
                   onShowNotification={showToast}
                 />
               } />
+              <Route path="/integrations" element={<IntegrationsPage />} />
               <Route path="/voices" element={
                 <VoicesTab
                   speakerProfiles={initialData?.speaker_profiles || []}

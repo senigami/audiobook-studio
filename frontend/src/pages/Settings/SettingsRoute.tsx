@@ -10,7 +10,6 @@ import {
 } from '@/pages/Settings/settingsRouteConfig';
 import { SettingsTabLink, TabHeading } from '@/pages/Settings/components/SettingsComponents';
 import { GeneralSettingsPanel } from '@/pages/Settings/components/GeneralSettingsPanel';
-import { ApiSettingsPanel } from '@/pages/Settings/components/ApiSettingsPanel';
 import { AboutSettingsPanel } from '@/pages/Settings/components/AboutSettingsPanel';
 import { DeveloperSettingsPanel } from '@/pages/Settings/components/DeveloperSettingsPanel';
 import { useDevMode } from '@/utils/devMode';
@@ -45,6 +44,9 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
 
   if (!VALID_SETTINGS_PATHS.has(canonicalPathname)) {
     return <Navigate to="/settings" replace />;
+  }
+  if (activeTab.id === 'api') {
+    return <Navigate to="/integrations" replace />;
   }
   // Redirect away from /settings/developer if dev mode is off
   if (activeTab.id === 'developer' && !devMode) {
@@ -132,7 +134,6 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
               onShowNotification={onShowNotification}
             />
           )}
-          {activeTab.id === 'api' && <ApiSettingsPanel />}
           {activeTab.id === 'about' && <AboutSettingsPanel onRefresh={onRefresh} />}
           {activeTab.id === 'developer' && <DeveloperSettingsPanel />}
         </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import { Server, ShieldAlert, BookOpen } from 'lucide-react';
 import { apiExampleStyle } from '@/pages/Settings/settingsRouteHelpers';
 
-export const ApiSettingsPanel: React.FC = () => {
+export const ApiGuidePanel: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div style={{ padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', background: 'linear-gradient(135deg, var(--surface-light) 0%, var(--surface) 100%)', boxShadow: 'var(--shadow-md)' }}>

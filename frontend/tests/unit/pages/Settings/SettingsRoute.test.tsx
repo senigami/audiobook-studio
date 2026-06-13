@@ -309,22 +309,19 @@ describe('SettingsRoute', () => {
     expect(screen.getByText(/healthy/i)).toBeTruthy();
   });
 
-  it('renders the api tab as integration guidance', async () => {
+  it('redirects the api tab to the standalone integrations page', async () => {
     render(
       <MemoryRouter initialEntries={['/settings/api']}>
-        <SettingsRoute {...defaultProps} />
+        <Routes>
+          <Route path="/settings/*" element={<SettingsRoute {...defaultProps} />} />
+          <Route path="/integrations" element={<div>Integrations route target</div>} />
+        </Routes>
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole('heading', { name: 'API' })).toBeTruthy();
-    expect(screen.getByText('Developer Integration Guide')).toBeTruthy();
-    expect(screen.getByText('Unified Orchestration')).toBeTruthy();
-    expect(screen.getByText('GET /api/engines')).toBeTruthy();
-    expect(screen.getByText('GET /api/speaker-profiles')).toBeTruthy();
-    expect(screen.getByText('POST /api/processing_queue')).toBeTruthy();
-    expect(screen.getByText(/POST http:\/\/localhost:8001\/synthesize/i)).toBeTruthy();
-    expect(screen.getByText(/"output_path": "\/path\/to\/output\.wav"/)).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'View Swagger Docs' })).toHaveAttribute('href', '/api/v1/tts/docs');
+    await waitFor(() => {
+      expect(screen.getByText('Integrations route target')).toBeInTheDocument();
+    });
   });
 
 });
