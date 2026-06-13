@@ -1,4 +1,6 @@
 import { Navigate, NavLink, useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { setBookIdentity } from '@/app/layout/bookIdentityStore';
 import type { Job, SegmentProgress, Settings, Speaker, SpeakerProfile, TtsEngine } from '@/types';
 import { BookDataProvider, useBookDataContext } from '@/pages/Book/BookDataContext';
 import {
@@ -44,6 +46,31 @@ function StagePlaceholder({ stage }: { stage: BookStage }) {
   );
 }
 
+function BookIdentityPublisher() {
+  const { project, totalRuntime, totalPredicted } = useBookDataContext();
+
+  useEffect(() => {
+    if (!project) {
+      setBookIdentity(null);
+      return;
+    }
+
+    setBookIdentity({
+      id: project.id,
+      title: project.name,
+      author: project.author,
+      series: project.series,
+      coverUrl: project.cover_image_path,
+      runtimeSeconds: totalRuntime,
+      predictedSeconds: totalPredicted,
+    });
+
+    return () => setBookIdentity(null);
+  }, [project, totalRuntime, totalPredicted]);
+
+  return null;
+}
+
 export function BookLayout({
   jobs = {},
   segmentProgress = {},
@@ -79,6 +106,7 @@ export function BookLayout({
       chapterUpdate={chapterUpdate}
       onOpenQueue={onOpenQueue}
     >
+      <BookIdentityPublisher />
       <section className="book-layout" aria-label="Book pipeline">
         <nav className="book-stage-tabs" aria-label="Book stages">
           {BOOK_STAGES.map((bookStage) => (

@@ -26,6 +26,7 @@ consolidation is R5-T13 scope. Confirm in browser or defer.
 2026-06-12 R1-T12 done build-skipped-existing-demo-type-errors HEAD
 2026-06-13 R2-T1 done HEAD
 2026-06-13 R2-T2 done HEAD
+2026-06-13 R2-T3 done HEAD
 
 ## Found bugs (do not fix mid-phase — triaged at R6)
 

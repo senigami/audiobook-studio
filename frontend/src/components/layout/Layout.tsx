@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Menu } from 'lucide-react';
 import type { StudioShellState } from '@/app/navigation/model';
+import { BookIdentityLine } from '@/app/layout/BookIdentityLine';
 import { MobileNavDrawer } from '@/app/layout/MobileNavDrawer';
 import { NavRail } from '@/app/layout/NavRail';
 import { TopBar } from '@/app/layout/TopBar';
@@ -39,6 +40,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, queueCount, shellState
               </button>
             }
             shellState={shellState}
+            identitySlot={<BookIdentityLine />}
             queueCount={queueCount}
             isQueueOpen={isQueueOpen}
             onToggleQueue={onToggleQueue}
