@@ -31,6 +31,10 @@ export interface UseBookDataOptions {
   onOpenQueue?: () => void;
 }
 
+type BookActions = ReturnType<typeof useProjectActions> & {
+  handleProjectVoiceChange: (voice: string) => Promise<boolean>;
+};
+
 export interface BookDataContextValue {
   bookId: string;
   jobs: Record<string, Job>;
@@ -42,6 +46,9 @@ export interface BookDataContextValue {
   loading: boolean;
   selectedVoice: string;
   setSelectedVoice: React.Dispatch<React.SetStateAction<string>>;
+  speakerProfiles: SpeakerProfile[];
+  speakers: Speaker[];
+  engines: TtsEngine[];
   mergedVoices: ReturnType<typeof buildVoiceOptions>;
   effectiveProjectVoice: string;
   projectVoiceStatus: ReturnType<typeof resolveVoiceEngineStatus>;
@@ -49,7 +56,7 @@ export interface BookDataContextValue {
   totalRuntime: number;
   totalPredicted: number | null;
   hasUnrendered: boolean;
-  actions: ReturnType<typeof useProjectActions>;
+  actions: BookActions;
   segmentUpdate?: { chapterId: string; tick: number };
   chapterUpdate?: { chapterId: string; tick: number };
   reload: (isTransition?: boolean) => Promise<void>;
@@ -181,6 +188,28 @@ export function useBookData({
   );
 
   const actions = useProjectActions(bookId, () => reload(false), navigate, onOpenQueue);
+  const handleProjectVoiceChange = React.useCallback(
+    async (voice: string) => {
+      const previousVoice = selectedVoice;
+      const previousProjectVoice = project?.speaker_profile_name ?? null;
+      setSelectedVoice(voice);
+      setProject((currentProject) => (
+        currentProject ? { ...currentProject, speaker_profile_name: voice || null } : currentProject
+      ));
+      try {
+        await api.updateProject(bookId, { speaker_profile_name: voice || null });
+        return true;
+      } catch (error) {
+        console.error(error);
+        setSelectedVoice(previousVoice);
+        setProject((currentProject) => (
+          currentProject ? { ...currentProject, speaker_profile_name: previousProjectVoice } : currentProject
+        ));
+        return false;
+      }
+    },
+    [bookId, project?.speaker_profile_name, selectedVoice],
+  );
 
   return {
     bookId,
@@ -193,6 +222,9 @@ export function useBookData({
     loading,
     selectedVoice,
     setSelectedVoice,
+    speakerProfiles,
+    speakers,
+    engines,
     mergedVoices,
     effectiveProjectVoice,
     projectVoiceStatus,
@@ -200,7 +232,10 @@ export function useBookData({
     totalRuntime,
     totalPredicted,
     hasUnrendered,
-    actions,
+    actions: {
+      ...actions,
+      handleProjectVoiceChange,
+    },
     segmentUpdate,
     chapterUpdate,
     reload,

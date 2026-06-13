@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { api } from '@/api';
 import { useBookData } from '@/pages/Book';
@@ -11,6 +11,7 @@ vi.mock('@/api', () => ({
     fetchCharacters: vi.fn(),
     fetchProjectAudiobooks: vi.fn(),
     createChapter: vi.fn(),
+    updateProject: vi.fn(),
   },
 }));
 
@@ -80,6 +81,7 @@ describe('useBookData', () => {
     vi.mocked(api.fetchChapters).mockResolvedValue([chapter]);
     vi.mocked(api.fetchCharacters).mockResolvedValue([{ id: 'char-1', project_id: 'book-1', name: 'Alice', speaker_profile_name: null, default_emotion: null, color: '#fff' }]);
     vi.mocked(api.fetchProjectAudiobooks).mockResolvedValue([{ filename: 'book.mp3' }]);
+    vi.mocked(api.updateProject).mockResolvedValue({ status: 'ok', project });
   });
 
   it('hydrates book data from the existing project endpoints', async () => {
@@ -215,5 +217,30 @@ describe('useBookData', () => {
       sort_order: 2,
       file: undefined,
     });
+  });
+
+  it('updates the project default voice through the shared book action', async () => {
+    const { result } = renderHook(() =>
+      useBookData({
+        bookId: 'book-1',
+        speakerProfiles: profiles,
+        speakers: [],
+        settings: {},
+        engines,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.actions.handleProjectVoiceChange('Narrator');
+    });
+
+    expect(api.updateProject).toHaveBeenCalledWith('book-1', {
+      speaker_profile_name: 'Narrator',
+    });
+    expect(result.current.selectedVoice).toBe('Narrator');
   });
 });

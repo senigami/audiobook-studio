@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { setBookIdentity } from '@/app/layout/bookIdentityStore';
 import type { Job, SegmentProgress, Settings, Speaker, SpeakerProfile, TtsEngine } from '@/types';
 import { BookDataProvider, useBookDataContext } from '@/pages/Book/BookDataContext';
+import { CastingStage } from '@/pages/Book/stages/CastingStage';
 import { ManuscriptStage } from '@/pages/Book/stages/ManuscriptStage';
 import {
   BOOK_STAGE_LABELS,
@@ -50,6 +51,9 @@ function StagePlaceholder({ stage }: { stage: BookStage }) {
 function StageContent({ stage }: { stage: BookStage }) {
   if (stage === 'manuscript') {
     return <ManuscriptStage />;
+  }
+  if (stage === 'casting') {
+    return <CastingStage />;
   }
 
   return <StagePlaceholder stage={stage} />;
