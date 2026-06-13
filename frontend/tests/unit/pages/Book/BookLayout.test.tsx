@@ -52,7 +52,7 @@ describe('BookLayout', () => {
     localStorage.clear();
   });
 
-  it('renders the five stage tabs and placeholder content for the current stage', () => {
+  it('renders the five stage tabs and manuscript content for the current stage', () => {
     renderBookRoute('/book/book-1/manuscript');
 
     expect(screen.getByRole('link', { name: 'Manuscript' })).toHaveAttribute('aria-current', 'page');
@@ -60,7 +60,8 @@ describe('BookLayout', () => {
     expect(screen.getByRole('link', { name: 'Studio' })).toHaveAttribute('href', '/book/book-1/studio');
     expect(screen.getByRole('link', { name: 'Review' })).toHaveAttribute('href', '/book/book-1/review');
     expect(screen.getByRole('link', { name: 'Publish' })).toHaveAttribute('href', '/book/book-1/publish');
-    expect(screen.getByTestId('stage-manuscript')).toHaveTextContent('Manuscript');
+    expect(screen.getByRole('region', { name: 'Manuscript' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Manuscript chapters' })).toBeInTheDocument();
   });
 
   it('redirects /book/:bookId to studio by default', async () => {

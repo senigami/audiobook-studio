@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { setBookIdentity } from '@/app/layout/bookIdentityStore';
 import type { Job, SegmentProgress, Settings, Speaker, SpeakerProfile, TtsEngine } from '@/types';
 import { BookDataProvider, useBookDataContext } from '@/pages/Book/BookDataContext';
+import { ManuscriptStage } from '@/pages/Book/stages/ManuscriptStage';
 import {
   BOOK_STAGE_LABELS,
   BOOK_STAGES,
@@ -44,6 +45,14 @@ function StagePlaceholder({ stage }: { stage: BookStage }) {
       <p>{loading ? 'Loading book...' : `${project?.name || 'Book'} is ready for the R2 pipeline content.`}</p>
     </section>
   );
+}
+
+function StageContent({ stage }: { stage: BookStage }) {
+  if (stage === 'manuscript') {
+    return <ManuscriptStage />;
+  }
+
+  return <StagePlaceholder stage={stage} />;
 }
 
 function BookIdentityPublisher() {
@@ -139,7 +148,7 @@ export function BookLayout({
           ))}
         </nav>
 
-        <StagePlaceholder stage={stage} />
+        <StageContent stage={stage} />
       </section>
     </BookDataProvider>
   );
