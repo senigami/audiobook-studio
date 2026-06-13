@@ -1,8 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { api } from '@/api';
+import { AddChapterModal } from '@/pages/Book/components/AddChapterModal';
 import { ChapterTable } from '@/pages/Book/components/ChapterTable';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import type { Chapter } from '@/types';
+
+function chapterTitleFromFile(file: File): string {
+  return file.name.replace(/\.[^/.]+$/, '') || 'Imported chapter';
+}
 
 export function ManuscriptStage() {
   const {
@@ -13,6 +18,8 @@ export function ManuscriptStage() {
     reload,
   } = useBookDataContext();
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(chapters[0]?.id ?? null);
+  const [showAddChapterModal, setShowAddChapterModal] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const effectiveSelectedChapterId = useMemo(() => {
     if (selectedChapterId && chapters.some((chapter) => chapter.id === selectedChapterId)) {
@@ -33,8 +40,34 @@ export function ManuscriptStage() {
     }
   };
 
+  const handleCreateChapter = async (title: string, text: string, file: File | null) => {
+    const created = await actions.handleCreateChapter(title, text, file, chapters.length);
+    if (created) {
+      setShowAddChapterModal(false);
+    }
+  };
+
+  const handleImportFile = async (file: File | undefined) => {
+    if (!file) return;
+    await actions.handleCreateChapter(chapterTitleFromFile(file), '', file, chapters.length);
+    if (importInputRef.current) {
+      importInputRef.current.value = '';
+    }
+  };
+
   return (
     <section className="manuscript-stage" aria-label="Manuscript">
+      <div className="manuscript-stage__actions">
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => setShowAddChapterModal(true)}
+          disabled={actions.submitting}
+        >
+          + New chapter
+        </button>
+      </div>
+
       <ChapterTable
         chapters={chapters}
         jobs={jobs}
@@ -47,6 +80,36 @@ export function ManuscriptStage() {
         onDeleteChapter={(chapterId) => void actions.handleDeleteChapter(chapterId)}
         onExportSample={handleExportSample}
         anyEnginesEnabled={projectVoiceStatus.enabled}
+      />
+
+      <div className="manuscript-stage__import-row">
+        <div>
+          <strong>Import manuscript file</strong>
+          <span>.txt, .docx, or .epub</span>
+        </div>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".txt,.docx,.epub"
+          className="sr-only"
+          aria-label="Import manuscript file"
+          onChange={(event) => void handleImportFile(event.target.files?.[0])}
+        />
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={() => importInputRef.current?.click()}
+          disabled={actions.submitting}
+        >
+          Choose file
+        </button>
+      </div>
+
+      <AddChapterModal
+        isOpen={showAddChapterModal}
+        onClose={() => setShowAddChapterModal(false)}
+        onSubmit={(title, text, file) => void handleCreateChapter(title, text, file)}
+        submitting={actions.submitting}
       />
     </section>
   );

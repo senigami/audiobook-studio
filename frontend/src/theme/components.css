@@ -890,7 +890,40 @@
 .manuscript-stage {
   display: flex;
   flex-direction: column;
+  gap: 0.75rem;
   min-width: 0;
+}
+
+.manuscript-stage__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.manuscript-stage__import-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface-alt);
+}
+
+.manuscript-stage__import-row div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.manuscript-stage__import-row strong {
+  font-size: 0.9rem;
+}
+
+.manuscript-stage__import-row span {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
 }
 
 .chapter-table {
