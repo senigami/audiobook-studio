@@ -1,4 +1,6 @@
 import { Navigate, NavLink, useParams } from 'react-router-dom';
+import type { Job, SegmentProgress, Settings, Speaker, SpeakerProfile, TtsEngine } from '@/types';
+import { BookDataProvider, useBookDataContext } from '@/pages/Book/BookDataContext';
 import {
   BOOK_STAGE_LABELS,
   BOOK_STAGES,
@@ -7,6 +9,19 @@ import {
   setLastStage,
   type BookStage,
 } from '@/pages/Book/lib/stages';
+
+interface BookLayoutProps {
+  jobs?: Record<string, Job>;
+  segmentProgress?: Record<string, SegmentProgress>;
+  speakerProfiles?: SpeakerProfile[];
+  speakers?: Speaker[];
+  settings?: Partial<Settings>;
+  engines?: TtsEngine[];
+  refreshTrigger?: number;
+  segmentUpdate?: { chapterId: string; tick: number };
+  chapterUpdate?: { chapterId: string; tick: number };
+  onOpenQueue?: () => void;
+}
 
 export function BookIndexRedirect() {
   const { bookId } = useParams<{ bookId: string }>();
@@ -19,15 +34,28 @@ export function BookIndexRedirect() {
 }
 
 function StagePlaceholder({ stage }: { stage: BookStage }) {
+  const { loading, project } = useBookDataContext();
+
   return (
     <section className="book-stage-placeholder" data-testid={`stage-${stage}`} aria-labelledby={`book-stage-${stage}`}>
       <h1 id={`book-stage-${stage}`}>{BOOK_STAGE_LABELS[stage]}</h1>
-      <p>This stage is ready for the R2 pipeline content.</p>
+      <p>{loading ? 'Loading book...' : `${project?.name || 'Book'} is ready for the R2 pipeline content.`}</p>
     </section>
   );
 }
 
-export function BookLayout() {
+export function BookLayout({
+  jobs = {},
+  segmentProgress = {},
+  speakerProfiles = [],
+  speakers = [],
+  settings,
+  engines = [],
+  refreshTrigger = 0,
+  segmentUpdate,
+  chapterUpdate,
+  onOpenQueue,
+}: BookLayoutProps) {
   const { bookId, stage } = useParams<{ bookId: string; stage: string }>();
 
   if (!bookId) {
@@ -39,23 +67,36 @@ export function BookLayout() {
   }
 
   return (
-    <section className="book-layout" aria-label="Book pipeline">
-      <nav className="book-stage-tabs" aria-label="Book stages">
-        {BOOK_STAGES.map((bookStage) => (
-          <NavLink
-            key={bookStage}
-            to={`/book/${bookId}/${bookStage}`}
-            className={({ isActive }) =>
-              isActive ? 'book-stage-tabs__link book-stage-tabs__link--active' : 'book-stage-tabs__link'
-            }
-            onClick={() => setLastStage(bookId, bookStage)}
-          >
-            {BOOK_STAGE_LABELS[bookStage]}
-          </NavLink>
-        ))}
-      </nav>
+    <BookDataProvider
+      jobs={jobs}
+      segmentProgress={segmentProgress}
+      speakerProfiles={speakerProfiles}
+      speakers={speakers}
+      settings={settings}
+      engines={engines}
+      refreshTrigger={refreshTrigger}
+      segmentUpdate={segmentUpdate}
+      chapterUpdate={chapterUpdate}
+      onOpenQueue={onOpenQueue}
+    >
+      <section className="book-layout" aria-label="Book pipeline">
+        <nav className="book-stage-tabs" aria-label="Book stages">
+          {BOOK_STAGES.map((bookStage) => (
+            <NavLink
+              key={bookStage}
+              to={`/book/${bookId}/${bookStage}`}
+              className={({ isActive }) =>
+                isActive ? 'book-stage-tabs__link book-stage-tabs__link--active' : 'book-stage-tabs__link'
+              }
+              onClick={() => setLastStage(bookId, bookStage)}
+            >
+              {BOOK_STAGE_LABELS[bookStage]}
+            </NavLink>
+          ))}
+        </nav>
 
-      <StagePlaceholder stage={stage} />
-    </section>
+        <StagePlaceholder stage={stage} />
+      </section>
+    </BookDataProvider>
   );
 }

@@ -259,7 +259,20 @@ function App() {
             <Routes>
               <Route path="/" element={<ProjectLibrary onSelectProject={(id) => navigate(`/project/${id}`)} />} />
               <Route path="/book/:bookId" element={<BookIndexRedirect />} />
-              <Route path="/book/:bookId/:stage" element={<BookLayout />} />
+              <Route path="/book/:bookId/:stage" element={
+                <BookLayout
+                  jobs={jobs}
+                  segmentProgress={segmentProgress}
+                  speakerProfiles={initialData?.speaker_profiles || []}
+                  speakers={initialData?.speakers || []}
+                  settings={initialData?.settings}
+                  engines={initialData?.engines || []}
+                  refreshTrigger={queueRefreshTrigger}
+                  segmentUpdate={segmentUpdate}
+                  chapterUpdate={chapterUpdate}
+                  onOpenQueue={() => setIsQueueDrawerOpen(true)}
+                />
+              } />
               <Route path="/project/:projectId" element={
               <ProjectViewRoute
                   loading={initialLoading || queueLoading}

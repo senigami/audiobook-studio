@@ -1,7 +1,17 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { api } from '@/api';
 import { BookIndexRedirect, BookLayout } from '@/pages/Book';
+
+vi.mock('@/api', () => ({
+  api: {
+    fetchProject: vi.fn(),
+    fetchChapters: vi.fn(),
+    fetchCharacters: vi.fn(),
+    fetchProjectAudiobooks: vi.fn(),
+  },
+}));
 
 function LocationProbe() {
   const location = useLocation();
@@ -23,6 +33,19 @@ function renderBookRoute(initialEntry: string) {
 describe('BookLayout', () => {
   beforeEach(() => {
     localStorage.clear();
+    vi.mocked(api.fetchProject).mockResolvedValue({
+      id: 'book-1',
+      name: 'Book One',
+      series: null,
+      author: null,
+      speaker_profile_name: null,
+      cover_image_path: null,
+      created_at: 1,
+      updated_at: 1,
+    });
+    vi.mocked(api.fetchChapters).mockResolvedValue([]);
+    vi.mocked(api.fetchCharacters).mockResolvedValue([]);
+    vi.mocked(api.fetchProjectAudiobooks).mockResolvedValue([]);
   });
 
   afterEach(() => {
