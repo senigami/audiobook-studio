@@ -7,6 +7,7 @@ import { selectChapterEditorJobs } from '@/pages/Book/lib/chapterJobs';
 import { AnalysisStrip } from '@/pages/Book/studio/AnalysisStrip';
 import { CastPalette } from '@/pages/Book/studio/CastPalette';
 import { StudioHeaderActions } from '@/pages/Book/studio/StudioHeaderActions';
+import { RenderControlsStrip } from '@/pages/Book/studio/RenderControlsStrip';
 import { useStudioChapter } from '@/pages/Book/studio/useStudioChapter';
 import { QueueNotice } from '@/pages/ChapterEditor/components/QueueNotice';
 import { ResyncPreviewModal } from '@/pages/ChapterEditor/components/ResyncPreviewModal';
@@ -93,17 +94,27 @@ export function StudioStage() {
     playbackQueue,
     playSegment,
     handleSave,
+    saving,
+    submitting,
     hasUnsavedChanges,
     exportingFormat,
+    queueButtonLabel,
+    queueButtonTitle,
     handleRequestResyncPreview,
     handleConfirmResync,
     handleExportAudio,
     handleCopyDebugState,
+    handleQueue,
+    handleStopAll,
+    status,
+    setLiveBarSegmentProgress,
+    handleProgressBarDebugSnapshot,
     confirmConfig,
     isPreviewingResync,
     resyncPreviewData,
     isResyncing,
     queueNotice,
+    pageHandoff,
     setIsPreviewingResync,
     setConfirmConfig,
     loadChapter,
@@ -302,6 +313,26 @@ export function StudioStage() {
           }))}
           availableVoices={availableVoices}
           defaultVoiceLabel={chapterDefaultVoiceLabel}
+        />
+      </div>
+
+      <div style={{ marginTop: '0.75rem' }}>
+        <RenderControlsStrip
+          chapter={chapter as any}
+          saving={saving}
+          hasUnsavedChanges={hasUnsavedChanges}
+          submitting={submitting}
+          queueLabel={queueButtonLabel}
+          queueTitle={queueButtonTitle}
+          onQueue={handleQueue}
+          onStopAll={handleStopAll}
+          onCopyDebugState={handleCopyDebugState}
+          onCommitSourceText={handleRequestResyncPreview}
+          canCommitSourceText={false}
+          onSegmentDisplayProgress={setLiveBarSegmentProgress}
+          onProgressBarDebugSnapshot={handleProgressBarDebugSnapshot}
+          status={status}
+          handoffState={pageHandoff}
         />
       </div>
 

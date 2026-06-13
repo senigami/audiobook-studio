@@ -65,6 +65,16 @@ vi.mock('@/pages/Book/studio/StudioHeaderActions', () => ({
   ),
 }));
 
+vi.mock('@/pages/Book/studio/RenderControlsStrip', () => ({
+  RenderControlsStrip: ({ queueLabel, queueTitle }: any) => (
+    <div
+      data-testid="render-controls-strip"
+      data-queue-label={queueLabel || ''}
+      data-queue-title={queueTitle || ''}
+    />
+  ),
+}));
+
 vi.mock('@/components/overlays/ConfirmModal', () => ({
   ConfirmModal: ({ isOpen, title, message, onConfirm, onCancel }: any) => (
     <div data-testid="confirm-modal" data-open={String(Boolean(isOpen))}>
@@ -297,6 +307,7 @@ describe('StudioStage', () => {
     expect(screen.getByTestId('analysis-strip')).toHaveAttribute('data-chapter-id', 'c2');
     expect(screen.getByTestId('analysis-strip')).toHaveAttribute('data-has-analysis', 'true');
     expect(screen.getByTestId('analysis-strip')).toHaveAttribute('data-analyzing', 'true');
+    expect(screen.getByTestId('render-controls-strip')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /script view/i }));
     expect(screen.getByTestId('script-view')).toHaveAttribute('data-view-mode', 'script');
