@@ -13,13 +13,29 @@ vi.mock('@/pages/Book/studio/useStudioChapter', () => ({
   useStudioChapter: vi.fn(),
 }));
 
+vi.mock('@/pages/Book/studio/CastPalette', () => ({
+  CastPalette: ({ selectedCharacterId, setSelectedCharacterId, setSelectedProfileName }: any) => (
+    <button
+      type="button"
+      data-testid="cast-palette"
+      onClick={() => {
+        setSelectedCharacterId('char-1');
+        setSelectedProfileName('Profile 1');
+      }}
+    >
+      {selectedCharacterId || 'none'}
+    </button>
+  ),
+}));
+
 vi.mock('@/pages/ChapterEditor/components/ScriptView', () => ({
-  ScriptView: ({ viewMode, showSafeText, showNumbers }: any) => (
+  ScriptView: ({ viewMode, showSafeText, showNumbers, activeCharacterId }: any) => (
     <div
       data-testid="script-view"
       data-view-mode={viewMode}
       data-safe-text={String(showSafeText)}
       data-show-numbers={String(showNumbers)}
+      data-active-character-id={activeCharacterId || ''}
     />
   ),
 }));
@@ -45,9 +61,10 @@ function buildChapter(id: string, audio_status = 'ready') {
   };
 }
 
-function mockStudioChapter(chapterId: string) {
+function mockStudioChapter(chapterId: string, overrides: Record<string, unknown> = {}) {
   mockUseStudioChapter.mockReturnValue({
     chapter: { id: chapterId, title: chapterId, text_content: 'text', word_count: 2 } as never,
+    segments: [],
     scriptViewData: {
       chapter_id: chapterId,
       base_revision_id: 'rev-1',
@@ -72,6 +89,18 @@ function mockStudioChapter(chapterId: string) {
     playSegment: vi.fn(),
     setConfirmConfig: vi.fn(),
     loadChapter: vi.fn(),
+    selectedCharacterId: null,
+    setSelectedCharacterId: vi.fn(),
+    selectedProfileName: null,
+    setSelectedProfileName: vi.fn(),
+    expandedCharacterId: null,
+    setExpandedCharacterId: vi.fn(),
+    handleUpdateCharacterColor: vi.fn(),
+    handleVoiceChange: vi.fn(),
+    availableVoices: [],
+    chapterDefaultVoiceLabel: 'Use Project Default',
+    localVoice: '',
+    ...overrides,
   } as never);
 }
 
@@ -131,10 +160,25 @@ describe('StudioStage', () => {
         handleProjectVoiceChange: vi.fn(),
       },
       segmentUpdate: undefined,
-      chapterUpdate: undefined,
-      reload: vi.fn(),
-    } as never);
-    mockStudioChapter('c2');
+    chapterUpdate: undefined,
+    reload: vi.fn(),
+    segments: [],
+    selectedCharacterId: null,
+    setSelectedCharacterId: vi.fn(),
+    selectedProfileName: null,
+    setSelectedProfileName: vi.fn(),
+    expandedCharacterId: null,
+    setExpandedCharacterId: vi.fn(),
+    handleUpdateCharacterColor: vi.fn(),
+    handleVoiceChange: vi.fn(),
+    availableVoices: [],
+    chapterDefaultVoiceLabel: 'Use Project Default',
+    localVoice: '',
+  } as never);
+    mockStudioChapter('c2', {
+      selectedCharacterId: 'char-1',
+      selectedProfileName: 'Profile 1',
+    });
 
     render(
       <MemoryRouter initialEntries={['/book/book-1/studio?chapter=c2']}>
@@ -152,6 +196,7 @@ describe('StudioStage', () => {
     expect(screen.getByTestId('script-view')).toHaveAttribute('data-view-mode', 'book');
     expect(screen.getByTestId('script-view')).toHaveAttribute('data-safe-text', 'false');
     expect(screen.getByTestId('script-view')).toHaveAttribute('data-show-numbers', 'false');
+    expect(screen.getByTestId('script-view')).toHaveAttribute('data-active-character-id', 'char-1');
 
     fireEvent.click(screen.getByRole('button', { name: /script view/i }));
     expect(screen.getByTestId('script-view')).toHaveAttribute('data-view-mode', 'script');
@@ -207,6 +252,18 @@ describe('StudioStage', () => {
       segmentUpdate: undefined,
       chapterUpdate: undefined,
       reload: vi.fn(),
+      segments: [],
+      selectedCharacterId: null,
+      setSelectedCharacterId: vi.fn(),
+      selectedProfileName: null,
+      setSelectedProfileName: vi.fn(),
+      expandedCharacterId: null,
+      setExpandedCharacterId: vi.fn(),
+      handleUpdateCharacterColor: vi.fn(),
+      handleVoiceChange: vi.fn(),
+      availableVoices: [],
+      chapterDefaultVoiceLabel: 'Use Project Default',
+      localVoice: '',
     } as never);
     mockStudioChapter('c1');
 
