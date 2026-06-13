@@ -10,6 +10,7 @@ vi.mock('@/api', () => ({
     fetchChapters: vi.fn(),
     fetchCharacters: vi.fn(),
     fetchProjectAudiobooks: vi.fn(),
+    fetchProjectBackups: vi.fn(),
   },
 }));
 
@@ -46,6 +47,7 @@ describe('BookLayout', () => {
     vi.mocked(api.fetchChapters).mockResolvedValue([]);
     vi.mocked(api.fetchCharacters).mockResolvedValue([]);
     vi.mocked(api.fetchProjectAudiobooks).mockResolvedValue([]);
+    vi.mocked(api.fetchProjectBackups).mockResolvedValue([]);
   });
 
   afterEach(() => {

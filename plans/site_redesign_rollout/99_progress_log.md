@@ -34,6 +34,7 @@ consolidation is R5-T13 scope. Confirm in browser or defer.
 2026-06-13 R2-T8 done HEAD
 2026-06-13 R2-T9 done HEAD
 2026-06-13 R2-T10 done HEAD
+2026-06-13 R2-T11 done HEAD
 
 ## Found bugs (do not fix mid-phase — triaged at R6)
 

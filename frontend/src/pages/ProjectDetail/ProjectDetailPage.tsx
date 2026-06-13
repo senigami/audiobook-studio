@@ -34,6 +34,7 @@ import { useProjectActions } from '@/hooks/useProjectActions';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '@/utils/voiceProfiles';
 import { isChapterScopedJob, pickRelevantJob } from '@/utils/jobSelection';
 import { resolveVoiceEngineStatus } from '@/utils/chapterEditorHelpers';
+import { formatFileSize, formatLength, formatRelativeTime } from '@/utils/format';
 interface ProjectViewProps {
   jobs: Record<string, Job>;
   segmentProgress?: Record<string, SegmentProgress>;
@@ -233,30 +234,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     const fallbackVoiceLabel = getVoiceOptionLabel(effectiveProjectVoice, speakerProfiles, speakers, engines, characters);
     return fallbackVoiceLabel ? `Default Speaker (${fallbackVoiceLabel})` : 'Default Speaker';
   }, [effectiveProjectVoice, speakerProfiles, speakers, engines, characters]);
-
-  const formatLength = (seconds: number) => {
-    if (seconds < 60) return `${Math.round(seconds)}s`;
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.round(seconds % 60);
-    if (mins < 60) return `${mins}m ${secs}s`;
-    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-  };
-
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return '';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  const formatRelativeTime = (timestamp?: number) => {
-    if (!timestamp) return 'Unknown';
-    const diff = Math.floor((Date.now() / 1000) - timestamp);
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return new Date(timestamp * 1000).toLocaleDateString();
-  };
 
   if (loading) return <div style={{ padding: '2rem' }}>{editingChapterId ? 'Loading chapter...' : 'Loading project...'}</div>;
   if (!project) return <div style={{ padding: '2rem' }}>Project not found.</div>;
