@@ -2133,3 +2133,9 @@
 - Moved the shell implementation into `frontend/src/app/layout/AppShell.tsx` so the base layer now lives with the app shell/routing code.
 - Kept `frontend/src/components/layout/Layout.tsx` as a compatibility re-export and pointed `App.tsx` at the app-owned shell directly.
 - Verified focused shell/App tests, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-13 - Shared left sidebar resize handle verified
+
+- Added a persistent drag resize handle to the shared left rail so widening the sidebar shrinks the main column instead of overlaying it.
+- Stored the expanded rail width in the shared rail state helper, updated the shell shell/spec contract, and kept collapse state independent.
+- Verified focused `NavRail` tests, full frontend Vitest, frontend lint, frontend build, `git diff --check`, and a live browser drag check against `http://127.0.0.1:5175/`.

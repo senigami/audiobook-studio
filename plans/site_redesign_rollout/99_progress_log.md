@@ -42,6 +42,7 @@ consolidation is R5-T13 scope. Confirm in browser or defer.
 2026-06-13 R3-T4 done HEAD
 2026-06-13 R3-T5 done HEAD
 2026-06-13 R3-T6 done HEAD
+2026-06-13 shared-shell-resize done HEAD
 
 2026-06-13 R2 phase-boundary review (orchestrator): tests 1137 pass (+40, none deleted),
 build pass, lint clean. Book routes + legacy redirects + Book page tree + chapterLifecycle

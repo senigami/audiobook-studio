@@ -81,6 +81,24 @@ describe('NavRail', () => {
     expect(screen.getByRole('button', { name: 'Expand rail' })).toBeTruthy();
   });
 
+  it('resizes the rail from the drag handle and persists the width', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <NavRail />
+      </MemoryRouter>,
+    );
+
+    const nav = screen.getByRole('navigation', { name: 'Primary' });
+    const handle = screen.getByRole('separator', { name: 'Resize sidebar' });
+
+    fireEvent.pointerDown(handle, { clientX: 190 });
+    fireEvent.pointerMove(window, { clientX: 250 });
+    fireEvent.pointerUp(window);
+
+    expect(localStorage.getItem('studio-rail-width')).toBe('250');
+    expect(nav.getAttribute('style')).toContain('--nav-rail-expanded-width: 250px');
+  });
+
   it('shows and hides the Activity queue badge based on queueCount', () => {
     const { rerender } = render(
       <MemoryRouter initialEntries={['/']}>

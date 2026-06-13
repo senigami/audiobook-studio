@@ -1,12 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { buildNavGroups, getActiveNavId } from '@/app/layout/navData';
 import { LAYERS } from '@/app/layout/layering';
 import { RailBookBlock } from '@/app/layout/RailBookBlock';
-import { setRailCollapsed, useRailCollapsed } from '@/utils/railState';
+import {
+  MAX_RAIL_WIDTH,
+  MIN_RAIL_WIDTH,
+  setRailCollapsed,
+  setRailWidth,
+  useRailCollapsed,
+  useRailWidth,
+} from '@/utils/railState';
 import { useDevMode } from '@/utils/devMode';
 import { useThemeToggle } from '@/utils/theme';
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 
 interface NavRailProps {
   queueCount?: number;
@@ -14,15 +22,104 @@ interface NavRailProps {
 
 export function NavRail({ queueCount }: NavRailProps) {
   const collapsed = useRailCollapsed();
+  const railWidth = useRailWidth();
   const devMode = useDevMode();
   const location = useLocation();
   const navigate = useNavigate();
   const [hoverExpanded, setHoverExpanded] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const dragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const bodyStylesRef = useRef<{ userSelect: string; cursor: string } | null>(null);
   const { ThemeIcon, themeLabel, themeAriaLabel, handleThemeToggle } = useThemeToggle();
 
   const groups = useMemo(() => buildNavGroups(devMode), [devMode]);
   const activeNavId = getActiveNavId(location.pathname);
   const showOverlay = collapsed && hoverExpanded;
+
+  const finishResize = useCallback(() => {
+    dragStateRef.current = null;
+    setIsResizing(false);
+
+    const previousStyles = bodyStylesRef.current;
+    if (previousStyles) {
+      document.body.style.userSelect = previousStyles.userSelect;
+      document.body.style.cursor = previousStyles.cursor;
+      bodyStylesRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isResizing) {
+      return undefined;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const dragState = dragStateRef.current;
+      if (!dragState) {
+        return;
+      }
+
+      event.preventDefault();
+      setRailWidth(dragState.startWidth + (event.clientX - dragState.startX));
+    };
+
+    const handlePointerEnd = () => {
+      finishResize();
+    };
+
+    bodyStylesRef.current = {
+      userSelect: document.body.style.userSelect,
+      cursor: document.body.style.cursor,
+    };
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerEnd);
+    window.addEventListener('pointercancel', handlePointerEnd);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerEnd);
+      window.removeEventListener('pointercancel', handlePointerEnd);
+      finishResize();
+    };
+  }, [finishResize, isResizing]);
+
+  const handleResizePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (collapsed) {
+      return;
+    }
+
+    event.preventDefault();
+    dragStateRef.current = {
+      startX: event.clientX,
+      startWidth: railWidth,
+    };
+    setIsResizing(true);
+  };
+
+  const handleResizeKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (collapsed) {
+      return;
+    }
+
+    const step = event.shiftKey ? 32 : 16;
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      setRailWidth(railWidth - step);
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      setRailWidth(railWidth + step);
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      setRailWidth(MIN_RAIL_WIDTH);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      setRailWidth(MAX_RAIL_WIDTH);
+    }
+  };
 
   const renderRailContent = (variant: 'expanded' | 'collapsed') => {
     const showLabels = variant === 'expanded';
@@ -127,6 +224,7 @@ export function NavRail({ queueCount }: NavRailProps) {
     <nav
       className={collapsed ? 'nav-rail nav-rail--collapsed' : 'nav-rail'}
       aria-label="Primary"
+      style={{ '--nav-rail-expanded-width': `${railWidth}px` } as CSSProperties}
       onMouseEnter={() => {
         if (collapsed) {
           setHoverExpanded(true);
@@ -139,6 +237,21 @@ export function NavRail({ queueCount }: NavRailProps) {
       <div className="nav-rail__panel" aria-hidden={showOverlay ? true : undefined}>
         {renderRailContent(collapsed ? 'collapsed' : 'expanded')}
       </div>
+
+      {!collapsed ? (
+        <div
+          className={isResizing ? 'nav-rail__resize-handle nav-rail__resize-handle--active' : 'nav-rail__resize-handle'}
+          role="separator"
+          aria-label="Resize sidebar"
+          aria-orientation="vertical"
+          aria-valuemin={MIN_RAIL_WIDTH}
+          aria-valuemax={MAX_RAIL_WIDTH}
+          aria-valuenow={Math.round(railWidth)}
+          tabIndex={0}
+          onPointerDown={handleResizePointerDown}
+          onKeyDown={handleResizeKeyDown}
+        />
+      ) : null}
 
       {showOverlay ? (
         <div className="nav-rail__overlay" style={{ zIndex: LAYERS.RAIL_OVERLAY }}>

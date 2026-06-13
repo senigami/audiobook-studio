@@ -1,7 +1,7 @@
 # Site Shell & Book Pipeline
 
 ```
-spec_version: 1.2.0
+spec_version: 1.3.0
 status: active
 created: 2026-06-13
 sources:
@@ -25,6 +25,7 @@ sources:
 | 1.0.0   | 2026-06-13 | Initial canonical spec for the shared app shell and routed book pipeline |
 | 1.1.0   | 2026-06-13 | Deepened §3.2 Studio (book view primary / script view secondary, cast palette painting, analysis strip, commit-resync, rail chapter switching — R3 target); replaced the §3.2 Review placeholder with the follow-along player + section-anchored annotations + re-render-in-place contract (R4 target, player bus owned by audio-player.md); added §2.6 Platform & Manage destinations (Engines/Integrations re-homed out of Settings, thin Settings, redirects — current); added §5 Frontend state ownership (API-hydrated canonical entities vs. store overlays/drafts, queue-row authority) |
 | 1.2.0   | 2026-06-13 | Added Manuscript chapter-preview analysis strip (chars, words, sentences, segments, estimated generation time) alongside the chapter list orb placement contract |
+| 1.3.0   | 2026-06-13 | Added the shared left-rail drag resize handle contract with persisted expanded width and layout-shifting main column behavior |
 
 ---
 
@@ -79,6 +80,8 @@ The rail MUST provide the grouped primary navigation:
 - DEVELOPER: Progress test, Event stream, only in developer mode
 
 The rail MUST remain collapsible, MUST preserve its state across reloads, and MUST reuse the same theme toggle and navigation model everywhere it appears. When collapsed, it MAY show hover/focus expansion as an overlay, but that overlay MUST not mutate the persisted collapsed state.
+
+The rail MUST expose a draggable resize handle on its trailing edge when expanded. Dragging the handle MUST change the shared rail width, MUST persist the expanded width across reloads, and MUST shift the main content column rather than overlaying it. The resize affordance MUST be independent from the collapsed state.
 
 The rail MUST show queue status on Activity. It MUST preserve the `StatusOrb` component anywhere chapter status is shown; plain dots are not acceptable stand-ins.
 
