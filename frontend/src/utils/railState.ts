@@ -29,6 +29,18 @@ export function setRailCollapsed(collapsed: boolean): void {
   _notify();
 }
 
+export function requestRailAutoCollapse(): () => void {
+  const previousCollapsed = isRailCollapsed();
+  setRailCollapsed(true);
+
+  let restored = false;
+  return () => {
+    if (restored) return;
+    restored = true;
+    setRailCollapsed(previousCollapsed);
+  };
+}
+
 export function subscribeRailState(listener: () => void): () => void {
   _listeners.add(listener);
   return () => {

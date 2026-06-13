@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ManuscriptStage } from '@/pages/Book/stages/ManuscriptStage';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
+import { isRailCollapsed, setRailCollapsed } from '@/utils/railState';
 import type { Chapter } from '@/types';
 
 vi.mock('@/pages/Book/BookDataContext', () => ({
@@ -51,6 +52,7 @@ describe('ManuscriptStage', () => {
   const handleCreateChapter = vi.fn();
 
   beforeEach(() => {
+    localStorage.clear();
     vi.clearAllMocks();
     vi.mocked(useBookDataContext).mockReturnValue({
       actions: {
@@ -66,6 +68,23 @@ describe('ManuscriptStage', () => {
       projectVoiceStatus: { enabled: true },
       reload: vi.fn(),
     } as any);
+  });
+
+  it('hides the table in focus mode and restores the rail state on exit', () => {
+    setRailCollapsed(false);
+
+    render(<ManuscriptStage />);
+
+    expect(screen.getByRole('region', { name: 'Manuscript chapters' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Focus' }));
+
+    expect(screen.queryByRole('region', { name: 'Manuscript chapters' })).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Chapter preview' })).toBeInTheDocument();
+    expect(isRailCollapsed()).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Exit focus' }));
+    expect(screen.getByRole('region', { name: 'Manuscript chapters' })).toBeInTheDocument();
+    expect(isRailCollapsed()).toBe(false);
   });
 
   it('submits new chapters through the existing project action and closes the modal', async () => {

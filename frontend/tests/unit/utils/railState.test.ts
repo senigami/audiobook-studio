@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   isRailCollapsed,
+  requestRailAutoCollapse,
   setRailCollapsed,
   STORAGE_KEY,
   subscribeRailState,
@@ -58,5 +59,19 @@ describe('railState', () => {
     });
 
     expect(result.current).toBe(true);
+  });
+
+  it('auto-collapses and restores the previous manual state', () => {
+    const restoreExpanded = requestRailAutoCollapse();
+
+    expect(isRailCollapsed()).toBe(true);
+
+    restoreExpanded();
+    expect(isRailCollapsed()).toBe(false);
+
+    setRailCollapsed(true);
+    const restoreCollapsed = requestRailAutoCollapse();
+    restoreCollapsed();
+    expect(isRailCollapsed()).toBe(true);
   });
 });

@@ -896,6 +896,7 @@
 
 .manuscript-stage__actions {
   display: flex;
+  gap: 0.5rem;
   justify-content: flex-end;
 }
 
@@ -905,6 +906,15 @@
   gap: 1rem;
   align-items: stretch;
   min-height: 0;
+}
+
+.manuscript-stage__workspace--focus {
+  display: flex;
+  justify-content: center;
+}
+
+.manuscript-stage__workspace--focus .chapter-text-panel {
+  width: min(100%, 640px);
 }
 
 .manuscript-stage__table-column {

@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/api';
 import { AddChapterModal } from '@/pages/Book/components/AddChapterModal';
 import { ChapterTable } from '@/pages/Book/components/ChapterTable';
 import { ChapterTextPanel } from '@/pages/Book/components/ChapterTextPanel';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
+import { requestRailAutoCollapse } from '@/utils/railState';
 import type { Chapter } from '@/types';
 
 function chapterTitleFromFile(file: File): string {
@@ -20,7 +21,13 @@ export function ManuscriptStage() {
   } = useBookDataContext();
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(chapters[0]?.id ?? null);
   const [showAddChapterModal, setShowAddChapterModal] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!focusMode) return;
+    return requestRailAutoCollapse();
+  }, [focusMode]);
 
   const effectiveSelectedChapterId = useMemo(() => {
     if (selectedChapterId && chapters.some((chapter) => chapter.id === selectedChapterId)) {
@@ -63,6 +70,13 @@ export function ManuscriptStage() {
       <div className="manuscript-stage__actions">
         <button
           type="button"
+          className={focusMode ? 'btn-primary' : 'btn-ghost'}
+          onClick={() => setFocusMode((current) => !current)}
+        >
+          {focusMode ? 'Exit focus' : 'Focus'}
+        </button>
+        <button
+          type="button"
           className="btn-primary"
           onClick={() => setShowAddChapterModal(true)}
           disabled={actions.submitting}
@@ -71,7 +85,8 @@ export function ManuscriptStage() {
         </button>
       </div>
 
-      <div className="manuscript-stage__workspace">
+      <div className={focusMode ? 'manuscript-stage__workspace manuscript-stage__workspace--focus' : 'manuscript-stage__workspace'}>
+        {!focusMode && (
         <div className="manuscript-stage__table-column">
           <ChapterTable
             chapters={chapters}
@@ -110,6 +125,7 @@ export function ManuscriptStage() {
             </button>
           </div>
         </div>
+        )}
 
         <ChapterTextPanel chapter={selectedChapter} onSaved={reload} />
       </div>
