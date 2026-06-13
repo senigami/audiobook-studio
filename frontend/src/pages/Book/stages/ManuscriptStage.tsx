@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { api } from '@/api';
 import { AddChapterModal } from '@/pages/Book/components/AddChapterModal';
 import { ChapterTable } from '@/pages/Book/components/ChapterTable';
+import { ChapterTextPanel } from '@/pages/Book/components/ChapterTextPanel';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import type { Chapter } from '@/types';
 
@@ -55,6 +56,8 @@ export function ManuscriptStage() {
     }
   };
 
+  const selectedChapter = chapters.find((chapter) => chapter.id === effectiveSelectedChapterId) ?? chapters[0] ?? null;
+
   return (
     <section className="manuscript-stage" aria-label="Manuscript">
       <div className="manuscript-stage__actions">
@@ -68,41 +71,47 @@ export function ManuscriptStage() {
         </button>
       </div>
 
-      <ChapterTable
-        chapters={chapters}
-        jobs={jobs}
-        selectedChapterId={effectiveSelectedChapterId}
-        onSelectChapter={setSelectedChapterId}
-        onReorder={actions.handleReorderChapters}
-        onRenameChapter={handleRenameChapter}
-        onQueueChapter={(chapter) => void actions.handleQueueChapter(chapter.id)}
-        onResetAudio={(chapterId) => void actions.handleResetChapterAudio(chapterId)}
-        onDeleteChapter={(chapterId) => void actions.handleDeleteChapter(chapterId)}
-        onExportSample={handleExportSample}
-        anyEnginesEnabled={projectVoiceStatus.enabled}
-      />
+      <div className="manuscript-stage__workspace">
+        <div className="manuscript-stage__table-column">
+          <ChapterTable
+            chapters={chapters}
+            jobs={jobs}
+            selectedChapterId={effectiveSelectedChapterId}
+            onSelectChapter={setSelectedChapterId}
+            onReorder={actions.handleReorderChapters}
+            onRenameChapter={handleRenameChapter}
+            onQueueChapter={(chapter) => void actions.handleQueueChapter(chapter.id)}
+            onResetAudio={(chapterId) => void actions.handleResetChapterAudio(chapterId)}
+            onDeleteChapter={(chapterId) => void actions.handleDeleteChapter(chapterId)}
+            onExportSample={handleExportSample}
+            anyEnginesEnabled={projectVoiceStatus.enabled}
+          />
 
-      <div className="manuscript-stage__import-row">
-        <div>
-          <strong>Import manuscript file</strong>
-          <span>.txt, .docx, or .epub</span>
+          <div className="manuscript-stage__import-row">
+            <div>
+              <strong>Import manuscript file</strong>
+              <span>.txt, .docx, or .epub</span>
+            </div>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".txt,.docx,.epub"
+              className="sr-only"
+              aria-label="Import manuscript file"
+              onChange={(event) => void handleImportFile(event.target.files?.[0])}
+            />
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => importInputRef.current?.click()}
+              disabled={actions.submitting}
+            >
+              Choose file
+            </button>
+          </div>
         </div>
-        <input
-          ref={importInputRef}
-          type="file"
-          accept=".txt,.docx,.epub"
-          className="sr-only"
-          aria-label="Import manuscript file"
-          onChange={(event) => void handleImportFile(event.target.files?.[0])}
-        />
-        <button
-          type="button"
-          className="btn-ghost"
-          onClick={() => importInputRef.current?.click()}
-          disabled={actions.submitting}
-        >
-          Choose file
-        </button>
+
+        <ChapterTextPanel chapter={selectedChapter} onSaved={reload} />
       </div>
 
       <AddChapterModal

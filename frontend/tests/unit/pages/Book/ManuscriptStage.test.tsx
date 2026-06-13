@@ -12,6 +12,10 @@ vi.mock('@/pages/Book/components/ChapterTable', () => ({
   ChapterTable: () => <section aria-label="Manuscript chapters" />,
 }));
 
+vi.mock('@/pages/Book/components/ChapterTextPanel', () => ({
+  ChapterTextPanel: () => <section aria-label="Chapter preview" />,
+}));
+
 vi.mock('framer-motion', async () => {
   const actual = await vi.importActual<typeof import('framer-motion')>('framer-motion');
   return {
