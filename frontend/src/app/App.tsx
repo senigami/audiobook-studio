@@ -16,6 +16,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from '@/pages/Voices/components/VoiceUtils';
 
 const VoicesTab = lazy(() => import('@/pages/Voices/VoicesPage').then(m => ({ default: m.VoicesTab })));
+const BookLayout = lazy(() => import('@/pages/Book').then(m => ({ default: m.BookLayout })));
+const BookIndexRedirect = lazy(() => import('@/pages/Book').then(m => ({ default: m.BookIndexRedirect })));
 const EnginesPage = lazy(() => import('@/pages/Engines').then(m => ({ default: m.EnginesPage })));
 const IntegrationsPage = lazy(() => import('@/pages/Integrations').then(m => ({ default: m.IntegrationsPage })));
 const ProjectView = lazy(() => import('@/pages/ProjectDetail/ProjectDetailPage').then(m => ({ default: m.ProjectView })));
@@ -256,6 +258,8 @@ function App() {
             <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<ProjectLibrary onSelectProject={(id) => navigate(`/project/${id}`)} />} />
+              <Route path="/book/:bookId" element={<BookIndexRedirect />} />
+              <Route path="/book/:bookId/:stage" element={<BookLayout />} />
               <Route path="/project/:projectId" element={
               <ProjectViewRoute
                   loading={initialLoading || queueLoading}

@@ -594,6 +594,71 @@
   line-height: 1;
 }
 
+.book-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  color: var(--text-primary);
+}
+
+.book-stage-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.book-stage-tabs__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: var(--radius-button);
+  color: var(--text-secondary);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.book-stage-tabs__link:hover {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.book-stage-tabs__link--active {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.book-stage-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 18rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.book-stage-placeholder h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.5rem;
+}
+
+.book-stage-placeholder p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
 .activity-page {
   display: flex;
   flex: 1 1 auto;
