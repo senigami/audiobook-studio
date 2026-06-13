@@ -339,6 +339,7 @@ function App() {
                   paused={initialData?.paused || false}
                   jobs={jobs}
                   queue={mergedQueue}
+                  engines={initialData?.engines || []}
                   loading={queueLoading}
                   onRefresh={() => refreshQueue('refresh')}
                   connected={connected}

@@ -11,6 +11,18 @@ import type { Job, ProcessingQueueItem } from '@/types';
 import { formatQueueContext } from '@/utils/queueLabels';
 import { isMainQueueSegmentItem } from '@/utils/jobSelection';
 
+type HistoryFilter = 'All' | 'Renders' | 'Samples' | 'API';
+
+const SAMPLE_HISTORY_ENGINES = new Set(['sample_build', 'sample_test', 'voice_test', 'voice_build']);
+const API_HISTORY_ENGINES = new Set(['api_synthesis']);
+
+function classifyHistoryJob(job: ProcessingQueueItem): Exclude<HistoryFilter, 'All'> {
+    const engine = (job.engine || '').toLowerCase();
+    if (API_HISTORY_ENGINES.has(engine)) return 'API';
+    if (SAMPLE_HISTORY_ENGINES.has(engine)) return 'Samples';
+    return 'Renders';
+}
+
 interface GlobalQueueProps {
     paused?: boolean;
     jobs?: Record<string, Job>;
@@ -19,6 +31,7 @@ interface GlobalQueueProps {
     onRefresh?: () => void;
     compact?: boolean;
     engines?: import('@/types').TtsEngine[];
+    historyFilter?: HistoryFilter;
 }
 
 export const GlobalQueue: React.FC<GlobalQueueProps> = ({
@@ -28,7 +41,8 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
     loading = false,
     onRefresh,
     compact = false,
-    engines = []
+    engines = [],
+    historyFilter = 'All',
 }) => {
     const {
         queue,
@@ -202,6 +216,10 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
     const pendingJobs = React.useMemo(() => chapterJobs.filter(q => q.status === 'queued'), [chapterJobs]);
     const activeIds = React.useMemo(() => new Set(activeJobs.map(j => j.id)), [activeJobs]);
     const pastJobs = React.useMemo(() => chapterJobs.filter(q => (q.status === 'done' || q.status === 'failed' || q.status === 'cancelled') && !activeIds.has(q.id)), [chapterJobs, activeIds]);
+    const filteredPastJobs = React.useMemo(() => {
+        if (historyFilter === 'All') return pastJobs;
+        return pastJobs.filter(job => classifyHistoryJob(job) === historyFilter);
+    }, [historyFilter, pastJobs]);
     if (loading) return <div style={{ padding: '2rem' }}>Loading Queue...</div>;
 
     return (
@@ -342,14 +360,18 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                     {pastJobs.length > 0 && (
                         <div style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
                             <button onClick={() => setShowHistory(!showHistory)} style={{ background: 'none', border: 'none', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0', cursor: 'pointer', marginBottom: showHistory ? '1rem' : 0 }}>
-                                <h3 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', margin: 0 }}>Completed / Failed History ({pastJobs.length})</h3>
+                                <h3 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', margin: 0 }}>Completed / Failed History ({filteredPastJobs.length})</h3>
                                 <div style={{ color: 'var(--text-muted)' }}>{showHistory ? <ChevronDown size={18} strokeWidth={2} /> : <ChevronRight size={18} strokeWidth={2} />}</div>
                             </button>
                             <AnimatePresence>
                                 {showHistory && (
                                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }} style={{ overflow: 'hidden' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingBottom: '1rem' }}>
-                                            {pastJobs.map(job => {
+                                            {filteredPastJobs.length === 0 ? (
+                                                <div style={{ padding: '0.85rem 1rem', borderRadius: '12px', border: '1px dashed var(--border)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                                    No history matches this filter.
+                                                </div>
+                                            ) : filteredPastJobs.map(job => {
                                                 const liveJob = jobs[job.id];
                                                 const displayJob = liveJob ? { ...job, ...liveJob } : job;
                                                 return (
