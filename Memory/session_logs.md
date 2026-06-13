@@ -2057,3 +2057,68 @@
 
 - Re-homed the API guide to `frontend/src/pages/Integrations/components/ApiGuidePanel.tsx` and added `frontend/src/pages/Integrations/IntegrationsPage.tsx` plus the `/integrations` app route.
 - Redirected `/settings/api` to `/integrations`, kept `apiExampleStyle` in `frontend/src/pages/Settings/settingsRouteHelpers.ts`, and verified the focused Integrations, SettingsRoute, and App Vitest slice plus frontend lint and `git diff --check`.
+
+# 2026-06-13 - R2-T2 Book data provider verified
+
+- Added `useBookData` and `BookDataProvider` for `/book` routes, hydrating project, chapters, characters, and audiobooks from the existing project endpoints.
+- Wired `BookLayout` through the provider and passed speaker profiles, speakers, settings, engines, and refresh triggers from `App`.
+- Verified focused Book tests, full frontend Vitest, frontend lint, and frontend build.
+
+# 2026-06-13 - R2-T3 TopBar book identity verified
+
+- Added a lightweight `bookIdentityStore` plus `BookIdentityLine` in the shell TopBar identity slot for `/book/:id/*` routes.
+- Published title, author, series, cover, runtime, and predicted runtime from `BookLayout` using the shared Book data provider.
+- Verified the new identity route test, full frontend Vitest, frontend lint, and frontend build.
+
+# 2026-06-13 - R2-T4 Rail book block verified
+
+- Extended `bookIdentityStore` with chapters, jobs, engine availability, and chapter action callbacks.
+- Added `RailBookBlock` to the expanded NavRail with book header, stage links, Studio-only chapter rows, real `StatusOrb` rendering, slim active-job progress, and Queue/Reset/Delete menu actions.
+- Verified focused rail tests, full frontend Vitest, frontend lint, and frontend build.
+
+# 2026-06-13 - R2-T5 Manuscript chapter table verified
+
+- Added `chapterLifecycle.ts` with the R2 Draft/Ready/Cast/Rendered derivation mapping and regression coverage.
+- Added the `/book/:id/manuscript` stage content with a chapter table using `InlineEdit`, `Reorder`, real `StatusOrb`, lifecycle pills, selection, Sort A-Z, and queue/reset/delete/export actions.
+- Verified focused Book tests, full frontend Vitest, frontend lint, and frontend build.
+
+# 2026-06-13 - R2-T6 Manuscript add/import verified
+
+- Extracted `AddChapterModal` to `frontend/src/pages/Book/components/AddChapterModal.tsx` and re-exported it from the ProjectDetail modal module for existing consumers.
+- Wired `ManuscriptStage` to open the modal and call `actions.handleCreateChapter(title, text, file, chapters.length)`.
+- Added the compact file-only import row for `.txt`, `.docx`, and `.epub`, deriving the chapter title from the filename and using the same create action.
+- Verified focused modal/stage tests, full frontend Vitest, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-13 - R2-T7 Manuscript text panel verified
+
+- Added `useChapterText` to fetch full selected chapter text, debounce Draft/Ready autosaves through `api.updateChapter`, and preview produced-chapter resyncs through `api.previewSourceTextResync`.
+- Added `ChapterTextPanel` beside the Manuscript chapter table with read-only produced chapters, the best-effort assignment warning, edit unlock, amber unlocked strip, word-count footer, and shared `ResyncPreviewModal`.
+- Updated `ManuscriptStage` into a table-plus-preview workspace driven by selected chapter state.
+- Verified focused Book panel/stage tests, full frontend Vitest, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-13 - R2-T8 Manuscript focus mode verified
+
+- Added `requestRailAutoCollapse()` to `railState` so focus mode can collapse the rail and restore the prior manual state on exit.
+- Added Focus / Exit focus to `ManuscriptStage`; focus mode hides the table/import column and centers the `ChapterTextPanel` at a 640px max width.
+- Verified focused rail/manuscript tests, full frontend Vitest, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-13 - R2-T9 Casting stage verified
+
+- Added `CastingStage` for `/book/:id/casting`, mounting the existing `CharactersTab` without rewriting its internals.
+- Added the pinned `Narrator (default)` row above the roster, bound to the existing project default voice state through `actions.handleProjectVoiceChange`.
+- Re-homed the project default voice engine-unavailable warning into Casting.
+- Verified focused Casting/useBookData tests, full frontend Vitest, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-13 - R2-T10 Publish book info verified
+
+- Added `PublishStage` for `/book/:id/publish` with a real book-info surface instead of the route placeholder.
+- Added `BookInfoCard` with inline title/author/series editing, cover viewing/changing, and runtime/predicted/created chips.
+- Added assembled audiobook download links in Publish, leaving full AssemblyPanel/backups re-home to R2-T11.
+- Verified focused BookInfoCard tests, full frontend Vitest, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-13 - R2-T11 Publish assemblies/backups verified
+
+- Added `AssemblyChapterPicker` and wired Publish into in-place assembly selection for rendered chapters only.
+- Re-homed `AssemblyProgress`, `AssemblyPanel`, and `ProjectBackupsPanel` into Publish while preserving the existing handlers and download/delete flows.
+- Moved the file-size and relative-time helpers into shared format utilities and updated the Book layout test harness for backups hydration.
+- Verified focused AssemblyChapterPicker/PublishStage/BookLayout tests, full frontend Vitest, frontend lint, frontend build, and `git diff --check`.
