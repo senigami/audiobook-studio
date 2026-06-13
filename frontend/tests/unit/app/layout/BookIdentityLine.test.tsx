@@ -38,7 +38,7 @@ describe('BookIdentityLine', () => {
       </MemoryRouter>,
     );
 
-    const identity = screen.getByRole('button', { name: /Book One/i });
+    const identity = screen.getByRole('button', { name: 'Book One book identity' });
     expect(identity).toHaveTextContent('Ada Lovelace');
     expect(identity).toHaveTextContent('Analytical Tales');
     expect(identity).toHaveTextContent('Runtime 1m 30s');

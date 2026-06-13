@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { buildNavGroups, getActiveNavId } from '@/app/layout/navData';
 import { LAYERS } from '@/app/layout/layering';
+import { RailBookBlock } from '@/app/layout/RailBookBlock';
 import { setRailCollapsed, useRailCollapsed } from '@/utils/railState';
 import { useDevMode } from '@/utils/devMode';
 import { useThemeToggle } from '@/utils/theme';
@@ -32,6 +33,8 @@ export function NavRail({ queueCount }: NavRailProps) {
     return (
       <>
         <div className="nav-rail__content-body">
+          <RailBookBlock compact={compact} />
+
           {groups.map((group) => (
             <section key={group.group} className="nav-rail__group">
               {showLabels ? <div className="nav-rail__group-label">{group.group}</div> : null}

@@ -47,7 +47,15 @@ function StagePlaceholder({ stage }: { stage: BookStage }) {
 }
 
 function BookIdentityPublisher() {
-  const { project, totalRuntime, totalPredicted } = useBookDataContext();
+  const {
+    actions,
+    chapters,
+    jobs,
+    project,
+    totalRuntime,
+    totalPredicted,
+    projectVoiceStatus,
+  } = useBookDataContext();
 
   useEffect(() => {
     if (!project) {
@@ -63,10 +71,18 @@ function BookIdentityPublisher() {
       coverUrl: project.cover_image_path,
       runtimeSeconds: totalRuntime,
       predictedSeconds: totalPredicted,
+      chapters,
+      jobs,
+      anyEnginesEnabled: projectVoiceStatus.enabled,
+      actions: {
+        onQueueChapter: (chapter) => void actions.handleQueueChapter(chapter.id),
+        onResetAudio: (chapterId) => void actions.handleResetChapterAudio(chapterId),
+        onDeleteChapter: (chapterId) => void actions.handleDeleteChapter(chapterId),
+      },
     });
 
     return () => setBookIdentity(null);
-  }, [project, totalRuntime, totalPredicted]);
+  }, [actions, chapters, jobs, project, totalRuntime, totalPredicted, projectVoiceStatus.enabled]);
 
   return null;
 }

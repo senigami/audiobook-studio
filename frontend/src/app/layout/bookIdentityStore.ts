@@ -1,3 +1,11 @@
+import type { Chapter, Job } from '@/types';
+
+export interface BookRailActions {
+  onQueueChapter?: (chapter: Chapter) => void;
+  onResetAudio?: (chapterId: string) => void;
+  onDeleteChapter?: (chapterId: string) => void;
+}
+
 export interface BookIdentity {
   id: string;
   title: string;
@@ -6,6 +14,10 @@ export interface BookIdentity {
   coverUrl: string | null;
   runtimeSeconds: number;
   predictedSeconds: number | null;
+  chapters?: Chapter[];
+  jobs?: Record<string, Job>;
+  actions?: BookRailActions;
+  anyEnginesEnabled?: boolean;
 }
 
 let currentIdentity: BookIdentity | null = null;
