@@ -1,7 +1,7 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.1.2
+spec_version: 1.2.0
 status: active
 created: 2026-06-10
 sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
@@ -15,6 +15,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.2.0   | 2026-06-13 | §10 Presentation surfaces added: documents where jobs are shown (queue drawer = glance, Activity page = depth) per north-star decision 9; dead `/queue` opens the drawer and bounces back; both surfaces read the same job data (live-events.md `queue.items` row authority) |
 | 1.1.2   | 2026-06-11 | Terminal latch at the ws broadcast chokepoint (live-events.md §"Terminal ordering guarantee"): terminal reset / `queued`/`preparing` re-entry unlatches; `delete_jobs`/`clear_all_jobs` clear latch entries (§3.5) |
 | 1.1.1   | 2026-06-11 | §3.6 voice-sample exception: samples auto-convert WAV→sample.mp3 (owner ruling) |
 | 1.1.0   | 2026-06-11 | WAV-first synthesis (audit Slice 7): ordinary chapter synthesis never emits `finalizing` and never converts to MP3; `make_mp3` inert for ordinary synthesis (§3.6). Queue row authority lives in live-events.md §"Queue row authority". |
@@ -473,7 +474,72 @@ the full post-write job dict as `current_job`; listeners with only
 
 ---
 
-## 10. Invariants
+## 10. Presentation Surfaces
+
+This section documents **where** jobs are presented. Sections 1–9 own the job
+*data* — its statuses, transitions, ETA fields, and broadcast routing — but say
+nothing about which UI surfaces show it. The redesign settled that question
+(owner north-star decision 9, "The Queue stops pretending"): there are exactly
+two surfaces, with distinct postures, and **both read the same underlying job
+data**. Neither surface is a separate source of truth.
+
+| Surface | Posture | Where | Audience question |
+|---|---|---|---|
+| Queue drawer | Glance | Slide-over, openable from anywhere | "What's happening right now — without losing my place?" |
+| Activity page | Depth | Routed page | "Show me everything: in-flight, history, calibration, totals." |
+
+### 10.1 Queue drawer (glance)
+
+The queue drawer is a slide-over for **at-a-glance monitoring from anywhere**
+without navigating away from the current page. It is opened from the shell's
+Queue button (which reflects the live queue count — see
+[site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md) §2.3) and
+**survives the redesign** intact: it is genuinely useful precisely because it
+does not cost the user their place.
+
+It shows a compact, live view of active and recently-terminal jobs: per-row
+status, progress, ETA, and per-job cancel. It is scoped to monitoring, not
+analysis — for history, calibration, and totals the user opens the Activity
+page.
+
+**Dead `/queue` URL (legacy behavior):** the old `/queue` route no longer owns a
+page. Navigating to `/queue` **opens the drawer and bounces back** to the prior
+route (`replace`), so the URL never settles on `/queue`. (Source:
+`frontend/src/app/App.tsx` — the `/queue` effect sets the drawer open and
+`navigate(prevPath, { replace: true })`.)
+
+### 10.2 Activity page (depth)
+
+The Activity page (`frontend/src/pages/Activity/ActivityPage.tsx`, reached from
+the rail's MONITOR group) is the **depth view** — the global "what's going on"
+surface. It composes four panels, all derived from the same job data:
+
+- **Now / in-flight + ETA** — active jobs with progress and ETA, via the
+  `GlobalQueue` component (non-compact mode).
+- **History** — full terminal-job history with filters (`All` / `Renders` /
+  `Samples` / `API`).
+- **Stats — per-engine calibration** (`EngineCalibrationCard`): calibrated
+  characters-per-second and confidence percentage per engine, derived from
+  render-performance samples (the same calibration the ETA model in §8 consumes).
+- **Production Tally** (`ProductionTallyCard`): cumulative audio rendered,
+  word/character counts, render time spent, and per-engine breakdown — the
+  long-run "X hours generated" totals, formerly buried in Settings → About.
+
+### 10.3 Shared data; no duplicate authority
+
+Both surfaces render from the same job state described in §1–§2 and receive the
+same live updates. The drawer and the Activity page are **views**, not stores:
+neither holds an independent copy of queue truth, and a job's status/progress/ETA
+shown in one MUST match the other. Live-row authority is unchanged — the
+`queue.items` topic is the sole row authority and every other topic is overlay-
+only on existing rows (see [live-events.md](live-events.md) §"Queue row
+authority" / `QUEUE_OVERLAY_FIELDS`). Chapter-status and progress presentation
+that these surfaces render are governed by
+[progress-presentation.md](progress-presentation.md).
+
+---
+
+## 11. Invariants
 
 **MUST:**
 
@@ -499,7 +565,7 @@ the full post-write job dict as `current_job`; listeners with only
 
 ---
 
-## 11. Conformance Checklist
+## 12. Conformance Checklist
 
 Each invariant is verified by at least one existing test.
 
@@ -526,7 +592,7 @@ Each invariant is verified by at least one existing test.
 
 ---
 
-## 12. Known Gaps
+## 13. Known Gaps
 
 **G1 — `finalizing` in SQLite queue statuses.**  `ACTIVE_QUEUE_STATUSES` in
 `queue.py` includes `"finalizing"`, but `update_job` / `put_job` both silently

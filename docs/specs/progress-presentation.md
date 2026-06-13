@@ -1,7 +1,7 @@
 # Progress Presentation Contract
 
 ```
-spec_version: 1.3.2
+spec_version: 1.3.3
 status: active
 sources:
   - frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx
@@ -21,6 +21,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.3.3   | 2026-06-13 | Staleness fix: chapter-bar surface clarified to "queue drawer and Activity page" (§2.3); §7 note that the segment-handoff fill applies to whichever ScriptView mode is active (book view — primary — or script view), not script view only |
 | 1.3.2   | 2026-06-11 | H7 re-labelled defense-in-depth: backend per-job terminal latch (live-events.md 1.4.0) now guarantees no post-terminal non-terminal frames |
 | 1.3.1   | 2026-06-11 | H7 strengthened: steady-state failure suppresses late segment inputs (no resurrect after reset) |
 | 1.3.0   | 2026-06-11 | H7 added: terminal failure (failed/cancelled) resets handoff queue immediately — no completion animation, no hold |
@@ -62,9 +63,9 @@ A progress broadcast fires **only when progress advances by ≥ 1%** relative to
 | Scope           | Source field        | Used for                           |
 |-----------------|---------------------|------------------------------------|
 | Segment         | `segments.progress` | Per-chunk synthesis progress only  |
-| Chapter / job   | `job.progress`      | Bar displayed in queue UI          |
+| Chapter / job   | `job.progress`      | Chapter-level bar (queue drawer and Activity page) |
 
-Callers that render a chapter-level bar MUST source progress from `job.progress` or the equivalent job-level event field.
+Callers that render a chapter-level bar MUST source progress from `job.progress` or the equivalent job-level event field. The chapter-level bar surfaces in the **queue drawer** and the **Activity page**; both consume the same `job.progress` field (the §7 segment-handoff fill is a separate, ScriptView-scoped display concern).
 
 ---
 
@@ -205,7 +206,15 @@ These constants are defined in `ETA_CONFIDENCE` in `predictiveProgressBarHelpers
 
 ## 7. Segment Handoff Queue (`useSegmentHandoffQueue`)
 
-`frontend/src/hooks/useSegmentHandoffQueue.ts` owns the display-layer queueing between consecutive segments in the Chapter Editor. One page-level instance drives BOTH the header segment bar and the script-view text fill/highlight.
+`frontend/src/hooks/useSegmentHandoffQueue.ts` owns the display-layer queueing between consecutive segments in the Chapter Editor. One page-level instance drives BOTH the header segment bar and the ScriptView text fill/highlight.
+
+> **Note (ScriptView mode scope).** The segment-handoff text fill applies to whichever
+> ScriptView mode is currently active — **book view** (the PRIMARY Studio mode) or
+> **script view** (secondary) — not script view only. Both modes are rendered by the one
+> ScriptView and fed by the same single page-level handoff instance; the handoff decides
+> WHICH segment owns the fill regardless of which mode displays it. Older phrasing in this
+> section that says "script-view text fill" should be read as "the active ScriptView mode's
+> text fill". The mechanism below is unchanged.
 
 State machine:
 

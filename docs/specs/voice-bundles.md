@@ -1,18 +1,21 @@
 # Voice Bundle & Voice Directory Contract
 
 ```
-spec_version: 1.0.0
+spec_version: 1.1.0
 status: active
 sources:
   - app/domain/voices/manifest.py
   - app/domain/voices/migration.py
   - app/domain/voices/bundles.py
   - app/db/speakers.py
+  - app/api/routers/voices_metadata.py
   - docs/specs/voice.schema.json
   - docs/specs/voice-taxonomy.json
   - docs/specs/engine-bundle-template
   - docs/specs/voice-bundle-template
   - plans/final_release/04
+  - plans/site_experience_north_star.md
+  - plans/site_redesign_rollout/07_phase_r5_platform.md
 ```
 
 > **TL;DR:** Voice assets live in a versioned two-level directory (`{VoiceName}/{VariantName}/`); portable bundles are zips with the same layout; all preview audio is MP3, reference samples are WAV, render output is WAV.
@@ -21,6 +24,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.1.0   | 2026-06-13 | Added §11 "Voice catalog & Voice Lab UI" — presentation contract for the catalog card content set and the Voice Lab page (TARGET); cross-refs design-system.md for pill tints and §8 for taxonomy values |
 | 1.0.0   | 2026-06-10 | Initial canonical spec  |
 
 ---
@@ -245,3 +249,92 @@ The flat V1 layout (`voices/{name}/sample.wav`, `voices/{name}/config.json`) is 
 
 **MUST NOT** write new voices in V1 format.
 **MUST NOT** delete V1 voices without migrating them first.
+
+---
+
+## 11. Voice Catalog & Voice Lab UI
+
+This section owns the **presentation** of the voice data defined above (§3–§9). It does
+not redefine any data shape: attribute values come from the taxonomy in §8, the casting
+card payload is §9, and the bundle/export contract is §6. Where this section needs a
+visual rule (pill tints, category colours) it **cross-references**
+`docs/specs/design-system.md` rather than restating it.
+
+> **Status — TARGET.** The full Voice Lab page described in §11.2 is **mock-only today**:
+> the reference implementation lives in
+> `frontend/src/demo/stages/siteMockup/panes/voices.tsx`. The catalog **page** itself
+> (`frontend/src/pages/Voices/`) already exists; the production Voice Lab page
+> (`frontend/src/pages/VoiceLab/`) is the build target tracked by
+> `plans/site_redesign_rollout/07_phase_r5_platform.md` (R5-T5…R5-T8). The icon-upload
+> **backend already exists** — `POST /api/voices/{id}/icon`
+> (`app/api/routers/voices_metadata.py`, multipart image, 1:1 aspect enforced); the UI
+> work is wiring, not a new endpoint.
+>
+> Canonical design sources: `plans/site_experience_north_star.md` §5 + decision Q4 (U8
+> card content set) and `plans/site_redesign_rollout/07_phase_r5_platform.md`.
+
+### 11.1 Catalog card content set
+
+Each voice in the catalog (`frontend/src/pages/Voices/`) is presented as a card. The
+content set is:
+
+| Element                | Source                                                      | Notes                                                                 |
+|------------------------|-------------------------------------------------------------|-----------------------------------------------------------------------|
+| Voice icon             | Uploaded image (`POST /api/voices/{id}/icon`)               | 1:1; falls back to a generated initial/placeholder when none uploaded |
+| Attribute pills        | Taxonomy values from §8 (e.g. class/gender/age)             | Category-tinted — tint presentation rules live in `design-system.md`  |
+| One-line description   | Voice metadata `description`                                | Single line; truncates with ellipsis                                  |
+| ▶ Preview              | `sample.mp3` / `samples/preview.mp3` (§2)                   | Inline play; never the WAV references                                 |
+| Primary CTA            | One **phase-appropriate** action                            | The single CTA for the voice's current phase (Samples→Build→Test→Ready) |
+| Overflow menu (⋯)      | Secondary actions (rename, delete, edit metadata, move, …)  | Everything not the primary CTA                                        |
+
+- **Pill tints** are a presentation concern owned by `docs/specs/design-system.md`
+  (category → tint mapping); this spec only states that the pill **values** are the §8
+  taxonomy attributes. Untagged voices still render (warning affordance per §8), they
+  MUST NOT error.
+- **Copy icon prompt (doc 04 C6).** Beside the icon, the UI exposes a copyable
+  image-generation prompt built by **frontend string templating** from the voice's
+  attributes (§8) + description, with a fixed style preamble so user-generated icons stay
+  visually uniform across the catalog. This is pure client-side templating —
+  **no image generation and no API call happen inside Studio.** The same builder is used
+  in the Voice Lab header (§11.2).
+
+**MUST** drive the catalog card's preview from MP3 preview audio, never the WAV
+reference samples (§2).
+**MUST NOT** hard-code pill colours in the card; consume the category tint rules from
+`design-system.md`.
+
+### 11.2 Voice Lab (full page) — TARGET
+
+The Voice Lab is a **full page workspace**, not a modal or an expanding card (north-star
+decision Q4: "it's a workspace — build/test cycles — not a quick edit"). It lives at
+route **`/voices/:id`** (where `:id` is the speaker/voice-group id used by the catalog
+card CTA).
+
+Page composition:
+
+| Region              | Content                                                                                          |
+|---------------------|--------------------------------------------------------------------------------------------------|
+| Header              | ← Voices back link, voice icon, name, full pill row (§8), description, "Edit metadata" affordance |
+| Phase stepper       | Four steps **Samples → Build → Test → Ready**; past = done, active = filled, future = muted      |
+| Sample manager      | List / play / delete / drop-zone upload of reference samples                                     |
+| Variants            | One row per variant (§3/§4.2); **per-variant engine settings**; the **default variant is starred** |
+| Engine settings     | Engine-owned settings for the selected variant (never engine-ID branching in core UI per §4.2)   |
+| Test strip          | Synthesize-and-listen against the current variant/settings                                       |
+| Export              | Portable bundle `.zip` (§6) **or** HuggingFace publish                                            |
+| Icon controls       | Icon upload (`POST /api/voices/{id}/icon`) + "📋 Copy icon prompt" (the §11.1 builder)            |
+
+- The phase shown by the stepper and the catalog card's primary CTA derive from the same
+  voice-phase computation (Samples→Build→Test→Ready); they MUST agree.
+- **Export** is the same bundle contract as §6 — the `.zip` path MUST satisfy the §6.3
+  invariants (root `voice.json`, ≥1 numbered WAV per variant, `sample.mp3` per variant,
+  no render output, validated `"version": 2`). HF publish ships the same bundle layout.
+- Per-variant engine settings and the default-variant star map to the variant /
+  `profile.json` semantics in §4.2 and §7; the Voice Lab is the editing surface, not a
+  new data model.
+
+**MUST** treat the Voice Lab as a routed page (`/voices/:id`), not a modal over the
+catalog.
+**MUST** route export through the §6 bundle contract; the page MUST NOT emit a bundle
+shape that diverges from §6.
+**MUST NOT** branch on engine ID in the Voice Lab's core layout/behaviour; engine
+specifics live behind the variant's engine settings (§4.2).
