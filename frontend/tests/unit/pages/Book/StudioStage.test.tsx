@@ -1,25 +1,31 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { StudioStage } from '@/pages/Book/stages/StudioStage';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
+import { useStudioChapter } from '@/pages/Book/studio/useStudioChapter';
 
 vi.mock('@/pages/Book/BookDataContext', () => ({
   useBookDataContext: vi.fn(),
 }));
 
-vi.mock('@/pages/ChapterEditor/ChapterEditorPage', () => ({
-  ChapterEditor: ({ chapterId, job, chapterJobs }: { chapterId: string; job?: { id: string }; chapterJobs: Array<{ id: string }> }) => (
+vi.mock('@/pages/Book/studio/useStudioChapter', () => ({
+  useStudioChapter: vi.fn(),
+}));
+
+vi.mock('@/pages/ChapterEditor/components/ScriptView', () => ({
+  ScriptView: ({ viewMode, showSafeText, showNumbers }: any) => (
     <div
-      data-testid="chapter-editor"
-      data-chapter-id={chapterId}
-      data-job-id={job?.id || ''}
-      data-chapter-jobs={chapterJobs.length}
+      data-testid="script-view"
+      data-view-mode={viewMode}
+      data-safe-text={String(showSafeText)}
+      data-show-numbers={String(showNumbers)}
     />
   ),
 }));
 
 const mockUseBookDataContext = vi.mocked(useBookDataContext);
+const mockUseStudioChapter = vi.mocked(useStudioChapter);
 
 function LocationProbe() {
   const location = useLocation();
@@ -39,8 +45,38 @@ function buildChapter(id: string, audio_status = 'ready') {
   };
 }
 
+function mockStudioChapter(chapterId: string) {
+  mockUseStudioChapter.mockReturnValue({
+    chapter: { id: chapterId, title: chapterId, text_content: 'text', word_count: 2 } as never,
+    scriptViewData: {
+      chapter_id: chapterId,
+      base_revision_id: 'rev-1',
+      paragraphs: [{ id: 'para-1', span_ids: ['span-1'] }],
+      spans: [{ id: 'span-1', order_index: 0, text: 'Hello', sanitized_text: 'Hello' }],
+      render_batches: [],
+      audio_groups: [],
+    } as never,
+    scriptViewLoading: false,
+    characters: [],
+    handleGenerate: vi.fn(),
+    handleScriptAssign: vi.fn(),
+    handleScriptAssignRange: vi.fn(),
+    effectiveSelectedVoice: 'voice-1',
+    effectivePendingSegmentIds: new Set(),
+    chapterRenderRenderingSegmentIds: new Set(),
+    chapterRenderQueuedSegmentIds: new Set(),
+    chapterRenderRenderingBatchProgressById: {},
+    playingSegmentId: null,
+    playingSegmentIds: new Set(),
+    playbackQueue: [],
+    playSegment: vi.fn(),
+    setConfirmConfig: vi.fn(),
+    loadChapter: vi.fn(),
+  } as never);
+}
+
 describe('StudioStage', () => {
-  it('mounts the chapter editor for the selected chapter and keeps chapter navigation on the book route', async () => {
+  it('mounts the selected chapter, defaults to book view, and flips the view pills', async () => {
     mockUseBookDataContext.mockReturnValue({
       bookId: 'book-1',
       chapters: [buildChapter('c1'), buildChapter('c2')],
@@ -98,6 +134,7 @@ describe('StudioStage', () => {
       chapterUpdate: undefined,
       reload: vi.fn(),
     } as never);
+    mockStudioChapter('c2');
 
     render(
       <MemoryRouter initialEntries={['/book/book-1/studio?chapter=c2']}>
@@ -109,11 +146,22 @@ describe('StudioStage', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('chapter-editor')).toHaveAttribute('data-chapter-id', 'c2');
+      expect(mockUseStudioChapter).toHaveBeenCalledWith(expect.objectContaining({ chapterId: 'c2' }));
     });
 
-    expect(screen.getByTestId('chapter-editor')).toHaveAttribute('data-job-id', 'job-c2');
-    expect(screen.getByTestId('chapter-editor')).toHaveAttribute('data-chapter-jobs', '1');
+    expect(screen.getByTestId('script-view')).toHaveAttribute('data-view-mode', 'book');
+    expect(screen.getByTestId('script-view')).toHaveAttribute('data-safe-text', 'false');
+    expect(screen.getByTestId('script-view')).toHaveAttribute('data-show-numbers', 'false');
+
+    fireEvent.click(screen.getByRole('button', { name: /script view/i }));
+    expect(screen.getByTestId('script-view')).toHaveAttribute('data-view-mode', 'script');
+
+    fireEvent.click(screen.getByRole('button', { name: /safe text/i }));
+    expect(screen.getByTestId('script-view')).toHaveAttribute('data-safe-text', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: /^#$/i }));
+    expect(screen.getByTestId('script-view')).toHaveAttribute('data-show-numbers', 'true');
+
     expect(screen.getByTestId('location')).toHaveTextContent('/book/book-1/studio?chapter=c2');
   });
 
@@ -160,17 +208,23 @@ describe('StudioStage', () => {
       chapterUpdate: undefined,
       reload: vi.fn(),
     } as never);
+    mockStudioChapter('c1');
 
     render(
       <MemoryRouter initialEntries={['/book/book-1/studio']}>
         <Routes>
           <Route path="/book/:bookId/studio" element={<StudioStage />} />
         </Routes>
+        <LocationProbe />
       </MemoryRouter>,
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('chapter-editor')).toHaveAttribute('data-chapter-id', 'c1');
+      expect(mockUseStudioChapter).toHaveBeenCalledWith(expect.objectContaining({ chapterId: 'c1' }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location')).toHaveTextContent('/book/book-1/studio?chapter=c1');
     });
   });
 });
