@@ -5,6 +5,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { useEffect } from 'react'
 import { publishStudioSocketMessage } from '@/store/studioSocketBus'
 import { resetLiveEventAuditForTests } from '@/store/liveEventAuditStore'
+import { setDevModeEnabled } from '@/utils/devMode'
 
 let wsConnected = true;
 let activeConnections = 0;
@@ -28,6 +29,7 @@ vi.mock('@/hooks/useWebSocket', () => ({
 describe('App', () => {
 
   beforeEach(() => {
+    localStorage.clear()
     mockUseWebSocket.mockClear();
     activeConnections = 0;
     act(() => {
@@ -249,6 +251,70 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText('Progress Bar Test')).toBeTruthy()
     })
+  })
+
+  it('shows developer rail links in dev mode and marks progress test active', async () => {
+    act(() => {
+      setDevModeEnabled(true)
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/progress-test']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Progress Bar Test')).toBeTruthy()
+    })
+
+    expect(screen.getByText('DEVELOPER')).toBeTruthy()
+    expect(
+      screen
+        .getAllByRole('button', { name: 'Progress test' })
+        .some((button) => button.getAttribute('aria-current') === 'page')
+    ).toBe(true)
+    expect(screen.getAllByRole('button', { name: 'Event stream' }).length).toBeGreaterThan(0)
+  })
+
+  it('shows developer rail links in dev mode and marks event stream active', async () => {
+    act(() => {
+      setDevModeEnabled(true)
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/event-stream']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /all/i })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('DEVELOPER')).toBeTruthy()
+    expect(
+      screen
+        .getAllByRole('button', { name: 'Event stream' })
+        .some((button) => button.getAttribute('aria-current') === 'page')
+    ).toBe(true)
+    expect(screen.getAllByRole('button', { name: 'Progress test' }).length).toBeGreaterThan(0)
+  })
+
+  it('keeps direct dev routes available when the developer rail group is hidden', async () => {
+    render(
+      <MemoryRouter initialEntries={['/event-stream']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /all/i })).toBeInTheDocument()
+    })
+
+    expect(screen.queryByText('DEVELOPER')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Progress test' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Event stream' })).toBeNull()
   })
 
   it('opens the deep-linked engines page', async () => {
