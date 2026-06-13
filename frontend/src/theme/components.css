@@ -149,7 +149,8 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: stretch;
   width: 100%;
-  min-height: 100dvh;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .chapter-header {

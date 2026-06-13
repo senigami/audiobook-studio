@@ -1,6 +1,6 @@
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import App from '@/app/App'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { useEffect } from 'react'
 import { publishStudioSocketMessage } from '@/store/studioSocketBus'
@@ -21,6 +21,11 @@ const mockUseWebSocket = vi.fn(() => {
     sendMessage: vi.fn()
   };
 });
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location-probe">{`${location.pathname}${location.search}`}</div>;
+}
 
 vi.mock('@/hooks/useWebSocket', () => ({
   useWebSocket: () => mockUseWebSocket()
@@ -251,6 +256,40 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText('Progress Bar Test')).toBeTruthy()
     })
+  })
+
+  it('redirects project routes into the book pipeline while preserving query params', async () => {
+    render(
+      <MemoryRouter initialEntries={['/project/p1?tab=characters&foo=bar']}>
+        <LocationProbe />
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('/book/p1/casting')
+    })
+
+    const search = new URLSearchParams(screen.getByTestId('location-probe').textContent?.split('?')[1] || '')
+    expect(search.get('foo')).toBe('bar')
+    expect(search.has('tab')).toBe(false)
+  })
+
+  it('redirects chapter routes into the book studio stage with the chapter query', async () => {
+    render(
+      <MemoryRouter initialEntries={['/chapter/c1?foo=bar']}>
+        <LocationProbe />
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('/book/p1/studio')
+    })
+
+    const search = new URLSearchParams(screen.getByTestId('location-probe').textContent?.split('?')[1] || '')
+    expect(search.get('chapter')).toBe('c1')
+    expect(search.get('foo')).toBe('bar')
   })
 
   it('shows developer rail links in dev mode and marks progress test active', async () => {

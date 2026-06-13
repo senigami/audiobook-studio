@@ -1,5 +1,5 @@
 {
-  "snapshot_version": 196,
+  "snapshot_version": 197,
   "current_task": "Implement site_redesign_rollout R2 pipeline, next task R2-T12",
   "status": "r2_t11_publish_assemblies_backups_verified",
   "last_committed_milestone": {
@@ -98,7 +98,7 @@
   ],
   "verification": {
     "latest_backend_focus": "2026-06-08: Fixed selected-segment queue identity persistence by storing processing_queue.segment_ids and passing selected ids from /api/segments/generate; verified generation, queue, websocket, DB queue, and progress regression suites passed.",
-    "latest_frontend_focus": "2026-06-13: Implemented and verified the site redesign R2-T11 Publish assemblies/backups stage with in-place assembly selection, assembly progress, assembled audiobook actions, and project backups; full frontend Vitest, lint, build, and git diff --check passed.",
+    "latest_frontend_focus": "2026-06-13: Reworked the site redesign shell so the top bar spans the full width and the rail begins below it; verified with focused Layout/App Vitest, frontend lint, frontend build, and a live Playwright check on the running dev server.",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",
     "latest_lint_focus": "2026-06-08: ruff passed for app/api/routers/generation.py and tests/api/test_api_generation.py; commit hook also ran Ruff/ESLint auto-fix checks cleanly.",
@@ -116,6 +116,8 @@
     "memory": "Update Memory/state.json and Memory/session_logs.md after verified milestones; update .agent rules only for durable repo-level guidance."
   },
   "completed_followups": [
+    "2026-06-13: The app shell is now standardized in frontend/src/app/layout/AppShell.tsx, with the old components/layout/Layout.tsx path preserved as a compatibility re-export and App.tsx pointing at the app-owned shell directly.",
+    "2026-06-13: The site redesign shell was restructured so the top bar spans the full width and the rail starts below it; verified with focused Layout/App tests, frontend lint, frontend build, and a live Playwright check on the running dev server.",
     "2026-06-13: R2-T11 Publish assemblies/backups implemented with in-place assembly selection, AssemblyProgress, AssemblyPanel, ProjectBackupsPanel, shared format helpers, and a backups-aware BookLayout test harness.",
     "2026-06-13: R2-T10 Publish book info implemented with a real PublishStage, inline BookInfoCard metadata edits for title/author/series, cover viewing/changing, runtime/predicted/created chips, and assembled audiobook download links.",
     "2026-06-13: R2-T9 Casting stage implemented with a pinned Narrator (default) row bound to project default voice, project voice unavailable warning, existing CharactersTab mounted below, and shared handleProjectVoiceChange in useBookData.",

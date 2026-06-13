@@ -2082,6 +2082,11 @@
 - Added the `/book/:id/manuscript` stage content with a chapter table using `InlineEdit`, `Reorder`, real `StatusOrb`, lifecycle pills, selection, Sort A-Z, and queue/reset/delete/export actions.
 - Verified focused Book tests, full frontend Vitest, frontend lint, and frontend build.
 
+# 2026-06-13 - Site redesign shell top bar restructured
+
+- Reworked the shell so the top bar spans the full width and the rail begins below it, matching the mockup layout direction.
+- Verified with focused Layout/App Vitest, frontend lint, frontend build, and a live Playwright check on the running dev server.
+
 # 2026-06-13 - R2-T6 Manuscript add/import verified
 
 - Extracted `AddChapterModal` to `frontend/src/pages/Book/components/AddChapterModal.tsx` and re-exported it from the ProjectDetail modal module for existing consumers.
@@ -2122,3 +2127,9 @@
 - Re-homed `AssemblyProgress`, `AssemblyPanel`, and `ProjectBackupsPanel` into Publish while preserving the existing handlers and download/delete flows.
 - Moved the file-size and relative-time helpers into shared format utilities and updated the Book layout test harness for backups hydration.
 - Verified focused AssemblyChapterPicker/PublishStage/BookLayout tests, full frontend Vitest, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-13 - App shell base layer standardized
+
+- Moved the shell implementation into `frontend/src/app/layout/AppShell.tsx` so the base layer now lives with the app shell/routing code.
+- Kept `frontend/src/components/layout/Layout.tsx` as a compatibility re-export and pointed `App.tsx` at the app-owned shell directly.
+- Verified focused shell/App tests, frontend lint, frontend build, and `git diff --check`.

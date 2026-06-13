@@ -364,13 +364,13 @@ backend field (R-F).
 
 ## Acceptance checklist (phase boundary — walk manually)
 
-- [ ] `/book/<id>` redirects to last-visited stage (studio on first visit); all 5 stage tabs are URLs.
-- [ ] `/project/<id>`, `/project/<id>?tab=characters|assemblies|backups`, `/chapter/<id>` all redirect correctly.
-- [ ] TopBar shows cover · title · author · series · runtime · predicted inside a book; clicking goes to Publish; absent outside books.
-- [ ] Rail shows stage links (synced) + chapter list with StatusOrb + render bar + ⋯ menu when Studio active.
-- [ ] Manuscript: reorder, rename, sort, add (modal + import row), StatusOrb menu actions, lifecycle pills match the mapping.
-- [ ] Manuscript preview: Draft edits autosave; Rendered chapter requires Edit-unlock warning; commit shows ResyncPreviewModal; Focus mode collapses rail and restores it.
-- [ ] Casting: pinned Narrator row changes the project default voice (verify via API/devtools); roster add/edit/color/voice all work.
-- [ ] Publish: inline book info edits persist; cover change works; assembly selection → confirm → progress strip; backups save/restore/delete; audiobook downloads work.
-- [ ] No old ProjectDetail route renders; suite green; light + dark themes checked on every new surface.
-- [ ] `99_progress_log.md` has one line per task.
+- [x] `/book/<id>` redirects to last-visited stage (studio on first visit); all 5 stage tabs are URLs.
+- [x] `/project/<id>`, `/project/<id>?tab=characters|assemblies|backups`, `/chapter/<id>` all redirect correctly.
+- [x] TopBar shows cover · title · author · series · runtime · predicted inside a book; clicking goes to Publish; absent outside books.
+- [x] Rail shows stage links (synced) + chapter list with StatusOrb + render bar + ⋯ menu when Studio active.
+- [x] Manuscript: reorder, rename, sort, add (modal + import row), StatusOrb menu actions, lifecycle pills match the mapping.
+- [x] Manuscript preview: Draft edits autosave; Rendered chapter requires Edit-unlock warning; commit shows ResyncPreviewModal; Focus mode collapses rail and restores it.
+- [ ] Casting: pinned Narrator row changes the project default voice (API/devtools verification still pending); roster add/edit/color/voice all work.
+- [ ] Publish: inline book info edits persist; cover change works; assembly selection → confirm → progress strip; backups save/delete work, restore is still not implemented; audiobook downloads work.
+- [ ] No old ProjectDetail route renders; suite green is already verified; light + dark themes still need a full pass on every new surface.
+- [x] `99_progress_log.md` has one line per task.

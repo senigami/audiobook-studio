@@ -53,7 +53,7 @@ describe('Layout', () => {
     expect(within(rail).getByRole('button', { name: 'Settings' })).toBeTruthy();
   });
 
-  it('renders the grouped rail and top bar inside the new shell grid', () => {
+  it('renders the top bar above the shell grid and keeps the rail/content beneath it', () => {
     const onToggleQueue = vi.fn();
     const shellState = createStudioShellState({
       pathname: '/project/p123',
@@ -74,8 +74,12 @@ describe('Layout', () => {
       </MemoryRouter>,
     );
 
-    const shellGrid = screen.getByTestId('layout-root').querySelector('.shell-grid');
+    const layoutRoot = screen.getByTestId('layout-root');
+    const topBar = layoutRoot.querySelector('.top-bar');
+    const shellGrid = layoutRoot.querySelector('.shell-grid');
+    expect(topBar).toBeTruthy();
     expect(shellGrid).toBeTruthy();
+    expect(topBar?.nextElementSibling).toBe(shellGrid);
 
     expect(screen.getByRole('navigation', { name: 'Primary' })).toBeTruthy();
     expect(screen.getByText('CREATE')).toBeTruthy();

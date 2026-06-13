@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation, useMatch } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams, useMatch } from 'react-router-dom';
 import { api } from '@/api';
-import { Layout } from '@/components/layout/Layout';
+import { AppShell } from '@/app/layout/AppShell';
 import { ProjectLibrary } from '@/pages/ProjectLibrary/ProjectLibraryPage';
 import { GlobalQueue } from '@/components/queue/GlobalQueue';
 import { useJobs } from '@/hooks/useJobs';
@@ -11,7 +11,7 @@ import { useInitialData } from '@/hooks/useInitialData';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { createStudioShellState } from '@/app/layout/StudioShell';
 import { QueueRoute } from '@/pages/Queue/QueueRoute';
-import type { Chapter, Project } from '@/types';
+import type { Chapter } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from '@/pages/Voices/components/VoiceUtils';
 
@@ -20,8 +20,6 @@ const BookLayout = lazy(() => import('@/pages/Book').then(m => ({ default: m.Boo
 const BookIndexRedirect = lazy(() => import('@/pages/Book').then(m => ({ default: m.BookIndexRedirect })));
 const EnginesPage = lazy(() => import('@/pages/Engines').then(m => ({ default: m.EnginesPage })));
 const IntegrationsPage = lazy(() => import('@/pages/Integrations').then(m => ({ default: m.IntegrationsPage })));
-const ProjectView = lazy(() => import('@/pages/ProjectDetail/ProjectDetailPage').then(m => ({ default: m.ProjectView })));
-const ProjectViewRoute = lazy(() => import('@/pages/ProjectDetail/ProjectViewRoute').then(m => ({ default: m.ProjectViewRoute })));
 const ActivityPage = lazy(() => import('@/pages/Activity/ActivityPage'));
 const SettingsRoute = lazy(() => import('@/pages/Settings').then(m => ({ default: m.SettingsRoute })));
 const ProgressBarTestPage = lazy(() => import('@/pages/DevProgressBar/DevProgressBarPage').then(m => ({ default: m.ProgressBarTestPage })));
@@ -52,13 +50,72 @@ function RouteFallback() {
   );
 }
 
+function navigateToBookStage(projectId: string, search: string): { pathname: string; search: string } {
+  const params = new URLSearchParams(search);
+  const tab = params.get('tab');
+  const stage = tab === 'characters'
+    ? 'casting'
+    : tab === 'assemblies' || tab === 'backups'
+      ? 'publish'
+      : 'manuscript';
+  params.delete('tab');
+  const nextSearch = params.toString();
+  return {
+    pathname: `/book/${projectId}/${stage}`,
+    search: nextSearch ? `?${nextSearch}` : '',
+  };
+}
+
+function ProjectRedirectRoute() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const location = useLocation();
+
+  if (!projectId) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Navigate replace to={navigateToBookStage(projectId, location.search)} />;
+}
+
+function ChapterRedirectRoute({
+  chapterId,
+  chapter,
+  loading,
+  search,
+}: {
+  chapterId: string;
+  chapter: Chapter | null;
+  loading: boolean;
+  search: string;
+}) {
+  if (loading) {
+    return <RouteFallback />;
+  }
+
+  if (!chapter?.project_id) {
+    return <Navigate to="/" replace />;
+  }
+
+  const params = new URLSearchParams(search);
+  params.set('chapter', chapterId);
+  const nextSearch = params.toString();
+
+  return (
+    <Navigate
+      replace
+      to={{
+        pathname: `/book/${chapter.project_id}/studio`,
+        search: nextSearch ? `?${nextSearch}` : '',
+      }}
+    />
+  );
+}
+
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
   useStudioSocketTransport();
-  const projectMatch = useMatch('/project/:projectId');
   const chapterMatch = useMatch('/chapter/:chapterId');
-  const projectIdFromRoute = projectMatch?.params.projectId;
   const chapterIdFromRoute = chapterMatch?.params.chapterId;
   const [queueRefreshTrigger, setQueueRefreshTrigger] = useState(0);
   const {
@@ -121,8 +178,6 @@ function App() {
     handleSegmentsUpdate,
     handleChapterUpdate
   );
-  const chapterProjectIdFromRoute = initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.project_id;
-
   useEffect(() => {
     let cancelled = false;
     if (!chapterIdFromRoute) {
@@ -240,7 +295,7 @@ function App() {
 
   return (
     <div className="app-container">
-      <Layout
+      <AppShell
         queueCount={queueCount}
         shellState={shellState}
         onToggleQueue={() => setIsQueueDrawerOpen(!isQueueDrawerOpen)}
@@ -273,67 +328,14 @@ function App() {
                   onOpenQueue={() => setIsQueueDrawerOpen(true)}
                 />
               } />
-              <Route path="/project/:projectId" element={
-              <ProjectViewRoute
-                  loading={initialLoading || queueLoading}
-                  connected={connected}
-                  isReconnecting={isReconnecting}
-                  refreshingSource={activeSource || refreshingSource}
-                  projectId={projectIdFromRoute}
-                  projectTitle={initialData?.projects?.find((p: Project) => p.id === projectIdFromRoute)?.name}
-                  chapterTitle={initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
-                >
-                  {(props) => {
-                    const { shellState } = props;
-                    return (
-                    <ProjectView
-                      key={shellState.navigation.activeProjectId}
-                      jobs={jobs}
-                      segmentProgress={segmentProgress}
-                      speakerProfiles={initialData?.speaker_profiles || []}
-                      speakers={initialData?.speakers || []}
-                      engines={initialData?.engines || []}
-                      settings={initialData?.settings}
-                      refreshTrigger={queueRefreshTrigger}
-                      segmentUpdate={segmentUpdate}
-                      chapterUpdate={chapterUpdate}
-                      shellState={shellState}
-                      onOpenQueue={() => setIsQueueDrawerOpen(true)}
-                    />
-                  )}}
-                </ProjectViewRoute>
-              } />
-              {/* Separate Chapter route if needed, though ProjectView handles it via state right now */}
+              <Route path="/project/:projectId" element={<ProjectRedirectRoute />} />
               <Route path="/chapter/:chapterId" element={
-                <ProjectViewRoute
+                <ChapterRedirectRoute
+                  chapterId={chapterIdFromRoute || ''}
+                  chapter={chapterRouteData}
                   loading={initialLoading || queueLoading || chapterRouteLoading}
-                  connected={connected}
-                  isReconnecting={isReconnecting}
-                  refreshingSource={activeSource || refreshingSource}
-                  // We might need to resolve projectId from chapter's parent here
-                  projectId={chapterRouteData?.project_id || chapterProjectIdFromRoute}
-                  projectTitle={initialData?.projects?.find((p: Project) => p.id === (chapterRouteData?.project_id || chapterProjectIdFromRoute))?.name}
-                  chapterTitle={chapterRouteData?.title || initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
-                >
-                  {(props) => {
-                    const { shellState } = props;
-                    return (
-                    <ProjectView
-                      key={shellState.navigation.activeProjectId}
-                      jobs={jobs}
-                      segmentProgress={segmentProgress}
-                      speakerProfiles={initialData?.speaker_profiles || []}
-                      speakers={initialData?.speakers || []}
-                      engines={initialData?.engines || []}
-                      settings={initialData?.settings}
-                      refreshTrigger={queueRefreshTrigger}
-                      segmentUpdate={segmentUpdate}
-                      chapterUpdate={chapterUpdate}
-                      shellState={shellState}
-                      onOpenQueue={() => setIsQueueDrawerOpen(true)}
-                    />
-                  )}}
-                </ProjectViewRoute>
+                  search={location.search}
+                />
               } />
               <Route path="/queue" element={
                 <QueueRoute
@@ -402,7 +404,7 @@ function App() {
           </div>
 
           </div>
-      </Layout>
+      </AppShell>
 
       {initialLoading && (
         <div

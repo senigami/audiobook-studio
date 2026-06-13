@@ -5,6 +5,8 @@ import type { Job, SegmentProgress, Settings, Speaker, SpeakerProfile, TtsEngine
 import { BookDataProvider, useBookDataContext } from '@/pages/Book/BookDataContext';
 import { CastingStage } from '@/pages/Book/stages/CastingStage';
 import { ManuscriptStage } from '@/pages/Book/stages/ManuscriptStage';
+import { ReviewStage } from '@/pages/Book/stages/ReviewStage';
+import { StudioStage } from '@/pages/Book/stages/StudioStage';
 import { PublishStage } from '@/pages/Book/stages/PublishStage';
 import {
   BOOK_STAGE_LABELS,
@@ -38,17 +40,6 @@ export function BookIndexRedirect() {
   return <Navigate to={`/book/${bookId}/${getLastStage(bookId)}`} replace />;
 }
 
-function StagePlaceholder({ stage }: { stage: BookStage }) {
-  const { loading, project } = useBookDataContext();
-
-  return (
-    <section className="book-stage-placeholder" data-testid={`stage-${stage}`} aria-labelledby={`book-stage-${stage}`}>
-      <h1 id={`book-stage-${stage}`}>{BOOK_STAGE_LABELS[stage]}</h1>
-      <p>{loading ? 'Loading book...' : `${project?.name || 'Book'} is ready for the R2 pipeline content.`}</p>
-    </section>
-  );
-}
-
 function StageContent({ stage }: { stage: BookStage }) {
   if (stage === 'manuscript') {
     return <ManuscriptStage />;
@@ -56,11 +47,16 @@ function StageContent({ stage }: { stage: BookStage }) {
   if (stage === 'casting') {
     return <CastingStage />;
   }
+  if (stage === 'studio') {
+    return <StudioStage />;
+  }
+  if (stage === 'review') {
+    return <ReviewStage />;
+  }
   if (stage === 'publish') {
     return <PublishStage />;
   }
-
-  return <StagePlaceholder stage={stage} />;
+  return null;
 }
 
 function BookIdentityPublisher() {

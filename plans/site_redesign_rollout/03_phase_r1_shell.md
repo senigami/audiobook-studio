@@ -205,18 +205,18 @@ Phase-wide constants (use these exact names everywhere):
 
 ## Acceptance checklist (phase-boundary review — walk in a real browser, light AND dark)
 
-- [ ] Rail shows CREATE (Library, Voices) / MONITOR (Activity) / PLATFORM (Engines, Integrations) / MANAGE (Settings) with correct active highlight on every route.
-- [ ] Activity rail badge shows the live queue count and updates when a job is queued/completes.
-- [ ] Collapse rail via chevron → icon-only 56px; reload the page → still collapsed (localStorage `studio-rail-collapsed`).
-- [ ] Hovering the collapsed rail shows the expanded overlay; moving away collapses it; persisted state unchanged.
-- [ ] Rail bottom: expanded = theme button + chevron in one row; collapsed = stacked. Theme button flips light/dark instantly, persists across reload, and Settings → General theme select still works (System included).
-- [ ] TopBar shows breadcrumb, connection dot (green connected / amber reconnecting), and Queue button with badge; clicking Queue opens the SAME right-side drawer with compact GlobalQueue; clicking again closes it.
-- [ ] Empty identity slot present in TopBar DOM (`topbar-identity-slot`) for R2.
-- [ ] `/activity` shows Now (active jobs with PredictiveProgressBar + cancel), Queued (drag-reorder works), History with All/Renders/Samples/API filters, and Stats column with engine calibration + production tally (tally matches Settings → About numbers).
-- [ ] Pause All / Resume and Clear Completed / Clear All work from both Activity and the drawer.
-- [ ] `/engines` shows the full engines panel (install plugin incl. trust modal, refresh, diagnostics logs, engine cards with settings forms); `/settings/engines` redirects there.
-- [ ] `/integrations` shows the API guide with working Swagger link; `/settings/api` redirects there.
-- [ ] `/queue` URL still opens the drawer and bounces back (legacy behavior intact); `/project/:id`, `/chapter/:id`, `/voices`, `/settings`, `/progress-test`, `/event-stream` all render unchanged inside the new shell.
-- [ ] Dev mode ON: rail gains DEVELOPER group (Progress test, Event stream); OFF: group gone, direct URLs still work.
-- [ ] ≤768px: rail hidden; burger in TopBar opens the mobile drawer with the same grouped nav + theme toggle; backdrop closes it.
+- [x] Rail shows CREATE (Library, Voices) / MONITOR (Activity) / PLATFORM (Engines, Integrations) / MANAGE (Settings) with correct active highlight on every route.
+- [x] Activity rail badge shows the live queue count and updates when a job is queued/completes.
+- [x] Collapse rail via chevron → icon-only 56px; reload the page → still collapsed (localStorage `studio-rail-collapsed`).
+- [x] Hovering the collapsed rail shows the expanded overlay; moving away collapses it; persisted state unchanged.
+- [ ] Rail bottom: expanded = theme button + chevron in one row; collapsed = stacked. Theme button flips light/dark instantly, persists across reload, and Settings → General theme select still needs a browser pass (System included).
+- [x] TopBar shows breadcrumb, connection dot (green connected / amber reconnecting), and Queue button with badge; clicking Queue opens the SAME right-side drawer with compact GlobalQueue; clicking again closes it.
+- [x] Empty identity slot present in TopBar DOM (`topbar-identity-slot`) for R2.
+- [x] `/activity` shows Now (active jobs with PredictiveProgressBar + cancel), Queued (drag-reorder works), History with All/Renders/Samples/API filters, and Stats column with engine calibration + production tally (tally matches Settings → About numbers).
+- [x] Pause All / Resume and Clear Completed / Clear All work from both Activity and the drawer.
+- [x] `/engines` shows the full engines panel (install plugin incl. trust modal, refresh, diagnostics logs, engine cards with settings forms); `/settings/engines` redirects there.
+- [x] `/integrations` shows the API guide with working Swagger link; `/settings/api` redirects there.
+- [x] `/queue` URL still opens the drawer and bounces back (legacy behavior intact); `/project/:id`, `/chapter/:id`, `/voices`, `/settings`, `/progress-test`, `/event-stream` all render unchanged inside the new shell.
+- [x] Dev mode ON: rail gains DEVELOPER group (Progress test, Event stream); OFF: group gone, direct URLs still work.
+- [x] ≤768px: rail hidden; burger in TopBar opens the mobile drawer with the same grouped nav + theme toggle; backdrop closes it.
 - [ ] No old top-nav remnants (`header-nav` gone); no hardcoded colors in new CSS (spot-check `nav-rail`/`top-bar` blocks use tokens); StatusOrb untouched anywhere it appeared before.
