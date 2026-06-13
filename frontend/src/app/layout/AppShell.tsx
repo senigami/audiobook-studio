@@ -21,7 +21,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, queueCount, shellS
     <div
       data-testid="layout-root"
       data-shell-hydration={shellState?.hydration.status || 'unknown'}
-      style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100vw', backgroundColor: 'var(--bg)' }}
+      style={{ display: 'flex', flexDirection: 'column', height: '100dvh', width: '100vw', overflow: 'hidden', backgroundColor: 'var(--bg)' }}
     >
       <TopBar
         mobileNavButton={
@@ -45,7 +45,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, queueCount, shellS
       <div className="shell-grid">
         <NavRail queueCount={queueCount} />
 
-        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflowY: 'auto' }}>
           <main
             className="mobile-padding"
             style={{
