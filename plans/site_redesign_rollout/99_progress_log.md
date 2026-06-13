@@ -37,6 +37,16 @@ consolidation is R5-T13 scope. Confirm in browser or defer.
 2026-06-13 R2-T11 done HEAD
 2026-06-13 app-shell-base-layer done HEAD
 
+2026-06-13 R2 phase-boundary review (orchestrator): tests 1137 pass (+40, none deleted),
+build pass, lint clean. Book routes + legacy redirects + Book page tree + chapterLifecycle
++ CastingStage(narrator default) + PublishStage all present; old ProjectView tests retained
+(ProjectDetail kept as redirect boundary per R-G, retired at R6). R2 APPROVED — R3 cleared to
+start (independent file area). Owner to spot-confirm 3 persistence items (see acceptance
+checklist unchecked): Casting narrator->project-default binding, Publish book-info/assembly/
+backup persistence + downloads, dark-mode pass on new surfaces. If broken: log under Found bugs.
+Also: rail footer viewport-pin bug fixed this session (commit 5d4561e9) — shell was not
+viewport-locked; lesson for shell work recorded.
+
 ## Found bugs (do not fix mid-phase — triaged at R6)
 
 (none logged yet)
