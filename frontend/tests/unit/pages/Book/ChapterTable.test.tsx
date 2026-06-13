@@ -88,7 +88,8 @@ describe('ChapterTable', () => {
     expect(onRenameChapter).toHaveBeenCalledWith('chapter-b', 'Beta Updated');
 
     const betaRow = screen.getByTestId('chapter-table-row-chapter-b');
-    expect(within(betaRow).getByLabelText(/No audio yet|segments rendered/i)).toBeInTheDocument();
+    const statusOrb = within(betaRow).getByLabelText(/No audio yet|segments rendered/i);
+    expect(statusOrb.closest('.chapter-table__number-cell')).not.toBeNull();
     fireEvent.click(within(betaRow).getByRole('button', { name: 'More actions' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Queue Chapter' }));
     expect(onQueueChapter).toHaveBeenCalledWith(chapters[0]);

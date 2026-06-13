@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Info } from 'lucide-react';
 import { ResyncPreviewModal } from '@/pages/ChapterEditor/components/ResyncPreviewModal';
 import { useChapterText } from '@/pages/Book/lib/useChapterText';
 import type { Chapter } from '@/types';
@@ -11,6 +11,33 @@ interface ChapterTextPanelProps {
 
 function wordCount(text: string): number {
   return text.trim() ? text.trim().split(/\s+/).length : 0;
+}
+
+function sentenceCount(text: string): number {
+  const matches = text
+    .trim()
+    .match(/[^.!?]+(?:[.!?]+|$)/g);
+  return matches?.filter((sentence) => sentence.trim().length > 0).length ?? 0;
+}
+
+function formatDuration(seconds?: number | null): string {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) {
+    return '—';
+  }
+
+  if (seconds >= 3600) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  }
+
+  if (seconds >= 60) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.round(seconds % 60);
+    return `${minutes}m ${remainingSeconds}s`;
+  }
+
+  return `${Math.round(seconds)}s`;
 }
 
 function SaveChip({ state }: { state: ReturnType<typeof useChapterText>['saveState'] }) {
@@ -36,6 +63,13 @@ export function ChapterTextPanel({ chapter, onSaved }: ChapterTextPanelProps) {
 
   const canEditDirectly = !chapterText.isProduced || unlocked;
   const isUnlockedProduced = chapterText.isProduced && unlocked;
+  const analysisChapter = chapterText.chapter ?? chapter;
+  const analysisText = chapterText.text;
+  const charCount = analysisText.length;
+  const words = wordCount(analysisText);
+  const sentences = sentenceCount(analysisText);
+  const segments = analysisChapter?.total_segments_count ?? null;
+  const estimatedGeneration = analysisChapter?.predicted_audio_length ?? null;
 
   const handleCommitProduced = async () => {
     setPreviewOpen(true);
@@ -94,8 +128,51 @@ export function ChapterTextPanel({ chapter, onSaved }: ChapterTextPanelProps) {
           placeholder="Start typing your chapter text here..."
         />
       ) : (
-        <pre className="chapter-text-panel__preview">{chapterText.text}</pre>
+          <pre className="chapter-text-panel__preview">{chapterText.text}</pre>
       )}
+
+      <div
+        style={{
+          flexShrink: 0,
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: '10px',
+          padding: '0.6rem 1rem',
+          display: 'flex',
+          gap: '1.25rem',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, flexShrink: 0 }}>
+          <Info size={12} />
+          <span style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.65rem' }}>Analysis</span>
+        </div>
+
+        {[
+          { label: 'Chars', value: charCount.toLocaleString() },
+          { label: 'Words', value: words.toLocaleString() },
+          { label: 'Sentences', value: sentences.toLocaleString() },
+          { label: 'Segments', value: segments == null ? '—' : segments.toLocaleString() },
+        ].map(({ label, value }) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
+            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>{value}</span>
+            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+          </div>
+        ))}
+
+        {estimatedGeneration != null && (
+          <>
+            <div style={{ width: '1px', height: '16px', background: 'var(--border)', flexShrink: 0 }} />
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
+              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--accent)' }}>
+                {formatDuration(estimatedGeneration)}
+              </span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Est. Gen.</span>
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="chapter-text-panel__footer">
         <span>{wordCount(chapterText.text).toLocaleString()} words</span>

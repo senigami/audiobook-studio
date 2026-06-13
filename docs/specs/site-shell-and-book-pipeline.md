@@ -1,7 +1,7 @@
 # Site Shell & Book Pipeline
 
 ```
-spec_version: 1.1.0
+spec_version: 1.2.0
 status: active
 created: 2026-06-13
 sources:
@@ -24,6 +24,7 @@ sources:
 |---------|------------|--------|
 | 1.0.0   | 2026-06-13 | Initial canonical spec for the shared app shell and routed book pipeline |
 | 1.1.0   | 2026-06-13 | Deepened §3.2 Studio (book view primary / script view secondary, cast palette painting, analysis strip, commit-resync, rail chapter switching — R3 target); replaced the §3.2 Review placeholder with the follow-along player + section-anchored annotations + re-render-in-place contract (R4 target, player bus owned by audio-player.md); added §2.6 Platform & Manage destinations (Engines/Integrations re-homed out of Settings, thin Settings, redirects — current); added §5 Frontend state ownership (API-hydrated canonical entities vs. store overlays/drafts, queue-row authority) |
+| 1.2.0   | 2026-06-13 | Added Manuscript chapter-preview analysis strip (chars, words, sentences, segments, estimated generation time) alongside the chapter list orb placement contract |
 
 ---
 
@@ -126,6 +127,7 @@ Manuscript owns chapter organization and source-text editing:
 - Chapter table with reorder, rename, add/import, queue, reset audio, delete, and export-sample actions.
 - Lifecycle pills derived from chapter data, not from a backend lifecycle field.
 - Selected chapter preview/edit surface.
+- A lightweight manuscript analysis strip in the preview/edit column with chars, words, sentences, segments, and estimated generation time when available.
 - Focus mode for a distraction-free writing view that auto-collapses the rail and restores it on exit.
 
 Chapter lifecycle MUST be derived by code from chapter fields. Do not add a lifecycle column or backend field to support the pills. The derived mapping used by the implementation is the spec:

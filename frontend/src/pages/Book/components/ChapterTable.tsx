@@ -83,14 +83,24 @@ export function ChapterTable({
               className={selected ? 'chapter-table__row chapter-table__row--selected' : 'chapter-table__row'}
               data-testid={`chapter-table-row-${chapter.id}`}
             >
-              <button
-                type="button"
-                className="chapter-table__select"
-                onClick={() => onSelectChapter(chapter.id)}
-                aria-label={`Select ${chapter.title}`}
-              >
-                <span>{index + 1}</span>
-              </button>
+              <div className="chapter-table__number-cell">
+                <button
+                  type="button"
+                  className="chapter-table__select"
+                  onClick={() => onSelectChapter(chapter.id)}
+                  aria-label={`Select ${chapter.title}`}
+                >
+                  <span>{index + 1}</span>
+                </button>
+
+                <StatusOrb
+                  chap={chapter}
+                  activeJob={activeJob}
+                  queuePending={queuePending}
+                  doneSegments={chapter.done_segments_count}
+                  totalSegments={chapter.total_segments_count}
+                />
+              </div>
 
               <div className="chapter-table__title">
                 <InlineEdit value={chapter.title} onSave={(title) => onRenameChapter(chapter.id, title)} />
@@ -100,15 +110,6 @@ export function ChapterTable({
               <div className={`chapter-table__pill chapter-table__pill--${lifecycle.toLowerCase()}`}>{lifecycle}</div>
               <div className="chapter-table__status">
                 <ActionMenu
-                  trigger={(
-                    <StatusOrb
-                      chap={chapter}
-                      activeJob={activeJob}
-                      queuePending={queuePending}
-                      doneSegments={chapter.done_segments_count}
-                      totalSegments={chapter.total_segments_count}
-                    />
-                  )}
                   items={[
                     {
                       label: 'Queue Chapter',

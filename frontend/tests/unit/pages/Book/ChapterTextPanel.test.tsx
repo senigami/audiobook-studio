@@ -86,6 +86,12 @@ describe('ChapterTextPanel', () => {
 
     await act(async () => {});
     expect(api.fetchChapter).toHaveBeenCalledWith('chapter-draft');
+    expect(screen.getByText('Analysis')).toBeInTheDocument();
+    expect(screen.getByText('Chars')).toBeInTheDocument();
+    expect(screen.getByText('Words')).toBeInTheDocument();
+    expect(screen.getByText('Sentences')).toBeInTheDocument();
+    expect(screen.getByText('Segments')).toBeInTheDocument();
+    expect(screen.getByText('3s')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Chapter manuscript text'), {
       target: { value: 'Updated draft text' },

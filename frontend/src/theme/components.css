@@ -984,7 +984,7 @@
 .chapter-table__header,
 .chapter-table__row {
   display: grid;
-  grid-template-columns: 3rem minmax(12rem, 1fr) 6rem 7rem 4rem;
+  grid-template-columns: 4.5rem minmax(12rem, 1fr) 6rem 7rem 4rem;
   align-items: center;
   gap: 0.75rem;
 }
@@ -1034,6 +1034,13 @@
   color: var(--text-secondary);
   font-weight: 800;
   cursor: pointer;
+}
+
+.chapter-table__number-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
 .chapter-table__title {
