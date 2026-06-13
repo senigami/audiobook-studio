@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlignLeft, BookOpen, Eye, Hash } from 'lucide-react';
+import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import { selectChapterEditorJobs } from '@/pages/Book/lib/chapterJobs';
 import { AnalysisStrip } from '@/pages/Book/studio/AnalysisStrip';
 import { CastPalette } from '@/pages/Book/studio/CastPalette';
+import { StudioHeaderActions } from '@/pages/Book/studio/StudioHeaderActions';
 import { useStudioChapter } from '@/pages/Book/studio/useStudioChapter';
+import { QueueNotice } from '@/pages/ChapterEditor/components/QueueNotice';
+import { ResyncPreviewModal } from '@/pages/ChapterEditor/components/ResyncPreviewModal';
 import { ScriptView } from '@/pages/ChapterEditor/components/ScriptView';
 import { ScriptViewFallback } from '@/pages/ChapterEditor/components/ScriptViewFallback';
 
@@ -68,6 +72,8 @@ export function StudioStage() {
 
   const {
     chapter,
+    title,
+    text,
     analysis,
     analyzing,
     scriptViewData,
@@ -86,6 +92,19 @@ export function StudioStage() {
     playingSegmentIds,
     playbackQueue,
     playSegment,
+    handleSave,
+    hasUnsavedChanges,
+    exportingFormat,
+    handleRequestResyncPreview,
+    handleConfirmResync,
+    handleExportAudio,
+    handleCopyDebugState,
+    confirmConfig,
+    isPreviewingResync,
+    resyncPreviewData,
+    isResyncing,
+    queueNotice,
+    setIsPreviewingResync,
     setConfirmConfig,
     loadChapter,
     selectedCharacterId,
@@ -101,6 +120,24 @@ export function StudioStage() {
     localVoice,
   } = studio;
 
+  const activeChapterIndex = useMemo(
+    () => chapters.findIndex((chapter) => chapter.id === activeChapterId),
+    [activeChapterId, chapters],
+  );
+  const previousChapterId = activeChapterIndex > 0 ? chapters[activeChapterIndex - 1]?.id ?? null : null;
+  const nextChapterId = activeChapterIndex >= 0 && activeChapterIndex < chapters.length - 1
+    ? chapters[activeChapterIndex + 1]?.id ?? null
+    : null;
+
+  const navigateToChapter = async (nextId: string | null) => {
+    if (!nextId) return;
+    const saved = await handleSave(title, text);
+    if (!saved) return;
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.set('chapter', nextId);
+    setSearchParams(nextSearchParams, { replace: true });
+  };
+
   if (!activeChapterId) {
     return (
       <section className="book-stage-placeholder" data-testid="stage-studio" aria-labelledby="book-stage-studio">
@@ -112,7 +149,7 @@ export function StudioStage() {
 
   return (
     <section className="book-stage-studio" data-testid="stage-studio" aria-label="Studio">
-      <div className="studio-stage__toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+      <div className="studio-stage__toolbar" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
         <div className="script-view-toggle-group">
           <button
             type="button"
@@ -154,6 +191,16 @@ export function StudioStage() {
             <span>#</span>
           </button>
         </div>
+
+        <StudioHeaderActions
+          hasUnsavedChanges={hasUnsavedChanges}
+          onCommitChanges={handleRequestResyncPreview}
+          onPrev={previousChapterId ? () => void navigateToChapter(previousChapterId) : undefined}
+          onNext={nextChapterId ? () => void navigateToChapter(nextChapterId) : undefined}
+          onExportAudio={(format) => void handleExportAudio(format)}
+          exportingFormat={exportingFormat}
+          onCopyDebugState={handleCopyDebugState}
+        />
       </div>
 
       <AnalysisStrip
@@ -257,6 +304,29 @@ export function StudioStage() {
           defaultVoiceLabel={chapterDefaultVoiceLabel}
         />
       </div>
+
+      <ConfirmModal
+        isOpen={Boolean(confirmConfig)}
+        title={confirmConfig?.title || ''}
+        message={confirmConfig?.message || ''}
+        onConfirm={() => {
+          void confirmConfig?.onConfirm();
+          setConfirmConfig(null);
+        }}
+        onCancel={() => setConfirmConfig(null)}
+        isDestructive={confirmConfig?.isDestructive}
+        confirmText={confirmConfig?.confirmText}
+      />
+
+      <ResyncPreviewModal
+        isOpen={isPreviewingResync}
+        data={resyncPreviewData}
+        loading={isResyncing || (isPreviewingResync && !resyncPreviewData)}
+        onConfirm={handleConfirmResync}
+        onCancel={() => setIsPreviewingResync(false)}
+      />
+
+      {queueNotice && <QueueNotice message={queueNotice} />}
     </section>
   );
 }

@@ -40,6 +40,60 @@ vi.mock('@/pages/Book/studio/CastPalette', () => ({
   ),
 }));
 
+vi.mock('@/pages/Book/studio/StudioHeaderActions', () => ({
+  StudioHeaderActions: ({
+    hasUnsavedChanges,
+    onCommitChanges,
+    onPrev,
+    onNext,
+    onExportAudio,
+    exportingFormat,
+    onCopyDebugState,
+  }: any) => (
+    <div
+      data-testid="studio-header-actions"
+      data-unsaved={String(Boolean(hasUnsavedChanges))}
+      data-exporting-format={exportingFormat || ''}
+    >
+      <button type="button" onClick={() => onPrev?.()}>Prev</button>
+      <button type="button" onClick={() => onNext?.()}>Next</button>
+      <button type="button" onClick={() => onCommitChanges?.()}>Commit</button>
+      <button type="button" onClick={() => onExportAudio?.('wav')}>Export WAV</button>
+      <button type="button" onClick={() => onExportAudio?.('mp3')}>Export MP3</button>
+      <button type="button" onClick={() => onCopyDebugState?.()}>Debug</button>
+    </div>
+  ),
+}));
+
+vi.mock('@/components/overlays/ConfirmModal', () => ({
+  ConfirmModal: ({ isOpen, title, message, onConfirm, onCancel }: any) => (
+    <div data-testid="confirm-modal" data-open={String(Boolean(isOpen))}>
+      <div data-testid="confirm-title">{title}</div>
+      <div data-testid="confirm-message">{message}</div>
+      <button type="button" onClick={onConfirm}>confirm</button>
+      <button type="button" onClick={onCancel}>cancel</button>
+    </div>
+  ),
+}));
+
+vi.mock('@/pages/ChapterEditor/components/ResyncPreviewModal', () => ({
+  ResyncPreviewModal: ({ isOpen, data, loading, onConfirm, onCancel }: any) => (
+    <div
+      data-testid="resync-preview-modal"
+      data-open={String(Boolean(isOpen))}
+      data-loading={String(Boolean(loading))}
+      data-has-data={String(Boolean(data))}
+    >
+      <button type="button" onClick={onConfirm}>preview-confirm</button>
+      <button type="button" onClick={onCancel}>preview-cancel</button>
+    </div>
+  ),
+}));
+
+vi.mock('@/pages/ChapterEditor/components/QueueNotice', () => ({
+  QueueNotice: ({ message }: any) => <div data-testid="queue-notice">{message}</div>,
+}));
+
 vi.mock('@/pages/ChapterEditor/components/ScriptView', () => ({
   ScriptView: ({ viewMode, showSafeText, showNumbers, activeCharacterId }: any) => (
     <div
@@ -54,6 +108,7 @@ vi.mock('@/pages/ChapterEditor/components/ScriptView', () => ({
 
 const mockUseBookDataContext = vi.mocked(useBookDataContext);
 const mockUseStudioChapter = vi.mocked(useStudioChapter);
+let latestStudioChapterState: any = null;
 
 function LocationProbe() {
   const location = useLocation();
@@ -74,8 +129,10 @@ function buildChapter(id: string, audio_status = 'ready') {
 }
 
 function mockStudioChapter(chapterId: string, overrides: Record<string, unknown> = {}) {
-  mockUseStudioChapter.mockReturnValue({
-    chapter: { id: chapterId, title: chapterId, text_content: 'text', word_count: 2 } as never,
+  latestStudioChapterState = {
+    chapter: { id: chapterId, title: chapterId, text_content: 'text', word_count: 2, char_count: 4, sent_count: 1 } as never,
+    title: chapterId,
+    text: 'text',
     analysis: null,
     analyzing: false,
     segments: [],
@@ -101,6 +158,26 @@ function mockStudioChapter(chapterId: string, overrides: Record<string, unknown>
     playingSegmentIds: new Set(),
     playbackQueue: [],
     playSegment: vi.fn(),
+    handleSave: vi.fn().mockResolvedValue(true),
+    hasUnsavedChanges: true,
+    exportingFormat: null,
+    handleRequestResyncPreview: vi.fn(),
+    handleConfirmResync: vi.fn(),
+    handleExportAudio: vi.fn(),
+    handleCopyDebugState: vi.fn(),
+    confirmConfig: { title: 'Confirm', message: 'Message', onConfirm: vi.fn(), confirmText: 'Go' },
+    isPreviewingResync: true,
+    resyncPreviewData: {
+      total_segments_before: 2,
+      total_segments_after: 2,
+      preserved_assignments_count: 2,
+      lost_assignments_count: 0,
+      affected_character_names: [],
+      is_destructive: false,
+    },
+    isResyncing: false,
+    queueNotice: 'Queued',
+    setIsPreviewingResync: vi.fn(),
     setConfirmConfig: vi.fn(),
     loadChapter: vi.fn(),
     selectedCharacterId: null,
@@ -115,14 +192,15 @@ function mockStudioChapter(chapterId: string, overrides: Record<string, unknown>
     chapterDefaultVoiceLabel: 'Use Project Default',
     localVoice: '',
     ...overrides,
-  } as never);
+  };
+  mockUseStudioChapter.mockReturnValue(latestStudioChapterState as never);
 }
 
 describe('StudioStage', () => {
   it('mounts the selected chapter, defaults to book view, and flips the view pills', async () => {
     mockUseBookDataContext.mockReturnValue({
       bookId: 'book-1',
-      chapters: [buildChapter('c1'), buildChapter('c2')],
+      chapters: [buildChapter('c1'), buildChapter('c2'), buildChapter('c3')],
       jobs: {
         active: {
           id: 'job-c2',
@@ -209,6 +287,8 @@ describe('StudioStage', () => {
       expect(mockUseStudioChapter).toHaveBeenCalledWith(expect.objectContaining({ chapterId: 'c2' }));
     });
 
+    expect(screen.getByTestId('studio-header-actions')).toHaveAttribute('data-unsaved', 'true');
+    expect(screen.getByTestId('studio-header-actions')).toHaveAttribute('data-exporting-format', '');
     expect(screen.getByTestId('script-view')).toHaveAttribute('data-view-mode', 'book');
     expect(screen.getByTestId('script-view')).toHaveAttribute('data-safe-text', 'false');
     expect(screen.getByTestId('script-view')).toHaveAttribute('data-show-numbers', 'false');
@@ -227,7 +307,18 @@ describe('StudioStage', () => {
     fireEvent.click(screen.getByRole('button', { name: /^#$/i }));
     expect(screen.getByTestId('script-view')).toHaveAttribute('data-show-numbers', 'true');
 
-    expect(screen.getByTestId('location')).toHaveTextContent('/book/book-1/studio?chapter=c2');
+    fireEvent.click(screen.getByRole('button', { name: 'Commit' }));
+    expect(latestStudioChapterState.handleRequestResyncPreview).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('confirm-modal')).toHaveAttribute('data-open', 'true');
+    expect(screen.getByTestId('resync-preview-modal')).toHaveAttribute('data-open', 'true');
+    expect(screen.getByTestId('queue-notice')).toHaveTextContent('Queued');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Prev' }));
+    expect(latestStudioChapterState.handleSave).toHaveBeenCalledWith('c2', 'text');
+    await waitFor(() => {
+      expect(screen.getByTestId('location')).toHaveTextContent('/book/book-1/studio?chapter=c1');
+    });
+    expect(mockUseStudioChapter).toHaveBeenLastCalledWith(expect.objectContaining({ chapterId: 'c1' }));
   });
 
   it('defaults to the first chapter when the query is empty', async () => {
