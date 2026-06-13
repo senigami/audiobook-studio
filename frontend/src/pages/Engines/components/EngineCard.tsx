@@ -43,6 +43,7 @@ export const EngineCard: React.FC<{
 }> = ({ engine, onUpdate, onShowNotification }) => {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [testResult, setTestResult] = useState(engine.last_test);
   const [removing, setRemoving] = useState(false);
@@ -504,14 +505,14 @@ export const EngineCard: React.FC<{
             <button
               type="button"
               className="btn-glass"
-              title="Verify this engine using the Studio default voice reference sample."
-              disabled={saving || displayEngine.verified}
+              title="Verify this engine using the Studio default voice reference sample. A cold engine may take up to a minute to load its model."
+              disabled={saving || verifying || displayEngine.verified}
               onClick={async () => {
                 if (activeScenario) {
                   addDevLog(activeScenario.dev_logs?.verify || `Simulated: Verification requested for ${displayEngine.display_name}.`);
                   return;
                 }
-                setSaving(true);
+                setVerifying(true);
                 try {
                   const res = await api.verifyEngine(displayEngine.engine_id);
                   if (res.ok) {
@@ -527,12 +528,12 @@ export const EngineCard: React.FC<{
                   if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
                   onShowNotification?.(`Verification failed for ${displayEngine.display_name}.`);
                 } finally {
-                  setSaving(false);
+                  setVerifying(false);
                 }
               }}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, opacity: displayEngine.verified ? 0.5 : 1 }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, opacity: (displayEngine.verified || verifying) ? 0.7 : 1 }}
             >
-              <ShieldCheck size={14} /> {displayEngine.verified ? 'Verified' : 'Verify'}
+              {verifying ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />} {verifying ? 'Verifying…' : (displayEngine.verified ? 'Verified' : 'Verify')}
             </button>
             {needsDependencyInstall && (
               <button
