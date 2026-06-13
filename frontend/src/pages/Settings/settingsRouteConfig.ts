@@ -24,7 +24,7 @@ export const SETTINGS_TABS: SettingsTab[] = [
     id: 'engines',
     label: 'TTS Engines',
     path: '/settings/engines',
-    description: 'Plugin cards, verification state, and engine-specific settings.',
+    description: 'Moved to Platform -> Engines.',
     icon: PlugZap,
   },
   {

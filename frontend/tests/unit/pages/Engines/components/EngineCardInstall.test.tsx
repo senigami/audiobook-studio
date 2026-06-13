@@ -1,7 +1,7 @@
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { EngineCard } from '@/pages/Settings/components/EngineCard';
+import { EngineCard } from '@/pages/Engines/components/EngineCard';
 import { api } from '@/api';
 import type { TtsEngine } from '@/types';
 

@@ -13,6 +13,7 @@ also go here.*
 2026-06-12 R1-T5 done HEAD
 2026-06-12 R1-T6 done HEAD
 2026-06-12 R1-T7 done HEAD
+2026-06-12 R1-T8 done build-skipped-existing-demo-type-errors HEAD
 
 ## Found bugs (do not fix mid-phase — triaged at R6)
 

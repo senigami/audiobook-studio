@@ -6,11 +6,11 @@ import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { PluginTrustModal, type PluginPreviewInfo } from '@/components/overlays/PluginTrustModal';
 import { ToggleButton } from '@/pages/Settings/components/SettingsComponents';
 import { getEngineUi, getEngineStatusLabel, getBadgeStyles } from '@/pages/Settings/settingsRouteHelpers';
-import { EngineMetadataPanel } from '@/pages/Settings/components/EngineMetadataPanel';
+import { EngineMetadataPanel } from '@/pages/Engines/components/EngineMetadataPanel';
 import { JsonSchemaForm } from '@/pages/Settings/components/JsonSchemaForm';
-import { EngineDevPanel } from '@/pages/Settings/components/EngineDevPanel';
-import { mergeScenarioEngine } from '@/pages/Settings/components/engineScenarioMerge';
-import { formatEngineTestGeneratedAt } from '@/pages/Settings/components/engineFormatters';
+import { EngineDevPanel } from '@/pages/Engines/components/EngineDevPanel';
+import { mergeScenarioEngine } from '@/pages/Engines/components/engineScenarioMerge';
+import { formatEngineTestGeneratedAt } from '@/pages/Engines/components/engineFormatters';
 
 const getErrorMessage = (err: any): string => {
   if (typeof err === 'string') return err;

@@ -4,7 +4,7 @@ import type { TtsEngine } from '@/types';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { PluginTrustModal, type PluginPreviewInfo } from '@/components/overlays/PluginTrustModal';
-import { EngineCard } from '@/pages/Settings/components/EngineCard';
+import { EngineCard } from '@/pages/Engines/components/EngineCard';
 import { useLiveTtsLogLines } from '@/hooks/useLiveTtsLogLines';
 
 interface EnginesPanelProps {

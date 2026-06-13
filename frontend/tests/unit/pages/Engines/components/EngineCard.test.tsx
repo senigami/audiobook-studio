@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { api } from '@/api';
-import { EngineCard } from '@/pages/Settings/components/EngineCard';
-import { formatEngineTestGeneratedAt } from '@/pages/Settings/components/engineFormatters';
+import { EngineCard } from '@/pages/Engines/components/EngineCard';
+import { formatEngineTestGeneratedAt } from '@/pages/Engines/components/engineFormatters';
 
 vi.mock('@/api', () => ({
   api: {

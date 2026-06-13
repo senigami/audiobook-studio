@@ -251,7 +251,7 @@ describe('App', () => {
     })
   })
 
-  it('opens the deep-linked settings engines page', async () => {
+  it('opens the deep-linked engines page', async () => {
     render(
       <MemoryRouter initialEntries={['/settings/engines']}>
         <App />
@@ -259,11 +259,11 @@ describe('App', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'TTS Engines' })).toBeTruthy()
+      expect(screen.getByRole('heading', { name: 'Engines' })).toBeTruthy()
     })
 
     expect(
-      screen.getAllByRole('button', { name: /Settings/i }).some((button) => button.getAttribute('aria-current') === 'page')
+      screen.getAllByRole('button', { name: /Engines/i }).some((button) => button.getAttribute('aria-current') === 'page')
     ).toBe(true)
   })
 

@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from '@/pages/Voices/components/VoiceUtils';
 
 const VoicesTab = lazy(() => import('@/pages/Voices/VoicesPage').then(m => ({ default: m.VoicesTab })));
+const EnginesPage = lazy(() => import('@/pages/Engines').then(m => ({ default: m.EnginesPage })));
 const ProjectView = lazy(() => import('@/pages/ProjectDetail/ProjectDetailPage').then(m => ({ default: m.ProjectView })));
 const ProjectViewRoute = lazy(() => import('@/pages/ProjectDetail/ProjectViewRoute').then(m => ({ default: m.ProjectViewRoute })));
 const ActivityPage = lazy(() => import('@/pages/Activity/ActivityPage'));
@@ -344,6 +345,13 @@ function App() {
                   onRefresh={() => refreshQueue('refresh')}
                   connected={connected}
                   isReconnecting={isReconnecting}
+                />
+              } />
+              <Route path="/engines" element={
+                <EnginesPage
+                  startupReady={initialData?.system_info?.startup_ready !== false}
+                  onRefresh={handleRefresh}
+                  onShowNotification={showToast}
                 />
               } />
               <Route path="/voices" element={

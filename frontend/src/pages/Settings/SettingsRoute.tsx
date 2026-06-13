@@ -10,7 +10,6 @@ import {
 } from '@/pages/Settings/settingsRouteConfig';
 import { SettingsTabLink, TabHeading } from '@/pages/Settings/components/SettingsComponents';
 import { GeneralSettingsPanel } from '@/pages/Settings/components/GeneralSettingsPanel';
-import { EnginesPanel } from '@/pages/Settings/components/EnginesPanel';
 import { ApiSettingsPanel } from '@/pages/Settings/components/ApiSettingsPanel';
 import { AboutSettingsPanel } from '@/pages/Settings/components/AboutSettingsPanel';
 import { DeveloperSettingsPanel } from '@/pages/Settings/components/DeveloperSettingsPanel';
@@ -31,7 +30,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
   speakerProfiles,
   speakers = [],
   engines = [],
-  startupReady = true,
+  startupReady: _startupReady = true,
   onRefresh,
   onShowNotification
 }) => {
@@ -50,6 +49,9 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
   // Redirect away from /settings/developer if dev mode is off
   if (activeTab.id === 'developer' && !devMode) {
     return <Navigate to="/settings" replace />;
+  }
+  if (activeTab.id === 'engines') {
+    return <Navigate to="/engines" replace />;
   }
 
   return (
@@ -128,13 +130,6 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
               engines={engines}
               onRefresh={onRefresh}
               onShowNotification={onShowNotification}
-            />
-          )}
-          {activeTab.id === 'engines' && (
-            <EnginesPanel
-              onShowNotification={onShowNotification}
-              onRefresh={onRefresh}
-              startupReady={startupReady}
             />
           )}
           {activeTab.id === 'api' && <ApiSettingsPanel />}
