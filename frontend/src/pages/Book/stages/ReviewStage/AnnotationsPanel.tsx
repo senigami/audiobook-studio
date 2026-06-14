@@ -154,7 +154,7 @@ export function AnnotationsPanel({
                 padding: '6px 12px',
                 fontSize: '0.75rem',
                 fontWeight: 600,
-                color: 'var(--button-primary-text, #fff)',
+                color: 'var(--text-on-accent)',
                 background: 'var(--accent)',
                 border: 'none',
                 borderRadius: 'var(--radius-button)',

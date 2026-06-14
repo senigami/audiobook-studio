@@ -2365,8 +2365,8 @@
   font-size: 0.55rem;
   font-weight: 700;
   color: var(--as-amber);
-  background: rgba(249, 115, 22, 0.10);
-  border: 1px solid rgba(249, 115, 22, 0.35);
+  background: var(--as-amber-tint-bg);
+  border: 1px solid var(--as-amber-tint-border);
   border-radius: var(--radius-card);
   padding: 1px 5px;
   pointer-events: none;

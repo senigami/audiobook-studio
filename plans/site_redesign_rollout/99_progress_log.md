@@ -115,6 +115,8 @@ via build/lint + targeted files. R4 APPROVED.
 2026-06-14 R6-T3 done HEAD
 2026-06-14 R6-T4 done HEAD
 2026-06-14 R6-T5 done HEAD
+2026-06-14 R6-T8 done HEAD
+2026-06-14 R6-T9 done HEAD
 2026-06-14 R6-T11 done HEAD
 
 2026-06-14 R5 COMPLETE + boundary review (orchestrator). All 14 tasks (T1-T14) landed across
@@ -204,6 +206,56 @@ Engines/Integrations/Settings deltas vs `panes/platform.tsx` and `panes/settings
 3. Settings tabs (General/About/Developer) — **matches mock** (thin pill tabs; devOnly gate; PLATFORM hint note present).
 4. EnginesPage: diagnostics rows, calibration chip + reset, browse-store placeholder — **matches mock** structure.
 5. IntegrationsPage: guide cards, security note, endpoint row method colors, mono blocks — **matches mock** (config rows intentionally omitted per R5-T12 logged deviation).
+
+## R6-T8 — Dark/light pass on new surfaces
+
+Hardcoded color grep results (all R1-R5 new surfaces, excluding `frontend/src/demo/`):
+
+| File | Line | Was | Fix |
+|------|------|-----|-----|
+| `ReviewStage/AnnotationsPanel.tsx` | 157 | `var(--button-primary-text, #fff)` | `var(--text-on-accent)` |
+| `ReviewStage/FollowAlongPanel.tsx` | 107 | `color: 'white'` on play button | `var(--text-on-accent)` |
+| `ReviewStage/FollowAlongPanel.tsx` | 220-224 | `var(--error, #e53e3e)` + `color-mix(...)` fallbacks | `var(--error)`, `var(--error-tint-bg)`, `var(--error-tint-border)` |
+| `theme/components.css` | 2368-2369 | `rgba(249, 115, 22, 0.10/0.35)` | `var(--as-amber-tint-bg)`, `var(--as-amber-tint-border)` |
+| `Voices/components/VoiceUtils.tsx` | 142 | `'white'` on resize-handle dots | `var(--text-on-accent)` |
+
+New tokens added to `tokens.css`: `--as-amber-tint-bg` (light: `rgba(249,115,22,0.10)`, dark: `rgba(249,115,22,0.14)`) and `--as-amber-tint-border` (light: `rgba(249,115,22,0.35)`, dark: `rgba(249,115,22,0.40)`).
+
+Exempt `rgba()` usages (not changed):
+- `SampleManager.tsx` `rgba(var(--accent-rgb), 0.08/0.05)` — token-channel composition pattern, intentional.
+- `NarratorCard.tsx` `rgba(var(--accent-rgb), 0.02)` — same.
+- All `box-shadow` alpha blacks in `tokens.css` (shadow elevation, structural).
+- CastPalette `#94a3b8` on `<input type="color">` value attribute (HTML attribute, not CSS color).
+- `rgba(0,0,0,0.15)` as CSS `filter: drop-shadow(...)` in Library — filter properties cannot use var(), intentional.
+
+Pre-existing legacy hits outside redesign surfaces (logged, not fixed):
+- R6-T3 log entry noted `var(--button-primary-text, #fff)` pattern — this was in AnnotationsPanel (a redesign surface), now fixed.
+- No remaining hardcoded-color grep violations on redesign surfaces.
+
+## R6-T9 — Accessibility pass (focus traps, focus-visible, aria)
+
+Gaps found and fixed on new surfaces:
+
+1. **PluginTrustModal.tsx** — missing `role="dialog"`, `aria-modal="true"`, `aria-labelledby`, `useFocusTrap`, and Escape key handler. **Fixed**: added all four; `useId()` generates stable label ID; `onKeyDown` Escape calls `onCancel`.
+
+2. **VoicePills.tsx `VoicePillRow` +N button** — had `aria-label` but not `aria-expanded`. **Fixed**: `aria-expanded={false}` added (the button collapses itself away on expand, replaced by a "−" collapse button that correctly has its own aria-label).
+
+3. **TopBar.tsx queue button** — used `aria-pressed` (toggle button semantic); the queue drawer is a panel not a toggle button. **Fixed**: changed to `aria-expanded` + added `aria-label` with open/closed state text.
+
+4. **FollowAlongPanel.tsx transport buttons** — icon-only Rewind/Forward buttons had `title` but no `aria-label`. **Fixed**: added `aria-label="Rewind 5 seconds"` and `aria-label="Forward 5 seconds"`. Play/Pause button also lacked `aria-label` (only had `title`). **Fixed**: added `aria-label={isPlaying ? 'Pause' : 'Play'}`.
+
+Confirmed already-correct (no changes needed):
+- `PlayerBar.tsx` — all transport buttons already have `aria-label` (Previous/Play/Pause/Next/Stop/Seek progress). Clean.
+- `NavRail.tsx` — `aria-current="page"`, `aria-label` on nav items, theme toggle, chevron, resize handle. Clean.
+- `VoiceUtils.tsx Drawer` — `role="dialog"`, `aria-modal`, `aria-label`, `useFocusTrap`, Escape handler already wired.
+- `MetadataEditorModal.tsx` — `useFocusTrap` present.
+- `ConfirmModal.tsx` — `role="dialog"`, `aria-modal`, `useFocusTrap` present (canonical template).
+- `AppShell.tsx` mobile nav button — `aria-label="Open navigation"`, `aria-expanded`.
+- `MobileNavDrawer.tsx` — `aria-label="Mobile navigation"` on `<aside>`.
+
+Axe script present: `@axe-core/playwright` in `package.json`, `frontend/tests/e2e/a11y/axe.spec.ts` exists (violations marked `.fixme` per 2026-06-11 owner decision). No new axe CI added (existing Playwright spec already covers new surfaces when run against built app).
+
+`:focus-visible` rings: global `base.css` provides `outline: 2px solid var(--accent)` for all buttons/inputs/selects/textareas on `:focus-visible`. No new `outline: none` overrides introduced by R1-R5. The pre-existing `.player-progress-slider { outline: none }` (line 2324) and `.chapter-text-panel__textarea { outline: none }` (line 1272) are redundant with base.css non-focus-visible suppression — not introduced by this work, not harmful (base.css still applies `:focus-visible` ring).
 
 ## R6-T11 — Found-bugs triage
 

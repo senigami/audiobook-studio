@@ -87,6 +87,7 @@ export function FollowAlongPanel({
             color: 'var(--text-secondary)',
           }}
           title="Rewind 5s"
+          aria-label="Rewind 5 seconds"
         >
           <RotateCcw size={16} />
         </button>
@@ -104,8 +105,9 @@ export function FollowAlongPanel({
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            color: 'white',
+            color: 'var(--text-on-accent)',
           }}
+          aria-label={isPlaying ? 'Pause' : 'Play'}
           title={isPlaying ? 'Pause' : 'Play'}
         >
           {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
@@ -127,6 +129,7 @@ export function FollowAlongPanel({
             color: 'var(--text-secondary)',
           }}
           title="Forward 5s"
+          aria-label="Forward 5 seconds"
         >
           <RotateCw size={16} />
         </button>
@@ -217,11 +220,11 @@ export function FollowAlongPanel({
               style={{
                 marginTop: '6px',
                 fontSize: '0.65rem',
-                color: 'var(--error, #e53e3e)',
+                color: 'var(--error)',
                 padding: '4px 6px',
-                background: 'var(--error-tint-bg, color-mix(in srgb, var(--error, #e53e3e) 10%, transparent))',
+                background: 'var(--error-tint-bg)',
                 borderRadius: 'var(--radius-button)',
-                border: '1px solid var(--error-border, color-mix(in srgb, var(--error, #e53e3e) 30%, transparent))',
+                border: '1px solid var(--error-tint-border)',
               }}
             >
               {reRenderError}

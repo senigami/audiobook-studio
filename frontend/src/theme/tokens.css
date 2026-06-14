@@ -51,6 +51,8 @@
   --as-muted: #64748b; /* soft-slate */
   --as-blue: #2b6eff; /* brand-blue */
   --as-amber: #f97316; /* brand-orange */
+  --as-amber-tint-bg: rgba(249, 115, 22, 0.10);    /* brand-amber surface tint */
+  --as-amber-tint-border: rgba(249, 115, 22, 0.35); /* brand-amber surface border */
   --as-info-tint: #f0f7ff; /* very soft blue tint */
 
   /* Missing tokens — added Step 1 */
@@ -157,6 +159,8 @@
   /* Brand tokens */
   --as-ink:               #e8eaf0;
   --as-muted:             #9ca3af;
+  --as-amber-tint-bg:     rgba(249, 115, 22, 0.14); /* brand-amber surface tint — dark */
+  --as-amber-tint-border: rgba(249, 115, 22, 0.40); /* brand-amber surface border — dark */
 
   /* Borders */
   --border:               #2d3148;
