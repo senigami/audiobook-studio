@@ -53,7 +53,7 @@ export const PlayerBar: React.FC = () => {
     if (audio) {
       audio.currentTime = position;
     }
-  }, [seekRequestId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [seekRequestId]);  
 
   if (!audioUrl) {
     return null;

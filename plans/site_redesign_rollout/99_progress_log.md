@@ -81,6 +81,20 @@ backup persistence + downloads, dark-mode pass on new surfaces. If broken: log u
 Also: rail footer viewport-pin bug fixed this session (commit 5d4561e9) — shell was not
 viewport-locked; lesson for shell work recorded.
 
+2026-06-14 R4 ADVERSARIAL REVIEW + FIXES (orchestrator, 2 reviewers). R4 implemented by an
+external (Gemini/Antigravity) agent T1-T8. Review found and FIXED: (BLOCKER) reference-sample
+playback was a 2nd audio owner -> routed through playerBus (ADR-0010 single-owner restored);
+(BLOCKER) programmatic seek()/skim/tap-to-seek never moved the element -> added playerBus
+seekRequestId + PlayerBar seek effect; (BLOCKER) annotation store key collided across
+chapters/books -> composite chapterId::segmentId key; (should-fix) re-render errors swallowed
+-> surfaced; chapter-audio URL guessed/404 -> gated on audio_status + real asset URL + onError;
+re-render highlight now follows segmentProgress like Studio build view. Also fixed a TDZ crash
+introduced by the skim stale-closure ref. VoiceDropzone new Audio() confirmed a duration probe
+(not a violation). S3 (speaker profile on re-render) verified NON-issue: backend resolves each
+segment's own assigned voice. Commits 8a1c4873 + c162ce1b. Gates: build pass, lint clean,
+touched suites green. NOTE: did NOT run the full suite (memory-leak risk per owner) — verified
+via build/lint + targeted files. R4 APPROVED.
+
 ## Found bugs (do not fix mid-phase — triaged at R6)
 
 - 2026-06-13 R3 Studio, owner-found, FIXED same day (commit below):
