@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Job, Settings, TtsEngine, SpeakerProfile, VoiceMetadata } from '@/types';
 import { useVoiceManagement } from '@/hooks/useVoiceManagement';
 import { VoicesModals } from '@/components/VoicesModals';
@@ -49,6 +50,7 @@ interface VoicesTabProps {
 }
 
 export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles, testProgress, jobs = {}, engines = [] }) => {
+    const navigate = useNavigate();
     const state = useVoicesTabState({ speakerProfiles, engines });
 
     // ---------------------------------------------------------------------------
@@ -202,6 +204,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                     onEditTestText={state.setEditingProfile}
                     voiceMetadataMap={voiceMetadataMap}
                     onEditMetadata={handleEditMetadata}
+                    onNavigateToLab={(id) => navigate(`/voices/${id}`)}
                 />
             ) : (
                 <DiscoverPlaceholder />

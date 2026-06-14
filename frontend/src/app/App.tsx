@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from '@/pages/Voices/components/VoiceUtils';
 
 const VoicesTab = lazy(() => import('@/pages/Voices/VoicesPage').then(m => ({ default: m.VoicesTab })));
+const VoiceLabPage = lazy(() => import('@/pages/VoiceLab/VoiceLabPage').then(m => ({ default: m.VoiceLabPage })));
 const BookLayout = lazy(() => import('@/pages/Book').then(m => ({ default: m.BookLayout })));
 const BookIndexRedirect = lazy(() => import('@/pages/Book').then(m => ({ default: m.BookIndexRedirect })));
 const EnginesPage = lazy(() => import('@/pages/Engines').then(m => ({ default: m.EnginesPage })));
@@ -383,6 +384,15 @@ function App() {
                   jobs={jobs}
                   settings={initialData?.settings}
                   engines={initialData?.engines || []}
+                />
+              } />
+              <Route path="/voices/:id" element={
+                <VoiceLabPage
+                  speakerProfiles={initialData?.speaker_profiles || []}
+                  engines={initialData?.engines || []}
+                  jobs={jobs}
+                  testProgress={testProgress}
+                  onRefresh={handleRefresh}
                 />
               } />
               <Route path="/settings/*" element={
