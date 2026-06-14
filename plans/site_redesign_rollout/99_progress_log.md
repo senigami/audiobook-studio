@@ -118,6 +118,8 @@ via build/lint + targeted files. R4 APPROVED.
 2026-06-14 R6-T8 done HEAD
 2026-06-14 R6-T9 done HEAD
 2026-06-14 R6-T11 done HEAD
+2026-06-14 R6-T6 done (all 120 items verified; 3 re-homed fixes: Queue Remaining + engine warning in ManuscriptStage, chapter title InlineEdit in StudioStage) 20da3089 d24658aa
+2026-06-14 R6-T7 done (VoiceModals 400px/440px → min(…, calc(100vw-2rem)); manuscript workspace 2-col grid collapses ≤768px; T7 device-sweep logged to master_agnostic_tasks.md) 20da3089
 
 2026-06-14 R5 COMPLETE + boundary review (orchestrator). All 14 tasks (T1-T14) landed across
 4 sequential clusters (memory-safe: targeted tests + --maxWorkers=1, no full-suite runs).
@@ -265,3 +267,30 @@ New bugs observed during audit (out-of-scope, logged to master_agnostic_tasks.md
 - SettingsRoute header gradient: hardcoded light-only colors → fixed inline as a T5 parity delta (not an out-of-scope bug).
 - EnginesPanel loading indicator: hardcoded `#666` → fixed inline as T5 parity delta.
 - No remaining out-of-scope bugs requiring master_agnostic_tasks entries from this audit pass.
+
+## R6-T6 — Capability inventory audit
+
+All 120 items verified in source code. Three capabilities were missing and re-homed:
+
+1. **Queue Remaining** (§3): `handleQueueAllUnprocessed` in `useProjectActions` was not wired to `ManuscriptStage`. Added "Queue Remaining" button → commit 20da3089.
+2. **Default-engine-unavailable warning banner** (§3): present in `CastingStage` but not in `ManuscriptStage` as specified. Added `manuscript-stage__engine-warning` → commit 20da3089.
+3. **Inline chapter title rename in Studio** (§7): `setTitle` from `useStudioChapter` not exposed in StudioStage UI. Added `InlineEdit` for chapter title → commit d24658aa.
+
+Zero unchecked items remain. Zero items logged to MISSING section (all quick re-homes).
+
+## R6-T7 — Responsive pass
+
+Verified at CSS level. Fixes applied:
+1. `VoiceModals.tsx`: 4 modal containers with fixed 400px/440px width changed to `min(Npx, calc(100vw - 2rem))` — prevents overflow at 390px viewport.
+2. `components.css`: `manuscript-stage__workspace` 2-column grid collapses to 1fr at ≤768px.
+3. `components.css`: `manuscript-stage__actions` gains `flex-wrap: wrap`.
+
+Already responsive (verified by reading CSS):
+- `voices-catalog-grid`: `repeat(auto-fill, minmax(220px, 1fr))` — auto-collapses.
+- `activity-page__columns`: flex-direction:column at ≤1000px.
+- `publish-stage`: 1fr at ≤1000px.
+- `settings-route-grid`: 1fr at ≤800px.
+- `VoiceUtils.tsx` Drawer: `maxWidth: 95vw`.
+- AppShell bottom padding: `calc(3rem + 56px)` when PlayerBar visible — no content overlap.
+
+Items needing device verification (logged to master_agnostic_tasks.md): Studio CastPalette at 420px, MobileNavDrawer Escape/focus-trap gap.
