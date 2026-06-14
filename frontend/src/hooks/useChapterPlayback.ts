@@ -22,9 +22,12 @@ export function useChapterPlayback(
   const audioGroupsRef = useRef<AudioGroup[]>(audioGroups);
   const pendingPlaybackRef = useRef<{ segmentId: string; queue: string[] } | null>(null);
   const skimIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const skimStateRef = useRef(playerBusState);
 
   const playerBusState = usePlayerBus();
+
+  // Mirror the latest bus snapshot into a ref so the setInterval closure in
+  // startSkim always reads fresh position/duration (avoids stale closure).
+  const skimStateRef = useRef(playerBusState);
 
   const isPlaying = playerBusState.scope === 'segment' && playingSegmentId !== null && playerBusState.playing;
   const isPaused = playerBusState.scope === 'segment' && playingSegmentId !== null && !playerBusState.playing;

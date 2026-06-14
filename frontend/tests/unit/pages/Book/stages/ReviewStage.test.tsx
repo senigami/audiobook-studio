@@ -84,6 +84,7 @@ vi.mock('@/api', () => {
 let mockChapters: any[] = [
   { id: 'chap-1', title: 'Chapter 1', audio_status: 'done', audio_file_path: 'chap1.mp3' },
 ];
+let mockSegmentProgress: Record<string, { progress: number; job_id: string; segment_id: string }> = {};
 
 vi.mock('@/pages/Book/BookDataContext', () => {
   return {
@@ -96,7 +97,9 @@ vi.mock('@/pages/Book/BookDataContext', () => {
       speakerProfiles: [],
       speakers: [],
       engines: [],
-      segmentProgress: {},
+      get segmentProgress() {
+        return mockSegmentProgress;
+      },
     }),
   };
 });
@@ -167,6 +170,7 @@ describe('ReviewStage component', () => {
     mockChapters = [
       { id: 'chap-1', title: 'Chapter 1', audio_status: 'done', audio_file_path: 'chap1.mp3' },
     ];
+    mockSegmentProgress = {};
     mockGenerateSegments = vi.fn().mockImplementation(
       () => new Promise((resolve) => setTimeout(() => resolve({ success: true }), 20))
     );
@@ -277,6 +281,45 @@ describe('ReviewStage component', () => {
     // When chapter has no audio the button renders with a hint text and is disabled
     const playBtn = await screen.findByRole('button', { name: /render this chapter first/i });
     expect(playBtn).toBeDisabled();
+  });
+
+  it('S1: shows progress percentage on re-render button when segmentProgress is populated', async () => {
+    // Start with a never-resolving re-render so we can inspect the in-progress state
+    mockGenerateSegments = vi.fn().mockImplementation(() => new Promise(() => {}));
+
+    render(
+      <MemoryRouter>
+        <ReviewStage />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('Short segment');
+
+    // Activate a segment by simulating playback
+    act(() => {
+      mockPlayerBusState.scope = 'chapter';
+      mockPlayerBusState.audioUrl = '/api/projects/proj-123/chapters/chap-1/assets/audio?filename=chap1.mp3';
+      mockPlayerBusState.playing = true;
+      mockPlayerBusState.position = 5;
+      mockPlayerBusState.duration = 100;
+      listeners.forEach((l) => l());
+    });
+
+    // Click re-render to trigger the in-progress state
+    const regenBtn = await screen.findByRole('button', { name: /regenerate segment/i });
+    fireEvent.click(regenBtn);
+
+    // Initially shows static label (no segmentProgress yet)
+    expect(screen.getByText(/Regenerating/i)).toBeInTheDocument();
+
+    // Simulate segmentProgress arriving for segment s1 (50% done)
+    act(() => {
+      mockSegmentProgress = { s1: { job_id: 'job-1', segment_id: 's1', progress: 0.5 } };
+      listeners.forEach((l) => l());
+    });
+
+    // The button label should now show the progress percentage
+    await screen.findByText('Regenerating... 50%');
   });
 });
 

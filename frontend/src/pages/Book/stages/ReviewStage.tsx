@@ -9,7 +9,7 @@ import { FollowAlongPanel } from './ReviewStage/FollowAlongPanel';
 import { AnnotationsPanel } from './ReviewStage/AnnotationsPanel';
 
 export function ReviewStage() {
-  const { bookId, chapters } = useBookDataContext();
+  const { bookId, chapters, segmentProgress } = useBookDataContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const [segments, setSegments] = useState<ChapterSegment[]>([]);
   const [loadingSegments, setLoadingSegments] = useState(false);
@@ -54,6 +54,13 @@ export function ReviewStage() {
     chapterId: resolvedChapterId,
     segments,
   });
+
+  // S1: progress value (0-100) for the actively re-rendering segment, if available
+  const reRenderProgress = useMemo(() => {
+    if (!isReRendering || !activeSegmentId) return null;
+    const sp = segmentProgress[activeSegmentId];
+    return sp != null ? Math.round(sp.progress * 100) : null;
+  }, [isReRendering, activeSegmentId, segmentProgress]);
 
   const handleReRenderSegment = async () => {
     if (!activeSegmentId) return;
@@ -190,6 +197,7 @@ export function ReviewStage() {
             onReRenderSegment={handleReRenderSegment}
             isReRendering={isReRendering}
             reRenderError={reRenderError}
+            reRenderProgress={reRenderProgress}
           />
           {!isPlaying && selectedChapter && (
             <button

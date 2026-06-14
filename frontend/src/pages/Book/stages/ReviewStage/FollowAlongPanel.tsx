@@ -13,6 +13,8 @@ interface FollowAlongPanelProps {
   onReRenderSegment?: () => void;
   isReRendering?: boolean;
   reRenderError?: string | null;
+  /** S1: 0-100 progress for the active re-render, or null if not yet reported */
+  reRenderProgress?: number | null;
 }
 
 export function FollowAlongPanel({
@@ -28,6 +30,7 @@ export function FollowAlongPanel({
   onReRenderSegment,
   isReRendering,
   reRenderError,
+  reRenderProgress,
 }: FollowAlongPanelProps) {
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -201,7 +204,11 @@ export function FollowAlongPanel({
                 width: '100%',
               }}
             >
-              {isReRendering ? 'Regenerating...' : 'Regenerate Segment'}
+              {isReRendering
+                ? reRenderProgress != null
+                  ? `Regenerating... ${reRenderProgress}%`
+                  : 'Regenerating...'
+                : 'Regenerate Segment'}
             </button>
           )}
           {reRenderError && (
