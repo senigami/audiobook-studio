@@ -67,7 +67,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
           justifyContent: 'space-between',
           gap: '1rem',
           background:
-            'linear-gradient(135deg, rgba(255,255,255,0.98), rgba(240,247,255,0.86)), radial-gradient(circle at top right, rgba(255,138,31,0.16), transparent 36%)',
+            'linear-gradient(135deg, var(--surface-glass-white), var(--surface-tinted-light)), radial-gradient(circle at top right, var(--accent-tint-bg), transparent 36%)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

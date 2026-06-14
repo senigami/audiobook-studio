@@ -310,7 +310,7 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
             }}
           >
             {fetchingLogs && !combinedLogs ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#666' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
                 <Loader2 size={14} className="spin" /> Streaming logs...
               </div>
             ) : combinedLogs || 'No diagnostics captured yet.'}
