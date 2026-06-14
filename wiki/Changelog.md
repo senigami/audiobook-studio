@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Docs] - 2026-06-14
+
+### Wiki refresh: Studio 2.0 site redesign (R1–R6)
+
+Updated wiki pages to match the shipped Studio 2.0 UI redesign. All navigation, page structure, and workflow references have been corrected.
+
+**What changed in the app:**
+
+- **Left-rail navigation** replaces the old top navigation bar. Four groups: CREATE (Library, Voices), MONITOR (Activity), PLATFORM (Engines, Integrations), MANAGE (Settings).
+- **Book pipeline** replaces the old project/chapter tabbed view. Opening a book navigates to `/book/:id/<stage>` with five stage tabs: Manuscript, Casting, Studio, Review, Publish. Legacy `/project/:id` and `/chapter/:id` URLs redirect automatically.
+- **Engines and Integrations** are now dedicated pages under PLATFORM in the rail, not tabs inside Settings. Settings is now thin: General, About, and Developer (when Developer Mode is on). Legacy `/settings/engines` and `/settings/api` URLs redirect automatically.
+- **Voices catalog** (`/voices`) shows cards for all voices. Clicking a card opens the **Voice Lab** (`/voices/:id`), a full-page per-voice editor. The old accordion-only layout is gone.
+- **Casting stage** holds the narrator default (pinned first row) per book. There is no global default narrator in the Voice Library.
+- **Global Player Bar**: A full-width bottom dock handles all audio playback across every stage. It replaces VCR controls and inline players in the chapter editor.
+- **Activity page** (`/activity`) is a dedicated MONITOR destination for queue depth, job history, and production statistics.
+- **Queue Drawer**: Still accessible from the top bar button on every page for a quick glance without leaving your place.
+
+**Pages updated:** Home, Getting-Started, Library-and-Projects, Voices-and-Voice-Profiles, Settings, Queue-and-Jobs, Concepts, Troubleshooting-and-FAQ, Live-Demos.
+
+**Screenshot recapture list** (images in `wiki/images/` that no longer match the shipped UI):
+
+| Image file | Old content | New route to capture |
+|------------|-------------|----------------------|
+| `images/demoproject.png` | Old library card layout | `/` (Library page — new card grid) |
+| `images/demochapters.png` | Old project chapters tab | `/book/:id/manuscript` (Manuscript stage) |
+| `images/demovoices.png` | Old voices tab in project | `/voices` (Voices catalog page) |
+| `images/project-view.jpg` | Old project-detail page | `/book/:id/manuscript` (chapter list with Status Orbs) |
+| `images/characters-tab.jpg` | Old characters tab in project | `/book/:id/casting` (Casting stage) |
+| `images/chapter-editor.jpg` | Old chapter editor (full page) | `/book/:id/studio` (Studio stage) |
+| `images/queue-sidebar.jpg` | Old queue sidebar layout | Queue Drawer (top bar button) or `/activity` |
+| `images/voice-lab-list.jpg` | Old accordion voice list | `/voices` (Voices catalog grid) |
+| `images/voice-card-expanded.jpg` | Old expanded voice accordion card | `/voices/:id` (Voice Lab page) |
+| `images/settings-tray.jpg` | Old settings page with Engines/API tabs | `/settings` (thin Settings — General/About/Developer) |
+| `images/launch-screen.jpg` | Verify still accurate | `/` |
+| `images/new-project.jpg` | Verify still accurate | New book creation flow |
+
+Screenshots embedded inline in wiki pages were removed where the referenced image content is now outdated; the image files remain on disk pending new captures by the owner.
+
+---
+
 ## [Docs] - 2026-06-11
 
 ### Wiki accuracy pass (W5–W20)

@@ -2,26 +2,29 @@
 
 Audiobook Studio processes audio in the background so you can keep working.
 
-## 🚦 Monitoring the Queue
+## Monitoring the Queue
 
-The **Global Queue** is usually visible on the right sidebar or via a dedicated icon.
+There are two places to watch active and recent work:
+
+- **Queue Drawer**: A slide-out panel accessible from the top bar queue button, available from any page without losing your place. Shows Processing Now, Up Next, and recent completions at a glance.
+- **Activity Page**: A dedicated full page reached from the left rail under **MONITOR > Activity**. Shows current queue depth, job history, and production statistics.
+
+Job types visible in both surfaces:
 
 - **Queued**: Tasks waiting for their turn.
 - **Running**: The current task being processed by the AI engine. You will see a predictive progress bar here.
 - **Done/Failed**: History of recent work.
-- **Chunk Labels**: Segment jobs now use displayed Performance/Production chunk numbers, so the queue can show titles like `overview: segment #7`.
+- **Chunk Labels**: Segment jobs use displayed Performance/Production chunk numbers, so the queue can show titles like `overview: segment #7`.
 
-![Global Queue sidebar showing job progress and ETA](images/queue-sidebar.jpg)
+## Reordering Tasks
 
-## ↕️ Reordering Tasks
+You can drag and drop items in the **Up Next** section of the queue drawer to re-prioritize your work. The system will immediately synchronize the background worker to follow your new order as soon as the current job finishes.
 
-You can drag and drop items in the **Up Next** section to re-prioritize your work. The system will immediately synchronize the background worker to follow your new order as soon as the current job finishes.
-
-## 📊 Performance Metrics
+## Performance Metrics
 
 The system tracks **Characters Per Second (CPS)** and uses it to provide:
 
-- **ETA**: Estimated time remaining for the current job. Now includes a **total queue estimate** at the top of the Global Queue page, summing up all pending and active work in minutes.
+- **ETA**: Estimated time remaining for the current job. Includes a **total queue estimate** at the top of the Activity page, summing up all pending and active work in minutes.
 - **Predicted Length**: How long the final audio chapter will likely be based on character count.
 - **Render Metadata**: Voice builds and synthesis rows can show elapsed render time, duration, character count, and segment count when the engine reports enough timing data.
 
@@ -36,20 +39,14 @@ The system tracks **Characters Per Second (CPS)** and uses it to provide:
 - Group counters read as a 1-based position everywhere: a four-group chapter shows 1/4 through 4/4 on both segment and chapter frames.
 - When a job completes, the visible bar is allowed to finish its final move to 100% before the row leaves the active queue.
 
-### New Features & Fixes
-- **Global Queue ETA**: Added an "Approx. X minutes remaining" badge to the processing queue header that tracks cumulative work across all active and queued tasks.
-- **Reliable Queue Reordering**: Fixed a timestamp inversion bug and added in-memory synchronization so the background worker strictly follows the UI priority.
-- **Enhanced Progress Visuals**: Progress bars now blend predictive updates and backend checkpoints without hard-snapping, while keeping active width transitions enabled so larger corrections still feel continuous.
-- **Locked-in Test Suite**: Added 11 regression tests covering ETA calculations, database joins, and in-memory queue synchronization logic.
-
-## 🛠️ Job Types
+## Job Types
 
 - **XTTS Generation** (`synthesis`): Creating audio for a segment using the local XTTS engine.
 - **Voxtral Generation** (`synthesis`): Creating preview or render audio through the optional Mistral-backed Voxtral path.
 - **Mixed Generation** (`mixed`): Rendering displayed chunk groups that may contain XTTS or Voxtral sections depending on the assigned voice profiles.
 - **Baking**: Not a separate job type — baking is the `is_bake` flag on a synthesis job. It means the job will stitch completed segments into a chapter WAV when it finishes.
 - **Assembly** (`assembly`): Creating the final `.m4b` file.
-- **Voice Build** (`voice_build`): Building an XTTS speaker profile (latent) from uploaded voice samples. Appears in the queue when you trigger a profile rebuild from the AI Voice Lab.
+- **Voice Build** (`voice_build`): Building an XTTS speaker profile (latent) from uploaded voice samples. Appears in the queue when you trigger a profile rebuild from the Voice Lab.
 - **Voice Test** (`voice_test`): Generating a voice preview clip to audition a profile. Appears in the queue and reports progress on the `voice.test` websocket topic.
 
 ## Chunk-Aware Rendering
@@ -94,14 +91,18 @@ Voice preview/test jobs follow the same queue visibility rules, but their scoped
 
 Diagnostics are deliberately separate. A plugin may send model-load lines, setup logs, progress text, and synthesis messages to `tts.logs`, but the queue must not infer row state from those logs.
 
-## ⏸️ Pausing and Controls
+## Pausing and Controls
 
-- **Global Pause**: You can pause the entire queue if you need to free up system resources.
-- **Cancel**: Stop a specific job. If it's the 'Running' job, it may take a few seconds to terminate the subprocess.
+- **Global Pause**: You can pause the entire queue if you need to free up system resources. The pause button is in the queue drawer.
+- **Cancel**: Stop a specific job. If it is the 'Running' job, it may take a few seconds to terminate the subprocess.
 
 ## Output Quality Checks
 
 Engines can validate their own rendered audio before a job completes. If an engine rejects its output (for example, XTTS detecting audio far too short for the text, which usually means truncation), the file is discarded and the job fails with the engine's reason shown verbatim in the queue row. The job is not retried automatically; requeue it once you have addressed the cause.
+
+## Queue Priority (API vs Studio)
+
+When both Studio renders and external API synthesis jobs are running, the `TTS_API_PRIORITY` environment variable controls ordering: `studio_first` (default) keeps your own renders ahead of API callers, `equal` interleaves them, `api_first` inverts it. See **PLATFORM > Integrations** for the API documentation.
 
 ---
 

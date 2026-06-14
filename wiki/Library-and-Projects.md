@@ -1,30 +1,40 @@
 # Library and Projects
 
-The Library is your control center for all audiobooks in progress.
+The Library is your control center for all audiobooks in progress. Reach it from the left rail under **CREATE > Library**.
 
-## 📚 Managing the Library
+## Managing the Library
 
-- **Browse**: View all projects as cards or in list view.
+- **Browse**: View all projects as cards in the Library grid.
 - **Sort**: Use the Library controls to sort projects by the current project metadata instead of hunting through cards manually.
-- **New Project**: Use the floating "+" button to start a new book.
+- **New Book**: Use the **+ New Book** button to start a new book.
 - **Delete**: Projects can be removed via the context menu on the project card. _Warning: This removes all associated audio and text._
 
-## 📂 Project View
+## Opening a Book
 
-Once you open a project, you'll see several tabs:
+Clicking a book card opens it into the **Book Pipeline** — a routed set of five stage tabs. The URL changes to `/book/:id/<stage>` (for example `/book/abc123/manuscript`). Each stage is a dedicated route:
 
-### 1. Chapters Tab
+| Stage | Route segment | Purpose |
+|-------|--------------|---------|
+| Manuscript | `manuscript` | Add, edit, and import chapter text; text analysis |
+| Casting | `casting` | Assign narrator and character voices |
+| Studio | `studio` | Generate and repair audio segments; script view |
+| Review | `review` | Follow-along playback; per-section annotations |
+| Publish | `publish` | Book metadata, assemblies, backups, export |
 
-This is where you manage the structure of your book.
+Legacy `/project/:id` and `/chapter/:id` URLs still work — they redirect to the corresponding book pipeline route so bookmarks are not broken.
+
+## Manuscript Stage
+
+The Manuscript stage is where you manage the structure and text of your book.
 
 - **Add Chapter**: Upload a `.txt` file or paste text directly.
 - **Reorder**: Drag and drop chapters to change their sequence.
-- **Metadata**: Click the settings icon to change title, author, or the book's cover.
-- **Assemble Audiobook**: Located at the top right of the Project View.
+- **Text Analysis**: The analysis strip shows segment counts and flags long sentences for review.
+- **Chapter Status Orbs**: Each chapter row displays a **Status Orb** with integrated render-state indicators (see below).
 
-#### Status Indicators (Status Orb)
+### Status Indicators (Status Orb)
 
-Each chapter features a **Status Orb** that provides instant visual feedback and common actions. The orb is now a cohesive widget with integrated indicators:
+Each chapter features a **Status Orb** that provides instant visual feedback and common actions:
 
 - **Central Fill**: Shows the state of the master WAV (Green = Success, Orange = Out of Sync, Spinner = Rendering).
 - **Integrated Arcs**: Two subtle arcs on the outer ring show the availability of distribution formats:
@@ -34,61 +44,66 @@ Each chapter features a **Status Orb** that provides instant visual feedback and
 
 **Pro Tip**: Click any non-rendering Orb to access a contextual action menu (e.g., "Rebuild Audio", "Queue Remaining").
 
-![Project View highlighting the Chapters list and Assembly button](images/project-view.jpg)
+## Casting Stage
 
-### 2. Characters Tab
+The Casting stage is where you assign voices to narrators and characters.
 
-Manage the personas within your project.
+- **Narrator (default)**: The first pinned row is always the Narrator — the fallback voice for any unassigned line.
+- **Assign Profiles**: Link a project character to a Voice profile from your Voice Library.
+- **Character Rows**: Additional characters in the cast are listed below the Narrator.
 
-- **Assign Profiles**: Link a project character to a Voice Variant from the AI Voice Lab.
-- **Bulk Actions**: Select multiple segments to generate audio or change voices at once.
+## Studio Stage
 
-![Characters tab showing persona mapping to AI voices](images/characters-tab.jpg)
+The Studio stage is the primary audio production view.
 
-### 3. Assemblies Tab
+- **Book View (primary)**: Displays the full chapter list with rendered audio status and generate controls.
+- **Script View**: A secondary view showing the raw text with per-segment generation controls.
+- **Cast Palette**: A right-hand panel for painting voice assignments directly onto segments.
+- **Analysis Strip**: Shows per-chapter text stats and flags at a glance.
+- **View Toggles**: Safe-text and section-number toggles for production review.
 
-The Assemblies tab is where you compile and download the finished audiobook. It shows the assembly history as a receipt-style list: each entry displays when the assembly ran, file duration, file size, and a "Latest" badge on the most recent export. Use **Assemble Audiobook** (top right of the Project View) to start a new assembly.
+See [[Queue and Jobs]] for details on how generation jobs flow through the system.
 
-Assembly uses incremental concatenation — it stitches existing M4A chapter encodes together without re-encoding, so subsequent assemblies after partial chapter updates are fast.
+## Review Stage
 
-### 4. Backups Tab
+The Review stage provides a follow-along listening experience.
 
-The Backups tab lets you save or download dated ZIP snapshots of the project.
+- **Global Player Bar**: The full-width bottom dock plays chapter audio. The scope chip lets you cycle playback scope.
+- **Section Annotations**: Annotate sections by number (§N). Annotations attach to sections, never to timestamps, so they survive re-renders.
+- **Re-render Section**: The primary gesture for fixing a section is to trigger a re-render from here.
 
-- **Save**: Writes a backup to the `backups/` folder inside the project directory. The backup can include or exclude rendered audio (use the `include_audio` option).
-- **Download**: Creates the same ZIP and sends it to your browser immediately without saving a copy locally.
-- Saved backups are listed with their timestamp and comment. Each row has a download link so you can retrieve it later.
-- Backup files use the `.zip` extension (or `.abf` for older bundle-format files).
+## Publish Stage
 
-## 📝 Chapter Editor
+The Publish stage is where you edit book metadata and export the final audiobook.
 
-Clicking a chapter opens the **Chapter Editor**, which has been consolidated around the script, playback, and production flow rather than separate legacy tabs.
+- **Book Info**: Edit the title, author, series, and cover art here (not in Manuscript, which is read-only for metadata).
+- **Assemblies**: A receipt-style history of every past assembly, including duration, file size, and a "Latest" badge.
+- **Backups**: Save or download dated ZIP snapshots of the project (with or without audio).
+- **Assemble Audiobook**: Compiles the final `.m4b` from the cached M4A chapter files.
 
-- **Script Editing**: Edit and review chapter text in the main script view.
-- **Voice Assignment**: Assign narration and character voices directly from the editor flow.
-- **Queueing and Rendering**: Queue the chapter or targeted chunks and watch live progress from the editor and Global Queue.
-- **Preview and Live Output**: Inspect render output and diagnostics without leaving the chapter.
-- **VCR Playback**: Play, pause, and stop controls for a predictable listen-through workflow. Hold the skip-backward or skip-forward buttons to skim through audio at speed; release to resume normal playback. A seek slider with timestamps lets you jump to any point in the chapter. The only keyboard shortcuts are **Space** (play/pause) and **Escape** (stop); there are no prev/next keyboard shortcuts.
+### Assembly History
 
-![Chapter Editor showing the Script view and audio segments](images/chapter-editor.jpg)
+The Assemblies panel shows:
 
-## 📦 Export and Assembly
+- **Relative Time**: How long ago the export was generated.
+- **Metadata**: File duration and file size.
+- **Latest Badge**: Marks the most recent export for quick identification.
 
-Located at the top-right of the Project View, the **Assemble** hub is where you compile your final audiobook.
+### M4B Production
 
-### 1. Assembly History
+Assembly uses **Incremental Concatenation** — it stitches existing M4A chapter encodes together without re-encoding. Subsequent assemblies after partial chapter updates are fast.
 
-The right-hand panel provides a clean, "receipt-style" timeline of all previous exports:
+### Backups
 
-- **Relative Time**: Displays how long ago the export was generated (staying in hours for up to 72 hours).
-- **Metadata**: Shows file duration (e.g., `3h 32m`) and precise file size.
-- **Latest Badge**: Automatically marks the most recent export for quick identification.
+The Backups panel lets you save or download dated ZIP snapshots of the project.
 
-### 2. M4B Production
+- **Save**: Writes a backup to the `backups/` folder inside the project directory.
+- **Download**: Creates the same ZIP and sends it to your browser immediately.
+- Saved backups are listed with their timestamp and comment; each row has a download link.
 
-When you assemble a book, the engine uses **Incremental Concatenation**. It stitches together existing M4A chapter encodes losslessly, making subsequent assemblies nearly instantaneous.
+## Covers and Metadata
 
-## 🖼️ Covers and Metadata
+Book cover and metadata (title, author, series) are edited in the **Publish** stage under Book Info.
 
 ---
 
