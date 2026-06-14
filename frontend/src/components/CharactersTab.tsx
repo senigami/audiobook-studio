@@ -147,7 +147,7 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
               className="input-field"
               value={newName}
               onChange={e => setNewName(e.target.value)}
-              placeholder="e.g. Narrator, Wizard..."
+              placeholder="e.g. Wizard, Captain..."
               required
               style={{ width: '100%' }}
             />

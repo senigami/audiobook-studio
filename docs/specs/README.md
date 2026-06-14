@@ -14,7 +14,7 @@ Last updated: 2026-06-13
 
 | File | Description | Version |
 |------|-------------|---------|
-| [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md) | Shared app shell, global chrome, routed book pipeline, Studio/Review stage detail, platform/manage split, frontend state ownership, legacy redirects | 1.2.0 |
+| [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md) | Shared app shell, global chrome, routed book pipeline, Studio/Review stage detail, platform/manage split, frontend state ownership, legacy redirects | 1.4.0 |
 | [design-system.md](design-system.md) | Design tokens, theming (System/Light/Dark, no-flash), type scale, voice-pill tints, shared UI primitives, responsive breakpoints, accessibility baseline | 1.0.0 |
 | [audio-player.md](audio-player.md) | Global single-owner audio player: `playerBus` store, one `<audio>` in the `PlayerBar`, consumers-as-adapters, waveform/follow-along (target — Phase R4) | 1.0.0 |
 | [live-events.md](live-events.md) | WebSocket live event topics, envelope schema, reconnect/bootstrap contract | 1.1.0 |
