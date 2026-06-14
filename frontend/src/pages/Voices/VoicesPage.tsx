@@ -6,7 +6,9 @@ import { useVoicesTabState } from '@/hooks/useVoicesTabState';
 import { useVoicesData } from '@/hooks/useVoicesData';
 import { useVoicesTabActions } from '@/hooks/useVoicesTabActions';
 import { VoicesTabHeader } from '@/pages/Voices/components/VoicesTabHeader';
+import type { VoicesTab as VoicesTabId } from '@/pages/Voices/components/VoicesTabHeader';
 import { VoicesTabContent } from '@/pages/Voices/components/VoicesTabContent';
+import { DiscoverPlaceholder } from '@/pages/Voices/components/DiscoverPlaceholder';
 import { MetadataEditorModal } from '@/pages/Voices/components/MetadataEditorModal';
 import { getDefaultEngineId, isVoiceProfileSelectable } from '@/utils/voiceProfiles';
 import { api } from '@/api';
@@ -48,6 +50,11 @@ interface VoicesTabProps {
 
 export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles, testProgress, jobs = {}, engines = [] }) => {
     const state = useVoicesTabState({ speakerProfiles, engines });
+
+    // ---------------------------------------------------------------------------
+    // Local / Discover tab state — R5-T4
+    // ---------------------------------------------------------------------------
+    const [voicesTab, setVoicesTab] = useState<VoicesTabId>('local');
 
     // ---------------------------------------------------------------------------
     // Voice metadata — fetched from GET /api/voices/ (Phase C endpoint)
@@ -148,51 +155,57 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 }}
                 onCreateClick={() => state.setIsCreateModalOpen(true)}
                 onGuideClick={() => state.setShowGuide(true)}
+                activeTab={voicesTab}
+                onTabChange={setVoicesTab}
             />
 
-            <VoicesTabContent
-                voices={state.engineFilter === 'disabled' ? data.disabledVoices : data.activeVoices}
-                filteredVoices={data.filteredVoices}
-                engineFilter={state.engineFilter}
-                onRefresh={onRefresh}
-                handleTest={management.handleTest}
-                handleDelete={management.handleDelete}
-                handleBuildNow={management.handleBuildNow}
-                testProgress={testProgress}
-                handleRequestConfirm={state.handleRequestConfirm}
-                buildingProfiles={management.buildingProfiles}
-                onSetDefault={management.handleSetDefault}
-                onRename={(s) => {
-                    state.setRenameSpeakerId(s.id);
-                    state.setOriginalSpeakerName(s.name);
-                    state.setNewSpeakerName(s.name);
-                    state.setIsRenameModalOpen(true);
-                }}
-                onAddVariant={(s, profiles) => {
-                    state.setAddVariantSpeaker({ speaker: s, nextVariantNum: profiles.length + 1 });
-                    state.setNewVariantNameModal(`Variant ${profiles.length + 1}`);
-                    state.setNewVariantEngine(
-                        profiles.find(profile => isVoiceProfileSelectable(profile, engines))?.engine || getDefaultEngineId(engines)
-                    );
-                    state.setIsAddVariantModalOpen(true);
-                }}
-                onMoveVariant={(p) => {
-                    state.setMoveVariantProfile(p);
-                    state.setSelectedMoveSpeakerId('');
-                    state.setIsMoveVariantModalOpen(true);
-                }}
-                onExportVoice={(voiceName) => {
-                    state.setExportVoiceName(voiceName);
-                    state.setIncludeSourceWavs(false);
-                }}
-                expandedVoiceId={state.expandedVoiceId}
-                setExpandedVoiceId={state.setExpandedVoiceId}
-                engines={engines}
-                onCreateClick={() => state.setIsCreateModalOpen(true)}
-                onEditTestText={state.setEditingProfile}
-                voiceMetadataMap={voiceMetadataMap}
-                onEditMetadata={handleEditMetadata}
-            />
+            {voicesTab === 'local' ? (
+                <VoicesTabContent
+                    voices={state.engineFilter === 'disabled' ? data.disabledVoices : data.activeVoices}
+                    filteredVoices={data.filteredVoices}
+                    engineFilter={state.engineFilter}
+                    onRefresh={onRefresh}
+                    handleTest={management.handleTest}
+                    handleDelete={management.handleDelete}
+                    handleBuildNow={management.handleBuildNow}
+                    testProgress={testProgress}
+                    handleRequestConfirm={state.handleRequestConfirm}
+                    buildingProfiles={management.buildingProfiles}
+                    onSetDefault={management.handleSetDefault}
+                    onRename={(s) => {
+                        state.setRenameSpeakerId(s.id);
+                        state.setOriginalSpeakerName(s.name);
+                        state.setNewSpeakerName(s.name);
+                        state.setIsRenameModalOpen(true);
+                    }}
+                    onAddVariant={(s, profiles) => {
+                        state.setAddVariantSpeaker({ speaker: s, nextVariantNum: profiles.length + 1 });
+                        state.setNewVariantNameModal(`Variant ${profiles.length + 1}`);
+                        state.setNewVariantEngine(
+                            profiles.find(profile => isVoiceProfileSelectable(profile, engines))?.engine || getDefaultEngineId(engines),
+                        );
+                        state.setIsAddVariantModalOpen(true);
+                    }}
+                    onMoveVariant={(p) => {
+                        state.setMoveVariantProfile(p);
+                        state.setSelectedMoveSpeakerId('');
+                        state.setIsMoveVariantModalOpen(true);
+                    }}
+                    onExportVoice={(voiceName) => {
+                        state.setExportVoiceName(voiceName);
+                        state.setIncludeSourceWavs(false);
+                    }}
+                    expandedVoiceId={state.expandedVoiceId}
+                    setExpandedVoiceId={state.setExpandedVoiceId}
+                    engines={engines}
+                    onCreateClick={() => state.setIsCreateModalOpen(true)}
+                    onEditTestText={state.setEditingProfile}
+                    voiceMetadataMap={voiceMetadataMap}
+                    onEditMetadata={handleEditMetadata}
+                />
+            ) : (
+                <DiscoverPlaceholder />
+            )}
 
             <VoicesModals
                 isCreateModalOpen={state.isCreateModalOpen}
