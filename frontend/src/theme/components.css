@@ -2292,6 +2292,20 @@
   color: var(--text-on-accent);
 }
 
+/* Stop button — smaller secondary, visually separated from the VCR 5 */
+.player-btn-stop {
+  width: 26px;
+  height: 26px;
+  margin-left: 0.25rem;
+  color: var(--text-muted);
+  border-color: var(--border-muted);
+}
+
+.player-btn-stop:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
 .player-bar-info {
   display: flex;
   align-items: center;

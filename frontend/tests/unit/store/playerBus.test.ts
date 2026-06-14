@@ -5,6 +5,7 @@ import {
   pause,
   stop,
   seek,
+  skip,
   reportTime,
   notifyEnded,
   notifyError,
@@ -188,7 +189,39 @@ describe('playerBus', () => {
     expect(listener).toHaveBeenCalledTimes(1); // only the first call before reset
   });
 
-  // 17. queue flags
+  // 17. skip() — seeks relative to current position
+  it('skip() advances position by delta and increments seekRequestId', () => {
+    loadAndPlay({ scope: 'segment', title: 'T', audioUrl: 'http://a.com/t.mp3' });
+    reportTime(30, 120);
+    const beforeSeekId = getSnapshot().seekRequestId;
+    skip(10);
+    const state = getSnapshot();
+    expect(state.position).toBe(40);
+    expect(state.seekRequestId).toBe(beforeSeekId + 1);
+  });
+
+  it('skip() clamps to 0 when delta would go negative', () => {
+    loadAndPlay({ scope: 'segment', title: 'T', audioUrl: 'http://a.com/t.mp3' });
+    reportTime(5, 120);
+    skip(-10);
+    expect(getSnapshot().position).toBe(0);
+  });
+
+  it('skip() clamps to duration when delta would exceed it', () => {
+    loadAndPlay({ scope: 'segment', title: 'T', audioUrl: 'http://a.com/t.mp3' });
+    reportTime(115, 120);
+    skip(10);
+    expect(getSnapshot().position).toBe(120);
+  });
+
+  it('skip() clamps to position (not below 0) when duration is 0', () => {
+    loadAndPlay({ scope: 'segment', title: 'T', audioUrl: 'http://a.com/t.mp3' });
+    // duration is 0 — skip forward should stay at position (clamp to position = 0)
+    skip(10);
+    expect(getSnapshot().position).toBe(0);
+  });
+
+  // 18. queue flags
   it('loadAndPlay sets queue.hasPrev and queue.hasNext flags', () => {
     loadAndPlay({
       scope: 'chapter',

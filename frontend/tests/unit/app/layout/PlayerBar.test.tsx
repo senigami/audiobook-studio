@@ -110,6 +110,68 @@ describe('PlayerBar', () => {
     expect(playerBus.getSnapshot().position).toBe(50);
   });
 
+  it('renders all 5 VCR transport controls plus Stop', () => {
+    playerBus.loadAndPlay({
+      scope: 'segment',
+      title: 'VCR Test',
+      audioUrl: 'https://example.com/audio.mp3',
+      hasPrev: true,
+      hasNext: true,
+    });
+
+    render(<PlayerBar />);
+
+    expect(screen.getByLabelText('Previous')).toBeInTheDocument();
+    expect(screen.getByLabelText('Skip back 10 seconds')).toBeInTheDocument();
+    // loadAndPlay sets playing:true so the button shows "Pause"
+    expect(screen.getByLabelText('Pause')).toBeInTheDocument();
+    expect(screen.getByLabelText('Skip forward 10 seconds')).toBeInTheDocument();
+    expect(screen.getByLabelText('Next')).toBeInTheDocument();
+    expect(screen.getByLabelText('Stop')).toBeInTheDocument();
+  });
+
+  it('skip-back button calls skip(-10) and moves audio currentTime', () => {
+    playerBus.loadAndPlay({
+      scope: 'segment',
+      title: 'Skim Test',
+      audioUrl: 'https://example.com/audio.mp3',
+    });
+    playerBus.reportTime(30, 120);
+
+    render(<PlayerBar />);
+
+    const audioEl = document.querySelector('audio') as HTMLAudioElement;
+    Object.defineProperty(audioEl, 'currentTime', { writable: true, value: 30 });
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText('Skip back 10 seconds'));
+    });
+
+    expect(playerBus.getSnapshot().position).toBe(20);
+    expect(audioEl.currentTime).toBe(20);
+  });
+
+  it('skip-forward button calls skip(+10) and moves audio currentTime', () => {
+    playerBus.loadAndPlay({
+      scope: 'segment',
+      title: 'Skim Fwd Test',
+      audioUrl: 'https://example.com/audio.mp3',
+    });
+    playerBus.reportTime(30, 120);
+
+    render(<PlayerBar />);
+
+    const audioEl = document.querySelector('audio') as HTMLAudioElement;
+    Object.defineProperty(audioEl, 'currentTime', { writable: true, value: 30 });
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText('Skip forward 10 seconds'));
+    });
+
+    expect(playerBus.getSnapshot().position).toBe(40);
+    expect(audioEl.currentTime).toBe(40);
+  });
+
   it('bus seek() moves the audio element currentTime', async () => {
     playerBus.loadAndPlay({
       scope: 'segment',

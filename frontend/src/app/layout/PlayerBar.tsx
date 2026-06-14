@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Play, Pause, SkipForward, SkipBack, Square } from 'lucide-react';
-import { usePlayerBus, seek, play, pause, stop, reportTime, notifyEnded, notifyError, notifyPrev, notifyNext } from '@/store/playerBus';
+import { Play, Pause, SkipForward, SkipBack, Square, Rewind, FastForward } from 'lucide-react';
+import { usePlayerBus, seek, play, pause, stop, skip, reportTime, notifyEnded, notifyError, notifyPrev, notifyNext } from '@/store/playerBus';
 import { LAYERS } from './layering';
 
 function formatTime(seconds: number): string {
@@ -129,11 +129,29 @@ export const PlayerBar: React.FC = () => {
 
           <button
             type="button"
+            className="player-btn"
+            onClick={() => skip(-10)}
+            aria-label="Skip back 10 seconds"
+          >
+            <Rewind size={16} />
+          </button>
+
+          <button
+            type="button"
             className="player-btn player-btn-primary"
             onClick={handlePlayPause}
             aria-label={playing ? 'Pause' : 'Play'}
           >
             {playing ? <Pause size={16} /> : <Play size={16} />}
+          </button>
+
+          <button
+            type="button"
+            className="player-btn"
+            onClick={() => skip(10)}
+            aria-label="Skip forward 10 seconds"
+          >
+            <FastForward size={16} />
           </button>
 
           <button
@@ -148,11 +166,11 @@ export const PlayerBar: React.FC = () => {
 
           <button
             type="button"
-            className="player-btn"
+            className="player-btn player-btn-stop"
             onClick={stop}
             aria-label="Stop"
           >
-            <Square size={16} />
+            <Square size={14} />
           </button>
         </div>
 

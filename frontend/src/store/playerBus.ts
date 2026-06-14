@@ -121,6 +121,11 @@ export function seek(seconds: number): void {
   setState({ position: seconds, seekRequestId: state.seekRequestId + 1 });
 }
 
+export function skip(deltaSeconds: number): void {
+  const next = Math.max(0, Math.min(state.position + deltaSeconds, state.duration || state.position));
+  seek(next);
+}
+
 export function reportTime(position: number, duration: number): void {
   setState({ position, duration });
 }
