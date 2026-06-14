@@ -19,6 +19,7 @@ import { voicePillsFromMetadata } from '@/pages/Voices/components/VoicePills';
 import { getVoicePhase } from '@/pages/Voices/voicePhase';
 import { PhaseStepper } from '@/pages/VoiceLab/components/PhaseStepper';
 import { MetadataEditorModal } from '@/pages/Voices/components/MetadataEditorModal';
+import { VoiceIconControls } from '@/pages/VoiceLab/components/VoiceIconControls';
 
 // Sections filled by T6–T8 (lazy imports)
 const SamplesSection = React.lazy(() =>
@@ -175,6 +176,18 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
                     {metadata?.description && (
                         <p className="voice-lab-page__description">{metadata.description}</p>
                     )}
+
+                    {/* Icon controls — upload + copy prompt */}
+                    <VoiceIconControls
+                        voiceId={id}
+                        metadata={metadata}
+                        onIconUploaded={(imagePath) => {
+                            // Update local metadata to refresh avatar
+                            setVoiceMetadataList(prev =>
+                                prev.map(m => m.id === id ? { ...m, image: imagePath } : m)
+                            );
+                        }}
+                    />
                 </div>
             </div>
 
