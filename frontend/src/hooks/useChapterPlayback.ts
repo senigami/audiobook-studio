@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { ChapterSegment, AudioGroup } from '@/types';
 import type { ChunkGroup } from '@/utils/chunkGroups';
+import { usePlayerBus, loadAndPlay, play, pause, stop, seek } from '@/store/playerBus';
 
 export function useChapterPlayback(
   projectId: string,
@@ -13,11 +14,6 @@ export function useChapterPlayback(
 ) {
   const [playingSegmentId, setPlayingSegmentId] = useState<string | null>(null);
   const [playingSegmentIds, setPlayingSegmentIds] = useState<Set<string>>(new Set());
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const playbackQueueRef = useRef<string[]>([]);
   const isPlayingRef = useRef<boolean>(false);
   const segmentsRef = useRef<ChapterSegment[]>(segments);
@@ -26,6 +22,13 @@ export function useChapterPlayback(
   const audioGroupsRef = useRef<AudioGroup[]>(audioGroups);
   const pendingPlaybackRef = useRef<{ segmentId: string; queue: string[] } | null>(null);
   const skimIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const playerBusState = usePlayerBus();
+
+  const isPlaying = playerBusState.scope === 'segment' && playingSegmentId !== null && playerBusState.playing;
+  const isPaused = playerBusState.scope === 'segment' && playingSegmentId !== null && !playerBusState.playing;
+  const currentTime = playerBusState.scope === 'segment' && playingSegmentId !== null ? playerBusState.position : 0;
+  const duration = playerBusState.scope === 'segment' && playingSegmentId !== null ? playerBusState.duration : 0;
 
   useEffect(() => {
     segmentsRef.current = segments;
@@ -93,52 +96,50 @@ export function useChapterPlayback(
 
     let urlIdx = 0;
     const playWithFallback = (u: string) => {
-      const audio = new Audio(u);
-      audio.onplay = () => {
-        setIsPaused(false);
-      };
-      audio.onpause = () => {
-        if (!isPlayingRef.current) return;
-        setIsPaused(true);
-      };
-      audio.onended = () => {
-        if (!isPlayingRef.current) return;
-        let nextIdx = idx + 1;
-        while (nextIdx < playbackQueueRef.current.length) {
-          const nextId = playbackQueueRef.current[nextIdx];
-          const nextSeg = segmentsRef.current.find(s => s.id === nextId);
-          if (nextSeg && nextSeg.audio_file_path && nextSeg.audio_file_path === seg.audio_file_path) {
-            nextIdx++;
-          } else {
-            break;
+      loadAndPlay({
+        scope: 'segment',
+        title: seg.text_content || `Segment ${seg.id}`,
+        audioUrl: u,
+        onEnded: () => {
+          if (!isPlayingRef.current) return;
+          let nextIdx = idx + 1;
+          while (nextIdx < playbackQueueRef.current.length) {
+            const nextId = playbackQueueRef.current[nextIdx];
+            const nextSeg = segmentsRef.current.find(s => s.id === nextId);
+            if (nextSeg && nextSeg.audio_file_path && nextSeg.audio_file_path === seg.audio_file_path) {
+              nextIdx++;
+            } else {
+              break;
+            }
           }
-        }
-        playFromIndex(nextIdx, queue);
-      };
-
-      audio.onerror = () => {
-        if (!isPlayingRef.current) return;
-        urlIdx++;
-        if (urlIdx < urls.length) {
-          playWithFallback(urls[urlIdx]);
-        } else {
-          playFromIndex(idx + 1, queue);
-        }
-      };
-
-      audio.ontimeupdate = () => {
-        setCurrentTime(audio.currentTime);
-      };
-
-      audio.onloadedmetadata = () => {
-        setDuration(audio.duration);
-      };
-
-      audio.play().catch(e => {
-        console.error("Playback failed", e);
-        audio.onerror?.(new Event('error') as any);
+          playFromIndex(nextIdx, queue);
+        },
+        onPrev: () => {
+          if (!isPlayingRef.current) return;
+          const prevIdx = idx - 1;
+          if (prevIdx >= 0) {
+            playFromIndex(prevIdx, queue);
+          }
+        },
+        onNext: () => {
+          if (!isPlayingRef.current) return;
+          const nextIdx = idx + 1;
+          if (nextIdx < queue.length) {
+            playFromIndex(nextIdx, queue);
+          }
+        },
+        onError: () => {
+          if (!isPlayingRef.current) return;
+          urlIdx++;
+          if (urlIdx < urls.length) {
+            playWithFallback(urls[urlIdx]);
+          } else {
+            playFromIndex(idx + 1, queue);
+          }
+        },
+        hasPrev: idx > 0,
+        hasNext: idx < queue.length - 1,
       });
-      audioPlayerRef.current = audio;
     };
 
     playWithFallback(urls[0]);
@@ -167,43 +168,29 @@ export function useChapterPlayback(
 
   const stopPlayback = () => {
     stopSkim();
-    if (audioPlayerRef.current) {
-      // Clear all handlers before pausing so stale-closure callbacks can't fire
-      // after the element is discarded (P4: audio element handler leak fix).
-      audioPlayerRef.current.onplay = null;
-      audioPlayerRef.current.onpause = null;
-      audioPlayerRef.current.onended = null;
-      audioPlayerRef.current.onerror = null;
-      audioPlayerRef.current.ontimeupdate = null;
-      audioPlayerRef.current.onloadedmetadata = null;
-      audioPlayerRef.current.pause();
-      audioPlayerRef.current = null;
+    if (playerBusState.scope === 'segment') {
+      stop();
     }
     setPlayingSegmentId(null);
     setPlayingSegmentIds(new Set());
     isPlayingRef.current = false;
-    setIsPlaying(false);
-    setIsPaused(false);
-    setCurrentTime(0);
-    setDuration(0);
     playbackQueueRef.current = [];
     pendingPlaybackRef.current = null;
   };
 
   const togglePause = () => {
-    const audio = audioPlayerRef.current;
-    if (!audio) return;
-    if (audio.paused) {
-      audio.play().catch(() => {});
-    } else {
-      audio.pause();
+    if (playerBusState.scope === 'segment') {
+      if (playerBusState.playing) {
+        pause();
+      } else {
+        play();
+      }
     }
   };
 
   const seekTo = (time: number) => {
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.currentTime = time;
-      setCurrentTime(time);
+    if (playerBusState.scope === 'segment') {
+      seek(time);
     }
   };
 
@@ -211,7 +198,6 @@ export function useChapterPlayback(
     if (idx >= queue.length) return [];
     const segId = queue[idx];
 
-    // Priority 1: Authoritative render-group mapping from backend
     if (audioGroupsRef.current && audioGroupsRef.current.length > 0) {
       const group = audioGroupsRef.current.find(g => g.span_ids.includes(segId));
       if (group) {
@@ -219,7 +205,6 @@ export function useChapterPlayback(
       }
     }
 
-    // Priority 2: Client-side heuristic grouping
     const group = chunkGroupsRef.current.find(g => g.segments.some(segment => segment.id === segId));
     if (!group) return [segId];
     const groupIds = group.segments.map(segment => segment.id);
@@ -227,20 +212,17 @@ export function useChapterPlayback(
   };
 
   const playSegment = async (segmentId: string, fullQueue: string[]) => {
-    if (playingSegmentId === segmentId && audioPlayerRef.current) {
+    if (playingSegmentId === segmentId && playerBusState.scope === 'segment') {
       togglePause();
       return;
     }
 
     stopPlayback();
     isPlayingRef.current = true;
-    setIsPlaying(true);
-    setIsPaused(false);
     playbackQueueRef.current = fullQueue;
 
     const currentIndex = fullQueue.indexOf(segmentId);
     if (currentIndex === -1) {
-      setIsPlaying(false);
       return;
     }
     pendingPlaybackRef.current = { segmentId, queue: fullQueue };
@@ -248,14 +230,14 @@ export function useChapterPlayback(
   };
 
   const startSkim = (direction: 'forward' | 'backward') => {
-    if (!audioPlayerRef.current || !isPlayingRef.current) return;
+    if (playerBusState.scope !== 'segment' || !isPlayingRef.current) return;
     stopSkim();
 
     const step = direction === 'forward' ? 0.5 : -0.5;
     skimIntervalRef.current = setInterval(() => {
-      if (audioPlayerRef.current) {
-        const newTime = audioPlayerRef.current.currentTime + step;
-        audioPlayerRef.current.currentTime = Math.max(0, Math.min(newTime, audioPlayerRef.current.duration || 0));
+      if (playerBusState.scope === 'segment') {
+        const newTime = playerBusState.position + step;
+        seek(Math.max(0, Math.min(newTime, playerBusState.duration || 0)));
       } else {
         stopSkim();
       }

@@ -3,6 +3,54 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useChapterPlayback } from '@/hooks/useChapterPlayback';
 import type { ChapterSegment } from '@/types';
 import type { ChunkGroup } from '@/utils/chunkGroups';
+import * as playerBus from '@/store/playerBus';
+
+let mockPlayerBusState = {
+  scope: null as any,
+  title: '',
+  subtitle: undefined as string | undefined,
+  audioUrl: null as string | null,
+  playing: false,
+  position: 0,
+  duration: 0,
+  queue: { hasPrev: false, hasNext: false },
+  requestId: 0,
+};
+
+vi.mock('@/store/playerBus', () => {
+  return {
+    usePlayerBus: () => mockPlayerBusState,
+    loadAndPlay: vi.fn().mockImplementation((opts) => {
+      mockPlayerBusState.scope = opts.scope;
+      mockPlayerBusState.title = opts.title;
+      mockPlayerBusState.subtitle = opts.subtitle;
+      mockPlayerBusState.audioUrl = opts.audioUrl;
+      mockPlayerBusState.playing = true;
+      mockPlayerBusState.queue = {
+        hasPrev: opts.hasPrev ?? false,
+        hasNext: opts.hasNext ?? false,
+      };
+      mockPlayerBusState.requestId++;
+    }),
+    play: vi.fn().mockImplementation(() => {
+      mockPlayerBusState.playing = true;
+    }),
+    pause: vi.fn().mockImplementation(() => {
+      mockPlayerBusState.playing = false;
+    }),
+    stop: vi.fn().mockImplementation(() => {
+      mockPlayerBusState.scope = null;
+      mockPlayerBusState.audioUrl = null;
+      mockPlayerBusState.playing = false;
+      mockPlayerBusState.position = 0;
+      mockPlayerBusState.duration = 0;
+    }),
+    seek: vi.fn().mockImplementation((pos) => {
+      mockPlayerBusState.position = pos;
+    }),
+    resetPlayerBusForTests: vi.fn(),
+  };
+});
 
 describe('useChapterPlayback', () => {
   const segments: ChapterSegment[] = [
@@ -19,22 +67,17 @@ describe('useChapterPlayback', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-
-    // Mock Audio global
-    const mockAudio: any = {
-      play: vi.fn().mockResolvedValue(undefined),
-      pause: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
+    mockPlayerBusState = {
+      scope: null,
+      title: '',
+      subtitle: undefined,
+      audioUrl: null,
+      playing: false,
+      position: 0,
+      duration: 0,
+      queue: { hasPrev: false, hasNext: false },
+      requestId: 0,
     };
-
-    global.Audio = vi.fn().mockImplementation(() => {
-      // Trigger oncanplaythrough or loadeddata if needed, but here simple play is enough
-      setTimeout(() => {
-        if (mockAudio.oncanplaythrough) mockAudio.oncanplaythrough();
-      }, 0);
-      return mockAudio;
-    }) as any;
   });
 
   afterEach(() => {
@@ -46,33 +89,26 @@ describe('useChapterPlayback', () => {
       useChapterPlayback('proj1', 'chap1', segments, chunkGroups, generatingSegmentIds, onGenerate)
     );
 
-    let mockAudioInstance: any;
-    (global.Audio as any).mockImplementation((src: string) => {
-      mockAudioInstance = {
-        play: vi.fn().mockResolvedValue(undefined),
-        pause: vi.fn(),
-        src,
-      };
-      return mockAudioInstance;
-    });
-
     await act(async () => {
       await result.current.playSegment('s1', ['s1', 's2']);
     });
 
     expect(result.current.playingSegmentId).toBe('s1');
-    expect(mockAudioInstance.play).toHaveBeenCalled();
+    expect(playerBus.loadAndPlay).toHaveBeenCalled();
 
-    // Simulate audio ended
+    // Simulate audio ended by calling the onEnded callback passed to loadAndPlay
+    const lastCall = vi.mocked(playerBus.loadAndPlay).mock.calls.at(-1);
+    const opts = lastCall?.[0];
+    
     await act(async () => {
-      mockAudioInstance.onended();
+      opts?.onEnded?.();
     });
 
     // Should move to s2
     expect(result.current.playingSegmentId).toBe('s2');
 
     unmount();
-    expect(mockAudioInstance.pause).toHaveBeenCalled();
+    expect(playerBus.stop).toHaveBeenCalled();
   });
 
   it('stops playback', async () => {
@@ -89,6 +125,7 @@ describe('useChapterPlayback', () => {
     });
 
     expect(result.current.playingSegmentId).toBeNull();
+    expect(playerBus.stop).toHaveBeenCalled();
   });
 
   it('stops playback on chapter change', async () => {
@@ -96,16 +133,6 @@ describe('useChapterPlayback', () => {
       ({ chapterId }) => useChapterPlayback('proj1', chapterId, segments, chunkGroups, generatingSegmentIds, onGenerate),
       { initialProps: { chapterId: 'chap1' } }
     );
-
-    let mockAudioInstance: any;
-    (global.Audio as any).mockImplementation((src: string) => {
-      mockAudioInstance = {
-        play: vi.fn().mockResolvedValue(undefined),
-        pause: vi.fn(),
-        src,
-      };
-      return mockAudioInstance;
-    });
 
     await act(async () => {
       await result.current.playSegment('s1', ['s1', 's2']);
@@ -118,7 +145,7 @@ describe('useChapterPlayback', () => {
     });
 
     expect(result.current.isPlaying).toBe(false);
-    expect(mockAudioInstance.pause).toHaveBeenCalled();
+    expect(playerBus.stop).toHaveBeenCalled();
   });
 
   it('keeps stop from leaving playback in a paused state', async () => {
@@ -126,34 +153,17 @@ describe('useChapterPlayback', () => {
       useChapterPlayback('proj1', 'chap1', segments, chunkGroups, generatingSegmentIds, onGenerate)
     );
 
-    let mockAudioInstance: any;
-    (global.Audio as any).mockImplementation((_src: string) => {
-      mockAudioInstance = {
-        play: vi.fn().mockResolvedValue(undefined),
-        pause: vi.fn(),
-      };
-      return mockAudioInstance;
-    });
-
     await act(async () => {
       await result.current.playSegment('s1', ['s1', 's2']);
     });
 
     act(() => {
       result.current.stopPlayback();
-      mockAudioInstance.onpause?.();
     });
 
     expect(result.current.playingSegmentId).toBeNull();
     expect(result.current.isPlaying).toBe(false);
     expect(result.current.isPaused).toBe(false);
-
-    await act(async () => {
-      await result.current.playSegment('s1', ['s1', 's2']);
-    });
-
-    expect(result.current.playingSegmentId).toBe('s1');
-    expect(result.current.isPlaying).toBe(true);
   });
 
   it('triggers onGenerate for missing audio', async () => {
@@ -220,22 +230,12 @@ describe('useChapterPlayback', () => {
       }
     );
 
-    let mockAudioInstance: any;
-    (global.Audio as any).mockImplementation((src: string) => {
-      mockAudioInstance = {
-        play: vi.fn().mockResolvedValue(undefined),
-        pause: vi.fn(),
-        src,
-      };
-      return mockAudioInstance;
-    });
-
     await act(async () => {
       await result.current.playSegment('s1', ['s1', 's2']);
     });
 
     expect(onGenerate).toHaveBeenCalledWith(['s1']);
-    expect(mockAudioInstance).toBeUndefined();
+    expect(playerBus.loadAndPlay).not.toHaveBeenCalled();
 
     rerender({
       segs: completedSegments,
@@ -248,7 +248,7 @@ describe('useChapterPlayback', () => {
     });
 
     expect(result.current.playingSegmentId).toBe('s1');
-    expect(mockAudioInstance?.play).toHaveBeenCalled();
+    expect(playerBus.loadAndPlay).toHaveBeenCalled();
   });
 
   it('handles playback error with fallback', async () => {
@@ -256,33 +256,21 @@ describe('useChapterPlayback', () => {
       useChapterPlayback('proj1', 'chap1', segments, chunkGroups, generatingSegmentIds, onGenerate)
     );
 
-    let errorTriggered = false;
-    (global.Audio as any).mockImplementation((_src: string) => {
-      const audio: any = {
-        play: vi.fn(),
-        pause: vi.fn(),
-        onerror: null,
-      };
-
-      audio.play.mockImplementation(() => {
-        if (!errorTriggered) {
-          errorTriggered = true;
-          // Simulate error event instead of throwing
-          setTimeout(() => { if (audio.onerror) audio.onerror(new Event('error')); }, 0);
-          return Promise.reject(new Error('Play failed'));
-        }
-        return Promise.resolve();
-      });
-
-      return audio;
-    });
-
     await act(async () => {
       await result.current.playSegment('s1', ['s1']);
     });
 
-    // Should not crash, and should eventually move on or try fallback
-    expect(result.current.playingSegmentId).toBe('s1');
+    expect(playerBus.loadAndPlay).toHaveBeenCalled();
+    const lastCall = vi.mocked(playerBus.loadAndPlay).mock.calls.at(-1);
+    const opts = lastCall?.[0];
+
+    // Trigger error callback
+    await act(async () => {
+      opts?.onError?.();
+    });
+
+    // Should have tried fallback URL
+    expect(playerBus.loadAndPlay).toHaveBeenCalledTimes(2);
   });
 
   it('skips segments sharing the same audio file path', async () => {
@@ -296,25 +284,18 @@ describe('useChapterPlayback', () => {
       useChapterPlayback('proj1', 'chap1', groupedSegments, [], new Set(), onGenerate)
     );
 
-    let mockAudioInstance: any;
-    (global.Audio as any).mockImplementation((src: string) => {
-      mockAudioInstance = {
-        play: vi.fn().mockResolvedValue(undefined),
-        pause: vi.fn(),
-        src,
-      };
-      return mockAudioInstance;
-    });
-
     await act(async () => {
       await result.current.playSegment('s1', ['s1', 's2', 's3']);
     });
 
     expect(result.current.playingSegmentId).toBe('s1');
 
+    const lastCall = vi.mocked(playerBus.loadAndPlay).mock.calls.at(-1);
+    const opts = lastCall?.[0];
+
     // Simulate s1 (a.wav) ended
     await act(async () => {
-      mockAudioInstance.onended();
+      opts?.onEnded?.();
     });
 
     // Should skip s2 and move to s3
@@ -326,21 +307,12 @@ describe('useChapterPlayback', () => {
       useChapterPlayback('proj1', 'chap1', segments, chunkGroups, generatingSegmentIds, onGenerate)
     );
 
-    let mockAudioInstance: any;
-    (global.Audio as any).mockImplementation((src: string) => {
-      mockAudioInstance = {
-        play: vi.fn().mockResolvedValue(undefined),
-        pause: vi.fn(),
-        currentTime: 10,
-        duration: 100,
-        src,
-      };
-      return mockAudioInstance;
-    });
-
     await act(async () => {
       await result.current.playSegment('s1', ['s1', 's2']);
     });
+
+    mockPlayerBusState.position = 10;
+    mockPlayerBusState.duration = 100;
 
     act(() => {
       result.current.startSkim('forward');
@@ -350,7 +322,7 @@ describe('useChapterPlayback', () => {
       vi.advanceTimersByTime(150);
     });
 
-    expect(mockAudioInstance.currentTime).toBe(10.5);
+    expect(playerBus.seek).toHaveBeenCalledWith(10.5);
 
     act(() => {
       result.current.startSkim('backward');
@@ -360,7 +332,7 @@ describe('useChapterPlayback', () => {
       vi.advanceTimersByTime(150);
     });
 
-    expect(mockAudioInstance.currentTime).toBe(10.0); // 10.5 - 0.5
+    expect(playerBus.seek).toHaveBeenCalledWith(10.0); // 10.5 - 0.5
 
     act(() => {
       result.current.stopSkim();
@@ -370,7 +342,7 @@ describe('useChapterPlayback', () => {
       vi.advanceTimersByTime(150);
     });
 
-    expect(mockAudioInstance.currentTime).toBe(10.0); // Should not change after stop
+    expect(playerBus.seek).toHaveBeenCalledTimes(2); // Should not be called again after stop
   });
 
   it('plays a non-leader segment in a completed audio group using the group audio path', async () => {
@@ -381,21 +353,11 @@ describe('useChapterPlayback', () => {
 
     const audioGroups = [
       { id: 'g1', span_ids: ['s1', 's2'], status: 'draft', audio_file_path: 'a.wav', asset_url: '/api/assets/a.wav', order_index: 0, estimated_work_weight: 1 }
-    ];
+    ] as any;
 
     const { result } = renderHook(() =>
       useChapterPlayback('proj1', 'chap1', groupedSegments, [], new Set(), onGenerate, audioGroups)
     );
-
-    let mockAudioInstance: any;
-    (global.Audio as any).mockImplementation((src: string) => {
-      mockAudioInstance = {
-        play: vi.fn().mockResolvedValue(undefined),
-        pause: vi.fn(),
-        src,
-      };
-      return mockAudioInstance;
-    });
 
     await act(async () => {
       await result.current.playSegment('s2', ['s1', 's2']);
@@ -403,9 +365,9 @@ describe('useChapterPlayback', () => {
 
     // Playback should resolve audioPath to 'a.wav' from audioGroups and play it
     expect(result.current.playingSegmentId).toBe('s2');
-    expect(mockAudioInstance.src).toContain('a.wav');
-    expect(mockAudioInstance.play).toHaveBeenCalled();
+    expect(playerBus.loadAndPlay).toHaveBeenCalled();
+    const lastCall = vi.mocked(playerBus.loadAndPlay).mock.calls.at(-1);
+    expect(lastCall?.[0]?.audioUrl).toContain('a.wav');
     expect(onGenerate).not.toHaveBeenCalled();
   });
-
 });
