@@ -8,22 +8,6 @@ vi.mock('@/components/forms/ColorSwatchPicker', () => ({
   ColorSwatchPicker: ({ value }: { value: string }) => <div data-testid={`swatch-${value}`} />,
 }));
 
-vi.mock('@/pages/ChapterEditor/components/VoiceProfileSelect', () => ({
-  VoiceProfileSelect: ({ value, options, onChange, defaultLabel }: any) => (
-    <label>
-      {defaultLabel}
-      <select data-testid="voice-select" value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">{defaultLabel}</option>
-        {options.map((option: { value: string; label: string }) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  ),
-}));
-
 const mockEngines: TtsEngine[] = [
   { engine_id: 'xtts', display_name: 'XTTS', status: 'ready', verified: true, enabled: true, version: '1.0', local: true, cloud: false, network: false, languages: [], capabilities: [], resource: {}, author: 'OpenAI', homepage: '', settings_schema: {} } as TtsEngine,
 ];
@@ -54,7 +38,6 @@ function Harness() {
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [selectedProfileName, setSelectedProfileName] = useState<string | null>(null);
   const [expandedCharacterId, setExpandedCharacterId] = useState<string | null>(null);
-  const [selectedVoice, setSelectedVoice] = useState('');
 
   return (
     <CastPalette
@@ -70,12 +53,6 @@ function Harness() {
       expandedCharacterId={expandedCharacterId}
       setExpandedCharacterId={setExpandedCharacterId}
       onUpdateCharacterColor={vi.fn()}
-      selectedVoice={selectedVoice}
-      onVoiceChange={setSelectedVoice}
-      availableVoices={[
-        { id: 'default', label: 'Project Default', value: 'project-default', character_name: undefined } as any,
-      ]}
-      defaultVoiceLabel="Use Project Default (Narrator)"
     />
   );
 }
@@ -84,7 +61,8 @@ describe('CastPalette', () => {
   it('arms and disarms a cast row while showing the segment count', () => {
     render(<Harness />);
 
-    const narratorRow = screen.getByRole('button', { name: /narrator/i });
+    // The character row's accessible name includes the initial, name, profile and count
+    const narratorRow = screen.getByRole('button', { name: /N Narrator Default 2/i });
     expect(narratorRow).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getAllByText('2').length).toBeGreaterThan(0);
 
@@ -95,14 +73,43 @@ describe('CastPalette', () => {
     expect(narratorRow).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('changes the default voice and expands variants for a character', () => {
+  it('does not render a voice-select dropdown', () => {
+    render(<Harness />);
+    expect(screen.queryByTestId('voice-select')).not.toBeInTheDocument();
+  });
+
+  it('arms CLEAR_ASSIGNMENT when Narrator (default) is clicked, and disarms on second click', () => {
     render(<Harness />);
 
-    fireEvent.change(screen.getByTestId('voice-select'), { target: { value: 'project-default' } });
-    expect(screen.getByTestId('voice-select')).toHaveValue('project-default');
+    const clearBtn = screen.getByRole('button', { name: /narrator \(default\)/i });
+    expect(clearBtn).toHaveAttribute('aria-pressed', 'false');
 
-    fireEvent.click(screen.getByRole('button', { name: /maren/i }));
-    expect(screen.getByRole('button', { name: /maren/i })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(clearBtn);
+    expect(clearBtn).toHaveAttribute('aria-pressed', 'true');
+
+    // Second click disarms
+    fireEvent.click(clearBtn);
+    expect(clearBtn).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('shows "click sentences to clear" subtitle when CLEAR_ASSIGNMENT is armed', () => {
+    render(<Harness />);
+
+    const clearBtn = screen.getByRole('button', { name: /narrator \(default\)/i });
+    // Before arming: shows revert hint
+    expect(screen.getByText(/revert lines to narrator/i)).toBeInTheDocument();
+
+    fireEvent.click(clearBtn);
+    expect(screen.getByText(/click sentences to clear/i)).toBeInTheDocument();
+  });
+
+  it('expands variants for a character with multiple profiles', () => {
+    render(<Harness />);
+
+    // Maren has 2 variants; accessible name includes initial, name, profile and count
+    const marenRow = screen.getByRole('button', { name: /M Maren/i });
+    fireEvent.click(marenRow);
+    expect(marenRow).toHaveAttribute('aria-pressed', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: /variants/i }));
     expect(screen.getByRole('button', { name: /^a$/i })).toBeInTheDocument();

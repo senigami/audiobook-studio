@@ -125,10 +125,7 @@ export function StudioStage() {
     expandedCharacterId,
     setExpandedCharacterId,
     handleUpdateCharacterColor,
-    handleVoiceChange,
-    availableVoices,
-    chapterDefaultVoiceLabel,
-    localVoice,
+    renderGroupCount,
   } = studio;
 
   const activeChapterIndex = useMemo(
@@ -220,7 +217,7 @@ export function StudioStage() {
         chapter={chapter}
         analysis={analysis}
         analyzing={analyzing}
-        segmentsCount={chapter?.total_segments_count ?? segments.length}
+        segmentsCount={renderGroupCount ?? segments.length}
       />
 
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'stretch', minHeight: 0 }}>
@@ -241,6 +238,24 @@ export function StudioStage() {
               color: 'var(--text-primary)',
             }}>
               🖌 painting: {characters.find((char) => char.id === selectedCharacterId)?.name || 'Character'} — click sentences to assign
+            </div>
+          )}
+          {selectedCharacterId === 'CLEAR_ASSIGNMENT' && (
+            <div style={{
+              position: 'absolute',
+              top: -12,
+              right: 16,
+              zIndex: 5,
+              padding: '0.45rem 0.75rem',
+              borderRadius: 999,
+              border: '1px solid color-mix(in srgb, var(--accent) 35%, transparent)',
+              background: 'var(--surface)',
+              boxShadow: 'var(--shadow-lg)',
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+            }}>
+              🖌 clearing — click sentences to revert to narrator
             </div>
           )}
 
@@ -305,15 +320,6 @@ export function StudioStage() {
           expandedCharacterId={expandedCharacterId}
           setExpandedCharacterId={setExpandedCharacterId}
           onUpdateCharacterColor={handleUpdateCharacterColor}
-          selectedVoice={localVoice}
-          onVoiceChange={(nextVoice) => handleVoiceChange(nextVoice, (msg) => setConfirmConfig({
-            title: 'Voice Update Failed',
-            message: msg,
-            onConfirm: () => {},
-            confirmText: 'OK',
-          }))}
-          availableVoices={availableVoices}
-          defaultVoiceLabel={chapterDefaultVoiceLabel}
         />
       </div>
 

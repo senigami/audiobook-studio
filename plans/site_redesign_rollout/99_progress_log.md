@@ -75,7 +75,15 @@ viewport-locked; lesson for shell work recorded.
 
 ## Found bugs (do not fix mid-phase — triaged at R6)
 
-(none logged yet)
+- 2026-06-13 R3 Studio, owner-found, FIXED same day (commit below):
+  (a) Segment count showed raw segments/sentences (e.g. 9) not render groups (4) —
+      StudioStage AnalysisStrip used chapter.total_segments_count; fixed to renderGroupCount
+      (canonical per text-processing.md §6, matches old ChapterEditor).
+  (b) Cast palette had no way to UNASSIGN a voice — the old "None/Default" clear-mode swatch
+      was dropped in the R3 re-home (the CLEAR_ASSIGNMENT plumbing survived; only the button
+      was missing). Restored as a pinned "Narrator (default)" swatch at the top of the cast
+      list. Also removed the chapter default-voice dropdown from Studio per owner directive
+      (that control belongs on Casting, which already owns the Narrator/project-default voice).
 
 ## Open questions for the owner
 

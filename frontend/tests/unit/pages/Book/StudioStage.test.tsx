@@ -197,10 +197,7 @@ function mockStudioChapter(chapterId: string, overrides: Record<string, unknown>
     expandedCharacterId: null,
     setExpandedCharacterId: vi.fn(),
     handleUpdateCharacterColor: vi.fn(),
-    handleVoiceChange: vi.fn(),
-    availableVoices: [],
-    chapterDefaultVoiceLabel: 'Use Project Default',
-    localVoice: '',
+    renderGroupCount: 4,
     ...overrides,
   };
   mockUseStudioChapter.mockReturnValue(latestStudioChapterState as never);

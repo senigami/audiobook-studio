@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { ColorSwatchPicker } from '@/components/forms/ColorSwatchPicker';
-import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
 import type { Character, ChapterSegment, Speaker, SpeakerProfile, TtsEngine } from '@/types';
 import {
   formatVoiceEngineLabel,
@@ -24,12 +23,7 @@ interface CastPaletteProps {
   expandedCharacterId: string | null;
   setExpandedCharacterId: (id: string | null) => void;
   onUpdateCharacterColor: (id: string, color: string) => void;
-  selectedVoice?: string;
-  onVoiceChange?: (voice: string) => void;
-  availableVoices?: import('@/utils/voiceProfiles').VoiceOption[];
-  defaultVoiceLabel?: string;
   allowDisarm?: boolean;
-  submitting?: boolean;
 }
 
 function buildSegmentCounts(segments: ChapterSegment[]) {
@@ -53,12 +47,7 @@ export function CastPalette({
   expandedCharacterId,
   setExpandedCharacterId,
   onUpdateCharacterColor,
-  selectedVoice,
-  onVoiceChange,
-  availableVoices = [],
-  defaultVoiceLabel = 'Use Project Default',
   allowDisarm = true,
-  submitting = false,
 }: CastPaletteProps) {
   const segmentCounts = useMemo(() => buildSegmentCounts(segments), [segments]);
 
@@ -94,36 +83,16 @@ export function CastPalette({
       <div style={{
         padding: '0.5rem 0.6rem',
         borderBottom: '1px solid var(--border)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.5rem',
       }}>
         <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.5rem',
+          fontSize: '0.65rem',
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: 'var(--text-muted)',
         }}>
-          <div style={{
-            fontSize: '0.65rem',
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: 'var(--text-muted)',
-          }}>
-            Cast
-          </div>
+          Cast
         </div>
-        {availableVoices.length > 0 && onVoiceChange && (
-          <VoiceProfileSelect
-            value={selectedVoice || ''}
-            onChange={onVoiceChange}
-            options={availableVoices}
-            defaultLabel={defaultVoiceLabel}
-            title="Select default voice profile for this chapter"
-            disabled={submitting}
-          />
-        )}
       </div>
 
       <div style={{
@@ -132,6 +101,82 @@ export function CastPalette({
         overflowY: 'auto',
         padding: '0.35rem 0',
       }}>
+        <div style={{ margin: '0 0.35rem 0.35rem' }}>
+          <button
+            type="button"
+            aria-pressed={selectedCharacterId === 'CLEAR_ASSIGNMENT'}
+            onClick={() => {
+              if (selectedCharacterId === 'CLEAR_ASSIGNMENT') {
+                setSelectedCharacterId(null);
+              } else {
+                setSelectedCharacterId('CLEAR_ASSIGNMENT');
+                setSelectedProfileName(null);
+              }
+            }}
+            style={{
+              width: '100%',
+              border: selectedCharacterId === 'CLEAR_ASSIGNMENT'
+                ? '1px solid var(--accent)'
+                : '1px solid var(--border)',
+              borderLeft: selectedCharacterId === 'CLEAR_ASSIGNMENT'
+                ? '3px solid var(--accent)'
+                : '3px solid transparent',
+              borderRadius: 10,
+              background: selectedCharacterId === 'CLEAR_ASSIGNMENT'
+                ? 'var(--surface-light)'
+                : 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '0.45rem 0.55rem',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              textAlign: 'left',
+              opacity: selectedCharacterId !== null && selectedCharacterId !== 'CLEAR_ASSIGNMENT' ? 0.55 : 1,
+            }}
+          >
+            <div style={{
+              width: 18,
+              height: 18,
+              borderRadius: '50%',
+              background: 'transparent',
+              border: '1px solid var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <div style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: 'var(--text-muted)',
+              }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                lineHeight: 1.2,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                Narrator (default)
+              </div>
+              <div style={{
+                fontSize: '0.58rem',
+                color: 'var(--text-muted)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {selectedCharacterId === 'CLEAR_ASSIGNMENT' ? 'click sentences to clear' : 'revert lines to narrator'}
+              </div>
+            </div>
+          </button>
+        </div>
+
         {characters.map((char) => {
           const speakerMatch = speakers.find((s) => s.name === char.speaker_profile_name);
           const variants = speakerMatch ? speakerProfiles.filter((p) => p.speaker_id === speakerMatch.id) : [];
@@ -363,7 +408,11 @@ export function CastPalette({
         color: 'var(--text-muted)',
         lineHeight: 1.4,
       }}>
-        {selectedCharacterId ? 'paint a voice, then click text to assign' : 'choose a cast member to start painting'}
+        {selectedCharacterId === 'CLEAR_ASSIGNMENT'
+          ? 'click sentences to revert to narrator'
+          : selectedCharacterId
+            ? 'paint a voice, then click text to assign'
+            : 'choose a cast member to start painting'}
       </div>
     </aside>
   );
