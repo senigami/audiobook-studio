@@ -44,6 +44,14 @@ consolidation is R5-T13 scope. Confirm in browser or defer.
 2026-06-13 R3-T6 done HEAD
 2026-06-13 shared-shell-resize done HEAD
 2026-06-13 chapter-row-and-manuscript-analysis-polish done HEAD
+2026-06-14 R4-T1 done cf7bd983
+2026-06-14 R4-T2 done 52cba0ff
+2026-06-14 R4-T3 done 64428c29
+2026-06-14 R4-T4 done fda9ad5f
+2026-06-14 R4-T5 done HEAD
+2026-06-14 R4-T6 done HEAD
+2026-06-14 R4-T7 done 91b87156
+2026-06-14 R4-T8 done HEAD
 2026-06-13 R3 ADVERSARIAL REVIEW (orchestrator, 3 parallel reviewers vs specs). Verdict: core
 R3 contract HELD (book-view-primary single ScriptView, cast painting, analysis strip, toggles,
 StatusOrb in rail, in-page chapter rail removed, commit/resync wired, handoff fill in both modes;
