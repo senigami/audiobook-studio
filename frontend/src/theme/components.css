@@ -265,6 +265,7 @@
   align-items: center;
   min-height: 1.75rem;
   padding: 0.25rem 0.4rem;
+  border-left: 3px solid transparent;
   border-radius: var(--radius-button);
   color: var(--text-secondary);
   font-size: 0.78rem;
@@ -272,8 +273,15 @@
   text-decoration: none;
 }
 
-.rail-book-block__stage:hover,
+.rail-book-block__stage:hover {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+/* Active signature standardized with .nav-rail__item--active and
+   .rail-book-block__chapter-wrap--active: left accent bar + glow fill + accent text. */
 .rail-book-block__stage--active {
+  border-left-color: var(--accent);
   background: var(--accent-glow);
   color: var(--accent);
 }
@@ -292,7 +300,7 @@
   gap: 0.15rem;
   min-width: 0;
   padding-left: 0;
-  border-left: 2px solid transparent;
+  border-left: 3px solid transparent;
   background: transparent;
 }
 
