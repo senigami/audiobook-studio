@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import type { SpeakerProfile, TtsEngine, Job } from '@/types';
 import { Play, Pause, RefreshCw } from 'lucide-react';
 import { formatVoiceEngineLabel, getVoiceProfileEngine } from '@/utils/voiceProfiles';
+import { usePlayerBus, loadAndPlay, pause } from '@/store/playerBus';
 
 export interface TestSectionProps {
     profiles: SpeakerProfile[];
@@ -30,10 +31,15 @@ export const TestSection: React.FC<TestSectionProps> = ({
     const [selectedRefSample, setSelectedRefSample] = useState('');
     const [scriptText, setScriptText] = useState(defaultProfile?.test_text ?? '');
     const [isTesting, setIsTesting] = useState(false);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const audioRef = React.useRef<HTMLAudioElement | null>(null);
+    const playerBus = usePlayerBus();
 
     const activeProfile = profiles.find(p => p.name === selectedProfileName) ?? defaultProfile;
+    // Single-owner playback (ADR-0010): preview plays through the global player bus,
+    // never a local <audio>/new Audio() element.
+    const isPlaying = playerBus.scope === 'preview'
+        && !!activeProfile?.preview_url
+        && playerBus.audioUrl === activeProfile.preview_url
+        && playerBus.playing;
     const progress = activeProfile ? (testProgress[activeProfile.name]?.progress ?? 0) : 0;
     const isCurrentlyTesting = isTesting || (activeProfile ? !!testProgress[activeProfile.name] : false);
 
@@ -51,17 +57,15 @@ export const TestSection: React.FC<TestSectionProps> = ({
 
     const handlePlayPause = () => {
         if (!activeProfile?.preview_url) return;
-        if (!audioRef.current) {
-            audioRef.current = new Audio(activeProfile.preview_url);
-            audioRef.current.onended = () => setIsPlaying(false);
-        }
         if (isPlaying) {
-            audioRef.current.pause();
-            setIsPlaying(false);
+            pause();
         } else {
-            audioRef.current.src = activeProfile.preview_url!;
-            void audioRef.current.play();
-            setIsPlaying(true);
+            loadAndPlay({
+                scope: 'preview',
+                title: activeProfile.variant_name || 'Default Variant',
+                subtitle: activeProfile.name,
+                audioUrl: activeProfile.preview_url,
+            });
         }
     };
 
