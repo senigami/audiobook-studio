@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { VariantEditor } from '@/pages/Voices/components/VariantEditor';
 import { formatVoiceEngineLabel, getDefaultVoiceProfileName, getVoiceProfileEngine, isVoiceProfileSelectable } from '@/utils/voiceProfiles';
+import { getStatusInfo } from '@/pages/Voices/voicePhase';
 
 interface NarratorCardProps {
     speaker: Speaker;
@@ -84,53 +85,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
 
     const handleAddVariant = () => onAddVariantClick(speaker, profiles.length);
 
-    const getStatusInfo = (p: SpeakerProfile | undefined) => {
-        if (!p) return { label: 'NO SAMPLES', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
-        const engineId = getVoiceProfileEngine(p) || 'unknown';
-        const engineInfo = engines.find(e => e.engine_id === engineId);
-        const selectable = isVoiceProfileSelectable(p, engines);
-        const hasBuildMaterial = Boolean(
-            p.is_ready ||
-            p.has_latent ||
-            p.voice_asset_id ||
-            p.reference_sample ||
-            p.wav_count > 0 ||
-            (p.samples?.length || 0) > 0
-        );
-
-        if (buildingProfiles[p.name]) return { label: 'BUILDING...', color: 'var(--accent)', bg: 'var(--accent-glow)' };
-
-        if (!selectable) {
-            return { label: 'DISABLED', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
-        }
-
-        // Use the readiness hook result from the backend
-        if (p.is_rebuild_required) {
-            const isRebuildEngine = engineInfo?.capabilities?.includes('voice_build');
-            const reasons = p.rebuild_reasons || [];
-
-            if (reasons.includes('no_preview')) {
-                return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'var(--accent-glow)' };
-            }
-
-            let label = isRebuildEngine ? 'REBUILD REQUIRED' : 'PREVIEW STALE';
-            if (reasons.includes('new_samples')) label = 'NEW SAMPLES';
-            else if (reasons.includes('settings_changed')) label = 'SETTINGS CHANGED';
-            else if (reasons.includes('samples_missing')) label = 'SAMPLES MISSING';
-
-            return { label, color: 'var(--warning-text)', bg: 'var(--warning-tint-bg)' };
-        }
-
-        if (!p.preview_url) {
-            if (!hasBuildMaterial) {
-                return { label: 'NOT READY', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
-            }
-            return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'var(--accent-glow)' };
-        }
-        return { label: 'READY', color: 'var(--success)', bg: 'var(--success-tint-bg)' };
-    };
-
-    const status = getStatusInfo(activeProfile as SpeakerProfile);
+    const status = getStatusInfo(activeProfile as SpeakerProfile, engines, buildingProfiles);
 
     return (
         <div className="glass-panel animate-in" style={{ padding: '0', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: isExpanded ? '1px solid var(--accent)' : '1px solid var(--border)' }}>
