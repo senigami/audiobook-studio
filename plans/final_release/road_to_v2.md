@@ -30,13 +30,14 @@ All logic fixes, progress confidence model, security blockers, test-quality audi
 
 ## Stage 5 — Frontend polish (in progress)
 
+- [x] **SITE REDESIGN R1–R6 COMPLETE (2026-06-14)** — full north-star IA shipped on `studio2/phase-12.4-polish-and-cleanup` (PR #125): left rail + grouped nav, routed `/book/:id/...` pipeline, global single-owner player bar (ADR-0010), Activity page, Voice Lab page, Engines/Integrations as pages, thinned Settings + redirects, Casting pinned narrator, Studio book-view-primary + cast painting, Review follow-along + §N annotations. Capability inventory 120/120; full suite 1315 green; specs synced (site-shell 1.4.0, design-system.md, audio-player.md, ADR-0010/0011). Plan + per-phase reviews + owner-validation list: `plans/site_redesign_rollout/`. Deferred: R6-T10 dead-code retirement (supervised follow-up); wiki screenshot recapture.
 - [x] Tokens + dark theme + theme switcher (doc 07 §0–2, 2026-06-11).
 - [x] Responsive completion incl. mobile nav drawer (doc 07 §3, 2026-06-11; 390px ChapterEditor tablet-min documented).
 - [x] Route code-splitting + vendor chunks (entry 876→346 kB, 2026-06-11; doc 11 P7).
 - [x] Doc 10 quick wins Q1–Q12 (Q7 → Phase A) — DONE 2026-06-11.
 - [x] **GATE: accessibility blockers A1–A3 + A9** — DONE 2026-06-11 (useFocusTrap, dialog semantics, :focus-visible ring).
 - [ ] Doc 11 perf items P1–P6 (rAF-throttle LiveOutputTable, audit ring buffer, ScriptView memo, audio element reuse, visibility gating, interval dedup). (M)
-- [ ] Doc 10 ranked U1–U14 — *decide per item: 2.0 vs Phase B/C of the north star.* U15/U16 are answered by the north star decisions (rail + pipeline + player bar), executing as Phase A/B PRs post-#124.
+- [x] Doc 10 U15/U16 (rail + pipeline + player bar) — DELIVERED via the R1–R6 redesign. Remaining doc 10 U1–U14 cosmetic items fold into the redesigned surfaces or R6 parity; re-triage any leftovers against the shipped UI.
 - [ ] Playwright/axe baseline strategy decision (CI-generated on Linux recommended), then doc 07 step 4. (S)
 
 ## Stage 6 — Tell the world
