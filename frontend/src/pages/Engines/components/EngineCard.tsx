@@ -206,6 +206,65 @@ export const EngineCard: React.FC<{
             <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.78rem', fontWeight: 600 }}>
               {displayEngine.engine_id} {displayEngine.version ? `• v${displayEngine.version}` : ''}
             </p>
+            {/* Calibration chip row — visible in collapsed header */}
+            {hasCalibrationSummary && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.35rem' }}>
+                <span
+                  data-testid="calibration-chip"
+                  style={{
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    background: 'var(--accent-tint-bg)',
+                    color: 'var(--accent)',
+                    border: '1px solid var(--accent-tint-border)',
+                  }}
+                >
+                  {Number(displayEngine.calibrated_cps).toFixed(1)} chars/s
+                  {displayEngine.calibration_confidence_percent !== undefined && displayEngine.calibration_confidence_percent !== null
+                    ? ` · ${displayEngine.calibration_confidence_percent >= 70 ? 'high' : 'low'} confidence`
+                    : ''}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Reset calibration baseline"
+                  disabled={saving}
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (activeScenario) {
+                      addDevLog(`Simulated: Reset calibration requested for ${displayEngine.display_name}.`);
+                      return;
+                    }
+                    setSaving(true);
+                    try {
+                      await api.resetEngineCalibration(displayEngine.engine_id);
+                      onShowNotification?.(`${displayEngine.display_name} calibration history reset.`);
+                      await onUpdate();
+                    } catch (err: any) {
+                      const msg = getErrorMessage(err);
+                      if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
+                      onShowNotification?.(`Reset calibration failed: ${msg}`);
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.65rem',
+                    textDecoration: 'underline',
+                    fontWeight: 600,
+                  }}
+                >
+                  Reset calibration
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>

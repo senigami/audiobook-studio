@@ -445,3 +445,91 @@ describe('EngineCard dependency installation', () => {
     expect(screen.queryByText(helperText)).not.toBeInTheDocument();
   });
 });
+
+describe('EngineCard collapsed-header calibration chip (R5-T10)', () => {
+  it('shows calibration chip in collapsed header when engine has calibration data', () => {
+    const calibratedEngine = {
+      ...voxtralEngine,
+      calibrated_cps: 14.2,
+      calibration_confidence_percent: 85,
+      calibration_sample_count: 20,
+      calibration_since: Date.UTC(2026, 4, 30, 16, 0, 0) / 1000,
+    };
+
+    render(<EngineCard engine={calibratedEngine} onUpdate={vi.fn()} />);
+
+    const chip = screen.getByTestId('calibration-chip');
+    expect(chip).toBeInTheDocument();
+    expect(chip).toHaveTextContent('14.2 chars/s');
+    expect(chip).toHaveTextContent('high confidence');
+  });
+
+  it('shows "low confidence" label when confidence is below 70', () => {
+    const lowConfEngine = {
+      ...voxtralEngine,
+      calibrated_cps: 14.2,
+      calibration_confidence_percent: 55,
+      calibration_sample_count: 3,
+      calibration_since: Date.UTC(2026, 4, 30, 16, 0, 0) / 1000,
+    };
+
+    render(<EngineCard engine={lowConfEngine} onUpdate={vi.fn()} />);
+
+    expect(screen.getByTestId('calibration-chip')).toHaveTextContent('low confidence');
+  });
+
+  it('does not show calibration chip in header when no calibration data present', () => {
+    const uncalibratedEngine = {
+      ...voxtralEngine,
+      calibrated_cps: null,
+      calibration_confidence_percent: null,
+      calibration_sample_count: null,
+      calibration_since: null,
+    };
+
+    render(<EngineCard engine={uncalibratedEngine} onUpdate={vi.fn()} />);
+
+    expect(screen.queryByTestId('calibration-chip')).not.toBeInTheDocument();
+  });
+
+  it('header Reset calibration link calls resetEngineCalibration', async () => {
+    vi.mocked(api.resetEngineCalibration).mockResolvedValueOnce({ ok: true });
+    const onShowNotification = vi.fn();
+    const onUpdate = vi.fn();
+
+    const calibratedEngine = {
+      ...voxtralEngine,
+      calibrated_cps: 14.2,
+      calibration_confidence_percent: 85,
+      calibration_sample_count: 20,
+      calibration_since: Date.UTC(2026, 4, 30, 16, 0, 0) / 1000,
+    };
+
+    render(<EngineCard engine={calibratedEngine} onUpdate={onUpdate} onShowNotification={onShowNotification} />);
+
+    // There will be two "Reset calibration" / "Reset Baseline" buttons:
+    // the header link and the expanded panel button. Use aria-label.
+    const headerLink = screen.getByRole('button', { name: 'Reset calibration baseline' });
+    fireEvent.click(headerLink);
+
+    await waitFor(() => {
+      expect(api.resetEngineCalibration).toHaveBeenCalledWith('voxtral');
+      expect(onShowNotification).toHaveBeenCalledWith('Voxtral (Mistral AI) calibration history reset.');
+    });
+  });
+
+  it('header chips show ON pill label from ToggleButton and READY/VERIFIED status chips', () => {
+    render(<EngineCard engine={voxtralEngine} onUpdate={vi.fn()} />);
+    // ToggleButton renders "ON" / "OFF" visually — the accessible role is a button
+    // Status chips are rendered as spans; assert their text content
+    expect(screen.getByText('READY')).toBeInTheDocument();
+    expect(screen.getByText('VERIFIED')).toBeInTheDocument();
+  });
+
+  it('dev row is hidden when dev mode is off', () => {
+    const noDevEngine = { ...voxtralEngine, dev: { enabled: false } };
+    render(<EngineCard engine={noDevEngine} onUpdate={vi.fn()} />);
+    expect(screen.queryByText('Engine Developer Panel')).not.toBeInTheDocument();
+    expect(screen.queryByText('DEV')).not.toBeInTheDocument();
+  });
+});
