@@ -103,6 +103,9 @@ via build/lint + targeted files. R4 APPROVED.
 2026-06-14 R5-T6 done 17bf5004
 2026-06-14 R5-T7 done ac86b0dc
 2026-06-14 R5-T8 done 2c8507c9
+2026-06-14 R5-T9 done 3c72ca62
+2026-06-14 R5-T10 done 301c00d0
+2026-06-14 R5-T11 done 9df76da9
 
 ## Found bugs (do not fix mid-phase — triaged at R6)
 
@@ -120,3 +123,4 @@ via build/lint + targeted files. R4 APPROVED.
 
 - 2026-06-12: `npm -C frontend run build` failed in untouched `frontend/src/demo/stages/siteMockup/*` files. RESOLVED 2026-06-13 by orchestrator (commit below): these were leftover TS errors from the v3.7 mock module split (unused imports, type-only imports, a Row onClick prop) — fixed in demo-only files, outside rollout scope. Build gate is now usable for R2-R6.
 - 2026-06-13: Local Playwright Chromium launch is blocked here by a macOS MachPort rendezvous permission error; the theme-parity check is now covered by a dark-theme StudioStage render test, so the browser issue is informational rather than blocking.
+- 2026-06-14: R5-T11 intentional deviation — mock shows 3 fake store cards (WhisperTTS/CoquiLocal/BarkPlugin) with Install buttons; these are NOT rendered. Fake install buttons on non-functional placeholder cards would violate "do not build" (contract R-C read: no capability that looks wired but isn't). Single muted description panel instead.
