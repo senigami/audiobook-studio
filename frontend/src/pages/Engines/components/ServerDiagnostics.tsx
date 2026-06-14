@@ -10,16 +10,6 @@ import { RefreshCw } from 'lucide-react';
 import type { RuntimeService } from '@/types';
 import { api } from '@/api';
 
-/** Format an uptime in seconds as "Xh Ym" or "Xm" or "Xs". */
-const formatUptime = (seconds: number): string => {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const mins = Math.floor(seconds / 60);
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  const remMins = mins % 60;
-  return `${hours}h ${remMins}m`;
-};
-
 /** Format a last-checked timestamp (seconds) as "Xs ago" / "Xm ago". */
 const formatLastChecked = (seconds: number): string => {
   if (seconds < 5) return 'just now';

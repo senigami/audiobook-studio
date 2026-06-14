@@ -1,6 +1,7 @@
 import React from 'react';
 import { EnginesPanel } from '@/pages/Engines/components/EnginesPanel';
 import { ServerDiagnostics } from '@/pages/Engines/components/ServerDiagnostics';
+import { StorePlaceholder } from '@/pages/Engines/components/StorePlaceholder';
 
 interface EnginesPageProps {
   startupReady?: boolean;
@@ -24,6 +25,8 @@ export const EnginesPage: React.FC<EnginesPageProps> = ({ startupReady = true, o
         onRefresh={onRefresh}
         onShowNotification={onShowNotification}
       />
+
+      <StorePlaceholder />
     </section>
   );
 };
