@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlignLeft, BookOpen, Eye, Hash } from 'lucide-react';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
+import { InlineEdit } from '@/components/forms/InlineEdit';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import { selectChapterEditorJobs } from '@/pages/Book/lib/chapterJobs';
 import { AnalysisStrip } from '@/pages/Book/studio/AnalysisStrip';
@@ -74,6 +75,7 @@ export function StudioStage() {
   const {
     chapter,
     title,
+    setTitle,
     text,
     analysis,
     analyzing,
@@ -158,6 +160,13 @@ export function StudioStage() {
   return (
     <section className="book-stage-studio" data-testid="stage-studio" aria-label="Studio">
       <div className="studio-stage__toolbar" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+        <div className="studio-stage__title">
+          <InlineEdit
+            value={title}
+            onSave={(newTitle) => setTitle(newTitle)}
+          />
+        </div>
+
         <div className="script-view-toggle-group">
           <button
             type="button"
