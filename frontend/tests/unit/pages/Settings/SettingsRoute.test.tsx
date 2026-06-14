@@ -324,4 +324,35 @@ describe('SettingsRoute', () => {
     });
   });
 
+  it('nav shows only General and About — not TTS Engines or API tabs', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+    expect(nav).toBeTruthy();
+
+    // Present
+    expect(nav).toHaveTextContent('General');
+    expect(nav).toHaveTextContent('About');
+
+    // Absent — re-homed to /engines and /integrations
+    expect(nav).not.toHaveTextContent('TTS Engines');
+    expect(nav).not.toHaveTextContent('API');
+  });
+
+  it('renders the platform hint banner in the general panel', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByLabelText('Platform hint')).toBeInTheDocument();
+    expect(screen.getByText(/Engines & Integrations live under/i)).toBeInTheDocument();
+    expect(screen.getByText('Platform')).toBeInTheDocument();
+  });
+
 });

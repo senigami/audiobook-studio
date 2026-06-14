@@ -4,6 +4,7 @@ import { Settings as SettingsIcon } from 'lucide-react';
 import type { Settings as AppSettings, SpeakerProfile, TtsEngine } from '@/types';
 import {
   SETTINGS_TABS,
+  SETTINGS_REDIRECTS,
   VALID_SETTINGS_PATHS,
   getActiveSettingsTab,
   normalizeSettingsPath
@@ -45,15 +46,14 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
   if (!VALID_SETTINGS_PATHS.has(canonicalPathname)) {
     return <Navigate to="/settings" replace />;
   }
-  if (activeTab.id === 'api') {
-    return <Navigate to="/integrations" replace />;
+  // Redirect old sub-paths that have been re-homed to standalone pages (R-G).
+  const redirectTarget = SETTINGS_REDIRECTS[canonicalPathname];
+  if (redirectTarget) {
+    return <Navigate to={redirectTarget} replace />;
   }
   // Redirect away from /settings/developer if dev mode is off
   if (activeTab.id === 'developer' && !devMode) {
     return <Navigate to="/settings" replace />;
-  }
-  if (activeTab.id === 'engines') {
-    return <Navigate to="/engines" replace />;
   }
 
   return (
