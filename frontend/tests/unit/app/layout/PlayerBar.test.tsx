@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlayerBar } from '@/app/layout/PlayerBar';
 import * as playerBus from '@/store/playerBus';
@@ -108,5 +108,33 @@ describe('PlayerBar', () => {
 
     fireEvent.change(slider, { target: { value: '50' } });
     expect(playerBus.getSnapshot().position).toBe(50);
+  });
+
+  it('bus seek() moves the audio element currentTime', async () => {
+    playerBus.loadAndPlay({
+      scope: 'segment',
+      title: 'Seek Test',
+      audioUrl: 'https://example.com/seek-test.mp3',
+    });
+
+    render(<PlayerBar />);
+
+    // Get the audio element that was rendered
+    const audioEl = document.querySelector('audio') as HTMLAudioElement;
+    expect(audioEl).toBeTruthy();
+
+    // Simulate the audio element having a current time
+    Object.defineProperty(audioEl, 'currentTime', {
+      writable: true,
+      value: 0,
+    });
+
+    // Dispatch a seek via the bus (not via the slider)
+    act(() => {
+      playerBus.seek(42);
+    });
+
+    // The effect keyed on seekRequestId must have set currentTime
+    expect(audioEl.currentTime).toBe(42);
   });
 });

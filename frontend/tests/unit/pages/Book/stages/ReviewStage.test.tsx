@@ -65,6 +65,8 @@ vi.mock('@/store/playerBus', () => {
   };
 });
 
+let mockGenerateSegments = vi.fn().mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve({ success: true }), 20)));
+
 vi.mock('@/api', () => {
   return {
     api: {
@@ -72,18 +74,24 @@ vi.mock('@/api', () => {
         { id: 's1', text_content: 'Short segment' },
         { id: 's2', text_content: 'Longer segment text here' },
       ]),
-      generateSegments: vi.fn().mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve({ success: true }), 20))),
+      get generateSegments() {
+        return mockGenerateSegments;
+      },
     },
   };
 });
+
+let mockChapters: any[] = [
+  { id: 'chap-1', title: 'Chapter 1', audio_status: 'done', audio_file_path: 'chap1.mp3' },
+];
 
 vi.mock('@/pages/Book/BookDataContext', () => {
   return {
     useBookDataContext: () => ({
       bookId: 'proj-123',
-      chapters: [
-        { id: 'chap-1', title: 'Chapter 1', audio_status: 'done', audio_file_path: 'chap1.mp3' },
-      ],
+      get chapters() {
+        return mockChapters;
+      },
       jobs: {},
       speakerProfiles: [],
       speakers: [],
@@ -148,6 +156,20 @@ describe('useReviewPlayback hook', () => {
 describe('ReviewStage component', () => {
   beforeEach(() => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
+    // Reset playerBus mock state so !isPlaying renders the Load & Play button
+    mockPlayerBusState.scope = null;
+    mockPlayerBusState.audioUrl = null;
+    mockPlayerBusState.playing = false;
+    mockPlayerBusState.position = 0;
+    mockPlayerBusState.duration = 0;
+    listeners.forEach((l) => l());
+    // Reset mutable mock state to defaults
+    mockChapters = [
+      { id: 'chap-1', title: 'Chapter 1', audio_status: 'done', audio_file_path: 'chap1.mp3' },
+    ];
+    mockGenerateSegments = vi.fn().mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve({ success: true }), 20))
+    );
   });
 
   it('renders sidebars, central text pane, annotations, and control actions', () => {
@@ -179,11 +201,21 @@ describe('ReviewStage component', () => {
     const segmentEl = await screen.findByText('Short segment');
     expect(segmentEl).toBeInTheDocument();
 
-    // Select the segment to make it active
+    // Start playback so the chapter is active and segments can be highlighted
+    act(() => {
+      mockPlayerBusState.scope = 'chapter';
+      mockPlayerBusState.audioUrl = '/api/projects/proj-123/chapters/chap-1/assets/audio?filename=chap1.mp3';
+      mockPlayerBusState.playing = true;
+      mockPlayerBusState.position = 5;
+      mockPlayerBusState.duration = 100;
+      listeners.forEach((l) => l());
+    });
+
+    // Click segment to seek to it — now activeSegmentId will be set from position
     fireEvent.click(segmentEl);
 
-    // The regenerate button should be visible
-    const regenBtn = screen.getByRole('button', { name: /regenerate segment/i });
+    // The regenerate button should be visible (activeSegmentId is now set)
+    const regenBtn = await screen.findByRole('button', { name: /regenerate segment/i });
     expect(regenBtn).toBeInTheDocument();
     expect(regenBtn).not.toBeDisabled();
 
@@ -199,6 +231,52 @@ describe('ReviewStage component', () => {
 
     // After resolution, it should recover
     await screen.findByRole('button', { name: /regenerate segment/i });
+  });
+
+  it('S2: surfaces an inline error when re-render API call fails', async () => {
+    mockGenerateSegments = vi.fn().mockRejectedValue(new Error('TTS engine unavailable'));
+
+    render(
+      <MemoryRouter>
+        <ReviewStage />
+      </MemoryRouter>
+    );
+
+    // Wait for segments to load
+    await screen.findByText('Short segment');
+
+    // Start playback so the chapter is active and activeSegmentId can be set
+    act(() => {
+      mockPlayerBusState.scope = 'chapter';
+      mockPlayerBusState.audioUrl = '/api/projects/proj-123/chapters/chap-1/assets/audio?filename=chap1.mp3';
+      mockPlayerBusState.playing = true;
+      mockPlayerBusState.position = 5;
+      mockPlayerBusState.duration = 100;
+      listeners.forEach((l) => l());
+    });
+
+    // Click regenerate — the button is visible because activeSegmentId is now set
+    const regenBtn = await screen.findByRole('button', { name: /regenerate segment/i });
+    fireEvent.click(regenBtn);
+
+    // After the rejected promise resolves, an error message should appear
+    await screen.findByText(/re-render failed/i);
+  });
+
+  it('S4: Load & Play button is disabled when chapter has no audio', async () => {
+    mockChapters = [
+      { id: 'chap-1', title: 'Chapter 1', audio_status: 'unprocessed', audio_file_path: null },
+    ];
+
+    render(
+      <MemoryRouter>
+        <ReviewStage />
+      </MemoryRouter>
+    );
+
+    // When chapter has no audio the button renders with a hint text and is disabled
+    const playBtn = await screen.findByRole('button', { name: /render this chapter first/i });
+    expect(playBtn).toBeDisabled();
   });
 });
 

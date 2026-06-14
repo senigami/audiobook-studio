@@ -12,6 +12,7 @@ interface FollowAlongPanelProps {
   activeSegmentIndex: number;
   onReRenderSegment?: () => void;
   isReRendering?: boolean;
+  reRenderError?: string | null;
 }
 
 export function FollowAlongPanel({
@@ -26,6 +27,7 @@ export function FollowAlongPanel({
   activeSegmentIndex,
   onReRenderSegment,
   isReRendering,
+  reRenderError,
 }: FollowAlongPanelProps) {
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -180,6 +182,7 @@ export function FollowAlongPanel({
               type="button"
               onClick={onReRenderSegment}
               disabled={isReRendering}
+              aria-label="Regenerate Segment"
               style={{
                 marginTop: '8px',
                 padding: '6px 10px',
@@ -200,6 +203,22 @@ export function FollowAlongPanel({
             >
               {isReRendering ? 'Regenerating...' : 'Regenerate Segment'}
             </button>
+          )}
+          {reRenderError && (
+            <div
+              role="alert"
+              style={{
+                marginTop: '6px',
+                fontSize: '0.65rem',
+                color: 'var(--error, #e53e3e)',
+                padding: '4px 6px',
+                background: 'var(--error-tint-bg, color-mix(in srgb, var(--error, #e53e3e) 10%, transparent))',
+                borderRadius: 'var(--radius-button)',
+                border: '1px solid var(--error-border, color-mix(in srgb, var(--error, #e53e3e) 30%, transparent))',
+              }}
+            >
+              {reRenderError}
+            </div>
           )}
         </div>
       )}

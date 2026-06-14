@@ -67,7 +67,8 @@ export function getAnnotations(chapterId: string): Annotation[] {
 
 export function saveAnnotation(chapterId: string, segmentId: string, notes: string): void {
   const all = { ...getSnapshot() };
-  all[segmentId] = {
+  const key = `${chapterId}::${segmentId}`;
+  all[key] = {
     chapterId,
     segmentId,
     notes,
@@ -77,10 +78,11 @@ export function saveAnnotation(chapterId: string, segmentId: string, notes: stri
   emit();
 }
 
-export function deleteAnnotation(_chapterId: string, segmentId: string): void {
+export function deleteAnnotation(chapterId: string, segmentId: string): void {
   const all = { ...getSnapshot() };
-  if (all[segmentId]) {
-    delete all[segmentId];
+  const key = `${chapterId}::${segmentId}`;
+  if (all[key]) {
+    delete all[key];
     saveToStorage(all);
     emit();
   }

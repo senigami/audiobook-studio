@@ -15,7 +15,8 @@ export interface PlayerBusState {
   position: number;   // seconds
   duration: number;   // seconds
   queue: { hasPrev: boolean; hasNext: boolean };
-  requestId: number;  // increments on every loadAndPlay
+  requestId: number;     // increments on every loadAndPlay
+  seekRequestId: number; // increments on every seek() call
 }
 
 export interface LoadAndPlayOptions {
@@ -45,6 +46,7 @@ const IDLE_STATE: PlayerBusState = {
   duration: 0,
   queue: { hasPrev: false, hasNext: false },
   requestId: 0,
+  seekRequestId: 0,
 };
 
 let state: PlayerBusState = { ...IDLE_STATE, queue: { ...IDLE_STATE.queue } };
@@ -116,7 +118,7 @@ export function stop(): void {
 }
 
 export function seek(seconds: number): void {
-  setState({ position: seconds });
+  setState({ position: seconds, seekRequestId: state.seekRequestId + 1 });
 }
 
 export function reportTime(position: number, duration: number): void {

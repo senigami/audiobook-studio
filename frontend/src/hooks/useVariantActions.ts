@@ -9,11 +9,7 @@ export function useVariantActions(
     requestConfirm: (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean; isAlert?: boolean }) => void
 ) {
     const [localSpeed, setLocalSpeed] = useState<number | null>(null);
-    const [playingSample, setPlayingSample] = useState<string | null>(null);
     const [cacheBuster, setCacheBuster] = useState(Date.now());
-    
-    const audioRef = useRef<HTMLAudioElement>(null);
-    const sampleAudioRef = useRef<HTMLAudioElement>(null);
 
     const speedTimeoutRef = useRef<any>(null);
 
@@ -27,6 +23,19 @@ export function useVariantActions(
             pause();
         }
     };
+
+    // Derive which sample filename is "playing" from bus state so we have
+    // a single audio owner (ADR-0010). A sample URL has the form:
+    //   <baseUrl>/<encodedSampleName>?t=<timestamp>
+    // We extract the filename portion to compare with bare sample names.
+    const baseUrl = profile.asset_base_url || `/out/voices/${encodeURIComponent(profile.name)}`;
+    const playingSample: string | null = (() => {
+        if (playerBus.scope !== 'preview' || !playerBus.playing || !playerBus.audioUrl) return null;
+        const url = playerBus.audioUrl.split('?')[0]; // strip ?t=
+        const prefix = `${baseUrl}/`;
+        if (!url.startsWith(prefix)) return null;
+        return decodeURIComponent(url.slice(prefix.length));
+    })();
 
     useEffect(() => {
         return () => {
@@ -62,11 +71,6 @@ export function useVariantActions(
             return;
         }
 
-        if (playingSample) {
-            sampleAudioRef.current?.pause();
-            setPlayingSample(null);
-        }
-
         const currentPreviewUrl = `${profile.preview_url}?t=${cacheBuster}`;
         if (playerBus.scope === 'preview' && playerBus.audioUrl === currentPreviewUrl) {
             if (playerBus.playing) {
@@ -82,7 +86,7 @@ export function useVariantActions(
                 audioUrl: currentPreviewUrl,
             });
         }
-    }, [profile.preview_url, profile.name, onTest, playingSample, playerBus.scope, playerBus.audioUrl, playerBus.playing, cacheBuster, profile.variant_name]);
+    }, [profile.preview_url, profile.name, onTest, playerBus.scope, playerBus.audioUrl, playerBus.playing, cacheBuster, profile.variant_name]);
 
     const handleGeneratePreview = useCallback((e?: React.MouseEvent) => {
         e?.stopPropagation();
@@ -97,27 +101,19 @@ export function useVariantActions(
     }, [onTest, profile.name, profile.preview_url, cacheBuster, playerBus.scope, playerBus.audioUrl, playerBus.playing]);
 
     const handlePlaySample = useCallback((s: string) => {
+        const sampleUrl = `${baseUrl}/${encodeURIComponent(s)}?t=${Date.now()}`;
         if (playingSample === s) {
-            sampleAudioRef.current?.pause();
-            setPlayingSample(null);
+            // Toggle off — the bus owns the element so just pause it
+            pause();
             return;
         }
-
-        if (isPlaying) {
-            audioRef.current?.pause();
-            setIsPlaying(false);
-        }
-
-        setPlayingSample(s);
-        if (sampleAudioRef.current) {
-            const baseUrl = profile.asset_base_url || `/out/voices/${encodeURIComponent(profile.name)}`;
-            sampleAudioRef.current.src = `${baseUrl}/${encodeURIComponent(s)}?t=${Date.now()}`;
-            sampleAudioRef.current.play().catch(err => {
-                console.error("Playback failed", err);
-                setPlayingSample(null);
-            });
-        }
-    }, [profile.name, profile.asset_base_url, playingSample, isPlaying]);
+        loadAndPlay({
+            scope: 'preview',
+            title: s,
+            subtitle: profile.name,
+            audioUrl: sampleUrl,
+        });
+    }, [profile.name, baseUrl, playingSample]);
 
     const handleSpeedChange = useCallback((val: number) => {
         if (speedTimeoutRef.current) clearTimeout(speedTimeoutRef.current);
@@ -183,11 +179,8 @@ export function useVariantActions(
         isPlaying,
         setIsPlaying,
         playingSample,
-        setPlayingSample,
         cacheBuster,
         setCacheBuster,
-        audioRef,
-        sampleAudioRef,
         handlePlayClick,
         handleGeneratePreview,
         handlePlaySample,

@@ -17,6 +17,7 @@ export const PlayerBar: React.FC = () => {
     audioUrl,
     playing,
     requestId,
+    seekRequestId,
     position,
     duration,
     queue,
@@ -43,6 +44,16 @@ export const PlayerBar: React.FC = () => {
       }
     }
   }, [audioUrl, playing, requestId]);
+
+  // Dedicated seek effect: fires whenever seek() increments seekRequestId,
+  // moves currentTime without fighting the timeupdate reporter.
+  useEffect(() => {
+    if (seekRequestId === 0) return;
+    const audio = audioRef.current;
+    if (audio) {
+      audio.currentTime = position;
+    }
+  }, [seekRequestId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!audioUrl) {
     return null;

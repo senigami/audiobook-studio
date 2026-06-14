@@ -22,6 +22,7 @@ export function useChapterPlayback(
   const audioGroupsRef = useRef<AudioGroup[]>(audioGroups);
   const pendingPlaybackRef = useRef<{ segmentId: string; queue: string[] } | null>(null);
   const skimIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const skimStateRef = useRef(playerBusState);
 
   const playerBusState = usePlayerBus();
 
@@ -29,6 +30,11 @@ export function useChapterPlayback(
   const isPaused = playerBusState.scope === 'segment' && playingSegmentId !== null && !playerBusState.playing;
   const currentTime = playerBusState.scope === 'segment' && playingSegmentId !== null ? playerBusState.position : 0;
   const duration = playerBusState.scope === 'segment' && playingSegmentId !== null ? playerBusState.duration : 0;
+
+  // Keep the skim state ref pointing at the latest playerBusState snapshot so
+  // the setInterval closure always reads fresh position/duration values
+  // (avoids stale-closure bug where position is captured at interval creation).
+  skimStateRef.current = playerBusState;
 
   useEffect(() => {
     segmentsRef.current = segments;
@@ -235,12 +241,11 @@ export function useChapterPlayback(
 
     const step = direction === 'forward' ? 0.5 : -0.5;
     skimIntervalRef.current = setInterval(() => {
-      if (playerBusState.scope === 'segment') {
-        const newTime = playerBusState.position + step;
-        seek(Math.max(0, Math.min(newTime, playerBusState.duration || 0)));
-      } else {
-        stopSkim();
-      }
+      // Read from ref to avoid stale closure capturing the initial position/duration.
+      // skimStateRef.current is updated every render so the interval always
+      // advances from the actual current playback position.
+      const { position, duration } = skimStateRef.current;
+      seek(Math.max(0, Math.min(position + step, duration || 0)));
     }, 150);
   };
 

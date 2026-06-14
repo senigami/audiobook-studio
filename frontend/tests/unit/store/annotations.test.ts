@@ -89,4 +89,32 @@ describe('annotations store', () => {
 
     expect(result.current).toEqual([]);
   });
+
+  it('keeps independent notes for same segmentId across different chapters (B1 collision guard)', () => {
+    saveAnnotation('chapter-A', 'seg-1', 'Note from chapter A');
+    saveAnnotation('chapter-B', 'seg-1', 'Note from chapter B');
+
+    const annotsA = getAnnotations('chapter-A');
+    const annotsB = getAnnotations('chapter-B');
+
+    // Each chapter should have exactly one note
+    expect(annotsA).toHaveLength(1);
+    expect(annotsA[0].notes).toBe('Note from chapter A');
+    expect(annotsA[0].chapterId).toBe('chapter-A');
+
+    expect(annotsB).toHaveLength(1);
+    expect(annotsB[0].notes).toBe('Note from chapter B');
+    expect(annotsB[0].chapterId).toBe('chapter-B');
+  });
+
+  it('deleting a segment note in one chapter leaves the same segmentId in another chapter intact', () => {
+    saveAnnotation('chapter-A', 'seg-1', 'Note from chapter A');
+    saveAnnotation('chapter-B', 'seg-1', 'Note from chapter B');
+
+    deleteAnnotation('chapter-A', 'seg-1');
+
+    expect(getAnnotations('chapter-A')).toHaveLength(0);
+    expect(getAnnotations('chapter-B')).toHaveLength(1);
+    expect(getAnnotations('chapter-B')[0].notes).toBe('Note from chapter B');
+  });
 });

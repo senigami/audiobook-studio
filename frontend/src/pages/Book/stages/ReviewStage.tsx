@@ -15,6 +15,7 @@ export function ReviewStage() {
   const [loadingSegments, setLoadingSegments] = useState(false);
   const [showAnnotations, setShowAnnotations] = useState(true);
   const [isReRendering, setIsReRendering] = useState(false);
+  const [reRenderError, setReRenderError] = useState<string | null>(null);
 
   const resolvedChapterId = searchParams.get('chapter') || chapters[0]?.id || null;
   const selectedChapter = useMemo(
@@ -57,10 +58,12 @@ export function ReviewStage() {
   const handleReRenderSegment = async () => {
     if (!activeSegmentId) return;
     setIsReRendering(true);
+    setReRenderError(null);
     try {
       await api.generateSegments([activeSegmentId]);
     } catch (err) {
       console.error('Failed to regenerate segment:', err);
+      setReRenderError('Re-render failed. Please try again.');
     } finally {
       setIsReRendering(false);
     }
@@ -81,10 +84,13 @@ export function ReviewStage() {
     return segments.findIndex((seg) => seg.id === activeSegmentId);
   }, [activeSegmentId, segments]);
 
+  const chapterHasAudio = Boolean(
+    selectedChapter?.audio_file_path || selectedChapter?.audio_status === 'done',
+  );
+
   const handlePlayChapterClick = () => {
-    if (!selectedChapter) return;
-    const audioPath = selectedChapter.audio_file_path || `${selectedChapter.id}.wav`;
-    const audioUrl = `/api/projects/${bookId}/chapters/${selectedChapter.id}/assets/audio?filename=${encodeURIComponent(audioPath)}`;
+    if (!selectedChapter || !chapterHasAudio) return;
+    const audioUrl = `/api/projects/${bookId}/chapters/${selectedChapter.id}/assets/audio?filename=${encodeURIComponent(selectedChapter.audio_file_path!)}`;
     playChapter(audioUrl, selectedChapter.title);
   };
 
@@ -183,28 +189,32 @@ export function ReviewStage() {
             activeSegmentIndex={activeSegmentIndex}
             onReRenderSegment={handleReRenderSegment}
             isReRendering={isReRendering}
+            reRenderError={reRenderError}
           />
           {!isPlaying && selectedChapter && (
             <button
               type="button"
               onClick={handlePlayChapterClick}
+              disabled={!chapterHasAudio}
+              title={chapterHasAudio ? undefined : 'Render this chapter first'}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '6px',
                 padding: '8px 12px',
-                background: 'var(--accent)',
-                color: 'white',
-                border: 'none',
+                background: chapterHasAudio ? 'var(--accent)' : 'var(--surface)',
+                color: chapterHasAudio ? 'white' : 'var(--text-muted)',
+                border: chapterHasAudio ? 'none' : '1px solid var(--border)',
                 borderRadius: 'var(--radius-button)',
                 fontWeight: 600,
                 fontSize: '0.75rem',
-                cursor: 'pointer',
+                cursor: chapterHasAudio ? 'pointer' : 'not-allowed',
+                opacity: chapterHasAudio ? 1 : 0.5,
               }}
             >
               <Play size={16} fill="currentColor" />
-              <span>Load & Play Chapter</span>
+              <span>{chapterHasAudio ? 'Load & Play Chapter' : 'Render this chapter first'}</span>
             </button>
           )}
         </div>

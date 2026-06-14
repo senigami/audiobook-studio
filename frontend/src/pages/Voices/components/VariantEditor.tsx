@@ -55,7 +55,6 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
         isPlaying,
         playingSample,
         setCacheBuster,
-        sampleAudioRef,
         handlePlayClick,
         handleGeneratePreview,
         handlePlaySample,
@@ -144,13 +143,6 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
 
     return (
         <div className={showControlsInline ? "" : "glass-panel animate-in"} style={showControlsInline ? {} : { padding: '0', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            <audio
-                ref={sampleAudioRef}
-                onPlay={() => {}} // Hook handles state
-                onPause={() => {}}
-                onEnded={() => {}}
-            />
-
             <div
                 style={{
                     padding: '0.75rem 1.25rem',
