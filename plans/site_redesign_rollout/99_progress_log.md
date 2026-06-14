@@ -95,6 +95,11 @@ segment's own assigned voice. Commits 8a1c4873 + c162ce1b. Gates: build pass, li
 touched suites green. NOTE: did NOT run the full suite (memory-leak risk per owner) — verified
 via build/lint + targeted files. R4 APPROVED.
 
+2026-06-14 R5-T1 done ca930764
+2026-06-14 R5-T2 done ffffa963
+2026-06-14 R5-T3 done 43a6cfc4
+2026-06-14 R5-T4 done 28e99002
+
 ## Found bugs (do not fix mid-phase — triaged at R6)
 
 - 2026-06-13 R3 Studio, owner-found, FIXED same day (commit below):
