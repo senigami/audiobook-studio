@@ -1,7 +1,14 @@
+/**
+ * VoicesTabContent.tsx — R5-T3
+ *
+ * Renders the catalog grid of VoiceCatalogCards.
+ * NarratorCard.tsx is kept on disk (retired in R6 after all capabilities
+ * are re-homed to Voice Lab in R5-T5+).
+ */
 import React from 'react';
 import { User, Plus, Search } from 'lucide-react';
-import { NarratorCard } from '@/pages/Voices/components/NarratorCard';
-import type { SpeakerProfile, TtsEngine, VoiceEngine, VoiceMetadata } from '@/types';
+import { VoiceCatalogCard } from '@/pages/Voices/components/VoiceCatalogCard';
+import type { SpeakerProfile, Speaker, TtsEngine, VoiceEngine, VoiceMetadata } from '@/types';
 
 interface VoicesTabContentProps {
     voices: any[];
@@ -26,6 +33,8 @@ interface VoicesTabContentProps {
     onEditTestText: (profile: SpeakerProfile) => void;
     voiceMetadataMap?: Map<string, VoiceMetadata>;
     onEditMetadata?: (voiceGroupId: string, voiceName: string) => void;
+    /** Navigate to Voice Lab for the given voice id */
+    onNavigateToLab?: (voiceId: string) => void;
 }
 
 export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
@@ -33,46 +42,40 @@ export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
     filteredVoices,
     engineFilter,
     onRefresh,
-    handleTest,
-    handleDelete,
     handleBuildNow,
     testProgress,
     handleRequestConfirm,
     buildingProfiles,
     onSetDefault,
     onRename,
-    onAddVariant,
-    onMoveVariant,
     onExportVoice,
-    expandedVoiceId,
-    setExpandedVoiceId,
     engines,
     onCreateClick,
-    onEditTestText,
     voiceMetadataMap,
     onEditMetadata,
+    onNavigateToLab,
 }) => {
     return (
         <div style={{ flex: 1, overflowY: 'auto', padding: '2rem' }}>
-            <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 {voices.length === 0 ? (
-                    <div style={{ 
-                        padding: '60px', 
-                        textAlign: 'center', 
+                    <div style={{
+                        padding: '60px',
+                        textAlign: 'center',
                         background: 'var(--surface-dim)',
-                        borderRadius: '24px', 
-                        border: '2px dashed var(--border)' 
+                        borderRadius: '24px',
+                        border: '2px dashed var(--border)',
                     }}>
-                        <div style={{ 
-                            width: '64px', 
-                            height: '64px', 
-                            borderRadius: '20px', 
-                            background: 'var(--surface-alt)', 
-                            display: 'flex', 
-                            alignItems: 'center', 
+                        <div style={{
+                            width: '64px',
+                            height: '64px',
+                            borderRadius: '20px',
+                            background: 'var(--surface-alt)',
+                            display: 'flex',
+                            alignItems: 'center',
                             justifyContent: 'center',
                             margin: '0 auto 20px',
-                            color: 'var(--text-muted)'
+                            color: 'var(--text-muted)',
                         }}>
                             <User size={32} />
                         </div>
@@ -85,9 +88,9 @@ export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
                                 : 'Create your first voice to start generating premium AI audio.'}
                         </p>
                         {engineFilter !== 'disabled' && (
-                            <button 
+                            <button
                                 onClick={onCreateClick}
-                                className="btn-primary" 
+                                className="btn-primary"
                                 style={{ gap: '8px', padding: '0 24px', height: '44px', borderRadius: '12px' }}
                             >
                                 <Plus size={20} />
@@ -102,43 +105,37 @@ export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
                         <p style={{ margin: 0 }}>Try adjusting your search query.</p>
                     </div>
                 ) : (
-                    <>
+                    <div className="voices-catalog-grid">
                         {filteredVoices.map(voice => {
                             const meta = voiceMetadataMap?.get(voice.id);
-                            const isUntagged = meta?.is_untagged ?? false;
+                            const speaker: Speaker = {
+                                id: voice.id.startsWith('unassigned-') ? '' : voice.id,
+                                name: voice.name,
+                                default_profile_name: voice.profiles[0]?.name || null,
+                                created_at: 0,
+                                updated_at: 0,
+                            };
                             return (
-                                <NarratorCard
+                                <VoiceCatalogCard
                                     key={voice.id}
-                                    speaker={{
-                                        id: voice.id.startsWith('unassigned-') ? '' : voice.id,
-                                        name: voice.name,
-                                        default_profile_name: voice.profiles[0]?.name || null,
-                                        created_at: 0,
-                                        updated_at: 0
-                                    }}
-                                    profiles={voice.profiles}
-                                    onRefresh={onRefresh}
-                                    onTest={handleTest}
-                                    onDelete={handleDelete}
-                                    onMoveVariant={onMoveVariant}
-                                    onEditTestText={onEditTestText}
-                                    onBuildNow={handleBuildNow}
-                                    testProgress={testProgress}
-                                    requestConfirm={handleRequestConfirm}
+                                    speaker={speaker}
+                                    profiles={voice.profiles as SpeakerProfile[]}
+                                    engines={engines}
                                     buildingProfiles={buildingProfiles}
-                                    onAddVariantClick={(s) => onAddVariant(s, voice.profiles)}
+                                    testProgress={testProgress}
+                                    metadata={meta}
+                                    onBuildNow={handleBuildNow}
+                                    onNavigateToLab={(id) => onNavigateToLab?.(id) ?? void 0}
                                     onSetDefaultClick={onSetDefault}
                                     onRenameClick={onRename}
                                     onExportVoice={onExportVoice}
-                                    isExpanded={expandedVoiceId === voice.id}
-                                    onToggleExpand={() => setExpandedVoiceId(expandedVoiceId === voice.id ? null : voice.id)}
-                                    engines={engines}
-                                    isUntagged={isUntagged}
+                                    requestConfirm={handleRequestConfirm}
                                     onEditMetadata={() => onEditMetadata?.(voice.id, voice.name)}
+                                    onRefresh={onRefresh}
                                 />
                             );
                         })}
-                    </>
+                    </div>
                 )}
             </div>
         </div>
