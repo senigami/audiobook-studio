@@ -16,4 +16,8 @@ export const LAYERS = {
 
   /** Background/inactive state for tabbed interfaces. */
   TAB_INACTIVE: 0,
+
+  /** Player bar fixed at the bottom. */
+  PLAYER_BAR: 1100,
 };
+

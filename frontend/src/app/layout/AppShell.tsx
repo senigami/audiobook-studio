@@ -5,6 +5,8 @@ import { BookIdentityLine } from '@/app/layout/BookIdentityLine';
 import { MobileNavDrawer } from '@/app/layout/MobileNavDrawer';
 import { NavRail } from '@/app/layout/NavRail';
 import { TopBar } from '@/app/layout/TopBar';
+import { PlayerBar } from '@/app/layout/PlayerBar';
+import { usePlayerBus } from '@/store/playerBus';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -16,6 +18,7 @@ interface AppShellProps {
 
 export const AppShell: React.FC<AppShellProps> = ({ children, queueCount, shellState, onToggleQueue, isQueueOpen }) => {
   const [navOpen, setNavOpen] = useState(false);
+  const { audioUrl } = usePlayerBus();
 
   return (
     <div
@@ -54,7 +57,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, queueCount, shellS
               position: 'relative',
               display: 'flex',
               flexDirection: 'column',
-              padding: '3rem 2.5rem',
+              padding: audioUrl ? '3rem 2.5rem calc(3rem + 56px) 2.5rem' : '3rem 2.5rem',
             }}
           >
             <div style={{ maxWidth: '1600px', width: '100%', margin: '0 auto' }}>
@@ -65,6 +68,8 @@ export const AppShell: React.FC<AppShellProps> = ({ children, queueCount, shellS
       </div>
 
       <MobileNavDrawer open={navOpen} onClose={() => setNavOpen(false)} queueCount={queueCount} />
+      <PlayerBar />
     </div>
   );
 };
+
