@@ -2351,6 +2351,61 @@
   flex-shrink: 0;
 }
 
+/* ---------------------------------------------------------------------------
+ * Player bar — Scope pill toggle (R7-T2)
+ * Two pills (Segment / Chapter) replace the passive badge when both sources
+ * are available.  The active pill is highlighted; inactive is subdued.
+ * --------------------------------------------------------------------------- */
+
+.player-scope-toggle {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-round);
+  border: 1px solid var(--accent-tint-border);
+  overflow: hidden;
+  flex-shrink: 0;
+  gap: 0;
+}
+
+.player-scope-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: var(--surface);
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  line-height: 1.6;
+}
+
+.player-scope-pill + .player-scope-pill {
+  border-left: 1px solid var(--accent-tint-border);
+}
+
+.player-scope-pill--active {
+  background: var(--accent-tint-bg);
+  color: var(--accent);
+  cursor: default;
+}
+
+.player-scope-pill:not(.player-scope-pill--active):hover {
+  background: var(--surface-alt);
+  color: var(--text-secondary);
+}
+
+@media (prefers-color-scheme: dark) {
+  .player-scope-pill {
+    background: var(--surface-alt);
+  }
+  .player-scope-pill--active {
+    background: var(--accent-tint-bg);
+  }
+}
+
 .player-bar-progress-container {
   display: flex;
   align-items: center;
@@ -2376,6 +2431,63 @@
   color: var(--text-secondary);
   font-family: monospace;
   white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+ * Player bar — Wave toggle + waveform expansion (R7-T3)
+ * --------------------------------------------------------------------------- */
+
+/* Wave toggle chip — sits at the trailing end of the content row */
+.player-btn-wave {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  width: auto;
+  padding: 0 0.625rem;
+  height: 26px;
+  background: var(--color-wave-btn-bg, var(--surface-alt));
+  border-color: var(--color-wave-btn-border, var(--border));
+  color: var(--text-secondary);
+  border-radius: var(--radius-button);
+  flex-shrink: 0;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.player-btn-wave:hover:not(:disabled) {
+  background: var(--surface-alt);
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
+.player-btn-wave--on {
+  background: var(--color-wave-btn-active-bg, var(--accent-tint-bg));
+  border-color: var(--color-wave-btn-active-border, var(--accent-tint-border));
+  color: var(--color-wave-btn-active-text, var(--accent));
+}
+
+.player-btn-wave--on:hover:not(:disabled) {
+  background: var(--color-wave-btn-active-bg, var(--accent-tint-bg));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Waveform container inside the expansion slot */
+.waveform-strip {
+  width: 100%;
+  height: 100%;
+  background: var(--color-wave-bg, transparent);
+  /* wavesurfer renders a <canvas> inside; let it fill */
+  display: block;
+  padding: 0 1.5rem;
+  box-sizing: border-box;
+}
+
+/* Ensure wavesurfer's internal shadow DOM canvas fills the container */
+.waveform-strip > div,
+.waveform-strip canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* ---------------------------------------------------------------------------

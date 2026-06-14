@@ -6,6 +6,7 @@ import {
   stop,
   seek,
   skip,
+  switchScope,
   reportTime,
   notifyEnded,
   notifyError,
@@ -233,5 +234,73 @@ describe('playerBus', () => {
     const state = getSnapshot();
     expect(state.queue.hasPrev).toBe(true);
     expect(state.queue.hasNext).toBe(false);
+  });
+
+  // 19. switchScope — R7-T2
+  describe('switchScope', () => {
+    it('swaps audioUrl and scope and bumps requestId', () => {
+      loadAndPlay({
+        scope: 'chapter',
+        title: 'Chapter 1',
+        audioUrl: 'http://a.com/chapter.wav',
+        altScope: { scope: 'segment', audioUrl: 'http://a.com/seg.wav', title: 'Segment 1' },
+      });
+      const beforeId = getSnapshot().requestId;
+
+      switchScope();
+
+      const state = getSnapshot();
+      expect(state.scope).toBe('segment');
+      expect(state.audioUrl).toBe('http://a.com/seg.wav');
+      expect(state.title).toBe('Segment 1');
+      expect(state.requestId).toBe(beforeId + 1);
+    });
+
+    it('puts the previously-active source into altScope after swap', () => {
+      loadAndPlay({
+        scope: 'chapter',
+        title: 'Chapter 1',
+        audioUrl: 'http://a.com/chapter.wav',
+        altScope: { scope: 'segment', audioUrl: 'http://a.com/seg.wav', title: 'Segment 1' },
+      });
+
+      switchScope();
+
+      const state = getSnapshot();
+      expect(state.altScope?.scope).toBe('chapter');
+      expect(state.altScope?.audioUrl).toBe('http://a.com/chapter.wav');
+    });
+
+    it('is a no-op when altScope is undefined', () => {
+      loadAndPlay({
+        scope: 'chapter',
+        title: 'Chapter 1',
+        audioUrl: 'http://a.com/chapter.wav',
+      });
+      const beforeId = getSnapshot().requestId;
+
+      switchScope();
+
+      const state = getSnapshot();
+      expect(state.scope).toBe('chapter');
+      expect(state.audioUrl).toBe('http://a.com/chapter.wav');
+      expect(state.requestId).toBe(beforeId);
+    });
+
+    it('calling switchScope twice restores original audioUrl + scope', () => {
+      loadAndPlay({
+        scope: 'chapter',
+        title: 'Chapter 1',
+        audioUrl: 'http://a.com/chapter.wav',
+        altScope: { scope: 'segment', audioUrl: 'http://a.com/seg.wav', title: 'Seg 1' },
+      });
+
+      switchScope();
+      switchScope();
+
+      const state = getSnapshot();
+      expect(state.scope).toBe('chapter');
+      expect(state.audioUrl).toBe('http://a.com/chapter.wav');
+    });
   });
 });

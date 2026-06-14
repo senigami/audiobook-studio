@@ -1,7 +1,12 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Play, Pause, SkipForward, SkipBack, Square, Rewind, FastForward } from 'lucide-react';
-import { usePlayerBus, seek, play, pause, stop, skip, reportTime, notifyEnded, notifyError, notifyPrev, notifyNext } from '@/store/playerBus';
+import { usePlayerBus, seek, play, pause, stop, skip, switchScope, reportTime, notifyEnded, notifyError, notifyPrev, notifyNext } from '@/store/playerBus';
+import { loadWaveformPref, saveWaveformPref } from '@/utils/playerPrefs';
+import { WaveformStrip } from './WaveformStrip';
 import { LAYERS } from './layering';
+
+/** Height of the waveform strip when visible (governs the expansion slot). */
+const WAVEFORM_HEIGHT = '64px';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds === Infinity || seconds < 0) return '00:00';
@@ -11,7 +16,19 @@ function formatTime(seconds: number): string {
 }
 
 export const PlayerBar: React.FC = () => {
+  // audioRef is used for direct DOM access in effects/handlers (never read during render).
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  // audioEl state is set via callback ref so WaveformStrip can receive the DOM node
+  // *after* it mounts — reading audioRef.current during render is not allowed in React 19.
+  const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
+
+  const audioCallbackRef = useCallback((node: HTMLAudioElement | null) => {
+    // Keep both in sync: the ref for effects/handlers, the state for render-time children
+    (audioRef as React.MutableRefObject<HTMLAudioElement | null>).current = node;
+    setAudioEl(node);
+  }, []);
+
   const state = usePlayerBus();
   const {
     audioUrl,
@@ -24,7 +41,17 @@ export const PlayerBar: React.FC = () => {
     scope,
     title,
     subtitle,
+    altScope,
   } = state;
+
+  // Waveform toggle — persisted preference, default off
+  const [waveformOn, setWaveformOn] = useState<boolean>(() => loadWaveformPref());
+
+  const handleWaveformToggle = () => {
+    const next = !waveformOn;
+    setWaveformOn(next);
+    saveWaveformPref(next);
+  };
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -53,7 +80,7 @@ export const PlayerBar: React.FC = () => {
     if (audio) {
       audio.currentTime = position;
     }
-  }, [seekRequestId]);  
+  }, [seekRequestId]);
 
   if (!audioUrl) {
     return null;
@@ -102,18 +129,22 @@ export const PlayerBar: React.FC = () => {
       className="player-bar"
       style={{
         zIndex: LAYERS.PLAYER_BAR,
-        ['--player-waveform-height' as any]: '0px',
+        ['--player-waveform-height' as any]: waveformOn ? WAVEFORM_HEIGHT : '0px',
       }}
     >
       <audio
-        ref={audioRef}
+        ref={audioCallbackRef}
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleEnded}
         onError={handleError}
         onLoadedMetadata={handleLoadedMetadata}
       />
 
-      <div className="player-bar-expansion" />
+      <div className="player-bar-expansion">
+        {waveformOn && audioEl && (
+          <WaveformStrip audioEl={audioEl} audioUrl={audioUrl} />
+        )}
+      </div>
 
       <div className="player-bar-content">
         <div className="player-bar-controls">
@@ -179,7 +210,32 @@ export const PlayerBar: React.FC = () => {
             <span className="player-title">{title}</span>
             {subtitle && <span className="player-subtitle">{subtitle}</span>}
           </div>
-          {scope && <span className="player-scope-badge">{scope}</span>}
+          {scope && altScope ? (
+            <div className="player-scope-toggle" role="group" aria-label="Audio scope">
+              {/* Active pill — current scope */}
+              <button
+                type="button"
+                className="player-scope-pill player-scope-pill--active"
+                onClick={switchScope}
+                aria-pressed={true}
+                aria-label={`Playing ${scope}`}
+              >
+                {scope}
+              </button>
+              {/* Inactive pill — tap to switch */}
+              <button
+                type="button"
+                className="player-scope-pill"
+                onClick={switchScope}
+                aria-pressed={false}
+                aria-label={`Switch to ${altScope.scope}`}
+              >
+                {altScope.scope}
+              </button>
+            </div>
+          ) : (
+            scope && <span className="player-scope-badge">{scope}</span>
+          )}
         </div>
 
         <div className="player-bar-progress-container">
@@ -196,6 +252,16 @@ export const PlayerBar: React.FC = () => {
             {formatTime(position)} / {formatTime(duration)}
           </span>
         </div>
+
+        <button
+          type="button"
+          className={`player-btn player-btn-wave${waveformOn ? ' player-btn-wave--on' : ''}`}
+          onClick={handleWaveformToggle}
+          aria-label={waveformOn ? 'Hide waveform' : 'Show waveform'}
+          aria-pressed={waveformOn}
+        >
+          Wave
+        </button>
       </div>
     </div>
   );

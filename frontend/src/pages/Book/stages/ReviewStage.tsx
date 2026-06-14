@@ -98,7 +98,21 @@ export function ReviewStage() {
   const handlePlayChapterClick = () => {
     if (!selectedChapter || !chapterHasAudio) return;
     const audioUrl = `/api/projects/${bookId}/chapters/${selectedChapter.id}/assets/audio?filename=${encodeURIComponent(selectedChapter.audio_file_path!)}`;
-    playChapter(audioUrl, selectedChapter.title);
+
+    // Best-effort: register the first rendered segment as an altScope so the
+    // Segment↔Chapter scope toggle appears when both URLs are genuinely available.
+    const firstRenderedSeg = segments.find(
+      (s) => s.audio_status === 'done' && s.audio_file_path,
+    );
+    const segmentAltScope = firstRenderedSeg
+      ? {
+          audioUrl: `/api/projects/${bookId}/chapters/${selectedChapter.id}/assets/audio?filename=${encodeURIComponent(firstRenderedSeg.audio_file_path!)}`,
+          title: `Segment ${firstRenderedSeg.segment_order + 1}`,
+          subtitle: selectedChapter.title,
+        }
+      : undefined;
+
+    playChapter(audioUrl, selectedChapter.title, segmentAltScope);
   };
 
   const handleChapterSelect = (chapterId: string) => {
