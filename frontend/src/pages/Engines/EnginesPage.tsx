@@ -1,5 +1,6 @@
 import React from 'react';
 import { EnginesPanel } from '@/pages/Engines/components/EnginesPanel';
+import { ServerDiagnostics } from '@/pages/Engines/components/ServerDiagnostics';
 
 interface EnginesPageProps {
   startupReady?: boolean;
@@ -15,6 +16,8 @@ export const EnginesPage: React.FC<EnginesPageProps> = ({ startupReady = true, o
           Engines
         </h1>
       </header>
+
+      <ServerDiagnostics onRefresh={onRefresh} />
 
       <EnginesPanel
         startupReady={startupReady}

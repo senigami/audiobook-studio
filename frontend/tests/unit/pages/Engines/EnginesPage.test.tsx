@@ -11,6 +11,8 @@ vi.mock('@/api', () => ({
     confirmEnginePlugin: vi.fn(),
     cancelEnginePluginStaging: vi.fn(),
     fetchEngineLogs: vi.fn(),
+    fetchHome: vi.fn().mockResolvedValue({ version: '2.0.0', runtime_services: [] }),
+    restartTtsServer: vi.fn(),
   },
 }));
 
