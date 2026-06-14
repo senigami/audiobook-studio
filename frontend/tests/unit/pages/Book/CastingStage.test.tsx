@@ -9,7 +9,12 @@ vi.mock('@/pages/Book/BookDataContext', () => ({
 }));
 
 vi.mock('@/components/CharactersTab', () => ({
-  CharactersTab: () => <section aria-label="Character roster">Characters & Voices</section>,
+  CharactersTab: ({ pinnedRow }: { pinnedRow?: React.ReactNode }) => (
+    <section aria-label="Character roster">
+      {pinnedRow}
+      <div>Characters &amp; Voices</div>
+    </section>
+  ),
 }));
 
 const profiles: SpeakerProfile[] = [
@@ -74,15 +79,16 @@ describe('CastingStage', () => {
     } as any);
   });
 
-  it('renders the pinned Narrator row before the character roster and updates the project default voice', () => {
+  it('renders the pinned Narrator row inside the character roster and updates the project default voice', () => {
     render(<CastingStage />);
 
     const narratorRow = screen.getByLabelText('Narrator default voice');
     expect(within(narratorRow).getByText('Narrator (default)')).toBeInTheDocument();
     expect(within(narratorRow).getByText('fallback for any unassigned line')).toBeInTheDocument();
 
+    // The narrator is now the pinned first entry of the roster (not a separate block above it).
     const roster = screen.getByRole('region', { name: 'Character roster' });
-    expect(narratorRow.compareDocumentPosition(roster) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(roster).toContainElement(narratorRow);
 
     fireEvent.change(within(narratorRow).getByRole('combobox'), { target: { value: 'Alternate' } });
     expect(handleProjectVoiceChange).toHaveBeenCalledWith('Alternate');

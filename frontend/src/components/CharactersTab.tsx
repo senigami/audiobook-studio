@@ -12,9 +12,11 @@ interface CharactersTabProps {
   speakers: Speaker[];
   speakerProfiles: SpeakerProfile[];
   engines?: TtsEngine[];
+  /** Optional non-deletable row rendered as the first entry of the list (e.g. the Narrator default). */
+  pinnedRow?: React.ReactNode;
 }
 
-export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speakers, speakerProfiles, engines = [] }) => {
+export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speakers, speakerProfiles, engines = [], pinnedRow }) => {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -173,14 +175,16 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
       {/* List */}
       {loading ? (
         <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>Loading characters...</div>
-      ) : characters.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)', borderStyle: 'dashed' }}>
-          <UserIcon size={32} color="var(--text-muted)" style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
-          <p style={{ color: 'var(--text-muted)' }}>No characters created yet.</p>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', opacity: 0.8, marginTop: '0.5rem' }}>Add characters to quickly assign specific speakers to lines of dialog.</p>
-        </div>
       ) : (
         <div style={{ display: 'grid', gap: '0.8rem' }}>
+          {pinnedRow}
+          {characters.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '2rem', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)', borderStyle: 'dashed' }}>
+              <UserIcon size={28} color="var(--text-muted)" style={{ margin: '0 auto 0.75rem', opacity: 0.5 }} />
+              <p style={{ color: 'var(--text-muted)' }}>No additional characters yet.</p>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', opacity: 0.8, marginTop: '0.5rem' }}>Add characters to assign specific speakers to lines of dialog.</p>
+            </div>
+          )}
           {characters.map(char => (
             <div key={char.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--surface)', padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
 
