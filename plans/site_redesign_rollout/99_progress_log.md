@@ -99,6 +99,10 @@ via build/lint + targeted files. R4 APPROVED.
 2026-06-14 R5-T2 done ffffa963
 2026-06-14 R5-T3 done 43a6cfc4
 2026-06-14 R5-T4 done 28e99002
+2026-06-14 R5-T5 done 8191125a
+2026-06-14 R5-T6 done 17bf5004
+2026-06-14 R5-T7 done ac86b0dc
+2026-06-14 R5-T8 done 2c8507c9
 
 ## Found bugs (do not fix mid-phase — triaged at R6)
 
