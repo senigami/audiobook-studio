@@ -2,6 +2,29 @@ import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useVariantActions } from '@/hooks/useVariantActions';
 import type { SpeakerProfile } from '@/types';
+import { loadAndPlay, play, pause, usePlayerBus } from '@/store/playerBus';
+
+vi.mock('@/store/playerBus', () => {
+  const state = {
+    scope: null as any,
+    playing: false,
+    audioUrl: null as any,
+  };
+  return {
+    usePlayerBus: vi.fn().mockReturnValue(state),
+    loadAndPlay: vi.fn().mockImplementation((opts) => {
+      state.scope = opts.scope;
+      state.audioUrl = opts.audioUrl;
+      state.playing = true;
+    }),
+    play: vi.fn().mockImplementation(() => {
+      state.playing = true;
+    }),
+    pause: vi.fn().mockImplementation(() => {
+      state.playing = false;
+    }),
+  };
+});
 
 describe('useVariantActions', () => {
   const mockProfile: SpeakerProfile = {
@@ -24,36 +47,36 @@ describe('useVariantActions', () => {
       json: () => Promise.resolve({ status: 'success' }),
     });
     
-    // Mock Audio
-    window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
-    window.HTMLMediaElement.prototype.pause = vi.fn();
+    // Reset the mock state
+    const state = vi.mocked(usePlayerBus)();
+    state.scope = null;
+    state.playing = false;
+    state.audioUrl = null;
   });
 
   it('handles play/pause for main preview', () => {
     const { result } = renderHook(() => useVariantActions(mockProfile, onRefresh, onTest, requestConfirm));
 
-    // Manually set up audioRef for testing
-    const mockAudio = {
-      play: vi.fn(),
-      pause: vi.fn(),
-    };
-    (result.current.audioRef as any).current = mockAudio;
+    act(() => {
+      result.current.handlePlayClick({ stopPropagation: vi.fn() } as any);
+    });
+
+    expect(loadAndPlay).toHaveBeenCalledWith(expect.objectContaining({
+      scope: 'preview',
+      audioUrl: expect.stringContaining('/preview.wav'),
+    }));
+
+    // Update state to simulate it playing
+    const state = vi.mocked(usePlayerBus)();
+    state.scope = 'preview';
+    state.audioUrl = result.current.isPlaying ? '' : `/preview.wav?t=${result.current.cacheBuster}`;
+    state.playing = true;
 
     act(() => {
       result.current.handlePlayClick({ stopPropagation: vi.fn() } as any);
     });
 
-    expect(mockAudio.play).toHaveBeenCalled();
-
-    act(() => {
-      result.current.setIsPlaying(true);
-    });
-
-    act(() => {
-      result.current.handlePlayClick({ stopPropagation: vi.fn() } as any);
-    });
-
-    expect(mockAudio.pause).toHaveBeenCalled();
+    expect(pause).toHaveBeenCalled();
   });
 
   it('triggers onTest if no preview_url exists', () => {
@@ -72,21 +95,12 @@ describe('useVariantActions', () => {
       useVariantActions(mockProfile, onRefresh, onTest, requestConfirm)
     );
 
-    const mockAudio = {
-      play: vi.fn().mockRejectedValue(new Error('no src yet')),
-      pause: vi.fn(),
-      load: vi.fn(),
-      paused: true,
-    };
-    (result.current.audioRef as any).current = mockAudio;
-
     act(() => {
       result.current.handleGeneratePreview({ stopPropagation: vi.fn() } as any);
     });
 
     expect(onTest).toHaveBeenCalledWith('Test Voice');
-    expect(mockAudio.play).not.toHaveBeenCalled();
-    expect(mockAudio.pause).not.toHaveBeenCalled();
+    expect(pause).not.toHaveBeenCalled();
   });
 
   it('stops current playback before regenerating a preview', () => {
@@ -94,23 +108,17 @@ describe('useVariantActions', () => {
       useVariantActions(mockProfile, onRefresh, onTest, requestConfirm)
     );
 
-    const mockAudio = {
-      play: vi.fn(),
-      pause: vi.fn(),
-      load: vi.fn(),
-      paused: false,
-    };
-    (result.current.audioRef as any).current = mockAudio;
-
-    act(() => {
-      result.current.setIsPlaying(true);
-    });
+    // Update state to simulate it playing
+    const state = vi.mocked(usePlayerBus)();
+    state.scope = 'preview';
+    state.audioUrl = `/preview.wav?t=${result.current.cacheBuster}`;
+    state.playing = true;
 
     act(() => {
       result.current.handleGeneratePreview({ stopPropagation: vi.fn() } as any);
     });
 
-    expect(mockAudio.pause).toHaveBeenCalled();
+    expect(pause).toHaveBeenCalled();
     expect(onTest).toHaveBeenCalledWith('Test Voice');
   });
 

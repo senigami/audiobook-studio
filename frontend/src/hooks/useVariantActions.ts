@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { SpeakerProfile } from '@/types';
+import { usePlayerBus, loadAndPlay, play, pause } from '@/store/playerBus';
 
 export function useVariantActions(
     profile: SpeakerProfile, 
@@ -8,7 +9,6 @@ export function useVariantActions(
     requestConfirm: (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean; isAlert?: boolean }) => void
 ) {
     const [localSpeed, setLocalSpeed] = useState<number | null>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
     const [playingSample, setPlayingSample] = useState<string | null>(null);
     const [cacheBuster, setCacheBuster] = useState(Date.now());
     
@@ -16,6 +16,17 @@ export function useVariantActions(
     const sampleAudioRef = useRef<HTMLAudioElement>(null);
 
     const speedTimeoutRef = useRef<any>(null);
+
+    const playerBus = usePlayerBus();
+    const previewUrl = profile.preview_url ? `${profile.preview_url}?t=${cacheBuster}` : '';
+    const isPlaying = playerBus.scope === 'preview' && playerBus.audioUrl === previewUrl && playerBus.playing;
+    const setIsPlaying = (val: boolean) => {
+        if (val) {
+            play();
+        } else {
+            pause();
+        }
+    };
 
     useEffect(() => {
         return () => {
@@ -32,49 +43,21 @@ export function useVariantActions(
     const [pendingPlay, setPendingPlay] = useState(false);
 
     useEffect(() => {
-        if (pendingPlay && profile.preview_url && audioRef.current) {
+        if (pendingPlay && profile.preview_url) {
             setPendingPlay(false);
-            
-            // Wait a tiny bit for the browser to register the new audio source if needed
-            const playAudio = async () => {
-                try {
-                    if (audioRef.current) {
-                        audioRef.current.load(); // Force load new source
-                        // Small delay helps browser stabilize the new source before playing
-                        setTimeout(async () => {
-                            try {
-                                if (audioRef.current) {
-                                    await audioRef.current.play();
-                                    setIsPlaying(true);
-                                }
-                            } catch (err) {
-                                console.error("Delayed auto-play failed", err);
-                            }
-                        }, 200);
-                    }
-                } catch (err) {
-                    console.error("Auto-play setup failed", err);
-                }
-            };
-            playAudio();
+            loadAndPlay({
+                scope: 'preview',
+                title: profile.variant_name || 'Default Variant',
+                subtitle: profile.name,
+                audioUrl: `${profile.preview_url}?t=${cacheBuster}`,
+            });
         }
-    }, [profile.preview_url, pendingPlay, audioRef, setIsPlaying]);
+    }, [profile.preview_url, pendingPlay, cacheBuster, profile.variant_name, profile.name]);
 
     const handlePlayClick = useCallback((e: React.MouseEvent) => {
         e.stopPropagation();
         if (!profile.preview_url) {
             setPendingPlay(true);
-            
-            // "Warm up" the audio element to capture the user gesture.
-            // This makes the browser more likely to allow the auto-play later 
-            // even after the 10-20s build time.
-            if (audioRef.current) {
-                audioRef.current.play().catch(() => {
-                    // Expect failure since src is likely empty/invalid, 
-                    // but the click event is now linked to this element.
-                });
-            }
-
             onTest(profile.name);
             return;
         }
@@ -84,28 +67,34 @@ export function useVariantActions(
             setPlayingSample(null);
         }
 
-        if (audioRef.current) {
-            if (isPlaying) {
-                audioRef.current.pause();
-                setIsPlaying(false);
+        const currentPreviewUrl = `${profile.preview_url}?t=${cacheBuster}`;
+        if (playerBus.scope === 'preview' && playerBus.audioUrl === currentPreviewUrl) {
+            if (playerBus.playing) {
+                pause();
             } else {
-                audioRef.current.play();
-                setIsPlaying(true);
+                play();
             }
+        } else {
+            loadAndPlay({
+                scope: 'preview',
+                title: profile.variant_name || 'Default Variant',
+                subtitle: profile.name,
+                audioUrl: currentPreviewUrl,
+            });
         }
-    }, [profile.preview_url, profile.name, onTest, playingSample, isPlaying, setIsPlaying]);
+    }, [profile.preview_url, profile.name, onTest, playingSample, playerBus.scope, playerBus.audioUrl, playerBus.playing, cacheBuster, profile.variant_name]);
 
     const handleGeneratePreview = useCallback((e?: React.MouseEvent) => {
         e?.stopPropagation();
         setPendingPlay(false);
 
-        if (audioRef.current && !audioRef.current.paused) {
-            audioRef.current.pause();
+        const currentPreviewUrl = profile.preview_url ? `${profile.preview_url}?t=${cacheBuster}` : '';
+        if (playerBus.scope === 'preview' && playerBus.audioUrl === currentPreviewUrl && playerBus.playing) {
+            pause();
         }
-        setIsPlaying(false);
 
         onTest(profile.name);
-    }, [onTest, profile.name, setIsPlaying]);
+    }, [onTest, profile.name, profile.preview_url, cacheBuster, playerBus.scope, playerBus.audioUrl, playerBus.playing]);
 
     const handlePlaySample = useCallback((s: string) => {
         if (playingSample === s) {

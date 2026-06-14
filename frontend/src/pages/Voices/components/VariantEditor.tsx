@@ -53,11 +53,8 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
         localSpeed,
         setLocalSpeed,
         isPlaying,
-        setIsPlaying,
         playingSample,
-        cacheBuster,
         setCacheBuster,
-        audioRef,
         sampleAudioRef,
         handlePlayClick,
         handleGeneratePreview,
@@ -147,13 +144,6 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
 
     return (
         <div className={showControlsInline ? "" : "glass-panel animate-in"} style={showControlsInline ? {} : { padding: '0', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            <audio
-                ref={audioRef}
-                src={profile.preview_url ? `${profile.preview_url}?t=${cacheBuster}` : undefined}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-                onEnded={() => setIsPlaying(false)}
-            />
             <audio
                 ref={sampleAudioRef}
                 onPlay={() => {}} // Hook handles state

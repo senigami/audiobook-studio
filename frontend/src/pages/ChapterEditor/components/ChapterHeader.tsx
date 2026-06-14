@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
-import { RefreshCw, Zap, CheckCircle, Pencil, ChevronLeft, ChevronRight, Copy, MoreVertical } from 'lucide-react';
+import { RefreshCw, Zap, CheckCircle, Pencil, ChevronLeft, ChevronRight, Copy, MoreVertical, Play, Pause } from 'lucide-react';
+import { usePlayerBus, loadAndPlay, play, pause } from '@/store/playerBus';
 import type { Chapter, Job } from '@/types';
 import { PredictiveProgressBar, type PredictiveProgressBarProps } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import { buildSegmentProgressBarProps } from '@/components/progress/progressBarContracts';
@@ -367,6 +368,7 @@ export const ChapterScriptToolbar: React.FC<{
   onProgressBarDebugSnapshot, status, handoffState
 }) => {
   const devMode = useDevMode();
+  const playerBus = usePlayerBus();
   // Segment handoff queue: defer the bar swap until the outgoing bar visually reaches 100%.
   // When the page lifts the hook (handoffState provided), use that instance so the script
   // view's active-segment highlight shares the same display state. The internal hook must
@@ -396,31 +398,51 @@ export const ChapterScriptToolbar: React.FC<{
 
   return (
     <>
-        {status.hasChapterAudio && (
-            <div className="chapter-header__audio" style={{ display: 'flex', alignItems: 'center' }}>
-                {(() => {
-                    const audioPath = chapter.audio_file_path;
-                    if (!audioPath) {
-                      return (
-                        <audio controls key={chapter.id} style={{ height: '32px', maxWidth: '300px' }}>
-                            <source src={`/api/projects/${chapter.project_id}/chapters/${chapter.id}/assets/audio?filename=chapter.mp3`} />
-                            <source src={`/api/projects/${chapter.project_id}/chapters/${chapter.id}/assets/audio?filename=chapter.wav`} />
-                        </audio>
-                      );
-                    }
-                    const wavPath = audioPath.replace(/\.[^.]+$/, '.wav');
-                    const mp3Path = audioPath.replace(/\.[^.]+$/, '.mp3');
+        {status.hasChapterAudio && (() => {
+            const audioPath = chapter.audio_file_path || 'chapter.wav';
+            const audioUrl = `/api/projects/${chapter.project_id}/chapters/${chapter.id}/assets/audio?filename=${encodeURIComponent(audioPath)}`;
+            const isCurrentChapterAudio = playerBus.scope === 'chapter' && playerBus.audioUrl === audioUrl;
+            const isChapterPlaying = isCurrentChapterAudio && playerBus.playing;
 
-                    return (
-                        <audio controls key={chapter.id} style={{ height: '32px', maxWidth: '300px' }}>
-                            <source src={`/api/projects/${chapter.project_id}/chapters/${chapter.id}/assets/audio?filename=${audioPath}`} />
-                            {audioPath !== wavPath && <source src={`/api/projects/${chapter.project_id}/chapters/${chapter.id}/assets/audio?filename=${wavPath}`} />}
-                            {audioPath !== mp3Path && <source src={`/api/projects/${chapter.project_id}/chapters/${chapter.id}/assets/audio?filename=${mp3Path}`} />}
-                        </audio>
-                    );
-                })()}
-            </div>
-        )}
+            return (
+                <div className="chapter-header__audio" style={{ display: 'flex', alignItems: 'center' }}>
+                    <button
+                        onClick={() => {
+                            if (isCurrentChapterAudio) {
+                                if (isChapterPlaying) {
+                                    pause();
+                                } else {
+                                    play();
+                                }
+                            } else {
+                                loadAndPlay({
+                                    scope: 'chapter',
+                                    title: chapter.title || 'Chapter Audio',
+                                    subtitle: 'Preview',
+                                    audioUrl,
+                                });
+                            }
+                        }}
+                        className="btn-ghost"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            padding: '0.4rem 0.8rem',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border)',
+                            background: 'var(--surface)',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.85rem',
+                        }}
+                        title={isChapterPlaying ? 'Pause Chapter Audio' : 'Play Chapter Audio'}
+                    >
+                        {isChapterPlaying ? <Pause size={14} /> : <Play size={14} />}
+                        {isChapterPlaying ? 'Pause' : 'Play Audio'}
+                    </button>
+                </div>
+            );
+        })()}
 
         <button
             onClick={onQueue}

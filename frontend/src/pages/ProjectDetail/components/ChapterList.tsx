@@ -1,6 +1,7 @@
 import React from 'react';
 import { Reorder } from 'framer-motion';
-import { FileText, GripVertical, CheckSquare, Square, RefreshCw, Zap, Video, Download, Trash2, Loader2 } from 'lucide-react';
+import { FileText, GripVertical, CheckSquare, Square, RefreshCw, Zap, Video, Download, Trash2, Loader2, Play, Pause } from 'lucide-react';
+import { usePlayerBus, loadAndPlay, play, pause } from '@/store/playerBus';
 import { InlineEdit } from '@/components/forms/InlineEdit';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { StatusOrb } from '@/components/ui/StatusOrb';
@@ -50,6 +51,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
 }) => {
   const RECENT_COMPLETION_WINDOW_SECONDS = 60;
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null);
+  const playerBus = usePlayerBus();
 
   const pickActiveJob = React.useCallback((chapterId: string, includeRecentDone = false) => {
     const liveStatuses = new Set(['running', 'preparing', 'finalizing', 'queued']);
@@ -261,29 +263,51 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           tickMs={250}
                         />
                     </div>
-                ) : hasChapterAudio && !isAssemblyMode ? (
-                  <audio controls key={chap.id} style={{ height: '36px', width: '100%', maxWidth: '600px' }} onClick={e => e.stopPropagation()} preload="metadata">
-                    {(() => {
-                      const audioPath = chap.audio_file_path;
-                      if (!audioPath) {
-                        return (
-                          <>
-                            <source src={`/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=chapter.wav`} type="audio/wav" />
-                          </>
-                        );
-                      }
-                      const wavPath = audioPath.replace(/\.[^.]+$/, '.wav');
-                      const mp3Path = audioPath.replace(/\.[^.]+$/, '.mp3');
-                      return (
-                        <>
-                          <source src={`/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${audioPath}`} />
-                          {audioPath !== mp3Path && <source src={`/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${mp3Path}`} type="audio/mpeg" />}
-                          {audioPath !== wavPath && <source src={`/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${wavPath}`} type="audio/wav" />}
-                        </>
-                      );
-                    })()}
-                  </audio>
-                ) : (
+                ) : hasChapterAudio && !isAssemblyMode ? (() => {
+                    const audioPath = chap.audio_file_path || 'chapter.wav';
+                    const audioUrl = `/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${encodeURIComponent(audioPath)}`;
+                    const isCurrentChapterAudio = playerBus.scope === 'chapter' && playerBus.audioUrl === audioUrl;
+                    const isChapterPlaying = isCurrentChapterAudio && playerBus.playing;
+
+                    return (
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (isCurrentChapterAudio) {
+                            if (isChapterPlaying) {
+                              pause();
+                            } else {
+                              play();
+                            }
+                          } else {
+                            loadAndPlay({
+                              scope: 'chapter',
+                              title: chap.title || 'Chapter Audio',
+                              subtitle: `Chapter ${idx + 1}`,
+                              audioUrl,
+                            });
+                          }
+                        }}
+                        className="btn-ghost"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          padding: '0.4rem 0.8rem',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border)',
+                          background: 'var(--surface)',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.85rem',
+                          height: '36px',
+                        }}
+                        title={isChapterPlaying ? 'Pause Chapter Audio' : 'Play Chapter Audio'}
+                      >
+                        {isChapterPlaying ? <Pause size={14} /> : <Play size={14} />}
+                        {isChapterPlaying ? 'Pause' : 'Play Audio'}
+                      </button>
+                    );
+                  })() : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                     <span>{chap.word_count ?? 0} words</span>
                     <span>•</span>
