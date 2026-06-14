@@ -127,3 +127,19 @@
 - [ ] **Owner decisions pending in plan docs**: north star Q1–Q6 (`plans/site_experience_north_star.md`); sanitize per-category override granularity + check_output retry policy (`plans/plugin_contract_qa_hooks_plan.md`); Phase A execution gate (`plans/site_shell_phase_a_plan.md`).
 - [ ] **R6-T7 device verification needed**: responsive CSS fixes landed (VoiceModals min-width, manuscript workspace grid collapse at ≤768px) but need manual sweep at 1280/768/420px in a real browser (devtools or Playwright viewport). In particular: Studio CastPalette at 420px (flex-row with fixed CastPalette width could be tight), Voice Lab SamplesSection stacking order at 390px, and MobileNavDrawer Escape/focus-trap (R6-T9 confirmed aria-label only; Escape key + useFocusTrap missing — needs a targeted fix + test before shipping).
 - [ ] **MobileNavDrawer a11y gap**: `MobileNavDrawer.tsx` lacks `useFocusTrap` and Escape key handler (R6-T9 marked it as "confirmed already-correct" for aria-label only, but focus trap is absent). Fix: add `useFocusTrap(drawerRef, open)` and `onKeyDown Escape → onClose` per the existing pattern in `VoiceUtils.tsx` Drawer. Add a vitest test for Escape close + focus trap.
+
+
+## R6-T10 dead-code retirement — SUPERVISED FOLLOW-UP (deferred 2026-06-14)
+Remove the legacy ProjectDetail/ChapterEditor page chain now that all routes redirect into the
+book pipeline. Scope (verify each is import-dead in src first; do WITH the owner / a focused session
+that can run the full suite to confirm):
+- frontend/src/pages/ProjectDetail/ (ProjectDetailPage.tsx, ProjectViewRoute.tsx, components/*) —
+  no live route mounts ProjectDetailPage (App.tsx only references it in a comment).
+- frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx + components/CharacterSidebar.tsx — imported
+  only by ProjectDetailPage. KEEP EditorTabs.tsx (shared with the live useStudioChapter hook) and
+  ScriptView.tsx (used across Studio). KEEP NarratorCard.tsx (consumed by frontend/src/demo).
+- Delete the 14 coupled test files (ProjectView*, ChapterEditor*, EditorTabs CharacterSidebar specs,
+  ProjectViewTestHelpers, ProjectViewRoute test) per R-D since their code is removed.
+- Verify: build + lint + FULL vitest suite green (run carefully, capped workers, watch memory).
+Reason deferred: tangled multi-file + test-coupled removal; full-suite verification needed; dead code
+is unreachable/harmless so no urgency. Cosmetic cleanliness only.

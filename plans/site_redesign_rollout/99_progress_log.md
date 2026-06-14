@@ -135,6 +135,24 @@ TestSection introduced a local new Audio() (ADR-0010 violation) -> routed throug
 Integrations config rows are placeholders/omitted (no fake controls). Gates: build pass, lint
 clean, 111 targeted tests pass across the R5 areas. R5 APPROVED.
 
+2026-06-14 R6 T1-T9 + T11 COMPLETE (orchestrator-driven, sequential memory-safe batches):
+parity audits fixed 2 dark-mode-broken gradients/colors; T6 capability inventory 120/120 verified
+(found+fixed 3 real re-home gaps: Queue Remaining button unwired, engine-warning banner in wrong
+stage, chapter-title inline rename unconnected); T7 responsive (modal min-widths, manuscript grid
+collapse); T8 dark token fixes (Review/VoiceLab/catalog badge); T9 a11y (PluginTrustModal got
+role=dialog+focus-trap+Escape, +N chip aria-expanded, queue button aria-expanded). Gates green
+throughout (build+lint+targeted tests; full suite NOT run per memory-leak constraint).
+
+2026-06-14 R6-T10 (dead-code retirement) DEFERRED to a supervised follow-up — rationale: the only
+real dead code is the ProjectDetail + ChapterEditor page chain (ProjectDetailPage, ChapterEditorPage,
+CharacterSidebar, ProjectDetail/components/*) which is reachable by NO live route (all redirect away)
+BUT is coupled to 14 test files and shares EditorTabs with the LIVE useStudioChapter hook; NarratorCard
+is still consumed by the demo build (frontend/src/demo) so it cannot be deleted. Removing the chain +
+its tests unsupervised would require a full-suite run to prove safety (the run the owner flagged for
+gigs-of-RAM leaks). Dead code here is harmless (unreachable). Logged as a precise follow-up in
+master_agnostic_tasks.md for a supervised session. The execution contract explicitly permits
+ProjectDetail to remain as a compatibility boundary.
+
 ## Found bugs (do not fix mid-phase — triaged at R6)
 
 - 2026-06-13 R3 Studio, owner-found, FIXED same day (commit below):
