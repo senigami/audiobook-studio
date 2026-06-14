@@ -110,6 +110,20 @@ via build/lint + targeted files. R4 APPROVED.
 2026-06-14 R5-T13 done 00fd7c76
 2026-06-14 R5-T14 done (no-op verify) 00fd7c76
 
+2026-06-14 R5 COMPLETE + boundary review (orchestrator). All 14 tasks (T1-T14) landed across
+4 sequential clusters (memory-safe: targeted tests + --maxWorkers=1, no full-suite runs).
+Voices catalog (pill system + tints, voicePhase CTA, catalog cards via player bus, header
++ Local/Discover placeholder); Voice Lab page (/voices/:id route, phase stepper, re-homed
+SampleManager/VariantEditor/Speed/Move/Script, icon upload + copy-prompt C6, test strip/export/
+delete); Engines page (TTS server diagnostics, calibration chip + reset in header, browse-store
+PLANNED placeholder); Integrations re-home verified + tested; Settings thinned to General/About/
+Developer with /settings/engines->/engines and /settings/api->/integrations REDIRECTS (resolves
+the R1 carryover); Activity already complete (no-op, verified). ORCHESTRATOR CAUGHT + FIXED: R5-T8
+TestSection introduced a local new Audio() (ADR-0010 violation) -> routed through player bus
+(commit eee1c701); single-owner audit now clean. Deviations (logged): store browse cards and
+Integrations config rows are placeholders/omitted (no fake controls). Gates: build pass, lint
+clean, 111 targeted tests pass across the R5 areas. R5 APPROVED.
+
 ## Found bugs (do not fix mid-phase — triaged at R6)
 
 - 2026-06-13 R3 Studio, owner-found, FIXED same day (commit below):

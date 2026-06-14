@@ -8,7 +8,7 @@
  */
 import React, { useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import type { VoiceMetadata, VoiceAttributes } from '@/types';
+import type { VoiceMetadata } from '@/types';
 
 // ---------------------------------------------------------------------------
 // Pill category types
