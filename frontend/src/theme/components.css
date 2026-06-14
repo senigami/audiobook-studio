@@ -2306,6 +2306,21 @@
   border-color: var(--text-muted);
 }
 
+/* Primary play/pause button is slightly larger to anchor the VCR group */
+.player-btn-primary {
+  width: 36px;
+  height: 36px;
+}
+
+/* Thin vertical rule between the controls cluster and the info/seek area */
+.player-bar-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+  flex-shrink: 0;
+  align-self: center;
+}
+
 .player-bar-info {
   display: flex;
   align-items: center;

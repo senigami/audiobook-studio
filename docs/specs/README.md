@@ -6,7 +6,7 @@ When a spec and the running code disagree, that is a bug in one or the other; th
 to update the spec (with a version bump and changelog note) or to correct the code. Silently
 accepting the divergence is not acceptable.
 
-Last updated: 2026-06-13
+Last updated: 2026-06-14
 
 ---
 
@@ -16,7 +16,7 @@ Last updated: 2026-06-13
 |------|-------------|---------|
 | [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md) | Shared app shell, global chrome, routed book pipeline, Studio/Review stage detail, platform/manage split, frontend state ownership, legacy redirects | 1.4.0 |
 | [design-system.md](design-system.md) | Design tokens, theming (System/Light/Dark, no-flash), type scale, voice-pill tints, shared UI primitives, responsive breakpoints, accessibility baseline | 1.0.0 |
-| [audio-player.md](audio-player.md) | Global single-owner audio player: `playerBus` store, one `<audio>` in the `PlayerBar`, consumers-as-adapters, waveform/follow-along (target — Phase R4) | 1.0.0 |
+| [audio-player.md](audio-player.md) | Global single-owner audio player: `playerBus` store, one `<audio>` in `PlayerBar`, full VCR transport, scope toggle (altScope/switchScope), wavesurfer.js waveform strip, Review panel delegates transport to bar (active — R4+R7) | 1.1.0 |
 | [live-events.md](live-events.md) | WebSocket live event topics, envelope schema, reconnect/bootstrap contract | 1.1.0 |
 | [queue-jobs.md](queue-jobs.md) | Job statuses, allowed transitions, two-store model, terminal-reset semantics, broadcast routing, presentation surfaces | 1.2.0 |
 | [text-processing.md](text-processing.md) | Six-stage text pipeline (clean→split→pack→group→assign→render), invariants on packing and grouping | 1.1.1 |

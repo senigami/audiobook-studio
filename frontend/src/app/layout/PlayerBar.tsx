@@ -147,7 +147,7 @@ export const PlayerBar: React.FC = () => {
       </div>
 
       <div className="player-bar-content">
-        <div className="player-bar-controls">
+        <div className="player-bar-controls" role="group" aria-label="Playback controls">
           <button
             type="button"
             className="player-btn"
@@ -204,6 +204,8 @@ export const PlayerBar: React.FC = () => {
             <Square size={14} />
           </button>
         </div>
+
+        <div className="player-bar-divider" aria-hidden="true" />
 
         <div className="player-bar-info">
           <div className="player-bar-title-group">

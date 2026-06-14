@@ -153,6 +153,13 @@ gigs-of-RAM leaks). Dead code here is harmless (unreachable). Logged as a precis
 master_agnostic_tasks.md for a supervised session. The execution contract explicitly permits
 ProjectDetail to remain as a compatibility boundary.
 
+2026-06-14 R7-T1 done (VCR transport: skip() bus helper, 5-button layout, skim-back/fwd, aria labels, disabled prev/next) HEAD
+2026-06-14 R7-T2 done (scope toggle: altScope/switchScope, pill toggle vs passive badge, T2 latency caveat: registers first rendered segment as altScope so toggle appears only when a segment has audio) HEAD
+2026-06-14 R7-T3 done (wavesurfer.js waveform strip: lazy import, WaveformStrip in expansion slot, Wave toggle, persisted pref, seek-on-click, position reflection) HEAD
+2026-06-14 R7-T4 done (Review panel transport removed; FollowAlongPanel is text-tracking + re-render surface only; PlayerBar is sole transport; visual polish: primary btn size, divider, controls role=group; spec 1.0.0→1.1.0 active; ADR-0010 scope-model note; progress log updated) HEAD
+
+2026-06-14 R7 COMPLETE. T1-T4 done. T2 caveat: scope-toggle registers FIRST rendered segment as altScope (best-effort); if no segment has audio, only the passive chapter badge shows. Build+lint+targeted tests green; single-owner audit clean (grep matches only PlayerBar.tsx + VoiceDropzone duration-probe).
+
 ## Found bugs (do not fix mid-phase — triaged at R6)
 
 - 2026-06-13 R3 Studio, owner-found, FIXED same day (commit below):

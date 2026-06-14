@@ -1,11 +1,4 @@
-import { Play, Pause, RotateCcw, RotateCw } from 'lucide-react';
-
 interface FollowAlongPanelProps {
-  position: number;
-  duration: number;
-  isPlaying: boolean;
-  togglePlayPause: () => void;
-  seekBy: (seconds: number) => void;
   chapterTitle: string;
   activeSegmentId: string | null;
   totalSegments: number;
@@ -18,11 +11,6 @@ interface FollowAlongPanelProps {
 }
 
 export function FollowAlongPanel({
-  position,
-  duration,
-  isPlaying,
-  togglePlayPause,
-  seekBy,
   chapterTitle,
   activeSegmentId,
   totalSegments,
@@ -32,14 +20,6 @@ export function FollowAlongPanel({
   reRenderError,
   reRenderProgress,
 }: FollowAlongPanelProps) {
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  const progressPercent = duration > 0 ? (position / duration) * 100 : 0;
-
   return (
     <div
       className="follow-along-panel"
@@ -62,111 +42,6 @@ export function FollowAlongPanel({
         <strong>Chapter:</strong> {chapterTitle || 'No Chapter Selected'}
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '12px',
-          margin: '12px 0',
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => seekBy(-5)}
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: '50%',
-            width: '32px',
-            height: '32px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            color: 'var(--text-secondary)',
-          }}
-          title="Rewind 5s"
-          aria-label="Rewind 5 seconds"
-        >
-          <RotateCcw size={16} />
-        </button>
-
-        <button
-          type="button"
-          onClick={togglePlayPause}
-          style={{
-            background: 'var(--accent)',
-            border: 'none',
-            borderRadius: '50%',
-            width: '40px',
-            height: '40px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            color: 'var(--text-on-accent)',
-          }}
-          aria-label={isPlaying ? 'Pause' : 'Play'}
-          title={isPlaying ? 'Pause' : 'Play'}
-        >
-          {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => seekBy(5)}
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: '50%',
-            width: '32px',
-            height: '32px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            color: 'var(--text-secondary)',
-          }}
-          title="Forward 5s"
-          aria-label="Forward 5 seconds"
-        >
-          <RotateCw size={16} />
-        </button>
-      </div>
-
-      {/* Progress track */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <div
-          style={{
-            height: '6px',
-            background: 'var(--border)',
-            borderRadius: '3px',
-            overflow: 'hidden',
-            position: 'relative',
-          }}
-        >
-          <div
-            style={{
-              width: `${progressPercent}%`,
-              height: '100%',
-              background: 'var(--accent)',
-            }}
-          />
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontSize: '0.65rem',
-            color: 'var(--text-muted)',
-          }}
-        >
-          <span>{formatTime(position)}</span>
-          <span>{formatTime(duration)}</span>
-        </div>
-      </div>
-
       {activeSegmentId && (
         <div
           style={{
@@ -174,7 +49,7 @@ export function FollowAlongPanel({
             color: 'var(--text-muted)',
             borderTop: '1px solid var(--border)',
             paddingTop: '8px',
-            marginTop: '8px',
+            marginTop: '4px',
           }}
         >
           <div>

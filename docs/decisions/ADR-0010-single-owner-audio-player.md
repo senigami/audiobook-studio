@@ -37,5 +37,6 @@ The contract is specified in `docs/specs/audio-player.md`.
 
 ### Neutral
 
-- Waveform rendering (wavesurfer.js) is deferred; the bar reserves a height-expansion slot but adds no dependency until later.
+- Waveform rendering (wavesurfer.js) shipped in R7: `WaveformStrip` lazy-loaded, toggle persisted, seek-on-click via `bus.seek()`.
 - Intra-section highlight precision in Review is limited by the absence of per-word timing data — chapter audio is sequenced from per-segment files, so the follow-along highlight tracks at segment granularity.
+- **R7 scope model note (2026-06-14):** the `altScope` field + `switchScope()` enable a Segment↔Chapter toggle when both sources are available for the same context. The Review stage registers the first rendered segment as an `altScope` when loading a chapter (best-effort: no fabricated URL). If only one scope exists, the passive badge renders instead. This is a minimal scope model; cycling through more than two scopes is not yet supported.

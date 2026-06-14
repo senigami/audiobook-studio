@@ -44,12 +44,8 @@ export function ReviewStage() {
   const {
     activeSegmentId,
     isPlaying,
-    position,
-    duration,
     playChapter,
     seekToSegment,
-    togglePlayPause,
-    seekBy,
   } = useReviewPlayback({
     chapterId: resolvedChapterId,
     segments,
@@ -199,11 +195,6 @@ export function ReviewStage() {
         {/* Sidebar panel for FollowAlong controls */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <FollowAlongPanel
-            position={position}
-            duration={duration}
-            isPlaying={isPlaying}
-            togglePlayPause={togglePlayPause}
-            seekBy={seekBy}
             chapterTitle={selectedChapter?.title || ''}
             activeSegmentId={activeSegmentId}
             totalSegments={segments.length}
