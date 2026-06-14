@@ -40,7 +40,8 @@ describe('TopBar', () => {
     fireEvent.click(queueButton);
 
     expect(onToggleQueue).toHaveBeenCalledTimes(1);
-    expect(queueButton).toHaveAttribute('aria-pressed', 'true');
+    // TopBar uses aria-expanded (toggle drawer), not aria-pressed
+    expect(queueButton).toHaveAttribute('aria-expanded', 'true');
     expect(within(queueButton).getByText('2')).toBeTruthy();
   });
 

@@ -217,7 +217,8 @@ describe('App', () => {
         expect(screen.getByTestId('layout-root')).toBeTruthy()
     })
 
-    const queueTab = screen.getAllByRole('button', { name: 'Queue' })[0]
+    // TopBar queue button now uses aria-label "Open queue drawer" (R6-T9 a11y pass)
+    const queueTab = screen.getAllByRole('button', { name: /open queue drawer/i })[0]
     fireEvent.click(queueTab)
 
     await waitFor(() => {
@@ -227,8 +228,9 @@ describe('App', () => {
     const voicesTab = screen.getAllByRole('button', { name: 'Voices' })[0]
     fireEvent.click(voicesTab)
 
+    // Voices page (R5 redesign) no longer has an <h2>; assert the "My Voices" tab pill instead
     await waitFor(() => {
-        expect(screen.getByText('Voices', { selector: 'h2' })).toBeTruthy()
+        expect(screen.getByText('My Voices')).toBeTruthy()
     })
   })
 
@@ -472,9 +474,9 @@ describe('App', () => {
     const voicesTab = screen.getAllByRole('button', { name: 'Voices' })[0]
     fireEvent.click(voicesTab)
 
-    // The lazy chunk resolves and the Voices heading becomes visible
+    // Voices page (R5 redesign) renders "My Voices" tab pill instead of an <h2>
     await waitFor(() => {
-      expect(screen.getByText('Voices', { selector: 'h2' })).toBeTruthy()
+      expect(screen.getByText('My Voices')).toBeTruthy()
     })
   })
 
