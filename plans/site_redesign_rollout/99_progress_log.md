@@ -312,3 +312,55 @@ Already responsive (verified by reading CSS):
 - AppShell bottom padding: `calc(3rem + 56px)` when PlayerBar visible — no content overlap.
 
 Items needing device verification (logged to master_agnostic_tasks.md): Studio CastPalette at 420px, MobileNavDrawer Escape/focus-trap gap.
+
+## OWNER VALIDATION — please confirm in a running app (backend + a real book)
+
+Automated checks (build, lint, 1315-test suite, single-owner audit, capability inventory 120/120)
+all pass, but these need your eyes / a live backend the local preview doesn't have:
+
+**Shell & navigation**
+1. Rail collapse + hover-overlay; theme toggle bottom-left flips light/dark and persists; the
+   footer stays pinned at the viewport bottom on tall pages (Library/Engines/Settings).
+2. Rail active-state is consistent across nav items, book stages, and chapters (one signature).
+3. Queue drawer opens from anywhere without losing your place; Activity page shows now/history/stats.
+
+**Book pipeline**
+4. Open a book → lands in Studio; the 5 stage tabs work and sync with the rail; /project & /chapter
+   old URLs redirect in.
+5. Studio: book view is primary (prose + speaker underlines), the Cast palette paints voices onto
+   sentences, and the "Narrator (default)" brush UN-assigns a sentence back to narrator.
+6. Studio segment/analysis count shows RENDER GROUPS (e.g. 4), not raw sentences (e.g. 9).
+7. Casting: "Narrator (default)" is the pinned, non-deletable FIRST row; changing its voice sets the
+   project default and PERSISTS across reload. (R2 spot-confirm.)
+8. Publish: book-info edits, cover change, assembly select→confirm, backups — all PERSIST on reload;
+   audiobook downloads work. (R2 spot-confirm.)
+9. Manuscript: Draft chapters edit freely; a rendered chapter requires the Edit-text unlock warning;
+   Focus mode; Queue Remaining button (re-homed in R6).
+
+**Audio / player bar (needs rendered audio)**
+10. ONE bottom player bar owns ALL playback; it's hidden when nothing is loaded; scope chip; seek +
+    skip-back actually move the playhead; playing a voice sample/preview, a chapter, and a segment
+    never overlap (single owner).
+11. Review: load a rendered chapter → text follows playback (current sentence highlighted, tap to
+    seek); add a §N annotation and confirm it persists per-chapter (not bleeding across chapters);
+    "Re-render section" shows progress and surfaces errors.
+
+**Platform pages**
+12. Voices: catalog cards (icon, attribute pills, ▶ preview, phase CTA, overflow); click a card →
+    Voice Lab page (stepper, samples, variants, icon upload + Copy icon prompt, test strip, export,
+    delete). Discover tab is a "planned" placeholder.
+13. Engines page: server diagnostics, calibration chip + reset, verify/run-test/install/uninstall;
+    Browse store is a "planned" placeholder. XTTS + Mixed verify successfully (fixed this session).
+14. Integrations page = the API guide. Settings is thin (General/About/Developer);
+    /settings/engines and /settings/api redirect to the new pages.
+
+**Dark mode**: toggle dark and re-check the new surfaces (player bar, Review, Voice Lab, catalog,
+Engines, Integrations) — report any light-only leftovers.
+
+**Known deferred / not done (intentional)**
+- R6-T10 dead-code retirement (ProjectDetail/ChapterEditor chain) — deferred to a SUPERVISED session
+  (needs a full-suite run to confirm safe); it's unreachable/harmless. See master_agnostic_tasks.md.
+- Wiki screenshots not recaptured (prose updated; 12 stale images listed in wiki/Changelog.md).
+- Discover/store/waveform/taxonomy-v2 are "planned" placeholders by design.
+- TestSection / a couple of confirms use window.confirm rather than ConfirmModal (acceptable; could
+  unify later).
