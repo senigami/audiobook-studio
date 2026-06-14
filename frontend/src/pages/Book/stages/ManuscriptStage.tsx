@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { api } from '@/api';
 import { AddChapterModal } from '@/pages/Book/components/AddChapterModal';
 import { ChapterTable } from '@/pages/Book/components/ChapterTable';
@@ -17,6 +18,7 @@ export function ManuscriptStage() {
     chapters,
     jobs,
     projectVoiceStatus,
+    effectiveProjectVoice,
     reload,
   } = useBookDataContext();
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(chapters[0]?.id ?? null);
@@ -67,6 +69,16 @@ export function ManuscriptStage() {
 
   return (
     <section className="manuscript-stage" aria-label="Manuscript">
+      {!projectVoiceStatus.enabled && projectVoiceStatus.message && (
+        <div className="manuscript-stage__engine-warning" role="alert">
+          <AlertTriangle size={18} aria-hidden="true" />
+          <div>
+            <strong>Project Default Voice Engine Unavailable</strong>
+            <span>{projectVoiceStatus.message}</span>
+          </div>
+        </div>
+      )}
+
       <div className="manuscript-stage__actions">
         <button
           type="button"
@@ -74,6 +86,15 @@ export function ManuscriptStage() {
           onClick={() => setFocusMode((current) => !current)}
         >
           {focusMode ? 'Exit focus' : 'Focus'}
+        </button>
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={() => void actions.handleQueueAllUnprocessed(chapters, jobs, effectiveProjectVoice)}
+          disabled={actions.submitting || !projectVoiceStatus.enabled}
+          title={!projectVoiceStatus.enabled ? 'All TTS engines are disabled in Settings' : 'Queue all unprocessed chapters'}
+        >
+          Queue Remaining
         </button>
         <button
           type="button"
