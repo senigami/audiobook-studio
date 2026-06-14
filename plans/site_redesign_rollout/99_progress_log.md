@@ -371,3 +371,16 @@ Engines, Integrations) — report any light-only leftovers.
 - Discover/store/waveform/taxonomy-v2 are "planned" placeholders by design.
 - TestSection / a couple of confirms use window.confirm rather than ConfirmModal (acceptable; could
   unify later).
+
+## OWNER VALIDATION — R7 unified player (added 2026-06-14)
+15. Player bar now has FULL VCR transport: ⏮ prev · ⏪ skim-back 10s · ▶/⏸ · ⏩ skim-fwd 10s · ⏭ next
+    + stop + seek + time. Confirm skim buttons move the playhead.
+16. "Wave" toggle on the bar reveals a wavesurfer.js waveform strip (expands bar height); click the
+    waveform to seek; toggle state persists across reloads (default off). wavesurfer is lazy-loaded
+    (separate chunk) and BOUND to the single <audio> element (no second audio owner).
+17. Scope toggle (Segment ↔ Chapter): appears only when a chapter is rendered AND a segment also has
+    rendered audio; clicking swaps the loaded audio. CAVEAT (v1): it registers the FIRST rendered
+    segment, not the scroll-highlighted one — fine for validating the mechanism; refine later if you
+    want it to track the active segment.
+18. Review panel no longer has its own competing transport — playback is driven entirely by the
+    global bar (single owner). The panel keeps text follow-along + tap-to-seek + Regenerate + Load&Play.

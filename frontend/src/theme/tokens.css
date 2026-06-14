@@ -130,6 +130,17 @@
   --progress-failed-fill: linear-gradient(90deg, rgba(239, 68, 68, 0.82) 0%, rgba(185, 28, 28, 0.98) 100%);
   --progress-failed-glow: rgba(239, 68, 68, 0.40);
   --progress-queued-fill: rgba(148, 163, 184, 0.12);
+
+  /* Waveform strip tokens — R7-T3 */
+  --color-wave:          rgba(100, 116, 139, 0.55);  /* inactive bars (light) */
+  --color-wave-progress: var(--accent);               /* played-region fill */
+  --color-wave-cursor:   var(--accent);               /* playhead cursor */
+  --color-wave-bg:       transparent;                 /* strip background */
+  --color-wave-btn-bg:   var(--surface-alt);          /* Wave toggle inactive bg */
+  --color-wave-btn-border: var(--border);             /* Wave toggle inactive border */
+  --color-wave-btn-active-bg: var(--accent-tint-bg);  /* Wave toggle active bg */
+  --color-wave-btn-active-border: var(--accent-tint-border); /* Wave toggle active border */
+  --color-wave-btn-active-text: var(--accent);        /* Wave toggle active text */
 }
 
 [data-theme="dark"] {
@@ -246,4 +257,12 @@
   --progress-badge-default:    rgba(148, 163, 184, 0.15);
   --progress-badge-border:     rgba(255, 255, 255, 0.08);
   --progress-queued-fill:      rgba(148, 163, 184, 0.1);
+
+  /* Waveform strip tokens — dark overrides — R7-T3 */
+  --color-wave:          rgba(148, 163, 184, 0.45);  /* inactive bars (dark) */
+  --color-wave-btn-bg:   var(--surface-alt);
+  --color-wave-btn-border: var(--border);
+  --color-wave-btn-active-bg: var(--accent-tint-bg);
+  --color-wave-btn-active-border: var(--accent-tint-border);
+  --color-wave-btn-active-text: var(--accent);
 }
