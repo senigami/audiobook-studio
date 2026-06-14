@@ -178,6 +178,7 @@ export const VoicePillRow: React.FC<VoicePillRowProps> = ({ pills, max = 0 }) =>
                 <button
                     type="button"
                     aria-label={`Show ${overflow} more attributes`}
+                    aria-expanded={false}
                     onClick={() => setExpanded(true)}
                     style={{
                         display: 'inline-flex',

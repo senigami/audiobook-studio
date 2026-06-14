@@ -102,7 +102,8 @@ export function TopBar({
         type="button"
         className="top-bar__queue-btn"
         onClick={onToggleQueue}
-        aria-pressed={Boolean(isQueueOpen)}
+        aria-expanded={Boolean(isQueueOpen)}
+        aria-label={isQueueOpen ? 'Close queue drawer' : 'Open queue drawer'}
       >
         <Zap aria-hidden="true" size={16} />
         <span>Queue</span>

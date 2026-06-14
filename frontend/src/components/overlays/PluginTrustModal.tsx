@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useId, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldAlert, X } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 export interface PluginPreviewInfo {
   engine_id: string;
@@ -30,6 +31,10 @@ export const PluginTrustModal: React.FC<PluginTrustModalProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  useFocusTrap(dialogRef, isOpen && preview !== null);
+
   if (!preview) return null;
 
   const remoteLines = preview.requirements.filter(isRemoteSource);
@@ -66,6 +71,11 @@ export const PluginTrustModal: React.FC<PluginTrustModalProps> = ({
 
           {/* Modal */}
           <motion.div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -117,7 +127,7 @@ export const PluginTrustModal: React.FC<PluginTrustModalProps> = ({
 
             {/* Title + body */}
             <div>
-              <h3 style={{ margin: '0 0 0.4rem 0', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              <h3 id={titleId} style={{ margin: '0 0 0.4rem 0', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                 {mode === 'import' ? 'Trust this plugin?' : 'Install dependencies?'}
               </h3>
               <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
