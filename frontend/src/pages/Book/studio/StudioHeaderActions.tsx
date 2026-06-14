@@ -50,7 +50,7 @@ export function StudioHeaderActions({
     <div className="studio-header-actions" aria-label="Chapter navigation actions">
       {hasUnsavedChanges && (
         <span className="studio-header-actions__chip">
-          1 unsaved text edit
+          Unsaved text changes
         </span>
       )}
 

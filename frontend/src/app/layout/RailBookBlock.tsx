@@ -49,6 +49,9 @@ export function RailBookBlock({ compact = false }: RailBookBlockProps) {
   const chapters = identity.chapters || [];
   const jobs = identity.jobs || {};
   const actions = identity.actions || {};
+  const activeChapterId = showChapters
+    ? new URLSearchParams(location.search).get('chapter') ?? chapters[0]?.id ?? null
+    : null;
 
   return (
     <section className="rail-book-block" aria-label="Current book">
@@ -82,49 +85,62 @@ export function RailBookBlock({ compact = false }: RailBookBlockProps) {
           {chapters.map((chapter, index) => {
             const activeJob = pickChapterJob(chapter, identity.id, jobs);
             const queuePending = !activeJob && chapter.audio_status === 'processing';
+            const selected = activeChapterId === chapter.id;
 
             return (
-              <div key={chapter.id} className="rail-book-block__chapter-wrap" data-testid={`rail-book-row-${chapter.id}`}>
+              <div
+                key={chapter.id}
+                className={selected
+                  ? 'rail-book-block__chapter-wrap rail-book-block__chapter-wrap--active'
+                  : 'rail-book-block__chapter-wrap'}
+                data-testid={`rail-book-row-${chapter.id}`}
+              >
                 <button
                   type="button"
-                  className="rail-book-block__chapter"
+                  className={selected
+                    ? 'rail-book-block__chapter rail-book-block__chapter--active'
+                    : 'rail-book-block__chapter'}
                   onClick={() => navigate(`/book/${identity.id}/studio?chapter=${chapter.id}`)}
                   aria-label={`${index + 1}. ${chapter.title}`}
                 >
-                  <span className="rail-book-block__chapter-index">{index + 1}</span>
-                  <span className="rail-book-block__chapter-title">{chapter.title}</span>
-                  <StatusOrb
-                    chap={chapter}
-                    activeJob={activeJob}
-                    queuePending={queuePending}
-                    doneSegments={chapter.done_segments_count}
-                    totalSegments={chapter.total_segments_count}
-                  />
+                  <div className="rail-book-block__chapter-main">
+                    <StatusOrb
+                      chap={chapter}
+                      activeJob={activeJob}
+                      queuePending={queuePending}
+                      doneSegments={chapter.done_segments_count}
+                      totalSegments={chapter.total_segments_count}
+                    />
+                    <span className="rail-book-block__chapter-index">{index + 1}.</span>
+                    <span className="rail-book-block__chapter-title">{chapter.title}</span>
+                  </div>
                 </button>
 
-                <div className="rail-book-block__chapter-actions">
-                  <ActionMenu
-                    items={[
-                      {
-                        label: 'Queue',
-                        icon: RefreshCw,
-                        disabled: identity.anyEnginesEnabled === false,
-                        onClick: () => actions.onQueueChapter?.(chapter),
-                      },
-                      {
-                        label: 'Reset audio',
-                        icon: RefreshCw,
-                        onClick: () => actions.onResetAudio?.(chapter.id),
-                      },
-                      {
-                        label: 'Delete',
-                        icon: Trash2,
-                        isDestructive: true,
-                        onClick: () => actions.onDeleteChapter?.(chapter.id),
-                      },
-                    ]}
-                  />
-                </div>
+                {selected ? (
+                  <div className="rail-book-block__chapter-actions">
+                    <ActionMenu
+                      items={[
+                        {
+                          label: 'Queue',
+                          icon: RefreshCw,
+                          disabled: identity.anyEnginesEnabled === false,
+                          onClick: () => actions.onQueueChapter?.(chapter),
+                        },
+                        {
+                          label: 'Reset audio',
+                          icon: RefreshCw,
+                          onClick: () => actions.onResetAudio?.(chapter.id),
+                        },
+                        {
+                          label: 'Delete',
+                          icon: Trash2,
+                          isDestructive: true,
+                          onClick: () => actions.onDeleteChapter?.(chapter.id),
+                        },
+                      ]}
+                    />
+                  </div>
+                ) : null}
 
                 {activeJob ? (
                   <div

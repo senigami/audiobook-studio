@@ -81,10 +81,10 @@ export function StudioStage() {
     scriptViewLoading,
     segments,
     characters,
-    handleGenerate,
+    handleGenerateWithFallback,
+    firstSpanGroupNumber,
     handleScriptAssign,
     handleScriptAssignRange,
-    effectiveSelectedVoice,
     effectivePendingSegmentIds,
     chapterRenderRenderingSegmentIds,
     chapterRenderQueuedSegmentIds,
@@ -235,7 +235,7 @@ export function StudioStage() {
               borderRadius: 999,
               border: '1px solid color-mix(in srgb, var(--accent) 35%, transparent)',
               background: 'var(--surface)',
-              boxShadow: '0 8px 24px rgba(15, 23, 42, 0.08)',
+              boxShadow: 'var(--shadow-lg)',
               fontSize: '0.7rem',
               fontWeight: 700,
               color: 'var(--text-primary)',
@@ -251,7 +251,8 @@ export function StudioStage() {
               engines={engines}
               speakerProfiles={speakerProfiles}
               speakers={speakers}
-              onGenerateBatch={(spanIds) => void handleGenerate(spanIds, effectiveSelectedVoice, () => {})}
+              onGenerateBatch={(spanIds) => void handleGenerateWithFallback(spanIds)}
+              groupNumberForSpan={firstSpanGroupNumber}
               pendingSpanIds={effectivePendingSegmentIds}
               renderingSpanIds={chapterRenderRenderingSegmentIds}
               queuedSpanIds={chapterRenderQueuedSegmentIds}

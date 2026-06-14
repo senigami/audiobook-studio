@@ -2139,3 +2139,16 @@
 - Added a persistent drag resize handle to the shared left rail so widening the sidebar shrinks the main column instead of overlaying it.
 - Stored the expanded rail width in the shared rail state helper, updated the shell shell/spec contract, and kept collapse state independent.
 - Verified focused `NavRail` tests, full frontend Vitest, frontend lint, frontend build, `git diff --check`, and a live browser drag check against `http://127.0.0.1:5175/`.
+
+# 2026-06-13 - Shared book rail chapter rows aligned to mock
+
+- Reordered the contextual book rail chapter rows so the `StatusOrb` appears before the chapter number/title, matching the mock hierarchy more closely.
+- Simplified the active row highlight to a tinted left bar + backshade, removed the inter-row separator, and limited the chapter action menu to the selected row.
+- Verified focused `RailBookBlock` tests, full frontend Vitest, frontend lint, and frontend build; a live browser pass hit a local Chromium permission issue during launch, so the visual check was partially verified by tests rather than screenshot.
+
+# 2026-06-13 - Manuscript analysis footer compacted
+
+- Removed the empty bottom footer from the chapter manuscript panel when no commit action is available, which trims the extra gap below the analysis strip.
+- Kept the analysis summary inline and left the segment count hidden when unavailable so the row can collapse cleanly instead of wrapping.
+- Verified focused `ChapterTextPanel` coverage alongside `RailBookBlock`, full frontend Vitest, frontend lint, and frontend build.
+- Added a dark-theme `StudioStage` render assertion so the remaining design-system parity check is covered by tests instead of a manual browser pass.

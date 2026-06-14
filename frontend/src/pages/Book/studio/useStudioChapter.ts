@@ -777,6 +777,7 @@ export function useStudioChapter({
     handleScriptAssignRange,
     handleUpdateCharacterColor,
     handleGenerate,
+    handleGenerateWithFallback,
     executeQueue,
     editorTab,
     setEditorTab,

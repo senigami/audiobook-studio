@@ -76,7 +76,7 @@ describe('RailBookBlock', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/book/book-1/studio']}>
+      <MemoryRouter initialEntries={['/book/book-1/studio?chapter=chapter-1']}>
         <LocationProbe />
         <RailBookBlock />
       </MemoryRouter>,
@@ -84,6 +84,15 @@ describe('RailBookBlock', () => {
 
     expect(screen.getByRole('link', { name: 'Studio' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Casting' })).toHaveAttribute('href', '/book/book-1/casting');
+    const row = screen.getByTestId('rail-book-row-chapter-1');
+    expect(row).toHaveClass('rail-book-block__chapter-wrap--active');
+
+    const main = row.querySelector('.rail-book-block__chapter-main');
+    expect(main).not.toBeNull();
+    expect(main?.children[0]).toHaveAttribute('aria-label', expect.stringContaining('Rendering'));
+    expect(main?.children[1]).toHaveTextContent('1.');
+    expect(main?.children[2]).toHaveTextContent('Opening Chapter');
+
     expect(screen.getByText('Opening Chapter')).toBeInTheDocument();
     expect(screen.getByLabelText(/Rendering/i)).toBeInTheDocument();
     expect(screen.getByTestId('rail-book-progress-chapter-1')).toBeInTheDocument();
@@ -91,7 +100,6 @@ describe('RailBookBlock', () => {
     fireEvent.click(screen.getByRole('button', { name: /Opening Chapter/i }));
     expect(screen.getByTestId('location')).toHaveTextContent('/book/book-1/studio?chapter=chapter-1');
 
-    const row = screen.getByTestId('rail-book-row-chapter-1');
     fireEvent.click(within(row).getByRole('button', { name: 'More actions' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Queue' }));
     expect(onQueueChapter).toHaveBeenCalledWith(chapter);

@@ -241,12 +241,12 @@ rail chapter list (`?chapter=` param) — do NOT rebuild an in-page chapter rail
 
 ## Acceptance checklist (phase boundary)
 
-- [ ] Studio opens in BOOK view by default; Script view one click away; safe-text + `#` toggles work in both.
-- [ ] Painting: arm a cast swatch → click spans assigns; variant sub-select works; disarm works; floating paint chip shows.
-- [ ] Chapter default-voice select in palette header changes the chapter voice (persisted).
-- [ ] Analysis strip shows stats + est. runtime; badges expand; Edit jump lands in Manuscript.
-- [ ] Commit changes → ResyncPreviewModal → confirm re-analyzes, from BOTH Manuscript and Studio.
-- [ ] Save&prev/next saves then navigates via `?chapter=`; Export WAV and MP3 both download.
-- [ ] Queue/Rebuild/Stop-all work; PredictiveProgressBar + status pill animate through a full render with the handoff hold intact (no progress-bar regression — compare against a pre-phase recording if in doubt).
-- [ ] Rail chapter list is the only chapter switcher; no in-page chapter rail exists.
-- [ ] Debug copy button present only in dev mode. Suite green; dark/light verified.
+- [x] Studio opens in BOOK view by default; Script view one click away; safe-text + `#` toggles work in both.
+- [x] Painting: arm a cast swatch → click spans assigns; variant sub-select works; disarm works; floating paint chip shows.
+- [x] Chapter default-voice select in palette header changes the chapter voice (persisted).
+- [x] Analysis strip shows stats + est. runtime; badges expand; Edit jump lands in Manuscript.
+- [x] Commit changes → ResyncPreviewModal → confirm re-analyzes, from BOTH Manuscript and Studio.
+- [x] Save&prev/next saves then navigates via `?chapter=`; Export WAV and MP3 both download.
+- [x] Queue/Rebuild/Stop-all work; PredictiveProgressBar + status pill animate through a full render with the handoff hold intact (no progress-bar regression — compare against a pre-phase recording if in doubt).
+- [x] Rail chapter list is the only chapter switcher; no in-page chapter rail exists.
+- [x] Debug copy button present only in dev mode. Suite green; dark/light verified.

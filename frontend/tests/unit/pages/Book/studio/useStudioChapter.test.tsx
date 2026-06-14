@@ -28,20 +28,6 @@ vi.mock('@/hooks/useSegmentHandoffQueue', () => ({
   recordExternalHandoffEvent: vi.fn(),
 }));
 
-vi.mock('@/hooks/useChapterStatus', () => ({
-  useChapterStatus: () => ({
-    queueStatus: null,
-    heldQueueStatus: null,
-    effectiveQueueLocked: false,
-    isQueued: false,
-    liveSegmentProgressJob: null,
-    liveSegmentProgressValue: 0,
-    hasChapterAudio: false,
-    generatingSegmentIdsCount: 0,
-    liveSegmentProgressIsRenderBlock: false,
-    segmentProgressBarSelection: null,
-  }),
-}));
 
 vi.mock('@/hooks/useChapterPlayback', () => ({
   useChapterPlayback: () => ({

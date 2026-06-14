@@ -209,6 +209,7 @@ Phase-wide constants (use these exact names everywhere):
 - [x] Activity rail badge shows the live queue count and updates when a job is queued/completes.
 - [x] Collapse rail via chevron → icon-only 56px; reload the page → still collapsed (localStorage `studio-rail-collapsed`).
 - [x] Hovering the collapsed rail shows the expanded overlay; moving away collapses it; persisted state unchanged.
+- [x] Expanded left rail exposes a draggable resize handle on the trailing edge; dragging shifts the main content layout, and the width persists across reload.
 - [ ] Rail bottom: expanded = theme button + chevron in one row; collapsed = stacked. Theme button flips light/dark instantly, persists across reload, and Settings → General theme select still needs a browser pass (System included).
 - [x] TopBar shows breadcrumb, connection dot (green connected / amber reconnecting), and Queue button with badge; clicking Queue opens the SAME right-side drawer with compact GlobalQueue; clicking again closes it.
 - [x] Empty identity slot present in TopBar DOM (`topbar-identity-slot`) for R2.

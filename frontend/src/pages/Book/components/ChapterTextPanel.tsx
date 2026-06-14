@@ -9,10 +9,6 @@ interface ChapterTextPanelProps {
   onSaved?: () => Promise<void> | void;
 }
 
-function wordCount(text: string): number {
-  return text.trim() ? text.trim().split(/\s+/).length : 0;
-}
-
 function sentenceCount(text: string): number {
   const matches = text
     .trim()
@@ -66,9 +62,11 @@ export function ChapterTextPanel({ chapter, onSaved }: ChapterTextPanelProps) {
   const analysisChapter = chapterText.chapter ?? chapter;
   const analysisText = chapterText.text;
   const charCount = analysisText.length;
-  const words = wordCount(analysisText);
+  const words = analysisText.trim() ? analysisText.trim().split(/\s+/).length : 0;
   const sentences = sentenceCount(analysisText);
-  const segments = analysisChapter?.total_segments_count ?? null;
+  const segments = typeof analysisChapter?.total_segments_count === 'number' && analysisChapter.total_segments_count > 0
+    ? analysisChapter.total_segments_count
+    : null;
   const estimatedGeneration = analysisChapter?.predicted_audio_length ?? null;
 
   const handleCommitProduced = async () => {
@@ -131,52 +129,39 @@ export function ChapterTextPanel({ chapter, onSaved }: ChapterTextPanelProps) {
           <pre className="chapter-text-panel__preview">{chapterText.text}</pre>
       )}
 
-      <div
-        style={{
-          flexShrink: 0,
-          background: 'var(--surface)',
-          border: '1px solid var(--border)',
-          borderRadius: '10px',
-          padding: '0.6rem 1rem',
-          display: 'flex',
-          gap: '1.25rem',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, flexShrink: 0 }}>
+      <div className="chapter-text-panel__analysis">
+        <div className="chapter-text-panel__analysis-label">
           <Info size={12} />
-          <span style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.65rem' }}>Analysis</span>
+          <span>Analysis</span>
         </div>
 
         {[
           { label: 'Chars', value: charCount.toLocaleString() },
           { label: 'Words', value: words.toLocaleString() },
           { label: 'Sentences', value: sentences.toLocaleString() },
-          { label: 'Segments', value: segments == null ? '—' : segments.toLocaleString() },
+          ...(segments != null ? [{ label: 'Segments', value: segments.toLocaleString() }] : []),
         ].map(({ label, value }) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
-            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>{value}</span>
-            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+          <div key={label} className="chapter-text-panel__analysis-stat">
+            <span className="chapter-text-panel__analysis-value">{value}</span>
+            <span className="chapter-text-panel__analysis-label-text">{label}</span>
           </div>
         ))}
 
         {estimatedGeneration != null && (
           <>
-            <div style={{ width: '1px', height: '16px', background: 'var(--border)', flexShrink: 0 }} />
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
-              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--accent)' }}>
+            <div className="chapter-text-panel__analysis-divider" />
+            <div className="chapter-text-panel__analysis-stat">
+              <span className="chapter-text-panel__analysis-value chapter-text-panel__analysis-value--accent">
                 {formatDuration(estimatedGeneration)}
               </span>
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Est. Gen.</span>
+              <span className="chapter-text-panel__analysis-label-text">Est. Gen.</span>
             </div>
           </>
         )}
       </div>
 
-      <div className="chapter-text-panel__footer">
-        <span>{wordCount(chapterText.text).toLocaleString()} words</span>
-        {isUnlockedProduced && (
+      {isUnlockedProduced && (
+        <div className="chapter-text-panel__footer">
           <button
             type="button"
             className="btn-primary"
@@ -185,8 +170,8 @@ export function ChapterTextPanel({ chapter, onSaved }: ChapterTextPanelProps) {
           >
             Commit changes
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <ResyncPreviewModal
         isOpen={previewOpen}

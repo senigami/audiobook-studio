@@ -276,7 +276,7 @@ describe('StudioStage', () => {
     availableVoices: [],
     chapterDefaultVoiceLabel: 'Use Project Default',
     localVoice: '',
-  } as never);
+    } as never);
     mockStudioChapter('c2', {
       selectedCharacterId: 'char-1',
       selectedProfileName: 'Profile 1',
@@ -284,52 +284,62 @@ describe('StudioStage', () => {
       analyzing: true,
     });
 
-    render(
-      <MemoryRouter initialEntries={['/book/book-1/studio?chapter=c2']}>
-        <Routes>
-          <Route path="/book/:bookId/studio" element={<StudioStage />} />
-        </Routes>
-        <LocationProbe />
-      </MemoryRouter>,
-    );
+    const previousTheme = document.documentElement.getAttribute('data-theme');
+    document.documentElement.setAttribute('data-theme', 'dark');
+    try {
+      render(
+        <MemoryRouter initialEntries={['/book/book-1/studio?chapter=c2']}>
+          <Routes>
+            <Route path="/book/:bookId/studio" element={<StudioStage />} />
+          </Routes>
+          <LocationProbe />
+        </MemoryRouter>,
+      );
 
-    await waitFor(() => {
-      expect(mockUseStudioChapter).toHaveBeenCalledWith(expect.objectContaining({ chapterId: 'c2' }));
-    });
+      await waitFor(() => {
+        expect(mockUseStudioChapter).toHaveBeenCalledWith(expect.objectContaining({ chapterId: 'c2' }));
+      });
 
-    expect(screen.getByTestId('studio-header-actions')).toHaveAttribute('data-unsaved', 'true');
-    expect(screen.getByTestId('studio-header-actions')).toHaveAttribute('data-exporting-format', '');
-    expect(screen.getByTestId('script-view')).toHaveAttribute('data-view-mode', 'book');
-    expect(screen.getByTestId('script-view')).toHaveAttribute('data-safe-text', 'false');
-    expect(screen.getByTestId('script-view')).toHaveAttribute('data-show-numbers', 'false');
-    expect(screen.getByTestId('script-view')).toHaveAttribute('data-active-character-id', 'char-1');
-    expect(screen.getByTestId('analysis-strip')).toHaveAttribute('data-book-id', 'book-1');
-    expect(screen.getByTestId('analysis-strip')).toHaveAttribute('data-chapter-id', 'c2');
-    expect(screen.getByTestId('analysis-strip')).toHaveAttribute('data-has-analysis', 'true');
-    expect(screen.getByTestId('analysis-strip')).toHaveAttribute('data-analyzing', 'true');
-    expect(screen.getByTestId('render-controls-strip')).toBeInTheDocument();
+      expect(screen.getByTestId('studio-header-actions')).toHaveAttribute('data-unsaved', 'true');
+      expect(screen.getByTestId('studio-header-actions')).toHaveAttribute('data-exporting-format', '');
+      expect(screen.getByTestId('script-view')).toHaveAttribute('data-view-mode', 'book');
+      expect(screen.getByTestId('script-view')).toHaveAttribute('data-safe-text', 'false');
+      expect(screen.getByTestId('script-view')).toHaveAttribute('data-show-numbers', 'false');
+      expect(screen.getByTestId('script-view')).toHaveAttribute('data-active-character-id', 'char-1');
+      expect(screen.getByTestId('analysis-strip')).toHaveAttribute('data-book-id', 'book-1');
+      expect(screen.getByTestId('analysis-strip')).toHaveAttribute('data-chapter-id', 'c2');
+      expect(screen.getByTestId('analysis-strip')).toHaveAttribute('data-has-analysis', 'true');
+      expect(screen.getByTestId('analysis-strip')).toHaveAttribute('data-analyzing', 'true');
+      expect(screen.getByTestId('render-controls-strip')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /script view/i }));
-    expect(screen.getByTestId('script-view')).toHaveAttribute('data-view-mode', 'script');
+      fireEvent.click(screen.getByRole('button', { name: /script view/i }));
+      expect(screen.getByTestId('script-view')).toHaveAttribute('data-view-mode', 'script');
 
-    fireEvent.click(screen.getByRole('button', { name: /safe text/i }));
-    expect(screen.getByTestId('script-view')).toHaveAttribute('data-safe-text', 'true');
+      fireEvent.click(screen.getByRole('button', { name: /safe text/i }));
+      expect(screen.getByTestId('script-view')).toHaveAttribute('data-safe-text', 'true');
 
-    fireEvent.click(screen.getByRole('button', { name: /^#$/i }));
-    expect(screen.getByTestId('script-view')).toHaveAttribute('data-show-numbers', 'true');
+      fireEvent.click(screen.getByRole('button', { name: /^#$/i }));
+      expect(screen.getByTestId('script-view')).toHaveAttribute('data-show-numbers', 'true');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Commit' }));
-    expect(latestStudioChapterState.handleRequestResyncPreview).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('confirm-modal')).toHaveAttribute('data-open', 'true');
-    expect(screen.getByTestId('resync-preview-modal')).toHaveAttribute('data-open', 'true');
-    expect(screen.getByTestId('queue-notice')).toHaveTextContent('Queued');
+      fireEvent.click(screen.getByRole('button', { name: 'Commit' }));
+      expect(latestStudioChapterState.handleRequestResyncPreview).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('confirm-modal')).toHaveAttribute('data-open', 'true');
+      expect(screen.getByTestId('resync-preview-modal')).toHaveAttribute('data-open', 'true');
+      expect(screen.getByTestId('queue-notice')).toHaveTextContent('Queued');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Prev' }));
-    expect(latestStudioChapterState.handleSave).toHaveBeenCalledWith('c2', 'text');
-    await waitFor(() => {
-      expect(screen.getByTestId('location')).toHaveTextContent('/book/book-1/studio?chapter=c1');
-    });
-    expect(mockUseStudioChapter).toHaveBeenLastCalledWith(expect.objectContaining({ chapterId: 'c1' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Prev' }));
+      expect(latestStudioChapterState.handleSave).toHaveBeenCalledWith('c2', 'text');
+      await waitFor(() => {
+        expect(screen.getByTestId('location')).toHaveTextContent('/book/book-1/studio?chapter=c1');
+      });
+      expect(mockUseStudioChapter).toHaveBeenLastCalledWith(expect.objectContaining({ chapterId: 'c1' }));
+    } finally {
+      if (previousTheme == null) {
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        document.documentElement.setAttribute('data-theme', previousTheme);
+      }
+    }
   });
 
   it('defaults to the first chapter when the query is empty', async () => {

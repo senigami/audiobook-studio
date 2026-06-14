@@ -25,7 +25,7 @@ describe('StudioHeaderActions', () => {
       />,
     );
 
-    expect(screen.getByText(/unsaved text edit/i)).toBeInTheDocument();
+    expect(screen.getByText(/unsaved text changes/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /commit changes/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save & prev/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save & next/i })).toBeInTheDocument();
