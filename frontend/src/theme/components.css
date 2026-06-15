@@ -2262,12 +2262,19 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: var(--radius-button);
+  border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-primary);
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+/* The lucide icons carry width/height as presentation attributes; inside a tiny
+   inline-flex button the flex algorithm collapses their main-axis (width) to 0,
+   leaving blank buttons. Pin them so they always render at their intrinsic size. */
+.player-btn svg {
+  flex-shrink: 0;
 }
 
 .player-btn:hover:not(:disabled) {
