@@ -12,7 +12,9 @@ RELOAD=1
 SETUP_ONLY=0
 
 log() {
-  printf '\n==> %s\n' "$1"
+  # Write progress to stderr so it never pollutes command substitutions
+  # like XTTS_TORCH_ARGS="$(select_torch_backend)" (which prints args to stdout).
+  printf '\n==> %s\n' "$1" >&2
 }
 
 die() {
