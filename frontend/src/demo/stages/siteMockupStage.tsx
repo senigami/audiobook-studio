@@ -54,6 +54,7 @@ import { VoicesPane } from './siteMockup/panes/voices';
 import { ActivityPane } from './siteMockup/panes/activity';
 import { EnginesPane, IntegrationsPane } from './siteMockup/panes/platform';
 import { SettingsPane } from './siteMockup/panes/settings';
+import { SplashPane } from './siteMockup/panes/splash';
 
 // ---------------------------------------------------------------------------
 // Queue Drawer
@@ -297,7 +298,8 @@ const TopBar: React.FC<{
   inBook?: boolean;
   activeBookTab?: BookTab;
   onSwitchToPublish?: () => void;
-}> = ({ breadcrumb, queueOpen, onToggleQueue, inBook, onSwitchToPublish }) => {
+  onLogoClick?: () => void;
+}> = ({ breadcrumb, queueOpen, onToggleQueue, inBook, onSwitchToPublish, onLogoClick }) => {
   const segments = breadcrumb.split(' / ');
   const stageSeg = inBook ? segments[segments.length - 1] : null;
 
@@ -307,13 +309,23 @@ const TopBar: React.FC<{
       background: 'var(--surface)', borderBottom: '1px solid var(--border)',
       display: 'flex', alignItems: 'center', padding: '0 14px', gap: 6, zIndex: 10, minWidth: 0,
     }}>
-      {/* Brand logo */}
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+      {/* Brand logo — click returns to splash/home */}
+      <button
+        type="button"
+        aria-label="Home"
+        onClick={onLogoClick}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0,
+          background: 'none', border: 'none', padding: '2px 4px', margin: '-2px -4px',
+          borderRadius: 'var(--radius-button)',
+          cursor: onLogoClick ? 'pointer' : 'default',
+        }}
+      >
         <BookOpen size={16} color="var(--accent)" strokeWidth={2.2} />
         <span style={{ fontSize: 'var(--type-callout)', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
           Audiobook <span style={{ color: 'var(--accent)' }}>Studio</span>
         </span>
-      </div>
+      </button>
       <span style={{ width: 1, height: 16, background: 'var(--border)', flexShrink: 0, margin: '0 4px' }} />
 
       <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flexShrink: 0 }}>Library</span>
@@ -528,20 +540,25 @@ const SiteMockup: React.FC = () => {
   const [queueOpen, setQueueOpen] = useState(false);
   const [activeBookTab, setActiveBookTab] = useState<BookTab>('Studio');
   const [activeChapter, setActiveChapter] = useState(4);
+  const [showSplash, setShowSplash] = useState(true);
 
   const handleRailSelect = (dest: RailDest) => {
+    setShowSplash(false);
     setActiveRail(dest);
     if (dest !== 'Library') setInBook(false);
   };
 
   const handleBookTabSelect = (t: BookTab) => {
+    setShowSplash(false);
     setActiveBookTab(t);
     setActiveRail('Library');
     setInBook(true);
   };
 
   let breadcrumb = 'Library';
-  if (activeRail !== 'Library') {
+  if (showSplash) {
+    breadcrumb = 'Home';
+  } else if (activeRail !== 'Library') {
     breadcrumb = activeRail;
   } else if (inBook) {
     breadcrumb = `Library / The Whispering Vale / ${activeBookTab}`;
@@ -569,9 +586,10 @@ const SiteMockup: React.FC = () => {
           breadcrumb={breadcrumb}
           queueOpen={queueOpen}
           onToggleQueue={() => setQueueOpen(o => !o)}
-          inBook={inBook && activeRail === 'Library'}
+          inBook={!showSplash && inBook && activeRail === 'Library'}
           activeBookTab={activeBookTab}
           onSwitchToPublish={handleSwitchToPublish}
+          onLogoClick={() => setShowSplash(true)}
         />
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
@@ -588,21 +606,27 @@ const SiteMockup: React.FC = () => {
           />
 
           <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-            {activeRail === 'Library' && !inBook && (
-              <LibraryPane onOpenBook={() => setInBook(true)} />
+            {showSplash ? (
+              <SplashPane onGetStarted={() => setShowSplash(false)} />
+            ) : (
+              <>
+                {activeRail === 'Library' && !inBook && (
+                  <LibraryPane onOpenBook={() => { setShowSplash(false); setInBook(true); }} />
+                )}
+                {activeRail === 'Library' && inBook && (
+                  <BookPane
+                    onBack={() => setInBook(false)}
+                    activeTab={activeBookTab}
+                    setActiveTab={setActiveBookTab}
+                  />
+                )}
+                {activeRail === 'Voices' && <VoicesPane />}
+                {activeRail === 'Activity' && <ActivityPane />}
+                {activeRail === 'Engines' && <EnginesPane />}
+                {activeRail === 'Integrations' && <IntegrationsPane />}
+                {activeRail === 'Settings' && <SettingsPane />}
+              </>
             )}
-            {activeRail === 'Library' && inBook && (
-              <BookPane
-                onBack={() => setInBook(false)}
-                activeTab={activeBookTab}
-                setActiveTab={setActiveBookTab}
-              />
-            )}
-            {activeRail === 'Voices' && <VoicesPane />}
-            {activeRail === 'Activity' && <ActivityPane />}
-            {activeRail === 'Engines' && <EnginesPane />}
-            {activeRail === 'Integrations' && <IntegrationsPane />}
-            {activeRail === 'Settings' && <SettingsPane />}
           </div>
 
           <QueueDrawer
