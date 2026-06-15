@@ -3,15 +3,16 @@
 requests>=2.31.0
 pydantic>=2.0.0
 
-# Inference Environment Dependencies
-# Using the Idiap community fork for maintenance (2026)
-# Pinned 2026-06-12: ca2cf5155bca892ea820ad384400efbfac41b178 (main at time of pin)
-coqui-tts @ git+https://github.com/idiap/coqui-ai-TTS.git@ca2cf5155bca892ea820ad384400efbfac41b178
+# Inference Environment Dependencies — Idiap community fork ("coqui-tts" on PyPI).
+# Pinned to a STABLE released version (not a moving main-branch commit): a branch
+# commit's setuptools_scm version drifts as upstream tags move, which silently
+# shifts its transitive pins (e.g. coqpit-config) and breaks `./run.sh` installs.
+# 0.27.5 is the latest stable release and the known-good version in ~/xtts-env.
+coqui-tts==0.27.5
 
-# Specific dependencies for compatibility with the Idiap fork.
-# The pinned coqui-tts commit (ca2cf515) requires coqpit-config>=0.2.5,<0.3.0;
-# the old ==0.2.4 pin conflicted with it (ResolutionImpossible). Match the range.
-coqpit-config>=0.2.5,<0.3.0
+# coqpit-config: 0.27.5 declares coqpit-config>=0.2.0,<0.3.0; pin the known-good
+# exact version installed alongside it so the resolve is fully reproducible.
+coqpit-config==0.2.4
 transformers<5.0.0
 torch>=2.10.0
 torchcodec
