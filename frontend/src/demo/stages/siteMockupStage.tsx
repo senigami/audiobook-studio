@@ -27,6 +27,7 @@ import React, { useState } from 'react';
 import {
   Zap,
   X,
+  BookOpen,
   MoreHorizontal,
   SkipBack,
   Rewind,
@@ -306,6 +307,15 @@ const TopBar: React.FC<{
       background: 'var(--surface)', borderBottom: '1px solid var(--border)',
       display: 'flex', alignItems: 'center', padding: '0 14px', gap: 6, zIndex: 10, minWidth: 0,
     }}>
+      {/* Brand logo */}
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+        <BookOpen size={16} color="var(--accent)" strokeWidth={2.2} />
+        <span style={{ fontSize: 'var(--type-callout)', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+          Audiobook <span style={{ color: 'var(--accent)' }}>Studio</span>
+        </span>
+      </div>
+      <span style={{ width: 1, height: 16, background: 'var(--border)', flexShrink: 0, margin: '0 4px' }} />
+
       <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flexShrink: 0 }}>Library</span>
       <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)', flexShrink: 0 }}>›</span>
 
