@@ -4,35 +4,68 @@
 import React, { useState } from 'react';
 import { saveThemePref } from '@/utils/theme';
 import {
+  Library,
+  Mic,
+  Zap,
+  Puzzle,
+  Plug,
+  Settings,
+  BookOpen,
+  Sun,
+  Moon,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+} from 'lucide-react';
+import {
   ProgressBar,
+  StatusOrb,
+  BookCover,
   CHAPTERS, CHAPTER_RENDER_PCT, BOOK_STAGE_LINKS,
 } from './shared';
-import type { RailDest, BookTab } from './shared';
+import type { OrbStatus, RailDest, BookTab } from './shared';
 
-const RAIL_GROUPS: { group: string; items: { id: RailDest; icon: string; badge?: string }[] }[] = [
+const RAIL_ICON: Record<RailDest, React.ReactNode> = {
+  Library:      <Library size={16} strokeWidth={1.8} />,
+  Voices:       <Mic size={16} strokeWidth={1.8} />,
+  Activity:     <Zap size={16} strokeWidth={1.8} />,
+  Engines:      <Puzzle size={16} strokeWidth={1.8} />,
+  Integrations: <Plug size={16} strokeWidth={1.8} />,
+  Settings:     <Settings size={16} strokeWidth={1.8} />,
+};
+
+const RAIL_GROUPS: { group: string; items: { id: RailDest; badge?: string }[] }[] = [
   {
     group: 'CREATE',
     items: [
-      { id: 'Library', icon: '📚' },
-      { id: 'Voices', icon: '🎙' },
+      { id: 'Library' },
+      { id: 'Voices' },
     ],
   },
   {
     group: 'MONITOR',
-    items: [{ id: 'Activity', icon: '⚡', badge: '2' }],
+    items: [{ id: 'Activity', badge: '2' }],
   },
   {
     group: 'PLATFORM',
     items: [
-      { id: 'Engines', icon: '🧩' },
-      { id: 'Integrations', icon: '🔌' },
+      { id: 'Engines' },
+      { id: 'Integrations' },
     ],
   },
   {
     group: 'MANAGE',
-    items: [{ id: 'Settings', icon: '⚙' }],
+    items: [{ id: 'Settings' }],
   },
 ];
+
+// Map chapter status to StatusOrb status
+function chapterToOrbStatus(status: string): OrbStatus {
+  if (status === 'Published') return 'done';
+  if (status === 'Studio')    return 'running';
+  if (status === 'Review')    return 'preparing';
+  return 'idle';
+}
 
 export const Rail: React.FC<{
   active: RailDest;
@@ -75,7 +108,7 @@ export const Rail: React.FC<{
             {!collapsed && (
               <div
                 style={{
-                  fontSize: '0.58rem',
+                  fontSize: 'var(--type-micro)',
                   fontWeight: 700,
                   letterSpacing: '0.1em',
                   color: 'var(--text-muted)',
@@ -92,6 +125,7 @@ export const Rail: React.FC<{
                 <React.Fragment key={item.id}>
                   <div
                     onClick={() => onSelect(item.id)}
+                    aria-label={item.id}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -102,12 +136,14 @@ export const Rail: React.FC<{
                       background: isActive ? 'var(--accent-tint-bg)' : 'transparent',
                       borderLeft: isActive && !collapsed ? '3px solid var(--accent)' : '3px solid transparent',
                       color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-                      fontSize: '0.78rem',
+                      fontSize: 'var(--type-caption)',
                       fontWeight: isActive ? 700 : 400,
                       position: 'relative',
                     }}
                   >
-                    <span style={{ fontSize: '1rem', lineHeight: 1, flexShrink: 0 }}>{item.icon}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                      {RAIL_ICON[item.id]}
+                    </span>
                     {!collapsed && (
                       <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {item.id}
@@ -116,10 +152,10 @@ export const Rail: React.FC<{
                     {item.badge && (
                       <span
                         style={{
-                          fontSize: '0.58rem',
+                          fontSize: 'var(--type-micro)',
                           fontWeight: 700,
                           background: 'var(--accent)',
-                          color: '#fff',
+                          color: 'var(--text-on-accent)',
                           borderRadius: 10,
                           padding: '1px 5px',
                           position: collapsed ? 'absolute' : 'static',
@@ -135,7 +171,7 @@ export const Rail: React.FC<{
                   {/* Contextual book hierarchy — shown below Library item when inBook */}
                   {item.id === 'Library' && inBook && (
                     collapsed ? (
-                      /* Collapsed: single book icon */
+                      /* Collapsed: single book cover */
                       <div
                         title="The Whispering Vale"
                         style={{
@@ -143,11 +179,9 @@ export const Rail: React.FC<{
                           justifyContent: 'center',
                           padding: '5px 0',
                           background: 'var(--accent-tint-bg)',
-                          fontSize: '1rem',
-                          lineHeight: 1,
                         }}
                       >
-                        📕
+                        <BookCover title="The Whispering Vale" size={24} />
                       </div>
                     ) : (
                       /* Expanded: full tree block */
@@ -168,10 +202,10 @@ export const Rail: React.FC<{
                             padding: '4px 10px 3px 10px',
                           }}
                         >
-                          <span style={{ fontSize: '0.75rem', lineHeight: 1, flexShrink: 0 }}>📕</span>
+                          <BookCover title="The Whispering Vale" size={18} />
                           <span
                             style={{
-                              fontSize: '0.66rem',
+                              fontSize: 'var(--type-micro)',
                               fontWeight: 600,
                               color: 'var(--text-primary)',
                               whiteSpace: 'nowrap',
@@ -198,7 +232,7 @@ export const Rail: React.FC<{
                                   cursor: 'pointer',
                                   background: isStageActive ? 'var(--accent-tint-bg)' : 'transparent',
                                   color: isStageActive ? 'var(--accent)' : 'var(--text-secondary)',
-                                  fontSize: '0.65rem',
+                                  fontSize: 'var(--type-micro)',
                                   fontWeight: isStageActive ? 700 : 400,
                                   borderLeft: isStageActive ? '2px solid var(--accent)' : '2px solid transparent',
                                   marginLeft: -1,
@@ -212,10 +246,7 @@ export const Rail: React.FC<{
                                 <div style={{ paddingLeft: 8 }}>
                                   {CHAPTERS.map(ch => {
                                     const isChActive = ch.n === activeChapter;
-                                    const orb = ch.status === 'Published' ? '#22c55e'
-                                      : ch.status === 'Studio' ? '#f59e0b'
-                                      : ch.status === 'Review' ? '#ec4899'
-                                      : '#6b7280';
+                                    const orbStatus = chapterToOrbStatus(ch.status);
                                     const renderPct = CHAPTER_RENDER_PCT[ch.n - 1] ?? 0;
                                     return (
                                       <div
@@ -231,16 +262,13 @@ export const Rail: React.FC<{
                                         }}
                                       >
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                          <StatusOrb
+                                            status={orbStatus}
+                                            progress={renderPct / 100}
+                                            size={12}
+                                          />
                                           <span style={{
-                                            width: 6,
-                                            height: 6,
-                                            borderRadius: '50%',
-                                            background: orb,
-                                            display: 'inline-block',
-                                            flexShrink: 0,
-                                          }} />
-                                          <span style={{
-                                            fontSize: '0.58rem',
+                                            fontSize: 'var(--type-micro)',
                                             color: isChActive ? 'var(--accent)' : 'var(--text-secondary)',
                                             fontWeight: isChActive ? 700 : 400,
                                             flex: 1,
@@ -254,10 +282,11 @@ export const Rail: React.FC<{
                                           {isChActive && (
                                             <span
                                               onClick={e => { e.stopPropagation(); setChapterMenuOpen(m => !m); }}
-                                              style={{ fontSize: '0.6rem', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 2px', lineHeight: 1, flexShrink: 0 }}
+                                              style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 2px', lineHeight: 1, flexShrink: 0 }}
                                               title="Chapter actions"
+                                              aria-label="Chapter actions"
                                             >
-                                              ⋯
+                                              <MoreHorizontal size={10} strokeWidth={2} />
                                             </span>
                                           )}
                                         </div>
@@ -278,8 +307,8 @@ export const Rail: React.FC<{
                                               zIndex: 20,
                                               background: 'var(--surface)',
                                               border: '1px solid var(--border)',
-                                              borderRadius: 6,
-                                              boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+                                              borderRadius: 'var(--radius-button)',
+                                              boxShadow: 'var(--shadow-lg)',
                                               minWidth: 140,
                                               padding: '4px 0',
                                             }}
@@ -289,9 +318,9 @@ export const Rail: React.FC<{
                                                 key={action}
                                                 onClick={() => setChapterMenuOpen(false)}
                                                 style={{
-                                                  fontSize: '0.65rem',
+                                                  fontSize: 'var(--type-micro)',
                                                   padding: '5px 12px',
-                                                  color: action === 'Delete' ? '#ef4444' : 'var(--text-primary)',
+                                                  color: action === 'Delete' ? 'var(--error)' : 'var(--text-primary)',
                                                   cursor: 'pointer',
                                                 }}
                                               >
@@ -325,6 +354,7 @@ export const Rail: React.FC<{
           <button
             type="button"
             onClick={toggleTheme}
+            aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             style={{
               display: 'flex',
@@ -337,12 +367,14 @@ export const Rail: React.FC<{
               padding: '8px 0',
               cursor: 'pointer',
               color: 'var(--text-muted)',
-              fontSize: '0.75rem',
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-raised, rgba(128,128,128,0.08))'; }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-light)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
           >
-            <span style={{ fontSize: '0.9rem', lineHeight: 1 }}>{theme === 'light' ? '🌙' : '☀️'}</span>
+            {theme === 'light'
+              ? <Moon size={15} strokeWidth={1.8} />
+              : <Sun size={15} strokeWidth={1.8} />
+            }
           </button>
           {/* Collapsed: chevron below */}
           <div
@@ -354,11 +386,11 @@ export const Rail: React.FC<{
               cursor: 'pointer',
               borderTop: '1px solid var(--border)',
               color: 'var(--text-muted)',
-              fontSize: '0.8rem',
             }}
             title="Expand rail"
+            aria-label="Expand rail"
           >
-            ›
+            <ChevronRight size={14} strokeWidth={2} />
           </div>
         </>
       ) : (
@@ -375,6 +407,7 @@ export const Rail: React.FC<{
           <button
             type="button"
             onClick={toggleTheme}
+            aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             style={{
               display: 'flex',
@@ -387,13 +420,18 @@ export const Rail: React.FC<{
               padding: '8px 14px',
               cursor: 'pointer',
               color: 'var(--text-muted)',
-              fontSize: '0.75rem',
+              fontSize: 'var(--type-caption)',
               minWidth: 0,
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-raised, rgba(128,128,128,0.08))'; }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-light)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
           >
-            <span style={{ fontSize: '0.9rem', lineHeight: 1, flexShrink: 0 }}>{theme === 'light' ? '🌙' : '☀️'}</span>
+            <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              {theme === 'light'
+                ? <Moon size={14} strokeWidth={1.8} />
+                : <Sun size={14} strokeWidth={1.8} />
+              }
+            </span>
             <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {theme === 'light' ? 'Dark mode' : 'Light mode'}
             </span>
@@ -405,12 +443,14 @@ export const Rail: React.FC<{
               padding: '8px 12px',
               cursor: 'pointer',
               color: 'var(--text-muted)',
-              fontSize: '0.8rem',
+              display: 'flex',
+              alignItems: 'center',
               flexShrink: 0,
             }}
             title="Collapse rail"
+            aria-label="Collapse rail"
           >
-            ‹
+            <ChevronLeft size={14} strokeWidth={2} />
           </div>
         </div>
       )}

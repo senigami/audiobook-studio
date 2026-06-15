@@ -2,7 +2,8 @@
  * siteMockup/panes/activity.tsx — Activity pane
  */
 import React, { useState } from 'react';
-import { Row, Col, Label, Chip, Btn, ProgressBar, IN_FLIGHT_JOBS } from '../shared';
+import { PauseCircle } from 'lucide-react';
+import { Row, Col, Label, SemanticChip, Btn, ProgressBar, IN_FLIGHT_JOBS, Card, Panel } from '../shared';
 
 export const ActivityPane: React.FC = () => {
   const [historyFilter, setHistoryFilter] = useState<'All' | 'Renders' | 'Samples' | 'API'>('All');
@@ -13,33 +14,33 @@ export const ActivityPane: React.FC = () => {
           <Row gap={6} style={{ alignItems: 'center' }}>
             <Label>Now</Label>
             <div style={{ flex: 1 }} />
-            <Btn small>⏸ Pause queue</Btn>
+            <Btn small style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <PauseCircle size={12} strokeWidth={2} />
+              Pause queue
+            </Btn>
           </Row>
           {IN_FLIGHT_JOBS.map(job => (
-            <div key={job.title} style={{
-              background: 'var(--surface-alt)', border: '1px solid var(--border)',
-              borderRadius: 6, padding: '8px 10px',
-            }}>
+            <Card key={job.title} style={{ padding: '8px 10px' }}>
               <Row gap={8} style={{ alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>{job.title}</span>
-                <Chip>{job.engine}</Chip>
-                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{job.eta}</span>
+                <span style={{ fontSize: 'var(--type-callout)', fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>{job.title}</span>
+                <SemanticChip variant="neutral">{job.engine}</SemanticChip>
+                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>{job.eta}</span>
               </Row>
               <Row gap={6} style={{ alignItems: 'center', marginBottom: 3 }}>
                 <ProgressBar pct={job.pct} />
-                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', flexShrink: 0 }}>{job.pct}%</span>
+                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flexShrink: 0 }}>{job.pct}%</span>
               </Row>
-              <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>Segs {job.segs}</span>
-            </div>
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>Segs {job.segs}</span>
+            </Card>
           ))}
 
           <Row gap={6} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
             <Label>History</Label>
             {(['All', 'Renders', 'Samples', 'API'] as const).map(f => (
-              <Chip key={f} active={historyFilter === f} onClick={() => setHistoryFilter(f)}>{f}</Chip>
+              <SemanticChip key={f} variant={historyFilter === f ? 'accent' : 'neutral'} onClick={() => setHistoryFilter(f)}>{f}</SemanticChip>
             ))}
           </Row>
-          <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+          <Panel style={{ overflow: 'hidden', padding: 0 }}>
             {[
               { job: 'Whispering Vale — Ch 6', engine: 'XTTS', dur: '14m 22s', ago: '2h ago', ok: true },
               { job: 'Iron Meridian — Ch 2', engine: 'XTTS', dur: '11m 05s', ago: '3h ago', ok: true },
@@ -52,36 +53,37 @@ export const ActivityPane: React.FC = () => {
                 borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
                 alignItems: 'center',
               }}>
-                <span style={{ fontSize: '0.62rem', color: 'var(--text-primary)', flex: 3 }}>{row.job}</span>
-                <Chip>{row.engine}</Chip>
-                <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>{row.dur}</span>
-                <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>{row.ago}</span>
-                <Chip color={row.ok ? '#22c55e' : '#ef4444'}>{row.ok ? '✓' : '✗'}</Chip>
+                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)', flex: 3 }}>{row.job}</span>
+                <SemanticChip variant="neutral">{row.engine}</SemanticChip>
+                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>{row.dur}</span>
+                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>{row.ago}</span>
+                <SemanticChip variant={row.ok ? 'success' : 'error'}>{row.ok ? '✓' : '✗'}</SemanticChip>
               </Row>
             ))}
-          </div>
+          </Panel>
         </Col>
 
         <Col gap={8} style={{ flex: 1 }}>
           <Label>Stats</Label>
-          <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-            <div style={{ padding: '5px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', fontSize: '0.55rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <Panel style={{ overflow: 'hidden', padding: 0 }}>
+            <div style={{ padding: '5px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface-alt)', fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               Engine calibration
             </div>
             {[
-              { engine: 'XTTS', speed: '14.2 c/s', conf: 'high', color: '#22c55e' },
-              { engine: 'Voxtral', speed: '9.1 c/s', conf: 'med', color: '#f59e0b' },
+              { engine: 'XTTS',    speed: '14.2 c/s', conf: 'high', variant: 'success' as const },
+              { engine: 'Voxtral', speed: '9.1 c/s',  conf: 'med',  variant: 'warning' as const },
             ].map((e, i, arr) => (
-              <Row key={e.engine} gap={6} style={{ padding: '5px 10px', alignItems: 'center', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                <span style={{ fontSize: '0.62rem', color: 'var(--text-primary)', flex: 1 }}>{e.engine}</span>
-                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{e.speed}</span>
-                <span style={{ fontSize: '0.55rem', color: e.color }}>●{e.conf}</span>
+              <Row key={e.engine} gap={6} style={{ padding: '6px 10px', alignItems: 'center', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)', flex: 1 }}>{e.engine}</span>
+                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{e.speed}</span>
+                {/* Confidence dot: tokenized via SemanticChip */}
+                <SemanticChip variant={e.variant}>{e.conf}</SemanticChip>
               </Row>
             ))}
-          </div>
-          <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px' }}>
-            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-primary)' }}>Production</div>
-            <div style={{ fontSize: '0.62rem', color: 'var(--text-secondary)', marginTop: 3 }}>
+          </Panel>
+          <Card style={{ padding: '8px 10px' }}>
+            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>Production</div>
+            <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', marginTop: 3 }}>
               23h 41m generated · 312 chapters
             </div>
             <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', marginTop: 8, height: 24 }}>
@@ -93,8 +95,8 @@ export const ActivityPane: React.FC = () => {
                 }} />
               ))}
             </div>
-            <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginTop: 3 }}>Last 7 days</div>
-          </div>
+            <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginTop: 3 }}>Last 7 days</div>
+          </Card>
         </Col>
       </Row>
     </Col>
