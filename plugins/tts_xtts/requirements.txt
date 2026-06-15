@@ -8,8 +8,10 @@ pydantic>=2.0.0
 # Pinned 2026-06-12: ca2cf5155bca892ea820ad384400efbfac41b178 (main at time of pin)
 coqui-tts @ git+https://github.com/idiap/coqui-ai-TTS.git@ca2cf5155bca892ea820ad384400efbfac41b178
 
-# Specific dependencies for compatibility with the Idiap fork
-coqpit-config==0.2.4
+# Specific dependencies for compatibility with the Idiap fork.
+# The pinned coqui-tts commit (ca2cf515) requires coqpit-config>=0.2.5,<0.3.0;
+# the old ==0.2.4 pin conflicted with it (ResolutionImpossible). Match the range.
+coqpit-config>=0.2.5,<0.3.0
 transformers<5.0.0
 torch>=2.10.0
 torchcodec
