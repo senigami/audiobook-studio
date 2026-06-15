@@ -10,7 +10,6 @@ import {
   Puzzle,
   Plug,
   Settings,
-  BookOpen,
   Sun,
   Moon,
   ChevronLeft,

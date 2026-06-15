@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Check,
   Volume2,
+  Star,
   BookOpen,
   Pencil,
 } from 'lucide-react';

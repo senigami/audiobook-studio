@@ -9,6 +9,13 @@
       "autoPort": true
     },
     {
+      "name": "compiled demo (static)",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd docs && python3 -m http.server ${PORT:-5210}"],
+      "port": 5210,
+      "autoPort": true
+    },
+    {
       "name": "demo (Vite dev)",
       "runtimeExecutable": "sh",
       "runtimeArgs": ["-c", "cd frontend && npx vite --config vite.demo.config.ts --port ${PORT:-5199}"],

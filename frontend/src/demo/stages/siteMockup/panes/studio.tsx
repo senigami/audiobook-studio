@@ -8,7 +8,7 @@
  *  - "Stop all" red ghost button next to render controls
  */
 import React, { useState } from 'react';
-import { Row, Col, Chip, Btn, ProgressBar, SemanticChip, VoiceAttrPill, Avatar, Card, Panel } from '../shared';
+import { Row, Col, Chip, Btn, ProgressBar, SemanticChip, Avatar, Card, Panel } from '../shared';
 import { Play, RefreshCw, ChevronDown, ChevronUp, Download, ChevronLeft, ChevronRight, Square } from 'lucide-react';
 
 // Speaker token palette — maps speaker IDs to fixed design-token colors (no raw hex)
