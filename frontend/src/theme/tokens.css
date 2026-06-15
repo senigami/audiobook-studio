@@ -131,6 +131,19 @@
   --progress-failed-glow: rgba(239, 68, 68, 0.40);
   --progress-queued-fill: rgba(148, 163, 184, 0.12);
 
+  /* Type scale tokens — design-system §4 (additive; theme-independent) */
+  --type-title:    1.5rem;
+  --type-headline: 1.125rem;
+  --type-body:     0.9375rem;
+  --type-callout:  0.875rem;
+  --type-caption:  0.75rem;
+  --type-micro:    0.6875rem;
+  --type-weight-title:    700;
+  --type-weight-headline: 600;
+  --type-weight-body:     400;
+  --type-weight-caption:  500;
+  --type-weight-micro:    600;
+
   /* Waveform strip tokens — R7-T3 */
   --color-wave:          rgba(100, 116, 139, 0.55);  /* inactive bars (light) */
   --color-wave-progress: var(--accent);               /* played-region fill */
