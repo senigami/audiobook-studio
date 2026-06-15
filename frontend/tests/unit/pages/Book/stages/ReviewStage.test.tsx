@@ -74,6 +74,11 @@ vi.mock('@/api', () => {
         { id: 's1', text_content: 'Short segment' },
         { id: 's2', text_content: 'Longer segment text here' },
       ]),
+      // Render-group count source for the "X / N" indicator (groups, not raw segments).
+      fetchChapterRenderGroups: vi.fn().mockResolvedValue({
+        count: 1,
+        groups: [{ index: 0, segment_ids: ['s1', 's2'], engine: '', char_count: 30 }],
+      }),
       get generateSegments() {
         return mockGenerateSegments;
       },

@@ -4,6 +4,7 @@ import { Play, MessageSquare, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import { api } from '@/api';
 import type { ChapterSegment } from '@/types';
+import { useRenderGroups } from '@/hooks/useRenderGroups';
 import { useReviewPlayback } from './ReviewStage/useReviewPlayback';
 import { FollowAlongPanel } from './ReviewStage/FollowAlongPanel';
 import { AnnotationsPanel } from './ReviewStage/AnnotationsPanel';
@@ -16,6 +17,7 @@ export function ReviewStage() {
   const [showAnnotations, setShowAnnotations] = useState(true);
   const [isReRendering, setIsReRendering] = useState(false);
   const [reRenderError, setReRenderError] = useState<string | null>(null);
+  const [renderGroupsRefreshKey, setRenderGroupsRefreshKey] = useState(0);
 
   const resolvedChapterId = searchParams.get('chapter') || chapters[0]?.id || null;
   const selectedChapter = useMemo(
@@ -24,6 +26,16 @@ export function ReviewStage() {
   );
 
   const activeSegmentRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // The "X / N" indicator MUST count render GROUPS (the rendered audio pieces),
+  // not raw text segments — showing the segment count (e.g. 9) misleads the user
+  // into thinking there are that many audio pieces. text-processing.md §6: any
+  // UI segment count derives from the canonical render-group grouping.
+  const { count: renderGroupCount, groupNumberBySegmentId } = useRenderGroups(
+    bookId || '',
+    resolvedChapterId || '',
+    renderGroupsRefreshKey,
+  );
 
   // Fetch segments when chapter changes
   useEffect(() => {
@@ -69,6 +81,7 @@ export function ReviewStage() {
       setReRenderError('Re-render failed. Please try again.');
     } finally {
       setIsReRendering(false);
+      setRenderGroupsRefreshKey((k) => k + 1);
     }
   };
 
@@ -82,10 +95,15 @@ export function ReviewStage() {
     }
   }, [activeSegmentId]);
 
+  // The active render-GROUP ordinal (0-based; FollowAlongPanel adds 1 for display),
+  // derived from the canonical grouping so the indicator reads "group N / <render groups>".
   const activeSegmentIndex = useMemo(() => {
     if (!activeSegmentId) return -1;
-    return segments.findIndex((seg) => seg.id === activeSegmentId);
-  }, [activeSegmentId, segments]);
+    const groupNumber = groupNumberBySegmentId.get(activeSegmentId);
+    if (groupNumber) return groupNumber - 1;
+    // Fallback before render-group data loads: map raw segment index → nothing misleading.
+    return -1;
+  }, [activeSegmentId, groupNumberBySegmentId]);
 
   const chapterHasAudio = Boolean(
     selectedChapter?.audio_file_path || selectedChapter?.audio_status === 'done',
@@ -197,7 +215,7 @@ export function ReviewStage() {
           <FollowAlongPanel
             chapterTitle={selectedChapter?.title || ''}
             activeSegmentId={activeSegmentId}
-            totalSegments={segments.length}
+            totalSegments={renderGroupCount ?? 0}
             activeSegmentIndex={activeSegmentIndex}
             onReRenderSegment={handleReRenderSegment}
             isReRendering={isReRendering}
