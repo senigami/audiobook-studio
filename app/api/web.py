@@ -129,6 +129,13 @@ for d in [VOICES_DIR, PROJECTS_DIR]:
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
 
+# Serve the compiled design-mockup demo (static, relative-base build) at /demo.
+# Built via `npm run build:demo` into docs/demo; html=True serves index.html for
+# the directory and its hashed assets + logo. Mounted before the SPA catch-all.
+DEMO_DIST = FRONTEND_DIST.parent.parent / "docs" / "demo"
+if DEMO_DIST.exists():
+    app.mount("/demo", StaticFiles(directory=str(DEMO_DIST), html=True), name="demo")
+
 
 @app.get("/projects/{project_id}/cover/{filename}")
 def get_project_cover_hardened(project_id: str, filename: str):
