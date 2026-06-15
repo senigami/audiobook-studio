@@ -27,7 +27,6 @@ import React, { useState } from 'react';
 import {
   Zap,
   X,
-  BookOpen,
   MoreHorizontal,
   SkipBack,
   Rewind,
@@ -39,6 +38,7 @@ import {
   XCircle,
   GripVertical,
 } from 'lucide-react';
+import { BrandLogo } from '@/components/layout/BrandLogo';
 import {
   Col, Row, SemanticChip, ProgressBar, WaveformSvg,
   IN_FLIGHT_JOBS, QUEUED_JOBS, BOOK_TABS,
@@ -321,10 +321,7 @@ const TopBar: React.FC<{
           cursor: onLogoClick ? 'pointer' : 'default',
         }}
       >
-        <BookOpen size={16} color="var(--accent)" strokeWidth={2.2} />
-        <span style={{ fontSize: 'var(--type-callout)', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-          Audiobook <span style={{ color: 'var(--accent)' }}>Studio</span>
-        </span>
+        <BrandLogo scale={0.58} showIcon />
       </button>
       <span style={{ width: 1, height: 16, background: 'var(--border)', flexShrink: 0, margin: '0 4px' }} />
 
@@ -594,7 +591,7 @@ const SiteMockup: React.FC = () => {
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
           <Rail
-            active={activeRail}
+            active={showSplash ? null : activeRail}
             onSelect={handleRailSelect}
             collapsed={railCollapsed}
             onToggle={() => setRailCollapsed(c => !c)}

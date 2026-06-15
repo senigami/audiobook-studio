@@ -68,7 +68,7 @@ function chapterToOrbStatus(status: string): OrbStatus {
 }
 
 export const Rail: React.FC<{
-  active: RailDest;
+  active: RailDest | null;
   onSelect: (d: RailDest) => void;
   collapsed: boolean;
   onToggle: () => void;

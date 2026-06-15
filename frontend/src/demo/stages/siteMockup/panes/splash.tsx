@@ -144,22 +144,12 @@ export const SplashPane: React.FC<{ onGetStarted: () => void }> = ({ onGetStarte
     >
       {/* ── Brand hero ── */}
       <Col gap={16} style={{ alignItems: 'center', textAlign: 'center' }}>
-        {/* Mark */}
-        <div
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: 'var(--radius-card)',
-            background: 'var(--accent-tint-bg)',
-            border: '1px solid var(--accent-tint-border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: 'var(--shadow-md)',
-          }}
-        >
-          <BookOpen size={32} color="var(--accent)" strokeWidth={2} />
-        </div>
+        {/* Mark — the real Audiobook Studio logo */}
+        <img
+          src={`${import.meta.env.BASE_URL}logo.png`}
+          alt="Audiobook Studio"
+          style={{ width: 96, height: 96, objectFit: 'contain' }}
+        />
 
         <Col gap={6} style={{ alignItems: 'center' }}>
           <h1

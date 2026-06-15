@@ -48,10 +48,10 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
           justifyContent: 'center',
           flexShrink: 0
         }}>
-          <img 
-            src="/logo.png" 
-            alt="" 
-            style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+          <img
+            src={`${import.meta.env.BASE_URL}logo.png`}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
           />
         </div>
       )}

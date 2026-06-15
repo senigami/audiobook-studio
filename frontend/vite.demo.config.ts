@@ -12,6 +12,10 @@ export default defineConfig({
     },
   },
   root: path.resolve(__dirname, 'src/demo'),
+  // Serve the app's real static assets (logo.png, etc.) so the demo can use the
+  // actual brand logo; copied into docs/demo on build. Without this, the demo's
+  // publicDir defaults to src/demo/public and logo.png 404s.
+  publicDir: path.resolve(__dirname, 'public'),
   base: '/audiobook-studio/demo/',
   build: {
     outDir: path.resolve(__dirname, '../docs/demo'),
