@@ -3,7 +3,16 @@
  * Feature B: "+ New chapter" opens Add Chapter modal (Title, paste textarea, upload row, Cancel/Add)
  */
 import React, { useState } from 'react';
-import { Row, Col, Label, Chip, Btn, ProgressBar, PlannedChip } from '../shared';
+import {
+  Row, Col, Label, Btn, ProgressBar, PlannedChip,
+  Card, Panel,
+  SemanticChip, VoiceAttrPill,
+  StatusOrb,
+  Avatar,
+  WaveformSvg,
+  Mic, Volume2, CheckCircle, Loader2,
+} from '../shared';
+import { Upload, Lock, Edit3, Play, SkipBack, Rewind, FastForward } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Manuscript pane data
@@ -20,32 +29,27 @@ const MANUSCRIPT_CHAPTERS: { n: number; title: string; words: number; lifecycle:
   { n: 7, title: 'Whispers at Threshold', words: 2775, lifecycle: 'Draft'    },
 ];
 
-const LIFECYCLE_COLORS: Record<ChapterLifecycle, string> = {
-  Draft:    '#6b7280',
-  Ready:    '#3b82f6',
-  Cast:     '#8b5cf6',
-  Rendered: '#22c55e',
+// Map lifecycle to SemanticChip variant
+type SemanticVariant = 'success' | 'warning' | 'error' | 'cloud' | 'accent' | 'neutral';
+const LIFECYCLE_VARIANT: Record<ChapterLifecycle, SemanticVariant> = {
+  Draft:    'neutral',
+  Ready:    'accent',
+  Cast:     'cloud',
+  Rendered: 'success',
 };
 
-const LifecyclePill: React.FC<{ lifecycle: ChapterLifecycle }> = ({ lifecycle }) => {
-  const c = LIFECYCLE_COLORS[lifecycle];
-  return (
-    <span style={{
-      fontSize: '0.55rem',
-      padding: '1px 6px',
-      borderRadius: 20,
-      border: `1px solid ${c}55`,
-      background: c + '22',
-      color: c,
-      whiteSpace: 'nowrap',
-      display: 'inline-flex',
-      alignItems: 'center',
-      fontWeight: 600,
-    }}>
-      {lifecycle}
-    </span>
-  );
+// Map lifecycle to StatusOrb status
+type OrbStatus = 'queued' | 'preparing' | 'running' | 'done' | 'failed' | 'idle';
+const LIFECYCLE_ORB: Record<ChapterLifecycle, OrbStatus> = {
+  Draft:    'idle',
+  Ready:    'queued',
+  Cast:     'preparing',
+  Rendered: 'done',
 };
+
+const LifecyclePill: React.FC<{ lifecycle: ChapterLifecycle }> = ({ lifecycle }) => (
+  <SemanticChip variant={LIFECYCLE_VARIANT[lifecycle]}>{lifecycle}</SemanticChip>
+);
 
 // ---------- Add Chapter modal ----------
 const AddChapterModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -53,41 +57,36 @@ const AddChapterModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 200,
-      background: 'rgba(0,0,0,0.45)',
+      background: 'var(--overlay-backdrop)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <div style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 10, padding: '18px 20px', width: 340,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-      }}>
-        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 14 }}>Add Chapter</div>
+      <Panel style={{ padding: '18px 20px', width: 340, boxShadow: 'var(--shadow-xl)' }}>
+        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 14 }}>Add Chapter</div>
         {/* Title */}
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginBottom: 3 }}>Title</div>
+          <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginBottom: 3 }}>Title</div>
           <input
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="Chapter title…"
             style={{
               width: '100%', boxSizing: 'border-box',
-              fontSize: '0.65rem', padding: '5px 8px',
-              borderRadius: 5, border: '1px solid var(--border)',
+              fontSize: 'var(--type-micro)', padding: '5px 8px',
+              borderRadius: 'var(--radius-button)', border: '1px solid var(--border)',
               background: 'var(--surface-alt)', color: 'var(--text-primary)', outline: 'none',
             }}
           />
         </div>
         {/* Paste textarea */}
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginBottom: 3 }}>Or paste text</div>
+          <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginBottom: 3 }}>Or paste text</div>
           <textarea
             rows={4}
             placeholder="Paste chapter text here…"
             style={{
               width: '100%', boxSizing: 'border-box',
-              fontSize: '0.62rem', padding: '5px 8px',
-              borderRadius: 5, border: '1px solid var(--border)',
+              fontSize: 'var(--type-micro)', padding: '5px 8px',
+              borderRadius: 'var(--radius-button)', border: '1px solid var(--border)',
               background: 'var(--surface-alt)', color: 'var(--text-primary)', outline: 'none',
               resize: 'vertical', lineHeight: 1.5,
             }}
@@ -98,17 +97,17 @@ const AddChapterModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '5px 10px',
           border: '1px dashed var(--border)',
-          borderRadius: 6, background: 'var(--surface-alt)', marginBottom: 14,
+          borderRadius: 'var(--radius-card)', background: 'var(--surface-alt)', marginBottom: 14,
         }}>
-          <span style={{ fontSize: '0.7rem' }}>⬆</span>
-          <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', flex: 1 }}>or upload a file (.txt, .docx, .epub)</span>
+          <Upload size={14} color="var(--text-muted)" aria-hidden="true" />
+          <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flex: 1 }}>or upload a file (.txt, .docx, .epub)</span>
           <Btn small>Choose file</Btn>
         </div>
         <Row gap={8} style={{ justifyContent: 'flex-end' }}>
           <Btn small onClick={onClose}>Cancel</Btn>
           <Btn small primary>Add</Btn>
         </Row>
-      </div>
+      </Panel>
     </div>
   );
 };
@@ -148,7 +147,8 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
       flex: 1,
       background: 'var(--surface-alt)',
       border: '1px solid var(--border)',
-      borderRadius: 6,
+      borderRadius: 'var(--radius-card)',
+      boxShadow: 'var(--shadow-sm)',
       overflow: 'hidden',
       minWidth: 0,
     }}>
@@ -160,17 +160,18 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
         alignItems: 'center',
         flexShrink: 0,
       }}>
-        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>
+        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>
           Ch {selectedChapter.n} · {selectedChapter.title}
         </span>
 
         {/* Focus mode toggle */}
         <div
           onClick={() => setFocusMode(f => !f)}
+          aria-label={focusMode ? 'Exit focus mode' : 'Enter focus mode'}
           style={{
-            fontSize: '0.58rem',
+            fontSize: 'var(--type-micro)',
             padding: '2px 7px',
-            borderRadius: 20,
+            borderRadius: 'var(--radius-round)',
             cursor: 'pointer',
             border: `1px solid ${focusMode ? 'var(--accent)' : 'var(--border)'}`,
             background: focusMode ? 'var(--accent-tint-bg)' : 'transparent',
@@ -181,50 +182,31 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
             whiteSpace: 'nowrap',
           }}
         >
-          {focusMode ? 'Exit focus' : 'Focus ✎'}
+          <Edit3 size={10} aria-hidden="true" />
+          {focusMode ? 'Exit focus' : 'Focus'}
         </div>
 
         {/* Status chip */}
         {isEditable ? (
-          <span style={{
-            fontSize: '0.55rem',
-            padding: '1px 7px',
-            borderRadius: 10,
-            border: '1px solid #22c55e55',
-            background: '#22c55e18',
-            color: '#22c55e',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 3,
-            whiteSpace: 'nowrap',
-          }}>
-            editing — autosaved ✓
-          </span>
+          <SemanticChip variant="success">
+            <CheckCircle size={9} style={{ marginRight: 3 }} aria-hidden="true" />
+            editing — autosaved
+          </SemanticChip>
         ) : (
-          <span style={{
-            fontSize: '0.55rem',
-            padding: '1px 7px',
-            borderRadius: 10,
-            border: '1px solid var(--border)',
-            background: 'var(--surface)',
-            color: 'var(--text-muted)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 3,
-            whiteSpace: 'nowrap',
-          }}>
-            🔒 read-only — this chapter is cast &amp; rendered
-          </span>
+          <SemanticChip variant="neutral">
+            <Lock size={9} style={{ marginRight: 3 }} aria-hidden="true" />
+            read-only — cast &amp; rendered
+          </SemanticChip>
         )}
       </Row>
 
       {/* Produced + unlocked amber strip */}
       {isProduced && isUnlocked && (
         <div style={{
-          fontSize: '0.58rem',
-          color: '#92400e',
-          background: '#fef3c7',
-          borderBottom: '1px solid #fbbf24',
+          fontSize: 'var(--type-micro)',
+          color: 'var(--warning-text)',
+          background: 'var(--warning-tint-bg)',
+          borderBottom: '1px solid var(--warning-tint-border)',
           padding: '3px 10px',
           flexShrink: 0,
         }}>
@@ -235,22 +217,24 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
       {/* Warning banner */}
       {showWarning === selectedChapterN && (
         <div style={{
-          background: '#fffbeb',
-          border: '1px solid #fbbf2488',
+          background: 'var(--warning-tint-bg)',
+          border: '1px solid var(--warning-tint-border)',
           borderRadius: 0,
           padding: '8px 10px',
           flexShrink: 0,
           borderBottom: '1px solid var(--border)',
         }}>
-          <div style={{ fontSize: '0.62rem', color: '#92400e', marginBottom: 6, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 'var(--type-micro)', color: 'var(--warning-text)', marginBottom: 6, lineHeight: 1.5 }}>
             Editing re-analyzes this chapter. Voice assignments are matched best-effort — some may be lost.
           </div>
           <Row gap={6}>
             <div
               onClick={handleEditAnyway}
               style={{
-                fontSize: '0.6rem', fontWeight: 700, padding: '3px 10px', borderRadius: 5,
-                background: '#f59e0b', border: '1px solid #d97706', color: '#fff', cursor: 'pointer',
+                fontSize: 'var(--type-micro)', fontWeight: 700, padding: '3px 10px',
+                borderRadius: 'var(--radius-button)',
+                background: 'var(--warning)', border: '1px solid var(--warning)',
+                color: 'var(--text-on-accent)', cursor: 'pointer',
               }}
             >
               Edit anyway
@@ -258,7 +242,8 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
             <div
               onClick={() => setShowWarning(null)}
               style={{
-                fontSize: '0.6rem', fontWeight: 600, padding: '3px 10px', borderRadius: 5,
+                fontSize: 'var(--type-micro)', fontWeight: 600, padding: '3px 10px',
+                borderRadius: 'var(--radius-button)',
                 background: 'var(--surface-alt)', border: '1px solid var(--border)',
                 color: 'var(--text-secondary)', cursor: 'pointer',
               }}
@@ -277,7 +262,7 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
               contentEditable
               suppressContentEditableWarning
               style={{
-                fontSize: '0.72rem',
+                fontSize: 'var(--type-callout)',
                 lineHeight: 1.75,
                 color: 'var(--text-primary)',
                 outline: 'none',
@@ -291,7 +276,7 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
               contentEditable
               suppressContentEditableWarning
               style={{
-                fontSize: '0.72rem',
+                fontSize: 'var(--type-callout)',
                 lineHeight: 1.75,
                 color: 'var(--text-primary)',
                 outline: 'none',
@@ -310,7 +295,7 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
               'The vale smelled of old rain and something older still — loam and iron and time.',
               'Far above, an owl called once, then fell silent.',
             ].map((line, i) => (
-              <div key={i} style={{ fontSize: '0.72rem', lineHeight: 1.75, color: 'var(--text-secondary)' }}>
+              <div key={i} style={{ fontSize: 'var(--type-callout)', lineHeight: 1.75, color: 'var(--text-secondary)' }}>
                 {line}
               </div>
             ))}
@@ -328,19 +313,22 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
         gap: 8,
         flexShrink: 0,
       }}>
-        <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', flex: 1 }}>
+        <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flex: 1 }}>
           1,842 words
         </span>
         {!isEditable && showWarning !== selectedChapterN && (
           <div
             onClick={handleEditClick}
+            aria-label="Edit chapter text"
             style={{
-              fontSize: '0.6rem', fontWeight: 600, padding: '2px 8px', borderRadius: 5,
+              fontSize: 'var(--type-micro)', fontWeight: 600, padding: '2px 8px',
+              borderRadius: 'var(--radius-button)',
               background: 'var(--surface-alt)', border: '1px solid var(--border)',
               color: 'var(--text-secondary)', cursor: 'pointer',
-              display: 'inline-flex', alignItems: 'center',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
             }}
           >
+            <Edit3 size={10} aria-hidden="true" />
             Edit text
           </div>
         )}
@@ -353,7 +341,7 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
     return (
       <Col gap={0} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', position: 'relative' }}>
         <div style={{
-          fontSize: '0.55rem',
+          fontSize: 'var(--type-micro)',
           color: 'var(--text-muted)',
           fontStyle: 'italic',
           padding: '3px 0 6px',
@@ -366,7 +354,8 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
             flex: 1,
             background: 'var(--surface-alt)',
             border: '1px solid var(--border)',
-            borderRadius: 6,
+            borderRadius: 'var(--radius-card)',
+            boxShadow: 'var(--shadow-sm)',
             overflow: 'hidden',
           }}>
             <Row gap={6} style={{
@@ -376,24 +365,25 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
               alignItems: 'center',
               flexShrink: 0,
             }}>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>
+              <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>
                 Ch {selectedChapter.n} · {selectedChapter.title}
               </span>
-              <span style={{
-                fontSize: '0.55rem', padding: '1px 7px', borderRadius: 10,
-                border: '1px solid #22c55e55', background: '#22c55e18', color: '#22c55e',
-                display: 'inline-flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap',
-              }}>
-                editing — autosaved ✓
-              </span>
+              <SemanticChip variant="success">
+                <CheckCircle size={9} style={{ marginRight: 3 }} aria-hidden="true" />
+                editing — autosaved
+              </SemanticChip>
               <div
                 onClick={() => setFocusMode(false)}
+                aria-label="Exit focus mode"
                 style={{
-                  fontSize: '0.58rem', padding: '2px 7px', borderRadius: 20, cursor: 'pointer',
+                  fontSize: 'var(--type-micro)', padding: '2px 7px',
+                  borderRadius: 'var(--radius-round)', cursor: 'pointer',
                   border: '1px solid var(--accent)', background: 'var(--accent-tint-bg)',
                   color: 'var(--accent)', whiteSpace: 'nowrap',
+                  display: 'inline-flex', alignItems: 'center', gap: 3,
                 }}
               >
+                <Edit3 size={10} aria-hidden="true" />
                 Exit focus
               </div>
             </Row>
@@ -402,21 +392,21 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
                 <div
                   contentEditable
                   suppressContentEditableWarning
-                  style={{ fontSize: '0.82rem', lineHeight: 1.85, color: 'var(--text-primary)', outline: 'none', background: 'transparent' }}
+                  style={{ fontSize: 'var(--type-body)', lineHeight: 1.85, color: 'var(--text-primary)', outline: 'none', background: 'transparent' }}
                 >
                   The road wound down through silver birch and pale stone, the kind of road that remembers every foot that has ever crossed it. Maren pulled her cloak tighter against the chill that rose from the valley floor.
                 </div>
                 <div
                   contentEditable
                   suppressContentEditableWarning
-                  style={{ fontSize: '0.82rem', lineHeight: 1.85, color: 'var(--text-primary)', outline: 'none', background: 'transparent' }}
+                  style={{ fontSize: 'var(--type-body)', lineHeight: 1.85, color: 'var(--text-primary)', outline: 'none', background: 'transparent' }}
                 >
                   The vale smelled of old rain and something older still — loam and iron and time. Far above, an owl called once, then fell silent.
                 </div>
               </Col>
             </div>
             <div style={{ padding: '5px 10px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
-              <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>1,842 words</span>
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>1,842 words</span>
             </div>
           </Col>
         </div>
@@ -437,11 +427,13 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
             </Row>
 
             {/* Chapter table */}
-            <Col gap={0} style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+            <Card style={{ overflow: 'hidden' }}>
               <Row gap={0} style={{ padding: '5px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
                 {['#', 'Title', 'Words', 'Stage'].map((h, i) => (
                   <div key={h} style={{
-                    fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)',
+                    fontSize: 'var(--type-micro)',
+                    fontWeight: 'var(--type-weight-micro)' as unknown as number,
+                    color: 'var(--text-muted)',
                     textTransform: 'uppercase', letterSpacing: '0.06em',
                     flex: i === 1 ? 3 : 1, textAlign: i > 1 ? 'right' : 'left',
                   }}>
@@ -463,16 +455,20 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
                       borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
                     }}
                   >
-                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', flex: 1 }}>{ch.n}</div>
+                    {/* StatusOrb replaces plain dot for chapter status */}
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <StatusOrb status={LIFECYCLE_ORB[ch.lifecycle]} size={14} />
+                      <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>{ch.n}</span>
+                    </div>
                     <div style={{
-                      fontSize: '0.62rem',
+                      fontSize: 'var(--type-caption)',
                       color: isSelected ? 'var(--accent)' : 'var(--text-primary)',
                       fontWeight: isSelected ? 700 : 500,
                       flex: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>
                       {ch.title}
                     </div>
-                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>
                       {ch.words.toLocaleString()}
                     </div>
                     <div style={{ flex: 1, textAlign: 'right' }}>
@@ -481,16 +477,16 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
                   </Row>
                 );
               })}
-            </Col>
+            </Card>
 
             {/* Compact import row */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '5px 10px', border: '1px dashed var(--border)',
-              borderRadius: 6, background: 'var(--surface-alt)',
+              borderRadius: 'var(--radius-card)', background: 'var(--surface-alt)',
             }}>
-              <span style={{ fontSize: '0.7rem' }}>⬆</span>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', flex: 1 }}>
+              <Upload size={14} color="var(--text-muted)" aria-hidden="true" />
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flex: 1 }}>
                 Import text/EPUB — drops into new chapters
               </span>
               <Btn small>Choose file</Btn>
@@ -506,23 +502,25 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
 };
 
 // ---------------------------------------------------------------------------
-// Casting pane (unchanged)
+// Casting pane
 
 const CHARACTERS_NON_NARRATOR = [
-  { name: 'Maren', color: '#6366f1', lines: 142, voice: 'Studio Voice' },
-  { name: 'Dov', color: '#f59e0b', lines: 88, voice: 'Marcus Reed' },
-  { name: 'The Warden', color: '#ef4444', lines: 34, voice: 'Old Tom' },
-  { name: 'Sira', color: '#ec4899', lines: 29, voice: 'Unassigned' },
+  { name: 'Maren', category: 'class' as const, lines: 142, voice: 'Studio Voice' },
+  { name: 'Dov', category: 'age' as const, lines: 88, voice: 'Marcus Reed' },
+  { name: 'The Warden', category: 'gender' as const, lines: 34, voice: 'Old Tom' },
+  { name: 'Sira', category: 'extended' as const, lines: 29, voice: 'Unassigned' },
 ];
 
 export const CastingPane: React.FC = () => (
   <Row gap={10} style={{ flex: 1, alignItems: 'stretch' }}>
     {/* Character table */}
-    <Col gap={0} style={{ flex: 2, background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+    <Card style={{ flex: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Row gap={0} style={{ padding: '5px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
         {['Character', 'Lines', 'Voice'].map(h => (
           <div key={h} style={{
-            fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)',
+            fontSize: 'var(--type-micro)',
+            fontWeight: 'var(--type-weight-micro)' as unknown as number,
+            color: 'var(--text-muted)',
             textTransform: 'uppercase', letterSpacing: '0.06em', flex: 1,
           }}>
             {h}
@@ -536,26 +534,16 @@ export const CastingPane: React.FC = () => (
         alignItems: 'center', background: 'var(--accent-tint-bg)',
       }}>
         <Row gap={6} style={{ flex: 1, alignItems: 'center' }}>
-          <div style={{
-            width: 20, height: 20, borderRadius: '50%',
-            background: 'var(--accent-tint-bg)', border: '1px solid var(--accent)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '0.65rem', flexShrink: 0,
-          }}>🎙</div>
-          <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--accent)' }}>
-            Narrator <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: '0.6rem' }}>(default)</span>
+          <Avatar size={20} />
+          <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--accent)' }}>
+            Narrator <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 'var(--type-micro)' }}>(default)</span>
           </span>
         </Row>
-        <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', flex: 1 }}>—</div>
+        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flex: 1 }}>—</div>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 16, height: 16, borderRadius: '50%',
-            background: 'var(--accent-tint-bg)', border: '1px solid var(--border)',
-            fontSize: '0.55rem', marginRight: 4, verticalAlign: 'middle',
-          }}>🎙</span>
-          <span style={{ fontSize: '0.62rem', color: 'var(--text-primary)' }}>Elena Marsh</span>
-          <Chip color="#6b7280">fallback for any unassigned line</Chip>
+          <Avatar size={16} />
+          <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)' }}>Elena Marsh</span>
+          <VoiceAttrPill category="tag">fallback</VoiceAttrPill>
         </div>
       </Row>
 
@@ -566,53 +554,61 @@ export const CastingPane: React.FC = () => (
           alignItems: 'center',
         }}>
           <Row gap={6} style={{ flex: 1, alignItems: 'center' }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: ch.color, flexShrink: 0, display: 'inline-block' }} />
-            <span style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--text-primary)' }}>{ch.name}</span>
+            {/* Color dot replaced by VoiceAttrPill category dot via Avatar accent tinted by pill category */}
+            <div style={{
+              width: 8, height: 8, borderRadius: 'var(--radius-round)',
+              background: `var(--pill-${ch.category}-text)`,
+              flexShrink: 0,
+            }} />
+            <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-primary)' }}>{ch.name}</span>
           </Row>
-          <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', flex: 1 }}>{ch.lines}</div>
+          <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flex: 1 }}>{ch.lines}</div>
           <div style={{ flex: 1 }}>
             <span style={{
-              fontSize: '0.62rem',
+              fontSize: 'var(--type-caption)',
               color: ch.voice === 'Unassigned' ? 'var(--text-muted)' : 'var(--text-primary)',
               fontStyle: ch.voice === 'Unassigned' ? 'italic' : 'normal',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
             }}>
-              {ch.voice !== 'Unassigned' && (
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: 16, height: 16, borderRadius: '50%',
-                  background: 'var(--accent-tint-bg)', border: '1px solid var(--border)',
-                  fontSize: '0.55rem', marginRight: 4, verticalAlign: 'middle',
-                }}>🎙</span>
-              )}
+              {ch.voice !== 'Unassigned' && <Avatar size={16} />}
               {ch.voice}
             </span>
           </div>
         </Row>
       ))}
-    </Col>
+    </Card>
 
     {/* Right panel */}
     <Col gap={8} style={{ flex: 1 }}>
-      <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px' }}>
-        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>🎙 Studio Voice</div>
+      <Card style={{ padding: '10px 12px' }}>
+        <Row gap={6} style={{ alignItems: 'center', marginBottom: 8 }}>
+          <Mic size={14} color="var(--accent)" aria-hidden="true" />
+          <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>Studio Voice</div>
+        </Row>
         <Col gap={6}>
           <Row gap={4} style={{ flexWrap: 'wrap' }}>
-            <Chip color="#6366f1">Narrator</Chip>
-            <Chip color="#ec4899">Female</Chip>
-            <Chip color="#f59e0b">Adult</Chip>
-            <Chip color="#22c55e">Warm</Chip>
+            <VoiceAttrPill category="class">Narrator</VoiceAttrPill>
+            <VoiceAttrPill category="gender">Female</VoiceAttrPill>
+            <VoiceAttrPill category="age">Adult</VoiceAttrPill>
+            <VoiceAttrPill category="extended">Warm</VoiceAttrPill>
           </Row>
-          <Btn small style={{ marginTop: 4 }}>▶ Preview 15s</Btn>
+          <Btn small style={{ marginTop: 4 }}>
+            <Play size={10} style={{ marginRight: 3 }} aria-hidden="true" />
+            Preview 15s
+          </Btn>
           <Btn primary small>Assign to Maren</Btn>
         </Col>
-      </div>
-      <div style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px' }}>
-        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>✨ Suggest cast (AI)</div>
-        <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+      </Card>
+      <Card style={{ padding: '10px 12px' }}>
+        <Row gap={6} style={{ alignItems: 'center', marginBottom: 4 }}>
+          <Volume2 size={13} color="var(--accent)" aria-hidden="true" />
+          <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>Suggest cast (AI)</div>
+        </Row>
+        <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginBottom: 8 }}>
           Recommends voices per character — never auto-assigns.
         </div>
         <Btn small>Run suggestions</Btn>
-      </div>
+      </Card>
     </Col>
   </Row>
 );
@@ -633,34 +629,45 @@ const REVIEW_SENTENCES = [
 export const ReviewPane: React.FC = () => (
   <Col gap={0} style={{ flex: 1, minHeight: 0 }}>
     {/* Transport row + waveform */}
-    <div style={{
-      background: 'var(--surface-alt)', border: '1px solid var(--border)',
-      borderRadius: 6, padding: '6px 10px', marginBottom: 8, flexShrink: 0,
-    }}>
+    <Card style={{ padding: '6px 10px', marginBottom: 8, flexShrink: 0 }}>
       <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
-        <span style={{ fontSize: '0.8rem', cursor: 'pointer' }}>⏮</span>
-        <span style={{ fontSize: '0.72rem', cursor: 'pointer', color: 'var(--text-muted)' }}>⏪5s</span>
-        <span style={{ fontSize: '0.9rem', cursor: 'pointer', color: 'var(--accent)' }}>▶</span>
-        <span style={{ fontSize: '0.72rem', cursor: 'pointer', color: 'var(--text-muted)' }}>5s⏩</span>
-        <Chip active>Chapter 7</Chip>
+        <button
+          aria-label="Skip to start"
+          style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-primary)', display: 'flex', alignItems: 'center' }}
+        >
+          <SkipBack size={16} />
+        </button>
+        <button
+          aria-label="Rewind 5 seconds"
+          style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+        >
+          <Rewind size={13} />
+          <span style={{ fontSize: 'var(--type-micro)', marginLeft: 2 }}>5s</span>
+        </button>
+        <button
+          aria-label="Play"
+          style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center' }}
+        >
+          <Play size={18} />
+        </button>
+        <button
+          aria-label="Fast-forward 5 seconds"
+          style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+        >
+          <span style={{ fontSize: 'var(--type-micro)', marginRight: 2 }}>5s</span>
+          <FastForward size={13} />
+        </button>
+        <SemanticChip variant="accent">Chapter 7</SemanticChip>
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>§18 / §42</span>
+        <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>§18 / §42</span>
       </Row>
-      {/* Inline waveform mock */}
-      <div style={{ height: 32, display: 'flex', alignItems: 'center', gap: 1 }}>
-        {[4,8,14,20,28,18,24,30,22,16,26,32,24,18,12,20,28,22,16,10,18,26,30,20,14,8,16,24,18,10].map((h, i) => (
-          <div key={i} style={{
-            flex: 1, height: `${h / 32 * 100}%`,
-            background: i > 8 && i < 18 ? 'var(--accent)' : 'var(--border)',
-            borderRadius: 2, opacity: i > 8 && i < 18 ? 0.9 : 0.5,
-          }} />
-        ))}
-      </div>
-    </div>
+      {/* Waveform via shared WaveformSvg */}
+      <WaveformSvg height={32} />
+    </Card>
 
     <Row gap={10} style={{ flex: 1, alignItems: 'stretch', minHeight: 0 }}>
       <Col gap={0} style={{ flex: 2, minHeight: 0 }}>
-        <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 6 }}>
+        <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 6 }}>
           text follows playback — auto-scroll, tap a sentence to seek
         </div>
         <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -671,20 +678,30 @@ export const ReviewPane: React.FC = () => (
               const isRerendering = s.state === 'rerendering';
               return (
                 <div key={i} style={{
-                  fontSize: '0.7rem', lineHeight: 1.65,
+                  fontSize: 'var(--type-caption)', lineHeight: 1.65,
                   color: isPast ? 'var(--text-muted)' : 'var(--text-primary)',
-                  padding: '3px 6px', borderRadius: 4,
-                  background: isPlaying ? 'var(--accent-tint-bg)' : isRerendering ? 'rgba(139,92,246,0.08)' : 'transparent',
-                  border: isPlaying ? '1px solid var(--accent)' : isRerendering ? '1px solid #8b5cf655' : '1px solid transparent',
+                  padding: '3px 6px',
+                  borderRadius: 'var(--radius-button)',
+                  background: isPlaying
+                    ? 'var(--accent-tint-bg)'
+                    : isRerendering
+                    ? 'var(--warning-tint-bg)'
+                    : 'transparent',
+                  border: isPlaying
+                    ? '1px solid var(--accent-tint-border)'
+                    : isRerendering
+                    ? '1px solid var(--warning-tint-border)'
+                    : '1px solid transparent',
                   cursor: 'pointer', fontWeight: isPlaying ? 600 : 400,
                   opacity: isPast ? 0.55 : 1,
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}>
                   <span style={{ flex: 1 }}>{s.text}</span>
                   {isRerendering && (
-                    <span style={{ fontSize: '0.52rem', color: '#8b5cf6', fontStyle: 'italic', whiteSpace: 'nowrap' }}>
-                      re-rendering — highlight follows progress, like Studio build view
-                    </span>
+                    <SemanticChip variant="warning">
+                      <Loader2 size={9} style={{ marginRight: 3 }} aria-hidden="true" />
+                      re-rendering
+                    </SemanticChip>
                   )}
                 </div>
               );
@@ -696,7 +713,7 @@ export const ReviewPane: React.FC = () => (
       <Col gap={8} style={{ flex: 1, minHeight: 0 }}>
         <Row gap={6} style={{ alignItems: 'center' }}>
           <Label>Annotations</Label>
-          <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontStyle: 'italic', flex: 1 }}>
+          <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic', flex: 1 }}>
             notes attach to sections — re-renders don't shift them
           </span>
         </Row>
@@ -706,20 +723,17 @@ export const ReviewPane: React.FC = () => (
             { section: '§22', note: 'Pause too long after sentence end' },
             { section: '§31', note: "Narrator volume dips on 'stone'" },
           ].map(ann => (
-            <div key={ann.section} style={{
-              background: 'var(--surface-alt)', border: '1px solid var(--border)',
-              borderRadius: 6, padding: '6px 8px',
-            }}>
+            <Card key={ann.section} style={{ padding: '6px 8px' }}>
               <Row gap={6} style={{ alignItems: 'center', marginBottom: 4 }}>
-                <Chip>{ann.section}</Chip>
-                <span style={{ flex: 1, fontSize: '0.62rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                <SemanticChip variant="neutral">{ann.section}</SemanticChip>
+                <span style={{ flex: 1, fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                   {ann.note}
                 </span>
               </Row>
               <Btn small>Re-render section</Btn>
-            </div>
+            </Card>
           ))}
-          <div style={{ fontSize: '0.62rem', color: 'var(--accent)', cursor: 'pointer', padding: '4px 2px' }}>
+          <div style={{ fontSize: 'var(--type-caption)', color: 'var(--accent)', cursor: 'pointer', padding: '4px 2px' }}>
             + Add note on §18 (playing)
           </div>
         </Col>
@@ -728,5 +742,5 @@ export const ReviewPane: React.FC = () => (
   </Col>
 );
 
-// Export unused but referenced items so lint is happy
+// Re-export shared primitives used by sibling modules that import from this barrel
 export { Label, PlannedChip, ProgressBar };
