@@ -27,6 +27,7 @@ Last updated: 2026-06-14
 | [plugin-contract.md](plugin-contract.md) | `StudioTTSEngine` ABC, manifest schema, SDK types, capability flags | 1.0.0 |
 | [engines-and-plugins.md](engines-and-plugins.md) | Plugin discovery, health state machine, verification flow, hot-reload rules | 1.0.0 |
 | [voice-bundles.md](voice-bundles.md) | Bundle directory structure, MP3/WAV format rules, voice attribute taxonomy, voice catalog + Voice Lab UI | 1.1.0 |
+| [interface-localization.md](interface-localization.md) | Interface localization, locale catalogs, first-run picker, settings selector, locale-aware formatting | 1.0.3 |
 | [progress-presentation.md](progress-presentation.md) | `PredictiveProgressBar` contract, ETA trust model, broadcast thresholds | 1.3.3 |
 | [code-organization.md](code-organization.md) | Repo layout, module boundary rules, file-size norms, import constraints | 1.0.0 |
 | [security.md](security.md) | Path containment pattern, API key auth, input validation, CodeQL requirements | 1.0.0 |
@@ -76,6 +77,7 @@ internet connection is required during synthesis.
 | Text processing pipeline | `text-processing.md` | `plugin-contract.md` (chunk limit), `queue-jobs.md` (segment granularity) |
 | TTS engine plugins | `plugin-contract.md`, `engines-and-plugins.md` | `system-architecture.md` (watchdog/bridge), `voice-bundles.md` |
 | Voice data & bundles | `voice-bundles.md` | `data-model.md` (voice directory layout), `install-distribution.md` (defaults) |
+| Interface localization / locale packs | `interface-localization.md` | `site-shell-and-book-pipeline.md` (shell/book labels), `design-system.md` (layout expansion), `plans/phases/phase_12_multilingual_interface_examples/` |
 | Progress & ETA | `progress-presentation.md` | `live-events.md` (progress event envelope), `queue-jobs.md` (ETA ownership) |
 | REST API & external TTS | `api-conventions.md` | `security.md` (API key auth), `queue-jobs.md` (job IDs) |
 | Data persistence | `data-model.md` | `system-architecture.md` (state stores), `queue-jobs.md` (two stores) |

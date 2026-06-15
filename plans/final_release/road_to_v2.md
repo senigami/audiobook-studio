@@ -1,6 +1,6 @@
 # Road to v2.0.0 — working release checklist
 
-*Compiled 2026-06-11 from doc 08 (release sequence), all final_release docs, PR #124, and master_agnostic_tasks. This is the single working list; per-stage detail stays in the source docs. Update statuses here as items land.*
+*Compiled 2026-06-11 from doc 08 (release sequence), all final_release docs, PR #124, and master_agnostic_tasks. This is the single working release list; per-stage detail stays in the source docs. If another plan conflicts with this file, reconcile that plan back to this file before executing. Update statuses here as items land.*
 
 ## Stage 1 — Stabilize ✅ (one gate item open)
 
@@ -10,7 +10,7 @@ All logic fixes, progress confidence model, security blockers, test-quality audi
 
 ## Stage 2 — Clean house (open, release-gating)
 
-- [ ] Repo + dead-code cleanup per doc 06 — `OWNER_CONFIRMED` deletion flags need owner sign-off before executing. (L)
+- [ ] Repo + dead-code cleanup per doc 06 — owner authorization is recorded; execute `OWNER_CONFIRMED` items one commit each with suite green per commit. (L)
 - [ ] Phase 11 plan-file checkpoint + GitHub-doc supersede notes (doc 01). (S)
 
 ## Stage 3 — Plugin contract (open, release-gating, longest pole)
@@ -38,7 +38,9 @@ All logic fixes, progress confidence model, security blockers, test-quality audi
 - [x] **GATE: accessibility blockers A1–A3 + A9** — DONE 2026-06-11 (useFocusTrap, dialog semantics, :focus-visible ring).
 - [ ] Doc 11 perf items P1–P6 (rAF-throttle LiveOutputTable, audit ring buffer, ScriptView memo, audio element reuse, visibility gating, interval dedup). (M)
 - [x] Doc 10 U15/U16 (rail + pipeline + player bar) — DELIVERED via the R1–R6 redesign. Remaining doc 10 U1–U14 cosmetic items fold into the redesigned surfaces or R6 parity; re-triage any leftovers against the shipped UI.
-- [ ] Playwright/axe baseline strategy decision (CI-generated on Linux recommended), then doc 07 step 4. (S)
+- [ ] Needs owner elaboration: axe/visual baseline rollout. Current direction is axe now and visual
+  snapshots later; decide whether axe becomes CI-gated immediately or remains a manual release check
+  until the fixed Linux runner is ready. (S)
 
 ## Stage 6 — Tell the world
 

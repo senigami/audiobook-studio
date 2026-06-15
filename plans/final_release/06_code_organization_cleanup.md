@@ -304,7 +304,7 @@ These are dev tools, not production features.
 - `.form-input` — `frontend/src/theme/components.css` lines 384–396
 - Component: `frontend/src/components/forms/GlassInput.tsx`
 
-- [ ] **Owner decision:** choose one canonical class name (recommended: `.form-input`) and one canonical component (`GlassInput`).
+- [x] **Owner decision resolved 2026-06-14:** canonical input styling is `.form-input`; canonical component is `GlassInput`.
 - [ ] Migrate all uses of `.input-group input`, `.input-field` to `.form-input` or `<GlassInput>`.
 - [ ] Remove the superseded CSS rules.
 - **Acceptance:** `grep -rn "input-group\|input-field" frontend/src --include="*.tsx" --include="*.css"` returns only definition sites, not usage sites.
@@ -323,7 +323,7 @@ These are dev tools, not production features.
 | 4.3–4.4 | Move/collapse | Low | Import grep |
 | 4.5 | Gate dev routes | Low | — |
 | 4.8 | Normalize API | Medium | Manual audit |
-| 4.9 | Unify inputs | Medium | Owner CSS decision |
+| 4.9 | Unify inputs | Medium | Owner decision resolved: `.form-input` + `GlassInput` |
 | 3.4, 4.6, 4.7 | Schedule only | None | — |
 
 ---

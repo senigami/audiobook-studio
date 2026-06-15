@@ -1,6 +1,6 @@
 # Plan — sanitize_text categories & check_output interface (plugin contract QA hooks)
 
-*Status: PLANNED, ready to execute (sanitize_text Part 1–3 unsupervised; Part 4 UI + check_output need one owner sign-off each, marked below). Written 2026-06-11 from a fresh code survey; file:line cites verified that date. Both items are PR #124 checklist entries. TDD per `docs/specs/testing-standards.md`; spec bumps in the same commits.*
+*Status: HISTORICAL DESIGN CONTEXT. The release board records sanitize categories/overrides and check_output as complete in `plans/final_release/road_to_v2.md` Stage 3. Keep this file as rationale and implementation-order history, not as an active checklist.*
 
 ---
 
@@ -42,11 +42,11 @@ Semantics: feature flag = participates in safe-mode sanitization; `sanitize_cate
 
 **3. Resolution chokepoint** (`app/engines/behavior.py` — the existing behavior registry, NOT the callers): new `get_sanitize_categories(engine_id) -> tuple[str,...] | None` reading the manifest. The two call sites change from `sanitize_text(t)` to `sanitize_text(t, get_sanitize_categories(engine_id))`. Mixed handler already routes per-group by engine — each group sanitizes with its own engine's categories (today it uses the group engine's flag; keep that, add categories).
 
-**4. User per-category overrides — DECIDED 2026-06-11: per-engine granularity (owner accepted the lean). Unblocked.** Proposed: settings-schema injection — the loader synthesizes a `sanitize_overrides` object property into each declaring engine's settings schema (checkbox per declared category, default on), stored in the engine's settings store; resolution order = manifest categories ∩ user-enabled. UI comes free via `JsonSchemaForm`. *Open question for owner: is per-engine override granularity right, or should overrides be global (one set of checkboxes in General)? My lean: per-engine — the categories exist because engines differ.*
+**4. User per-category overrides — DECIDED 2026-06-11: per-engine granularity.** Settings-schema injection: the loader synthesizes a `sanitize_overrides` object property into each declaring engine's settings schema (checkbox per declared category, default on), stored in the engine's settings store; resolution order = manifest categories ∩ user-enabled. UI comes through `JsonSchemaForm`.
 
 **5. Tests:** golden equality (step 1); per-category unit tests (each category transforms its target and ONLY its target); manifest validation (unknown category rejected); behavior resolution (declared subset honored, absent → all); mixed-render integration (two engines, different categories, each group sanitized accordingly — extend `plugins/synthesis_mixed/tests/test_mixed_handler.py`).
 
-**Execution order:** 1 (refactor+golden) → 2 (manifest+spec) → 3 (resolution) → [owner gate] → 4 (overrides+UI). Steps 1–3 are safe tonight-style work; each is a checkpoint commit.
+**Execution order:** 1 (refactor+golden) → 2 (manifest+spec) → 3 (resolution) → 4 (overrides+UI). All decisions for this item are resolved; each step is a checkpoint commit.
 
 ---
 
@@ -54,7 +54,7 @@ Semantics: feature flag = participates in safe-mode sanitization; `sanitize_cate
 
 ### Current reality (verified)
 
-- Specified in the contract plan (`plans/final_release/02_plugin_communication_contract.md:175-201`): optional server-side method `check_output(req: TTSRequest, result: TTSResult) -> tuple[bool, str]`, default accept-all, intended for duration/silence/truncation/speaker-mismatch QA. **Not implemented anywhere.**
+- Specified in the contract plan (`plans/final_release/02_plugin_communication_contract.md:175-201`): optional server-side method `check_output(req: TTSRequest, result: TTSResult) -> tuple[bool, str]`, default accept-all, intended for duration/silence/truncation/speaker-mismatch QA.
 - Today's post-render "validation": file-exists + move in `app/jobs/handlers/bridge_helpers.py:81-99`, duration probe via `app/engines/audio_ops.py:52` (returns 0.0 on failure — silent). Phase-12 plan (`plans/phases/phase_12_polish_and_cleanup.md:47-48`) wanted reconcile to call it.
 
 ### Design
@@ -72,7 +72,7 @@ Failure-isolate the hook itself (a crashing `check_output` logs + accepts — QA
 
 **5. Tests:** ABC default accepts; server rejects + deletes artifact on (False, reason) (R1: assert pre-hook code shipped the bad artifact); crashing hook isolated; XTTS duration rule unit tests with synthetic WAVs (fixtures exist in plugin tests); end-to-end through the bridge mock asserting the error class + reason propagation.
 
-**Execution order:** 1 (ABC+spec) → 2 (server) → 3 (studio error path) → 4 (XTTS impl) → 5 woven throughout. Step 3's retry question is the one owner gate; everything else is unsupervised-safe.
+**Execution order:** 1 (ABC+spec) → 2 (server) → 3 (studio error path) → 4 (XTTS impl) → 5 woven throughout. The retry policy is resolved: fail with reason, no automatic retry in v1.
 
 ---
 
@@ -80,4 +80,4 @@ Failure-isolate the hook itself (a crashing `check_output` logs + accepts — QA
 
 - Both changes are **additive** to the plugin contract — existing third-party plugins keep working untouched (defaults preserve current behavior). That's the versioned-contracts directive working as intended.
 - Neither touches the orchestrator's marker pipeline (recently stabilized) — invocation points are the TTS server and the bridge edge.
-- Combined estimate: sanitize 1–3 ≈ one evening; check_output 1–2+4 ≈ one evening; UI/retry gates pending owner answers (north-star-style: positioned, not blocked).
+- Combined estimate: sanitize categories ≈ one evening; check_output hook ≈ one evening. No owner-gated questions remain in this plan.

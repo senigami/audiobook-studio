@@ -1,0 +1,8 @@
+{
+  "activity.page.title": "Activity",
+  "activity.queue.title": "Queue",
+  "activity.queue.pauseAll": "Pause all",
+  "activity.queue.resumeAll": "Resume all",
+  "activity.queue.clearCompleted": "Clear completed",
+  "activity.queue.clearAll": "Clear all"
+}

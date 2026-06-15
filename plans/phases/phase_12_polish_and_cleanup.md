@@ -13,12 +13,12 @@
 | **VCR Controls** | **Complete** | VCR-style chapter playback controls added to Chapter Editor. |
 | **Queue Metadata** | **Complete** | Completed jobs show generated audio duration and content metrics. |
 | **Library list view and sorting** | **Complete** | Added list view and sort options to the Library main page. |
-| **Voice and plugin UX** | **Partial** | Dependency installation feedback and XTTS resolution complete. Voxtral chapter rendering, voice icons/tags, and implementation of the documented Hugging Face voice bundle shape remain open. |
+| **Voice and plugin UX** | **Partial** | Dependency installation feedback and XTTS resolution complete. Voice metadata Phases A-F are complete per `plans/final_release/road_to_v2.md`; Taxonomy v2 Phase G remains open and blocks the refreshed demo bundle. |
 | **Plugin-provided voice settings** | **Complete** | Per-voice plugin settings rendered in ScriptEditor via JsonSchemaForm. |
 | **Plugin boundary cleanup** | **Complete** | Core plugin code is portable; app-specific logic localized to adapters. |
 | **Legacy jobs API retirement** | **Complete** | Removed legacy request/response endpoints; WebSocket snapshots remain authoritative. |
 | **Manual QA pass** | **Open** | Final verification of fixed-but-pending behaviors. |
-| **Multilingual support plan** | **Open** | Planning for voice/text language support. |
+| **Multilingual interface support plan** | **Ready for review** | Proposed in `plans/phases/phase_12_multilingual_interface_plan.md` with binding spec `docs/specs/interface-localization.md` and example mappings in `plans/phases/phase_12_multilingual_interface_examples/`; implementation not started. |
 
 ## Checklist
 
@@ -33,10 +33,9 @@
 - [x] Fix plugin dependency installation UX (Install Deps button + feedback).
 - [x] Fix XTTS dependency detection and missing-package feedback.
 - [x] Surface plugin-defined per-voice controls in Voice Settings drawer/ScriptEditor.
-- [ ] Add voice image/icon upload and standardized 1:1 JPG processing, storing the result as the `voice.json.image` asset defined by `docs/specs/voice.schema.json`.
-- [ ] Add searchable voice tags and structured attributes backed by `docs/specs/voice-taxonomy.json`.
-- [ ] Align voice export bundles with the Hugging Face-compatible `voice.json` schema, `docs/specs/voice-bundle-template/`, generated README/frontmatter, preview sample widget, and engine asset references.
-- [ ] Implement Voxtral segment and bake rendering for chapter jobs.
+- [x] Voice metadata A-F complete: icon upload, searchable tags/attributes, HF-aligned bundle export/import, and docs. Current tracking lives in `plans/final_release/road_to_v2.md` Stage 4.
+- [ ] Complete Taxonomy v2 Phase G: language, accent, style, tinted pills/+N overflow, and HF `as-*` tags.
+- [x] Implement Voxtral segment and bake rendering for chapter jobs.
 - [x] Audit default voice fallback so chapters do not silently default to Voxtral.
 - [x] Implement TTS plugin zip import/delete flows (Import done; Delete/Uninstall done).
 
@@ -44,9 +43,8 @@
 - [x] Enriched queue metadata for completed jobs (audio length, chars, segments).
 - [x] Chapter Editor backend dead-code audit and production infrastructure pruning.
 - [x] localize XTTS/Voxtral core logic for absolute portability.
-- [ ] Implement `check_output` interface in plugin adapters. *(Detailed design ready: `plans/plugin_contract_qa_hooks_plan.md` — SDK ABC default + TTS-server invocation; the reconcile.py wording below is obsolete.)*
-- [x] ~~Update `app/jobs/reconcile.py` to use `engine.check_output(job)`~~ — resolved 2026-06-11: `app/jobs/reconcile.py` no longer exists (deleted in the clean break); the check_output invocation point moves to the TTS server `/synthesize` path per the plan above.
-- [ ] Finalize plugin contract-version and callable-signature validation against the documented five-method StudioTTSEngine contract *(contract-VERSION gate landed 2026-06-11: `SUPPORTED_MANIFEST_VERSION` + tests in plugin_loader; callable-signature audit remains)* in `docs/handbook/content/plugin-sdk/engine-contract.json` and `docs/handbook/content/plugin-sdk/compatibility.json`.
+- [x] Implement `check_output` interface in plugin adapters at the TTS server/bridge edge. `plans/plugin_contract_qa_hooks_plan.md` is now historical design context.
+- [x] Finalize plugin contract-version and callable-signature validation against the StudioTTSEngine contract.
 - [x] Retire legacy job request/response API endpoints.
 
 ### Documentation and Final Audit
@@ -59,6 +57,6 @@
 ## Deferred to Phase 13 / Post-v2.0
 - [ ] GitHub plugin search and direct download.
 - [ ] Hugging Face direct voice search/download.
-- [ ] Multilingual voice/text language implementation (planning only in Phase 12).
+- [x] Plan multilingual interface localization (see `plans/phases/phase_12_multilingual_interface_plan.md`, `docs/specs/interface-localization.md`, and `plans/phases/phase_12_multilingual_interface_examples/`).
 - [x] Rename `mixed.py` -> `composite.py`. *(closed N/A 2026-06-11 — no `mixed.py` module exists; `synthesis_mixed` is a plugin package, not a file to rename)*
 - [ ] Third-party/LLM controller plugin system (foundation only in Phase 12).

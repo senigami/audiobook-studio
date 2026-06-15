@@ -1,0 +1,9 @@
+{
+  "onboarding.language.title": "Choose your language",
+  "onboarding.language.body": "This sets the app language for buttons, pages, and helper text. You can change it later in Settings.",
+  "onboarding.language.continue": "Continue",
+  "onboarding.language.keepEnglish": "Keep English",
+  "onboarding.language.option.en": "English (source)",
+  "onboarding.language.option.esES": "Español (España)",
+  "onboarding.language.option.frFR": "Français (France)"
+}

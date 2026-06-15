@@ -1,0 +1,16 @@
+{
+  "shell.brand.title": "Audiobook Studio",
+  "shell.nav.library": "Library",
+  "shell.nav.voices": "Voices",
+  "shell.nav.activity": "Activity",
+  "shell.nav.engines": "Engines",
+  "shell.nav.integrations": "Integrations",
+  "shell.nav.settings": "Settings",
+  "shell.connection.connected": "Connected",
+  "shell.queue.button": "Queue",
+  "shell.theme.dark": "Dark mode",
+  "shell.theme.light": "Light mode",
+  "shell.theme.system": "System",
+  "shell.rail.collapse": "Collapse rail",
+  "shell.rail.expand": "Expand rail"
+}
