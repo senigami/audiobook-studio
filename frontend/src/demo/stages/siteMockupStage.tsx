@@ -29,7 +29,9 @@ import {
   X,
   MoreHorizontal,
   SkipBack,
+  Rewind,
   Play,
+  FastForward,
   SkipForward,
   Activity,
   CheckCircle2,
@@ -410,22 +412,27 @@ const PlayerBar: React.FC = () => {
         {/* VCR transport — circular icon buttons */}
         <Row gap={4} style={{ alignItems: 'center' }}>
           {[
-            { Icon: SkipBack,  label: 'Skip back' },
-            { Icon: Play,      label: 'Play' },
-            { Icon: SkipForward, label: 'Skip forward' },
-          ].map(({ Icon, label }) => (
+            { Icon: SkipBack,    label: 'Previous' },
+            { Icon: Rewind,      label: 'Skip back 10 seconds' },
+            { Icon: Play,        label: 'Play', primary: true },
+            { Icon: FastForward, label: 'Skip forward 10 seconds' },
+            { Icon: SkipForward, label: 'Next' },
+          ].map(({ Icon, label, primary }) => (
             <button
               key={label}
               type="button"
               aria-label={label}
               style={{
-                width: 26, height: 26, borderRadius: 'var(--radius-round)',
-                border: '1px solid var(--border)', background: 'var(--surface-alt)',
+                width: primary ? 30 : 26, height: primary ? 30 : 26,
+                borderRadius: 'var(--radius-round)',
+                border: primary ? '1px solid var(--accent)' : '1px solid var(--border)',
+                background: primary ? 'var(--accent)' : 'var(--surface-alt)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', flexShrink: 0, color: 'var(--text-primary)',
+                cursor: 'pointer', flexShrink: 0,
+                color: primary ? 'var(--text-on-accent)' : 'var(--text-primary)',
               }}
             >
-              <Icon size={12} strokeWidth={2} />
+              <Icon size={primary ? 14 : 12} strokeWidth={2} style={{ flexShrink: 0 }} />
             </button>
           ))}
         </Row>

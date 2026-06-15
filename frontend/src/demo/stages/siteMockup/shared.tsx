@@ -58,8 +58,9 @@ export const Label: React.FC<{ children: React.ReactNode; muted?: boolean; style
 // ---------------------------------------------------------------------------
 // Card / Panel elevation wrappers
 
-export const Card: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({ children, style }) => (
+export const Card: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ children, style, ...rest }) => (
   <div
+    {...rest}
     style={{
       background: 'var(--surface)',
       border: '1px solid var(--border)',
@@ -72,8 +73,9 @@ export const Card: React.FC<{ children: React.ReactNode; style?: React.CSSProper
   </div>
 );
 
-export const Panel: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({ children, style }) => (
+export const Panel: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ children, style, ...rest }) => (
   <div
+    {...rest}
     style={{
       background: 'var(--surface)',
       border: '1px solid var(--border)',
@@ -412,37 +414,46 @@ export const BookCover: React.FC<{
   style?: React.CSSProperties;
 }> = ({ title, src, size = 48, style }) => {
   const initial = (title ?? '?')[0].toUpperCase();
+  // Deterministic per-title hue so each book reads as distinct cover art.
+  let hash = 0;
+  for (let i = 0; i < (title ?? '').length; i++) hash = (hash * 31 + title.charCodeAt(i)) | 0;
+  const hue = Math.abs(hash) % 360;
   return (
     <div
       style={{
+        position: 'relative',
         width: size,
-        height: size,
-        borderRadius: 'var(--radius-card)',
-        border: '1px solid var(--border)',
-        background: 'linear-gradient(135deg, var(--accent-tint-bg) 0%, var(--surface-alt) 100%)',
+        height: size * 1.32, // book aspect, not a square
+        borderRadius: 4,
+        overflow: 'hidden',
+        flexShrink: 0,
+        boxShadow: 'var(--shadow-md)',
+        background: `linear-gradient(150deg, hsl(${hue} 55% 42%) 0%, hsl(${(hue + 28) % 360} 50% 30%) 100%)`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        overflow: 'hidden',
-        flexShrink: 0,
-        boxShadow: 'var(--shadow-sm)',
         ...style,
       }}
     >
       {src ? (
         <img src={src} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       ) : (
-        <span
-          style={{
-            fontSize: `${size * 0.4}px`,
-            fontWeight: 'var(--type-weight-title)' as unknown as number,
-            color: 'var(--accent)',
-            lineHeight: 1,
-            userSelect: 'none',
-          }}
-        >
-          {initial}
-        </span>
+        <>
+          {/* spine highlight */}
+          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: Math.max(2, size * 0.06), background: 'rgba(255,255,255,0.22)' }} />
+          <span
+            style={{
+              fontSize: `${size * 0.46}px`,
+              fontWeight: 800,
+              color: 'rgba(255,255,255,0.95)',
+              lineHeight: 1,
+              userSelect: 'none',
+              textShadow: '0 1px 2px rgba(0,0,0,0.35)',
+            }}
+          >
+            {initial}
+          </span>
+        </>
       )}
     </div>
   );
