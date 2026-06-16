@@ -2,7 +2,7 @@
  * siteMockup/panes/activity.tsx — Activity pane
  */
 import React, { useState } from 'react';
-import { PauseCircle } from 'lucide-react';
+import { PauseCircle, Check, X } from 'lucide-react';
 import { Row, Col, Label, SemanticChip, Btn, ProgressBar, IN_FLIGHT_JOBS, Card, Panel, PaneHeader } from '../shared';
 
 export const ActivityPane: React.FC = () => {
@@ -85,7 +85,7 @@ export const ActivityPane: React.FC = () => {
                 <SemanticChip variant="neutral">{row.engine}</SemanticChip>
                 <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>{row.dur}</span>
                 <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>{row.ago}</span>
-                <SemanticChip variant={row.ok ? 'success' : 'error'}>{row.ok ? '✓' : '✗'}</SemanticChip>
+                <SemanticChip variant={row.ok ? 'success' : 'error'}>{row.ok ? <Check size={12} strokeWidth={2.4} aria-hidden="true" /> : <X size={12} strokeWidth={2.4} aria-hidden="true" />}</SemanticChip>
               </Row>
             ))}
           </Panel>

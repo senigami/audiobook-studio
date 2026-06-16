@@ -21,7 +21,7 @@ import {
   PROPOSED_DURATION_SCALE,
   AD_HOC_SIZES,
 } from './proposedTokens';
-import { AudioLines } from 'lucide-react';
+import { AudioLines, Play, SkipBack, SkipForward, Rewind, FastForward } from 'lucide-react';
 import { GlassInput } from '@/components/forms/GlassInput';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 
@@ -1074,11 +1074,18 @@ const U16Mock: React.FC = () => {
           <div style={{ minHeight: 52, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '8px 14px' }}>
             {/* Transport */}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-              {['⏮', '⏪', '▶', '⏩', '⏭'].map(icon => {
-                const active = icon === '▶';
+              {[
+                { Icon: SkipBack, label: 'Previous' },
+                { Icon: Rewind, label: 'Back 10s' },
+                { Icon: Play, label: 'Play' },
+                { Icon: FastForward, label: 'Forward 10s' },
+                { Icon: SkipForward, label: 'Next' },
+              ].map(({ Icon, label }) => {
+                const active = Icon === Play;
                 return (
                   <div
-                    key={icon}
+                    key={label}
+                    aria-label={label}
                     style={{
                       width: active ? 38 : 34,
                       height: active ? 38 : 34,
@@ -1089,14 +1096,11 @@ const U16Mock: React.FC = () => {
                       background: active ? 'var(--accent)' : 'var(--surface-alt)',
                       color: active ? 'var(--text-on-accent, #fff)' : 'var(--text-secondary)',
                       border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-                      fontSize: active ? '1rem' : '0.875rem',
-                      fontWeight: 700,
-                      lineHeight: 1,
                       cursor: 'pointer',
                       flexShrink: 0,
                     }}
                   >
-                    <span style={{ transform: icon === '▶' ? 'translateX(1px)' : undefined }}>{icon}</span>
+                    <Icon size={active ? 17 : 15} strokeWidth={2.2} style={{ transform: active ? 'translateX(1px)' : undefined }} />
                   </div>
                 );
               })}

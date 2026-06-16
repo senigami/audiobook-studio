@@ -20,6 +20,7 @@ import {
   Music,
   Sparkles,
   Mic,
+  Check,
 } from 'lucide-react';
 import {
   Row,
@@ -730,7 +731,7 @@ const VoiceLab: React.FC<{
                     fontWeight: 700,
                     boxShadow: isActive ? 'var(--shadow-sm)' : 'none',
                   }}>
-                    {isPast ? '✓' : i + 1}
+                    {isPast ? <Check size={12} strokeWidth={2.4} aria-hidden="true" /> : i + 1}
                   </div>
                   <span style={{
                     fontSize: 'var(--type-micro)',

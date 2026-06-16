@@ -13,6 +13,7 @@
  */
 
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
+import { Moon, Sun } from 'lucide-react';
 import { loadThemePref, saveThemePref } from '@/utils/theme';
 import { DemoStage } from './DemoStage';
 import { demoTimeline } from './scenes';
@@ -169,9 +170,14 @@ export const DemoApp: React.FC = () => {
               fontSize: '0.8rem',
               color: 'var(--text-primary)',
               cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
             }}
           >
-            <span aria-hidden="true">{theme === 'light' ? '🌙' : '☀️'}</span>
+            {theme === 'light'
+              ? <Moon size={14} strokeWidth={2} aria-hidden="true" />
+              : <Sun size={14} strokeWidth={2} aria-hidden="true" />}
             <span className="demo-shell-theme-label">{theme === 'light' ? 'Dark' : 'Light'}</span>
           </button>
         </header>

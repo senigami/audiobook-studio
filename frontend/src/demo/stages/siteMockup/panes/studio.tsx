@@ -9,7 +9,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { Row, Col, Chip, Btn, ProgressBar, SemanticChip, Avatar, Card, Panel, StatusOrb } from '../shared';
-import { Play, RefreshCw, ChevronDown, ChevronUp, Download, ChevronLeft, ChevronRight, Square } from 'lucide-react';
+import { Play, RefreshCw, ChevronDown, ChevronUp, Download, ChevronLeft, ChevronRight, Square, Check } from 'lucide-react';
 
 // Speaker token palette — maps speaker IDs to fixed design-token colors (no raw hex)
 // We use pill token families as named palette entries for the 4-speaker cast
@@ -687,7 +687,7 @@ export const StudioPane: React.FC = () => {
           </span>
           <div style={{ flex: 1 }} />
           {/* Green badge — auto-fixed */}
-          <SemanticChip variant="success">✓ 3/3 long sentences auto-fixed</SemanticChip>
+          <SemanticChip variant="success"><Check size={12} strokeWidth={2.4} style={{ marginRight: 4 }} aria-hidden="true" />3/3 long sentences auto-fixed</SemanticChip>
           {/* Hairline separator */}
           <div style={{ width: 1, height: 16, background: 'var(--hairline)', flexShrink: 0 }} />
           {/* Amber expandable badge */}

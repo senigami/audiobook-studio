@@ -33,6 +33,17 @@ import {
   XCircle,
   GripVertical,
   Menu,
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  Rewind,
+  FastForward,
+  ChevronUp,
+  ChevronDown,
+  ChevronRight,
+  ArrowRight,
+  ArrowLeft,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/layout/BrandLogo';
 import './siteMockup/mockup.css';
@@ -141,9 +152,12 @@ const QueueDrawer: React.FC<{
             background: paused ? 'var(--warning-tint-bg)' : 'var(--surface-alt)',
             color: paused ? 'var(--warning)' : 'var(--text-secondary)',
             whiteSpace: 'nowrap',
+            display: 'inline-flex', alignItems: 'center', gap: 4,
           }}
         >
-          {paused ? '▶ Resume' : '⏸ Pause all'}
+          {paused
+            ? <><Play size={11} strokeWidth={2.2} aria-hidden="true" /> Resume</>
+            : <><Pause size={11} strokeWidth={2.2} aria-hidden="true" /> Pause all</>}
         </div>
         {/* ⋯ menu */}
         <div style={{ position: 'relative' }}>
@@ -286,7 +300,7 @@ const QueueDrawer: React.FC<{
                     title="Move up"
                     aria-label="Move job up"
                   >
-                    ▲
+                    <ChevronUp size={12} strokeWidth={2.5} />
                   </button>
                   <button
                     onClick={() => moveJob(i, 'down')}
@@ -300,7 +314,7 @@ const QueueDrawer: React.FC<{
                     title="Move down"
                     aria-label="Move job down"
                   >
-                    ▼
+                    <ChevronDown size={12} strokeWidth={2.5} />
                   </button>
                 </div>
               </div>
@@ -335,7 +349,9 @@ const QueueDrawer: React.FC<{
               userSelect: 'none',
             }}
           >
-            <span style={{ fontSize: 'var(--type-caption)' }}>{historyOpen ? '▾' : '›'}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+              {historyOpen ? <ChevronDown size={13} strokeWidth={2.2} /> : <ChevronRight size={13} strokeWidth={2.2} />}
+            </span>
             Completed / Failed history ({HISTORY_ROWS.length})
           </div>
           {historyOpen && (
@@ -368,9 +384,10 @@ const QueueDrawer: React.FC<{
       <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
         <span
           onClick={() => { onViewAll(); onClose(); }}
-          style={{ fontSize: 'var(--type-caption)', color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}
+          style={{ fontSize: 'var(--type-caption)', color: 'var(--accent)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
         >
-          View all activity →
+          <span style={{ textDecoration: 'underline' }}>View all activity</span>
+          <ArrowRight size={13} strokeWidth={2.2} />
         </span>
       </div>
     </div>
@@ -453,7 +470,7 @@ const TopBar: React.FC<{
       <span className="ns-topbar-separator" style={{ width: 1, height: 16, background: 'var(--border)', flexShrink: 0, margin: '0 4px' }} />
 
       <span className="ns-topbar-library" style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flexShrink: 0 }}>Library</span>
-      <span className="ns-topbar-library" style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)', flexShrink: 0 }}>›</span>
+      <ChevronRight className="ns-topbar-library" size={13} strokeWidth={2} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
 
       {inBook ? (
         <>
@@ -482,13 +499,13 @@ const TopBar: React.FC<{
               R.E. Hartley · The Vale Cycle #1 · 6h 12m · pred 6h 28m
             </span>
           </div>
-          <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)', flexShrink: 0 }}>›</span>
+          <ChevronRight size={13} strokeWidth={2} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
           <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 }}>{stageSeg}</span>
         </>
       ) : (
         segments.slice(1).map((seg, i) => (
           <React.Fragment key={seg}>
-            {i > 0 && <span style={{ margin: '0 2px', color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>›</span>}
+            {i > 0 && <ChevronRight size={13} strokeWidth={2} style={{ margin: '0 2px', color: 'var(--text-muted)', flexShrink: 0 }} />}
             <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)', fontWeight: 600 }}>{seg}</span>
           </React.Fragment>
         ))
@@ -603,31 +620,31 @@ const PlayerBar: React.FC<{
   const transportControls = [
     {
       label: 'Previous',
-      glyph: '⏮',
+      Icon: SkipBack,
       action: () => setActiveTrack(prev => ({ ...prev, currentTime: 0 })),
       active: false,
     },
     {
       label: 'Skip back 10 seconds',
-      glyph: '⏪',
+      Icon: Rewind,
       action: handleSkipBack,
       active: false,
     },
     {
       label: activeTrack.isPlaying ? 'Pause' : 'Play',
-      glyph: activeTrack.isPlaying ? '⏸' : '▶',
+      Icon: activeTrack.isPlaying ? Pause : Play,
       action: handlePlayPause,
       active: true,
     },
     {
       label: 'Skip forward 10 seconds',
-      glyph: '⏩',
+      Icon: FastForward,
       action: handleSkipForward,
       active: false,
     },
     {
       label: 'Next',
-      glyph: '⏭',
+      Icon: SkipForward,
       action: () => setActiveTrack(prev => ({ ...prev, currentTime: prev.duration })),
       active: false,
     },
@@ -675,9 +692,12 @@ const PlayerBar: React.FC<{
                 lineHeight: 1,
               }}
             >
-              <span aria-hidden="true" style={{ transform: control.glyph === '▶' ? 'translateX(1px)' : undefined }}>
-                {control.glyph}
-              </span>
+              <control.Icon
+                size={control.active ? 17 : 15}
+                strokeWidth={2.2}
+                aria-hidden="true"
+                style={{ transform: control.Icon === Play ? 'translateX(1px)' : undefined }}
+              />
             </button>
           ))}
         </Row>
@@ -794,9 +814,13 @@ const BookPane: React.FC<{
           fontSize: 'var(--type-caption)',
           color: 'var(--accent)',
           cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 4,
         }}
       >
-        ← Library
+        <ArrowLeft size={14} strokeWidth={2.2} aria-hidden="true" />
+        Library
       </button>
     </Row>
 

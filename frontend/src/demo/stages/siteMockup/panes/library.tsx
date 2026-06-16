@@ -32,6 +32,24 @@ const LIBRARY_BOOKS: Array<{
   { title: 'Hollow Crown', author: 'D. Marsh', status: 'Drafting' },
 ];
 
+// Discrete cover-display sizes (Finder-style). The slider snaps between these so
+// the grid always lands on a clean column width. `col` drives the grid track,
+// `cover` the BookCover size — they scale together.
+const COVER_SIZES = [
+  { col: 76, cover: 48 },
+  { col: 92, cover: 64 },
+  { col: 108, cover: 80 },
+  { col: 124, cover: 96 },
+  { col: 156, cover: 128 },
+  { col: 188, cover: 160 },
+  { col: 236, cover: 208 },
+  { col: 284, cover: 256 },
+  { col: 348, cover: 320 },
+  { col: 412, cover: 384 },
+  { col: 460, cover: 432 },
+  { col: 540, cover: 512 },
+];
+
 // ---------- Create Book modal ----------
 const CreateBookModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [title, setTitle] = useState('');
@@ -230,6 +248,9 @@ const LibraryEmptyState: React.FC<{ onNew: () => void }> = ({ onNew }) => (
 
 export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [coverSizeIdx, setCoverSizeIdx] = useState(1);
+  const coverSize = COVER_SIZES[coverSizeIdx];
+  const coverWrapMin = Math.round(coverSize.cover * 1.34);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [openMenuBook, setOpenMenuBook] = useState<string | null>(null);
   const [deletingBook, setDeletingBook] = useState<string | null>(null);
@@ -360,6 +381,49 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
                   <SemanticChip key={c} variant={i === 0 ? 'accent' : 'neutral'}>{c}</SemanticChip>
                 ))}
               </Row>
+              {/* Cover-size slider (grid view only) — Finder-style icon-size control */}
+              {viewMode === 'grid' && (
+                <div className="ns-size-control" role="group" aria-label="Cover size" style={{ marginLeft: 'var(--space-2)' }}>
+                  <button
+                    type="button"
+                    className="ns-size-glyph"
+                    aria-label="Smallest covers"
+                    title="Smaller"
+                    onClick={() => setCoverSizeIdx(0)}
+                    style={{ width: 9, height: 9 }}
+                  />
+                  <div className="ns-size-slider-wrap">
+                    <div className="ns-size-track" aria-hidden="true" />
+                    {COVER_SIZES.map((_, i) => (
+                      <span
+                        key={i}
+                        className="ns-size-tick"
+                        aria-hidden="true"
+                        style={{ left: `calc(7px + ${i / (COVER_SIZES.length - 1)} * (100% - 14px))` }}
+                      />
+                    ))}
+                    <input
+                      type="range"
+                      className="ns-size-slider"
+                      min={0}
+                      max={COVER_SIZES.length - 1}
+                      step={1}
+                      value={coverSizeIdx}
+                      onChange={e => setCoverSizeIdx(Number(e.target.value))}
+                      aria-label="Cover size"
+                      title="Cover size"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="ns-size-glyph"
+                    aria-label="Largest covers"
+                    title="Larger"
+                    onClick={() => setCoverSizeIdx(COVER_SIZES.length - 1)}
+                    style={{ width: 15, height: 15 }}
+                  />
+                </div>
+              )}
               {/* View toggle */}
               <div style={{
                 display: 'flex',
@@ -412,7 +476,7 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
                 className="ns-stagger ns-library-grid"
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(112px, 1fr))',
+                  gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize.col}px, 1fr))`,
                   gap: 'var(--space-3)',
                 }}
               >
@@ -426,7 +490,7 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
                       textAlign: 'center',
                       cursor: 'pointer',
                       position: 'relative',
-                      minHeight: 160,
+                      minHeight: coverWrapMin + 86,
                     }}
                   >
                     {/* ⋯ menu trigger */}
@@ -450,8 +514,8 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
                         onOpen={onOpenBook}
                       />
                     )}
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', minHeight: 78, marginBottom: 8 }}>
-                      <BookCover title={book.title} aspect={book.coverAspect ?? 'square'} size={58} />
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', minHeight: coverWrapMin, marginBottom: 8 }}>
+                      <BookCover title={book.title} aspect={book.coverAspect ?? 'square'} size={coverSize.cover} />
                     </div>
                     <div style={{
                       fontSize: 'var(--type-micro)',

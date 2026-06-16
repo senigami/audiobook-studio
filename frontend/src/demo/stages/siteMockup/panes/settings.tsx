@@ -2,7 +2,7 @@
  * siteMockup/panes/settings.tsx — Settings pane (General/About/Developer)
  */
 import React, { useState } from 'react';
-import { ExternalLink, RefreshCw } from 'lucide-react';
+import { ExternalLink, RefreshCw, ChevronDown } from 'lucide-react';
 import { Row, Col, Chip, SemanticChip, Card, Btn, PaneHeader } from '../shared';
 
 export const SettingsPane: React.FC = () => {
@@ -72,7 +72,7 @@ export const SettingsPane: React.FC = () => {
             {/* Theme */}
             <div className="ns-settings-list-row" style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-primary)' }}>Theme</span>
-              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>System ▾</span>
+              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>System<ChevronDown size={12} strokeWidth={2} aria-hidden="true" /></span>
             </div>
             {/* Stability Mode */}
             <div className="ns-settings-list-row" style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -80,17 +80,17 @@ export const SettingsPane: React.FC = () => {
                 <span style={{ color: 'var(--text-primary)' }}>Stability Mode</span>
                 <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic' }}>conservative text cleanup before synthesis</span>
               </Col>
-              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Off ▾</span>
+              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>Off<ChevronDown size={12} strokeWidth={2} aria-hidden="true" /></span>
             </div>
             {/* Default Engine */}
             <div className="ns-settings-list-row" style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-primary)' }}>Default Engine</span>
-              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Neural Voice Engine ▾</span>
+              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>Neural Voice Engine<ChevronDown size={12} strokeWidth={2} aria-hidden="true" /></span>
             </div>
             {/* Default Voice */}
             <div className="ns-settings-list-row" style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-primary)' }}>Default Voice</span>
-              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Studio Voice ▾</span>
+              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>Studio Voice<ChevronDown size={12} strokeWidth={2} aria-hidden="true" /></span>
             </div>
             {/* Developer Mode */}
             <div

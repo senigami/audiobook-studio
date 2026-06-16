@@ -5,6 +5,7 @@
 import React, { useState } from 'react';
 import {
   ChevronLeft,
+  ChevronRight,
   Plus,
   Search,
   Play,
@@ -936,7 +937,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                         textDecoration: 'underline',
                       }}
                     >
-                      Manage in Voice Lab ›
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>Manage in Voice Lab<ChevronRight size={12} strokeWidth={2} aria-hidden="true" /></span>
                     </button>
                   </Panel>
                 </section>
