@@ -7,8 +7,8 @@
  *  - One prose sentence has hover-look inline controls (voice select chip, ▶, ↻ rebuild)
  *  - "Stop all" red ghost button next to render controls
  */
-import React, { useState } from 'react';
-import { Row, Col, Chip, Btn, ProgressBar, SemanticChip, Avatar, Card, Panel } from '../shared';
+import React, { useState, useEffect } from 'react';
+import { Row, Col, Chip, Btn, ProgressBar, SemanticChip, Avatar, Card, Panel, StatusOrb } from '../shared';
 import { Play, RefreshCw, ChevronDown, ChevronUp, Download, ChevronLeft, ChevronRight, Square } from 'lucide-react';
 
 // Speaker token palette — maps speaker IDs to fixed design-token colors (no raw hex)
@@ -88,14 +88,23 @@ const ExportMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => (
     minWidth: 100, padding: '4px 0',
   }}>
     {['WAV', 'MP3'].map(fmt => (
-      <div key={fmt} onClick={onClose} style={{
+      <button
+        key={fmt}
+        type="button"
+        onClick={onClose}
+        style={{
+        width: '100%',
+        border: 0,
+        background: 'transparent',
+        fontFamily: 'inherit',
+        textAlign: 'left',
         fontSize: 'var(--type-caption)', padding: '5px 12px', cursor: 'pointer',
         color: 'var(--text-primary)',
         display: 'flex', alignItems: 'center', gap: 6,
       }}>
         <Download size={11} aria-hidden="true" />
         {fmt}
-      </div>
+      </button>
     ))}
   </div>
 );
@@ -123,6 +132,160 @@ const HoverSentenceControls: React.FC = () => (
   </span>
 );
 
+interface Chunk {
+  id: string;
+  text: string;
+  safeText?: string;
+  speaker?: string;
+  isHighlighted?: boolean;
+  styleType?: 'underline' | 'bg-success' | 'bg-accent' | 'none';
+  sentenceId?: SentenceId;
+  hasPlay?: boolean;
+  hasHoverControls?: boolean;
+  isRendering?: boolean;
+  paragraphIndex: number;
+  showNumberTag?: string;
+}
+
+const initialChunks: Chunk[] = [
+  // Paragraph 1
+  {
+    id: 'c1',
+    text: 'The road wound down through silver birch and pale stone, the kind of road that remembers every foot that has ever crossed it.',
+    safeText: 'The road went down through pale trees and old stone.',
+    speaker: 'Narrator',
+    styleType: 'underline',
+    sentenceId: 's1',
+    paragraphIndex: 0,
+    showNumberTag: '§1',
+  },
+  {
+    id: 'c2',
+    text: ' ',
+    paragraphIndex: 0,
+  },
+  {
+    id: 'c3',
+    text: 'Maren pulled her cloak tighter against the chill that rose from the valley floor.',
+    safeText: 'Maren pulled her cloak close.',
+    styleType: 'bg-success',
+    hasPlay: true,
+    paragraphIndex: 0,
+  },
+  {
+    id: 'c4',
+    text: ' ',
+    paragraphIndex: 0,
+  },
+  {
+    id: 'c5',
+    text: 'The vale smelled of old rain and something older still — loam and iron and time.',
+    safeText: 'The vale smelled of rain.',
+    speaker: 'Maren',
+    styleType: 'underline',
+    sentenceId: 's2',
+    paragraphIndex: 0,
+    showNumberTag: '§2',
+  },
+
+  // Paragraph 2
+  {
+    id: 'c6',
+    text: '"Stay close to me.',
+    safeText: '"Stay close to me.',
+    speaker: 'Dov',
+    styleType: 'underline',
+    sentenceId: 's3',
+    hasHoverControls: true,
+    paragraphIndex: 1,
+    showNumberTag: '§3',
+  },
+  {
+    id: 'c7',
+    text: ' ',
+    paragraphIndex: 1,
+  },
+  {
+    id: 'c8',
+    text: "The warden's lantern moves at dusk, and it moves fast.\"",
+    safeText: 'The warden moves at dusk."',
+    speaker: 'Maren',
+    styleType: 'underline',
+    paragraphIndex: 1,
+  },
+  {
+    id: 'c9',
+    text: ' ',
+    paragraphIndex: 1,
+  },
+  {
+    id: 'c10',
+    text: 'Dov tightened his grip on the satchel and said nothing for a long moment.',
+    safeText: 'Dov tightened his grip.',
+    styleType: 'bg-accent',
+    isRendering: true,
+    paragraphIndex: 1,
+    showNumberTag: '§4',
+  },
+  {
+    id: 'c11',
+    text: ' ',
+    paragraphIndex: 1,
+  },
+  {
+    id: 'c12',
+    text: '"How close exactly?"',
+    safeText: '"How close exactly?"',
+    speaker: 'Narrator',
+    styleType: 'underline',
+    sentenceId: 's4',
+    paragraphIndex: 1,
+  },
+
+  // Paragraph 3
+  {
+    id: 'c13',
+    text: 'Far above, an owl called once, then fell silent.',
+    safeText: 'The vale took them.',
+    speaker: 'Dov',
+    styleType: 'underline',
+    sentenceId: 's5',
+    paragraphIndex: 2,
+    showNumberTag: '§5',
+  },
+  {
+    id: 'c14',
+    text: ' ',
+    paragraphIndex: 2,
+  },
+  {
+    id: 'c15',
+    text: '"He excelled,"',
+    safeText: '"He excelled,"',
+    speaker: 'Dov',
+    styleType: 'underline',
+    paragraphIndex: 2,
+    showNumberTag: '§6',
+  },
+  {
+    id: 'c16',
+    text: ' Dove said, rising from his chair.',
+    safeText: ' Dove said, rising from his chair.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 2,
+  }
+];
+
+interface SelectionContextMenu {
+  x: number;
+  y: number;
+  chunkId: string;
+  startOffset: number;
+  endOffset: number;
+  selectedText: string;
+}
+
 export const StudioPane: React.FC = () => {
   const [viewMode, setViewMode] = useState<'book' | 'script'>('book');
   const [safeText, setSafeText] = useState(false);
@@ -135,6 +298,43 @@ export const StudioPane: React.FC = () => {
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [actionExpanded, setActionExpanded] = useState(false);
 
+  // State for dynamic chunks
+  const [chunks, setChunks] = useState<Chunk[]>(initialChunks);
+  // Context menu for sub-sentence speaker assignment
+  const [contextMenu, setContextMenu] = useState<SelectionContextMenu | null>(null);
+
+  // Simulated rendering progress
+  const [isRenderingRemaining, setIsRenderingRemaining] = useState(false);
+  const [renderProgress, setRenderProgress] = useState(0.45);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isRenderingRemaining) {
+      interval = setInterval(() => {
+        setRenderProgress(p => {
+          if (p >= 1) {
+            setIsRenderingRemaining(false);
+            return 0.45;
+          }
+          return Math.min(1, p + 0.01);
+        });
+      }, 500);
+    }
+    return () => clearInterval(interval);
+  }, [isRenderingRemaining]);
+
+  // Handle outside clicks to close the context menu
+  useEffect(() => {
+    const handleDocClick = (e: MouseEvent) => {
+      const menuEl = document.getElementById('selection-context-menu');
+      if (menuEl && !menuEl.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleDocClick);
+    return () => document.removeEventListener('mousedown', handleDocClick);
+  }, []);
+
   const handleSwatchClick = (id: string) => {
     setArmedSwatch(prev => (prev === id ? null : id));
   };
@@ -144,19 +344,277 @@ export const StudioPane: React.FC = () => {
     setSentenceSpeaker(prev => ({ ...prev, [sid]: armedSwatch }));
   };
 
-  // Returns the token-based underline style for a sentence
-  const speakerUnderline = (sid: SentenceId): React.CSSProperties => {
-    const sp = sentenceSpeaker[sid];
-    const tok = SPEAKER_TOKEN[sp] ?? SPEAKER_TOKEN.Narrator;
-    return { borderBottom: `2px solid ${tok.text}`, paddingBottom: 1, cursor: armedSwatch ? 'crosshair' : 'default' };
+  const handleMouseUp = () => {
+    setTimeout(() => {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+        return;
+      }
+      const range = selection.getRangeAt(0);
+      const selectedText = selection.toString().trim();
+      if (!selectedText) return;
+
+      // Find chunk element
+      let node: Node | null = range.startContainer;
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        node = node.parentNode;
+      }
+      let element = node as HTMLElement | null;
+      while (element && !element.getAttribute('data-chunk-id')) {
+        element = element.parentElement;
+      }
+      if (!element) return;
+      const chunkId = element.getAttribute('data-chunk-id');
+      if (!chunkId) return;
+
+      // Get selection offsets relative to the text node
+      const startOffset = range.startOffset;
+      const endOffset = range.endOffset;
+
+      const rect = range.getBoundingClientRect();
+      setContextMenu({
+        x: rect.left + rect.width / 2 + window.scrollX,
+        y: rect.top + window.scrollY,
+        chunkId,
+        startOffset,
+        endOffset,
+        selectedText,
+      });
+    }, 10);
   };
 
-  const marenTok = SPEAKER_TOKEN[sentenceSpeaker.s2] ?? SPEAKER_TOKEN.Maren;
-  const dovTok = SPEAKER_TOKEN[sentenceSpeaker.s5] ?? SPEAKER_TOKEN.Dov;
+  const handleAssignSpeakerToSelection = (speaker: string) => {
+    if (!contextMenu) return;
+    const { chunkId, startOffset, endOffset } = contextMenu;
+
+    setChunks(prevChunks => {
+      const nextChunks: Chunk[] = [];
+      for (const chunk of prevChunks) {
+        if (chunk.id === chunkId) {
+          const textBefore = chunk.text.slice(0, startOffset);
+          const textSelected = chunk.text.slice(startOffset, endOffset);
+          const textAfter = chunk.text.slice(endOffset);
+
+          // Unique suffixes to keep keys/IDs stable
+          const stamp = `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+
+          if (textBefore) {
+            nextChunks.push({
+              ...chunk,
+              id: `${chunk.id}-before-${stamp}`,
+              text: textBefore,
+            });
+          }
+
+          nextChunks.push({
+            ...chunk,
+            id: `${chunk.id}-selected-${stamp}`,
+            text: textSelected,
+            speaker,
+            isHighlighted: true,
+          });
+
+          if (textAfter) {
+            nextChunks.push({
+              ...chunk,
+              id: `${chunk.id}-after-${stamp}`,
+              text: textAfter,
+            });
+          }
+        } else {
+          nextChunks.push(chunk);
+        }
+      }
+      return nextChunks;
+    });
+
+    window.getSelection()?.removeAllRanges();
+    setContextMenu(null);
+  };
+
+  const renderChunkElement = (chunk: Chunk) => {
+    const text = (safeText && chunk.safeText) ? chunk.safeText : chunk.text;
+    const sp = chunk.speaker || (chunk.sentenceId ? sentenceSpeaker[chunk.sentenceId] : undefined) || 'Narrator';
+    const tok = SPEAKER_TOKEN[sp] ?? SPEAKER_TOKEN.Narrator;
+
+    const handleClick = () => {
+      if (chunk.sentenceId) {
+        handleSentenceClick(chunk.sentenceId);
+      } else if (armedSwatch) {
+        setChunks(prev => prev.map(c => c.id === chunk.id ? { ...c, speaker: armedSwatch } : c));
+      }
+    };
+
+    const cursorStyle = armedSwatch ? 'crosshair' : (chunk.hasPlay || chunk.sentenceId ? 'pointer' : 'default');
+
+    if (chunk.isHighlighted) {
+      return (
+        <span
+          key={chunk.id}
+          data-chunk-id={chunk.id}
+          onClick={handleClick}
+          style={{
+            background: tok.tintBg,
+            color: tok.text,
+            border: `1px solid ${tok.tintBorder}`,
+            borderRadius: '4px',
+            padding: '2px 4px',
+            margin: '0 2px',
+            cursor: cursorStyle,
+            fontWeight: 500,
+            display: 'inline-block',
+          }}
+        >
+          {text}
+        </span>
+      );
+    }
+
+    if (chunk.styleType === 'underline') {
+      return (
+        <span
+          key={chunk.id}
+          data-chunk-id={chunk.id}
+          onClick={handleClick}
+          style={{
+            borderBottom: `2px solid ${tok.text}`,
+            paddingBottom: 1,
+            cursor: cursorStyle,
+          }}
+        >
+          {text}
+        </span>
+      );
+    }
+
+    if (chunk.styleType === 'bg-success') {
+      return (
+        <span
+          key={chunk.id}
+          data-chunk-id={chunk.id}
+          onClick={handleClick}
+          style={{
+            background: 'var(--success-tint-bg)',
+            borderRadius: 3,
+            padding: '1px 3px',
+            cursor: cursorStyle,
+            position: 'relative',
+            display: 'inline',
+          }}
+        >
+          {chunk.hasPlay && (
+            <Play size={9} style={{ marginRight: 3, color: 'var(--success-text)', verticalAlign: 'middle' }} aria-hidden="true" />
+          )}
+          {text}
+        </span>
+      );
+    }
+
+    if (chunk.styleType === 'bg-accent') {
+      return (
+        <span
+          key={chunk.id}
+          data-chunk-id={chunk.id}
+          style={{
+            background: 'var(--accent-tint-bg)',
+            borderRadius: 3,
+            padding: '1px 3px',
+            display: 'inline',
+          }}
+        >
+          {text}
+          {chunk.isRendering && (
+            <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', fontStyle: 'italic', marginLeft: 5 }}>
+              rendering…
+            </span>
+          )}
+        </span>
+      );
+    }
+
+    if (chunk.hasHoverControls) {
+      return (
+        <span key={chunk.id} style={{ position: 'relative', display: 'inline' }}>
+          <span
+            data-chunk-id={chunk.id}
+            onClick={handleClick}
+            style={{
+              borderBottom: `2px solid ${tok.text}`,
+              paddingBottom: 1,
+              cursor: cursorStyle,
+            }}
+          >
+            {text}
+          </span>
+          <HoverSentenceControls />
+          <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic', marginLeft: 4 }}>
+            per-section controls on hover
+          </span>
+        </span>
+      );
+    }
+
+    return (
+      <span
+        key={chunk.id}
+        data-chunk-id={chunk.id}
+        onClick={handleClick}
+        style={{
+          cursor: cursorStyle,
+        }}
+      >
+        {text}
+      </span>
+    );
+  };
 
   return (
     <>
       {showResync && <ResyncModal onClose={() => setShowResync(false)} />}
+
+      {contextMenu && (
+        <div
+          id="selection-context-menu"
+          style={{
+            position: 'fixed',
+            top: contextMenu.y - 45,
+            left: contextMenu.x,
+            transform: 'translateX(-50%)',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-card)',
+            padding: '4px 8px',
+            boxShadow: 'var(--shadow-md)',
+            display: 'flex',
+            gap: 6,
+            zIndex: 1000,
+            alignItems: 'center'
+          }}
+        >
+          <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', marginRight: 2 }}>Assign:</span>
+          {['Narrator', 'Maren', 'Dov'].map(sp => {
+            const tok = SPEAKER_TOKEN[sp];
+            return (
+              <button
+                key={sp}
+                onClick={() => handleAssignSpeakerToSelection(sp)}
+                style={{
+                  background: tok.tintBg,
+                  border: `1px solid ${tok.tintBorder}`,
+                  color: tok.text,
+                  fontSize: 'var(--type-micro)',
+                  padding: '2px 6px',
+                  borderRadius: 'var(--radius-button)',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                {sp}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <Col gap={0} style={{ flex: 1, overflow: 'hidden' }}>
         {/* View mode pills row */}
@@ -254,7 +712,7 @@ export const StudioPane: React.FC = () => {
         {/* Main row: prose + cast palette */}
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Content area — prose */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
+          <div onMouseUp={handleMouseUp} style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
             {/* Chapter-nav cluster + unsaved chip + Commit changes */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap',
@@ -343,74 +801,58 @@ export const StudioPane: React.FC = () => {
 
                 {/* Paragraph 1 */}
                 <div style={{ fontSize: 'var(--type-callout)', lineHeight: 1.75, color: 'var(--text-primary)' }}>
-                  {showNumbers && <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginRight: 4 }}>§1</span>}
-                  <span style={speakerUnderline('s1')} onClick={() => handleSentenceClick('s1')}>
-                    {safeText
-                      ? 'The road went down through pale trees and old stone.'
-                      : 'The road wound down through silver birch and pale stone, the kind of road that remembers every foot that has ever crossed it.'
-                    }
-                  </span>{' '}
-                  <span style={{
-                    background: 'var(--success-tint-bg)', borderRadius: 3, padding: '1px 3px',
-                    cursor: 'pointer', position: 'relative', display: 'inline',
-                  }}>
-                    <Play size={9} style={{ marginRight: 3, color: 'var(--success-text)', verticalAlign: 'middle' }} aria-hidden="true" />
-                    {safeText ? 'Maren pulled her cloak close.' : 'Maren pulled her cloak tighter against the chill that rose from the valley floor.'}
-                  </span>{' '}
-                  {showNumbers && <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginRight: 4 }}>§2</span>}
-                  <span style={speakerUnderline('s2')} onClick={() => handleSentenceClick('s2')}>
-                    {safeText ? 'The vale smelled of rain.' : 'The vale smelled of old rain and something older still — loam and iron and time.'}
-                  </span>
+                  {chunks.filter(c => c.paragraphIndex === 0).map(c => (
+                    <React.Fragment key={c.id}>
+                      {showNumbers && c.showNumberTag && (
+                        <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginRight: 4 }}>
+                          {c.showNumberTag}
+                        </span>
+                      )}
+                      {renderChunkElement(c)}
+                    </React.Fragment>
+                  ))}
                 </div>
 
                 {/* Paragraph 2 — with hover sentence controls on one sentence */}
                 <div style={{ fontSize: 'var(--type-callout)', lineHeight: 1.75, color: 'var(--text-primary)' }}>
-                  {showNumbers && <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginRight: 4 }}>§3</span>}
-                  {/* Sentence with hover controls */}
-                  <span style={{ position: 'relative', display: 'inline' }}>
-                    <span style={{ ...speakerUnderline('s3') }} onClick={() => handleSentenceClick('s3')}>
-                      {'"Stay close to me.'}
-                    </span>
-                    {/* per-section controls on hover — shown statically as demo */}
-                    <HoverSentenceControls />
-                    <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic', marginLeft: 4 }}>per-section controls on hover</span>
-                  </span>{' '}
-                  <span style={{ borderBottom: `2px solid ${marenTok.text}`, paddingBottom: 1 }}>
-                    {safeText ? 'The warden moves at dusk."' : "The warden's lantern moves at dusk, and it moves fast.\""}
-                  </span>{' '}
-                  {showNumbers && <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginRight: 4 }}>§4</span>}
-                  <span style={{
-                    background: 'var(--accent-tint-bg)', borderRadius: 3, padding: '1px 3px', display: 'inline',
-                  }}>
-                    {safeText ? 'Dov tightened his grip.' : 'Dov tightened his grip on the satchel and said nothing for a long moment.'}
-                    <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', fontStyle: 'italic', marginLeft: 5 }}>
-                      rendering…
-                    </span>
-                  </span>{' '}
-                  <span style={speakerUnderline('s4')} onClick={() => handleSentenceClick('s4')}>
-                    {'"How close exactly?"'}
-                  </span>
+                  {chunks.filter(c => c.paragraphIndex === 1).map(c => (
+                    <React.Fragment key={c.id}>
+                      {showNumbers && c.showNumberTag && (
+                        <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginRight: 4 }}>
+                          {c.showNumberTag}
+                        </span>
+                      )}
+                      {renderChunkElement(c)}
+                    </React.Fragment>
+                  ))}
                 </div>
 
                 {/* Paragraph 3 */}
                 <div style={{ fontSize: 'var(--type-callout)', lineHeight: 1.75, color: 'var(--text-primary)', position: 'relative' }}>
-                  {showNumbers && <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginRight: 4 }}>§5</span>}
-                  <span style={speakerUnderline('s5')} onClick={() => handleSentenceClick('s5')}>
-                    {safeText ? 'The vale took them.' : 'Far above, an owl called once, then fell silent.'}
-                  </span>{' '}
-                  {showNumbers && <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginRight: 4 }}>§6</span>}
-                  <span title='Mixed: "He excelled," = Dov; rest = Narrator'>
-                    <span style={{ borderBottom: `2px solid ${dovTok.text}`, paddingBottom: 1 }}>
-                      {'"He excelled,"'}
-                    </span>
-                    {' Dove said, rising from his chair.'}
-                  </span>
+                  {chunks.filter(c => c.paragraphIndex === 2).map(c => (
+                    <React.Fragment key={c.id}>
+                      {showNumbers && c.showNumberTag && (
+                        <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginRight: 4 }}>
+                          {c.showNumberTag}
+                        </span>
+                      )}
+                      {renderChunkElement(c)}
+                    </React.Fragment>
+                  ))}
                   <span style={{
-                    display: 'inline-flex', alignItems: 'center', marginLeft: 6, fontSize: 'var(--type-micro)',
-                    color: dovTok.text, background: dovTok.tintBg, border: `1px solid ${dovTok.tintBorder}`,
-                    borderRadius: 'var(--radius-round)', padding: '1px 6px', cursor: 'default', verticalAlign: 'middle',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    marginLeft: 6,
+                    fontSize: 'var(--type-micro)',
+                    color: 'var(--accent)',
+                    background: 'var(--accent-tint-bg)',
+                    border: '1px solid var(--accent-tint-border)',
+                    borderRadius: 'var(--radius-round)',
+                    padding: '1px 6px',
+                    cursor: 'default',
+                    verticalAlign: 'middle',
                   }}>
-                    sub-sentence assignment (planned)
+                    Select text to assign sub-sentence speaker
                   </span>
                 </div>
               </Col>
@@ -470,11 +912,17 @@ export const StudioPane: React.FC = () => {
                 const isArmed = armedSwatch === sw.id;
                 const tok = SPEAKER_TOKEN[sw.id] ?? SPEAKER_TOKEN.Narrator;
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={sw.id}
                     onClick={() => handleSwatchClick(sw.id)}
+                    aria-pressed={isArmed}
                     style={{
+                      width: '100%',
+                      border: 0,
+                      fontFamily: 'inherit',
                       display: 'flex', alignItems: 'center', gap: 7, padding: '5px 10px',
+                      textAlign: 'left',
                       cursor: 'pointer',
                       background: isArmed ? tok.tintBg : 'transparent',
                       borderLeft: isArmed ? `3px solid ${tok.text}` : '3px solid transparent',
@@ -497,7 +945,7 @@ export const StudioPane: React.FC = () => {
                     }}>
                       {sw.name}
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </Col>
@@ -505,7 +953,7 @@ export const StudioPane: React.FC = () => {
               padding: '6px 10px 8px', borderTop: '1px solid var(--border)',
               fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: 1.4,
             }}>
-              paint a voice, then click text to assign — sub-sentence spans planned
+              paint a voice, then click text to assign sub-sentence spans
             </div>
           </div>
         </div>
@@ -519,10 +967,14 @@ export const StudioPane: React.FC = () => {
             <Play size={10} style={{ marginRight: 3 }} aria-hidden="true" />
             Render chapter
           </Btn>
-          <Btn small>Render remaining</Btn>
+          <Btn small onClick={() => setIsRenderingRemaining(true)}>Render remaining</Btn>
           {/* Stop all — uses error token, no raw hex */}
           <button
             aria-label="Stop all rendering"
+            onClick={() => {
+              setIsRenderingRemaining(false);
+              setRenderProgress(0.45);
+            }}
             style={{
               fontSize: 'var(--type-micro)', fontWeight: 600, padding: '2px 9px',
               borderRadius: 'var(--radius-button)',
@@ -534,8 +986,19 @@ export const StudioPane: React.FC = () => {
             <Square size={9} aria-hidden="true" />
             Stop all
           </button>
+          {isRenderingRemaining && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 12 }}>
+              <StatusOrb status="running" progress={renderProgress} size={14} />
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-primary)', fontWeight: 600 }}>
+                Queue Remaining: 3 chapters ({Math.round(renderProgress * 100)}% total progress)
+              </span>
+              <div style={{ width: 80 }}>
+                <ProgressBar pct={renderProgress * 100} height={4} shimmer />
+              </div>
+            </div>
+          )}
           <div style={{ flex: 1 }} />
-          <Chip active>XTTS v2</Chip>
+          <Chip active>Neural Engine</Chip>
           <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>ETA ~12m</span>
         </div>
       </Col>

@@ -1,7 +1,9 @@
 /**
  * WaveformStrip.tsx
  *
- * Renders a wavesurfer.js waveform inside the `player-bar-expansion` slot.
+ * Renders a wavesurfer.js waveform that fills its container — used inline as
+ * the PlayerBar scrub track in segment scope (U16). The parent slot sets the
+ * height (32px inline, 24px when reflowed above on narrow widths).
  *
  * ADR-0010 single-owner contract: this component NEVER creates its own
  * <audio> element or AudioContext. It is passed the PlayerBar's existing

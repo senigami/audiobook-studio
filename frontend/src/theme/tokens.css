@@ -1,4 +1,10 @@
-:root {
+/* Light theme — the default on :root, and also exposed as an explicit
+   [data-theme="light"] island so a light region can override an ancestor dark
+   theme (e.g. the styleguide's side-by-side light/dark comparison). Without the
+   [data-theme="light"] selector, a nested data-theme="light" wrapper inherits
+   the dark tokens from a [data-theme="dark"] ancestor and renders dark. */
+:root,
+[data-theme="light"] {
   --bg: #f8fafc;
   --surface: #ffffff;
   --surface-alt: #f1f5f9;

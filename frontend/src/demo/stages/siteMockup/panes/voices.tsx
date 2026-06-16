@@ -16,6 +16,10 @@ import {
   Copy,
   MoreHorizontal,
   AlertTriangle,
+  Volume2,
+  Music,
+  Sparkles,
+  Mic,
 } from 'lucide-react';
 import {
   Row,
@@ -28,13 +32,32 @@ import {
   Card,
   Btn,
   ProgressBar,
-  PlannedChip,
 } from '../shared';
+import { VoiceProfileEditorPane } from './voiceEditor';
+
+// ---------------------------------------------------------------------------
+// Types
+
+export type VoicePill = { label: string; category: 'class' | 'gender' | 'age' | 'extended' | 'tag' };
+
+export type Voice = {
+  name: string;
+  description: string;
+  pills: VoicePill[];
+  cta: string;
+  avatarColor?: string;
+  avatarIcon?: string;
+  // Taxonomy fields
+  languages?: string[];
+  accent?: string;
+  styles?: string[];
+  category?: 'Narrator' | 'Dialogue' | 'Character' | '';
+  gender?: 'Female' | 'Male' | 'NB' | '';
+  age?: 'Child' | 'Adult' | 'Senior' | '';
+};
 
 // ---------------------------------------------------------------------------
 // Voice data — pills classified by category (class/gender/age/extended/tag)
-
-type VoicePill = { label: string; category: 'class' | 'gender' | 'age' | 'extended' | 'tag' };
 
 const VOICE_CARDS: { name: string; pills: VoicePill[]; cta: string }[] = [
   {
@@ -125,6 +148,57 @@ const DISCOVER_CARDS: { name: string; pills: VoicePill[] }[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Custom Avatar component supporting dynamic icon and color
+
+const CustomAvatar: React.FC<{
+  name: string;
+  size?: number;
+  color?: string;
+  icon?: string;
+  style?: React.CSSProperties;
+}> = ({ name, size = 36, color, icon, style }) => {
+  const initials = name
+    ? name.split(' ').slice(0, 2).map(w => w[0].toUpperCase()).join('')
+    : '';
+
+  const getIcon = () => {
+    switch (icon) {
+      case 'volume-2': return <Volume2 size={size * 0.5} />;
+      case 'music': return <Music size={size * 0.5} />;
+      case 'sparkles': return <Sparkles size={size * 0.5} />;
+      case 'mic': return <Mic size={size * 0.5} />;
+      default: return null;
+    }
+  };
+
+  const bg = color || 'var(--accent-tint-bg)';
+  const borderCol = color ? 'transparent' : 'var(--accent-tint-border)';
+  const textCol = color ? '#ffffff' : 'var(--accent)';
+
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background: bg,
+        border: `1px solid ${borderCol}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: textCol,
+        fontWeight: 600,
+        fontSize: `${size * 0.36}px`,
+        flexShrink: 0,
+        ...style,
+      }}
+    >
+      {getIcon() || initials}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Variant dot-menu
 
 const VariantDotMenu: React.FC<{ variantName: string }> = ({ variantName: _variantName }) => {
@@ -203,16 +277,171 @@ const SpeedChip: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
+// My Voice Card Component
+
+const MyVoiceCard: React.FC<{
+  voice: Voice;
+  isDefault: boolean;
+  hasWarning: boolean;
+  onSelect: () => void;
+  onSetDefault: () => void;
+  onEditMetadata: () => void;
+  onRename: () => void;
+  onExportBundle: () => void;
+  onDelete: () => void;
+}> = ({ voice, isDefault, hasWarning, onSelect, onSetDefault, onEditMetadata, onRename, onExportBundle, onDelete }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  return (
+    <Card style={{
+      padding: '10px 10px 8px', textAlign: 'center',
+      position: 'relative', borderRadius: 'var(--radius-card)',
+      display: 'flex', flexDirection: 'column', height: '100%',
+    }}>
+      {/* Badges on left */}
+      <div style={{ position: 'absolute', top: 6, left: 6, display: 'flex', gap: 4, alignItems: 'center', zIndex: 5 }}>
+        {isDefault && (
+          <SemanticChip variant="warning">
+            <Row gap={3} style={{ alignItems: 'center' }}>
+              <Star size={9} fill="currentColor" />
+              default
+            </Row>
+          </SemanticChip>
+        )}
+        {hasWarning && (
+          <div style={{
+            background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 'var(--radius-round)',
+            padding: '2px 6px', display: 'flex', alignItems: 'center', gap: 3
+          }} title="Missing taxonomy tags">
+            <AlertTriangle size={10} color="#d97706" />
+            <span style={{ fontSize: '8px', fontWeight: 600, color: '#b45309' }}>Untagged</span>
+          </div>
+        )}
+      </div>
+
+      {/* Overflow menu on right */}
+      <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 10 }}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenuOpen(o => !o);
+          }}
+          aria-label="Voice options"
+          style={{
+            background: 'var(--surface-alt)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-round)',
+            width: 20, height: 20,
+            cursor: 'pointer',
+            color: 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+          }}
+        >
+          <MoreHorizontal size={12} />
+        </button>
+
+        {menuOpen && (
+          <>
+            {/* Backdrop to close menu */}
+            <div
+              style={{ position: 'fixed', inset: 0, zIndex: 20 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(false);
+              }}
+            />
+            <div style={{
+              position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 30,
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-lg)', minWidth: 140, overflow: 'hidden',
+              textAlign: 'left',
+            }}>
+              {[
+                { label: 'Set default', action: onSetDefault },
+                { label: 'Edit metadata', action: onEditMetadata },
+                { label: 'Rename', action: onRename },
+                { label: 'Export bundle', action: onExportBundle },
+                { label: 'Delete', action: onDelete, isDanger: true },
+              ].map((opt) => (
+                <button
+                  type="button"
+                  key={opt.label}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpen(false);
+                    opt.action();
+                  }}
+                  style={{
+                    width: '100%',
+                    border: 0,
+                    fontFamily: 'inherit',
+                    textAlign: 'left',
+                    padding: '8px 12px', fontSize: 'var(--type-caption)', cursor: 'pointer',
+                    color: opt.isDanger ? 'var(--error)' : 'var(--text-primary)',
+                    borderBottom: '1px solid var(--border)',
+                    background: 'var(--surface)',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-alt)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'var(--surface)'}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Card Content */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6, marginTop: 12 }}>
+        <CustomAvatar name={voice.name} color={voice.avatarColor} icon={voice.avatarIcon} size={36} />
+      </div>
+      <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>{voice.name}</div>
+
+      <Row gap={3} style={{ marginTop: 5, justifyContent: 'center', flexWrap: 'wrap', flex: 1 }}>
+        {voice.pills.map((p) => (
+          <VoiceAttrPill key={p.label} category={p.category}>{p.label}</VoiceAttrPill>
+        ))}
+      </Row>
+
+      <Row gap={4} style={{ marginTop: 8, justifyContent: 'center' }}>
+        <Btn small aria-label={`Preview ${voice.name}`}>
+          <Row gap={3} style={{ alignItems: 'center' }}>
+            <Play size={9} />
+            Preview
+          </Row>
+        </Btn>
+        <Btn small primary onClick={onSelect}>{voice.cta}</Btn>
+      </Row>
+    </Card>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // VoiceLab detail
 
-const VoiceLab: React.FC<{ voice: typeof VOICE_CARDS[0]; onBack: () => void }> = ({ voice, onBack }) => {
+const VoiceLab: React.FC<{
+  voice: Voice;
+  onBack: () => void;
+  onSetDefault: () => void;
+  onEditMetadata: () => void;
+  onRename: () => void;
+  onExportBundle: () => void;
+  onDelete: () => void;
+}> = ({ voice, onBack, onSetDefault, onEditMetadata, onRename, onExportBundle, onDelete }) => {
   const phaseSteps = ['Samples', 'Build', 'Test', 'Ready'] as const;
-  const currentPhase = 'Ready';
+  const [activeStep, setActiveStep] = useState<'Samples' | 'Build' | 'Test' | 'Ready'>('Samples');
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+
   const SAMPLES = [
     { name: 'sample_01.mp3', dur: '0:12' },
     { name: 'sample_02.mp3', dur: '0:09' },
     { name: 'sample_03.mp3', dur: '0:15' },
   ];
+
   return (
     <Col gap={0} style={{ flex: 1, overflowY: 'auto' }}>
       <div style={{ padding: '10px 14px 0', flexShrink: 0 }}>
@@ -220,19 +449,19 @@ const VoiceLab: React.FC<{ voice: typeof VOICE_CARDS[0]; onBack: () => void }> =
           onClick={onBack}
           aria-label="Back to Voices"
           style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: 'var(--type-micro)', color: 'var(--accent)', padding: 0,
-            display: 'inline-flex', alignItems: 'center', gap: 3,
+            background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)', cursor: 'pointer',
+            fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', padding: '4px 10px',
+            display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 8,
           }}
         >
           <ChevronRight size={11} style={{ transform: 'rotate(180deg)' }} />
-          Voices
+          Back to Voices
         </button>
 
         <Row gap={12} style={{ alignItems: 'flex-start', marginTop: 10 }}>
-          <Avatar name={voice.name} size={56} style={{ border: '2px solid var(--accent)', borderRadius: '50%' }} />
+          <CustomAvatar name={voice.name} color={voice.avatarColor} icon={voice.avatarIcon} size={56} style={{ border: '2px solid var(--accent)' }} />
           <Col gap={4} style={{ flex: 1 }}>
-            <Row gap={8} style={{ alignItems: 'center' }}>
+            <Row gap={8} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 'var(--type-headline)', fontWeight: 700, color: 'var(--text-primary)' }}>{voice.name}</span>
               <Btn small>
                 <Row gap={4} style={{ alignItems: 'center' }}>
@@ -240,6 +469,57 @@ const VoiceLab: React.FC<{ voice: typeof VOICE_CARDS[0]; onBack: () => void }> =
                   Copy icon prompt
                 </Row>
               </Btn>
+
+              {/* Voice Actions Menu */}
+              <div style={{ position: 'relative' }}>
+                <Btn small onClick={() => setActionsMenuOpen(o => !o)}>
+                  <Row gap={4} style={{ alignItems: 'center' }}>
+                    <span>Voice Actions</span>
+                    <ChevronDown size={10} />
+                  </Row>
+                </Btn>
+                {actionsMenuOpen && (
+                  <>
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setActionsMenuOpen(false)} />
+                    <div style={{
+                      position: 'absolute', left: 0, top: '100%', marginTop: 4, zIndex: 50,
+                      background: 'var(--surface)', border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-lg)', minWidth: 145, overflow: 'hidden',
+                    }}>
+                      {[
+                        { label: 'Set default', action: onSetDefault },
+                        { label: 'Edit metadata', action: onEditMetadata },
+                        { label: 'Rename', action: onRename },
+                        { label: 'Export bundle', action: onExportBundle },
+                        { label: 'Delete', action: onDelete, isDanger: true },
+                      ].map((opt) => (
+                        <button
+                          type="button"
+                          key={opt.label}
+                          onClick={() => {
+                            setActionsMenuOpen(false);
+                            opt.action();
+                          }}
+                          style={{
+                            width: '100%',
+                            border: 0,
+                            fontFamily: 'inherit',
+                            textAlign: 'left',
+                            padding: '8px 12px', fontSize: 'var(--type-caption)', cursor: 'pointer',
+                            color: opt.isDanger ? 'var(--error)' : 'var(--text-primary)',
+                            borderBottom: '1px solid var(--border)',
+                            background: 'var(--surface)',
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-alt)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--surface)'}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             </Row>
             <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
               image prompt from attributes + description — uniform icons
@@ -250,7 +530,7 @@ const VoiceLab: React.FC<{ voice: typeof VOICE_CARDS[0]; onBack: () => void }> =
               ))}
             </Row>
             <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
-              A warm, expressive narrator voice suited for literary fiction and long-form narration. Trained on 4h 20m of clean studio recordings.
+              {voice.description || 'No description provided.'}
             </div>
           </Col>
         </Row>
@@ -258,14 +538,17 @@ const VoiceLab: React.FC<{ voice: typeof VOICE_CARDS[0]; onBack: () => void }> =
         {/* Phase stepper */}
         <Row gap={0} style={{ alignItems: 'center', marginTop: 14, marginBottom: 10 }}>
           {phaseSteps.map((step, i) => {
-            const isActive = step === currentPhase;
-            const isPast = phaseSteps.indexOf(step) < phaseSteps.indexOf(currentPhase);
+            const isActive = step === activeStep;
+            const isPast = phaseSteps.indexOf(step) < phaseSteps.indexOf(activeStep);
             return (
               <React.Fragment key={step}>
                 {i > 0 && (
                   <div style={{ flex: 1, height: 1, background: isPast || isActive ? 'var(--accent)' : 'var(--border)' }} />
                 )}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                <div
+                  onClick={() => setActiveStep(step)}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flexShrink: 0, cursor: 'pointer' }}
+                >
                   <div style={{
                     width: 20, height: 20, borderRadius: '50%',
                     background: isActive ? 'var(--accent)' : isPast ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
@@ -294,164 +577,170 @@ const VoiceLab: React.FC<{ voice: typeof VOICE_CARDS[0]; onBack: () => void }> =
 
       <Col gap={12} style={{ padding: '0 14px 14px' }}>
         {/* Sample manager */}
-        <Col gap={6}>
-          <Label>Samples</Label>
-          <Card style={{ borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
-            {SAMPLES.map((s, i) => (
-              <Row key={s.name} gap={8} style={{
-                padding: '6px 10px', alignItems: 'center',
-                borderBottom: i < SAMPLES.length - 1 ? '1px solid var(--border)' : 'none',
-              }}>
-                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)', flex: 1 }}>{s.name}</span>
-                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>{s.dur}</span>
-                <Btn small aria-label={`Play ${s.name}`}>
-                  <Play size={10} />
-                </Btn>
-                <Btn small aria-label={`Remove ${s.name}`}>
-                  <X size={10} />
-                </Btn>
-              </Row>
-            ))}
-          </Card>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '5px 10px', border: '1px dashed var(--border)',
-            borderRadius: 'var(--radius-card)', background: 'var(--surface-alt)',
-          }}>
-            <Upload size={12} color="var(--text-muted)" />
-            <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flex: 1 }}>+ Add samples — drop MP3 or WAV here</span>
-            <Btn small>Choose file</Btn>
-          </div>
-        </Col>
-
-        {/* Variants */}
-        <Col gap={6}>
-          <Label>Variants</Label>
-          <Card style={{ borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
-            {[
-              { name: 'Default', isDefault: true, speed: '1.0', temp: '0.65' },
-              { name: 'Soft-spoken', isDefault: false, speed: '1.0', temp: '0.65' },
-            ].map((variant, i, arr) => (
-              <Row key={variant.name} gap={8} style={{
-                padding: '6px 10px', alignItems: 'center',
-                borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
-              }}>
-                {variant.isDefault && (
-                  <Star size={11} color="var(--warning)" fill="var(--warning)" style={{ flexShrink: 0 }} aria-label="default variant" />
-                )}
-                <span style={{
-                  fontSize: 'var(--type-caption)', fontWeight: variant.isDefault ? 700 : 400,
-                  color: variant.isDefault ? 'var(--accent)' : 'var(--text-primary)', flex: 1,
+        {activeStep === 'Samples' && (
+          <Col gap={6}>
+            <Label>Samples</Label>
+            <Card style={{ borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
+              {SAMPLES.map((s, i) => (
+                <Row key={s.name} gap={8} style={{
+                  padding: '6px 10px', alignItems: 'center',
+                  borderBottom: i < SAMPLES.length - 1 ? '1px solid var(--border)' : 'none',
                 }}>
-                  {variant.name}
-                  {variant.isDefault && (
-                    <span style={{ fontSize: 'var(--type-micro)', fontWeight: 400, color: 'var(--text-muted)', marginLeft: 5 }}>(default)</span>
-                  )}
-                </span>
-                <SpeedChip />
-                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontFamily: 'monospace', flexShrink: 0 }}>
-                  temp {variant.temp}
-                </span>
-                <button
-                  aria-label={`Edit ${variant.name} variant`}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0 2px', display: 'flex', alignItems: 'center' }}
-                >
-                  <Pencil size={11} />
-                </button>
-                <VariantDotMenu variantName={variant.name} />
-              </Row>
-            ))}
-          </Card>
-          <Row gap={6} style={{ alignItems: 'center' }}>
-            <Btn small>+ Add variant</Btn>
-            <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-              per-variant engine settings override the engine defaults
-            </span>
-          </Row>
-        </Col>
-
-        {/* Engine settings */}
-        <Col gap={6}>
-          <Row gap={6} style={{ alignItems: 'center' }}>
-            <Label>Engine settings</Label>
-            <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-              generated from plugin settings schema
-            </span>
-          </Row>
-          <Card style={{ borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
-            {[
-              { label: 'Temperature', value: '0.75' },
-              { label: 'Repetition penalty', value: '1.1' },
-              { label: 'Top-k', value: '50' },
-            ].map((row, i, arr) => (
-              <Row key={row.label} gap={8} style={{
-                padding: '6px 10px', alignItems: 'center',
-                borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
-              }}>
-                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)', flex: 1 }}>{row.label}</span>
-                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{row.value}</span>
-                <button aria-label={`Edit ${row.label}`} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0 2px', display: 'flex', alignItems: 'center' }}>
-                  <Pencil size={11} />
-                </button>
-              </Row>
-            ))}
-          </Card>
-        </Col>
-
-        {/* Test strip */}
-        <Col gap={6}>
-          <Label>Test</Label>
-          <Card style={{ borderRadius: 'var(--radius-card)', padding: '8px 10px' }}>
-            {/* Engine + reference sample row */}
-            <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flexShrink: 0 }}>Engine</span>
-              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 8px', cursor: 'pointer' }}>
-                <Row gap={3} style={{ alignItems: 'center' }}>XTTS v2 <ChevronDown size={10} /></Row>
-              </span>
-              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flexShrink: 0 }}>Ref</span>
-              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                <Row gap={3} style={{ alignItems: 'center' }}>sample_01.mp3 <ChevronDown size={10} /></Row>
-              </span>
-            </Row>
-            <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
-              <div style={{
-                flex: 1, fontSize: 'var(--type-caption)', color: 'var(--text-secondary)',
-                background: 'var(--surface-alt)', border: '1px solid var(--border)',
-                borderRadius: 4, padding: '4px 8px',
-              }}>
-                The road wound down through silver birch and pale stone.
-              </div>
-              <Btn small primary>Generate test</Btn>
-            </Row>
-            <Row gap={6} style={{ alignItems: 'center', marginBottom: 4 }}>
-              <button aria-label="Play test audio" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', padding: '0 2px', display: 'flex', alignItems: 'center' }}>
-                <Play size={13} />
-              </button>
-              <ProgressBar pct={42} height={3} />
-              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>0:05 / 0:12</span>
-            </Row>
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}>Edit preview script</span>
+                  <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)', flex: 1 }}>{s.name}</span>
+                  <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>{s.dur}</span>
+                  <Btn small aria-label={`Play ${s.name}`}>
+                    <Play size={10} />
+                  </Btn>
+                  <Btn small aria-label={`Remove ${s.name}`}>
+                    <X size={10} />
+                  </Btn>
+                </Row>
+              ))}
+            </Card>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '5px 10px', border: '1px dashed var(--border)',
+              borderRadius: 'var(--radius-card)', background: 'var(--surface-alt)',
+            }}>
+              <Upload size={12} color="var(--text-muted)" />
+              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flex: 1 }}>+ Add samples — drop MP3 or WAV here</span>
+              <Btn small>Choose file</Btn>
             </div>
-          </Card>
-        </Col>
+          </Col>
+        )}
 
-        {/* Export row */}
-        <Col gap={4}>
-          <Label>Export</Label>
-          <Row gap={8} style={{ alignItems: 'center' }}>
-            <Btn small>
-              <Row gap={4} style={{ alignItems: 'center' }}>
-                <Download size={10} />
-                Export bundle (.zip)
+        {/* Variants & Engine Settings */}
+        {activeStep === 'Build' && (
+          <>
+            <Col gap={6}>
+              <Label>Variants</Label>
+              <Card style={{ borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
+                {[
+                  { name: 'Default', isDefault: true, speed: '1.0', temp: '0.65' },
+                  { name: 'Soft-spoken', isDefault: false, speed: '1.0', temp: '0.65' },
+                ].map((variant, i, arr) => (
+                  <Row key={variant.name} gap={8} style={{
+                    padding: '6px 10px', alignItems: 'center',
+                    borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                  }}>
+                    {variant.isDefault && (
+                      <Star size={11} color="var(--warning)" fill="var(--warning)" style={{ flexShrink: 0 }} aria-label="default variant" />
+                    )}
+                    <span style={{
+                      fontSize: 'var(--type-caption)', fontWeight: variant.isDefault ? 700 : 400,
+                      color: variant.isDefault ? 'var(--accent)' : 'var(--text-primary)', flex: 1,
+                    }}>
+                      {variant.name}
+                      {variant.isDefault && (
+                        <span style={{ fontSize: 'var(--type-micro)', fontWeight: 400, color: 'var(--text-muted)', marginLeft: 5 }}>(default)</span>
+                      )}
+                    </span>
+                    <SpeedChip />
+                    <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontFamily: 'monospace', flexShrink: 0 }}>
+                      temp {variant.temp}
+                    </span>
+                    <button
+                      aria-label={`Edit ${variant.name} variant`}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0 2px', display: 'flex', alignItems: 'center' }}
+                    >
+                      <Pencil size={11} />
+                    </button>
+                    <VariantDotMenu variantName={variant.name} />
+                  </Row>
+                ))}
+              </Card>
+              <Row gap={6} style={{ alignItems: 'center' }}>
+                <Btn small>+ Add variant</Btn>
+                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  per-variant engine settings override the engine defaults
+                </span>
               </Row>
-            </Btn>
-            <Row gap={6} style={{ alignItems: 'center' }}>
+            </Col>
+
+            <Col gap={6}>
+              <Row gap={6} style={{ alignItems: 'center' }}>
+                <Label>Engine settings</Label>
+                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  generated from plugin settings schema
+                </span>
+              </Row>
+              <Card style={{ borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
+                {[
+                  { label: 'Temperature', value: '0.75' },
+                  { label: 'Repetition penalty', value: '1.1' },
+                  { label: 'Top-k', value: '50' },
+                ].map((row, i, arr) => (
+                  <Row key={row.label} gap={8} style={{
+                    padding: '6px 10px', alignItems: 'center',
+                    borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                  }}>
+                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)', flex: 1 }}>{row.label}</span>
+                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{row.value}</span>
+                    <button aria-label={`Edit ${row.label}`} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0 2px', display: 'flex', alignItems: 'center' }}>
+                      <Pencil size={11} />
+                    </button>
+                  </Row>
+                ))}
+              </Card>
+            </Col>
+          </>
+        )}
+
+        {/* Test Strip */}
+        {activeStep === 'Test' && (
+          <Col gap={6}>
+            <Label>Test</Label>
+            <Card style={{ borderRadius: 'var(--radius-card)', padding: '8px 10px' }}>
+              {/* Engine + reference sample row */}
+              <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flexShrink: 0 }}>Engine</span>
+                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 8px', cursor: 'pointer' }}>
+                  <Row gap={3} style={{ alignItems: 'center' }}>Primary Engine <ChevronDown size={10} /></Row>
+                </span>
+                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flexShrink: 0 }}>Ref</span>
+                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <Row gap={3} style={{ alignItems: 'center' }}>sample_01.mp3 <ChevronDown size={10} /></Row>
+                </span>
+              </Row>
+              <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
+                <div style={{
+                  flex: 1, fontSize: 'var(--type-caption)', color: 'var(--text-secondary)',
+                  background: 'var(--surface-alt)', border: '1px solid var(--border)',
+                  borderRadius: 4, padding: '4px 8px',
+                }}>
+                  The road wound down through silver birch and pale stone.
+                </div>
+                <Btn small primary>Generate test</Btn>
+              </Row>
+              <Row gap={6} style={{ alignItems: 'center', marginBottom: 4 }}>
+                <button aria-label="Play test audio" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', padding: '0 2px', display: 'flex', alignItems: 'center' }}>
+                  <Play size={13} />
+                </button>
+                <ProgressBar pct={42} height={3} />
+                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>0:05 / 0:12</span>
+              </Row>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}>Edit preview script</span>
+              </div>
+            </Card>
+          </Col>
+        )}
+
+        {/* Ready / Export */}
+        {activeStep === 'Ready' && (
+          <Col gap={4}>
+            <Label>Export</Label>
+            <Row gap={8} style={{ alignItems: 'center' }}>
+              <Btn small onClick={() => onExportBundle()}>
+                <Row gap={4} style={{ alignItems: 'center' }}>
+                  <Download size={10} />
+                  Export bundle (.zip)
+                </Row>
+              </Btn>
               <Btn small>Publish to Hugging Face</Btn>
-              <PlannedChip />
             </Row>
-          </Row>
-        </Col>
+          </Col>
+        )}
       </Col>
     </Col>
   );
@@ -620,22 +909,22 @@ const CreateVoiceModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
           <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-secondary)' }}>Engine</div>
           <Col gap={4}>
             {[
-              { id: 'xtts', label: 'XTTS v2', ready: true },
+              { id: 'primary', label: 'Primary Engine', ready: true },
               { id: 'voxtral', label: 'Voxtral (Mistral AI)', ready: false, note: 'Needs setup' },
             ].map(opt => (
               <Row key={opt.id} gap={8} style={{
                 padding: '6px 10px', borderRadius: 'var(--radius-button)',
-                background: opt.id === 'xtts' ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-                border: `1px solid ${opt.id === 'xtts' ? 'var(--accent)' : 'var(--border)'}`,
+                background: opt.id === 'primary' ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+                border: `1px solid ${opt.id === 'primary' ? 'var(--accent)' : 'var(--border)'}`,
                 alignItems: 'center', cursor: 'pointer',
               }}>
-                <span style={{ fontSize: 'var(--type-caption)', color: opt.id === 'xtts' ? 'var(--accent)' : 'var(--text-secondary)', flex: 1, fontWeight: opt.id === 'xtts' ? 700 : 400 }}>
+                <span style={{ fontSize: 'var(--type-caption)', color: opt.id === 'primary' ? 'var(--accent)' : 'var(--text-secondary)', flex: 1, fontWeight: opt.id === 'primary' ? 700 : 400 }}>
                   {opt.label}
                 </span>
                 {!opt.ready && (
                   <SemanticChip variant="warning">Needs setup</SemanticChip>
                 )}
-                {opt.id === 'xtts' && <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)' }}>●</span>}
+                {opt.id === 'primary' && <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)' }}>●</span>}
               </Row>
             ))}
           </Col>
@@ -650,22 +939,620 @@ const CreateVoiceModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
 );
 
 // ---------------------------------------------------------------------------
+// Voice Metadata Modal
+
+const VoiceMetadataModal: React.FC<{
+  voice: Voice;
+  onClose: () => void;
+  onSave: (updated: Voice) => void;
+}> = ({ voice, onClose, onSave }) => {
+  const [name, setName] = useState(voice.name || '');
+  const [description, setDescription] = useState(voice.description || '');
+  const [avatarColor, setAvatarColor] = useState(voice.avatarColor || '');
+  const [avatarIcon, setAvatarIcon] = useState(voice.avatarIcon || '');
+
+  // Taxonomy fields
+  const [languages, setLanguages] = useState<string[]>(voice.languages || []);
+  const [accent, setAccent] = useState(voice.accent || '');
+  const [styles, setStyles] = useState<string[]>(voice.styles || []);
+  const [category, setCategory] = useState<'Narrator' | 'Dialogue' | 'Character' | ''>(voice.category || '');
+  const [gender, setGender] = useState<'Female' | 'Male' | 'NB' | ''>(voice.gender || '');
+  const [age, setAge] = useState<'Child' | 'Adult' | 'Senior' | ''>(voice.age || '');
+
+  const languageOptions = ['English', 'Spanish', 'French', 'German', 'Japanese'];
+  const accentOptions = ['US', 'UK', 'Australia', 'India', 'Canada'];
+  const styleOptions = ['Warm', 'Bright', 'Deep', 'Gruff', 'Clear', 'Cool', 'Whispering'];
+
+  const colorOptions = [
+    { value: '', label: 'Default Tint' },
+    { value: '#ef4444', label: 'Red' },
+    { value: '#3b82f6', label: 'Blue' },
+    { value: '#10b981', label: 'Green' },
+    { value: '#f59e0b', label: 'Amber' },
+    { value: '#8b5cf6', label: 'Purple' },
+    { value: '#06b6d4', label: 'Cyan' },
+  ];
+
+  const iconOptions = [
+    { value: '', label: 'Initials Only' },
+    { value: 'volume-2', label: 'Speaker' },
+    { value: 'music', label: 'Music' },
+    { value: 'sparkles', label: 'Sparkles' },
+    { value: 'mic', label: 'Mic' },
+  ];
+
+  const toggleLanguage = (lang: string) => {
+    setLanguages(prev =>
+      prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]
+    );
+  };
+
+  const toggleStyle = (st: string) => {
+    setStyles(prev =>
+      prev.includes(st) ? prev.filter(s => s !== st) : [...prev, st]
+    );
+  };
+
+  const hasAnyTags = languages.length > 0 || accent || styles.length > 0 || category || gender || age;
+  const isNameEmpty = name.trim() === '';
+
+  const handleSave = () => {
+    if (isNameEmpty) return;
+
+    const updatedVoice: Voice = {
+      ...voice,
+      name: name.trim(),
+      description: description.trim(),
+      avatarColor,
+      avatarIcon,
+      languages,
+      accent,
+      styles,
+      category,
+      gender,
+      age,
+      // generate pills dynamically
+      pills: [
+        ...(category ? [{ label: category, category: 'class' as const }] : []),
+        ...(gender ? [{ label: gender === 'NB' ? 'Non-Binary' : gender, category: 'gender' as const }] : []),
+        ...(age ? [{ label: age, category: 'age' as const }] : []),
+        ...(accent ? [{ label: accent, category: 'extended' as const }] : []),
+        ...languages.map(lang => ({ label: lang, category: 'tag' as const })),
+        ...styles.map(st => ({ label: st, category: 'extended' as const })),
+      ],
+    };
+
+    onSave(updatedVoice);
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Edit Voice Metadata"
+      style={{
+        position: 'absolute', inset: 0, background: 'var(--overlay-backdrop)', zIndex: 110,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-panel)',
+        width: 380, maxHeight: '90%', overflowY: 'auto', boxShadow: 'var(--shadow-xl)', padding: '16px 18px',
+      }}>
+        <Row gap={8} style={{ alignItems: 'center', marginBottom: 14 }}>
+          <span style={{ fontSize: 'var(--type-headline)', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>Edit Metadata</span>
+          <button onClick={onClose} aria-label="Close edit metadata dialog" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+            <X size={15} />
+          </button>
+        </Row>
+
+        {/* Warning Banner */}
+        {!hasAnyTags && (
+          <div style={{
+            background: '#fef3c7',
+            border: '1px solid #f59e0b',
+            color: '#b45309',
+            padding: '8px 12px',
+            borderRadius: 'var(--radius-card)',
+            fontSize: 'var(--type-caption)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            marginBottom: 12
+          }}>
+            <AlertTriangle size={14} color="#d97706" />
+            <span><strong>Not tagged:</strong> Please specify at least one taxonomy attribute below.</span>
+          </div>
+        )}
+
+        <Col gap={12}>
+          {/* Name */}
+          <Col gap={4}>
+            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-secondary)' }}>Name</div>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              style={{
+                background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)',
+                padding: '6px 10px', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
+              }}
+              placeholder="e.g. Elena Marsh"
+            />
+            {isNameEmpty && (
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--error)' }}>Name cannot be empty.</span>
+            )}
+          </Col>
+
+          {/* Description */}
+          <Col gap={4}>
+            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-secondary)' }}>Description</div>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={3}
+              style={{
+                background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)',
+                padding: '6px 10px', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
+                resize: 'vertical',
+              }}
+              placeholder="Describe the voice character and training details..."
+            />
+          </Col>
+
+          {/* Icon/Color Controls */}
+          <Row gap={8}>
+            <Col gap={4} style={{ flex: 1 }}>
+              <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-secondary)' }}>Avatar Color</div>
+              <select
+                value={avatarColor}
+                onChange={e => setAvatarColor(e.target.value)}
+                style={{
+                  background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)',
+                  padding: '6px 10px', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
+                }}
+              >
+                {colorOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </Col>
+            <Col gap={4} style={{ flex: 1 }}>
+              <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-secondary)' }}>Avatar Icon</div>
+              <select
+                value={avatarIcon}
+                onChange={e => setAvatarIcon(e.target.value)}
+                style={{
+                  background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)',
+                  padding: '6px 10px', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
+                }}
+              >
+                {iconOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </Col>
+          </Row>
+
+          <div style={{ borderBottom: '1px solid var(--border)', margin: '4px 0' }} />
+
+          {/* Taxonomy fields */}
+          <Col gap={8}>
+            <Label>Taxonomy v2 Fields</Label>
+
+            {/* Category, Gender, Age */}
+            <Row gap={8}>
+              <Col gap={4} style={{ flex: 1 }}>
+                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)' }}>Category</div>
+                <select
+                  value={category}
+                  onChange={e => setCategory(e.target.value as any)}
+                  style={{
+                    background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)',
+                    padding: '4px 8px', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
+                  }}
+                >
+                  <option value="">Select...</option>
+                  <option value="Narrator">Narrator</option>
+                  <option value="Dialogue">Dialogue</option>
+                  <option value="Character">Character</option>
+                </select>
+              </Col>
+
+              <Col gap={4} style={{ flex: 1 }}>
+                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)' }}>Gender</div>
+                <select
+                  value={gender}
+                  onChange={e => setGender(e.target.value as any)}
+                  style={{
+                    background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)',
+                    padding: '4px 8px', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
+                  }}
+                >
+                  <option value="">Select...</option>
+                  <option value="Female">Female</option>
+                  <option value="Male">Male</option>
+                  <option value="NB">Non-Binary</option>
+                </select>
+              </Col>
+
+              <Col gap={4} style={{ flex: 1 }}>
+                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)' }}>Age</div>
+                <select
+                  value={age}
+                  onChange={e => setAge(e.target.value as any)}
+                  style={{
+                    background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)',
+                    padding: '4px 8px', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
+                  }}
+                >
+                  <option value="">Select...</option>
+                  <option value="Child">Child</option>
+                  <option value="Adult">Adult</option>
+                  <option value="Senior">Senior</option>
+                </select>
+              </Col>
+            </Row>
+
+            {/* Accent (single-select) */}
+            <Col gap={4}>
+              <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)' }}>Accent (Single-select)</div>
+              <Row gap={4} style={{ flexWrap: 'wrap' }}>
+                {accentOptions.map(acc => (
+                  <Chip
+                    key={acc}
+                    onClick={() => setAccent(accent === acc ? '' : acc)}
+                    style={{
+                      border: accent === acc ? '1px solid var(--accent)' : '1px solid var(--border)',
+                      background: accent === acc ? 'var(--accent-tint-bg)' : 'var(--surface)',
+                      color: accent === acc ? 'var(--accent)' : 'var(--text-secondary)',
+                      fontSize: 'var(--type-micro)',
+                      padding: '2px 8px',
+                    }}
+                  >
+                    {acc}
+                  </Chip>
+                ))}
+              </Row>
+            </Col>
+
+            {/* Languages (multi-select) */}
+            <Col gap={4}>
+              <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)' }}>Languages (Multi-select)</div>
+              <Row gap={4} style={{ flexWrap: 'wrap' }}>
+                {languageOptions.map(lang => {
+                  const isSel = languages.includes(lang);
+                  return (
+                    <Chip
+                      key={lang}
+                      onClick={() => toggleLanguage(lang)}
+                      style={{
+                        border: isSel ? '1px solid var(--accent)' : '1px solid var(--border)',
+                        background: isSel ? 'var(--accent-tint-bg)' : 'var(--surface)',
+                        color: isSel ? 'var(--accent)' : 'var(--text-secondary)',
+                        fontSize: 'var(--type-micro)',
+                        padding: '2px 8px',
+                      }}
+                    >
+                      {lang}
+                    </Chip>
+                  );
+                })}
+              </Row>
+            </Col>
+
+            {/* Styles (multi-select) */}
+            <Col gap={4}>
+              <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)' }}>Styles (Multi-select)</div>
+              <Row gap={4} style={{ flexWrap: 'wrap' }}>
+                {styleOptions.map(st => {
+                  const isSel = styles.includes(st);
+                  return (
+                    <Chip
+                      key={st}
+                      onClick={() => toggleStyle(st)}
+                      style={{
+                        border: isSel ? '1px solid var(--accent)' : '1px solid var(--border)',
+                        background: isSel ? 'var(--accent-tint-bg)' : 'var(--surface)',
+                        color: isSel ? 'var(--accent)' : 'var(--text-secondary)',
+                        fontSize: 'var(--type-micro)',
+                        padding: '2px 8px',
+                      }}
+                    >
+                      {st}
+                    </Chip>
+                  );
+                })}
+              </Row>
+            </Col>
+          </Col>
+        </Col>
+
+        <Row gap={6} style={{ marginTop: 20, justifyContent: 'flex-end' }}>
+          <Btn small onClick={onClose}>Cancel</Btn>
+          <Btn small primary onClick={handleSave} disabled={isNameEmpty}>Save Changes</Btn>
+        </Row>
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Export Bundle Modal
+
+const ExportBundleModal: React.FC<{
+  voiceName: string;
+  onClose: () => void;
+}> = ({ voiceName, onClose }) => {
+  const [includeMetadata, setIncludeMetadata] = useState(true);
+  const [includeAudio, setIncludeAudio] = useState(true);
+  const [includeWeights, setIncludeWeights] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+
+  const handleAssemble = () => {
+    setLoading(true);
+    setProgress(0);
+    setDownloadUrl(null);
+
+    const interval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setLoading(false);
+          setDownloadUrl(`mock-download-url-for-${voiceName.toLowerCase().replace(/\s+/g, '-')}-bundle.zip`);
+          return 100;
+        }
+        return prev + 10;
+      });
+    }, 120);
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Export Voice Bundle"
+      style={{
+        position: 'absolute', inset: 0, background: 'var(--overlay-backdrop)', zIndex: 110,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-panel)',
+        width: 340, boxShadow: 'var(--shadow-xl)', padding: '16px 18px',
+      }}>
+        <Row gap={8} style={{ alignItems: 'center', marginBottom: 14 }}>
+          <span style={{ fontSize: 'var(--type-headline)', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>Export Voice Bundle</span>
+          <button onClick={onClose} aria-label="Close export dialog" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+            <X size={15} />
+          </button>
+        </Row>
+
+        {!loading && !downloadUrl && (
+          <Col gap={12}>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>
+              Configure the assets to package in the export bundle for <strong>{voiceName}</strong>.
+            </div>
+
+            <Col gap={8} style={{ background: 'var(--surface-alt)', padding: 10, borderRadius: 'var(--radius-card)', border: '1px solid var(--border)' }}>
+              <Label style={{ marginBottom: 4 }}>Bundle Options</Label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--type-caption)', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                <input type="checkbox" checked={includeMetadata} onChange={e => setIncludeMetadata(e.target.checked)} />
+                Metadata (JSON)
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--type-caption)', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                <input type="checkbox" checked={includeAudio} onChange={e => setIncludeAudio(e.target.checked)} />
+                Reference Audio (.wav)
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--type-caption)', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                <input type="checkbox" checked={includeWeights} onChange={e => setIncludeWeights(e.target.checked)} />
+                Engine Model Weights
+              </label>
+            </Col>
+
+            <Row gap={8} style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+              <Btn small onClick={onClose}>Cancel</Btn>
+              <Btn small primary onClick={handleAssemble}>Assemble Bundle</Btn>
+            </Row>
+          </Col>
+        )}
+
+        {loading && (
+          <Col gap={12} style={{ alignItems: 'center', padding: '10px 0' }}>
+            <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>Packaging bundle components...</span>
+            <div style={{ width: '100%' }}>
+              <ProgressBar pct={progress} height={6} shimmer />
+            </div>
+            <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>{progress}% complete</span>
+          </Col>
+        )}
+
+        {downloadUrl && (
+          <Col gap={12} style={{ padding: '10px 0' }}>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)' }}>
+              🎉 Voice bundle successfully assembled!
+            </div>
+
+            <div style={{ background: '#ecfdf5', border: '1px solid #10b981', padding: 10, borderRadius: 'var(--radius-card)', fontSize: 'var(--type-caption)', color: '#065f46' }}>
+              Includes: {includeMetadata ? 'Metadata, ' : ''}{includeAudio ? 'Audio, ' : ''}{includeWeights ? 'Weights' : ''}
+            </div>
+
+            <a
+              href={`data:text/plain;charset=utf-8,${encodeURIComponent('Mock voice bundle data')}`}
+              download={`${voiceName.toLowerCase().replace(/\s+/g, '-')}-bundle.zip`}
+              style={{
+                display: 'block',
+                textDecoration: 'none',
+                textAlign: 'center',
+                background: 'var(--accent)',
+                color: '#fff',
+                padding: '8px 12px',
+                borderRadius: 'var(--radius-button)',
+                fontSize: 'var(--type-caption)',
+                fontWeight: 600,
+                marginTop: 8,
+              }}
+              onClick={onClose}
+            >
+              Download .zip Bundle
+            </a>
+          </Col>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // VoicesPane
 
 export const VoicesPane: React.FC = () => {
   const [voiceTab, setVoiceTab] = useState<'local' | 'discover'>('local');
-  const [selectedVoice, setSelectedVoice] = useState<typeof VOICE_CARDS[0] | null>(null);
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string | null>(null);
+  const [defaultVoiceName, setDefaultVoiceName] = useState<string>('Studio Voice');
+
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorVoiceName, setEditorVoiceName] = useState<string | null>(null);
+
+  const [editingVoice, setEditingVoice] = useState<Voice | null>(null);
+  const [exportingVoice, setExportingVoice] = useState<Voice | null>(null);
+
   const [showGuide, setShowGuide] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
 
+  const [voices, setVoices] = useState<Voice[]>(() => {
+    return VOICE_CARDS.map((v) => {
+      let desc = '';
+      let languages: string[] = [];
+      let accent = '';
+      let styles: string[] = [];
+      let category: 'Narrator' | 'Dialogue' | 'Character' | '' = '';
+      let gender: 'Female' | 'Male' | 'NB' | '' = '';
+      let age: 'Child' | 'Adult' | 'Senior' | '' = '';
+
+      if (v.name === 'Studio Voice') {
+        desc = 'A warm, expressive narrator voice suited for literary fiction and long-form narration. Trained on 4h 20m of clean studio recordings.';
+        languages = ['English'];
+        accent = 'US';
+        styles = ['Warm'];
+        category = 'Narrator';
+        gender = 'Female';
+        age = 'Adult';
+      } else if (v.name === 'Marcus Reed') {
+        desc = 'A deep, authoritative voice perfect for thrillers, biographies, and dramatic audiobooks.';
+      } else if (v.name === 'Clara Bell') {
+        desc = 'A bright, energetic voice, ideal for dialogues, children\'s books, and commercial narration.';
+        languages = ['English'];
+        accent = 'UK';
+        styles = ['Bright'];
+        category = 'Dialogue';
+        gender = 'Female';
+        age = 'Adult';
+      } else if (v.name === 'Old Tom') {
+        desc = 'A gruff, characterful older voice with texture, suited for fantasy and historical fiction roles.';
+        languages = ['English'];
+        accent = 'UK';
+        styles = ['Gruff'];
+        category = 'Character';
+        gender = 'Male';
+        age = 'Senior';
+      } else if (v.name === 'Aria') {
+        desc = 'A clear, natural voice designed for educational content and clean textbook narration.';
+        languages = ['English'];
+        accent = 'US';
+        styles = ['Clear'];
+        category = 'Narrator';
+        gender = 'Female';
+        age = 'Adult';
+      } else if (v.name === 'Frost') {
+        desc = 'A cool, ambient non-binary voice that brings a modern, stylistic edge to speculative fiction.';
+        languages = ['English'];
+        accent = 'Canada';
+        styles = ['Cool'];
+        category = 'Character';
+        gender = 'NB';
+        age = 'Adult';
+      }
+
+      return {
+        ...v,
+        description: desc,
+        languages,
+        accent,
+        styles,
+        category,
+        gender,
+        age,
+        avatarColor: v.name === 'Studio Voice' ? '#3b82f6' : '',
+        avatarIcon: v.name === 'Studio Voice' ? 'volume-2' : '',
+      };
+    });
+  });
+
+  const selectedVoice = voices.find(v => v.name === selectedVoiceName) || null;
+
+  if (editorOpen) {
+    return (
+      <VoiceProfileEditorPane
+        voices={voices}
+        initialSelectedName={editorVoiceName}
+        onBack={() => setEditorOpen(false)}
+        onChangeVoice={(updated, originalName) =>
+          setVoices(prev => prev.map(v => (v.name === originalName ? updated : v)))}
+      />
+    );
+  }
+
   if (selectedVoice) {
-    return <VoiceLab voice={selectedVoice} onBack={() => setSelectedVoice(null)} />;
+    return (
+      <VoiceLab
+        voice={selectedVoice}
+        onBack={() => setSelectedVoiceName(null)}
+        onSetDefault={() => setDefaultVoiceName(selectedVoice.name)}
+        onEditMetadata={() => { setEditorVoiceName(selectedVoice.name); setEditorOpen(true); }}
+        onRename={() => {
+          const newName = window.prompt(`Rename voice "${selectedVoice.name}" to:`, selectedVoice.name);
+          if (newName !== null && newName.trim() !== '') {
+            setVoices(prev => prev.map(v => v.name === selectedVoice.name ? { ...v, name: newName.trim() } : v));
+            setSelectedVoiceName(newName.trim());
+          }
+        }}
+        onExportBundle={() => setExportingVoice(selectedVoice)}
+        onDelete={() => {
+          if (window.confirm(`Are you sure you want to delete the voice "${selectedVoice.name}"?`)) {
+            setVoices(prev => prev.filter(v => v.name !== selectedVoice.name));
+            setSelectedVoiceName(null);
+          }
+        }}
+      />
+    );
   }
 
   return (
     <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto', position: 'relative' }}>
       {showGuide && <RecordingGuideModal onClose={() => setShowGuide(false)} />}
       {showCreate && <CreateVoiceModal onClose={() => setShowCreate(false)} />}
+      {editingVoice && (
+        <VoiceMetadataModal
+          voice={editingVoice}
+          onClose={() => setEditingVoice(null)}
+          onSave={(updated) => {
+            setVoices(prev => prev.map(v => v.name === editingVoice.name ? updated : v));
+            if (selectedVoiceName === editingVoice.name) {
+              setSelectedVoiceName(updated.name);
+            }
+            setEditingVoice(null);
+          }}
+        />
+      )}
+      {exportingVoice && (
+        <ExportBundleModal
+          voiceName={exportingVoice.name}
+          onClose={() => setExportingVoice(null)}
+        />
+      )}
 
       <Row gap={6} style={{ flexWrap: 'wrap', alignItems: 'center' }}>
         {(['local', 'discover'] as const).map(tab => (
@@ -683,16 +1570,25 @@ export const VoicesPane: React.FC = () => {
           </div>
         ))}
         <div style={{ flex: 1 }} />
+        <Btn small onClick={() => { setEditorVoiceName(null); setEditorOpen(true); }}>
+          <Row gap={4} style={{ alignItems: 'center' }}>
+            <Pencil size={13} />
+            Edit profiles
+          </Row>
+        </Btn>
         <Btn small>
           <Row gap={4} style={{ alignItems: 'center' }}>
             <Upload size={10} />
             Import (.zip)
           </Row>
         </Btn>
-        <Btn small>
+        <Btn small onClick={() => {
+          const defaultVoice = voices.find(v => v.name === defaultVoiceName) || voices[0];
+          if (defaultVoice) setExportingVoice(defaultVoice);
+        }}>
           <Row gap={4} style={{ alignItems: 'center' }}>
             <Download size={10} />
-            Export
+            Export bundle (.zip)
           </Row>
         </Btn>
         <Btn small onClick={() => setShowGuide(true)}>
@@ -716,48 +1612,39 @@ export const VoicesPane: React.FC = () => {
           </Row>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(145px, 1fr))', gap: 8 }}>
-            {VOICE_CARDS.map((v, idx) => (
-              <Card key={v.name} style={{
-                padding: '10px 10px 8px', textAlign: 'center',
-                position: 'relative', borderRadius: 'var(--radius-card)',
-              }}>
-                {/* Default marker on first card */}
-                {idx === 0 && (
-                  <div style={{ position: 'absolute', top: 6, right: 6 }}>
-                    <SemanticChip variant="warning">
-                      <Row gap={3} style={{ alignItems: 'center' }}>
-                        <Star size={9} fill="currentColor" />
-                        default
-                      </Row>
-                    </SemanticChip>
-                  </div>
-                )}
-                {/* Untagged warning on second card */}
-                {idx === 1 && (
-                  <div style={{ position: 'absolute', top: 6, right: 6 }}>
-                    <AlertTriangle size={13} color="var(--warning)" aria-label="missing required attributes" />
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}>
-                  <Avatar name={v.name} size={36} />
-                </div>
-                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>{v.name}</div>
-                <Row gap={3} style={{ marginTop: 5, justifyContent: 'center', flexWrap: 'wrap' }}>
-                  {v.pills.map(p => (
-                    <VoiceAttrPill key={p.label} category={p.category}>{p.label}</VoiceAttrPill>
-                  ))}
-                </Row>
-                <Row gap={4} style={{ marginTop: 6, justifyContent: 'center' }}>
-                  <Btn small aria-label={`Preview ${v.name}`}>
-                    <Row gap={3} style={{ alignItems: 'center' }}>
-                      <Play size={9} />
-                      Preview
-                    </Row>
-                  </Btn>
-                  <Btn small primary onClick={() => setSelectedVoice(v)}>{v.cta}</Btn>
-                </Row>
-              </Card>
-            ))}
+            {voices.map((v) => {
+              const isDefault = v.name === defaultVoiceName;
+              const hasWarning = !(v.languages && v.languages.length > 0) &&
+                                 !v.accent &&
+                                 !(v.styles && v.styles.length > 0) &&
+                                 !v.category &&
+                                 !v.gender &&
+                                 !v.age;
+
+              return (
+                <MyVoiceCard
+                  key={v.name}
+                  voice={v}
+                  isDefault={isDefault}
+                  hasWarning={hasWarning}
+                  onSelect={() => setSelectedVoiceName(v.name)}
+                  onSetDefault={() => setDefaultVoiceName(v.name)}
+                  onEditMetadata={() => { setEditorVoiceName(v.name); setEditorOpen(true); }}
+                  onRename={() => {
+                    const newName = window.prompt(`Rename voice "${v.name}" to:`, v.name);
+                    if (newName !== null && newName.trim() !== '') {
+                      setVoices(prev => prev.map(item => item.name === v.name ? { ...item, name: newName.trim() } : item));
+                    }
+                  }}
+                  onExportBundle={() => setExportingVoice(v)}
+                  onDelete={() => {
+                    if (window.confirm(`Are you sure you want to delete the voice "${v.name}"?`)) {
+                      setVoices(prev => prev.filter(item => item.name !== v.name));
+                    }
+                  }}
+                />
+              );
+            })}
           </div>
         </>
       )}

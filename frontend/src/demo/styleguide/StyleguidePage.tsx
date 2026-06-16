@@ -134,6 +134,28 @@ const OwnerDecisionChip: React.FC = () => (
   </span>
 );
 
+/** Green status chip for proposals the owner has ratified (affirmed / approved / decided). */
+const DecidedChip: React.FC<{ label?: string }> = ({ label = 'AFFIRMED' }) => (
+  <span
+    style={{
+      display: 'inline-block',
+      background: 'rgba(34, 197, 94, 0.14)',
+      color: 'var(--success-text, #166534)',
+      border: '1px solid rgba(34, 197, 94, 0.32)',
+      borderRadius: 999,
+      fontSize: '0.6875rem',
+      fontWeight: 700,
+      letterSpacing: '0.07em',
+      textTransform: 'uppercase',
+      padding: '2px 10px',
+      verticalAlign: 'middle',
+      marginLeft: 8,
+    }}
+  >
+    {label}
+  </span>
+);
+
 const Card: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({
   children, style,
 }) => (
@@ -734,8 +756,7 @@ const U15Mock: React.FC = () => {
     <Card>
       <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
         U15 — Navigation &amp; Information Architecture
-        <ProposedChip />
-        <OwnerDecisionChip />
+        <DecidedChip label="Decided · Option B · Implemented" />
       </h3>
       <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
         The current top-bar nav puts all destinations at the same visual weight, creating
@@ -916,8 +937,9 @@ const U15Mock: React.FC = () => {
   );
 };
 
-/** Fake waveform SVG — varied bar heights to look plausible */
-const WaveformSVG: React.FC = () => {
+/** Fake waveform SVG — varied bar heights; stretches to fill its box so it can
+ *  serve as an inline scrub track (fixed pixel height, full container width). */
+const WaveformSVG: React.FC<{ height?: number }> = ({ height = 32 }) => {
   const bars = [
     12, 28, 18, 40, 32, 20, 44, 36, 22, 50, 42, 30, 48, 38, 24, 46, 34, 20, 40, 28,
     16, 36, 50, 44, 26, 38, 18, 42, 30, 46, 22, 34, 50, 28, 40, 20, 44, 32, 18, 36,
@@ -927,14 +949,15 @@ const WaveformSVG: React.FC = () => {
   const barW = 4;
   const gap = 2;
   const svgW = totalBars * (barW + gap);
-  const svgH = 56;
+  const vbH = 56;
   const playheadX = svgW * 0.35;
 
   return (
     <svg
       width="100%"
-      viewBox={`0 0 ${svgW} ${svgH}`}
-      preserveAspectRatio="xMidYMid meet"
+      height={height}
+      viewBox={`0 0 ${svgW} ${vbH}`}
+      preserveAspectRatio="none"
       style={{ display: 'block' }}
     >
       {bars.map((h, idx) => {
@@ -944,7 +967,7 @@ const WaveformSVG: React.FC = () => {
           <rect
             key={idx}
             x={x}
-            y={(svgH - h) / 2}
+            y={(vbH - h) / 2}
             width={barW}
             height={h}
             rx={2}
@@ -958,7 +981,7 @@ const WaveformSVG: React.FC = () => {
         x1={playheadX}
         y1={0}
         x2={playheadX}
-        y2={svgH}
+        y2={vbH}
         stroke="var(--accent)"
         strokeWidth={2}
         opacity={0.9}
@@ -967,143 +990,199 @@ const WaveformSVG: React.FC = () => {
   );
 };
 
-/** U16 — Unified player mockup */
+/** U16 — Unified player mockup.
+ *  Representation follows scope (no separate waveform toggle):
+ *   - Segment scope → waveform IS the inline scrub track (short segments have
+ *     readable structure worth annotating).
+ *   - Chapter scope → plain seek bar (an hour of speech is a featureless blur).
+ *  Responsive exception: when the player is narrow there's no room for an inline
+ *  waveform, so in Segment scope it moves ABOVE the controls at a reduced height
+ *  (container query), and the row falls back to a thin seek line. */
 const U16Mock: React.FC = () => {
-  const [waveformOn, setWaveformOn] = useState(false);
+  const [scope, setScope] = useState<'Segment' | 'Chapter'>('Segment');
+  const isSegment = scope === 'Segment';
+
+  // Representation defaults to the scope type (segment → waveform, chapter →
+  // bar) but the far-right toggle lets the user flip it. Switching scope resets
+  // the override so each scope starts at its default.
+  const [forceWave, setForceWave] = useState<boolean | null>(null);
+  const showWave = forceWave ?? isSegment;
+
+  const trackStyle: React.CSSProperties = {
+    height: 6,
+    flex: 1,
+    minWidth: 60,
+    background: 'var(--surface-alt)',
+    border: '1px solid var(--border)',
+    borderRadius: 3,
+    position: 'relative',
+    overflow: 'hidden',
+    cursor: 'pointer',
+  };
 
   return (
     <Card>
       <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
         U16 — Unified Audio Player Surface
-        <ProposedChip />
-        <OwnerDecisionChip />
+        <DecidedChip label="Affirmed" />
       </h3>
       <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
         Today the Chapter Editor has a VCR-style segment player and a separate chapter-level player —
         two separate surfaces that compete for space. The proposed design merges them into one persistent
         bottom player with a scope toggle (Segment ↔ Chapter). Depends on U15&apos;s layout conclusions.
       </p>
-      {/* Player mock */}
-      <div
-        style={{
-          border: '1px solid var(--border)',
-          borderRadius: 10,
-          background: 'var(--surface)',
-          padding: '12px 16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-          maxWidth: 560,
-          transition: 'height 0.22s ease',
-        }}
-      >
-        {/* Scope toggle + waveform button row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ display: 'flex', gap: 4, flex: 1, justifyContent: 'center' }}>
-            {['Segment', 'Chapter'].map((label, i) => (
-              <div
-                key={label}
-                style={{
-                  padding: '4px 14px',
-                  borderRadius: 999,
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  background: i === 0 ? 'var(--accent)' : 'var(--surface-alt)',
-                  color: i === 0 ? '#fff' : 'var(--text-secondary)',
-                  border: '1px solid',
-                  borderColor: i === 0 ? 'var(--accent)' : 'var(--border)',
-                  cursor: 'pointer',
-                }}
-              >
-                {label}
-              </div>
-            ))}
-          </div>
-          {/* Waveform toggle */}
-          <button
-            type="button"
-            onClick={() => setWaveformOn(w => !w)}
-            title="Toggle waveform display"
-            style={{
-              padding: '4px 10px',
-              borderRadius: 6,
-              fontSize: '0.7rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              background: waveformOn ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-              color: waveformOn ? 'var(--accent)' : 'var(--text-muted)',
-              border: '1px solid',
-              borderColor: waveformOn ? 'var(--accent-tint-border, var(--accent))' : 'var(--border)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              transition: 'background 0.15s, color 0.15s',
-            }}
-          >
-            <span>〰</span>
-            <span>Wave</span>
-          </button>
-        </div>
+      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem', lineHeight: 1.6 }}>
+        Click <strong>Segment</strong> / <strong>Chapter</strong> to see representation follow scope.
+      </p>
 
-        {/* Waveform strip — expands in when toggled on */}
-        {waveformOn && (
-          <div
-            style={{
-              padding: '6px 0 2px',
-              borderRadius: 6,
-              background: 'var(--surface-alt)',
-              border: '1px solid var(--border)',
-              overflow: 'hidden',
-            }}
-          >
-            <WaveformSVG />
-          </div>
-        )}
-
-        {/* Label */}
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-          Segment 3 / Chapter 2 · &quot;The Awakening&quot;
-        </div>
-        {/* Scrubber */}
-        <div style={{ position: 'relative', height: 4, background: 'var(--border)', borderRadius: 99 }}>
-          <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: '38%', background: 'var(--accent)', borderRadius: 99 }} />
-          <div style={{ position: 'absolute', left: '38%', top: '50%', transform: 'translate(-50%, -50%)', width: 12, height: 12, background: 'var(--accent)', borderRadius: '50%', boxShadow: '0 0 0 3px var(--accent-tint-bg)' }} />
-        </div>
-        {/* Time */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-          <span>0:14</span>
-          <span>0:38</span>
-        </div>
-        {/* Transport */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'center' }}>
-          {['⏮', '⏪', '▶', '⏩', '⏭'].map(icon => (
+      {/* Player mock — inline single row, matching the mockup + live PlayerBar.
+          container-type makes the waveform reflow above the controls when narrow. */}
+      <div className="u16-player" style={{ containerType: 'inline-size', maxWidth: 820 }}>
+        <style>{`
+          .u16-player .u16-wave-inline { display: block; }
+          .u16-player .u16-wave-above  { display: none; }
+          @container (max-width: 560px) {
+            .u16-player .u16-wave-inline { display: none; }
+            .u16-player .u16-wave-above  { display: block; }
+          }
+        `}</style>
+        <div
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            background: 'var(--surface)',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Responsive-only: waveform above the controls (when shown + narrow). Shorter than inline. */}
+          {showWave && (
             <div
-              key={icon}
+              className="u16-wave-above"
               style={{
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '50%',
-                background: icon === '▶' ? 'var(--accent)' : 'var(--surface-alt)',
-                color: icon === '▶' ? '#fff' : 'var(--text-secondary)',
-                fontSize: icon === '▶' ? '1rem' : '0.875rem',
-                cursor: 'pointer',
-                border: '1px solid var(--border)',
+                padding: '5px 14px 1px',
+                borderBottom: '1px solid var(--border)',
+                background: 'var(--surface-alt)',
+                overflow: 'hidden',
               }}
             >
-              {icon}
+              <WaveformSVG height={24} />
             </div>
-          ))}
+          )}
+
+          {/* Inline control row — wraps when too narrow so nothing clips */}
+          <div style={{ minHeight: 52, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '8px 14px' }}>
+            {/* Transport */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+              {['⏮', '⏪', '▶', '⏩', '⏭'].map(icon => {
+                const active = icon === '▶';
+                return (
+                  <div
+                    key={icon}
+                    style={{
+                      width: active ? 38 : 34,
+                      height: active ? 38 : 34,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 'var(--radius-round, 50%)',
+                      background: active ? 'var(--accent)' : 'var(--surface-alt)',
+                      color: active ? 'var(--text-on-accent, #fff)' : 'var(--text-secondary)',
+                      border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                      fontSize: active ? '1rem' : '0.875rem',
+                      fontWeight: 700,
+                      lineHeight: 1,
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span style={{ transform: icon === '▶' ? 'translateX(1px)' : undefined }}>{icon}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Scrub track — Segment: inline waveform (hidden when narrow; the above
+                strip becomes the scrub track) / Chapter: plain bar. */}
+            {showWave ? (
+              <div className="u16-wave-inline" style={{ flex: 1, minWidth: 60, cursor: 'pointer' }} title="Click to seek">
+                <WaveformSVG height={32} />
+              </div>
+            ) : (
+              <div style={trackStyle} title="Click to seek">
+                <div style={{ width: '38%', height: '100%', background: 'var(--accent)', borderRadius: 3 }} />
+              </div>
+            )}
+
+            {/* Scope toggle — drives representation (sits where the live bar shows title + chip) */}
+            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+              {(['Segment', 'Chapter'] as const).map(label => {
+                const selected = scope === label;
+                return (
+                  <button
+                    type="button"
+                    key={label}
+                    onClick={() => { setScope(label); setForceWave(null); }}
+                    style={{
+                      padding: '4px 12px',
+                      borderRadius: 999,
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      background: selected ? 'var(--accent)' : 'var(--surface-alt)',
+                      color: selected ? 'var(--text-on-accent, #fff)' : 'var(--text-secondary)',
+                      border: `1px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Time — follows the audio (scope), not the scrub look */}
+            <span style={{ fontSize: 'var(--type-micro, 0.65rem)', color: 'var(--text-secondary)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              {isSegment ? '0:03 / 0:06' : '2:14 / 28:10'}
+            </span>
+
+            {/* Representation override (far right) — defaults to scope, flip on demand */}
+            <button
+              type="button"
+              onClick={() => setForceWave(!showWave)}
+              aria-pressed={showWave}
+              aria-label={showWave ? 'Show progress bar' : 'Show waveform'}
+              title={showWave ? 'Switch to progress bar' : 'Switch to waveform'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 28,
+                height: 28,
+                flexShrink: 0,
+                cursor: 'pointer',
+                padding: 0,
+                fontSize: '0.85rem',
+                borderRadius: 6,
+                border: `1px solid ${showWave ? 'var(--accent-tint-border, var(--accent))' : 'var(--border)'}`,
+                color: showWave ? 'var(--accent)' : 'var(--text-muted)',
+                background: showWave ? 'var(--accent-tint-bg)' : 'transparent',
+              }}
+            >
+              <span aria-hidden="true">〰</span>
+            </button>
+          </div>
         </div>
       </div>
+
       <div style={{ marginTop: 8, fontSize: '0.6875rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-        Waveform display (wavesurfer.js) — user-toggleable, persisted.
+        Representation <em>defaults</em> to scope — Segment shows the wavesurfer.js waveform as the inline scrub
+        track, Chapter shows a plain bar — but the far-right toggle (〰) flips waveform ↔ bar on demand.
+        Switching scope resets to that scope&apos;s default. Narrow the window to see the waveform reflow above.
       </div>
       <div style={{ marginTop: 8, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
         Replaces competing VCR segment transport + chapter player. Scope toggle swaps loaded audio.
-        Chapter scope shows chapter-level ETA when no rendered audio yet.
+        Segment scope plays one rendered segment (≤ engine char limit) then auto-advances; Chapter scope
+        plays the assembled chapter and shows chapter-level ETA when no rendered audio yet.
       </div>
     </Card>
   );
@@ -1592,6 +1671,22 @@ const U8Mock: React.FC = () => {
         See Elena Marsh card for the live specimen.
         Click ⋯ to open the popover.
       </p>
+      <div
+        style={{
+          fontSize: '0.8rem',
+          lineHeight: 1.55,
+          color: 'var(--warning-text, #92400e)',
+          background: 'rgba(245, 158, 11, 0.1)',
+          border: '1px solid rgba(245, 158, 11, 0.3)',
+          borderRadius: 8,
+          padding: '8px 12px',
+          marginBottom: '1rem',
+        }}
+      >
+        <strong>Open gap (owner, 2026-06-15):</strong> this proposal covers the voice <em>card</em> only.
+        It does not yet account for the voice <strong>editor</strong> surface, which is a current problem
+        on the live site. The editor needs its own design pass before U8 can be affirmed.
+      </div>
       <PillLegend />
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
         {phases.map(props => (
@@ -1607,8 +1702,7 @@ const U1Mock: React.FC = () => (
   <Card>
     <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
       U1 — Undo Toast (replace most ConfirmModals)
-      <ProposedChip />
-      <OwnerDecisionChip />
+      <DecidedChip label="Approved" />
     </h3>
     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
       <code>ConfirmModal</code> is invoked from ~14 sites and defaults <code>isDestructive=true</code>,

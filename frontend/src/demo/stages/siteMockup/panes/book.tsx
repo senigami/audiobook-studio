@@ -2,9 +2,9 @@
  * siteMockup/panes/book.tsx — BookPane container, ManuscriptPane, CastingPane
  * Feature B: "+ New chapter" opens Add Chapter modal (Title, paste textarea, upload row, Cancel/Add)
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Row, Col, Label, Btn, ProgressBar, PlannedChip,
+  Row, Col, Label, Btn, ProgressBar,
   Card, Panel,
   SemanticChip, VoiceAttrPill,
   StatusOrb,
@@ -12,7 +12,7 @@ import {
   WaveformSvg,
   Mic, Volume2, CheckCircle, Loader2,
 } from '../shared';
-import { Upload, Lock, Edit3, Play, SkipBack, Rewind, FastForward } from 'lucide-react';
+import { Upload, Lock, Edit3, Play, SkipBack, Rewind, FastForward, MoreHorizontal } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Manuscript pane data
@@ -54,6 +54,9 @@ const LifecyclePill: React.FC<{ lifecycle: ChapterLifecycle }> = ({ lifecycle })
 // ---------- Add Chapter modal ----------
 const AddChapterModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [title, setTitle] = useState('');
+  const [splitBy, setSplitBy] = useState('Markdown Header');
+  const [enableCleanup, setEnableCleanup] = useState(true);
+
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 200,
@@ -97,15 +100,61 @@ const AddChapterModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '5px 10px',
           border: '1px dashed var(--border)',
-          borderRadius: 'var(--radius-card)', background: 'var(--surface-alt)', marginBottom: 14,
+          borderRadius: 'var(--radius-card)', background: 'var(--surface-alt)', marginBottom: 10,
         }}>
           <Upload size={14} color="var(--text-muted)" aria-hidden="true" />
           <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flex: 1 }}>or upload a file (.txt, .docx, .epub)</span>
           <Btn small>Choose file</Btn>
         </div>
+
+        {/* Split rules configuration for imports */}
+        <div style={{
+          marginBottom: 14,
+          padding: '8px 10px',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-card)',
+          background: 'var(--surface-alt)',
+        }}>
+          <div style={{ fontSize: 'var(--type-micro)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+            Import Settings (.txt, .docx, .epub)
+          </div>
+          <Row gap={8} style={{ alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>Split by:</span>
+            <select
+              value={splitBy}
+              onChange={e => setSplitBy(e.target.value)}
+              style={{
+                fontSize: 'var(--type-micro)',
+                padding: '2px 4px',
+                borderRadius: 'var(--radius-button)',
+                border: '1px solid var(--border)',
+                background: 'var(--surface)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+              }}
+            >
+              <option value="Markdown Header">Markdown Header</option>
+              <option value="Regex Pattern">Regex Pattern</option>
+              <option value="Word Count">Word Count (approx. 3000)</option>
+              <option value="No Split">No Split (Single Chapter)</option>
+            </select>
+          </Row>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={enableCleanup}
+              onChange={e => setEnableCleanup(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
+              Enable cleanup regex
+            </span>
+          </label>
+        </div>
+
         <Row gap={8} style={{ justifyContent: 'flex-end' }}>
           <Btn small onClick={onClose}>Cancel</Btn>
-          <Btn small primary>Add</Btn>
+          <Btn small primary onClick={onClose}>Add</Btn>
         </Row>
       </Panel>
     </div>
@@ -122,7 +171,24 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
   const [focusMode, setFocusMode] = useState(false);
   const [showAddChapter, setShowAddChapter] = useState(false);
 
-  const selectedChapter = MANUSCRIPT_CHAPTERS.find(c => c.n === selectedChapterN)!;
+  // Chapters list and actions state
+  const [chapters, setChapters] = useState(MANUSCRIPT_CHAPTERS);
+  const [activeMenuChapter, setActiveMenuChapter] = useState<number | null>(null);
+
+  // Title renaming state
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitleVal, setEditTitleVal] = useState('');
+
+  // Close row actions menu on click elsewhere
+  useEffect(() => {
+    const closeMenu = () => setActiveMenuChapter(null);
+    document.addEventListener('click', closeMenu);
+    return () => document.removeEventListener('click', closeMenu);
+  }, []);
+
+  const selectedChapter = chapters.find(c => c.n === selectedChapterN) || chapters[0] || {
+    n: 1, title: 'No Chapters', words: 0, lifecycle: 'Draft'
+  };
   const isProduced = selectedChapter.lifecycle === 'Cast' || selectedChapter.lifecycle === 'Rendered';
   const isUnlocked = unlockedChapters.has(selectedChapterN);
   const isEditable = !isProduced || isUnlocked;
@@ -130,6 +196,7 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
   const handleChapterClick = (n: number) => {
     setSelectedChapterN(n);
     setShowWarning(null);
+    setIsEditingTitle(false);
   };
 
   const handleEditClick = () => {
@@ -139,6 +206,17 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
   const handleEditAnyway = () => {
     setUnlockedChapters(prev => new Set([...prev, selectedChapterN]));
     setShowWarning(null);
+  };
+
+  const handleSaveTitle = () => {
+    if (editTitleVal.trim()) {
+      setChapters(prev => prev.map(c => c.n === selectedChapterN ? { ...c, title: editTitleVal.trim() } : c));
+    }
+    setIsEditingTitle(false);
+  };
+
+  const toggleRowActionsMenu = (n: number) => {
+    setActiveMenuChapter(prev => (prev === n ? null : n));
   };
 
   // Editor panel (right side)
@@ -160,9 +238,47 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
         alignItems: 'center',
         flexShrink: 0,
       }}>
-        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>
-          Ch {selectedChapter.n} · {selectedChapter.title}
-        </span>
+        {isEditingTitle ? (
+          <input
+            value={editTitleVal}
+            onChange={e => setEditTitleVal(e.target.value)}
+            onBlur={handleSaveTitle}
+            onKeyDown={e => {
+              if (e.key === 'Enter') handleSaveTitle();
+              if (e.key === 'Escape') setIsEditingTitle(false);
+            }}
+            autoFocus
+            style={{
+              fontSize: 'var(--type-caption)',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              background: 'var(--surface-alt)',
+              border: '1px solid var(--accent)',
+              borderRadius: 'var(--radius-button)',
+              padding: '2px 6px',
+              outline: 'none',
+              flex: 1,
+              maxWidth: 300,
+            }}
+          />
+        ) : (
+          <span
+            onDoubleClick={() => {
+              setIsEditingTitle(true);
+              setEditTitleVal(selectedChapter.title);
+            }}
+            title="Double click to rename"
+            style={{
+              fontSize: 'var(--type-caption)',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              flex: 1,
+              cursor: 'pointer',
+            }}
+          >
+            Ch {selectedChapter.n} · {selectedChapter.title} <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 'var(--type-micro)', marginLeft: 4 }}>(Double-click to rename)</span>
+          </span>
+        )}
 
         {/* Focus mode toggle */}
         <div
@@ -365,9 +481,47 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
               alignItems: 'center',
               flexShrink: 0,
             }}>
-              <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>
-                Ch {selectedChapter.n} · {selectedChapter.title}
-              </span>
+              {isEditingTitle ? (
+                <input
+                  value={editTitleVal}
+                  onChange={e => setEditTitleVal(e.target.value)}
+                  onBlur={handleSaveTitle}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleSaveTitle();
+                    if (e.key === 'Escape') setIsEditingTitle(false);
+                  }}
+                  autoFocus
+                  style={{
+                    fontSize: 'var(--type-caption)',
+                    fontWeight: 700,
+                    color: 'var(--text-primary)',
+                    background: 'var(--surface-alt)',
+                    border: '1px solid var(--accent)',
+                    borderRadius: 'var(--radius-button)',
+                    padding: '2px 6px',
+                    outline: 'none',
+                    flex: 1,
+                    maxWidth: 300,
+                  }}
+                />
+              ) : (
+                <span
+                  onDoubleClick={() => {
+                    setIsEditingTitle(true);
+                    setEditTitleVal(selectedChapter.title);
+                  }}
+                  title="Double click to rename"
+                  style={{
+                    fontSize: 'var(--type-caption)',
+                    fontWeight: 700,
+                    color: 'var(--text-primary)',
+                    flex: 1,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Ch {selectedChapter.n} · {selectedChapter.title} <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 'var(--type-micro)', marginLeft: 4 }}>(Double-click to rename)</span>
+                </span>
+              )}
               <SemanticChip variant="success">
                 <CheckCircle size={9} style={{ marginRight: 3 }} aria-hidden="true" />
                 editing — autosaved
@@ -429,19 +583,13 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
             {/* Chapter table */}
             <Card style={{ overflow: 'hidden' }}>
               <Row gap={0} style={{ padding: '5px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-                {['#', 'Title', 'Words', 'Stage'].map((h, i) => (
-                  <div key={h} style={{
-                    fontSize: 'var(--type-micro)',
-                    fontWeight: 'var(--type-weight-micro)' as unknown as number,
-                    color: 'var(--text-muted)',
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
-                    flex: i === 1 ? 3 : 1, textAlign: i > 1 ? 'right' : 'left',
-                  }}>
-                    {h}
-                  </div>
-                ))}
+                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', flex: 0.5 }}>#</div>
+                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', flex: 3 }}>Title</div>
+                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', flex: 1, textAlign: 'right' }}>Words</div>
+                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', flex: 1.5, textAlign: 'right' }}>Stage</div>
+                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', flex: 0.5, textAlign: 'right' }}></div>
               </Row>
-              {MANUSCRIPT_CHAPTERS.map((ch, i) => {
+              {chapters.map((ch, i) => {
                 const isSelected = ch.n === selectedChapterN;
                 return (
                   <Row
@@ -449,14 +597,14 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
                     onClick={() => handleChapterClick(ch.n)}
                     style={{
                       padding: '5px 10px',
-                      borderBottom: i < MANUSCRIPT_CHAPTERS.length - 1 ? '1px solid var(--border)' : 'none',
+                      borderBottom: i < chapters.length - 1 ? '1px solid var(--border)' : 'none',
                       alignItems: 'center', cursor: 'pointer',
                       background: isSelected ? 'var(--accent-tint-bg)' : 'transparent',
                       borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
                     }}
                   >
                     {/* StatusOrb replaces plain dot for chapter status */}
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <div style={{ flex: 0.5, display: 'flex', alignItems: 'center', gap: 4 }}>
                       <StatusOrb status={LIFECYCLE_ORB[ch.lifecycle]} size={14} />
                       <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>{ch.n}</span>
                     </div>
@@ -471,8 +619,62 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
                     <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>
                       {ch.words.toLocaleString()}
                     </div>
-                    <div style={{ flex: 1, textAlign: 'right' }}>
+                    <div style={{ flex: 1.5, textAlign: 'right' }}>
                       <LifecyclePill lifecycle={ch.lifecycle} />
+                    </div>
+                    <div style={{ flex: 0.5, textAlign: 'right', position: 'relative' }}>
+                      <button
+                        type="button"
+                        aria-label={`Chapter ${ch.n} actions`}
+                        aria-expanded={activeMenuChapter === ch.n}
+                        onClick={(e) => { e.stopPropagation(); toggleRowActionsMenu(ch.n); }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px' }}
+                      >
+                        <MoreHorizontal size={14} />
+                      </button>
+                      {activeMenuChapter === ch.n && (
+                        <div style={{
+                          position: 'absolute', top: '100%', right: 0, zIndex: 100,
+                          background: 'var(--surface)', border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-md)',
+                          minWidth: 120, padding: '4px 0', textAlign: 'left'
+                        }}>
+                          {[
+                            { label: 'Rebuild Audio', action: () => {
+                              alert(`Rebuilding audio for Ch ${ch.n}`);
+                              setChapters(prev => prev.map(c => c.n === ch.n ? { ...c, lifecycle: 'Rendered' } : c));
+                            } },
+                            { label: 'Export Chapter', action: () => alert(`Exported Ch ${ch.n} audio.`) },
+                            { label: 'Reset Renders', action: () => {
+                              setChapters(prev => prev.map(c => c.n === ch.n ? { ...c, lifecycle: 'Ready' } : c));
+                            } },
+                            { label: 'Delete', action: () => {
+                              if (confirm(`Are you sure you want to delete Chapter ${ch.n}?`)) {
+                                setChapters(prev => prev.filter(c => c.n !== ch.n));
+                              }
+                            }, isDestructive: true }
+                          ].map(opt => (
+                            <button
+                              type="button"
+                              key={opt.label}
+                              onClick={(e) => { e.stopPropagation(); opt.action(); setActiveMenuChapter(null); }}
+                              style={{
+                                width: '100%',
+                                border: 0,
+                                background: 'transparent',
+                                fontFamily: 'inherit',
+                                textAlign: 'left',
+                                fontSize: 'var(--type-micro)', padding: '6px 12px', cursor: 'pointer',
+                                color: opt.isDestructive ? 'var(--error)' : 'var(--text-primary)',
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-alt)'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </Row>
                 );
@@ -621,9 +823,9 @@ const REVIEW_SENTENCES = [
   { text: 'Maren pulled her cloak tighter against the chill.', state: 'past' },
   { text: 'The vale smelled of old rain and something older still.', state: 'playing' },
   { text: '"Stay close to me," she said quietly.', state: 'rerendering' },
-  { text: 'Dov tightened his grip on the satchel.', state: 'future' },
-  { text: 'Far above, an owl called once, then fell silent.', state: 'future' },
-  { text: '"Right," he exhaled. "Right."', state: 'future' },
+  { text: 'Dov tightened his grip on the satchel.', state: 'upcoming' },
+  { text: 'Far above, an owl called once, then fell silent.', state: 'upcoming' },
+  { text: '"Right," he exhaled. "Right."', state: 'upcoming' },
 ];
 
 export const ReviewPane: React.FC = () => (
@@ -743,4 +945,4 @@ export const ReviewPane: React.FC = () => (
 );
 
 // Re-export shared primitives used by sibling modules that import from this barrel
-export { Label, PlannedChip, ProgressBar };
+export { Label, ProgressBar };

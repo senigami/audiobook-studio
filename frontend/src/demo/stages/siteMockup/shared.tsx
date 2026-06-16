@@ -18,23 +18,31 @@ import {
 // ---------------------------------------------------------------------------
 // Layout primitives
 
-export const Row: React.FC<{ gap?: number; children: React.ReactNode; style?: React.CSSProperties; onClick?: () => void }> = ({
+type DivPrimitiveProps = React.HTMLAttributes<HTMLDivElement> & {
+  gap?: number;
+  children: React.ReactNode;
+};
+
+export const Row: React.FC<DivPrimitiveProps> = ({
   gap = 8,
   children,
   style,
   onClick,
+  ...rest
 }) => (
-  <div onClick={onClick} style={{ display: 'flex', gap, alignItems: 'stretch', ...style }}>
+  <div {...rest} onClick={onClick} style={{ display: 'flex', gap, alignItems: 'stretch', ...style }}>
     {children}
   </div>
 );
 
-export const Col: React.FC<{ gap?: number; children: React.ReactNode; style?: React.CSSProperties }> = ({
+export const Col: React.FC<DivPrimitiveProps> = ({
   gap = 8,
   children,
   style,
+  onClick,
+  ...rest
 }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap, ...style }}>
+  <div {...rest} onClick={onClick} style={{ display: 'flex', flexDirection: 'column', gap, ...style }}>
     {children}
   </div>
 );
@@ -213,27 +221,6 @@ export const VoiceAttrPill: React.FC<{ children: React.ReactNode; category?: Voi
   </span>
 );
 
-// Small dashed-border muted pill for future/planned features
-export const PlannedChip: React.FC = () => (
-  <span
-    style={{
-      fontSize: 'var(--type-micro)',
-      padding: '1px 6px',
-      borderRadius: 'var(--radius-round)',
-      border: '1px dashed var(--text-muted)',
-      background: 'transparent',
-      color: 'var(--text-muted)',
-      whiteSpace: 'nowrap',
-      display: 'inline-flex',
-      alignItems: 'center',
-      fontStyle: 'italic',
-      flexShrink: 0,
-    }}
-  >
-    planned
-  </span>
-);
-
 // ---------------------------------------------------------------------------
 // StatusPill — status → semantic variant mapping (no hex)
 
@@ -314,20 +301,31 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({ status = 'idle', progress 
 // ---------------------------------------------------------------------------
 // Button
 
-export const Btn: React.FC<{
-  children: React.ReactNode;
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   primary?: boolean;
   small?: boolean;
-  onClick?: () => void;
-  style?: React.CSSProperties;
-  disabled?: boolean;
-}> = ({ children, primary, small, onClick, style, disabled }) => (
-  <div
+};
+
+export const Btn: React.FC<ButtonProps> = ({
+  children,
+  primary,
+  small,
+  onClick,
+  style,
+  disabled,
+  type = 'button',
+  ...rest
+}) => (
+  <button
+    type={type}
     onClick={disabled ? undefined : onClick}
+    disabled={disabled}
     style={{
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
+      gap: 0,
+      fontFamily: 'inherit',
       fontSize: small ? 'var(--type-micro)' : 'var(--type-caption)',
       fontWeight: 600,
       padding: small ? '2px 7px' : '5px 14px',
@@ -338,11 +336,13 @@ export const Btn: React.FC<{
       cursor: (onClick && !disabled) ? 'pointer' : 'default',
       whiteSpace: 'nowrap',
       opacity: disabled ? 0.5 : 1,
+      appearance: 'none',
       ...style,
     }}
+    {...rest}
   >
     {children}
-  </div>
+  </button>
 );
 
 // ---------------------------------------------------------------------------
@@ -380,26 +380,42 @@ export const ProgressBar: React.FC<{ pct: number; height?: number; shimmer?: boo
 // ---------------------------------------------------------------------------
 // WaveformSvg — uses token colors, not hardcoded fills
 
-export const WaveformSvg: React.FC<{ height?: number }> = ({ height = 40 }) => {
+export const WaveformSvg: React.FC<{ height?: number; isPlaying?: boolean; fill?: boolean }> = ({ height = 40, isPlaying, fill }) => {
   const bars = [4,8,14,20,28,18,24,30,22,16,26,32,24,18,12,20,28,22,16,10,18,26,30,20,14,8,16,24,18,10];
+  const [tick, setTick] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!isPlaying) return;
+    const interval = setInterval(() => {
+      setTick(t => (t + 1) % 100);
+    }, 80);
+    return () => clearInterval(interval);
+  }, [isPlaying]);
+
   const total = bars.length;
   const w = 6;
   const gap = 2;
   const svgW = total * (w + gap);
   return (
-    <svg width="100%" height={height} viewBox={`0 0 ${svgW} ${height}`} preserveAspectRatio="xMidYMid meet">
-      {bars.map((h, i) => (
-        <rect
-          key={i}
-          x={i * (w + gap)}
-          y={(height - h) / 2}
-          width={w}
-          height={h}
-          rx={2}
-          fill={i > 8 && i < 18 ? 'var(--color-wave-progress)' : 'var(--color-wave)'}
-          opacity={i > 8 && i < 18 ? 0.9 : 0.5}
-        />
-      ))}
+    <svg width="100%" height={height} viewBox={`0 0 ${svgW} ${height}`} preserveAspectRatio={fill ? 'none' : 'xMidYMid meet'}>
+      {bars.map((h, i) => {
+        const currentHeight = isPlaying
+          ? Math.max(3, h * (0.5 + 0.5 * Math.sin((i + tick) * 0.4)))
+          : h;
+        return (
+          <rect
+            key={i}
+            x={i * (w + gap)}
+            y={(height - currentHeight) / 2}
+            width={w}
+            height={currentHeight}
+            rx={2}
+            fill={i > 8 && i < 18 ? 'var(--color-wave-progress)' : 'var(--color-wave)'}
+            opacity={i > 8 && i < 18 ? 0.9 : 0.5}
+            style={{ transition: isPlaying ? 'height 0.08s ease, y 0.08s ease' : 'none' }}
+          />
+        );
+      })}
     </svg>
   );
 };

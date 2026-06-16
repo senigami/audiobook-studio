@@ -1,15 +1,15 @@
 {
-  "snapshot_version": 200,
-  "current_task": "Implement site_redesign_rollout R2 pipeline, next task R2-T12",
-  "status": "r2_t11_publish_assemblies_backups_verified",
+  "snapshot_version": 203,
+  "current_task": "Review the corrected interactive site mockup player controls and remaining demo output before checkpointing",
+  "status": "mock_player_regression_fixed",
   "last_committed_milestone": {
-    "title": "Publish assemblies and backups stage implemented for site redesign rollout R2-T11",
-    "commit": "HEAD",
+    "title": "Interactive site mockup player controls restored",
+    "commit": "uncommitted",
     "notes": [
-      "frontend/src/pages/Book/stages/PublishStage.tsx now mounts the existing AssemblyProgress, AssemblyPanel, and ProjectBackupsPanel surfaces under /book/:id/publish.",
-      "frontend/src/pages/Book/components/AssemblyChapterPicker.tsx re-homes the rendered-only assembly selection flow in place, while PublishStage keeps the existing assembly/download/delete/backup handlers.",
-      "frontend/src/utils/format.ts now shares file-size and relative-time helpers with the old ProjectDetail page, and the Book layout test mock now includes backups hydration.",
-      "R2-T11 was verified with focused AssemblyChapterPicker/PublishStage/BookLayout coverage plus full frontend Vitest, frontend lint, frontend build, and git diff --check."
+      "Fixed the mock player regression where the bottom VCR-style transport buttons rendered as empty pill shells after the semantic button pass.",
+      "Switched the site mockup PlayerBar transport controls to the styleguide U16 visible glyph treatment: ⏮, ⏪, ▶/⏸, ⏩, ⏭, while preserving accessible labels and playback handlers.",
+      "Rebuilt docs/demo so the static demo asset reflects the restored controls.",
+      "Verified with frontend build, frontend lint, full frontend Vitest, build:demo, git diff --check, and a Playwright smoke/screenshot check confirming visible transport glyphs and no page/console errors."
     ]
   },
   "active_constraints": [
@@ -98,13 +98,13 @@
   ],
   "verification": {
     "latest_backend_focus": "2026-06-08: Fixed selected-segment queue identity persistence by storing processing_queue.segment_ids and passing selected ids from /api/segments/generate; verified generation, queue, websocket, DB queue, and progress regression suites passed.",
-    "latest_frontend_focus": "2026-06-13: Aligned the shared book-rail chapter rows to the mock (orb before number/title, simplified active highlight, no separator line, active-row action menu only) and trimmed the manuscript analysis footer gap; verified with focused RailBookBlock/ChapterTextPanel/StudioStage Vitest, full frontend Vitest, frontend lint, frontend build, and a dark-theme render assertion.",
+    "latest_frontend_focus": "2026-06-15: Restored the site mockup bottom player VCR controls after the semantic button pass made them visually disappear. PlayerBar now uses styleguide U16 visible glyph controls with accessible labels; verified frontend build, lint, full Vitest, build:demo, git diff --check, and Playwright smoke/screenshot.",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",
     "latest_lint_focus": "2026-06-08: ruff passed for app/api/routers/generation.py and tests/api/test_api_generation.py; commit hook also ran Ruff/ESLint auto-fix checks cleanly.",
     "latest_frontend_event_stream_focus": "2026-05-22: Live Output route renamed to /event-stream and consumer filter toggles implemented; focused Vitest passed, full frontend Vitest passed (580 tests), frontend build passed, frontend lint passed, and git diff --check passed.",
     "latest_frontend_live_output_ownership": "2026-05-22: Removed the false jobs-state ownership from tts.logs so the Live Output subscribers column now reflects actual consumer handling.",
-    "latest_diff_check": "2026-06-12: git diff --check passed after the integrations route move and related test updates.",
+    "latest_diff_check": "2026-06-15: git diff --check passed after the corrected interactive site mockup source and demo rebuild.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."
@@ -116,6 +116,8 @@
     "memory": "Update Memory/state.json and Memory/session_logs.md after verified milestones; update .agent rules only for durable repo-level guidance."
   },
   "completed_followups": [
+    "2026-06-15: Corrected and verified Gemini's interactive site mockup pass. The private mock no longer calls features planned/current-status, Voice actions and shared mock controls use native button semantics, Publish shows runnable quality controls instead of coming-soon chips, and Plugin Registry previews use owner-controlled Audiobook Factory repo URLs for XTTS/Voxtral migration direction.",
+    "2026-06-15: Created the first-pass roadmap/mock reconciliation inventory at plans/site_redesign_rollout/10_mock_reconciliation.md. It reconciles shipped app abilities, stale/mock-only controls, old text/copy parity, release dependencies, and future labels before any mock/site edits.",
     "2026-06-13: The manuscript chapter text panel now drops the empty bottom footer when no commit action is available, so the analysis strip no longer leaves extra blank space under the stats row.",
     "2026-06-13: The shared book rail chapter rows now match the mock more closely: StatusOrb sits before the chapter number/title, the active row uses a simple tinted left-bar highlight, row separators were removed, and the chapter action menu is shown only for the selected chapter.",
     "2026-06-13: The shared left sidebar now exposes a draggable resize handle that persists the expanded rail width and shifts the main column instead of overlaying it; verified with focused NavRail tests, full frontend Vitest, frontend lint, frontend build, git diff --check, and a live browser drag check.",

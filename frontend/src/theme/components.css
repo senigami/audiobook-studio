@@ -2227,26 +2227,20 @@
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-}
-
-.player-bar-expansion {
-  height: var(--player-waveform-height, 0px);
-  overflow: hidden;
-  transition: height 0.2s ease-in-out;
-  border-bottom: 0px solid var(--border);
-}
-
-.player-bar-expansion:not([style*="--player-waveform-height: 0px"]) {
-  border-bottom-width: 1px;
+  /* Container for the U16 responsive rule: the segment waveform reflows above
+     the controls when the bar itself is too narrow (NOT a viewport query). */
+  container-type: inline-size;
 }
 
 .player-bar-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
   gap: 1.5rem;
   padding: 0.5rem 1.5rem;
-  height: 56px;
+  min-height: 56px;
 }
 
 .player-bar-controls {
@@ -2428,12 +2422,34 @@
   }
 }
 
-.player-bar-progress-container {
+/* Scrub area — holds either the inline waveform (segment scope) or the plain
+   seek slider (chapter scope). Fills the available width like a scrub bar. */
+.player-scrub {
   display: flex;
   align-items: center;
   gap: 1rem;
-  flex: 1.5;
-  min-width: 0;
+  flex: 1.5 1 180px;
+  min-width: 120px;
+}
+
+/* Inline waveform = the scrub track in segment scope. */
+.player-waveform-inline {
+  width: 100%;
+  height: 32px;
+}
+
+/* U16 responsive exception: when the bar is too narrow to fit transport +
+   inline waveform + trailing controls on one row, the SEGMENT waveform reflows
+   ABOVE the controls (order:-1, full width) at reduced height. Chapter scope
+   uses .player-scrub WITHOUT --wave, so its slider never reflows above. */
+@container (max-width: 720px) {
+  .player-scrub--wave {
+    flex-basis: 100%;
+    order: -1;
+  }
+  .player-scrub--wave .player-waveform-inline {
+    height: 24px;
+  }
 }
 
 .player-progress-slider {
@@ -2456,52 +2472,34 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Player bar — Wave toggle + waveform expansion (R7-T3)
+ * Player bar — inline waveform (U16: scrub track in segment scope)
  * --------------------------------------------------------------------------- */
 
-/* Wave toggle chip — sits at the trailing end of the content row */
+/* Representation override toggle (far right) — flips waveform ↔ bar. Uses the
+   circular .player-btn base; --on adds the accent tint when the waveform shows. */
 .player-btn-wave {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  width: auto;
-  padding: 0 0.625rem;
-  height: 26px;
-  background: var(--color-wave-btn-bg, var(--surface-alt));
-  border-color: var(--color-wave-btn-border, var(--border));
-  color: var(--text-secondary);
-  border-radius: var(--radius-button);
   flex-shrink: 0;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-
-.player-btn-wave:hover:not(:disabled) {
-  background: var(--surface-alt);
-  border-color: var(--text-muted);
-  color: var(--text-primary);
 }
 
 .player-btn-wave--on {
-  background: var(--color-wave-btn-active-bg, var(--accent-tint-bg));
-  border-color: var(--color-wave-btn-active-border, var(--accent-tint-border));
-  color: var(--color-wave-btn-active-text, var(--accent));
+  background: var(--accent-tint-bg);
+  border-color: var(--accent-tint-border);
+  color: var(--accent);
 }
 
 .player-btn-wave--on:hover:not(:disabled) {
-  background: var(--color-wave-btn-active-bg, var(--accent-tint-bg));
+  background: var(--accent-tint-bg);
   border-color: var(--accent);
   color: var(--accent);
 }
 
-/* Waveform container inside the expansion slot */
+/* Waveform container — fills its inline slot (.player-waveform-inline). */
 .waveform-strip {
   width: 100%;
   height: 100%;
   background: var(--color-wave-bg, transparent);
   /* wavesurfer renders a <canvas> inside; let it fill */
   display: block;
-  padding: 0 1.5rem;
   box-sizing: border-box;
 }
 

@@ -1,7 +1,7 @@
 /**
  * siteMockup/rail.tsx — Left navigation rail
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { saveThemePref } from '@/utils/theme';
 import {
   Library,
@@ -81,6 +81,15 @@ export const Rail: React.FC<{
   const [theme, setTheme] = useState<'light' | 'dark'>(() =>
     document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
   );
+  const [isMobileLocal, setIsMobileLocal] = useState(false);
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileLocal(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const toggleTheme = () => {
     const next = theme === 'light' ? 'dark' : 'light';
     document.documentElement.dataset.theme = next;
@@ -415,7 +424,7 @@ export const Rail: React.FC<{
               flex: 1,
               background: 'none',
               border: 'none',
-              borderRight: '1px solid var(--border)',
+              borderRight: isMobileLocal ? 'none' : '1px solid var(--border)',
               padding: '8px 14px',
               cursor: 'pointer',
               color: 'var(--text-muted)',
@@ -436,21 +445,23 @@ export const Rail: React.FC<{
             </span>
           </button>
           {/* Chevron — right */}
-          <div
-            onClick={onToggle}
-            style={{
-              padding: '8px 12px',
-              cursor: 'pointer',
-              color: 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              flexShrink: 0,
-            }}
-            title="Collapse rail"
-            aria-label="Collapse rail"
-          >
-            <ChevronLeft size={14} strokeWidth={2} />
-          </div>
+          {!isMobileLocal && (
+            <div
+              onClick={onToggle}
+              style={{
+                padding: '8px 12px',
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                flexShrink: 0,
+              }}
+              title="Collapse rail"
+              aria-label="Collapse rail"
+            >
+              <ChevronLeft size={14} strokeWidth={2} />
+            </div>
+          )}
         </div>
       )}
     </div>

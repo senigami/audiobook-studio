@@ -41,7 +41,7 @@ export const SettingsPane: React.FC = () => {
             background: 'var(--accent-tint-bg)', border: '1px solid var(--accent-tint-border)',
             borderRadius: 'var(--radius-button)', padding: '4px 10px', marginBottom: 2,
           }}>
-            Engines &amp; Integrations live under PLATFORM — Settings is intentionally thin.
+            Engine plugins and API integrations are managed under the ENGINES and INTEGRATIONS rails.
           </div>
           <Card style={{ borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
             {/* Theme */}
@@ -60,7 +60,7 @@ export const SettingsPane: React.FC = () => {
             {/* Default Engine */}
             <div style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-primary)' }}>Default Engine</span>
-              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>XTTS v2 ▾</span>
+              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Neural Voice Engine ▾</span>
             </div>
             {/* Default Voice */}
             <div style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

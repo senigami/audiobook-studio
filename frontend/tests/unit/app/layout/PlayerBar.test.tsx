@@ -2,7 +2,6 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlayerBar } from '@/app/layout/PlayerBar';
 import * as playerBus from '@/store/playerBus';
-import * as playerPrefs from '@/utils/playerPrefs';
 
 // Mock wavesurfer.js so it doesn't try to decode real audio in jsdom
 vi.mock('wavesurfer.js', () => ({
@@ -102,9 +101,10 @@ describe('PlayerBar', () => {
   });
 
   it('handles seek slider changes', () => {
+    // Chapter scope renders the plain slider (segment scope uses the waveform).
     playerBus.loadAndPlay({
-      scope: 'segment',
-      title: 'Chapter 1 Segment 1',
+      scope: 'chapter',
+      title: 'Chapter 1',
       audioUrl: 'https://example.com/audio.mp3',
     });
 
@@ -271,115 +271,90 @@ describe('PlayerBar', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Wave toggle — R7-T3
+  // Waveform — representation follows scope (U16)
   // -------------------------------------------------------------------------
 
-  describe('Wave toggle', () => {
-    beforeEach(() => {
-      localStorage.clear();
-    });
-
-    it('renders a Wave toggle button when audio is loaded', () => {
+  describe('Waveform follows scope (U16)', () => {
+    it('segment scope renders the inline WaveformStrip as the scrub track (no slider)', () => {
       playerBus.loadAndPlay({
         scope: 'segment',
-        title: 'Wave Toggle Test',
-        audioUrl: 'https://example.com/audio.mp3',
+        title: 'Segment audio',
+        audioUrl: 'https://example.com/seg.mp3',
       });
 
       render(<PlayerBar />);
 
+      // The waveform is the scrub surface in segment scope...
+      expect(screen.getByTestId('waveform-strip')).toBeInTheDocument();
+      // ...and there is no plain range slider.
+      expect(screen.queryByRole('slider')).toBeNull();
+    });
+
+    it('chapter scope renders a plain seek slider and no waveform', () => {
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'Chapter audio',
+        audioUrl: 'https://example.com/chapter.wav',
+      });
+
+      render(<PlayerBar />);
+
+      expect(screen.getByRole('slider')).toBeInTheDocument();
+      expect(screen.queryByTestId('waveform-strip')).toBeNull();
+    });
+
+    it('representation defaults to scope but the toggle flips segment waveform → bar', () => {
+      playerBus.loadAndPlay({
+        scope: 'segment',
+        title: 'Flip Seg',
+        audioUrl: 'https://example.com/seg.mp3',
+      });
+
+      render(<PlayerBar />);
+
+      // Default for segment scope: waveform shown; toggle offers "Show progress bar".
+      expect(screen.getByTestId('waveform-strip')).toBeInTheDocument();
+      const toggle = screen.getByLabelText('Show progress bar');
+
+      act(() => { fireEvent.click(toggle); });
+
+      // After flip: slider shown, waveform gone, toggle now offers "Show waveform".
+      expect(screen.queryByTestId('waveform-strip')).toBeNull();
+      expect(screen.getByRole('slider')).toBeInTheDocument();
       expect(screen.getByLabelText('Show waveform')).toBeInTheDocument();
     });
 
-    it('Wave toggle default state is off (WaveformStrip not mounted)', () => {
-      localStorage.clear(); // ensure no persisted pref
-      vi.spyOn(playerPrefs, 'loadWaveformPref').mockReturnValue(false);
-
+    it('representation defaults to scope but the toggle flips chapter bar → waveform', () => {
       playerBus.loadAndPlay({
-        scope: 'segment',
-        title: 'Wave Off Test',
-        audioUrl: 'https://example.com/audio.mp3',
+        scope: 'chapter',
+        title: 'Flip Chap',
+        audioUrl: 'https://example.com/chapter.wav',
       });
 
       render(<PlayerBar />);
 
-      expect(screen.queryByTestId('waveform-strip')).toBeNull();
-    });
+      // Default for chapter scope: slider shown; toggle offers "Show waveform".
+      expect(screen.getByRole('slider')).toBeInTheDocument();
+      const toggle = screen.getByLabelText('Show waveform');
 
-    it('clicking Wave toggle mounts WaveformStrip and sets --player-waveform-height', () => {
-      vi.spyOn(playerPrefs, 'loadWaveformPref').mockReturnValue(false);
-      vi.spyOn(playerPrefs, 'saveWaveformPref').mockImplementation(() => {});
+      act(() => { fireEvent.click(toggle); });
 
-      playerBus.loadAndPlay({
-        scope: 'segment',
-        title: 'Wave On Test',
-        audioUrl: 'https://example.com/audio.mp3',
-      });
-
-      const { container } = render(<PlayerBar />);
-
-      // Initially off
-      expect(screen.queryByTestId('waveform-strip')).toBeNull();
-
-      // Click the toggle
-      act(() => {
-        fireEvent.click(screen.getByLabelText('Show waveform'));
-      });
-
-      // WaveformStrip should now be mounted
+      // After flip: waveform shown, slider gone.
       expect(screen.getByTestId('waveform-strip')).toBeInTheDocument();
-
-      // The player-bar element's CSS var should be non-zero
-      const playerBarEl = container.querySelector('.player-bar') as HTMLElement;
-      expect(playerBarEl.style.getPropertyValue('--player-waveform-height')).not.toBe('0px');
-
-      // Pref saved as on
-      expect(playerPrefs.saveWaveformPref).toHaveBeenCalledWith(true);
+      expect(screen.queryByRole('slider')).toBeNull();
     });
 
-    it('clicking Wave toggle twice unmounts WaveformStrip and sets height 0px', () => {
-      vi.spyOn(playerPrefs, 'loadWaveformPref').mockReturnValue(false);
-      vi.spyOn(playerPrefs, 'saveWaveformPref').mockImplementation(() => {});
-
+    it('preview scope renders the plain slider (only segment uses the waveform)', () => {
       playerBus.loadAndPlay({
-        scope: 'segment',
-        title: 'Wave Toggle Twice',
-        audioUrl: 'https://example.com/audio.mp3',
-      });
-
-      const { container } = render(<PlayerBar />);
-
-      // Turn on
-      act(() => { fireEvent.click(screen.getByLabelText('Show waveform')); });
-      expect(screen.getByTestId('waveform-strip')).toBeInTheDocument();
-
-      // Turn off
-      act(() => { fireEvent.click(screen.getByLabelText('Hide waveform')); });
-      expect(screen.queryByTestId('waveform-strip')).toBeNull();
-
-      const playerBarEl = container.querySelector('.player-bar') as HTMLElement;
-      expect(playerBarEl.style.getPropertyValue('--player-waveform-height')).toBe('0px');
-
-      // Last save call was false
-      expect(playerPrefs.saveWaveformPref).toHaveBeenLastCalledWith(false);
-    });
-
-    it('persisted pref=true renders WaveformStrip on mount', () => {
-      vi.spyOn(playerPrefs, 'loadWaveformPref').mockReturnValue(true);
-
-      playerBus.loadAndPlay({
-        scope: 'segment',
-        title: 'Wave Persisted On',
-        audioUrl: 'https://example.com/audio.mp3',
+        scope: 'preview',
+        title: 'Voice preview',
+        audioUrl: 'https://example.com/preview.mp3',
       });
 
       render(<PlayerBar />);
 
-      // With pref=true, strip should appear immediately
-      // (audioRef.current is set after first render so it may be null during initial render;
-      //  the mock WaveformStrip renders regardless — the test verifies the toggle wires up)
-      // Toggle button should show "Hide waveform" when on
-      expect(screen.getByLabelText('Hide waveform')).toBeInTheDocument();
+      expect(screen.getByRole('slider')).toBeInTheDocument();
+      expect(screen.queryByTestId('waveform-strip')).toBeNull();
     });
   });
 });

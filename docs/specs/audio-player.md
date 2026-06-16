@@ -1,10 +1,10 @@
 # Global Audio Player
 
 ```
-spec_version: 1.1.0
+spec_version: 1.4.0
 status: active
 created: 2026-06-13
-updated: 2026-06-14
+updated: 2026-06-15
 sources:
   - plans/site_experience_north_star.md
   - plans/site_redesign_rollout/06_phase_r4_player_review.md
@@ -15,7 +15,7 @@ sources:
   - frontend/src/demo/stages/siteMockup/
 ```
 
-> **TL;DR:** Audio in the redesigned app has exactly one owner — a `playerBus` store with a single `<audio>` element living in a full-window bottom `PlayerBar`. Every other surface (the Studio VCR, chapter rows, voice previews, Review follow-along) becomes a client that loads the bus and reads its state; nothing else creates audio. Loading a new source stops the old one. The bar is hidden when nothing is loaded — no false affordance. R7 (Phase R7, 2026-06-14) added: full VCR transport (prev/skim-back/play/skim-fwd/next), Segment↔Chapter scope toggle, and a wavesurfer.js waveform strip in the expansion slot.
+> **TL;DR:** Audio in the redesigned app has exactly one owner — a `playerBus` store with a single `<audio>` element living in a full-window bottom `PlayerBar`. Every other surface (the Studio VCR, chapter rows, voice previews, Review follow-along) becomes a client that loads the bus and reads its state; nothing else creates audio. Loading a new source stops the old one. The bar is hidden when nothing is loaded — no false affordance. R7 added full VCR transport (prev/skim-back/play/skim-fwd/next) and the Segment↔Chapter scope toggle. **Waveform representation follows scope (U16, affirmed 2026-06-15):** Segment scope renders the wavesurfer.js waveform *inline as the scrub track*; Chapter scope renders a plain seek bar (an hour of speech is a featureless blur); there is no separate wave toggle. When the bar is too narrow for an inline waveform, the segment waveform reflows *above* the controls at reduced height (§5).
 
 ## Changelog
 
@@ -23,6 +23,9 @@ sources:
 |---------|------------|--------|
 | 1.0.0   | 2026-06-13 | Initial target contract for the global single-owner audio player (Phase R4) |
 | 1.1.0   | 2026-06-14 | R7 shipped: full VCR transport; `skip(deltaSeconds)` bus helper; Segment↔Chapter `altScope`/`switchScope` scope toggle; wavesurfer.js waveform strip (lazy-loaded, toggle persisted, seek-on-click); Review panel transport delegation to bar; `status: target → active` |
+| 1.2.0   | 2026-06-15 | **U16 waveform representation rule affirmed (owner):** representation follows scope — Segment scope shows the waveform *inline as the scrub track*; Chapter scope shows a *plain seek bar*; the separate user wave toggle is removed. Responsive exception: when the bar is too narrow, the segment waveform reflows *above* the controls at reduced height. Time is segment-relative in Segment scope. Supersedes the R7 toggleable expansion strip (§5). **Implementation pending** — current code still ships the R7 toggle; tracked as a separate task. |
+| 1.3.0   | 2026-06-15 | **U16 scope-driven waveform SHIPPED in the live `PlayerBar`.** Removed the `player-btn-wave` toggle, `playerPrefs.ts` (`load/saveWaveformPref`), and the `player-bar-expansion` slot + `--player-waveform-height`. Segment scope renders `WaveformStrip` inline as the scrub track; chapter/preview scope renders the plain `<input type=range>` slider. Responsive above-reflow implemented via a CSS container query on `.player-bar` (`.player-scrub--wave { order:-1; flex-basis:100% }`), one wavesurfer instance repositioned by flex — not a viewport media query. Single-owner (`<audio>`) invariant preserved. |
+| 1.4.0   | 2026-06-15 | **Representation-override toggle re-added (owner).** The scrub representation still *defaults* to scope (segment → waveform, chapter/preview → bar), but a far-right `player-btn-wave` toggle lets the user flip waveform ↔ bar on demand. Override is in-component state (`forceWave: boolean \| null`), reset to the scope default whenever a new source loads (`requestId`). NOT persisted across sessions (no `playerPrefs` resurrection). Time/audio still follow scope; only the scrub *look* is overridable. |
 
 ---
 
@@ -90,8 +93,11 @@ The `PlayerBar` (`frontend/src/app/layout/PlayerBar.tsx`) is rendered **once** i
 - **Full-window-width bottom dock**, below both the rail and the content column (it is *not* part of the rail). It spans the full window width in every rail state (full, collapsed, mobile).
 - **VCR transport row:** ⏮ prev · ⏪ skim-back(−10 s) · ▶/⏸ play-pause · ⏩ skim-fwd(+10 s) · ⏭ next · ⏹ stop (secondary, smaller). All buttons are `aria-label`-ed; prev/next are disabled from `queue.hasPrev/hasNext`.
 - **Scope toggle** (when `altScope` is set): a two-pill inline toggle (e.g. `chapter | segment`) replaces the passive scope badge. The active pill is highlighted; tapping the inactive pill calls `switchScope()` which swaps the loaded audio. When only one scope is available, the passive `player-scope-badge` renders instead.
-- **Seek slider + time** (`m:ss / m:ss`) in the right section of the content row.
-- **Wave toggle** chip at the trailing end; persisted to localStorage via `utils/playerPrefs.ts`; default off. When on, the `player-bar-expansion` slot expands to show the `WaveformStrip`.
+- **Scrub track follows scope (U16, shipped 2026-06-15):**
+  - **Segment scope** → the scrub track *is* the inline wavesurfer.js waveform (a ≤ engine-char-limit segment is a few seconds of speech, whose waveform has readable structure worth seeing/annotating). Clicking it seeks within the segment.
+  - **Chapter scope** → a *plain seek slider* (no waveform). An hour of narration is a near-uniform amplitude carpet that carries no navigable information, so the waveform is intentionally omitted here.
+  - There is **no separate "wave" toggle** — representation is determined by scope, not by a user switch. (This supersedes the R7 toggle described in earlier versions; see §5.)
+- **Time** (`m:ss / m:ss`) in the right section of the content row. Time is **segment-relative in Segment scope** (e.g. `0:03 / 0:06`) and **chapter-relative in Chapter scope** (e.g. `2:14 / 28:10`).
 - **Hidden entirely when nothing is loaded** (`audioUrl === null`): the bar renders no visible chrome and removes the content inset. This is deliberate (owner Q6, round-2 refinement): a disabled-looking bar is a false affordance.
 - When visible, the content area gets bottom padding/inset so the bar never covers content.
 - **Persists within a book while navigating:** moving between stages keeps audio playing. The bar collapses to nothing only once `stop()` clears the bus.
@@ -115,18 +121,27 @@ The conversion is complete when `grep -rn "<audio\|new Audio(" frontend/src` mat
 
 ---
 
-## 5. Waveform (SHIPPED — R7)
+## 5. Waveform — representation follows scope (U16, affirmed 2026-06-15)
 
-A user-toggleable **waveform strip** is implemented in `WaveformStrip.tsx` using **wavesurfer.js** (lazy-imported via dynamic `import()` so it does not bloat the entry chunk).
+The **waveform is the inline scrub track in Segment scope**, rendered with **wavesurfer.js** (lazy-imported via dynamic `import()` so it does not bloat the entry chunk). It is **not** a user-toggled overlay. The rule:
 
-- **`WaveformStrip`** renders into the `player-bar-expansion` slot. It is mounted only when the Wave toggle is on; unmounted when off.
+- **Segment scope** → wavesurfer waveform occupies the scrub-track position in the control row (between transport and the trailing controls), at the row's height (~32 px). It is the seek surface.
+- **Chapter scope** → no waveform; a plain seek slider occupies the scrub-track position (§3).
+- **No wave toggle.** The R7 `player-btn-wave` chip, `loadWaveformPref`/`saveWaveformPref` persistence, and the on-demand `player-bar-expansion` strip are **removed**; representation is decided by scope alone.
+
+### 5.1 Responsive exception (waveform above, only when narrow)
+
+When the bar is too narrow to fit transport + an inline waveform + the trailing controls on one line (container query on the bar; not a viewport media query), the **segment** waveform reflows to a strip **above** the control row, at **reduced height** (~24 px — shorter than the inline track). The control row then keeps transport + scope toggle + time and may wrap so nothing clips. Chapter scope has no above-strip (it has no waveform at any width). This is the *only* case where the waveform appears above the controls — the old on-demand pop-above behavior is gone.
+
+### 5.2 Wavesurfer wiring (unchanged from R7)
+
 - **Seek-on-click**: `wavesurfer.on('seek')` maps the fractional position to `bus.seek(fraction * duration)`.
 - **Position reflection**: `playerBus.position` changes are reflected to `wavesurfer.seekTo(position / duration)` so the cursor tracks playback.
-- **Peak decoding**: wavesurfer decodes the audio client-side via Web Audio, downsamples to peaks, and caches them per URL. Long files decode in the browser without blocking the main thread.
-- **Wave toggle button**: a `player-btn-wave` chip at the trailing end of the content row. When on it receives the `player-btn-wave--on` class (accent tint). Toggle state is persisted to localStorage via `utils/playerPrefs.ts` (`loadWaveformPref` / `saveWaveformPref`); default off.
-- **Bar geometry**: the `player-bar-expansion` slot is governed by the CSS custom property `--player-waveform-height` (64 px when on, 0 px when off). Height transition is `0.2s ease-in-out`. The `waveform-strip` class ensures the wavesurfer canvas fills the slot width.
+- **Peak decoding**: wavesurfer decodes the audio client-side via Web Audio, downsamples to peaks, and caches them per URL. A ≤ engine-char-limit segment decodes near-instantly.
 
-**Status: SHIPPED (R7, 2026-06-14).**
+### 5.3 Implementation status
+
+**SHIPPED (2026-06-15).** `PlayerBar.tsx` renders the scrub track by scope: `WaveformStrip` inline (in `.player-scrub--wave` → `.player-waveform-inline`, 32 px) for `scope === 'segment'`, and the plain `.player-progress-slider` for chapter/preview. The responsive above-reflow is a CSS container query on `.player-bar` in `components.css` (`@container (max-width: 720px)` sets `.player-scrub--wave { order:-1; flex-basis:100% }` and drops the inline waveform to 24 px) — one wavesurfer instance, repositioned by flex order, no second audio owner. The R7 wave toggle, `player-bar-expansion` slot, `--player-waveform-height`, and `utils/playerPrefs.ts` were removed. The styleguide U16 specimen (`frontend/src/demo/styleguide/StyleguidePage.tsx`) demonstrates the same behavior.
 
 ---
 

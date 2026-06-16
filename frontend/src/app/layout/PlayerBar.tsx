@@ -1,12 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Play, Pause, SkipForward, SkipBack, Square, Rewind, FastForward } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Square, Rewind, FastForward, Activity } from 'lucide-react';
 import { usePlayerBus, seek, play, pause, stop, skip, switchScope, reportTime, notifyEnded, notifyError, notifyPrev, notifyNext } from '@/store/playerBus';
-import { loadWaveformPref, saveWaveformPref } from '@/utils/playerPrefs';
 import { WaveformStrip } from './WaveformStrip';
 import { LAYERS } from './layering';
-
-/** Height of the waveform strip when visible (governs the expansion slot). */
-const WAVEFORM_HEIGHT = '64px';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds === Infinity || seconds < 0) return '00:00';
@@ -44,14 +40,11 @@ export const PlayerBar: React.FC = () => {
     altScope,
   } = state;
 
-  // Waveform toggle — persisted preference, default off
-  const [waveformOn, setWaveformOn] = useState<boolean>(() => loadWaveformPref());
-
-  const handleWaveformToggle = () => {
-    const next = !waveformOn;
-    setWaveformOn(next);
-    saveWaveformPref(next);
-  };
+  // Scrub representation defaults to the scope type (segment → waveform, else →
+  // bar), but the far-right toggle lets the user flip it. The override resets to
+  // the scope default whenever a new source loads (requestId bumps).
+  const [forceWave, setForceWave] = useState<boolean | null>(null);
+  useEffect(() => { setForceWave(null); }, [requestId]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -124,14 +117,11 @@ export const PlayerBar: React.FC = () => {
     }
   };
 
+  // Default representation follows scope; forceWave overrides when the user flips.
+  const showWave = forceWave ?? (scope === 'segment');
+
   return (
-    <div
-      className="player-bar"
-      style={{
-        zIndex: LAYERS.PLAYER_BAR,
-        ['--player-waveform-height' as any]: waveformOn ? WAVEFORM_HEIGHT : '0px',
-      }}
-    >
+    <div className="player-bar" style={{ zIndex: LAYERS.PLAYER_BAR }}>
       <audio
         ref={audioCallbackRef}
         onTimeUpdate={handleTimeUpdate}
@@ -139,12 +129,6 @@ export const PlayerBar: React.FC = () => {
         onError={handleError}
         onLoadedMetadata={handleLoadedMetadata}
       />
-
-      <div className="player-bar-expansion">
-        {waveformOn && audioEl && (
-          <WaveformStrip audioEl={audioEl} audioUrl={audioUrl} />
-        )}
-      </div>
 
       <div className="player-bar-content">
         <div className="player-bar-controls" role="group" aria-label="Playback controls">
@@ -240,29 +224,41 @@ export const PlayerBar: React.FC = () => {
           )}
         </div>
 
-        <div className="player-bar-progress-container">
-          <input
-            type="range"
-            className="player-progress-slider"
-            min={0}
-            max={duration || 100}
-            value={position}
-            onChange={handleSeekChange}
-            aria-label="Seek progress"
-          />
-          <span className="player-time-display">
-            {formatTime(position)} / {formatTime(duration)}
-          </span>
+        {/* Scrub track — representation defaults to scope (segment → inline
+            waveform / else → plain slider) and can be flipped via the far-right
+            toggle. When the waveform is shown it reflows above the controls on
+            narrow widths via the CSS container query (.player-scrub--wave). */}
+        <div className={`player-scrub${showWave ? ' player-scrub--wave' : ''}`}>
+          {showWave && audioEl ? (
+            <div className="player-waveform-inline">
+              <WaveformStrip audioEl={audioEl} audioUrl={audioUrl} />
+            </div>
+          ) : (
+            <input
+              type="range"
+              className="player-progress-slider"
+              min={0}
+              max={duration || 100}
+              value={position}
+              onChange={handleSeekChange}
+              aria-label="Seek progress"
+            />
+          )}
         </div>
 
+        <span className="player-time-display">
+          {formatTime(position)} / {formatTime(duration)}
+        </span>
+
+        {/* Representation override — defaults to scope, flip waveform ↔ bar on demand */}
         <button
           type="button"
-          className={`player-btn player-btn-wave${waveformOn ? ' player-btn-wave--on' : ''}`}
-          onClick={handleWaveformToggle}
-          aria-label={waveformOn ? 'Hide waveform' : 'Show waveform'}
-          aria-pressed={waveformOn}
+          className={`player-btn player-btn-wave${showWave ? ' player-btn-wave--on' : ''}`}
+          onClick={() => setForceWave(!showWave)}
+          aria-pressed={showWave}
+          aria-label={showWave ? 'Show progress bar' : 'Show waveform'}
         >
-          Wave
+          <Activity size={15} />
         </button>
       </div>
     </div>

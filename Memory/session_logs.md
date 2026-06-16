@@ -2152,3 +2152,27 @@
 - Kept the analysis summary inline and left the segment count hidden when unavailable so the row can collapse cleanly instead of wrapping.
 - Verified focused `ChapterTextPanel` coverage alongside `RailBookBlock`, full frontend Vitest, frontend lint, and frontend build.
 - Added a dark-theme `StudioStage` render assertion so the remaining design-system parity check is covered by tests instead of a manual browser pass.
+
+# 2026-06-15 - First-pass mock reconciliation inventory created
+
+- Created `plans/site_redesign_rollout/10_mock_reconciliation.md` as an inventory-only reconciliation before any mock/site edits.
+- Integrated read-only area reports for book pipeline, voices/Voice Lab, platform, shell/activity/player/onboarding/copy, and release/showcase/demo bundle.
+- Captured a master matrix, release/post-v2/aspirational future labels, and ready-to-send Gemini Pro / Flash execution packets for the next pass.
+- Owner clarified that the private mock should be an interactive future-state prototype: sub-sentence assignment should feel usable in the mock, GitHub repo URL plugin install and API generate/retrieve are release-relevant, shareable voice bundle export/download is core, and future API config controls may be interactive in the mock even if live implementation defers them.
+- Owner added official plugin registry direction: v2.0 should support an owner-controlled registry with preview metadata/detail, and XTTS/Voxtral should become the first working standalone repo-download plugins before migrating them out of the base repo.
+- Verified with `git diff --check`.
+
+# 2026-06-15 - Interactive site mockup correction pass verified
+
+- Reviewed Gemini's mockup implementation and corrected the remaining gaps locally: removed private-mock planned/current-status labels, replaced Publish coming-soon chips with reviewable quality controls, and rewrote the API security copy as end-state guidance.
+- Made the shared mock `Btn` primitive a native `button`, converted Voice/Book action-menu rows and several action-text spans into semantic buttons, and added tab semantics to the Book pipeline tabs.
+- Updated the Plugin Registry examples to owner-controlled Audiobook Factory repo URLs for XTTS/Voxtral migration direction instead of third-party-looking placeholders.
+- Rebuilt `docs/demo` so the static showcase reflects the corrected mock source.
+- Verified with `npm -C frontend run build`, `npm -C frontend run lint`, `npm -C frontend run test`, `npm -C frontend run build:demo`, `git diff --check`, targeted stale-label searches, and a Playwright smoke check against `http://127.0.0.1:5177/#/stage/site-mockup?embed=1`.
+
+# 2026-06-15 - Site mockup VCR player controls restored
+
+- Fixed the bottom PlayerBar regression where VCR-style transport buttons rendered as empty pill shells after the mock semantic button pass.
+- Replaced the fragile icon-only transport with the styleguide U16 visible glyph treatment: `⏮`, `⏪`, `▶`/`⏸`, `⏩`, `⏭`, while preserving the existing playback/seek handlers and accessible button labels.
+- Rebuilt `docs/demo` so the static showcase uses the restored player controls.
+- Verified with `npm -C frontend run build`, `npm -C frontend run lint`, `npm -C frontend run test`, `npm -C frontend run build:demo`, `git diff --check`, and a Playwright smoke/screenshot check confirming visible transport glyphs.
