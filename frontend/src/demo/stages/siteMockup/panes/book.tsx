@@ -4,15 +4,14 @@
  */
 import React, { useState, useEffect } from 'react';
 import {
-  Row, Col, Label, Btn, ProgressBar,
+  Row, Col, Label, Btn, ProgressBar, PlayButton,
   Card, Panel,
   SemanticChip, VoiceAttrPill,
   StatusOrb,
   Avatar,
-  WaveformSvg,
   Mic, Volume2, CheckCircle, Loader2,
 } from '../shared';
-import { Upload, Lock, Edit3, Play, SkipBack, Rewind, FastForward, MoreHorizontal } from 'lucide-react';
+import { Upload, Lock, Edit3, Play, MoreHorizontal } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Manuscript pane data
@@ -646,6 +645,10 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
                       <div style={{ flex: 1.5, textAlign: 'right' }}>
                         <LifecyclePill lifecycle={ch.lifecycle} />
                       </div>
+                      {/* Play this chapter — only once it has rendered audio. */}
+                      <div style={{ flexShrink: 0, marginRight: 4, display: 'flex', justifyContent: 'flex-end' }}>
+                        {ch.lifecycle === 'Rendered' && <PlayButton label={`Play chapter ${ch.n}`} tone="ghost" size={12} />}
+                      </div>
                       <div style={{ flex: 0.5, textAlign: 'right', position: 'relative' }}>
                         <button
                           type="button"
@@ -864,42 +867,21 @@ const REVIEW_SENTENCES = [
 
 export const ReviewPane: React.FC = () => (
   <Col gap={0} className="ns-enter" style={{ flex: 1, minHeight: 0 }}>
-    {/* Transport row + waveform */}
-    <Card style={{ padding: 'var(--space-2) var(--space-3)', marginBottom: 'var(--space-2)', flexShrink: 0 }}>
-      <Row gap={6} style={{ alignItems: 'center', marginBottom: 'var(--space-2)' }}>
-        <button
-          aria-label="Skip to start"
-          style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-primary)', display: 'flex', alignItems: 'center' }}
-        >
-          <SkipBack size={16} />
-        </button>
-        <button
-          aria-label="Rewind 5 seconds"
-          style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
-        >
-          <Rewind size={13} />
-          <span style={{ fontSize: 'var(--type-micro)', marginLeft: 2 }}>5s</span>
-        </button>
-        <button
-          aria-label="Play"
-          style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center' }}
-        >
-          <Play size={18} />
-        </button>
-        <button
-          aria-label="Fast-forward 5 seconds"
-          style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
-        >
-          <span style={{ fontSize: 'var(--type-micro)', marginRight: 2 }}>5s</span>
-          <FastForward size={13} />
-        </button>
-        <SemanticChip variant="accent">Chapter 7</SemanticChip>
-        <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>§18 / §42</span>
-      </Row>
-      {/* Waveform via shared WaveformSvg */}
-      <WaveformSvg height={32} />
-    </Card>
+    {/* Follow-along header. Transport + waveform are NOT duplicated here — the
+        single global player bar at the bottom owns playback (audio-player spec
+        §4/§6: Review is a text-tracking + re-render surface only). We keep just
+        the chapter label and the section-position indicator. */}
+    <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-2)', flexShrink: 0 }}>
+      {/* Start affordance — ongoing transport is delegated to the bottom bar, but
+          Review still needs a way to BEGIN playback (audio-player spec §4.1). */}
+      <PlayButton label="Play chapter 7" tone="tint" />
+      <SemanticChip variant="accent">Chapter 7</SemanticChip>
+      <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+        following playback · tap a line to play from there
+      </span>
+      <div style={{ flex: 1 }} />
+      <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>§18 / §42</span>
+    </Row>
 
     <Row className="ns-review-grid" gap={12} style={{ flex: 1, alignItems: 'stretch', minHeight: 0 }}>
       <Col gap={0} style={{ flex: 2, minHeight: 0 }}>
@@ -918,7 +900,12 @@ export const ReviewPane: React.FC = () => (
               const isPast = s.state === 'past';
               const isRerendering = s.state === 'rerendering';
               return (
-                <div key={i} style={{
+                <div key={i}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Play from here: ${s.text}`}
+                  title="Play from here"
+                  style={{
                   fontSize: 'var(--type-body)', lineHeight: 'var(--leading-snug)',
                   color: isPast ? 'var(--text-muted)' : 'var(--text-primary)',
                   padding: 'var(--space-1) var(--space-2)',

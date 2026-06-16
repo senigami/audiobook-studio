@@ -15,7 +15,7 @@ import {
   PlusCircle,
 } from 'lucide-react';
 import {
-  Row, Col, SemanticChip, Btn, ProgressBar, StatusPill, BookCover, Card, Panel,
+  Row, Col, SemanticChip, Btn, ProgressBar, StatusPill, BookCover, Card, Panel, PlayButton,
 } from '../shared';
 
 const LIBRARY_BOOKS: Array<{
@@ -515,7 +515,13 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
                       />
                     )}
                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', minHeight: coverWrapMin, marginBottom: 8 }}>
-                      <BookCover title={book.title} aspect={book.coverAspect ?? 'square'} size={coverSize.cover} />
+                      {/* Hover-reveal ▶ to play the book (transport then lives in the bottom bar). */}
+                      <div className="ns-cover-wrap" style={{ position: 'relative', display: 'inline-flex' }}>
+                        <BookCover title={book.title} aspect={book.coverAspect ?? 'square'} size={coverSize.cover} />
+                        <span className="ns-cover-play">
+                          <PlayButton label={`Play book ${book.title}`} tone="overlay" size={18} />
+                        </span>
+                      </div>
                     </div>
                     <div style={{
                       fontSize: 'var(--type-micro)',

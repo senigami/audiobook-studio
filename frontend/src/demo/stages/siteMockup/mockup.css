@@ -246,11 +246,13 @@
     inset 0 -10px 16px rgba(15, 23, 42, 0.12);
 }
 
-.ns-voice-portrait svg {
+.ns-voice-portrait img {
   display: block;
   width: 100%;
   height: 100%;
   border-radius: inherit;
+  object-fit: cover;
+  filter: drop-shadow(0 7px 10px rgba(15, 23, 42, 0.18));
 }
 
 .ns-activity-card {
@@ -654,6 +656,97 @@
   }
 }
 
+/* --- Library cover hover-play (Apple-Music-style ▶ on artwork) -------- */
+.ns-cover-wrap { position: relative; }
+.ns-cover-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast, 0.15s) var(--ease-standard, ease);
+}
+.ns-card:hover .ns-cover-play,
+.ns-cover-play:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* --- Waveform tape (mock prototype: grow-upward region + footer) ------- */
+.nsp-tape-region {
+  overflow: hidden;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  transition: max-height 0.2s var(--ease-standard, ease), opacity 0.2s var(--ease-standard, ease);
+}
+.nsp-tape-region[aria-hidden="true"] {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.nsp-tape-region[aria-hidden="false"] {
+  max-height: 260px;
+  opacity: 1;
+}
+.nsp-tape-canvas-wrap { width: 100%; }
+.nsp-tape-canvas {
+  display: block;
+  width: 100%;
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+/* Tape footer: minimap (flex:1) + zoom presets (flex-shrink:0) */
+.nsp-tape-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* Time ruler under the tape — smart m:ss ticks at the bottom of the viewport */
+.nsp-tape-ruler {
+  position: relative;
+  height: 16px;
+  margin-top: 2px;
+  border-top: 1px solid var(--border);
+}
+.nsp-tape-tick {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  font-size: var(--type-micro);
+  color: var(--text-muted);
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
+.nsp-tape-tick::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 1px;
+  height: 4px;
+  background: var(--border);
+}
+
+/* Minimap — whole-clip strip with draggable window rect */
+.nsp-minimap {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button, 4px);
+  display: block;
+}
+
 /* --- Respect reduced-motion ------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   .ns-card, .ns-lift, .ns-btn,
@@ -662,4 +755,6 @@
     animation: none !important;
     transform: none !important;
   }
+  .ns-cover-play { transition: none !important; }
+  .nsp-tape-region { transition: none !important; }
 }

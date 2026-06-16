@@ -1,7 +1,7 @@
 /**
  * siteMockup/shared.tsx — shared primitive components and data
  */
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   BookOpen,
   Mic,
@@ -13,6 +13,7 @@ import {
   Loader2,
   Clock,
   Cloud,
+  Play,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -426,6 +427,49 @@ export const Btn: React.FC<ButtonProps> = ({
 );
 
 // ---------------------------------------------------------------------------
+// PlayButton — the single, consistent ▶ affordance for STARTING playback.
+// Playback is started by content-owned play controls that the global click
+// delegator catches by `aria-label` and loads into the player bus (audio-player
+// spec §4.1). The bottom bar is transport for the already-loaded source; it
+// can't originate playback, so every surface that can play exposes one of these.
+
+export const PlayButton: React.FC<{
+  /** aria-label drives the global play delegator, e.g. "Play chapter 7", "Play book Iron Meridian". */
+  label: string;
+  size?: number;
+  tone?: 'tint' | 'overlay' | 'ghost';
+}> = ({ label, size = 14, tone = 'tint' }) => {
+  const dim = size + 16;
+  const toneStyle: React.CSSProperties =
+    tone === 'overlay'
+      ? { background: 'var(--accent)', border: 'none', color: 'var(--text-on-accent)', boxShadow: 'var(--shadow-md)' }
+      : tone === 'ghost'
+      ? { background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-secondary)' }
+      : { background: 'var(--accent-tint-bg)', border: '1px solid var(--accent-tint-border)', color: 'var(--accent)' };
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      style={{
+        width: dim,
+        height: dim,
+        borderRadius: 'var(--radius-round)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        flexShrink: 0,
+        padding: 0,
+        ...toneStyle,
+      }}
+    >
+      <Play size={size} strokeWidth={2.4} aria-hidden="true" style={{ transform: 'translateX(1px)' }} />
+    </button>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // ProgressBar
 
 export const ProgressBar: React.FC<{ pct: number; height?: number; shimmer?: boolean }> = ({
@@ -497,6 +541,226 @@ export const WaveformSvg: React.FC<{ height?: number; isPlaying?: boolean; fill?
         );
       })}
     </svg>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// MockWaveTape — paged waveform tape with click-to-seek and drag-to-scrub
+
+// Deterministic value-noise helpers (stable across renders — no Math.random).
+const hash01 = (n: number): number => {
+  const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+const valueNoise = (t: number): number => {
+  const i = Math.floor(t);
+  const f = t - i;
+  const u = f * f * (3 - 2 * f); // smoothstep interpolation
+  return hash01(i) * (1 - u) + hash01(i + 1) * u;
+};
+const fbm = (t: number): number =>
+  0.55 * valueNoise(t) + 0.3 * valueNoise(t * 2.3 + 11.7) + 0.15 * valueNoise(t * 5.1 + 3.2);
+const smoothstep = (e0: number, e1: number, x: number): number => {
+  const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+};
+
+/**
+ * Deterministic speech-waveform amplitude at a given time (seconds), in [0,1].
+ * Replaces the old fixed peak array so the tape reads like real narration at
+ * ANY zoom and any clip length: voiced phrases with syllable-rate modulation,
+ * separated by quiet pauses, plus fine texture and a low breath/room floor.
+ * Pure function of t → the shape is stable as you scroll, zoom, and replay.
+ */
+export const speechPeakAt = (timeSec: number): number => {
+  const t = timeSec;
+  const phrase = fbm(t * 0.3 + 1.3); // slow phrase structure
+  const gate = smoothstep(0.4, 0.56, phrase); // soft voiced/pause gate
+  const rate = 3.5 + 1.6 * fbm(t * 0.2 + 5); // syllable rate ~3.5-5 Hz
+  const syll = 0.5 - 0.5 * Math.cos(2 * Math.PI * rate * t);
+  const sharpSyll = Math.pow(syll, 1.5); // sharper syllable attacks
+  const loud = 0.45 + 0.55 * fbm(t * 0.45 + 7); // phrase-to-phrase loudness
+  const micro = 0.85 + 0.15 * fbm(t * 17 + 3); // fine texture
+  const floor = 0.012 + 0.03 * fbm(t * 11 + 40); // breath/room noise in pauses
+  const voiced = gate * sharpSyll * loud * micro;
+  return Math.max(floor, Math.min(1, voiced + floor * 0.4));
+};
+
+/** Format seconds as m:ss (minutes uncapped, e.g. 65:09). */
+const fmtClock = (s: number): string => {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+};
+
+export interface MockWaveTapeProps {
+  /** Total clip duration in seconds (synthetic — drives paging math). */
+  durationSec: number;
+  /** Current playback position in seconds (drives playhead + page). */
+  currentTimeSec: number;
+  /** True while playing — drives playhead advance animation. */
+  isPlaying: boolean;
+  /** Zoom preset: seconds of audio visible across the tape viewport. */
+  windowSec: number;
+  /** Called when user clicks or drags to a new position (seconds). */
+  onSeek: (newTimeSec: number) => void;
+  /** Tape pixel height. Default 104. */
+  height?: number;
+  /**
+   * 'paged' (default): playhead sweeps the window, the window pages at the edge.
+   * 'scroll': playhead is fixed at center; the waveform moves past it.
+   */
+  mode?: 'paged' | 'scroll';
+}
+
+export const MockWaveTape: React.FC<MockWaveTapeProps> = ({
+  durationSec,
+  currentTimeSec,
+  isPlaying: _isPlaying,
+  windowSec,
+  onSeek,
+  height = 104,
+  mode = 'paged',
+}) => {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const isDragging = useRef(false);
+
+  // --- Window math (the visible [viewStart, viewEnd] span) -----------------
+  // Paged: window snaps to windowSec-sized pages; playhead sweeps across it.
+  // Scroll: window is centered on the playhead, which stays fixed at center.
+  const viewStart =
+    mode === 'scroll'
+      ? currentTimeSec - windowSec / 2
+      : Math.floor(currentTimeSec / windowSec) * windowSec;
+  const viewEnd = viewStart + windowSec;
+
+  // --- Peaks for this window ----------------------------------------------
+  // Sample the procedural speech envelope across the visible window at a fixed
+  // bar density (more seconds-per-bar when zoomed out — like a real waveform).
+  // Bars before the start or past the clip end render flat (silence).
+  const BAR_COUNT = 180;
+  const visiblePeaks = Array.from({ length: BAR_COUNT }, (_, i) => {
+    const time = viewStart + ((i + 0.5) / BAR_COUNT) * windowSec;
+    return time >= 0 && time <= durationSec ? speechPeakAt(time) : 0;
+  });
+
+  // SVG coordinate space
+  const barW = 5;
+  const gap = 2;
+  const totalBars = visiblePeaks.length;
+  const svgW = totalBars * (barW + gap);
+  const rulerH = 18;
+  const svgH = Math.max(24, height - rulerH);
+
+  // Playhead X in SVG coords (fixed at center in scroll mode)
+  const playheadFrac =
+    mode === 'scroll' ? 0.5 : windowSec > 0 ? (currentTimeSec - viewStart) / windowSec : 0;
+  const playheadX = Math.max(0, Math.min(svgW, playheadFrac * svgW));
+
+  // Smart time ruler: pick a "nice" interval so ~3 ticks fall in the viewport,
+  // labelled with the m:ss of where the user is currently viewing.
+  const NICE_INTERVALS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
+  const tickInterval = NICE_INTERVALS.find((n) => n >= windowSec / 4) ?? 600;
+  const ticks: number[] = [];
+  const firstTick = Math.ceil((viewStart + 0.001) / tickInterval) * tickInterval;
+  for (let t = firstTick; t < viewEnd - 0.001; t += tickInterval) {
+    if (t >= 0 && t <= durationSec) ticks.push(t);
+  }
+
+  // --- Pointer → time helper ----------------------------------------------
+  const pointerToTime = (clientX: number): number => {
+    const el = svgRef.current;
+    if (!el) return currentTimeSec;
+    const rect = el.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const newTime = viewStart + frac * windowSec;
+    return Math.max(0, Math.min(durationSec, newTime));
+  };
+
+  // --- Drag-to-scrub -------------------------------------------------------
+  const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+    isDragging.current = true;
+    onSeek(pointerToTime(e.clientX));
+  };
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      onSeek(pointerToTime(e.clientX));
+    };
+    const onUp = () => {
+      isDragging.current = false;
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    // pointerToTime reads refs/props but doesn't need to be in deps since
+    // it closes over current viewStart/windowSec/durationSec via the closure
+    // that is recreated each render. The effect only needs to re-register when
+    // onSeek identity changes (stable in this mock).
+     
+  }, [onSeek]);
+
+  return (
+    <div className="nsp-tape" style={{ width: '100%' }}>
+    <svg
+      ref={svgRef}
+      className="nsp-tape-canvas"
+      width="100%"
+      height={svgH}
+      viewBox={`0 0 ${svgW} ${svgH}`}
+      preserveAspectRatio="none"
+      onMouseDown={handleMouseDown}
+      aria-label="Waveform tape — click or drag to seek"
+      role="slider"
+      aria-valuemin={0}
+      aria-valuemax={durationSec}
+      aria-valuenow={Math.round(currentTimeSec)}
+    >
+      {visiblePeaks.map((amp, i) => {
+        const x = i * (barW + gap);
+        const barH = Math.max(2, amp * (svgH - 8));
+        const y = (svgH - barH) / 2;
+        const isPlayed = x + barW < playheadX;
+        return (
+          <rect
+            key={i}
+            x={x}
+            y={y}
+            width={barW}
+            height={barH}
+            rx={2}
+            fill={isPlayed ? 'var(--color-wave-progress)' : 'var(--color-wave)'}
+            opacity={isPlayed ? 0.9 : 0.55}
+          />
+        );
+      })}
+      {/* Playhead */}
+      <line
+        x1={playheadX}
+        y1={0}
+        x2={playheadX}
+        y2={svgH}
+        stroke="var(--accent)"
+        strokeWidth={2}
+        opacity={0.9}
+      />
+    </svg>
+      <div className="nsp-tape-ruler" aria-hidden="true">
+        {ticks.map((t) => (
+          <span
+            key={t}
+            className="nsp-tape-tick"
+            style={{ left: `${((t - viewStart) / windowSec) * 100}%` }}
+          >
+            {fmtClock(t)}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 };
 

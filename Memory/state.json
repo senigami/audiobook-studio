@@ -1,17 +1,16 @@
 {
-  "snapshot_version": 209,
-  "current_task": "Prepare the standalone XTTS/Voxtral plugin repo extraction plan after voice portrait mockup polish verification",
-  "status": "voice_portrait_mockup_polish_verified",
+  "snapshot_version": 213,
+  "current_task": "Prepare the standalone XTTS/Voxtral plugin repo extraction plan after shared voice portrait reuse verification",
+  "status": "shared_voice_portrait_reuse_verified",
   "last_committed_milestone": {
-    "title": "Voice portrait mockup polish verified",
+    "title": "Shared voice portrait reuse verified",
     "commit": "uncommitted",
     "notes": [
-      "Added a reusable generic VoicePortrait system to the private site mockup so silhouettes, background color, accent color, and border color are derived from voice taxonomy.",
-      "Expanded sample voice taxonomy to include age and richer descriptions so male/female/NB, adult/senior, warm/deep/bright/gruff/clear/cool, and Narrator/Dialogue/Character choices affect the portrait recipe.",
-      "Local Voices and Discover now show a mix of generated generic portraits and intentional no-image fallback initials, preserving the fallback visual state.",
-      "Voice Lab detail uses the same generated portrait/fallback system at a larger size.",
-      "Added a focused demo regression covering the generated portrait count and no-image fallback.",
-      "Verified with frontend build, demo build, focused demo Vitest, git diff --check, and frontend lint; Browser visual verification was blocked by the in-app browser security policy for localhost:5173."
+      "Extracted VoicePortrait into frontend/src/demo/stages/siteMockup/panes/voicePortrait.tsx so cards, Voice Lab, Voice Profile Editor, and metadata editing share one portrait recipe.",
+      "Reused taxonomy/raster/default voice portraits in the Voice Profile Editor sidebar, selected-profile header, and Appearance preview instead of initials-only Avatar rendering.",
+      "Added a live profile image preview to the Edit Metadata modal using the same VoicePortrait system, and restored card overflow Edit metadata to open that modal instead of the full profile editor.",
+      "Focused demo regression now verifies the card portrait set, Aria default portrait, metadata modal preview, Discover raster/no-image states, Voice Profile Editor reuse, and generated image prompt.",
+      "Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check. Per owner instruction, did not run frontend build or build:demo and did not touch player-bar work."
     ]
   },
   "active_constraints": [
@@ -52,6 +51,10 @@
     "Site mockup design polish verified 2026-06-16: the private mock now uses generated audiobook cover art in square and selected tall formats, adds reusable cover material styling, and tightens mobile/demo-shell layout to avoid horizontal overflow.",
     "Full site mockup design polish verified 2026-06-16: Voices, Activity, Engines, Integrations, Settings, and book workflow tabs now use stronger pane hierarchy, responsive grid hooks, native rail/stage/chip controls, and Browser-verified desktop/mobile no-overflow behavior.",
     "Voice portrait mockup polish verified 2026-06-16: voice cards and Voice Lab now use taxonomy-driven generic silhouettes with metadata-driven background, accent, and border colors while preserving initials-only fallback examples for voices without images.",
+    "Voice silhouette library mockup verified 2026-06-16: the private mock now uses reusable transparent silhouette image assets for female, male, senior, child, light/fairy, gruff/ogre, and neutral/NB portraits instead of inline generic SVG drawings.",
+    "Voice profile image prompt mockup verified 2026-06-16: silhouette assets now have solid backgrounds, two 1024 x 1024 raster portrait examples are wired into Voices/Discover, and the Voice Profile Editor Generate prompt control exposes the reusable solid-background Hugging Face-ready prompt.",
+    "Aria default voice portrait verified 2026-06-16: Aria now uses the taxonomy-derived adult female clear narrator default portrait instead of an initials-only fallback.",
+    "Shared voice portrait reuse verified 2026-06-16: VoicePortrait is now shared by voice cards, Voice Lab, Voice Profile Editor, and Edit Metadata preview, including raster overrides and taxonomy-derived default portraits.",
     "Phase 12 item audit is complete. Verified complete: Library list/sort, Plugin dependency UX, Per-voice settings, Plugin boundary cleanup, Chapter Editor tab removal, VCR controls, Plugin ZIP import/delete, Queue output metadata, Legacy jobs API retirement.",
     "Chapter Editor live queue selection now prefers the active job over stale completed chapter jobs so live progress and queued spans stay visible without waiting for a reload.",
     "Chapter Editor progress no longer treats orphan active_segment_progress values as authoritative when active_segment_id is null; XTTS standard handler now suppresses pre-START_SEGMENT progress from active segment payloads.",
@@ -108,7 +111,7 @@
   ],
   "verification": {
     "latest_backend_focus": "2026-06-15: Official plugin registry and GitHub URL plugin preview backend verified. Focused API/engine/TTS client tests passed, plugin loader/validation regressions passed, ruff passed for touched backend/test files, and git diff --check passed.",
-    "latest_frontend_focus": "2026-06-16: Private site mockup voice portrait polish verified. Voices now demonstrates taxonomy-driven generic portrait silhouettes plus no-image fallbacks, with a focused demo regression, frontend build, demo build, lint, and git diff --check passing. Browser visual verification was blocked by the localhost browser security policy.",
+    "latest_frontend_focus": "2026-06-16: Private site mockup shared voice portraits verified. VoicePortrait is reused across voice cards, Voice Lab, Voice Profile Editor, and Edit Metadata preview, with Aria using the adult female clear narrator default portrait. Focused demo Vitest and git diff --check passed; frontend build/build:demo were intentionally skipped per owner instruction.",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",
     "latest_lint_focus": "2026-06-08: ruff passed for app/api/routers/generation.py and tests/api/test_api_generation.py; commit hook also ran Ruff/ESLint auto-fix checks cleanly.",
@@ -126,6 +129,10 @@
     "memory": "Update Memory/state.json and Memory/session_logs.md after verified milestones; update .agent rules only for durable repo-level guidance."
   },
   "completed_followups": [
+    "2026-06-16: Reused the shared VoicePortrait system across voice cards, Voice Lab, Voice Profile Editor, and the Edit Metadata preview. The profile editor sidebar/header/appearance preview now show the same raster/default portraits, the metadata modal includes a live profile image preview, and card overflow Edit metadata once again opens that metadata modal. Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.",
+    "2026-06-16: Updated Aria to use the default taxonomy-derived adult female clear narrator portrait instead of the initials-only fallback. Focused demo coverage now expects six local voice portraits and explicitly verifies Aria's default portrait label. Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check; skipped frontend build/build:demo per owner instruction.",
+    "2026-06-16: Completed the voice profile image prompt mockup pass. The silhouette SVG library now includes solid color backgrounds, two 1024 x 1024 raster examples are stored under frontend/public/demo-voice-raster and wired into Studio Voice plus DeepCast-M, and the Voice Profile Editor Generate prompt control now displays a reusable prompt derived from the selected voice's taxonomy, description, and avatar color for Studio/export/Hugging Face profile art. Added plans/site_redesign_rollout/11_voice_portrait_asset_prompt.md and focused demo coverage for raster, SVG, local no-image, Discover no-image, and prompt generation paths. Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.",
+    "2026-06-16: Replaced the private mock's inline generic voice SVG drawings with a reusable transparent silhouette image library under frontend/public/demo-voice-silhouettes. The mapping now covers female narrator, male narrator, senior, child, light/fairy, gruff/ogre, and neutral/NB portraits, while metadata-driven background, accent, and border colors continue to reflect tone and class. Rebuilt docs/demo so the showcase includes docs/demo/demo-voice-silhouettes. Verified with frontend build, frontend build:demo, focused demo Vitest, frontend lint, JSON Memory parse, and git diff --check; Browser visual verification remains blocked by the in-app browser security policy for localhost:5173.",
     "2026-06-16: Added taxonomy-driven generic voice portraits to the private site mockup. The portrait recipe maps gender/age to silhouette shape, tone to background/accent colors, and class to border color; local and Discover voices include generated portrait examples plus initials-only fallback examples. Voice Lab uses the same portrait system at detail size. Verified with frontend build, frontend build:demo, focused demo Vitest, frontend lint, JSON Memory parse, and git diff --check; Browser visual verification was blocked by the in-app browser security policy for localhost:5173.",
     "2026-06-16: Completed the full-site Apple-style private mockup polish pass beyond the home page. Voices, Activity, Engines, Integrations, Settings, and book workflow tabs now have stronger pane headers, status cards, responsive layout classes, and cleaner native-control semantics for rail navigation, stage links, collapse controls, chapter action menus, and clickable chips. Verified with Browser desktop/mobile checks, git diff --check, frontend lint, frontend build, frontend build:demo, full frontend Vitest, and JSON Memory parse.",
     "2026-06-16: Completed an Apple-style private site mockup design polish pass. Generated square and tall audiobook cover art, wired mixed square/tall covers into the Library, added cover material styling, tightened splash/player/topbar mobile behavior, fixed demo-shell mobile overflow, rebuilt docs/demo, and verified with Browser screenshots/DOM checks, git diff --check, frontend lint, frontend build, frontend build:demo, and full frontend Vitest.",

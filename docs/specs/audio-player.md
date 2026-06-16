@@ -1,7 +1,7 @@
 # Global Audio Player
 
 ```
-spec_version: 1.5.0
+spec_version: 1.5.1
 status: active
 created: 2026-06-13
 updated: 2026-06-16
@@ -27,6 +27,7 @@ sources:
 | 1.3.0   | 2026-06-15 | **U16 scope-driven waveform SHIPPED in the live `PlayerBar`.** Removed the `player-btn-wave` toggle, `playerPrefs.ts` (`load/saveWaveformPref`), and the `player-bar-expansion` slot + `--player-waveform-height`. Segment scope renders `WaveformStrip` inline as the scrub track; chapter/preview scope renders the plain `<input type=range>` slider. Responsive above-reflow implemented via a CSS container query on `.player-bar` (`.player-scrub--wave { order:-1; flex-basis:100% }`), one wavesurfer instance repositioned by flex — not a viewport media query. Single-owner (`<audio>`) invariant preserved. |
 | 1.4.0   | 2026-06-15 | **Representation-override toggle re-added (owner).** The scrub representation still *defaults* to scope (segment → waveform, chapter/preview → bar), but a far-right `player-btn-wave` toggle lets the user flip waveform ↔ bar on demand. Override is in-component state (`forceWave: boolean \| null`), reset to the scope default whenever a new source loads (`requestId`). NOT persisted across sessions (no `playerPrefs` resurrection). Time/audio still follow scope; only the scrub *look* is overridable. |
 | 1.5.0   | 2026-06-16 | **Transport + toggle icons standardized on `lucide-react`** (§1): `SkipBack · Rewind · Play/Pause · FastForward · SkipForward` for transport, `AudioLines` for the waveform↔bar toggle — never Unicode media glyphs. The North-Star mock PlayerBar was migrated off glyphs to match the live bar. Canonical control→icon mapping now owned by `design-system.md` §9 Iconography. |
+| 1.5.1   | 2026-06-16 | **Visibility/persistence contract clarified (§3, §4).** Visibility keys *solely* on `audioUrl !== null`, never on the active route/screen; the bar is mounted once in the global `AppShell` (outside the router outlet) and persists across **all** navigation, not only within a book (corrects the prior "persists within a book" understatement; live behavior already matched). Added §4.1: **playback is started by content-owned play affordances that call `loadAndPlay`** — because the bar is transport-only for an already-loaded source and is hidden when empty, every surface that can originate audio (book/library, chapter, Studio segment, Review, whole-book) MUST expose its own play control. |
 
 ---
 
@@ -101,9 +102,9 @@ The `PlayerBar` (`frontend/src/app/layout/PlayerBar.tsx`) is rendered **once** i
   - **Chapter scope** → a *plain seek slider* (no waveform). An hour of narration is a near-uniform amplitude carpet that carries no navigable information, so the waveform is intentionally omitted here.
   - Representation **defaults** to scope, but a far-right **`player-btn-wave` toggle** lets the user flip waveform ↔ bar on demand (override is session-only state, reset to the scope default on each new source). Unlike the R7 toggle, it is *not* persisted and does *not* gate an above-the-row expansion strip — it just swaps the inline scrub representation. See §5.
 - **Time** (`m:ss / m:ss`) in the right section of the content row. Time is **segment-relative in Segment scope** (e.g. `0:03 / 0:06`) and **chapter-relative in Chapter scope** (e.g. `2:14 / 28:10`).
-- **Hidden entirely when nothing is loaded** (`audioUrl === null`): the bar renders no visible chrome and removes the content inset. This is deliberate (owner Q6, round-2 refinement): a disabled-looking bar is a false affordance.
+- **Visibility keys SOLELY on playback state, never on the route/screen.** The bar is shown iff audio is loaded (`audioUrl !== null`); when nothing is loaded it renders no visible chrome and removes the content inset (owner Q6, round-2 refinement: a disabled-looking bar is a false affordance). It MUST NOT be shown or hidden based on which page is active — a page with no audio source of its own still shows the bar while audio plays, and a page that *can* originate audio still hides it when nothing is loaded.
 - When visible, the content area gets bottom padding/inset so the bar never covers content.
-- **Persists within a book while navigating:** moving between stages keeps audio playing. The bar collapses to nothing only once `stop()` clears the bus.
+- **Persists across all navigation.** The bar is mounted **once** in the global `AppShell` (`frontend/src/app/layout/AppShell.tsx`), outside the router outlet, so moving between *any* pages — Library, Voices, Settings, a book stage, the Welcome splash, … — keeps audio playing without interruption. Persistence is global, **not** scoped to a single book. The bar collapses to nothing only once `stop()` clears the bus.
 
 ---
 
@@ -121,6 +122,22 @@ Every existing player converts into a thin **bus client**. The audio element and
 The conversion is complete when `grep -rn "<audio\|new Audio(" frontend/src` matches only `PlayerBar.tsx` and recording-capture components.
 
 **Capability parity is binding:** no playback capability may vanish in the conversion. VCR transport (play/pause/stop/prev/next/seek/skim), playing-segment highlight, space-bar play, chapter-row playback, and voice preview/sample playback all survive — re-homed, not removed.
+
+### 4.1 Starting playback — content-owned play affordances
+
+The global bar is **transport for an already-loaded source**, and it is hidden when nothing is loaded (§3). Therefore the bar can never be the thing that *starts* playback from cold — there would be no control to click. **Every surface that can originate audio MUST expose its own play affordance** that calls `loadAndPlay({ scope, title, audioUrl, … })`; pressing it loads the source into the single bus (which reveals the bar and begins playback). This is the adapter contract of §4 applied as a hard rule:
+
+| Surface | Play affordance | Loads as |
+|---|---|---|
+| Library / book card | "Play" / resume the book | book/chapter scope (first/last-played chapter) |
+| Chapter row or chapter view | play the chapter | `scope: 'chapter'` |
+| Studio (chapter editor) | play a segment (listen while editing) and play-from-here | `scope: 'segment'`, sequenced |
+| Review (follow-along) | play the chapter / tap a section to play from there | `scope: 'chapter'` (or segment), `seek()` on section tap |
+| Voices / Voice Lab | preview / sample / test | `scope: 'preview'` |
+| Whole book | "Play book" — listen end to end | whole-book playback (chapters sequenced) |
+
+- A surface that removes its inline transport in favor of the bar (e.g. Review, §6) MUST still keep a **start** affordance — delegation moves *ongoing* transport to the bar, it does not remove the ability to begin playback.
+- "Play the book in its entirety" is a first-class entry point: it loads the book and the adapter sequences chapters (advancing on the bus `onEnded` callback), the same way segment playback sequences segments.
 
 ---
 

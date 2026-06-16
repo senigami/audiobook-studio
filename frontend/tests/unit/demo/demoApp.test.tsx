@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { publishStudioSocketMessage } from '@/store/studioSocketBus';
 import { resetStudioSocketBusForTests } from '@/store/studioSocketBus';
@@ -236,15 +236,81 @@ describe('DemoApp routing', () => {
     });
 
     expect(container.querySelectorAll('.ns-voice-card')).toHaveLength(6);
-    expect(container.querySelectorAll('.ns-voice-portrait svg')).toHaveLength(5);
+    const portraitImages = Array.from(container.querySelectorAll<HTMLImageElement>('.ns-voice-portrait img'));
+    expect(portraitImages).toHaveLength(6);
+    expect(
+      portraitImages.some((image) =>
+        image.getAttribute('src')?.includes('/demo-voice-raster/warm-narrator.png'),
+      ),
+    ).toBe(true);
+    expect(
+      portraitImages.some((image) =>
+        image.getAttribute('src')?.includes('/demo-voice-silhouettes/light-fairy.svg'),
+      ),
+    ).toBe(true);
+    expect(
+      portraitImages.some((image) =>
+        image.getAttribute('src')?.includes('/demo-voice-silhouettes/senior.svg'),
+      ),
+    ).toBe(true);
+    expect(
+      portraitImages.some((image) =>
+        image.getAttribute('src')?.includes('/demo-voice-silhouettes/female-narrator.svg'),
+      ),
+    ).toBe(true);
     expect(
       screen.getByLabelText('Studio Voice generic adult female warm narrator portrait'),
     ).toBeInTheDocument();
-
-    const ariaCard = screen.getByText('Aria').closest('.ns-voice-card');
-    expect(ariaCard).not.toBeNull();
-    expect(ariaCard?.querySelector('.ns-voice-portrait')).toBeNull();
+    expect(
+      screen.getByLabelText('Aria generic adult female clear narrator portrait'),
+    ).toBeInTheDocument();
     expect(screen.getAllByText('Adult').length).toBeGreaterThanOrEqual(5);
+
+    const studioCard = screen.getByText('Studio Voice').closest('.ns-voice-card');
+    expect(studioCard).not.toBeNull();
+    fireEvent.click(within(studioCard as HTMLElement).getByLabelText('Voice options'));
+    fireEvent.click(within(studioCard as HTMLElement).getByRole('button', { name: 'Edit metadata' }));
+
+    const metadataDialog = await screen.findByRole('dialog', { name: 'Edit Voice Metadata' });
+    expect(
+      within(metadataDialog).getByLabelText('Studio Voice generic adult female warm narrator portrait'),
+    ).toBeInTheDocument();
+    fireEvent.click(within(metadataDialog).getByLabelText('Close edit metadata dialog'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discover' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Discover Voices' })).toBeInTheDocument();
+    });
+
+    const discoverPortraitImages = Array.from(container.querySelectorAll<HTMLImageElement>('.ns-voice-portrait img'));
+    expect(
+      discoverPortraitImages.some((image) =>
+        image.getAttribute('src')?.includes('/demo-voice-raster/gruff-character.png'),
+      ),
+    ).toBe(true);
+    const clearToneCard = screen.getByText('ClearTone-F').closest('.ns-card');
+    expect(clearToneCard).not.toBeNull();
+    expect(clearToneCard?.querySelector('.ns-voice-portrait')).toBeNull();
+  });
+
+  it('site mockup voice profile editor generates the reusable image prompt', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    render(<DemoApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Voices' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit profiles' }));
+
+    expect(screen.getAllByLabelText('Studio Voice generic adult female warm narrator portrait').length).toBeGreaterThanOrEqual(3);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Generate prompt' }));
+
+    const prompt = await screen.findByLabelText<HTMLTextAreaElement>('Generated voice profile image prompt');
+    expect(prompt.value).toContain('1024x1024 image');
+    expect(prompt.value).toContain('one perfectly solid flat background color');
+    expect(prompt.value).toContain('Hugging Face voice profile');
+    expect(prompt.value).toContain('warm adult female narrator voice named Studio Voice');
   });
 });
 

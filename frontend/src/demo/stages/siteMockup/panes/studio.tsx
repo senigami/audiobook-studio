@@ -651,6 +651,22 @@ export const StudioPane: React.FC = () => {
               </div>
             ))}
           </div>
+          {/* Play this chapter while editing — ongoing transport delegates to the
+              bottom bar (audio-player spec §4.1); this is the start affordance. */}
+          <button
+            type="button"
+            aria-label="Play chapter 4"
+            title="Play chapter"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              fontSize: 'var(--type-caption)', fontWeight: 600,
+              padding: '3px var(--space-2)', borderRadius: 'var(--radius-round)',
+              border: '1px solid var(--accent-tint-border)', background: 'var(--accent-tint-bg)',
+              color: 'var(--accent)', cursor: 'pointer',
+            }}
+          >
+            <Play size={12} strokeWidth={2.4} aria-hidden="true" style={{ transform: 'translateX(1px)' }} /> Play chapter
+          </button>
           <div style={{ flex: 1 }} />
           {/* Safe text / # toggles */}
           <div

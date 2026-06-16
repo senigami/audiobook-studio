@@ -2223,3 +2223,36 @@
 - Voice Lab detail now uses the same portrait/fallback system at a larger size, so the card and detail views share one visual language.
 - Added a focused `demoApp.test.tsx` regression for generated portrait count, accessible portrait labels, taxonomy chips, and no-image fallback.
 - Verified with `npm -C frontend run build`, `npm -C frontend run build:demo`, `npm -C frontend run test -- demoApp.test.tsx`, `npm -C frontend run lint`, `node -e` JSON parse, and `git diff --check`; Browser visual verification was blocked by the in-app browser security policy for `localhost:5173`.
+
+# 2026-06-16 - Voice silhouette image library mockup verified
+
+- Replaced the private mock's inline generic voice SVG drawings with a reusable image-asset silhouette library under `frontend/public/demo-voice-silhouettes`.
+- Added transparent grayscale silhouettes for female narrator, male narrator, senior, child, light/fairy, gruff/ogre, and neutral/NB voice types.
+- Updated `VoicePortrait` to compose those image assets with the existing metadata-driven background, accent, and border treatment, preserving the visible relationship between voice taxonomy and card appearance.
+- Rebuilt `docs/demo` so the static showcase includes `docs/demo/demo-voice-silhouettes`.
+- Updated the focused demo regression to assert asset-backed portraits plus no-image fallback behavior.
+- Verified with `npm -C frontend run test -- demoApp.test.tsx`, `npm -C frontend run build`, `npm -C frontend run lint`, `npm -C frontend run build:demo`, `node -e` JSON parse, and `git diff --check`; Browser visual verification remains blocked by the in-app browser security policy for `localhost:5173`.
+
+# 2026-06-16 - Voice profile image prompt mockup verified
+
+- Updated every demo voice silhouette SVG to include its own flat solid background color so assets work outside the card frame and match the requested Hugging Face/export direction.
+- Added two 1024 x 1024 raster voice profile examples under `frontend/public/demo-voice-raster`: warm narrator and gruff character.
+- Wired the raster examples into the mock with `portraitImage` overrides while keeping SVG fallback portraits and initials-only fallback examples.
+- Added `plans/site_redesign_rollout/11_voice_portrait_asset_prompt.md` with the reusable solid-background 1024 x 1024 prompt contract.
+- Wired that same prompt contract into the Voice Profile Editor `Generate prompt` control, deriving prompt text from the selected voice's taxonomy, description, and avatar color.
+- Added focused demo coverage for raster portraits, SVG portraits, local no-image fallback, Discover no-image fallback, and the generated prompt.
+- Verified with `npm -C frontend run test -- demoApp.test.tsx`, `node -e` JSON parse, and `git diff --check`; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.
+
+# 2026-06-16 - Aria default voice portrait verified
+
+- Changed Aria from initials-only fallback to the default taxonomy-derived adult female clear narrator portrait.
+- Updated focused demo coverage to expect six local voice portraits and to verify Aria's default portrait label.
+- Verified with `npm -C frontend run test -- demoApp.test.tsx`, `node -e` JSON parse, and `git diff --check`; skipped frontend build/build:demo per owner instruction.
+
+# 2026-06-16 - Shared voice portrait reuse verified
+
+- Extracted `VoicePortrait` into `frontend/src/demo/stages/siteMockup/panes/voicePortrait.tsx` so voice cards, Voice Lab, Voice Profile Editor, and Edit Metadata preview share one portrait recipe.
+- Reused the raster/default portraits in the Voice Profile Editor sidebar, selected-profile header, and Appearance preview.
+- Added a profile image preview to the Edit Metadata modal and restored card overflow `Edit metadata` to open that modal instead of routing into the full profile editor.
+- Updated focused demo coverage for card portraits, Aria default portrait, metadata preview reuse, Discover raster/no-image states, profile editor reuse, and generated prompt behavior.
+- Verified with `npm -C frontend run test -- demoApp.test.tsx`, `node -e` JSON parse, and `git diff --check`; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.

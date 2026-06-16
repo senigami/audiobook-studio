@@ -20,13 +20,13 @@ import {
 import {
   Row,
   Col,
-  Avatar,
   VoiceAttrPill,
   SemanticChip,
   Panel,
   Btn,
 } from '../shared';
 import type { Voice } from './voices';
+import { VoicePortrait } from './voicePortrait';
 
 // ---------------------------------------------------------------------------
 // Inline helper components
@@ -160,6 +160,30 @@ const inputStyle: React.CSSProperties = {
 
 const AVATAR_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#64748b'];
 
+const getPillLabel = (voice: Voice, category: 'class' | 'gender' | 'age' | 'extended') =>
+  voice.pills.find(pill => pill.category === category)?.label;
+
+const getVoiceProfileImagePrompt = (voice: Voice) => {
+  const voiceClass = voice.category || getPillLabel(voice, 'class') || 'Narrator';
+  const gender = voice.gender || getPillLabel(voice, 'gender') || 'NB';
+  const age = voice.age || getPillLabel(voice, 'age') || 'Adult';
+  const style = voice.styles?.[0] || getPillLabel(voice, 'extended') || 'Clear';
+  const background = voice.avatarColor || '#F0B27A';
+  const traitSummary = `${style.toLowerCase()} ${age.toLowerCase()} ${gender.toLowerCase()} ${voiceClass.toLowerCase()}`;
+
+  return [
+    'Use case: stylized-concept',
+    'Asset type: reusable voice avatar portrait for audiobook studio UI, exported voice bundles, and Hugging Face voice profile',
+    `Primary request: create a simple polished raster portrait image for a ${traitSummary} voice named ${voice.name}.`,
+    'Style/medium: high-quality softly rendered digital portrait, Apple-quality clean UI asset, simple and premium, not photorealistic, not cartoonish.',
+    'Composition/framing: square 1024x1024 image, centered bust portrait from shoulders up, head and shoulders fully inside frame, generous padding so it can be cropped into a circular avatar without cutting off the head or shoulders.',
+    `Scene/backdrop: one perfectly solid flat background color, background ${background}, no gradient, no texture, no shadows on the background.`,
+    `Subject: ${voice.description} Keep the portrait readable at small sizes and suitable for a voice category avatar.`,
+    'Lighting/mood: soft studio light, refined, approachable, and reusable.',
+    'Constraints: solid background must fill the entire square; no text, no watermark, no logo, no microphone, no headphones, no props, no scenery; keep the portrait simple and reusable across voice cards and Hugging Face listings.',
+  ].join('\n');
+};
+
 // ---------------------------------------------------------------------------
 // Props
 
@@ -208,6 +232,14 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
     { label: 'Sample 2', dur: '0:11' },
     { label: 'Sample 3', dur: '0:07' },
   ];
+  const [showImagePrompt, setShowImagePrompt] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
+  const imagePrompt = selected ? getVoiceProfileImagePrompt(selected) : '';
+
+  const handleCopyPrompt = () => {
+    void navigator.clipboard?.writeText(imagePrompt);
+    setPromptCopied(true);
+  };
 
   return (
     <div
@@ -414,7 +446,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                   fontFamily: 'inherit',
                 }}
               >
-                <Avatar name={v.name} size={34} />
+                <VoicePortrait voice={v} size={34} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{
@@ -482,7 +514,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                   gap: 'var(--space-4)',
                 }}
               >
-                <Avatar name={selected.name} size={56} />
+                <VoicePortrait voice={selected} size={56} emphasized />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{
@@ -594,7 +626,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                   <Panel style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                     {/* Image upload — the primary way to set a voice icon */}
                     <Row gap={12} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                      <Avatar name={selected.name} size={48} />
+                      <VoicePortrait voice={selected} size={48} />
                       <Col gap={6} style={{ flex: 1 }}>
                         <Row gap={8} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
                           <button
@@ -620,7 +652,14 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                             <ImagePlus size={14} />
                             Upload image
                           </button>
-                          <Btn primary>
+                          <Btn
+                            primary
+                            aria-expanded={showImagePrompt}
+                            onClick={() => {
+                              setShowImagePrompt(prev => !prev);
+                              setPromptCopied(false);
+                            }}
+                          >
                             <Row gap={5} style={{ alignItems: 'center' }}>
                               <Sparkles size={13} />
                               Generate prompt
@@ -632,6 +671,46 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                         </span>
                       </Col>
                     </Row>
+
+                    {showImagePrompt && (
+                      <Col
+                        gap={8}
+                        style={{
+                          padding: 'var(--space-3)',
+                          borderRadius: 'var(--radius-card)',
+                          border: '1px solid var(--hairline)',
+                          background: 'var(--surface-alt)',
+                        }}
+                      >
+                        <Row gap={8} style={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                          <Col gap={2}>
+                            <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                              Voice profile image prompt
+                            </span>
+                            <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
+                              1024 x 1024 · solid background · safe circular crop · Hugging Face ready
+                            </span>
+                          </Col>
+                          <Btn small onClick={handleCopyPrompt}>
+                            {promptCopied ? 'Copied' : 'Copy prompt'}
+                          </Btn>
+                        </Row>
+                        <textarea
+                          readOnly
+                          aria-label="Generated voice profile image prompt"
+                          value={imagePrompt}
+                          rows={8}
+                          className="vpe-input"
+                          style={{
+                            ...inputStyle,
+                            resize: 'vertical',
+                            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                            fontSize: 'var(--type-micro)',
+                            lineHeight: 1.55,
+                          }}
+                        />
+                      </Col>
+                    )}
 
                     {/* Color-tile fallback when there is no uploaded image */}
                     <div

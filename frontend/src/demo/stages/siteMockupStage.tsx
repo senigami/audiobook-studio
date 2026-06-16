@@ -39,6 +39,9 @@ import {
   SkipForward,
   Rewind,
   FastForward,
+  Square,
+  Waves,
+  GalleryHorizontalEnd,
   ChevronUp,
   ChevronDown,
   ChevronRight,
@@ -48,11 +51,13 @@ import {
 import { BrandLogo } from '@/components/layout/BrandLogo';
 import './siteMockup/mockup.css';
 import {
-  Col, Row, SemanticChip, ProgressBar, WaveformSvg,
+  Col, Row, SemanticChip, ProgressBar, WaveformSvg, MockWaveTape,
   IN_FLIGHT_JOBS, QUEUED_JOBS, BOOK_TABS,
   StatusOrb,
 } from './siteMockup/shared';
 import type { BookTab, RailDest } from './siteMockup/shared';
+import { ZoomPresetControl, TapeMinimapStrip, snapZoom } from './siteMockup/MockTapeControls';
+import type { ZoomPreset } from './siteMockup/MockTapeControls';
 import { Rail } from './siteMockup/rail';
 import { LibraryPane } from './siteMockup/panes/library';
 import { ManuscriptPane, CastingPane, ReviewPane } from './siteMockup/panes/book';
@@ -565,12 +570,9 @@ type TrackState = {
   scope: 'segment' | 'chapter' | 'preview';
 };
 
-/** Mock segment length (seconds) for segment-relative time display. */
-const SEG_DURATION = 6;
-
 const PlayerBar: React.FC<{
   activeTrack: TrackState;
-  setActiveTrack: React.Dispatch<React.SetStateAction<TrackState>>;
+  setActiveTrack: React.Dispatch<React.SetStateAction<TrackState | null>>;
 }> = ({ activeTrack, setActiveTrack }) => {
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -579,49 +581,64 @@ const PlayerBar: React.FC<{
   };
 
   const handlePlayPause = () => {
-    setActiveTrack(prev => ({ ...prev, isPlaying: !prev.isPlaying }));
+    setActiveTrack(prev => (prev ? { ...prev, isPlaying: !prev.isPlaying } : prev));
   };
 
   const handleSkipBack = () => {
-    setActiveTrack(prev => ({ ...prev, currentTime: Math.max(0, prev.currentTime - 10) }));
+    setActiveTrack(prev => (prev ? { ...prev, currentTime: Math.max(0, prev.currentTime - 10) } : prev));
   };
 
   const handleSkipForward = () => {
-    setActiveTrack(prev => ({ ...prev, currentTime: Math.min(prev.duration, prev.currentTime + 10) }));
+    setActiveTrack(prev => (prev ? { ...prev, currentTime: Math.min(prev.duration, prev.currentTime + 10) } : prev));
   };
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickPct = Math.max(0, Math.min(1, clickX / rect.width));
-    setActiveTrack(prev => ({ ...prev, currentTime: Math.round(clickPct * prev.duration) }));
+    setActiveTrack(prev => (prev ? { ...prev, currentTime: Math.round(clickPct * prev.duration) } : prev));
   };
 
-  const toggleScope = () =>
-    setActiveTrack(prev => ({ ...prev, scope: prev.scope === 'segment' ? 'chapter' : 'segment' }));
-
   const pct = (activeTrack.currentTime / activeTrack.duration) * 100;
-  const isSegment = activeTrack.scope === 'segment';
-  const showScopeToggle = activeTrack.scope === 'segment' || activeTrack.scope === 'chapter';
 
-  // Scrub representation defaults to the scope type (segment → waveform, else →
-  // bar) but the user can flip it via the far-right toggle. The override resets
-  // to the scope default whenever the loaded track or its scope changes.
+  // Scrub representation is DURATION-driven, not scope-driven (segment/chapter
+  // agnostic — no scope toggle): a short clip shows the inline waveform, a long
+  // one a plain bar. The far-right toggle overrides it; resets on each new track.
+  const FIT_WAVE_MAX_SEC = 30;
   const [forceWave, setForceWave] = useState<boolean | null>(null);
-  useEffect(() => { setForceWave(null); }, [activeTrack.trackName, activeTrack.scope]);
-  const showWave = forceWave ?? isSegment;
+  useEffect(() => { setForceWave(null); }, [activeTrack.trackName]);
+  const showWave = forceWave ?? activeTrack.duration <= FIT_WAVE_MAX_SEC;
 
-  // U16: time follows the AUDIO (scope), not the scrub look — segment scope is
-  // segment-relative (a few seconds), chapter/clip-relative otherwise.
-  const timeText = isSegment
-    ? `${formatTime((pct / 100) * SEG_DURATION)} / ${formatTime(SEG_DURATION)}`
-    : `${formatTime(activeTrack.currentTime)} / ${formatTime(activeTrack.duration)}`;
+  // Expandable zoomed "tape" (grows the bar upward). The AudioLines toggle opens
+  // it when the scrub track is a bar; in waveform mode the toggle flips to bar.
+  const [tapeOpen, setTapeOpen] = useState(false);
+  const [windowSec, setWindowSec] = useState<ZoomPreset>(30);
+  // Tape motion: false = paged (default); true = moving wave under a fixed playhead.
+  const [tapeScroll, setTapeScroll] = useState(false);
+  useEffect(() => { setTapeOpen(false); setWindowSec(30); }, [activeTrack.trackName]);
+
+  const handleAudioLinesClick = () => {
+    if (showWave) {
+      // Waveform mode: flip the inline scrub to a plain bar.
+      setForceWave(false);
+      setTapeOpen(false);
+    } else {
+      // Bar mode: open/close the expanded tape.
+      setTapeOpen(prev => !prev);
+    }
+  };
+
+  const seekToTime = (newTime: number) =>
+    setActiveTrack(prev => (prev ? { ...prev, currentTime: Math.max(0, Math.min(newTime, prev.duration)) } : prev));
+
+  // Time = the loaded clip's position / duration (scope-agnostic).
+  const timeText = `${formatTime(activeTrack.currentTime)} / ${formatTime(activeTrack.duration)}`;
 
   const transportControls = [
     {
       label: 'Previous',
       Icon: SkipBack,
-      action: () => setActiveTrack(prev => ({ ...prev, currentTime: 0 })),
+      action: () => setActiveTrack(prev => (prev ? { ...prev, currentTime: 0 } : prev)),
       active: false,
     },
     {
@@ -645,7 +662,7 @@ const PlayerBar: React.FC<{
     {
       label: 'Next',
       Icon: SkipForward,
-      action: () => setActiveTrack(prev => ({ ...prev, currentTime: prev.duration })),
+      action: () => setActiveTrack(prev => (prev ? { ...prev, currentTime: prev.duration } : prev)),
       active: false,
     },
   ];
@@ -663,6 +680,59 @@ const PlayerBar: React.FC<{
           .nsp-scrub--wave .nsp-wave { height: 24px !important; }
         }
       `}</style>
+      {/* Expandable zoomed tape — grows the bar upward when open. aria-hidden
+          drives the CSS max-height collapse; paged playhead + click/drag scrub +
+          minimap + bounded zoom presets. Opened by the AudioLines toggle in bar mode. */}
+      <div className="nsp-tape-region" aria-hidden={tapeOpen ? 'false' : 'true'}>
+        <div
+          className="nsp-tape-canvas-wrap"
+          onWheel={(e) => {
+            e.preventDefault();
+            setWindowSec(prev => snapZoom(prev, e.deltaY > 0 ? 'out' : 'in'));
+          }}
+          style={{ padding: '8px 14px 0' }}
+        >
+          <MockWaveTape
+            durationSec={activeTrack.duration}
+            currentTimeSec={activeTrack.currentTime}
+            isPlaying={activeTrack.isPlaying}
+            windowSec={windowSec}
+            onSeek={seekToTime}
+            height={104}
+            mode={tapeScroll ? 'scroll' : 'paged'}
+          />
+        </div>
+        <div className="nsp-tape-footer">
+          <TapeMinimapStrip
+            durationSec={activeTrack.duration}
+            currentTimeSec={activeTrack.currentTime}
+            windowSec={windowSec}
+            onSeek={seekToTime}
+            height={28}
+          />
+          {/* Motion: paged (default) ↔ moving wave under a fixed playhead. */}
+          <button
+            type="button"
+            onClick={() => setTapeScroll(v => !v)}
+            aria-pressed={tapeScroll}
+            aria-label={tapeScroll ? 'Switch to paged motion' : 'Switch to moving waveform'}
+            title={tapeScroll ? 'Paged' : 'Moving'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0,
+              fontSize: 'var(--type-micro)', fontWeight: 600,
+              padding: '3px var(--space-2)', borderRadius: 'var(--radius-round)',
+              border: `1px solid ${tapeScroll ? 'var(--accent-tint-border)' : 'var(--border)'}`,
+              background: tapeScroll ? 'var(--accent-tint-bg)' : 'transparent',
+              color: tapeScroll ? 'var(--accent)' : 'var(--text-secondary)',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            {tapeScroll ? <Waves size={12} strokeWidth={2.2} aria-hidden="true" /> : <GalleryHorizontalEnd size={12} strokeWidth={2.2} aria-hidden="true" />}
+            {tapeScroll ? 'Moving' : 'Paged'}
+          </button>
+          <ZoomPresetControl windowSec={windowSec} onZoomChange={setWindowSec} />
+        </div>
+      </div>
       <div className="nsp-player-inner" style={{ minHeight: 52, display: 'flex', flexWrap: 'wrap', rowGap: 8, alignItems: 'center', gap: 12, padding: '8px 14px' }}>
         {/* VCR transport — styleguide-aligned visible glyph buttons */}
         <Row className="nsp-transport" gap={8} style={{ alignItems: 'center', flexShrink: 0 }}>
@@ -700,10 +770,34 @@ const PlayerBar: React.FC<{
               />
             </button>
           ))}
+          {/* Stop — clears the loaded track so the bar collapses (matches the
+              live single-owner stop(): visibility keys on audio loaded, never on screen). */}
+          <button
+            type="button"
+            aria-label="Stop"
+            title="Stop"
+            onClick={() => setActiveTrack(null)}
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: 'var(--radius-round)',
+              border: '1px solid var(--border)',
+              background: 'transparent',
+              color: 'var(--text-muted)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              flexShrink: 0,
+              padding: 0,
+            }}
+          >
+            <Square size={11} strokeWidth={2.4} aria-hidden="true" />
+          </button>
         </Row>
 
-        {/* Scrub track follows scope (U16): segment → inline waveform (the
-            waveform IS the seek surface) / chapter & preview → plain seek bar. */}
+        {/* Scrub track follows DURATION (scope-agnostic): short clip → inline
+            waveform (the waveform IS the seek surface) / long clip → plain seek bar. */}
         <div
           className={`nsp-scrub${showWave ? ' nsp-scrub--wave' : ''}`}
           style={{ flex: '1 1 160px', minWidth: 120, display: 'flex', alignItems: 'center' }}
@@ -727,41 +821,13 @@ const PlayerBar: React.FC<{
           )}
         </div>
 
-        {/* Title + scope toggle (segment/chapter) — or a subtitle pill for one-off previews */}
+        {/* Title + optional subtitle pill. No segment/chapter scope toggle — the
+            player is scope-agnostic; representation is decided by duration. */}
         <div className="nsp-track-meta" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, maxWidth: 340, overflow: 'hidden' }}>
           <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {activeTrack.trackName}
           </span>
-          {showScopeToggle ? (
-            <div
-              role="group"
-              aria-label="Audio scope"
-              style={{ display: 'inline-flex', borderRadius: 999, border: '1px solid var(--accent-tint-border)', overflow: 'hidden', flexShrink: 0 }}
-            >
-              {(['segment', 'chapter'] as const).map(s => {
-                const active = activeTrack.scope === s;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => { if (!active) toggleScope(); }}
-                    aria-pressed={active}
-                    aria-label={active ? `Playing ${s}` : `Switch to ${s}`}
-                    style={{
-                      padding: '3px 11px', fontSize: 'var(--type-micro)', fontWeight: 600, textTransform: 'capitalize',
-                      border: 'none', cursor: active ? 'default' : 'pointer', lineHeight: 1.5, fontFamily: 'inherit',
-                      background: active ? 'var(--accent)' : 'var(--surface-alt)',
-                      color: active ? 'var(--text-on-accent)' : 'var(--text-secondary)',
-                    }}
-                  >
-                    {s}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            activeTrack.subtitle && <SemanticChip variant="accent">{activeTrack.subtitle}</SemanticChip>
-          )}
+          {activeTrack.subtitle && <SemanticChip variant="accent">{activeTrack.subtitle}</SemanticChip>}
         </div>
 
         {/* Timer display — segment-relative in segment scope */}
@@ -773,17 +839,17 @@ const PlayerBar: React.FC<{
             the user can flip waveform ↔ bar on demand. */}
         <button
           type="button"
-          onClick={() => setForceWave(!showWave)}
-          aria-pressed={showWave}
-          aria-label={showWave ? 'Show progress bar' : 'Show waveform'}
-          title={showWave ? 'Switch to progress bar' : 'Switch to waveform'}
+          onClick={handleAudioLinesClick}
+          aria-pressed={showWave || tapeOpen}
+          aria-label={tapeOpen ? 'Close waveform tape' : (showWave ? 'Show progress bar' : 'Open waveform tape')}
+          title={tapeOpen ? 'Close waveform tape' : (showWave ? 'Switch to progress bar' : 'Open waveform tape')}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 28, height: 28, flexShrink: 0, cursor: 'pointer', padding: 0,
             borderRadius: 'var(--radius-button)',
-            border: `1px solid ${showWave ? 'var(--accent-tint-border)' : 'var(--border)'}`,
-            color: showWave ? 'var(--accent)' : 'var(--text-muted)',
-            background: showWave ? 'var(--accent-tint-bg)' : 'transparent',
+            border: `1px solid ${showWave || tapeOpen ? 'var(--accent-tint-border)' : 'var(--border)'}`,
+            color: showWave || tapeOpen ? 'var(--accent)' : 'var(--text-muted)',
+            background: showWave || tapeOpen ? 'var(--accent-tint-bg)' : 'transparent',
           }}
         >
           <AudioLines size={13} strokeWidth={2} />
@@ -888,33 +954,34 @@ const SiteMockup: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Shared audio playback simulation state
-  const [activeTrack, setActiveTrack] = useState<TrackState>({
-    trackName: 'Chapter 7 · segment 14',
-    subtitle: '',
-    duration: 1690, // 28:10 in seconds
-    currentTime: 134, // 02:14 in seconds
-    isPlaying: false,
-    scope: 'segment',
-  });
+  // Shared audio playback simulation state. `null` = nothing loaded → the
+  // PlayerBar is hidden entirely (collapse-when-empty). A track is loaded by the
+  // play/preview triggers below; once loaded it persists across pane navigation
+  // (the bar lives at the mock root) and is cleared by the bar's Stop control.
+  const [activeTrack, setActiveTrack] = useState<TrackState | null>(null);
 
-  // Ticking audio timer when playing
+  // Ticking audio timer when playing. Advances in fine sub-second steps (still
+  // ~1s of audio per real second) so the tape playhead and the moving-waveform
+  // mode glide smoothly instead of jumping a full second per frame.
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (activeTrack.isPlaying) {
+    if (activeTrack?.isPlaying) {
+      const stepMs = 100;
+      const stepSec = stepMs / 1000;
       interval = setInterval(() => {
         setActiveTrack(prev => {
+          if (!prev) return prev;
           if (prev.currentTime >= prev.duration) {
             return { ...prev, currentTime: 0, isPlaying: false };
           }
-          return { ...prev, currentTime: prev.currentTime + 1 };
+          return { ...prev, currentTime: Math.min(prev.duration, prev.currentTime + stepSec) };
         });
-      }, 1000);
+      }, stepMs);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [activeTrack.isPlaying]);
+  }, [activeTrack?.isPlaying]);
 
   // Stateful jobs lists and paused state
   const [inFlightJobs, setInFlightJobs] = useState(IN_FLIGHT_JOBS);
@@ -965,13 +1032,55 @@ const SiteMockup: React.FC = () => {
       return;
     }
 
-    // 2. Play on a sample row in VoicesPane sample manager
-    if (ariaLabel.startsWith('Play ')) {
-      const sampleName = ariaLabel.replace('Play ', '');
+    // 2. Play the whole book (Library card / book overview) — chapters sequenced.
+    if (ariaLabel.startsWith('Play book ')) {
+      const bookTitle = ariaLabel.replace('Play book ', '');
       setActiveTrack({
-        trackName: sampleName,
-        subtitle: 'Sample Playback',
+        trackName: bookTitle,
+        subtitle: 'Audiobook · full',
+        duration: 7200, // ~2h; adapter would sequence chapters
+        currentTime: 0,
+        isPlaying: true,
+        scope: 'chapter',
+      });
+      return;
+    }
+
+    // 3. Play a chapter (chapter list / Studio / Review header).
+    if (ariaLabel.startsWith('Play chapter ')) {
+      const chapterRef = ariaLabel.replace('Play chapter ', '');
+      setActiveTrack({
+        trackName: `Chapter ${chapterRef}`,
+        subtitle: 'Chapter playback',
+        duration: 1690, // 28:10
+        currentTime: 0,
+        isPlaying: true,
+        scope: 'chapter',
+      });
+      return;
+    }
+
+    // 4. Tap a transcript sentence to play from there (Review follow-along).
+    if (ariaLabel.startsWith('Play from here: ')) {
+      const sentence = ariaLabel.replace('Play from here: ', '');
+      const truncated = sentence.length > 32 ? sentence.substring(0, 30) + '…' : sentence;
+      setActiveTrack({
+        trackName: `"${truncated}"`,
+        subtitle: 'Chapter 7 · from section',
         duration: 8,
+        currentTime: 0,
+        isPlaying: true,
+        scope: 'segment',
+      });
+      return;
+    }
+
+    // 5. Play test audio button in VoiceLab (specific — must precede the generic "Play ").
+    if (ariaLabel === 'Play test audio') {
+      setActiveTrack({
+        trackName: 'test_audio.mp3',
+        subtitle: 'Voice Lab Test',
+        duration: 12,
         currentTime: 0,
         isPlaying: true,
         scope: 'preview',
@@ -979,12 +1088,13 @@ const SiteMockup: React.FC = () => {
       return;
     }
 
-    // 3. Play test audio button in VoiceLab
-    if (ariaLabel === 'Play test audio') {
+    // 6. Play on a sample row in VoicesPane sample manager (generic — keep LAST).
+    if (ariaLabel.startsWith('Play ')) {
+      const sampleName = ariaLabel.replace('Play ', '');
       setActiveTrack({
-        trackName: 'test_audio.mp3',
-        subtitle: 'Voice Lab Test',
-        duration: 12,
+        trackName: sampleName,
+        subtitle: 'Sample Playback',
+        duration: 8,
         currentTime: 0,
         isPlaying: true,
         scope: 'preview',
@@ -1174,7 +1284,7 @@ const SiteMockup: React.FC = () => {
           />
         </div>
 
-        <PlayerBar activeTrack={activeTrack} setActiveTrack={setActiveTrack} />
+        {activeTrack && <PlayerBar activeTrack={activeTrack} setActiveTrack={setActiveTrack} />}
       </Col>
     </Col>
   );

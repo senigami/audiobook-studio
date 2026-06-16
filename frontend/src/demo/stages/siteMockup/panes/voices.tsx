@@ -16,10 +16,6 @@ import {
   Copy,
   MoreHorizontal,
   AlertTriangle,
-  Volume2,
-  Music,
-  Sparkles,
-  Mic,
   Check,
 } from 'lucide-react';
 import {
@@ -35,6 +31,7 @@ import {
   PaneHeader,
 } from '../shared';
 import { VoiceProfileEditorPane } from './voiceEditor';
+import { VoicePortrait } from './voicePortrait';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -49,6 +46,7 @@ export type Voice = {
   avatarColor?: string;
   avatarIcon?: string;
   portrait?: boolean;
+  portraitImage?: string;
   // Taxonomy fields
   languages?: string[];
   accent?: string;
@@ -73,6 +71,7 @@ const VOICE_CARDS: Voice[] = [
     ],
     cta: 'Edit voice',
     portrait: true,
+    portraitImage: '/demo-voice-raster/warm-narrator.png',
   },
   {
     name: 'Marcus Reed',
@@ -120,7 +119,7 @@ const VOICE_CARDS: Voice[] = [
       { label: 'Clear', category: 'extended' },
     ],
     cta: 'Edit voice',
-    portrait: false,
+    portrait: true,
   },
   {
     name: 'Frost',
@@ -148,6 +147,7 @@ const DISCOVER_CARDS: Voice[] = [
     ],
     cta: 'Preview voice',
     portrait: true,
+    portraitImage: '/demo-voice-raster/gruff-character.png',
   },
   {
     name: 'EmberReader',
@@ -188,7 +188,7 @@ const DISCOVER_CARDS: Voice[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Custom Avatar component supporting dynamic icon and color
+// Voice taxonomy helpers
 
 const getVoicePill = (voice: Voice, category: VoicePill['category']) =>
   voice.pills.find((pill) => pill.category === category)?.label;
@@ -197,164 +197,6 @@ const getVoiceTone = (voice: Voice) => getVoicePill(voice, 'extended') ?? 'Clear
 const getVoiceGender = (voice: Voice) => getVoicePill(voice, 'gender') ?? 'NB';
 const getVoiceAge = (voice: Voice) => getVoicePill(voice, 'age') ?? 'Adult';
 const getVoiceClass = (voice: Voice) => getVoicePill(voice, 'class') ?? 'Narrator';
-
-const PORTRAIT_TONES: Record<string, { bg: string; ink: string; accent: string }> = {
-  Warm:   { bg: 'linear-gradient(145deg, #fff0dc 0%, #f7b66d 100%)', ink: '#7a4524', accent: '#e27944' },
-  Deep:   { bg: 'linear-gradient(145deg, #dfe6f2 0%, #6a7287 100%)', ink: '#263247', accent: '#465272' },
-  Bright: { bg: 'linear-gradient(145deg, #fff8c7 0%, #78c7ff 100%)', ink: '#25506a', accent: '#f0b93c' },
-  Gruff:  { bg: 'linear-gradient(145deg, #e5ded4 0%, #7b6a5b 100%)', ink: '#3f342b', accent: '#9b563d' },
-  Clear:  { bg: 'linear-gradient(145deg, #e8fbff 0%, #80d7e8 100%)', ink: '#1f5967', accent: '#35a9c8' },
-  Cool:   { bg: 'linear-gradient(145deg, #edf0ff 0%, #8f9df0 100%)', ink: '#303c78', accent: '#6879df' },
-};
-
-const PORTRAIT_BORDER_BY_CLASS: Record<string, string> = {
-  Narrator: 'rgba(55, 112, 255, 0.72)',
-  Dialogue: 'rgba(40, 170, 120, 0.72)',
-  Character: 'rgba(156, 104, 62, 0.78)',
-};
-
-const VoicePortrait: React.FC<{ voice: Voice; size?: number; emphasized?: boolean; style?: React.CSSProperties }> = ({
-  voice,
-  size = 52,
-  emphasized = false,
-  style,
-}) => {
-  if (voice.portrait === false) {
-    return (
-      <CustomAvatar
-        name={voice.name}
-        size={size}
-        style={{
-          background: 'var(--surface-alt)',
-          border: '1.5px dashed var(--border-strong)',
-          color: 'var(--text-secondary)',
-          boxShadow: emphasized ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-          ...style,
-        }}
-      />
-    );
-  }
-
-  const gender = getVoiceGender(voice);
-  const age = getVoiceAge(voice);
-  const tone = getVoiceTone(voice);
-  const voiceClass = getVoiceClass(voice);
-  const palette = PORTRAIT_TONES[tone] ?? PORTRAIT_TONES.Clear;
-  const border = PORTRAIT_BORDER_BY_CLASS[voiceClass] ?? 'var(--accent-tint-border)';
-  const isSenior = age === 'Senior';
-  const isFemale = gender === 'Female';
-  const isMale = gender === 'Male';
-  const isNb = gender === 'NB';
-
-  return (
-    <div
-      className="ns-voice-portrait"
-      style={{
-        width: size,
-        height: size,
-        '--voice-portrait-bg': palette.bg,
-        '--voice-portrait-ink': palette.ink,
-        '--voice-portrait-accent': palette.accent,
-        '--voice-portrait-border': border,
-        boxShadow: emphasized ? 'var(--accent-glow-strong)' : undefined,
-        ...style,
-      } as React.CSSProperties}
-      role="img"
-      aria-label={`${voice.name} generic ${age.toLowerCase()} ${gender.toLowerCase()} ${tone.toLowerCase()} ${voiceClass.toLowerCase()} portrait`}
-    >
-      <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-        <defs>
-          <linearGradient id={`voiceFace-${voice.name.replace(/[^a-z0-9]/gi, '')}`} x1="18" x2="48" y1="16" y2="54" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="rgba(255,255,255,0.78)" />
-            <stop offset="1" stopColor="rgba(255,255,255,0.18)" />
-          </linearGradient>
-        </defs>
-        <circle cx="32" cy="32" r="30" fill="var(--voice-portrait-bg)" />
-        <path d="M12 54c4.8-10.2 12-15.3 20-15.3S47.2 43.8 52 54" fill="var(--voice-portrait-ink)" opacity="0.22" />
-        {isFemale && (
-          <>
-            <path d="M20 28c0-10 5.1-16 12.2-16 7.2 0 12.2 5.9 12.2 16.2 0 7.5-3.1 13.7-6.4 16.5H26.2C23 41.8 20 35.4 20 28Z" fill="var(--voice-portrait-ink)" opacity="0.84" />
-            <ellipse cx="32" cy="31" rx="9.8" ry="11.3" fill={`url(#voiceFace-${voice.name.replace(/[^a-z0-9]/gi, '')})`} />
-            <path d="M23.5 25.5c4.7 1.8 10.5 1.1 16.8-3.7 1.5 2.3 2.3 5 2.3 8.5" fill="none" stroke="var(--voice-portrait-accent)" strokeWidth="3.8" strokeLinecap="round" />
-          </>
-        )}
-        {isMale && (
-          <>
-            <path d="M21 26.5c.7-8.7 5.2-13.2 11.3-13.2 6.8 0 11 4.4 11.7 13.4l-2.2 3.2H23.2Z" fill="var(--voice-portrait-ink)" opacity="0.9" />
-            <path d="M23.8 29.5c0-7 3.4-11 8.3-11s8.8 4.1 8.8 11.1c0 8.4-3.9 13.4-8.5 13.4-4.7 0-8.6-5.2-8.6-13.5Z" fill={`url(#voiceFace-${voice.name.replace(/[^a-z0-9]/gi, '')})`} />
-            <path d="M25 42c2.4 3 4.7 4.3 7.2 4.3 2.3 0 4.6-1.3 7.1-4.3" fill="none" stroke="var(--voice-portrait-accent)" strokeWidth={isSenior ? 2.8 : 2.2} strokeLinecap="round" opacity="0.82" />
-          </>
-        )}
-        {isNb && (
-          <>
-            <path d="M20.5 27.2c1.4-8.9 6-13.7 12.2-13.7 6.5 0 10.9 4.5 11.5 13.6l-4.4 6.6-8.1 10.9-8.2-10.9Z" fill="var(--voice-portrait-ink)" opacity="0.82" />
-            <path d="M24.1 29.4c0-6.8 3.4-10.7 8-10.7s8.1 3.9 8.1 10.7c0 7.8-3.4 12.6-8.1 12.6s-8-4.8-8-12.6Z" fill={`url(#voiceFace-${voice.name.replace(/[^a-z0-9]/gi, '')})`} />
-            <path d="M24 24.6 39.8 18M23 32.8 41.3 25" stroke="var(--voice-portrait-accent)" strokeWidth="2.4" strokeLinecap="round" opacity="0.9" />
-          </>
-        )}
-        {isSenior && (
-          <>
-            <path d="M24 31.8h6.2M34 31.8h6.2" stroke="var(--voice-portrait-ink)" strokeWidth="1.4" strokeLinecap="round" opacity="0.74" />
-            <path d="M30.4 31.8h3.2" stroke="var(--voice-portrait-ink)" strokeWidth="1.1" opacity="0.55" />
-            <path d="M23.6 21.7c2.6-3.3 5-4.8 8.5-4.8 3.3 0 5.7 1.3 8.2 4.3" stroke="rgba(255,255,255,0.82)" strokeWidth="2" strokeLinecap="round" fill="none" />
-          </>
-        )}
-        <circle cx="23" cy="18" r="2.3" fill="rgba(255,255,255,0.65)" />
-        <path d="M46 15c2.6 2 4.2 4.2 5.3 7.1" stroke="rgba(255,255,255,0.48)" strokeWidth="1.4" strokeLinecap="round" />
-      </svg>
-    </div>
-  );
-};
-
-const CustomAvatar: React.FC<{
-  name: string;
-  size?: number;
-  color?: string;
-  icon?: string;
-  style?: React.CSSProperties;
-}> = ({ name, size = 44, color, icon, style }) => {
-  const initials = name
-    ? name.split(' ').slice(0, 2).map(w => w[0].toUpperCase()).join('')
-    : '';
-
-  const getIcon = () => {
-    switch (icon) {
-      case 'volume-2': return <Volume2 size={size * 0.44} />;
-      case 'music': return <Music size={size * 0.44} />;
-      case 'sparkles': return <Sparkles size={size * 0.44} />;
-      case 'mic': return <Mic size={size * 0.44} />;
-      default: return null;
-    }
-  };
-
-  const bg = color || 'var(--accent-tint-bg)';
-  const borderCol = color ? 'transparent' : 'var(--accent-tint-border)';
-  const textCol = color ? '#ffffff' : 'var(--accent)';
-
-  return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        background: bg,
-        border: `1.5px solid ${borderCol}`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: textCol,
-        fontWeight: 700,
-        fontSize: `${size * 0.34}px`,
-        flexShrink: 0,
-        boxShadow: color ? '0 2px 8px rgba(0,0,0,0.18)' : 'var(--shadow-sm)',
-        letterSpacing: '-0.01em',
-        ...style,
-      }}
-    >
-      {getIcon() || initials}
-    </div>
-  );
-};
 
 // ---------------------------------------------------------------------------
 // Variant dot-menu
@@ -1168,6 +1010,28 @@ const VoiceMetadataModal: React.FC<{
 
   const hasAnyTags = languages.length > 0 || accent || styles.length > 0 || category || gender || age;
   const isNameEmpty = name.trim() === '';
+  const metadataPreviewVoice: Voice = {
+    ...voice,
+    name: name.trim() || voice.name,
+    description,
+    avatarColor,
+    avatarIcon,
+    portrait: true,
+    languages,
+    accent,
+    styles,
+    category,
+    gender,
+    age,
+    pills: [
+      ...(category ? [{ label: category, category: 'class' as const }] : []),
+      ...(gender ? [{ label: gender === 'NB' ? 'NB' : gender, category: 'gender' as const }] : []),
+      ...(age ? [{ label: age, category: 'age' as const }] : []),
+      ...(accent ? [{ label: accent, category: 'extended' as const }] : []),
+      ...languages.map(lang => ({ label: lang, category: 'tag' as const })),
+      ...styles.map(st => ({ label: st, category: 'extended' as const })),
+    ],
+  };
 
   const handleSave = () => {
     if (isNameEmpty) return;
@@ -1239,6 +1103,28 @@ const VoiceMetadataModal: React.FC<{
         )}
 
         <Col gap={12}>
+          {/* Profile image preview */}
+          <Row
+            gap={10}
+            style={{
+              alignItems: 'center',
+              padding: 'var(--space-2)',
+              border: 'var(--hairline)',
+              borderRadius: 'var(--radius-card)',
+              background: 'var(--surface-alt)',
+            }}
+          >
+            <VoicePortrait voice={metadataPreviewVoice} size={56} emphasized />
+            <Col gap={2} style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                Profile image preview
+              </div>
+              <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', lineHeight: 'var(--leading-normal)' }}>
+                Uses the same raster/default portrait shown on voice cards and profile screens.
+              </div>
+            </Col>
+          </Row>
+
           {/* Name */}
           <Col gap={4}>
             <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-secondary)' }}>Name</div>
@@ -1850,7 +1736,7 @@ export const VoicesPane: React.FC = () => {
                     hasWarning={hasWarning}
                     onSelect={() => setSelectedVoiceName(v.name)}
                     onSetDefault={() => setDefaultVoiceName(v.name)}
-                    onEditMetadata={() => { setEditorVoiceName(v.name); setEditorOpen(true); }}
+                    onEditMetadata={() => setEditingVoice(v)}
                     onRename={() => {
                       const newName = window.prompt(`Rename voice "${v.name}" to:`, v.name);
                       if (newName !== null && newName.trim() !== '') {

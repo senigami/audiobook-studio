@@ -16,7 +16,7 @@ Last updated: 2026-06-16
 |------|-------------|---------|
 | [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md) | Shared app shell, global chrome, routed book pipeline, Studio/Review stage detail, platform/manage split, frontend state ownership, legacy redirects, Library cover-size control | 1.5.0 |
 | [design-system.md](design-system.md) | Design tokens, theming (System/Light/Dark, no-flash), type scale, voice-pill tints, shared UI primitives, iconography (lucide canonical), responsive breakpoints, accessibility baseline | 1.2.0 |
-| [audio-player.md](audio-player.md) | Global single-owner audio player: `playerBus` store, one `<audio>` in `PlayerBar`, full VCR transport (lucide icons), scope toggle (altScope/switchScope), wavesurfer.js waveform strip, Review panel delegates transport to bar (active — R4+R7) | 1.5.0 |
+| [audio-player.md](audio-player.md) | Global single-owner audio player: `playerBus` store, one `<audio>` in `PlayerBar`, full VCR transport (lucide icons), scope toggle (altScope/switchScope), wavesurfer.js waveform strip, visibility keys on playback state + persists across all routes, content-owned play affordances (§4.1), Review panel delegates transport to bar (active — R4+R7) | 1.5.1 |
 | [live-events.md](live-events.md) | WebSocket live event topics, envelope schema, reconnect/bootstrap contract | 1.5.1 |
 | [queue-jobs.md](queue-jobs.md) | Job statuses, allowed transitions, two-store model, terminal-reset semantics, broadcast routing, presentation surfaces | 1.2.2 |
 | [text-processing.md](text-processing.md) | Six-stage text pipeline (clean→split→pack→group→assign→render), invariants on packing and grouping | 1.1.1 |
