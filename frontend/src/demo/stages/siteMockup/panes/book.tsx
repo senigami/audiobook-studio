@@ -63,44 +63,44 @@ const AddChapterModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       background: 'var(--overlay-backdrop)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <Panel style={{ padding: '18px 20px', width: 340, boxShadow: 'var(--shadow-xl)' }}>
-        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 14 }}>Add Chapter</div>
+      <Panel style={{ padding: 'var(--space-3) var(--space-3)', width: 340, boxShadow: 'var(--shadow-xl)' }}>
+        <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-2)' }}>Add Chapter</div>
         {/* Title */}
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginBottom: 3 }}>Title</div>
+        <div style={{ marginBottom: 'var(--space-2)' }}>
+          <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', color: 'var(--text-muted)', marginBottom: 'var(--space-1)' }}>Title</div>
           <input
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="Chapter title…"
             style={{
               width: '100%', boxSizing: 'border-box',
-              fontSize: 'var(--type-micro)', padding: '5px 8px',
+              fontSize: 'var(--type-caption)', padding: 'var(--space-1) var(--space-2)',
               borderRadius: 'var(--radius-button)', border: '1px solid var(--border)',
               background: 'var(--surface-alt)', color: 'var(--text-primary)', outline: 'none',
             }}
           />
         </div>
         {/* Paste textarea */}
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginBottom: 3 }}>Or paste text</div>
+        <div style={{ marginBottom: 'var(--space-2)' }}>
+          <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', color: 'var(--text-muted)', marginBottom: 'var(--space-1)' }}>Or paste text</div>
           <textarea
             rows={4}
             placeholder="Paste chapter text here…"
             style={{
               width: '100%', boxSizing: 'border-box',
-              fontSize: 'var(--type-micro)', padding: '5px 8px',
+              fontSize: 'var(--type-caption)', padding: 'var(--space-1) var(--space-2)',
               borderRadius: 'var(--radius-button)', border: '1px solid var(--border)',
               background: 'var(--surface-alt)', color: 'var(--text-primary)', outline: 'none',
-              resize: 'vertical', lineHeight: 1.5,
+              resize: 'vertical', lineHeight: 'var(--leading-normal)',
             }}
           />
         </div>
         {/* Upload row */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '5px 10px',
+          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+          padding: 'var(--space-1) var(--space-2)',
           border: '1px dashed var(--border)',
-          borderRadius: 'var(--radius-card)', background: 'var(--surface-alt)', marginBottom: 10,
+          borderRadius: 'var(--radius-card)', background: 'var(--surface-alt)', marginBottom: 'var(--space-2)',
         }}>
           <Upload size={14} color="var(--text-muted)" aria-hidden="true" />
           <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flex: 1 }}>or upload a file (.txt, .docx, .epub)</span>
@@ -109,16 +109,16 @@ const AddChapterModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
         {/* Split rules configuration for imports */}
         <div style={{
-          marginBottom: 14,
-          padding: '8px 10px',
+          marginBottom: 'var(--space-3)',
+          padding: 'var(--space-2)',
           border: '1px solid var(--border)',
           borderRadius: 'var(--radius-card)',
           background: 'var(--surface-alt)',
         }}>
-          <div style={{ fontSize: 'var(--type-micro)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+          <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', color: 'var(--text-muted)', marginBottom: 'var(--space-1)' }}>
             Import Settings (.txt, .docx, .epub)
           </div>
-          <Row gap={8} style={{ alignItems: 'center', marginBottom: 6 }}>
+          <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-1)' }}>
             <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>Split by:</span>
             <select
               value={splitBy}
@@ -232,8 +232,8 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
     }}>
       {/* Editor header */}
       <Row gap={6} style={{
-        padding: '6px 10px',
-        borderBottom: '1px solid var(--border)',
+        padding: 'var(--space-1) var(--space-2)',
+        borderBottom: 'var(--hairline)',
         background: 'var(--surface)',
         alignItems: 'center',
         flexShrink: 0,
@@ -323,7 +323,7 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
           color: 'var(--warning-text)',
           background: 'var(--warning-tint-bg)',
           borderBottom: '1px solid var(--warning-tint-border)',
-          padding: '3px 10px',
+          padding: 'var(--space-1) var(--space-2)',
           flexShrink: 0,
         }}>
           editing a produced chapter
@@ -336,11 +336,11 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
           background: 'var(--warning-tint-bg)',
           border: '1px solid var(--warning-tint-border)',
           borderRadius: 0,
-          padding: '8px 10px',
+          padding: 'var(--space-2)',
           flexShrink: 0,
           borderBottom: '1px solid var(--border)',
         }}>
-          <div style={{ fontSize: 'var(--type-micro)', color: 'var(--warning-text)', marginBottom: 6, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 'var(--type-micro)', color: 'var(--warning-text)', marginBottom: 'var(--space-1)', lineHeight: 'var(--leading-snug)' }}>
             Editing re-analyzes this chapter. Voice assignments are matched best-effort — some may be lost.
           </div>
           <Row gap={6}>
@@ -371,19 +371,20 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
       )}
 
       {/* Editor body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-3) var(--space-4)' }}>
         {isEditable ? (
-          <Col gap={8}>
+          <Col gap={0} style={{ maxWidth: '64ch', margin: '0 auto' }}>
             <div
               contentEditable
               suppressContentEditableWarning
               style={{
-                fontSize: 'var(--type-callout)',
-                lineHeight: 1.75,
+                fontSize: 'var(--type-reading)',
+                lineHeight: 'var(--leading-reading)',
                 color: 'var(--text-primary)',
                 outline: 'none',
                 background: 'transparent',
                 minHeight: 40,
+                marginBottom: 'var(--space-3)',
               }}
             >
               The road wound down through silver birch and pale stone, the kind of road that remembers every foot that has ever crossed it. Maren pulled her cloak tighter against the chill that rose from the valley floor.
@@ -392,26 +393,32 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
               contentEditable
               suppressContentEditableWarning
               style={{
-                fontSize: 'var(--type-callout)',
-                lineHeight: 1.75,
+                fontSize: 'var(--type-reading)',
+                lineHeight: 'var(--leading-reading)',
                 color: 'var(--text-primary)',
                 outline: 'none',
                 background: 'transparent',
                 minHeight: 40,
+                marginBottom: 'var(--space-3)',
               }}
             >
               The vale smelled of old rain and something older still — loam and iron and time. Far above, an owl called once, then fell silent.
             </div>
           </Col>
         ) : (
-          <Col gap={8}>
+          <Col gap={0} style={{ maxWidth: '64ch', margin: '0 auto' }}>
             {[
               'The road wound down through silver birch and pale stone, the kind of road that remembers every foot that has ever crossed it.',
               'Maren pulled her cloak tighter against the chill that rose from the valley floor.',
               'The vale smelled of old rain and something older still — loam and iron and time.',
               'Far above, an owl called once, then fell silent.',
             ].map((line, i) => (
-              <div key={i} style={{ fontSize: 'var(--type-callout)', lineHeight: 1.75, color: 'var(--text-secondary)' }}>
+              <div key={i} style={{
+                fontSize: 'var(--type-reading)',
+                lineHeight: 'var(--leading-reading)',
+                color: 'var(--text-secondary)',
+                marginBottom: 'var(--space-3)',
+              }}>
                 {line}
               </div>
             ))}
@@ -421,8 +428,8 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
 
       {/* Footer: word count + edit button */}
       <div style={{
-        padding: '5px 10px',
-        borderTop: '1px solid var(--border)',
+        padding: 'var(--space-1) var(--space-2)',
+        borderTop: 'var(--hairline)',
         background: 'var(--surface)',
         display: 'flex',
         alignItems: 'center',
@@ -455,12 +462,12 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
   // Focus mode
   if (focusMode) {
     return (
-      <Col gap={0} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', position: 'relative' }}>
+      <Col gap={0} className="ns-enter" style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', position: 'relative' }}>
         <div style={{
           fontSize: 'var(--type-micro)',
           color: 'var(--text-muted)',
           fontStyle: 'italic',
-          padding: '3px 0 6px',
+          padding: 'var(--space-1) 0 var(--space-2)',
           alignSelf: 'flex-start',
         }}>
           rail auto-collapses in focus mode
@@ -475,8 +482,8 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
             overflow: 'hidden',
           }}>
             <Row gap={6} style={{
-              padding: '6px 10px',
-              borderBottom: '1px solid var(--border)',
+              padding: 'var(--space-1) var(--space-2)',
+              borderBottom: 'var(--hairline)',
               background: 'var(--surface)',
               alignItems: 'center',
               flexShrink: 0,
@@ -541,25 +548,39 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
                 Exit focus
               </div>
             </Row>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
-              <Col gap={10}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-4) var(--space-5)' }}>
+              <Col gap={0} style={{ maxWidth: '64ch', margin: '0 auto' }}>
                 <div
                   contentEditable
                   suppressContentEditableWarning
-                  style={{ fontSize: 'var(--type-body)', lineHeight: 1.85, color: 'var(--text-primary)', outline: 'none', background: 'transparent' }}
+                  style={{
+                    fontSize: 'var(--type-reading)',
+                    lineHeight: 'var(--leading-reading)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    background: 'transparent',
+                    marginBottom: 'var(--space-4)',
+                  }}
                 >
                   The road wound down through silver birch and pale stone, the kind of road that remembers every foot that has ever crossed it. Maren pulled her cloak tighter against the chill that rose from the valley floor.
                 </div>
                 <div
                   contentEditable
                   suppressContentEditableWarning
-                  style={{ fontSize: 'var(--type-body)', lineHeight: 1.85, color: 'var(--text-primary)', outline: 'none', background: 'transparent' }}
+                  style={{
+                    fontSize: 'var(--type-reading)',
+                    lineHeight: 'var(--leading-reading)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    background: 'transparent',
+                    marginBottom: 'var(--space-4)',
+                  }}
                 >
                   The vale smelled of old rain and something older still — loam and iron and time. Far above, an owl called once, then fell silent.
                 </div>
               </Col>
             </div>
-            <div style={{ padding: '5px 10px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+            <div style={{ padding: 'var(--space-1) var(--space-2)', borderTop: 'var(--hairline)', background: 'var(--surface)', flexShrink: 0 }}>
               <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>1,842 words</span>
             </div>
           </Col>
@@ -571,10 +592,10 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
   return (
     <>
       {showAddChapter && <AddChapterModal onClose={() => setShowAddChapter(false)} />}
-      <Col gap={8} style={{ flex: 1 }}>
-        <Row gap={10} style={{ flex: 1, alignItems: 'stretch' }}>
+      <Col gap={0} className="ns-enter" style={{ flex: 1 }}>
+        <Row gap={12} style={{ flex: 1, alignItems: 'stretch' }}>
           {/* Left: chapter table + compact import row */}
-          <Col gap={6} style={{ flex: 2, minWidth: 0 }}>
+          <Col gap={8} style={{ flex: 2, minWidth: 0 }}>
             {/* + New chapter button */}
             <Row gap={6} style={{ alignItems: 'center' }}>
               <Btn small onClick={() => setShowAddChapter(true)}>+ New chapter</Btn>
@@ -582,109 +603,113 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
 
             {/* Chapter table */}
             <Card style={{ overflow: 'hidden' }}>
-              <Row gap={0} style={{ padding: '5px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', flex: 0.5 }}>#</div>
-                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', flex: 3 }}>Title</div>
-                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', flex: 1, textAlign: 'right' }}>Words</div>
-                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', flex: 1.5, textAlign: 'right' }}>Stage</div>
-                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', flex: 0.5, textAlign: 'right' }}></div>
+              {/* Table header — eyebrow labels */}
+              <Row gap={0} style={{ padding: 'var(--space-1) var(--space-2)', borderBottom: 'var(--hairline)', background: 'var(--surface)' }}>
+                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', flex: 0.5 }}>#</div>
+                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', flex: 3 }}>Title</div>
+                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', flex: 1, textAlign: 'right' }}>Words</div>
+                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', flex: 1.5, textAlign: 'right' }}>Stage</div>
+                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', flex: 0.5, textAlign: 'right' }}></div>
               </Row>
-              {chapters.map((ch, i) => {
-                const isSelected = ch.n === selectedChapterN;
-                return (
-                  <Row
-                    key={ch.n} gap={0}
-                    onClick={() => handleChapterClick(ch.n)}
-                    style={{
-                      padding: '5px 10px',
-                      borderBottom: i < chapters.length - 1 ? '1px solid var(--border)' : 'none',
-                      alignItems: 'center', cursor: 'pointer',
-                      background: isSelected ? 'var(--accent-tint-bg)' : 'transparent',
-                      borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
-                    }}
-                  >
-                    {/* StatusOrb replaces plain dot for chapter status */}
-                    <div style={{ flex: 0.5, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <StatusOrb status={LIFECYCLE_ORB[ch.lifecycle]} size={14} />
-                      <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>{ch.n}</span>
-                    </div>
-                    <div style={{
-                      fontSize: 'var(--type-caption)',
-                      color: isSelected ? 'var(--accent)' : 'var(--text-primary)',
-                      fontWeight: isSelected ? 700 : 500,
-                      flex: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                      {ch.title}
-                    </div>
-                    <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>
-                      {ch.words.toLocaleString()}
-                    </div>
-                    <div style={{ flex: 1.5, textAlign: 'right' }}>
-                      <LifecyclePill lifecycle={ch.lifecycle} />
-                    </div>
-                    <div style={{ flex: 0.5, textAlign: 'right', position: 'relative' }}>
-                      <button
-                        type="button"
-                        aria-label={`Chapter ${ch.n} actions`}
-                        aria-expanded={activeMenuChapter === ch.n}
-                        onClick={(e) => { e.stopPropagation(); toggleRowActionsMenu(ch.n); }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px' }}
-                      >
-                        <MoreHorizontal size={14} />
-                      </button>
-                      {activeMenuChapter === ch.n && (
-                        <div style={{
-                          position: 'absolute', top: '100%', right: 0, zIndex: 100,
-                          background: 'var(--surface)', border: '1px solid var(--border)',
-                          borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-md)',
-                          minWidth: 120, padding: '4px 0', textAlign: 'left'
-                        }}>
-                          {[
-                            { label: 'Rebuild Audio', action: () => {
-                              alert(`Rebuilding audio for Ch ${ch.n}`);
-                              setChapters(prev => prev.map(c => c.n === ch.n ? { ...c, lifecycle: 'Rendered' } : c));
-                            } },
-                            { label: 'Export Chapter', action: () => alert(`Exported Ch ${ch.n} audio.`) },
-                            { label: 'Reset Renders', action: () => {
-                              setChapters(prev => prev.map(c => c.n === ch.n ? { ...c, lifecycle: 'Ready' } : c));
-                            } },
-                            { label: 'Delete', action: () => {
-                              if (confirm(`Are you sure you want to delete Chapter ${ch.n}?`)) {
-                                setChapters(prev => prev.filter(c => c.n !== ch.n));
-                              }
-                            }, isDestructive: true }
-                          ].map(opt => (
-                            <button
-                              type="button"
-                              key={opt.label}
-                              onClick={(e) => { e.stopPropagation(); opt.action(); setActiveMenuChapter(null); }}
-                              style={{
-                                width: '100%',
-                                border: 0,
-                                background: 'transparent',
-                                fontFamily: 'inherit',
-                                textAlign: 'left',
-                                fontSize: 'var(--type-micro)', padding: '6px 12px', cursor: 'pointer',
-                                color: opt.isDestructive ? 'var(--error)' : 'var(--text-primary)',
-                              }}
-                              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-alt)'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </Row>
-                );
-              })}
+              <div className="ns-stagger">
+                {chapters.map((ch, i) => {
+                  const isSelected = ch.n === selectedChapterN;
+                  return (
+                    <Row
+                      key={ch.n} gap={0}
+                      onClick={() => handleChapterClick(ch.n)}
+                      style={{
+                        padding: 'var(--space-2) var(--space-2)',
+                        borderBottom: i < chapters.length - 1 ? 'var(--hairline)' : 'none',
+                        alignItems: 'center', cursor: 'pointer',
+                        background: isSelected ? 'var(--accent-tint-bg)' : 'transparent',
+                        borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
+                        transition: 'background var(--dur-fast) var(--ease-standard)',
+                      }}
+                    >
+                      {/* StatusOrb replaces plain dot for chapter status */}
+                      <div style={{ flex: 0.5, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <StatusOrb status={LIFECYCLE_ORB[ch.lifecycle]} size={14} />
+                        <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>{ch.n}</span>
+                      </div>
+                      <div style={{
+                        fontSize: 'var(--type-caption)',
+                        color: isSelected ? 'var(--accent)' : 'var(--text-primary)',
+                        fontWeight: isSelected ? 700 : 500,
+                        flex: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {ch.title}
+                      </div>
+                      <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>
+                        {ch.words.toLocaleString()}
+                      </div>
+                      <div style={{ flex: 1.5, textAlign: 'right' }}>
+                        <LifecyclePill lifecycle={ch.lifecycle} />
+                      </div>
+                      <div style={{ flex: 0.5, textAlign: 'right', position: 'relative' }}>
+                        <button
+                          type="button"
+                          aria-label={`Chapter ${ch.n} actions`}
+                          aria-expanded={activeMenuChapter === ch.n}
+                          onClick={(e) => { e.stopPropagation(); toggleRowActionsMenu(ch.n); }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px' }}
+                        >
+                          <MoreHorizontal size={14} />
+                        </button>
+                        {activeMenuChapter === ch.n && (
+                          <div style={{
+                            position: 'absolute', top: '100%', right: 0, zIndex: 100,
+                            background: 'var(--surface)', border: '1px solid var(--border)',
+                            borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-md)',
+                            minWidth: 120, padding: '4px 0', textAlign: 'left'
+                          }}>
+                            {[
+                              { label: 'Rebuild Audio', action: () => {
+                                alert(`Rebuilding audio for Ch ${ch.n}`);
+                                setChapters(prev => prev.map(c => c.n === ch.n ? { ...c, lifecycle: 'Rendered' } : c));
+                              } },
+                              { label: 'Export Chapter', action: () => alert(`Exported Ch ${ch.n} audio.`) },
+                              { label: 'Reset Renders', action: () => {
+                                setChapters(prev => prev.map(c => c.n === ch.n ? { ...c, lifecycle: 'Ready' } : c));
+                              } },
+                              { label: 'Delete', action: () => {
+                                if (confirm(`Are you sure you want to delete Chapter ${ch.n}?`)) {
+                                  setChapters(prev => prev.filter(c => c.n !== ch.n));
+                                }
+                              }, isDestructive: true }
+                            ].map(opt => (
+                              <button
+                                type="button"
+                                key={opt.label}
+                                onClick={(e) => { e.stopPropagation(); opt.action(); setActiveMenuChapter(null); }}
+                                style={{
+                                  width: '100%',
+                                  border: 0,
+                                  background: 'transparent',
+                                  fontFamily: 'inherit',
+                                  textAlign: 'left',
+                                  fontSize: 'var(--type-micro)', padding: '6px 12px', cursor: 'pointer',
+                                  color: opt.isDestructive ? 'var(--error)' : 'var(--text-primary)',
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-alt)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </Row>
+                  );
+                })}
+              </div>
             </Card>
 
             {/* Compact import row */}
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '5px 10px', border: '1px dashed var(--border)',
+              display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+              padding: 'var(--space-1) var(--space-2)', border: '1px dashed var(--border)',
               borderRadius: 'var(--radius-card)', background: 'var(--surface-alt)',
             }}>
               <Upload size={14} color="var(--text-muted)" aria-hidden="true" />
@@ -714,16 +739,17 @@ const CHARACTERS_NON_NARRATOR = [
 ];
 
 export const CastingPane: React.FC = () => (
-  <Row gap={10} style={{ flex: 1, alignItems: 'stretch' }}>
+  <Row gap={12} className="ns-enter" style={{ flex: 1, alignItems: 'stretch' }}>
     {/* Character table */}
     <Card style={{ flex: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Row gap={0} style={{ padding: '5px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+      {/* Table header — eyebrow labels */}
+      <Row gap={0} style={{ padding: 'var(--space-1) var(--space-3)', borderBottom: 'var(--hairline)', background: 'var(--surface)' }}>
         {['Character', 'Lines', 'Voice'].map(h => (
           <div key={h} style={{
             fontSize: 'var(--type-micro)',
-            fontWeight: 'var(--type-weight-micro)' as unknown as number,
+            fontWeight: 700,
             color: 'var(--text-muted)',
-            textTransform: 'uppercase', letterSpacing: '0.06em', flex: 1,
+            textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', flex: 1,
           }}>
             {h}
           </div>
@@ -732,10 +758,10 @@ export const CastingPane: React.FC = () => (
 
       {/* Pinned Narrator row */}
       <Row gap={0} style={{
-        padding: '6px 10px', borderBottom: '1px solid var(--border)',
+        padding: 'var(--space-2) var(--space-3)', borderBottom: 'var(--hairline)',
         alignItems: 'center', background: 'var(--accent-tint-bg)',
       }}>
-        <Row gap={6} style={{ flex: 1, alignItems: 'center' }}>
+        <Row gap={8} style={{ flex: 1, alignItems: 'center' }}>
           <Avatar size={20} />
           <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--accent)' }}>
             Narrator <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 'var(--type-micro)' }}>(default)</span>
@@ -749,68 +775,76 @@ export const CastingPane: React.FC = () => (
         </div>
       </Row>
 
-      {CHARACTERS_NON_NARRATOR.map((ch, i) => (
-        <Row key={ch.name} gap={0} style={{
-          padding: '6px 10px',
-          borderBottom: i < CHARACTERS_NON_NARRATOR.length - 1 ? '1px solid var(--border)' : 'none',
-          alignItems: 'center',
-        }}>
-          <Row gap={6} style={{ flex: 1, alignItems: 'center' }}>
-            {/* Color dot replaced by VoiceAttrPill category dot via Avatar accent tinted by pill category */}
-            <div style={{
-              width: 8, height: 8, borderRadius: 'var(--radius-round)',
-              background: `var(--pill-${ch.category}-text)`,
-              flexShrink: 0,
-            }} />
-            <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-primary)' }}>{ch.name}</span>
+      <div className="ns-stagger">
+        {CHARACTERS_NON_NARRATOR.map((ch, i) => (
+          <Row key={ch.name} gap={0} style={{
+            padding: 'var(--space-2) var(--space-3)',
+            borderBottom: i < CHARACTERS_NON_NARRATOR.length - 1 ? 'var(--hairline)' : 'none',
+            alignItems: 'center',
+            cursor: 'pointer',
+            transition: 'background var(--dur-fast) var(--ease-standard)',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-alt)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+          >
+            <Row gap={8} style={{ flex: 1, alignItems: 'center' }}>
+              {/* Larger color dot — 13px */}
+              <div style={{
+                width: 13, height: 13, borderRadius: 'var(--radius-round)',
+                background: `var(--pill-${ch.category}-text)`,
+                flexShrink: 0,
+                boxShadow: `0 0 0 2px var(--pill-${ch.category}-bg)`,
+              }} />
+              <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-primary)' }}>{ch.name}</span>
+            </Row>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flex: 1 }}>{ch.lines}</div>
+            <div style={{ flex: 1 }}>
+              <span style={{
+                fontSize: 'var(--type-caption)',
+                color: ch.voice === 'Unassigned' ? 'var(--text-muted)' : 'var(--text-primary)',
+                fontStyle: ch.voice === 'Unassigned' ? 'italic' : 'normal',
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+              }}>
+                {ch.voice !== 'Unassigned' && <Avatar size={16} />}
+                {ch.voice}
+              </span>
+            </div>
           </Row>
-          <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flex: 1 }}>{ch.lines}</div>
-          <div style={{ flex: 1 }}>
-            <span style={{
-              fontSize: 'var(--type-caption)',
-              color: ch.voice === 'Unassigned' ? 'var(--text-muted)' : 'var(--text-primary)',
-              fontStyle: ch.voice === 'Unassigned' ? 'italic' : 'normal',
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-            }}>
-              {ch.voice !== 'Unassigned' && <Avatar size={16} />}
-              {ch.voice}
-            </span>
-          </div>
-        </Row>
-      ))}
+        ))}
+      </div>
     </Card>
 
-    {/* Right panel */}
-    <Col gap={8} style={{ flex: 1 }}>
-      <Card style={{ padding: '10px 12px' }}>
-        <Row gap={6} style={{ alignItems: 'center', marginBottom: 8 }}>
+    {/* Right detail panel */}
+    <Col gap={12} style={{ flex: 1 }}>
+      <Panel style={{ padding: 'var(--space-3)' }}>
+        <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-2)' }}>
           <Mic size={14} color="var(--accent)" aria-hidden="true" />
-          <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>Studio Voice</div>
+          <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)' }}>Studio Voice</div>
         </Row>
-        <Col gap={6}>
+        <Col gap={8}>
           <Row gap={4} style={{ flexWrap: 'wrap' }}>
             <VoiceAttrPill category="class">Narrator</VoiceAttrPill>
             <VoiceAttrPill category="gender">Female</VoiceAttrPill>
             <VoiceAttrPill category="age">Adult</VoiceAttrPill>
             <VoiceAttrPill category="extended">Warm</VoiceAttrPill>
           </Row>
-          <Btn small style={{ marginTop: 4 }}>
+          <Btn small style={{ marginTop: 'var(--space-1)' }}>
             <Play size={10} style={{ marginRight: 3 }} aria-hidden="true" />
             Preview 15s
           </Btn>
           <Btn primary small>Assign to Maren</Btn>
         </Col>
-      </Card>
-      <Card style={{ padding: '10px 12px' }}>
-        <Row gap={6} style={{ alignItems: 'center', marginBottom: 4 }}>
+      </Panel>
+      <Panel style={{ padding: 'var(--space-3)' }}>
+        <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-1)' }}>
           <Volume2 size={13} color="var(--accent)" aria-hidden="true" />
-          <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>Suggest cast (AI)</div>
+          <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)' }}>Suggest cast (AI)</div>
         </Row>
-        <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginBottom: 8 }}>
+        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginBottom: 'var(--space-2)', lineHeight: 'var(--leading-snug)' }}>
           Recommends voices per character — never auto-assigns.
         </div>
-        <Btn small>Run suggestions</Btn>
-      </Card>
+        <Btn primary small>Run suggestions</Btn>
+      </Panel>
     </Col>
   </Row>
 );
@@ -829,10 +863,10 @@ const REVIEW_SENTENCES = [
 ];
 
 export const ReviewPane: React.FC = () => (
-  <Col gap={0} style={{ flex: 1, minHeight: 0 }}>
+  <Col gap={0} className="ns-enter" style={{ flex: 1, minHeight: 0 }}>
     {/* Transport row + waveform */}
-    <Card style={{ padding: '6px 10px', marginBottom: 8, flexShrink: 0 }}>
-      <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
+    <Card style={{ padding: 'var(--space-2) var(--space-3)', marginBottom: 'var(--space-2)', flexShrink: 0 }}>
+      <Row gap={6} style={{ alignItems: 'center', marginBottom: 'var(--space-2)' }}>
         <button
           aria-label="Skip to start"
           style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-primary)', display: 'flex', alignItems: 'center' }}
@@ -867,22 +901,27 @@ export const ReviewPane: React.FC = () => (
       <WaveformSvg height={32} />
     </Card>
 
-    <Row gap={10} style={{ flex: 1, alignItems: 'stretch', minHeight: 0 }}>
+    <Row gap={12} style={{ flex: 1, alignItems: 'stretch', minHeight: 0 }}>
       <Col gap={0} style={{ flex: 2, minHeight: 0 }}>
-        <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 6 }}>
-          text follows playback — auto-scroll, tap a sentence to seek
+        <div style={{
+          fontSize: 'var(--type-micro)', fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)',
+          color: 'var(--text-muted)',
+          marginBottom: 'var(--space-2)',
+        }}>
+          Transcript
         </div>
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          <Col gap={3}>
+          <Col gap={4} className="ns-stagger">
             {REVIEW_SENTENCES.map((s, i) => {
               const isPlaying = s.state === 'playing';
               const isPast = s.state === 'past';
               const isRerendering = s.state === 'rerendering';
               return (
                 <div key={i} style={{
-                  fontSize: 'var(--type-caption)', lineHeight: 1.65,
+                  fontSize: 'var(--type-body)', lineHeight: 'var(--leading-snug)',
                   color: isPast ? 'var(--text-muted)' : 'var(--text-primary)',
-                  padding: '3px 6px',
+                  padding: 'var(--space-1) var(--space-2)',
                   borderRadius: 'var(--radius-button)',
                   background: isPlaying
                     ? 'var(--accent-tint-bg)'
@@ -897,6 +936,7 @@ export const ReviewPane: React.FC = () => (
                   cursor: 'pointer', fontWeight: isPlaying ? 600 : 400,
                   opacity: isPast ? 0.55 : 1,
                   display: 'flex', alignItems: 'center', gap: 6,
+                  transition: 'background var(--dur-fast) var(--ease-standard)',
                 }}>
                   <span style={{ flex: 1 }}>{s.text}</span>
                   {isRerendering && (
@@ -919,23 +959,23 @@ export const ReviewPane: React.FC = () => (
             notes attach to sections — re-renders don't shift them
           </span>
         </Row>
-        <Col gap={6} style={{ flex: 1, overflowY: 'auto' }}>
+        <Col gap={8} style={{ flex: 1, overflowY: 'auto' }} className="ns-stagger">
           {[
             { section: '§14', note: "Mispronounced 'Vale' — needs re-render" },
             { section: '§22', note: 'Pause too long after sentence end' },
             { section: '§31', note: "Narrator volume dips on 'stone'" },
           ].map(ann => (
-            <Card key={ann.section} style={{ padding: '6px 8px' }}>
-              <Row gap={6} style={{ alignItems: 'center', marginBottom: 4 }}>
+            <Card key={ann.section} interactive style={{ padding: 'var(--space-2) var(--space-2)' }}>
+              <Row gap={6} style={{ alignItems: 'flex-start', marginBottom: 'var(--space-2)' }}>
                 <SemanticChip variant="neutral">{ann.section}</SemanticChip>
-                <span style={{ flex: 1, fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                <span style={{ flex: 1, fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', lineHeight: 'var(--leading-snug)' }}>
                   {ann.note}
                 </span>
               </Row>
               <Btn small>Re-render section</Btn>
             </Card>
           ))}
-          <div style={{ fontSize: 'var(--type-caption)', color: 'var(--accent)', cursor: 'pointer', padding: '4px 2px' }}>
+          <div style={{ fontSize: 'var(--type-caption)', color: 'var(--accent)', cursor: 'pointer', padding: 'var(--space-1) var(--space-1)' }}>
             + Add note on §18 (playing)
           </div>
         </Col>

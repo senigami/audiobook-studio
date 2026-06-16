@@ -156,17 +156,17 @@ const CustomAvatar: React.FC<{
   color?: string;
   icon?: string;
   style?: React.CSSProperties;
-}> = ({ name, size = 36, color, icon, style }) => {
+}> = ({ name, size = 44, color, icon, style }) => {
   const initials = name
     ? name.split(' ').slice(0, 2).map(w => w[0].toUpperCase()).join('')
     : '';
 
   const getIcon = () => {
     switch (icon) {
-      case 'volume-2': return <Volume2 size={size * 0.5} />;
-      case 'music': return <Music size={size * 0.5} />;
-      case 'sparkles': return <Sparkles size={size * 0.5} />;
-      case 'mic': return <Mic size={size * 0.5} />;
+      case 'volume-2': return <Volume2 size={size * 0.44} />;
+      case 'music': return <Music size={size * 0.44} />;
+      case 'sparkles': return <Sparkles size={size * 0.44} />;
+      case 'mic': return <Mic size={size * 0.44} />;
       default: return null;
     }
   };
@@ -182,14 +182,16 @@ const CustomAvatar: React.FC<{
         height: size,
         borderRadius: '50%',
         background: bg,
-        border: `1px solid ${borderCol}`,
+        border: `1.5px solid ${borderCol}`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         color: textCol,
-        fontWeight: 600,
-        fontSize: `${size * 0.36}px`,
+        fontWeight: 700,
+        fontSize: `${size * 0.34}px`,
         flexShrink: 0,
+        boxShadow: color ? '0 2px 8px rgba(0,0,0,0.18)' : 'var(--shadow-sm)',
+        letterSpacing: '-0.01em',
         ...style,
       }}
     >
@@ -224,7 +226,7 @@ const VariantDotMenu: React.FC<{ variantName: string }> = ({ variantName: _varia
       {open && (
         <div style={{
           position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 20,
-          background: 'var(--surface)', border: '1px solid var(--border)',
+          background: 'var(--surface)', border: 'var(--hairline)',
           borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-lg)', minWidth: 150, overflow: 'hidden',
         }}>
           {['Rename', 'Move to another voice', 'Delete'].map((item, i, arr) => (
@@ -234,7 +236,7 @@ const VariantDotMenu: React.FC<{ variantName: string }> = ({ variantName: _varia
               style={{
                 padding: '7px 12px', fontSize: 'var(--type-micro)', cursor: 'pointer',
                 color: item === 'Delete' ? 'var(--error)' : 'var(--text-primary)',
-                borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                borderBottom: i < arr.length - 1 ? 'var(--hairline)' : 'none',
               }}
             >{item}</div>
           ))}
@@ -256,8 +258,8 @@ const SpeedChip: React.FC = () => {
       {open && (
         <div style={{
           position: 'absolute', left: 0, top: '100%', marginTop: 4, zIndex: 20,
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-md)', padding: '8px 12px', minWidth: 160,
+          background: 'var(--surface)', border: 'var(--hairline)',
+          borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-md)', padding: 'var(--space-2) var(--space-3)', minWidth: 160,
         }}>
           <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>Playback speed</div>
           <Row gap={8} style={{ alignItems: 'center' }}>
@@ -293,13 +295,13 @@ const MyVoiceCard: React.FC<{
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <Card style={{
-      padding: '10px 10px 8px', textAlign: 'center',
+    <Card interactive style={{
+      padding: 'var(--space-3) var(--space-3) var(--space-2)', textAlign: 'center',
       position: 'relative', borderRadius: 'var(--radius-card)',
       display: 'flex', flexDirection: 'column', height: '100%',
     }}>
       {/* Badges on left */}
-      <div style={{ position: 'absolute', top: 6, left: 6, display: 'flex', gap: 4, alignItems: 'center', zIndex: 5 }}>
+      <div style={{ position: 'absolute', top: 'var(--space-2)', left: 'var(--space-2)', display: 'flex', gap: 4, alignItems: 'center', zIndex: 5 }}>
         {isDefault && (
           <SemanticChip variant="warning">
             <Row gap={3} style={{ alignItems: 'center' }}>
@@ -309,18 +311,17 @@ const MyVoiceCard: React.FC<{
           </SemanticChip>
         )}
         {hasWarning && (
-          <div style={{
-            background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 'var(--radius-round)',
-            padding: '2px 6px', display: 'flex', alignItems: 'center', gap: 3
-          }} title="Missing taxonomy tags">
-            <AlertTriangle size={10} color="#d97706" />
-            <span style={{ fontSize: '8px', fontWeight: 600, color: '#b45309' }}>Untagged</span>
-          </div>
+          <SemanticChip variant="warning">
+            <Row gap={3} style={{ alignItems: 'center' }}>
+              <AlertTriangle size={9} />
+              Untagged
+            </Row>
+          </SemanticChip>
         )}
       </div>
 
       {/* Overflow menu on right */}
-      <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 10 }}>
+      <div style={{ position: 'absolute', top: 'var(--space-2)', right: 'var(--space-2)', zIndex: 10 }}>
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -329,9 +330,9 @@ const MyVoiceCard: React.FC<{
           aria-label="Voice options"
           style={{
             background: 'var(--surface-alt)',
-            border: '1px solid var(--border)',
+            border: 'var(--hairline)',
             borderRadius: 'var(--radius-round)',
-            width: 20, height: 20,
+            width: 22, height: 22,
             cursor: 'pointer',
             color: 'var(--text-muted)',
             display: 'flex',
@@ -355,7 +356,7 @@ const MyVoiceCard: React.FC<{
             />
             <div style={{
               position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 30,
-              background: 'var(--surface)', border: '1px solid var(--border)',
+              background: 'var(--surface)', border: 'var(--hairline)',
               borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-lg)', minWidth: 140, overflow: 'hidden',
               textAlign: 'left',
             }}>
@@ -379,9 +380,9 @@ const MyVoiceCard: React.FC<{
                     border: 0,
                     fontFamily: 'inherit',
                     textAlign: 'left',
-                    padding: '8px 12px', fontSize: 'var(--type-caption)', cursor: 'pointer',
+                    padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--type-caption)', cursor: 'pointer',
                     color: opt.isDanger ? 'var(--error)' : 'var(--text-primary)',
-                    borderBottom: '1px solid var(--border)',
+                    borderBottom: 'var(--hairline)',
                     background: 'var(--surface)',
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-alt)'}
@@ -396,25 +397,35 @@ const MyVoiceCard: React.FC<{
       </div>
 
       {/* Card Content */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6, marginTop: 12 }}>
-        <CustomAvatar name={voice.name} color={voice.avatarColor} icon={voice.avatarIcon} size={36} />
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+        <CustomAvatar name={voice.name} color={voice.avatarColor} icon={voice.avatarIcon} size={44} />
       </div>
-      <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>{voice.name}</div>
+      <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: 'var(--tracking-tight)' }}>{voice.name}</div>
 
-      <Row gap={3} style={{ marginTop: 5, justifyContent: 'center', flexWrap: 'wrap', flex: 1 }}>
+      <Row gap={3} style={{ marginTop: 'var(--space-1)', justifyContent: 'center', flexWrap: 'wrap', flex: 1 }}>
         {voice.pills.map((p) => (
           <VoiceAttrPill key={p.label} category={p.category}>{p.label}</VoiceAttrPill>
         ))}
       </Row>
 
-      <Row gap={4} style={{ marginTop: 8, justifyContent: 'center' }}>
+      <Row gap={4} style={{ marginTop: 'var(--space-2)', justifyContent: 'center' }}>
         <Btn small aria-label={`Preview ${voice.name}`}>
           <Row gap={3} style={{ alignItems: 'center' }}>
             <Play size={9} />
             Preview
           </Row>
         </Btn>
-        <Btn small primary onClick={onSelect}>{voice.cta}</Btn>
+        <Btn
+          small
+          onClick={onSelect}
+          style={{
+            background: 'var(--accent-tint-bg)',
+            borderColor: 'var(--accent-tint-border)',
+            color: 'var(--accent)',
+          }}
+        >
+          {voice.cta}
+        </Btn>
       </Row>
     </Card>
   );
@@ -444,25 +455,25 @@ const VoiceLab: React.FC<{
 
   return (
     <Col gap={0} style={{ flex: 1, overflowY: 'auto' }}>
-      <div style={{ padding: '10px 14px 0', flexShrink: 0 }}>
+      <div style={{ padding: 'var(--space-2) var(--space-4) 0', flexShrink: 0 }}>
         <button
           onClick={onBack}
           aria-label="Back to Voices"
           style={{
-            background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)', cursor: 'pointer',
-            fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', padding: '4px 10px',
-            display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 8,
+            background: 'var(--surface-alt)', border: 'var(--hairline)', borderRadius: 'var(--radius-button)', cursor: 'pointer',
+            fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', padding: 'var(--space-1) var(--space-2)',
+            display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 'var(--space-2)',
           }}
         >
           <ChevronRight size={11} style={{ transform: 'rotate(180deg)' }} />
           Back to Voices
         </button>
 
-        <Row gap={12} style={{ alignItems: 'flex-start', marginTop: 10 }}>
-          <CustomAvatar name={voice.name} color={voice.avatarColor} icon={voice.avatarIcon} size={56} style={{ border: '2px solid var(--accent)' }} />
+        <Row gap={12} style={{ alignItems: 'flex-start', marginTop: 'var(--space-2)' }}>
+          <CustomAvatar name={voice.name} color={voice.avatarColor} icon={voice.avatarIcon} size={56} style={{ border: '2px solid var(--accent)', boxShadow: 'var(--accent-glow-strong)' }} />
           <Col gap={4} style={{ flex: 1 }}>
             <Row gap={8} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 'var(--type-headline)', fontWeight: 700, color: 'var(--text-primary)' }}>{voice.name}</span>
+              <span style={{ fontSize: 'var(--type-headline)', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: 'var(--tracking-tight)' }}>{voice.name}</span>
               <Btn small>
                 <Row gap={4} style={{ alignItems: 'center' }}>
                   <Copy size={10} />
@@ -483,7 +494,7 @@ const VoiceLab: React.FC<{
                     <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setActionsMenuOpen(false)} />
                     <div style={{
                       position: 'absolute', left: 0, top: '100%', marginTop: 4, zIndex: 50,
-                      background: 'var(--surface)', border: '1px solid var(--border)',
+                      background: 'var(--surface)', border: 'var(--hairline)',
                       borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-lg)', minWidth: 145, overflow: 'hidden',
                     }}>
                       {[
@@ -505,9 +516,9 @@ const VoiceLab: React.FC<{
                             border: 0,
                             fontFamily: 'inherit',
                             textAlign: 'left',
-                            padding: '8px 12px', fontSize: 'var(--type-caption)', cursor: 'pointer',
+                            padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--type-caption)', cursor: 'pointer',
                             color: opt.isDanger ? 'var(--error)' : 'var(--text-primary)',
-                            borderBottom: '1px solid var(--border)',
+                            borderBottom: 'var(--hairline)',
                             background: 'var(--surface)',
                           }}
                           onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-alt)'}
@@ -529,14 +540,14 @@ const VoiceLab: React.FC<{
                 <VoiceAttrPill key={p.label} category={p.category}>{p.label}</VoiceAttrPill>
               ))}
             </Row>
-            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', marginTop: 2, lineHeight: 'var(--leading-normal)' }}>
               {voice.description || 'No description provided.'}
             </div>
           </Col>
         </Row>
 
         {/* Phase stepper */}
-        <Row gap={0} style={{ alignItems: 'center', marginTop: 14, marginBottom: 10 }}>
+        <Row gap={0} style={{ alignItems: 'center', marginTop: 'var(--space-4)', marginBottom: 'var(--space-2)' }}>
           {phaseSteps.map((step, i) => {
             const isActive = step === activeStep;
             const isPast = phaseSteps.indexOf(step) < phaseSteps.indexOf(activeStep);
@@ -550,13 +561,14 @@ const VoiceLab: React.FC<{
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flexShrink: 0, cursor: 'pointer' }}
                 >
                   <div style={{
-                    width: 20, height: 20, borderRadius: '50%',
+                    width: 22, height: 22, borderRadius: '50%',
                     background: isActive ? 'var(--accent)' : isPast ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
                     border: `2px solid ${isActive || isPast ? 'var(--accent)' : 'var(--border)'}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 'var(--type-micro)',
                     color: isActive ? 'var(--text-on-accent)' : isPast ? 'var(--accent)' : 'var(--text-muted)',
                     fontWeight: 700,
+                    boxShadow: isActive ? 'var(--shadow-sm)' : 'none',
                   }}>
                     {isPast ? '✓' : i + 1}
                   </div>
@@ -572,10 +584,10 @@ const VoiceLab: React.FC<{
             );
           })}
         </Row>
-        <div style={{ borderBottom: '1px solid var(--border)', marginBottom: 14 }} />
+        <div style={{ borderBottom: 'var(--hairline)', marginBottom: 'var(--space-4)' }} />
       </div>
 
-      <Col gap={12} style={{ padding: '0 14px 14px' }}>
+      <Col gap={12} style={{ padding: '0 var(--space-4) var(--space-4)' }}>
         {/* Sample manager */}
         {activeStep === 'Samples' && (
           <Col gap={6}>
@@ -583,8 +595,8 @@ const VoiceLab: React.FC<{
             <Card style={{ borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
               {SAMPLES.map((s, i) => (
                 <Row key={s.name} gap={8} style={{
-                  padding: '6px 10px', alignItems: 'center',
-                  borderBottom: i < SAMPLES.length - 1 ? '1px solid var(--border)' : 'none',
+                  padding: 'var(--space-2) var(--space-3)', alignItems: 'center',
+                  borderBottom: i < SAMPLES.length - 1 ? 'var(--hairline)' : 'none',
                 }}>
                   <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)', flex: 1 }}>{s.name}</span>
                   <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>{s.dur}</span>
@@ -598,8 +610,8 @@ const VoiceLab: React.FC<{
               ))}
             </Card>
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '5px 10px', border: '1px dashed var(--border)',
+              display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+              padding: 'var(--space-2) var(--space-3)', border: '1px dashed var(--border)',
               borderRadius: 'var(--radius-card)', background: 'var(--surface-alt)',
             }}>
               <Upload size={12} color="var(--text-muted)" />
@@ -620,8 +632,8 @@ const VoiceLab: React.FC<{
                   { name: 'Soft-spoken', isDefault: false, speed: '1.0', temp: '0.65' },
                 ].map((variant, i, arr) => (
                   <Row key={variant.name} gap={8} style={{
-                    padding: '6px 10px', alignItems: 'center',
-                    borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                    padding: 'var(--space-2) var(--space-3)', alignItems: 'center',
+                    borderBottom: i < arr.length - 1 ? 'var(--hairline)' : 'none',
                   }}>
                     {variant.isDefault && (
                       <Star size={11} color="var(--warning)" fill="var(--warning)" style={{ flexShrink: 0 }} aria-label="default variant" />
@@ -671,8 +683,8 @@ const VoiceLab: React.FC<{
                   { label: 'Top-k', value: '50' },
                 ].map((row, i, arr) => (
                   <Row key={row.label} gap={8} style={{
-                    padding: '6px 10px', alignItems: 'center',
-                    borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                    padding: 'var(--space-2) var(--space-3)', alignItems: 'center',
+                    borderBottom: i < arr.length - 1 ? 'var(--hairline)' : 'none',
                   }}>
                     <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)', flex: 1 }}>{row.label}</span>
                     <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{row.value}</span>
@@ -690,23 +702,23 @@ const VoiceLab: React.FC<{
         {activeStep === 'Test' && (
           <Col gap={6}>
             <Label>Test</Label>
-            <Card style={{ borderRadius: 'var(--radius-card)', padding: '8px 10px' }}>
+            <Card style={{ borderRadius: 'var(--radius-card)', padding: 'var(--space-3)' }}>
               {/* Engine + reference sample row */}
-              <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
+              <Row gap={6} style={{ alignItems: 'center', marginBottom: 'var(--space-2)' }}>
                 <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flexShrink: 0 }}>Engine</span>
-                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 8px', cursor: 'pointer' }}>
+                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', background: 'var(--surface-alt)', border: 'var(--hairline)', borderRadius: 4, padding: 'var(--space-1) var(--space-2)', cursor: 'pointer' }}>
                   <Row gap={3} style={{ alignItems: 'center' }}>Primary Engine <ChevronDown size={10} /></Row>
                 </span>
                 <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flexShrink: 0 }}>Ref</span>
-                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', background: 'var(--surface-alt)', border: 'var(--hairline)', borderRadius: 4, padding: 'var(--space-1) var(--space-2)', cursor: 'pointer', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   <Row gap={3} style={{ alignItems: 'center' }}>sample_01.mp3 <ChevronDown size={10} /></Row>
                 </span>
               </Row>
-              <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
+              <Row gap={6} style={{ alignItems: 'center', marginBottom: 'var(--space-2)' }}>
                 <div style={{
                   flex: 1, fontSize: 'var(--type-caption)', color: 'var(--text-secondary)',
-                  background: 'var(--surface-alt)', border: '1px solid var(--border)',
-                  borderRadius: 4, padding: '4px 8px',
+                  background: 'var(--surface-alt)', border: 'var(--hairline)',
+                  borderRadius: 4, padding: 'var(--space-1) var(--space-2)',
                 }}>
                   The road wound down through silver birch and pale stone.
                 </div>
@@ -763,11 +775,11 @@ const RecordingGuideModal: React.FC<{ onClose: () => void }> = ({ onClose }) => 
       }}
     >
       <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-panel)',
+        background: 'var(--surface)', border: 'var(--hairline)', borderRadius: 'var(--radius-panel)',
         width: 360, maxHeight: '90%', overflowY: 'auto', boxShadow: 'var(--shadow-xl)',
-        padding: '16px 18px',
+        padding: 'var(--space-4) var(--space-4)',
       }}>
-        <Row gap={8} style={{ alignItems: 'center', marginBottom: 12 }}>
+        <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-3)' }}>
           <span style={{ fontSize: 'var(--type-headline)', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>Recording Guide</span>
           <button onClick={onClose} aria-label="Close recording guide" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
             <X size={15} />
@@ -775,7 +787,7 @@ const RecordingGuideModal: React.FC<{ onClose: () => void }> = ({ onClose }) => 
         </Row>
 
         {/* Tips */}
-        <Col gap={10} style={{ marginBottom: 14 }}>
+        <Col gap={10} style={{ marginBottom: 'var(--space-4)' }}>
           {[
             { label: 'Audio quality', tips: ['Record in a quiet room — closets and carpeted spaces reduce echo.', 'Use 44.1kHz / 16-bit WAV or 320 kbps MP3; avoid compressed formats.'] },
             { label: 'Performance', tips: ['Maintain a consistent distance (6–8 in) from the microphone.', 'Read each prompt in your natural narrator voice without pauses mid-sentence.'] },
@@ -785,21 +797,21 @@ const RecordingGuideModal: React.FC<{ onClose: () => void }> = ({ onClose }) => 
               {group.tips.map(tip => (
                 <Row gap={6} key={tip} style={{ alignItems: 'flex-start' }}>
                   <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', flexShrink: 0, marginTop: 1 }}>•</span>
-                  <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', lineHeight: 1.5 }}>{tip}</span>
+                  <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', lineHeight: 'var(--leading-normal)' }}>{tip}</span>
                 </Row>
               ))}
             </Col>
           ))}
         </Col>
 
-        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>Prompt library</div>
+        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-2)' }}>Prompt library</div>
         <Col gap={4}>
           {/* Narration category */}
-          <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
+          <div style={{ border: 'var(--hairline)', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
             <div
               onClick={() => setNarrationOpen(o => !o)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 6, padding: 'var(--space-2) var(--space-3)', cursor: 'pointer',
                 background: narrationOpen ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
               }}
             >
@@ -816,11 +828,11 @@ const RecordingGuideModal: React.FC<{ onClose: () => void }> = ({ onClose }) => 
                   'She turned the page slowly, as if afraid of what she\'d find.',
                 ].map((prompt, i) => (
                   <Row key={prompt} gap={8} style={{
-                    padding: '6px 10px', alignItems: 'flex-start',
-                    borderTop: '1px solid var(--border)',
+                    padding: 'var(--space-2) var(--space-3)', alignItems: 'flex-start',
+                    borderTop: 'var(--hairline)',
                     background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface-alt)',
                   }}>
-                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', flex: 1, lineHeight: 1.5 }}>{prompt}</span>
+                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', flex: 1, lineHeight: 'var(--leading-normal)' }}>{prompt}</span>
                     <button aria-label="Copy prompt" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                       <Copy size={12} />
                     </button>
@@ -831,11 +843,11 @@ const RecordingGuideModal: React.FC<{ onClose: () => void }> = ({ onClose }) => 
           </div>
 
           {/* Character range category */}
-          <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
+          <div style={{ border: 'var(--hairline)', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
             <div
               onClick={() => setCharacterOpen(o => !o)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 6, padding: 'var(--space-2) var(--space-3)', cursor: 'pointer',
                 background: 'var(--surface-alt)',
               }}
             >
@@ -851,11 +863,11 @@ const RecordingGuideModal: React.FC<{ onClose: () => void }> = ({ onClose }) => 
                   '"Oh, wonderful!" she cried, eyes wide. "I never expected this at all!"',
                 ].map((prompt, i) => (
                   <Row key={prompt} gap={8} style={{
-                    padding: '6px 10px', alignItems: 'flex-start',
-                    borderTop: '1px solid var(--border)',
+                    padding: 'var(--space-2) var(--space-3)', alignItems: 'flex-start',
+                    borderTop: 'var(--hairline)',
                     background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface-alt)',
                   }}>
-                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', flex: 1, lineHeight: 1.5 }}>{prompt}</span>
+                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', flex: 1, lineHeight: 'var(--leading-normal)' }}>{prompt}</span>
                     <button aria-label="Copy prompt" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                       <Copy size={12} />
                     </button>
@@ -866,7 +878,7 @@ const RecordingGuideModal: React.FC<{ onClose: () => void }> = ({ onClose }) => 
           </div>
         </Col>
 
-        <div style={{ marginTop: 14, textAlign: 'right' }}>
+        <div style={{ marginTop: 'var(--space-4)', textAlign: 'right' }}>
           <Btn small primary onClick={onClose}>Done</Btn>
         </div>
       </div>
@@ -888,10 +900,10 @@ const CreateVoiceModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
     }}
   >
     <div style={{
-      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-panel)',
-      width: 320, boxShadow: 'var(--shadow-xl)', padding: '16px 18px',
+      background: 'var(--surface)', border: 'var(--hairline)', borderRadius: 'var(--radius-panel)',
+      width: 320, boxShadow: 'var(--shadow-xl)', padding: 'var(--space-4)',
     }}>
-      <Row gap={8} style={{ alignItems: 'center', marginBottom: 14 }}>
+      <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-4)' }}>
         <span style={{ fontSize: 'var(--type-headline)', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>New voice</span>
         <button onClick={onClose} aria-label="Close new voice dialog" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
           <X size={15} />
@@ -901,8 +913,8 @@ const CreateVoiceModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
         <Col gap={4}>
           <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-secondary)' }}>Name</div>
           <div style={{
-            background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)',
-            padding: '5px 10px', fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontStyle: 'italic',
+            background: 'var(--surface-alt)', border: 'var(--hairline)', borderRadius: 'var(--radius-button)',
+            padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontStyle: 'italic',
           }}>e.g. Elena Marsh</div>
         </Col>
         <Col gap={4}>
@@ -913,7 +925,7 @@ const CreateVoiceModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
               { id: 'voxtral', label: 'Voxtral (Mistral AI)', ready: false, note: 'Needs setup' },
             ].map(opt => (
               <Row key={opt.id} gap={8} style={{
-                padding: '6px 10px', borderRadius: 'var(--radius-button)',
+                padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius-button)',
                 background: opt.id === 'primary' ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
                 border: `1px solid ${opt.id === 'primary' ? 'var(--accent)' : 'var(--border)'}`,
                 alignItems: 'center', cursor: 'pointer',
@@ -930,7 +942,7 @@ const CreateVoiceModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
           </Col>
         </Col>
       </Col>
-      <Row gap={6} style={{ marginTop: 16, justifyContent: 'flex-end' }}>
+      <Row gap={6} style={{ marginTop: 'var(--space-4)', justifyContent: 'flex-end' }}>
         <Btn small onClick={onClose}>Cancel</Btn>
         <Btn small primary onClick={onClose}>Create voice</Btn>
       </Row>
@@ -1036,10 +1048,10 @@ const VoiceMetadataModal: React.FC<{
       }}
     >
       <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-panel)',
-        width: 380, maxHeight: '90%', overflowY: 'auto', boxShadow: 'var(--shadow-xl)', padding: '16px 18px',
+        background: 'var(--surface)', border: 'var(--hairline)', borderRadius: 'var(--radius-panel)',
+        width: 380, maxHeight: '90%', overflowY: 'auto', boxShadow: 'var(--shadow-xl)', padding: 'var(--space-4)',
       }}>
-        <Row gap={8} style={{ alignItems: 'center', marginBottom: 14 }}>
+        <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-4)' }}>
           <span style={{ fontSize: 'var(--type-headline)', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>Edit Metadata</span>
           <button onClick={onClose} aria-label="Close edit metadata dialog" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
             <X size={15} />
@@ -1049,18 +1061,18 @@ const VoiceMetadataModal: React.FC<{
         {/* Warning Banner */}
         {!hasAnyTags && (
           <div style={{
-            background: '#fef3c7',
-            border: '1px solid #f59e0b',
-            color: '#b45309',
-            padding: '8px 12px',
+            background: 'var(--warning-tint-bg)',
+            border: '1px solid var(--warning-tint-border)',
+            color: 'var(--warning-text)',
+            padding: 'var(--space-2) var(--space-3)',
             borderRadius: 'var(--radius-card)',
             fontSize: 'var(--type-caption)',
             display: 'flex',
             alignItems: 'center',
             gap: 6,
-            marginBottom: 12
+            marginBottom: 'var(--space-3)'
           }}>
-            <AlertTriangle size={14} color="#d97706" />
+            <AlertTriangle size={14} color="var(--warning)" />
             <span><strong>Not tagged:</strong> Please specify at least one taxonomy attribute below.</span>
           </div>
         )}
@@ -1074,8 +1086,8 @@ const VoiceMetadataModal: React.FC<{
               value={name}
               onChange={e => setName(e.target.value)}
               style={{
-                background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)',
-                padding: '6px 10px', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
+                background: 'var(--surface-alt)', border: 'var(--hairline)', borderRadius: 'var(--radius-button)',
+                padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
               }}
               placeholder="e.g. Elena Marsh"
             />
@@ -1092,8 +1104,8 @@ const VoiceMetadataModal: React.FC<{
               onChange={e => setDescription(e.target.value)}
               rows={3}
               style={{
-                background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)',
-                padding: '6px 10px', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
+                background: 'var(--surface-alt)', border: 'var(--hairline)', borderRadius: 'var(--radius-button)',
+                padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
                 resize: 'vertical',
               }}
               placeholder="Describe the voice character and training details..."
@@ -1108,8 +1120,8 @@ const VoiceMetadataModal: React.FC<{
                 value={avatarColor}
                 onChange={e => setAvatarColor(e.target.value)}
                 style={{
-                  background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)',
-                  padding: '6px 10px', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
+                  background: 'var(--surface-alt)', border: 'var(--hairline)', borderRadius: 'var(--radius-button)',
+                  padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
                 }}
               >
                 {colorOptions.map(opt => (
@@ -1123,8 +1135,8 @@ const VoiceMetadataModal: React.FC<{
                 value={avatarIcon}
                 onChange={e => setAvatarIcon(e.target.value)}
                 style={{
-                  background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)',
-                  padding: '6px 10px', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
+                  background: 'var(--surface-alt)', border: 'var(--hairline)', borderRadius: 'var(--radius-button)',
+                  padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
                 }}
               >
                 {iconOptions.map(opt => (
@@ -1134,7 +1146,7 @@ const VoiceMetadataModal: React.FC<{
             </Col>
           </Row>
 
-          <div style={{ borderBottom: '1px solid var(--border)', margin: '4px 0' }} />
+          <div style={{ borderBottom: 'var(--hairline)', margin: 'var(--space-1) 0' }} />
 
           {/* Taxonomy fields */}
           <Col gap={8}>
@@ -1148,8 +1160,8 @@ const VoiceMetadataModal: React.FC<{
                   value={category}
                   onChange={e => setCategory(e.target.value as any)}
                   style={{
-                    background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)',
-                    padding: '4px 8px', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
+                    background: 'var(--surface-alt)', border: 'var(--hairline)', borderRadius: 'var(--radius-button)',
+                    padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
                   }}
                 >
                   <option value="">Select...</option>
@@ -1165,8 +1177,8 @@ const VoiceMetadataModal: React.FC<{
                   value={gender}
                   onChange={e => setGender(e.target.value as any)}
                   style={{
-                    background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)',
-                    padding: '4px 8px', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
+                    background: 'var(--surface-alt)', border: 'var(--hairline)', borderRadius: 'var(--radius-button)',
+                    padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
                   }}
                 >
                   <option value="">Select...</option>
@@ -1182,8 +1194,8 @@ const VoiceMetadataModal: React.FC<{
                   value={age}
                   onChange={e => setAge(e.target.value as any)}
                   style={{
-                    background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-button)',
-                    padding: '4px 8px', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
+                    background: 'var(--surface-alt)', border: 'var(--hairline)', borderRadius: 'var(--radius-button)',
+                    padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
                   }}
                 >
                   <option value="">Select...</option>
@@ -1203,11 +1215,11 @@ const VoiceMetadataModal: React.FC<{
                     key={acc}
                     onClick={() => setAccent(accent === acc ? '' : acc)}
                     style={{
-                      border: accent === acc ? '1px solid var(--accent)' : '1px solid var(--border)',
+                      border: accent === acc ? '1px solid var(--accent)' : 'var(--hairline)',
                       background: accent === acc ? 'var(--accent-tint-bg)' : 'var(--surface)',
                       color: accent === acc ? 'var(--accent)' : 'var(--text-secondary)',
                       fontSize: 'var(--type-micro)',
-                      padding: '2px 8px',
+                      padding: 'var(--space-1) var(--space-2)',
                     }}
                   >
                     {acc}
@@ -1227,11 +1239,11 @@ const VoiceMetadataModal: React.FC<{
                       key={lang}
                       onClick={() => toggleLanguage(lang)}
                       style={{
-                        border: isSel ? '1px solid var(--accent)' : '1px solid var(--border)',
+                        border: isSel ? '1px solid var(--accent)' : 'var(--hairline)',
                         background: isSel ? 'var(--accent-tint-bg)' : 'var(--surface)',
                         color: isSel ? 'var(--accent)' : 'var(--text-secondary)',
                         fontSize: 'var(--type-micro)',
-                        padding: '2px 8px',
+                        padding: 'var(--space-1) var(--space-2)',
                       }}
                     >
                       {lang}
@@ -1252,11 +1264,11 @@ const VoiceMetadataModal: React.FC<{
                       key={st}
                       onClick={() => toggleStyle(st)}
                       style={{
-                        border: isSel ? '1px solid var(--accent)' : '1px solid var(--border)',
+                        border: isSel ? '1px solid var(--accent)' : 'var(--hairline)',
                         background: isSel ? 'var(--accent-tint-bg)' : 'var(--surface)',
                         color: isSel ? 'var(--accent)' : 'var(--text-secondary)',
                         fontSize: 'var(--type-micro)',
-                        padding: '2px 8px',
+                        padding: 'var(--space-1) var(--space-2)',
                       }}
                     >
                       {st}
@@ -1268,7 +1280,7 @@ const VoiceMetadataModal: React.FC<{
           </Col>
         </Col>
 
-        <Row gap={6} style={{ marginTop: 20, justifyContent: 'flex-end' }}>
+        <Row gap={6} style={{ marginTop: 'var(--space-5)', justifyContent: 'flex-end' }}>
           <Btn small onClick={onClose}>Cancel</Btn>
           <Btn small primary onClick={handleSave} disabled={isNameEmpty}>Save Changes</Btn>
         </Row>
@@ -1320,10 +1332,10 @@ const ExportBundleModal: React.FC<{
       }}
     >
       <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-panel)',
-        width: 340, boxShadow: 'var(--shadow-xl)', padding: '16px 18px',
+        background: 'var(--surface)', border: 'var(--hairline)', borderRadius: 'var(--radius-panel)',
+        width: 340, boxShadow: 'var(--shadow-xl)', padding: 'var(--space-4)',
       }}>
-        <Row gap={8} style={{ alignItems: 'center', marginBottom: 14 }}>
+        <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-4)' }}>
           <span style={{ fontSize: 'var(--type-headline)', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>Export Voice Bundle</span>
           <button onClick={onClose} aria-label="Close export dialog" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
             <X size={15} />
@@ -1336,7 +1348,7 @@ const ExportBundleModal: React.FC<{
               Configure the assets to package in the export bundle for <strong>{voiceName}</strong>.
             </div>
 
-            <Col gap={8} style={{ background: 'var(--surface-alt)', padding: 10, borderRadius: 'var(--radius-card)', border: '1px solid var(--border)' }}>
+            <Col gap={8} style={{ background: 'var(--surface-alt)', padding: 'var(--space-3)', borderRadius: 'var(--radius-card)', border: 'var(--hairline)' }}>
               <Label style={{ marginBottom: 4 }}>Bundle Options</Label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--type-caption)', cursor: 'pointer', color: 'var(--text-primary)' }}>
                 <input type="checkbox" checked={includeMetadata} onChange={e => setIncludeMetadata(e.target.checked)} />
@@ -1352,7 +1364,7 @@ const ExportBundleModal: React.FC<{
               </label>
             </Col>
 
-            <Row gap={8} style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+            <Row gap={8} style={{ justifyContent: 'flex-end', marginTop: 'var(--space-2)' }}>
               <Btn small onClick={onClose}>Cancel</Btn>
               <Btn small primary onClick={handleAssemble}>Assemble Bundle</Btn>
             </Row>
@@ -1360,7 +1372,7 @@ const ExportBundleModal: React.FC<{
         )}
 
         {loading && (
-          <Col gap={12} style={{ alignItems: 'center', padding: '10px 0' }}>
+          <Col gap={12} style={{ alignItems: 'center', padding: 'var(--space-3) 0' }}>
             <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>Packaging bundle components...</span>
             <div style={{ width: '100%' }}>
               <ProgressBar pct={progress} height={6} shimmer />
@@ -1370,12 +1382,12 @@ const ExportBundleModal: React.FC<{
         )}
 
         {downloadUrl && (
-          <Col gap={12} style={{ padding: '10px 0' }}>
+          <Col gap={12} style={{ padding: 'var(--space-3) 0' }}>
             <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)' }}>
-              🎉 Voice bundle successfully assembled!
+              Voice bundle successfully assembled!
             </div>
 
-            <div style={{ background: '#ecfdf5', border: '1px solid #10b981', padding: 10, borderRadius: 'var(--radius-card)', fontSize: 'var(--type-caption)', color: '#065f46' }}>
+            <div style={{ background: 'var(--success-tint-bg)', border: '1px solid var(--success)', padding: 'var(--space-3)', borderRadius: 'var(--radius-card)', fontSize: 'var(--type-caption)', color: 'var(--success-text)' }}>
               Includes: {includeMetadata ? 'Metadata, ' : ''}{includeAudio ? 'Audio, ' : ''}{includeWeights ? 'Weights' : ''}
             </div>
 
@@ -1388,11 +1400,11 @@ const ExportBundleModal: React.FC<{
                 textAlign: 'center',
                 background: 'var(--accent)',
                 color: '#fff',
-                padding: '8px 12px',
+                padding: 'var(--space-2) var(--space-3)',
                 borderRadius: 'var(--radius-button)',
                 fontSize: 'var(--type-caption)',
                 fontWeight: 600,
-                marginTop: 8,
+                marginTop: 'var(--space-2)',
               }}
               onClick={onClose}
             >
@@ -1531,7 +1543,7 @@ export const VoicesPane: React.FC = () => {
   }
 
   return (
-    <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto', position: 'relative' }}>
+    <Col gap={0} className="ns-enter" style={{ padding: 0, flex: 1, overflowY: 'auto', position: 'relative' }}>
       {showGuide && <RecordingGuideModal onClose={() => setShowGuide(false)} />}
       {showCreate && <CreateVoiceModal onClose={() => setShowCreate(false)} />}
       {editingVoice && (
@@ -1554,25 +1566,50 @@ export const VoicesPane: React.FC = () => {
         />
       )}
 
-      <Row gap={6} style={{ flexWrap: 'wrap', alignItems: 'center' }}>
-        {(['local', 'discover'] as const).map(tab => (
-          <div
-            key={tab}
-            onClick={() => setVoiceTab(tab)}
-            style={{
-              fontSize: 'var(--type-caption)', fontWeight: 600, padding: '4px 14px', borderRadius: 'var(--radius-round)', cursor: 'pointer',
-              border: `1px solid ${voiceTab === tab ? 'var(--accent)' : 'var(--border)'}`,
-              background: voiceTab === tab ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-              color: voiceTab === tab ? 'var(--accent)' : 'var(--text-secondary)',
-            }}
-          >
-            {tab === 'local' ? 'My Voices' : 'Discover'}
-          </div>
-        ))}
+      {/* Top action bar */}
+      <div style={{
+        padding: 'var(--space-3) var(--space-4)',
+        borderBottom: 'var(--hairline)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--space-2)',
+        flexWrap: 'wrap',
+      }}>
+        {/* Segmented tab control */}
+        <div style={{
+          display: 'inline-flex',
+          border: 'var(--hairline)',
+          borderRadius: 'var(--radius-round)',
+          overflow: 'hidden',
+          background: 'var(--surface-alt)',
+          flexShrink: 0,
+        }}>
+          {(['local', 'discover'] as const).map((tab, i) => (
+            <div
+              key={tab}
+              onClick={() => setVoiceTab(tab)}
+              style={{
+                fontSize: 'var(--type-caption)', fontWeight: 600,
+                padding: 'var(--space-1) var(--space-3)',
+                cursor: 'pointer',
+                borderRight: i === 0 ? 'var(--hairline)' : 'none',
+                background: voiceTab === tab ? 'var(--accent-tint-bg)' : 'transparent',
+                color: voiceTab === tab ? 'var(--accent)' : 'var(--text-secondary)',
+                transition: 'background 0.15s, color 0.15s',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {tab === 'local' ? 'My Voices' : 'Discover'}
+            </div>
+          ))}
+        </div>
+
         <div style={{ flex: 1 }} />
+
+        {/* Action buttons */}
         <Btn small onClick={() => { setEditorVoiceName(null); setEditorOpen(true); }}>
           <Row gap={4} style={{ alignItems: 'center' }}>
-            <Pencil size={13} />
+            <Pencil size={11} />
             Edit profiles
           </Row>
         </Btn>
@@ -1597,112 +1634,124 @@ export const VoicesPane: React.FC = () => {
             Recording guide
           </Row>
         </Btn>
-        <Btn small primary onClick={() => setShowCreate(true)}>+ New voice</Btn>
-      </Row>
-
-      {voiceTab === 'local' && (
-        <>
-          {/* Filter chips — use VoiceAttrPill categories for the active one */}
-          <Row gap={6} style={{ flexWrap: 'wrap' }}>
-            <VoiceAttrPill category="class">Narrator</VoiceAttrPill>
-            <VoiceAttrPill category="gender">Female</VoiceAttrPill>
-            <VoiceAttrPill category="age">Adult</VoiceAttrPill>
-            <VoiceAttrPill category="extended">Warm</VoiceAttrPill>
-            <Chip>+ Filter</Chip>
+        <Btn primary onClick={() => setShowCreate(true)}>
+          <Row gap={4} style={{ alignItems: 'center' }}>
+            + New voice
           </Row>
+        </Btn>
+      </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(145px, 1fr))', gap: 8 }}>
-            {voices.map((v) => {
-              const isDefault = v.name === defaultVoiceName;
-              const hasWarning = !(v.languages && v.languages.length > 0) &&
-                                 !v.accent &&
-                                 !(v.styles && v.styles.length > 0) &&
-                                 !v.category &&
-                                 !v.gender &&
-                                 !v.age;
+      <Col gap={0} style={{ padding: 'var(--space-3) var(--space-4)', flex: 1 }}>
+        {voiceTab === 'local' && (
+          <>
+            {/* Filter chips */}
+            <Row gap={6} style={{ flexWrap: 'wrap', marginBottom: 'var(--space-3)' }}>
+              <VoiceAttrPill category="class">Narrator</VoiceAttrPill>
+              <VoiceAttrPill category="gender">Female</VoiceAttrPill>
+              <VoiceAttrPill category="age">Adult</VoiceAttrPill>
+              <VoiceAttrPill category="extended">Warm</VoiceAttrPill>
+              <Chip>+ Filter</Chip>
+            </Row>
 
-              return (
-                <MyVoiceCard
-                  key={v.name}
-                  voice={v}
-                  isDefault={isDefault}
-                  hasWarning={hasWarning}
-                  onSelect={() => setSelectedVoiceName(v.name)}
-                  onSetDefault={() => setDefaultVoiceName(v.name)}
-                  onEditMetadata={() => { setEditorVoiceName(v.name); setEditorOpen(true); }}
-                  onRename={() => {
-                    const newName = window.prompt(`Rename voice "${v.name}" to:`, v.name);
-                    if (newName !== null && newName.trim() !== '') {
-                      setVoices(prev => prev.map(item => item.name === v.name ? { ...item, name: newName.trim() } : item));
-                    }
-                  }}
-                  onExportBundle={() => setExportingVoice(v)}
-                  onDelete={() => {
-                    if (window.confirm(`Are you sure you want to delete the voice "${v.name}"?`)) {
-                      setVoices(prev => prev.filter(item => item.name !== v.name));
-                    }
-                  }}
-                />
-              );
-            })}
-          </div>
-        </>
-      )}
+            <div
+              className="ns-stagger"
+              style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: 'var(--space-2)' }}
+            >
+              {voices.map((v) => {
+                const isDefault = v.name === defaultVoiceName;
+                const hasWarning = !(v.languages && v.languages.length > 0) &&
+                                   !v.accent &&
+                                   !(v.styles && v.styles.length > 0) &&
+                                   !v.category &&
+                                   !v.gender &&
+                                   !v.age;
 
-      {voiceTab === 'discover' && (
-        <>
-          <Row gap={6} style={{ alignItems: 'center' }}>
-            <div style={{
-              flex: 1, display: 'flex', alignItems: 'center', gap: 6,
-              background: 'var(--surface-alt)', border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-card)', padding: '4px 10px',
-            }}>
-              <Search size={12} color="var(--text-muted)" />
-              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontStyle: 'italic' }}>Search voices…</span>
+                return (
+                  <MyVoiceCard
+                    key={v.name}
+                    voice={v}
+                    isDefault={isDefault}
+                    hasWarning={hasWarning}
+                    onSelect={() => setSelectedVoiceName(v.name)}
+                    onSetDefault={() => setDefaultVoiceName(v.name)}
+                    onEditMetadata={() => { setEditorVoiceName(v.name); setEditorOpen(true); }}
+                    onRename={() => {
+                      const newName = window.prompt(`Rename voice "${v.name}" to:`, v.name);
+                      if (newName !== null && newName.trim() !== '') {
+                        setVoices(prev => prev.map(item => item.name === v.name ? { ...item, name: newName.trim() } : item));
+                      }
+                    }}
+                    onExportBundle={() => setExportingVoice(v)}
+                    onDelete={() => {
+                      if (window.confirm(`Are you sure you want to delete the voice "${v.name}"?`)) {
+                        setVoices(prev => prev.filter(item => item.name !== v.name));
+                      }
+                    }}
+                  />
+                );
+              })}
             </div>
-          </Row>
-          <Row gap={6} style={{ flexWrap: 'wrap' }}>
-            <VoiceAttrPill category="class">Narrator</VoiceAttrPill>
-            <VoiceAttrPill category="gender">Male</VoiceAttrPill>
-            <VoiceAttrPill category="extended">English</VoiceAttrPill>
-            <Chip>+ Filter</Chip>
-          </Row>
-          <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-            Community voices from Hugging Face — install to use locally.
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(145px, 1fr))', gap: 8 }}>
-            {DISCOVER_CARDS.map((v, idx) => (
-              <Card key={v.name} style={{
-                padding: '10px 10px 8px', textAlign: 'center',
-                borderRadius: 'var(--radius-card)',
+          </>
+        )}
+
+        {voiceTab === 'discover' && (
+          <>
+            <Row gap={6} style={{ alignItems: 'center', marginBottom: 'var(--space-2)' }}>
+              <div style={{
+                flex: 1, display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--surface-alt)', border: 'var(--hairline)',
+                borderRadius: 'var(--radius-card)', padding: 'var(--space-1) var(--space-3)',
               }}>
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}>
-                  <Avatar name={v.name} size={36} style={{ background: 'var(--surface-alt)', borderColor: 'var(--border)' }} />
-                </div>
-                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>{v.name}</div>
-                <Row gap={3} style={{ marginTop: 5, justifyContent: 'center', flexWrap: 'wrap' }}>
-                  {v.pills.map(p => (
-                    <VoiceAttrPill key={p.label} category={p.category}>{p.label}</VoiceAttrPill>
-                  ))}
-                </Row>
-                {idx === 1 ? (
-                  <Col gap={3} style={{ marginTop: 6 }}>
-                    <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', fontStyle: 'italic' }}>installing… 64%</span>
-                    <ProgressBar pct={64} height={3} shimmer />
-                  </Col>
-                ) : (
-                  <Btn small style={{ marginTop: 6 }}>
-                    <Row gap={4} style={{ alignItems: 'center' }}>
-                      <Download size={10} />
-                      Install
-                    </Row>
-                  </Btn>
-                )}
-              </Card>
-            ))}
-          </div>
-        </>
-      )}
+                <Search size={12} color="var(--text-muted)" />
+                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontStyle: 'italic' }}>Search voices…</span>
+              </div>
+            </Row>
+            <Row gap={6} style={{ flexWrap: 'wrap', marginBottom: 'var(--space-2)' }}>
+              <VoiceAttrPill category="class">Narrator</VoiceAttrPill>
+              <VoiceAttrPill category="gender">Male</VoiceAttrPill>
+              <VoiceAttrPill category="extended">English</VoiceAttrPill>
+              <Chip>+ Filter</Chip>
+            </Row>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 'var(--space-3)' }}>
+              Community voices from Hugging Face — install to use locally.
+            </div>
+            <div
+              className="ns-stagger"
+              style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: 'var(--space-2)' }}
+            >
+              {DISCOVER_CARDS.map((v, idx) => (
+                <Card interactive key={v.name} style={{
+                  padding: 'var(--space-3) var(--space-3) var(--space-2)', textAlign: 'center',
+                  borderRadius: 'var(--radius-card)',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-2)' }}>
+                    <Avatar name={v.name} size={44} style={{ background: 'var(--surface-alt)', borderColor: 'var(--border)' }} />
+                  </div>
+                  <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: 'var(--tracking-tight)' }}>{v.name}</div>
+                  <Row gap={3} style={{ marginTop: 'var(--space-1)', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    {v.pills.map(p => (
+                      <VoiceAttrPill key={p.label} category={p.category}>{p.label}</VoiceAttrPill>
+                    ))}
+                  </Row>
+                  {idx === 1 ? (
+                    <Col gap={3} style={{ marginTop: 'var(--space-2)' }}>
+                      <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', fontStyle: 'italic' }}>installing… 64%</span>
+                      <ProgressBar pct={64} height={3} shimmer />
+                    </Col>
+                  ) : (
+                    <Btn small style={{ marginTop: 'var(--space-2)' }}>
+                      <Row gap={4} style={{ alignItems: 'center' }}>
+                        <Download size={10} />
+                        Install
+                      </Row>
+                    </Btn>
+                  )}
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
+      </Col>
     </Col>
   );
 };

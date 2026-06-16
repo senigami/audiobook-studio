@@ -41,10 +41,10 @@ const Segmented: React.FC<{
     aria-label={ariaLabel}
     style={{
       display: 'inline-flex',
-      gap: 2,
-      padding: 2,
+      gap: 'var(--space-1)',
+      padding: 'var(--space-1)',
       background: 'var(--surface-alt)',
-      border: '1px solid var(--border)',
+      border: '1px solid var(--hairline)',
       borderRadius: 'var(--radius-button)',
     }}
   >
@@ -61,14 +61,15 @@ const Segmented: React.FC<{
             padding: '5px 14px',
             minHeight: 30,
             borderRadius: 'calc(var(--radius-button) - 2px)',
-            border: 'none',
-            background: sel ? 'var(--surface)' : 'transparent',
+            border: sel ? '1px solid var(--accent-tint-border)' : '1px solid transparent',
+            background: sel ? 'var(--accent-tint-bg)' : 'transparent',
             boxShadow: sel ? 'var(--shadow-sm)' : 'none',
-            color: sel ? 'var(--text-primary)' : 'var(--text-secondary)',
+            color: sel ? 'var(--accent)' : 'var(--text-secondary)',
             fontWeight: 600,
             fontSize: 'var(--type-caption)',
             fontFamily: 'inherit',
             cursor: 'pointer',
+            transition: 'background var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard)',
           }}
         >
           {opt}
@@ -88,16 +89,17 @@ const ToggleChip: React.FC<{ label: string; on: boolean; onClick: () => void }> 
     onClick={onClick}
     aria-pressed={on}
     style={{
-      padding: '5px 12px',
+      padding: '5px 14px',
       minHeight: 32,
-      borderRadius: 999,
+      borderRadius: 'var(--radius-round)',
       fontFamily: 'inherit',
       fontSize: 'var(--type-caption)',
       fontWeight: 600,
       cursor: 'pointer',
-      border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-      background: on ? 'var(--accent-tint-bg)' : 'var(--surface)',
+      border: `1px solid ${on ? 'var(--accent-tint-border)' : 'var(--hairline)'}`,
+      background: on ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
       color: on ? 'var(--accent)' : 'var(--text-secondary)',
+      transition: 'background var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard)',
     }}
   >
     {label}
@@ -105,7 +107,7 @@ const ToggleChip: React.FC<{ label: string; on: boolean; onClick: () => void }> 
 );
 
 // ---------------------------------------------------------------------------
-// Section label helper
+// Section label helper — uppercase eyebrow with generous breathing room
 
 const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div
@@ -113,9 +115,24 @@ const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       fontSize: 'var(--type-micro)',
       fontWeight: 700,
       textTransform: 'uppercase',
-      letterSpacing: '0.06em',
+      letterSpacing: 'var(--tracking-wide)',
       color: 'var(--text-muted)',
-      marginBottom: 8,
+      marginBottom: 'var(--space-2)',
+      paddingTop: 'var(--space-1)',
+    }}
+  >
+    {children}
+  </div>
+);
+
+// Form field label helper
+const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div
+    style={{
+      fontSize: 'var(--type-caption)',
+      fontWeight: 600,
+      color: 'var(--text-secondary)',
+      letterSpacing: 'var(--tracking-tight)',
     }}
   >
     {children}
@@ -125,14 +142,16 @@ const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 // Input/textarea shared styles (object, to reuse inline)
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  padding: '8px 10px',
-  border: '1px solid var(--border)',
+  padding: '10px var(--space-3)',
+  border: '1px solid var(--hairline)',
   borderRadius: 'var(--radius-button)',
-  background: 'var(--surface)',
+  background: 'var(--surface-alt)',
   color: 'var(--text-primary)',
   fontFamily: 'inherit',
-  fontSize: 'var(--type-caption)',
+  fontSize: 'var(--type-body)',
   boxSizing: 'border-box',
+  outline: 'none',
+  transition: 'border-color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard)',
 };
 
 // ---------------------------------------------------------------------------
@@ -190,7 +209,10 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, containerType: 'inline-size' }}>
+    <div
+      className="ns-enter"
+      style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, containerType: 'inline-size' }}
+    >
       {/* Scoped container query styles — the container is THIS root (an element
           cannot respond to its own container query), so .vpe-split is queried as
           a descendant. */}
@@ -199,7 +221,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
           .vpe-split { grid-template-columns: 1fr !important; }
           .vpe-list {
             border-right: none !important;
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid var(--hairline);
             display: flex !important;
             flex-direction: row !important;
             overflow-x: auto;
@@ -211,6 +233,29 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
           .vpe-list .vpe-row { flex: 0 0 auto; min-height: 0; }
           .vpe-list .vpe-sublabel { display: none; }
         }
+        .vpe-row { transition: background var(--dur-fast) var(--ease-standard); }
+        .vpe-row:not([aria-current="true"]):hover {
+          background: var(--surface-dim) !important;
+        }
+        .vpe-input:focus {
+          border-color: var(--accent-tint-border) !important;
+          box-shadow: 0 0 0 3px var(--accent-tint-bg) !important;
+          background: var(--surface) !important;
+        }
+        .vpe-dropzone:hover {
+          border-color: var(--accent-tint-border) !important;
+          background: var(--accent-tint-bg) !important;
+          color: var(--accent) !important;
+        }
+        .vpe-mgmt-btn:hover {
+          border-color: var(--accent-tint-border) !important;
+          background: var(--accent-tint-bg) !important;
+          color: var(--text-primary) !important;
+        }
+        .vpe-sample-row:hover {
+          background: var(--surface) !important;
+          border-color: var(--accent-tint-border) !important;
+        }
       `}</style>
 
       {/* ── Top bar ────────────────────────────────────────────────── */}
@@ -218,11 +263,11 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
         style={{
           height: 48,
           flexShrink: 0,
-          borderBottom: '1px solid var(--border)',
+          borderBottom: `1px solid var(--hairline)`,
           display: 'flex',
           alignItems: 'center',
-          gap: 10,
-          padding: '0 14px',
+          gap: 'var(--space-2)',
+          padding: '0 var(--space-3)',
         }}
       >
         {/* Back button */}
@@ -233,7 +278,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 4,
+            gap: 'var(--space-1)',
             background: 'none',
             border: 'none',
             cursor: 'pointer',
@@ -241,7 +286,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
             fontSize: 'var(--type-caption)',
             fontWeight: 600,
             fontFamily: 'inherit',
-            padding: '4px 6px',
+            padding: '4px var(--space-2)',
             borderRadius: 'var(--radius-button)',
           }}
         >
@@ -285,7 +330,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
           className="vpe-list"
           style={{
             overflowY: 'auto',
-            borderRight: '1px solid var(--border)',
+            borderRight: `1px solid var(--hairline)`,
             background: 'var(--surface-alt)',
             minHeight: 0,
             display: 'flex',
@@ -300,8 +345,8 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
               top: 0,
               zIndex: 1,
               background: 'var(--surface-alt)',
-              borderBottom: '1px solid var(--border)',
-              padding: '8px 10px 6px',
+              borderBottom: `1px solid var(--hairline)`,
+              padding: 'var(--space-2) var(--space-3) var(--space-2)',
             }}
           >
             <div
@@ -309,9 +354,9 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                 fontSize: 'var(--type-micro)',
                 fontWeight: 700,
                 textTransform: 'uppercase',
-                letterSpacing: '0.08em',
+                letterSpacing: 'var(--tracking-wide)',
                 color: 'var(--text-muted)',
-                marginBottom: 6,
+                marginBottom: 'var(--space-2)',
               }}
             >
               Voices
@@ -321,11 +366,11 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 6,
+                gap: 'var(--space-2)',
                 background: 'var(--surface)',
-                border: '1px solid var(--border)',
+                border: '1px solid var(--hairline)',
                 borderRadius: 'var(--radius-button)',
-                padding: '5px 8px',
+                padding: '6px var(--space-2)',
               }}
             >
               <Search size={12} color="var(--text-muted)" />
@@ -355,9 +400,9 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                 onClick={() => setSelectedName(v.name)}
                 style={{
                   display: 'flex',
-                  gap: 10,
+                  gap: 'var(--space-2)',
                   alignItems: 'center',
-                  padding: '8px 12px',
+                  padding: 'var(--space-2) var(--space-3)',
                   minHeight: 44,
                   border: 'none',
                   textAlign: 'left',
@@ -386,7 +431,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                     style={{
                       fontSize: 'var(--type-micro)',
                       color: 'var(--text-muted)',
-                      marginTop: 1,
+                      marginTop: 'var(--space-1)',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -423,33 +468,33 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
             <>
               {/* Sticky glass header */}
               <div
+                className="ns-glass"
                 style={{
                   position: 'sticky',
                   top: 0,
                   zIndex: 2,
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  background: 'color-mix(in srgb, var(--surface) 82%, transparent)',
-                  borderBottom: '1px solid var(--border)',
-                  padding: '16px 20px',
+                  background: 'var(--glass)',
+                  borderBottom: `1px solid var(--hairline)`,
+                  padding: 'var(--space-4) var(--space-5)',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 14,
+                  gap: 'var(--space-4)',
                 }}
               >
                 <Avatar name={selected.name} size={56} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{
-                      fontSize: '1.25rem',
+                      fontSize: 'var(--type-title)',
                       fontWeight: 700,
                       color: 'var(--text-primary)',
-                      lineHeight: 1.2,
+                      lineHeight: 'var(--leading-tight)',
+                      letterSpacing: 'var(--tracking-tight)',
                     }}
                   >
                     {selected.name}
                   </div>
-                  <Row gap={4} style={{ flexWrap: 'wrap', marginTop: 5 }}>
+                  <Row gap={4} style={{ flexWrap: 'wrap', marginTop: 'var(--space-1)' }}>
                     {selected.category && (
                       <VoiceAttrPill category="class">{selected.category}</VoiceAttrPill>
                     )}
@@ -487,7 +532,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                       width: 32,
                       height: 32,
                       borderRadius: 'var(--radius-button)',
-                      border: '1px solid var(--border)',
+                      border: `1px solid var(--hairline)`,
                       background: 'var(--surface-alt)',
                       cursor: 'pointer',
                       color: 'var(--text-secondary)',
@@ -501,10 +546,10 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
               {/* Form body */}
               <div
                 style={{
-                  padding: '16px 20px',
+                  padding: 'var(--space-5)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 16,
+                  gap: 'var(--space-5)',
                   maxWidth: 760,
                 }}
               >
@@ -513,41 +558,27 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                   <SectionLabel>Identity</SectionLabel>
                   <Panel
                     style={{
-                      padding: 14,
+                      padding: 'var(--space-4)',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 12,
+                      gap: 'var(--space-4)',
                     }}
                   >
-                    <Col gap={5}>
-                      <label
-                        style={{
-                          fontSize: 'var(--type-micro)',
-                          fontWeight: 600,
-                          color: 'var(--text-secondary)',
-                        }}
-                      >
-                        Name
-                      </label>
+                    <Col gap={6}>
+                      <FieldLabel>Name</FieldLabel>
                       <input
                         type="text"
+                        className="vpe-input"
                         value={selected.name}
                         onChange={e => patch('name', e.target.value)}
                         style={inputStyle}
                       />
                     </Col>
-                    <Col gap={5}>
-                      <label
-                        style={{
-                          fontSize: 'var(--type-micro)',
-                          fontWeight: 600,
-                          color: 'var(--text-secondary)',
-                        }}
-                      >
-                        Description
-                      </label>
+                    <Col gap={6}>
+                      <FieldLabel>Description</FieldLabel>
                       <textarea
                         rows={3}
+                        className="vpe-input"
                         value={selected.description}
                         onChange={e => patch('description', e.target.value)}
                         style={{ ...inputStyle, resize: 'vertical' }}
@@ -559,53 +590,41 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                 {/* ── APPEARANCE ──────────────────────────────────── */}
                 <section>
                   <SectionLabel>Appearance</SectionLabel>
-                  <Panel style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <Panel style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                     {/* Image upload — the primary way to set a voice icon */}
                     <Row gap={12} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
                       <Avatar name={selected.name} size={48} />
-                      <Col gap={4}>
+                      <Col gap={6} style={{ flex: 1 }}>
                         <Row gap={8} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
                           <button
                             type="button"
                             aria-label="Upload voice image"
+                            className="vpe-dropzone"
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: 6,
-                              padding: '7px 12px',
+                              gap: 'var(--space-2)',
+                              padding: '8px var(--space-3)',
                               borderRadius: 'var(--radius-button)',
-                              border: '1px dashed var(--border)',
-                              background: 'var(--surface)',
+                              border: '1px dashed var(--hairline)',
+                              background: 'var(--surface-alt)',
                               color: 'var(--text-secondary)',
                               fontFamily: 'inherit',
                               fontSize: 'var(--type-caption)',
                               fontWeight: 600,
                               cursor: 'pointer',
+                              transition: 'background var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard)',
                             }}
                           >
                             <ImagePlus size={14} />
                             Upload image
                           </button>
-                          <button
-                            type="button"
-                            aria-label="Generate image prompt from attributes"
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 5,
-                              background: 'none',
-                              border: 'none',
-                              padding: '4px 2px',
-                              cursor: 'pointer',
-                              fontFamily: 'inherit',
-                              fontSize: 'var(--type-caption)',
-                              fontWeight: 600,
-                              color: 'var(--accent)',
-                            }}
-                          >
-                            <Sparkles size={13} />
-                            Generate prompt
-                          </button>
+                          <Btn primary>
+                            <Row gap={5} style={{ alignItems: 'center' }}>
+                              <Sparkles size={13} />
+                              Generate prompt
+                            </Row>
+                          </Btn>
                         </Row>
                         <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
                           JPG or PNG · square works best. Falls back to a color tile below.
@@ -614,53 +633,63 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                     </Row>
 
                     {/* Color-tile fallback when there is no uploaded image */}
-                    <Row gap={8} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontWeight: 600 }}>
-                        Or pick a color
-                      </span>
-                      {AVATAR_COLORS.map(color => {
-                        const isActive = selected.avatarColor === color;
-                        return (
+                    <div
+                      style={{
+                        paddingTop: 'var(--space-3)',
+                        borderTop: `1px solid var(--hairline)`,
+                      }}
+                    >
+                      <Row gap={8} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontWeight: 600 }}>
+                          Or pick a color
+                        </span>
+                        {AVATAR_COLORS.map(color => {
+                          const isActive = selected.avatarColor === color;
+                          return (
+                            <button
+                              key={color}
+                              type="button"
+                              aria-label={`Set avatar color ${color}`}
+                              onClick={() => patch('avatarColor', color)}
+                              style={{
+                                width: 24,
+                                height: 24,
+                                borderRadius: '50%',
+                                background: color,
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: 0,
+                                flexShrink: 0,
+                                boxShadow: isActive
+                                  ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent)'
+                                  : 'var(--shadow-sm)',
+                                transform: isActive ? 'scale(1.15)' : 'scale(1)',
+                                transition: 'transform var(--dur-fast) var(--ease-spring), box-shadow var(--dur-fast) var(--ease-standard)',
+                              }}
+                            />
+                          );
+                        })}
+                        {selected.avatarColor && (
                           <button
-                            key={color}
                             type="button"
-                            aria-label={`Set avatar color ${color}`}
-                            onClick={() => patch('avatarColor', color)}
+                            aria-label="Clear avatar color"
+                            onClick={() => patch('avatarColor', '')}
                             style={{
-                              width: 22,
-                              height: 22,
-                              borderRadius: '50%',
-                              background: color,
-                              border: 'none',
+                              fontSize: 'var(--type-micro)',
+                              color: 'var(--text-muted)',
+                              background: 'none',
+                              border: `1px solid var(--hairline)`,
+                              borderRadius: 'var(--radius-button)',
+                              padding: '3px var(--space-2)',
                               cursor: 'pointer',
-                              padding: 0,
-                              boxShadow: isActive
-                                ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent)'
-                                : 'none',
+                              fontFamily: 'inherit',
                             }}
-                          />
-                        );
-                      })}
-                      {selected.avatarColor && (
-                        <button
-                          type="button"
-                          aria-label="Clear avatar color"
-                          onClick={() => patch('avatarColor', '')}
-                          style={{
-                            fontSize: 'var(--type-micro)',
-                            color: 'var(--text-muted)',
-                            background: 'none',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius-button)',
-                            padding: '2px 8px',
-                            cursor: 'pointer',
-                            fontFamily: 'inherit',
-                          }}
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </Row>
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </Row>
+                    </div>
                   </Panel>
                 </section>
 
@@ -669,10 +698,10 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                   <SectionLabel>Classification</SectionLabel>
                   <Panel
                     style={{
-                      padding: 14,
+                      padding: 'var(--space-4)',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 12,
+                      gap: 'var(--space-4)',
                     }}
                   >
                     <Row gap={10} style={{ alignItems: 'center' }}>
@@ -699,6 +728,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                         }
                       />
                     </Row>
+                    <div style={{ height: 1, background: 'var(--hairline)' }} />
                     <Row gap={10} style={{ alignItems: 'center' }}>
                       <div
                         style={{
@@ -720,6 +750,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                         }
                       />
                     </Row>
+                    <div style={{ height: 1, background: 'var(--hairline)' }} />
                     <Row gap={10} style={{ alignItems: 'center' }}>
                       <div
                         style={{
@@ -749,22 +780,14 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                   <SectionLabel>Languages &amp; Accent</SectionLabel>
                   <Panel
                     style={{
-                      padding: 14,
+                      padding: 'var(--space-4)',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 12,
+                      gap: 'var(--space-4)',
                     }}
                   >
-                    <Col gap={6}>
-                      <div
-                        style={{
-                          fontSize: 'var(--type-caption)',
-                          fontWeight: 600,
-                          color: 'var(--text-secondary)',
-                        }}
-                      >
-                        Languages
-                      </div>
+                    <Col gap={8}>
+                      <FieldLabel>Languages</FieldLabel>
                       <Row gap={6} style={{ flexWrap: 'wrap' }}>
                         {LANGUAGE_OPTIONS.map(lang => {
                           const on = (selected.languages ?? []).includes(lang);
@@ -785,16 +808,9 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                         })}
                       </Row>
                     </Col>
-                    <Col gap={6}>
-                      <div
-                        style={{
-                          fontSize: 'var(--type-caption)',
-                          fontWeight: 600,
-                          color: 'var(--text-secondary)',
-                        }}
-                      >
-                        Accent
-                      </div>
+                    <div style={{ height: 1, background: 'var(--hairline)' }} />
+                    <Col gap={8}>
+                      <FieldLabel>Accent</FieldLabel>
                       <Row gap={6} style={{ flexWrap: 'wrap' }}>
                         {ACCENT_OPTIONS.map(acc => {
                           const on = selected.accent === acc;
@@ -817,7 +833,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                 {/* ── SPEAKING STYLES ─────────────────────────────── */}
                 <section>
                   <SectionLabel>Speaking Styles</SectionLabel>
-                  <Panel style={{ padding: 14 }}>
+                  <Panel style={{ padding: 'var(--space-4)' }}>
                     <Row gap={6} style={{ flexWrap: 'wrap' }}>
                       {STYLE_OPTIONS.map(st => {
                         const on = (selected.styles ?? []).includes(st);
@@ -845,22 +861,24 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                   <SectionLabel>Samples</SectionLabel>
                   <Panel
                     style={{
-                      padding: 14,
+                      padding: 'var(--space-4)',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 8,
+                      gap: 'var(--space-2)',
                     }}
                   >
                     {MOCK_SAMPLES.map(s => (
                       <Row
                         key={s.label}
                         gap={10}
+                        className="vpe-sample-row"
                         style={{
                           alignItems: 'center',
-                          padding: '6px 8px',
+                          padding: 'var(--space-2) var(--space-3)',
                           borderRadius: 'var(--radius-button)',
                           background: 'var(--surface-alt)',
-                          border: '1px solid var(--border)',
+                          border: `1px solid var(--hairline)`,
+                          transition: 'background var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard)',
                         }}
                       >
                         <button
@@ -873,10 +891,10 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                             width: 28,
                             height: 28,
                             borderRadius: '50%',
-                            border: '1px solid var(--border)',
+                            border: `1px solid var(--hairline)`,
                             background: 'var(--surface)',
                             cursor: 'pointer',
-                            color: 'var(--text-primary)',
+                            color: 'var(--accent)',
                             flexShrink: 0,
                           }}
                         >
@@ -908,9 +926,11 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                         alignSelf: 'flex-start',
                         background: 'none',
                         border: 'none',
-                        padding: '4px 0',
+                        padding: 'var(--space-1) 0',
+                        marginTop: 'var(--space-1)',
                         cursor: 'pointer',
                         fontSize: 'var(--type-caption)',
+                        fontWeight: 600,
                         color: 'var(--accent)',
                         fontFamily: 'inherit',
                         textDecoration: 'underline',
@@ -924,23 +944,25 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                 {/* ── MANAGEMENT ──────────────────────────────────── */}
                 <section>
                   <SectionLabel>Management</SectionLabel>
-                  <Panel style={{ padding: 14 }}>
+                  <Panel style={{ padding: 'var(--space-4)' }}>
                     <Row gap={8} style={{ flexWrap: 'wrap' }}>
                       <button
                         type="button"
+                        className="vpe-mgmt-btn"
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: 6,
-                          background: 'none',
-                          border: '1px solid var(--border)',
+                          gap: 'var(--space-2)',
+                          background: 'var(--surface-alt)',
+                          border: `1px solid var(--hairline)`,
                           borderRadius: 'var(--radius-button)',
-                          padding: '6px 12px',
+                          padding: '7px var(--space-3)',
                           cursor: 'pointer',
                           fontSize: 'var(--type-caption)',
                           color: 'var(--text-secondary)',
                           fontFamily: 'inherit',
                           fontWeight: 600,
+                          transition: 'background var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard)',
                         }}
                       >
                         <Download size={13} />
@@ -948,19 +970,21 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                       </button>
                       <button
                         type="button"
+                        className="vpe-mgmt-btn"
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: 6,
-                          background: 'none',
-                          border: '1px solid var(--border)',
+                          gap: 'var(--space-2)',
+                          background: 'var(--surface-alt)',
+                          border: `1px solid var(--hairline)`,
                           borderRadius: 'var(--radius-button)',
-                          padding: '6px 12px',
+                          padding: '7px var(--space-3)',
                           cursor: 'pointer',
                           fontSize: 'var(--type-caption)',
                           color: 'var(--text-secondary)',
                           fontFamily: 'inherit',
                           fontWeight: 600,
+                          transition: 'background var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard)',
                         }}
                       >
                         <RotateCcw size={13} />
@@ -971,11 +995,11 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: 6,
-                          background: 'none',
-                          border: 'none',
+                          gap: 'var(--space-2)',
+                          background: 'var(--error-tint-bg)',
+                          border: `1px solid var(--error-tint-border)`,
                           borderRadius: 'var(--radius-button)',
-                          padding: '6px 12px',
+                          padding: '7px var(--space-3)',
                           cursor: 'pointer',
                           fontSize: 'var(--type-caption)',
                           color: 'var(--error-text)',

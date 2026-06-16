@@ -15,7 +15,7 @@ import {
   PlusCircle,
 } from 'lucide-react';
 import {
-  Row, Col, Label, SemanticChip, Btn, ProgressBar, StatusPill, BookCover, Card, Panel,
+  Row, Col, SemanticChip, Btn, ProgressBar, StatusPill, BookCover, Card, Panel,
 } from '../shared';
 
 const LIBRARY_BOOKS = [
@@ -46,11 +46,11 @@ const CreateBookModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         background: 'var(--surface)',
         border: '1px solid var(--border)',
         borderRadius: 'var(--radius-panel)',
-        padding: '18px 20px',
+        padding: 'var(--space-4) var(--space-4)',
         width: 320,
         boxShadow: 'var(--shadow-xl)',
       }}>
-        <div style={{ fontSize: 'var(--type-headline)', fontWeight: 'var(--type-weight-headline)' as unknown as number, color: 'var(--text-primary)', marginBottom: 14 }}>
+        <div style={{ fontSize: 'var(--type-headline)', fontWeight: 'var(--type-weight-headline)' as unknown as number, color: 'var(--text-primary)', marginBottom: 'var(--space-3)' }}>
           New Book
         </div>
         {/* Cover dropzone */}
@@ -59,14 +59,14 @@ const CreateBookModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           borderRadius: 'var(--radius-card)',
           height: 72,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexDirection: 'column', gap: 4, marginBottom: 12,
+          flexDirection: 'column', gap: 4, marginBottom: 'var(--space-3)',
           background: 'var(--surface-alt)', cursor: 'pointer',
         }}>
           <Upload size={18} color="var(--text-muted)" strokeWidth={1.5} />
           <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>Drop cover image or click to browse</span>
         </div>
         {/* Title */}
-        <div style={{ marginBottom: 8 }}>
+        <div style={{ marginBottom: 'var(--space-2)' }}>
           <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginBottom: 3 }}>
             Title <span style={{ color: 'var(--error)' }}>*</span>
           </div>
@@ -85,7 +85,7 @@ const CreateBookModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           />
         </div>
         {/* Author */}
-        <div style={{ marginBottom: 8 }}>
+        <div style={{ marginBottom: 'var(--space-2)' }}>
           <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginBottom: 3 }}>Author</div>
           <input
             placeholder="Author name…"
@@ -100,7 +100,7 @@ const CreateBookModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           />
         </div>
         {/* Series */}
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ marginBottom: 'var(--space-3)' }}>
           <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginBottom: 3 }}>Series</div>
           <input
             placeholder="Series name (optional)…"
@@ -139,11 +139,11 @@ const DeleteConfirmDialog: React.FC<{ bookTitle: string; onClose: () => void }> 
     <div style={{
       background: 'var(--surface)',
       border: '1px solid var(--error-tint-border)',
-      borderRadius: 'var(--radius-panel)', padding: '18px 20px', width: 280,
+      borderRadius: 'var(--radius-panel)', padding: 'var(--space-4) var(--space-4)', width: 280,
       boxShadow: 'var(--shadow-xl)',
     }}>
       <div style={{ fontSize: 'var(--type-headline)', fontWeight: 'var(--type-weight-headline)' as unknown as number, color: 'var(--error)', marginBottom: 6 }}>Delete book?</div>
-      <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.5 }}>
+      <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)', lineHeight: 1.5 }}>
         <strong style={{ color: 'var(--text-primary)' }}>{bookTitle}</strong> and all its chapters, audio, and renders will be permanently deleted. This cannot be undone.
       </div>
       <Row gap={8} style={{ justifyContent: 'flex-end' }}>
@@ -194,8 +194,8 @@ const LibraryEmptyState: React.FC<{ onNew: () => void }> = ({ onNew }) => (
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 12,
-      padding: '48px 24px',
+      gap: 'var(--space-3)',
+      padding: 'var(--space-6) var(--space-4)',
       flex: 1,
     }}
   >
@@ -236,20 +236,49 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
       {showCreateModal && <CreateBookModal onClose={() => setShowCreateModal(false)} />}
       {deletingBook && <DeleteConfirmDialog bookTitle={deletingBook} onClose={() => setDeletingBook(null)} />}
 
-      <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
-        <Row gap={8} style={{ alignItems: 'center' }}>
-          <div style={{ flex: 1, fontSize: 'var(--type-headline)', fontWeight: 'var(--type-weight-headline)' as unknown as number, color: 'var(--text-primary)' }}>
-            Good evening, Steven
-          </div>
-          <Btn primary onClick={() => setShowCreateModal(true)}>+ New Book</Btn>
+      <Col gap={0} className="ns-enter" style={{ padding: 'var(--space-4)', flex: 1, overflowY: 'auto' }}>
+        {/* Greeting + action row */}
+        <Row gap={8} style={{ alignItems: 'flex-start', marginBottom: 'var(--space-4)' }}>
+          <Col gap={4} style={{ flex: 1 }}>
+            <div style={{
+              fontSize: 'var(--type-large-title)',
+              fontWeight: 700,
+              letterSpacing: 'var(--tracking-tight)',
+              color: 'var(--text-primary)',
+              lineHeight: 'var(--leading-tight)',
+            }}>
+              Good evening, Steven
+            </div>
+            <div style={{
+              fontSize: 'var(--type-callout)',
+              color: 'var(--text-secondary)',
+              lineHeight: 'var(--leading-snug)',
+            }}>
+              {LIBRARY_BOOKS.length} books in your library — pick up where you left off.
+            </div>
+          </Col>
+          <Btn primary onClick={() => setShowCreateModal(true)} style={{ flexShrink: 0, marginTop: 4 }}>
+            <PlusCircle size={14} strokeWidth={2} style={{ marginRight: 4 }} />
+            New Book
+          </Btn>
         </Row>
 
         {showEmpty ? (
           <LibraryEmptyState onNew={() => setShowCreateModal(true)} />
         ) : (
           <>
-            <Label>Continue</Label>
-            <Row gap={8}>
+            {/* CONTINUE section */}
+            <div style={{
+              fontSize: 'var(--type-micro)',
+              fontWeight: 700,
+              letterSpacing: 'var(--tracking-wide)',
+              textTransform: 'uppercase',
+              color: 'var(--text-muted)',
+              marginBottom: 'var(--space-2)',
+            }}>
+              Continue
+            </div>
+            <Row gap={12} style={{ marginBottom: 'var(--space-5)' }}>
               {[
                 {
                   title: 'The Whispering Vale',
@@ -270,21 +299,22 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
               ].map(book => (
                 <Card
                   key={book.title}
+                  interactive
                   onClick={onOpenBook}
                   style={{
                     flex: 1,
                     minWidth: 0,
-                    padding: '9px 11px',
+                    padding: 'var(--space-3)',
                     cursor: 'pointer',
                     display: 'flex',
-                    gap: 9,
+                    gap: 'var(--space-3)',
                     alignItems: 'flex-start',
                   }}
                 >
                   {/* Cover thumbnail */}
-                  <BookCover title={book.title} size={50} style={{ borderRadius: 'var(--radius-button)' }} />
+                  <BookCover title={book.title} size={52} style={{ borderRadius: 'var(--radius-button)', flexShrink: 0 }} />
                   <Col gap={3} style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                    <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 'var(--leading-snug)' }}>
                       {book.title}
                     </div>
                     <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>{book.author}</div>
@@ -307,24 +337,47 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
               ))}
             </Row>
 
-            <Row gap={6} style={{ alignItems: 'center', marginTop: 4 }}>
-              <Label>All Books</Label>
+            {/* ALL BOOKS header row */}
+            <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-2)' }}>
+              <div style={{
+                fontSize: 'var(--type-micro)',
+                fontWeight: 700,
+                letterSpacing: 'var(--tracking-wide)',
+                textTransform: 'uppercase',
+                color: 'var(--text-muted)',
+              }}>
+                All Books
+              </div>
               <div style={{ flex: 1 }} />
-              {['Recent', 'A–Z', 'In Progress'].map((c, i) => (
-                <SemanticChip key={c} variant={i === 0 ? 'accent' : 'neutral'}>{c}</SemanticChip>
-              ))}
-              {/* View toggle buttons */}
-              <div style={{ display: 'flex', gap: 2, marginLeft: 4 }}>
+              {/* Sort chips */}
+              <Row gap={4} style={{ alignItems: 'center' }}>
+                {['Recent', 'A–Z', 'In Progress'].map((c, i) => (
+                  <SemanticChip key={c} variant={i === 0 ? 'accent' : 'neutral'}>{c}</SemanticChip>
+                ))}
+              </Row>
+              {/* View toggle */}
+              <div style={{
+                display: 'flex',
+                gap: 2,
+                background: 'var(--surface-alt)',
+                border: 'var(--hairline)',
+                borderRadius: 'var(--radius-button)',
+                padding: 2,
+                marginLeft: 'var(--space-1)',
+              }}>
                 <div
                   onClick={() => setViewMode('grid')}
                   title="Grid view"
                   aria-label="Grid view"
                   style={{
-                    padding: '3px 6px', borderRadius: 'var(--radius-button)', cursor: 'pointer',
-                    border: `1px solid ${viewMode === 'grid' ? 'var(--accent-tint-border)' : 'var(--border)'}`,
-                    background: viewMode === 'grid' ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+                    padding: '3px 6px',
+                    borderRadius: 'var(--radius-button)',
+                    cursor: 'pointer',
+                    border: viewMode === 'grid' ? '1px solid var(--accent-tint-border)' : '1px solid transparent',
+                    background: viewMode === 'grid' ? 'var(--accent-tint-bg)' : 'transparent',
                     color: viewMode === 'grid' ? 'var(--accent)' : 'var(--text-muted)',
                     display: 'flex', alignItems: 'center',
+                    transition: 'background 0.15s, color 0.15s',
                   }}
                 >
                   <LayoutGrid size={13} strokeWidth={1.8} />
@@ -334,11 +387,14 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
                   title="List view"
                   aria-label="List view"
                   style={{
-                    padding: '3px 6px', borderRadius: 'var(--radius-button)', cursor: 'pointer',
-                    border: `1px solid ${viewMode === 'list' ? 'var(--accent-tint-border)' : 'var(--border)'}`,
-                    background: viewMode === 'list' ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+                    padding: '3px 6px',
+                    borderRadius: 'var(--radius-button)',
+                    cursor: 'pointer',
+                    border: viewMode === 'list' ? '1px solid var(--accent-tint-border)' : '1px solid transparent',
+                    background: viewMode === 'list' ? 'var(--accent-tint-bg)' : 'transparent',
                     color: viewMode === 'list' ? 'var(--accent)' : 'var(--text-muted)',
                     display: 'flex', alignItems: 'center',
+                    transition: 'background 0.15s, color 0.15s',
                   }}
                 >
                   <List size={13} strokeWidth={1.8} />
@@ -348,18 +404,20 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
 
             {viewMode === 'grid' ? (
               <div
+                className="ns-stagger"
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
-                  gap: 8,
+                  gap: 'var(--space-2)',
                 }}
               >
                 {LIBRARY_BOOKS.map((book) => (
                   <Card
                     key={book.title}
+                    interactive
                     onClick={onOpenBook}
                     style={{
-                      padding: '9px 6px 7px',
+                      padding: 'var(--space-2) var(--space-2) var(--space-2)',
                       textAlign: 'center',
                       cursor: 'pointer',
                       position: 'relative',
@@ -389,7 +447,17 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}>
                       <BookCover title={book.title} size={48} />
                     </div>
-                    <div style={{ fontSize: 'var(--type-micro)', fontWeight: 600, color: 'var(--text-primary)', marginTop: 4, lineHeight: 1.3 }}>
+                    <div style={{
+                      fontSize: 'var(--type-micro)',
+                      fontWeight: 600,
+                      color: 'var(--text-primary)',
+                      marginTop: 4,
+                      lineHeight: 1.3,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}>
                       {book.title}
                     </div>
                     <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginTop: 1 }}>
@@ -405,11 +473,11 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
               /* List view */
               <Panel style={{ overflow: 'hidden', padding: 0 }}>
                 {/* Header */}
-                <Row gap={0} style={{ padding: '5px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface-alt)' }}>
+                <Row gap={0} style={{ padding: 'var(--space-1) var(--space-3)', borderBottom: 'var(--hairline)', background: 'var(--surface-alt)' }}>
                   {['Title', 'Author', 'Status', ''].map((h, i) => (
                     <div key={i} style={{
                       fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)',
-                      textTransform: 'uppercase', letterSpacing: '0.06em',
+                      textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)',
                       flex: i === 0 ? 3 : i === 3 ? 0 : 1,
                       width: i === 3 ? 28 : undefined,
                     }}>
@@ -422,8 +490,8 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
                     key={book.title}
                     onClick={onOpenBook}
                     style={{
-                      display: 'flex', alignItems: 'center', padding: '6px 10px',
-                      borderBottom: i < LIBRARY_BOOKS.length - 1 ? '1px solid var(--border)' : 'none',
+                      display: 'flex', alignItems: 'center', padding: 'var(--space-2) var(--space-3)',
+                      borderBottom: i < LIBRARY_BOOKS.length - 1 ? 'var(--hairline)' : 'none',
                       cursor: 'pointer', gap: 0, position: 'relative',
                     }}
                   >

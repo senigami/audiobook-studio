@@ -35,6 +35,7 @@ import {
   Menu,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/layout/BrandLogo';
+import './siteMockup/mockup.css';
 import {
   Col, Row, SemanticChip, ProgressBar, WaveformSvg,
   IN_FLIGHT_JOBS, QUEUED_JOBS, BOOK_TABS,
@@ -107,9 +108,10 @@ const QueueDrawer: React.FC<{
     <div
       role="complementary"
       aria-label="Queue drawer"
+      className="ns-glass"
       style={{
         position: 'absolute', top: 0, right: 0, bottom: 0, width: 340,
-        background: 'var(--surface)', borderLeft: '1px solid var(--border)',
+        background: 'var(--glass)', borderLeft: '1px solid var(--hairline)',
         boxShadow: 'var(--shadow-xl)', zIndex: 50,
         display: 'flex', flexDirection: 'column',
         transform: open ? 'translateX(0)' : 'translateX(100%)',
@@ -1015,7 +1017,7 @@ const SiteMockup: React.FC = () => {
   const queueCount = inFlightJobs.length + queuedJobs.length;
 
   return (
-    <Col onClick={handleGlobalClick} gap={0} style={{ height: '100%', position: 'relative' }}>
+    <Col className="ns-root" onClick={handleGlobalClick} gap={0} style={{ height: '100%', position: 'relative' }}>
       {/* Caption */}
       <div style={{
         fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic',

@@ -172,3 +172,6 @@ plugins/*/assets/test_output.wav
 # SQLite backups produced by cleanup steps
 *.db.bak
 *.sqlite.bak
+
+# design-review-loop scratch
+.design-review/

@@ -80,18 +80,18 @@ export const PublishPane: React.FC = () => {
   const allSelected = selectedChapters.size === RENDERED_CHAPTER_NS.length;
 
   return (
-    <>
+    <div className="ns-enter" style={{ display: 'contents' }}>
       {restoringBackup && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 300,
           background: 'var(--overlay-backdrop)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <Panel style={{ padding: '18px 20px', width: 320, boxShadow: 'var(--shadow-xl)' }}>
-            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
+          <Panel style={{ padding: 'var(--space-4) var(--space-5)', width: 320, boxShadow: 'var(--shadow-xl)' }}>
+            <div style={{ fontSize: 'var(--type-headline)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-2)' }}>
               Restore Backup?
             </div>
-            <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.4 }}>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)', lineHeight: 'var(--leading-normal)' }}>
               Are you sure you want to restore the backup from <strong>{restoringBackup}</strong>?
               <br /><br />
               <span style={{ color: 'var(--error)' }}>
@@ -111,24 +111,26 @@ export const PublishPane: React.FC = () => {
         </div>
       )}
 
-      <Row gap={10} style={{ flex: 1, alignItems: 'stretch' }}>
+      <Row gap={16} style={{ flex: 1, alignItems: 'stretch' }}>
         {/* Left: assembly card */}
-        <Col gap={8} style={{ flex: 1 }}>
+        <Col gap={12} style={{ flex: 1 }}>
 
           {/* Assembly progress strip — shown when assembling */}
           {assembleMode === 'assembling' && (
             <Card style={{
-              background: 'var(--accent-tint-bg)', border: '1px solid var(--accent-tint-border)',
-              padding: '8px 12px',
+              background: 'var(--accent-tint-bg)',
+              border: '1px solid var(--accent-tint-border)',
+              padding: 'var(--space-3) var(--space-4)',
+              boxShadow: 'var(--shadow-md)',
             }}>
-              <Row gap={6} style={{ alignItems: 'center', marginBottom: 4 }}>
-                <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--accent)', flex: 1 }}>
+              <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-1)' }}>
+                <span style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--accent)', flex: 1 }}>
                   Assembling M4B…
                 </span>
-                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>{assemblyProgress}%</span>
+                <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--accent)' }}>{assemblyProgress}%</span>
               </Row>
-              <ProgressBar pct={assemblyProgress} shimmer />
-              <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginTop: 4 }}>
+              <ProgressBar pct={assemblyProgress} height={6} shimmer />
+              <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginTop: 'var(--space-1)' }}>
                 Merging {renderedCount} chapters — do not close Studio
               </div>
             </Card>
@@ -136,19 +138,19 @@ export const PublishPane: React.FC = () => {
 
           {/* Assembly card */}
           {assembleMode !== 'assembled' ? (
-            <Card style={{ padding: '12px', textAlign: 'center' }}>
+            <Card style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
               {/* BookCover replaces 📕 emoji */}
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-3)' }}>
                 <BookCover title="The Whispering Vale" size={52} />
               </div>
-              <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>
+              <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-1)', letterSpacing: 'var(--tracking-tight)' }}>
                 The Whispering Vale
               </div>
-              <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginBottom: 8 }}>
+              <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginBottom: 'var(--space-3)' }}>
                 Runtime: 6h 12m · {RENDERED_CHAPTER_NS.length}/{ASSEMBLE_CHAPTERS.length} chapters rendered
               </div>
-              <Row gap={4} style={{ justifyContent: 'center', marginBottom: 8 }}>
-                <ProgressBar pct={Math.round(RENDERED_CHAPTER_NS.length / ASSEMBLE_CHAPTERS.length * 100)} height={4} />
+              <Row gap={4} style={{ justifyContent: 'center', marginBottom: 'var(--space-4)' }}>
+                <ProgressBar pct={Math.round(RENDERED_CHAPTER_NS.length / ASSEMBLE_CHAPTERS.length * 100)} height={5} />
               </Row>
 
               {assembleMode === 'idle' && (
@@ -156,24 +158,24 @@ export const PublishPane: React.FC = () => {
               )}
 
               {assembleMode === 'selecting' && (
-                <Col gap={6} style={{ textAlign: 'left' }}>
+                <Col gap={8} style={{ textAlign: 'left' }}>
                   {/* Select all toggle */}
                   <div
                     onClick={toggleSelectAll}
                     aria-label={allSelected ? 'Deselect all chapters' : 'Select all rendered chapters'}
                     style={{
-                      fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--accent)',
-                      cursor: 'pointer', padding: '2px 0',
-                      display: 'flex', alignItems: 'center', gap: 4,
+                      fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--accent)',
+                      cursor: 'pointer', padding: 'var(--space-1) 0',
+                      display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
                     }}
                   >
                     {allSelected
-                      ? <Check size={12} aria-hidden="true" />
-                      : <Square size={12} aria-hidden="true" />
+                      ? <Check size={14} aria-hidden="true" />
+                      : <Square size={14} aria-hidden="true" />
                     }
                     {allSelected ? 'Deselect all' : 'Select all rendered'}
                   </div>
-                  <Card style={{ overflow: 'hidden' }}>
+                  <Card style={{ overflow: 'hidden' }} className="ns-stagger">
                     {ASSEMBLE_CHAPTERS.map((ch, i) => {
                       const isRendered = ch.lifecycle === 'Rendered';
                       const isChecked = selectedChapters.has(ch.n);
@@ -182,21 +184,21 @@ export const PublishPane: React.FC = () => {
                           key={ch.n}
                           onClick={() => toggleChapter(ch.n)}
                           style={{
-                            display: 'flex', alignItems: 'center', gap: 8,
-                            padding: '4px 8px',
-                            borderBottom: i < ASSEMBLE_CHAPTERS.length - 1 ? '1px solid var(--border)' : 'none',
+                            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+                            padding: 'var(--space-2) var(--space-3)',
+                            borderBottom: i < ASSEMBLE_CHAPTERS.length - 1 ? '1px solid var(--hairline)' : 'none',
                             cursor: isRendered ? 'pointer' : 'default',
                             opacity: isRendered ? 1 : 0.4,
                           }}
                         >
                           {isRendered ? (
                             isChecked
-                              ? <Check size={13} color="var(--accent)" aria-hidden="true" />
-                              : <Square size={13} color="var(--text-muted)" aria-hidden="true" />
+                              ? <Check size={15} color="var(--accent)" aria-hidden="true" />
+                              : <Square size={15} color="var(--text-muted)" aria-hidden="true" />
                           ) : (
-                            <Square size={13} color="var(--text-muted)" aria-hidden="true" />
+                            <Square size={15} color="var(--text-muted)" aria-hidden="true" />
                           )}
-                          <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-primary)', flex: 1 }}>
+                          <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)', flex: 1 }}>
                             Ch {ch.n} · {ch.title}
                           </span>
                           <SemanticChip variant={LIFECYCLE_VARIANT[ch.lifecycle]}>
@@ -206,7 +208,7 @@ export const PublishPane: React.FC = () => {
                       );
                     })}
                   </Card>
-                  <Row gap={6} style={{ justifyContent: 'flex-end', marginTop: 4 }}>
+                  <Row gap={8} style={{ justifyContent: 'flex-end', marginTop: 'var(--space-1)' }}>
                     <Btn small onClick={() => setAssembleMode('idle')}>Cancel</Btn>
                     <Btn
                       small primary
@@ -226,49 +228,49 @@ export const PublishPane: React.FC = () => {
           ) : (
             <Card style={{
               background: 'var(--success-tint-bg)', border: '1px solid var(--success-tint-border)',
-              padding: '12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center'
+              padding: 'var(--space-4)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-3)' }}>
                 <BookCover title="The Whispering Vale" size={52} />
               </div>
-              <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--success-text)', marginBottom: 4 }}>
+              <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--success-text)', marginBottom: 'var(--space-2)', letterSpacing: 'var(--tracking-tight)' }}>
                 Assembly Completed Successfully!
               </div>
-              <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', marginBottom: 8, lineHeight: 1.4, textAlign: 'left', width: '100%' }}>
+              <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)', lineHeight: 'var(--leading-normal)', textAlign: 'left', width: '100%' }}>
                 <strong>Completed File Parameters:</strong>
-                <ul style={{ margin: '4px 0 0 12px', padding: 0 }}>
+                <ul style={{ margin: 'var(--space-1) 0 0 var(--space-3)', padding: 0 }}>
                   <li>Cover Image: Pinned (The Whispering Vale)</li>
                   <li>File Size: 184.2 MB</li>
                   <li>Duration: 6 hours 12 minutes</li>
                   <li>Channels: Mono (64 kbps, Speech Optimized)</li>
                 </ul>
               </div>
-              <div style={{ width: '100%', borderTop: '1px solid var(--success-tint-border)', paddingTop: 8, marginTop: 4 }}>
-                <div style={{ fontSize: 'var(--type-micro)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6, textAlign: 'left' }}>
+              <div style={{ width: '100%', borderTop: '1px solid var(--hairline)', paddingTop: 'var(--space-3)', marginTop: 'var(--space-1)' }}>
+                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 'var(--space-2)', textAlign: 'left' }}>
                   Download Links:
                 </div>
-                <Row gap={6} style={{ justifyContent: 'center', flexWrap: 'wrap' }}>
+                <Row gap={12} style={{ justifyContent: 'center', flexWrap: 'wrap' }}>
                   <a href="#download-m4b" style={{
-                    fontSize: 'var(--type-micro)', color: 'var(--success-text)', textDecoration: 'underline',
-                    display: 'flex', alignItems: 'center', gap: 3
+                    fontSize: 'var(--type-caption)', color: 'var(--success-text)', textDecoration: 'underline',
+                    display: 'flex', alignItems: 'center', gap: 'var(--space-1)'
                   }}>
-                    <Download size={11} /> .m4b (Audiobook)
+                    <Download size={13} /> .m4b (Audiobook)
                   </a>
                   <a href="#download-mp3" style={{
-                    fontSize: 'var(--type-micro)', color: 'var(--success-text)', textDecoration: 'underline',
-                    display: 'flex', alignItems: 'center', gap: 3
+                    fontSize: 'var(--type-caption)', color: 'var(--success-text)', textDecoration: 'underline',
+                    display: 'flex', alignItems: 'center', gap: 'var(--space-1)'
                   }}>
-                    <Download size={11} /> .mp3 (Bundle)
+                    <Download size={13} /> .mp3 (Bundle)
                   </a>
                   <a href="#download-epub3" style={{
-                    fontSize: 'var(--type-micro)', color: 'var(--success-text)', textDecoration: 'underline',
-                    display: 'flex', alignItems: 'center', gap: 3
+                    fontSize: 'var(--type-caption)', color: 'var(--success-text)', textDecoration: 'underline',
+                    display: 'flex', alignItems: 'center', gap: 'var(--space-1)'
                   }}>
-                    <Download size={11} /> .epub3 (Media Overlays)
+                    <Download size={13} /> .epub3 (Media Overlays)
                   </a>
                 </Row>
               </div>
-              <Btn small style={{ marginTop: 12 }} onClick={() => setAssembleMode('idle')}>
+              <Btn small style={{ marginTop: 'var(--space-4)' }} onClick={() => setAssembleMode('idle')}>
                 Done
               </Btn>
             </Card>
@@ -276,22 +278,24 @@ export const PublishPane: React.FC = () => {
         </Col>
 
         {/* Right: book info + export + backups */}
-        <Col gap={8} style={{ flex: 2 }}>
+        <Col gap={12} style={{ flex: 2 }} className="ns-stagger">
           {/* Book info section */}
           <Card style={{ overflow: 'hidden' }}>
             <div style={{
-              padding: '6px 10px', borderBottom: '1px solid var(--border)',
+              padding: 'var(--space-2) var(--space-3)',
+              borderBottom: '1px solid var(--hairline)',
               background: 'var(--surface)',
               fontSize: 'var(--type-micro)',
-              fontWeight: 'var(--type-weight-micro)' as unknown as number,
+              fontWeight: 700,
               color: 'var(--text-muted)',
-              textTransform: 'uppercase', letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              letterSpacing: 'var(--tracking-wide)',
             }}>Book info</div>
 
             {/* Cover row */}
-            <Row gap={0} style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
-              <span style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', width: 60, flexShrink: 0 }}>Cover</span>
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Row gap={0} style={{ padding: 'var(--space-3)', borderBottom: '1px solid var(--hairline)', alignItems: 'center' }}>
+              <span style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', width: 64, flexShrink: 0 }}>Cover</span>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                 {/* BookCover replaces emoji cover placeholder */}
                 <BookCover title="The Whispering Vale" size={36} style={{ height: 44, width: 32, borderRadius: 'var(--radius-button)' }} />
                 <Btn small>Change cover</Btn>
@@ -305,21 +309,21 @@ export const PublishPane: React.FC = () => {
               { label: 'Narrator', value: 'Studio Voice' },
               { label: 'Series', value: 'The Vale Chronicles, #1' },
             ].map(row => (
-              <Row key={row.label} gap={0} style={{ padding: '6px 10px', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
-                <span style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', width: 60, flexShrink: 0 }}>{row.label}</span>
-                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)', flex: 1 }}>{row.value}</span>
+              <Row key={row.label} gap={0} style={{ padding: 'var(--space-2) var(--space-3)', borderBottom: '1px solid var(--hairline)', alignItems: 'center' }}>
+                <span style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', width: 64, flexShrink: 0 }}>{row.label}</span>
+                <span style={{ fontSize: 'var(--type-callout)', color: 'var(--text-primary)', flex: 1 }}>{row.value}</span>
                 <button
                   aria-label={`Edit ${row.label}`}
-                  style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+                  style={{ background: 'none', border: 'none', padding: 'var(--space-1)', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
                 >
-                  <Edit3 size={12} />
+                  <Edit3 size={13} />
                 </button>
               </Row>
             ))}
 
             {/* Read-only info chips */}
-            <Row gap={6} style={{ padding: '6px 10px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', width: 60, flexShrink: 0 }}>Info</span>
+            <Row gap={8} style={{ padding: 'var(--space-2) var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', width: 64, flexShrink: 0 }}>Info</span>
               <SemanticChip variant="neutral">6h 12m</SemanticChip>
               <SemanticChip variant="cloud">predicted 6h 28m</SemanticChip>
               <SemanticChip variant="neutral">Created 2026-05-14</SemanticChip>
@@ -327,47 +331,51 @@ export const PublishPane: React.FC = () => {
           </Card>
 
           {/* Export row */}
-          <div>
+          <Card style={{ padding: 'var(--space-3) var(--space-4)', boxShadow: 'var(--shadow-sm)' }}>
             <div style={{
               fontSize: 'var(--type-micro)',
-              fontWeight: 'var(--type-weight-micro)' as unknown as number,
-              letterSpacing: '0.08em', textTransform: 'uppercase',
-              color: 'var(--text-secondary)', padding: '4px 0 2px',
+              fontWeight: 700,
+              letterSpacing: 'var(--tracking-wide)',
+              textTransform: 'uppercase',
+              color: 'var(--text-muted)',
+              marginBottom: 'var(--space-2)',
             }}>Export</div>
-            <Row gap={6} style={{ marginTop: 4 }}>
+            <Row gap={8}>
               <Btn primary small>
-                <Download size={10} style={{ marginRight: 3 }} aria-hidden="true" />
+                <Download size={11} style={{ marginRight: 4 }} aria-hidden="true" />
                 M4B
               </Btn>
               <Btn small>
-                <Download size={10} style={{ marginRight: 3 }} aria-hidden="true" />
+                <Download size={11} style={{ marginRight: 4 }} aria-hidden="true" />
                 MP3
               </Btn>
               <Btn small>
-                <Download size={10} style={{ marginRight: 3 }} aria-hidden="true" />
+                <Download size={11} style={{ marginRight: 4 }} aria-hidden="true" />
                 EPUB3
               </Btn>
             </Row>
-          </div>
+          </Card>
 
           {/* Backups */}
-          <div>
+          <Card style={{ padding: 'var(--space-3) var(--space-4)', boxShadow: 'var(--shadow-md)' }}>
             <div style={{
               fontSize: 'var(--type-micro)',
-              fontWeight: 'var(--type-weight-micro)' as unknown as number,
-              letterSpacing: '0.08em', textTransform: 'uppercase',
-              color: 'var(--text-secondary)', padding: '4px 0 2px',
+              fontWeight: 700,
+              letterSpacing: 'var(--tracking-wide)',
+              textTransform: 'uppercase',
+              color: 'var(--text-muted)',
+              marginBottom: 'var(--space-2)',
             }}>Backups</div>
-            <Col gap={4} style={{ marginTop: 4 }}>
+            <Col gap={4}>
               {[
                 '2026-06-11 23:14 — auto (pre-assemble)',
                 '2026-06-10 18:30 — manual',
                 '2026-06-09 09:05 — auto',
               ].map(b => (
                 <div key={b} style={{
-                  fontSize: 'var(--type-micro)', color: 'var(--text-muted)', padding: '4px 8px',
-                  background: 'var(--surface-alt)', border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-button)', display: 'flex', justifyContent: 'space-between',
+                  fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', padding: 'var(--space-2) var(--space-3)',
+                  background: 'var(--surface-alt)', border: '1px solid var(--hairline)',
+                  borderRadius: 'var(--radius-button)', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 }}>
                   <span>{b}</span>
                   <button
@@ -377,6 +385,8 @@ export const PublishPane: React.FC = () => {
                       background: 'transparent',
                       padding: 0,
                       fontFamily: 'inherit',
+                      fontSize: 'var(--type-caption)',
+                      fontWeight: 600,
                       color: 'var(--accent)',
                       cursor: 'pointer',
                     }}
@@ -388,58 +398,61 @@ export const PublishPane: React.FC = () => {
               ))}
               {/* Create backup section */}
               <div style={{
-                padding: '6px 8px',
+                padding: 'var(--space-3)',
                 background: 'var(--surface-alt)', border: '1px dashed var(--border)',
                 borderRadius: 'var(--radius-button)',
+                marginTop: 'var(--space-1)',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
                   <input
                     value={backupDesc}
                     onChange={e => setBackupDesc(e.target.value)}
                     placeholder="Backup description…"
                     style={{
-                      flex: 1, fontSize: 'var(--type-micro)', padding: '2px 6px',
+                      flex: 1, fontSize: 'var(--type-caption)', padding: 'var(--space-1) var(--space-2)',
                       borderRadius: 'var(--radius-button)', border: '1px solid var(--border)',
                       background: 'var(--surface)', color: 'var(--text-primary)', outline: 'none',
                     }}
                   />
-                  <Btn small onClick={() => {
+                  <Btn primary small onClick={() => {
                     alert(`Backup saved: "${backupDesc}" (audio included: ${includeAudio ? 'yes' : 'no'})`);
                     setBackupDesc('');
                   }}>Save</Btn>
                 </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
                     checked={includeAudio}
                     onChange={e => setIncludeAudio(e.target.checked)}
-                    style={{ cursor: 'pointer' }}
+                    style={{ cursor: 'pointer', width: 14, height: 14 }}
                   />
-                  <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
+                  <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>
                     Include rendered audio files in backup (increases file size)
                   </span>
                 </label>
               </div>
             </Col>
-          </div>
+          </Card>
 
           {/* Export quality controls */}
           <Col gap={6}>
             <div style={{
               fontSize: 'var(--type-micro)',
-              fontWeight: 'var(--type-weight-micro)' as unknown as number,
-              letterSpacing: '0.08em', textTransform: 'uppercase',
-              color: 'var(--text-muted)', padding: '4px 0 2px',
+              fontWeight: 700,
+              letterSpacing: 'var(--tracking-wide)',
+              textTransform: 'uppercase',
+              color: 'var(--text-muted)',
+              paddingBottom: 'var(--space-1)',
             }}>Quality checks</div>
-            <Card style={{ padding: '5px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', flex: 1 }}>
+            <Card style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', flex: 1 }}>
                 Loudness QA — RMS/peak check before export
               </span>
               <SemanticChip variant="success">ready</SemanticChip>
               <Btn small>Run</Btn>
             </Card>
-            <Card style={{ padding: '5px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', flex: 1 }}>
+            <Card style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', flex: 1 }}>
                 Pronunciation lexicon — book-level say-as rules
               </span>
               <SemanticChip variant="accent">24 rules</SemanticChip>
@@ -448,6 +461,6 @@ export const PublishPane: React.FC = () => {
           </Col>
         </Col>
       </Row>
-    </>
+    </div>
   );
 };

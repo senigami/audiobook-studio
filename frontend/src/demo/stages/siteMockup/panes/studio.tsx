@@ -47,12 +47,12 @@ const ResyncModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
     background: 'var(--overlay-backdrop)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   }}>
-    <Panel style={{ padding: '18px 20px', width: 320, boxShadow: 'var(--shadow-xl)' }}>
-      <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
+    <Panel style={{ padding: 'var(--space-3) var(--space-4)', width: 320, boxShadow: 'var(--shadow-xl)' }}>
+      <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-3)' }}>
         Resync Preview
       </div>
-      <Card style={{ padding: '8px 10px', marginBottom: 10 }}>
-        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)', marginBottom: 4 }}>
+      <Card style={{ padding: 'var(--space-2) var(--space-3)', marginBottom: 'var(--space-2)' }}>
+        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)', marginBottom: 'var(--space-1)' }}>
           Segments: <strong>184 → 186</strong>
         </div>
         <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', marginBottom: 2 }}>
@@ -64,8 +64,8 @@ const ResyncModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
       </Card>
       <div style={{
         background: 'var(--warning-tint-bg)', border: '1px solid var(--warning-tint-border)',
-        borderRadius: 'var(--radius-button)', padding: '6px 10px', marginBottom: 14,
-        fontSize: 'var(--type-micro)', color: 'var(--warning-text)', lineHeight: 1.5,
+        borderRadius: 'var(--radius-button)', padding: 'var(--space-1) var(--space-3)', marginBottom: 'var(--space-3)',
+        fontSize: 'var(--type-micro)', color: 'var(--warning-text)', lineHeight: 'var(--leading-normal)',
       }}>
         Re-analysis preserves assignments best-effort — 5 segments may need manual reassignment after commit.
       </div>
@@ -85,7 +85,7 @@ const ExportMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => (
     position: 'absolute', top: '100%', right: 0, zIndex: 50,
     background: 'var(--surface)', border: '1px solid var(--border)',
     borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-md)',
-    minWidth: 100, padding: '4px 0',
+    minWidth: 100, padding: 'var(--space-1) 0',
   }}>
     {['WAV', 'MP3'].map(fmt => (
       <button
@@ -93,15 +93,15 @@ const ExportMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => (
         type="button"
         onClick={onClose}
         style={{
-        width: '100%',
-        border: 0,
-        background: 'transparent',
-        fontFamily: 'inherit',
-        textAlign: 'left',
-        fontSize: 'var(--type-caption)', padding: '5px 12px', cursor: 'pointer',
-        color: 'var(--text-primary)',
-        display: 'flex', alignItems: 'center', gap: 6,
-      }}>
+          width: '100%',
+          border: 0,
+          background: 'transparent',
+          fontFamily: 'inherit',
+          textAlign: 'left',
+          fontSize: 'var(--type-caption)', padding: 'var(--space-1) var(--space-3)', cursor: 'pointer',
+          color: 'var(--text-primary)',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>
         <Download size={11} aria-hidden="true" />
         {fmt}
       </button>
@@ -112,7 +112,7 @@ const ExportMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => (
 // ---------- Hover sentence controls ----------
 const HoverSentenceControls: React.FC = () => (
   <span style={{
-    display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 6,
+    display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'var(--space-1)',
     fontSize: 'var(--type-micro)', verticalAlign: 'middle',
   }}>
     <span style={{
@@ -457,7 +457,7 @@ export const StudioPane: React.FC = () => {
             background: tok.tintBg,
             color: tok.text,
             border: `1px solid ${tok.tintBorder}`,
-            borderRadius: '4px',
+            borderRadius: 'var(--radius-button)',
             padding: '2px 4px',
             margin: '0 2px',
             cursor: cursorStyle,
@@ -583,7 +583,7 @@ export const StudioPane: React.FC = () => {
             background: 'var(--surface)',
             border: '1px solid var(--border)',
             borderRadius: 'var(--radius-card)',
-            padding: '4px 8px',
+            padding: 'var(--space-1) var(--space-2)',
             boxShadow: 'var(--shadow-md)',
             display: 'flex',
             gap: 6,
@@ -616,37 +616,49 @@ export const StudioPane: React.FC = () => {
         </div>
       )}
 
-      <Col gap={0} style={{ flex: 1, overflow: 'hidden' }}>
-        {/* View mode pills row */}
+      <Col gap={0} className="ns-enter" style={{ flex: 1, overflow: 'hidden' }}>
+        {/* View mode segmented control + toggles */}
         <div style={{
-          padding: '6px 12px',
-          borderBottom: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', gap: 6,
+          padding: 'var(--space-1) var(--space-3)',
+          borderBottom: '1px solid var(--hairline)',
+          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
           background: 'var(--surface)', flexShrink: 0,
         }}>
-          {(['book', 'script'] as const).map(mode => (
-            <div
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              style={{
-                fontSize: 'var(--type-caption)', fontWeight: 600, padding: '3px 10px',
-                borderRadius: 'var(--radius-round)', cursor: 'pointer',
-                border: `1px solid ${viewMode === mode ? 'var(--accent)' : 'var(--border)'}`,
-                background: viewMode === mode ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-                color: viewMode === mode ? 'var(--accent)' : 'var(--text-secondary)',
-                textTransform: 'capitalize',
-              }}
-            >
-              {mode === 'book' ? 'Book view' : 'Script view'}
-            </div>
-          ))}
+          {/* Segmented pill container */}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center',
+            border: '1px solid var(--hairline)',
+            borderRadius: 'var(--radius-round)',
+            overflow: 'hidden',
+            background: 'var(--surface-alt)',
+          }}>
+            {(['book', 'script'] as const).map((mode, i) => (
+              <div
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                style={{
+                  fontSize: 'var(--type-caption)', fontWeight: 600,
+                  padding: '3px var(--space-3)',
+                  cursor: 'pointer',
+                  borderRight: i === 0 ? '1px solid var(--hairline)' : undefined,
+                  background: viewMode === mode ? 'var(--accent-tint-bg)' : 'transparent',
+                  color: viewMode === mode ? 'var(--accent)' : 'var(--text-secondary)',
+                  transition: 'background 0.15s, color 0.15s',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {mode === 'book' ? 'Book view' : 'Script view'}
+              </div>
+            ))}
+          </div>
           <div style={{ flex: 1 }} />
           {/* Safe text / # toggles */}
           <div
             onClick={() => setSafeText(s => !s)}
             style={{
-              fontSize: 'var(--type-micro)', padding: '2px 8px', borderRadius: 'var(--radius-round)', cursor: 'pointer',
-              border: `1px solid ${safeText ? 'var(--accent)' : 'var(--border)'}`,
+              fontSize: 'var(--type-micro)', padding: '2px var(--space-2)',
+              borderRadius: 'var(--radius-round)', cursor: 'pointer',
+              border: `1px solid ${safeText ? 'var(--accent)' : 'var(--hairline)'}`,
               background: safeText ? 'var(--accent-tint-bg)' : 'transparent',
               color: safeText ? 'var(--accent)' : 'var(--text-muted)',
             }}
@@ -654,8 +666,9 @@ export const StudioPane: React.FC = () => {
           <div
             onClick={() => setShowNumbers(n => !n)}
             style={{
-              fontSize: 'var(--type-micro)', padding: '2px 8px', borderRadius: 'var(--radius-round)', cursor: 'pointer',
-              border: `1px solid ${showNumbers ? 'var(--accent)' : 'var(--border)'}`,
+              fontSize: 'var(--type-micro)', padding: '2px var(--space-2)',
+              borderRadius: 'var(--radius-round)', cursor: 'pointer',
+              border: `1px solid ${showNumbers ? 'var(--accent)' : 'var(--hairline)'}`,
               background: showNumbers ? 'var(--accent-tint-bg)' : 'transparent',
               color: showNumbers ? 'var(--accent)' : 'var(--text-muted)',
             }}
@@ -664,10 +677,10 @@ export const StudioPane: React.FC = () => {
 
         {/* Analysis strip */}
         <div style={{
-          padding: '4px 12px',
-          borderBottom: '1px solid var(--border)',
+          padding: 'var(--space-1) var(--space-3)',
+          borderBottom: '1px solid var(--hairline)',
           background: 'var(--surface-alt)',
-          display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap',
+          display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0, flexWrap: 'wrap',
         }}>
           <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
             12,403 chars · 2,118 words · 184 sentences · 186 segments · est. 14m 32s
@@ -675,6 +688,8 @@ export const StudioPane: React.FC = () => {
           <div style={{ flex: 1 }} />
           {/* Green badge — auto-fixed */}
           <SemanticChip variant="success">✓ 3/3 long sentences auto-fixed</SemanticChip>
+          {/* Hairline separator */}
+          <div style={{ width: 1, height: 16, background: 'var(--hairline)', flexShrink: 0 }} />
           {/* Amber expandable badge */}
           <span
             onClick={() => setActionExpanded(v => !v)}
@@ -695,13 +710,13 @@ export const StudioPane: React.FC = () => {
         {/* Expanded action required row */}
         {actionExpanded && (
           <div style={{
-            padding: '5px 12px 6px',
+            padding: 'var(--space-1) var(--space-3) var(--space-2)',
             background: 'var(--warning-tint-bg)',
             borderBottom: '1px solid var(--warning-tint-border)',
             flexShrink: 0,
           }}>
-            <Card style={{ padding: '5px 10px', border: '1px solid var(--warning-tint-border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--warning-text)', flex: 1, lineHeight: 1.5 }}>
+            <Card style={{ padding: 'var(--space-1) var(--space-3)', border: '1px solid var(--warning-tint-border)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--warning-text)', flex: 1, lineHeight: 'var(--leading-normal)' }}>
                 Segment 142: "Sira—who had never once spoken above a whisper in all her years at the vale and whom nobody could quite place—stepped forward." — too long, cannot auto-split (contains em-dash within dialogue attribution).
               </span>
               <Btn small>Edit</Btn>
@@ -712,41 +727,41 @@ export const StudioPane: React.FC = () => {
         {/* Main row: prose + cast palette */}
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Content area — prose */}
-          <div onMouseUp={handleMouseUp} style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
-            {/* Chapter-nav cluster + unsaved chip + Commit changes */}
+          <div onMouseUp={handleMouseUp} style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-3) var(--space-4)' }}>
+            {/* Chapter-nav cluster: unsaved chip + Commit + nav + export */}
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap',
+              display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)', flexWrap: 'wrap',
             }}>
-              {/* Unsaved chip + Commit */}
+              {/* Left group: unsaved chip + Commit changes */}
               <SemanticChip variant="warning">2 unsaved text edits</SemanticChip>
-              <div
+              <Btn
+                small
+                primary
                 onClick={() => setShowResync(true)}
-                style={{
-                  fontSize: 'var(--type-micro)', fontWeight: 700, padding: '2px 9px',
-                  borderRadius: 'var(--radius-button)',
-                  background: 'var(--success-strong)', border: '1px solid var(--success-strong)',
-                  color: 'var(--text-on-accent)',
-                  cursor: 'pointer', whiteSpace: 'nowrap',
-                }}
+                style={{ background: 'var(--success-strong)', border: '1px solid var(--success-strong)' }}
               >
                 Commit changes
-              </div>
+              </Btn>
+
               <div style={{ flex: 1 }} />
-              {/* Chapter nav */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+
+              {/* Right group: chapter nav + export — hairline-separated */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                {/* Save & prev */}
                 <div style={{
-                  fontSize: 'var(--type-micro)', padding: '2px 8px',
+                  fontSize: 'var(--type-micro)', padding: '3px var(--space-2)',
                   borderRadius: 'var(--radius-button) 0 0 var(--radius-button)',
-                  border: '1px solid var(--border)', background: 'var(--surface-alt)',
+                  border: '1px solid var(--hairline)', background: 'var(--surface-alt)',
                   color: 'var(--text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap',
                   display: 'flex', alignItems: 'center', gap: 3,
                 }}>
                   <ChevronLeft size={10} aria-hidden="true" /> Save &amp; prev
                 </div>
+                {/* Save & next */}
                 <div style={{
-                  fontSize: 'var(--type-micro)', padding: '2px 8px',
+                  fontSize: 'var(--type-micro)', padding: '3px var(--space-2)',
                   borderRadius: '0 var(--radius-button) var(--radius-button) 0',
-                  border: '1px solid var(--border)', borderLeft: 'none',
+                  border: '1px solid var(--hairline)', borderLeft: 'none',
                   background: 'var(--surface-alt)',
                   color: 'var(--text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap',
                   display: 'flex', alignItems: 'center', gap: 3,
@@ -754,14 +769,18 @@ export const StudioPane: React.FC = () => {
                   Save &amp; next <ChevronRight size={10} aria-hidden="true" />
                 </div>
               </div>
+
+              {/* Hairline separator */}
+              <div style={{ width: 1, height: 20, background: 'var(--hairline)', flexShrink: 0 }} />
+
               {/* Export dropdown */}
               <div style={{ position: 'relative' }}>
                 <div
                   onClick={() => setExportMenuOpen(m => !m)}
                   style={{
-                    fontSize: 'var(--type-micro)', padding: '2px 8px',
+                    fontSize: 'var(--type-micro)', padding: '3px var(--space-2)',
                     borderRadius: 'var(--radius-button)',
-                    border: '1px solid var(--border)', background: 'var(--surface-alt)',
+                    border: '1px solid var(--hairline)', background: 'var(--surface-alt)',
                     color: 'var(--text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap',
                     display: 'flex', alignItems: 'center', gap: 3,
                   }}
@@ -775,9 +794,9 @@ export const StudioPane: React.FC = () => {
             {/* Paint-mode floating chip */}
             {armedSwatch && (
               <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
+                display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
                 fontSize: 'var(--type-micro)',
-                padding: '3px 8px', marginBottom: 8, borderRadius: 'var(--radius-round)',
+                padding: '3px var(--space-2)', marginBottom: 'var(--space-2)', borderRadius: 'var(--radius-round)',
                 background: SPEAKER_TOKEN[armedSwatch]?.tintBg ?? 'var(--surface-alt)',
                 border: `1px solid ${SPEAKER_TOKEN[armedSwatch]?.tintBorder ?? 'var(--border)'}`,
                 color: SPEAKER_TOKEN[armedSwatch]?.text ?? 'var(--text-secondary)',
@@ -800,7 +819,12 @@ export const StudioPane: React.FC = () => {
                 )}
 
                 {/* Paragraph 1 */}
-                <div style={{ fontSize: 'var(--type-callout)', lineHeight: 1.75, color: 'var(--text-primary)' }}>
+                <div style={{
+                  fontSize: 'var(--type-reading)',
+                  lineHeight: 'var(--leading-reading)',
+                  color: 'var(--text-primary)',
+                  maxWidth: '70ch',
+                }}>
                   {chunks.filter(c => c.paragraphIndex === 0).map(c => (
                     <React.Fragment key={c.id}>
                       {showNumbers && c.showNumberTag && (
@@ -814,7 +838,12 @@ export const StudioPane: React.FC = () => {
                 </div>
 
                 {/* Paragraph 2 — with hover sentence controls on one sentence */}
-                <div style={{ fontSize: 'var(--type-callout)', lineHeight: 1.75, color: 'var(--text-primary)' }}>
+                <div style={{
+                  fontSize: 'var(--type-reading)',
+                  lineHeight: 'var(--leading-reading)',
+                  color: 'var(--text-primary)',
+                  maxWidth: '70ch',
+                }}>
                   {chunks.filter(c => c.paragraphIndex === 1).map(c => (
                     <React.Fragment key={c.id}>
                       {showNumbers && c.showNumberTag && (
@@ -828,7 +857,13 @@ export const StudioPane: React.FC = () => {
                 </div>
 
                 {/* Paragraph 3 */}
-                <div style={{ fontSize: 'var(--type-callout)', lineHeight: 1.75, color: 'var(--text-primary)', position: 'relative' }}>
+                <div style={{
+                  fontSize: 'var(--type-reading)',
+                  lineHeight: 'var(--leading-reading)',
+                  color: 'var(--text-primary)',
+                  maxWidth: '70ch',
+                  position: 'relative',
+                }}>
                   {chunks.filter(c => c.paragraphIndex === 2).map(c => (
                     <React.Fragment key={c.id}>
                       {showNumbers && c.showNumberTag && (
@@ -842,7 +877,7 @@ export const StudioPane: React.FC = () => {
                   <span style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    marginLeft: 6,
+                    marginLeft: 'var(--space-1)',
                     fontSize: 'var(--type-micro)',
                     color: 'var(--accent)',
                     background: 'var(--accent-tint-bg)',
@@ -859,27 +894,27 @@ export const StudioPane: React.FC = () => {
             ) : (
               /* Script view */
               <Col gap={0}>
-                <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 8 }}>
+                <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 'var(--space-2)' }}>
                   Script view — final read-through / play-script preview
                 </div>
                 {SCRIPT_LINES.map((line, i) => {
                   const tok = SPEAKER_TOKEN[line.speaker] ?? SPEAKER_TOKEN.Narrator;
                   return (
                     <div key={i} style={{
-                      marginBottom: 6, borderRadius: 'var(--radius-card)', padding: '5px 8px',
+                      marginBottom: 'var(--space-1)', borderRadius: 'var(--radius-card)', padding: 'var(--space-1) var(--space-2)',
                       background: line.rendering ? 'var(--accent-tint-bg)' : 'transparent',
                       border: line.rendering ? '1px solid var(--accent-tint-border)' : '1px solid transparent',
                     }}>
                       <Row gap={6} style={{ alignItems: 'center', marginBottom: 2 }}>
                         <span style={{ width: 7, height: 7, borderRadius: 'var(--radius-round)', background: tok.text, display: 'inline-block', flexShrink: 0 }} />
-                        <span style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: tok.text, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <span style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: tok.text, textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)' }}>
                           {line.speaker}
                         </span>
                         {line.rendering && (
                           <SemanticChip variant="accent">rendering…</SemanticChip>
                         )}
                       </Row>
-                      <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)', lineHeight: 1.5, paddingLeft: 13 }}>
+                      <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)', lineHeight: 'var(--leading-normal)', paddingLeft: 13 }}>
                         {line.text}
                       </div>
                       {line.rendering && (
@@ -894,81 +929,102 @@ export const StudioPane: React.FC = () => {
             )}
           </div>
 
-          {/* Cast palette — right column, ~150px */}
-          <div style={{
-            width: 150, flexShrink: 0,
-            borderLeft: '1px solid var(--border)',
+          {/* Cast palette — right column, ~160px */}
+          <Panel style={{
+            width: 160, flexShrink: 0,
+            borderLeft: '1px solid var(--hairline)',
+            borderTop: 'none', borderBottom: 'none', borderRight: 'none',
+            borderRadius: 0,
+            boxShadow: 'none',
             background: 'var(--surface)',
-            display: 'flex', flexDirection: 'column', padding: '8px 0 0',
+            display: 'flex', flexDirection: 'column', padding: 0,
           }}>
+            {/* Eyebrow section label */}
             <div style={{
               fontSize: 'var(--type-micro)',
               fontWeight: 'var(--type-weight-micro)' as unknown as number,
-              letterSpacing: '0.08em', textTransform: 'uppercase',
-              color: 'var(--text-muted)', padding: '0 10px 6px', borderBottom: '1px solid var(--border)', flexShrink: 0,
+              letterSpacing: 'var(--tracking-wide)', textTransform: 'uppercase',
+              color: 'var(--text-muted)',
+              padding: 'var(--space-2) var(--space-3)',
+              borderBottom: '1px solid var(--hairline)',
+              flexShrink: 0,
             }}>Cast</div>
-            <Col gap={0} style={{ flex: 1, padding: '6px 0' }}>
-              {CAST_SWATCHES.map(sw => {
+            <Col gap={0} style={{ flex: 1, padding: 'var(--space-1) 0' }}>
+              {CAST_SWATCHES.map((sw, idx) => {
                 const isArmed = armedSwatch === sw.id;
                 const tok = SPEAKER_TOKEN[sw.id] ?? SPEAKER_TOKEN.Narrator;
                 return (
-                  <button
-                    type="button"
-                    key={sw.id}
-                    onClick={() => handleSwatchClick(sw.id)}
-                    aria-pressed={isArmed}
-                    style={{
-                      width: '100%',
-                      border: 0,
-                      fontFamily: 'inherit',
-                      display: 'flex', alignItems: 'center', gap: 7, padding: '5px 10px',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      background: isArmed ? tok.tintBg : 'transparent',
-                      borderLeft: isArmed ? `3px solid ${tok.text}` : '3px solid transparent',
-                    }}
-                  >
-                    <span style={{
-                      width: 8, height: 8, borderRadius: 'var(--radius-round)', background: tok.text,
-                      flexShrink: 0, display: 'inline-block',
-                      boxShadow: isArmed ? `0 0 0 2px ${tok.tintBorder}` : 'none',
-                    }} />
-                    {/* Avatar replaces emoji */}
-                    <Avatar name={sw.id === 'ElderRowan' ? 'ER' : sw.id} size={20} style={{
-                      background: tok.tintBg,
-                      border: `1px solid ${tok.tintBorder}`,
-                    }} />
-                    <span style={{
-                      fontSize: 'var(--type-micro)', fontWeight: isArmed ? 700 : 400,
-                      color: isArmed ? tok.text : 'var(--text-secondary)',
-                      lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-                    }}>
-                      {sw.name}
-                    </span>
-                  </button>
+                  <React.Fragment key={sw.id}>
+                    {idx > 0 && (
+                      <div style={{ height: 1, background: 'var(--hairline)', margin: '0 var(--space-3)' }} />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleSwatchClick(sw.id)}
+                      aria-pressed={isArmed}
+                      style={{
+                        width: '100%',
+                        border: 0,
+                        fontFamily: 'inherit',
+                        display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+                        padding: 'var(--space-2) var(--space-3)',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        background: isArmed ? tok.tintBg : 'transparent',
+                        borderLeft: isArmed ? `3px solid ${tok.text}` : '3px solid transparent',
+                        transition: 'background 0.15s',
+                      }}
+                    >
+                      {/* Color dot — larger for visibility */}
+                      <span style={{
+                        width: 12, height: 12, borderRadius: 'var(--radius-round)',
+                        background: tok.text,
+                        flexShrink: 0, display: 'inline-block',
+                        boxShadow: isArmed ? `0 0 0 2px ${tok.tintBorder}` : 'none',
+                      }} />
+                      {/* Avatar */}
+                      <Avatar name={sw.id === 'ElderRowan' ? 'ER' : sw.id} size={20} style={{
+                        background: tok.tintBg,
+                        border: `1px solid ${tok.tintBorder}`,
+                      }} />
+                      <span style={{
+                        fontSize: 'var(--type-micro)', fontWeight: isArmed ? 700 : 400,
+                        color: isArmed ? tok.text : 'var(--text-secondary)',
+                        lineHeight: 'var(--leading-snug)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
+                      }}>
+                        {sw.name}
+                      </span>
+                    </button>
+                  </React.Fragment>
                 );
               })}
             </Col>
             <div style={{
-              padding: '6px 10px 8px', borderTop: '1px solid var(--border)',
-              fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: 1.4,
+              padding: 'var(--space-2) var(--space-3)',
+              borderTop: '1px solid var(--hairline)',
+              fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic',
+              lineHeight: 'var(--leading-snug)',
             }}>
               paint a voice, then click text to assign sub-sentence spans
             </div>
-          </div>
+          </Panel>
         </div>
 
         {/* Render controls strip */}
         <div style={{
-          flexShrink: 0, borderTop: '1px solid var(--border)', padding: '6px 12px',
-          display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface)',
+          flexShrink: 0, borderTop: '1px solid var(--hairline)',
+          padding: 'var(--space-1) var(--space-3)',
+          display: 'flex', alignItems: 'center', gap: 'var(--space-2)', background: 'var(--surface)',
         }}>
+          {/* Primary render actions */}
           <Btn primary small>
             <Play size={10} style={{ marginRight: 3 }} aria-hidden="true" />
             Render chapter
           </Btn>
           <Btn small onClick={() => setIsRenderingRemaining(true)}>Render remaining</Btn>
-          {/* Stop all — uses error token, no raw hex */}
+          {/* Hairline separator before stop */}
+          <div style={{ width: 1, height: 16, background: 'var(--hairline)', flexShrink: 0 }} />
+          {/* Stop all — ghost button using error tokens */}
           <button
             aria-label="Stop all rendering"
             onClick={() => {
@@ -976,7 +1032,8 @@ export const StudioPane: React.FC = () => {
               setRenderProgress(0.45);
             }}
             style={{
-              fontSize: 'var(--type-micro)', fontWeight: 600, padding: '2px 9px',
+              fontSize: 'var(--type-micro)', fontWeight: 600,
+              padding: '3px var(--space-2)',
               borderRadius: 'var(--radius-button)',
               border: '1px solid var(--error)', color: 'var(--error)', background: 'transparent',
               cursor: 'pointer', whiteSpace: 'nowrap',
@@ -987,7 +1044,7 @@ export const StudioPane: React.FC = () => {
             Stop all
           </button>
           {isRenderingRemaining && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'var(--space-3)' }}>
               <StatusOrb status="running" progress={renderProgress} size={14} />
               <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-primary)', fontWeight: 600 }}>
                 Queue Remaining: 3 chapters ({Math.round(renderProgress * 100)}% total progress)
@@ -998,6 +1055,8 @@ export const StudioPane: React.FC = () => {
             </div>
           )}
           <div style={{ flex: 1 }} />
+          {/* Hairline before metadata chips */}
+          <div style={{ width: 1, height: 16, background: 'var(--hairline)', flexShrink: 0 }} />
           <Chip active>Neural Engine</Chip>
           <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>ETA ~12m</span>
         </div>

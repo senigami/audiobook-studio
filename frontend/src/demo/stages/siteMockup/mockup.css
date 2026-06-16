@@ -1,0 +1,115 @@
+/*
+ * mockup.css — interaction, material, and motion layer for the North-Star site
+ * mockup. The panes use inline styles for layout/tokens; this file owns the
+ * STATEFUL bits CSS does best: hover, focus-visible, active, glass material,
+ * and entrance motion. Class names are namespaced `ns-` (north-star) so they
+ * never collide with the real app's stylesheet.
+ */
+
+/* --- Material: Liquid Glass chrome ------------------------------------- */
+.ns-glass {
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur-glass);
+  backdrop-filter: var(--blur-glass);
+}
+
+/* --- Elevation / interactive surfaces --------------------------------- */
+.ns-card {
+  transition:
+    transform var(--dur-med) var(--ease-standard),
+    box-shadow var(--dur-med) var(--ease-standard),
+    border-color var(--dur-med) var(--ease-standard);
+}
+.ns-card.ns-interactive {
+  cursor: pointer;
+}
+.ns-card.ns-interactive:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--accent-tint-border);
+}
+.ns-card.ns-interactive:active {
+  transform: translateY(-1px);
+  transition-duration: var(--dur-fast);
+}
+
+/* A generic lift for any element that should respond to hover. */
+.ns-lift {
+  transition: transform var(--dur-med) var(--ease-standard),
+    box-shadow var(--dur-med) var(--ease-standard);
+}
+.ns-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* --- Buttons ----------------------------------------------------------- */
+.ns-btn {
+  transition: transform var(--dur-fast) var(--ease-standard),
+    box-shadow var(--dur-fast) var(--ease-standard),
+    background var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard),
+    filter var(--dur-fast) var(--ease-standard);
+}
+.ns-btn:hover {
+  filter: brightness(1.03);
+}
+.ns-btn:active {
+  transform: scale(0.97);
+}
+/* Primary button — gradient fill + accent glow lift. */
+.ns-btn-primary {
+  background: var(--accent-gradient) !important;
+  border-color: transparent !important;
+  box-shadow: var(--shadow-sm);
+}
+.ns-btn-primary:hover {
+  background: var(--accent-gradient-hover) !important;
+  box-shadow: var(--accent-glow-strong);
+  filter: none;
+}
+
+/* --- Focus: one consistent keyboard ring everywhere ------------------- */
+.ns-root :focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-button);
+}
+
+/* --- Entrance motion --------------------------------------------------- */
+@keyframes ns-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes ns-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.ns-enter {
+  animation: ns-fade-up var(--dur-slow) var(--ease-emphasized) both;
+}
+.ns-enter-fade {
+  animation: ns-fade-in var(--dur-slow) var(--ease-standard) both;
+}
+/* Stagger children — set on a container; children animate in sequence. */
+.ns-stagger > * {
+  animation: ns-fade-up var(--dur-slow) var(--ease-emphasized) both;
+}
+.ns-stagger > *:nth-child(1) { animation-delay: 0.02s; }
+.ns-stagger > *:nth-child(2) { animation-delay: 0.06s; }
+.ns-stagger > *:nth-child(3) { animation-delay: 0.10s; }
+.ns-stagger > *:nth-child(4) { animation-delay: 0.14s; }
+.ns-stagger > *:nth-child(5) { animation-delay: 0.18s; }
+.ns-stagger > *:nth-child(6) { animation-delay: 0.22s; }
+.ns-stagger > *:nth-child(7) { animation-delay: 0.26s; }
+.ns-stagger > *:nth-child(8) { animation-delay: 0.30s; }
+
+/* --- Respect reduced-motion ------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .ns-card, .ns-lift, .ns-btn,
+  .ns-enter, .ns-enter-fade, .ns-stagger > * {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
+}

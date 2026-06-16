@@ -66,9 +66,16 @@ export const Label: React.FC<{ children: React.ReactNode; muted?: boolean; style
 // ---------------------------------------------------------------------------
 // Card / Panel elevation wrappers
 
-export const Card: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ children, style, ...rest }) => (
+export const Card: React.FC<React.HTMLAttributes<HTMLDivElement> & { interactive?: boolean }> = ({
+  children,
+  style,
+  className,
+  interactive,
+  ...rest
+}) => (
   <div
     {...rest}
+    className={['ns-card', interactive ? 'ns-interactive' : '', className].filter(Boolean).join(' ')}
     style={{
       background: 'var(--surface)',
       border: '1px solid var(--border)',
@@ -312,6 +319,7 @@ export const Btn: React.FC<ButtonProps> = ({
   small,
   onClick,
   style,
+  className,
   disabled,
   type = 'button',
   ...rest
@@ -320,6 +328,7 @@ export const Btn: React.FC<ButtonProps> = ({
     type={type}
     onClick={disabled ? undefined : onClick}
     disabled={disabled}
+    className={['ns-btn', primary ? 'ns-btn-primary' : '', className].filter(Boolean).join(' ')}
     style={{
       display: 'inline-flex',
       alignItems: 'center',
