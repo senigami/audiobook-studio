@@ -312,6 +312,41 @@ describe('DemoApp routing', () => {
     expect(prompt.value).toContain('Hugging Face voice profile');
     expect(prompt.value).toContain('warm adult female narrator voice named Studio Voice');
   });
+
+  it('site mockup voice profile editor supports expanded taxonomy and voice variations', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    render(<DemoApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Voices' }));
+
+    expect(await screen.findByText('6 variations')).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit profiles' }));
+
+    const primaryRole = await screen.findByRole('combobox', { name: 'Primary role' });
+    expect(primaryRole).toHaveValue('Dark Fiction Narrator');
+
+    const age = screen.getByRole('combobox', { name: 'Age' });
+    expect(within(age).getByRole('option', { name: 'Unknown' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Add language' }), {
+      target: { value: 'Mandarin Chinese' },
+    });
+    expect(screen.getByRole('button', { name: 'Remove language Mandarin Chinese' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Add dialect or vocal origin' }), {
+      target: { value: 'Fantasy courtly' },
+    });
+    expect(screen.getByRole('button', { name: 'Remove dialect or vocal origin Fantasy courtly' })).toBeInTheDocument();
+
+    expect(screen.getByRole('heading', { name: 'Voice variations' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Dark Fiction.*default variation/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Sad/i }));
+    expect(screen.getByRole('button', { name: 'Remove emotion Sad' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Variation intensity' })).toHaveValue('Moderate');
+  });
 });
 
 // ---------------------------------------------------------------------------

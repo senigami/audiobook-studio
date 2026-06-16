@@ -7,30 +7,30 @@ blocks: none
 
 ## Goal
 
-Wire `PlayerBar` and `WaveformTape` to the backend peaks sidecar when one exists for the loaded audio URL, lifting the duration cap for sidecared clips. Add windowed/virtualized rendering to `WaveformTape` so the hour-long case remains performant. The W2 UI is unchanged — this is a peaks-source swap and a performance layer, not a visual rebuild.
+Wire `PlayerBar` to the backend peaks sidecar when one exists for the loaded audio URL, pass it through the `usePeaks` seam added in task 010, and lift the duration cap for clips that have a sidecar. Add windowed/virtualized rendering to `WaveformTape`'s custom fixed-grid renderer so the hour-long case remains performant. The W2 UI is unchanged — this is a peaks-source swap and a performance layer, not a visual rebuild.
 
 ## Why it matters
 
-Tasks 010 and 011 together create the seam (frontend accepts supplied peaks; backend emits them). This task closes the loop: the frontend fetches the sidecar when available, passes it through the 010 seam, and lifts the cap. Without it, W3 never ships end-to-end.
+Tasks 010 and 011 together create the seam (frontend's `usePeaks` accepts a supplied array; backend emits sidecars). This task closes the loop: the frontend fetches the sidecar when available, passes it as `suppliedPeaks` into the tape, and lifts the cap. Without it, W3 never ships end-to-end.
 
-Virtualized rendering is required for the hour case: a 3600-second clip at 1000 peaks/sec would be 3.6 million DOM operations without windowing. Drawing only the visible page ± one buffer page keeps the tape smooth at any zoom level.
+Virtualized rendering is required for the hour case: `WaveformTape` is a **custom renderer** (fixed-grid sampling per spec §5.3 — ported from `MockWaveTape`), not wavesurfer's renderer. At 1000 peaks for a 60-minute clip, only the visible page ± one buffer page should be sampled from the array on each draw. Computing the full grid across the entire clip every frame would waste CPU; drawing only the visible slice keeps the tape smooth at any zoom level.
 
 ## Files
 
 ### Sidecar fetch
-- `frontend/src/api/` — add `fetchPeaksSidecar(audioUrl: string): Promise<PeaksData | null>` (maps audio URL to the `/api/artifacts/peaks` route; returns null on 404)
-- `frontend/src/api/contracts/` — add `PeaksData` type matching the sidecar JSON shape from 011
+- `frontend/src/api/fetchPeaksSidecar.ts` — add `fetchPeaksSidecar(audioUrl: string): Promise<PeaksData | null>`; maps audio URL to the `/api/artifacts/peaks` route added in 011; returns null on 404 or network error
+- `frontend/src/api/contracts/peaksData.ts` — add `PeaksData` type matching the sidecar JSON shape from 011
 
 ### PlayerBar wiring
-- `frontend/src/app/layout/PlayerBar.tsx` — fetch sidecar on new source (`requestId` effect); pass `peaks`/`peaksDuration` to `WaveformTape` and `WaveformStrip`; lift cap for clips that have a sidecar
+- `frontend/src/app/layout/PlayerBar.tsx` — fetch sidecar on new source (`requestId` effect); pass `suppliedPeaks` to `WaveformTape` (via the 010 prop); lift cap for clips that have a sidecar
 
 ### WaveformTape windowing
-- `frontend/src/components/WaveformTape.tsx` — add windowed/virtualized rendering: compute the visible peak slice for the current zoom page ± one buffer page; hand only that slice to wavesurfer for rendering
+- `frontend/src/components/WaveformTape.tsx` — add windowed/virtualized rendering: when drawing each page, compute the peak slice corresponding to the visible window ± one buffer page from the full `peaks` array before sampling on the fixed grid; avoids sampling the entire array on every frame
 
 ### Tests
 - `frontend/tests/unit/api/fetchPeaksSidecar.test.ts` — 200 with valid JSON; 404 returns null; non-JSON response returns null
-- `frontend/tests/unit/layout/PlayerBar.peaks.test.tsx` — (a) sidecar present: peaks + duration props flow to `WaveformTape`; cap guard lifted; (b) sidecar absent: props are undefined, cap guard active; (c) new source (`requestId` bump) cancels in-flight fetch and resets peaks state
-- `frontend/tests/unit/components/WaveformTape.virtualization.test.tsx` — rendered peak slice matches expected window ± buffer at several zoom levels; no peaks outside the visible + buffer range are passed to wavesurfer
+- `frontend/tests/unit/layout/PlayerBar.peaks.test.tsx` — (a) sidecar present: `suppliedPeaks` prop flows to `WaveformTape`; cap guard lifted; (b) sidecar absent: prop is undefined, cap guard active; (c) new source (`requestId` bump) cancels in-flight fetch and resets peaks state
+- `frontend/tests/unit/components/WaveformTape.virtualization.test.tsx` — rendered peak slice matches expected window ± buffer at several zoom levels; no peaks outside the visible + buffer range are sampled
 - `tests/api/test_peaks_route.py` (already written in 011) — integration: round-trip from assembly → sidecar on disk → route returns JSON
 
 ## Target shape / contract
@@ -93,42 +93,48 @@ const tapeAvailable = duration <= TAPE_CAP_SEC || hasSidecar;
 <WaveformTape
   audioEl={audioEl}
   audioUrl={audioUrl}
-  peaks={peaksData?.peaks}
-  peaksDuration={peaksData?.duration}
-  // ... existing props
+  suppliedPeaks={peaksData?.peaks}   // threads into usePeaks via the 010 seam
+  // ... existing props (zoom, motion, etc.)
 />
 ```
 
-`WaveformStrip` (inline waveform path) receives the same props for completeness, even though short clips under cap rarely have a sidecar — ensures correctness if the threshold is lowered later.
+`WaveformStrip` (inline wavesurfer path for short clips) is unchanged — short clips under cap always browser-decode via wavesurfer's own path and are never sidecared.
 
 ### Windowed/virtualized rendering in `WaveformTape`
 
-Current approach (W2): wavesurfer renders peaks for the current zoom page only because the peaks array is sized to that page. After W3, `peaksData.peaks` may be 1000 values covering the entire hour.
-
-Required change: before passing peaks to wavesurfer, compute the slice corresponding to the **visible page ± one buffer page**:
+`WaveformTape` is a **custom renderer** using fixed-grid sampling (spec §5.3, ported from `MockWaveTape`). The full peaks array (e.g. 1000 values for a 60-minute clip) is available via `usePeaks`. On each page draw, before applying the fixed-grid sample:
 
 ```ts
-function peaksWindow(allPeaks: number[], duration: number, windowStartSec: number, windowDurationSec: number, bufferSec: number): number[] {
+function peaksWindow(
+  allPeaks: number[],
+  duration: number,
+  windowStartSec: number,
+  windowDurationSec: number,
+  bufferSec: number,
+): number[] {
   const samplesPerSec = allPeaks.length / duration;
   const startIdx = Math.max(0, Math.floor((windowStartSec - bufferSec) * samplesPerSec));
-  const endIdx = Math.min(allPeaks.length, Math.ceil((windowStartSec + windowDurationSec + bufferSec) * samplesPerSec));
+  const endIdx = Math.min(
+    allPeaks.length,
+    Math.ceil((windowStartSec + windowDurationSec + bufferSec) * samplesPerSec),
+  );
   return allPeaks.slice(startIdx, endIdx);
 }
 ```
 
-Pass only the slice to wavesurfer on each page advance. When the tape pages, recompute the slice for the new window center. This keeps the rendered peaks array small (~dozens of values at typical zoom levels) regardless of clip length.
+Pass only the windowed slice to the fixed-grid sampler on each page draw or rAF tick. When the tape pages, recompute the slice for the new window center. This keeps the rendered sample set small (~dozens of values at typical zoom levels) regardless of clip length.
 
-The `duration` passed to wavesurfer remains the **full clip duration** (not the window duration) so the wavesurfer instance stays correctly calibrated for seek/time math. The peaks slice is resampled to match the wavesurfer container width as wavesurfer already handles this.
+The fixed-grid sampling rule (§5.3) is unchanged: samples are anchored to an absolute-time grid (`gridSec = windowSec / barCount`), not to the moving window — the windowing here is about restricting which region of the full array is passed in, not changing the grid anchoring.
 
 ## Steps
 
 1. Add `PeaksData` type to `frontend/src/api/contracts/peaksData.ts`.
 2. Implement `fetchPeaksSidecar` in `frontend/src/api/fetchPeaksSidecar.ts`. Derive the peaks route URL from `audioUrl` — map WAV URL path components to query parameters for the route added in 011.
-3. In `PlayerBar.tsx`, add `peaksData` state and the `requestId`-keyed fetch effect. Wire `peaks` and `peaksDuration` props down to `WaveformTape` and `WaveformStrip`.
+3. In `PlayerBar.tsx`, add `peaksData` state and the `requestId`-keyed fetch effect (following the same pattern as `forceWave` reset at `PlayerBar.tsx:46–47`). Pass `suppliedPeaks={peaksData?.peaks}` down to `WaveformTape`.
 4. Update the tape-availability guard in `PlayerBar.tsx`: `tapeAvailable = duration <= TAPE_CAP_SEC || peaksData !== null`.
-5. Add the `peaksWindow` helper to `WaveformTape.tsx`; call it on initial mount and on each page advance, passing only the window slice to wavesurfer.
-6. Confirm the single-owner invariant still holds (`<audio` / `new Audio(` grep passes).
-7. Write frontend tests (see Files section). Each test must use types from `frontend/src/api/contracts/liveEvents.ts` where relevant per R3; socket frames via `publishStudioSocketMessage` per R3. Tests must use `waitFor` / vitest fake timers per R4 — no `setTimeout` sleeps.
+5. Add the `peaksWindow` helper to `WaveformTape.tsx`; call it before the fixed-grid sampler on each page draw, passing only the window slice.
+6. Confirm the single-owner invariant still holds (`<audio` / `new Audio(` grep passes — no second audio element created).
+7. Write frontend tests (see Files section). Tests must use `waitFor` / vitest fake timers per R4 — no `setTimeout` sleeps. Socket frames via `publishStudioSocketMessage` where relevant per R3.
 8. Run `npm -C frontend run lint`, `npm -C frontend run test -- --run`, `npm -C frontend run build` — all must pass.
 9. Run `./venv/bin/python -m pytest -q` — green (route test from 011 covers the backend side).
 10. Verify in the running app: open a chapter with a sidecar on disk, open the tape — it renders from the sidecar without the WAV download; a chapter without a sidecar and over cap shows the plain bar; a chapter without a sidecar and under cap browser-decodes as in W2.
@@ -136,9 +142,9 @@ The `duration` passed to wavesurfer remains the **full clip duration** (not the 
 ## Acceptance criteria
 
 - `PlayerBar` fetches the peaks sidecar on each new source; `peaksData` resets to null on `requestId` change; in-flight fetch is cancelled on source change.
-- When a sidecar is present, `peaks` and `peaksDuration` props flow to `WaveformTape`/`WaveformStrip`; wavesurfer uses the pre-peaks path (no WAV download/decode).
+- When a sidecar is present, `suppliedPeaks` flows to `WaveformTape` via the `usePeaks` seam (task 010); the tape renders from the sidecar array without WAV download/decode.
 - Duration cap is lifted for clips that have a sidecar; clips without a sidecar and over cap still show the plain bar (no regression).
-- `WaveformTape` renders only the visible page ± one buffer page of peaks at any time; the full peaks array is not passed wholesale to wavesurfer.
+- `WaveformTape`'s fixed-grid sampler receives only the visible page ± one buffer page of peaks at any time; the full array is not sampled wholesale on every frame.
 - Single-owner invariant preserved; conversion-complete grep passes.
 - `fetchPeaksSidecar` returns null on 404 or network error (browser decode fallback); no uncaught exceptions.
 - `PeaksData` type matches the sidecar JSON contract from task 011.
@@ -150,6 +156,7 @@ The `duration` passed to wavesurfer remains the **full clip duration** (not the 
 ## Out of scope
 
 - Any W2 UI changes — this task only swaps the peaks source and adds windowing.
+- `WaveformStrip` changes — the inline wavesurfer waveform for short clips is unchanged.
 - Annotation / edit-marking — post-V2.
 - Sidecar for voice sample previews.
 - Continuous-scroll mode.
@@ -158,11 +165,13 @@ The `duration` passed to wavesurfer remains the **full clip duration** (not the 
 ## References
 
 - Roadmap: `plans/audio_player_waveform_scrubber/01-roadmap.md` (W3, task 012)
-- Proposal §7 (source-swap seam, cap lift, virtualized rendering)
+- Spec §5.4 (peaks data — browser-first below cap, sidecar above; one seam): `docs/specs/audio-player.md`
+- Spec §5.3 (fixed-grid sampling — binding): `docs/specs/audio-player.md`
 - Audit Finding F1 (browser decode cost ceiling): `00-audit-report.md §E`
 - Audit Finding F4 (single-owner constraint): `00-audit-report.md §E`
 - Task 010: `plans/audio_player_waveform_scrubber/tasks/010-peaks-source-abstraction.md`
 - Task 011: `plans/audio_player_waveform_scrubber/tasks/011-backend-peaks-sidecar-emission.md`
-- `frontend/src/store/playerBus.ts:17–30` — bus state (audioUrl, requestId)
+- `frontend/src/store/playerBus.ts:17–30` — bus state (`audioUrl`, `requestId`)
 - `frontend/src/app/layout/PlayerBar.tsx:46–47` — `forceWave` / `requestId` reset pattern to follow
+- Reference implementation of the custom renderer: `frontend/src/demo/stages/siteMockup/shared.tsx` (`MockWaveTape`, `speechPeakAt`, fixed-grid logic)
 - `docs/specs/testing-standards.md` — R1 revert-check, R3 contract-shaped frames, R4 no sleep

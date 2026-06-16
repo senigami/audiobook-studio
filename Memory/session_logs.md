@@ -2256,3 +2256,12 @@
 - Added a profile image preview to the Edit Metadata modal and restored card overflow `Edit metadata` to open that modal instead of routing into the full profile editor.
 - Updated focused demo coverage for card portraits, Aria default portrait, metadata preview reuse, Discover raster/no-image states, profile editor reuse, and generated prompt behavior.
 - Verified with `npm -C frontend run test -- demoApp.test.tsx`, `node -e` JSON parse, and `git diff --check`; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.
+
+# 2026-06-16 - Voice taxonomy and variations mockup verified
+
+- Expanded the Voice Profile Editor taxonomy with dropdowns for Primary Role, Entity Type, Gender, and Age, including Unknown for age.
+- Replaced the old language/accent/style chip grids with token-style multi-select controls for Languages, Dialect / Vocal Origin, and Base Voice Qualities.
+- Marked Studio Voice as a Dark Fiction Narrator and added six reviewable variations: Dark Fiction, Neutral, Sad, Excited, Angry, and Whispered.
+- Added a Voice variations editor surface with selectable variation rows, emotion tags, performance style tags, intensity, pacing, energy, and upload/test/default controls.
+- Updated card/lab/profile displays so primary role and variation count are visible.
+- Verified with `npm -C frontend run test -- demoApp.test.tsx`, `npm -C frontend run lint`, `node -e` JSON parse, and `git diff --check`; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.

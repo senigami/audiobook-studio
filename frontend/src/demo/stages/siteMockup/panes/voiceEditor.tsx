@@ -16,6 +16,7 @@ import {
   Trash2,
   ImagePlus,
   Sparkles,
+  Star,
 } from 'lucide-react';
 import {
   Row,
@@ -25,89 +26,12 @@ import {
   Panel,
   Btn,
 } from '../shared';
-import type { Voice } from './voices';
+import type { Voice, VoiceVariation } from './voices';
 import { VoicePortrait } from './voicePortrait';
 
 // ---------------------------------------------------------------------------
 // Inline helper components
 
-const Segmented: React.FC<{
-  options: readonly string[];
-  value?: string;
-  onChange: (v: string) => void;
-  ariaLabel: string;
-}> = ({ options, value, onChange, ariaLabel }) => (
-  <div
-    role="radiogroup"
-    aria-label={ariaLabel}
-    style={{
-      display: 'inline-flex',
-      gap: 'var(--space-1)',
-      padding: 'var(--space-1)',
-      background: 'var(--surface-alt)',
-      border: '1px solid var(--hairline)',
-      borderRadius: 'var(--radius-button)',
-    }}
-  >
-    {options.map(opt => {
-      const sel = opt === value;
-      return (
-        <button
-          key={opt}
-          role="radio"
-          aria-checked={sel}
-          type="button"
-          onClick={() => onChange(opt)}
-          style={{
-            padding: '5px 14px',
-            minHeight: 30,
-            borderRadius: 'calc(var(--radius-button) - 2px)',
-            border: sel ? '1px solid var(--accent-tint-border)' : '1px solid transparent',
-            background: sel ? 'var(--accent-tint-bg)' : 'transparent',
-            boxShadow: sel ? 'var(--shadow-sm)' : 'none',
-            color: sel ? 'var(--accent)' : 'var(--text-secondary)',
-            fontWeight: 600,
-            fontSize: 'var(--type-caption)',
-            fontFamily: 'inherit',
-            cursor: 'pointer',
-            transition: 'background var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard)',
-          }}
-        >
-          {opt}
-        </button>
-      );
-    })}
-  </div>
-);
-
-const ToggleChip: React.FC<{ label: string; on: boolean; onClick: () => void }> = ({
-  label,
-  on,
-  onClick,
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-pressed={on}
-    style={{
-      padding: '5px 14px',
-      minHeight: 32,
-      borderRadius: 'var(--radius-round)',
-      fontFamily: 'inherit',
-      fontSize: 'var(--type-caption)',
-      fontWeight: 600,
-      cursor: 'pointer',
-      border: `1px solid ${on ? 'var(--accent-tint-border)' : 'var(--hairline)'}`,
-      background: on ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-      color: on ? 'var(--accent)' : 'var(--text-secondary)',
-      transition: 'background var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard)',
-    }}
-  >
-    {label}
-  </button>
-);
-
-// ---------------------------------------------------------------------------
 // Section label helper — uppercase eyebrow with generous breathing room
 
 const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -153,6 +77,287 @@ const inputStyle: React.CSSProperties = {
   boxSizing: 'border-box',
   outline: 'none',
   transition: 'border-color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard)',
+};
+
+const selectStyle: React.CSSProperties = {
+  ...inputStyle,
+  cursor: 'pointer',
+};
+
+const PRIMARY_ROLE_OPTIONS = [
+  'Audiobook Narrator',
+  'Dark Fiction Narrator',
+  'Fiction Narrator',
+  'Nonfiction Narrator',
+  'Documentary Narrator',
+  'Children’s Narrator',
+  'Romance Narrator',
+  'Thriller / Suspense Narrator',
+  'LitRPG / Game Fiction Narrator',
+  'Stage / Play Voice',
+  'Radio Drama Voice',
+  'Animation Character',
+  'Game Character',
+  'Fantasy Character',
+  'Dubbing / ADR',
+  'Commercial / Promo',
+  'Trailer / Announcer',
+  'Podcast / Host',
+  'Educational / E-learning',
+  'Assistant / System Voice',
+  'Creature / Nonhuman',
+  'Vocal Effects',
+];
+
+const ENTITY_TYPE_OPTIONS = [
+  'Human',
+  'Creature',
+  'Monster',
+  'Mythological',
+  'Spirit / Ghost',
+  'Fairy / Small Magical',
+  'Giant / Ogre-like',
+  'Deity / Celestial',
+  'Demon / Infernal',
+  'Alien',
+  'Robot / Android',
+  'AI / Synthetic',
+  'Animal-like',
+  'Abstract / SFX',
+  'Unknown',
+];
+
+const GENDER_OPTIONS = ['Female', 'Male', 'Non-binary', 'Nonhuman / Not applicable', 'Unknown'];
+const AGE_OPTIONS = ['Infant', 'Child', 'Teen', 'Young Adult', 'Adult', 'Middle-aged', 'Senior', 'Ancient / Ageless', 'Unknown'];
+
+const LANGUAGE_OPTIONS = [
+  'English',
+  'Spanish',
+  'French',
+  'German',
+  'Italian',
+  'Portuguese',
+  'Mandarin Chinese',
+  'Cantonese',
+  'Japanese',
+  'Korean',
+  'Hindi',
+  'Arabic',
+  'Russian',
+  'Dutch',
+  'Swedish',
+  'Norwegian',
+  'Danish',
+  'Finnish',
+  'Polish',
+  'Turkish',
+  'Greek',
+  'Hebrew',
+  'Vietnamese',
+  'Thai',
+  'Indonesian',
+  'Filipino / Tagalog',
+  'Ukrainian',
+];
+
+const DIALECT_ORIGIN_OPTIONS = [
+  'American Neutral',
+  'American Southern',
+  'New York',
+  'Boston',
+  'Midwest',
+  'California',
+  'Canadian',
+  'RP British',
+  'Cockney',
+  'Scottish',
+  'Irish',
+  'Welsh',
+  'Australian',
+  'New Zealand',
+  'South African',
+  'Caribbean',
+  'Indian English',
+  'Nigerian English',
+  'Singapore English',
+  'Mexican Spanish',
+  'Castilian Spanish',
+  'Argentinian Spanish',
+  'Brazilian Portuguese',
+  'Quebec French',
+  'Parisian French',
+  'Mandarin Northern',
+  'Cantonese Hong Kong',
+  'Fantasy courtly',
+  'Medieval Village',
+  'Dark Fiction',
+  'Infernal',
+  'Celestial',
+  'Alien',
+  'Robotic',
+  'Synthetic Assistant',
+  'Cybernetic',
+  'Animalistic',
+  'Invented',
+  'Neutral',
+  'Mixed',
+];
+
+const BASE_STYLE_OPTIONS = [
+  'Warm',
+  'Clear',
+  'Bright',
+  'Deep',
+  'Gruff',
+  'Smooth',
+  'Raspy',
+  'Gravelly',
+  'Breathy',
+  'Nasal',
+  'Airy',
+  'Rich',
+  'Thin',
+  'Resonant',
+  'Soft',
+  'Sharp',
+  'Ethereal',
+  'Robotic',
+  'Glitchy',
+  'Monstrous',
+];
+
+const EMOTION_OPTIONS = [
+  'Neutral',
+  'Happy',
+  'Sad',
+  'Angry',
+  'Excited',
+  'Afraid',
+  'Anxious',
+  'Calm',
+  'Tender',
+  'Warm',
+  'Cold',
+  'Confident',
+  'Uncertain',
+  'Sarcastic',
+  'Playful',
+  'Mysterious',
+  'Ominous',
+  'Grieving',
+  'Joyful',
+  'Tense',
+  'Panicked',
+  'Determined',
+  'Villainous',
+  'Heroic',
+];
+
+const PERFORMANCE_STYLE_OPTIONS = [
+  'Conversational',
+  'Dramatic',
+  'Theatrical',
+  'Intimate',
+  'Whispered',
+  'Shouting',
+  'Deadpan',
+  'Comedic',
+  'Formal',
+  'Storytelling',
+  'Announcer',
+  'Documentary',
+  'Cinematic',
+  'Character Acting',
+  'Creature Acting',
+  'Effort Sounds',
+  'Energetic',
+];
+
+const INTENSITY_OPTIONS: VoiceVariation['intensity'][] = ['Subtle', 'Moderate', 'Strong', 'Extreme'];
+const PACING_OPTIONS: VoiceVariation['pacing'][] = ['Slow', 'Natural', 'Fast', 'Variable'];
+const ENERGY_OPTIONS: VoiceVariation['energy'][] = ['Low', 'Medium', 'High'];
+
+const SelectField: React.FC<{
+  label: string;
+  value?: string;
+  options: readonly string[];
+  onChange: (value: string) => void;
+}> = ({ label, value = '', options, onChange }) => (
+  <Col gap={6}>
+    <FieldLabel>{label}</FieldLabel>
+    <select
+      aria-label={label}
+      className="vpe-input"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      style={selectStyle}
+    >
+      <option value="">Select…</option>
+      {options.map(option => (
+        <option key={option} value={option}>{option}</option>
+      ))}
+    </select>
+  </Col>
+);
+
+const TokenPicker: React.FC<{
+  label: string;
+  addLabel: string;
+  removeLabel: string;
+  values: string[];
+  options: readonly string[];
+  onChange: (next: string[]) => void;
+}> = ({ label, addLabel, removeLabel, values, options, onChange }) => {
+  const available = options.filter(option => !values.includes(option));
+
+  return (
+    <Col gap={8}>
+      <FieldLabel>{label}</FieldLabel>
+      <Row gap={6} style={{ flexWrap: 'wrap' }}>
+        {values.map(value => (
+          <button
+            key={value}
+            type="button"
+            aria-label={`Remove ${removeLabel} ${value}`}
+            onClick={() => onChange(values.filter(item => item !== value))}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '5px 10px',
+              minHeight: 30,
+              borderRadius: 'var(--radius-round)',
+              border: '1px solid var(--accent-tint-border)',
+              background: 'var(--accent-tint-bg)',
+              color: 'var(--accent)',
+              fontFamily: 'inherit',
+              fontSize: 'var(--type-caption)',
+              fontWeight: 650,
+              cursor: 'pointer',
+            }}
+          >
+            {value}
+            <span aria-hidden="true" style={{ fontWeight: 800 }}>×</span>
+          </button>
+        ))}
+      </Row>
+      <select
+        aria-label={addLabel}
+        className="vpe-input"
+        value=""
+        onChange={e => {
+          if (!e.target.value) return;
+          onChange([...values, e.target.value]);
+        }}
+        style={selectStyle}
+      >
+        <option value="">{available.length ? addLabel : 'All options selected'}</option>
+        {available.map(option => (
+          <option key={option} value={option}>{option}</option>
+        ))}
+      </select>
+    </Col>
+  );
 };
 
 // ---------------------------------------------------------------------------
@@ -220,12 +425,15 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
     onChangeVoice(updated, originalName);
   };
 
-  const LANGUAGE_OPTIONS = ['English', 'Spanish', 'French', 'German', 'Italian', 'Japanese'];
-  const ACCENT_OPTIONS = ['US', 'UK', 'Canada', 'Australia', 'India'];
-  const STYLE_OPTIONS = ['Warm', 'Bright', 'Gruff', 'Clear', 'Cool', 'Calm', 'Dramatic', 'Soft'];
-  const CATEGORY_OPTIONS = ['Narrator', 'Dialogue', 'Character'] as const;
-  const GENDER_OPTIONS = ['Female', 'Male', 'NB'] as const;
-  const AGE_OPTIONS = ['Child', 'Adult', 'Senior'] as const;
+  const patchFields = (values: Partial<Voice>) => {
+    if (!selected) return;
+    const originalName = selected.name;
+    const updated: Voice = { ...selected, ...values };
+    if (values.name) {
+      setSelectedName(values.name);
+    }
+    onChangeVoice(updated, originalName);
+  };
 
   const MOCK_SAMPLES = [
     { label: 'Sample 1', dur: '0:08' },
@@ -234,11 +442,30 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
   ];
   const [showImagePrompt, setShowImagePrompt] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
+  const [selectedVariationId, setSelectedVariationId] = useState('');
   const imagePrompt = selected ? getVoiceProfileImagePrompt(selected) : '';
+  const variations = selected?.variations ?? [];
+  const activeVariation = variations.find(variation => variation.id === selectedVariationId)
+    ?? variations.find(variation => variation.isDefault)
+    ?? variations[0]
+    ?? null;
 
   const handleCopyPrompt = () => {
     void navigator.clipboard?.writeText(imagePrompt);
     setPromptCopied(true);
+  };
+
+  const patchVariation = (
+    variationId: string,
+    updater: (variation: VoiceVariation) => VoiceVariation,
+  ) => {
+    if (!selected) return;
+    patch(
+      'variations',
+      (selected.variations ?? []).map(variation =>
+        variation.id === variationId ? updater(variation) : variation
+      ),
+    );
   };
 
   return (
@@ -252,6 +479,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
       <style>{`
         @container (max-width: 720px) {
           .vpe-split { grid-template-columns: 1fr !important; }
+          .vpe-variation-panel { grid-template-columns: 1fr !important; }
           .vpe-list {
             border-right: none !important;
             border-bottom: 1px solid var(--hairline);
@@ -528,6 +756,9 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                     {selected.name}
                   </div>
                   <Row gap={4} style={{ flexWrap: 'wrap', marginTop: 'var(--space-1)' }}>
+                    {selected.primaryRole && (
+                      <VoiceAttrPill category="class">{selected.primaryRole}</VoiceAttrPill>
+                    )}
                     {selected.category && (
                       <VoiceAttrPill category="class">{selected.category}</VoiceAttrPill>
                     )}
@@ -784,80 +1015,38 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                       gap: 'var(--space-4)',
                     }}
                   >
-                    <Row gap={10} style={{ alignItems: 'center' }}>
-                      <div
-                        style={{
-                          width: 72,
-                          fontSize: 'var(--type-caption)',
-                          color: 'var(--text-secondary)',
-                          fontWeight: 600,
-                          flexShrink: 0,
-                        }}
-                      >
-                        Category
-                      </div>
-                      <Segmented
-                        ariaLabel="Category"
-                        options={CATEGORY_OPTIONS}
-                        value={selected.category || undefined}
-                        onChange={v =>
-                          patch(
-                            'category',
-                            v as 'Narrator' | 'Dialogue' | 'Character'
-                          )
-                        }
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 'var(--space-3)' }}>
+                      <SelectField
+                        label="Primary role"
+                        value={selected.primaryRole || ''}
+                        options={PRIMARY_ROLE_OPTIONS}
+                        onChange={value => patch('primaryRole', value)}
                       />
-                    </Row>
-                    <div style={{ height: 1, background: 'var(--hairline)' }} />
-                    <Row gap={10} style={{ alignItems: 'center' }}>
-                      <div
-                        style={{
-                          width: 72,
-                          fontSize: 'var(--type-caption)',
-                          color: 'var(--text-secondary)',
-                          fontWeight: 600,
-                          flexShrink: 0,
-                        }}
-                      >
-                        Gender
-                      </div>
-                      <Segmented
-                        ariaLabel="Gender"
+                      <SelectField
+                        label="Entity type"
+                        value={selected.entityType || ''}
+                        options={ENTITY_TYPE_OPTIONS}
+                        onChange={value => patch('entityType', value)}
+                      />
+                      <SelectField
+                        label="Gender"
+                        value={selected.gender || ''}
                         options={GENDER_OPTIONS}
-                        value={selected.gender || undefined}
-                        onChange={v =>
-                          patch('gender', v as 'Female' | 'Male' | 'NB')
-                        }
+                        onChange={value => patch('gender', value)}
                       />
-                    </Row>
-                    <div style={{ height: 1, background: 'var(--hairline)' }} />
-                    <Row gap={10} style={{ alignItems: 'center' }}>
-                      <div
-                        style={{
-                          width: 72,
-                          fontSize: 'var(--type-caption)',
-                          color: 'var(--text-secondary)',
-                          fontWeight: 600,
-                          flexShrink: 0,
-                        }}
-                      >
-                        Age
-                      </div>
-                      <Segmented
-                        ariaLabel="Age"
+                      <SelectField
+                        label="Age"
+                        value={selected.age || ''}
                         options={AGE_OPTIONS}
-                        value={selected.age || undefined}
-                        onChange={v =>
-                          patch('age', v as 'Child' | 'Adult' | 'Senior')
-                        }
+                        onChange={value => patch('age', value)}
                       />
-                    </Row>
+                    </div>
                   </Panel>
                 </section>
 
-                {/* ── LANGUAGES & ACCENT ──────────────────────────── */}
+                {/* ── LANGUAGE, ORIGIN & STYLE ─────────────────────── */}
                 <section>
-                  <SectionLabel>Languages &amp; Accent</SectionLabel>
+                  <SectionLabel>Language, Origin &amp; Base Style</SectionLabel>
                   <Panel
                     style={{
                       padding: 'var(--space-4)',
@@ -866,73 +1055,162 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                       gap: 'var(--space-4)',
                     }}
                   >
-                    <Col gap={8}>
-                      <FieldLabel>Languages</FieldLabel>
-                      <Row gap={6} style={{ flexWrap: 'wrap' }}>
-                        {LANGUAGE_OPTIONS.map(lang => {
-                          const on = (selected.languages ?? []).includes(lang);
-                          return (
-                            <ToggleChip
-                              key={lang}
-                              label={lang}
-                              on={on}
-                              onClick={() => {
-                                const current = selected.languages ?? [];
-                                const next = on
-                                  ? current.filter(l => l !== lang)
-                                  : [...current, lang];
-                                patch('languages', next);
-                              }}
-                            />
-                          );
-                        })}
-                      </Row>
-                    </Col>
+                    <TokenPicker
+                      label="Languages"
+                      addLabel="Add language"
+                      removeLabel="language"
+                      values={selected.languages ?? []}
+                      options={LANGUAGE_OPTIONS}
+                      onChange={next => patch('languages', next)}
+                    />
                     <div style={{ height: 1, background: 'var(--hairline)' }} />
-                    <Col gap={8}>
-                      <FieldLabel>Accent</FieldLabel>
-                      <Row gap={6} style={{ flexWrap: 'wrap' }}>
-                        {ACCENT_OPTIONS.map(acc => {
-                          const on = selected.accent === acc;
-                          return (
-                            <ToggleChip
-                              key={acc}
-                              label={acc}
-                              on={on}
-                              onClick={() =>
-                                patch('accent', on ? '' : acc)
-                              }
-                            />
-                          );
-                        })}
-                      </Row>
-                    </Col>
+                    <TokenPicker
+                      label="Dialect / Vocal Origin"
+                      addLabel="Add dialect or vocal origin"
+                      removeLabel="dialect or vocal origin"
+                      values={selected.dialectOrigins ?? (selected.accent ? [selected.accent] : [])}
+                      options={DIALECT_ORIGIN_OPTIONS}
+                      onChange={next => patchFields({ dialectOrigins: next, accent: next[0] ?? '' })}
+                    />
+                    <div style={{ height: 1, background: 'var(--hairline)' }} />
+                    <TokenPicker
+                      label="Base Voice Qualities"
+                      addLabel="Add base voice quality"
+                      removeLabel="base voice quality"
+                      values={selected.styles ?? []}
+                      options={BASE_STYLE_OPTIONS}
+                      onChange={next => patch('styles', next)}
+                    />
                   </Panel>
                 </section>
 
-                {/* ── SPEAKING STYLES ─────────────────────────────── */}
+                {/* ── VARIATIONS ──────────────────────────────────── */}
                 <section>
-                  <SectionLabel>Speaking Styles</SectionLabel>
-                  <Panel style={{ padding: 'var(--space-4)' }}>
-                    <Row gap={6} style={{ flexWrap: 'wrap' }}>
-                      {STYLE_OPTIONS.map(st => {
-                        const on = (selected.styles ?? []).includes(st);
+                  <h2
+                    style={{
+                      fontSize: 'var(--type-headline)',
+                      color: 'var(--text-primary)',
+                      margin: '0 0 var(--space-2)',
+                    }}
+                  >
+                    Voice variations
+                  </h2>
+                  <Panel
+                    className="vpe-variation-panel"
+                    style={{
+                      padding: 'var(--space-4)',
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(170px, 220px) 1fr',
+                      gap: 'var(--space-4)',
+                    }}
+                  >
+                    <Col gap={6}>
+                      {variations.map(variation => {
+                        const isActive = activeVariation?.id === variation.id;
                         return (
-                          <ToggleChip
-                            key={st}
-                            label={st}
-                            on={on}
-                            onClick={() => {
-                              const current = selected.styles ?? [];
-                              const next = on
-                                ? current.filter(s => s !== st)
-                                : [...current, st];
-                              patch('styles', next);
+                          <button
+                            key={variation.id}
+                            type="button"
+                            aria-label={`${variation.name}${variation.isDefault ? ' default variation' : ' variation'}`}
+                            onClick={() => setSelectedVariationId(variation.id)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              width: '100%',
+                              minHeight: 36,
+                              borderRadius: 'var(--radius-button)',
+                              border: `1px solid ${isActive ? 'var(--accent-tint-border)' : 'var(--hairline)'}`,
+                              background: isActive ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+                              color: isActive ? 'var(--accent)' : 'var(--text-primary)',
+                              fontFamily: 'inherit',
+                              fontSize: 'var(--type-caption)',
+                              fontWeight: isActive ? 700 : 600,
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                              padding: 'var(--space-2) var(--space-3)',
                             }}
-                          />
+                          >
+                            {variation.isDefault && <Star size={12} fill="currentColor" aria-hidden="true" />}
+                            <span style={{ flex: 1 }}>{variation.name}</span>
+                          </button>
                         );
                       })}
-                    </Row>
+                      <Btn small>
+                        <Row gap={5} style={{ alignItems: 'center' }}>
+                          <Plus size={12} />
+                          Add variation
+                        </Row>
+                      </Btn>
+                    </Col>
+
+                    {activeVariation ? (
+                      <Col gap={12}>
+                        <Row gap={8} style={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                          <Col gap={2}>
+                            <span style={{ fontSize: 'var(--type-caption)', fontWeight: 800, color: 'var(--text-primary)' }}>
+                              {activeVariation.name}
+                            </span>
+                            <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
+                              Variation tags override delivery while keeping the same base voice identity.
+                            </span>
+                          </Col>
+                          {activeVariation.isDefault && (
+                            <SemanticChip variant="warning">
+                              <Row gap={4} style={{ alignItems: 'center' }}>
+                                <Star size={10} fill="currentColor" />
+                                default
+                              </Row>
+                            </SemanticChip>
+                          )}
+                        </Row>
+                        <TokenPicker
+                          label="Emotion tags"
+                          addLabel="Add emotion"
+                          removeLabel="emotion"
+                          values={activeVariation.emotions}
+                          options={EMOTION_OPTIONS}
+                          onChange={next => patchVariation(activeVariation.id, variation => ({ ...variation, emotions: next }))}
+                        />
+                        <TokenPicker
+                          label="Performance styles"
+                          addLabel="Add performance style"
+                          removeLabel="performance style"
+                          values={activeVariation.performanceStyles}
+                          options={PERFORMANCE_STYLE_OPTIONS}
+                          onChange={next => patchVariation(activeVariation.id, variation => ({ ...variation, performanceStyles: next }))}
+                        />
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--space-3)' }}>
+                          <SelectField
+                            label="Variation intensity"
+                            value={activeVariation.intensity}
+                            options={INTENSITY_OPTIONS}
+                            onChange={value => patchVariation(activeVariation.id, variation => ({ ...variation, intensity: value as VoiceVariation['intensity'] }))}
+                          />
+                          <SelectField
+                            label="Variation pacing"
+                            value={activeVariation.pacing}
+                            options={PACING_OPTIONS}
+                            onChange={value => patchVariation(activeVariation.id, variation => ({ ...variation, pacing: value as VoiceVariation['pacing'] }))}
+                          />
+                          <SelectField
+                            label="Variation energy"
+                            value={activeVariation.energy}
+                            options={ENERGY_OPTIONS}
+                            onChange={value => patchVariation(activeVariation.id, variation => ({ ...variation, energy: value as VoiceVariation['energy'] }))}
+                          />
+                        </div>
+                        <Row gap={6} style={{ flexWrap: 'wrap' }}>
+                          <Btn small>Upload take samples</Btn>
+                          <Btn small>Test variation</Btn>
+                          <Btn small>Set as default</Btn>
+                        </Row>
+                      </Col>
+                    ) : (
+                      <Col gap={8} style={{ justifyContent: 'center', color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>
+                        No variations defined for this voice.
+                      </Col>
+                    )}
                   </Panel>
                 </section>
 

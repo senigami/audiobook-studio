@@ -11,29 +11,31 @@ At **production time**, emit a downsampled peaks sidecar for any audio artifact 
 
 ## Why it matters
 
-The browser-first phase (W2) caps the tape at ~10–15 min because browser decode of a long WAV is a memory bomb (~600 MB float32 for an hour). The sidecar lifts that cap: when a peaks JSON file exists for the loaded audio URL, the frontend never downloads or decodes the WAV — it renders directly from the peaks array. The sidecar is tiny (a few MB for an hour vs. 150–300 MB WAV) and is computed once at production time, never lazily.
+The browser-first phase (W2) caps the tape at ~10–15 min because browser decode of a long WAV is a memory bomb (~600 MB float32 for an hour, audit §E/F1). The sidecar lifts that cap: when a peaks JSON file exists for the loaded audio URL, the frontend never downloads or decodes the WAV — it renders directly from the peaks array. The sidecar is tiny (a few MB for an hour vs. 150–300 MB WAV) and is computed once at production time, never lazily.
 
 This task is the heavy one in W3. Everything else in the workload is thin because the investment here is front-loaded.
+
+**Backstory — audit §C/F2:** `ArtifactOutputModel` has no peaks field today (`app/domain/artifacts/models.py:14–21`); `sample_rate`/`channels` are never probed from files — they are hardcoded convention (no production reader; tests assume 24 kHz mono); and assembly records no chapter duration — fire-and-forget after stitch (`app/orchestration/tasks/assembly.py:164–173`). All three gaps must be closed here.
 
 ## Files
 
 ### Data model
-- `app/domain/artifacts/models.py` — add `peaks_path: str | None` to `ArtifactOutputModel`; update `to_dict()` / `ArtifactManifestModel.to_dict()` / `_coerce_artifact_output` in reconciliation
-- `app/orchestration/progress/reconciliation.py` (`:390–410`) — update `_coerce_artifact_output` to read `peaks_path` from the candidate dict and pass it through
+- `app/domain/artifacts/models.py` — add `peaks_path: str | None = None` to `ArtifactOutputModel` (currently lines 14–21); update `ArtifactManifestModel.to_dict()` (lines 53–75) to emit `peaks_path` in the `"output"` dict
+- `app/orchestration/progress/reconciliation.py:390–410` — update `_coerce_artifact_output` to read `peaks_path` from the candidate dict and pass it through to `ArtifactOutputModel`; old manifests without the key default to `None`
 - `docs/specs/data-model.md` — add `peaks_path` to the artifact output model section; bump `spec_version`; add changelog row
 
 ### Peaks computation
-- `app/engines/audio_ops.py` — add `compute_peaks_sidecar(wav_path, sidecar_path, *, num_peaks=1000)` using ffmpeg + numpy/struct; or ffprobe for samples if preferred
-- `app/utils/subprocess_utils.py` — already has `probe_audio_duration` / `FFPROBE_DURATION_CMD`; add `probe_audio_sample_rate_channels` if not present (needed to record `sample_rate`/`channels` for the first time — they are currently hardcoded convention)
+- `app/engines/audio_ops.py` — add `PEAKS_SIDECAR_THRESHOLD_SEC` constant and `compute_peaks_sidecar(wav_path, sidecar_path, *, num_peaks=1000)` using FFmpeg pipe + struct unpack (preferred — FFmpeg always present, no scipy dependency); atomic write via `.tmp` rename; non-fatal on exception
+- `app/utils/subprocess_utils.py` — `probe_audio_duration` already exists at lines 36–52 (ffprobe, returns float seconds); add `probe_audio_sample_rate_channels(wav_path) -> tuple[int, int]` using ffprobe's stream-level JSON output, so `sample_rate` and `channels` are probed from real files rather than hardcoded
 
 ### Synthesis hook
-- `app/orchestration/tasks/synthesis.py` (`:202–249`, result path) — after a segment WAV is finalized, probe its duration; if `duration_sec > PEAKS_SIDECAR_THRESHOLD_SEC`, call `compute_peaks_sidecar` and record `peaks_path` in the artifact output
+- `app/orchestration/tasks/synthesis.py:202–249` — the `run()` method finalizes segment WAVs (local "mixed" path) and is the hook point for sidecar emission on over-threshold segments; the remote/HTTP path finalizes artifacts through the reconciliation flow; both paths must record `peaks_path` in `ArtifactOutputModel` when the sidecar is emitted; errors in sidecar emission must not fail the synthesis task
 
 ### Assembly hook
-- `app/orchestration/tasks/assembly.py` (`:164–173`, post-stitch) — after `stitch_segments` returns rc=0 and `output_path.exists()`, probe chapter duration; if over threshold, call `compute_peaks_sidecar` and record `peaks_path` in the returned `TaskResult` or artifact metadata
+- `app/orchestration/tasks/assembly.py:130–173` — `run()` calls `stitch_segments` (→ `app/engines/audio_ops.py:99–145`) then checks `rc == 0 and output_path.exists()` (line 164) before returning `TaskResult(status="completed")`; after that check, probe chapter duration, conditionally call `compute_peaks_sidecar`, and store `peaks_path` in the artifact metadata; errors must not fail the assembly task
 
 ### HTTP route
-- `app/api/routers/` (add to an appropriate domain router, e.g. `projects.py` or a new `artifacts.py`) — a contained GET route that resolves the sidecar path using `safe_join`/`secure_join_flat`, verifies containment under the projects root, and streams the JSON. Must reject path traversal; must never echo raw paths in error responses.
+- `app/api/routers/` (add to an appropriate domain router, e.g. `projects.py` or a new `artifacts.py`) — a contained GET route that resolves the sidecar path using `safe_join`/`secure_join_flat`, verifies containment under the projects root, and streams the JSON; must reject path traversal; must never echo raw paths in error responses
 
 ### Tests
 - `tests/engines/test_audio_ops.py` (new or extend) — `compute_peaks_sidecar` emits a valid JSON file with the expected structure; revert-check per R1
@@ -46,19 +48,22 @@ This task is the heavy one in W3. Everything else in the workload is thin becaus
 ### `ArtifactOutputModel` (after change)
 
 ```python
+# app/domain/artifacts/models.py:14–21 (currently)
 @dataclass
 class ArtifactOutputModel:
+    """Audio output metadata stored in the artifact manifest."""
     duration_ms: int
     sample_rate: int
     channels: int
     peaks_path: str | None = None   # NEW — relative path from projects root, or None
 ```
 
-`peaks_path` is `None` for artifacts under the duration threshold or where sidecar emission failed (non-fatal). It is a path relative to the projects storage root, not an absolute filesystem path, and it is never echoed in error responses.
+`peaks_path` is `None` for artifacts under the duration threshold or where sidecar emission failed (non-fatal). It is a path **relative to the projects storage root**, not an absolute filesystem path, and it is never echoed in error responses.
 
 ### Manifest serialisation (`to_dict`)
 
 ```python
+# app/domain/artifacts/models.py:66–70 (currently)
 "output": {
     "duration_ms": self.output.duration_ms,
     "sample_rate": self.output.sample_rate,
@@ -87,7 +92,7 @@ File contents (JSON, no schema version in V1 — keep it minimal):
 }
 ```
 
-`num_peaks` defaults to 1000 for a 60-min clip (~1 peak per 3.6 s); tunable via a module-level constant `PEAKS_SIDECAR_NUM_PEAKS = 1000`. The resolution sets the zoom-in cap on the frontend (proposal §3).
+`num_peaks` defaults to 1000 for a 60-min clip (~1 peak per 3.6 s); tunable via a module-level constant `PEAKS_SIDECAR_NUM_PEAKS = 1000`. The resolution sets the zoom-in cap on the frontend (spec §5.2/§5.4).
 
 ### Duration threshold
 
@@ -101,25 +106,21 @@ Artifacts with `duration_sec <= PEAKS_SIDECAR_THRESHOLD_SEC` get no sidecar (bro
 
 ### Duration / sample_rate / channels probing
 
-`probe_audio_duration` already exists at `audio_ops.py:52–57` → `subprocess_utils.py:36–52` (ffprobe, returns float seconds). For `sample_rate` and `channels`, add `probe_audio_sample_rate_channels(wav_path) -> tuple[int, int]` to `subprocess_utils.py` using ffprobe's `stream=audio` JSON output. Both values are stored in `ArtifactOutputModel` at artifact creation time (currently hardcoded 24 kHz mono convention).
+`probe_audio_duration` already exists in `app/utils/subprocess_utils.py:36–52` (ffprobe, returns float seconds); it is called from `get_audio_duration` in `audio_ops.py:52–57`. For `sample_rate` and `channels`, add `probe_audio_sample_rate_channels(wav_path) -> tuple[int, int]` to `subprocess_utils.py` using ffprobe's `stream=audio` JSON output. Both values are stored in `ArtifactOutputModel` at artifact creation time (currently hardcoded 24 kHz mono convention — closing audit F2).
 
 ### Peaks computation
 
 `compute_peaks_sidecar(wav_path: Path, sidecar_path: Path, *, num_peaks: int = PEAKS_SIDECAR_NUM_PEAKS) -> None`
 
-Implementation options (in order of preference):
-1. FFmpeg pipe + struct unpack: `ffmpeg -i wav_path -f f32le -ac 1 pipe:1` → read raw float32 frames in chunks → downsample to `num_peaks` values by taking the max-absolute per bucket.
-2. If scipy/numpy is available in the venv at call time, use `scipy.io.wavfile.read` → downsample.
-
-Prefer option 1 (FFmpeg is always present; avoids a scipy dependency). Write to `sidecar_path.with_suffix('.tmp')`, then rename to `sidecar_path` atomically.
+Implementation (in order of preference):
+1. **FFmpeg pipe + struct unpack** (preferred): `ffmpeg -i wav_path -f f32le -ac 1 pipe:1` → read raw float32 frames in chunks → downsample to `num_peaks` values by taking the max-absolute per bucket. Write to `sidecar_path.with_suffix('.tmp')`, then rename atomically.
+2. If scipy/numpy is available in the venv at call time, use `scipy.io.wavfile.read` → downsample. (Fallback only — FFmpeg is always present.)
 
 On any exception, log a warning and return without raising — a missing sidecar is non-fatal (frontend browser-decodes as fallback).
 
 ### Immutable cache entries
 
-Shared artifact cache entries are immutable (modular_architecture rule). The sidecar is a **new file** written alongside the WAV — it does not mutate the WAV or the existing manifest. If a sidecar already exists at the target path, skip re-computation (idempotent production behavior).
-
-If the manifest is already sealed (cache hit / reuse path), do NOT write a new sidecar — the artifact is already complete. Sidecar emission happens only at the tail of the first successful production of that artifact.
+Shared artifact cache entries are immutable (modular_architecture rule). The sidecar is a **new file** written alongside the WAV — it does not mutate the WAV or the existing manifest. If a sidecar already exists at the target path, skip re-computation (idempotent production behavior). If the manifest is already sealed (cache hit / reuse path), do NOT write a new sidecar — the artifact is already complete. Sidecar emission happens only at the tail of the first successful production of that artifact.
 
 ### Contained HTTP route
 
@@ -141,15 +142,15 @@ Bump `spec_version` to 1.2.0. Add changelog row. Add a subsection under the arti
 
 ## Steps
 
-1. Add `peaks_path: str | None = None` to `ArtifactOutputModel`; update `to_dict()` to include it; update `_coerce_artifact_output` in `reconciliation.py:390–410` to read `peaks_path` from the candidate dict (default `None`). Run pytest — must be green.
-2. Add `probe_audio_sample_rate_channels` to `app/utils/subprocess_utils.py` (ffprobe JSON stream probe).
-3. Add `compute_peaks_sidecar` to `app/engines/audio_ops.py` (FFmpeg pipe → float32 downsample → atomic JSON write).
-4. Add `PEAKS_SIDECAR_THRESHOLD_SEC` constant to `audio_ops.py`.
-5. Hook synthesis task (`tasks/synthesis.py`): after segment WAV is finalized and duration is known, if `duration_sec > PEAKS_SIDECAR_THRESHOLD_SEC` call `compute_peaks_sidecar`; store relative `peaks_path` in the artifact output. Errors in sidecar emission must not fail the synthesis task.
-6. Hook assembly task (`tasks/assembly.py`): after `stitch_segments` rc=0, probe chapter duration, conditionally emit sidecar. Errors must not fail the assembly task.
+1. Add `peaks_path: str | None = None` to `ArtifactOutputModel` (`models.py:14–21`); update `to_dict()` (`models.py:66–70`) to include it; update `_coerce_artifact_output` in `reconciliation.py:390–410` to read `peaks_path` from the candidate dict (default `None`). Run pytest — must be green.
+2. Add `probe_audio_sample_rate_channels` to `app/utils/subprocess_utils.py` (ffprobe JSON stream probe). Update callers that currently hardcode 24 kHz mono to probe the real file instead.
+3. Add `PEAKS_SIDECAR_THRESHOLD_SEC` and `PEAKS_SIDECAR_NUM_PEAKS` constants to `app/engines/audio_ops.py`.
+4. Add `compute_peaks_sidecar` to `app/engines/audio_ops.py` (FFmpeg pipe → float32 downsample → atomic JSON write).
+5. Hook synthesis task (`app/orchestration/tasks/synthesis.py:202–249`): after a segment WAV is finalized and duration is known, if `duration_sec > PEAKS_SIDECAR_THRESHOLD_SEC` call `compute_peaks_sidecar`; store relative `peaks_path` in the artifact output. Errors in sidecar emission must not fail the synthesis task.
+6. Hook assembly task (`app/orchestration/tasks/assembly.py:164–173`): after `stitch_segments` rc=0 and `output_path.exists()` (line 164), probe chapter duration via `get_audio_duration`, conditionally emit sidecar. Errors must not fail the assembly task.
 7. Add the contained HTTP route for serving sidecar JSON.
 8. Update `docs/specs/data-model.md`: add `peaks_path` docs, bump `spec_version` to 1.2.0, add changelog row.
-9. Write tests (see Files section). Each bug-fix test must fail on pre-fix code (R1). Tests may mock only what is outside the unit under test: filesystem writes, ffprobe/ffmpeg subprocess calls — not the audio_ops module itself.
+9. Write tests (see Files section). Each bug-fix test must fail on pre-fix code (R1). Tests may mock only what is outside the unit under test: filesystem writes, ffprobe/ffmpeg subprocess calls — not the `audio_ops` module itself (R2).
 10. Run `./venv/bin/python -m pytest -q` — green. Run `ruff check .` — clean.
 
 ## Acceptance criteria
@@ -176,17 +177,19 @@ Bump `spec_version` to 1.2.0. Add changelog row. Add a subsection under the arti
 ## References
 
 - Roadmap: `plans/audio_player_waveform_scrubber/01-roadmap.md` (W3, task 011)
-- Audit Finding F2 (backend scope): `00-audit-report.md §E`
-- Audit §C (backend current state — assembly no duration, hardcoded sr/channels)
-- Proposal §7 (sidecar strategy and threshold rationale)
-- `app/domain/artifacts/models.py:14–21, 35–75` — current `ArtifactOutputModel` / `ArtifactManifestModel`
-- `app/orchestration/progress/reconciliation.py:390–410` — `_coerce_artifact_output`
-- `app/engines/audio_ops.py:52–57` — `get_audio_duration`
-- `app/utils/subprocess_utils.py:36–52` — `probe_audio_duration`
-- `app/orchestration/tasks/synthesis.py:202–249` — synthesis result path
-- `app/orchestration/tasks/assembly.py:130–173` — assembly run / stitch call
+- Spec §5.4 (peaks data — browser-first below cap, sidecar above): `docs/specs/audio-player.md`
+- Audit Finding F2 (backend gaps — no peaks field, sr/channels hardcoded, assembly no duration): `00-audit-report.md §E`
+- Audit §C (backend current state): `00-audit-report.md §C`
+- `app/domain/artifacts/models.py:14–21` — current `ArtifactOutputModel` (lines 14–21 confirmed)
+- `app/domain/artifacts/models.py:35–75` — `ArtifactManifestModel` and `to_dict()` (lines 35–75 confirmed)
+- `app/orchestration/progress/reconciliation.py:390–410` — `_coerce_artifact_output` (lines 390–410 confirmed)
+- `app/engines/audio_ops.py:52–57` — `get_audio_duration` (lines 52–57 confirmed)
+- `app/engines/audio_ops.py:99–145` — `stitch_segments` (lines 99–145 confirmed)
+- `app/utils/subprocess_utils.py:36–52` — `probe_audio_duration` (lines 36–52 confirmed)
+- `app/orchestration/tasks/synthesis.py:202–249` — `run()` method, synthesis result path (lines 202–249 confirmed)
+- `app/orchestration/tasks/assembly.py:130–173` — `run()` / stitch call / post-stitch check (lines 130–173 confirmed; fire-and-forget gap at line 164–165)
 - `app/storage/project.py:20–38` — `ProjectContext` paths
-- `docs/specs/data-model.md` — current spec (1.1.0)
+- `docs/specs/data-model.md` — current spec
 - `.agent/rules/backend-paths.md` — path-containment helpers (`safe_join`, `secure_join_flat`)
 - `.agent/rules/modular_architecture.md` — immutable shared-artifact cache entries
 - `docs/specs/testing-standards.md` — R1 revert-check, R2 mock boundaries

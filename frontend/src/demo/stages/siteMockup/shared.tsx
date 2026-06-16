@@ -635,22 +635,27 @@ export const MockWaveTape: React.FC<MockWaveTapeProps> = ({
   const viewEnd = viewStart + windowSec;
 
   // --- Peaks for this window ----------------------------------------------
-  // Sample the procedural speech envelope across the visible window at a fixed
-  // bar density (more seconds-per-bar when zoomed out — like a real waveform).
+  // Sample on a FIXED absolute-time grid (gridSec), NOT relative to the moving
+  // window — otherwise every bar re-samples a shifting point each tick and the
+  // shape "crawls". Grid-aligned samples are stable per time bucket; the row is
+  // then translated by a sub-bar offset so scroll mode glides seamlessly.
   // Bars before the start or past the clip end render flat (silence).
-  const BAR_COUNT = 180;
-  const visiblePeaks = Array.from({ length: BAR_COUNT }, (_, i) => {
-    const time = viewStart + ((i + 0.5) / BAR_COUNT) * windowSec;
-    return time >= 0 && time <= durationSec ? speechPeakAt(time) : 0;
-  });
-
-  // SVG coordinate space
   const barW = 5;
   const gap = 2;
-  const totalBars = visiblePeaks.length;
-  const svgW = totalBars * (barW + gap);
+  const slot = barW + gap;
+  const BAR_COUNT = 180;
+  const svgW = BAR_COUNT * slot;
   const rulerH = 18;
   const svgH = Math.max(24, height - rulerH);
+
+  const gridSec = windowSec / BAR_COUNT; // seconds per bar (depends on zoom only)
+  const alignedStart = Math.floor(viewStart / gridSec) * gridSec; // snap to the grid
+  const scrollOffset = ((alignedStart - viewStart) / windowSec) * svgW; // (-slot, 0]
+  // One extra bar to cover the partial bar revealed at the right edge.
+  const visiblePeaks = Array.from({ length: BAR_COUNT + 1 }, (_, i) => {
+    const t = alignedStart + (i + 0.5) * gridSec; // FIXED grid time → stable value
+    return t >= 0 && t <= durationSec ? speechPeakAt(t) : 0;
+  });
 
   // Playhead X in SVG coords (fixed at center in scroll mode)
   const playheadFrac =
@@ -721,7 +726,7 @@ export const MockWaveTape: React.FC<MockWaveTapeProps> = ({
       aria-valuenow={Math.round(currentTimeSec)}
     >
       {visiblePeaks.map((amp, i) => {
-        const x = i * (barW + gap);
+        const x = i * slot + scrollOffset;
         const barH = Math.max(2, amp * (svgH - 8));
         const y = (svgH - barH) / 2;
         const isPlayed = x + barW < playheadX;

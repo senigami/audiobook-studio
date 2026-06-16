@@ -1,6 +1,6 @@
 # 004 — Rewrite audio-player.md §5: fit-based, duration-driven, scope-blind rule
 
-status: todo
+status: done
 workload: W1 — Spec rewrite + fit-based inline rule
 blocked-by: 003 (owner sign-off on W0 mock)
 blocks: 005

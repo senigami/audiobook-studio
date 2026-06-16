@@ -1,16 +1,17 @@
 {
-  "snapshot_version": 213,
-  "current_task": "Prepare the standalone XTTS/Voxtral plugin repo extraction plan after shared voice portrait reuse verification",
-  "status": "shared_voice_portrait_reuse_verified",
+  "snapshot_version": 214,
+  "current_task": "Prepare the standalone XTTS/Voxtral plugin repo extraction plan after voice taxonomy and variations mockup verification",
+  "status": "voice_taxonomy_variations_mockup_verified",
   "last_committed_milestone": {
-    "title": "Shared voice portrait reuse verified",
+    "title": "Voice taxonomy and variations mockup verified",
     "commit": "uncommitted",
     "notes": [
-      "Extracted VoicePortrait into frontend/src/demo/stages/siteMockup/panes/voicePortrait.tsx so cards, Voice Lab, Voice Profile Editor, and metadata editing share one portrait recipe.",
-      "Reused taxonomy/raster/default voice portraits in the Voice Profile Editor sidebar, selected-profile header, and Appearance preview instead of initials-only Avatar rendering.",
-      "Added a live profile image preview to the Edit Metadata modal using the same VoicePortrait system, and restored card overflow Edit metadata to open that modal instead of the full profile editor.",
-      "Focused demo regression now verifies the card portrait set, Aria default portrait, metadata modal preview, Discover raster/no-image states, Voice Profile Editor reuse, and generated image prompt.",
-      "Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check. Per owner instruction, did not run frontend build or build:demo and did not touch player-bar work."
+      "Expanded the private mock voice taxonomy with a Primary Role dropdown, Entity Type dropdown, Gender dropdown, Age dropdown with Unknown, searchable-style language choices, Dialect / Vocal Origin tokens, and Base Voice Quality tokens.",
+      "Added Studio Voice as a Dark Fiction Narrator with visible variation count and a six-variation mock set covering Dark Fiction, Neutral, Sad, Excited, Angry, and Whispered takes.",
+      "Added a Voice variations editor surface in the Voice Profile Editor with variation selection, emotion tags, performance style tags, intensity, pacing, energy, upload/test/default actions, and responsive layout behavior.",
+      "Kept single-select fields as native dropdowns and multi-select fields as token/pill picker rows with removable selected tags.",
+      "Focused demo regression now verifies the expanded taxonomy controls, language/origin token add behavior, Studio Voice variation count, default Dark Fiction variation, and Sad variation emotion/intensity metadata.",
+      "Verified with npm -C frontend run test -- demoApp.test.tsx, npm -C frontend run lint, and git diff --check. Per owner instruction, did not run frontend build or build:demo and did not touch player-bar work."
     ]
   },
   "active_constraints": [
@@ -55,6 +56,7 @@
     "Voice profile image prompt mockup verified 2026-06-16: silhouette assets now have solid backgrounds, two 1024 x 1024 raster portrait examples are wired into Voices/Discover, and the Voice Profile Editor Generate prompt control exposes the reusable solid-background Hugging Face-ready prompt.",
     "Aria default voice portrait verified 2026-06-16: Aria now uses the taxonomy-derived adult female clear narrator default portrait instead of an initials-only fallback.",
     "Shared voice portrait reuse verified 2026-06-16: VoicePortrait is now shared by voice cards, Voice Lab, Voice Profile Editor, and Edit Metadata preview, including raster overrides and taxonomy-derived default portraits.",
+    "Voice taxonomy and variations mockup verified 2026-06-16: Voice Profile Editor now exposes expanded base voice taxonomy dropdowns/token pickers plus a variation editor for emotion/performance/intensity metadata.",
     "Phase 12 item audit is complete. Verified complete: Library list/sort, Plugin dependency UX, Per-voice settings, Plugin boundary cleanup, Chapter Editor tab removal, VCR controls, Plugin ZIP import/delete, Queue output metadata, Legacy jobs API retirement.",
     "Chapter Editor live queue selection now prefers the active job over stale completed chapter jobs so live progress and queued spans stay visible without waiting for a reload.",
     "Chapter Editor progress no longer treats orphan active_segment_progress values as authoritative when active_segment_id is null; XTTS standard handler now suppresses pre-START_SEGMENT progress from active segment payloads.",
@@ -111,7 +113,7 @@
   ],
   "verification": {
     "latest_backend_focus": "2026-06-15: Official plugin registry and GitHub URL plugin preview backend verified. Focused API/engine/TTS client tests passed, plugin loader/validation regressions passed, ruff passed for touched backend/test files, and git diff --check passed.",
-    "latest_frontend_focus": "2026-06-16: Private site mockup shared voice portraits verified. VoicePortrait is reused across voice cards, Voice Lab, Voice Profile Editor, and Edit Metadata preview, with Aria using the adult female clear narrator default portrait. Focused demo Vitest and git diff --check passed; frontend build/build:demo were intentionally skipped per owner instruction.",
+    "latest_frontend_focus": "2026-06-16: Private site mockup voice taxonomy/variations verified. Voice Profile Editor now has expanded dropdown taxonomy, token-style multi-selects, and per-variation emotion/performance metadata. Focused demo Vitest, frontend lint, and git diff --check passed; frontend build/build:demo were intentionally skipped per owner instruction.",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",
     "latest_lint_focus": "2026-06-08: ruff passed for app/api/routers/generation.py and tests/api/test_api_generation.py; commit hook also ran Ruff/ESLint auto-fix checks cleanly.",
@@ -129,6 +131,7 @@
     "memory": "Update Memory/state.json and Memory/session_logs.md after verified milestones; update .agent rules only for durable repo-level guidance."
   },
   "completed_followups": [
+    "2026-06-16: Expanded the private mock Voice Profile Editor taxonomy and restored reviewable voice variation support. Base voice metadata now uses dropdowns for Primary Role, Entity Type, Gender, and Age with Unknown, token/pill pickers for Languages, Dialect / Vocal Origin, and Base Voice Qualities, and Studio Voice is now a Dark Fiction Narrator with six visible variations. Added a Voice variations editor with emotion tags, performance style tags, intensity, pacing, energy, and upload/test/default actions. Verified with npm -C frontend run test -- demoApp.test.tsx, npm -C frontend run lint, and git diff --check; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.",
     "2026-06-16: Reused the shared VoicePortrait system across voice cards, Voice Lab, Voice Profile Editor, and the Edit Metadata preview. The profile editor sidebar/header/appearance preview now show the same raster/default portraits, the metadata modal includes a live profile image preview, and card overflow Edit metadata once again opens that metadata modal. Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.",
     "2026-06-16: Updated Aria to use the default taxonomy-derived adult female clear narrator portrait instead of the initials-only fallback. Focused demo coverage now expects six local voice portraits and explicitly verifies Aria's default portrait label. Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check; skipped frontend build/build:demo per owner instruction.",
     "2026-06-16: Completed the voice profile image prompt mockup pass. The silhouette SVG library now includes solid color backgrounds, two 1024 x 1024 raster examples are stored under frontend/public/demo-voice-raster and wired into Studio Voice plus DeepCast-M, and the Voice Profile Editor Generate prompt control now displays a reusable prompt derived from the selected voice's taxonomy, description, and avatar color for Studio/export/Hugging Face profile art. Added plans/site_redesign_rollout/11_voice_portrait_asset_prompt.md and focused demo coverage for raster, SVG, local no-image, Discover no-image, and prompt generation paths. Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.",

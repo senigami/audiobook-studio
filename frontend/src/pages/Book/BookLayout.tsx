@@ -1,4 +1,4 @@
-import { Navigate, NavLink, useParams } from 'react-router-dom';
+import { Navigate, NavLink, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect } from 'react';
 import { setBookIdentity } from '@/app/layout/bookIdentityStore';
 import type { Job, SegmentProgress, Settings, Speaker, SpeakerProfile, TtsEngine } from '@/types';
@@ -113,6 +113,7 @@ export function BookLayout({
   onOpenQueue,
 }: BookLayoutProps) {
   const { bookId, stage } = useParams<{ bookId: string; stage: string }>();
+  const [searchParams] = useSearchParams();
 
   if (!bookId) {
     return <Navigate to="/library" replace />;
@@ -121,6 +122,14 @@ export function BookLayout({
   if (!isBookStage(stage)) {
     return <Navigate to={`/book/${bookId}`} replace />;
   }
+
+  // Preserve the active chapter across stage switches. Studio/Review read the
+  // chapter from the URL; without this, switching tabs (e.g. Studio → Review)
+  // drops `?chapter=` and resets to the first chapter. Book-level stages
+  // (Casting/Publish) ignore the param harmlessly, so we carry it on all tabs.
+  const chapterParam = searchParams.get('chapter');
+  const stageHref = (s: BookStage) =>
+    chapterParam ? `/book/${bookId}/${s}?chapter=${encodeURIComponent(chapterParam)}` : `/book/${bookId}/${s}`;
 
   return (
     <BookDataProvider
@@ -141,7 +150,7 @@ export function BookLayout({
           {BOOK_STAGES.map((bookStage) => (
             <NavLink
               key={bookStage}
-              to={`/book/${bookId}/${bookStage}`}
+              to={stageHref(bookStage)}
               className={({ isActive }) =>
                 isActive ? 'book-stage-tabs__link book-stage-tabs__link--active' : 'book-stage-tabs__link'
               }

@@ -264,10 +264,21 @@ def api_add_to_queue(
     speaker_profile: Optional[str] = Form(None)
 ):
     try:
-        active_profile = speaker_profile or get_settings().get("default_speaker_profile")
-        if not active_profile:
-            return JSONResponse({"status": "error", "message": "No speaker profile selected and no default set. Please choose a voice first."}, status_code=400)
         settings = get_settings()
+        # Resolve a working voice. Priority: explicit pick → global default →
+        # the chapter's own per-segment casting. `active_profile` is only the
+        # FALLBACK for segments that have no voice of their own (the script
+        # builder and engine resolution already honor each segment's
+        # `speaker_profile_name`). So a fully/partly cast chapter renders even
+        # with no explicit pick and no global default. Block ONLY when nothing
+        # resolves anywhere — no pick, no default, and no segment is cast.
+        active_profile = (
+            speaker_profile
+            or settings.get("default_speaker_profile")
+            or next((p for p in _resolved_segment_profiles(chapter_id) if p), None)
+        )
+        if not active_profile:
+            return JSONResponse({"status": "error", "message": "No voice available — assign a speaker to this chapter's text or set a default voice in Settings."}, status_code=400)
 
         validation_error = _validate_generation_engines(chapter_id, active_profile)
         if validation_error:

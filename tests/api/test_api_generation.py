@@ -103,6 +103,48 @@ def test_queue_and_bake(clean_db, client):
         assert any(row["id"] == job_id and row["custom_title"] == "C1" for row in get_queue())
 
 
+def test_queue_chapter_proceeds_when_segments_cast_without_default(clean_db, client):
+    """A chapter whose segments are already cast queues even with NO global
+    default voice and NO explicit voice param — the assigned voice is the
+    fallback. Regression: previously hard-blocked with "No speaker profile selected"."""
+    from app.db.state import update_settings
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    update_settings({"default_speaker_profile": ""})  # no global default voice
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+
+    with timeout_after(5, "queue route should not hang"), \
+         patch("app.api.routers.generation.get_chapter_segments", return_value=[
+             {"id": "s1", "speaker_profile_name": "Voice1", "audio_status": "unprocessed", "audio_file_path": None},
+         ]), \
+         patch("app.api.routers.generation.put_job"), \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid})
+        assert response.status_code == 200, response.json()
+
+
+def test_queue_chapter_blocks_only_when_no_voice_anywhere(clean_db, client):
+    """Block solely when nothing resolves: no explicit voice, no default, and no
+    segment is cast."""
+    from app.db.state import update_settings
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    update_settings({"default_speaker_profile": ""})
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+
+    with timeout_after(5, "queue route should not hang"), \
+         patch("app.api.routers.generation.get_chapter_segments", return_value=[
+             {"id": "s1", "speaker_profile_name": None, "audio_status": "unprocessed", "audio_file_path": None},
+         ]), \
+         patch("app.api.routers.generation.put_job"), \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid})
+        assert response.status_code == 400
+        assert "voice" in response.json()["message"].lower()
+
+
 def test_standard_queue_preserves_split_part_after_metadata_upsert(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter

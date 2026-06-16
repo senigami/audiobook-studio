@@ -6,6 +6,18 @@ date: 2026-06-16
 not: a whole-repo audit — bounded to the audio-player surface + the peaks-sidecar backend hook
 ```
 
+## Reconciliation update — 2026-06-16 (mock landed, spec 1.6.0)
+
+Since this report was first written, **W0 (the mock) shipped and was owner-approved**, and **`audio-player.md` was rewritten to 1.6.0**. The live port (W1–W3) must now carry everything the mock converged on — the originally-planned "fit-based rule" expanded into a larger, owner-approved feature set. Deltas the task files reflect:
+
+- **Scope-agnostic, not just fit-based.** The segment/chapter toggle is removed *entirely*: `altScope`/`switchScope` retire from `playerBus.ts`, the `player-scope-*` UI goes, time becomes `position/duration`. (W1 / task 005.)
+- **Port the mock, don't re-derive.** `MockWaveTape` + `speechPeakAt` (`shared.tsx`) and `MockTapeControls` (zoom/minimap) are the reference. The live tape is a **custom renderer fed by a real peak array**, not wavesurfer's renderer.
+- **Fixed-grid sampling is binding** (spec §5.3) — the stability fix discovered in the mock.
+- **New features beyond the original plan:** the paged↔**moving** motion toggle (reduce-motion forces paged), **cover-slider** zoom (no second-labels), the **m:ss time ruler**, and the **"Play book"** whole-book affordance.
+- **Peak provider seam:** `usePeaks(url)` — browser-decode below the duration cap (W2), sidecar above (W3).
+
+The current-state map below (live code, §A–C) is unchanged and still accurate — the live `PlayerBar`/`playerBus` have not yet been touched by the port.
+
 ## How the work was divided (token discipline)
 
 Three read-only **Explore** (Haiku-class) agents mapped the current code in parallel; the orchestrator verified the load-bearing claims (the `showWave` predicate, the wavesurfer single-owner binding, the absence of a peaks field) against the proposal before writing tasks. No source was read whole into the orchestrator that an agent could summarize.

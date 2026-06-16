@@ -38,6 +38,17 @@ import { VoicePortrait } from './voicePortrait';
 
 export type VoicePill = { label: string; category: 'class' | 'gender' | 'age' | 'extended' | 'tag' };
 
+export type VoiceVariation = {
+  id: string;
+  name: string;
+  isDefault?: boolean;
+  emotions: string[];
+  performanceStyles: string[];
+  intensity: 'Subtle' | 'Moderate' | 'Strong' | 'Extreme';
+  pacing: 'Slow' | 'Natural' | 'Fast' | 'Variable';
+  energy: 'Low' | 'Medium' | 'High';
+};
+
 export type Voice = {
   name: string;
   description: string;
@@ -48,12 +59,16 @@ export type Voice = {
   portrait?: boolean;
   portraitImage?: string;
   // Taxonomy fields
+  primaryRole?: string;
+  entityType?: string;
   languages?: string[];
   accent?: string;
+  dialectOrigins?: string[];
   styles?: string[];
-  category?: 'Narrator' | 'Dialogue' | 'Character' | '';
-  gender?: 'Female' | 'Male' | 'NB' | '';
-  age?: 'Child' | 'Adult' | 'Senior' | '';
+  category?: string;
+  gender?: string;
+  age?: string;
+  variations?: VoiceVariation[];
 };
 
 // ---------------------------------------------------------------------------
@@ -72,6 +87,72 @@ const VOICE_CARDS: Voice[] = [
     cta: 'Edit voice',
     portrait: true,
     portraitImage: '/demo-voice-raster/warm-narrator.png',
+    primaryRole: 'Dark Fiction Narrator',
+    entityType: 'Human',
+    languages: ['English'],
+    accent: 'American Neutral',
+    dialectOrigins: ['American Neutral', 'Dark Fiction'],
+    styles: ['Warm', 'Clear'],
+    category: 'Narrator',
+    gender: 'Female',
+    age: 'Adult',
+    variations: [
+      {
+        id: 'dark-fiction',
+        name: 'Dark Fiction',
+        isDefault: true,
+        emotions: ['Ominous', 'Tense'],
+        performanceStyles: ['Intimate', 'Dramatic'],
+        intensity: 'Moderate',
+        pacing: 'Natural',
+        energy: 'Medium',
+      },
+      {
+        id: 'neutral',
+        name: 'Neutral',
+        emotions: ['Neutral', 'Calm'],
+        performanceStyles: ['Storytelling'],
+        intensity: 'Subtle',
+        pacing: 'Natural',
+        energy: 'Medium',
+      },
+      {
+        id: 'sad',
+        name: 'Sad',
+        emotions: ['Sad', 'Tender'],
+        performanceStyles: ['Intimate'],
+        intensity: 'Moderate',
+        pacing: 'Slow',
+        energy: 'Low',
+      },
+      {
+        id: 'excited',
+        name: 'Excited',
+        emotions: ['Excited', 'Happy'],
+        performanceStyles: ['Energetic'],
+        intensity: 'Strong',
+        pacing: 'Fast',
+        energy: 'High',
+      },
+      {
+        id: 'angry',
+        name: 'Angry',
+        emotions: ['Angry', 'Determined'],
+        performanceStyles: ['Dramatic'],
+        intensity: 'Strong',
+        pacing: 'Variable',
+        energy: 'High',
+      },
+      {
+        id: 'whispered',
+        name: 'Whispered',
+        emotions: ['Mysterious', 'Anxious'],
+        performanceStyles: ['Whispered'],
+        intensity: 'Subtle',
+        pacing: 'Slow',
+        energy: 'Low',
+      },
+    ],
   },
   {
     name: 'Marcus Reed',
@@ -399,6 +480,11 @@ const MyVoiceCard: React.FC<{
         <VoicePortrait voice={voice} size={52} />
       </div>
       <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: 'var(--tracking-tight)' }}>{voice.name}</div>
+      {voice.variations && voice.variations.length > 0 && (
+        <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginTop: 2 }}>
+          {voice.variations.length} variations
+        </div>
+      )}
       <div className="ns-voice-meter" aria-hidden="true">
         {[9, 14, 7, 18, 12, 20, 10, 16, 8, 13].map((h, i) => (
           <span key={i} style={{ height: h }} />
@@ -406,6 +492,9 @@ const MyVoiceCard: React.FC<{
       </div>
 
       <Row gap={3} style={{ marginTop: 'var(--space-1)', justifyContent: 'center', flexWrap: 'wrap', flex: 1 }}>
+        {voice.primaryRole && (
+          <VoiceAttrPill category="class">{voice.primaryRole}</VoiceAttrPill>
+        )}
         {voice.pills.map((p) => (
           <VoiceAttrPill key={p.label} category={p.category}>{p.label}</VoiceAttrPill>
         ))}
@@ -539,6 +628,9 @@ const VoiceLab: React.FC<{
               image prompt from attributes + description — uniform icons
             </div>
             <Row gap={4} style={{ flexWrap: 'wrap', marginTop: 2 }}>
+              {voice.primaryRole && (
+                <VoiceAttrPill category="class">{voice.primaryRole}</VoiceAttrPill>
+              )}
               {voice.pills.map(p => (
                 <VoiceAttrPill key={p.label} category={p.category}>{p.label}</VoiceAttrPill>
               ))}
@@ -970,13 +1062,13 @@ const VoiceMetadataModal: React.FC<{
   const [languages, setLanguages] = useState<string[]>(voice.languages || []);
   const [accent, setAccent] = useState(voice.accent || '');
   const [styles, setStyles] = useState<string[]>(voice.styles || []);
-  const [category, setCategory] = useState<'Narrator' | 'Dialogue' | 'Character' | ''>(voice.category || '');
-  const [gender, setGender] = useState<'Female' | 'Male' | 'NB' | ''>(voice.gender || '');
-  const [age, setAge] = useState<'Child' | 'Adult' | 'Senior' | ''>(voice.age || '');
+  const [category, setCategory] = useState(voice.category || '');
+  const [gender, setGender] = useState(voice.gender || '');
+  const [age, setAge] = useState(voice.age || '');
 
-  const languageOptions = ['English', 'Spanish', 'French', 'German', 'Japanese'];
-  const accentOptions = ['US', 'UK', 'Australia', 'India', 'Canada'];
-  const styleOptions = ['Warm', 'Bright', 'Deep', 'Gruff', 'Clear', 'Cool', 'Whispering'];
+  const languageOptions = ['English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Mandarin Chinese', 'Cantonese', 'Japanese', 'Korean', 'Hindi', 'Arabic'];
+  const accentOptions = ['American Neutral', 'American Southern', 'RP British', 'Scottish', 'Irish', 'Australian', 'Indian English', 'Fantasy courtly', 'Medieval Village', 'Infernal', 'Celestial', 'Alien', 'Robotic', 'Synthetic Assistant'];
+  const styleOptions = ['Warm', 'Bright', 'Deep', 'Gruff', 'Clear', 'Cool', 'Whispered', 'Sad', 'Happy', 'Excited', 'Angry', 'Ominous', 'Tender', 'Robotic', 'Ethereal'];
 
   const colorOptions = [
     { value: '', label: 'Default Tint' },
@@ -1205,7 +1297,7 @@ const VoiceMetadataModal: React.FC<{
                 <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)' }}>Category</div>
                 <select
                   value={category}
-                  onChange={e => setCategory(e.target.value as any)}
+                  onChange={e => setCategory(e.target.value)}
                   style={{
                     background: 'var(--surface-alt)', border: 'var(--hairline)', borderRadius: 'var(--radius-button)',
                     padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
@@ -1213,8 +1305,14 @@ const VoiceMetadataModal: React.FC<{
                 >
                   <option value="">Select...</option>
                   <option value="Narrator">Narrator</option>
+                  <option value="Dark Fiction Narrator">Dark Fiction Narrator</option>
+                  <option value="Animation Character">Animation Character</option>
+                  <option value="Game Character">Game Character</option>
+                  <option value="Fantasy Character">Fantasy Character</option>
                   <option value="Dialogue">Dialogue</option>
                   <option value="Character">Character</option>
+                  <option value="Creature / Nonhuman">Creature / Nonhuman</option>
+                  <option value="Vocal Effects">Vocal Effects</option>
                 </select>
               </Col>
 
@@ -1222,7 +1320,7 @@ const VoiceMetadataModal: React.FC<{
                 <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)' }}>Gender</div>
                 <select
                   value={gender}
-                  onChange={e => setGender(e.target.value as any)}
+                  onChange={e => setGender(e.target.value)}
                   style={{
                     background: 'var(--surface-alt)', border: 'var(--hairline)', borderRadius: 'var(--radius-button)',
                     padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
@@ -1232,6 +1330,8 @@ const VoiceMetadataModal: React.FC<{
                   <option value="Female">Female</option>
                   <option value="Male">Male</option>
                   <option value="NB">Non-Binary</option>
+                  <option value="Nonhuman / Not applicable">Nonhuman / Not applicable</option>
+                  <option value="Unknown">Unknown</option>
                 </select>
               </Col>
 
@@ -1239,23 +1339,29 @@ const VoiceMetadataModal: React.FC<{
                 <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)' }}>Age</div>
                 <select
                   value={age}
-                  onChange={e => setAge(e.target.value as any)}
+                  onChange={e => setAge(e.target.value)}
                   style={{
                     background: 'var(--surface-alt)', border: 'var(--hairline)', borderRadius: 'var(--radius-button)',
                     padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--type-caption)', color: 'var(--text-primary)', width: '100%',
                   }}
                 >
                   <option value="">Select...</option>
+                  <option value="Infant">Infant</option>
                   <option value="Child">Child</option>
+                  <option value="Teen">Teen</option>
+                  <option value="Young Adult">Young Adult</option>
                   <option value="Adult">Adult</option>
+                  <option value="Middle-aged">Middle-aged</option>
                   <option value="Senior">Senior</option>
+                  <option value="Ancient / Ageless">Ancient / Ageless</option>
+                  <option value="Unknown">Unknown</option>
                 </select>
               </Col>
             </Row>
 
-            {/* Accent (single-select) */}
+            {/* Dialect / vocal origin (single-select) */}
             <Col gap={4}>
-              <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)' }}>Accent (Single-select)</div>
+              <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)' }}>Dialect / Vocal Origin (Single-select)</div>
               <Row gap={4} style={{ flexWrap: 'wrap' }}>
                 {accentOptions.map(acc => (
                   <Chip
@@ -1484,51 +1590,69 @@ export const VoicesPane: React.FC = () => {
   const [voices, setVoices] = useState<Voice[]>(() => {
     return VOICE_CARDS.map((v) => {
       let desc = v.description;
-      const languages: string[] = ['English'];
-      let accent = 'US';
-      let styles: string[] = [getVoiceTone(v)];
-      let category: 'Narrator' | 'Dialogue' | 'Character' | '' = getVoiceClass(v) as 'Narrator' | 'Dialogue' | 'Character';
-      let gender: 'Female' | 'Male' | 'NB' | '' = getVoiceGender(v) as 'Female' | 'Male' | 'NB';
-      let age: 'Child' | 'Adult' | 'Senior' | '' = getVoiceAge(v) as 'Child' | 'Adult' | 'Senior';
+      let primaryRole = v.primaryRole || getVoiceClass(v);
+      let entityType = v.entityType || 'Human';
+      const languages: string[] = v.languages || ['English'];
+      let accent = v.accent || 'American Neutral';
+      let dialectOrigins: string[] = v.dialectOrigins || [accent];
+      let styles: string[] = v.styles || [getVoiceTone(v)];
+      let category = v.category || getVoiceClass(v);
+      let gender = v.gender || getVoiceGender(v);
+      let age = v.age || getVoiceAge(v);
 
       if (v.name === 'Studio Voice') {
         desc = 'A warm, expressive narrator voice suited for literary fiction and long-form narration. Trained on 4h 20m of clean studio recordings.';
-        accent = 'US';
-        styles = ['Warm'];
+        primaryRole = 'Dark Fiction Narrator';
+        entityType = 'Human';
+        accent = 'American Neutral';
+        dialectOrigins = ['American Neutral', 'Dark Fiction'];
+        styles = ['Warm', 'Clear'];
         category = 'Narrator';
         gender = 'Female';
         age = 'Adult';
       } else if (v.name === 'Marcus Reed') {
         desc = 'A deep, authoritative voice perfect for thrillers, biographies, and dramatic audiobooks.';
-        accent = 'US';
+        primaryRole = 'Documentary Narrator';
+        accent = 'American Neutral';
+        dialectOrigins = ['American Neutral'];
         styles = ['Deep'];
         category = 'Narrator';
         gender = 'Male';
         age = 'Adult';
       } else if (v.name === 'Clara Bell') {
         desc = 'A bright, energetic voice, ideal for dialogues, children\'s books, and commercial narration.';
-        accent = 'UK';
+        primaryRole = 'Animation Character';
+        accent = 'RP British';
+        dialectOrigins = ['RP British'];
         styles = ['Bright'];
         category = 'Dialogue';
         gender = 'Female';
         age = 'Adult';
       } else if (v.name === 'Old Tom') {
         desc = 'A gruff, characterful older voice with texture, suited for fantasy and historical fiction roles.';
-        accent = 'UK';
+        primaryRole = 'Fantasy Character';
+        entityType = 'Human';
+        accent = 'Rural British';
+        dialectOrigins = ['Rural British', 'Medieval Village'];
         styles = ['Gruff'];
         category = 'Character';
         gender = 'Male';
         age = 'Senior';
       } else if (v.name === 'Aria') {
         desc = 'A clear, natural voice designed for educational content and clean textbook narration.';
-        accent = 'US';
+        primaryRole = 'Educational / E-learning';
+        accent = 'American Neutral';
+        dialectOrigins = ['American Neutral'];
         styles = ['Clear'];
         category = 'Narrator';
         gender = 'Female';
         age = 'Adult';
       } else if (v.name === 'Frost') {
         desc = 'A cool, ambient non-binary voice that brings a modern, stylistic edge to speculative fiction.';
-        accent = 'Canada';
+        primaryRole = 'Game Character';
+        entityType = 'AI / Synthetic';
+        accent = 'Synthetic Assistant';
+        dialectOrigins = ['Synthetic Assistant', 'Cybernetic'];
         styles = ['Cool'];
         category = 'Character';
         gender = 'NB';
@@ -1538,8 +1662,11 @@ export const VoicesPane: React.FC = () => {
       return {
         ...v,
         description: desc,
+        primaryRole,
+        entityType,
         languages,
         accent,
+        dialectOrigins,
         styles,
         category,
         gender,

@@ -1,137 +1,203 @@
-# 007 — Zoom presets + minimap (real)
+# 007 — Zoom slider + minimap + ruler (port MockTapeControls)
 
 status: todo
-workload: W2 — Real tape + zoom (browser-decoded)
+workload: W2 — Port the tape to the live PlayerBar (browser-decoded)
 blocked-by: 006
 blocks: 008
 
 ## Goal
 
-Port the W0-approved zoom-preset control and minimap to the real `WaveformTape` component. Zoom is a bounded set of discrete snap-point presets (cover-slider style). The minimap is a thin full-clip strip with a draggable rectangle representing the tape's current window — it is the whole-clip navigation surface, distinct from the zoomed detail tape. Both zoom and minimap are self-contained sub-components that live alongside `WaveformTape` and are exported for use by `PlayerBar` (task 008).
+Port `ZoomPresetControl`, `TapeMinimapStrip`, and `snapZoom` from `MockTapeControls.tsx` (reference: `frontend/src/demo/stages/siteMockup/MockTapeControls.tsx`) into live sub-components alongside `WaveformTape`. Cover-slider-style zoom (track + tick dots + accent thumb, **no second-labels**, presets `8/15/30/60/120 s`, pinch/wheel snap). Minimap (whole-clip strip from the same peak array + draggable window rect). Smart `m:ss` time ruler (zoom-adaptive interval, ~3 ticks). Zoom-in caps at available peak resolution; zoom-out cap is always 120 s.
+
+**Port, don't re-derive.** `MockTapeControls.tsx` is the reference. The live components replace `speechPeakAt` with the real peak array from task 006's `usePeaks`.
 
 ## Why it matters
 
-Zoom presets and the minimap are the two interaction surfaces that make the tape useful at long durations. Without zoom the tape always shows the same 30 s window; without the minimap the user has no sense of where they are in the full clip or how to navigate coarsely. Together they complete the overview↔detail relationship that makes the tape learnable (proposal §3).
+Zoom and the minimap complete the overview↔detail relationship that makes the tape useful at long durations. Without zoom the tape always shows the same 30 s window; without the minimap the user has no sense of where they are in the full clip or how to navigate coarsely.
 
 ## Files
 
-- **Edit:** `frontend/src/app/layout/WaveformTape.tsx` — wire zoom preset index into the paged window model; expose a minimap data shape.
-- **Create:** `frontend/src/app/layout/WaveformTapeZoom.tsx` — the zoom preset control (cover-slider style).
-- **Create:** `frontend/src/app/layout/WaveformTapeMinimap.tsx` — the minimap strip component.
+### Create
+
+- `frontend/src/app/layout/WaveformTapeZoom.tsx` — cover-slider zoom preset control.
+- `frontend/src/app/layout/WaveformTapeMinimap.tsx` — whole-clip strip + draggable window rectangle.
+
+### Edit
+
+- `frontend/src/app/layout/WaveformTape.tsx` — wire `windowSec` into the paged window model (already prop-ready from task 006); attach `onWheel` for zoom snapping; render `<WaveformTapeMinimap>` and the ruler below the main canvas; accept `onZoomChange` prop; export `snapZoom` from the module.
+
+### Read (reference, do not edit)
+
+- `frontend/src/demo/stages/siteMockup/MockTapeControls.tsx:1–223` — `ZOOM_PRESETS`, `snapZoom`, `ZoomPresetControl`, `TapeMinimapStrip` (full source).
+- `frontend/src/app/layout/WaveformTape.tsx` (task 006 output) — `TAPE_ZOOM_PRESETS_SEC`, `PEAKS_COUNT`, `usePeaks`.
 
 ## Target shape / contract
 
 ### Zoom preset control (`WaveformTapeZoom.tsx`)
 
-```typescript
-// Preset values from 006: TAPE_ZOOM_PRESETS_SEC = [8, 15, 30, 60, 120]
-// Index 0 = most zoomed in (8 s across viewport); index 4 = most zoomed out (120 s).
+Port `ZoomPresetControl` from `MockTapeControls.tsx:34–84`.
 
-interface WaveformTapeZoomProps {
-  presetIndex: number;           // controlled
-  onPresetChange: (index: number) => void;
-  /** Total clip duration — used to compute the zoom-in cap (native peak resolution). */
+```typescript
+import { TAPE_ZOOM_PRESETS_SEC, TapeZoomPreset } from './WaveformTape';
+
+export interface WaveformTapeZoomProps {
+  /** Currently active preset value in seconds (e.g. 30). */
+  windowSec: TapeZoomPreset;
+  onZoomChange: (preset: TapeZoomPreset) => void;
+  /** Total clip duration — used to compute the zoom-in cap. */
   duration: number;
-  /** Number of peaks available — sets the maximum zoom-in resolution. Derived from
-   *  wavesurfer's decoded peaks array length; passed down from WaveformTape. */
-  availablePeaks?: number;
+  /** Number of peaks available from usePeaks — sets the zoom-in resolution cap.
+   *  When null (still decoding) all presets are enabled. */
+  availablePeaks: number | null;
+  /** Container width in pixels — used alongside availablePeaks for the cap calc. */
+  containerWidthPx: number;
 }
 
 export const WaveformTapeZoom: React.FC<WaveformTapeZoomProps> = (props) => { ... };
 ```
 
-**Cover-slider style:** render preset count as tick dots (5 dots for 5 presets). The active preset is highlighted. A horizontal track connects them with a draggable thumb that snaps to the nearest dot on release. Secondary `-` / `+` buttons at each end step through presets.
+**Cover-slider visual (port from `MockTapeControls.tsx:38–84`):** same CSS class names as the Library size slider (`ns-size-control`, `ns-size-slider-wrap`, `ns-size-track`, `ns-size-tick`, `ns-size-slider`) — reuse those existing classes so the zoom control matches the library cover-slider look without new CSS. The slider `value` = index into `TAPE_ZOOM_PRESETS_SEC` (0 = 8 s = most zoomed in; 4 = 120 s = most zoomed out).
 
-**Zoom-in cap:** the most-zoomed-in preset that is valid = the smallest seconds-per-viewport that doesn't magnify past the available peak resolution. Concretely: `validPresetIndex = presets.findIndex(secs => (containerWidthPx / secs) <= (availablePeaks / duration))`. Presets beyond the cap are visually disabled and unselectable. When `availablePeaks` is not yet known, all presets are available (err toward showing more detail).
+**No second-labels.** Do not render text labels ("8s", "30s", etc.) next to tick dots. The `aria-label` on the `<input>` suffices for accessibility; visual tick dots only.
 
-**Zoom-out cap:** the least-detailed preset is `120 s` (index 4) — that is the hard floor; never zoom out further (no "show whole clip" option on the zoom control). The minimap owns whole-clip navigation.
+**Zoom-in cap:** the most-zoomed-in preset that does not magnify past available peak resolution:
+```typescript
+// pixels per second at this preset = containerWidthPx / presetSec
+// peaks per second = availablePeaks / duration
+// valid if: containerWidthPx / presetSec <= availablePeaks / duration
+const zoomInCapIdx = availablePeaks && duration > 0
+  ? TAPE_ZOOM_PRESETS_SEC.findIndex(
+      secs => (containerWidthPx / secs) <= (availablePeaks / duration)
+    )
+  : 0; // all presets valid while still decoding
+```
+Presets with index < `zoomInCapIdx` are visually disabled (`.tape-zoom-dot--disabled`, opacity 0.3) and not selectable. The slider `min` is set to `zoomInCapIdx`.
 
-**Pinch / wheel snap:** attach `onWheel` to the tape container (passed up from `WaveformTape`) — one detent steps one preset. Pinch gesture (trackpad `GestureEvent` or `TouchEvent` scale delta) snaps through presets in the same direction. Each step clamps to `[0, 4]`.
+**Zoom-out cap:** always index 4 (120 s) — the hard floor. Never expose "show whole clip" on the zoom control; the minimap owns whole-clip navigation.
 
-**Keyboard:** `+` / `-` keys on the focused tape region step the preset. This is wired in `WaveformTape.tsx`'s keyboard handler (extended from task 006's ←/→ handler).
+**`snapZoom(current, direction)` — port from `MockTapeControls.tsx:20–24`:**
+```typescript
+export function snapZoom(current: TapeZoomPreset, direction: 'in' | 'out'): TapeZoomPreset {
+  const idx = TAPE_ZOOM_PRESETS_SEC.indexOf(current);
+  if (direction === 'out') return TAPE_ZOOM_PRESETS_SEC[Math.min(idx + 1, 4)];
+  return TAPE_ZOOM_PRESETS_SEC[Math.max(idx - 1, 0)];
+}
+export { snapZoom };
+```
+Export from `WaveformTapeZoom.tsx`; also re-export from `WaveformTape.tsx`.
+
+**Pinch/wheel snap:** `WaveformTape.tsx` receives an `onWheel` handler that calls `snapZoom` and fires `onZoomChange`. One scroll detent = one preset step. Wheel-down = more seconds visible (zoom out). Pinch scale delta < 1 = zoom in; > 1 = zoom out.
+
+**Keyboard:** `+`/`-` on the focused tape container steps the preset. Wire in `WaveformTape.tsx`'s existing keyboard handler (extend the `←`/`→` handler from task 006).
 
 **Accessibility:**
-- The slider track has `role="slider"`, `aria-valuemin={0}`, `aria-valuemax={4}`, `aria-valuenow={presetIndex}`, `aria-label="Zoom level"`.
-- Tick dot labels: `aria-label="8 seconds"` … `"120 seconds"` (the viewport span each preset shows).
-- Minimum touch target: 44 × 44 pt for the thumb and ± buttons (HIG).
+- `<input type="range">`: `role="slider"`, `aria-valuemin={0}`, `aria-valuemax={4}`, `aria-valuenow={currentIdx}`, `aria-label="Zoom level"`.
+- Tick dot aria-labels: `aria-label="8 seconds"` … `"120 seconds"` (viewport span per preset).
+- Min touch target: 44 × 44 pt for thumb and ± buttons (HIG; use `min-width/min-height: 44px` in CSS token via task 009).
 
-**Contrast on glass:** the active tick dot and slider thumb use `var(--accent)` as a solid fill — not a glass tint — so they are visible against the translucent player bar surface (proposal §5, "solid accent for the playhead, not glass-on-glass tint").
+**Contrast on glass:** active tick dot and slider thumb use `var(--accent)` solid fill — not glass-on-glass tint (spec §5.2, proposal §5).
 
 ### Minimap (`WaveformTapeMinimap.tsx`)
 
+Port `TapeMinimapStrip` from `MockTapeControls.tsx:103–223`.
+
 ```typescript
-interface WaveformTapeMinimapProps {
+export interface WaveformTapeMinimapProps {
   /** Total clip duration in seconds. */
   duration: number;
+  /** Current playback position in seconds. */
+  currentTimeSec: number;
   /** Start of the tape's current visible window (seconds). */
   windowStartSec: number;
-  /** Width of the tape's current window (seconds = the active preset). */
+  /** Width of the tape's current window (seconds = active preset). */
   windowSec: number;
-  /** Called when the user drags the minimap rectangle to a new position. */
+  /** Called when user drags the window rect or clicks outside it. */
   onSeek: (newWindowStartSec: number) => void;
-  /** The wavesurfer instance — used to render whole-clip peaks in the minimap strip. */
-  wsInstance?: { exportPeaks?: () => number[][] } | null;
+  /** Peak array from usePeaks — renders the whole-clip amplitude shape.
+   *  If null (still decoding), render a plain tinted bar as fallback. */
+  peaks: number[] | null;
+  /** Strip height in pixels. Default 28. */
+  height?: number;
 }
 
 export const WaveformTapeMinimap: React.FC<WaveformTapeMinimapProps> = (props) => { ... };
 ```
 
-**Minimap strip:** a thin (`height: ~20 px`) horizontally-spanning bar that shows the entire clip's amplitude shape — either a simplified peak rendering (if `wsInstance.exportPeaks()` is available) or a plain tinted bar as fallback. The whole clip maps to the full width of the minimap.
+**Whole-clip strip (port from `MockTapeControls.tsx:118–120`):** sample the real peak array at `MINIMAP_BARS = 200` evenly-spaced points across `[0, duration]`:
+```typescript
+const minimapPeaks = Array.from({ length: MINIMAP_BARS }, (_, i) => {
+  if (!peaks || peaks.length === 0) return 0.4; // fallback flat bar
+  const idx = Math.floor(((i + 0.5) / MINIMAP_BARS) * (peaks.length - 1));
+  return peaks[idx] ?? 0;
+});
+```
 
-**Window rectangle:** an absolutely-positioned translucent rectangle overlaid on the strip. Its `left` and `width` are proportional: `left = (windowStartSec / duration) * 100%`; `width = (windowSec / duration) * 100%`. Minimum rendered width: 8 px (prevents it from becoming un-grabbable on very short zoom windows relative to a long clip).
+**Window rectangle (port from `MockTapeControls.tsx:126–128`):**
+```typescript
+const pageStart = Math.floor(currentTimeSec / windowSec) * windowSec;
+const rectLeft = duration > 0 ? (pageStart / duration) * viewW : 0;
+const rectWidth = duration > 0 ? (windowSec / duration) * viewW : viewW;
+```
+Minimum rendered width: 4 px (prevents un-grabbable rect). Fill: `var(--accent)` at 15% opacity; border: `var(--accent)` solid (1 px) — not glass-on-glass.
 
-**Drag to navigate:** the user drags the rectangle horizontally. On `pointermove`, clamp the new `windowStartSec` to `[0, duration - windowSec]`, then call `onSeek(newStart)` which in turn calls `bus.seek(newStart)` in the parent. The minimap does NOT call `bus.seek` directly — it delegates upward.
+**Drag to navigate (port from `MockTapeControls.tsx:134–165`):** `pointerToPageStart` → clamp to `[0, duration - windowSec]` → `onSeek(newStart)`. Minimap does NOT call `bus.seek` directly — delegates upward to parent.
 
-**Click outside rectangle:** clicking on the minimap strip outside the current rectangle jumps the tape window to center the clicked position, then calls `onSeek`.
+**Click outside rectangle:** clicking on the minimap strip outside the current rectangle centers the clicked position → `onSeek(clickedTime - windowSec/2)` clamped to `[0, duration - windowSec]`.
+
+**Playhead indicator:** 1 px vertical `<line>` at `(currentTimeSec / duration) * viewW`. Color: `var(--color-wave-cursor, var(--accent))`. Gives "you are here" marker during coarse navigation.
 
 **Accessibility:**
-- Container: `role="region"`, `aria-label="Clip overview"`.
-- Rectangle: `role="slider"`, `aria-label="Navigate clip position"`, `aria-valuenow` as a percentage string (rounded to nearest integer), keyboard ←/→ steps by one `windowSec` forward/back.
-- Minimum touch target for the rectangle: enforce minimum 44 pt on the drag handle region.
+- Container: `role="region"`, `aria-label="Clip overview — drag to navigate"`.
+- Keyboard `←`/`→` on focused minimap steps window by one `windowSec` forward/back.
 
-**Contrast on glass:** the window rectangle uses `var(--accent)` at 30% opacity for the fill and `var(--accent)` solid for its left/right border handles — visible against the glass surface (same principle as playhead).
+### `WaveformTape.tsx` additions (extend task 006 output)
 
-**Playhead indicator in minimap:** a 1 px vertical line inside the minimap at the current `position` within the full-clip map (`left = (position / duration) * 100%`). Color: `var(--color-wave-cursor)` (accent). This gives the user a secondary "you are here" marker even when coarsely navigating.
+- Accept new props: `onZoomChange: (preset: TapeZoomPreset) => void`, `peaks: number[] | null` (received from parent `PlayerBar` which calls `usePeaks`).
+- Render `<WaveformTapeZoom>` in a header row above the SVG canvas.
+- Render `<WaveformTapeMinimap>` below the SVG canvas.
+- Attach `onWheel` to the SVG element for zoom snapping.
+- `containerWidthPx` measured by reading the tape SVG element's `offsetWidth` (already available from the SVG ref).
 
 ## Steps
 
-1. Export `TAPE_ZOOM_PRESETS_SEC` from `WaveformTape.tsx` (already called for in task 006 step 9) and import it in both new files.
-2. Implement `WaveformTapeZoom.tsx`: tick-dot slider, ±  buttons, cover-slider visual, zoom-in cap logic, wheel/pinch handler (exposed as a ref callback for the tape container to attach).
-3. Implement `WaveformTapeMinimap.tsx`: full-clip strip (simplified peaks or fallback bar), window rectangle, drag nav, click-outside-rectangle jump, playhead line.
-4. Extend `WaveformTape.tsx` to: (a) accept and forward `zoomPresetIndex` to the paged window model (already scaffolded in 006), (b) expose the wavesurfer instance via a ref/callback for the minimap to read peaks, (c) attach `onWheel` for zoom snapping, (d) render `<WaveformTapeMinimap>` below the main tape canvas, (e) render `<WaveformTapeZoom>` in the tape header region.
-5. Ensure zoom state is reset to the default preset (index 2 = 30 s) when `requestId` changes — this is managed in `PlayerBar` (task 008) which controls the `zoomPresetIndex` prop.
+1. Create `WaveformTapeZoom.tsx`: port `ZoomPresetControl` from `MockTapeControls.tsx:34–84`; use `ns-size-*` classes; add zoom-in cap logic; add `snapZoom` export; add keyboard/wheel hook.
+2. Create `WaveformTapeMinimap.tsx`: port `TapeMinimapStrip` from `MockTapeControls.tsx:103–223`; replace `speechPeakAt` calls with real peak array lookups; add click-outside-rectangle jump.
+3. Edit `WaveformTape.tsx`: add `onZoomChange` and `peaks` props; render `<WaveformTapeZoom>` above canvas; render `<WaveformTapeMinimap>` below; wire `onWheel`; re-export `snapZoom`.
+4. Confirm zoom resets to default preset (index 2, 30 s) on `requestId` change — this is controlled in `PlayerBar` (task 008 via `setZoomPresetIndex(2)` in the reset effect); document as a dependency.
+5. Run `npm -C frontend run build` and `npm -C frontend run lint` on all three files.
+6. Run the single-owner grep and confirm none of the three new files appear.
 
 ## Acceptance criteria
 
-- `WaveformTapeZoom` renders 5 tick dots; the active dot is highlighted with `var(--accent)`.
-- ± buttons step the preset index by 1, clamped to `[0, 4]`.
-- Scrolling the mouse wheel over the tape steps the preset (one detent = one step, direction matches expectation: wheel-down = zoom out).
-- A preset at or beyond the zoom-in cap (based on `availablePeaks`) is visually disabled and click/keyboard cannot select it.
-- `WaveformTapeMinimap` renders a rectangle whose `width` is proportional to `windowSec / duration`.
+- `WaveformTapeZoom` renders 5 tick dots; the active dot is highlighted with `var(--accent)` solid fill.
+- ± buttons and slider step the preset index, clamped to `[0, 4]`.
+- A preset at or beyond the zoom-in cap (based on `availablePeaks` / `containerWidthPx` / `duration`) is visually disabled (opacity 0.3) and cannot be selected.
+- No second-labels (text "8s", "30s", etc.) render next to the tick dots.
+- Scrolling the mouse wheel over the tape steps the preset (wheel-down = zoom out / more seconds visible).
+- `WaveformTapeMinimap` renders a rectangle whose width is proportional to `windowSec / duration`.
 - Dragging the minimap rectangle calls `onSeek` with the clamped new `windowStartSec`.
-- Clicking outside the rectangle calls `onSeek` to center on the clicked position.
+- Clicking outside the minimap rectangle calls `onSeek` to center on the clicked position.
 - The minimap playhead line is visible and positioned at `position / duration`.
-- Playhead line and window rectangle handles use solid `var(--accent)` — confirmed visually not to disappear on the glass bar background.
-- Keyboard `+`/`-` on the focused tape steps zoom; `←`/`→` on the minimap rectangle steps the window.
-- `npm -C frontend run build` passes with no TypeScript errors.
+- Playhead line and window rectangle border use solid `var(--accent)` — not glass tint.
+- Keyboard `+`/`-` on focused tape steps zoom; `←`/`→` on focused minimap steps the window.
+- `npm -C frontend run build` passes with no TypeScript errors on all three files.
 - `npm -C frontend run lint` passes on all three files.
-- Single-owner grep still passes: `grep -rn '<audio\|new Audio(' frontend/src/` does not match `WaveformTapeZoom.tsx` or `WaveformTapeMinimap.tsx`.
+- Single-owner grep passes: `grep -rn '<audio\|new Audio(' frontend/src/` does NOT match `WaveformTapeZoom.tsx` or `WaveformTapeMinimap.tsx`.
 
 ## Out of scope
 
-- PlayerBar integration / toggle / duration cap (task 008).
-- CSS for the tape region height and grow-upward layout (task 009).
-- Continuous-scroll zoom (never; paged is the only mode).
-- Zoom-out past 120 s (hard cap by design).
-- Free-floating continuous zoom (discrete presets only).
+- PlayerBar integration / toggle / duration cap — task 008.
+- CSS for the tape region height and grow-upward layout — task 009.
+- Continuous-scroll zoom — never; paged is the only tape motion mode (moving mode = playhead fixed, bars scroll, but the zoom window does not continuously expand).
+- Zoom-out past 120 s — hard cap by design.
 - Any backend work.
 
 ## References
 
-- `frontend/src/app/layout/WaveformTape.tsx` (created in 006) — the component these sub-components plug into.
-- `frontend/src/store/playerBus.ts:162` — `seek(seconds)` (called via `onSeek` callback, not directly from minimap).
-- `plans/audio_player_scrubbing_waveform_proposal.md §3` — zoom presets, minimap, interaction, contrast on glass.
-- `plans/audio_player_scrubbing_waveform_proposal.md §5` — HIG: 44 pt targets, contrast, single-owner.
-- `plans/audio_player_scrubbing_waveform_proposal.md §9, decisions 4 & 7` — bounded discrete presets, browser-first.
-- `plans/audio_player_waveform_scrubber/00-audit-report.md §F, decision 4` — zoom-in cap = native peak resolution; zoom-out cap before blob.
-- `plans/audio_player_waveform_scrubber/01-roadmap.md W2-007` — port W0 zoom + minimap to real component.
+- `frontend/src/demo/stages/siteMockup/MockTapeControls.tsx:1–223` — full source of `ZOOM_PRESETS`, `snapZoom`, `ZoomPresetControl`, `TapeMinimapStrip` (the reference to port from)
+- `frontend/src/app/layout/WaveformTape.tsx` (task 006) — `TAPE_ZOOM_PRESETS_SEC`, `PEAKS_COUNT`, `usePeaks`, `TapeZoomPreset`
+- `frontend/src/store/playerBus.ts:162` — `seek(seconds)` (called via `onSeek`, not directly from minimap)
+- `docs/specs/audio-player.md` 1.6.0 §5.2 — zoom presets (cover-slider, no second-labels, 8/15/30/60/120 s, pinch/wheel snap, zoom-in cap, zoom-out cap); minimap (draggable window rect, whole-clip nav surface); ruler (zoom-adaptive interval ~3 ticks); contrast on glass (solid accent)
+- `plans/audio_player_waveform_scrubber/00-audit-report.md §F` — locked decisions: decision 4 (bounded discrete presets, zoom-in cap = native peak resolution, zoom-out cap before blob)
+- `plans/audio_player_waveform_scrubber/01-roadmap.md` — "Port, don't re-derive"; W2-007 description
+- `docs/specs/testing-standards.md` — R2 (mock boundaries), R4 (no sleep-based timing)
