@@ -1,7 +1,7 @@
 # Install & Distribution
 
 ```
-spec_version: 1.0.0
+spec_version: 1.1.0
 status: active
 sources:
   - run.sh
@@ -9,6 +9,8 @@ sources:
   - requirements.txt
   - requirements-xtts.txt
   - app/core/config.py
+  - app/tts_server/server.py
+  - app/engines/official_registry.py
   - frontend/vite.config.ts
   - plans/final_release/16_pinokio_distribution.md
 ```
@@ -19,6 +21,7 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
+| 1.1.0   | 2026-06-15 | Clarified v2 plugin distribution paths and post-v2 GitHub search/update scope |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 
 ---
@@ -164,19 +167,24 @@ Blockers PK1–PK10 are documented in `plans/final_release/16_pinokio_distributi
 
 ---
 
-## Plugin Distribution (Post-v1)
+## Plugin Distribution
 
-Plugin install and update from GitHub is a post-v1 feature. The planned flow is documented in `plans/final_release/05_plugin_ecosystem.md`.
+Studio 2.0 supports three plugin acquisition paths:
 
 | Mechanism | Status |
 |-----------|--------|
-| Discovery via GitHub topic tag | Post-v1 |
-| In-app install / update UI | Post-v1 |
-| Manual drop into `PLUGINS_DIR` | Supported now (v2.0.0) |
+| Official owner-controlled registry | v2.0 release scope |
+| Paste-a-GitHub-repo-URL install | v2.0 release scope |
+| Upload plugin `.zip` | v2.0 release scope |
+| Manual drop into `PLUGINS_DIR` | Supported |
+| Broad GitHub topic search/browse | Post-v2 |
+| Rich installed-plugin update/pull UX | Post-v2 |
 
 ### Invariants
 
-- MUST NOT block the v2.0.0 release on GitHub plugin discovery.
+- MUST NOT block the v2.0.0 release on broad GitHub topic search/browse.
+- Registry and pasted-URL installs MUST use the same staging, manifest validation, and trust
+  confirmation model as plugin ZIP import.
 - Manual plugin installation (drop a plugin directory into `PLUGINS_DIR`) MUST work without any UI changes.
 
 ---

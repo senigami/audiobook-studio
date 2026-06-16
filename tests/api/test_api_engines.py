@@ -64,6 +64,54 @@ def test_list_engines_returns_registry_payload(clean_db, client):
     bridge.describe_registry.assert_called_once()
 
 
+def test_get_registry_list_returns_official_list(clean_db, client):
+    response = client.get("/api/engines/registry")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) >= 2
+    assert data[0]["id"] == "tts_xtts"
+    assert data[1]["id"] == "tts_voxtral"
+
+
+def test_preview_github_plugin_delegates_to_bridge(clean_db, client):
+    bridge = MagicMock()
+    bridge.preview_github_plugin.return_value = {
+        "ok": True,
+        "engine_id": "xtts",
+        "staging_token": "some-token"
+    }
+
+    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+        response = client.post(
+            "/api/engines/preview_github",
+            json={"git_url": "https://github.com/audiobook-studio/tts-xtts.git"}
+        )
+
+    assert response.status_code == 200
+    assert response.json()["engine_id"] == "xtts"
+    bridge.preview_github_plugin.assert_called_once_with("https://github.com/audiobook-studio/tts-xtts.git")
+
+
+def test_preview_github_plugin_preserves_validation_status(clean_db, client):
+    from app.engines.tts_client import TtsServerResponseError
+
+    bridge = MagicMock()
+    bridge.preview_github_plugin.side_effect = TtsServerResponseError(
+        "TTS Server returned 400",
+        status_code=400,
+        detail="Plugin manifest failed validation.",
+    )
+
+    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+        response = client.post(
+            "/api/engines/preview_github",
+            json={"git_url": "https://github.com/audiobook-studio/bad-plugin.git"}
+        )
+
+    assert response.status_code == 400
+    assert response.json()["message"] == "GitHub plugin preview failed validation"
+
+
 def test_list_engines_no_longer_falls_back_during_tts_server_startup(clean_db, client):
     from app.engines.errors import EngineUnavailableError
 

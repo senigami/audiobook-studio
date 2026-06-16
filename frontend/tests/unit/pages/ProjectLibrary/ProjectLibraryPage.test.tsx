@@ -41,14 +41,15 @@ describe('ProjectLibrary', () => {
         }) as any
     })
 
-    it('renders project library and hero section', async () => {
+    it('renders the library greeting header and projects', async () => {
         render(
             <MemoryRouter>
                 <ProjectLibrary onSelectProject={vi.fn()} />
             </MemoryRouter>
         )
-        
-        expect(await screen.findByText(/Natural AI Audio Lab/i)).toBeTruthy()
+
+        // The marketing hero was replaced by a time-based greeting header.
+        expect(await screen.findByText(/Good (morning|afternoon|evening)/i)).toBeTruthy()
 
         await waitFor(() => {
             expect(screen.getByText('Test Project')).toBeTruthy()
@@ -88,7 +89,7 @@ describe('ProjectLibrary', () => {
         )
 
         // Wait for page to load
-        await screen.findByText(/Natural AI Audio Lab/i)
+        await screen.findByText(/Good (morning|afternoon|evening)/i)
 
         // Assert that the static model label is gone
         expect(screen.queryByText(/Model: XTTS-v2/i)).toBeNull()

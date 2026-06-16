@@ -15,7 +15,7 @@ sources:
   - frontend/src/demo/stages/siteMockup/
 ```
 
-> **TL;DR:** Audio in the redesigned app has exactly one owner — a `playerBus` store with a single `<audio>` element living in a full-window bottom `PlayerBar`. Every other surface (the Studio VCR, chapter rows, voice previews, Review follow-along) becomes a client that loads the bus and reads its state; nothing else creates audio. Loading a new source stops the old one. The bar is hidden when nothing is loaded — no false affordance. R7 added full VCR transport (prev/skim-back/play/skim-fwd/next) and the Segment↔Chapter scope toggle. **Waveform representation follows scope (U16, affirmed 2026-06-15):** Segment scope renders the wavesurfer.js waveform *inline as the scrub track*; Chapter scope renders a plain seek bar (an hour of speech is a featureless blur); there is no separate wave toggle. When the bar is too narrow for an inline waveform, the segment waveform reflows *above* the controls at reduced height (§5).
+> **TL;DR:** Audio in the redesigned app has exactly one owner — a `playerBus` store with a single `<audio>` element living in a full-window bottom `PlayerBar`. Every other surface (the Studio VCR, chapter rows, voice previews, Review follow-along) becomes a client that loads the bus and reads its state; nothing else creates audio. Loading a new source stops the old one. The bar is hidden when nothing is loaded — no false affordance. R7 added full VCR transport (prev/skim-back/play/skim-fwd/next) and the Segment↔Chapter scope toggle. **Waveform representation follows scope (U16, affirmed 2026-06-15):** Segment scope renders the wavesurfer.js waveform *inline as the scrub track*; Chapter scope renders a plain seek bar (an hour of speech is a featureless blur). This is the *default* — a far-right toggle lets the user flip waveform ↔ bar on demand (the override resets to the scope default on each new source). When the bar is too narrow for an inline waveform, the segment waveform reflows *above* the controls at reduced height (§5).
 
 ## Changelog
 
@@ -96,7 +96,7 @@ The `PlayerBar` (`frontend/src/app/layout/PlayerBar.tsx`) is rendered **once** i
 - **Scrub track follows scope (U16, shipped 2026-06-15):**
   - **Segment scope** → the scrub track *is* the inline wavesurfer.js waveform (a ≤ engine-char-limit segment is a few seconds of speech, whose waveform has readable structure worth seeing/annotating). Clicking it seeks within the segment.
   - **Chapter scope** → a *plain seek slider* (no waveform). An hour of narration is a near-uniform amplitude carpet that carries no navigable information, so the waveform is intentionally omitted here.
-  - There is **no separate "wave" toggle** — representation is determined by scope, not by a user switch. (This supersedes the R7 toggle described in earlier versions; see §5.)
+  - Representation **defaults** to scope, but a far-right **`player-btn-wave` toggle** lets the user flip waveform ↔ bar on demand (override is session-only state, reset to the scope default on each new source). Unlike the R7 toggle, it is *not* persisted and does *not* gate an above-the-row expansion strip — it just swaps the inline scrub representation. See §5.
 - **Time** (`m:ss / m:ss`) in the right section of the content row. Time is **segment-relative in Segment scope** (e.g. `0:03 / 0:06`) and **chapter-relative in Chapter scope** (e.g. `2:14 / 28:10`).
 - **Hidden entirely when nothing is loaded** (`audioUrl === null`): the bar renders no visible chrome and removes the content inset. This is deliberate (owner Q6, round-2 refinement): a disabled-looking bar is a false affordance.
 - When visible, the content area gets bottom padding/inset so the bar never covers content.
@@ -127,7 +127,7 @@ The **waveform is the inline scrub track in Segment scope**, rendered with **wav
 
 - **Segment scope** → wavesurfer waveform occupies the scrub-track position in the control row (between transport and the trailing controls), at the row's height (~32 px). It is the seek surface.
 - **Chapter scope** → no waveform; a plain seek slider occupies the scrub-track position (§3).
-- **No wave toggle.** The R7 `player-btn-wave` chip, `loadWaveformPref`/`saveWaveformPref` persistence, and the on-demand `player-bar-expansion` strip are **removed**; representation is decided by scope alone.
+- **Representation override.** Representation is decided by scope by default, but a far-right `player-btn-wave` toggle flips waveform ↔ bar on demand. The override is in-component state (`forceWave: boolean | null`), reset to the scope default whenever a new source loads (`requestId`). The R7 `loadWaveformPref`/`saveWaveformPref` *persistence* and the on-demand `player-bar-expansion` strip remain **removed** — the toggle now just swaps the inline scrub representation; it does not open an above-the-row strip (the only above-the-row case is the narrow-width responsive reflow, §5.1).
 
 ### 5.1 Responsive exception (waveform above, only when narrow)
 
@@ -141,7 +141,7 @@ When the bar is too narrow to fit transport + an inline waveform + the trailing 
 
 ### 5.3 Implementation status
 
-**SHIPPED (2026-06-15).** `PlayerBar.tsx` renders the scrub track by scope: `WaveformStrip` inline (in `.player-scrub--wave` → `.player-waveform-inline`, 32 px) for `scope === 'segment'`, and the plain `.player-progress-slider` for chapter/preview. The responsive above-reflow is a CSS container query on `.player-bar` in `components.css` (`@container (max-width: 720px)` sets `.player-scrub--wave { order:-1; flex-basis:100% }` and drops the inline waveform to 24 px) — one wavesurfer instance, repositioned by flex order, no second audio owner. The R7 wave toggle, `player-bar-expansion` slot, `--player-waveform-height`, and `utils/playerPrefs.ts` were removed. The styleguide U16 specimen (`frontend/src/demo/styleguide/StyleguidePage.tsx`) demonstrates the same behavior.
+**SHIPPED (2026-06-15).** `PlayerBar.tsx` picks the scrub track from `showWave = forceWave ?? (scope === 'segment')`: when true it renders `WaveformStrip` inline (in `.player-scrub--wave` → `.player-waveform-inline`, 32 px); otherwise the plain `.player-progress-slider`. `forceWave` is the override set by the far-right `player-btn-wave` toggle and reset to `null` (scope default) on each new source via a `requestId` effect. The responsive above-reflow is a CSS container query on `.player-bar` in `components.css` (`@container (max-width: 720px)` sets `.player-scrub--wave { order:-1; flex-basis:100% }` and drops the waveform to 24 px) — one wavesurfer instance, repositioned by flex order, no second audio owner. The `player-bar-expansion` slot, `--player-waveform-height`, and `utils/playerPrefs.ts` persistence were removed (the toggle is session-only). The styleguide U16 specimen (`frontend/src/demo/styleguide/StyleguidePage.tsx`) demonstrates the same behavior.
 
 ---
 

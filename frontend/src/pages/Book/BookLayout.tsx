@@ -34,7 +34,7 @@ export function BookIndexRedirect() {
   const { bookId } = useParams<{ bookId: string }>();
 
   if (!bookId) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/library" replace />;
   }
 
   return <Navigate to={`/book/${bookId}/${getLastStage(bookId)}`} replace />;
@@ -115,7 +115,7 @@ export function BookLayout({
   const { bookId, stage } = useParams<{ bookId: string; stage: string }>();
 
   if (!bookId) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/library" replace />;
   }
 
   if (!isBookStage(stage)) {

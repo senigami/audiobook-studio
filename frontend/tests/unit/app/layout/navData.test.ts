@@ -25,7 +25,8 @@ describe('navData', () => {
   });
 
   it.each([
-    ['/', 'library'],
+    ['/', ''],
+    ['/library', 'library'],
     ['/project/abc', 'library'],
     ['/project/abc/chapters', 'library'],
     ['/chapter/abc', 'library'],

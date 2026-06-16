@@ -418,6 +418,15 @@ export const api = {
     return parseApiResponse(res);
   },
 
+  previewGithubEnginePlugin: async (gitUrl: string): Promise<any> => {
+    const res = await fetch('/api/engines/preview_github', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ git_url: gitUrl }),
+    });
+    return parseApiResponse(res);
+  },
+
   confirmEnginePlugin: async (token: string): Promise<any> => {
     const res = await fetch(`/api/engines/confirm/${encodeURIComponent(token)}`, { method: 'POST' });
     return parseApiResponse(res);
@@ -434,6 +443,11 @@ export const api = {
   },
   installPlugin: async (): Promise<any> => {
     const res = await fetch('/api/engines/install', { method: 'POST' });
+    return parseApiResponse(res);
+  },
+
+  fetchOfficialPluginRegistry: async (): Promise<any> => {
+    const res = await fetch('/api/engines/registry');
     return parseApiResponse(res);
   },
 

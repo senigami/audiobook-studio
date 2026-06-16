@@ -104,7 +104,7 @@ describe('Layout', () => {
     });
 
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/project/p123']}>
         <Layout {...defaultProps} shellState={shellState} />
       </MemoryRouter>,
     );

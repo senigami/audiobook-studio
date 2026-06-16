@@ -81,16 +81,39 @@ describe('TopBar', () => {
     expect(reconnectingDot).toHaveAttribute('title', 'Connection reconnecting');
   });
 
-  it('keeps the identity slot mounted but empty', () => {
+  it('shows the section breadcrumb with no identity slot outside a book', () => {
+    const shellState = createStudioShellState({
+      pathname: '/voices',
+      loading: false,
+      connected: true,
+      isReconnecting: false,
+    });
+
     render(
-      <MemoryRouter>
-        <TopBar />
+      <MemoryRouter initialEntries={['/voices']}>
+        <TopBar shellState={shellState} />
       </MemoryRouter>,
     );
 
+    expect(screen.getByText('Voices')).toBeTruthy();
+    // The identity slot only exists inside a book, woven into the breadcrumb path.
+    expect(screen.queryByTestId('topbar-identity-slot')).toBeNull();
+  });
+
+  it('threads the identity slot and stage into the breadcrumb inside a book', () => {
+    render(
+      <MemoryRouter initialEntries={['/book/abc/studio']}>
+        <TopBar identitySlot={<span data-testid="id-content">Book identity</span>} />
+      </MemoryRouter>,
+    );
+
+    // Continuous path: Library › [identity] › Studio
+    const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(breadcrumb).getByRole('button', { name: 'Library' })).toBeTruthy();
     const identitySlot = screen.getByTestId('topbar-identity-slot');
-    expect(identitySlot).toBeTruthy();
-    expect(identitySlot).toBeEmptyDOMElement();
+    expect(within(identitySlot).getByTestId('id-content')).toBeTruthy();
+    // Stage segment (scope to the breadcrumb — "Studio" also appears in the brand wordmark).
+    expect(within(breadcrumb).getByText('Studio')).toBeTruthy();
   });
 
   it('navigates home when the brand button is clicked', () => {

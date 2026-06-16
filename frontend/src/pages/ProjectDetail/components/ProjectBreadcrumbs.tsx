@@ -53,7 +53,7 @@ export const ProjectBreadcrumbs: React.FC<ProjectBreadcrumbsProps> = ({
         zIndex: LAYERS.STICKY_NAV,
       }}
     >
-      <Link to="/" style={crumbLinkStyle} className="hover-text-primary">
+      <Link to="/library" style={crumbLinkStyle} className="hover-text-primary">
         Library
       </Link>
       

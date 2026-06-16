@@ -27,7 +27,7 @@ const BASE_NAV_GROUPS: NavGroup[] = [
   {
     group: 'CREATE',
     items: [
-      { id: 'library', label: 'Library', path: '/', icon: Library },
+      { id: 'library', label: 'Library', path: '/library', icon: Library },
       { id: 'voices', label: 'Voices', path: '/voices', icon: Mic },
     ],
   },
@@ -65,8 +65,14 @@ export function buildNavGroups(devMode: boolean): NavGroup[] {
 export function getActiveNavId(pathname: string): string {
   const path = pathname || '/';
 
+  // The splash (index route) highlights nothing in the rail.
+  if (path === '/') {
+    return '';
+  }
+
   if (
-    path === '/' ||
+    path === '/library' ||
+    path.startsWith('/library') ||
     path.startsWith('/project/') ||
     path.startsWith('/chapter/') ||
     path.startsWith('/book/')

@@ -1,7 +1,7 @@
 # Security
 
 ```
-spec_version: 1.0.0
+spec_version: 1.1.0
 status: active
 sources:
   - app/utils/pathing.py
@@ -17,6 +17,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.1.0   | 2026-06-15 | Added GitHub plugin repository preview security invariants |
 | 1.0.0   | 2026-06-10 | Initial canonical spec  |
 
 ---
@@ -154,6 +155,36 @@ After extraction to a staging directory, every extracted file MUST have its reso
 - MUST NOT include filesystem paths in any HTTP error response from plugin import.
 - MUST NOT include `type(exc).__name__` or `str(exc)` in any HTTP error response from plugin import.
 - Post-extract walk MUST happen even if phase 1 passed (defense in depth).
+
+## Plugin GitHub Repository Preview Security
+
+GitHub repository plugin previews submitted to the TTS server go through a clone-and-stage
+flow in `app/tts_server/server.py`.
+
+### URL validation
+
+| Check | Action on failure |
+|-------|------------------|
+| URL is not `https://github.com/<owner>/<repo>` or `.git` | Reject request |
+| URL contains credentials, query string, or fragment | Reject request |
+| URL points to another host or protocol | Reject request |
+
+### Clone and staging
+
+| Check | Action on failure |
+|-------|------------------|
+| `git clone --depth 1` exits non-zero | Delete staging directory and reject request |
+| Clone exceeds timeout | Delete staging directory and reject request |
+| Cloned repository contains any symlink | Delete staging directory and reject request |
+| Manifest fails the loader's manifest contract | Delete staging directory and reject request |
+
+### Invariants
+
+- MUST NOT import or execute plugin code before the user confirms the trust modal.
+- MUST validate the preview manifest with the same contract used by plugin discovery.
+- MUST NOT return raw subprocess output, filesystem paths, or exception-derived manifest
+  details in HTTP response bodies.
+- MAY log controlled diagnostic details server-side for local debugging.
 
 ---
 

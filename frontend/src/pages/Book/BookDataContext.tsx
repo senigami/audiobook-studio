@@ -50,7 +50,7 @@ export function BookDataProvider({
   });
 
   if (!bookId) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/library" replace />;
   }
 
   return <BookDataContext.Provider value={value}>{children}</BookDataContext.Provider>;

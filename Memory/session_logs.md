@@ -2176,3 +2176,24 @@
 - Replaced the fragile icon-only transport with the styleguide U16 visible glyph treatment: `⏮`, `⏪`, `▶`/`⏸`, `⏩`, `⏭`, while preserving the existing playback/seek handlers and accessible button labels.
 - Rebuilt `docs/demo` so the static showcase uses the restored player controls.
 - Verified with `npm -C frontend run build`, `npm -C frontend run lint`, `npm -C frontend run test`, `npm -C frontend run build:demo`, `git diff --check`, and a Playwright smoke/screenshot check confirming visible transport glyphs.
+
+# 2026-06-15 - Plugin registry release scope reconciled
+
+- Updated the release planning docs so v2.0 plugin install scope is now consistent: ZIP upload, paste-a-GitHub-repo-URL install, and owner-controlled official registry install are release scope.
+- Moved broad GitHub topic search/browse and richer update/pull UX to post-v2 wording across Phase 12, Road to v2, Plan 05, and the mock reconciliation matrix.
+- Confirmed the current platform mock already shows the accurate interaction model: Upload ZIP, GitHub URL, trust analysis, and Plugin Registry detail/install controls.
+- Verified with `git diff --check`.
+
+# 2026-06-15 - Official plugin registry backend verified
+
+- Reviewed the Antigravity backend patch for official registry and GitHub URL plugin preview, then hardened the trust boundary before accepting it.
+- Added strict github.com URL normalization, clone timeout handling, cleanup on failure, symlink rejection, plugin-loader manifest validation, fixed validation errors at the Studio API boundary, and TTS client status/detail propagation.
+- Aligned the engines/plugins, security, and install-distribution specs with the release-scope backend behavior.
+- Verified with focused API/engine/TTS client tests, plugin loader/validation regressions, ruff on touched backend/test files, JSON Memory parse, and `git diff --check`.
+
+# 2026-06-15 - Official plugin registry frontend verified
+
+- Reviewed the Antigravity frontend registry pass and found the new registry test was placed under `frontend/src`, outside the runnable Vitest include tree.
+- Moved the registry test to `frontend/tests/unit/pages/Engines/OfficialRegistryPanel.test.tsx`, removed stale `frontend/test_log.txt`, and gave registry/manual install buttons distinct accessible names.
+- Verified the real Engines frontend now loads the official registry, supports pasted GitHub repo URLs, and routes both paths through the existing trust modal confirm/cancel staging flow.
+- Verified with focused registry/navigation/layout tests, full frontend Vitest, frontend build, frontend lint, JSON Memory parse, and `git diff --check`.

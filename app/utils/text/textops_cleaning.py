@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 from collections.abc import Sequence
 from .textops_helpers import preprocess_text

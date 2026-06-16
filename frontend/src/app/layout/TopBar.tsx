@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useMatch, useNavigate } from 'react-router-dom';
 import { Zap } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { BrandLogo } from '@/components/layout/BrandLogo';
@@ -69,6 +69,12 @@ export function TopBar({
   const connection = getConnectionState(shellState?.hydration.status);
   const showQueueBadge = typeof queueCount === 'number' && queueCount > 0;
 
+  // Inside a book the breadcrumb becomes a continuous path: Library › [book] › Stage.
+  const stageMatch = useMatch('/book/:bookId/:stage');
+  const stageParam = stageMatch?.params.stage;
+  const stageLabel = stageParam ? stageParam.charAt(0).toUpperCase() + stageParam.slice(1) : null;
+  const inBook = Boolean(stageMatch);
+
   return (
     <header className="top-bar">
       {mobileNavButton}
@@ -82,12 +88,35 @@ export function TopBar({
         <BrandLogo scale={0.7} showIcon />
       </button>
 
-      <div className="top-bar__breadcrumb">{breadcrumb ?? defaultBreadcrumb}</div>
+      <span className="top-bar__divider" aria-hidden="true" />
 
-      <div className="top-bar__identity-slot" data-testid="topbar-identity-slot">
-        {/* R2 fills this with the book identity line from the phase 2 pipeline. See plans/site_redesign_rollout/04_phase_r2_pipeline.md. */}
-        {identitySlot}
-      </div>
+      <nav className="top-bar__breadcrumb" aria-label="Breadcrumb">
+        {inBook ? (
+          <>
+            <button
+              type="button"
+              className="top-bar__crumb-link"
+              onClick={() => navigate('/library')}
+            >
+              Library
+            </button>
+            <span className="top-bar__breadcrumb-caret" aria-hidden="true">›</span>
+            {/* Book identity, threaded inline into the breadcrumb path. */}
+            <span className="top-bar__crumb-identity" data-testid="topbar-identity-slot">
+              {identitySlot}
+            </span>
+            <span className="top-bar__breadcrumb-caret" aria-hidden="true">›</span>
+            <span className="top-bar__crumb-current">{stageLabel}</span>
+          </>
+        ) : (
+          <>
+            <span className="top-bar__breadcrumb-label">{breadcrumb ?? defaultBreadcrumb}</span>
+            <span className="top-bar__breadcrumb-caret" aria-hidden="true">›</span>
+          </>
+        )}
+      </nav>
+
+      <div className="top-bar__spacer" />
 
       <span
         className="top-bar__connection-dot"

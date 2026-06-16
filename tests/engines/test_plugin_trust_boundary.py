@@ -8,6 +8,8 @@ Verifies:
 - /engines/{engine_id}/requirements returns non-comment lines.
 """
 
+from __future__ import annotations
+
 import io
 import json
 import zipfile
@@ -122,6 +124,191 @@ class TestPluginPreview:
             files={"file": ("plugin.tar.gz", b"garbage", "application/gzip")},
         )
         assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# GitHub Preview endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestPluginPreviewGithub:
+    @pytest.fixture
+    def mock_subprocess_run(self, monkeypatch):
+        from unittest.mock import MagicMock
+        import subprocess
+
+        mock_run = MagicMock()
+        mock_run.return_value.returncode = 0
+        mock_run.return_value.stdout = "Cloned successfully"
+        mock_run.return_value.stderr = ""
+
+        monkeypatch.setattr(subprocess, "run", mock_run)
+        return mock_run
+
+    def _setup_mock_repo(self, plugins_dir, mock_subprocess_run, engine_id="testgithub", requirements_txt=None):
+        def side_effect(cmd, **kwargs):
+            from pathlib import Path
+            # cmd is ["git", "clone", "--depth", "1", url, target_dir]
+            target_dir = Path(cmd[5])
+            target_dir.mkdir(parents=True, exist_ok=True)
+            manifest = {
+                "studio_tts_manifest": "1.0",
+                "contract_version": "1.0",
+                "sdk_version": "1.0",
+                "settings_schema_version": "1.0",
+                "event_envelope_version": "1.0",
+                "engine_id": engine_id,
+                "display_name": "GitHub Plugin",
+                "entry_class": "engine:GitHubEngine",
+                "capabilities": ["synthesis"],
+                "version": "1.0.0"
+            }
+            (target_dir / "manifest.json").write_text(json.dumps(manifest))
+            if requirements_txt:
+                (target_dir / "requirements.txt").write_text(requirements_txt)
+            mock_subprocess_run.return_value.returncode = 0
+            return mock_subprocess_run.return_value
+
+        mock_subprocess_run.side_effect = side_effect
+        return mock_subprocess_run
+
+    def test_preview_github_clones_and_returns_metadata(self, tts_client, mock_subprocess_run):
+        client, plugins_dir = tts_client
+        self._setup_mock_repo(plugins_dir, mock_subprocess_run, requirements_txt="git+https://github.com/example.git\nnumpy")
+
+        resp = client.post(
+            "/plugins/preview_github",
+            json={"git_url": "https://github.com/audiobook-studio/tts-test.git"},
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["ok"] is True
+        assert body["engine_id"] == "testgithub"
+        assert body["display_name"] == "GitHub Plugin"
+        assert body["version"] == "1.0.0"
+        assert "git+https://github.com/example.git" in body["requirements"]
+        assert "numpy" in body["requirements"]
+        assert "staging_token" in body
+
+        mock_subprocess_run.assert_called_once()
+        cmd = mock_subprocess_run.call_args[0][0]
+        assert cmd[0:5] == ["git", "clone", "--depth", "1", "https://github.com/audiobook-studio/tts-test.git"]
+
+    def test_preview_github_rejects_non_github_urls(self, tts_client):
+        client, plugins_dir = tts_client
+
+        resp = client.post(
+            "/plugins/preview_github",
+            json={"git_url": "https://gitlab.com/audiobook-studio/tts-test.git"},
+        )
+        assert resp.status_code == 400
+        assert "Only https://github.com/" in resp.json()["detail"]
+
+    def test_preview_github_rejects_urls_with_query_or_fragment(self, tts_client):
+        client, plugins_dir = tts_client
+
+        resp = client.post(
+            "/plugins/preview_github",
+            json={"git_url": "https://github.com/audiobook-studio/tts-test.git?token=secret"},
+        )
+        assert resp.status_code == 400
+        assert "must not include credentials, query, or fragment" in resp.json()["detail"]
+
+    def test_preview_github_uses_loader_manifest_contract(self, tts_client, mock_subprocess_run):
+        client, plugins_dir = tts_client
+        self._setup_mock_repo(plugins_dir, mock_subprocess_run, engine_id="bad_engine")
+
+        resp = client.post(
+            "/plugins/preview_github",
+            json={"git_url": "https://github.com/audiobook-studio/bad-engine.git"},
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Plugin manifest failed validation."
+        assert not list(plugins_dir.glob(".preview_*"))
+
+    def test_preview_github_rejects_symlinks(self, tts_client, mock_subprocess_run):
+        client, plugins_dir = tts_client
+
+        def side_effect(cmd, **kwargs):
+            from pathlib import Path
+            target_dir = Path(cmd[5])
+            target_dir.mkdir(parents=True, exist_ok=True)
+            manifest = {
+                "studio_tts_manifest": "1.0",
+                "contract_version": "1.0",
+                "sdk_version": "1.0",
+                "settings_schema_version": "1.0",
+                "event_envelope_version": "1.0",
+                "engine_id": "symlink",
+                "display_name": "Symlink Plugin",
+                "entry_class": "engine:GitHubEngine",
+                "capabilities": ["synthesis"],
+                "version": "1.0.0"
+            }
+            (target_dir / "manifest.json").write_text(json.dumps(manifest))
+            (target_dir / "escape").symlink_to("/etc/passwd")
+            mock_subprocess_run.return_value.returncode = 0
+            return mock_subprocess_run.return_value
+
+        mock_subprocess_run.side_effect = side_effect
+
+        resp = client.post(
+            "/plugins/preview_github",
+            json={"git_url": "https://github.com/audiobook-studio/symlink.git"},
+        )
+        assert resp.status_code == 400
+        assert "must not contain symlinks" in resp.json()["detail"]
+        assert not list(plugins_dir.glob(".preview_*"))
+
+    def test_preview_github_cleans_up_on_clone_timeout(self, tts_client, mock_subprocess_run):
+        import subprocess
+
+        client, plugins_dir = tts_client
+        mock_subprocess_run.side_effect = subprocess.TimeoutExpired(cmd=["git", "clone"], timeout=120)
+
+        resp = client.post(
+            "/plugins/preview_github",
+            json={"git_url": "https://github.com/audiobook-studio/slow.git"},
+        )
+        assert resp.status_code == 408
+        assert "Timed out" in resp.json()["detail"]
+        assert not list(plugins_dir.glob(".preview_*"))
+
+    def test_preview_github_cleans_up_on_clone_failure(self, tts_client, mock_subprocess_run):
+        client, plugins_dir = tts_client
+        mock_subprocess_run.return_value.returncode = 128
+        mock_subprocess_run.return_value.stderr = "fatal: repository not found"
+
+        resp = client.post(
+            "/plugins/preview_github",
+            json={"git_url": "https://github.com/audiobook-studio/missing.git"},
+        )
+        assert resp.status_code == 400
+        assert "Failed to clone" in resp.json()["detail"]
+
+        staging_dirs = list(plugins_dir.glob(".preview_*"))
+        assert len(staging_dirs) == 0
+
+    def test_preview_github_missing_manifest(self, tts_client, mock_subprocess_run):
+        client, plugins_dir = tts_client
+        # Setup side effect that clones but doesn't write manifest.json
+        def side_effect(cmd, **kwargs):
+            from pathlib import Path
+            target_dir = Path(cmd[5])
+            target_dir.mkdir(parents=True, exist_ok=True)
+            mock_subprocess_run.return_value.returncode = 0
+            return mock_subprocess_run.return_value
+        mock_subprocess_run.side_effect = side_effect
+
+        resp = client.post(
+            "/plugins/preview_github",
+            json={"git_url": "https://github.com/audiobook-studio/no-manifest.git"},
+        )
+        assert resp.status_code == 400
+        assert "missing manifest.json" in resp.json()["detail"]
+
+        staging_dirs = list(plugins_dir.glob(".preview_*"))
+        assert len(staging_dirs) == 0
 
 
 # ---------------------------------------------------------------------------

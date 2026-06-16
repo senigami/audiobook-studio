@@ -5,6 +5,7 @@ import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { PluginTrustModal, type PluginPreviewInfo } from '@/components/overlays/PluginTrustModal';
 import { EngineCard } from '@/pages/Engines/components/EngineCard';
+import { OfficialRegistryPanel } from '@/pages/Engines/components/OfficialRegistryPanel';
 import { useLiveTtsLogLines } from '@/hooks/useLiveTtsLogLines';
 
 interface EnginesPanelProps {
@@ -113,6 +114,32 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
       pendingStagingTokenRef.current = res.staging_token;
     } catch (err: any) {
       onShowNotification?.(`Import failed: ${err.message || err}`);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleGithubInstall = async (url: string) => {
+    setImporting(true);
+    try {
+      const res = await api.previewGithubEnginePlugin(url);
+      if (!res.ok || !res.staging_token) {
+        onShowNotification?.(res.message || 'GitHub plugin preview failed.');
+        return;
+      }
+      setTrustModal({
+        open: true,
+        preview: {
+          engine_id: res.engine_id,
+          display_name: res.display_name,
+          version: res.version ?? null,
+          requirements: Array.isArray(res.requirements) ? res.requirements : [],
+        },
+        stagingToken: res.staging_token,
+      });
+      pendingStagingTokenRef.current = res.staging_token;
+    } catch (err: any) {
+      onShowNotification?.(`GitHub Install failed: ${err.message || err}`);
     } finally {
       setImporting(false);
     }
@@ -318,6 +345,8 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
           </div>
         </div>
       )}
+
+      <OfficialRegistryPanel onInstallGithubUrl={handleGithubInstall} importing={importing} />
 
       <ConfirmModal
         isOpen={installModal.open}

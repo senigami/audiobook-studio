@@ -26,7 +26,7 @@ All logic fixes, progress confidence model, security blockers, test-quality audi
 
 - [x] Voice taxonomy/attributes/tags/icon upload/casting card — Phases A–E DONE 2026-06-12 (taxonomy validation, idempotent v1-schema migration + D8 state split, metadata/search/cast/icon API, Voice Lab catalog UI with editor + facets, HF-aligned bundle export/import with README generation). Phase F docs DONE 2026-06-12 — doc 04 A–F executed.
 - [ ] **Taxonomy v2 (doc 04 Phase G, RE-OPENED 2026-06-12 — owner's original ask, missed in v1.0):** language (multi) + accent (single) + style (multi) attributes; category-tinted pills + +N overflow UI (approved in styleguide U8); HF as-* tags. Additive schema bump. **Re-blocks PK7** until landed. (M)
-- [ ] Standalone GitHub plugin repos: discovery infra, XTTS/Voxtral extraction, tts_mixed rename, e2e (doc 05, 18 items, all blocked on Stage 3). (L)
+- [ ] Standalone GitHub plugin repos: owner-controlled official registry, paste-a-GitHub-repo-URL install, XTTS/Voxtral extraction, tts_mixed closeout, e2e (doc 05, blocked on Stage 3). Open GitHub topic search/browse and richer update UX are post-v2 unless explicitly promoted. (L)
 
 ## Stage 5 — Frontend polish (in progress)
 

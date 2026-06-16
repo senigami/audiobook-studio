@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation, useParams, useMatch 
 import { api } from '@/api';
 import { AppShell } from '@/app/layout/AppShell';
 import { ProjectLibrary } from '@/pages/ProjectLibrary/ProjectLibraryPage';
+import { WelcomePage } from '@/pages/Welcome/WelcomePage';
 import { GlobalQueue } from '@/components/queue/GlobalQueue';
 import { useJobs } from '@/hooks/useJobs';
 import { useQueueSync } from '@/hooks/useQueueSync';
@@ -72,7 +73,7 @@ function ProjectRedirectRoute() {
   const location = useLocation();
 
   if (!projectId) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/library" replace />;
   }
 
   return <Navigate replace to={navigateToBookStage(projectId, location.search)} />;
@@ -94,7 +95,7 @@ function ChapterRedirectRoute({
   }
 
   if (!chapter?.project_id) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/library" replace />;
   }
 
   const params = new URLSearchParams(search);
@@ -313,7 +314,8 @@ function App() {
           <div style={{ flex: 1 }}>
             <Suspense fallback={<RouteFallback />}>
             <Routes>
-              <Route path="/" element={<ProjectLibrary onSelectProject={(id) => navigate(`/project/${id}`)} />} />
+              <Route path="/" element={<WelcomePage />} />
+              <Route path="/library" element={<ProjectLibrary onSelectProject={(id) => navigate(`/project/${id}`)} />} />
               <Route path="/book/:bookId" element={<BookIndexRedirect />} />
               <Route path="/book/:bookId/:stage" element={
                 <BookLayout
@@ -408,7 +410,7 @@ function App() {
               } />
               <Route path="/progress-test" element={<ProgressBarTestPage />} />
               <Route path="/event-stream" element={<LiveOutputPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<Navigate to="/library" replace />} />
             </Routes>
             </Suspense>
           </div>

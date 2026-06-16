@@ -130,8 +130,6 @@ export function NavRail({ queueCount }: NavRailProps) {
     return (
       <>
         <div className="nav-rail__content-body">
-          <RailBookBlock compact={compact} />
-
           {groups.map((group) => (
             <section key={group.group} className="nav-rail__group">
               {showLabels ? <div className="nav-rail__group-label">{group.group}</div> : null}
@@ -142,27 +140,30 @@ export function NavRail({ queueCount }: NavRailProps) {
                   const isBadgeItem = item.badge === 'queue' && typeof queueCount === 'number' && queueCount > 0;
 
                   return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={isActive ? 'nav-rail__item nav-rail__item--active' : 'nav-rail__item'}
-                      aria-current={isActive ? 'page' : undefined}
-                      aria-label={item.label}
-                      title={compact ? item.label : undefined}
-                      onClick={() => navigate(item.path)}
-                    >
-                      <item.icon aria-hidden="true" size={18} strokeWidth={isActive ? 2.4 : 2} />
+                    <div key={item.id}>
+                      <button
+                        type="button"
+                        className={isActive ? 'nav-rail__item nav-rail__item--active' : 'nav-rail__item'}
+                        aria-current={isActive ? 'page' : undefined}
+                        aria-label={item.label}
+                        title={compact ? item.label : undefined}
+                        onClick={() => navigate(item.path)}
+                      >
+                        <item.icon aria-hidden="true" size={18} strokeWidth={isActive ? 2.4 : 2} />
 
-                      {showLabels ? <span className="nav-rail__label">{item.label}</span> : null}
+                        {showLabels ? <span className="nav-rail__label">{item.label}</span> : null}
 
-                      {isBadgeItem ? (
-                        <span
-                          className={compact ? 'nav-rail__badge nav-rail__badge--collapsed' : 'nav-rail__badge'}
-                        >
-                          {queueCount}
-                        </span>
-                      ) : null}
-                    </button>
+                        {isBadgeItem ? (
+                          <span
+                            className={compact ? 'nav-rail__badge nav-rail__badge--collapsed' : 'nav-rail__badge'}
+                          >
+                            {queueCount}
+                          </span>
+                        ) : null}
+                      </button>
+
+                      {item.id === 'library' ? <RailBookBlock compact={compact} /> : null}
+                    </div>
                   );
                 })}
               </div>

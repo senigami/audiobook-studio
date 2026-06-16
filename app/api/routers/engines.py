@@ -3,6 +3,7 @@ import os
 import re
 from pathlib import Path
 from typing import Any, Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Body, File, UploadFile
 from fastapi.responses import JSONResponse, FileResponse
 from ...engines.bridge import create_voice_bridge
@@ -11,6 +12,9 @@ from ...utils.pathing import contained_path
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/engines", tags=["engines"])
+
+class GithubPreviewRequest(BaseModel):
+    git_url: str
 
 # ---------------------------------------------------------------------------
 # Input-validation helpers
@@ -89,6 +93,13 @@ def list_engines():
     except EngineUnavailableError:
         logger.warning("TTS Server unavailable while listing engines", exc_info=True)
         return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
+
+
+@router.get("/registry")
+def get_official_registry_list():
+    """Return the official plugin registry."""
+    from ...engines.official_registry import get_official_registry
+    return JSONResponse(get_official_registry())
 
 
 @router.put("/{engine_id}/settings")
@@ -312,6 +323,37 @@ async def preview_engine_plugin(file: UploadFile = File(...)):
     except Exception:
         logger.exception("Plugin preview failed")
         return JSONResponse({"status": "error", "message": "Plugin preview failed"}, status_code=500)
+
+
+@router.post("/preview_github")
+def preview_github_plugin(body: GithubPreviewRequest):
+    """Stage a GitHub plugin repo and return manifest metadata without installing.
+
+    Returns ``{ok, engine_id, display_name, version, requirements, staging_token}``.
+    """
+    from ...engines.errors import EngineUnavailableError
+    from ...engines.tts_client import TtsServerError, TtsServerResponseError
+
+    bridge = create_voice_bridge()
+    try:
+        return bridge.preview_github_plugin(body.git_url)
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable during GitHub plugin preview", exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
+    except TtsServerResponseError as exc:
+        logger.warning("TTS Server rejected GitHub plugin preview: %s", exc)
+        if exc.status_code in {400, 408, 409}:
+            return JSONResponse(
+                {"status": "error", "message": "GitHub plugin preview failed validation"},
+                status_code=exc.status_code,
+            )
+        return JSONResponse({"status": "error", "message": "GitHub Plugin preview failed"}, status_code=500)
+    except TtsServerError:
+        logger.exception("TTS Server error during GitHub plugin preview")
+        return JSONResponse({"status": "error", "message": "GitHub Plugin preview failed"}, status_code=500)
+    except Exception:
+        logger.exception("GitHub Plugin preview failed")
+        return JSONResponse({"status": "error", "message": "GitHub Plugin preview failed"}, status_code=500)
 
 
 @router.post("/confirm/{token}")

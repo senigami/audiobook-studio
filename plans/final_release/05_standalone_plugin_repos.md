@@ -1,27 +1,48 @@
-# Plan 05 — Standalone Plugin Repos (GitHub)
+# Plan 05 — Standalone Plugin Repos And Official Registry
 
 > **Status: READY FOR IMPLEMENTATION.**
 > Decision record + extraction steps for moving TTS engine plugins from the main repo into
-> standalone GitHub repositories. Supersedes `plans/v2_engine_bundle_github_distribution.md`
-> (GitHub) — see §1 for the decision record and the step to mark that doc superseded.
+> standalone GitHub repositories and installing them through an owner-controlled registry
+> or a pasted GitHub repository URL. Supersedes
+> `plans/v2_engine_bundle_github_distribution.md` (GitHub) — see §1 for the decision
+> record and the step to mark that doc superseded.
 > Pre-requisite: sibling plans **02 (Plugin Communication Contract)** and **03 (Plugin
 > Interface Template)** must be complete before the extraction steps in §4 begin.
 
 ---
 
-## 1. Decision record — GitHub, not GitHub (historically)
+## 1. Decision record — GitHub repos with an official registry
+
+### 1.0 Owner update — 2026-06-15
+
+The v2.0 release path is:
+
+1. **Official owner-controlled plugin registry** for browse/detail/install of trusted known plugins.
+2. **Paste-a-GitHub-repo-URL install** for direct community/plugin-author distribution.
+3. **ZIP upload install** remains supported as the local/offline path.
+
+Open-ended GitHub topic search/browse and richer installed-plugin update/pull UX are **post-v2**
+unless explicitly promoted later. The private site mock may show the registry and URL install as
+working controls because both are release-scope interaction targets.
+
+The official registry entry should be enough to render a useful preview without arbitrary website
+scraping. It may contain summary, icon URL/path, tags, homepage/docs links, repo URL, trust level,
+compatibility, and requirements. The installer may also fetch known repo files such as
+`manifest.json`, `README.md`, and optional icon/preview assets for richer detail.
 
 | Attribute | Decision |
 |---|---|
 | **Host** | **GitHub** (`github.com`) |
-| **Discovery tag** | GitHub topic: `audiobook-studio-tts` |
+| **Release discovery source** | Owner-controlled official registry JSON plus direct GitHub repo URL paste |
+| **Post-v2 discovery candidate** | GitHub topic search: `audiobook-studio-tts` |
 | **Supersedes** | `plans/v2_engine_bundle_github_distribution.md` (GitHub) |
 | **Date** | 2026-06-10 |
-| **Rationale** | Owner preference. GitHub is the primary development host for this project; keeping engine repos on the same platform simplifies contributor workflow, CI/CD, and token management. All technical decisions in the GitHub spec (clone/pull install model, topic-based discovery, manifest distribution block, offline-fallback bundle) are preserved — only the host changes. |
+| **Rationale** | Owner preference. GitHub is the primary development host for this project; keeping engine repos on the same platform simplifies contributor workflow, CI/CD, and token management. The release path uses an owner-controlled registry so Studio can show curated metadata, trust, compatibility, icon/preview detail, and known install targets without relying on broad GitHub search. |
 
-**Nothing else changes from the GitHub spec:** install = `git clone`; update = `git pull`;
-heavy model weights download separately on first run; offline XTTS bundle ships in the
-installer; community engines show a trust warning.
+**Core mechanics stay simple:** install = `git clone`; heavy model weights download separately
+on first run; offline ZIP install remains available; community engines show a trust warning.
+Notify/apply update flows can use `git fetch`/`git pull` later, but the richer update UX is
+post-v2 unless separately promoted.
 
 ### 1.1 Step: mark the GitHub spec superseded
 
@@ -37,7 +58,32 @@ installer; community engines show a trust warning.
 
   _Acceptance: the file opens and the banner is the first body text visible._
 
-### 1.2 GitHub equivalents for GitHub-specific details
+### 1.2 Release registry fields and post-v2 GitHub search equivalents
+
+The release registry is a small owner-controlled JSON document or endpoint. The exact hosting
+location can be chosen during implementation, but entries should be shaped so the UI does not need
+to scrape arbitrary websites.
+
+Minimum release entry:
+
+```json
+{
+  "id": "tts_xtts",
+  "name": "XTTS (Local)",
+  "summary": "Official local voice cloning and text-to-speech plugin.",
+  "trust_level": "official",
+  "repo_url": "https://github.com/audiobook-studio/tts-xtts.git",
+  "homepage": "https://github.com/audiobook-studio/tts-xtts",
+  "docs_url": "https://github.com/audiobook-studio/tts-xtts#readme",
+  "icon": "icon.png",
+  "tags": ["local", "voice-cloning", "gpu"],
+  "min_studio": "2.0.0",
+  "compatibility": ["macOS", "Windows", "Linux"],
+  "requirements": ["Python 3.11", "4 GB VRAM recommended"]
+}
+```
+
+Post-v2 open GitHub search can still reuse the historical topic-search model:
 
 | GitHub concept | GitHub equivalent |
 |---|---|
@@ -137,19 +183,22 @@ tts-<engine-name>/               # GitHub repo name (hyphenated)
 ### 2.2 Install and update flow
 
 **Install:**
-1. Studio engine browser queries GitHub Search API for topic `audiobook-studio-tts`.
-2. Each result's `manifest.json` + `README.md` + `icon.png` are fetched for card display.
-3. User clicks Install → Studio runs `git clone {git_url}` into a temp dir.
-4. Validate: enforce the `tts_<name>` folder convention (`plugin_loader._PLUGIN_FOLDER_RE`,
+1. Studio engine browser loads the owner-controlled official registry.
+2. Each registry entry renders a card/detail view using registry metadata and, where useful,
+   known repo files (`manifest.json`, `README.md`, optional icon/preview assets). Arbitrary
+   website scraping is not required.
+3. User clicks Install from a registry entry or pastes a GitHub repo URL directly.
+4. Studio runs `git clone {git_url}` into a temp dir.
+5. Validate: enforce the `tts_<name>` folder convention (`plugin_loader._PLUGIN_FOLDER_RE`,
    `^tts_[a-z][a-z0-9]{1,14}$`), run `_validate_manifest` (requires `studio_tts_manifest`,
    `engine_id`, `display_name`, `entry_class`, `capabilities` incl. `synthesis`), check
    `min_studio`. Reject on failure.
-5. Move into `plugins/tts_<engine_id>/`.
-6. If `requirements.txt` has unmet deps, mark engine `needs_setup`; user clicks "Install
+6. Move into `plugins/tts_<engine_id>/`.
+7. If `requirements.txt` has unmet deps, mark engine `needs_setup`; user clicks "Install
    Dependencies" in Settings → TTS Engines.
-7. Register; TTS Server loads it. Engine code runs in TTS Server subprocess only.
+8. Register; TTS Server loads it. Engine code runs in TTS Server subprocess only.
 
-**Update (notify-only, never auto):**
+**Post-v2 update direction (notify-only, never auto):**
 - On demand (and optionally on app start), `git fetch` each installed engine.
 - Compare local commit / `version` against upstream.
 - Settings → TTS Engines shows per-engine update badge (`2.0.0 → 2.1.0`) with an Update
@@ -158,7 +207,8 @@ tts-<engine-name>/               # GitHub repo name (hyphenated)
   validation failure.
 - Never pull an update whose `min_studio` exceeds the running app version.
 
-**Install from URL:** user pastes any GitHub repo URL directly (bypasses topic search).
+**Install from URL:** user pastes any GitHub repo URL directly. This bypasses the official
+registry list but still runs the same clone, manifest validation, dependency, and trust checks.
 
 ---
 
@@ -216,8 +266,11 @@ scattered throughout the codebase — with no user-visible value at release time
 - [ ] **X3. Verify no `app/` imports in engine code.**
   _Acceptance: `grep -rE "from app|import app" plugin/` returns nothing._
 
-- [ ] **X4. Tag the repo `v2.0.0` and add topic `audiobook-studio-tts` in GitHub repo settings.**
-  _Acceptance: GitHub Search API query `topic:audiobook-studio-tts` returns this repo._
+- [ ] **X4. Tag the repo `v2.0.0` and add it to the official registry.**
+  Adding topic `audiobook-studio-tts` is still useful for post-v2 open discovery, but the
+  release acceptance is the owner-controlled registry entry.
+  _Acceptance: the official registry contains the XTTS entry with repo URL, trust level,
+  compatibility, summary, and icon/README metadata path._
 
 - [ ] **X5. Update the in-tree copy.**
   Add the `distribution` block to the existing `plugins/tts_xtts/manifest.json` in the main
@@ -299,14 +352,17 @@ inter-dependencies and may run in parallel.
 ### Group 1 — Discovery infrastructure
 
 - [ ] **1.1** Update `app/tts_server/plugin_loader.py`: add `BUILTIN_PLUGINS` allowlist (§4.4 / M1).
-- [ ] **1.2** Update Studio engine browser API client to use GitHub Search API (`topic:audiobook-studio-tts`) instead of GitHub Search Repositories API.
+- [ ] **1.2** Implement the official registry client used by the Studio engine browser.
+  It should load the owner-controlled registry source, render registry cards/details, and hand
+  selected `repo_url` values to the same installer path used by pasted GitHub URLs. Do not make
+  broad GitHub topic search a release dependency.
 - [ ] **1.3** Decide where `distribution` is validated. `plugin_loader._validate_manifest`
   does **not** currently read or validate any `distribution` block, so a `distribution.host`
   of `"github"` is accepted today as an ignored extra field — no loader change is required for
-  the engine to load. The GitHub-vs-GitHub handling lives in the Studio-side engine browser /
-  installer client (item 1.2), which is the component that reads `distribution.host` to pick
-  the API. If `distribution` is later promoted to a validated field, add a `host` check there;
-  do not block engine loading on it.
+  the engine to load. Registry-vs-direct-URL handling lives in the Studio-side engine browser /
+  installer client (item 1.2), which is the component that reads registry entries and
+  `distribution.git_url`. If `distribution` is later promoted to a validated field, add a `host`
+  check there; do not block engine loading on it.
   _Acceptance: a manifest carrying the `distribution` block (§1.2) loads without a
   `PluginLoadError`, and the installer client routes by `distribution.host`._
 
@@ -315,7 +371,7 @@ inter-dependencies and may run in parallel.
 - [ ] **2.1** Create `audiobook-studio/tts-xtts` repo on GitHub (step X1).
 - [ ] **2.2** Restructure and copy plugin code into new repo (step X2).
 - [ ] **2.3** Verify no `app/` imports (step X3).
-- [ ] **2.4** Tag `v2.0.0`, apply GitHub topic (step X4).
+- [ ] **2.4** Tag `v2.0.0`, add the XTTS entry to the official registry, and optionally apply the GitHub topic for later open discovery (step X4).
 - [ ] **2.5** Add `distribution` block to in-tree `plugins/tts_xtts/manifest.json` (step X5).
 - [ ] **2.6** XTTS smoke test (step X6). ← gate: do not proceed to Group 3 until this passes.
 
@@ -324,7 +380,7 @@ inter-dependencies and may run in parallel.
 - [ ] **3.1** Create `audiobook-studio/tts-voxtral` repo on GitHub (step V1).
 - [ ] **3.2** Restructure and copy Voxtral plugin code (V1 continued).
 - [ ] **3.3** Verify API key handling (step V2).
-- [ ] **3.4** Tag `v2.0.0`, apply GitHub topic.
+- [ ] **3.4** Tag `v2.0.0`, add the Voxtral entry to the official registry, and optionally apply the GitHub topic for later open discovery.
 - [ ] **3.5** Add `distribution` block to in-tree `plugins/tts_voxtral/manifest.json`.
 - [ ] **3.6** Voxtral smoke test (step V3).
 
@@ -345,24 +401,27 @@ inter-dependencies and may run in parallel.
   Render a one-sentence segment → audio file produced.
   _Acceptance: all steps pass with no errors on a clean machine._
 
-- [ ] **5.2** Update flow test:
+- [ ] **5.2 post-v2** Update flow test:
   With XTTS installed from its own repo (step 2.4 tag), simulate an available update by
   pushing a `v2.0.1` tag to the repo (increment `version` in `manifest.json`).
   Studio settings shows update badge.
   Click Update → `git pull` applied → `version` in loaded manifest is `2.0.1`.
-  _Acceptance: update badge appears; Update button applies the change; no regression in synthesis._
+  _Acceptance: update badge appears; Update button applies the change; no regression in synthesis. This is not a v2.0 release gate unless explicitly promoted._
 
 - [ ] **5.3** Trust warning test:
-  Add a mock community plugin repo (not under the official org) with topic
-  `audiobook-studio-tts`. Browse the engine browser → mock plugin shows "Community" badge,
-  not "Official". Install prompts trust/consent dialog.
+  Add a mock community plugin entry to the official registry and install it by registry entry
+  and by direct GitHub URL. The engine browser shows "Community" badge, not "Official".
+  Install prompts trust/consent dialog.
   _Acceptance: consent dialog names the source repo; user can cancel; no code loaded until consent given._
 
 ### Group 6 — Docs and state
 
 - [ ] **6.1** Update `Memory/state.json`: mark standalone plugin repos complete; add `tts_engines/` rename and `synthesis_mixed` → `tts_mixed` rename as post-release candidates.
-- [ ] **6.2** Update Settings → TTS Engines section of the user handbook: install from URL, browse by topic, update flow.
-- [ ] **6.3** Write contributor guide page: "Publishing a TTS plugin to the Audiobook Studio engine browser" — covers GitHub repo shape, required topic tag, `manifest.json` distribution block, trust model.
+- [ ] **6.2** Update Settings → TTS Engines section of the user handbook: ZIP install,
+  install from GitHub URL, official registry install, dependency setup, and trust prompts.
+- [ ] **6.3** Write contributor guide page: "Publishing a TTS plugin for Audiobook Studio" —
+  covers GitHub repo shape, optional post-v2 topic tag, `manifest.json` distribution block,
+  official-registry submission expectations, and trust model.
 
 ---
 
@@ -373,5 +432,5 @@ inter-dependencies and may run in parallel.
 - `app/tts_server/plugin_loader.py` — current discovery implementation
 - `plans/final_release/02_plugin_communication_contract.md` — SDK publication (pre-requisite)
 - `plans/final_release/03_plugin_interface_template.md` — canonical plugin folder shape (pre-requisite)
-- GitHub Search API: https://docs.github.com/en/rest/search/search#search-repositories
+- GitHub Search API, post-v2 open discovery reference: https://docs.github.com/en/rest/search/search#search-repositories
 - GitHub Topics: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/classifying-your-repository-with-topics

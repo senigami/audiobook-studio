@@ -1,7 +1,7 @@
 # Engines and Plugin Lifecycle
 
 ```
-spec_version: 1.0.0
+spec_version: 1.1.0
 status: active
 sources:
   - app/tts_server/server.py
@@ -18,6 +18,7 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
+| 1.1.0   | 2026-06-15 | Added official plugin registry and GitHub repository preview/staging flow |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 
 ---
@@ -60,6 +61,7 @@ Ownership split — these boundaries MUST NOT bleed into each other:
 | POST | `/plugins/refresh` | Hot-reload all plugins from disk |
 | POST | `/plugins/import` | Upload and stage a plugin `.zip` |
 | POST | `/plugins/preview` | Inspect a staged plugin before confirming |
+| POST | `/plugins/preview_github` | Clone and inspect a GitHub plugin repository before confirming |
 | POST | `/plugins/confirm/{token}` | Promote staged plugin to active |
 | DELETE | `/plugins/staging/{token}` | Discard a staged import |
 | GET | `/engines/{id}/requirements` | List missing pip deps for an engine |
@@ -111,6 +113,12 @@ trusts it for production work.
 
 Plugins can be installed at runtime without restarting the server.
 
+Studio exposes an owner-controlled official plugin registry at
+`GET /api/engines/registry`. Registry entries are metadata only: they identify trusted
+known plugin repositories, compatibility, summary text, tags, docs/homepage URLs, and
+requirements. The registry does not execute plugin code. Installing a registry entry uses
+the same GitHub repository preview/staging flow as a pasted GitHub URL.
+
 ### Upload and staging
 
 1. Client uploads a `.zip` to `POST /plugins/import`.
@@ -121,11 +129,25 @@ Plugins can be installed at runtime without restarting the server.
 4. A post-extract containment walk verifies every extracted file path resolves under
    the staging dir; any file outside is an error and the staging dir is deleted.
 
+### GitHub repository staging
+
+1. Client submits a GitHub repository URL to `POST /plugins/preview_github`.
+2. Server accepts only canonical `https://github.com/<owner>/<repo>` or `.git` URLs.
+   Credentials, query strings, fragments, alternate hosts, and open GitHub search are not
+   part of the v2.0 release flow.
+3. Server runs a shallow `git clone --depth 1` into a `.preview_<token>` staging
+   directory with a bounded timeout.
+4. The cloned repository MUST NOT contain symlinks. Any symlink causes the preview to be
+   rejected and the staging directory deleted.
+5. The staged repository manifest is validated with the same manifest validator used by
+   plugin discovery. A preview token is issued only when the manifest matches the loader
+   contract and the target `plugins/tts_<engine_id>` folder is not already present.
+
 ### Validation and preview
 
-5. Server validates the manifest, imports the `entry_class`, and calls `check_env()`.
-6. Returns a token and preview data (display_name, engine_id, capabilities, dependency
-   list with `REMOTE` badges for non-local packages) to Studio.
+5. Server validates the manifest and returns a token and preview data (display_name,
+   engine_id, version, dependency list with `REMOTE` badges for non-local packages) to Studio.
+6. Plugin code MUST NOT be imported or executed before user confirmation.
 
 ### User confirmation
 
@@ -142,6 +164,10 @@ previous crash are deleted during boot before plugin discovery runs.
 
 **MUST NOT:** The staging directory path MUST NOT be exposed to the plugin's own code
 during the validation phase.
+
+Open GitHub topic search/browse and richer installed-plugin update/pull UX are post-v2
+unless explicitly promoted. They MUST NOT be treated as prerequisites for the release
+registry or pasted-URL install path.
 
 ---
 

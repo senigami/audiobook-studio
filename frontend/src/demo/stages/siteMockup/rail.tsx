@@ -17,7 +17,6 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import {
-  ProgressBar,
   StatusOrb,
   BookCover,
   CHAPTERS, CHAPTER_RENDER_PCT, BOOK_STAGE_LINKS,
@@ -298,13 +297,7 @@ export const Rail: React.FC<{
                                             </span>
                                           )}
                                         </div>
-                                        {/* Thin render bar */}
-                                        <div style={{ marginTop: 2, marginLeft: 10 }}>
-                                          {renderPct > 0
-                                            ? <ProgressBar pct={renderPct} height={2} shimmer={renderPct < 100 && renderPct > 0} />
-                                            : <div style={{ height: 2, borderRadius: 1, background: 'var(--border)' }} />
-                                          }
-                                        </div>
+
                                         {/* Chapter action menu (active chapter only) */}
                                         {isChActive && chapterMenuOpen && (
                                           <div

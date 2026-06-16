@@ -51,6 +51,13 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
         });
     };
 
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Good morning';
+        if (hour < 18) return 'Good afternoon';
+        return 'Good evening';
+    };
+
     if (loading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -191,118 +198,36 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
 
     return (
         <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', minHeight: '100%' }}>
-            {/* Hero Section */}
+            {/* Page header */}
             <header style={{
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
-                padding: '3rem',
-                border: '1px solid var(--border)',
-                background: 'linear-gradient(135deg, var(--as-info-tint) 0%, var(--surface) 100%)',
-                borderRadius: 'var(--radius-panel)',
-                boxShadow: 'var(--shadow-md)',
-                flexWrap: 'wrap',
-                gap: '2rem'
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '1rem',
+                flexWrap: 'wrap'
             }}>
-                <div style={{ flex: '1', minWidth: '300px', maxWidth: '640px' }}>
-                    <h2 style={{ 
-                        fontSize: '2.75rem', 
-                        fontWeight: 900, 
-                        letterSpacing: '-0.04em', 
-                        color: 'var(--text-primary)', 
-                        marginBottom: '0.75rem',
-                        lineHeight: 1.1 
+                <div>
+                    <h2 style={{
+                        fontSize: '1.75rem',
+                        fontWeight: 700,
+                        letterSpacing: '-0.02em',
+                        color: 'var(--text-primary)',
+                        lineHeight: 1.2,
+                        margin: 0
                     }}>
-                        Natural AI Audio Lab
+                        {getGreeting()}
                     </h2>
-                    <p style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: '2.5rem', fontWeight: 500 }}>
-                        Professional AI voice generation for creators and authors.
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem', margin: '0.25rem 0 0 0' }}>
+                        Your audiobook projects
                     </p>
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                        <button 
-                            onClick={() => setShowModal(true)}
-                            className="btn-home primary" 
-                            style={{ padding: '0.85rem 2.5rem', fontSize: '1rem' }}
-                        >
-                            <Plus size={20} strokeWidth={2.5} /> New Project
-                        </button>
-                        <button 
-                            className="btn-home" 
-                            style={{ 
-                                padding: '0.85rem 2rem', 
-                                fontSize: '1rem', 
-                            }}
-                            onClick={() => window.open('https://github.com/senigami/audiobook-studio/wiki/', '_blank')}
-                        >
-                            View Docs
-                        </button>
-                    </div>
                 </div>
-                <div style={{ 
-                    flex: '1',
-                    minWidth: '280px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    position: 'relative',
-                    padding: '1rem'
-                }}>
-                    <div style={{
-                        position: 'relative',
-                        width: '100%',
-                        maxWidth: '360px',
-                        aspectRatio: '4/3',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}>
-                        <img 
-                            src="/logo.png" 
-                            alt="Audiobook Studio" 
-                            style={{ 
-                                height: '80%', 
-                                width: 'auto',
-                                filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.15))',
-                                position: 'relative', 
-                                zIndex: 1 
-                            }} 
-                        />
-                        <div style={{
-                            position: 'absolute',
-                            top: '10%',
-                            right: '0',
-                            background: 'var(--surface)',
-                            padding: '6px 12px',
-                            borderRadius: '20px',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            boxShadow: 'var(--shadow-md)',
-                            border: '1px solid var(--border)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            zIndex: 2
-                        }}>
-                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)' }} />
-                            Plugin-powered TTS
-                        </div>
-                        <div style={{
-                            position: 'absolute',
-                            bottom: '15%',
-                            left: '5%',
-                            background: 'var(--surface)',
-                            padding: '6px 12px',
-                            borderRadius: '20px',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            boxShadow: 'var(--shadow-md)',
-                            border: '1px solid var(--border)',
-                            zIndex: 2
-                        }}>
-                            Status: Ready
-                        </div>
-                    </div>
-                </div>
+                <button
+                    onClick={() => setShowModal(true)}
+                    className="btn-primary"
+                    style={{ padding: '0.6rem 1.25rem', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}
+                >
+                    <Plus size={16} strokeWidth={2.5} /> New Project
+                </button>
             </header>
 
             {projects.length === 0 ? (

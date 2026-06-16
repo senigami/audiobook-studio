@@ -37,6 +37,11 @@ class TtsServerConnectionError(TtsServerError):
 class TtsServerResponseError(TtsServerError):
     """The TTS Server returned an unexpected HTTP status code."""
 
+    def __init__(self, message: str, *, status_code: int | None = None, detail: str | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.detail = detail
+
 
 class TtsServerOutputRejectedError(TtsServerError):
     """The TTS Server's check_output hook rejected the synthesized artifact.
@@ -288,6 +293,13 @@ class TtsClient:
         files = {"file": (filename, file_content, "application/zip")}
         return self._post_files("/plugins/preview", files=files)
 
+    def preview_github_plugin(self, git_url: str) -> dict[str, Any]:
+        """POST /plugins/preview_github — stage a GitHub repo and return manifest metadata.
+
+        Does NOT install; caller must confirm or cancel via the staging token.
+        """
+        return self._post("/plugins/preview_github", payload={"git_url": git_url})
+
     def confirm_plugin_import(self, token: str) -> dict[str, Any]:
         """POST /plugins/confirm/{token} — complete a staged plugin import."""
         import re
@@ -417,7 +429,9 @@ def _raise_for_status(resp: httpx.Response, url: str) -> None:
 
         detail = _response_error_detail(resp)
         raise TtsServerResponseError(
-            f"TTS Server returned {resp.status_code} for {url}: {detail}"
+            f"TTS Server returned {resp.status_code} for {url}: {detail}",
+            status_code=resp.status_code,
+            detail=detail,
         )
 
 

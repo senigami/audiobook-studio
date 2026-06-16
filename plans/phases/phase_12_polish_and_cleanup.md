@@ -55,7 +55,7 @@
 - [ ] Re-check large-book project/chapter load timings.
 
 ## Deferred to Phase 13 / Post-v2.0
-- [ ] GitHub plugin search and direct download.
+- [ ] Open GitHub plugin search/browse and richer update/pull UX. Paste-a-GitHub-repo-URL install and the owner-controlled official plugin registry remain v2.0 release scope under `plans/final_release/05_standalone_plugin_repos.md` and `plans/site_redesign_rollout/10_mock_reconciliation.md`.
 - [ ] Hugging Face direct voice search/download.
 - [x] Plan multilingual interface localization (see `plans/phases/phase_12_multilingual_interface_plan.md`, `docs/specs/interface-localization.md`, and `plans/phases/phase_12_multilingual_interface_examples/`).
 - [x] Rename `mixed.py` -> `composite.py`. *(closed N/A 2026-06-11 — no `mixed.py` module exists; `synthesis_mixed` is a plugin package, not a file to rename)*

@@ -167,6 +167,10 @@ class RemoteBridgeHandler:
         """Stage plugin zip and return manifest metadata without installing."""
         return self._get_tts_client().preview_plugin(file_content, filename)
 
+    def preview_github_plugin(self, git_url: str) -> dict[str, Any]:
+        """Stage a GitHub plugin repo and return manifest metadata without installing."""
+        return self._get_tts_client().preview_github_plugin(git_url)
+
     def confirm_plugin_import(self, token: str) -> dict[str, Any]:
         """Complete a staged plugin import."""
         return self._get_tts_client().confirm_plugin_import(token)
