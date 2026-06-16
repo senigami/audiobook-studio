@@ -6,16 +6,19 @@ interface StatusOrbProps {
   chap: Chapter;
   activeJob?: Job;
   queuePending?: boolean;
-  doneSegments?: number; 
+  doneSegments?: number;
   totalSegments?: number;
+  /** Rendered diameter in px. Defaults to 24; the 24-unit artwork scales to fit. */
+  size?: number;
 }
 
-export const StatusOrb: React.FC<StatusOrbProps> = ({ 
-  chap, 
-  activeJob, 
+export const StatusOrb: React.FC<StatusOrbProps> = ({
+  chap,
+  activeJob,
   queuePending = false,
-  doneSegments = 0, 
-  totalSegments = 0, 
+  doneSegments = 0,
+  totalSegments = 0,
+  size = 24,
 }) => {
   // 1. Determine priority states
   const isError = chap.audio_status === 'error' || chap.audio_status === 'failed';
@@ -103,8 +106,8 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
       title={combinedTooltip}
       aria-label={combinedTooltip}
       style={{
-        width: '24px',
-        height: '24px',
+        width: `${size}px`,
+        height: `${size}px`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -112,7 +115,7 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
         flexShrink: 0,
       }}
     >
-      <div style={{ position: 'relative', width: '24px', height: '24px', willChange: 'transform' }}>
+      <div style={{ position: 'relative', width: '24px', height: '24px', willChange: 'transform', transform: `scale(${size / 24})`, transformOrigin: 'top left' }}>
         <svg width="24" height="24" viewBox="0 0 24 24" style={{ position: 'absolute', top: 0, left: 0 }}>
           {/* Integrated Status Ring (M4A only full ring) */}
           <circle

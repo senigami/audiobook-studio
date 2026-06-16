@@ -21,6 +21,7 @@ import {
   PROPOSED_DURATION_SCALE,
   AD_HOC_SIZES,
 } from './proposedTokens';
+import { AudioLines } from 'lucide-react';
 import { GlassInput } from '@/components/forms/GlassInput';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 
@@ -1168,7 +1169,7 @@ const U16Mock: React.FC = () => {
                 background: showWave ? 'var(--accent-tint-bg)' : 'transparent',
               }}
             >
-              <span aria-hidden="true">〰</span>
+              <AudioLines size={14} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -1176,7 +1177,7 @@ const U16Mock: React.FC = () => {
 
       <div style={{ marginTop: 8, fontSize: '0.6875rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
         Representation <em>defaults</em> to scope — Segment shows the wavesurfer.js waveform as the inline scrub
-        track, Chapter shows a plain bar — but the far-right toggle (〰) flips waveform ↔ bar on demand.
+        track, Chapter shows a plain bar — but the far-right toggle (audio-lines icon) flips waveform ↔ bar on demand.
         Switching scope resets to that scope&apos;s default. Narrow the window to see the waveform reflow above.
       </div>
       <div style={{ marginTop: 8, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>

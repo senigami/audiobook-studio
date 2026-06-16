@@ -349,8 +349,26 @@
   flex-direction: column;
   gap: 0;
   padding-top: 0.1rem;
-  /* Push chapters one more level in */
-  padding-left: 0.75rem;
+  /* Indent chapters a level past the stage labels (which sit at ~1.25rem). */
+  padding-left: 1.4rem;
+}
+
+/* Compact chapter row button — overrides the global button padding/centering
+   so the rows are tight and left-aligned (matching the mock). */
+.rail-book-block__chapter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.18rem 0.4rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .rail-book-block__chapter-wrap {
@@ -440,10 +458,14 @@
 }
 
 .rail-book-block__chapter-actions .kebab-trigger {
-  width: 1.75rem;
-  height: 1.75rem;
-  background: transparent;
-  box-shadow: none;
+  /* ActionMenu hardcodes a 44px bordered glass box inline, which made the
+     selected chapter row tall. Force a compact, borderless kebab in the rail
+     (inline styles require !important to override). */
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 .rail-book-block__progress {

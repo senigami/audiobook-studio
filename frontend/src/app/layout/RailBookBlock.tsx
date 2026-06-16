@@ -89,21 +89,20 @@ export function RailBookBlock({ compact = false }: RailBookBlockProps) {
       {/* Stage links — indented under tree line */}
       <div className="rail-book-block__stages" aria-label="Book stages">
         {BOOK_STAGES.map((stage) => (
-          <NavLink
-            key={stage}
-            to={`/book/${identity.id}/${stage}`}
-            className={({ isActive }) =>
-              isActive ? 'rail-book-block__stage rail-book-block__stage--active' : 'rail-book-block__stage'
-            }
-          >
-            {BOOK_STAGE_LABELS[stage]}
-          </NavLink>
-        ))}
-      </div>
+          <div key={stage} className="rail-book-block__stage-group">
+            <NavLink
+              to={`/book/${identity.id}/${stage}`}
+              className={({ isActive }) =>
+                isActive ? 'rail-book-block__stage rail-book-block__stage--active' : 'rail-book-block__stage'
+              }
+            >
+              {BOOK_STAGE_LABELS[stage]}
+            </NavLink>
 
-      {showChapters ? (
-        <div className="rail-book-block__chapters" aria-label="Studio chapters">
-          {chapters.map((chapter, index) => {
+            {/* Studio expands its chapters inline, between Studio and Review. */}
+            {stage === 'studio' && showChapters ? (
+              <div className="rail-book-block__chapters" aria-label="Studio chapters">
+                {chapters.map((chapter, index) => {
             const activeJob = pickChapterJob(chapter, identity.id, jobs);
             const queuePending = !activeJob && chapter.audio_status === 'processing';
             const selected = activeChapterId === chapter.id;
@@ -131,6 +130,7 @@ export function RailBookBlock({ compact = false }: RailBookBlockProps) {
                       queuePending={queuePending}
                       doneSegments={chapter.done_segments_count}
                       totalSegments={chapter.total_segments_count}
+                      size={15}
                     />
                     <span className="rail-book-block__chapter-index">{index + 1}.</span>
                     <span className="rail-book-block__chapter-title">{chapter.title}</span>
@@ -186,8 +186,11 @@ export function RailBookBlock({ compact = false }: RailBookBlockProps) {
               </div>
             );
           })}
+                </div>
+              ) : null}
+            </div>
+          ))}
         </div>
-      ) : null}
     </section>
   );
 }

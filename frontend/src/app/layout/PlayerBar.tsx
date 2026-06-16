@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Play, Pause, SkipForward, SkipBack, Square, Rewind, FastForward, Activity } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Square, Rewind, FastForward, AudioLines } from 'lucide-react';
 import { usePlayerBus, seek, play, pause, stop, skip, switchScope, reportTime, notifyEnded, notifyError, notifyPrev, notifyNext } from '@/store/playerBus';
 import { WaveformStrip } from './WaveformStrip';
 import { LAYERS } from './layering';
@@ -258,7 +258,7 @@ export const PlayerBar: React.FC = () => {
           aria-pressed={showWave}
           aria-label={showWave ? 'Show progress bar' : 'Show waveform'}
         >
-          <Activity size={15} />
+          <AudioLines size={15} />
         </button>
       </div>
     </div>

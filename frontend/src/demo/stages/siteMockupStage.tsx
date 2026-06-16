@@ -28,7 +28,7 @@ import {
   Zap,
   X,
   MoreHorizontal,
-  Activity,
+  AudioLines,
   CheckCircle2,
   XCircle,
   GripVertical,
@@ -761,7 +761,7 @@ const PlayerBar: React.FC<{
             background: showWave ? 'var(--accent-tint-bg)' : 'transparent',
           }}
         >
-          <Activity size={13} strokeWidth={2} />
+          <AudioLines size={13} strokeWidth={2} />
         </button>
       </div>
     </div>
