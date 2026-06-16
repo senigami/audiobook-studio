@@ -3,21 +3,49 @@
  */
 import React, { useState } from 'react';
 import { PauseCircle } from 'lucide-react';
-import { Row, Col, Label, SemanticChip, Btn, ProgressBar, IN_FLIGHT_JOBS, Card, Panel } from '../shared';
+import { Row, Col, Label, SemanticChip, Btn, ProgressBar, IN_FLIGHT_JOBS, Card, Panel, PaneHeader } from '../shared';
 
 export const ActivityPane: React.FC = () => {
   const [historyFilter, setHistoryFilter] = useState<'All' | 'Renders' | 'Samples' | 'API'>('All');
   return (
-    <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
-      <Row gap={12} style={{ alignItems: 'flex-start' }}>
+    <Col gap={14} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
+      <PaneHeader
+        eyebrow="Activity"
+        title="Queue and render history"
+        subtitle="Monitor running renders, inspect recent failures, and compare engine speed without leaving the current book."
+        meta={<SemanticChip variant="accent">2 running</SemanticChip>}
+        actions={(
+          <Btn small style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <PauseCircle size={12} strokeWidth={2} />
+            Pause queue
+          </Btn>
+        )}
+      />
+
+      <Row gap={8} style={{ alignItems: 'stretch', flexWrap: 'wrap' }}>
+        {[
+          { label: 'Queued work', value: '4 jobs', detail: '~46m remaining', variant: 'accent' as const },
+          { label: 'Generated today', value: '3h 18m', detail: '42 chapters', variant: 'success' as const },
+          { label: 'Needs attention', value: '1 failed', detail: 'Mixed Ch 1', variant: 'warning' as const },
+        ].map(stat => (
+          <Card key={stat.label} className="ns-activity-card" style={{ flex: '1 1 170px', padding: '10px 12px' }}>
+            <Row gap={8} style={{ alignItems: 'center' }}>
+              <Col gap={2} style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)' }}>{stat.label}</span>
+                <span style={{ fontSize: 'var(--type-headline)', color: 'var(--text-primary)', fontWeight: 800 }}>{stat.value}</span>
+                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)' }}>{stat.detail}</span>
+              </Col>
+              <SemanticChip variant={stat.variant}>{stat.variant === 'warning' ? 'review' : 'live'}</SemanticChip>
+            </Row>
+          </Card>
+        ))}
+      </Row>
+
+      <Row className="ns-activity-grid" gap={12} style={{ alignItems: 'flex-start' }}>
         <Col gap={8} style={{ flex: 2 }}>
           <Row gap={6} style={{ alignItems: 'center' }}>
             <Label>Now</Label>
             <div style={{ flex: 1 }} />
-            <Btn small style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <PauseCircle size={12} strokeWidth={2} />
-              Pause queue
-            </Btn>
           </Row>
           {IN_FLIGHT_JOBS.map(job => (
             <Card key={job.title} style={{ padding: '8px 10px' }}>

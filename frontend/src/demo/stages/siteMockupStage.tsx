@@ -407,7 +407,7 @@ const TopBar: React.FC<{
   const stageSeg = inBook ? segments[segments.length - 1] : null;
 
   return (
-    <div style={{
+    <div className="ns-topbar" style={{
       height: 36, flexShrink: 0,
       background: 'var(--surface)', borderBottom: '1px solid var(--border)',
       display: 'flex', alignItems: 'center', padding: '0 14px', gap: 6, zIndex: 10, minWidth: 0,
@@ -437,6 +437,7 @@ const TopBar: React.FC<{
 
       {/* Brand logo — click returns to splash/home */}
       <button
+        className="ns-home-button"
         type="button"
         aria-label="Home"
         onClick={onLogoClick}
@@ -449,10 +450,10 @@ const TopBar: React.FC<{
       >
         <BrandLogo scale={0.58} showIcon />
       </button>
-      <span style={{ width: 1, height: 16, background: 'var(--border)', flexShrink: 0, margin: '0 4px' }} />
+      <span className="ns-topbar-separator" style={{ width: 1, height: 16, background: 'var(--border)', flexShrink: 0, margin: '0 4px' }} />
 
-      <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flexShrink: 0 }}>Library</span>
-      <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)', flexShrink: 0 }}>›</span>
+      <span className="ns-topbar-library" style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flexShrink: 0 }}>Library</span>
+      <span className="ns-topbar-library" style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)', flexShrink: 0 }}>›</span>
 
       {inBook ? (
         <>
@@ -497,6 +498,7 @@ const TopBar: React.FC<{
 
       {/* Connection status dot — tokenized */}
       <span
+        className="ns-connection-dot"
         style={{
           width: 8, height: 8, borderRadius: 'var(--radius-round)',
           background: 'var(--success)', display: 'inline-block', flexShrink: 0,
@@ -504,9 +506,10 @@ const TopBar: React.FC<{
         aria-label="Connected"
         title="Connected"
       />
-      <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Connected</span>
+      <span className="ns-connection-label" style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Connected</span>
 
       <button
+        className="ns-queue-button"
         type="button"
         onClick={onToggleQueue}
         aria-label="Toggle queue drawer"
@@ -643,9 +646,9 @@ const PlayerBar: React.FC<{
           .nsp-scrub--wave .nsp-wave { height: 24px !important; }
         }
       `}</style>
-      <div style={{ minHeight: 52, display: 'flex', flexWrap: 'wrap', rowGap: 8, alignItems: 'center', gap: 12, padding: '8px 14px' }}>
+      <div className="nsp-player-inner" style={{ minHeight: 52, display: 'flex', flexWrap: 'wrap', rowGap: 8, alignItems: 'center', gap: 12, padding: '8px 14px' }}>
         {/* VCR transport — styleguide-aligned visible glyph buttons */}
-        <Row gap={8} style={{ alignItems: 'center', flexShrink: 0 }}>
+        <Row className="nsp-transport" gap={8} style={{ alignItems: 'center', flexShrink: 0 }}>
           {transportControls.map(control => (
             <button
               key={control.label}
@@ -705,7 +708,7 @@ const PlayerBar: React.FC<{
         </div>
 
         {/* Title + scope toggle (segment/chapter) — or a subtitle pill for one-off previews */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, maxWidth: 340, overflow: 'hidden' }}>
+        <div className="nsp-track-meta" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, maxWidth: 340, overflow: 'hidden' }}>
           <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {activeTrack.trackName}
           </span>
@@ -742,7 +745,7 @@ const PlayerBar: React.FC<{
         </div>
 
         {/* Timer display — segment-relative in segment scope */}
-        <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <span className="nsp-time" style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', whiteSpace: 'nowrap', flexShrink: 0 }}>
           {timeText}
         </span>
 
@@ -778,7 +781,7 @@ const BookPane: React.FC<{
   activeTab: BookTab;
   setActiveTab: (t: BookTab) => void;
 }> = ({ onBack, activeTab, setActiveTab }) => (
-  <Col gap={0} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
+  <Col className="ns-book-pane" gap={0} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
     <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
       <button
         type="button"
@@ -797,11 +800,12 @@ const BookPane: React.FC<{
       </button>
     </Row>
 
-    <Row gap={2} role="tablist" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 0, marginBottom: 0 }}>
+    <Row className="ns-book-tabs" gap={2} role="tablist" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 0, marginBottom: 0 }}>
       {BOOK_TABS.map(t => (
         <button
           type="button"
           key={t}
+          className="ns-book-tab"
           role="tab"
           aria-selected={activeTab === t}
           onClick={() => setActiveTab(t)}
@@ -821,7 +825,7 @@ const BookPane: React.FC<{
       <div style={{ flex: 1 }} />
     </Row>
 
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, paddingTop: 10 }}>
+    <div className="ns-book-workspace" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, paddingTop: 10 }}>
       {activeTab === 'Manuscript' && <ManuscriptPane onSwitchToPublish={() => setActiveTab('Publish')} />}
       {activeTab === 'Casting' && <CastingPane />}
       {activeTab === 'Studio' && <StudioPane />}
@@ -1019,7 +1023,7 @@ const SiteMockup: React.FC = () => {
   return (
     <Col className="ns-root" onClick={handleGlobalClick} gap={0} style={{ height: '100%', position: 'relative' }}>
       {/* Caption */}
-      <div style={{
+      <div className="ns-caption" style={{
         fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic',
         padding: '3px 10px', borderBottom: '1px solid var(--border)',
         background: 'var(--surface)', flexShrink: 0,
@@ -1109,7 +1113,7 @@ const SiteMockup: React.FC = () => {
             </div>
           )}
 
-          <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <div className="ns-main-scroll" style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
             {showSplash ? (
               <SplashPane onGetStarted={() => setShowSplash(false)} />
             ) : (
@@ -1156,8 +1160,8 @@ const SiteMockup: React.FC = () => {
 // Stage wrapper
 
 const SiteMockupElement: React.FC = () => (
-  <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
-    <div style={{
+  <div className="ns-stage-root" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
+    <div className="ns-stage-shell" style={{
       flex: 1, border: '1px solid var(--border)', borderRadius: 10,
       overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0,
     }}>

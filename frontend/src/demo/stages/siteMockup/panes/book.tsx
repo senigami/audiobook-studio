@@ -593,7 +593,7 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
     <>
       {showAddChapter && <AddChapterModal onClose={() => setShowAddChapter(false)} />}
       <Col gap={0} className="ns-enter" style={{ flex: 1 }}>
-        <Row gap={12} style={{ flex: 1, alignItems: 'stretch' }}>
+        <Row className="ns-manuscript-grid" gap={12} style={{ flex: 1, alignItems: 'stretch' }}>
           {/* Left: chapter table + compact import row */}
           <Col gap={8} style={{ flex: 2, minWidth: 0 }}>
             {/* + New chapter button */}
@@ -739,7 +739,7 @@ const CHARACTERS_NON_NARRATOR = [
 ];
 
 export const CastingPane: React.FC = () => (
-  <Row gap={12} className="ns-enter" style={{ flex: 1, alignItems: 'stretch' }}>
+  <Row gap={12} className="ns-enter ns-casting-grid" style={{ flex: 1, alignItems: 'stretch' }}>
     {/* Character table */}
     <Card style={{ flex: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* Table header — eyebrow labels */}
@@ -901,7 +901,7 @@ export const ReviewPane: React.FC = () => (
       <WaveformSvg height={32} />
     </Card>
 
-    <Row gap={12} style={{ flex: 1, alignItems: 'stretch', minHeight: 0 }}>
+    <Row className="ns-review-grid" gap={12} style={{ flex: 1, alignItems: 'stretch', minHeight: 0 }}>
       <Col gap={0} style={{ flex: 2, minHeight: 0 }}>
         <div style={{
           fontSize: 'var(--type-micro)', fontWeight: 700,

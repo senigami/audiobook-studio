@@ -29,6 +29,7 @@ import {
   Card,
   Panel,
   Btn,
+  PaneHeader,
   statusChip,
   onPill,
 } from '../shared';
@@ -490,20 +491,47 @@ export const EnginesPane: React.FC = () => {
   };
 
   return (
-    <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
-      <Row gap={6} style={{ alignItems: 'center' }}>
-        <Btn small onClick={() => { setInstallMethod('upload'); setUploadedFile(null); setModalStep('input'); setShowInstallModal(true); }}>
-          <Row gap={4} style={{ alignItems: 'center' }}>
-            <Upload size={10} />
-            Import plugin (.zip)
-          </Row>
-        </Btn>
-        <Btn small onClick={() => alert('Simulated plugin lists refreshed!')}>
-          <Row gap={4} style={{ alignItems: 'center' }}>
-            <RefreshCw size={10} />
-            Refresh
-          </Row>
-        </Btn>
+    <Col gap={14} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
+      <PaneHeader
+        eyebrow="Platform"
+        title="Engines and plugin registry"
+        subtitle="Install trusted synthesis engines, verify their setup, and review privacy boundaries before routing book renders."
+        meta={<SemanticChip variant="success">TTS server healthy</SemanticChip>}
+        actions={(
+          <>
+            <Btn small onClick={() => { setInstallMethod('upload'); setUploadedFile(null); setModalStep('input'); setShowInstallModal(true); }}>
+              <Row gap={4} style={{ alignItems: 'center' }}>
+                <Upload size={10} />
+                Import plugin
+              </Row>
+            </Btn>
+            <Btn small onClick={() => alert('Simulated plugin lists refreshed!')}>
+              <Row gap={4} style={{ alignItems: 'center' }}>
+                <RefreshCw size={10} />
+                Refresh
+              </Row>
+            </Btn>
+          </>
+        )}
+      />
+
+      <Row gap={8} style={{ alignItems: 'stretch', flexWrap: 'wrap' }}>
+        {[
+          { label: 'Installed engines', value: `${installedEngineIds.length + customInstalledPlugins.length}`, detail: '2 verified, 1 built-in', chip: 'ready' },
+          { label: 'Official registry', value: `${REGISTRY_PLUGINS.length} plugins`, detail: 'XTTS and Voxtral ready to install', chip: 'trusted' },
+          { label: 'Cloud boundary', value: 'Voxtral', detail: 'text may leave device', chip: 'review' },
+        ].map(item => (
+          <Card key={item.label} className="ns-hero-card" style={{ flex: '1 1 200px', padding: '10px 12px' }}>
+            <Col gap={3}>
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)' }}>{item.label}</span>
+              <Row gap={8} style={{ alignItems: 'center' }}>
+                <span style={{ fontSize: 'var(--type-headline)', color: 'var(--text-primary)', fontWeight: 800 }}>{item.value}</span>
+                <SemanticChip variant={item.chip === 'review' ? 'warning' : 'success'}>{item.chip}</SemanticChip>
+              </Row>
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)' }}>{item.detail}</span>
+            </Col>
+          </Card>
+        ))}
       </Row>
 
       {/* TTS Server diagnostics */}
@@ -932,7 +960,7 @@ export const EnginesPane: React.FC = () => {
         <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic' }}>Official owner-controlled marketplace</span>
       </Row>
 
-      <Row gap={12} style={{ alignItems: 'flex-start' }}>
+      <Row className="ns-platform-grid" gap={12} style={{ alignItems: 'flex-start' }}>
         {/* Left column: registry list */}
         <Col gap={6} style={{ flex: 1.2 }}>
           {REGISTRY_PLUGINS.map(plugin => {
@@ -1236,13 +1264,36 @@ export const IntegrationsPane: React.FC = () => {
   const obfuscatedKey = apiKey.substring(0, 5) + '••••••••' + apiKey.substring(apiKey.length - 4);
 
   return (
-    <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
-      <Row gap={8} style={{ alignItems: 'center' }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>API</div>
-          <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>Local API access, authentication, and queue priority.</div>
-        </div>
-        <SemanticChip variant="success">23 requests today</SemanticChip>
+    <Col gap={14} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
+      <PaneHeader
+        eyebrow="Integrations"
+        title="API console"
+        subtitle="Generate audio from external tools, retrieve results, and inspect the exact request shape before connecting another app."
+        meta={<SemanticChip variant="success">23 requests today</SemanticChip>}
+        actions={(
+          <>
+            <Btn small onClick={() => setShowKeyRotation(true)}>Rotate key</Btn>
+            <Btn small onClick={() => { setLanEnabled(true); setShowLanWarning(true); }}>LAN binding</Btn>
+          </>
+        )}
+      />
+
+      <Row gap={8} style={{ alignItems: 'stretch', flexWrap: 'wrap' }}>
+        {[
+          { label: 'Active key', value: obfuscatedKey, detail: copiedApiKey ? 'copied' : 'local only', variant: 'accent' as const },
+          { label: 'Rate limit', value: `${rateLimit}/min`, detail: priority, variant: 'neutral' as const },
+          { label: 'Network', value: lanEnabled ? 'LAN enabled' : 'localhost', detail: lanEnabled ? 'review exposure' : 'private on this machine', variant: lanEnabled ? 'warning' as const : 'success' as const },
+        ].map(item => (
+          <Card key={item.label} className="ns-hero-card" style={{ flex: '1 1 210px', padding: '10px 12px' }}>
+            <Col gap={3}>
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)' }}>{item.label}</span>
+              <span style={{ fontSize: item.label === 'Active key' ? 'var(--type-caption)' : 'var(--type-headline)', color: 'var(--text-primary)', fontWeight: 800, fontFamily: item.label === 'Active key' ? 'monospace' : undefined }}>{item.value}</span>
+              <Row gap={6} style={{ alignItems: 'center' }}>
+                <SemanticChip variant={item.variant}>{item.detail}</SemanticChip>
+              </Row>
+            </Col>
+          </Card>
+        ))}
       </Row>
 
       {/* Developer integration guide */}
@@ -1256,7 +1307,7 @@ export const IntegrationsPane: React.FC = () => {
         <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginBottom: 10 }}>
           Connect your applications to Studio 2.0 via the unified orchestration and synthesis API.
         </div>
-        <Row gap={8} style={{ alignItems: 'stretch' }}>
+        <Row className="ns-platform-grid" gap={8} style={{ alignItems: 'stretch' }}>
           <Card style={{ flex: 1, padding: '8px 10px', borderRadius: 'var(--radius-card)' }}>
             <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--accent)', marginBottom: 4 }}>Unified Orchestration</div>
             <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', lineHeight: 1.55 }}>

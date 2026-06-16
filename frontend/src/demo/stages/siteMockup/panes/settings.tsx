@@ -3,7 +3,7 @@
  */
 import React, { useState } from 'react';
 import { ExternalLink, RefreshCw } from 'lucide-react';
-import { Row, Col, Chip, SemanticChip, Card, Btn } from '../shared';
+import { Row, Col, Chip, SemanticChip, Card, Btn, PaneHeader } from '../shared';
 
 export const SettingsPane: React.FC = () => {
   const [settingsTab, setSettingsTab] = useState<'General' | 'About' | 'Developer'>('General');
@@ -16,10 +16,34 @@ export const SettingsPane: React.FC = () => {
   const activeTab = settingsTab === 'Developer' && !devMode ? 'General' : settingsTab;
 
   return (
-    <Col gap={10} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
+    <Col gap={14} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
+      <PaneHeader
+        eyebrow="Manage"
+        title="Settings"
+        subtitle="Keep the main preferences thin; engine setup and API controls live in their own focused platform pages."
+        meta={<SemanticChip variant="success">Saved locally</SemanticChip>}
+      />
+
+      <Row gap={8} style={{ alignItems: 'stretch', flexWrap: 'wrap' }}>
+        {[
+          { label: 'Appearance', value: 'System', detail: 'follows device theme' },
+          { label: 'Default voice', value: 'Studio Voice', detail: 'used for new books' },
+          { label: 'Developer mode', value: devMode ? 'On' : 'Off', detail: devMode ? 'debug surfaces visible' : 'simple interface' },
+        ].map(item => (
+          <Card key={item.label} className="ns-hero-card" style={{ flex: '1 1 190px', padding: '10px 12px' }}>
+            <Col gap={3}>
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)' }}>{item.label}</span>
+              <span style={{ fontSize: 'var(--type-headline)', color: 'var(--text-primary)', fontWeight: 800 }}>{item.value}</span>
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)' }}>{item.detail}</span>
+            </Col>
+          </Card>
+        ))}
+      </Row>
+
       <Row gap={6}>
         {SETTINGS_TABS.map(tab => (
-          <div
+          <button
+            type="button"
             key={tab}
             onClick={() => setSettingsTab(tab)}
             style={{
@@ -27,10 +51,11 @@ export const SettingsPane: React.FC = () => {
               border: `1px solid ${activeTab === tab ? 'var(--accent)' : 'var(--border)'}`,
               background: activeTab === tab ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
               color: activeTab === tab ? 'var(--accent)' : 'var(--text-secondary)',
+              fontFamily: 'inherit',
             }}
           >
             {tab}
-          </div>
+          </button>
         ))}
       </Row>
 
@@ -45,12 +70,12 @@ export const SettingsPane: React.FC = () => {
           </div>
           <Card style={{ borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
             {/* Theme */}
-            <div style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="ns-settings-list-row" style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-primary)' }}>Theme</span>
               <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>System ▾</span>
             </div>
             {/* Stability Mode */}
-            <div style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="ns-settings-list-row" style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Col gap={1} style={{ flex: 1 }}>
                 <span style={{ color: 'var(--text-primary)' }}>Stability Mode</span>
                 <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic' }}>conservative text cleanup before synthesis</span>
@@ -58,17 +83,18 @@ export const SettingsPane: React.FC = () => {
               <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Off ▾</span>
             </div>
             {/* Default Engine */}
-            <div style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="ns-settings-list-row" style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-primary)' }}>Default Engine</span>
               <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Neural Voice Engine ▾</span>
             </div>
             {/* Default Voice */}
-            <div style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="ns-settings-list-row" style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-primary)' }}>Default Voice</span>
               <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Studio Voice ▾</span>
             </div>
             {/* Developer Mode */}
             <div
+              className="ns-settings-list-row"
               style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
               onClick={() => {
                 const next = !devMode;

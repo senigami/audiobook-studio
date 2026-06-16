@@ -223,6 +223,29 @@ describe('DemoApp routing', () => {
       expect(screen.getByText(/stage not found/i)).toBeInTheDocument();
     });
   });
+
+  it('site mockup voices show generated portraits and the no-image fallback', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    const { container } = render(<DemoApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Voices' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'My Voices' })).toBeInTheDocument();
+    });
+
+    expect(container.querySelectorAll('.ns-voice-card')).toHaveLength(6);
+    expect(container.querySelectorAll('.ns-voice-portrait svg')).toHaveLength(5);
+    expect(
+      screen.getByLabelText('Studio Voice generic adult female warm narrator portrait'),
+    ).toBeInTheDocument();
+
+    const ariaCard = screen.getByText('Aria').closest('.ns-voice-card');
+    expect(ariaCard).not.toBeNull();
+    expect(ariaCard?.querySelector('.ns-voice-portrait')).toBeNull();
+    expect(screen.getAllByText('Adult').length).toBeGreaterThanOrEqual(5);
+  });
 });
 
 // ---------------------------------------------------------------------------

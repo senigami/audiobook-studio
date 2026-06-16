@@ -63,6 +63,65 @@ export const Label: React.FC<{ children: React.ReactNode; muted?: boolean; style
   </div>
 );
 
+export const PaneHeader: React.FC<{
+  eyebrow?: string;
+  title: string;
+  subtitle?: string;
+  actions?: React.ReactNode;
+  meta?: React.ReactNode;
+}> = ({ eyebrow, title, subtitle, actions, meta }) => (
+  <div className="ns-pane-header">
+    <Col gap={4} style={{ minWidth: 0, flex: 1 }}>
+      {eyebrow && (
+        <div
+          style={{
+            fontSize: 'var(--type-micro)',
+            fontWeight: 800,
+            letterSpacing: 'var(--tracking-wide)',
+            textTransform: 'uppercase',
+            color: 'var(--text-muted)',
+          }}
+        >
+          {eyebrow}
+        </div>
+      )}
+      <Row gap={8} style={{ alignItems: 'center', minWidth: 0, flexWrap: 'wrap' }}>
+        <h2
+          style={{
+            margin: 0,
+            fontSize: 'var(--type-title)',
+            fontWeight: 800,
+            color: 'var(--text-primary)',
+            letterSpacing: 'var(--tracking-tight)',
+            lineHeight: 'var(--leading-tight)',
+          }}
+        >
+          {title}
+        </h2>
+        {meta}
+      </Row>
+      {subtitle && (
+        <p
+          style={{
+            margin: 0,
+            fontSize: 'var(--type-caption)',
+            color: 'var(--text-secondary)',
+            lineHeight: 'var(--leading-normal)',
+            maxWidth: 640,
+          }}
+        >
+          {subtitle}
+        </p>
+      )}
+    </Col>
+    {actions && (
+      <Row className="ns-pane-header-actions" gap={6} style={{ alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+        {actions}
+      </Row>
+    )}
+  </div>
+);
+
 // ---------------------------------------------------------------------------
 // Card / Panel elevation wrappers
 
@@ -124,26 +183,32 @@ export const Chip: React.FC<{
   color,
   onClick,
   style,
-}) => (
-  <span
-    onClick={onClick}
-    style={{
-      cursor: onClick ? 'pointer' : 'default',
-      fontSize: 'var(--type-micro)',
-      padding: '2px 7px',
-      borderRadius: 'var(--radius-round)',
-      border: `1px solid ${color ? color + '55' : active ? 'var(--accent-tint-border)' : 'var(--border)'}`,
-      background: color ? color + '22' : active ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-      color: color ?? (active ? 'var(--accent)' : 'var(--text-secondary)'),
-      whiteSpace: 'nowrap',
-      display: 'inline-flex',
-      alignItems: 'center',
-      ...style,
-    }}
-  >
-    {children}
-  </span>
-);
+}) => {
+  const chipStyle: React.CSSProperties = {
+    cursor: onClick ? 'pointer' : 'default',
+    fontSize: 'var(--type-micro)',
+    padding: '2px 7px',
+    borderRadius: 'var(--radius-round)',
+    border: `1px solid ${color ? color + '55' : active ? 'var(--accent-tint-border)' : 'var(--border)'}`,
+    background: color ? color + '22' : active ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+    color: color ?? (active ? 'var(--accent)' : 'var(--text-secondary)'),
+    whiteSpace: 'nowrap',
+    display: 'inline-flex',
+    alignItems: 'center',
+    fontFamily: 'inherit',
+    ...style,
+  };
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} style={chipStyle}>
+        {children}
+      </button>
+    );
+  }
+
+  return <span style={chipStyle}>{children}</span>;
+};
 
 /** Semantic status chip — maps a variant to design-system tint tokens. */
 export type ChipVariant = 'success' | 'warning' | 'error' | 'cloud' | 'accent' | 'neutral';
@@ -185,24 +250,30 @@ export const SemanticChip: React.FC<{ children: React.ReactNode; variant?: ChipV
   children,
   variant = 'neutral',
   onClick,
-}) => (
-  <span
-    onClick={onClick}
-    style={{
-      cursor: onClick ? 'pointer' : 'default',
-      fontSize: 'var(--type-micro)',
-      fontWeight: 'var(--type-weight-micro)' as unknown as number,
-      padding: '2px 7px',
-      borderRadius: 'var(--radius-round)',
-      whiteSpace: 'nowrap',
-      display: 'inline-flex',
-      alignItems: 'center',
-      ...SEMANTIC_CHIP_STYLES[variant],
-    }}
-  >
-    {children}
-  </span>
-);
+}) => {
+  const chipStyle: React.CSSProperties = {
+    cursor: onClick ? 'pointer' : 'default',
+    fontSize: 'var(--type-micro)',
+    fontWeight: 'var(--type-weight-micro)' as unknown as number,
+    padding: '2px 7px',
+    borderRadius: 'var(--radius-round)',
+    whiteSpace: 'nowrap',
+    display: 'inline-flex',
+    alignItems: 'center',
+    fontFamily: 'inherit',
+    ...SEMANTIC_CHIP_STYLES[variant],
+  };
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} style={chipStyle}>
+        {children}
+      </button>
+    );
+  }
+
+  return <span style={chipStyle}>{children}</span>;
+};
 
 /** Voice attribute pill — maps a category to pill token family. */
 export type VoiceAttrCategory = 'class' | 'gender' | 'age' | 'extended' | 'tag';
@@ -430,38 +501,42 @@ export const WaveformSvg: React.FC<{ height?: number; isPlaying?: boolean; fill?
 };
 
 // ---------------------------------------------------------------------------
-// BookCover — framed gradient tile with title initial
+// BookCover — audiobook artwork with deterministic fallback
 
 export const BookCover: React.FC<{
   title: string;
   src?: string;
+  aspect?: 'square' | 'book';
   size?: number;
   style?: React.CSSProperties;
-}> = ({ title, src, size = 48, style }) => {
+}> = ({ title, src, aspect = 'square', size = 48, style }) => {
   const initial = (title ?? '?')[0].toUpperCase();
+  const builtInSrc = src ?? (aspect === 'book' ? DEMO_BOOK_COVER_BOOK_SRC[title] : DEMO_BOOK_COVER_SRC[title]);
   // Deterministic per-title hue so each book reads as distinct cover art.
   let hash = 0;
   for (let i = 0; i < (title ?? '').length; i++) hash = (hash * 31 + title.charCodeAt(i)) | 0;
   const hue = Math.abs(hash) % 360;
   return (
     <div
+      className={`ns-book-cover ns-book-cover--${aspect}${builtInSrc ? ' ns-book-cover--art' : ''}`}
       style={{
         position: 'relative',
         width: size,
-        height: size * 1.32, // book aspect, not a square
-        borderRadius: 4,
+        height: aspect === 'book' ? size * 1.32 : size,
+        borderRadius: aspect === 'book' ? 5 : 'var(--radius-card)',
         overflow: 'hidden',
         flexShrink: 0,
-        boxShadow: 'var(--shadow-md)',
+        boxShadow: builtInSrc ? '0 10px 26px rgba(15, 23, 42, 0.16)' : 'var(--shadow-md)',
         background: `linear-gradient(150deg, hsl(${hue} 55% 42%) 0%, hsl(${(hue + 28) % 360} 50% 30%) 100%)`,
+        border: builtInSrc ? '1px solid rgba(15, 23, 42, 0.08)' : undefined,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         ...style,
       }}
     >
-      {src ? (
-        <img src={src} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      {builtInSrc ? (
+        <img src={builtInSrc} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       ) : (
         <>
           {/* spine highlight */}
@@ -482,6 +557,24 @@ export const BookCover: React.FC<{
       )}
     </div>
   );
+};
+
+const DEMO_BOOK_COVER_SRC: Record<string, string> = {
+  'The Whispering Vale': '/demo-covers/whispering-vale-square.jpg',
+  'Echoes of Ember': '/demo-covers/echoes-of-ember-square.jpg',
+  'Iron Meridian': '/demo-covers/iron-meridian-square.jpg',
+  'The Silver Thread': '/demo-covers/silver-thread-square.jpg',
+  'Starfall Compact': '/demo-covers/starfall-compact-square.jpg',
+  'Hollow Crown': '/demo-covers/hollow-crown-square.jpg',
+};
+
+const DEMO_BOOK_COVER_BOOK_SRC: Record<string, string> = {
+  'The Whispering Vale': '/demo-covers/whispering-vale.jpg',
+  'Echoes of Ember': '/demo-covers/echoes-of-ember.jpg',
+  'Iron Meridian': '/demo-covers/iron-meridian.jpg',
+  'The Silver Thread': '/demo-covers/silver-thread.jpg',
+  'Starfall Compact': '/demo-covers/starfall-compact.jpg',
+  'Hollow Crown': '/demo-covers/hollow-crown.jpg',
 };
 
 // ---------------------------------------------------------------------------

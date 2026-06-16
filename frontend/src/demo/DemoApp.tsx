@@ -110,6 +110,7 @@ export const DemoApp: React.FC = () => {
       {/* Header — hidden when ?embed=1 */}
       {!embed && (
         <header
+          className="demo-shell-header"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -123,6 +124,7 @@ export const DemoApp: React.FC = () => {
           }}
         >
           <a
+            className="demo-shell-title"
             href="#/"
             style={{
               fontWeight: 700,
@@ -136,6 +138,7 @@ export const DemoApp: React.FC = () => {
           </a>
 
           <span
+            className="demo-shell-badge"
             style={{
               background: 'var(--accent)',
               color: '#fff',
@@ -154,6 +157,7 @@ export const DemoApp: React.FC = () => {
           <div style={{ flex: 1 }} />
 
           <button
+            className="demo-shell-theme"
             type="button"
             aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
             onClick={toggleTheme}
@@ -167,7 +171,8 @@ export const DemoApp: React.FC = () => {
               cursor: 'pointer',
             }}
           >
-            {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
+            <span aria-hidden="true">{theme === 'light' ? '🌙' : '☀️'}</span>
+            <span className="demo-shell-theme-label">{theme === 'light' ? 'Dark' : 'Light'}</span>
           </button>
         </header>
       )}

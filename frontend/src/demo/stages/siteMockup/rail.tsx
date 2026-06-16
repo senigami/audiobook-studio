@@ -130,22 +130,28 @@ export const Rail: React.FC<{
               const isActive = active === item.id;
               return (
                 <React.Fragment key={item.id}>
-                  <div
+                  <button
+                    type="button"
                     onClick={() => onSelect(item.id)}
                     aria-label={item.id}
+                    aria-current={isActive ? 'page' : undefined}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: 8,
+                      width: '100%',
                       padding: collapsed ? '7px 0' : '7px 14px',
                       justifyContent: collapsed ? 'center' : 'flex-start',
                       cursor: 'pointer',
+                      border: 0,
                       background: isActive ? 'var(--accent-tint-bg)' : 'transparent',
                       borderLeft: isActive && !collapsed ? '3px solid var(--accent)' : '3px solid transparent',
                       color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
                       fontSize: 'var(--type-caption)',
                       fontWeight: isActive ? 700 : 400,
+                      fontFamily: 'inherit',
                       position: 'relative',
+                      textAlign: 'left',
                     }}
                   >
                     <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
@@ -173,7 +179,7 @@ export const Rail: React.FC<{
                         {item.badge}
                       </span>
                     )}
-                  </div>
+                  </button>
 
                   {/* Contextual book hierarchy — shown below Library item when inBook */}
                   {item.id === 'Library' && inBook && (
@@ -229,24 +235,29 @@ export const Rail: React.FC<{
                           const isStageActive = activeBookTab === stage;
                           return (
                             <div key={stage}>
-                              <div
+                              <button
+                                type="button"
                                 onClick={() => onBookTabSelect(stage)}
                                 style={{
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: 6,
+                                  width: '100%',
                                   padding: '3px 10px 3px 20px',
                                   cursor: 'pointer',
+                                  border: 0,
                                   background: isStageActive ? 'var(--accent-tint-bg)' : 'transparent',
                                   color: isStageActive ? 'var(--accent)' : 'var(--text-secondary)',
                                   fontSize: 'var(--type-micro)',
                                   fontWeight: isStageActive ? 700 : 400,
+                                  fontFamily: 'inherit',
                                   borderLeft: isStageActive ? '2px solid var(--accent)' : '2px solid transparent',
                                   marginLeft: -1,
+                                  textAlign: 'left',
                                 }}
                               >
                                 {stage}
-                              </div>
+                              </button>
 
                               {/* Chapter list — under Studio only, expanded when Studio is active */}
                               {stage === 'Studio' && isStageActive && (
@@ -287,14 +298,15 @@ export const Rail: React.FC<{
                                             {ch.n}. {ch.title}
                                           </span>
                                           {isChActive && (
-                                            <span
+                                            <button
+                                              type="button"
                                               onClick={e => { e.stopPropagation(); setChapterMenuOpen(m => !m); }}
-                                              style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 2px', lineHeight: 1, flexShrink: 0 }}
+                                              style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 2px', lineHeight: 1, flexShrink: 0, border: 0, background: 'transparent', fontFamily: 'inherit' }}
                                               title="Chapter actions"
                                               aria-label="Chapter actions"
                                             >
                                               <MoreHorizontal size={10} strokeWidth={2} />
-                                            </span>
+                                            </button>
                                           )}
                                         </div>
 
@@ -315,7 +327,8 @@ export const Rail: React.FC<{
                                             }}
                                           >
                                             {['Rebuild audio', 'Export', 'Download', 'Reset audio', 'Delete'].map(action => (
-                                              <div
+                                              <button
+                                                type="button"
                                                 key={action}
                                                 onClick={() => setChapterMenuOpen(false)}
                                                 style={{
@@ -323,10 +336,15 @@ export const Rail: React.FC<{
                                                   padding: '5px 12px',
                                                   color: action === 'Delete' ? 'var(--error)' : 'var(--text-primary)',
                                                   cursor: 'pointer',
+                                                  width: '100%',
+                                                  border: 0,
+                                                  background: 'transparent',
+                                                  fontFamily: 'inherit',
+                                                  textAlign: 'left',
                                                 }}
                                               >
                                                 {action}
-                                              </div>
+                                              </button>
                                             ))}
                                           </div>
                                         )}
@@ -378,21 +396,25 @@ export const Rail: React.FC<{
             }
           </button>
           {/* Collapsed: chevron below */}
-          <div
+          <button
+            type="button"
             onClick={onToggle}
             style={{
               padding: '8px',
+              width: '100%',
               display: 'flex',
               justifyContent: 'center',
               cursor: 'pointer',
+              border: 0,
               borderTop: '1px solid var(--border)',
+              background: 'transparent',
               color: 'var(--text-muted)',
             }}
             title="Expand rail"
             aria-label="Expand rail"
           >
             <ChevronRight size={14} strokeWidth={2} />
-          </div>
+          </button>
         </>
       ) : (
         /* Expanded: single horizontal row */
@@ -439,7 +461,8 @@ export const Rail: React.FC<{
           </button>
           {/* Chevron — right */}
           {!isMobileLocal && (
-            <div
+            <button
+              type="button"
               onClick={onToggle}
               style={{
                 padding: '8px 12px',
@@ -448,12 +471,14 @@ export const Rail: React.FC<{
                 display: 'flex',
                 alignItems: 'center',
                 flexShrink: 0,
+                border: 0,
+                background: 'transparent',
               }}
               title="Collapse rail"
               aria-label="Collapse rail"
             >
               <ChevronLeft size={14} strokeWidth={2} />
-            </div>
+            </button>
           )}
         </div>
       )}

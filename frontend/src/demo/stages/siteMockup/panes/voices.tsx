@@ -28,10 +28,10 @@ import {
   Chip,
   SemanticChip,
   VoiceAttrPill,
-  Avatar,
   Card,
   Btn,
   ProgressBar,
+  PaneHeader,
 } from '../shared';
 import { VoiceProfileEditorPane } from './voiceEditor';
 
@@ -47,6 +47,7 @@ export type Voice = {
   cta: string;
   avatarColor?: string;
   avatarIcon?: string;
+  portrait?: boolean;
   // Taxonomy fields
   languages?: string[];
   accent?: string;
@@ -59,96 +60,250 @@ export type Voice = {
 // ---------------------------------------------------------------------------
 // Voice data — pills classified by category (class/gender/age/extended/tag)
 
-const VOICE_CARDS: { name: string; pills: VoicePill[]; cta: string }[] = [
+const VOICE_CARDS: Voice[] = [
   {
     name: 'Studio Voice',
+    description: 'Warm adult narrator voice for long-form fiction and default book narration.',
     pills: [
       { label: 'Narrator', category: 'class' },
       { label: 'Female', category: 'gender' },
+      { label: 'Adult', category: 'age' },
       { label: 'Warm', category: 'extended' },
     ],
     cta: 'Edit voice',
+    portrait: true,
   },
   {
     name: 'Marcus Reed',
+    description: 'Deep male narrator voice with a steady documentary pace.',
     pills: [
       { label: 'Narrator', category: 'class' },
       { label: 'Male', category: 'gender' },
+      { label: 'Adult', category: 'age' },
       { label: 'Deep', category: 'extended' },
     ],
     cta: 'Edit voice',
+    portrait: true,
   },
   {
     name: 'Clara Bell',
+    description: 'Bright dialogue voice for quick exchanges and lighter character moments.',
     pills: [
       { label: 'Dialogue', category: 'class' },
       { label: 'Female', category: 'gender' },
+      { label: 'Adult', category: 'age' },
       { label: 'Bright', category: 'extended' },
     ],
     cta: 'Edit voice',
+    portrait: true,
   },
   {
     name: 'Old Tom',
+    description: 'Gruff senior character voice with rough edges and close-mic texture.',
     pills: [
       { label: 'Character', category: 'class' },
       { label: 'Male', category: 'gender' },
+      { label: 'Senior', category: 'age' },
       { label: 'Gruff', category: 'extended' },
     ],
     cta: 'Edit voice',
+    portrait: true,
   },
   {
     name: 'Aria',
+    description: 'Clear adult narrator voice with a clean neutral delivery.',
     pills: [
       { label: 'Narrator', category: 'class' },
       { label: 'Female', category: 'gender' },
+      { label: 'Adult', category: 'age' },
       { label: 'Clear', category: 'extended' },
     ],
     cta: 'Edit voice',
+    portrait: false,
   },
   {
     name: 'Frost',
+    description: 'Cool non-binary character voice for reserved or atmospheric scenes.',
     pills: [
       { label: 'Character', category: 'class' },
       { label: 'NB', category: 'gender' },
+      { label: 'Adult', category: 'age' },
       { label: 'Cool', category: 'extended' },
     ],
     cta: 'Edit voice',
+    portrait: true,
   },
 ];
 
-const DISCOVER_CARDS: { name: string; pills: VoicePill[] }[] = [
+const DISCOVER_CARDS: Voice[] = [
   {
     name: 'VoxNarrator-v2',
+    description: 'Verified male narrator preset with a balanced production profile.',
     pills: [
       { label: 'Narrator', category: 'class' },
       { label: 'Male', category: 'gender' },
+      { label: 'Adult', category: 'age' },
+      { label: 'Deep', category: 'extended' },
     ],
+    cta: 'Preview voice',
+    portrait: true,
   },
   {
     name: 'EmberReader',
+    description: 'Warm female dialogue preset designed for expressive chapter samples.',
     pills: [
       { label: 'Dialogue', category: 'class' },
       { label: 'Female', category: 'gender' },
+      { label: 'Adult', category: 'age' },
+      { label: 'Warm', category: 'extended' },
     ],
+    cta: 'Preview voice',
+    portrait: true,
   },
   {
     name: 'DeepCast-M',
+    description: 'Gruff senior character preset for low-register dramatic moments.',
     pills: [
       { label: 'Character', category: 'class' },
       { label: 'Male', category: 'gender' },
+      { label: 'Senior', category: 'age' },
+      { label: 'Gruff', category: 'extended' },
     ],
+    cta: 'Preview voice',
+    portrait: true,
   },
   {
     name: 'ClearTone-F',
+    description: 'Clear narrator preset without generated portrait artwork.',
     pills: [
       { label: 'Narrator', category: 'class' },
       { label: 'Female', category: 'gender' },
+      { label: 'Adult', category: 'age' },
+      { label: 'Clear', category: 'extended' },
     ],
+    cta: 'Preview voice',
+    portrait: false,
   },
 ];
 
 // ---------------------------------------------------------------------------
 // Custom Avatar component supporting dynamic icon and color
+
+const getVoicePill = (voice: Voice, category: VoicePill['category']) =>
+  voice.pills.find((pill) => pill.category === category)?.label;
+
+const getVoiceTone = (voice: Voice) => getVoicePill(voice, 'extended') ?? 'Clear';
+const getVoiceGender = (voice: Voice) => getVoicePill(voice, 'gender') ?? 'NB';
+const getVoiceAge = (voice: Voice) => getVoicePill(voice, 'age') ?? 'Adult';
+const getVoiceClass = (voice: Voice) => getVoicePill(voice, 'class') ?? 'Narrator';
+
+const PORTRAIT_TONES: Record<string, { bg: string; ink: string; accent: string }> = {
+  Warm:   { bg: 'linear-gradient(145deg, #fff0dc 0%, #f7b66d 100%)', ink: '#7a4524', accent: '#e27944' },
+  Deep:   { bg: 'linear-gradient(145deg, #dfe6f2 0%, #6a7287 100%)', ink: '#263247', accent: '#465272' },
+  Bright: { bg: 'linear-gradient(145deg, #fff8c7 0%, #78c7ff 100%)', ink: '#25506a', accent: '#f0b93c' },
+  Gruff:  { bg: 'linear-gradient(145deg, #e5ded4 0%, #7b6a5b 100%)', ink: '#3f342b', accent: '#9b563d' },
+  Clear:  { bg: 'linear-gradient(145deg, #e8fbff 0%, #80d7e8 100%)', ink: '#1f5967', accent: '#35a9c8' },
+  Cool:   { bg: 'linear-gradient(145deg, #edf0ff 0%, #8f9df0 100%)', ink: '#303c78', accent: '#6879df' },
+};
+
+const PORTRAIT_BORDER_BY_CLASS: Record<string, string> = {
+  Narrator: 'rgba(55, 112, 255, 0.72)',
+  Dialogue: 'rgba(40, 170, 120, 0.72)',
+  Character: 'rgba(156, 104, 62, 0.78)',
+};
+
+const VoicePortrait: React.FC<{ voice: Voice; size?: number; emphasized?: boolean; style?: React.CSSProperties }> = ({
+  voice,
+  size = 52,
+  emphasized = false,
+  style,
+}) => {
+  if (voice.portrait === false) {
+    return (
+      <CustomAvatar
+        name={voice.name}
+        size={size}
+        style={{
+          background: 'var(--surface-alt)',
+          border: '1.5px dashed var(--border-strong)',
+          color: 'var(--text-secondary)',
+          boxShadow: emphasized ? 'var(--shadow-md)' : 'var(--shadow-sm)',
+          ...style,
+        }}
+      />
+    );
+  }
+
+  const gender = getVoiceGender(voice);
+  const age = getVoiceAge(voice);
+  const tone = getVoiceTone(voice);
+  const voiceClass = getVoiceClass(voice);
+  const palette = PORTRAIT_TONES[tone] ?? PORTRAIT_TONES.Clear;
+  const border = PORTRAIT_BORDER_BY_CLASS[voiceClass] ?? 'var(--accent-tint-border)';
+  const isSenior = age === 'Senior';
+  const isFemale = gender === 'Female';
+  const isMale = gender === 'Male';
+  const isNb = gender === 'NB';
+
+  return (
+    <div
+      className="ns-voice-portrait"
+      style={{
+        width: size,
+        height: size,
+        '--voice-portrait-bg': palette.bg,
+        '--voice-portrait-ink': palette.ink,
+        '--voice-portrait-accent': palette.accent,
+        '--voice-portrait-border': border,
+        boxShadow: emphasized ? 'var(--accent-glow-strong)' : undefined,
+        ...style,
+      } as React.CSSProperties}
+      role="img"
+      aria-label={`${voice.name} generic ${age.toLowerCase()} ${gender.toLowerCase()} ${tone.toLowerCase()} ${voiceClass.toLowerCase()} portrait`}
+    >
+      <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id={`voiceFace-${voice.name.replace(/[^a-z0-9]/gi, '')}`} x1="18" x2="48" y1="16" y2="54" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="rgba(255,255,255,0.78)" />
+            <stop offset="1" stopColor="rgba(255,255,255,0.18)" />
+          </linearGradient>
+        </defs>
+        <circle cx="32" cy="32" r="30" fill="var(--voice-portrait-bg)" />
+        <path d="M12 54c4.8-10.2 12-15.3 20-15.3S47.2 43.8 52 54" fill="var(--voice-portrait-ink)" opacity="0.22" />
+        {isFemale && (
+          <>
+            <path d="M20 28c0-10 5.1-16 12.2-16 7.2 0 12.2 5.9 12.2 16.2 0 7.5-3.1 13.7-6.4 16.5H26.2C23 41.8 20 35.4 20 28Z" fill="var(--voice-portrait-ink)" opacity="0.84" />
+            <ellipse cx="32" cy="31" rx="9.8" ry="11.3" fill={`url(#voiceFace-${voice.name.replace(/[^a-z0-9]/gi, '')})`} />
+            <path d="M23.5 25.5c4.7 1.8 10.5 1.1 16.8-3.7 1.5 2.3 2.3 5 2.3 8.5" fill="none" stroke="var(--voice-portrait-accent)" strokeWidth="3.8" strokeLinecap="round" />
+          </>
+        )}
+        {isMale && (
+          <>
+            <path d="M21 26.5c.7-8.7 5.2-13.2 11.3-13.2 6.8 0 11 4.4 11.7 13.4l-2.2 3.2H23.2Z" fill="var(--voice-portrait-ink)" opacity="0.9" />
+            <path d="M23.8 29.5c0-7 3.4-11 8.3-11s8.8 4.1 8.8 11.1c0 8.4-3.9 13.4-8.5 13.4-4.7 0-8.6-5.2-8.6-13.5Z" fill={`url(#voiceFace-${voice.name.replace(/[^a-z0-9]/gi, '')})`} />
+            <path d="M25 42c2.4 3 4.7 4.3 7.2 4.3 2.3 0 4.6-1.3 7.1-4.3" fill="none" stroke="var(--voice-portrait-accent)" strokeWidth={isSenior ? 2.8 : 2.2} strokeLinecap="round" opacity="0.82" />
+          </>
+        )}
+        {isNb && (
+          <>
+            <path d="M20.5 27.2c1.4-8.9 6-13.7 12.2-13.7 6.5 0 10.9 4.5 11.5 13.6l-4.4 6.6-8.1 10.9-8.2-10.9Z" fill="var(--voice-portrait-ink)" opacity="0.82" />
+            <path d="M24.1 29.4c0-6.8 3.4-10.7 8-10.7s8.1 3.9 8.1 10.7c0 7.8-3.4 12.6-8.1 12.6s-8-4.8-8-12.6Z" fill={`url(#voiceFace-${voice.name.replace(/[^a-z0-9]/gi, '')})`} />
+            <path d="M24 24.6 39.8 18M23 32.8 41.3 25" stroke="var(--voice-portrait-accent)" strokeWidth="2.4" strokeLinecap="round" opacity="0.9" />
+          </>
+        )}
+        {isSenior && (
+          <>
+            <path d="M24 31.8h6.2M34 31.8h6.2" stroke="var(--voice-portrait-ink)" strokeWidth="1.4" strokeLinecap="round" opacity="0.74" />
+            <path d="M30.4 31.8h3.2" stroke="var(--voice-portrait-ink)" strokeWidth="1.1" opacity="0.55" />
+            <path d="M23.6 21.7c2.6-3.3 5-4.8 8.5-4.8 3.3 0 5.7 1.3 8.2 4.3" stroke="rgba(255,255,255,0.82)" strokeWidth="2" strokeLinecap="round" fill="none" />
+          </>
+        )}
+        <circle cx="23" cy="18" r="2.3" fill="rgba(255,255,255,0.65)" />
+        <path d="M46 15c2.6 2 4.2 4.2 5.3 7.1" stroke="rgba(255,255,255,0.48)" strokeWidth="1.4" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+};
 
 const CustomAvatar: React.FC<{
   name: string;
@@ -295,7 +450,7 @@ const MyVoiceCard: React.FC<{
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <Card interactive style={{
+    <Card interactive className="ns-voice-card" style={{
       padding: 'var(--space-3) var(--space-3) var(--space-2)', textAlign: 'center',
       position: 'relative', borderRadius: 'var(--radius-card)',
       display: 'flex', flexDirection: 'column', height: '100%',
@@ -398,9 +553,14 @@ const MyVoiceCard: React.FC<{
 
       {/* Card Content */}
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
-        <CustomAvatar name={voice.name} color={voice.avatarColor} icon={voice.avatarIcon} size={44} />
+        <VoicePortrait voice={voice} size={52} />
       </div>
       <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: 'var(--tracking-tight)' }}>{voice.name}</div>
+      <div className="ns-voice-meter" aria-hidden="true">
+        {[9, 14, 7, 18, 12, 20, 10, 16, 8, 13].map((h, i) => (
+          <span key={i} style={{ height: h }} />
+        ))}
+      </div>
 
       <Row gap={3} style={{ marginTop: 'var(--space-1)', justifyContent: 'center', flexWrap: 'wrap', flex: 1 }}>
         {voice.pills.map((p) => (
@@ -470,7 +630,7 @@ const VoiceLab: React.FC<{
         </button>
 
         <Row gap={12} style={{ alignItems: 'flex-start', marginTop: 'var(--space-2)' }}>
-          <CustomAvatar name={voice.name} color={voice.avatarColor} icon={voice.avatarIcon} size={56} style={{ border: '2px solid var(--accent)', boxShadow: 'var(--accent-glow-strong)' }} />
+          <VoicePortrait voice={voice} size={64} emphasized />
           <Col gap={4} style={{ flex: 1 }}>
             <Row gap={8} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 'var(--type-headline)', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: 'var(--tracking-tight)' }}>{voice.name}</span>
@@ -1436,17 +1596,16 @@ export const VoicesPane: React.FC = () => {
 
   const [voices, setVoices] = useState<Voice[]>(() => {
     return VOICE_CARDS.map((v) => {
-      let desc = '';
-      let languages: string[] = [];
-      let accent = '';
-      let styles: string[] = [];
-      let category: 'Narrator' | 'Dialogue' | 'Character' | '' = '';
-      let gender: 'Female' | 'Male' | 'NB' | '' = '';
-      let age: 'Child' | 'Adult' | 'Senior' | '' = '';
+      let desc = v.description;
+      const languages: string[] = ['English'];
+      let accent = 'US';
+      let styles: string[] = [getVoiceTone(v)];
+      let category: 'Narrator' | 'Dialogue' | 'Character' | '' = getVoiceClass(v) as 'Narrator' | 'Dialogue' | 'Character';
+      let gender: 'Female' | 'Male' | 'NB' | '' = getVoiceGender(v) as 'Female' | 'Male' | 'NB';
+      let age: 'Child' | 'Adult' | 'Senior' | '' = getVoiceAge(v) as 'Child' | 'Adult' | 'Senior';
 
       if (v.name === 'Studio Voice') {
         desc = 'A warm, expressive narrator voice suited for literary fiction and long-form narration. Trained on 4h 20m of clean studio recordings.';
-        languages = ['English'];
         accent = 'US';
         styles = ['Warm'];
         category = 'Narrator';
@@ -1454,9 +1613,13 @@ export const VoicesPane: React.FC = () => {
         age = 'Adult';
       } else if (v.name === 'Marcus Reed') {
         desc = 'A deep, authoritative voice perfect for thrillers, biographies, and dramatic audiobooks.';
+        accent = 'US';
+        styles = ['Deep'];
+        category = 'Narrator';
+        gender = 'Male';
+        age = 'Adult';
       } else if (v.name === 'Clara Bell') {
         desc = 'A bright, energetic voice, ideal for dialogues, children\'s books, and commercial narration.';
-        languages = ['English'];
         accent = 'UK';
         styles = ['Bright'];
         category = 'Dialogue';
@@ -1464,7 +1627,6 @@ export const VoicesPane: React.FC = () => {
         age = 'Adult';
       } else if (v.name === 'Old Tom') {
         desc = 'A gruff, characterful older voice with texture, suited for fantasy and historical fiction roles.';
-        languages = ['English'];
         accent = 'UK';
         styles = ['Gruff'];
         category = 'Character';
@@ -1472,7 +1634,6 @@ export const VoicesPane: React.FC = () => {
         age = 'Senior';
       } else if (v.name === 'Aria') {
         desc = 'A clear, natural voice designed for educational content and clean textbook narration.';
-        languages = ['English'];
         accent = 'US';
         styles = ['Clear'];
         category = 'Narrator';
@@ -1480,7 +1641,6 @@ export const VoicesPane: React.FC = () => {
         age = 'Adult';
       } else if (v.name === 'Frost') {
         desc = 'A cool, ambient non-binary voice that brings a modern, stylistic edge to speculative fiction.';
-        languages = ['English'];
         accent = 'Canada';
         styles = ['Cool'];
         category = 'Character';
@@ -1566,82 +1726,97 @@ export const VoicesPane: React.FC = () => {
         />
       )}
 
-      {/* Top action bar */}
-      <div style={{
-        padding: 'var(--space-3) var(--space-4)',
-        borderBottom: 'var(--hairline)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--space-2)',
-        flexWrap: 'wrap',
-      }}>
-        {/* Segmented tab control */}
-        <div style={{
-          display: 'inline-flex',
-          border: 'var(--hairline)',
-          borderRadius: 'var(--radius-round)',
-          overflow: 'hidden',
-          background: 'var(--surface-alt)',
-          flexShrink: 0,
-        }}>
-          {(['local', 'discover'] as const).map((tab, i) => (
-            <div
-              key={tab}
-              onClick={() => setVoiceTab(tab)}
-              style={{
-                fontSize: 'var(--type-caption)', fontWeight: 600,
-                padding: 'var(--space-1) var(--space-3)',
-                cursor: 'pointer',
-                borderRight: i === 0 ? 'var(--hairline)' : 'none',
-                background: voiceTab === tab ? 'var(--accent-tint-bg)' : 'transparent',
-                color: voiceTab === tab ? 'var(--accent)' : 'var(--text-secondary)',
-                transition: 'background 0.15s, color 0.15s',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {tab === 'local' ? 'My Voices' : 'Discover'}
+      <Col gap={14} style={{ padding: 'var(--space-3) var(--space-4)', flex: 1 }}>
+        <PaneHeader
+          eyebrow="Voice Library"
+          title={voiceTab === 'local' ? 'My Voices' : 'Discover Voices'}
+          subtitle="Manage cloned voices, metadata, recording guidance, and portable voice bundles from one place."
+          meta={<SemanticChip variant="accent">{voices.length} local</SemanticChip>}
+          actions={(
+            <>
+              <Btn small onClick={() => { setEditorVoiceName(null); setEditorOpen(true); }}>
+                <Row gap={4} style={{ alignItems: 'center' }}>
+                  <Pencil size={11} />
+                  Edit profiles
+                </Row>
+              </Btn>
+              <Btn small>
+                <Row gap={4} style={{ alignItems: 'center' }}>
+                  <Upload size={10} />
+                  Import
+                </Row>
+              </Btn>
+              <Btn small onClick={() => {
+                const defaultVoice = voices.find(v => v.name === defaultVoiceName) || voices[0];
+                if (defaultVoice) setExportingVoice(defaultVoice);
+              }}>
+                <Row gap={4} style={{ alignItems: 'center' }}>
+                  <Download size={10} />
+                  Export
+                </Row>
+              </Btn>
+              <Btn small onClick={() => setShowGuide(true)}>
+                <Row gap={4} style={{ alignItems: 'center' }}>
+                  <BookOpen size={10} />
+                  Guide
+                </Row>
+              </Btn>
+              <Btn primary onClick={() => setShowCreate(true)}>
+                + New voice
+              </Btn>
+            </>
+          )}
+        />
+
+        <Row gap={10} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'inline-flex',
+            border: 'var(--hairline)',
+            borderRadius: 'var(--radius-round)',
+            overflow: 'hidden',
+            background: 'var(--surface-alt)',
+            flexShrink: 0,
+          }}>
+            {(['local', 'discover'] as const).map((tab, i) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setVoiceTab(tab)}
+                style={{
+                  fontSize: 'var(--type-caption)', fontWeight: 600,
+                  padding: 'var(--space-1) var(--space-3)',
+                  cursor: 'pointer',
+                  border: 0,
+                  borderRight: i === 0 ? 'var(--hairline)' : 'none',
+                  background: voiceTab === tab ? 'var(--accent-tint-bg)' : 'transparent',
+                  color: voiceTab === tab ? 'var(--accent)' : 'var(--text-secondary)',
+                  transition: 'background 0.15s, color 0.15s',
+                  whiteSpace: 'nowrap',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {tab === 'local' ? 'My Voices' : 'Discover'}
+              </button>
+            ))}
+          </div>
+          {voiceTab === 'local' && (
+            <div style={{
+              flex: 1,
+              minWidth: 220,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'var(--surface-alt)',
+              border: 'var(--hairline)',
+              borderRadius: 'var(--radius-card)',
+              padding: 'var(--space-1) var(--space-3)',
+            }}>
+              <Search size={12} color="var(--text-muted)" />
+              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Search voice names, tags, styles…</span>
             </div>
-          ))}
-        </div>
+          )}
+        </Row>
 
-        <div style={{ flex: 1 }} />
-
-        {/* Action buttons */}
-        <Btn small onClick={() => { setEditorVoiceName(null); setEditorOpen(true); }}>
-          <Row gap={4} style={{ alignItems: 'center' }}>
-            <Pencil size={11} />
-            Edit profiles
-          </Row>
-        </Btn>
-        <Btn small>
-          <Row gap={4} style={{ alignItems: 'center' }}>
-            <Upload size={10} />
-            Import (.zip)
-          </Row>
-        </Btn>
-        <Btn small onClick={() => {
-          const defaultVoice = voices.find(v => v.name === defaultVoiceName) || voices[0];
-          if (defaultVoice) setExportingVoice(defaultVoice);
-        }}>
-          <Row gap={4} style={{ alignItems: 'center' }}>
-            <Download size={10} />
-            Export bundle (.zip)
-          </Row>
-        </Btn>
-        <Btn small onClick={() => setShowGuide(true)}>
-          <Row gap={4} style={{ alignItems: 'center' }}>
-            <BookOpen size={10} />
-            Recording guide
-          </Row>
-        </Btn>
-        <Btn primary onClick={() => setShowCreate(true)}>
-          <Row gap={4} style={{ alignItems: 'center' }}>
-            + New voice
-          </Row>
-        </Btn>
-      </div>
-
-      <Col gap={0} style={{ padding: 'var(--space-3) var(--space-4)', flex: 1 }}>
         {voiceTab === 'local' && (
           <>
             {/* Filter chips */}
@@ -1725,7 +1900,7 @@ export const VoicesPane: React.FC = () => {
                   borderRadius: 'var(--radius-card)',
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-2)' }}>
-                    <Avatar name={v.name} size={44} style={{ background: 'var(--surface-alt)', borderColor: 'var(--border)' }} />
+                    <VoicePortrait voice={v} size={52} />
                   </div>
                   <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: 'var(--tracking-tight)' }}>{v.name}</div>
                   <Row gap={3} style={{ marginTop: 'var(--space-1)', justifyContent: 'center', flexWrap: 'wrap' }}>

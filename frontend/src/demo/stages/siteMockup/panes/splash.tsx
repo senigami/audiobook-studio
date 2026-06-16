@@ -149,7 +149,7 @@ const DocCard: React.FC<{
 
 export const SplashPane: React.FC<{ onGetStarted: () => void }> = ({ onGetStarted }) => (
   <div
-    className="ns-enter"
+    className="ns-enter ns-splash"
     style={{
       flex: 1,
       overflowY: 'auto',
@@ -161,13 +161,15 @@ export const SplashPane: React.FC<{ onGetStarted: () => void }> = ({ onGetStarte
     }}
   >
     <Col
+      className="ns-splash-inner"
       gap={48}
       style={{ width: '100%', maxWidth: 860 }}
     >
       {/* ── Brand hero ── */}
-      <Col gap={20} style={{ alignItems: 'center', textAlign: 'center' }}>
+      <Col className="ns-splash-hero" gap={20} style={{ alignItems: 'center', textAlign: 'center' }}>
         {/* Mark — the real Audiobook Studio logo, on a soft glow halo */}
         <div
+          className="ns-splash-logo"
           style={{
             position: 'relative',
             display: 'flex',
@@ -188,6 +190,7 @@ export const SplashPane: React.FC<{ onGetStarted: () => void }> = ({ onGetStarte
             }}
           />
           <img
+            className="ns-splash-logo-img"
             src={`${import.meta.env.BASE_URL}logo.png`}
             alt="Audiobook Studio"
             style={{ width: 100, height: 100, objectFit: 'contain', position: 'relative' }}
@@ -196,6 +199,7 @@ export const SplashPane: React.FC<{ onGetStarted: () => void }> = ({ onGetStarte
 
         <Col gap={12} style={{ alignItems: 'center' }}>
           <h1
+            className="ns-splash-title"
             style={{
               margin: 0,
               fontSize: 'var(--type-display)',
@@ -219,6 +223,7 @@ export const SplashPane: React.FC<{ onGetStarted: () => void }> = ({ onGetStarte
             </span>
           </h1>
           <p
+            className="ns-splash-subtitle"
             style={{
               margin: 0,
               fontSize: 'var(--type-headline)',
@@ -233,14 +238,14 @@ export const SplashPane: React.FC<{ onGetStarted: () => void }> = ({ onGetStarte
         </Col>
 
         {/* Status chips */}
-        <Row gap={8} style={{ alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <Row className="ns-splash-chips" gap={8} style={{ alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
           <SemanticChip variant="success">Ready</SemanticChip>
           <SemanticChip variant="accent">Plugin-powered TTS</SemanticChip>
           <SemanticChip variant="neutral">Local-first</SemanticChip>
         </Row>
 
         {/* ── CTAs — directly under the hero where the eye lands ── */}
-        <Row gap={12} style={{ justifyContent: 'center', flexWrap: 'wrap', marginTop: 4 }}>
+        <Row className="ns-splash-actions" gap={12} style={{ justifyContent: 'center', flexWrap: 'wrap', marginTop: 4 }}>
           <Btn
             primary
             onClick={onGetStarted}

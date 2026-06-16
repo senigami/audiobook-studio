@@ -111,7 +111,7 @@ export const PublishPane: React.FC = () => {
         </div>
       )}
 
-      <Row gap={16} style={{ flex: 1, alignItems: 'stretch' }}>
+      <Row className="ns-publish-grid" gap={16} style={{ flex: 1, alignItems: 'stretch' }}>
         {/* Left: assembly card */}
         <Col gap={12} style={{ flex: 1 }}>
 
@@ -141,7 +141,7 @@ export const PublishPane: React.FC = () => {
             <Card style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
               {/* BookCover replaces 📕 emoji */}
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-3)' }}>
-                <BookCover title="The Whispering Vale" size={52} />
+                <BookCover title="The Whispering Vale" size={76} />
               </div>
               <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-1)', letterSpacing: 'var(--tracking-tight)' }}>
                 The Whispering Vale
@@ -231,7 +231,7 @@ export const PublishPane: React.FC = () => {
               padding: 'var(--space-4)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center'
             }}>
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-3)' }}>
-                <BookCover title="The Whispering Vale" size={52} />
+                <BookCover title="The Whispering Vale" size={76} />
               </div>
               <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--success-text)', marginBottom: 'var(--space-2)', letterSpacing: 'var(--tracking-tight)' }}>
                 Assembly Completed Successfully!

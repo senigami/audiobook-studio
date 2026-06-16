@@ -18,12 +18,17 @@ import {
   Row, Col, SemanticChip, Btn, ProgressBar, StatusPill, BookCover, Card, Panel,
 } from '../shared';
 
-const LIBRARY_BOOKS = [
+const LIBRARY_BOOKS: Array<{
+  title: string;
+  author: string;
+  status: string;
+  coverAspect?: 'square' | 'book';
+}> = [
   { title: 'The Whispering Vale', author: 'E. Holloway', status: 'Studio' },
   { title: 'Echoes of Ember', author: 'R. Ashby', status: 'Review' },
   { title: 'Iron Meridian', author: 'S. Cross', status: 'Casting' },
-  { title: 'The Silver Thread', author: 'A. Vance', status: 'Drafting' },
-  { title: 'Starfall Compact', author: 'T. Wren', status: 'Published' },
+  { title: 'The Silver Thread', author: 'A. Vance', status: 'Drafting', coverAspect: 'book' },
+  { title: 'Starfall Compact', author: 'T. Wren', status: 'Published', coverAspect: 'book' },
   { title: 'Hollow Crown', author: 'D. Marsh', status: 'Drafting' },
 ];
 
@@ -247,7 +252,7 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
               color: 'var(--text-primary)',
               lineHeight: 'var(--leading-tight)',
             }}>
-              Good evening, Steven
+              Library
             </div>
             <div style={{
               fontSize: 'var(--type-callout)',
@@ -404,11 +409,11 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
 
             {viewMode === 'grid' ? (
               <div
-                className="ns-stagger"
+                className="ns-stagger ns-library-grid"
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
-                  gap: 'var(--space-2)',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(112px, 1fr))',
+                  gap: 'var(--space-3)',
                 }}
               >
                 {LIBRARY_BOOKS.map((book) => (
@@ -421,6 +426,7 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
                       textAlign: 'center',
                       cursor: 'pointer',
                       position: 'relative',
+                      minHeight: 160,
                     }}
                   >
                     {/* ⋯ menu trigger */}
@@ -444,8 +450,8 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
                         onOpen={onOpenBook}
                       />
                     )}
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}>
-                      <BookCover title={book.title} size={48} />
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', minHeight: 78, marginBottom: 8 }}>
+                      <BookCover title={book.title} aspect={book.coverAspect ?? 'square'} size={58} />
                     </div>
                     <div style={{
                       fontSize: 'var(--type-micro)',
