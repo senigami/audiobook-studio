@@ -872,10 +872,10 @@ async def import_plugin(file: UploadFile = File(...)) -> dict[str, Any]:
             name = member.filename
             # Reject Windows-style backslash separators — PurePosixPath won't split these
             if "\\" in name:
-                raise HTTPException(status_code=400, detail=f"Unsafe path in zip: {name}")
+                raise HTTPException(status_code=400, detail="Unsafe path in uploaded archive.")
             path = PurePosixPath(name)
             if path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
-                raise HTTPException(status_code=400, detail=f"Unsafe path in zip: {name}")
+                raise HTTPException(status_code=400, detail="Unsafe path in uploaded archive.")
 
         # 2. Check for manifest.json
         manifest_names = [m.filename for m in members if m.filename.lower() == "manifest.json"]
@@ -906,13 +906,13 @@ async def import_plugin(file: UploadFile = File(...)) -> dict[str, Any]:
 
         import re
         if not re.fullmatch(r"[a-z][a-z0-9_]{1,14}", engine_id):
-            raise HTTPException(status_code=400, detail=f"Invalid engine_id: {engine_id}")
+            raise HTTPException(status_code=400, detail="Invalid engine_id in uploaded plugin manifest.")
 
         # 4. Check for conflicts
         target_folder = f"tts_{engine_id}"
         target_dir = _plugins_dir / target_folder
         if target_dir.exists():
-            raise HTTPException(status_code=409, detail=f"Plugin folder {target_folder} already exists.")
+            raise HTTPException(status_code=409, detail="A plugin with this engine_id is already installed.")
 
         # 5. Extract to staging
         import uuid
@@ -1027,10 +1027,10 @@ async def preview_plugin(file: UploadFile = File(...)) -> dict[str, Any]:
         for member in members:
             name = member.filename
             if "\\" in name:
-                raise HTTPException(status_code=400, detail=f"Unsafe path in zip: {name}")
+                raise HTTPException(status_code=400, detail="Unsafe path in uploaded archive.")
             path = PurePosixPath(name)
             if path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
-                raise HTTPException(status_code=400, detail=f"Unsafe path in zip: {name}")
+                raise HTTPException(status_code=400, detail="Unsafe path in uploaded archive.")
 
         manifest_names = [m.filename for m in members if m.filename.lower() == "manifest.json"]
         if not manifest_names:
@@ -1057,12 +1057,12 @@ async def preview_plugin(file: UploadFile = File(...)) -> dict[str, Any]:
             raise HTTPException(status_code=400, detail="manifest.json missing engine_id")
 
         if not re.fullmatch(r"[a-z][a-z0-9_]{1,14}", engine_id):
-            raise HTTPException(status_code=400, detail=f"Invalid engine_id: {engine_id}")
+            raise HTTPException(status_code=400, detail="Invalid engine_id in uploaded plugin manifest.")
 
         target_folder = f"tts_{engine_id}"
         target_dir = _plugins_dir / target_folder
         if target_dir.exists():
-            raise HTTPException(status_code=409, detail=f"Plugin folder {target_folder} already exists.")
+            raise HTTPException(status_code=409, detail="A plugin with this engine_id is already installed.")
 
         # Read requirements before extraction — we only need the text content.
         req_text = ""
@@ -1185,7 +1185,7 @@ def preview_github_plugin(body: PreviewGithubRequest) -> dict[str, Any]:
         target_folder = f"tts_{engine_id}"
         target_dir = _plugins_dir / target_folder
         if target_dir.exists():
-            raise HTTPException(status_code=409, detail=f"Plugin folder {target_folder} already exists.")
+            raise HTTPException(status_code=409, detail="A plugin with this engine_id is already installed.")
 
         # 4. Parse requirements
         req_text = ""
@@ -1261,7 +1261,7 @@ def confirm_plugin_import(token: str) -> dict[str, Any]:
     if target_dir.exists():
         if staging_dir.exists():
             shutil.rmtree(staging_dir)
-        raise HTTPException(status_code=409, detail=f"Plugin folder tts_{engine_id} already exists.")
+        raise HTTPException(status_code=409, detail="A plugin with this engine_id is already installed.")
 
     try:
         staging_dir.rename(target_dir)
