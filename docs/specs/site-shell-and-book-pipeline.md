@@ -1,9 +1,10 @@
 # Site Shell & Book Pipeline
 
 ```
-spec_version: 1.4.0
+spec_version: 1.5.0
 status: active
 created: 2026-06-13
+updated: 2026-06-16
 sources:
   - frontend/src/app/App.tsx
   - frontend/src/app/layout/AppShell.tsx
@@ -27,6 +28,7 @@ sources:
 | 1.2.0   | 2026-06-13 | Added Manuscript chapter-preview analysis strip (chars, words, sentences, segments, estimated generation time) alongside the chapter list orb placement contract |
 | 1.3.0   | 2026-06-13 | Added the shared left-rail drag resize handle contract with persisted expanded width and layout-shifting main column behavior |
 | 1.4.0   | 2026-06-13 | Casting: Narrator (default) is the pinned, non-deletable FIRST row of the characters list (not a separate block) and the sole place the default voice is set; add-character form must not suggest "Narrator". Studio cast palette: requires a `Narrator (default)` clear/unassign brush and MUST NOT contain a default-voice selector. Studio analysis-strip segment count MUST use the render-group count (text-processing.md §6). |
+| 1.5.0   | 2026-06-16 | Added §2.7 Library cover-size control (target): Finder-style inline snap slider (grid view only, hidden < 768px) with the approved 12-step cover ramp `48…512`, per-step tick dots, scale-grid-and-cover-together behavior, and keyboard/`aria-label` accessibility. |
 
 ---
 
@@ -102,6 +104,20 @@ Engines and the API/Integrations surfaces were RE-HOMED out of Settings into top
   - **Developer** (only when developer mode is on): dev links (progress test, event stream).
 
 Legacy Settings deep links MUST keep working by redirecting (current behavior, R5-T13): `/settings/engines` → `/engines` and `/settings/api` → `/integrations`. Redirect, never 404.
+
+### 2.7 Library cover-size control (target)
+
+**Status: target** — approved and implemented in the North-Star mock (`frontend/src/demo/stages/siteMockup/panes/library.tsx`); to be wired into the real Library page (tracked in `plans/site_redesign_rollout/`).
+
+The Library **grid** view offers a macOS Finder–style **cover-size slider** for choosing cover-art display size, placed inline in the "All Books" controls row beside the sort chips and the grid/list toggle. The contract (the step values and default below are the approved decision — do not change them without an owner decision):
+
+- **Inline, always visible — not a popover.** The control's purpose is quick, exploratory "what fits my screen" adjustment, so it favors direct manipulation (HIG). It is shown **only in grid view** (meaningless in list view) and **hidden below 768px** (covers use a fixed size on small screens).
+- **Snap-to-step** across a fixed cover-size ramp (the BookCover `size`, in px) — smooth ~1.12–1.33 ratios between steps, no doubling:
+  `48 · 64 · 80 · 96 · 128 · 160 · 208 · 256 · 320 · 384 · 432 · 512`.
+- The grid **column width and the cover scale together**. Square covers render at the step value; book-aspect covers at `size × 1.32`. The top step `512` displays square covers at 512px tall.
+- **Tick dots** mark every snap point along the track (one dot per step), positioned across the thumb's exact travel; the accent thumb rides above them. Small/large square glyphs flank the track and are clickable shortcuts to the min/max step.
+- **Default** opens at a small step (index 1 = `64`) so the page opens compact; users scale up from there.
+- **Accessibility:** the control is a native `<input type="range">` with `aria-label="Cover size"` (fully keyboard-operable). Track, dots, and thumb are token-driven (`--border`, `--text-muted`, `--accent`) and theme-correct in light and dark; decorative ticks are `aria-hidden`. Icon set per [design-system.md](design-system.md) §9.
 
 ---
 

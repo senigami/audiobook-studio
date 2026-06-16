@@ -1,7 +1,8 @@
 # Plugin Contract
 
 ```
-spec_version: 1.3.0
+spec_version: 1.3.1
+updated: 2026-06-16
 status: active
 sources:
   - app/engines/voice/sdk.py
@@ -22,6 +23,7 @@ sources:
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 | 1.1.0   | 2026-06-11 | Additive: optional `behavior.sanitize_categories` list; unknown names cause load error; absent means all categories applied (backward-compatible) |
 | 1.2.0   | 2026-06-11 | Additive: optional `check_output(req, result) -> tuple[bool, str]` method on `StudioTTSEngine`; default accept-all; TTS Server calls this after synthesize() and deletes artifact + returns `output_rejected` on (False, reason); crashing hook is failure-isolated (logs + accepts) |
+| 1.3.1   | 2026-06-16 | Corrected resource-profile documentation: `gpu`, `vram_mb`, `cpu_heavy` are nested inside an optional `resource` object, not top-level manifest keys; mirrors actual manifest layout and `manifest.resource` / `ResourceProfile` in `app/engines/models.py` |
 | 1.3.0   | 2026-06-12 | S10 closeout: (1) loader now validates all five required method signatures + declared optional overrides via `inspect.signature` at load time (wrong param name / insufficient arity → `PluginLoadError` naming the method and expected signature; extra optional params tolerated); (2) all four manifest version fields (`contract_version`, `sdk_version`, `settings_schema_version`, `event_envelope_version`) are hard-required since S8; (3) `check_output` §2.3 stale "does not exist yet" note corrected — the method has been in `base.py` since v1.2.0; (4) `ctx.stitch_segments` gains `on_output` and `cancel_check` optional params plus `pdir` (defaults to parent of `out_wav`); returns `int` (was `None`); (5) `ctx.finalize_sample_artifact`, `ctx.run_voice_job`, and `ctx.resolve_voice_preview_inputs` added to §3.3 tables; (6) in-tree plugin wrapper-boundary note: function-body `app.*` imports are tolerated in bake/segments/standard_handler because tests monkeypatch those targets directly (resolves with S9 dispatcher integration); standalone plugins must have zero `app.*` imports at any scope |
 
 ---
@@ -81,6 +83,8 @@ All keys live inside an optional `behavior` object:
 | `synthesis_settings` | array   | Names of settings that are switchable per-synthesis call |
 
 ### Optional fields — resource profile
+
+All keys live inside an optional `resource` object (exposed in Studio as `manifest.resource` / `ResourceProfile`):
 
 | Key        | Type | Purpose |
 |------------|------|---------|

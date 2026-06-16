@@ -1,14 +1,15 @@
 # Interface Localization
 
 ```
-spec_version: 1.0.3
+spec_version: 1.0.4
 status: active
+updated: 2026-06-16
 created: 2026-06-14
 sources:
   - frontend/src/app/layout/AppShell.tsx
   - frontend/src/app/layout/NavRail.tsx
   - frontend/src/app/layout/TopBar.tsx
-  - frontend/src/pages/Library/
+  - frontend/src/pages/ProjectLibrary/
   - frontend/src/pages/Book/
   - frontend/src/pages/Voices/
   - frontend/src/pages/Activity/
@@ -28,6 +29,7 @@ sources:
 
 | Version | Date | Change |
 |---------|------|--------|
+| 1.0.4 | 2026-06-16 | Corrected `sources` path: `frontend/src/pages/Library/` → `frontend/src/pages/ProjectLibrary/` (`ProjectLibraryPage.tsx`). |
 | 1.0.3 | 2026-06-14 | Set locale release policy: AI may seed complete draft translations, but only complete reviewed locales are user-selectable; partial locales are preview/review artifacts only. |
 | 1.0.2 | 2026-06-14 | Clarified file structure: locale directories contain namespace files, BCP-47 folders are required, manifests carry locale records and fallback chains, and generated bundles are not the source of truth. |
 | 1.0.1 | 2026-06-14 | Tightened locale catalog structure: `en-US` source locale, BCP-47 locale directories, stage-split book namespaces, single-owner shared labels, fallback chains, and no dynamic/user data in catalogs. |

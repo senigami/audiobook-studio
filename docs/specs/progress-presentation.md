@@ -1,7 +1,8 @@
 # Progress Presentation Contract
 
 ```
-spec_version: 1.3.3
+spec_version: 1.3.4
+updated: 2026-06-16
 status: active
 sources:
   - frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx
@@ -21,6 +22,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.3.4   | 2026-06-16 | Drift corrections: §6 rewritten — `predictiveProgressBarDebug.ts` exports a pure snapshot builder gated by the caller's `onDebugSnapshot` callback, not logging helpers or a `__DEV__` guard; §3.4/I4 scoped to the `done` (completed) transition only — `doneTransitionPendingRef` is never set for `failed`/`cancelled`, and is cleared on done-transition init, not at DOM dismissal; §3.4/§5 terminal animation and eviction clarified — only `done` runs the 500 ms interpolated completion animation, `failed` snaps to `localProgress:1` and `cancelled` snaps to `localProgress:0` with no hold, `progressMemory` eviction fires immediately on any terminal status |
 | 1.3.3   | 2026-06-13 | Staleness fix: chapter-bar surface clarified to "queue drawer and Activity page" (§2.3); §7 note that the segment-handoff fill applies to whichever ScriptView mode is active (book view — primary — or script view), not script view only |
 | 1.3.2   | 2026-06-11 | H7 re-labelled defense-in-depth: backend per-job terminal latch (live-events.md 1.4.0) now guarantees no post-terminal non-terminal frames |
 | 1.3.1   | 2026-06-11 | H7 strengthened: steady-state failure suppresses late segment inputs (no resurrect after reset) |
@@ -95,13 +97,15 @@ When the rendered lane changes, the bar runs a `LaneMigration` that interpolates
 
 ### 3.4 Terminal lane and `done` transition
 
-When a lane reaches a terminal status (`completed`, `failed`, `cancelled`):
+When a lane reaches the `done` (completed) status and the previous `presentationState` was an active state (`running`, `processing`, or `finalizing`):
 
-1. `doneTransitionPendingRef` is set to `true`.
-2. The bar holds at its current (high) progress value and plays a brief completion animation.
-3. After the animation completes, the lane is dismissed from the DOM.
+1. `doneTransitionPendingRef` is set to `true` on the render where `presentationState` first becomes `'done'`.
+2. The bar holds at its current progress value and plays a 500 ms interpolated completion animation (`COMPLETION_HOLD_MS = 500`).
+3. `doneTransitionPendingRef` is cleared when the done-transition object is initialized in the subsequent effect (not at DOM dismissal).
 
-**MUST NOT** abruptly remove the bar on terminal status; the done transition MUST play first.
+`doneTransitionPendingRef` is **never** set for `failed` or `cancelled` — those statuses render `localProgress: 1` (failed) or `localProgress: 0` (cancelled) with no hold animation and no pending flag.
+
+**MUST NOT** abruptly remove the bar on `done` status without waiting for the completion animation.
 
 ### 3.5 Floor semantics (`progressMemory`)
 
@@ -188,19 +192,21 @@ These constants are defined in `ETA_CONFIDENCE` in `predictiveProgressBarHelpers
 
 ## 5. Terminal Eviction
 
-`progressMemory` (the in-memory store of lane progress history on the frontend) is capped. Terminal jobs (status `completed`, `failed`, `cancelled`) are evicted from `progressMemory` after their done transition completes.
+`progressMemory` (the in-memory store of lane progress history on the frontend) is capped. Terminal jobs (`completed`, `failed`, `cancelled`, or `queued` — any status matched by `isTerminalStatus`) are evicted from `progressMemory` **immediately** when the terminal status is observed (via the `useEffect` that watches `presentationState`). Eviction does not wait for the done-transition animation to finish.
+
+For `completed` lanes, the completion animation still runs because `doneTransitionRef` was already initialized on the prior render before the eviction effect fires; the animation completes its 500 ms hold and then the bar is dismissed. For `failed`/`cancelled` lanes there is no hold, so the eviction and the snap to terminal render happen in the same cycle.
 
 **MUST** evict terminal entries to prevent unbounded memory growth across long sessions.
-**MUST NOT** evict a lane that has not yet completed its done transition.
 
 ---
 
 ## 6. Debug Utilities
 
-`predictiveProgressBarDebug.ts` provides logging helpers for development. These helpers:
+`predictiveProgressBarDebug.ts` exports a single pure function, `buildPredictiveProgressDebugSnapshot`, which assembles a `PredictiveProgressDebugSnapshot` object from the bar's internal state fields. It has no side effects (no `console.*`, no logging, no `__DEV__` guard).
 
-**MUST NOT** be invoked in production builds; they MUST be guarded by a `__DEV__` / `import.meta.env.DEV` check or equivalent.
-**MUST NOT** affect the behavior of the bar (no side effects beyond console output).
+The snapshot builder is invoked only when the caller passes the optional `onDebugSnapshot` callback prop to `PredictiveProgressBar`. Production renders that omit `onDebugSnapshot` never call this function.
+
+**MUST NOT** call `buildPredictiveProgressDebugSnapshot` for any purpose other than forwarding to `onDebugSnapshot`; it MUST remain side-effect-free.
 
 ---
 
@@ -243,14 +249,14 @@ The following invariants are binding on all callers and on the bar implementatio
 - **C1** — SHOULD pass `allowBackwardProgress` explicitly on every render rather than relying on the `!authoritativeFloor` derived default.
 - **C2** — MUST pass a stable `persistenceKey` per lane so the `progressMemory` floor is tracked correctly. (There is no numeric `authoritativeFloor` prop to pass; the floor is derived from `progressMemory`.)
 - **C3** — MUST NOT feed `segments.progress` into a chapter-level `PredictiveProgressBar`.
-- **C4** — MUST NOT remove `PredictiveProgressBar` from the DOM on terminal status without waiting for the done transition.
+- **C4** — MUST NOT remove `PredictiveProgressBar` from the DOM on `done` (completed) status without waiting for the completion animation. `failed` and `cancelled` have no hold, so immediate removal is acceptable for those statuses.
 
 ### Bar implementation
 
 - **I1** — When backward motion is disallowed, the displayed value MUST never fall below the lane's `progressMemory` floor.
 - **I2** — A low trust weight `w` MUST increase ETA smoothing (alpha trends toward `ALPHA_MIN`) and tighten the slope cap toward `SLOPE_CAP_LOW`; the model MUST NOT present a high-confidence ETA when `w` is low.
 - **I3** — A high coefficient of variation `cv` MUST reduce base trust via `base = max(1 - K*cv, BASE_FLOOR)` (continuous), thereby damping the displayed ETA. (There is no discrete `CV_THRESHOLD` cutoff.)
-- **I4** — `doneTransitionPendingRef` MUST be set before the completion animation and cleared after dismissal.
+- **I4** — `doneTransitionPendingRef` MUST be set on the first render where `presentationState` becomes `'done'` from an active state, and MUST be cleared when the done-transition object is initialized in the subsequent effect. It MUST NOT be set for `failed` or `cancelled`.
 - **I5** — On a lane boundary the `LaneMigration` MUST interpolate the rendered start/end/startProgress between lanes for a smooth transition. (The confidence hook resets its EMA on lane change — it does not carry velocity forward.)
 - **I6** — On stall (no update for > `STALL_MS`), `getStallDecayedW()` MUST decay the trust weight `w` toward 0; the bar MUST NOT present a high-confidence ETA at a stale value indefinitely.
 

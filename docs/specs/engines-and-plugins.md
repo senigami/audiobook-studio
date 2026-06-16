@@ -1,7 +1,8 @@
 # Engines and Plugin Lifecycle
 
 ```
-spec_version: 1.1.0
+spec_version: 1.1.1
+updated: 2026-06-16
 status: active
 sources:
   - app/tts_server/server.py
@@ -18,6 +19,7 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
+| 1.1.1   | 2026-06-16 | Corrected "Engine registry cache" section: `_load_local_registry()` returns `{}` unconditionally (`@lru_cache`); there is no local manifest parsing; the fallback is an empty registry, not a locally parsed manifest list; dropped the MUST-NOT-empty claim |
 | 1.1.0   | 2026-06-15 | Added official plugin registry and GitHub repository preview/staging flow |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 
@@ -196,9 +198,10 @@ manage the TTS Server process. All lifecycle control flows through the watchdog.
 from `GET /engines`.
 
 - Cache TTL: **5 seconds**.
-- On empty result from the server (e.g. server restarting): falls back to locally
-  parsed manifests. The registry MUST NOT return an empty engine list when at least
-  one plugin folder exists on disk.
+- On empty result from the server (e.g. server restarting): falls back to an empty
+  registry (`_load_local_registry()` returns `{}` unconditionally — no local manifest
+  parsing is performed). Callers must tolerate an empty engine list while the server
+  is unreachable.
 - Queue code, route handlers, and VoiceBridge consume only the registry API; they
   MUST NOT call `GET /engines` directly.
 

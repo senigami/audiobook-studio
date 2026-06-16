@@ -1,11 +1,13 @@
 # Design System
 
 ```
-spec_version: 1.0.0
+spec_version: 1.2.0
 status: active
 created: 2026-06-13
+updated: 2026-06-16
 sources:
   - frontend/src/theme/tokens.css
+  - frontend/src/demo/stages/siteMockup/
   - frontend/src/theme/base.css
   - frontend/src/theme/components.css
   - frontend/src/theme/utilities.css
@@ -32,6 +34,8 @@ sources:
 | Version | Date       | Change |
 |---------|------------|--------|
 | 1.0.0   | 2026-06-13 | Initial canonical spec for the frontend design system |
+| 1.1.0   | 2026-06-16 | Added §9 Iconography (binding): `lucide-react` is the single icon system; canonical control→icon mapping; deliberate non-icon exceptions (status dots, raster artwork, "from→to" notation). North-Star mock standardized off Unicode glyphs onto lucide. Cross-References renumbered to §10. |
+| 1.2.0   | 2026-06-16 | Reconciled §2/§4/§5 to the current `tokens.css` (some drift predated this session). Radius bumped (`--radius-card` 14px, `--radius-panel` 18px); registry now documents the present Material (`--blur-glass*`, `--hairline`), Motion (`--ease-*`/`--dur-*`), `--focus-ring`, accent gradient/glow, and 8pt `--space-*` families. §4 type scale corrected to **tokenized (current)** and extended with `--type-display/large-title/reading` + `--leading-*`/`--tracking-*`. §5 voice-pill tints corrected to **current** (`--pill-*` exist in `tokens.css`); real-Voices-page adoption remains target. |
 
 ---
 
@@ -63,13 +67,20 @@ Token categories (current):
 | Accent | `--accent`, `--accent-hover`, `--accent-active`, `--accent-secondary`, `--accent-glow`, `--accent-tint`, `--accent-tint-bg`, `--accent-tint-border`, `--accent-focus-ring`, `--accent-rgb` |
 | State (success / warning / error) | `--success`, `--success-strong`, `--success-text`, `--success-tint-bg`, `--warning`, `--warning-text`, `--warning-tint-bg`, `--warning-tint-border`, `--error`, `--error-text`, `--error-text-strong`, `--error-tint-bg`, `--error-tint-border`, `--error-glow` |
 | Glass / overlay | `--glass`, `--glass-hover`, `--glass-subtle`, `--glass-surface-light`, `--surface-glass-white`, `--surface-glass-half`, `--overlay-backdrop` |
-| Radius | `--radius-button` (10px), `--radius-card` (12px), `--radius-panel` (16px), `--radius-round` (9999px) |
-| Shadow / elevation | `--shadow-sm`, `--shadow-md`, `--shadow-lg`, `--shadow-xl` |
+| Radius | `--radius-button` (10px), `--radius-card` (14px), `--radius-panel` (18px), `--radius-round` (9999px) |
+| Shadow / elevation | `--shadow-sm`, `--shadow-md`, `--shadow-lg`, `--shadow-xl` (soft layered ambient — a wide diffuse halo + a tight contact shadow) |
+| Material (Liquid Glass) | `--blur-glass`, `--blur-glass-strong` (for `backdrop-filter` on chrome/overlays), `--hairline` (low-alpha inner divider, softer than `--border`) |
+| Motion | `--ease-standard`, `--ease-emphasized`, `--ease-spring`, `--dur-fast`, `--dur-med`, `--dur-slow` |
+| Focus | `--focus-ring` (3px keyboard ring, built on `--accent-focus-ring`) |
+| Accent treatments | `--accent-gradient`, `--accent-gradient-hover`, `--accent-glow-strong`, `--hero-glow` (primary-action fills + hero glow) |
+| Spacing (8pt scale) | `--space-1` (4px) … `--space-8` (48px) |
+| Typography | `--type-*` sizes + `--type-weight-*`, `--leading-*`, `--tracking-*` (see §4) |
+| Voice-pill tints | `--pill-{class,gender,age,extended,tag}-{bg,border,text}` (see §5) |
 | Layout metrics | `--header-height` (56px), `--rail-width` (190px), `--rail-width-collapsed` (56px) |
 | Brand | `--as-ink`, `--as-muted`, `--as-blue`, `--as-amber`, `--as-info-tint` |
 | Progress visual states | `--progress-track`, `--progress-finalizing-fill`, `--progress-preparing-fill`, `--progress-done-fill`, `--progress-failed-fill`, `--progress-badge-*` (see `progress-presentation.md`) |
 
-Spacing in the current codebase is applied with literal `rem`/`px` values (e.g. `gap: '8px'`, `padding: '0.75rem 1.25rem'`); there is **no** `--space-*` token family yet. A tokenized spacing scale is a **target** (tracked in `plans/site_redesign_rollout/`); until it lands, use the conventional 4px-based rhythm already present in components.
+An 8pt **spacing scale** (`--space-1` = 4px, `--space-2` = 8px, … `--space-8` = 48px) is now defined in `tokens.css` and is the preferred way to express gaps and padding. Adoption is **in progress**: the North-Star mock (`frontend/src/demo/stages/siteMockup/`) uses `--space-*` throughout; some legacy real-app pages still apply literal `rem`/`px` values and should migrate onto the scale when next touched.
 
 ### 2.2 Token usage rule (binding)
 
@@ -134,7 +145,17 @@ The approved 6-step semantic type scale (owner decision U3, approved 2026-06-12 
 | caption | 0.75rem | 500 | Labels, metadata |
 | micro | 0.6875rem | 600 | Pills, badges, smallest legible text |
 
-**Status: target — approved, not yet tokenized.** There are currently **no** `--type-*` tokens in `tokens.css`, and component type sizing is applied with literal `rem` values and the global rules in `base.css` (body `font-family: "Inter", system-ui, …`, `line-height: 1.6`; headings `font-weight: 700`, `letter-spacing: -0.02em`). When this scale is tokenized, the names above SHOULD become `--type-title`, `--type-headline`, … (size + weight pair) and existing literals migrate onto them. Tokenization is tracked in `plans/site_redesign_rollout/`.
+**Status: tokenized (current).** The scale lives in `tokens.css` as the size tokens `--type-title`, `--type-headline`, `--type-body`, `--type-callout`, `--type-caption`, `--type-micro`, each paired with a `--type-weight-*` weight. Three larger sizes extend it for hero/reading surfaces:
+
+| Token | Size | Role |
+|-------|------|------|
+| `--type-display` | 2.25rem | Splash / large hero |
+| `--type-large-title` | 1.875rem | Page greeting / section hero |
+| `--type-reading` | 1.0625rem | Long-form manuscript / script body |
+
+Companion **line-height** and **letter-spacing** tokens pair with the sizes: `--leading-tight | --leading-snug | --leading-normal | --leading-reading` and `--tracking-display | --tracking-tight | --tracking-wide`.
+
+Adoption is **in progress**: the North-Star mock uses these tokens throughout; the global rules in `base.css` (body `font-family`, `line-height`; heading weight/letter-spacing) still cover legacy pages, and literal sizes on older real-app pages should migrate onto the tokens when next touched.
 
 ---
 
@@ -142,7 +163,7 @@ The approved 6-step semantic type scale (owner decision U3, approved 2026-06-12 
 
 This section governs the **presentation** of voice-attribute pills only. The attribute *values/vocabulary* (class, gender, age, language, accent, style, etc.) are owned by `voice-bundles.md` §8 and `docs/specs/voice-taxonomy.json` — do not duplicate them here.
 
-**Status: target.** The pill styling below is the owner-approved design (`plans/site_experience_north_star.md` §12) and is mocked in the site mockup demo stage (`frontend/src/demo/stages/siteMockup`). It is **not yet** wired into the real Voices page. Implementation is tracked in `plans/site_redesign_rollout/`.
+**Status: tint tokens current; real-page adoption target.** The `--pill-*` tint tokens (class / gender / age / extended / tag, each with `-bg` / `-border` / `-text`, and light + dark values) are defined in `tokens.css` and consumed by the `VoiceAttrPill` primitive in the site mockup demo stage (`frontend/src/demo/stages/siteMockup`). The owner-approved styling (`plans/site_experience_north_star.md` §12) is **not yet** wired into the real Voices page; that adoption is tracked in `plans/site_redesign_rollout/`.
 
 Approved presentation rules:
 
@@ -154,7 +175,7 @@ Approved presentation rules:
 - **Fixed order:** `class · gender · age · extended · tags`.
 - **Overflow:** excess pills collapse into a `+N` affordance that expands on tap.
 
-When implemented, these pill colors MUST be added to `tokens.css` as tokens (with light + dark values) per §2 rather than inlined.
+These pill tints live in `tokens.css` as `--pill-*` tokens (light + dark per §2); components MUST consume the tokens rather than inlining hex.
 
 ---
 
@@ -227,7 +248,55 @@ Prefer interfaces that explain *why* something is waiting or stale over generic 
 
 ---
 
-## 9. Cross-References
+## 9. Iconography
+
+### 9.1 Canonical icon library (binding)
+
+`lucide-react` (pinned in `frontend/package.json`) is the **single** icon system for the app. Every functional or decorative *icon* MUST be rendered as a lucide component. Unicode media/arrow/caret glyphs (`▶ ⏸ ⏮ ⏭ ⏪ ⏩ ■ ▾ ▲ ▼ › ‹ ← → ✓ ✗`) and emoji (`🌙 ☀️`) MUST NOT be used to render an icon: glyphs do not inherit `currentColor`, stroke weight, or optical sizing, and they drift visually between platforms and fonts. lucide gives one coherent, `currentColor`-driven, stroke-consistent set that themes for free.
+
+This rule is binding for the real app and the North-Star mock (`frontend/src/demo/stages/siteMockup/`) alike. The live `PlayerBar` already complied; the mock was standardized off glyphs onto lucide on 2026-06-16. The intent of recording it here is to prevent regressions back to glyphs.
+
+### 9.2 Canonical control → icon mapping (binding)
+
+When one of these controls is rendered, it MUST use the named lucide icon:
+
+| Control / meaning | lucide icon |
+|---|---|
+| Play / Resume | `Play` |
+| Pause | `Pause` |
+| Previous / jump to start | `SkipBack` |
+| Next / jump to end | `SkipForward` |
+| Skip back N seconds | `Rewind` |
+| Skip forward N seconds | `FastForward` |
+| Stop | `Square` |
+| Waveform ↔ bar toggle | `AudioLines` |
+| Breadcrumb separator · drill-in · disclosure-collapsed | `ChevronRight` |
+| Dropdown / expander caret · disclosure-open | `ChevronDown` |
+| Reorder up | `ChevronUp` |
+| Back within a pane | `ArrowLeft` |
+| Forward / "continue" CTA | `ArrowRight` |
+| Affirmative · success · completed | `Check` |
+| Negative · failed · dismiss/close | `X` |
+| Theme toggle — switch to dark (currently light) | `Moon` |
+| Theme toggle — switch to light (currently dark) | `Sun` |
+
+Transport icons render **outlined** (lucide default, `strokeWidth` ≈ 2–2.2) to match the live `PlayerBar`; see [audio-player.md](audio-player.md). New control types pick the closest semantically-correct lucide icon and SHOULD be added to this table.
+
+### 9.3 Deliberate non-icon exceptions
+
+These are intentionally NOT lucide and are exempt from §9.1:
+
+- **Status dots** — the connection indicator and character/voice color markers are a small colored **fill**, not an icon. (Chapter status remains `StatusOrb` only, per §6 — a plain dot is still never an acceptable substitute for `StatusOrb`.)
+- **Raster artwork** — the brand mark (`logo.png`), AI-generated voice-avatar images, and plugin-provided engine logos (`engine.logo_url`) are purposeful images, not glyph icons.
+- **"From → to" notation** — a `→` inside inline text such as `184 → 186` is typographic notation, not a control, and stays as a glyph.
+
+### 9.4 Accessibility
+
+Icon-only controls MUST carry an `aria-label` (reaffirms §8.2). A decorative icon paired with a visible text label SHOULD be `aria-hidden`.
+
+---
+
+## 10. Cross-References
 
 - Voice attribute vocabulary / taxonomy: [voice-bundles.md](voice-bundles.md) §8 and `docs/specs/voice-taxonomy.json`
 - `PredictiveProgressBar` and progress/ETA presentation: [progress-presentation.md](progress-presentation.md)

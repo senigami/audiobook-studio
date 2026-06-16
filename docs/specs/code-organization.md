@@ -1,9 +1,10 @@
 # SP10 — Code Organization Spec
 
 ```
-spec_version: 1.0.0
+spec_version: 1.1.0
 status: active
 created: 2026-06-10
+updated: 2026-06-16
 sources: app/api/web.py, app/api/tts_api.py, app/api/ws.py,
          app/core/boot.py, app/core/config.py, app/core/security.py,
          app/db/state.py, app/engines/bridge.py, app/engines/registry.py,
@@ -18,6 +19,7 @@ sources: app/api/web.py, app/api/tts_api.py, app/api/ws.py,
 
 | Version | Date       | Summary                                                     |
 |---------|------------|-------------------------------------------------------------|
+| 1.1.0   | 2026-06-16 | Fix page entry convention to `<Page>Route.tsx`; describe actual `api/` shape; add missing `frontend/src/` dirs; carve out `app.jobs.registry` from import ban |
 | 1.0.0   | 2026-06-10 | Initial spec documenting Studio 2.0 layout and conventions  |
 
 ---
@@ -190,15 +192,24 @@ frontend/
     app/              # App shell, routing, global layout
     pages/            # Route screens
       <Page>/
-        index.tsx     # Page component
-        components/   # Page-owned subcomponents (not shared outside this page)
+        <Page>Route.tsx   # Route/entry component (always present)
+        <Page>Page.tsx    # Inner page component (present when logic is split from routing)
+        components/       # Page-owned subcomponents (not shared outside this page)
     components/       # Cross-page shared UI components
     hooks/            # Custom React hooks
     api/
+      client.ts       # Base fetch client
+      index.ts        # Consolidated fetch functions for all domains
+      types.ts        # Shared API TypeScript types
       contracts/      # TypeScript types for API payloads and live-event frames
-      *.ts            # Fetch functions (one file per domain, matching routers/)
+      queries/        # React Query / data-fetching hooks
+      hydration/      # Response hydration utilities
     store/            # Global stores (socket bus, live jobs, audit)
     theme/            # CSS variables, design tokens, base styles
+    config/           # App-level configuration constants
+    constants/        # Shared constant values
+    shared/           # Cross-cutting utilities shared across layers
+    demo/             # Demo-mode assets (build-separate; not included in production bundle)
     types/            # TypeScript domain types
     utils/            # Pure helpers (jobEventAdapters, jobSelection, etc.)
   tests/
@@ -212,11 +223,11 @@ Placement rules:
 
 | What | Where |
 |---|---|
-| New route screen | `frontend/src/pages/<Page>/index.tsx` |
+| New route screen | `frontend/src/pages/<Page>/<Page>Route.tsx` (add `<Page>Page.tsx` when routing and page logic are split) |
 | Subcomponent used only by one page | `frontend/src/pages/<Page>/components/` |
 | Component used by two or more pages | `frontend/src/components/` |
 | New custom hook | `frontend/src/hooks/` |
-| New fetch function | `frontend/src/api/<domain>.ts` |
+| New fetch function | `frontend/src/api/index.ts` (consolidated; not per-domain files) |
 | New TypeScript payload type | `frontend/src/api/contracts/` or `frontend/src/types/` |
 | New global store | `frontend/src/store/` |
 | New pure utility | `frontend/src/utils/` |
@@ -275,6 +286,10 @@ New Studio 2.0 modules MUST NOT import:
 - `app.api.web` directly (except from `run.py` and test monkeypatching).
 - `app.jobs` worker-loop modules for task dispatch.
 
+**Carve-out:** `app.jobs.registry` (the handler registry, not the worker loop) MAY be imported
+for re-export as patch targets (as in `app/orchestration/scheduler/orchestrator_helpers.py`).
+The worker-loop modules (`app.jobs.worker_voice`, etc.) remain banned.
+
 ### 8.2 Engine-ID branching prohibition
 
 Core code (routes, orchestrator, queue, VoiceBridge) MUST NOT branch on engine
@@ -304,7 +319,7 @@ attempts MUST be rejected, not silently corrected.
 | New task type | `app/orchestration/tasks/<type>.py` | Derive from `tasks/base.py` |
 | New path helper | `app/utils/pathing.py` | Must pass containment check |
 | New DB operation | `app/db/<domain>.py` | Match existing facade pattern |
-| New frontend page | `frontend/src/pages/<Page>/` | Add route in `app/` shell |
+| New frontend page | `frontend/src/pages/<Page>/<Page>Route.tsx` | Add route in `app/` shell; split `<Page>Page.tsx` if routing and logic are large |
 | New shared component | `frontend/src/components/` | Only if used by 2+ pages |
 | New hook | `frontend/src/hooks/` | Mirror test in `tests/unit/hooks/` |
 | New API contract type | `frontend/src/api/contracts/` | Required for live-event test frames |
@@ -340,7 +355,7 @@ attempts MUST be rejected, not silently corrected.
 
 **MUST NOT:**
 
-- I9. New Studio 2.0 modules MUST NOT import `app.api.web` or `app.jobs` for task dispatch.
+- I9. New Studio 2.0 modules MUST NOT import `app.api.web` or `app.jobs` worker-loop modules for task dispatch. `app.jobs.registry` (handler registry) is permitted for re-export as patch targets.
 - I10. Core code MUST NOT branch on engine IDs for core behavior.
 - I11. Page-owned subcomponents MUST NOT be imported by other pages; use `components/` for shared UI.
 - I12. `app/db/__init__.py` MUST NOT auto-migrate on import.

@@ -1,9 +1,10 @@
 # SP9 — System Architecture Spec
 
 ```
-spec_version: 1.0.0
+spec_version: 1.1.0
 status: active
 created: 2026-06-10
+updated: 2026-06-16
 sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
          app/engines/watchdog.py, app/engines/bridge.py,
          app/engines/bridge_remote.py, app/engines/tts_client.py,
@@ -16,6 +17,7 @@ sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
 
 | Version | Date       | Summary                                                    |
 |---------|------------|------------------------------------------------------------|
+| 1.1.0   | 2026-06-16 | §4 rewritten: `startup_event` orchestrates steps 1–9, `boot_studio()` handles migration + handler init + watchdog; clarify two `init_db`/`migrate_state_json_to_db` call sites; I7 corrected from `/health` to `/engines` |
 | 1.0.0   | 2026-06-10 | Initial spec documenting the Studio 2.0 two-process model |
 
 ---
@@ -87,28 +89,32 @@ isolated development or plugin testing.
 
 ## 4. Boot Sequence
 
-**`app/core/boot.py`** is the sole location for startup side effects.
-The sequence is deterministic and the steps below MUST execute in this order:
+**`app/api/web.py:startup_event`** orchestrates the full startup sequence (steps 1–9 below) and then delegates service startup to **`app/core/boot.py:boot_studio()`** in a background thread (step 10).  `app/core/boot.py` is the *intent* boundary for startup side effects — no module import may start threads, register listeners, or reconcile state — but the sequence itself is driven by `startup_event`.
 
-| Step | Action | Module |
+The steps are deterministic and MUST execute in this order:
+
+| Step | Action | Call site / Module |
 |---|---|---|
-| 1 | `init_db()` — create SQLite tables if not present | `app/db/__init__.py` |
-| 2 | Migrate voice profiles to V2 storage format | `app/db/speakers.py` |
-| 3 | Migrate legacy project covers to project-local storage | `app/db/` |
-| 4 | **Snapshot** recoverable task contexts (BEFORE clearing stuck jobs) | `app/orchestration/scheduler/recovery.py` |
-| 5 | Clear stuck in-memory jobs (`queued`/`running`/`preparing`/`finalizing`) from `state.json` | `app/db/state_jobs.py` |
-| 6 | Reconcile chapter statuses and SQLite `processing_queue` rows vs live `state.json` | `app/db/reconcile.py`, `app/db/queue.py` |
-| 7 | Register job listeners for WebSocket broadcast | `app/api/ws.py` |
-| 8 | `run_startup_recovery(contexts)` — re-submit interrupted tasks | `app/orchestration/scheduler/recovery.py` |
-| 9 | Restore pause state from settings | `app/orchestration/scheduler/resources.py` |
-| 10 | `boot_studio()` in background thread → `boot_tts_server()` → start watchdog | `app/core/boot.py`, `app/engines/watchdog.py` |
+| 1a | `init_db()` — create SQLite tables if not present | `app/api/web.py:startup_event` → `app/db/__init__.py` |
+| 1b | Migrate voice profiles to V2 storage format | `app/api/web.py:startup_event` → `app/db/migration.py` |
+| 1c | Migrate legacy project covers to project-local storage | `app/api/web.py:startup_event` → `app/db/migration.py` |
+| 2 | **Snapshot** recoverable task contexts (BEFORE clearing stuck jobs) | `app/api/web.py:startup_event` → `app/orchestration/scheduler/recovery.py` |
+| 3 | Clear stuck in-memory jobs (`queued`/`running`/`preparing`/`finalizing`) from `state.json` | `app/api/web.py:startup_event` → `app/db/state_jobs.py` |
+| 4 | Reconcile chapter statuses and SQLite `processing_queue` rows vs live `state.json` | `app/api/web.py:startup_event` → `app/db/reconcile.py`, `app/db/queue.py` |
+| 5 | Register job listeners for WebSocket broadcast | `app/api/web.py:startup_event` → `app/api/ws.py` |
+| 6 | `run_startup_recovery(contexts)` — re-submit interrupted tasks | `app/api/web.py:startup_event` → `app/core/boot.py:run_startup_recovery` |
+| 7 | Restore pause state from settings | `app/api/web.py:startup_event` → `app/orchestration/scheduler/resources.py` |
+| 8 | `boot_studio()` in background thread — runs DB migration (`migrate_state_json_to_db()`), initializes job handlers (`initialize_default_handlers()`), then calls `boot_tts_server()` | `app/core/boot.py` |
+| 9 | `boot_tts_server()` → orphan cleanup + start watchdog | `app/core/boot.py` → `app/engines/watchdog.py` |
 
-Step 4 MUST precede step 5.  Snapshotting after clearing would lose the
+Step 2 MUST precede step 3.  Snapshotting after clearing would lose the
 contexts needed for recovery and is a critical ordering invariant (see
 [queue-jobs.md §5.3](queue-jobs.md)).
 
-`app/db/__init__.py` MUST NOT auto-migrate on import; callers invoke migration
-explicitly through the boot sequence.
+Note: `init_db()` is called directly in `startup_event` (step 1a); the separate
+`migrate_state_json_to_db()` call happens inside `boot_studio()` (step 8) via
+`app/db/migration.py`.  `app/db/__init__.py` MUST NOT auto-migrate on import;
+callers invoke migration explicitly through the boot sequence.
 
 ---
 
@@ -249,7 +255,7 @@ accidental ordering dependencies between imports.
 - I4. `app/db/__init__.py` MUST only run migrations when called explicitly; auto-migration on import is forbidden.
 - I5. Plugin manifests MUST declare an explicit `studio_tts_manifest` version (currently `"1.0"`) that is validated at load time.
 - I6. Plugin IDs MUST match `^tts_[a-z][a-z0-9]{1,14}$`.
-- I7. Engine metadata MUST be sourced from the TTS Server's `/health` response and cached in `app/engines/registry.py`.
+- I7. Engine metadata MUST be sourced from the TTS Server's `GET /engines` endpoint and cached in `app/engines/registry.py`.
 
 **MUST NOT:**
 

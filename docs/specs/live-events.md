@@ -1,7 +1,7 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.5.0
+spec_version: 1.5.1
 status: active
 sources:
   - app/api/ws.py
@@ -17,6 +17,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.5.1   | 2026-06-16 | `segments.progress` topic: eventKind is only `segment_progress`; segment start/saved are signalled via `reasonCode` (`SEGMENT_PENDING`/`SEGMENT_SAVED`), not as distinct eventKinds. |
 | 1.5.0   | 2026-06-11 | `SEGMENT_PENDING` reason code: `[START_SEGMENT]` marker now emits `SEGMENT_PENDING` (announce, no segment ETA) rather than `START_SEGMENT`. Canonical `START_SEGMENT` with ETA is emitted only at engine confirmation (`[START_SYNTHESIS]` or first `[PROGRESS]`). Frontends must not begin pacing a progress bar on `SEGMENT_PENDING`. |
 | 1.4.1   | 2026-06-11 | Engine-confirmed segment ETA clock: per-segment clock starts at engine confirmation (`[START_SYNTHESIS]` or first `[PROGRESS]`), not at `[START_SEGMENT]`; `[START_SEGMENT]` is an announcement that may precede model load. Duration falls back to announce time if no confirmation arrives before `[SEGMENT_SAVED]`. |
 | 1.4.0   | 2026-06-11 | Terminal ordering guarantee: per-job terminal latch at the broadcast chokepoint (`broadcast_job_updated` / `broadcast_segment_progress` in `app/api/ws.py`). After a job's terminal frame (`done`/`failed`/`cancelled`), no non-terminal frame for that job is broadcast on any topic unless the job legally re-enters via `queued`/`preparing` (requeue). Mirrors `ProgressService._should_emit`; frontend H7 suppression (progress-presentation.md) is now defense-in-depth. |
@@ -105,7 +106,7 @@ today. The backend emits on all of them. Verified against `build_*` calls in
 | `chapters.lifecycle`      | `chapter_lifecycle`                                                     | `chapter`  | `app/api/ws.py broadcast_chapter_updated` |
 | `chapters.progress`       | `chapter_progress`                                                      | `chapter`  | `app/api/ws.py broadcast_job_updated` (chapter-classified jobs) |
 | `segments.lifecycle`      | `segment_lifecycle`                                                     | `segment`  | `app/api/ws.py broadcast_segments_updated` |
-| `segments.progress`       | `segment_progress`, `segment_started`, `segment_saved`                  | `segment`  | `app/api/ws.py broadcast_job_updated`, `broadcast_segment_progress` |
+| `segments.progress`       | `segment_progress`                                                      | `segment`  | `app/api/ws.py broadcast_job_updated`, `broadcast_segment_progress` |
 | `voice.test`              | `voice_test_progress`                                                   | `voice`    | `app/api/ws.py broadcast_test_progress` |
 | `tts.logs`                | `tts_log`                                                               | `log`      | `app/api/ws.py broadcast_tts_log_line` |
 | `system.events`           | `system_event`                                                          | `system`   | `app/api/contracts/events.py build_system_event` |
@@ -176,7 +177,11 @@ interface ChapterProgressPayload {
 }
 ```
 
-### `segments.progress` / `segment_progress | segment_started | segment_saved`
+### `segments.progress` / `segment_progress`
+
+Segment start and saved transitions are signalled via the `reasonCode` field
+(`SEGMENT_PENDING` for announce, `START_SEGMENT` for engine-confirmed start,
+`SEGMENT_SAVED` for completion) — never as a distinct envelope `eventKind`.
 
 ```ts
 interface SegmentProgressPayload {

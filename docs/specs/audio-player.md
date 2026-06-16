@@ -1,10 +1,10 @@
 # Global Audio Player
 
 ```
-spec_version: 1.4.0
+spec_version: 1.5.0
 status: active
 created: 2026-06-13
-updated: 2026-06-15
+updated: 2026-06-16
 sources:
   - plans/site_experience_north_star.md
   - plans/site_redesign_rollout/06_phase_r4_player_review.md
@@ -26,6 +26,7 @@ sources:
 | 1.2.0   | 2026-06-15 | **U16 waveform representation rule affirmed (owner):** representation follows scope — Segment scope shows the waveform *inline as the scrub track*; Chapter scope shows a *plain seek bar*; the separate user wave toggle is removed. Responsive exception: when the bar is too narrow, the segment waveform reflows *above* the controls at reduced height. Time is segment-relative in Segment scope. Supersedes the R7 toggleable expansion strip (§5). **Implementation pending** — current code still ships the R7 toggle; tracked as a separate task. |
 | 1.3.0   | 2026-06-15 | **U16 scope-driven waveform SHIPPED in the live `PlayerBar`.** Removed the `player-btn-wave` toggle, `playerPrefs.ts` (`load/saveWaveformPref`), and the `player-bar-expansion` slot + `--player-waveform-height`. Segment scope renders `WaveformStrip` inline as the scrub track; chapter/preview scope renders the plain `<input type=range>` slider. Responsive above-reflow implemented via a CSS container query on `.player-bar` (`.player-scrub--wave { order:-1; flex-basis:100% }`), one wavesurfer instance repositioned by flex — not a viewport media query. Single-owner (`<audio>`) invariant preserved. |
 | 1.4.0   | 2026-06-15 | **Representation-override toggle re-added (owner).** The scrub representation still *defaults* to scope (segment → waveform, chapter/preview → bar), but a far-right `player-btn-wave` toggle lets the user flip waveform ↔ bar on demand. Override is in-component state (`forceWave: boolean \| null`), reset to the scope default whenever a new source loads (`requestId`). NOT persisted across sessions (no `playerPrefs` resurrection). Time/audio still follow scope; only the scrub *look* is overridable. |
+| 1.5.0   | 2026-06-16 | **Transport + toggle icons standardized on `lucide-react`** (§1): `SkipBack · Rewind · Play/Pause · FastForward · SkipForward` for transport, `AudioLines` for the waveform↔bar toggle — never Unicode media glyphs. The North-Star mock PlayerBar was migrated off glyphs to match the live bar. Canonical control→icon mapping now owned by `design-system.md` §9 Iconography. |
 
 ---
 
@@ -38,6 +39,8 @@ This spec is the **binding active contract** for the global audio player establi
 Delivery phases: R4 (core playerBus + PlayerBar + adapters + Review playback), R7 (VCR skim, scope toggle, waveform). Canonical owner decisions: `plans/site_experience_north_star.md` (U16, U16 waveform amendment, Q6 collapse-when-empty) and ADR-0010.
 
 Specs and code are jointly authoritative. If they disagree, resolve the drift explicitly by changing one or the other, and note it in the changelog.
+
+**Icons (binding):** all transport and toggle controls render as `lucide-react` components — `SkipBack` · `Rewind` · `Play`/`Pause` · `FastForward` · `SkipForward` for the VCR transport, and `AudioLines` for the far-right waveform↔bar toggle — never Unicode media glyphs (`▶ ⏸ ⏮ …`). Transport icons are outlined (lucide default, `strokeWidth` ≈ 2–2.2). The canonical control→icon mapping is owned by [design-system.md](design-system.md) §9 Iconography.
 
 Cross-reference: shell/route placement of the bar is governed by [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md).
 

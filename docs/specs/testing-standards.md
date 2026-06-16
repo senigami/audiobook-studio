@@ -1,10 +1,25 @@
 # Testing Standards
 
-**spec_version:** 1.0
+```
+spec_version: 1.0.1
+status: active
+created: 2026-06-10
+updated: 2026-06-16
+sources:
+  - CLAUDE.md
+  - .agent/rules/verification.md
+  - pytest.ini
+  - conftest.py
+  - frontend/tests/
+  - plans/final_release/audits/
+```
 
 ## Changelog
 
-- **1.0** (2026-06-10) — Initial spec, promoted from CLAUDE.md rules R1–R4 and the classification rubric in doc 17.
+| Version | Date       | Change |
+|---------|------------|--------|
+| 1.0.1   | 2026-06-16 | Frontmatter normalized to fenced code block; corrected audit filename `test_audit_queue_jobs.md` → `test_audit_backend_queue_jobs.md` |
+| 1.0     | 2026-06-10 | Initial spec, promoted from CLAUDE.md rules R1–R4 and the classification rubric in doc 17 |
 
 ## Purpose
 
@@ -217,7 +232,7 @@ When reviewing a new test, verify all five items:
 ## Classification Tables & Audit Records
 
 Test classification tables live under `plans/final_release/audits/`:
-- `test_audit_queue_jobs.md` — Queue/job lifecycle tests (T1)
+- `test_audit_backend_queue_jobs.md` — Queue/job lifecycle tests (T1)
 - `test_audit_progress_segments.md` — Segment/progress tests (T2)
 - `test_audit_frontend_components.md` — Frontend websocket/socket tests (T3 scope)
 - `test_audit_api_part1.md`, `test_audit_api_part2.md` — API tests (T4)
