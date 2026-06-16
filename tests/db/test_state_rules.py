@@ -86,6 +86,43 @@ def test_reset_to_queued_from_terminal_status():
         assert state["jobs"][f"test_reset_{terminal}"]["status"] == "queued"
         assert state["jobs"][f"test_reset_{terminal}"]["progress"] == 0.0
 
+def test_reset_to_preparing_from_terminal_status():
+    # Rule: terminal → preparing must apply the status AND clear reset fields (spec §3.5)
+    # Mirrors test_reset_to_queued_from_terminal_status; passes None reset values explicitly
+    # so that the terminal_reset branch clears them (same pattern as requeue).
+    for terminal in ["done", "failed", "cancelled"]:
+        job = Job(
+            id=f"test_reset_prep_{terminal}",
+            engine="xtts",
+            chapter_file="c1.txt",
+            status=terminal,
+            progress=1.0,
+            finished_at=time.time(),
+            error="some error",
+            eta_seconds=99,
+            eta_basis="remaining_from_update",
+            estimated_end_at=time.time(),
+            created_at=time.time(),
+        )
+        put_job(job)
+
+        update_job(
+            f"test_reset_prep_{terminal}",
+            status="preparing",
+            progress=0.0,
+            finished_at=None,
+            error=None,
+            eta_seconds=None,
+        )
+        state = load_state()
+        j = state["jobs"][f"test_reset_prep_{terminal}"]
+        assert j["status"] == "preparing", f"Expected status='preparing' after terminal={terminal!r} reset, got {j['status']!r}"
+        assert j["progress"] == 0.0
+        assert j["finished_at"] is None, "finished_at must be cleared on terminal reset"
+        assert j["error"] is None, "error must be cleared on terminal reset"
+        assert j["eta_seconds"] is None, "eta_seconds must be cleared on terminal reset"
+
+
 def test_force_broadcast_overrides_protection():
     job = Job(id="test_force", engine="xtts", chapter_file="c1.txt", status="done", progress=1.0, created_at=time.time())
     put_job(job)

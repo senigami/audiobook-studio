@@ -64,6 +64,22 @@ class TestApplyStatusRegressionGuard:
         ok, _ = apply_status_regression_guard("done", "queued", False)
         assert ok is True
 
+    def test_terminal_to_preparing_allowed_done(self):
+        # Bug guard: terminal → preparing is a legitimate clean-slate reset (spec §3.5)
+        ok, reason = apply_status_regression_guard("done", "preparing", False)
+        assert ok is True
+        assert reason is None
+
+    def test_terminal_to_preparing_allowed_failed(self):
+        ok, reason = apply_status_regression_guard("failed", "preparing", False)
+        assert ok is True
+        assert reason is None
+
+    def test_terminal_to_preparing_allowed_cancelled(self):
+        ok, reason = apply_status_regression_guard("cancelled", "preparing", False)
+        assert ok is True
+        assert reason is None
+
     def test_force_broadcast_allows_regression(self):
         ok, _ = apply_status_regression_guard("running", "preparing", True)
         assert ok is True

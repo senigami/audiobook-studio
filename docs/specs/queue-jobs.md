@@ -1,8 +1,9 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.2.0
+spec_version: 1.2.2
 status: active
+updated: 2026-06-16
 created: 2026-06-10
 sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
          app/orchestration/scheduler/{orchestrator,policies,resources,recovery}.py,
@@ -15,6 +16,8 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.2.2   | 2026-06-16 | Bug fix: `apply_status_regression_guard` now allows terminal→`preparing` (not only terminal→`queued`); matches §3.5 / `is_terminal_reset` / drop-guard which already treated both as valid resets. Fixed by expanding the `ACTIVE_STATUSES` check in `app/db/state_job_guards.py`. |
+| 1.2.1   | 2026-06-16 | §3.2 corrected line citations: `put_job` remap at `app/db/state_jobs.py:74-75`, `update_job` remap at `app/db/state_jobs.py:188-189`. |
 | 1.2.0   | 2026-06-13 | §10 Presentation surfaces added: documents where jobs are shown (queue drawer = glance, Activity page = depth) per north-star decision 9; dead `/queue` opens the drawer and bounces back; both surfaces read the same job data (live-events.md `queue.items` row authority) |
 | 1.1.2   | 2026-06-11 | Terminal latch at the ws broadcast chokepoint (live-events.md §"Terminal ordering guarantee"): terminal reset / `queued`/`preparing` re-entry unlatches; `delete_jobs`/`clear_all_jobs` clear latch entries (§3.5) |
 | 1.1.1   | 2026-06-11 | §3.6 voice-sample exception: samples auto-convert WAV→sample.mp3 (owner ruling) |
@@ -165,7 +168,7 @@ Priority ordering enforced by `update_job`:
 
 Both `put_job` and `update_job` silently remap `status="finalizing"` to
 `status="running"` before writing.  `finalizing` never appears in `state.json`.
-(Source: `put_job` line 67, `update_job` line 182.)
+(Source: `put_job` ~line 74-75, `update_job` ~line 188-189, in `app/db/state_jobs.py`.)
 
 ### 3.3 Normal forward path
 
@@ -586,6 +589,7 @@ Each invariant is verified by at least one existing test.
 | I15 — terminal updates dropped | `tests/db/test_state_rules.py::test_force_broadcast_overrides_protection` |
 | requeue clean slate | `tests/db/test_state_rules.py::test_requeue_clean_slate` |
 | requeue terminal-reset broadcast | `tests/db/test_state_jobs_broadcast.py::test_requeue_emits_terminal_reset_broadcast` |
+| terminal → preparing reset applies status + clears reset fields | `tests/db/test_state_rules.py::test_reset_to_preparing_from_terminal_status` |
 | ETA projection uses clamped progress | `tests/db/test_state_rules.py::test_eta_projection_uses_clamped_progress` |
 | segment ETA fields not clobbered by chapter update | `tests/db/test_state_rules.py::test_chapter_queue_updates_do_not_overwrite_active_segment_eta` |
 | B2 concurrency: status_changed invariant | `tests/db/test_state_jobs_broadcast.py::test_concurrent_put_job_update_job_broadcast_consistency` |
