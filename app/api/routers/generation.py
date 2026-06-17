@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from ...domain.chunk_groups import build_chapter_queue_title, build_segment_job_title
 from ...db import (
     add_to_queue as db_add_to_queue, get_chapter_segments,
-    get_connection
+    get_connection, get_chapter, get_project
 )
 from ...db.queue import upsert_queue_row
 
@@ -69,10 +69,11 @@ def _engine_usable_error(engine_id: str):
 
 
 def _resolved_segment_profiles(chapter_id: str, only_segment_ids: Optional[set[str]] = None) -> list[Optional[str]]:
-    segments = get_chapter_segments(chapter_id)
+    from app.domain.chunk_groups import load_chunk_segments, resolve_segment_profile_name
+    segments = load_chunk_segments(chapter_id)
     if only_segment_ids:
-        segments = [segment for segment in segments if segment["id"] in only_segment_ids]
-    return [segment.get("speaker_profile_name") for segment in segments]
+        segments = [s for s in segments if s["id"] in only_segment_ids]
+    return [resolve_segment_profile_name(s, None) for s in segments]
 
 
 def _ensure_engines_enabled(engine_ids: list[str]) -> Optional[JSONResponse]:
@@ -272,8 +273,14 @@ def api_add_to_queue(
         # `speaker_profile_name`). So a fully/partly cast chapter renders even
         # with no explicit pick and no global default. Block ONLY when nothing
         # resolves anywhere — no pick, no default, and no segment is cast.
+        _chapter_row = get_chapter(chapter_id) or {}
+        _chapter_default = (_chapter_row.get("speaker_profile_name") or "").strip() or None
+        _project_row = get_project(project_id) or {}
+        _project_default = (_project_row.get("speaker_profile_name") or "").strip() or None
         active_profile = (
             speaker_profile
+            or _chapter_default
+            or _project_default
             or settings.get("default_speaker_profile")
             or next((p for p in _resolved_segment_profiles(chapter_id) if p), None)
         )

@@ -178,7 +178,16 @@ export function CastPalette({
         </div>
 
         {characters.map((char) => {
-          const speakerMatch = speakers.find((s) => s.name === char.speaker_profile_name);
+          // A character stores its voice as a COMPOUND profile name ("Male - Young"),
+          // but speakers are named by their BASE ("Male"). Resolve the speaker via the
+          // character's own profile's speaker_id (compound-safe); fall back to exact- then
+          // base-name match so non-variant voices and legacy data still work.
+          const charProfile = speakerProfiles.find((p) => p.name === char.speaker_profile_name);
+          const baseName = (char.speaker_profile_name ?? "").split(" - ")[0];
+          const speakerMatch =
+            (charProfile ? speakers.find((s) => s.id === charProfile.speaker_id) : undefined) ||
+            speakers.find((s) => s.name === char.speaker_profile_name) ||
+            speakers.find((s) => s.name === baseName);
           const variants = speakerMatch ? speakerProfiles.filter((p) => p.speaker_id === speakerMatch.id) : [];
           const isExpanded = expandedCharacterId === char.id;
           const isSpeakerSelected = selectedCharacterId === char.id;

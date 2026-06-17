@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+from collections import deque
 from pathlib import Path
 from typing import Any
 
@@ -260,9 +261,18 @@ class XttsPlugin(StudioTTSEngine):
 
         active_segment_id: str | None = None
         segment_starts: dict[str, float] = {}
+        recent_output: deque[str] = deque(maxlen=40)
 
         def parse_output(line: str):
             nonlocal active_segment_id
+            # Always capture raw output for failure diagnostics — outside the
+            # marker-parsing try/except so a bad line never stops capture.
+            try:
+                stripped = line.strip()
+                if stripped:
+                    recent_output.append(stripped)
+            except Exception:
+                pass
             try:
                 cleaned = line.strip()
                 if not cleaned:
@@ -378,9 +388,15 @@ class XttsPlugin(StudioTTSEngine):
                 temp_wav.unlink(missing_ok=True)
 
         if rc != 0 or not render_wav_path.exists():
-            return TTSResult(
-                ok=False, error="XTTS synthesis did not produce an audio file."
-            )
+            if recent_output:
+                tail = "\n".join(recent_output)
+                # Cap total appended chars so a huge traceback can't bloat the response.
+                if len(tail) > 4000:
+                    tail = tail[-4000:]
+                error = f"XTTS synthesis did not produce an audio file. Worker output tail:\n{tail}"
+            else:
+                error = "XTTS synthesis did not produce an audio file. (no worker output captured)"
+            return TTSResult(ok=False, error=error)
 
         if output_format == "mp3" and temp_wav is not None:
             mp3_rc = self._wav_to_mp3(temp_wav, output_path)

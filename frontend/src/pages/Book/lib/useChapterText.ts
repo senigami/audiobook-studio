@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/api';
 import { deriveChapterLifecycle } from '@/pages/Book/lib/chapterLifecycle';
 import type { ResyncPreviewData } from '@/pages/ChapterEditor/components/ResyncPreviewModal';
@@ -14,6 +14,12 @@ export function useChapterText(chapter: Chapter | null, onSaved?: () => Promise<
   const [previewData, setPreviewData] = useState<ResyncPreviewData | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [resyncing, setResyncing] = useState(false);
+
+  // Refs so the autosave cleanup can flush with the latest values without
+  // stale-closure issues.
+  const pendingSaveRef = useRef(false);
+  const latestTextRef = useRef(text);
+  const latestChapterRef = useRef(loadedChapter);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,10 +61,20 @@ export function useChapterText(chapter: Chapter | null, onSaved?: () => Promise<
   const originalText = loadedChapter?.text_content || '';
   const hasTextChanges = text.replace(/\r\n/g, '\n') !== originalText.replace(/\r\n/g, '\n');
 
+  // Keep refs in sync so the cleanup closure always sees current values.
+  useEffect(() => {
+    latestTextRef.current = text;
+  });
+  useEffect(() => {
+    latestChapterRef.current = loadedChapter;
+  });
+
   useEffect(() => {
     if (!loadedChapter || isProduced || !hasTextChanges) return;
     setSaveState('editing');
+    pendingSaveRef.current = true;
     const timer = setTimeout(async () => {
+      pendingSaveRef.current = false;
       setSaveState('saving');
       try {
         const result = await api.updateChapter(loadedChapter.id, { text_content: text });
@@ -71,7 +87,20 @@ export function useChapterText(chapter: Chapter | null, onSaved?: () => Promise<
       }
     }, 1500);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      // Flush: if the debounce was cancelled while a save was still pending
+      // (e.g. the component unmounts within 1500ms of the last keystroke),
+      // fire the save immediately so the edit is not lost.
+      if (pendingSaveRef.current) {
+        pendingSaveRef.current = false;
+        const chapter = latestChapterRef.current;
+        const textToSave = latestTextRef.current;
+        if (chapter) {
+          void api.updateChapter(chapter.id, { text_content: textToSave });
+        }
+      }
+    };
   }, [hasTextChanges, isProduced, loadedChapter, onSaved, text]);
 
   const requestResyncPreview = async () => {

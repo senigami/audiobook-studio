@@ -15,6 +15,7 @@ import argparse  # noqa: E402
 import warnings  # noqa: E402
 import json  # noqa: E402
 import hashlib  # noqa: E402
+from core.serve_speakers import build_unique_speakers  # noqa: E402
 
 # Suppress common XTTS/Torch warnings that clutter logs
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -309,12 +310,7 @@ def _run_serve_job(job: dict, tts, xtts_model, device) -> int:
         return gpt_cond_latent, speaker_embedding
 
     # ---- pre-load latents -------------------------------------------
-    unique_speakers: dict = {}
-    for s in script:
-        vpdir = s.get("voice_profile_dir") or voice_profile_dir
-        sw = s.get("speaker_wav") or ""
-        key = (vpdir or "", sw)
-        unique_speakers[key] = (sw or None, vpdir)
+    unique_speakers: dict = build_unique_speakers(script, voice_profile_dir)
 
     speaker_latents: dict = {}
     for key, (sw, vpdir) in unique_speakers.items():

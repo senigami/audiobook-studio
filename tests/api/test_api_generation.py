@@ -115,8 +115,8 @@ def test_queue_chapter_proceeds_when_segments_cast_without_default(clean_db, cli
     cid = create_chapter(pid, "C1", "Hello world.")
 
     with timeout_after(5, "queue route should not hang"), \
-         patch("app.api.routers.generation.get_chapter_segments", return_value=[
-             {"id": "s1", "speaker_profile_name": "Voice1", "audio_status": "unprocessed", "audio_file_path": None},
+         patch("app.domain.chunk_groups.load_chunk_segments", return_value=[
+             {"id": "s1", "speaker_profile_name": "Voice1", "character_speaker_profile_name": None, "text_content": "Hello world.", "audio_status": "unprocessed", "audio_file_path": None},
          ]), \
          patch("app.api.routers.generation.put_job"), \
          patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
@@ -180,9 +180,9 @@ def test_bake_chapter_mixed_engines_use_mixed_worker(clean_db, client):
     from app.db.state import update_settings
     update_settings({"mistral_api_key": "abc123"})
 
-    with patch("app.api.routers.generation.get_chapter_segments", return_value=[
-        {"speaker_profile_name": "SingleEngine Voice", "audio_status": "done", "audio_file_path": "1.wav"},
-        {"speaker_profile_name": "Voxtral Voice", "audio_status": "unprocessed", "audio_file_path": None},
+    with patch("app.domain.chunk_groups.load_chunk_segments", return_value=[
+        {"id": "s1", "speaker_profile_name": "SingleEngine Voice", "character_speaker_profile_name": None, "text_content": "Hello world.", "audio_status": "done", "audio_file_path": "1.wav"},
+        {"id": "s2", "speaker_profile_name": "Voxtral Voice", "character_speaker_profile_name": None, "text_content": "Goodbye world.", "audio_status": "unprocessed", "audio_file_path": None},
     ]), \
          patch("app.api.routers.generation.put_job") as mock_put_job, \
          patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"), \
@@ -534,9 +534,9 @@ def test_queue_chapter_mixed_engines_use_mixed_worker(clean_db, client):
     from app.db.state import update_settings
     update_settings({"mistral_api_key": "abc123"})
 
-    with patch("app.api.routers.generation.get_chapter_segments", return_value=[
-        {"speaker_profile_name": "SingleEngine Voice", "audio_status": "unprocessed", "audio_file_path": None},
-        {"speaker_profile_name": "Voxtral Voice", "audio_status": "unprocessed", "audio_file_path": None},
+    with patch("app.domain.chunk_groups.load_chunk_segments", return_value=[
+        {"id": "s1", "speaker_profile_name": "SingleEngine Voice", "character_speaker_profile_name": None, "text_content": "Hello world.", "audio_status": "unprocessed", "audio_file_path": None},
+        {"id": "s2", "speaker_profile_name": "Voxtral Voice", "character_speaker_profile_name": None, "text_content": "Goodbye world.", "audio_status": "unprocessed", "audio_file_path": None},
     ]), \
          patch("app.api.routers.generation.put_job") as mock_put_job, \
          patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"), \
@@ -960,9 +960,9 @@ def test_queue_chapter_mixed_engine_builds_weighted_script(clean_db, client):
     cid = create_chapter(pid, "C1", "Hello world. Goodbye world.")
     sync_chapter_segments(cid, "Hello world. Goodbye world.")
 
-    with patch("app.api.routers.generation.get_chapter_segments", return_value=[
-        {"speaker_profile_name": "SingleEngine Voice", "audio_status": "unprocessed", "audio_file_path": None},
-        {"speaker_profile_name": "Voxtral Voice", "audio_status": "unprocessed", "audio_file_path": None},
+    with patch("app.domain.chunk_groups.load_chunk_segments", return_value=[
+        {"id": "s1", "speaker_profile_name": "SingleEngine Voice", "character_speaker_profile_name": None, "text_content": "Hello world.", "audio_status": "unprocessed", "audio_file_path": None},
+        {"id": "s2", "speaker_profile_name": "Voxtral Voice", "character_speaker_profile_name": None, "text_content": "Goodbye world.", "audio_status": "unprocessed", "audio_file_path": None},
     ]), \
          patch("app.api.routers.generation.put_job"), \
          patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit") as mock_submit, \

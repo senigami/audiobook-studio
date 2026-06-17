@@ -191,19 +191,78 @@ def save_script_assignments(
                 for sid in span_ids:
                     flat_assignments.append((char_id, prof_name, str(sid)))
 
+            # Collect the stale audio paths for segments whose voice is actually
+            # changing (audio_status='done' AND different character/profile) so we
+            # can delete those files from disk after the lock is released.
+            stale_segment_ids: list[str] = []
+            stale_audio_files: list[str] = []
+            if flat_assignments:
+                placeholders = ",".join("?" * len(flat_assignments))
+                span_id_list = [sid for _, _, sid in flat_assignments]
+                cursor.execute(
+                    f"""
+                    SELECT id, character_id, speaker_profile_name, audio_file_path
+                    FROM chapter_segments
+                    WHERE id IN ({placeholders}) AND chapter_id = ? AND audio_status = 'done'
+                    """,
+                    span_id_list + [chapter_id],
+                )
+                current_map = {row["id"]: dict(row) for row in cursor.fetchall()}
+                for new_char_id, new_prof_name, sid in flat_assignments:
+                    cur = current_map.get(sid)
+                    if cur is None:
+                        continue
+                    cur_char = cur["character_id"]
+                    cur_prof = cur["speaker_profile_name"] or ""
+                    new_prof = new_prof_name or ""
+                    if cur_char != new_char_id or cur_prof != new_prof:
+                        stale_segment_ids.append(sid)
+                        if cur["audio_file_path"]:
+                            stale_audio_files.append(cur["audio_file_path"])
+
             cursor.executemany(
                     """
                     UPDATE chapter_segments
                     SET character_id = ?,
                         speaker_profile_name = ?,
-                        audio_status = CASE 
+                        audio_status = CASE
                             WHEN audio_status = 'done' AND (character_id IS NOT ? OR IFNULL(speaker_profile_name, '') IS NOT IFNULL(?, '')) THEN 'unprocessed'
                             ELSE audio_status
+                        END,
+                        audio_file_path = CASE
+                            WHEN audio_status = 'done' AND (character_id IS NOT ? OR IFNULL(speaker_profile_name, '') IS NOT IFNULL(?, '')) THEN NULL
+                            ELSE audio_file_path
+                        END,
+                        audio_generated_at = CASE
+                            WHEN audio_status = 'done' AND (character_id IS NOT ? OR IFNULL(speaker_profile_name, '') IS NOT IFNULL(?, '')) THEN NULL
+                            ELSE audio_generated_at
                         END
                     WHERE id = ? AND chapter_id = ?
                     """,
-                    [(char_id, prof_name, char_id, prof_name, span_id, chapter_id) for char_id, prof_name, span_id in flat_assignments],
+                    [
+                        (char_id, prof_name, char_id, prof_name, char_id, prof_name, char_id, prof_name, span_id, chapter_id)
+                        for char_id, prof_name, span_id in flat_assignments
+                    ],
                 )
+
+            project_id = chapter_row.get("project_id")
+
+    # Delete stale audio files from disk outside the lock (mirrors update_segment).
+    if stale_segment_ids and project_id:
+        try:
+            from app.db.chapters_cleanup import cleanup_chapter_audio_files
+            cleanup_chapter_audio_files(
+                project_id,
+                chapter_id,
+                stale_segment_ids,
+                explicit_files=stale_audio_files or None,
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Failed to clean up chapter audio after script assignment change",
+                exc_info=True,
+            )
 
     return get_script_view_payload(chapter_id)
 

@@ -14,6 +14,7 @@ from ...utils.text.textops import (
 )
 from ...engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
 from ...engines.behavior import get_text_chunk_limit, get_text_split_target
+from ...engines.voice_engines import get_default_profile_engine, list_tts_engines
 from ...db import state
 from ...utils.pathing import safe_basename, safe_join_flat
 
@@ -102,7 +103,11 @@ def api_analyze_chapter(chapter_id: str):
             chars = get_characters(chap["project_id"])
             char_map = {c["id"]: c for c in chars}
 
-            engine_id = chap.get("engine_id") or state.get_settings().get("default_engine")
+            settings = state.get_settings()
+            enabled = settings.get("enabled_plugins") or {}
+            engine_id = chap.get("engine_id") or get_default_profile_engine(settings) or next(
+                (e for e in list_tts_engines() if enabled.get(e, True)), None
+            )
             if not engine_id:
                 raise AnalysisError("No TTS engine configured", 400)
             chunk_limit = get_text_chunk_limit(engine_id)
@@ -222,7 +227,11 @@ def api_analyze_text(req: AnalyzeTextRequest):
         text_content = req.text_content
         stats = get_text_stats(text_content)
 
-        engine_id = state.get_settings().get("default_engine")
+        settings = state.get_settings()
+        enabled = settings.get("enabled_plugins") or {}
+        engine_id = get_default_profile_engine(settings) or next(
+            (e for e in list_tts_engines() if enabled.get(e, True)), None
+        )
         if not engine_id:
             raise AnalysisError("No TTS engine configured", 400)
         chunk_limit = get_text_chunk_limit(engine_id)
