@@ -51,17 +51,17 @@ import {
 import { BrandLogo } from '@/components/layout/BrandLogo';
 import './siteMockup/mockup.css';
 import {
-  Col, Row, SemanticChip, ProgressBar, WaveformSvg, MockWaveTape,
+  Col, Row, SemanticChip, ProgressBar, MockWaveTape,
   IN_FLIGHT_JOBS, QUEUED_JOBS, BOOK_TABS,
   StatusOrb,
 } from './siteMockup/shared';
 import type { BookTab, RailDest } from './siteMockup/shared';
-import { ZoomPresetControl, TapeMinimapStrip, snapZoom } from './siteMockup/MockTapeControls';
+import { ZoomPresetControl, TapeMinimapStrip, snapZoom, InlineWave } from './siteMockup/MockTapeControls';
 import type { ZoomPreset } from './siteMockup/MockTapeControls';
 import { Rail } from './siteMockup/rail';
 import { LibraryPane } from './siteMockup/panes/library';
 import { ManuscriptPane, CastingPane, ReviewPane } from './siteMockup/panes/book';
-import { StudioPane } from './siteMockup/panes/studio';
+import { StudioPane, STUDIO_FOLLOW_DURATION_SEC } from './siteMockup/panes/studio';
 import { PublishPane } from './siteMockup/panes/publish';
 import { VoicesPane } from './siteMockup/panes/voices';
 import { ActivityPane } from './siteMockup/panes/activity';
@@ -561,7 +561,7 @@ const TopBar: React.FC<{
 // ---------------------------------------------------------------------------
 // Player bar
 
-type TrackState = {
+export type TrackState = {
   trackName: string;
   subtitle: string;
   duration: number;
@@ -709,6 +709,7 @@ const PlayerBar: React.FC<{
             windowSec={windowSec}
             onSeek={seekToTime}
             height={28}
+            mode={tapeScroll ? 'scroll' : 'paged'}
           />
           {/* Motion: paged (default) ↔ moving wave under a fixed playhead. */}
           <button
@@ -804,7 +805,7 @@ const PlayerBar: React.FC<{
         >
           {showWave ? (
             <div className="nsp-wave" onClick={handleSeek} style={{ width: '100%', height: 32, cursor: 'pointer' }} title="Click to seek">
-              <WaveformSvg height={32} isPlaying={activeTrack.isPlaying} fill />
+              <InlineWave durationSec={activeTrack.duration} currentTimeSec={activeTrack.currentTime} height={32} />
             </div>
           ) : (
             <div
@@ -866,7 +867,9 @@ const BookPane: React.FC<{
   onBack: () => void;
   activeTab: BookTab;
   setActiveTab: (t: BookTab) => void;
-}> = ({ onBack, activeTab, setActiveTab }) => (
+  activeTrack: TrackState | null;
+  setActiveTrack: React.Dispatch<React.SetStateAction<TrackState | null>>;
+}> = ({ onBack, activeTab, setActiveTab, activeTrack, setActiveTrack }) => (
   <Col className="ns-book-pane" gap={0} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
     <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
       <button
@@ -918,8 +921,8 @@ const BookPane: React.FC<{
     <div className="ns-book-workspace" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, paddingTop: 10 }}>
       {activeTab === 'Manuscript' && <ManuscriptPane onSwitchToPublish={() => setActiveTab('Publish')} />}
       {activeTab === 'Casting' && <CastingPane />}
-      {activeTab === 'Studio' && <StudioPane />}
-      {activeTab === 'Review' && <ReviewPane />}
+      {activeTab === 'Studio' && <StudioPane activeTrack={activeTrack} setActiveTrack={setActiveTrack} />}
+      {activeTab === 'Review' && <ReviewPane activeTrack={activeTrack} setActiveTrack={setActiveTrack} />}
       {activeTab === 'Publish' && <PublishPane />}
     </div>
   </Col>
@@ -1046,7 +1049,19 @@ const SiteMockup: React.FC = () => {
       return;
     }
 
-    // 3. Play a chapter (chapter list / Studio / Review header).
+    // 3. Play a chapter as a short follow-along track (Studio / Review player-piano).
+    //    "Play chapter N (follow)" → short demo duration so auto-scroll is visible.
+    if (ariaLabel.startsWith('Play chapter ') && ariaLabel.endsWith(' (follow)')) {
+      const ref = ariaLabel.replace('Play chapter ', '').replace(' (follow)', '');
+      setActiveTrack({
+        trackName: `Chapter ${ref}`,
+        subtitle: 'Chapter playback',
+        duration: STUDIO_FOLLOW_DURATION_SEC,
+        currentTime: 0, isPlaying: true, scope: 'chapter',
+      });
+      return;
+    }
+
     if (ariaLabel.startsWith('Play chapter ')) {
       const chapterRef = ariaLabel.replace('Play chapter ', '');
       setActiveTrack({
@@ -1260,6 +1275,8 @@ const SiteMockup: React.FC = () => {
                     onBack={() => setInBook(false)}
                     activeTab={activeBookTab}
                     setActiveTab={setActiveBookTab}
+                    activeTrack={activeTrack}
+                    setActiveTrack={setActiveTrack}
                   />
                 )}
                 {activeRail === 'Voices' && <VoicesPane />}

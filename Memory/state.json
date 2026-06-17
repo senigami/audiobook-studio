@@ -1,17 +1,15 @@
 {
-  "snapshot_version": 214,
-  "current_task": "Prepare the standalone XTTS/Voxtral plugin repo extraction plan after voice taxonomy and variations mockup verification",
-  "status": "voice_taxonomy_variations_mockup_verified",
+  "snapshot_version": 215,
+  "current_task": "Continue private site mockup polish after contextual book rail indentation verification",
+  "status": "book_rail_indentation_verified",
   "last_committed_milestone": {
-    "title": "Voice taxonomy and variations mockup verified",
+    "title": "Contextual book rail indentation verified",
     "commit": "uncommitted",
     "notes": [
-      "Expanded the private mock voice taxonomy with a Primary Role dropdown, Entity Type dropdown, Gender dropdown, Age dropdown with Unknown, searchable-style language choices, Dialect / Vocal Origin tokens, and Base Voice Quality tokens.",
-      "Added Studio Voice as a Dark Fiction Narrator with visible variation count and a six-variation mock set covering Dark Fiction, Neutral, Sad, Excited, Angry, and Whispered takes.",
-      "Added a Voice variations editor surface in the Voice Profile Editor with variation selection, emotion tags, performance style tags, intensity, pacing, energy, upload/test/default actions, and responsive layout behavior.",
-      "Kept single-select fields as native dropdowns and multi-select fields as token/pill picker rows with removable selected tags.",
-      "Focused demo regression now verifies the expanded taxonomy controls, language/origin token add behavior, Studio Voice variation count, default Dark Fiction variation, and Sad variation emotion/intensity metadata.",
-      "Verified with npm -C frontend run test -- demoApp.test.tsx, npm -C frontend run lint, and git diff --check. Per owner instruction, did not run frontend build or build:demo and did not touch player-bar work."
+      "Adjusted the private mock's expanded Library book hierarchy so Manuscript/Casting/Studio/Review/Publish rail rows are explicitly left-aligned and only slightly indented.",
+      "Reduced the nested chapter-list indentation under Studio and locked chapter rows to left alignment so the contextual rail reads as an outline rather than a centered button stack.",
+      "Added a focused demo regression for the contextual book rail stage row alignment contract.",
+      "Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check. Per owner instruction, did not run frontend build/build:demo and did not touch player-bar work."
     ]
   },
   "active_constraints": [
@@ -57,6 +55,7 @@
     "Aria default voice portrait verified 2026-06-16: Aria now uses the taxonomy-derived adult female clear narrator default portrait instead of an initials-only fallback.",
     "Shared voice portrait reuse verified 2026-06-16: VoicePortrait is now shared by voice cards, Voice Lab, Voice Profile Editor, and Edit Metadata preview, including raster overrides and taxonomy-derived default portraits.",
     "Voice taxonomy and variations mockup verified 2026-06-16: Voice Profile Editor now exposes expanded base voice taxonomy dropdowns/token pickers plus a variation editor for emotion/performance/intensity metadata.",
+    "Contextual book rail indentation verified 2026-06-16: the private mock's expanded Library book hierarchy now left-aligns Manuscript/Casting/Studio/Review/Publish rows and uses lighter nested chapter indentation.",
     "Phase 12 item audit is complete. Verified complete: Library list/sort, Plugin dependency UX, Per-voice settings, Plugin boundary cleanup, Chapter Editor tab removal, VCR controls, Plugin ZIP import/delete, Queue output metadata, Legacy jobs API retirement.",
     "Chapter Editor live queue selection now prefers the active job over stale completed chapter jobs so live progress and queued spans stay visible without waiting for a reload.",
     "Chapter Editor progress no longer treats orphan active_segment_progress values as authoritative when active_segment_id is null; XTTS standard handler now suppresses pre-START_SEGMENT progress from active segment payloads.",
@@ -113,7 +112,7 @@
   ],
   "verification": {
     "latest_backend_focus": "2026-06-15: Official plugin registry and GitHub URL plugin preview backend verified. Focused API/engine/TTS client tests passed, plugin loader/validation regressions passed, ruff passed for touched backend/test files, and git diff --check passed.",
-    "latest_frontend_focus": "2026-06-16: Private site mockup voice taxonomy/variations verified. Voice Profile Editor now has expanded dropdown taxonomy, token-style multi-selects, and per-variation emotion/performance metadata. Focused demo Vitest, frontend lint, and git diff --check passed; frontend build/build:demo were intentionally skipped per owner instruction.",
+    "latest_frontend_focus": "2026-06-16: Private site mockup contextual book rail indentation verified. Expanded Library book stage rows and Studio chapter rows are left-aligned with lighter nested indentation. Focused demo Vitest and git diff --check passed; frontend build/build:demo were intentionally skipped per owner instruction.",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",
     "latest_lint_focus": "2026-06-08: ruff passed for app/api/routers/generation.py and tests/api/test_api_generation.py; commit hook also ran Ruff/ESLint auto-fix checks cleanly.",
@@ -131,6 +130,7 @@
     "memory": "Update Memory/state.json and Memory/session_logs.md after verified milestones; update .agent rules only for durable repo-level guidance."
   },
   "completed_followups": [
+    "2026-06-16: Fixed the private mock contextual book rail indentation. The expanded Library book hierarchy now left-aligns Manuscript/Casting/Studio/Review/Publish rows, reduces the nested outline offset, and applies lighter chapter indentation under Studio. Added focused demo coverage for the rail-stage alignment contract. Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.",
     "2026-06-16: Expanded the private mock Voice Profile Editor taxonomy and restored reviewable voice variation support. Base voice metadata now uses dropdowns for Primary Role, Entity Type, Gender, and Age with Unknown, token/pill pickers for Languages, Dialect / Vocal Origin, and Base Voice Qualities, and Studio Voice is now a Dark Fiction Narrator with six visible variations. Added a Voice variations editor with emotion tags, performance style tags, intensity, pacing, energy, and upload/test/default actions. Verified with npm -C frontend run test -- demoApp.test.tsx, npm -C frontend run lint, and git diff --check; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.",
     "2026-06-16: Reused the shared VoicePortrait system across voice cards, Voice Lab, Voice Profile Editor, and the Edit Metadata preview. The profile editor sidebar/header/appearance preview now show the same raster/default portraits, the metadata modal includes a live profile image preview, and card overflow Edit metadata once again opens that metadata modal. Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.",
     "2026-06-16: Updated Aria to use the default taxonomy-derived adult female clear narrator portrait instead of the initials-only fallback. Focused demo coverage now expects six local voice portraits and explicitly verifies Aria's default portrait label. Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check; skipped frontend build/build:demo per owner instruction.",

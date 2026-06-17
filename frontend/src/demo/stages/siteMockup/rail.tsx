@@ -200,7 +200,7 @@ export const Rail: React.FC<{
                       /* Expanded: full tree block */
                       <div
                         style={{
-                          marginLeft: 14,
+                          marginLeft: 10,
                           borderLeft: '1px solid var(--border)',
                           paddingLeft: 0,
                           marginBottom: 2,
@@ -212,7 +212,7 @@ export const Rail: React.FC<{
                             display: 'flex',
                             alignItems: 'center',
                             gap: 6,
-                            padding: '4px 10px 3px 10px',
+                            padding: '4px 8px 3px 8px',
                           }}
                         >
                           <BookCover title="The Whispering Vale" size={18} />
@@ -237,13 +237,15 @@ export const Rail: React.FC<{
                             <div key={stage}>
                               <button
                                 type="button"
+                                className="ns-book-rail-stage"
                                 onClick={() => onBookTabSelect(stage)}
                                 style={{
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: 6,
                                   width: '100%',
-                                  padding: '3px 10px 3px 20px',
+                                  padding: '3px 8px 3px 12px',
+                                  justifyContent: 'flex-start',
                                   cursor: 'pointer',
                                   border: 0,
                                   background: isStageActive ? 'var(--accent-tint-bg)' : 'transparent',
@@ -261,7 +263,7 @@ export const Rail: React.FC<{
 
                               {/* Chapter list — under Studio only, expanded when Studio is active */}
                               {stage === 'Studio' && isStageActive && (
-                                <div style={{ paddingLeft: 8 }}>
+                                <div style={{ paddingLeft: 4 }}>
                                   {CHAPTERS.map(ch => {
                                     const isChActive = ch.n === activeChapter;
                                     const orbStatus = chapterToOrbStatus(ch.status);
@@ -271,15 +273,16 @@ export const Rail: React.FC<{
                                         key={ch.n}
                                         onClick={() => onChapterSelect(ch.n)}
                                         style={{
-                                          padding: '4px 6px 3px 22px',
+                                          padding: '4px 6px 3px 14px',
                                           background: isChActive ? 'var(--accent-tint-bg)' : 'transparent',
                                           borderLeft: isChActive ? '2px solid var(--accent)' : '2px solid transparent',
                                           cursor: 'pointer',
                                           position: 'relative',
                                           marginLeft: -1,
+                                          textAlign: 'left',
                                         }}
                                       >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 4 }}>
                                           <StatusOrb
                                             status={orbStatus}
                                             progress={renderPct / 100}

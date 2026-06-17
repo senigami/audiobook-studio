@@ -168,12 +168,25 @@ describe('DemoStage', () => {
 // ---------------------------------------------------------------------------
 
 describe('DemoApp routing', () => {
+  const originalMatchMedia = window.matchMedia;
+
   beforeEach(() => {
     window.location.hash = '#/';
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
   });
 
   afterEach(() => {
     window.location.hash = '#/';
+    window.matchMedia = originalMatchMedia;
   });
 
   it('default hash renders index with one card per stage', () => {
@@ -346,6 +359,24 @@ describe('DemoApp routing', () => {
     fireEvent.click(screen.getByRole('button', { name: /Sad/i }));
     expect(screen.getByRole('button', { name: 'Remove emotion Sad' })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Variation intensity' })).toHaveValue('Moderate');
+  });
+
+  it('site mockup indents contextual book rail tabs instead of centering them', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    render(<DemoApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    fireEvent.click((await screen.findAllByText('The Whispering Vale'))[0]);
+
+    const manuscriptRailTab = screen.getAllByRole('button', { name: 'Manuscript' })
+      .find(button => button.classList.contains('ns-book-rail-stage'));
+
+    expect(manuscriptRailTab).toBeDefined();
+    expect(manuscriptRailTab).toHaveStyle({
+      justifyContent: 'flex-start',
+      textAlign: 'left',
+      paddingLeft: '12px',
+    });
   });
 });
 

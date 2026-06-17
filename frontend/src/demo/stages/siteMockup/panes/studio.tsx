@@ -8,17 +8,9 @@
  *  - "Stop all" red ghost button next to render controls
  */
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Chip, Btn, ProgressBar, SemanticChip, Avatar, Card, Panel, StatusOrb } from '../shared';
+import { Row, Col, Chip, Btn, ProgressBar, SemanticChip, Avatar, Card, Panel, StatusOrb, FOLLOW_DURATION_SEC, buildSegmentTimeline, useChapterFollow, ResumeFollowingPill, SPEAKER_TOKEN } from '../shared';
 import { Play, RefreshCw, ChevronDown, ChevronUp, Download, ChevronLeft, ChevronRight, Square, Check } from 'lucide-react';
-
-// Speaker token palette — maps speaker IDs to fixed design-token colors (no raw hex)
-// We use pill token families as named palette entries for the 4-speaker cast
-const SPEAKER_TOKEN: Record<string, { text: string; tintBg: string; tintBorder: string }> = {
-  Narrator:   { text: 'var(--success-text)',            tintBg: 'var(--success-tint-bg)',       tintBorder: 'var(--success)' },
-  Maren:      { text: 'var(--pill-class-text)',          tintBg: 'var(--pill-class-bg)',         tintBorder: 'var(--pill-class-border)' },
-  Dov:        { text: 'var(--pill-age-text)',            tintBg: 'var(--pill-age-bg)',           tintBorder: 'var(--pill-age-border)' },
-  ElderRowan: { text: 'var(--pill-extended-text)',       tintBg: 'var(--pill-extended-bg)',      tintBorder: 'var(--pill-extended-border)' },
-};
+import type { TrackState } from '../../siteMockupStage';
 
 const SCRIPT_LINES = [
   { speaker: 'Narrator',  text: 'The gate groaned open on rusted hinges.' },
@@ -110,10 +102,11 @@ const ExportMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => (
 );
 
 // ---------- Hover sentence controls ----------
-const HoverSentenceControls: React.FC = () => (
-  <span style={{
+const HoverSentenceControls: React.FC<{ chunkId: string; onPlayFromHere: (id: string) => void }> = ({ chunkId, onPlayFromHere }) => (
+  <span className="hover-sentence-controls" style={{
     display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'var(--space-1)',
     fontSize: 'var(--type-micro)', verticalAlign: 'middle',
+    opacity: 0, visibility: 'hidden', transition: 'opacity 0.1s ease',
   }}>
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 2,
@@ -123,7 +116,7 @@ const HoverSentenceControls: React.FC = () => (
     }}>
       Maren <ChevronDown size={9} aria-hidden="true" />
     </span>
-    <button aria-label="Preview segment" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center' }}>
+    <button aria-label="Play from here" onClick={(e) => { e.stopPropagation(); onPlayFromHere(chunkId); }} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center' }}>
       <Play size={13} />
     </button>
     <button aria-label="Rebuild segment" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
@@ -274,6 +267,210 @@ const initialChunks: Chunk[] = [
     speaker: 'Narrator',
     styleType: 'none',
     paragraphIndex: 2,
+  },
+
+  // Paragraph 4
+  {
+    id: 'c17',
+    text: 'They walked a long while without speaking, the path narrowing until the birches gave way to black pines that swallowed what little light remained.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 3,
+    showNumberTag: '§7',
+  },
+  {
+    id: 'c18',
+    text: ' The cold had teeth here, and it found every gap in their cloaks.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 3,
+  },
+
+  // Paragraph 5
+  {
+    id: 'c19',
+    text: '"There — do you see the lantern?"',
+    speaker: 'Maren',
+    styleType: 'underline',
+    paragraphIndex: 4,
+    showNumberTag: '§8',
+  },
+  {
+    id: 'c20',
+    text: ' She pointed past a leaning cairn to a smear of amber light that bobbed against the dark.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 4,
+  },
+
+  // Paragraph 6
+  {
+    id: 'c21',
+    text: '"The warden keeps no schedule a man can trust,"',
+    speaker: 'Dov',
+    styleType: 'underline',
+    paragraphIndex: 5,
+    showNumberTag: '§9',
+  },
+  {
+    id: 'c22',
+    text: ' he murmured, and drew the satchel tight against his ribs.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 5,
+  },
+
+  // Paragraph 7
+  {
+    id: 'c23',
+    text: 'An old voice came out of the dark before they saw its owner.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 6,
+    showNumberTag: '§10',
+  },
+  {
+    id: 'c24',
+    text: ' "You are late, and the vale does not forgive lateness."',
+    speaker: 'ElderRowan',
+    styleType: 'underline',
+    paragraphIndex: 6,
+  },
+
+  // Paragraph 8
+  {
+    id: 'c25',
+    text: 'Elder Rowan stepped into the lantern\'s reach, her staff tapping the frost like a slow second heartbeat.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 7,
+    showNumberTag: '§11',
+  },
+  {
+    id: 'c26',
+    text: ' "Whatever you carry, carry it quietly past the third stone."',
+    speaker: 'ElderRowan',
+    styleType: 'underline',
+    paragraphIndex: 7,
+  },
+
+  // Paragraph 9
+  {
+    id: 'c27',
+    text: '"And if the warden wakes?"',
+    speaker: 'Maren',
+    styleType: 'underline',
+    paragraphIndex: 8,
+    showNumberTag: '§12',
+  },
+  {
+    id: 'c28',
+    text: ' Maren\'s hand had already found the hilt at her hip.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 8,
+  },
+
+  // Paragraph 10
+  {
+    id: 'c29',
+    text: '"Then you run, and you do not look back to count who follows,"',
+    speaker: 'ElderRowan',
+    styleType: 'underline',
+    paragraphIndex: 9,
+    showNumberTag: '§13',
+  },
+  {
+    id: 'c30',
+    text: ' the old woman said, and the lantern guttered as if the vale itself had leaned closer to listen.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 9,
+  },
+
+  // Paragraph 11
+  {
+    id: 'c31',
+    text: 'The third stone was taller than a man and slick with the breath of the river below.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 10,
+    showNumberTag: '§14',
+  },
+  {
+    id: 'c32',
+    text: ' Dov laid his palm against it and felt, faintly, a pulse that was not his own.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 10,
+  },
+
+  // Paragraph 12
+  {
+    id: 'c33',
+    text: '"It remembers every foot that has ever crossed it,"',
+    speaker: 'Dov',
+    styleType: 'underline',
+    paragraphIndex: 11,
+    showNumberTag: '§15',
+  },
+  {
+    id: 'c34',
+    text: ' he whispered, half to Maren and half to the stone.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 11,
+  },
+
+  // Paragraph 13
+  {
+    id: 'c35',
+    text: 'Somewhere ahead a bell rang once, low and wrong, the sound a throat makes when it has forgotten how to be a bell.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 12,
+    showNumberTag: '§16',
+  },
+  {
+    id: 'c36',
+    text: ' "That is the warden," Elder Rowan breathed. "Go now, while it is still only curious."',
+    speaker: 'ElderRowan',
+    styleType: 'underline',
+    paragraphIndex: 12,
+  },
+
+  // Paragraph 14
+  {
+    id: 'c37',
+    text: 'They went, three shapes folding into the dark between the stones, and the vale closed over them like water over a dropped coin.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 13,
+    showNumberTag: '§17',
+  },
+  {
+    id: 'c38',
+    text: ' Behind them the lantern stayed, a single stubborn ember refusing the night.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 13,
+  },
+
+  // Paragraph 15
+  {
+    id: 'c39',
+    text: '"Stay close,"',
+    speaker: 'Maren',
+    styleType: 'underline',
+    paragraphIndex: 14,
+    showNumberTag: '§18',
+  },
+  {
+    id: 'c40',
+    text: ' she said again, softer now, and this time it sounded less like a warning and more like a prayer.',
+    speaker: 'Narrator',
+    styleType: 'none',
+    paragraphIndex: 14,
   }
 ];
 
@@ -286,7 +483,15 @@ interface SelectionContextMenu {
   selectedText: string;
 }
 
-export const StudioPane: React.FC = () => {
+// Follow-playback helpers live in shared.tsx (reused by Review). Re-exported here
+// for siteMockupStage's import and the studioTimeline unit test.
+export { buildSegmentTimeline, activeChunkIdAt } from '../shared';
+export const STUDIO_FOLLOW_DURATION_SEC = FOLLOW_DURATION_SEC;
+
+export const StudioPane: React.FC<{
+  activeTrack?: TrackState | null;
+  setActiveTrack?: React.Dispatch<React.SetStateAction<TrackState | null>>;
+}> = ({ activeTrack = null, setActiveTrack }) => {
   const [viewMode, setViewMode] = useState<'book' | 'script'>('book');
   const [safeText, setSafeText] = useState(false);
   const [showNumbers, setShowNumbers] = useState(false);
@@ -302,6 +507,22 @@ export const StudioPane: React.FC = () => {
   const [chunks, setChunks] = useState<Chunk[]>(initialChunks);
   // Context menu for sub-sentence speaker assignment
   const [contextMenu, setContextMenu] = useState<SelectionContextMenu | null>(null);
+
+  const timeline = React.useMemo(() => buildSegmentTimeline(chunks, STUDIO_FOLLOW_DURATION_SEC), [chunks]);
+  const { scrollRef, activeChunkId, followEngaged, isFollowing, resume } = useChapterFollow({
+    activeTrack, matchTrackName: 'Chapter 4', timeline,
+  });
+
+  const onPlayFromHere = (chunkId: string) => {
+    const seg = timeline.find(s => s.id === chunkId);
+    if (!seg || !setActiveTrack) return;
+    setActiveTrack({
+      trackName: 'Chapter 4', subtitle: 'Chapter playback',
+      duration: STUDIO_FOLLOW_DURATION_SEC,
+      currentTime: seg.start, isPlaying: true, scope: 'chapter',
+    });
+    resume();
+  };
 
   // Simulated rendering progress
   const [isRenderingRemaining, setIsRenderingRemaining] = useState(false);
@@ -446,130 +667,141 @@ export const StudioPane: React.FC = () => {
     };
 
     const cursorStyle = armedSwatch ? 'crosshair' : (chunk.hasPlay || chunk.sentenceId ? 'pointer' : 'default');
+    const isActive = chunk.id === activeChunkId;
+    const activeOverlay = isActive
+      ? { background: tok.tintBg, color: tok.text, boxShadow: `0 0 0 2px ${tok.tintBorder}`, borderRadius: 4, transition: 'background .2s ease, box-shadow .2s ease' }
+      : null;
 
-    if (chunk.isHighlighted) {
-      return (
-        <span
-          key={chunk.id}
-          data-chunk-id={chunk.id}
-          onClick={handleClick}
-          style={{
-            background: tok.tintBg,
-            color: tok.text,
-            border: `1px solid ${tok.tintBorder}`,
-            borderRadius: 'var(--radius-button)',
-            padding: '2px 4px',
-            margin: '0 2px',
-            cursor: cursorStyle,
-            fontWeight: 500,
-            display: 'inline-block',
-          }}
-        >
-          {text}
-        </span>
-      );
-    }
+    const isContent = text.trim().length > 0 && !chunk.isRendering;
 
-    if (chunk.styleType === 'underline') {
-      return (
-        <span
-          key={chunk.id}
-          data-chunk-id={chunk.id}
-          onClick={handleClick}
-          style={{
-            borderBottom: `2px solid ${tok.text}`,
-            paddingBottom: 1,
-            cursor: cursorStyle,
-          }}
-        >
-          {text}
-        </span>
-      );
-    }
-
-    if (chunk.styleType === 'bg-success') {
-      return (
-        <span
-          key={chunk.id}
-          data-chunk-id={chunk.id}
-          onClick={handleClick}
-          style={{
-            background: 'var(--success-tint-bg)',
-            borderRadius: 3,
-            padding: '1px 3px',
-            cursor: cursorStyle,
-            position: 'relative',
-            display: 'inline',
-          }}
-        >
-          {chunk.hasPlay && (
-            <Play size={9} style={{ marginRight: 3, color: 'var(--success-text)', verticalAlign: 'middle' }} aria-hidden="true" />
-          )}
-          {text}
-        </span>
-      );
-    }
-
-    if (chunk.styleType === 'bg-accent') {
-      return (
-        <span
-          key={chunk.id}
-          data-chunk-id={chunk.id}
-          style={{
-            background: 'var(--accent-tint-bg)',
-            borderRadius: 3,
-            padding: '1px 3px',
-            display: 'inline',
-          }}
-        >
-          {text}
-          {chunk.isRendering && (
-            <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', fontStyle: 'italic', marginLeft: 5 }}>
-              rendering…
-            </span>
-          )}
-        </span>
-      );
-    }
-
-    if (chunk.hasHoverControls) {
-      return (
-        <span key={chunk.id} style={{ position: 'relative', display: 'inline' }}>
+    const renderInner = () => {
+      if (chunk.isHighlighted) {
+        return (
           <span
+            key={chunk.id}
+            data-chunk-id={chunk.id}
+            onClick={handleClick}
+            style={{
+              background: tok.tintBg,
+              color: tok.text,
+              border: `1px solid ${tok.tintBorder}`,
+              borderRadius: 'var(--radius-button)',
+              padding: '2px 4px',
+              margin: '0 2px',
+              cursor: cursorStyle,
+              fontWeight: 500,
+              display: 'inline-block',
+              ...activeOverlay,
+            }}
+          >
+            {text}
+          </span>
+        );
+      }
+
+      if (chunk.styleType === 'underline') {
+        return (
+          <span
+            key={chunk.id}
             data-chunk-id={chunk.id}
             onClick={handleClick}
             style={{
               borderBottom: `2px solid ${tok.text}`,
               paddingBottom: 1,
               cursor: cursorStyle,
+              ...activeOverlay,
             }}
           >
             {text}
           </span>
-          <HoverSentenceControls />
-          <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic', marginLeft: 4 }}>
-            per-section controls on hover
+        );
+      }
+
+      if (chunk.styleType === 'bg-success') {
+        return (
+          <span
+            key={chunk.id}
+            data-chunk-id={chunk.id}
+            onClick={handleClick}
+            style={{
+              background: 'var(--success-tint-bg)',
+              borderRadius: 3,
+              padding: '1px 3px',
+              cursor: cursorStyle,
+              position: 'relative',
+              display: 'inline',
+              ...activeOverlay,
+            }}
+          >
+            {chunk.hasPlay && (
+              <Play size={9} style={{ marginRight: 3, color: 'var(--success-text)', verticalAlign: 'middle' }} aria-hidden="true" />
+            )}
+            {text}
           </span>
+        );
+      }
+
+      if (chunk.styleType === 'bg-accent') {
+        return (
+          <span
+            key={chunk.id}
+            data-chunk-id={chunk.id}
+            style={{
+              background: 'var(--accent-tint-bg)',
+              borderRadius: 3,
+              padding: '1px 3px',
+              display: 'inline',
+              ...activeOverlay,
+            }}
+          >
+            {text}
+            {chunk.isRendering && (
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', fontStyle: 'italic', marginLeft: 5 }}>
+                rendering…
+              </span>
+            )}
+          </span>
+        );
+      }
+
+      return (
+        <span
+          key={chunk.id}
+          data-chunk-id={chunk.id}
+          onClick={handleClick}
+          style={{
+            cursor: cursorStyle,
+            ...activeOverlay,
+          }}
+        >
+          {text}
+        </span>
+      );
+    };
+
+    if (isContent) {
+      return (
+        <span key={chunk.id} className="hover-chunk-wrap" style={{ position: 'relative', display: 'inline' }}>
+          {renderInner()}
+          <HoverSentenceControls chunkId={chunk.id} onPlayFromHere={onPlayFromHere} />
+          {chunk.hasHoverControls && (
+            <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic', marginLeft: 4 }}>
+              per-section controls on hover
+            </span>
+          )}
         </span>
       );
     }
 
-    return (
-      <span
-        key={chunk.id}
-        data-chunk-id={chunk.id}
-        onClick={handleClick}
-        style={{
-          cursor: cursorStyle,
-        }}
-      >
-        {text}
-      </span>
-    );
+    return renderInner();
   };
 
   return (
     <>
+      <style>{`
+        .hover-chunk-wrap .hover-sentence-controls { opacity: 0; visibility: hidden; transition: opacity 0.1s ease; }
+        .hover-chunk-wrap:hover .hover-sentence-controls { opacity: 1 !important; visibility: visible !important; }
+      `}</style>
       {showResync && <ResyncModal onClose={() => setShowResync(false)} />}
 
       {contextMenu && (
@@ -651,22 +883,6 @@ export const StudioPane: React.FC = () => {
               </div>
             ))}
           </div>
-          {/* Play this chapter while editing — ongoing transport delegates to the
-              bottom bar (audio-player spec §4.1); this is the start affordance. */}
-          <button
-            type="button"
-            aria-label="Play chapter 4"
-            title="Play chapter"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              fontSize: 'var(--type-caption)', fontWeight: 600,
-              padding: '3px var(--space-2)', borderRadius: 'var(--radius-round)',
-              border: '1px solid var(--accent-tint-border)', background: 'var(--accent-tint-bg)',
-              color: 'var(--accent)', cursor: 'pointer',
-            }}
-          >
-            <Play size={12} strokeWidth={2.4} aria-hidden="true" style={{ transform: 'translateX(1px)' }} /> Play chapter
-          </button>
           <div style={{ flex: 1 }} />
           {/* Safe text / # toggles */}
           <div
@@ -741,9 +957,10 @@ export const StudioPane: React.FC = () => {
         )}
 
         {/* Main row: prose + cast palette */}
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
           {/* Content area — prose */}
-          <div onMouseUp={handleMouseUp} style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-3) var(--space-4)' }}>
+          {followEngaged && !isFollowing && <ResumeFollowingPill onClick={resume} />}
+          <div ref={scrollRef} onMouseUp={handleMouseUp} style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-3) var(--space-4)', position: 'relative' }}>
             {/* Chapter-nav cluster: unsaved chip + Commit + nav + export */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)', flexWrap: 'wrap',
@@ -834,78 +1051,35 @@ export const StudioPane: React.FC = () => {
                   </SemanticChip>
                 )}
 
-                {/* Paragraph 1 */}
-                <div style={{
-                  fontSize: 'var(--type-reading)',
-                  lineHeight: 'var(--leading-reading)',
-                  color: 'var(--text-primary)',
-                  maxWidth: '70ch',
-                }}>
-                  {chunks.filter(c => c.paragraphIndex === 0).map(c => (
-                    <React.Fragment key={c.id}>
-                      {showNumbers && c.showNumberTag && (
-                        <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginRight: 4 }}>
-                          {c.showNumberTag}
-                        </span>
-                      )}
-                      {renderChunkElement(c)}
-                    </React.Fragment>
-                  ))}
-                </div>
+                {/* Sub-sentence assignment hint */}
+                <SemanticChip variant="accent">
+                  select text in any line to assign a sub-sentence speaker
+                </SemanticChip>
 
-                {/* Paragraph 2 — with hover sentence controls on one sentence */}
-                <div style={{
-                  fontSize: 'var(--type-reading)',
-                  lineHeight: 'var(--leading-reading)',
-                  color: 'var(--text-primary)',
-                  maxWidth: '70ch',
-                }}>
-                  {chunks.filter(c => c.paragraphIndex === 1).map(c => (
-                    <React.Fragment key={c.id}>
-                      {showNumbers && c.showNumberTag && (
-                        <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginRight: 4 }}>
-                          {c.showNumberTag}
-                        </span>
-                      )}
-                      {renderChunkElement(c)}
-                    </React.Fragment>
+                {/* Paragraphs — rendered generically from each chunk's paragraphIndex
+                    so the manuscript can grow without editing the render path. */}
+                {Array.from(new Set(chunks.map(c => c.paragraphIndex)))
+                  .sort((a, b) => a - b)
+                  .map(pIdx => (
+                    <div key={pIdx} style={{
+                      fontSize: 'var(--type-reading)',
+                      lineHeight: 'var(--leading-reading)',
+                      color: 'var(--text-primary)',
+                      maxWidth: '70ch',
+                      position: 'relative',
+                    }}>
+                      {chunks.filter(c => c.paragraphIndex === pIdx).map(c => (
+                        <React.Fragment key={c.id}>
+                          {showNumbers && c.showNumberTag && (
+                            <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginRight: 4 }}>
+                              {c.showNumberTag}
+                            </span>
+                          )}
+                          {renderChunkElement(c)}
+                        </React.Fragment>
+                      ))}
+                    </div>
                   ))}
-                </div>
-
-                {/* Paragraph 3 */}
-                <div style={{
-                  fontSize: 'var(--type-reading)',
-                  lineHeight: 'var(--leading-reading)',
-                  color: 'var(--text-primary)',
-                  maxWidth: '70ch',
-                  position: 'relative',
-                }}>
-                  {chunks.filter(c => c.paragraphIndex === 2).map(c => (
-                    <React.Fragment key={c.id}>
-                      {showNumbers && c.showNumberTag && (
-                        <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginRight: 4 }}>
-                          {c.showNumberTag}
-                        </span>
-                      )}
-                      {renderChunkElement(c)}
-                    </React.Fragment>
-                  ))}
-                  <span style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    marginLeft: 'var(--space-1)',
-                    fontSize: 'var(--type-micro)',
-                    color: 'var(--accent)',
-                    background: 'var(--accent-tint-bg)',
-                    border: '1px solid var(--accent-tint-border)',
-                    borderRadius: 'var(--radius-round)',
-                    padding: '1px 6px',
-                    cursor: 'default',
-                    verticalAlign: 'middle',
-                  }}>
-                    Select text to assign sub-sentence speaker
-                  </span>
-                </div>
               </Col>
             ) : (
               /* Script view */

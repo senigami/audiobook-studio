@@ -10,8 +10,10 @@ import {
   StatusOrb,
   Avatar,
   Mic, Volume2, CheckCircle, Loader2,
+  FOLLOW_DURATION_SEC, buildSegmentTimeline, useChapterFollow, ResumeFollowingPill, SPEAKER_TOKEN,
 } from '../shared';
 import { Upload, Lock, Edit3, Play, MoreHorizontal } from 'lucide-react';
+import type { TrackState } from '../../siteMockupStage';
 
 // ---------------------------------------------------------------------------
 // Manuscript pane data
@@ -855,17 +857,65 @@ export const CastingPane: React.FC = () => (
 // ---------------------------------------------------------------------------
 // ReviewPane
 
-const REVIEW_SENTENCES = [
-  { text: 'The road wound down through silver birch and pale stone.', state: 'past' },
-  { text: 'Maren pulled her cloak tighter against the chill.', state: 'past' },
-  { text: 'The vale smelled of old rain and something older still.', state: 'playing' },
-  { text: '"Stay close to me," she said quietly.', state: 'rerendering' },
-  { text: 'Dov tightened his grip on the satchel.', state: 'upcoming' },
-  { text: 'Far above, an owl called once, then fell silent.', state: 'upcoming' },
-  { text: '"Right," he exhaled. "Right."', state: 'upcoming' },
+// Full Chapter 7 transcript — the Review pane is the player-piano "follow along"
+// surface, so it carries the whole chapter (not a 7-line excerpt). Each entry is a
+// SEGMENT (the unit of highlighting + timing): a stable id (data-chunk-id scroll
+// target + timeline key), its text, speaker, and a paragraph index so segments flow
+// as prose. The character-domain start/length per segment is derived in the timeline.
+const REVIEW_SENTENCES: { id: string; text: string; speaker: string; para: number; rerendering?: boolean }[] = [
+  { id: 'r1', text: 'The road wound down through silver birch and pale stone, the kind of road that remembers every foot that has ever crossed it.', speaker: 'Narrator', para: 0 },
+  { id: 'r2', text: 'Maren pulled her cloak tighter against the chill that rose from the valley floor.', speaker: 'Narrator', para: 0 },
+  { id: 'r3', text: 'The vale smelled of old rain and something older still — loam and iron and time.', speaker: 'Narrator', para: 0 },
+  { id: 'r4', text: '"Stay close to me," she said quietly, and the words hung in the cold like breath.', speaker: 'Maren', para: 1, rerendering: true },
+  { id: 'r5', text: 'Dov tightened his grip on the satchel and said nothing for a long moment.', speaker: 'Narrator', para: 1 },
+  { id: 'r6', text: '"How close, exactly?" he finally asked.', speaker: 'Dov', para: 1 },
+  { id: 'r7', text: '"Close enough that you can hear me breathe," Maren answered.', speaker: 'Maren', para: 1 },
+  { id: 'r8', text: 'Far above, an owl called once, then fell silent, as if it too were listening for the warden.', speaker: 'Narrator', para: 2 },
+  { id: 'r9', text: 'They walked a long while without speaking, the path narrowing until the birches gave way to black pines.', speaker: 'Narrator', para: 2 },
+  { id: 'r10', text: 'The cold had teeth here, and it found every gap in their cloaks.', speaker: 'Narrator', para: 2 },
+  { id: 'r11', text: '"There — do you see the lantern?" Maren pointed past a leaning cairn.', speaker: 'Maren', para: 3 },
+  { id: 'r12', text: 'A smear of amber light bobbed against the dark, patient as a held breath.', speaker: 'Narrator', para: 3 },
+  { id: 'r13', text: '"The warden keeps no schedule a man can trust," Dov murmured.', speaker: 'Dov', para: 3 },
+  { id: 'r14', text: 'An old voice came out of the dark before they saw its owner.', speaker: 'Narrator', para: 4 },
+  { id: 'r15', text: '"You are late, and the vale does not forgive lateness."', speaker: 'ElderRowan', para: 4 },
+  { id: 'r16', text: 'Elder Rowan stepped into the lantern\'s reach, her staff tapping the frost like a slow second heartbeat.', speaker: 'Narrator', para: 4 },
+  { id: 'r17', text: '"Whatever you carry, carry it quietly past the third stone."', speaker: 'ElderRowan', para: 4 },
+  { id: 'r18', text: '"And if the warden wakes?" Maren\'s hand had already found the hilt at her hip.', speaker: 'Maren', para: 5 },
+  { id: 'r19', text: '"Then you run, and you do not look back to count who follows," the old woman said.', speaker: 'ElderRowan', para: 5 },
+  { id: 'r20', text: 'The third stone was taller than a man and slick with the breath of the river below.', speaker: 'Narrator', para: 6 },
+  { id: 'r21', text: 'Dov laid his palm against it and felt, faintly, a pulse that was not his own.', speaker: 'Narrator', para: 6 },
+  { id: 'r22', text: '"It remembers every foot that has ever crossed it," he whispered.', speaker: 'Dov', para: 6 },
+  { id: 'r23', text: 'Somewhere ahead a bell rang once, low and wrong, the sound a throat makes when it has forgotten how to be a bell.', speaker: 'Narrator', para: 7 },
+  { id: 'r24', text: '"That is the warden," Elder Rowan breathed. "Go now, while it is still only curious."', speaker: 'ElderRowan', para: 7 },
+  { id: 'r25', text: 'They went, three shapes folding into the dark between the stones.', speaker: 'Narrator', para: 8 },
+  { id: 'r26', text: '"Stay close," Maren said again, softer now, and this time it sounded less like a warning and more like a prayer.', speaker: 'Maren', para: 8 },
 ];
 
-export const ReviewPane: React.FC = () => (
+export const ReviewPane: React.FC<{
+  activeTrack?: TrackState | null;
+  setActiveTrack?: React.Dispatch<React.SetStateAction<TrackState | null>>;
+}> = ({ activeTrack = null, setActiveTrack }) => {
+  const timeline = React.useMemo(() => buildSegmentTimeline(REVIEW_SENTENCES, FOLLOW_DURATION_SEC), []);
+  const { scrollRef, activeChunkId, followEngaged, isFollowing, resume } = useChapterFollow({
+    activeTrack, matchTrackName: 'Chapter 7', timeline,
+  });
+  const activeIndex = REVIEW_SENTENCES.findIndex(s => s.id === activeChunkId);
+
+  const onPlayFromHere = (id: string) => {
+    const seg = timeline.find(s => s.id === id);
+    if (!seg || !setActiveTrack) return;
+    setActiveTrack({
+      trackName: 'Chapter 7', subtitle: 'Chapter playback',
+      duration: FOLLOW_DURATION_SEC,
+      currentTime: seg.start, isPlaying: true, scope: 'chapter',
+    });
+    resume();
+  };
+
+  const total = REVIEW_SENTENCES.length;
+  const positionLabel = activeIndex >= 0 ? `§${activeIndex + 1} / §${total}` : `§1 / §${total}`;
+
+  return (
   <Col gap={0} className="ns-enter" style={{ flex: 1, minHeight: 0 }}>
     {/* Follow-along header. Transport + waveform are NOT duplicated here — the
         single global player bar at the bottom owns playback (audio-player spec
@@ -873,18 +923,19 @@ export const ReviewPane: React.FC = () => (
         the chapter label and the section-position indicator. */}
     <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-2)', flexShrink: 0 }}>
       {/* Start affordance — ongoing transport is delegated to the bottom bar, but
-          Review still needs a way to BEGIN playback (audio-player spec §4.1). */}
-      <PlayButton label="Play chapter 7" tone="tint" />
+          Review still needs a way to BEGIN playback (audio-player spec §4.1). The
+          "(follow)" label routes to the short follow-track so scrolling is visible. */}
+      <PlayButton label="Play chapter 7 (follow)" tone="tint" />
       <SemanticChip variant="accent">Chapter 7</SemanticChip>
       <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
         following playback · tap a line to play from there
       </span>
       <div style={{ flex: 1 }} />
-      <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>§18 / §42</span>
+      <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{positionLabel}</span>
     </Row>
 
     <Row className="ns-review-grid" gap={12} style={{ flex: 1, alignItems: 'stretch', minHeight: 0 }}>
-      <Col gap={0} style={{ flex: 2, minHeight: 0 }}>
+      <Col gap={0} style={{ flex: 2, minHeight: 0, position: 'relative' }}>
         <div style={{
           fontSize: 'var(--type-micro)', fontWeight: 700,
           textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)',
@@ -893,50 +944,68 @@ export const ReviewPane: React.FC = () => (
         }}>
           Transcript
         </div>
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          <Col gap={4} className="ns-stagger">
-            {REVIEW_SENTENCES.map((s, i) => {
-              const isPlaying = s.state === 'playing';
-              const isPast = s.state === 'past';
-              const isRerendering = s.state === 'rerendering';
-              return (
-                <div key={i}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Play from here: ${s.text}`}
-                  title="Play from here"
-                  style={{
-                  fontSize: 'var(--type-body)', lineHeight: 'var(--leading-snug)',
-                  color: isPast ? 'var(--text-muted)' : 'var(--text-primary)',
-                  padding: 'var(--space-1) var(--space-2)',
-                  borderRadius: 'var(--radius-button)',
-                  background: isPlaying
-                    ? 'var(--accent-tint-bg)'
-                    : isRerendering
-                    ? 'var(--warning-tint-bg)'
-                    : 'transparent',
-                  border: isPlaying
-                    ? '1px solid var(--accent-tint-border)'
-                    : isRerendering
-                    ? '1px solid var(--warning-tint-border)'
-                    : '1px solid transparent',
-                  cursor: 'pointer', fontWeight: isPlaying ? 600 : 400,
-                  opacity: isPast ? 0.55 : 1,
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  transition: 'background var(--dur-fast) var(--ease-standard)',
-                }}>
-                  <span style={{ flex: 1 }}>{s.text}</span>
-                  {isRerendering && (
-                    <SemanticChip variant="warning">
-                      <Loader2 size={9} style={{ marginRight: 3 }} aria-hidden="true" />
-                      re-rendering
-                    </SemanticChip>
-                  )}
-                </div>
-              );
-            })}
+        {/* Flowing prose. The highlight + scroll unit is the SEGMENT (an inline
+            span), not a line box — the active segment is tinted in its speaker's
+            color and centered by the follow hook, then hands off to the next. */}
+        <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
+          <Col gap={10} className="ns-stagger" style={{ maxWidth: '70ch' }}>
+            {Array.from(new Set(REVIEW_SENTENCES.map(s => s.para))).sort((a, b) => a - b).map(p => (
+              <div key={p} style={{
+                fontSize: 'var(--type-reading)',
+                lineHeight: 'var(--leading-reading)',
+                color: 'var(--text-primary)',
+              }}>
+                {REVIEW_SENTENCES.filter(s => s.para === p).map((s, idx) => {
+                  const isActive = s.id === activeChunkId;
+                  const tok = SPEAKER_TOKEN[s.speaker] ?? SPEAKER_TOKEN.Narrator;
+                  return (
+                    <React.Fragment key={s.id}>
+                      {idx > 0 && ' '}
+                      <span
+                        data-chunk-id={s.id}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Play from here: ${s.text}`}
+                        title="Play from here"
+                        onClick={(e) => { e.stopPropagation(); onPlayFromHere(s.id); }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onPlayFromHere(s.id); }
+                        }}
+                        style={{
+                          cursor: 'pointer',
+                          borderRadius: 4,
+                          padding: '1px 2px',
+                          // clone so the tinted marker + ring wrap cleanly across line breaks
+                          WebkitBoxDecorationBreak: 'clone',
+                          boxDecorationBreak: 'clone',
+                          textDecoration: s.rerendering && !isActive ? 'underline dashed var(--warning)' : undefined,
+                          textUnderlineOffset: s.rerendering ? '3px' : undefined,
+                          ...(isActive
+                            ? {
+                                background: tok.tintBg,
+                                color: tok.text,
+                                boxShadow: `0 0 0 2px ${tok.tintBorder}`,
+                                transition: 'background .2s ease, box-shadow .2s ease',
+                              }
+                            : null),
+                        }}
+                      >
+                        {s.text}
+                      </span>
+                      {s.rerendering && (
+                        <SemanticChip variant="warning">
+                          <Loader2 size={9} style={{ marginRight: 3 }} aria-hidden="true" />
+                          re-rendering
+                        </SemanticChip>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            ))}
           </Col>
         </div>
+        {followEngaged && !isFollowing && <ResumeFollowingPill onClick={resume} />}
       </Col>
 
       <Col gap={8} style={{ flex: 1, minHeight: 0 }}>
@@ -969,7 +1038,8 @@ export const ReviewPane: React.FC = () => (
       </Col>
     </Row>
   </Col>
-);
+  );
+};
 
 // Re-export shared primitives used by sibling modules that import from this barrel
 export { Label, ProgressBar };

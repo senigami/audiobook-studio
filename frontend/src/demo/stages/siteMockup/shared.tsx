@@ -1,7 +1,7 @@
 /**
  * siteMockup/shared.tsx — shared primitive components and data
  */
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   BookOpen,
   Mic,
@@ -14,6 +14,7 @@ import {
   Clock,
   Cloud,
   Play,
+  ArrowDown,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -975,3 +976,185 @@ export const BOOK_TABS: BookTab[] = ['Manuscript', 'Casting', 'Studio', 'Review'
 export const BOOK_STAGE_LINKS: BookTab[] = ['Manuscript', 'Casting', 'Studio', 'Review', 'Publish'];
 
 export type RailDest = 'Library' | 'Voices' | 'Activity' | 'Engines' | 'Integrations' | 'Settings';
+
+// ---------------------------------------------------------------------------
+// Player-piano follow-playback (shared by Studio + Review panes)
+//
+// A "follow" surface maps a chapter's segments to a time window and auto-scrolls
+// to keep the segment under the playhead parked in the upper third, while letting
+// a manual scroll take over indefinitely (with a Resume pill to re-engage).
+
+/** Speaker → design-token color family (no raw hex). Shared by Studio + Review so
+ *  the active-segment highlight is colored identically on both surfaces. */
+export const SPEAKER_TOKEN: Record<string, { text: string; tintBg: string; tintBorder: string }> = {
+  Narrator:   { text: 'var(--success-text)',      tintBg: 'var(--success-tint-bg)',  tintBorder: 'var(--success)' },
+  Maren:      { text: 'var(--pill-class-text)',    tintBg: 'var(--pill-class-bg)',    tintBorder: 'var(--pill-class-border)' },
+  Dov:        { text: 'var(--pill-age-text)',      tintBg: 'var(--pill-age-bg)',      tintBorder: 'var(--pill-age-border)' },
+  ElderRowan: { text: 'var(--pill-extended-text)', tintBg: 'var(--pill-extended-bg)', tintBorder: 'var(--pill-extended-border)' },
+};
+
+/** Demo follow-track length. Must stay > FIT_WAVE_MAX_SEC (30) so the chapter
+ *  scrubber renders as a bar, yet short enough to demo in under a minute. */
+export const FOLLOW_DURATION_SEC = 48;
+
+export interface SegmentWindow {
+  id: string;
+  /** Playback window (seconds) — proportional to character share of the chapter. */
+  start: number;
+  end: number;
+  /** Character-domain position of the segment within the chapter (the source of
+   *  truth a real rendered chapter would persist: each segment = start + length). */
+  startChar: number;
+  charLen: number;
+}
+
+/**
+ * Model the chapter as a character stream and assign each content segment a window
+ * proportional to its character count: a segment covering chars [startChar, +charLen)
+ * of a chapter of N chars plays over [startChar/N, (startChar+charLen)/N] × duration.
+ * Whitespace spacers and items flagged isRendering are excluded.
+ *
+ * Because playback advances linearly in time, char-fraction === time-fraction, so
+ * "percent of characters read" maps directly to the playhead — the segment under the
+ * playhead is exact to the character model (not guesswork per visual line).
+ */
+export function buildSegmentTimeline(
+  segments: { id: string; text: string; isRendering?: boolean }[],
+  totalSec: number,
+): SegmentWindow[] {
+  const content = segments.filter(s => s.text.trim().length > 0 && !s.isRendering);
+  const totalChars = content.reduce((n, s) => n + s.text.trim().length, 0) || 1;
+  let accTime = 0;
+  let accChar = 0;
+  return content.map(s => {
+    const len = s.text.trim().length;
+    const dur = (len / totalChars) * totalSec;
+    const win: SegmentWindow = {
+      id: s.id, start: accTime, end: accTime + dur, startChar: accChar, charLen: len,
+    };
+    accTime += dur;
+    accChar += len;
+    return win;
+  });
+}
+
+/** Which segment id is active at time t (start inclusive, end exclusive). */
+export function activeChunkIdAt(timeline: SegmentWindow[], t: number): string | null {
+  for (const s of timeline) if (t >= s.start && t < s.end) return s.id;
+  return null;
+}
+
+/** Minimal shape of the playback track this hook reads. */
+export interface FollowTrackLike {
+  trackName: string;
+  currentTime: number;
+  scope: string;
+}
+
+/**
+ * Drives follow-the-playback for a scrollable transcript. Returns a ref to put on
+ * the scroll container, the active segment id, whether following is engaged/active,
+ * and a `resume()` to re-engage after a manual scroll. Segments in the container
+ * must carry `data-chunk-id={id}` matching the timeline ids.
+ */
+export function useChapterFollow(opts: {
+  activeTrack: FollowTrackLike | null | undefined;
+  matchTrackName: string;
+  timeline: SegmentWindow[];
+}) {
+  const { activeTrack, matchTrackName, timeline } = opts;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isFollowing, setIsFollowing] = useState(true);
+  const lastActiveIdRef = useRef<string | null>(null);
+
+  const reduceMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const followEngaged =
+    !!activeTrack && activeTrack.scope === 'chapter' && activeTrack.trackName === matchTrackName;
+  const activeChunkId = followEngaged ? activeChunkIdAt(timeline, activeTrack!.currentTime) : null;
+
+  // Scroll the active segment into the upper third — only when it CHANGES, so the
+  // 10Hz playback tick doesn't restart the smooth animation every frame.
+  useEffect(() => {
+    if (!followEngaged || !isFollowing || !activeChunkId) return;
+    if (activeChunkId === lastActiveIdRef.current) return;
+    lastActiveIdRef.current = activeChunkId;
+    const container = scrollRef.current;
+    const el = container?.querySelector<HTMLElement>(`[data-chunk-id="${activeChunkId}"]`);
+    if (!container || !el) return;
+    // Rect-based geometry (not el.offsetTop): segment spans may sit inside a
+    // position:relative wrapper that would otherwise be the offsetParent and
+    // yield ≈0. getBoundingClientRect is immune to wrapper nesting and gives the
+    // full box of a segment that wraps multiple lines.
+    const elRect = el.getBoundingClientRect();
+    const cRect = container.getBoundingClientRect();
+    const elTop = elRect.top - cRect.top + container.scrollTop;
+    // Encapsulate the segment: center its box in the viewport so the reading
+    // center tracks the segment exactly, whatever its length. Tall segments clamp.
+    const target = Math.max(0, elTop + elRect.height / 2 - container.clientHeight / 2);
+    container.scrollTo({ top: target, behavior: reduceMotion ? 'auto' : 'smooth' });
+  }, [activeChunkId, followEngaged, isFollowing, reduceMotion]);
+
+  // A genuine user gesture pauses following indefinitely. We listen for intent
+  // (wheel/touch/keys) NOT the scroll event, which our own auto-scroll fires.
+  useEffect(() => {
+    const c = scrollRef.current;
+    if (!c) return;
+    const pause = () => setIsFollowing(false);
+    c.addEventListener('wheel', pause, { passive: true });
+    c.addEventListener('touchmove', pause, { passive: true });
+    const onKey = (e: KeyboardEvent) => {
+      if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(e.key)) pause();
+    };
+    c.addEventListener('keydown', onKey);
+    return () => {
+      c.removeEventListener('wheel', pause);
+      c.removeEventListener('touchmove', pause);
+      c.removeEventListener('keydown', onKey);
+    };
+  }, []);
+
+  // Re-engage on a fresh play-through (currentTime resets to 0); reset on teardown.
+  useEffect(() => {
+    if (followEngaged) {
+      if (activeTrack && activeTrack.currentTime === 0) {
+        setIsFollowing(true);
+        lastActiveIdRef.current = null;
+      }
+    } else {
+      lastActiveIdRef.current = null;
+    }
+  }, [activeTrack?.trackName, activeTrack?.currentTime, followEngaged]);
+
+  const resume = () => {
+    setIsFollowing(true);
+    lastActiveIdRef.current = null;
+  };
+
+  return { scrollRef, activeChunkId, followEngaged, isFollowing, resume };
+}
+
+/** Floating "↓ Resume following" pill. Render inside a position:relative ancestor;
+ *  show only when `followEngaged && !isFollowing`. ≥44pt tap target (HIG). */
+export const ResumeFollowingPill: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <button
+    type="button"
+    aria-label="Resume following playback"
+    onClick={onClick}
+    style={{
+      position: 'absolute', left: '50%', bottom: 'var(--space-3)',
+      transform: 'translateX(-50%)', zIndex: 20,
+      display: 'inline-flex', alignItems: 'center', gap: 6,
+      minHeight: 44, padding: '0 var(--space-3)',
+      borderRadius: 'var(--radius-round)',
+      background: 'var(--surface)', color: 'var(--accent)',
+      border: '1px solid var(--accent-tint-border)',
+      boxShadow: 'var(--shadow-md)', cursor: 'pointer',
+      fontSize: 'var(--type-caption)', fontWeight: 600,
+    }}
+  >
+    <ArrowDown size={14} aria-hidden="true" /> Resume following
+  </button>
+);

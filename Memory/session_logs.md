@@ -2243,6 +2243,13 @@
 - Added focused demo coverage for raster portraits, SVG portraits, local no-image fallback, Discover no-image fallback, and the generated prompt.
 - Verified with `npm -C frontend run test -- demoApp.test.tsx`, `node -e` JSON parse, and `git diff --check`; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.
 
+# 2026-06-16 - Contextual book rail indentation verified
+
+- Adjusted the private mock expanded Library book hierarchy so Manuscript, Casting, Studio, Review, and Publish rail rows are explicitly left-aligned and only slightly indented.
+- Reduced the nested chapter-list indentation under Studio and locked chapter rows to left alignment so the contextual rail reads as an outline rather than a centered button stack.
+- Added focused demo coverage for the contextual book rail stage alignment contract.
+- Verified with `npm -C frontend run test -- demoApp.test.tsx`, `node -e` JSON parse, and `git diff --check`; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.
+
 # 2026-06-16 - Aria default voice portrait verified
 
 - Changed Aria from initials-only fallback to the default taxonomy-derived adult female clear narrator portrait.

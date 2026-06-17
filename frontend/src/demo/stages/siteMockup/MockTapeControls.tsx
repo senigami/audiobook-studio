@@ -24,6 +24,54 @@ export function snapZoom(current: ZoomPreset, direction: 'in' | 'out'): ZoomPres
 }
 
 // ---------------------------------------------------------------------------
+// InlineWave — the compact scrub waveform for short clips. Uses the SAME
+// realistic peaks (speechPeakAt) as the tape so the inline player and the tape
+// look consistent (no more "old vs new" mismatch). Static bars across the whole
+// clip; the fill tracks the playhead. No paging / ruler — it's just the scrub.
+
+export const InlineWave: React.FC<{ durationSec: number; currentTimeSec: number; height?: number }> = ({
+  durationSec,
+  currentTimeSec,
+  height = 32,
+}) => {
+  const BARS = 120;
+  const barW = 2;
+  const gap = 1;
+  const viewW = BARS * (barW + gap);
+  const playedFrac = durationSec > 0 ? currentTimeSec / durationSec : 0;
+  return (
+    <svg
+      width="100%"
+      height={height}
+      viewBox={`0 0 ${viewW} ${height}`}
+      preserveAspectRatio="none"
+      style={{ display: 'block' }}
+      aria-hidden="true"
+    >
+      {Array.from({ length: BARS }, (_, i) => {
+        const amp = speechPeakAt(((i + 0.5) / BARS) * durationSec);
+        const barH = Math.max(2, amp * (height - 6));
+        const x = i * (barW + gap);
+        const y = (height - barH) / 2;
+        const played = i / BARS <= playedFrac;
+        return (
+          <rect
+            key={i}
+            x={x}
+            y={y}
+            width={barW}
+            height={barH}
+            rx={1}
+            fill={played ? 'var(--color-wave-progress)' : 'var(--color-wave)'}
+            opacity={played ? 0.9 : 0.5}
+          />
+        );
+      })}
+    </svg>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // ZoomPresetControl
 
 export interface ZoomPresetControlProps {
@@ -93,11 +141,15 @@ export interface TapeMinimapStripProps {
   currentTimeSec: number;
   /** Width of the tape viewport in seconds (current zoom window span). */
   windowSec: number;
-  /** Called when user drags the window rectangle to a new position.
-   *  newTimeSec is the start of the window, clamped to [0, durationSec - windowSec]. */
+  /** Called when the user drags on the minimap to seek (absolute time in seconds). */
   onSeek: (newTimeSec: number) => void;
   /** Strip height in pixels. Default 28. */
   height?: number;
+  /**
+   * Matches the tape's motion. 'paged': the window box jumps page-by-page.
+   * 'scroll': the window box is centered on the playhead and slides smoothly.
+   */
+  mode?: 'paged' | 'scroll';
 }
 
 export const TapeMinimapStrip: React.FC<TapeMinimapStripProps> = ({
@@ -106,6 +158,7 @@ export const TapeMinimapStrip: React.FC<TapeMinimapStripProps> = ({
   windowSec,
   onSeek,
   height = 28,
+  mode = 'paged',
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const isDragging = useRef(false);
@@ -122,36 +175,40 @@ export const TapeMinimapStrip: React.FC<TapeMinimapStripProps> = ({
   const viewW = totalPeaks * (barW + barGap);
   const viewH = height;
 
-  // Window rect geometry (in viewBox coords)
-  const pageStart = Math.floor(currentTimeSec / windowSec) * windowSec;
-  const rectLeft = durationSec > 0 ? (pageStart / durationSec) * viewW : 0;
+  // Window box geometry — mirrors the tape's motion (audio-player spec §5.2):
+  //  - paged: the box snaps to windowSec-sized pages (jumps);
+  //  - scroll: the box is centered on the playhead and slides smoothly as it plays.
+  const viewStart =
+    mode === 'scroll'
+      ? currentTimeSec - windowSec / 2
+      : Math.floor(currentTimeSec / windowSec) * windowSec;
+  const rectLeft = durationSec > 0 ? (viewStart / durationSec) * viewW : 0;
   const rectWidth = durationSec > 0 ? (windowSec / durationSec) * viewW : viewW;
 
-  // Playhead position in minimap
+  // Playhead position in minimap (the center of the box in scroll mode).
   const playheadX = durationSec > 0 ? (currentTimeSec / durationSec) * viewW : 0;
 
-  // Pointer → new page-start time
-  const pointerToPageStart = useCallback(
+  // Pointer → seek to the clicked absolute time (intuitive in both modes).
+  const pointerToTime = useCallback(
     (clientX: number): number => {
       const el = svgRef.current;
-      if (!el) return pageStart;
+      if (!el) return currentTimeSec;
       const rect = el.getBoundingClientRect();
       const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      const newTime = frac * durationSec;
-      return Math.max(0, Math.min(durationSec - windowSec, newTime));
+      return Math.max(0, Math.min(durationSec, frac * durationSec));
     },
-    [durationSec, windowSec, pageStart],
+    [durationSec, currentTimeSec],
   );
 
   const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
     isDragging.current = true;
-    onSeek(pointerToPageStart(e.clientX));
+    onSeek(pointerToTime(e.clientX));
   };
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!isDragging.current) return;
-      onSeek(pointerToPageStart(e.clientX));
+      onSeek(pointerToTime(e.clientX));
     };
     const onUp = () => {
       isDragging.current = false;
@@ -162,7 +219,7 @@ export const TapeMinimapStrip: React.FC<TapeMinimapStripProps> = ({
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, [onSeek, pointerToPageStart]);
+  }, [onSeek, pointerToTime]);
 
   return (
     <div className="nsp-minimap">
