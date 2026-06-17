@@ -971,9 +971,9 @@ export const CHAPTERS = [
   { n: 7, title: 'Whispers at Threshold', words: 2775, status: 'Drafting' },
 ];
 
-export type BookTab = 'Manuscript' | 'Casting' | 'Studio' | 'Review' | 'Publish';
-export const BOOK_TABS: BookTab[] = ['Manuscript', 'Casting', 'Studio', 'Review', 'Publish'];
-export const BOOK_STAGE_LINKS: BookTab[] = ['Manuscript', 'Casting', 'Studio', 'Review', 'Publish'];
+export type BookTab = 'Contents' | 'Cast' | 'Publish' | 'Backups';
+export const BOOK_TABS: BookTab[] = ['Contents', 'Cast', 'Publish', 'Backups'];
+export const BOOK_STAGE_LINKS: BookTab[] = ['Contents', 'Cast', 'Publish', 'Backups'];
 
 export type RailDest = 'Library' | 'Voices' | 'Activity' | 'Engines' | 'Integrations' | 'Settings';
 

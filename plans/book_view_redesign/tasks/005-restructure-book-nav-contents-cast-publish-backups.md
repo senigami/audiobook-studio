@@ -1,6 +1,6 @@
 # 005 — Restructure book-level nav to `Contents · Cast · Publish · Backups`
 
-- **Status:** not-started
+- **Status:** done
 - **Workload:** Mock: book-level nav + Contents hub
 - **Severity / type:** major · organization
 - **Effort:** M

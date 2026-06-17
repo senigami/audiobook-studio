@@ -52,7 +52,7 @@ import { BrandLogo } from '@/components/layout/BrandLogo';
 import './siteMockup/mockup.css';
 import {
   Col, Row, SemanticChip, ProgressBar, MockWaveTape,
-  IN_FLIGHT_JOBS, QUEUED_JOBS, BOOK_TABS,
+  IN_FLIGHT_JOBS, QUEUED_JOBS, BOOK_TABS, CHAPTERS,
   StatusOrb,
 } from './siteMockup/shared';
 import type { BookTab, RailDest } from './siteMockup/shared';
@@ -60,8 +60,8 @@ import { ZoomPresetControl, TapeMinimapStrip, snapZoom, InlineWave } from './sit
 import type { ZoomPreset } from './siteMockup/MockTapeControls';
 import { Rail } from './siteMockup/rail';
 import { LibraryPane } from './siteMockup/panes/library';
-import { ManuscriptPane, CastingPane, ReviewPane } from './siteMockup/panes/book';
-import { StudioPane, STUDIO_FOLLOW_DURATION_SEC } from './siteMockup/panes/studio';
+import { ContentsPane, CastingPane, BackupsPane } from './siteMockup/panes/book';
+import { STUDIO_FOLLOW_DURATION_SEC, StudioPane } from './siteMockup/panes/studio';
 import { PublishPane } from './siteMockup/panes/publish';
 import { VoicesPane } from './siteMockup/panes/voices';
 import { ActivityPane } from './siteMockup/panes/activity';
@@ -869,64 +869,118 @@ const BookPane: React.FC<{
   setActiveTab: (t: BookTab) => void;
   activeTrack: TrackState | null;
   setActiveTrack: React.Dispatch<React.SetStateAction<TrackState | null>>;
-}> = ({ onBack, activeTab, setActiveTab, activeTrack, setActiveTrack }) => (
-  <Col className="ns-book-pane" gap={0} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
-    <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
-      <button
-        type="button"
-        onClick={onBack}
-        style={{
-          border: 0,
-          background: 'transparent',
-          padding: 0,
-          fontFamily: 'inherit',
-          fontSize: 'var(--type-caption)',
-          color: 'var(--accent)',
-          cursor: 'pointer',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 4,
-        }}
-      >
-        <ArrowLeft size={14} strokeWidth={2.2} aria-hidden="true" />
-        Library
-      </button>
-    </Row>
+  openChapter: number | null;
+  onOpenChapter: (n: number) => void;
+  onCloseChapter: () => void;
+  activeChapter: number;
+  setActiveChapter: (n: number) => void;
+  lastEditedSegmentByChapter: Record<number, string>;
+  setLastEditedSegmentByChapter: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+}> = ({ onBack, activeTab, setActiveTab, activeTrack, setActiveTrack, openChapter, onOpenChapter, onCloseChapter, activeChapter, setActiveChapter, lastEditedSegmentByChapter, setLastEditedSegmentByChapter }) => {
+  // Find the chapter title for the workspace header
+  const chapterData = openChapter != null
+    ? (CHAPTERS.find(c => c.n === openChapter) ?? null)
+    : null;
 
-    <Row className="ns-book-tabs" gap={2} role="tablist" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 0, marginBottom: 0 }}>
-      {BOOK_TABS.map(t => (
+  return (
+    <Col className="ns-book-pane" gap={0} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
+      <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
         <button
           type="button"
-          key={t}
-          className="ns-book-tab"
-          role="tab"
-          aria-selected={activeTab === t}
-          onClick={() => setActiveTab(t)}
+          onClick={onBack}
           style={{
             border: 0,
+            background: 'transparent',
+            padding: 0,
             fontFamily: 'inherit',
-            fontSize: 'var(--type-callout)', fontWeight: activeTab === t ? 700 : 400,
-            padding: '4px 12px', borderRadius: 'var(--radius-button) var(--radius-button) 0 0', cursor: 'pointer',
-            background: activeTab === t ? 'var(--accent-tint-bg)' : 'transparent',
-            color: activeTab === t ? 'var(--accent)' : 'var(--text-secondary)',
-            borderBottom: activeTab === t ? '2px solid var(--accent)' : '2px solid transparent',
+            fontSize: 'var(--type-caption)',
+            color: 'var(--accent)',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
           }}
         >
-          {t}
+          <ArrowLeft size={14} strokeWidth={2.2} aria-hidden="true" />
+          Library
         </button>
-      ))}
-      <div style={{ flex: 1 }} />
-    </Row>
+      </Row>
 
-    <div className="ns-book-workspace" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, paddingTop: 10 }}>
-      {activeTab === 'Manuscript' && <ManuscriptPane onSwitchToPublish={() => setActiveTab('Publish')} />}
-      {activeTab === 'Casting' && <CastingPane />}
-      {activeTab === 'Studio' && <StudioPane activeTrack={activeTrack} setActiveTrack={setActiveTrack} />}
-      {activeTab === 'Review' && <ReviewPane activeTrack={activeTrack} setActiveTrack={setActiveTrack} />}
-      {activeTab === 'Publish' && <PublishPane />}
-    </div>
-  </Col>
-);
+      <Row className="ns-book-tabs" gap={2} role="tablist" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 0, marginBottom: 0 }}>
+        {BOOK_TABS.map(t => (
+          <button
+            type="button"
+            key={t}
+            className="ns-book-tab"
+            role="tab"
+            aria-selected={activeTab === t && openChapter == null}
+            onClick={() => { onCloseChapter(); setActiveTab(t); }}
+            style={{
+              border: 0,
+              fontFamily: 'inherit',
+              fontSize: 'var(--type-callout)', fontWeight: (activeTab === t && openChapter == null) ? 700 : 400,
+              padding: '4px 12px', borderRadius: 'var(--radius-button) var(--radius-button) 0 0', cursor: 'pointer',
+              background: (activeTab === t && openChapter == null) ? 'var(--accent-tint-bg)' : 'transparent',
+              color: (activeTab === t && openChapter == null) ? 'var(--accent)' : 'var(--text-secondary)',
+              borderBottom: (activeTab === t && openChapter == null) ? '2px solid var(--accent)' : '2px solid transparent',
+            }}
+          >
+            {t}
+          </button>
+        ))}
+        <div style={{ flex: 1 }} />
+      </Row>
+
+      <div className="ns-book-workspace" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, paddingTop: 10 }}>
+        {/* Chapter workspace — shown when a chapter is opened from Contents */}
+        {openChapter != null ? (
+          <Col gap={8} className="ns-enter" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            <Row gap={8} style={{ alignItems: 'center', flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={onCloseChapter}
+                style={{
+                  border: 0,
+                  background: 'transparent',
+                  padding: 0,
+                  fontFamily: 'inherit',
+                  fontSize: 'var(--type-caption)',
+                  color: 'var(--accent)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <ArrowLeft size={14} strokeWidth={2.2} aria-hidden="true" />
+                Contents
+              </button>
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>·</span>
+              <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                Ch {chapterData?.n} · {chapterData?.title ?? `Chapter ${openChapter}`}
+              </span>
+            </Row>
+            <StudioPane
+              activeTrack={activeTrack}
+              setActiveTrack={setActiveTrack}
+              activeChapter={activeChapter}
+              setActiveChapter={setActiveChapter}
+              lastEditedSegmentByChapter={lastEditedSegmentByChapter}
+              setLastEditedSegmentByChapter={setLastEditedSegmentByChapter}
+            />
+          </Col>
+        ) : (
+          <>
+            {activeTab === 'Contents' && <ContentsPane onSwitchToPublish={() => setActiveTab('Publish')} onOpenChapter={onOpenChapter} />}
+            {activeTab === 'Cast' && <CastingPane />}
+            {activeTab === 'Publish' && <PublishPane />}
+            {activeTab === 'Backups' && <BackupsPane />}
+          </>
+        )}
+      </div>
+    </Col>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Root mockup
@@ -936,8 +990,10 @@ const SiteMockup: React.FC = () => {
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [inBook, setInBook] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
-  const [activeBookTab, setActiveBookTab] = useState<BookTab>('Studio');
+  const [activeBookTab, setActiveBookTab] = useState<BookTab>('Contents');
   const [activeChapter, setActiveChapter] = useState(4);
+  const [openChapter, setOpenChapter] = useState<number | null>(null);
+  const [lastEditedSegmentByChapter, setLastEditedSegmentByChapter] = useState<Record<number, string>>({});
   const [showSplash, setShowSplash] = useState(true);
 
   // Responsive mobile navigation state
@@ -1277,6 +1333,13 @@ const SiteMockup: React.FC = () => {
                     setActiveTab={setActiveBookTab}
                     activeTrack={activeTrack}
                     setActiveTrack={setActiveTrack}
+                    openChapter={openChapter}
+                    onOpenChapter={(n) => { setActiveChapter(n); setOpenChapter(n); }}
+                    onCloseChapter={() => setOpenChapter(null)}
+                    activeChapter={activeChapter}
+                    setActiveChapter={setActiveChapter}
+                    lastEditedSegmentByChapter={lastEditedSegmentByChapter}
+                    setLastEditedSegmentByChapter={setLastEditedSegmentByChapter}
                   />
                 )}
                 {activeRail === 'Voices' && <VoicesPane />}

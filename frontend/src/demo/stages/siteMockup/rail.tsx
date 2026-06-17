@@ -261,8 +261,8 @@ export const Rail: React.FC<{
                                 {stage}
                               </button>
 
-                              {/* Chapter list — under Studio only, expanded when Studio is active */}
-                              {stage === 'Studio' && isStageActive && (
+                              {/* Chapter list — under Contents, expanded when Contents is active */}
+                              {stage === 'Contents' && isStageActive && (
                                 <div style={{ paddingLeft: 4 }}>
                                   {CHAPTERS.map(ch => {
                                     const isChActive = ch.n === activeChapter;

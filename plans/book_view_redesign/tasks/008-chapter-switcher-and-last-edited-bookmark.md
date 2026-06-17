@@ -1,6 +1,6 @@
 # 008 — Chapter switcher (`Contents ▾`) + last-edited bookmark
 
-- **Status:** not-started
+- **Status:** done
 - **Workload:** Mock: single Chapter Workspace
 - **Severity / type:** major · ux
 - **Effort:** M

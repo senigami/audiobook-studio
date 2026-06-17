@@ -1,6 +1,6 @@
 # 013 — Inline phonetic edit + per-word pronunciation lexicon (scoped)
 
-- **Status:** not-started
+- **Status:** done
 - **Workload:** Mock: authoring aids
 - **Severity / type:** medium · ux
 - **Effort:** M

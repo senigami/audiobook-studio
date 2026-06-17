@@ -29,6 +29,11 @@ A voice with multiple reference samples has `speaker_wav` as a **list**; the ser
 - [x] Revert-checked; `pytest -q` green (1 pre-existing unrelated failure — see note); `ruff` clean.
 - [ ] **Owner verification:** restart the app (TTS server subprocess reloads `xtts_inference.py`), re-render Chapter 1 / Dracula → produces audio.
 
+## Root-cause fix (fusion triage — supersedes the partial patches above)
+The earlier patches treated symptoms (one key site, then an import). A fusion-reasoning panel found the real **class**: the latent-cache key was **constructed in one place and rebuilt differently in another**, and this logic was **duplicated across two functions** — `_run_serve_job` (warm worker, lookup was line 376) AND `main()` (one-shot fallback, lookup was line 708). Two defects: (1) the list crash, and (2) a silent cache-miss even for string voices when `voice_profile_dir` is a `Path` (`str(vpdir)` on construct vs raw `Path` on lookup) → every segment fell to the slow per-sentence path, and a list `fallback_sw` would then hit `synthesizer.tts` (which, unlike `get_conditioning_latents`, doesn't accept a list) — a latent second crash.
+
+**Fix:** one canonical `speaker_key(voice_profile_dir, speaker_wav)` in `serve_speakers.py`, used by `build_unique_speakers` AND all lookups (both functions), so construction/lookup can never diverge again; plus `fallback_sw` list→single-string normalization in both functions. New `plugins/tts_xtts/tests/test_speaker_key.py` (17 tests incl. construction==lookup regression guards + revert-checks for both old failure modes). Full suite green.
+
 ## Follow-up fix (import regression)
 The first version of this fix imported the helper as `from plugins.tts_xtts.plugin.core.serve_speakers import …`, which threw `ModuleNotFoundError: No module named 'plugins'` in the **subprocess** — `xtts_inference.py` runs as a standalone script with only `ROOT_DIR = plugins/tts_xtts/plugin` on `sys.path` (not the repo root). Corrected to `from core.serve_speakers import build_unique_speakers` (verified by simulating the subprocess sys.path). The test's full-path import is unaffected (pytest context has the repo root on path).
 

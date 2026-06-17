@@ -1,6 +1,6 @@
 # 007 — Merge Studio + Review into one Chapter Workspace
 
-- **Status:** not-started
+- **Status:** done
 - **Workload:** Mock: single Chapter Workspace
 - **Severity / type:** major · organization
 - **Effort:** L

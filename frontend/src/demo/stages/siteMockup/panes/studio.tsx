@@ -6,11 +6,40 @@
  *  - Analysis strip under view-mode pills: stats + green badge + expandable amber ACTION REQUIRED badge
  *  - One prose sentence has hover-look inline controls (voice select chip, ▶, ↻ rebuild)
  *  - "Stop all" red ghost button next to render controls
+ *  - 🔖 Named bookmark affordance + "Jump to next unrendered section" (task 012)
  */
-import React, { useState, useEffect } from 'react';
-import { Row, Col, Chip, Btn, ProgressBar, SemanticChip, Avatar, Card, Panel, StatusOrb, FOLLOW_DURATION_SEC, buildSegmentTimeline, useChapterFollow, ResumeFollowingPill, SPEAKER_TOKEN } from '../shared';
-import { Play, RefreshCw, ChevronDown, ChevronUp, Download, ChevronLeft, ChevronRight, Square, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Row, Col, Chip, Btn, ProgressBar, SemanticChip, Card, Panel, StatusOrb, FOLLOW_DURATION_SEC, buildSegmentTimeline, useChapterFollow, ResumeFollowingPill, SPEAKER_TOKEN, CHAPTERS, CHAPTER_RENDER_PCT } from '../shared';
+import type { OrbStatus } from '../shared';
+import { Play, RefreshCw, ChevronDown, ChevronUp, Download, ChevronLeft, ChevronRight, Square, Check, Bookmark, SkipForward, BookMarked } from 'lucide-react';
 import type { TrackState } from '../../siteMockupStage';
+import { CastPanel, VOICE_VARIATIONS, INITIAL_CHARACTERS } from './castPanel';
+import { addBookmark, subscribeBookmarks } from '../bookmarkStore';
+import { LexiconPanel } from './lexiconPanel';
+
+// Per-section render state for the current chapter (mock).
+// Derived from CHAPTER_RENDER_PCT[3] = 60 → sections §1–§10 are rendered,
+// §11–§18 are not. Keys are the chunk ids that carry showNumberTag.
+const CHUNK_RENDERED: Record<string, boolean> = {
+  c1:  true,   // §1
+  c5:  true,   // §2
+  c6:  true,   // §3
+  c10: true,   // §4
+  c13: true,   // §5
+  c15: true,   // §6
+  c17: true,   // §7
+  c19: true,   // §8
+  c21: true,   // §9
+  c23: true,   // §10
+  c25: false,  // §11
+  c27: false,  // §12
+  c29: false,  // §13
+  c31: false,  // §14
+  c33: false,  // §15
+  c35: false,  // §16
+  c37: false,  // §17
+  c39: false,  // §18
+};
 
 const SCRIPT_LINES = [
   { speaker: 'Narrator',  text: 'The gate groaned open on rusted hinges.' },
@@ -24,13 +53,6 @@ const SCRIPT_LINES = [
 
 const PAINTABLE_SENTENCE_IDS = ['s1', 's2', 's3', 's4', 's5'] as const;
 type SentenceId = typeof PAINTABLE_SENTENCE_IDS[number];
-
-const CAST_SWATCHES: { id: string; name: string }[] = [
-  { id: 'Narrator',   name: 'Narrator (default)' },
-  { id: 'Maren',      name: 'Maren' },
-  { id: 'Dov',        name: 'Dov' },
-  { id: 'ElderRowan', name: 'Elder Rowan' },
-];
 
 // ---------- Resync Preview modal ----------
 const ResyncModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
@@ -101,35 +123,268 @@ const ExportMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => (
   </div>
 );
 
-// ---------- Hover sentence controls ----------
-const HoverSentenceControls: React.FC<{ chunkId: string; onPlayFromHere: (id: string) => void }> = ({ chunkId, onPlayFromHere }) => (
-  <span className="hover-sentence-controls" style={{
-    display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'var(--space-1)',
-    fontSize: 'var(--type-micro)', verticalAlign: 'middle',
-    opacity: 0, visibility: 'hidden', transition: 'opacity 0.1s ease',
-  }}>
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 2,
+// ---------- Shared dropdown menu shell (mirrors ExportMenu style) ----------
+const DropdownMenu: React.FC<{
+  items: string[];
+  onSelect: (item: string) => void;
+  onClose: () => void;
+}> = ({ items, onSelect, onClose }) => (
+  <div
+    style={{
+      position: 'absolute', top: '100%', left: 0, zIndex: 200,
       background: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 'var(--radius-round)', padding: '1px 6px', cursor: 'pointer',
-      color: 'var(--pill-class-text)', fontSize: 'var(--type-micro)',
-    }}>
-      Maren <ChevronDown size={9} aria-hidden="true" />
-    </span>
-    <button aria-label="Play from here" onClick={(e) => { e.stopPropagation(); onPlayFromHere(chunkId); }} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center' }}>
-      <Play size={13} />
-    </button>
-    <button aria-label="Rebuild segment" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
-      <RefreshCw size={11} />
-    </button>
-  </span>
+      borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-md)',
+      minWidth: 110, padding: 'var(--space-1) 0',
+    }}
+  >
+    {items.map(item => (
+      <button
+        key={item}
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onSelect(item); onClose(); }}
+        style={{
+          width: '100%', border: 0, background: 'transparent',
+          fontFamily: 'inherit', textAlign: 'left',
+          fontSize: 'var(--type-micro)', padding: 'var(--space-1) var(--space-3)',
+          cursor: 'pointer', color: 'var(--text-primary)',
+        }}
+      >
+        {item}
+      </button>
+    ))}
+  </div>
 );
+
+// Derive sorted chapter-4 character names from the seed data for the dropdown.
+// Filter to those in chapter 4 (the default active chapter in this mock).
+const HOVER_CHARACTERS = INITIAL_CHARACTERS
+  .filter(c => c.chapters.includes(4))
+  .map(c => ({ id: c.id, name: c.name === 'Narrator (default)' ? 'Narrator' : c.name, voiceName: c.voiceName }));
+
+// ---------- Hover sentence controls ----------
+const HoverSentenceControls: React.FC<{ chunkId: string; onPlayFromHere: (id: string) => void }> = ({ chunkId, onPlayFromHere }) => {
+  const [charId, setCharId] = useState('Maren');
+  const [variation, setVariation] = useState('Default');
+  const [charMenuOpen, setCharMenuOpen] = useState(false);
+  const [varMenuOpen, setVarMenuOpen] = useState(false);
+
+  const activeChar = HOVER_CHARACTERS.find(c => c.id === charId) ?? HOVER_CHARACTERS[0];
+  const voiceVariations: string[] = VOICE_VARIATIONS[activeChar.voiceName] ?? [];
+  const variationItems = ['Default', ...voiceVariations];
+  const tok = SPEAKER_TOKEN[activeChar.id] ?? SPEAKER_TOKEN.Narrator;
+
+  const handleSelectChar = (name: string) => {
+    const found = HOVER_CHARACTERS.find(c => c.name === name);
+    if (found) {
+      setCharId(found.id);
+      setVariation('Default');
+    }
+  };
+
+  const chipLabel = variation === 'Default'
+    ? activeChar.name
+    : `${activeChar.name} · ${variation}`;
+
+  return (
+    <span
+      className="hover-sentence-controls"
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'var(--space-1)',
+        fontSize: 'var(--type-micro)', verticalAlign: 'middle',
+        opacity: 0, visibility: 'hidden', transition: 'opacity 0.1s ease',
+      }}
+    >
+      {/* Character dropdown */}
+      <span style={{ position: 'relative', display: 'inline-flex' }}>
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label="Select character"
+          onClick={(e) => { e.stopPropagation(); setCharMenuOpen(v => !v); setVarMenuOpen(false); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setCharMenuOpen(v => !v); setVarMenuOpen(false); } }}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 2,
+            background: tok.tintBg,
+            border: `1px solid ${tok.tintBorder}`,
+            borderRadius: 'var(--radius-round)', padding: '1px 6px', cursor: 'pointer',
+            color: tok.text, fontSize: 'var(--type-micro)', whiteSpace: 'nowrap',
+          }}
+        >
+          {chipLabel} <ChevronDown size={9} aria-hidden="true" />
+        </span>
+        {charMenuOpen && (
+          <DropdownMenu
+            items={HOVER_CHARACTERS.map(c => c.name)}
+            onSelect={handleSelectChar}
+            onClose={() => setCharMenuOpen(false)}
+          />
+        )}
+      </span>
+
+      {/* Variation dropdown */}
+      <span style={{ position: 'relative', display: 'inline-flex' }}>
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label="Select variation"
+          onClick={(e) => { e.stopPropagation(); setVarMenuOpen(v => !v); setCharMenuOpen(false); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setVarMenuOpen(v => !v); setCharMenuOpen(false); } }}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 2,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-round)', padding: '1px 6px', cursor: 'pointer',
+            color: 'var(--text-secondary)', fontSize: 'var(--type-micro)', whiteSpace: 'nowrap',
+            opacity: voiceVariations.length === 0 ? 0.5 : 1,
+          }}
+        >
+          {variation} <ChevronDown size={9} aria-hidden="true" />
+        </span>
+        {varMenuOpen && (
+          <DropdownMenu
+            items={variationItems}
+            onSelect={(v) => setVariation(v)}
+            onClose={() => setVarMenuOpen(false)}
+          />
+        )}
+      </span>
+
+      <button
+        aria-label="Play from here"
+        onClick={(e) => { e.stopPropagation(); onPlayFromHere(chunkId); }}
+        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center' }}
+      >
+        <Play size={13} />
+      </button>
+      <button
+        aria-label="Rebuild segment"
+        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+      >
+        <RefreshCw size={11} />
+      </button>
+    </span>
+  );
+};
+
+// ---------- Selection-popover assign control ----------
+// Self-contained Character ▾ · Variation ▾ control rendered inside the
+// selection context-menu popover. Calls onAssign(charId, variation) when
+// the user clicks "Assign".
+const SelectionAssignControl: React.FC<{
+  onAssign: (charId: string, variation: string) => void;
+  onCancel: () => void;
+}> = ({ onAssign, onCancel }) => {
+  const [charId, setCharId] = useState('Maren');
+  const [variation, setVariation] = useState('Default');
+  const [charMenuOpen, setCharMenuOpen] = useState(false);
+  const [varMenuOpen, setVarMenuOpen] = useState(false);
+
+  const activeChar = HOVER_CHARACTERS.find(c => c.id === charId) ?? HOVER_CHARACTERS[0];
+  const voiceVariations: string[] = VOICE_VARIATIONS[activeChar.voiceName] ?? [];
+  const variationItems = ['Default', ...voiceVariations];
+  const tok = SPEAKER_TOKEN[activeChar.id] ?? SPEAKER_TOKEN.Narrator;
+
+  const handleSelectChar = (name: string) => {
+    const found = HOVER_CHARACTERS.find(c => c.name === name);
+    if (found) {
+      setCharId(found.id);
+      setVariation('Default');
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap' }}>
+      <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Assign:</span>
+
+      {/* Character dropdown */}
+      <span style={{ position: 'relative', display: 'inline-flex' }}>
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label="Select character"
+          onClick={(e) => { e.stopPropagation(); setCharMenuOpen(v => !v); setVarMenuOpen(false); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setCharMenuOpen(v => !v); setVarMenuOpen(false); } }}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 2,
+            background: tok.tintBg, border: `1px solid ${tok.tintBorder}`,
+            borderRadius: 'var(--radius-round)', padding: '2px 6px', cursor: 'pointer',
+            color: tok.text, fontSize: 'var(--type-micro)', whiteSpace: 'nowrap', fontWeight: 600,
+          }}
+        >
+          {activeChar.name} <ChevronDown size={9} aria-hidden="true" />
+        </span>
+        {charMenuOpen && (
+          <DropdownMenu
+            items={HOVER_CHARACTERS.map(c => c.name)}
+            onSelect={handleSelectChar}
+            onClose={() => setCharMenuOpen(false)}
+          />
+        )}
+      </span>
+
+      {/* Variation dropdown */}
+      <span style={{ position: 'relative', display: 'inline-flex' }}>
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label="Select variation"
+          onClick={(e) => { e.stopPropagation(); setVarMenuOpen(v => !v); setCharMenuOpen(false); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setVarMenuOpen(v => !v); setCharMenuOpen(false); } }}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 2,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-round)', padding: '2px 6px', cursor: 'pointer',
+            color: 'var(--text-secondary)', fontSize: 'var(--type-micro)', whiteSpace: 'nowrap',
+            opacity: voiceVariations.length === 0 ? 0.5 : 1,
+          }}
+        >
+          {variation} <ChevronDown size={9} aria-hidden="true" />
+        </span>
+        {varMenuOpen && (
+          <DropdownMenu
+            items={variationItems}
+            onSelect={(v) => setVariation(v)}
+            onClose={() => setVarMenuOpen(false)}
+          />
+        )}
+      </span>
+
+      {/* Confirm button */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onAssign(activeChar.id, variation); }}
+        style={{
+          background: tok.tintBg, border: `1px solid ${tok.tintBorder}`,
+          borderRadius: 'var(--radius-button)', padding: '2px 8px',
+          color: tok.text, fontSize: 'var(--type-micro)', fontWeight: 700,
+          cursor: 'pointer', whiteSpace: 'nowrap',
+        }}
+      >
+        ✓
+      </button>
+
+      {/* Dismiss */}
+      <button
+        type="button"
+        aria-label="Dismiss"
+        onClick={(e) => { e.stopPropagation(); onCancel(); }}
+        style={{
+          background: 'none', border: 'none', padding: '2px 4px', cursor: 'pointer',
+          color: 'var(--text-muted)', fontSize: 'var(--type-micro)', lineHeight: 1,
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+};
 
 interface Chunk {
   id: string;
   text: string;
   safeText?: string;
   speaker?: string;
+  /** Variation label applied to this span (e.g. 'Whisper', 'Default') */
+  variation?: string;
   isHighlighted?: boolean;
   styleType?: 'underline' | 'bg-success' | 'bg-accent' | 'none';
   sentenceId?: SentenceId;
@@ -139,6 +394,199 @@ interface Chunk {
   paragraphIndex: number;
   showNumberTag?: string;
 }
+
+// ---------- Inline word phonetic editor ------------------------------------
+// Splits a chunk's display text into tokens (words + whitespace/punctuation).
+// Each word token is clickable — clicking it opens a tiny inline phonetic editor
+// that stores a one-off spoken-form override for that word in that chunk.
+
+/** A single text token: either a word (clickable) or inter-word punctuation/space. */
+interface TextToken {
+  raw: string;
+  /** True = a word that can receive a phonetic override */
+  isWord: boolean;
+  /** Position index among word-tokens in the chunk (used as override key) */
+  wordIndex: number;
+}
+
+function tokenize(text: string): TextToken[] {
+  // Split on word boundaries, keeping delimiters so we can reconstruct.
+  // \w+ matches word chars; the rest are separators.
+  const parts = text.split(/(\w+)/);
+  const tokens: TextToken[] = [];
+  let wordIdx = 0;
+  for (const part of parts) {
+    if (/^\w+$/.test(part)) {
+      tokens.push({ raw: part, isWord: true, wordIndex: wordIdx++ });
+    } else if (part.length > 0) {
+      tokens.push({ raw: part, isWord: false, wordIndex: -1 });
+    }
+  }
+  return tokens;
+}
+
+/** The tiny inline phonetic editor that appears above a clicked word. */
+const InlinePhoneticEditor: React.FC<{
+  originalWord: string;
+  initialValue: string;
+  speakerToken: { text: string; tintBg: string; tintBorder: string };
+  onConfirm: (phonetic: string) => void;
+  onCancel: () => void;
+}> = ({ originalWord, initialValue, speakerToken, onConfirm, onCancel }) => {
+  const [value, setValue] = useState(initialValue || originalWord);
+  return (
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 3,
+        background: speakerToken.tintBg,
+        border: `1px solid ${speakerToken.tintBorder}`,
+        borderRadius: 'var(--radius-card)',
+        padding: '2px 4px',
+        verticalAlign: 'middle',
+        boxShadow: 'var(--shadow-md)',
+        position: 'relative', zIndex: 100,
+      }}
+    >
+      <span style={{ fontSize: 'var(--type-micro)', color: speakerToken.text, whiteSpace: 'nowrap', flexShrink: 0 }}>
+        "{originalWord}" →
+      </span>
+      <input
+        autoFocus
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onKeyDown={e => {
+          e.stopPropagation();
+          if (e.key === 'Enter') onConfirm(value.trim() || originalWord);
+          if (e.key === 'Escape') onCancel();
+        }}
+        onClick={e => e.stopPropagation()}
+        placeholder="phonetic…"
+        style={{
+          width: 90, fontSize: 'var(--type-micro)', padding: '1px 4px',
+          border: `1px solid ${speakerToken.tintBorder}`,
+          borderRadius: 'var(--radius-button)',
+          background: 'var(--surface)', color: 'var(--text-primary)',
+          outline: 'none', fontFamily: 'inherit', fontStyle: 'italic',
+        }}
+      />
+      <button
+        type="button"
+        aria-label="Confirm phonetic override"
+        onClick={e => { e.stopPropagation(); onConfirm(value.trim() || originalWord); }}
+        style={{
+          background: speakerToken.tintBg, border: `1px solid ${speakerToken.tintBorder}`,
+          borderRadius: 'var(--radius-button)', padding: '1px 5px',
+          color: speakerToken.text, fontSize: 'var(--type-micro)', fontWeight: 700,
+          cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
+        }}
+      >
+        <Check size={10} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        aria-label="Cancel phonetic override"
+        onClick={e => { e.stopPropagation(); onCancel(); }}
+        style={{
+          background: 'none', border: 'none', padding: '1px 3px',
+          color: speakerToken.text, fontSize: 'var(--type-micro)',
+          cursor: 'pointer', opacity: 0.7,
+        }}
+      >
+        ✕
+      </button>
+    </span>
+  );
+};
+
+/** Renders a chunk's text as clickable word tokens.
+ *  Each word that has a phonetic override shows the override text in italics
+ *  while keeping the full speaker tint of the enclosing chunk span.
+ *  Clicking a word opens the inline editor inline (replaces that token). */
+const ClickableWords: React.FC<{
+  text: string;
+  chunkId: string;
+  speakerToken: { text: string; tintBg: string; tintBorder: string };
+  wordOverrides: Record<string, string>;
+  onOverride: (key: string, phonetic: string) => void;
+  onClearOverride: (key: string) => void;
+}> = ({ text, chunkId, speakerToken, wordOverrides, onOverride, onClearOverride }) => {
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const tokens = tokenize(text);
+
+  return (
+    <>
+      {tokens.map((tok, i) => {
+        if (!tok.isWord) {
+          return <React.Fragment key={i}>{tok.raw}</React.Fragment>;
+        }
+        const key = `${chunkId}:${tok.wordIndex}`;
+        const override = wordOverrides[key];
+        const isEditing = editingKey === key;
+
+        if (isEditing) {
+          return (
+            <InlinePhoneticEditor
+              key={i}
+              originalWord={tok.raw}
+              initialValue={override ?? ''}
+              speakerToken={speakerToken}
+              onConfirm={(phonetic) => {
+                if (phonetic && phonetic !== tok.raw) {
+                  onOverride(key, phonetic);
+                } else {
+                  onClearOverride(key);
+                }
+                setEditingKey(null);
+              }}
+              onCancel={() => setEditingKey(null)}
+            />
+          );
+        }
+
+        if (override) {
+          return (
+            <span
+              key={i}
+              title={`Phonetic: "${override}" (click to edit)`}
+              onClick={e => { e.stopPropagation(); setEditingKey(key); }}
+              style={{
+                cursor: 'pointer',
+                fontStyle: 'italic',
+                fontWeight: 600,
+                color: speakerToken.text,
+                background: speakerToken.tintBg,
+                border: `1px solid ${speakerToken.tintBorder}`,
+                borderRadius: 3,
+                padding: '0 2px',
+                textDecoration: 'underline dotted',
+              }}
+            >
+              {override}
+            </span>
+          );
+        }
+
+        return (
+          <span
+            key={i}
+            title="Click to add phonetic override for this word"
+            onClick={e => { e.stopPropagation(); setEditingKey(key); }}
+            style={{
+              cursor: 'pointer',
+              borderRadius: 2,
+              padding: '0 1px',
+              transition: 'background 0.1s',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = speakerToken.tintBg; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+          >
+            {tok.raw}
+          </span>
+        );
+      })}
+    </>
+  );
+};
 
 const initialChunks: Chunk[] = [
   // Paragraph 1
@@ -488,20 +936,131 @@ interface SelectionContextMenu {
 export { buildSegmentTimeline, activeChunkIdAt } from '../shared';
 export const STUDIO_FOLLOW_DURATION_SEC = FOLLOW_DURATION_SEC;
 
+// Local chapter-status → OrbStatus mapping (mirrors CHAPTER_STATUS_ORB in book.tsx)
+const STUDIO_CHAPTER_STATUS_ORB: Record<string, OrbStatus> = {
+  Published: 'done',
+  Review:    'running',
+  Studio:    'preparing',
+  Drafting:  'idle',
+};
+
+// Contents dropdown — lists all chapters with a mini StatusOrb + chapter title
+const ContentsDropdown: React.FC<{
+  activeChapter: number;
+  onSelect: (n: number) => void;
+  onClose: () => void;
+}> = ({ activeChapter, onSelect, onClose }) => (
+  <div
+    style={{
+      position: 'absolute', top: '100%', left: 0, zIndex: 300,
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-md)',
+      minWidth: 220, padding: 'var(--space-1) 0',
+    }}
+  >
+    {CHAPTERS.map(ch => {
+      const pct = CHAPTER_RENDER_PCT[ch.n - 1] ?? 0;
+      const orbStatus = STUDIO_CHAPTER_STATUS_ORB[ch.status] ?? 'idle';
+      const isActive = ch.n === activeChapter;
+      return (
+        <button
+          key={ch.n}
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onSelect(ch.n); onClose(); }}
+          style={{
+            width: '100%', border: 0, background: isActive ? 'var(--accent-tint-bg)' : 'transparent',
+            fontFamily: 'inherit', textAlign: 'left',
+            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+            padding: 'var(--space-1) var(--space-3)', cursor: 'pointer',
+            color: isActive ? 'var(--accent)' : 'var(--text-primary)',
+            fontWeight: isActive ? 700 : 400,
+          }}
+          onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--surface-alt)'; }}
+          onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+        >
+          <StatusOrb status={orbStatus} progress={pct / 100} size={12} />
+          <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', minWidth: 16, flexShrink: 0 }}>
+            {ch.n}
+          </span>
+          <span style={{ fontSize: 'var(--type-caption)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {ch.title}
+          </span>
+        </button>
+      );
+    })}
+  </div>
+);
+
 export const StudioPane: React.FC<{
   activeTrack?: TrackState | null;
   setActiveTrack?: React.Dispatch<React.SetStateAction<TrackState | null>>;
-}> = ({ activeTrack = null, setActiveTrack }) => {
+  activeChapter?: number;
+  setActiveChapter?: (n: number) => void;
+  lastEditedSegmentByChapter?: Record<number, string>;
+  setLastEditedSegmentByChapter?: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+}> = ({ activeTrack = null, setActiveTrack, activeChapter = 4, setActiveChapter, lastEditedSegmentByChapter, setLastEditedSegmentByChapter }) => {
+  const matchTrackName = `Chapter ${activeChapter}`;
   const [viewMode, setViewMode] = useState<'book' | 'script'>('book');
   const [safeText, setSafeText] = useState(false);
   const [showNumbers, setShowNumbers] = useState(false);
   const [armedSwatch, setArmedSwatch] = useState<string | null>(null);
-  const [sentenceSpeaker, setSentenceSpeaker] = useState<Record<SentenceId, string>>({
+  // Task 013: per-word phonetic overrides keyed as "{chunkId}:{wordIndex}"
+  const [wordOverrides, setWordOverrides] = useState<Record<string, string>>({});
+  // Task 013: show/hide the pronunciation lexicon side panel
+  const [showLexicon, setShowLexicon] = useState(false);
+  // Default per-sentence speakers used to tint unassigned prose. Range
+  // selection (handleAssignSpeakerToSelection) is now the assignment gesture;
+  // the old "arm a swatch + click a sentence" paint path has been retired.
+  const [sentenceSpeaker] = useState<Record<SentenceId, string>>({
     s1: 'Narrator', s2: 'Maren', s3: 'Dov', s4: 'Narrator', s5: 'Dov',
   });
   const [showResync, setShowResync] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [actionExpanded, setActionExpanded] = useState(false);
+  const [contentsDropdownOpen, setContentsDropdownOpen] = useState(false);
+
+  // ---- Task 012: Named bookmarks ----
+  // bookmarkPending: true while the inline label input is open
+  const [bookmarkPending, setBookmarkPending] = useState(false);
+  const [bookmarkLabel, setBookmarkLabel] = useState('');
+  // currentBookmarkChunkId: the chunk to anchor the bookmark to when confirmed.
+  // We use the first visible unrendered section as a default focus point when
+  // no playback chunk is active (more useful than an arbitrary id).
+  const [bookmarkTargetChunkId, setBookmarkTargetChunkId] = useState<string>('c1');
+  // Trigger a flash animation when a bookmark is saved
+  const [bookmarkSaved, setBookmarkSaved] = useState(false);
+  // bookmarkCount: re-render trigger when the shared store changes
+  const [, setBookmarkTick] = useState(0);
+  useEffect(() => subscribeBookmarks(() => setBookmarkTick(t => t + 1)), []);
+
+  // ---- Task 012: Jump to next unrendered section ----
+  // nextUnrenderedChunkId: the id of the first section chunk whose audio is not done.
+  const nextUnrenderedChunkId = React.useMemo(() => {
+    // Walk chunks in document order, find first with showNumberTag that is not rendered.
+    for (const ch of initialChunks) {
+      if (ch.showNumberTag && !CHUNK_RENDERED[ch.id]) return ch.id;
+    }
+    return null;
+  }, []);
+
+  // jumpToNextUnrendered: scrolls to the next unrendered section and briefly
+  // highlights it by setting it as the "jumped" chunk.
+  const [jumpedChunkId, setJumpedChunkId] = useState<string | null>(null);
+  const jumpToNextUnrendered = useCallback(() => {
+    if (!nextUnrenderedChunkId) return;
+    setJumpedChunkId(nextUnrenderedChunkId);
+    const container = scrollRef.current;
+    if (!container) return;
+    const el = container.querySelector<HTMLElement>(`[data-chunk-id="${nextUnrenderedChunkId}"]`);
+    if (!el) return;
+    const elRect = el.getBoundingClientRect();
+    const cRect = container.getBoundingClientRect();
+    const elTop = elRect.top - cRect.top + container.scrollTop;
+    const target = Math.max(0, elTop + elRect.height / 2 - container.clientHeight / 2);
+    container.scrollTo({ top: target, behavior: 'smooth' });
+    // Clear the highlight after 1.8 s
+    setTimeout(() => setJumpedChunkId(null), 1800);
+  }, [nextUnrenderedChunkId]);
 
   // State for dynamic chunks
   const [chunks, setChunks] = useState<Chunk[]>(initialChunks);
@@ -510,14 +1069,63 @@ export const StudioPane: React.FC<{
 
   const timeline = React.useMemo(() => buildSegmentTimeline(chunks, STUDIO_FOLLOW_DURATION_SEC), [chunks]);
   const { scrollRef, activeChunkId, followEngaged, isFollowing, resume } = useChapterFollow({
-    activeTrack, matchTrackName: 'Chapter 4', timeline,
+    activeTrack, matchTrackName, timeline,
   });
+
+  // Chapter navigation helpers
+  const chapterCount = CHAPTERS.length;
+  const currentChapterIdx = CHAPTERS.findIndex(c => c.n === activeChapter);
+  const prevChapterN = currentChapterIdx > 0 ? CHAPTERS[currentChapterIdx - 1].n : null;
+  const nextChapterN = currentChapterIdx < chapterCount - 1 ? CHAPTERS[currentChapterIdx + 1].n : null;
+
+  // Close contents dropdown when clicking outside
+  const contentsDropdownRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!contentsDropdownOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (contentsDropdownRef.current && !contentsDropdownRef.current.contains(e.target as Node)) {
+        setContentsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [contentsDropdownOpen]);
+
+  // Record last-edited bookmark: when activeChunkId changes and is non-null, store it.
+  const prevActiveChunkIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeChunkId || activeChunkId === prevActiveChunkIdRef.current) return;
+    prevActiveChunkIdRef.current = activeChunkId;
+    if (setLastEditedSegmentByChapter) {
+      setLastEditedSegmentByChapter(prev => ({ ...prev, [activeChapter]: activeChunkId }));
+    }
+  }, [activeChunkId, activeChapter, setLastEditedSegmentByChapter]);
+
+  // On chapter switch: if a stored segment bookmark exists, scroll to it via the
+  // existing scrollRef mechanism; otherwise scroll to top.
+  useEffect(() => {
+    const storedId = lastEditedSegmentByChapter?.[activeChapter];
+    const container = scrollRef.current;
+    if (!container) return;
+    if (storedId) {
+      const el = container.querySelector<HTMLElement>(`[data-chunk-id="${storedId}"]`);
+      if (el) {
+        const elRect = el.getBoundingClientRect();
+        const cRect = container.getBoundingClientRect();
+        const elTop = elRect.top - cRect.top + container.scrollTop;
+        const target = Math.max(0, elTop + elRect.height / 2 - container.clientHeight / 2);
+        container.scrollTo({ top: target, behavior: 'smooth' });
+        return;
+      }
+    }
+    container.scrollTo({ top: 0, behavior: 'auto' });
+  }, [activeChapter]); // intentional: only re-run on chapter switch
 
   const onPlayFromHere = (chunkId: string) => {
     const seg = timeline.find(s => s.id === chunkId);
     if (!seg || !setActiveTrack) return;
     setActiveTrack({
-      trackName: 'Chapter 4', subtitle: 'Chapter playback',
+      trackName: matchTrackName, subtitle: 'Chapter playback',
       duration: STUDIO_FOLLOW_DURATION_SEC,
       currentTime: seg.start, isPlaying: true, scope: 'chapter',
     });
@@ -560,11 +1168,6 @@ export const StudioPane: React.FC<{
     setArmedSwatch(prev => (prev === id ? null : id));
   };
 
-  const handleSentenceClick = (sid: SentenceId) => {
-    if (!armedSwatch) return;
-    setSentenceSpeaker(prev => ({ ...prev, [sid]: armedSwatch }));
-  };
-
   const handleMouseUp = () => {
     setTimeout(() => {
       const selection = window.getSelection();
@@ -604,7 +1207,20 @@ export const StudioPane: React.FC<{
     }, 10);
   };
 
-  const handleAssignSpeakerToSelection = (speaker: string) => {
+  // Task 013: word-level phonetic override handlers
+  const handleWordOverride = useCallback((key: string, phonetic: string) => {
+    setWordOverrides(prev => ({ ...prev, [key]: phonetic }));
+  }, []);
+
+  const handleClearWordOverride = useCallback((key: string) => {
+    setWordOverrides(prev => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  const handleAssignSpeakerToSelection = (speaker: string, variation: string = 'Default') => {
     if (!contextMenu) return;
     const { chunkId, startOffset, endOffset } = contextMenu;
 
@@ -624,6 +1240,8 @@ export const StudioPane: React.FC<{
               ...chunk,
               id: `${chunk.id}-before-${stamp}`,
               text: textBefore,
+              // clear highlight on the before-split
+              isHighlighted: false,
             });
           }
 
@@ -632,7 +1250,10 @@ export const StudioPane: React.FC<{
             id: `${chunk.id}-selected-${stamp}`,
             text: textSelected,
             speaker,
+            variation: variation !== 'Default' ? variation : undefined,
             isHighlighted: true,
+            // sub-chunks don't carry sentenceId (their speaker is explicit)
+            sentenceId: undefined,
           });
 
           if (textAfter) {
@@ -640,6 +1261,7 @@ export const StudioPane: React.FC<{
               ...chunk,
               id: `${chunk.id}-after-${stamp}`,
               text: textAfter,
+              isHighlighted: false,
             });
           }
         } else {
@@ -658,18 +1280,34 @@ export const StudioPane: React.FC<{
     const sp = chunk.speaker || (chunk.sentenceId ? sentenceSpeaker[chunk.sentenceId] : undefined) || 'Narrator';
     const tok = SPEAKER_TOKEN[sp] ?? SPEAKER_TOKEN.Narrator;
 
+    // Render the word content — in book view, individual words are clickable for
+    // phonetic overrides (task 013). The override keeps the enclosing span's speaker
+    // tint intact; only the spoken form changes.
+    const wordContent = (
+      <ClickableWords
+        text={text}
+        chunkId={chunk.id}
+        speakerToken={tok}
+        wordOverrides={wordOverrides}
+        onOverride={handleWordOverride}
+        onClearOverride={handleClearWordOverride}
+      />
+    );
+
     const handleClick = () => {
-      if (chunk.sentenceId) {
-        handleSentenceClick(chunk.sentenceId);
-      } else if (armedSwatch) {
-        setChunks(prev => prev.map(c => c.id === chunk.id ? { ...c, speaker: armedSwatch } : c));
-      }
+      // Sentence-click no longer commits an assignment — range selection is the
+      // primary gesture. The armed-swatch whole-chunk paint path is retired;
+      // cast row selection still sets armedSwatch as a "who" hint but assignment
+      // commits on text range via handleAssignSpeakerToSelection.
     };
 
-    const cursorStyle = armedSwatch ? 'crosshair' : (chunk.hasPlay || chunk.sentenceId ? 'pointer' : 'default');
+    const cursorStyle = chunk.hasPlay ? 'pointer' : 'text';
     const isActive = chunk.id === activeChunkId;
+    const isJumped = chunk.id === jumpedChunkId;
     const activeOverlay = isActive
       ? { background: tok.tintBg, color: tok.text, boxShadow: `0 0 0 2px ${tok.tintBorder}`, borderRadius: 4, transition: 'background .2s ease, box-shadow .2s ease' }
+      : isJumped
+      ? { background: 'var(--warning-tint-bg)', boxShadow: '0 0 0 2px var(--warning-tint-border)', borderRadius: 4, transition: 'background .4s ease, box-shadow .4s ease' }
       : null;
 
     const isContent = text.trim().length > 0 && !chunk.isRendering;
@@ -680,21 +1318,34 @@ export const StudioPane: React.FC<{
           <span
             key={chunk.id}
             data-chunk-id={chunk.id}
-            onClick={handleClick}
             style={{
               background: tok.tintBg,
               color: tok.text,
               border: `1px solid ${tok.tintBorder}`,
               borderRadius: 'var(--radius-button)',
               padding: '2px 4px',
-              margin: '0 2px',
-              cursor: cursorStyle,
+              margin: '0 1px',
+              cursor: 'text',
               fontWeight: 500,
-              display: 'inline-block',
+              display: 'inline',
+              position: 'relative',
               ...activeOverlay,
             }}
           >
-            {text}
+            {wordContent}
+            {chunk.variation && (
+              <span style={{
+                fontSize: 'var(--type-micro)',
+                fontWeight: 700,
+                color: tok.text,
+                opacity: 0.75,
+                marginLeft: 3,
+                verticalAlign: 'super',
+                letterSpacing: 'var(--tracking-wide)',
+              }}>
+                {chunk.variation}
+              </span>
+            )}
           </span>
         );
       }
@@ -712,7 +1363,7 @@ export const StudioPane: React.FC<{
               ...activeOverlay,
             }}
           >
-            {text}
+            {wordContent}
           </span>
         );
       }
@@ -736,7 +1387,7 @@ export const StudioPane: React.FC<{
             {chunk.hasPlay && (
               <Play size={9} style={{ marginRight: 3, color: 'var(--success-text)', verticalAlign: 'middle' }} aria-hidden="true" />
             )}
-            {text}
+            {wordContent}
           </span>
         );
       }
@@ -754,7 +1405,7 @@ export const StudioPane: React.FC<{
               ...activeOverlay,
             }}
           >
-            {text}
+            {wordContent}
             {chunk.isRendering && (
               <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', fontStyle: 'italic', marginLeft: 5 }}>
                 rendering…
@@ -774,7 +1425,7 @@ export const StudioPane: React.FC<{
             ...activeOverlay,
           }}
         >
-          {text}
+          {wordContent}
         </span>
       );
     };
@@ -809,7 +1460,7 @@ export const StudioPane: React.FC<{
           id="selection-context-menu"
           style={{
             position: 'fixed',
-            top: contextMenu.y - 45,
+            top: contextMenu.y - 52,
             left: contextMenu.x,
             transform: 'translateX(-50%)',
             background: 'var(--surface)',
@@ -817,34 +1468,13 @@ export const StudioPane: React.FC<{
             borderRadius: 'var(--radius-card)',
             padding: 'var(--space-1) var(--space-2)',
             boxShadow: 'var(--shadow-md)',
-            display: 'flex',
-            gap: 6,
             zIndex: 1000,
-            alignItems: 'center'
           }}
         >
-          <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', marginRight: 2 }}>Assign:</span>
-          {['Narrator', 'Maren', 'Dov'].map(sp => {
-            const tok = SPEAKER_TOKEN[sp];
-            return (
-              <button
-                key={sp}
-                onClick={() => handleAssignSpeakerToSelection(sp)}
-                style={{
-                  background: tok.tintBg,
-                  border: `1px solid ${tok.tintBorder}`,
-                  color: tok.text,
-                  fontSize: 'var(--type-micro)',
-                  padding: '2px 6px',
-                  borderRadius: 'var(--radius-button)',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                }}
-              >
-                {sp}
-              </button>
-            );
-          })}
+          <SelectionAssignControl
+            onAssign={(charId, variation) => handleAssignSpeakerToSelection(charId, variation)}
+            onCancel={() => { window.getSelection()?.removeAllRanges(); setContextMenu(null); }}
+          />
         </div>
       )}
 
@@ -905,6 +1535,21 @@ export const StudioPane: React.FC<{
               color: showNumbers ? 'var(--accent)' : 'var(--text-muted)',
             }}
           >#</div>
+          {/* Task 013: Pronunciation lexicon toggle */}
+          <div
+            onClick={() => setShowLexicon(v => !v)}
+            title="Pronunciation lexicon (book / series / global)"
+            style={{
+              fontSize: 'var(--type-micro)', padding: '2px var(--space-2)',
+              borderRadius: 'var(--radius-round)', cursor: 'pointer',
+              border: `1px solid ${showLexicon ? 'var(--accent)' : 'var(--hairline)'}`,
+              background: showLexicon ? 'var(--accent-tint-bg)' : 'transparent',
+              color: showLexicon ? 'var(--accent)' : 'var(--text-muted)',
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+            }}
+          >
+            <BookMarked size={11} aria-hidden="true" /> Pronunciation
+          </div>
         </div>
 
         {/* Analysis strip */}
@@ -961,7 +1606,7 @@ export const StudioPane: React.FC<{
           {/* Content area — prose */}
           {followEngaged && !isFollowing && <ResumeFollowingPill onClick={resume} />}
           <div ref={scrollRef} onMouseUp={handleMouseUp} style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-3) var(--space-4)', position: 'relative' }}>
-            {/* Chapter-nav cluster: unsaved chip + Commit + nav + export */}
+            {/* Chapter-nav cluster: unsaved chip + Commit + Contents▾ + prev/next + export */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)', flexWrap: 'wrap',
             }}>
@@ -976,31 +1621,185 @@ export const StudioPane: React.FC<{
                 Commit changes
               </Btn>
 
+              {/* ── Bookmark affordance (task 012) ── */}
+              {bookmarkPending ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                  <input
+                    autoFocus
+                    value={bookmarkLabel}
+                    onChange={e => setBookmarkLabel(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        const label = bookmarkLabel.trim() || 'untitled bookmark';
+                        addBookmark({ book: 'The Whispering Vale', chapter: activeChapter, segment: bookmarkTargetChunkId, label });
+                        setBookmarkLabel('');
+                        setBookmarkPending(false);
+                        setBookmarkSaved(true);
+                        setTimeout(() => setBookmarkSaved(false), 1600);
+                      }
+                      if (e.key === 'Escape') { setBookmarkLabel(''); setBookmarkPending(false); }
+                    }}
+                    placeholder="label this spot…"
+                    style={{
+                      fontSize: 'var(--type-micro)', padding: '2px 6px',
+                      border: '1px solid var(--accent-tint-border)',
+                      borderRadius: 'var(--radius-button)',
+                      background: 'var(--accent-tint-bg)', color: 'var(--text-primary)',
+                      outline: 'none', width: 140,
+                    }}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Save bookmark"
+                    onClick={() => {
+                      const label = bookmarkLabel.trim() || 'untitled bookmark';
+                      addBookmark({ book: 'The Whispering Vale', chapter: activeChapter, segment: bookmarkTargetChunkId, label });
+                      setBookmarkLabel('');
+                      setBookmarkPending(false);
+                      setBookmarkSaved(true);
+                      setTimeout(() => setBookmarkSaved(false), 1600);
+                    }}
+                    style={{
+                      background: 'var(--accent)', border: '1px solid var(--accent)',
+                      borderRadius: 'var(--radius-button)', padding: '2px 7px',
+                      color: 'var(--text-on-accent)', fontSize: 'var(--type-micro)',
+                      fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >Save</button>
+                  <button
+                    type="button"
+                    aria-label="Cancel bookmark"
+                    onClick={() => { setBookmarkLabel(''); setBookmarkPending(false); }}
+                    style={{
+                      background: 'none', border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-button)', padding: '2px 5px',
+                      color: 'var(--text-muted)', fontSize: 'var(--type-micro)',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >✕</button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Bookmark this spot"
+                  title="Bookmark this spot"
+                  onClick={() => {
+                    // default anchor: active playback chunk, first unrendered section, or c1
+                    const target = activeChunkId ?? nextUnrenderedChunkId ?? 'c1';
+                    setBookmarkTargetChunkId(target);
+                    setBookmarkPending(true);
+                  }}
+                  style={{
+                    fontSize: 'var(--type-micro)', padding: '3px var(--space-2)',
+                    borderRadius: 'var(--radius-button)',
+                    border: `1px solid ${bookmarkSaved ? 'var(--accent-tint-border)' : 'var(--hairline)'}`,
+                    background: bookmarkSaved ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+                    color: bookmarkSaved ? 'var(--accent)' : 'var(--text-secondary)',
+                    cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3,
+                    fontFamily: 'inherit', fontWeight: 600, whiteSpace: 'nowrap',
+                    transition: 'background 0.3s, color 0.3s, border-color 0.3s',
+                  }}
+                >
+                  <Bookmark size={10} aria-hidden="true" />
+                  {bookmarkSaved ? 'Bookmarked!' : 'Bookmark'}
+                </button>
+              )}
+
+              {/* ── Jump to next unrendered section (task 012) ── */}
+              {nextUnrenderedChunkId && (
+                <button
+                  type="button"
+                  aria-label="Jump to next unrendered section"
+                  title="Jump to next unrendered section"
+                  onClick={jumpToNextUnrendered}
+                  style={{
+                    fontSize: 'var(--type-micro)', padding: '3px var(--space-2)',
+                    borderRadius: 'var(--radius-button)',
+                    border: '1px solid var(--warning-tint-border)',
+                    background: 'var(--warning-tint-bg)',
+                    color: 'var(--warning-text)',
+                    cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3,
+                    fontFamily: 'inherit', fontWeight: 600, whiteSpace: 'nowrap',
+                  }}
+                >
+                  <SkipForward size={10} aria-hidden="true" />
+                  Next unrendered
+                </button>
+              )}
+
               <div style={{ flex: 1 }} />
 
-              {/* Right group: chapter nav + export — hairline-separated */}
+              {/* Contents ▾ dropdown */}
+              <div ref={contentsDropdownRef} style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => setContentsDropdownOpen(v => !v)}
+                  aria-haspopup="listbox"
+                  aria-expanded={contentsDropdownOpen}
+                  style={{
+                    fontSize: 'var(--type-micro)', padding: '3px var(--space-2)',
+                    borderRadius: 'var(--radius-button)',
+                    border: `1px solid ${contentsDropdownOpen ? 'var(--accent-tint-border)' : 'var(--hairline)'}`,
+                    background: contentsDropdownOpen ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+                    color: contentsDropdownOpen ? 'var(--accent)' : 'var(--text-secondary)',
+                    cursor: 'pointer', whiteSpace: 'nowrap',
+                    display: 'inline-flex', alignItems: 'center', gap: 3,
+                    fontFamily: 'inherit', fontWeight: 600,
+                  }}
+                >
+                  Contents {contentsDropdownOpen ? <ChevronUp size={9} aria-hidden="true" /> : <ChevronDown size={9} aria-hidden="true" />}
+                </button>
+                {contentsDropdownOpen && (
+                  <ContentsDropdown
+                    activeChapter={activeChapter}
+                    onSelect={(n) => { if (setActiveChapter) setActiveChapter(n); }}
+                    onClose={() => setContentsDropdownOpen(false)}
+                  />
+                )}
+              </div>
+
+              {/* Hairline separator */}
+              <div style={{ width: 1, height: 20, background: 'var(--hairline)', flexShrink: 0 }} />
+
+              {/* Prev / Next chapter buttons */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-                {/* Save & prev */}
-                <div style={{
-                  fontSize: 'var(--type-micro)', padding: '3px var(--space-2)',
-                  borderRadius: 'var(--radius-button) 0 0 var(--radius-button)',
-                  border: '1px solid var(--hairline)', background: 'var(--surface-alt)',
-                  color: 'var(--text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap',
-                  display: 'flex', alignItems: 'center', gap: 3,
-                }}>
-                  <ChevronLeft size={10} aria-hidden="true" /> Save &amp; prev
-                </div>
-                {/* Save & next */}
-                <div style={{
-                  fontSize: 'var(--type-micro)', padding: '3px var(--space-2)',
-                  borderRadius: '0 var(--radius-button) var(--radius-button) 0',
-                  border: '1px solid var(--hairline)', borderLeft: 'none',
-                  background: 'var(--surface-alt)',
-                  color: 'var(--text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap',
-                  display: 'flex', alignItems: 'center', gap: 3,
-                }}>
-                  Save &amp; next <ChevronRight size={10} aria-hidden="true" />
-                </div>
+                <button
+                  type="button"
+                  disabled={prevChapterN == null}
+                  onClick={() => { if (prevChapterN != null && setActiveChapter) setActiveChapter(prevChapterN); }}
+                  title={prevChapterN != null ? `Ch ${prevChapterN}` : 'No previous chapter'}
+                  aria-label="Previous chapter"
+                  style={{
+                    fontSize: 'var(--type-micro)', padding: '3px var(--space-2)',
+                    borderRadius: 'var(--radius-button) 0 0 var(--radius-button)',
+                    border: '1px solid var(--hairline)', background: 'var(--surface-alt)',
+                    color: prevChapterN == null ? 'var(--text-muted)' : 'var(--text-secondary)',
+                    cursor: prevChapterN == null ? 'default' : 'pointer', whiteSpace: 'nowrap',
+                    display: 'inline-flex', alignItems: 'center', gap: 3,
+                    fontFamily: 'inherit', opacity: prevChapterN == null ? 0.5 : 1,
+                  }}
+                >
+                  <ChevronLeft size={10} aria-hidden="true" /> prev
+                </button>
+                <button
+                  type="button"
+                  disabled={nextChapterN == null}
+                  onClick={() => { if (nextChapterN != null && setActiveChapter) setActiveChapter(nextChapterN); }}
+                  title={nextChapterN != null ? `Ch ${nextChapterN}` : 'No next chapter'}
+                  aria-label="Next chapter"
+                  style={{
+                    fontSize: 'var(--type-micro)', padding: '3px var(--space-2)',
+                    borderRadius: '0 var(--radius-button) var(--radius-button) 0',
+                    border: '1px solid var(--hairline)', borderLeft: 'none',
+                    background: 'var(--surface-alt)',
+                    color: nextChapterN == null ? 'var(--text-muted)' : 'var(--text-secondary)',
+                    cursor: nextChapterN == null ? 'default' : 'pointer', whiteSpace: 'nowrap',
+                    display: 'inline-flex', alignItems: 'center', gap: 3,
+                    fontFamily: 'inherit', opacity: nextChapterN == null ? 0.5 : 1,
+                  }}
+                >
+                  next <ChevronRight size={10} aria-hidden="true" />
+                </button>
               </div>
 
               {/* Hairline separator */}
@@ -1024,7 +1823,8 @@ export const StudioPane: React.FC<{
               </div>
             </div>
 
-            {/* Paint-mode floating chip */}
+            {/* Cast selection indicator — shows who is active in the cast panel;
+                assignment now commits via range selection, not sentence click */}
             {armedSwatch && (
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
@@ -1034,7 +1834,7 @@ export const StudioPane: React.FC<{
                 border: `1px solid ${SPEAKER_TOKEN[armedSwatch]?.tintBorder ?? 'var(--border)'}`,
                 color: SPEAKER_TOKEN[armedSwatch]?.text ?? 'var(--text-secondary)',
               }}>
-                painting: {armedSwatch === 'ElderRowan' ? 'Elder Rowan' : armedSwatch} — click sentences to assign
+                {armedSwatch === 'ElderRowan' ? 'Elder Rowan' : armedSwatch} selected — select a text range to assign
               </div>
             )}
 
@@ -1051,9 +1851,9 @@ export const StudioPane: React.FC<{
                   </SemanticChip>
                 )}
 
-                {/* Sub-sentence assignment hint */}
+                {/* Range assignment hint */}
                 <SemanticChip variant="accent">
-                  select text in any line to assign a sub-sentence speaker
+                  select any word range — even across sentence boundaries — to assign a character + variation to exactly that span
                 </SemanticChip>
 
                 {/* Paragraphs — rendered generically from each chunk's paragraphIndex
@@ -1070,9 +1870,22 @@ export const StudioPane: React.FC<{
                     }}>
                       {chunks.filter(c => c.paragraphIndex === pIdx).map(c => (
                         <React.Fragment key={c.id}>
-                          {showNumbers && c.showNumberTag && (
-                            <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginRight: 4 }}>
-                              {c.showNumberTag}
+                          {c.showNumberTag && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, marginRight: 4 }}>
+                              {showNumbers && (
+                                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
+                                  {c.showNumberTag}
+                                </span>
+                              )}
+                              {/* Render-state dot: grey = done, amber = not rendered */}
+                              <span
+                                title={CHUNK_RENDERED[c.id] !== false ? 'Rendered' : 'Not yet rendered'}
+                                style={{
+                                  width: 6, height: 6, borderRadius: '50%', flexShrink: 0, display: 'inline-block',
+                                  background: CHUNK_RENDERED[c.id] !== false ? 'var(--success)' : 'var(--warning)',
+                                  opacity: 0.7,
+                                }}
+                              />
                             </span>
                           )}
                           {renderChunkElement(c)}
@@ -1119,85 +1932,15 @@ export const StudioPane: React.FC<{
             )}
           </div>
 
-          {/* Cast palette — right column, ~160px */}
-          <Panel style={{
-            width: 160, flexShrink: 0,
-            borderLeft: '1px solid var(--hairline)',
-            borderTop: 'none', borderBottom: 'none', borderRight: 'none',
-            borderRadius: 0,
-            boxShadow: 'none',
-            background: 'var(--surface)',
-            display: 'flex', flexDirection: 'column', padding: 0,
-          }}>
-            {/* Eyebrow section label */}
-            <div style={{
-              fontSize: 'var(--type-micro)',
-              fontWeight: 'var(--type-weight-micro)' as unknown as number,
-              letterSpacing: 'var(--tracking-wide)', textTransform: 'uppercase',
-              color: 'var(--text-muted)',
-              padding: 'var(--space-2) var(--space-3)',
-              borderBottom: '1px solid var(--hairline)',
-              flexShrink: 0,
-            }}>Cast</div>
-            <Col gap={0} style={{ flex: 1, padding: 'var(--space-1) 0' }}>
-              {CAST_SWATCHES.map((sw, idx) => {
-                const isArmed = armedSwatch === sw.id;
-                const tok = SPEAKER_TOKEN[sw.id] ?? SPEAKER_TOKEN.Narrator;
-                return (
-                  <React.Fragment key={sw.id}>
-                    {idx > 0 && (
-                      <div style={{ height: 1, background: 'var(--hairline)', margin: '0 var(--space-3)' }} />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleSwatchClick(sw.id)}
-                      aria-pressed={isArmed}
-                      style={{
-                        width: '100%',
-                        border: 0,
-                        fontFamily: 'inherit',
-                        display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                        padding: 'var(--space-2) var(--space-3)',
-                        textAlign: 'left',
-                        cursor: 'pointer',
-                        background: isArmed ? tok.tintBg : 'transparent',
-                        borderLeft: isArmed ? `3px solid ${tok.text}` : '3px solid transparent',
-                        transition: 'background 0.15s',
-                      }}
-                    >
-                      {/* Color dot — larger for visibility */}
-                      <span style={{
-                        width: 12, height: 12, borderRadius: 'var(--radius-round)',
-                        background: tok.text,
-                        flexShrink: 0, display: 'inline-block',
-                        boxShadow: isArmed ? `0 0 0 2px ${tok.tintBorder}` : 'none',
-                      }} />
-                      {/* Avatar */}
-                      <Avatar name={sw.id === 'ElderRowan' ? 'ER' : sw.id} size={20} style={{
-                        background: tok.tintBg,
-                        border: `1px solid ${tok.tintBorder}`,
-                      }} />
-                      <span style={{
-                        fontSize: 'var(--type-micro)', fontWeight: isArmed ? 700 : 400,
-                        color: isArmed ? tok.text : 'var(--text-secondary)',
-                        lineHeight: 'var(--leading-snug)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-                      }}>
-                        {sw.name}
-                      </span>
-                    </button>
-                  </React.Fragment>
-                );
-              })}
-            </Col>
-            <div style={{
-              padding: 'var(--space-2) var(--space-3)',
-              borderTop: '1px solid var(--hairline)',
-              fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic',
-              lineHeight: 'var(--leading-snug)',
-            }}>
-              paint a voice, then click text to assign sub-sentence spans
-            </div>
-          </Panel>
+          {/* Cast panel — chapter-aware three-tier slide-out */}
+          <CastPanel
+            activeChapter={activeChapter}
+            armedSwatch={armedSwatch}
+            onSwatchClick={handleSwatchClick}
+          />
+
+          {/* Task 013: Pronunciation lexicon side panel (toggled by the toolbar button) */}
+          {showLexicon && <LexiconPanel />}
         </div>
 
         {/* Render controls strip */}

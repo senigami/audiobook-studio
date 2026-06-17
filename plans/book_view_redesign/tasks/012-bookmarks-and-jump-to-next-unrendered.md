@@ -1,6 +1,6 @@
 # 012 — Named bookmarks, global cross-book list, and jump-to-next-unrendered
 
-- **Status:** not-started
+- **Status:** done
 - **Workload:** Mock: authoring aids
 - **Severity / type:** medium · ux
 - **Effort:** M

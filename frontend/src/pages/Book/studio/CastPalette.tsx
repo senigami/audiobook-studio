@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 import { ColorSwatchPicker } from '@/components/forms/ColorSwatchPicker';
 import type { Character, ChapterSegment, Speaker, SpeakerProfile, TtsEngine } from '@/types';
 import {
@@ -44,8 +43,6 @@ export function CastPalette({
   setSelectedCharacterId,
   selectedProfileName,
   setSelectedProfileName,
-  expandedCharacterId,
-  setExpandedCharacterId,
   onUpdateCharacterColor,
   allowDisarm = true,
 }: CastPaletteProps) {
@@ -66,9 +63,6 @@ export function CastPalette({
     return Boolean(engine && engine.enabled && engine.status === 'ready');
   };
 
-  const toggleCharacterExpansion = (characterId: string) => {
-    setExpandedCharacterId(expandedCharacterId === characterId ? null : characterId);
-  };
 
   return (
     <aside className="cast-palette" aria-label="Cast palette" style={{
@@ -189,7 +183,6 @@ export function CastPalette({
             speakers.find((s) => s.name === char.speaker_profile_name) ||
             speakers.find((s) => s.name === baseName);
           const variants = speakerMatch ? speakerProfiles.filter((p) => p.speaker_id === speakerMatch.id) : [];
-          const isExpanded = expandedCharacterId === char.id;
           const isSpeakerSelected = selectedCharacterId === char.id;
           const defaultProfile = resolveDefaultProfileName(char);
           const count = segmentCounts[char.id] || 0;
@@ -309,33 +302,9 @@ export function CastPalette({
                 )}
               </button>
 
-              {variants.length > 1 && (
+              {variants.length > 1 && isSpeakerSelected && (
                 <div style={{ marginLeft: 18, marginTop: 4 }}>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleCharacterExpansion(char.id);
-                    }}
-                    style={{
-                      width: '100%',
-                      border: '1px solid transparent',
-                      background: 'transparent',
-                      color: 'var(--text-muted)',
-                      padding: '0.2rem 0.35rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 6,
-                      fontSize: '0.6rem',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <span>Variants</span>
-                    {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                  </button>
-
-                  {isExpanded && variants.map((variant) => {
+                  {variants.map((variant) => {
                     const isVariantSelected = selectedCharacterId === char.id && selectedProfileName === variant.name;
                     const selectable = isProfileSelectable(variant);
                     const engineId = getVoiceProfileEngine(variant) || getDefaultEngineId(engines) || (engines[0]?.engine_id || '');

@@ -9,11 +9,15 @@ import {
   SemanticChip, VoiceAttrPill,
   StatusOrb,
   Avatar,
-  Mic, Volume2, CheckCircle, Loader2,
-  FOLLOW_DURATION_SEC, buildSegmentTimeline, useChapterFollow, ResumeFollowingPill, SPEAKER_TOKEN,
+  Mic, Volume2, CheckCircle,
+  CHAPTERS,
+  CHAPTER_RENDER_PCT,
 } from '../shared';
-import { Upload, Lock, Edit3, Play, MoreHorizontal } from 'lucide-react';
-import type { TrackState } from '../../siteMockupStage';
+import { Upload, Lock, Edit3, Play, MoreHorizontal, BookOpen, Bookmark, ChevronDown, ChevronUp, X } from 'lucide-react';
+import {
+  getBookmarks, removeBookmark, subscribeBookmarks,
+} from '../bookmarkStore';
+import type { NamedBookmark } from '../bookmarkStore';
 
 // ---------------------------------------------------------------------------
 // Manuscript pane data
@@ -51,6 +55,374 @@ const LIFECYCLE_ORB: Record<ChapterLifecycle, OrbStatus> = {
 const LifecyclePill: React.FC<{ lifecycle: ChapterLifecycle }> = ({ lifecycle }) => (
   <SemanticChip variant={LIFECYCLE_VARIANT[lifecycle]}>{lifecycle}</SemanticChip>
 );
+
+// Map CHAPTERS status to OrbStatus (for ContentsPane)
+type ChapterStatus = 'Published' | 'Review' | 'Studio' | 'Drafting';
+const CHAPTER_STATUS_ORB: Record<ChapterStatus, OrbStatus> = {
+  Published: 'done',
+  Review:    'running',
+  Studio:    'preparing',
+  Drafting:  'idle',
+};
+
+// ---------------------------------------------------------------------------
+// GlobalBookmarkPanel — cross-book named bookmark list (task 012)
+
+const GlobalBookmarkPanel: React.FC<{
+  /** If provided, clicking an entry that belongs to this book's chapter fires the callback. */
+  onOpenChapter?: (n: number) => void;
+}> = ({ onOpenChapter }) => {
+  const [open, setOpen] = useState(true);
+  const [bookmarks, setBookmarks] = useState<NamedBookmark[]>(() => getBookmarks());
+  const [jumpedId, setJumpedId] = useState<string | null>(null);
+
+  // Stay in sync with the store
+  useEffect(() => subscribeBookmarks(() => setBookmarks(getBookmarks())), []);
+
+  const handleJump = (bm: NamedBookmark) => {
+    // Mock navigation: flash the row, and if it's this book open the chapter.
+    setJumpedId(bm.id);
+    setTimeout(() => setJumpedId(null), 1400);
+    if (bm.book === 'The Whispering Vale' && onOpenChapter) {
+      onOpenChapter(bm.chapter);
+    }
+  };
+
+  return (
+    <div>
+      {/* Collapsible header */}
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+        style={{
+          width: '100%', border: 'none', background: 'transparent',
+          display: 'flex', alignItems: 'center', gap: 6, padding: '0 0 var(--space-1)',
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}
+      >
+        <Bookmark size={12} color="var(--text-secondary)" aria-hidden="true" />
+        <span style={{
+          fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-secondary)',
+          textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', flex: 1, textAlign: 'left',
+        }}>
+          Bookmarks <span style={{ fontWeight: 400, color: 'var(--text-muted)', textTransform: 'none', letterSpacing: 0 }}>({bookmarks.length})</span>
+        </span>
+        {open
+          ? <ChevronUp size={12} color="var(--text-muted)" aria-hidden="true" />
+          : <ChevronDown size={12} color="var(--text-muted)" aria-hidden="true" />
+        }
+      </button>
+
+      {open && (
+        <Card style={{ overflow: 'hidden' }}>
+          {bookmarks.length === 0 ? (
+            <div style={{ padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              No bookmarks yet — use the Bookmark button in the workspace to tag a scene.
+            </div>
+          ) : (
+            <div>
+              {bookmarks.map((bm, i) => {
+                const isJumped = bm.id === jumpedId;
+                return (
+                  <Row
+                    key={bm.id}
+                    gap={0}
+                    style={{
+                      padding: 'var(--space-1) var(--space-2)',
+                      borderBottom: i < bookmarks.length - 1 ? 'var(--hairline)' : 'none',
+                      alignItems: 'center',
+                      background: isJumped ? 'var(--accent-tint-bg)' : 'transparent',
+                      transition: 'background 0.3s',
+                    }}
+                  >
+                    {/* Book + chapter + label */}
+                    <button
+                      type="button"
+                      onClick={() => handleJump(bm)}
+                      title={`Jump to ${bm.book} · Ch ${bm.chapter}`}
+                      style={{
+                        flex: 1, border: 'none', background: 'transparent',
+                        textAlign: 'left', cursor: 'pointer', padding: 0,
+                        fontFamily: 'inherit', minWidth: 0,
+                      }}
+                    >
+                      <span style={{
+                        fontSize: 'var(--type-micro)',
+                        color: isJumped ? 'var(--accent)' : 'var(--text-primary)',
+                        lineHeight: 'var(--leading-normal)',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        display: 'block',
+                      }}>
+                        <span style={{ color: isJumped ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: 600 }}>{bm.book}</span>
+                        <span style={{ color: 'var(--text-muted)', margin: '0 3px' }}>·</span>
+                        <span style={{ color: 'var(--text-muted)' }}>Ch {bm.chapter}</span>
+                        <span style={{ color: 'var(--text-muted)', margin: '0 3px' }}>·</span>
+                        <span style={{ fontStyle: 'italic', color: isJumped ? 'var(--accent)' : 'var(--text-primary)' }}>
+                          "{bm.label}"
+                        </span>
+                      </span>
+                    </button>
+
+                    {/* Remove button */}
+                    <button
+                      type="button"
+                      aria-label={`Remove bookmark "${bm.label}"`}
+                      onClick={() => removeBookmark(bm.id)}
+                      style={{
+                        background: 'none', border: 'none', padding: '2px 3px',
+                        cursor: 'pointer', color: 'var(--text-muted)', flexShrink: 0,
+                        display: 'inline-flex', alignItems: 'center',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--error)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                    >
+                      <X size={11} aria-hidden="true" />
+                    </button>
+                  </Row>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// ContentsPane — book command center: slim header + chapter board + publish readiness
+
+export const ContentsPane: React.FC<{
+  onSwitchToPublish: () => void;
+  onOpenChapter?: (n: number) => void;
+}> = ({ onSwitchToPublish, onOpenChapter }) => {
+  // allGreen: every chapter must have 100% render progress.
+  // Demo data CHAPTER_RENDER_PCT = [100,100,80,60,30,0,0] — not all-green by default.
+  // To see the enabled publish button, change all values in CHAPTER_RENDER_PCT to 100.
+  const allGreen = CHAPTER_RENDER_PCT.every(pct => pct === 100);
+  const hasRemaining = CHAPTER_RENDER_PCT.some(pct => pct < 100);
+
+  return (
+    <Col gap={12} className="ns-enter" style={{ flex: 1, minHeight: 0 }}>
+
+      {/* ── Slim book header ─────────────────────────────────────── */}
+      <Card style={{ padding: 'var(--space-2) var(--space-3)', flexShrink: 0 }}>
+        <Row gap={12} style={{ alignItems: 'center' }}>
+          {/* Cover thumbnail */}
+          <div style={{
+            width: 40, height: 54, borderRadius: 3, flexShrink: 0,
+            background: 'linear-gradient(135deg, var(--accent-tint-bg) 0%, var(--border) 100%)',
+            border: '1px solid var(--accent-tint-border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden',
+          }}>
+            <BookOpen size={18} color="var(--accent)" aria-hidden="true" />
+          </div>
+
+          {/* Title + meta */}
+          <Col gap={2} style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 'var(--type-callout)', fontWeight: 700,
+              color: 'var(--text-primary)', lineHeight: 'var(--leading-tight)',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              The Whispering Vale
+            </div>
+            <Row gap={8} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
+                R.E. Hartley · The Vale Cycle #1
+              </span>
+              <span style={{
+                fontSize: 'var(--type-micro)', color: 'var(--text-secondary)',
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+              }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>▶</span>
+                6h 28m total
+              </span>
+            </Row>
+          </Col>
+
+          {/* Edit pencil affordance */}
+          <button
+            type="button"
+            aria-label="Edit book details"
+            title="Edit book details"
+            style={{
+              background: 'none', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-button)', cursor: 'pointer',
+              color: 'var(--text-muted)', padding: '4px 8px',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: 'var(--type-micro)', fontFamily: 'inherit',
+            }}
+          >
+            <Edit3 size={12} aria-hidden="true" />
+            Edit
+          </button>
+        </Row>
+      </Card>
+
+      {/* ── Chapter board ────────────────────────────────────────── */}
+      <Col gap={8} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {/* Board header row */}
+        <Row gap={8} style={{ alignItems: 'center', flexShrink: 0 }}>
+          <div style={{
+            fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-secondary)',
+            textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', flex: 1,
+          }}>
+            Chapters
+          </div>
+          {/* Render all remaining — enabled when at least one chapter is not green */}
+          <button
+            type="button"
+            disabled={!hasRemaining}
+            aria-label="Render all remaining chapters"
+            style={{
+              background: hasRemaining ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+              border: `1px solid ${hasRemaining ? 'var(--accent-tint-border)' : 'var(--border)'}`,
+              borderRadius: 'var(--radius-button)', cursor: hasRemaining ? 'pointer' : 'default',
+              color: hasRemaining ? 'var(--accent)' : 'var(--text-muted)',
+              fontSize: 'var(--type-micro)', fontWeight: 600, fontFamily: 'inherit',
+              padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4,
+              opacity: hasRemaining ? 1 : 0.5,
+            }}
+          >
+            ▶ Render all remaining
+          </button>
+        </Row>
+
+        {/* Chapter table card */}
+        <Card style={{ overflow: 'auto', flex: 1 }}>
+          {/* Table header — eyebrow labels */}
+          <Row gap={0} style={{
+            padding: 'var(--space-1) var(--space-2)',
+            borderBottom: 'var(--hairline)', background: 'var(--surface)', position: 'sticky', top: 0,
+          }}>
+            <div style={{ width: 28, flexShrink: 0 }} />
+            <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', flex: 0.5 }}>#</div>
+            <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', flex: 3 }}>Title</div>
+            <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', flex: 1, textAlign: 'right' }}>Words</div>
+            <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', flex: 1.5, textAlign: 'right' }}>Rendered</div>
+            <div style={{ width: 60, flexShrink: 0 }} />
+          </Row>
+
+          <div className="ns-stagger">
+            {CHAPTERS.map((ch, i) => {
+              const pct = CHAPTER_RENDER_PCT[ch.n - 1] ?? 0;
+              const orbStatus = CHAPTER_STATUS_ORB[ch.status as ChapterStatus] ?? 'idle';
+              return (
+                <Row
+                  key={ch.n}
+                  gap={0}
+                  onClick={() => onOpenChapter?.(ch.n)}
+                  style={{
+                    padding: 'var(--space-2) var(--space-2)',
+                    borderBottom: i < CHAPTERS.length - 1 ? 'var(--hairline)' : 'none',
+                    alignItems: 'center', cursor: onOpenChapter ? 'pointer' : 'default',
+                    transition: 'background var(--dur-fast) var(--ease-standard)',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-alt)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                >
+                  {/* StatusOrb — existing component, not a new one */}
+                  <div style={{ width: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <StatusOrb status={orbStatus} progress={pct / 100} size={16} />
+                  </div>
+                  {/* Chapter number */}
+                  <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flex: 0.5 }}>
+                    {ch.n}
+                  </div>
+                  {/* Title */}
+                  <div style={{
+                    fontSize: 'var(--type-caption)', fontWeight: 500,
+                    color: 'var(--text-primary)', flex: 3,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {ch.title}
+                  </div>
+                  {/* Word count */}
+                  <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flex: 1, textAlign: 'right' }}>
+                    {ch.words.toLocaleString()}
+                  </div>
+                  {/* Render % */}
+                  <div style={{ fontSize: 'var(--type-micro)', color: pct === 100 ? 'var(--success-text)' : 'var(--text-muted)', flex: 1.5, textAlign: 'right', fontWeight: pct === 100 ? 700 : 400 }}>
+                    {pct}%
+                  </div>
+                  {/* Open affordance */}
+                  <div style={{ width: 60, flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
+                    {onOpenChapter && (
+                      <button
+                        type="button"
+                        aria-label={`Open chapter ${ch.n} workspace`}
+                        onClick={e => { e.stopPropagation(); onOpenChapter(ch.n); }}
+                        style={{
+                          background: 'none', border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius-button)', cursor: 'pointer',
+                          color: 'var(--text-muted)', fontSize: 'var(--type-micro)', fontWeight: 600,
+                          padding: '2px 7px', fontFamily: 'inherit',
+                          display: 'inline-flex', alignItems: 'center', gap: 3,
+                          whiteSpace: 'nowrap',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent-tint-border)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+                      >
+                        Open ▸
+                      </button>
+                    )}
+                  </div>
+                </Row>
+              );
+            })}
+          </div>
+        </Card>
+      </Col>
+
+      {/* ── Global bookmark list (task 012) ────────────────────────── */}
+      <div style={{ flexShrink: 0 }}>
+        <GlobalBookmarkPanel onOpenChapter={onOpenChapter} />
+      </div>
+
+      {/* ── Publish-readiness control ─────────────────────────────── */}
+      <div style={{ flexShrink: 0 }}>
+        <button
+          type="button"
+          disabled={!allGreen}
+          onClick={() => { if (allGreen) onSwitchToPublish(); }}
+          aria-label={allGreen ? 'Book ready — switch to Publish tab' : 'Not all chapters rendered — publish unavailable'}
+          style={{
+            width: '100%',
+            padding: 'var(--space-2) var(--space-3)',
+            borderRadius: 'var(--radius-card)',
+            border: `1px solid ${allGreen ? 'var(--success)' : 'var(--border)'}`,
+            background: allGreen ? 'var(--success-tint-bg)' : 'var(--surface-alt)',
+            color: allGreen ? 'var(--success-text)' : 'var(--text-muted)',
+            cursor: allGreen ? 'pointer' : 'not-allowed',
+            opacity: allGreen ? 1 : 0.6,
+            fontFamily: 'inherit',
+            fontSize: 'var(--type-callout)',
+            fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            transition: 'background var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard)',
+          }}
+        >
+          {allGreen ? (
+            <>
+              <CheckCircle size={16} aria-hidden="true" />
+              Book ready — Publish ▸
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: 'var(--type-micro)', opacity: 0.8 }}>
+                {CHAPTER_RENDER_PCT.filter(p => p < 100).length} chapter{CHAPTER_RENDER_PCT.filter(p => p < 100).length !== 1 ? 's' : ''} remaining — render all to unlock Publish
+              </span>
+            </>
+          )}
+        </button>
+      </div>
+
+    </Col>
+  );
+};
 
 // ---------- Add Chapter modal ----------
 const AddChapterModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -165,7 +537,7 @@ const AddChapterModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 // ---------------------------------------------------------------------------
 // ManuscriptPane
 
-export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ onSwitchToPublish: _onSwitchToPublish }) => {
+export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void; onOpenChapter?: (n: number) => void }> = ({ onSwitchToPublish: _onSwitchToPublish, onOpenChapter }) => {
   const [selectedChapterN, setSelectedChapterN] = useState<number>(6);
   const [unlockedChapters, setUnlockedChapters] = useState<Set<number>>(new Set());
   const [showWarning, setShowWarning] = useState<number | null>(null);
@@ -647,6 +1019,26 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void }> = ({ on
                       <div style={{ flex: 1.5, textAlign: 'right' }}>
                         <LifecyclePill lifecycle={ch.lifecycle} />
                       </div>
+                      {/* Open chapter workspace affordance */}
+                      {onOpenChapter && isSelected && (
+                        <button
+                          type="button"
+                          aria-label={`Open chapter ${ch.n} workspace`}
+                          onClick={(e) => { e.stopPropagation(); onOpenChapter(ch.n); }}
+                          style={{
+                            flexShrink: 0, marginRight: 4,
+                            background: 'none', border: '1px solid var(--accent-tint-border)',
+                            borderRadius: 'var(--radius-button)',
+                            color: 'var(--accent)', cursor: 'pointer',
+                            fontSize: 'var(--type-micro)', fontWeight: 600,
+                            padding: '2px 7px', fontFamily: 'inherit',
+                            display: 'inline-flex', alignItems: 'center', gap: 3,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          Open ▸
+                        </button>
+                      )}
                       {/* Play this chapter — only once it has rendered audio. */}
                       <div style={{ flexShrink: 0, marginRight: 4, display: 'flex', justifyContent: 'flex-end' }}>
                         {ch.lifecycle === 'Rendered' && <PlayButton label={`Play chapter ${ch.n}`} tone="ghost" size={12} />}
@@ -855,191 +1247,20 @@ export const CastingPane: React.FC = () => (
 );
 
 // ---------------------------------------------------------------------------
-// ReviewPane
+// BackupsPane — stub surface (real functionality is out of scope for 005)
 
-// Full Chapter 7 transcript — the Review pane is the player-piano "follow along"
-// surface, so it carries the whole chapter (not a 7-line excerpt). Each entry is a
-// SEGMENT (the unit of highlighting + timing): a stable id (data-chunk-id scroll
-// target + timeline key), its text, speaker, and a paragraph index so segments flow
-// as prose. The character-domain start/length per segment is derived in the timeline.
-const REVIEW_SENTENCES: { id: string; text: string; speaker: string; para: number; rerendering?: boolean }[] = [
-  { id: 'r1', text: 'The road wound down through silver birch and pale stone, the kind of road that remembers every foot that has ever crossed it.', speaker: 'Narrator', para: 0 },
-  { id: 'r2', text: 'Maren pulled her cloak tighter against the chill that rose from the valley floor.', speaker: 'Narrator', para: 0 },
-  { id: 'r3', text: 'The vale smelled of old rain and something older still — loam and iron and time.', speaker: 'Narrator', para: 0 },
-  { id: 'r4', text: '"Stay close to me," she said quietly, and the words hung in the cold like breath.', speaker: 'Maren', para: 1, rerendering: true },
-  { id: 'r5', text: 'Dov tightened his grip on the satchel and said nothing for a long moment.', speaker: 'Narrator', para: 1 },
-  { id: 'r6', text: '"How close, exactly?" he finally asked.', speaker: 'Dov', para: 1 },
-  { id: 'r7', text: '"Close enough that you can hear me breathe," Maren answered.', speaker: 'Maren', para: 1 },
-  { id: 'r8', text: 'Far above, an owl called once, then fell silent, as if it too were listening for the warden.', speaker: 'Narrator', para: 2 },
-  { id: 'r9', text: 'They walked a long while without speaking, the path narrowing until the birches gave way to black pines.', speaker: 'Narrator', para: 2 },
-  { id: 'r10', text: 'The cold had teeth here, and it found every gap in their cloaks.', speaker: 'Narrator', para: 2 },
-  { id: 'r11', text: '"There — do you see the lantern?" Maren pointed past a leaning cairn.', speaker: 'Maren', para: 3 },
-  { id: 'r12', text: 'A smear of amber light bobbed against the dark, patient as a held breath.', speaker: 'Narrator', para: 3 },
-  { id: 'r13', text: '"The warden keeps no schedule a man can trust," Dov murmured.', speaker: 'Dov', para: 3 },
-  { id: 'r14', text: 'An old voice came out of the dark before they saw its owner.', speaker: 'Narrator', para: 4 },
-  { id: 'r15', text: '"You are late, and the vale does not forgive lateness."', speaker: 'ElderRowan', para: 4 },
-  { id: 'r16', text: 'Elder Rowan stepped into the lantern\'s reach, her staff tapping the frost like a slow second heartbeat.', speaker: 'Narrator', para: 4 },
-  { id: 'r17', text: '"Whatever you carry, carry it quietly past the third stone."', speaker: 'ElderRowan', para: 4 },
-  { id: 'r18', text: '"And if the warden wakes?" Maren\'s hand had already found the hilt at her hip.', speaker: 'Maren', para: 5 },
-  { id: 'r19', text: '"Then you run, and you do not look back to count who follows," the old woman said.', speaker: 'ElderRowan', para: 5 },
-  { id: 'r20', text: 'The third stone was taller than a man and slick with the breath of the river below.', speaker: 'Narrator', para: 6 },
-  { id: 'r21', text: 'Dov laid his palm against it and felt, faintly, a pulse that was not his own.', speaker: 'Narrator', para: 6 },
-  { id: 'r22', text: '"It remembers every foot that has ever crossed it," he whispered.', speaker: 'Dov', para: 6 },
-  { id: 'r23', text: 'Somewhere ahead a bell rang once, low and wrong, the sound a throat makes when it has forgotten how to be a bell.', speaker: 'Narrator', para: 7 },
-  { id: 'r24', text: '"That is the warden," Elder Rowan breathed. "Go now, while it is still only curious."', speaker: 'ElderRowan', para: 7 },
-  { id: 'r25', text: 'They went, three shapes folding into the dark between the stones.', speaker: 'Narrator', para: 8 },
-  { id: 'r26', text: '"Stay close," Maren said again, softer now, and this time it sounded less like a warning and more like a prayer.', speaker: 'Maren', para: 8 },
-];
-
-export const ReviewPane: React.FC<{
-  activeTrack?: TrackState | null;
-  setActiveTrack?: React.Dispatch<React.SetStateAction<TrackState | null>>;
-}> = ({ activeTrack = null, setActiveTrack }) => {
-  const timeline = React.useMemo(() => buildSegmentTimeline(REVIEW_SENTENCES, FOLLOW_DURATION_SEC), []);
-  const { scrollRef, activeChunkId, followEngaged, isFollowing, resume } = useChapterFollow({
-    activeTrack, matchTrackName: 'Chapter 7', timeline,
-  });
-  const activeIndex = REVIEW_SENTENCES.findIndex(s => s.id === activeChunkId);
-
-  const onPlayFromHere = (id: string) => {
-    const seg = timeline.find(s => s.id === id);
-    if (!seg || !setActiveTrack) return;
-    setActiveTrack({
-      trackName: 'Chapter 7', subtitle: 'Chapter playback',
-      duration: FOLLOW_DURATION_SEC,
-      currentTime: seg.start, isPlaying: true, scope: 'chapter',
-    });
-    resume();
-  };
-
-  const total = REVIEW_SENTENCES.length;
-  const positionLabel = activeIndex >= 0 ? `§${activeIndex + 1} / §${total}` : `§1 / §${total}`;
-
-  return (
-  <Col gap={0} className="ns-enter" style={{ flex: 1, minHeight: 0 }}>
-    {/* Follow-along header. Transport + waveform are NOT duplicated here — the
-        single global player bar at the bottom owns playback (audio-player spec
-        §4/§6: Review is a text-tracking + re-render surface only). We keep just
-        the chapter label and the section-position indicator. */}
-    <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-2)', flexShrink: 0 }}>
-      {/* Start affordance — ongoing transport is delegated to the bottom bar, but
-          Review still needs a way to BEGIN playback (audio-player spec §4.1). The
-          "(follow)" label routes to the short follow-track so scrolling is visible. */}
-      <PlayButton label="Play chapter 7 (follow)" tone="tint" />
-      <SemanticChip variant="accent">Chapter 7</SemanticChip>
-      <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-        following playback · tap a line to play from there
-      </span>
-      <div style={{ flex: 1 }} />
-      <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{positionLabel}</span>
-    </Row>
-
-    <Row className="ns-review-grid" gap={12} style={{ flex: 1, alignItems: 'stretch', minHeight: 0 }}>
-      <Col gap={0} style={{ flex: 2, minHeight: 0, position: 'relative' }}>
-        <div style={{
-          fontSize: 'var(--type-micro)', fontWeight: 700,
-          textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)',
-          color: 'var(--text-muted)',
-          marginBottom: 'var(--space-2)',
-        }}>
-          Transcript
-        </div>
-        {/* Flowing prose. The highlight + scroll unit is the SEGMENT (an inline
-            span), not a line box — the active segment is tinted in its speaker's
-            color and centered by the follow hook, then hands off to the next. */}
-        <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
-          <Col gap={10} className="ns-stagger" style={{ maxWidth: '70ch' }}>
-            {Array.from(new Set(REVIEW_SENTENCES.map(s => s.para))).sort((a, b) => a - b).map(p => (
-              <div key={p} style={{
-                fontSize: 'var(--type-reading)',
-                lineHeight: 'var(--leading-reading)',
-                color: 'var(--text-primary)',
-              }}>
-                {REVIEW_SENTENCES.filter(s => s.para === p).map((s, idx) => {
-                  const isActive = s.id === activeChunkId;
-                  const tok = SPEAKER_TOKEN[s.speaker] ?? SPEAKER_TOKEN.Narrator;
-                  return (
-                    <React.Fragment key={s.id}>
-                      {idx > 0 && ' '}
-                      <span
-                        data-chunk-id={s.id}
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`Play from here: ${s.text}`}
-                        title="Play from here"
-                        onClick={(e) => { e.stopPropagation(); onPlayFromHere(s.id); }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onPlayFromHere(s.id); }
-                        }}
-                        style={{
-                          cursor: 'pointer',
-                          borderRadius: 4,
-                          padding: '1px 2px',
-                          // clone so the tinted marker + ring wrap cleanly across line breaks
-                          WebkitBoxDecorationBreak: 'clone',
-                          boxDecorationBreak: 'clone',
-                          textDecoration: s.rerendering && !isActive ? 'underline dashed var(--warning)' : undefined,
-                          textUnderlineOffset: s.rerendering ? '3px' : undefined,
-                          ...(isActive
-                            ? {
-                                background: tok.tintBg,
-                                color: tok.text,
-                                boxShadow: `0 0 0 2px ${tok.tintBorder}`,
-                                transition: 'background .2s ease, box-shadow .2s ease',
-                              }
-                            : null),
-                        }}
-                      >
-                        {s.text}
-                      </span>
-                      {s.rerendering && (
-                        <SemanticChip variant="warning">
-                          <Loader2 size={9} style={{ marginRight: 3 }} aria-hidden="true" />
-                          re-rendering
-                        </SemanticChip>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            ))}
-          </Col>
-        </div>
-        {followEngaged && !isFollowing && <ResumeFollowingPill onClick={resume} />}
-      </Col>
-
-      <Col gap={8} style={{ flex: 1, minHeight: 0 }}>
-        <Row gap={6} style={{ alignItems: 'center' }}>
-          <Label>Annotations</Label>
-          <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic', flex: 1 }}>
-            notes attach to sections — re-renders don't shift them
-          </span>
-        </Row>
-        <Col gap={8} style={{ flex: 1, overflowY: 'auto' }} className="ns-stagger">
-          {[
-            { section: '§14', note: "Mispronounced 'Vale' — needs re-render" },
-            { section: '§22', note: 'Pause too long after sentence end' },
-            { section: '§31', note: "Narrator volume dips on 'stone'" },
-          ].map(ann => (
-            <Card key={ann.section} interactive style={{ padding: 'var(--space-2) var(--space-2)' }}>
-              <Row gap={6} style={{ alignItems: 'flex-start', marginBottom: 'var(--space-2)' }}>
-                <SemanticChip variant="neutral">{ann.section}</SemanticChip>
-                <span style={{ flex: 1, fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', lineHeight: 'var(--leading-snug)' }}>
-                  {ann.note}
-                </span>
-              </Row>
-              <Btn small>Re-render section</Btn>
-            </Card>
-          ))}
-          <div style={{ fontSize: 'var(--type-caption)', color: 'var(--accent)', cursor: 'pointer', padding: 'var(--space-1) var(--space-1)' }}>
-            + Add note on §18 (playing)
-          </div>
-        </Col>
-      </Col>
-    </Row>
+export const BackupsPane: React.FC = () => (
+  <Col gap={12} className="ns-enter" style={{ flex: 1 }}>
+    <Panel style={{ padding: 'var(--space-3)' }}>
+      <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-1)' }}>
+        Backups
+      </div>
+      <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', lineHeight: 'var(--leading-snug)' }}>
+        Versioned snapshots of this book. Restore any checkpoint to recover chapters, cast assignments, and render history.
+      </div>
+    </Panel>
   </Col>
-  );
-};
+);
 
 // Re-export shared primitives used by sibling modules that import from this barrel
 export { Label, ProgressBar };

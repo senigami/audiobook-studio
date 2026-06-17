@@ -1,6 +1,6 @@
 # 006 — Build the Contents hub (chapter board + publish readiness)
 
-- **Status:** not-started
+- **Status:** done
 - **Workload:** Mock: book-level nav + Contents hub
 - **Severity / type:** major · ux
 - **Effort:** L

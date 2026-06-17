@@ -1,6 +1,6 @@
 # 009 — Chapter-aware Cast & Voices slide-out with three collapsible tiers
 
-- **Status:** not-started
+- **Status:** done
 - **Workload:** Mock: cast, characters & assignment
 - **Severity / type:** major · ux
 - **Effort:** L

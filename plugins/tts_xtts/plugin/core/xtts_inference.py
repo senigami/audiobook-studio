@@ -15,7 +15,7 @@ import argparse  # noqa: E402
 import warnings  # noqa: E402
 import json  # noqa: E402
 import hashlib  # noqa: E402
-from core.serve_speakers import build_unique_speakers  # noqa: E402
+from core.serve_speakers import build_unique_speakers, speaker_key  # noqa: E402
 
 # Suppress common XTTS/Torch warnings that clutter logs
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -372,8 +372,11 @@ def _run_serve_job(job: dict, tts, xtts_model, device) -> int:
                         fallback_sw = combined_sw.split("|")[0]
                     elif combined_sw:
                         fallback_sw = combined_sw
+                # Ensure fallback_sw is a single path string (tts.synthesizer.tts expects one)
+                if isinstance(fallback_sw, (list, tuple)):
+                    fallback_sw = fallback_sw[0] if fallback_sw else None
 
-                latents = speaker_latents.get((vpdir or "", sw or ""))
+                latents = speaker_latents.get(speaker_key(vpdir, sw))
 
                 paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
                 all_sentences: list = []
@@ -638,7 +641,7 @@ def main():
     for s in script:
         profile_dir = s.get("voice_profile_dir") or args.voice_profile_dir
         sw = s.get('speaker_wav') or ''
-        key = (profile_dir or "", sw)
+        key = speaker_key(profile_dir, sw)
         unique_speakers[key] = (sw or None, profile_dir)
 
     speaker_latents = {}
@@ -704,8 +707,11 @@ def main():
                         fallback_sw = combined_sw.split("|")[0]
                     elif combined_sw:
                         fallback_sw = combined_sw
+                # Ensure fallback_sw is a single path string (tts.synthesizer.tts expects one)
+                if isinstance(fallback_sw, (list, tuple)):
+                    fallback_sw = fallback_sw[0] if fallback_sw else None
 
-                latents = speaker_latents.get((profile_dir or "", sw or ''))
+                latents = speaker_latents.get(speaker_key(profile_dir, sw))
 
                 # Pre-calculate total sentences for progress reporting
                 total_sentences = 0

@@ -1,6 +1,6 @@
 # 010 — Per-span `Character ▾ · Variation ▾` assign control
 
-- **Status:** not-started
+- **Status:** done
 - **Workload:** Mock: cast, characters & assignment
 - **Severity / type:** major · ux
 - **Effort:** M

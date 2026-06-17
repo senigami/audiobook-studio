@@ -1,6 +1,6 @@
 # 011 — Range/span assignment (replace sentence "paint")
 
-- **Status:** not-started
+- **Status:** done
 - **Workload:** Mock: cast, characters & assignment
 - **Severity / type:** major · ux
 - **Effort:** L

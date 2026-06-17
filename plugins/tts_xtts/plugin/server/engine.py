@@ -13,15 +13,71 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
 from collections import deque
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 # SDK contract types — the only app.* import allowed in plugin code.
 from app.engines.voice.sdk import TTSRequest, TTSResult, VerificationResult
 from app.engines.voice.base import StudioTTSEngine
 from app.engines.proc_utils import run_cmd_stream
+
+
+def relay_marker(line: str, task_id: str) -> Optional[str]:
+    """Normalize a worker progress-marker line to the watchdog-expected format.
+
+    The watchdog parser in ``app.engines.watchdog._drain_stream`` expects:
+      - ``[START_SYNTHESIS] {task_id}``       — task_id in position 1
+      - ``[START_SEGMENT] {sid} {task_id}``   — task_id in position 2
+      - ``[SEGMENT_SAVED] {path_or_sid} {task_id}`` — task_id in position 2
+      - ``[PROGRESS] {pct}% {task_id}``       — task_id in position 2
+
+    The XTTS worker emits START_SEGMENT and SEGMENT_SAVED WITHOUT a task_id;
+    START_SYNTHESIS and PROGRESS already include it.  This function appends the
+    task_id where it is absent so the watchdog can correlate lines to the right
+    job.
+
+    Returns the normalized line string, or ``None`` if ``line`` is not a
+    recognised progress marker.
+    """
+    cleaned = line.strip()
+    if not cleaned:
+        return None
+
+    if cleaned.startswith("[START_SYNTHESIS]"):
+        # Already formatted: "[START_SYNTHESIS] {task_id}" — pass through.
+        return cleaned
+
+    if cleaned.startswith("[START_SEGMENT]"):
+        # Worker emits "[START_SEGMENT] {sid}" without task_id.
+        # Normalize to "[START_SEGMENT] {sid} {task_id}".
+        rest = cleaned[len("[START_SEGMENT]"):].strip()
+        if not rest:
+            return None
+        # If task_id is already appended (idempotent guard), don't double-append.
+        parts = rest.split()
+        if len(parts) >= 2 and parts[-1] == task_id:
+            return cleaned
+        return f"[START_SEGMENT] {rest} {task_id}"
+
+    if cleaned.startswith("[SEGMENT_SAVED]"):
+        # Worker emits "[SEGMENT_SAVED] {path}" without task_id.
+        # Normalize to "[SEGMENT_SAVED] {path} {task_id}".
+        rest = cleaned[len("[SEGMENT_SAVED]"):].strip()
+        if not rest:
+            return None
+        parts = rest.split()
+        if len(parts) >= 2 and parts[-1] == task_id:
+            return cleaned
+        return f"[SEGMENT_SAVED] {rest} {task_id}"
+
+    if cleaned.startswith("[PROGRESS]"):
+        # Already formatted: "[PROGRESS] {pct}% {task_id}" — pass through.
+        return cleaned
+
+    return None
 
 
 class XttsPlugin(StudioTTSEngine):
@@ -329,6 +385,19 @@ class XttsPlugin(StudioTTSEngine):
                                 pass
             except Exception:
                 pass
+            # Re-emit recognized progress markers to the TTS-server's own stderr so
+            # the watchdog log-listener (app.engines.watchdog._drain_stream) can
+            # correlate them to this job and flip the orchestrator from
+            # "preparing" → "running" and emit per-segment highlights.
+            # The worker's stderr is a separate captured PIPE; writing to sys.stderr
+            # here writes to the server process's stderr — no recursion risk.
+            if req.task_id:
+                try:
+                    normalized = relay_marker(line, req.task_id)
+                    if normalized is not None:
+                        print(normalized, file=sys.stderr, flush=True)
+                except Exception:
+                    pass
 
         rc = 1
         try:

@@ -625,3 +625,56 @@ def test_add_to_queue_uses_character_voice_when_segment_has_no_direct_profile(
     assert "No voice available" in response2.json().get("message", ""), (
         f"Guard case should block when character also has no voice: {response2.json()}"
     )
+
+
+def test_add_to_queue_proceeds_when_project_has_speaker_but_chapter_is_uncast(
+    clean_db_no_default, voices_root, client_no_default
+):
+    """Bug A fix: chapter has no casting, no chapter/project/global default, but the
+    project has at least one registered speaker with a voice → api_add_to_queue must
+    NOT return 400 'No voice available'. It must pick the first available profile as
+    fallback and proceed to queue."""
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.speakers import create_speaker
+
+    _make_voice(voices_root, "AnyVoice")
+
+    pid = create_project("proj-fallback-test")
+    # Register a speaker (no character assignment, no chapter/project default)
+    create_speaker("AnyVoice", default_profile_name="AnyVoice")
+    cid = create_chapter(pid, "ch-fallback-test", "Some text for fallback.")
+
+    with patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        response = client_no_default.post(
+            "/api/processing_queue",
+            data={"project_id": pid, "chapter_id": cid},
+        )
+
+    assert response.status_code != 400 or "No voice available" not in response.json().get("message", ""), (
+        f"Expected fallback to available speaker voice, got {response.status_code}: {response.json()}"
+    )
+
+
+def test_add_to_queue_blocks_when_no_speakers_exist_at_all(
+    clean_db_no_default, voices_root, client_no_default
+):
+    """Guard: with no speakers/voices anywhere in the DB or on disk,
+    api_add_to_queue must still return 400 'No voice available'."""
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+
+    pid = create_project("proj-no-speakers-guard")
+    cid = create_chapter(pid, "ch-no-speakers-guard", "Some text.")
+    # No speakers created, no voices on disk, no defaults set
+
+    with patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        response = client_no_default.post(
+            "/api/processing_queue",
+            data={"project_id": pid, "chapter_id": cid},
+        )
+
+    assert response.status_code == 400
+    assert "No voice available" in response.json().get("message", ""), (
+        f"Expected 400 No voice available when no speakers exist, got {response.status_code}: {response.json()}"
+    )
