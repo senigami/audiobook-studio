@@ -389,6 +389,23 @@ const normalizeUnknown = (
 
 import { CHUNK_CHAR_LIMIT } from '@/constants/audio';
 
+/**
+ * CLIENT FALLBACK for non-§4A frames only.
+ *
+ * §4A progress frames (jobs.lifecycle / chapters.progress / queue.items produced via
+ * ProgressService.enrich) carry a backend-authoritative numeric `confidence` value and
+ * never reach this function — the `if (payload.confidence === undefined)` guard in
+ * normalizeStudioSocketEnvelope short-circuits before calling here.
+ *
+ * This fallback exists solely for Option-B direct broadcasts that legitimately carry no
+ * §4A confidence: `segments.progress` (broadcast_segment_progress) and `voice.test`
+ * (broadcast_test_progress). Those frames have no chapter/char_count/ETA semantics so
+ * the backend does not enrich them. Removing this function would leave those frames with
+ * `confidence === undefined`, breaking the progress-bar predictive path for segment and
+ * voice-test progress.
+ *
+ * Do NOT rely on this function for §4A orchestrated or handler-direct chapter progress.
+ */
 export const computeProgressConfidence = (
   status?: string | null,
   progress?: number | null,

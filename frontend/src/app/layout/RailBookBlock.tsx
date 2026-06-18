@@ -177,7 +177,7 @@ export function RailBookBlock({ compact = false }: RailBookBlockProps) {
                       persistenceKey={activeJob.id}
                       status={activeJob.status}
                       state={activeJob.status === 'error' ? 'failed' : activeJob.status as any}
-                      label={activeJob.reason_code === 'LOADING_MODEL' ? 'loading voice model…' : activeJob.status}
+                      label={activeJob.reason_code === 'LOADING_MODEL' && activeJob.status === 'preparing' ? 'loading voice model…' : activeJob.status}
                       predictive
                       allowBackwardProgress={false}
                     />

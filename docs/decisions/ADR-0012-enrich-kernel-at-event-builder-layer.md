@@ -1,4 +1,4 @@
-# ADR-0012: `enrich` Kernel at the Event-Builder Layer; One RLock-Guarded `ProgressService` Singleton; `compute_progress_confidence` Echo Deleted
+# ADR-0012: `enrich` Kernel at the Event-Builder Layer; One RLock-Guarded `ProgressService` Singleton; Python `compute_progress_confidence` Echo Deleted (Client Fallback Retained)
 
 **Date:** 2026-06-18  
 **Status:** Accepted  
@@ -44,8 +44,8 @@ The v1 design plan nominated `broadcast_job_updated` as the universal convergenc
    - Monotonic-clamped `progress` / `grouped_progress` forced to `1.0` at terminal  
    When `sample=False` (snapshot/hydration, PI6), `enrich` computes from the current ring state without mutating it or the monotonic floor.
 
-3. **`compute_progress_confidence` deleted.**  
-   The echo (`coverage_ratio * progress`) in `app/api/contracts/events.py` is removed. Builders that receive a progress-bearing frame with `confidence=None` raise `ValueError` — fail-loud, not silent passthrough.
+3. **Python `compute_progress_confidence` deleted; client fallback retained.**  
+   The echo (`coverage_ratio * progress`) in `app/api/contracts/events.py` is removed. §4A progress-bearing frames (jobs.lifecycle / chapters.progress / queue.items) carry backend-authoritative numeric `confidence`; builders that receive such a frame with `confidence=None` raise `ValueError` — fail-loud, not silent passthrough. The client (`frontend/src/api/contracts/liveEvents.ts`) retains a `computeProgressConfidence` function as a **fallback only for non-§4A direct-broadcast frames** (`segments.progress` via `broadcast_segment_progress`, `voice.test` via `broadcast_test_progress`) that legitimately carry no `confidence` and are not routed through `enrich`. This is not a redundant echo — removing it would leave those frames with `confidence === undefined`.
 
 4. **D7 lock hierarchy enforced.**  
    `_STATE_LOCK` (`state_jobs.py`) is always the **outer** lock; the `ProgressService` RLock is a **leaf** lock. `publish` reads all job state via `get_jobs()` **before** entering the RLock-guarded region to prevent the `PS-RLock → _STATE_LOCK` AB-BA deadlock. (The reversed order was a real deadlock path: `state_jobs.update_job` holds `_STATE_LOCK` → fires listeners → `broadcast_job_updated` → `enrich` → `PS-RLock`; meanwhile `publish` holds `PS-RLock` → `get_jobs()` → `_STATE_LOCK`.)
@@ -58,7 +58,7 @@ This was the v1 plan. It was rejected because Path A bypasses `broadcast_job_upd
 
 ### Positive
 
-- Every progress frame a client receives carries §4A-correct `eta_confidence`, composed ETA, and mechanical ceiling — regardless of which emit path produced it.
+- Every §4A progress frame a client receives (jobs.lifecycle / chapters.progress / queue.items) carries §4A-correct `eta_confidence`, composed ETA, and mechanical ceiling — regardless of which emit path (A or B) produced it. Non-§4A direct broadcasts (segments.progress, voice.test) are out-of-contract by design; the client provides a lightweight fallback.
 - Cold renders (first frame, no observed throughput) produce a non-null ETA from the baseline chars-per-second rate, eliminating the null-ETA/null-confidence cold-start window.
 - A single RLocked singleton eliminates per-orchestrator ring fragmentation; the ETA state for every job is consistent across threads.
 - Snapshot/hydration frames carry the same §4A enrichment as live frames (PI6).

@@ -113,6 +113,71 @@ describe('RailBookBlock', () => {
     expect(onDeleteChapter).toHaveBeenCalledWith('chapter-1');
   });
 
+  it('does NOT render loading label when status is running with stale LOADING_MODEL reason_code', () => {
+    // A job that transitions from preparing→running but whose reason_code was never cleared.
+    // The rail must NOT show "loading voice model…" for a running job.
+    const runningJobWithStaleCode: Job = {
+      ...job,
+      status: 'running',
+      reason_code: 'LOADING_MODEL',
+      progress: 25,
+    };
+    act(() => {
+      setBookIdentity({
+        id: 'book-1',
+        title: 'Book One',
+        author: null,
+        series: null,
+        coverUrl: null,
+        runtimeSeconds: 0,
+        predictedSeconds: null,
+        chapters: [chapter],
+        jobs: { 'job-1': runningJobWithStaleCode },
+        actions: {},
+      });
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/book/book-1/studio?chapter=chapter-1']}>
+        <RailBookBlock />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText('loading voice model…')).toBeNull();
+    expect(screen.getByText('running')).toBeInTheDocument();
+  });
+
+  it('renders loading label when status is preparing AND reason_code is LOADING_MODEL', () => {
+    const preparingJob: Job = {
+      ...job,
+      status: 'preparing',
+      reason_code: 'LOADING_MODEL',
+      progress: 0,
+    };
+    act(() => {
+      setBookIdentity({
+        id: 'book-1',
+        title: 'Book One',
+        author: null,
+        series: null,
+        coverUrl: null,
+        runtimeSeconds: 0,
+        predictedSeconds: null,
+        chapters: [chapter],
+        jobs: { 'job-1': preparingJob },
+        actions: {},
+      });
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/book/book-1/studio?chapter=chapter-1']}>
+        <RailBookBlock />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('loading voice model…')).toBeInTheDocument();
+  });
+
   it('hides chapter rows outside the Studio stage', () => {
     act(() => {
       setBookIdentity({
