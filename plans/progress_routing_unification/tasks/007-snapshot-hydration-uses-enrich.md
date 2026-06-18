@@ -1,6 +1,6 @@
 # 007 — Snapshot / REST hydration uses `enrich` (PI6)
 
-- **Status:** not-started
+- **Status:** done
 - **Workload:** WL-C correctness
 - **Severity / type:** major · correctness
 - **Effort:** M

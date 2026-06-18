@@ -230,6 +230,21 @@ async def websocket_endpoint(websocket: WebSocket):
                     if 'log' in j:
                         del j['log']
 
+                # §4A hydration: enrich each row with contract-correct progress/ETA
+                # fields so page-load/reconnect carries the same numeric eta_confidence,
+                # ETA basis, and grouped_progress as live frames.  sample=False is
+                # read-only — it computes from the existing ring WITHOUT pushing a new
+                # velocity sample or advancing the monotonic floor (PI8 safety).
+                from ..orchestration.progress.service import get_progress_service  # noqa: PLC0415
+                _svc = get_progress_service()
+                for j in jobs_list:
+                    _jid = j.get("id")
+                    if _jid:
+                        try:
+                            _svc.enrich(_jid, j, sample=False)
+                        except Exception:
+                            pass  # enrich is best-effort; unenriched row is still valid
+
                 await websocket.send_json({
                     "type": "jobs_snapshot",
                     "jobs": jobs_list[:400]
