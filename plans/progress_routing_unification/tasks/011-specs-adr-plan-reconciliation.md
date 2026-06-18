@@ -1,6 +1,6 @@
 # 011 — Specs + ADR + plan reconciliation
 
-- **Status:** not-started
+- **Status:** done (live-events.md 1.5.2, progress-presentation.md 1.4.2, ADR-0012, 5 plans superseded, wiki entry)
 - **Workload:** WL-D docs
 - **Severity / type:** major · documentation (binding per CLAUDE.md)
 - **Effort:** M

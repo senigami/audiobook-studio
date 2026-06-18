@@ -1,8 +1,8 @@
 # Progress Presentation Contract
 
 ```
-spec_version: 1.4.1
-updated: 2026-06-17
+spec_version: 1.4.2
+updated: 2026-06-18
 status: active
 sources:
   - frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx
@@ -19,12 +19,13 @@ sources:
   - docs/specs/queue-jobs.md
 ```
 
-> **TL;DR:** `PredictiveProgressBar` renders server-authoritative progress augmented by a client-side ETA confidence model; every prop that gates backward motion or floors the bar MUST be passed explicitly by callers. **As of 1.4.0, confidence is ONE backend-authoritative numeric `eta_confidence ∈ [0,1]` that rises toward completion (§4A); a high-confidence late segment ETA composes into the chapter ETA by share-weighting, not multiplication (§4A.3); and the displayed countdown MUST converge to 0 at completion regardless of smoothing (§4A.4). Sections 4A.6/I7–I9 list known drift the implementation must resolve.**
+> **TL;DR:** `PredictiveProgressBar` renders server-authoritative progress augmented by a client-side ETA confidence model; every prop that gates backward motion or floors the bar MUST be passed explicitly by callers. **As of 1.4.2, the §4A contract is fully shipped:** confidence is ONE backend-authoritative numeric `eta_confidence ∈ [0,1]` computed by `ProgressService.enrich()` (the single RLock-guarded kernel) with a three-term formula (§4A.2), composed share-weighted from segment and chapter ETAs (§4A.3), crossfaded from calculated to observed (§4A.8), bounded by a mechanical ceiling (§4A.4), and emitted on every progress frame from both producers. `compute_progress_confidence` echo is deleted. §2.6 documents the LOADING_MODEL indeterminate window. §2.5 clarifies the two-layer monotonic floor (server enrich + client `progressMemory`).
 
 ## Changelog
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.4.2   | 2026-06-18 | **§4A fully shipped; single-source enrich kernel; LOADING_MODEL UX; two-layer floor clarification.** (1) `ProgressService.enrich()` is the single RLock-guarded contract kernel — both producers (Path A `ProgressService.publish` and Path B `broadcast_job_updated`) call `enrich(sample=True)` before building events; snapshot/hydration calls `enrich(sample=False)` (PI6). `compute_progress_confidence` echo deleted; builders fail-loud on `confidence=None` for progress-bearing frames. (2) §4A.2 numeric confidence (variance × completion × freshness, §4A.5 cold-start maturity factor via `n_samples`) implemented and wired. (3) §4A.3 share-weighted segment→chapter ETA/confidence composition implemented in `enrich()`. (4) §4A.8 crossfade `crossfade_eta()` and §4A.4 ceiling `apply_eta_ceiling()` active in `enrich()`. (5) Added **§2.5** to clarify the two-layer monotonic floor: server `enrich` provides monotonically-clamped values; client `progressMemory` is the *display* floor authority. (6) Added **§2.6** for the LOADING_MODEL indeterminate window (Task 009). See also `docs/decisions/ADR-0012`. |
 | 1.4.1   | 2026-06-17 | **§4A.8 crossfade wiring in `enrich()` (003b).** `ProgressService.enrich()` now computes `eta_calculated = remaining_chars × seconds_per_char` from `script_text` + `engine_id` in the payload (falling back to `DEFAULT_BASELINE_ENGINE_CPS=16.7`) and crossfades it with the incoming observed `eta_seconds` via `crossfade_eta()`, then applies the §4A.4 mechanical ceiling via `apply_eta_ceiling()`. Cold/sparse frames (no incoming `eta_seconds`) with a `script_text` payload now emit a non-null, bounded `eta_seconds`. ETA is null only when both calculated and observed are unavailable. Terminal clearing and the sample=False invariant are preserved. `eta_basis` is set to `"calculated"` when only the baseline is used, `"remaining_from_update"` when an observed value contributed. |
 | 1.4.0   | 2026-06-17 | **ETA confidence redesign (target contract; implementation in progress).** Added §4A: a single backend-authoritative numeric `eta_confidence ∈ [0,1]` (deprecating the coarse `"stable"/"estimating"/"done"` string) with a three-term formula (variance × completion × freshness) that is **monotone-rising in progress**; §4A.3 segment→chapter **share-weighted** ETA/confidence composition (a confident late segment dominates; NOT a product); §4A.4 **convergence-to-zero** invariant (countdown ≤ mechanical remaining bound, forced to 0 at completion); §4A.5 variance MUST NOT punish a converging ETA; §4A.6 field/transport conformance — `eta_confidence` numeric must be consumed (today ignored by `live-jobs.ts`), `active_segment_eta_seconds` must be consumed (today dropped), and the undocumented flat `studio_job_event` transport must be documented in live-events.md. New invariants I7–I9, B4–B6. §2.3 cross-referenced to §4A.3. |
 | 1.3.4   | 2026-06-16 | Drift corrections: §6 rewritten — `predictiveProgressBarDebug.ts` exports a pure snapshot builder gated by the caller's `onDebugSnapshot` callback, not logging helpers or a `__DEV__` guard; §3.4/I4 scoped to the `done` (completed) transition only — `doneTransitionPendingRef` is never set for `failed`/`cancelled`, and is cleared on done-transition init, not at DOM dismissal; §3.4/§5 terminal animation and eviction clarified — only `done` runs the 500 ms interpolated completion animation, `failed` snaps to `localProgress:1` and `cancelled` snaps to `localProgress:0` with no hold, `progressMemory` eviction fires immediately on any terminal status |
@@ -75,6 +76,43 @@ A progress broadcast fires **only when progress advances by ≥ 1%** relative to
 Callers that render a chapter-level bar MUST source progress from `job.progress` or the equivalent job-level event field. The chapter-level bar surfaces in the **queue drawer** and the **Activity page**; both consume the same `job.progress` field (the §7 segment-handoff fill is a separate, ScriptView-scoped display concern).
 
 > **Scope note (1.4.0).** This separation is about **progress**. The **ETA and confidence** are a different concern: a per-segment ETA *does* compose into the displayed chapter ETA via the share-weighted blend in **§4A.3**. Keeping progress scopes separate does NOT mean the chapter ETA ignores the active segment's clock.
+
+### 2.4 Single-source `enrich` kernel (1.4.2)
+
+All §4A math (confidence, ETA crossfade, ceiling, composition) is performed inside `ProgressService.enrich(job_id, payload, *, sample: bool = True)` — the single boot-installed, RLock-guarded kernel. Both live producers (Path A `ProgressService.publish` and Path B `broadcast_job_updated`) call `enrich(sample=True)` before building any event. Snapshot/hydration calls `enrich(sample=False)` (read-only: computes from the current ring state without mutating it). The event builders in `app/api/contracts/events.py` are the single contract authority: `compute_progress_confidence` (the old echo where `confidence ≡ progress`) is deleted, and builders fail loudly when a progress-bearing frame arrives with `confidence=None`.
+
+### 2.5 Two-layer monotonic floor (D5 — client display authority)
+
+The monotonic floor is enforced at **two distinct layers** that serve different purposes:
+
+- **Server layer (`enrich`):** `ProgressService.enrich()` applies a monotonic clamp so that values written to `state.json` and emitted in frames never regress within a job's lifetime. This prevents the backend from broadcasting backward motion.
+- **Client display layer (`progressMemory`):** `PredictiveProgressBar` maintains a `progressMemory` map keyed by `persistenceKey`. The per-key highest value recorded is the **display floor** — the bar never visually moves below this value, regardless of what the server sends. This catches reconnect replays, delayed broadcasts, and smoothing overshoots that occur after the server value was already correctly applied.
+
+These two floors are complementary, not contradictory. The server floor prevents invalid state from being broadcast; the client floor prevents already-displayed progress from visually regressing. The client floor is the **display authority** — it is not a signal that the server floor is absent or insufficient.
+
+### 2.6 LOADING_MODEL indeterminate state (Task 009)
+
+During the model-load window — from `preparing` status dispatch until the first `[START_SEGMENT]` engine marker — the backend emits an indeterminate progress frame:
+
+```jsonc
+{
+  "status": "preparing",
+  "progress": 0.0,
+  "reasonCode": "LOADING_MODEL",
+  "indeterminate": true,
+  "loadingElapsedSeconds": <seconds_since_engine_activity_started_at>  // optional
+}
+```
+
+Rules:
+
+- `indeterminate: true` signals that no determinate progress is available; the frontend MUST render a **pulsing indeterminate bar** and display "loading voice model…" (or equivalent).
+- `loadingElapsedSeconds` is an optional float (seconds since `engine_activity_started_at`); it MAY be used for a wall-clock elapsed display but MUST NOT be used to fabricate a determinate ETA.
+- `indeterminate` absent or `false` means a determinate frame; the bar reverts to its normal progress-driven rendering.
+- No `eta_seconds` is emitted on a `LOADING_MODEL` frame; `eta_seconds` is `null`.
+- `expected_model_load_seconds` (a manifest field that would allow a determinate model-load countdown) is **DEFERRED** — do not implement or document it as available.
+- The frame is emitted by the orchestrator dispatcher (`orchestrator_helpers.py`) via `ProgressService.publish`; it passes through `enrich()` which preserves the `indeterminate` / `loading_elapsed_seconds` fields and does not compute ETA or confidence for this frame.
+- On the next frame that arrives after model load completes (first real `SEGMENT_PENDING` or `START_SEGMENT` derived frame), `indeterminate` is absent/false and the bar reverts to determinate rendering automatically.
 
 ---
 
@@ -199,9 +237,10 @@ These constants are defined in `ETA_CONFIDENCE` in `predictiveProgressBarHelpers
 
 ## 4A. Numeric ETA Confidence, Composition & Convergence (v1.4.0 — authoritative)
 
-> **Status:** This section is the binding target contract introduced in 1.4.0. The
-> implementation is being brought into conformance; current divergences are enumerated in
-> §4A.6 and MUST be resolved. Until each is resolved, the code is the bug, not this spec.
+> **Status:** This section is the binding contract. As of 1.4.2 the implementation is in
+> conformance: the §4A kernel (`enrich`) is shipped; §4A.2/§4A.3/§4A.4/§4A.5/§4A.8 are
+> active in production. §4A.6 items 1–4 have been resolved (numeric confidence, both
+> transports enriched, echo deleted). §4A.7 empirical evidence is retained for history.
 >
 > **Why this exists.** Three unrelated "confidence" quantities had accreted: a backend
 > status-derived string `eta_confidence` (emitted, gated on, but **never read** by the

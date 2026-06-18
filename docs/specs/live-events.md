@@ -1,12 +1,13 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.5.1
+spec_version: 1.5.2
 status: active
 sources:
   - app/api/ws.py
   - app/api/contracts/events.py
   - app/db/state_jobs.py
+  - app/orchestration/progress/service.py
   - frontend/src/api/contracts/liveEvents.ts
   - frontend/src/store/studioSocketBus.ts
   - frontend/src/hooks/useQueueSync.ts
@@ -17,6 +18,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.5.2   | 2026-06-18 | **Single-source progress contract at the event-builder layer.** Retired the dual-path allowance (orchestrated + handler-direct as independent emit paths). Both producers (`ProgressService.publish` via Path A, and `broadcast_job_updated` via Path B) now call `ProgressService.enrich(job_id, payload)` **before** building events, then thread the enriched `confidence`/`eta_seconds`/`eta_basis`/`estimated_end_at`/`grouped_progress` into every `build_*_event(...)` call — making the **event builders in `app/api/contracts/events.py`** the single contract authority. `compute_progress_confidence` echo deleted; builders fail-loud on `confidence=None` for progress-bearing frames. Snapshot/hydration (`jobs_snapshot` + running queue rows) call `enrich(sample=False)` (read-only, does not mutate the ETA ring or monotonic floor) — PI6. See new ADR-0012. |
 | 1.5.1   | 2026-06-16 | `segments.progress` topic: eventKind is only `segment_progress`; segment start/saved are signalled via `reasonCode` (`SEGMENT_PENDING`/`SEGMENT_SAVED`), not as distinct eventKinds. |
 | 1.5.0   | 2026-06-11 | `SEGMENT_PENDING` reason code: `[START_SEGMENT]` marker now emits `SEGMENT_PENDING` (announce, no segment ETA) rather than `START_SEGMENT`. Canonical `START_SEGMENT` with ETA is emitted only at engine confirmation (`[START_SYNTHESIS]` or first `[PROGRESS]`). Frontends must not begin pacing a progress bar on `SEGMENT_PENDING`. |
 | 1.4.1   | 2026-06-11 | Engine-confirmed segment ETA clock: per-segment clock starts at engine confirmation (`[START_SYNTHESIS]` or first `[PROGRESS]`), not at `[START_SEGMENT]`; `[START_SEGMENT]` is an announcement that may precede model load. Duration falls back to announce time if no confirmation arrives before `[SEGMENT_SAVED]`. |
@@ -462,6 +464,54 @@ lower than the current job's progress, unless the job is in a rollback status
 emitted when the absolute change in progress meets or exceeds this threshold (i.e.,
 ≥ 1 percentage point). The check applies separately to job progress, batch progress,
 and segment progress.
+
+---
+
+## Progress contract authority — single-source at the event-builder layer
+
+### Why the event-builder layer (not a broadcast chokepoint)
+
+Progress frames reach the WebSocket via two paths:
+
+- **Path A (orchestrated):** `ProgressService.publish` → `build_*_event(...)` → `broadcast_studio_event` → `manager.broadcast`. Path A sets `skip_job_updated=True` on `update_job`, deliberately bypassing `broadcast_job_updated`.
+- **Path B (handler-direct / TTS subprocess):** `state_jobs.update_job` / `put_job` → `_JOB_LISTENERS` → `broadcast_job_updated` (`app/api/ws.py`) → `build_*_event(...)` → `broadcast_studio_event`.
+
+Because Path A bypasses `broadcast_job_updated`, wiring `broadcast_job_updated` as a universal chokepoint is **incorrect** — it only intercepts Path B. The true convergence point both paths share is the **event builders in `app/api/contracts/events.py`** (`build_chapter_progress_event`, `build_segment_progress_event`, `build_queue_item_status_event`).
+
+### Single-source contract (v1.5.2+)
+
+Both producers call `ProgressService.enrich(job_id, payload)` **before** building events, then pass the enriched values into every `build_*_event(...)` call:
+
+```
+Path A: ProgressService.publish ──► enrich(job_id, payload, sample=True) ──► build_*_event(confidence=, eta_seconds=, …)
+Path B: broadcast_job_updated   ──► enrich(job_id, payload, sample=True) ──► build_*_event(confidence=, eta_seconds=, …)
+```
+
+`enrich` is the single math kernel (RLock-guarded singleton, boot-installed) that applies:
+- §4A.2 numeric `eta_confidence` (variance × completion × freshness — monotone-rising in progress)
+- §4A.3 share-weighted segment→chapter ETA/confidence composition
+- §4A.4 mechanical ETA ceiling (`apply_eta_ceiling`)
+- §4A.5 convergence-trust (converging ETA does NOT lower confidence)
+- §4A.8 calculated→observed ETA crossfade (`crossfade_eta`, cold-start bootstrap `DEFAULT_BASELINE_ENGINE_CPS`)
+- Monotonic-clamped `progress` / `grouped_progress` (grouped forced to `1.0` at terminal)
+
+`compute_progress_confidence` (the old echo that set `confidence = coverage_ratio * progress`) is **deleted**. Builders that receive a progress-bearing frame with `confidence=None` raise loudly.
+
+### Snapshot / hydration path (PI6)
+
+The `jobs_snapshot` handler and running-queue row serializers call
+`enrich(job_id, payload, sample=False)` — **read-only**: all ETA values are computed from the current ring state without pushing a velocity sample or mutating the monotonic floor. This ensures hydration frames carry the same §4A enrichment as live frames.
+
+### Out-of-contract paths
+
+The following broadcast helpers carry their own `progress` field and are **outside** the enriched-confidence contract — `enrich` is not called for them, and the builders do not require `confidence` on these paths:
+
+- `broadcast_test_progress` (`voice.test` / `voice_test_progress`) — voice test frames have no chapter/char_count/ETA semantics.
+- `broadcast_segment_progress` and `broadcast_tts_log_line` — segment-direct and log frames route via `broadcast_studio_event` without a chapter-level builder.
+
+### Lock hierarchy (D7)
+
+`_STATE_LOCK` (`state_jobs.py`) is always the **outer** lock; the `ProgressService` RLock is a **leaf** lock. Code that already holds the PS-RLock MUST NOT call into `app.db.state_jobs` (which acquires `_STATE_LOCK`). `ProgressService.publish` performs all `get_jobs()` reads **before** entering the RLock-guarded region to avoid `PS-RLock → _STATE_LOCK` inversion. See ADR-0012.
 
 ---
 

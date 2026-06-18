@@ -1,5 +1,7 @@
 # Proposal: Progress, Reconciliation, And ETA Tracking (Studio 2.0)
 
+> **SUPERSEDED by `plans/progress_routing_unification/` (shipped 2026-06-18).** Routing is now single-source at the event-builder layer (`app/api/contracts/events.py`); reconciliation, ETA, and confidence are all implemented. The design intent documented here is retained for history; `docs/specs/progress-presentation.md` and `docs/decisions/ADR-0012` are the live references.
+
 Progress is a product surface, not just telemetry. The goal is to make status believable, stable, and useful to users.
 
 ## 1. Objectives

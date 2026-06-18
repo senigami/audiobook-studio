@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Docs] - 2026-06-18
+
+### Progress-routing unification — single-source contract at the event-builder layer
+
+Shipped the complete §4A progress contract. `docs/specs/progress-presentation.md` bumped to 1.4.2; `docs/specs/live-events.md` bumped to 1.5.2.
+
+**What changed:**
+
+- **Single-source `enrich` kernel.** `ProgressService.enrich()` is the one RLock-guarded function both emit paths (orchestrated Path A via `ProgressService.publish`, and handler-direct Path B via `broadcast_job_updated`) call before building events. The event builders in `app/api/contracts/events.py` are the contract authority. The old `compute_progress_confidence` echo (which set `confidence = progress`) is deleted; builders now fail loudly if a progress-bearing frame arrives without an enriched `confidence`.
+- **Numeric ETA confidence (§4A.2).** `eta_confidence ∈ [0,1]` is now a three-term metric (variance × completion × freshness) that rises monotonically toward completion. A cold-start maturity factor prevents overconfident estimates when few velocity samples exist.
+- **Cold-render ETA (§4A.8 + §4A.4).** Frames that carry no observed ETA (cold render, no throughput yet) now emit a non-null, bounded ETA computed from `remaining_chars × seconds_per_char` (bootstrap `DEFAULT_BASELINE_ENGINE_CPS`), crossfaded toward the observed ETA as render velocity accumulates. The mechanical ceiling (`apply_eta_ceiling`) bounds the result.
+- **Share-weighted composition (§4A.3).** When an active segment reports its own ETA with high confidence and covers the dominant remaining share, the chapter ETA blends toward it — not multiplied.
+- **Snapshot enrichment (PI6).** `jobs_snapshot` and running-queue row serializers call `enrich(sample=False)` — read-only enrichment without mutating the ETA ring — so hydration frames carry the same §4A values as live frames.
+- **LOADING_MODEL UX (§2.6).** During the model-load window (status `preparing`, before the first engine marker), the backend emits `indeterminate: true` + `reasonCode: "LOADING_MODEL"`. The frontend renders a pulsing indeterminate bar and "loading voice model…" copy; reverts to determinate on the next frame.
+- **Two-layer floor clarification (§2.5).** Documented that the server `enrich` provides monotonically-clamped values while the client `progressMemory` is the display floor authority — the two layers are complementary, not contradictory.
+- **New ADR-0012** (`docs/decisions/ADR-0012-enrich-kernel-at-event-builder-layer.md`) records the problem, rejected alternative (`broadcast_job_updated` as chokepoint), D7 lock hierarchy, and consequences.
+- Five superseded progress plans marked at their heads. See `plans/progress_routing_unification/02-plan-reconciliation.md`.
+
+---
+
 ## [Docs] - 2026-06-14
 
 ### Wiki refresh: Studio 2.0 site redesign (R1–R6)

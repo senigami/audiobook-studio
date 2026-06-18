@@ -1,5 +1,7 @@
 # Live Event Stream Contract
 
+> **SUPERSEDED by `docs/specs/live-events.md` (spec_version 1.5.2, 2026-06-18).** The authoritative live-event contract now lives in that spec. The dual-path allowance (orchestrated + handler-direct emitting independently) is retired; both producers enrich via `ProgressService.enrich()` then build via the event builders in `app/api/contracts/events.py`. Retained for history.
+
 This document is the frontend-facing source of truth for Studio's live event
 stream. It describes how browser code receives canonical websocket events,
 routes them to UI consumers, and displays them on `/event-stream`.

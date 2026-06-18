@@ -20,6 +20,10 @@ they were inventoried, not deep-read, during the topology audit.)
 | `plans/implementation/live_event_stream_contract.md` | event-stream contract | **RECONCILE** against `live-events.md` (T011); keep one. |
 | `plans/phases/phase_4_progress_and_reconciliation.md` | phase-4 scope (progress + reconciliation) | **CHECK done-ness** in T011; carry forward only open items. |
 
+## Task 011 completion note (2026-06-18)
+
+All five plans above have been read in full and marked superseded at their heads. No still-valid intent was found that is not already covered by `docs/specs/progress-presentation.md` §4A (the contract) or this routing plan (the implementation). Specifically: `15_progress_confidence_model.md` — math model now lives in `enrich()` / `app/orchestration/progress/eta.py`; `v2_progress_tracking.md` — all objectives shipped; `progress_service_impl.md` — all listed files exist and are live; `live_event_stream_contract.md` — contract now in `docs/specs/live-events.md` §"Progress contract authority"; `phase_4_progress_and_reconciliation.md` — all deliverables shipped, open items in `01-roadmap.md`. New ADR-0012 records the architectural shape.
+
 ## Why one routing plan
 Each of the above touched progress from a different angle and none owned the *routing* question — which is
 exactly how two emit paths (orchestrated vs handler-direct) drifted apart and the contract stopped being
