@@ -1,6 +1,6 @@
 # 012 — Engine/relay per-segment marker emission + credit during real synthesis
 
-- **Status:** blocked
+- **Status:** done — VERDICT: emission path already flows (per-sentence PROGRESS + per-segment START/SAVED, relay normalizes, watchdog credits); regression tests added; captured freeze covered by 001+009. No fix needed.
 - **Workload:** WL-C correctness (real-render owner symptom)
 - **Severity / type:** major · diagnosis-then-fix
 - **Effort:** TBD (gated on 008 verdict)
