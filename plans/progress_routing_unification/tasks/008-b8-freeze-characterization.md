@@ -1,6 +1,6 @@
 # 008 — B8 freeze characterization (re-scoped)
 
-- **Status:** not-started
+- **Status:** done — VERDICT: clean stream advances, NO credit bug; freeze = no-marker (cold-load/sub-second synth) → 012 owns the engine/relay fix
 - **Workload:** WL-C correctness
 - **Severity / type:** major · diagnosis-then-fix
 - **Effort:** M
