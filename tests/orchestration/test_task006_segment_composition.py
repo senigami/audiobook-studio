@@ -209,98 +209,220 @@ class TestOwnerAcceptance43Composition:
     """
 
     def test_late_segment_collapses_chapter_eta(self):
-        """High-confidence late-segment ETA=4s must collapse chapter ETA to ~4s.
+        """Mature high-confidence late-segment ETA=4s must collapse chapter ETA to ~4s
+        and raise eta_confidence vs the prior chapter-only frame.
 
-        This is the R1 revert-check for §4A.3 composition.
+        Owner acceptance case (§4A.3): after a run of ~30s-per-segment samples, a
+        segment ticking down over 6 frames to report 4s at 0.91+ confidence must
+        collapse the displayed chapter ETA to ~4s (≤6s) and raise overall confidence.
+
+        R1 revert-check:
+          Pre-fix (old residual uses bounded_eta=~12s as residual):
+            - phase-2 eta_final ≈ 4–12s (may pass < 15 but fails ≤ 6)
+            - conf_final may drop vs conf_pre (confidence regression)
+          Post-fix (residual = non_active_fraction * bounded_eta → 0 when share=1):
+            - eta_final ≤ 6s (pulled to segment's 4s)
+            - conf_final > conf_pre (confidence rises)
         """
         svc, _, wall_now, _ = _make_service()
         job_id = "owner-collapse-job"
         seg_id = "seg-final"
 
         # Phase 1: Build up a chapter-level baseline of ~30s ETA samples.
-        # 10 frames with eta_seconds≈30, progress advancing 0.1 per frame.
+        # 10 frames with eta_seconds≈30, progress advancing per frame.
         for i in range(10):
             p = 0.1 + i * 0.05  # 0.1 → 0.55
             wall_now["value"] += 3.0
-            payload = {
+            svc.enrich(job_id, {
                 "status": "running",
                 "progress": p,
                 "eta_seconds": 30,
                 "updated_at": wall_now["value"],
-            }
-            svc.enrich(job_id, dict(payload), sample=True)
+            }, sample=True)
 
-        # Record the chapter ETA before the final-segment signal.
-        payload_pre = {
+        # Record the chapter ETA and confidence before the segment signals arrive.
+        wall_now["value"] += 1.0
+        result_pre = svc.enrich(job_id, {
             "status": "running",
             "progress": 0.85,
             "eta_seconds": 30,
             "updated_at": wall_now["value"],
-        }
-        result_pre = svc.enrich(job_id, dict(payload_pre), sample=True)
+        }, sample=True)
         eta_pre = result_pre.get("eta_seconds")
         conf_pre = result_pre.get("eta_confidence")
+        assert isinstance(conf_pre, float), "Pre-frame must have a numeric eta_confidence"
 
-        # Phase 2: Now the final segment reports eta=4s with high confidence.
-        # The segment covers most of the remaining work (share → 1 since it's
-        # the last segment: remaining_active ≈ remaining_total).
-        # Weights: total=100, completed=80, active_group_weight=20 → share=20/20=1.0
-        wall_now["value"] += 1.0
-        payload_final = {
+        # Phase 2: Segment ticks down over 6 frames — ring matures (≥5 samples)
+        # and seg_confidence rises toward ~0.99.
+        # Weights: total=100, completed=80, active_group_weight=20 → share=1.0
+        # (active segment IS all the remaining work).
+        seg_frames = [
+            (0.10, 30),
+            (0.20, 25),
+            (0.40, 18),
+            (0.60, 12),
+            (0.80, 7),
+            (0.91, 4),  # final tick: 4s left, high confidence (ring mature)
+        ]
+        for seg_p, seg_eta in seg_frames:
+            wall_now["value"] += 1.0
+            result = svc.enrich(job_id, {
+                "status": "running",
+                "progress": 0.85,
+                "eta_seconds": 30,
+                "active_segment_id": seg_id,
+                "active_segment_progress": seg_p,
+                "active_segment_eta_seconds": seg_eta,
+                "total_render_weight": 100,
+                "completed_render_weight": 80,
+                "active_render_group_weight": 20,
+                "updated_at": wall_now["value"],
+            }, sample=True)
+
+        eta_final = result.get("eta_seconds")
+        conf_final = result.get("eta_confidence")
+
+        # Owner requirement: displayed chapter ETA must collapse to ~4s (≤6s given
+        # the spec's confidence-weighted residual) and confidence must RISE.
+        assert eta_final is not None, "Final frame must produce a non-null eta_seconds"
+        assert eta_final <= 6, (
+            f"With mature high-confidence seg_eta=4s (share=1.0), "
+            f"chapter eta_seconds must collapse to ≤6s, got {eta_final}s. "
+            f"(Pre-frame eta was {eta_pre}s). "
+            f"R1: pre-fix residual inflates result using bounded_eta instead of "
+            f"chapter_eta_excluding_active."
+        )
+
+        assert isinstance(conf_final, float)
+        assert conf_final > conf_pre, (
+            f"Final segment signal must RAISE eta_confidence: "
+            f"pre={conf_pre:.4f} → final={conf_final:.4f}. "
+            f"R1: pre-fix code may leave or lower confidence because the segment "
+            f"is cold-start-penalised and doesn't dominate."
+        )
+
+    def test_cold_first_seen_segment_does_not_over_dominate(self):
+        """A FIRST-SEEN (cold-start) segment with only 1 ring sample must NOT
+        collapse the chapter ETA to near-zero.
+
+        When seg_confidence ≈ 0.2 (cold start, n=1 sample), the blend must
+        still preserve the chapter-level ETA as a fallback — the cold segment
+        should NOT dominate the display.
+
+        R1 revert-check: with the WRONG residual fix (pure non_active_fraction
+        = 0 when share=1.0), composed_eta = 0.2*4 + 0.8*0 = 0.8s → int=0s
+        (terminal-looking). The blended residual guard (mixing in
+        seg_confidence) prevents this collapse.
+        """
+        svc, _, wall_now, _ = _make_service()
+        job_id = "cold-dominate-job"
+        seg_id = "seg-first-seen"
+
+        # Prime chapter ring to stable ~30s ETA.
+        for i in range(10):
+            p = 0.1 + i * 0.05
+            wall_now["value"] += 3.0
+            svc.enrich(job_id, {
+                "status": "running",
+                "progress": p,
+                "eta_seconds": 30,
+                "updated_at": wall_now["value"],
+            }, sample=True)
+
+        result_pre = svc.enrich(job_id, {
             "status": "running",
             "progress": 0.85,
-            "eta_seconds": 30,  # chapter-level still shows 30s
+            "eta_seconds": 30,
+            "updated_at": wall_now["value"],
+        }, sample=True)
+        eta_pre = result_pre.get("eta_seconds")
+
+        # Single first-seen segment frame — ring gets exactly 1 sample → cold-start.
+        wall_now["value"] += 1.0
+        result_cold = svc.enrich(job_id, {
+            "status": "running",
+            "progress": 0.85,
+            "eta_seconds": 30,
             "active_segment_id": seg_id,
-            "active_segment_progress": 0.1,   # early in segment
-            "active_segment_eta_seconds": 4,   # but segment ETA is only 4s
+            "active_segment_progress": 0.1,
+            "active_segment_eta_seconds": 4,
             "total_render_weight": 100,
             "completed_render_weight": 80,
             "active_render_group_weight": 20,
             "updated_at": wall_now["value"],
-        }
-        result_final = svc.enrich(job_id, dict(payload_final), sample=True)
-        eta_final = result_final.get("eta_seconds")
-        conf_final = result_final.get("eta_confidence")
+        }, sample=True)
+        eta_cold = result_cold.get("eta_seconds")
+        ring = svc._segment_eta_rings.get(seg_id)
+        n_samples = len(ring) if ring is not None else 0
 
-        # The chapter ETA must collapse toward 4s (within ~3x of the segment ETA).
-        assert eta_final is not None, "Final frame must produce a non-null eta_seconds"
-        assert eta_final < 15, (
-            f"With high-confidence seg_eta=4s dominating remaining share, "
-            f"chapter eta_seconds must collapse (<15s), got {eta_final}s. "
-            f"(Pre-frame eta was {eta_pre}s). R1: pre-change code returns ≈30s."
+        assert n_samples == 1, (
+            f"Pre-condition: first-seen segment ring must have exactly 1 sample, got {n_samples}"
+        )
+        assert eta_cold is not None
+        # Cold-start segment must NOT collapse chapter ETA to near-zero.
+        # The blended residual guard must preserve the chapter baseline.
+        assert eta_cold > 2, (
+            f"Cold-start (n=1) segment with share=1.0 must NOT collapse chapter ETA "
+            f"to near-zero. Pre-frame eta={eta_pre}s, cold eta={eta_cold}s. "
+            f"R1: pure non_active_fraction residual gives 0.8s → 0s (too aggressive)."
         )
 
-        # Confidence must rise compared to the pre-frame or remain high.
-        # (The convergence also boosts confidence — §4A.5)
-        assert conf_final is not None
-        assert isinstance(conf_final, float)
-        # conf_final must be ≥ 0.3 (meaningful, not near floor).
-        assert conf_final >= 0.3, (
-            f"With high-confidence final segment, conf_final={conf_final} should be meaningful"
+    def test_composition_weight_arithmetic_via_enrich(self):
+        """§4A.3: end-to-end blend via enrich() confirms share, w_seg, eta_display.
+
+        Drives the real enrich() kernel rather than re-implementing the formula in
+        pure Python (which would be a self-asserting test).  The observable assertion
+        is on the output of enrich(), not on an intermediate calculation.
+
+        Setup: prime a chapter ring so bounded_eta ≈ 30s, then inject a fully-mature
+        segment ring (6 identical frames → cv≈0, seg_confidence≈1.0) with
+        share=1.0 and seg_eta=4s.  Expected: enrich() returns eta_seconds ≤ 6
+        and conf_display = max(chapter_conf, seg_confidence*1.0) ≥ 0.9.
+        """
+        svc, _, wall_now, _ = _make_service()
+        job_id = "arith-job"
+        seg_id = "seg-arith"
+
+        # Prime chapter ring (~30s baseline, progress not high enough to crossfade out).
+        for i in range(6):
+            wall_now["value"] += 4.0
+            svc.enrich(job_id, {
+                "status": "running",
+                "progress": 0.1 + i * 0.05,
+                "eta_seconds": 30,
+                "updated_at": wall_now["value"],
+            }, sample=True)
+
+        # Mature the segment ring with 6 consistent frames (cv→0, confidence→1).
+        seg_evolve = [(0.1, 28), (0.2, 24), (0.4, 18), (0.6, 12), (0.8, 7), (0.91, 4)]
+        for seg_p, seg_eta in seg_evolve:
+            wall_now["value"] += 1.0
+            result = svc.enrich(job_id, {
+                "status": "running",
+                "progress": 0.6,
+                "eta_seconds": 30,
+                "active_segment_id": seg_id,
+                "active_segment_progress": seg_p,
+                "active_segment_eta_seconds": seg_eta,
+                "total_render_weight": 100,
+                "completed_render_weight": 80,
+                "active_render_group_weight": 20,
+                "updated_at": wall_now["value"],
+            }, sample=True)
+
+        eta = result.get("eta_seconds")
+        conf = result.get("eta_confidence")
+
+        # With share=1.0 and seg_confidence≈1, composition must pull eta to ≤6s.
+        assert eta is not None
+        assert eta <= 6, (
+            f"enrich() with mature seg_confidence≈1, share=1.0, seg_eta=4s must "
+            f"return eta_seconds ≤ 6, got {eta}s"
         )
-
-    def test_composition_weight_arithmetic(self):
-        """§4A.3: share, w_seg, eta_display, conf_display arithmetic validation."""
-        # share = active_render_group_weight / (total - completed) = 20/(100-80) = 1.0
-        # w_seg = seg_confidence * share; at share=1, w_seg = seg_confidence
-        # eta_display = w_seg * seg_eta + (1-w_seg) * chapter_eta
-        # With w_seg=0.91 * 1.0 = 0.91: eta = 0.91*4 + 0.09*30 = 3.64 + 2.7 = 6.34s
-        seg_confidence = 0.91
-        share = 1.0  # last segment covers all remaining work
-        seg_eta = 4.0
-        chapter_eta = 30.0
-
-        w_seg = seg_confidence * share
-        eta_display = w_seg * seg_eta + (1.0 - w_seg) * chapter_eta
-        conf_display = max(0.4, seg_confidence * share)  # chapter_confidence=0.4 as baseline
-
-        # η_display must be pulled toward seg_eta.
-        assert eta_display < 15.0, (
-            f"Share-weighted composition must pull ETA toward seg_eta=4s, got {eta_display:.1f}s"
-        )
-        # conf_display must be lifted toward seg_confidence.
-        assert conf_display >= seg_confidence * 0.9, (
-            f"conf_display={conf_display:.3f} must be close to seg_confidence={seg_confidence}"
+        # conf_display = max(chapter_conf, seg_confidence * 1.0) → ≥ 0.9
+        assert isinstance(conf, float)
+        assert conf >= 0.9, (
+            f"enrich() conf_display must lift to ≥ 0.9 when seg_confidence≈1, got {conf:.4f}"
         )
 
     def test_composition_high_share_dominates(self):

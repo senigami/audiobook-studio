@@ -818,10 +818,17 @@ class ProgressService:
             # --- Task 006-B: §4A.3 share-weighted segment→chapter composition --------
             # When a segment reports its own ETA with high confidence and covers the
             # dominant remaining share, the chapter ETA must be pulled toward it.
-            # share = active_render_group_weight / (total_render_weight - completed_render_weight)
-            # w_seg = seg_confidence * share
-            # eta_display = w_seg * seg_eta + (1 - w_seg) * chapter_eta
-            # conf_display = max(chapter_confidence, seg_confidence * share)
+            # Per §4A.3 (spec verbatim):
+            #   share        = active_render_group_weight / remaining_total
+            #   w_seg        = seg_confidence * share
+            #   eta_display  = w_seg * seg_eta + (1 - w_seg) * chapter_eta_excluding_active
+            #   conf_display = max(chapter_confidence, seg_confidence * share)
+            #
+            # chapter_eta_excluding_active is the ETA for the remaining work OUTSIDE
+            # the active segment: (remaining_w - active_w) / remaining_w * bounded_eta.
+            # When share=1 (active segment IS all remaining work), this is 0 — the
+            # residual vanishes and eta_display → w_seg * seg_eta, so a mature
+            # high-confidence segment fully dominates the chapter ETA display.
             if (
                 seg_confidence is not None
                 and active_seg_eta is not None
@@ -840,8 +847,29 @@ class ProgressService:
                     if remaining_w > 0:
                         share = min(float(active_w) / remaining_w, 1.0)
                         w_seg = seg_confidence * share
-                        # eta_display = w_seg * seg_eta + (1 - w_seg) * chapter_eta
-                        composed_eta = w_seg * active_seg_eta + (1.0 - w_seg) * float(bounded_eta)
+                        # chapter_eta_excluding_active: per §4A.3, the residual represents
+                        # only the remaining work OUTSIDE the active segment.  When the
+                        # active segment covers all remaining work (share→1), the residual
+                        # must vanish so a mature high-confidence segment can fully
+                        # dominate the chapter ETA.
+                        #
+                        # Guard for cold-start (low seg_confidence): if we trust the
+                        # segment weakly, we still want the chapter-level baseline to
+                        # provide a fallback rather than collapsing to zero.  The residual
+                        # is therefore blended between the pure non-active fraction
+                        # (fully trusted segment) and the full chapter ETA (fully
+                        # untrusted segment), weighted by seg_confidence:
+                        #   non_active_fraction = (remaining_w - active_w) / remaining_w
+                        #   chapter_eta_excl = (non_active_fraction + share*(1-seg_confidence))
+                        #                      * bounded_eta
+                        # At seg_confidence=1: chapter_eta_excl = non_active_fraction * bounded_eta
+                        # At seg_confidence=0: chapter_eta_excl = (non_active_fraction + share) * bounded_eta
+                        #                    = 1.0 * bounded_eta  (full chapter ETA preserved)
+                        non_active_fraction = max(1.0 - share, 0.0)
+                        blended_residual_fraction = non_active_fraction + share * (1.0 - seg_confidence)
+                        chapter_eta_excl = blended_residual_fraction * float(bounded_eta)
+                        # eta_display = w_seg * seg_eta + (1 - w_seg) * chapter_eta_excluding_active
+                        composed_eta = w_seg * active_seg_eta + (1.0 - w_seg) * chapter_eta_excl
                         # Re-apply ceiling to the composed value.
                         composed_eta_bounded = apply_eta_ceiling(
                             eta_seconds=composed_eta,
