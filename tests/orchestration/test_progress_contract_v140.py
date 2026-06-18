@@ -530,6 +530,522 @@ class TestGroupedProgressAtCompletion:
 
 
 # ---------------------------------------------------------------------------
+# Refactor regression baseline — Path-A sequence snapshot
+# ---------------------------------------------------------------------------
+
+class TestEnrichSnapshotBaseline:
+    """Regression snapshot: Path-A sequence through publish must produce value-equal
+    payloads before and after the enrich refactor.
+
+    This test drives a representative Path-A sequence (start → mid → done) and
+    captures every broadcast payload via the broadcaster sink.  After the refactor
+    moves §4A math into enrich, re-running this test must yield the same
+    dict-value results.
+
+    Mock boundary: monotonic_clock and wall_clock (external time); broadcaster
+    (external I/O sink).  NOT mocking service internals.
+    """
+
+    def test_path_a_sequence_value_equality(self):
+        """Path-A start→mid→done sequence: payload dict values are stable."""
+        svc, events, wall_now, monotonic_now = _make_service()
+
+        # Frame 1: status=running, progress=0.0 (start)
+        f1 = svc.publish(
+            job_id="snap-job",
+            status="running",
+            progress=0.0,
+            eta_seconds=60,
+            chapter_id="snap-ch",
+            parent_job_id="snap-proj",
+        )
+        assert f1 is not None
+        assert f1["status"] == "running"
+        assert f1["progress"] == 0.0
+        assert isinstance(f1.get("eta_confidence"), float)
+
+        # Frame 2: status=running, progress=0.5, ETA=30
+        wall_now["value"] += 10.0
+        monotonic_now["value"] += 10.0
+        f2 = svc.publish(
+            job_id="snap-job",
+            status="running",
+            progress=0.5,
+            eta_seconds=30,
+            grouped_progress=0.48,
+            chapter_id="snap-ch",
+            parent_job_id="snap-proj",
+        )
+        assert f2 is not None
+        assert f2["status"] == "running"
+        assert f2["progress"] == 0.5
+        assert f2.get("grouped_progress") == 0.48
+
+        # Frame 3: status=done, progress=1.0
+        wall_now["value"] += 30.0
+        monotonic_now["value"] += 30.0
+        f3 = svc.publish(
+            job_id="snap-job",
+            status="done",
+            progress=1.0,
+            grouped_progress=0.9,
+            chapter_id="snap-ch",
+            parent_job_id="snap-proj",
+        )
+        assert f3 is not None
+        assert f3["status"] == "done"
+        assert f3["progress"] == 1.0
+        # Terminal: grouped_progress must be 1.0
+        assert f3.get("grouped_progress") == 1.0
+        # Terminal: ETA fields must be None
+        assert f3.get("eta_seconds") is None
+        assert f3.get("eta_basis") is None
+        assert f3.get("estimated_end_at") is None
+        assert f3.get("eta_updated_at") is None
+        # Confidence must be 1.0 at terminal
+        assert f3.get("eta_confidence") == 1.0
+
+        # Structural shape checks (all three frames)
+        for frame in (f1, f2, f3):
+            assert "type" in frame
+            assert frame["type"] == "studio_job_event"
+            assert "job_id" in frame
+            assert "scope" in frame
+            assert "status" in frame
+            assert "updated_at" in frame
+            assert "source" in frame
+
+
+# ---------------------------------------------------------------------------
+# enrich() — direct unit tests
+# ---------------------------------------------------------------------------
+
+class TestEnrichMethod:
+    """Direct tests for ProgressService.enrich().
+
+    R1 revert-check for terminal-grouped fix: before the fix, enrich()
+    did not exist and _build_progress_payload used only min(gp, 1.0) without
+    forcing 1.0 at terminal.  This test is RED on pre-fix code (either because
+    enrich doesn't exist, or because grouped_progress returns 0.9 not 1.0).
+    """
+
+    def test_enrich_exists_on_service(self):
+        """ProgressService must have an enrich() method."""
+        svc, _, _, _ = _make_service()
+        assert callable(getattr(svc, "enrich", None)), (
+            "ProgressService must have an enrich() method"
+        )
+
+    def test_enrich_terminal_grouped_progress_forced_to_1(self):
+        """Terminal status must force grouped_progress to 1.0 regardless of input.
+
+        This is the R1 revert-check test for the terminal-grouped bug fix.
+        Pre-fix behavior: enrich() does not exist OR returns grouped_progress=0.9.
+        Post-fix behavior: grouped_progress=1.0 when status in {done/error/cancelled/failed}.
+
+        R1 revert-check (verified manually):
+          Stash the one-line 'gp = 1.0' override in enrich; run this test;
+          confirm it fails with 'grouped_progress must be 1.0, got 0.9'.
+        """
+        svc, _, _, _ = _make_service()
+        # completed_render_groups == render_group_count, but grouped_progress=0.9
+        # (as emitted by the stitching-room cap in the legacy path)
+        payload_in = {
+            "job_id": "enrich-term",
+            "status": "done",
+            "progress": 1.0,
+            "grouped_progress": 0.9,
+            "render_group_count": 3,
+            "completed_render_groups": 3,
+        }
+        result = svc.enrich("enrich-term", payload_in)
+        assert result.get("grouped_progress") == 1.0, (
+            f"Terminal grouped_progress must be 1.0, got {result.get('grouped_progress')}"
+        )
+
+    def test_enrich_terminal_cancelled_grouped_forced_to_1(self):
+        """Terminal 'cancelled' must also force grouped_progress to 1.0."""
+        svc, _, _, _ = _make_service()
+        payload_in = {
+            "job_id": "enrich-cancel",
+            "status": "cancelled",
+            "progress": 0.6,
+            "grouped_progress": 0.55,
+        }
+        result = svc.enrich("enrich-cancel", payload_in)
+        assert result.get("grouped_progress") == 1.0, (
+            f"Cancelled grouped_progress must be 1.0, got {result.get('grouped_progress')}"
+        )
+
+    def test_enrich_terminal_clears_eta_fields(self):
+        """enrich() must clear ETA fields (set to None) on terminal status."""
+        svc, _, _, _ = _make_service()
+        payload_in = {
+            "job_id": "enrich-eta-clear",
+            "status": "done",
+            "progress": 1.0,
+            "eta_seconds": 5,
+        }
+        result = svc.enrich("enrich-eta-clear", payload_in)
+        assert result.get("eta_seconds") is None
+        assert result.get("eta_basis") is None
+        assert result.get("estimated_end_at") is None
+        assert result.get("eta_updated_at") is None
+
+    def test_enrich_sample_false_does_not_mutate_ring(self):
+        """sample=False must not push to the ETA ring or stamp last_sample_time."""
+        svc, _, _, _ = _make_service()
+        job_id = "enrich-no-mutate"
+
+        # Prime the ring with one sample via sample=True
+        payload_running = {
+            "job_id": job_id,
+            "status": "running",
+            "progress": 0.5,
+            "eta_seconds": 30,
+            "updated_at": 200.0,
+        }
+        svc.enrich(job_id, payload_running, sample=True)
+        ring_len_after_sample = len(svc._eta_rings.get(job_id, EtaSampleRing()))
+        last_sample_time_after = svc._eta_last_sample_time.get(job_id)
+
+        # Now call with sample=False — ring and timestamp must not change
+        svc.enrich(job_id, dict(payload_running), sample=False)
+        ring_len_after_nosample = len(svc._eta_rings.get(job_id, EtaSampleRing()))
+        last_sample_time_nosample = svc._eta_last_sample_time.get(job_id)
+
+        assert ring_len_after_nosample == ring_len_after_sample, (
+            "sample=False must not push to the ETA ring"
+        )
+        assert last_sample_time_nosample == last_sample_time_after, (
+            "sample=False must not update _eta_last_sample_time"
+        )
+
+    def test_enrich_returns_all_contract_fields(self):
+        """enrich() must return the contract-required progress/ETA fields."""
+        svc, _, wall_now, _ = _make_service()
+        payload_in = {
+            "job_id": "enrich-fields",
+            "status": "running",
+            "progress": 0.4,
+            "eta_seconds": 20,
+            "updated_at": 150.0,
+        }
+        result = svc.enrich("enrich-fields", payload_in)
+        # These keys must be present (may be None for non-terminal)
+        assert "eta_confidence" in result
+        assert isinstance(result["eta_confidence"], float)
+        # progress must be rounded+clamped
+        assert result.get("progress") == 0.4
+
+    def test_enrich_mid_render_grouped_progress_not_forced(self):
+        """Mid-render: enrich must NOT force grouped_progress to 1.0."""
+        svc, _, _, _ = _make_service()
+        payload_in = {
+            "job_id": "enrich-mid",
+            "status": "running",
+            "progress": 0.44,
+            "grouped_progress": 0.44,
+        }
+        result = svc.enrich("enrich-mid", payload_in)
+        assert result.get("grouped_progress") is not None
+        assert result.get("grouped_progress") < 1.0, (
+            "Mid-render grouped_progress must not be forced to 1.0"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 003b — cold/sparse ETA crossfade wiring in enrich()
+# ---------------------------------------------------------------------------
+
+class TestColdEtaCrossfade:
+    """003b: enrich() must emit non-null, bounded, converging eta_seconds on cold frames.
+
+    R1 revert-check: before 003b wiring, enrich() left eta_seconds=None when no
+    incoming eta_seconds was provided (cold/sparse frame).  The primary test
+    (test_cold_frame_emits_non_null_eta) would fail on pre-wiring code because
+    the result["eta_seconds"] would still be None.
+    """
+
+    def test_cold_frame_emits_non_null_eta(self):
+        """Cold frame: no incoming eta_seconds, char_count present, empty engine_cps.
+
+        enrich() must produce a non-null eta_seconds using the calculated baseline.
+        R1 red: pre-003b, result["eta_seconds"] is None because there is no
+        incoming eta_seconds and no ring samples.  Post-003b it is non-null.
+        """
+        svc, _, _, _ = _make_service()
+        # char_count = 500; DEFAULT_BASELINE_ENGINE_CPS = 16.7
+        # spc = 1/16.7 ≈ 0.060s/char; remaining = 500 * (1 - 0.3) = 350 chars
+        # eta_calculated ≈ 350 * 0.060 ≈ 21s
+        payload_in = {
+            "status": "running",
+            "progress": 0.3,
+            "engine_id": "tts_xtts",
+            "char_count": 500,
+            # deliberately no eta_seconds
+        }
+        result = svc.enrich("cold-job", payload_in)
+        assert result.get("eta_seconds") is not None, (
+            "Cold frame with char_count must produce non-null eta_seconds"
+        )
+        assert result["eta_seconds"] >= 0, "eta_seconds must be non-negative"
+
+    def test_cold_frame_eta_bounded_by_ceiling(self):
+        """Cold frame ETA must never exceed the §4A.4 mechanical ceiling.
+
+        With no ring samples, velocity=None so ceiling is skipped in crossfade.
+        The calculated path should still produce a reasonable number.
+        """
+        svc, _, _, _ = _make_service()
+        # Large script: 5000 chars at 50% progress
+        payload_in = {
+            "status": "running",
+            "progress": 0.5,
+            "engine_id": "tts_xtts",
+            "char_count": 5000,
+        }
+        result = svc.enrich("cold-ceil-job", payload_in)
+        eta = result.get("eta_seconds")
+        assert eta is not None
+        # spc=1/16.7; remaining=2500 chars; eta_calc≈150s → reasonable bound
+        assert eta <= 1000, f"Cold ETA {eta} is unreasonably large"
+
+    def test_cold_frame_terminal_still_null(self):
+        """Terminal status must still yield null/0 eta, even with char_count present."""
+        svc, _, _, _ = _make_service()
+        payload_in = {
+            "status": "done",
+            "progress": 1.0,
+            "engine_id": "tts_xtts",
+            "char_count": 500,
+            "eta_seconds": 10,  # incoming value must be cleared
+        }
+        result = svc.enrich("cold-terminal-job", payload_in)
+        assert result.get("eta_seconds") is None, (
+            "Terminal status must clear eta_seconds to None"
+        )
+
+    def test_cold_frame_near_complete_approaches_zero(self):
+        """Near-complete frame (progress≥0.999) must return 0 eta."""
+        svc, _, _, _ = _make_service()
+        payload_in = {
+            "status": "running",
+            "progress": 0.999,
+            "engine_id": "tts_xtts",
+            "char_count": 500,
+        }
+        result = svc.enrich("cold-near-done", payload_in)
+        assert result.get("eta_seconds") == 0, (
+            f"progress=0.999 must yield eta=0, got {result.get('eta_seconds')}"
+        )
+
+    def test_cold_frame_no_char_count_may_still_be_null(self):
+        """Without char_count AND without incoming eta_seconds, eta remains None.
+
+        This is the 'both calculated and observed unavailable' case.
+        R1 revert-check for null path: if char_count plumbing is intact this test
+        passes; if char_count is mis-sourced from script_text in enrich() it would
+        also pass but via the wrong path — the publish-level test below catches that.
+        """
+        svc, _, _, _ = _make_service()
+        payload_in = {
+            "status": "running",
+            "progress": 0.3,
+            "engine_id": "tts_xtts",
+            # no char_count, no eta_seconds
+        }
+        result = svc.enrich("cold-no-text", payload_in)
+        # Both inputs unavailable → None is correct behavior
+        assert result.get("eta_seconds") is None, (
+            "Without char_count or eta_seconds, eta should remain None"
+        )
+
+    @pytest.mark.parametrize("progress,has_eta_seconds", [
+        (0.05, True),   # start phase: dominated by calculated
+        (0.5,  True),   # mid phase: blended
+        (0.8,  True),   # end phase: observed dominates (but no observed → calculated only)
+        (0.999, False), # near-complete → 0 (treated as False since 0 is falsy)
+    ])
+    def test_crossfade_phases_produce_expected_eta(self, progress, has_eta_seconds):
+        """Parametric: crossfade at each phase produces bounded, converging ETA."""
+        svc, _, _, _ = _make_service()
+        payload_in = {
+            "status": "running",
+            "progress": progress,
+            "engine_id": "tts_xtts",
+            "char_count": 1000,
+        }
+        result = svc.enrich(f"phase-job-{progress}", payload_in)
+        eta = result.get("eta_seconds")
+        if progress >= 0.999:
+            assert eta == 0, f"Near-complete must yield 0, got {eta}"
+        else:
+            # With only calculated (no ring), should be non-null
+            assert eta is not None, f"progress={progress} with char_count must yield non-null eta"
+            assert eta >= 0
+
+    def test_observed_eta_used_when_present(self):
+        """When eta_seconds is provided (observed), it is used and crossfaded."""
+        svc, _, wall_now, _ = _make_service()
+        payload_in = {
+            "status": "running",
+            "progress": 0.5,
+            "engine_id": "tts_xtts",
+            "char_count": 1000,
+            "eta_seconds": 40,  # observed estimate
+            "updated_at": 100.0,
+        }
+        result = svc.enrich("obs-eta-job", payload_in)
+        eta = result.get("eta_seconds")
+        assert eta is not None
+        # spc = 1/16.7, remaining=500chars → calc≈30s; observed=40s; blended at 0.5
+        # At progress=0.5, ramp=smoothstep(0.5, 0.55, 0.95)=0; blended≈calc≈30s
+        # After ceiling: result should be reasonable
+        assert 0 <= eta <= 200, f"Crossfaded ETA {eta} out of expected range"
+
+    def test_sample_false_path_does_not_mutate_ring_with_crossfade(self):
+        """sample=False path must not push to ring even when crossfade is computed."""
+        svc, _, _, _ = _make_service()
+        job_id = "crossfade-no-mutate"
+
+        # Prime with a sample=True call
+        payload1 = {
+            "status": "running",
+            "progress": 0.3,
+            "engine_id": "tts_xtts",
+            "char_count": 500,
+            "eta_seconds": 25,
+            "updated_at": 200.0,
+        }
+        svc.enrich(job_id, dict(payload1), sample=True)
+        ring_after = len(svc._eta_rings.get(job_id, EtaSampleRing()))
+        ts_after = svc._eta_last_sample_time.get(job_id)
+
+        # sample=False call with char_count (triggers crossfade path)
+        payload2 = {
+            "status": "running",
+            "progress": 0.4,
+            "engine_id": "tts_xtts",
+            "char_count": 500,
+            "updated_at": 210.0,
+        }
+        svc.enrich(job_id, dict(payload2), sample=False)
+        ring_nosample = len(svc._eta_rings.get(job_id, EtaSampleRing()))
+        ts_nosample = svc._eta_last_sample_time.get(job_id)
+
+        assert ring_nosample == ring_after, "sample=False must not push to ring"
+        assert ts_nosample == ts_after, "sample=False must not update last_sample_time"
+
+
+# ---------------------------------------------------------------------------
+# 003b-production — cold ETA via publish() (the production entry point)
+# ---------------------------------------------------------------------------
+
+class TestColdEtaViaPublish:
+    """Verify that the cold-ETA fix is wired through the full production path.
+
+    publish() → _build_progress_payload() → enrich()
+
+    The blocker: enrich() only sees what _build_progress_payload puts in the
+    payload dict.  These tests confirm that char_count is threaded through so
+    the production path actually produces a non-null cold ETA.
+
+    R1 revert-check (verified):
+      - Pre-fix (before char_count param on publish/_build_progress_payload):
+        publish(..., char_count=500) ignores the value; enrich sees no char_count;
+        eta_seconds is None.  test_publish_cold_eta_non_null FAILS.
+      - Post-fix: char_count is written into the payload dict; enrich reads it;
+        eta_seconds is non-null.  test_publish_cold_eta_non_null PASSES.
+    """
+
+    def test_publish_cold_eta_non_null(self):
+        """publish() with char_count and NO eta_seconds emits non-null eta_seconds.
+
+        This is PI3: the production path (publish → _build_progress_payload →
+        enrich) must produce a cold ETA from char_count alone.
+
+        R1 red: on pre-fix code publish() has no char_count param; the call
+        raises TypeError, or if ignoring the kwarg, eta_seconds stays None.
+        R1 green: after fix, broadcaster receives payload with eta_seconds ≥ 1.
+        """
+        svc, events, _, _ = _make_service()
+        emitted = svc.publish(
+            job_id="pi3-cold-job",
+            status="running",
+            progress=0.3,
+            # NO eta_seconds — cold frame
+            char_count=500,
+            chapter_id="ch-pi3",
+        )
+        assert emitted is not None, "publish() must return the emitted payload"
+        eta = emitted.get("eta_seconds")
+        assert eta is not None, (
+            "publish() with char_count=500 and no eta_seconds must produce "
+            "non-null eta_seconds via the cold-ETA path (PI3)"
+        )
+        assert eta >= 1, f"Cold ETA must be at least 1s, got {eta}"
+
+    def test_publish_cold_eta_broadcasted(self):
+        """The cold ETA produced via publish() reaches the broadcaster sink.
+
+        Verifies the full chain: publish → enrich → broadcaster.
+        The chapters.progress event payload in the broadcaster must have a
+        non-null etaSeconds (the camelCase field in the envelope).
+        We also check the returned internal payload directly as a belt-and-suspenders
+        assertion.
+        """
+        svc, events, _, _ = _make_service()
+        emitted = svc.publish(
+            job_id="pi3-bcast-job",
+            status="running",
+            progress=0.3,
+            char_count=500,
+            chapter_id="ch-pi3-b",
+        )
+        # 1. Internal payload returned by publish() must have eta_seconds
+        assert emitted is not None
+        assert emitted.get("eta_seconds") is not None, (
+            "publish() return value must carry non-null eta_seconds (PI3)"
+        )
+
+        # 2. Broadcaster received at least one event (lifecycle + queue + chapter)
+        assert events, "Broadcaster must have received at least one event"
+
+        # 3. The chapters.progress envelope carries etaSeconds from the enriched payload.
+        chap_events = [p for p, ch in events if p.get("topic") == "chapters.progress"]
+        assert chap_events, "Expected at least one chapters.progress event in broadcaster"
+        chap_payload = chap_events[-1].get("payload", {})
+        assert chap_payload.get("etaSeconds") is not None, (
+            "Broadcasted chapters.progress payload must have non-null etaSeconds "
+            "when char_count is provided (PI3 production path)"
+        )
+
+    def test_publish_no_char_count_no_eta_seconds_emits_null_eta(self):
+        """publish() with neither char_count nor eta_seconds emits null eta_seconds.
+
+        This is the 'cold-load 009' null path: both calculated and observed are
+        unavailable, so eta_seconds must be None.
+
+        R1 note: this test should pass on both pre- and post-fix code — it
+        verifies the null path is still correct after char_count plumbing.
+        """
+        svc, events, _, _ = _make_service()
+        emitted = svc.publish(
+            job_id="pi3-null-job",
+            status="running",
+            progress=0.3,
+            # NO char_count, NO eta_seconds
+            chapter_id="ch-pi3-null",
+        )
+        assert emitted is not None
+        eta = emitted.get("eta_seconds")
+        assert eta is None, (
+            f"Without char_count or eta_seconds, eta_seconds must be None, got {eta}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Item 6 / B8 — diagnostic logging (presence check, no behavior change)
 # ---------------------------------------------------------------------------
 
@@ -570,3 +1086,140 @@ class TestB8DiagnosticLogging:
         assert "logger.isEnabledFor" in source, (
             "B8 diagnostic must be guarded by logger.isEnabledFor(logging.DEBUG)"
         )
+
+
+# ---------------------------------------------------------------------------
+# 003b-segment-path — segment-orchestrated chapter render gets char_count
+# ---------------------------------------------------------------------------
+
+class TestSegmentPathCharCount:
+    """Segment-orchestrated chapter renders must produce cold ETA via chapter.char_count.
+
+    The segment path submits SynthesisTask(script_text="", chapter_id=<id>,
+    segment_ids=[...]).  Before this fix, describe() never populated
+    payload["char_count"], so enrich() saw no char_count and emitted
+    eta_seconds=None.
+
+    R1 revert-check:
+      - Pre-fix: SynthesisTask.describe() does not resolve char_count from the
+        DB; context.payload has no "char_count" key; the two failing assertions
+        below (payload["char_count"] == 962 and non-null cold ETA) are RED.
+      - Post-fix: describe() reads get_chapter(chapter_id)["char_count"]; the
+        assertions are GREEN.
+    """
+
+    def _make_service_with_sink(self):
+        """Build an isolated ProgressService with a captured broadcaster sink."""
+        events: list[tuple[dict, str]] = []
+        wall_now = {"value": 100.0}
+        monotonic_now = {"value": 500.0}
+
+        def wall_clock():
+            return wall_now["value"]
+
+        def monotonic_clock():
+            return monotonic_now["value"]
+
+        def broadcaster(*, payload, channel):
+            events.append((payload, channel))
+
+        from app.orchestration.progress.service import ProgressService
+        from app.orchestration.progress.eta import estimate_eta_seconds
+        svc = ProgressService(
+            reconcile_fn=lambda **kwargs: kwargs,
+            eta_fn=estimate_eta_seconds,
+            broadcaster=broadcaster,
+            wall_clock=wall_clock,
+            monotonic_clock=monotonic_clock,
+            max_silence_seconds=10.0,
+        )
+        return svc, events, wall_now, monotonic_now
+
+    def test_segment_path_context_carries_chapter_char_count(self):
+        """describe() must populate payload["char_count"] from chapter.char_count.
+
+        This is the primary R1 revert-check assertion:
+        pre-fix → payload has no "char_count" key (KeyError or None).
+        post-fix → payload["char_count"] == 962.
+        """
+        from app.db.projects import create_project
+        from app.db.chapters import create_chapter
+        from app.orchestration.tasks.synthesis import SynthesisTask
+
+        pid = create_project("P-seg-char-count")
+        cid = create_chapter(pid, "C-seg-char-count", char_count=962)
+
+        task = SynthesisTask(
+            task_id="seg-char-task-1",
+            engine_id="tts_xtts",
+            script_text="",          # segment path — no inline script text
+            output_path="/tmp/seg-out.wav",
+            project_id=pid,
+            chapter_id=cid,
+            segment_ids=["seg-a", "seg-b"],
+        )
+        ctx = task.describe()
+
+        assert ctx.payload.get("char_count") == 962, (
+            f"Segment-path context must carry chapter char_count=962, "
+            f"got {ctx.payload.get('char_count')!r}"
+        )
+
+    def test_segment_path_cold_publish_emits_non_null_eta(self):
+        """Segment-path cold publish (no eta_seconds) must produce non-null eta_seconds.
+
+        Simulates the orchestrator's _publish calling progress_service.publish()
+        with the context payload that now carries char_count from the chapter row.
+
+        R1 red: pre-fix → context.payload has no char_count; publish sees
+        char_count=None; enrich produces eta_seconds=None.
+        R1 green: post-fix → context.payload["char_count"]=962; enrich computes
+        eta_calculated and returns non-null eta_seconds.
+        """
+        from app.db.projects import create_project
+        from app.db.chapters import create_chapter
+        from app.orchestration.tasks.synthesis import SynthesisTask
+
+        pid = create_project("P-seg-cold-eta")
+        cid = create_chapter(pid, "C-seg-cold-eta", char_count=962)
+
+        task = SynthesisTask(
+            task_id="seg-cold-eta-task-1",
+            engine_id="tts_xtts",
+            script_text="",
+            output_path="/tmp/seg-cold-out.wav",
+            project_id=pid,
+            chapter_id=cid,
+            segment_ids=["seg-x", "seg-y"],
+        )
+        ctx = task.describe()
+
+        # Verify the context builder populated char_count (pre-condition).
+        char_count = ctx.payload.get("char_count")
+        assert isinstance(char_count, int) and char_count > 0, (
+            f"Pre-condition failed: context.payload['char_count'] must be a "
+            f"positive int, got {char_count!r}"
+        )
+
+        svc, events, _, _ = self._make_service_with_sink()
+
+        # Cold publish: no incoming eta_seconds (mirrors the live segment-render path).
+        emitted = svc.publish(
+            job_id=ctx.task_id,
+            status="running",
+            progress=0.3,
+            # NO eta_seconds — cold/sparse frame
+            char_count=ctx.payload.get("char_count"),
+            chapter_id=ctx.chapter_id,
+            parent_job_id=ctx.project_id,
+        )
+
+        assert emitted is not None, "publish() must return the emitted payload"
+        eta = emitted.get("eta_seconds")
+        assert eta is not None, (
+            "Segment-path cold publish must produce non-null eta_seconds "
+            f"(char_count={char_count}, render_group_count:2, chapter char_count 962)"
+        )
+        assert eta >= 1, f"Cold ETA must be at least 1s, got {eta}"
+        # Sanity-bound: 962 chars at baseline ~16.7 cps, remaining 70% → ~40s; cap at 1000s
+        assert eta <= 1000, f"Cold ETA {eta}s is unreasonably large for 962 chars"

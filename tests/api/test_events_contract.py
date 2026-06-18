@@ -19,6 +19,7 @@ def test_chapter_progress_event_preserves_start_segment_reason_code():
         progress=0.1,
         reason_code="START_SEGMENT",
         has_segment_support=True,
+        confidence=0.1,
     )
     assert event["payload"]["reasonCode"] == "START_SEGMENT"
 
@@ -30,6 +31,7 @@ def test_chapter_progress_event_preserves_start_synthesis_reason_code():
         progress=0.0,
         reason_code="START_SYNTHESIS",
         has_segment_support=True,
+        confidence=1.0,
     )
     assert event["payload"]["reasonCode"] == "START_SYNTHESIS"
 
@@ -42,6 +44,7 @@ def test_chapter_progress_event_passes_segment_pending():
         progress=0.1,
         reason_code="SEGMENT_PENDING",
         has_segment_support=True,
+        confidence=0.1,
     )
     assert event["payload"]["reasonCode"] == "SEGMENT_PENDING"
 

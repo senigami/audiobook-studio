@@ -44,6 +44,19 @@ class OrchestratorPublishMixin:
         allow_progress_regression: bool = False,
         force: bool = False,
     ) -> None:
+        # Derive char_count once from context payload (chapter-total chars for chapter jobs,
+        # script_text length for single-unit synthesis/api tasks).  A pre-stashed integer
+        # "char_count" key wins; otherwise we fall back to len(script_text).  We do NOT
+        # query the DB here — the value is always available in the task payload.
+        _payload = context.payload or {}
+        _char_count: int | None = None
+        _stashed = _payload.get("char_count")
+        if isinstance(_stashed, int) and _stashed > 0:
+            _char_count = _stashed
+        else:
+            _script = _payload.get("script_text") or _payload.get("test_text") or ""
+            if _script:
+                _char_count = len(str(_script)) or None
         """Publish a progress event through the ProgressService and sync with state."""
         state_status = "done" if status == "completed" else status
         if state_status == "finalizing":
@@ -161,6 +174,7 @@ class OrchestratorPublishMixin:
                 force=force,
                 updated_at=updated_at,
                 has_segment_support=has_segment_support,
+                char_count=_char_count,
             )
 
             # Initialize job state if this is the first event (usually 'queued')

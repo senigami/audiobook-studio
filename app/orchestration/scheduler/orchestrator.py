@@ -27,7 +27,7 @@ import time
 from typing import Optional
 
 from app.engines.bridge import create_voice_bridge
-from app.orchestration.progress.service import create_progress_service
+from app.orchestration.progress.service import create_progress_service, get_progress_service
 from app.orchestration.tasks.base import StudioTask, TaskContext, TaskResult
 
 from .policies import choose_next_task
@@ -450,7 +450,7 @@ def create_orchestrator() -> TaskOrchestrator:
     global _GLOBAL_ORCHESTRATOR
     if _GLOBAL_ORCHESTRATOR is None:
         _GLOBAL_ORCHESTRATOR = TaskOrchestrator(
-            progress_service=create_progress_service(),
+            progress_service=get_progress_service(),
             voice_bridge=create_voice_bridge(),
         )
     return _GLOBAL_ORCHESTRATOR

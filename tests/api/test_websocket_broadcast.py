@@ -622,7 +622,8 @@ def test_build_core_topic_helpers():
         eta_seconds=120,
         message="Running synthesis",
         reason_code="synth_progress",
-        classification="segment"
+        classification="segment",
+        confidence=0.45,
     )
     assert e_queue_status["topic"] == "queue.items"
     assert e_queue_status["eventKind"] == "queue_item_status"
@@ -676,7 +677,8 @@ def test_build_core_topic_helpers():
             status="running",
             progress=0.45,
             message="Some message",
-            reason_code=reason
+            reason_code=reason,
+            confidence=0.45,
         )
         if reason == "segment_start":
             assert e_queue_filtered["payload"]["reasonCode"] == "START_SYNTHESIS"
@@ -713,7 +715,8 @@ def test_build_core_topic_helpers():
         message="rendering",
         reason_code="rendering_chapter",
         render_group_count=10,
-        completed_render_groups=5
+        completed_render_groups=5,
+        confidence=0.8,
     )
     assert e_chap_prog["topic"] == "chapters.progress"
     payload = e_chap_prog["payload"]
@@ -742,11 +745,14 @@ def test_build_core_topic_helpers():
         eta_seconds=41,
         render_group_count=2,
         completed_render_groups=0,
+        confidence=1.0,
     )
     assert e_chap_zero["payload"]["confidence"] == 1.0
 
 
     # 6. segments.progress
+    # Segment builder does NOT require confidence= (Option-B broadcaster compat).
+    # When confidence is omitted, the payload carries confidence=None (no echo).
     e_seg_prog = build_segment_progress_event(
         segment_id="s-1",
         status="running",
@@ -768,7 +774,7 @@ def test_build_core_topic_helpers():
         "activeSegmentProgress": 0.25,
         "etaSeconds": None,
         "hasSegmentSupport": None,
-        "confidence": 0.25,
+        "confidence": None,
     }
 
     e_seg_zero = build_segment_progress_event(
@@ -779,7 +785,7 @@ def test_build_core_topic_helpers():
         segment_count=2,
         eta_seconds=18,
     )
-    assert e_seg_zero["payload"]["confidence"] == 1.0
+    assert e_seg_zero["payload"]["confidence"] is None
 
 
     # 7. segments.lifecycle
@@ -1109,7 +1115,7 @@ def test_broadcast_segment_progress_sends_canonical_envelope(monkeypatch):
         "activeSegmentProgress": 0.67,
         "etaSeconds": None,
         "hasSegmentSupport": True,
-        "confidence": 0.67,
+        "confidence": None,  # Option-B broadcaster: no enrichment, confidence=None is correct
     }
     assert event["source"].endswith("test_broadcast_segment_progress_sends_canonical_envelope")
 

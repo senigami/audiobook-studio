@@ -171,6 +171,16 @@ class EtaSampleRing:
         if velocity > 0:
             self._samples.append(velocity)
 
+    def mean(self) -> float | None:
+        """Return the arithmetic mean of stored velocity samples.
+
+        Returns ``None`` when no samples are available.
+        """
+        if not self._samples:
+            return None
+        vals = list(self._samples)
+        return sum(vals) / len(vals)
+
     def cv(self) -> float:
         """Return the coefficient of variation of stored velocity samples.
 

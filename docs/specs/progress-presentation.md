@@ -1,7 +1,7 @@
 # Progress Presentation Contract
 
 ```
-spec_version: 1.4.0
+spec_version: 1.4.1
 updated: 2026-06-17
 status: active
 sources:
@@ -25,6 +25,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.4.1   | 2026-06-17 | **§4A.8 crossfade wiring in `enrich()` (003b).** `ProgressService.enrich()` now computes `eta_calculated = remaining_chars × seconds_per_char` from `script_text` + `engine_id` in the payload (falling back to `DEFAULT_BASELINE_ENGINE_CPS=16.7`) and crossfades it with the incoming observed `eta_seconds` via `crossfade_eta()`, then applies the §4A.4 mechanical ceiling via `apply_eta_ceiling()`. Cold/sparse frames (no incoming `eta_seconds`) with a `script_text` payload now emit a non-null, bounded `eta_seconds`. ETA is null only when both calculated and observed are unavailable. Terminal clearing and the sample=False invariant are preserved. `eta_basis` is set to `"calculated"` when only the baseline is used, `"remaining_from_update"` when an observed value contributed. |
 | 1.4.0   | 2026-06-17 | **ETA confidence redesign (target contract; implementation in progress).** Added §4A: a single backend-authoritative numeric `eta_confidence ∈ [0,1]` (deprecating the coarse `"stable"/"estimating"/"done"` string) with a three-term formula (variance × completion × freshness) that is **monotone-rising in progress**; §4A.3 segment→chapter **share-weighted** ETA/confidence composition (a confident late segment dominates; NOT a product); §4A.4 **convergence-to-zero** invariant (countdown ≤ mechanical remaining bound, forced to 0 at completion); §4A.5 variance MUST NOT punish a converging ETA; §4A.6 field/transport conformance — `eta_confidence` numeric must be consumed (today ignored by `live-jobs.ts`), `active_segment_eta_seconds` must be consumed (today dropped), and the undocumented flat `studio_job_event` transport must be documented in live-events.md. New invariants I7–I9, B4–B6. §2.3 cross-referenced to §4A.3. |
 | 1.3.4   | 2026-06-16 | Drift corrections: §6 rewritten — `predictiveProgressBarDebug.ts` exports a pure snapshot builder gated by the caller's `onDebugSnapshot` callback, not logging helpers or a `__DEV__` guard; §3.4/I4 scoped to the `done` (completed) transition only — `doneTransitionPendingRef` is never set for `failed`/`cancelled`, and is cleared on done-transition init, not at DOM dismissal; §3.4/§5 terminal animation and eviction clarified — only `done` runs the 500 ms interpolated completion animation, `failed` snaps to `localProgress:1` and `cancelled` snaps to `localProgress:0` with no hold, `progressMemory` eviction fires immediately on any terminal status |
 | 1.3.3   | 2026-06-13 | Staleness fix: chapter-bar surface clarified to "queue drawer and Activity page" (§2.3); §7 note that the segment-handoff fill applies to whichever ScriptView mode is active (book view — primary — or script view), not script view only |

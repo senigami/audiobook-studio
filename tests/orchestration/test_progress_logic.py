@@ -1032,14 +1032,14 @@ def test_chapter_progress_eta_samples_include_eta_updated_at():
     from app.api.contracts.events import build_chapter_progress_event
     # 1. When eta_seconds is positive, etaUpdatedAt / eta_updated_at must be present
     e1 = build_chapter_progress_event(
-        chapter_id="chap-1", status="running", progress=0.5, eta_seconds=30
+        chapter_id="chap-1", status="running", progress=0.5, eta_seconds=30, confidence=0.5
     )
     assert "etaUpdatedAt" in e1["payload"]
     assert isinstance(e1["payload"]["etaUpdatedAt"], (int, float))
 
     # 2. When eta_seconds is None, etaUpdatedAt / eta_updated_at must be None
     e2 = build_chapter_progress_event(
-        chapter_id="chap-1", status="running", progress=0.5, eta_seconds=None
+        chapter_id="chap-1", status="running", progress=0.5, eta_seconds=None, confidence=0.5
     )
     assert e2["payload"].get("etaUpdatedAt") is None
 

@@ -287,6 +287,31 @@ def clean_storage():
 
 
 @pytest.fixture(autouse=True)
+def reset_progress_service_singleton():
+    """Reset the ProgressService singleton between tests.
+
+    Tests that construct their own local ProgressService(...) instances are NOT
+    affected — they never call get_progress_service() or set_progress_service(),
+    so this fixture is a no-op for them.
+
+    Tests that need a clock-injected singleton can call
+    ``set_progress_service(instance)`` AFTER this fixture runs (it runs first
+    because it is autouse and yields).
+
+    Self-constructing tests verified to stay local (do NOT route through global):
+    - tests/orchestration/test_progress_logic.py (~13 sites via _make_service())
+    - tests/orchestration/test_progress_reconciliation.py:218
+    - tests/orchestration/test_progress_service.py:19
+    - tests/api/test_websocket_broadcast.py:1435, 1781
+    - tests/orchestration/test_progress_contract_v140.py:47 (_make_service())
+    """
+    from app.orchestration.progress.service import reset_progress_service
+    reset_progress_service()
+    yield
+    reset_progress_service()
+
+
+@pytest.fixture(autouse=True)
 def mock_tts_server_watchdog(monkeypatch):
     """
     Ensures that every test sees a healthy TTS Server watchdog by default.
