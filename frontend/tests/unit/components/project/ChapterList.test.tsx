@@ -12,6 +12,7 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
     allowBackwardProgress,
     evidenceWeightFraction,
     checkpointMode,
+    label,
   }: {
     progress: number;
     status?: string;
@@ -20,6 +21,7 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
     allowBackwardProgress?: boolean;
     evidenceWeightFraction?: number;
     checkpointMode?: string;
+    label?: string;
   }) => (
     <div
       data-testid="progress-bar"
@@ -30,6 +32,7 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
       data-allow-backward={String(!!allowBackwardProgress)}
       data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
       data-checkpoint-mode={checkpointMode ?? ''}
+      data-label={label ?? ''}
     />
   ),
 }));
@@ -449,5 +452,54 @@ describe('ChapterList', () => {
     expect(screen.getByText('500 words')).toBeInTheDocument();
     expect(screen.getByText('3000 chars')).toBeInTheDocument();
     expect(screen.queryByText(/runtime/i)).toBeNull();
+  });
+
+  it('shows "Loading model" badge and "loading voice model…" bar label when reason_code is LOADING_MODEL', () => {
+    // A preparing job with LOADING_MODEL reason_code is the model cold-load window.
+    // ChapterList must render the "Loading model" status badge and pass the
+    // "loading voice model…" label to PredictiveProgressBar (not the status string).
+    const loadingModelJob = {
+      id: 'job-loading-model',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      engine: 'xtts',
+      status: 'preparing',
+      reason_code: 'LOADING_MODEL',
+      progress: 0,
+      started_at: Date.now() / 1000 - 5,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [loadingModelJob.id]: loadingModelJob }} />);
+
+    // Badge text must be "Loading model" not "Preparing"
+    expect(screen.getByText('Loading model')).toBeInTheDocument();
+    expect(screen.queryByText('Preparing')).toBeNull();
+
+    // PredictiveProgressBar label must be the loading-model string, not the status
+    const bar = screen.getByTestId('progress-bar');
+    expect(bar).toHaveAttribute('data-label', 'loading voice model…');
+    expect(bar).toHaveAttribute('data-status', 'preparing');
+  });
+
+  it('shows normal "Preparing" badge and status label when preparing without LOADING_MODEL reason_code', () => {
+    // A plain preparing job (no LOADING_MODEL) should use the normal presentation path.
+    const plainPreparingJob = {
+      id: 'job-plain-preparing',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      engine: 'xtts',
+      status: 'preparing',
+      progress: 0,
+      started_at: Date.now() / 1000 - 3,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [plainPreparingJob.id]: plainPreparingJob }} />);
+
+    expect(screen.getByText('Preparing')).toBeInTheDocument();
+    expect(screen.queryByText('Loading model')).toBeNull();
+
+    const bar = screen.getByTestId('progress-bar');
+    expect(bar).toHaveAttribute('data-label', 'preparing');
+    expect(bar).toHaveAttribute('data-status', 'preparing');
   });
 });

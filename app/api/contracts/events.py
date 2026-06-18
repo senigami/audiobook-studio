@@ -419,6 +419,8 @@ def build_queue_item_status_event(
     paused: bool | None = None,
     has_segment_support: bool | None = None,
     confidence: float | None = None,
+    indeterminate: bool | None = None,
+    loading_elapsed_seconds: float | None = None,
 ) -> dict:
     """Build a queue.items status envelope."""
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
@@ -450,6 +452,10 @@ def build_queue_item_status_event(
         "producedChars": produced_chars,
         "producedSegmentCount": produced_segment_count,
     }
+    if indeterminate is not None:
+        payload["indeterminate"] = bool(indeterminate)
+    if loading_elapsed_seconds is not None:
+        payload["loadingElapsedSeconds"] = round(float(loading_elapsed_seconds), 1)
     resolved_source = source or _resolve_source_path()
     return build_studio_event(
         topic="queue.items",
@@ -520,6 +526,8 @@ def build_chapter_progress_event(
     has_segment_support: bool | None = None,
     eta_updated_at: float | None = None,
     confidence: float | None = None,
+    indeterminate: bool | None = None,
+    loading_elapsed_seconds: float | None = None,
 ) -> dict:
     """Build a chapters.progress topic envelope."""
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
@@ -552,6 +560,10 @@ def build_chapter_progress_event(
         "hasSegmentSupport": has_segment_support,
         "confidence": confidence,
     }
+    if indeterminate is not None:
+        payload["indeterminate"] = bool(indeterminate)
+    if loading_elapsed_seconds is not None:
+        payload["loadingElapsedSeconds"] = round(float(loading_elapsed_seconds), 1)
     if resolved_eta_updated_at is not None:
         payload["etaUpdatedAt"] = resolved_eta_updated_at
     if updated_at is not None:

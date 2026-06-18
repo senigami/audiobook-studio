@@ -1,6 +1,6 @@
 # 009 — Cold-load UX (indeterminate "loading voice model…" state)
 
-- **Status:** not-started
+- **Status:** done (manifest field deferred; §2.6 spec text v1.4.2 ready for 011)
 - **Workload:** WL-C correctness · UX
 - **Severity / type:** major · UX
 - **Effort:** M

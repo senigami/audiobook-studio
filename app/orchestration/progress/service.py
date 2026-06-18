@@ -197,6 +197,8 @@ class ProgressService:
         force: bool = False,
         eta_updated_at: float | None = None,
         char_count: int | None = None,
+        indeterminate: bool | None = None,
+        loading_elapsed_seconds: float | None = None,
     ) -> dict[str, object] | None:
         """Publish normalized progress updates for queue and chapter surfaces.
 
@@ -262,6 +264,8 @@ class ProgressService:
             source=source,
             eta_updated_at=eta_updated_at,
             char_count=char_count,
+            indeterminate=indeterminate,
+            loading_elapsed_seconds=loading_elapsed_seconds,
         )
         if not force and not self._should_emit(payload, allow_progress_regression=allow_progress_regression):
             return None
@@ -343,6 +347,8 @@ class ProgressService:
                     source=payload.get("source"),
                     has_segment_support=resolved_has_segment_support,
                     confidence=payload.get("eta_confidence"),
+                    indeterminate=payload.get("indeterminate") if payload.get("indeterminate") else None,
+                    loading_elapsed_seconds=payload.get("loading_elapsed_seconds"),
                 )
                 self.broadcaster(payload=queue_event, channel="jobs")
 
@@ -512,6 +518,8 @@ class ProgressService:
                 has_segment_support=resolved_has_segment_support,
                 eta_updated_at=payload.get("eta_updated_at"),
                 confidence=payload.get("eta_confidence"),
+                indeterminate=payload.get("indeterminate") if payload.get("indeterminate") else None,
+                loading_elapsed_seconds=payload.get("loading_elapsed_seconds"),
             )
             self.broadcaster(payload=chap_event, channel="jobs")
 
@@ -875,6 +883,8 @@ class ProgressService:
         source: str | None = None,
         eta_updated_at: float | None = None,
         char_count: int | None = None,
+        indeterminate: bool | None = None,
+        loading_elapsed_seconds: float | None = None,
     ) -> dict[str, object]:
         """Thin wrapper: build the structural payload shell then apply enrich().
 
@@ -956,6 +966,10 @@ class ProgressService:
             payload["grouped_progress"] = float(grouped_progress)
         if char_count is not None:
             payload["char_count"] = int(char_count)
+        if indeterminate is not None:
+            payload["indeterminate"] = bool(indeterminate)
+        if loading_elapsed_seconds is not None:
+            payload["loading_elapsed_seconds"] = round(float(loading_elapsed_seconds), 1)
 
         # Delegate §4A math to enrich()
         return self.enrich(job_id, payload)

@@ -137,9 +137,12 @@ export const ChapterList: React.FC<ChapterListProps> = ({
             : (chap.done_segments_count || 0) > 0 && (chap.done_segments_count || 0) < (chap.total_segments_count || 0)
               ? 'Queue Remaining'
               : 'Queue Chapter';
+          const isLoadingModel = activeJob?.reason_code === 'LOADING_MODEL' && displayStatus === 'preparing';
           const queueStatus = activeJob
             ? (displayStatus === 'queued'
               ? 'Queued'
+              : isLoadingModel
+                ? 'Loading model'
               : displayStatus === 'preparing'
                 ? 'Preparing'
               : displayStatus === 'running'
@@ -230,9 +233,9 @@ export const ChapterList: React.FC<ChapterListProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem', flex: '2 1 0', minWidth: 0 }}>
                 {activeJob ? (
                     <div style={{ width: '100%', maxWidth: '600px' }}>
-                        <PredictiveProgressBar 
+                        <PredictiveProgressBar
                           dataTestId="chapter-list-progress-bar"
-                          progress={progressValue} 
+                          progress={progressValue}
                           startedAt={activeJob.started_at}
                           etaSeconds={activeJob.eta_seconds}
                           etaBasis={activeJob.eta_basis ?? (activeJob.eta_seconds != null ? 'remaining_from_update' : undefined)}
@@ -248,7 +251,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                                   ? (liveRenderBlockIsActive ? 'running' : 'processing')
                                   : (displayStatus === 'error' ? 'failed' : displayStatus as any)
                           }
-                          label={displayStatus} 
+                          label={isLoadingModel ? 'loading voice model…' : displayStatus}
                           predictive={true}
                           allowBackwardProgress={!isGroupedChapterJob}
                           checkpointMode={isGroupedChapterJob ? 'queue' : (isMainQueueSegmentItem(activeJob) ? 'segment' : 'default')}

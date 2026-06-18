@@ -43,6 +43,8 @@ class OrchestratorPublishMixin:
         grouped_progress: float | None = None,
         allow_progress_regression: bool = False,
         force: bool = False,
+        indeterminate: bool | None = None,
+        loading_elapsed_seconds: float | None = None,
     ) -> None:
         # Derive char_count once from context payload (chapter-total chars for chapter jobs,
         # script_text length for single-unit synthesis/api tasks).  A pre-stashed integer
@@ -175,6 +177,8 @@ class OrchestratorPublishMixin:
                 updated_at=updated_at,
                 has_segment_support=has_segment_support,
                 char_count=_char_count,
+                indeterminate=indeterminate,
+                loading_elapsed_seconds=loading_elapsed_seconds,
             )
 
             # Initialize job state if this is the first event (usually 'queued')

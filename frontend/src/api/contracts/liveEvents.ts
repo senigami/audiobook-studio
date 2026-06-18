@@ -94,6 +94,14 @@ export interface QueueItemPayload {
   producedAudioLength?: number | null;
   producedChars?: number | null;
   producedSegmentCount?: number | null;
+  /**
+   * True when the job is in the model-load window (reasonCode LOADING_MODEL).
+   * The bar should render as indeterminate with "loading voice model…" label.
+   * Absent / false once real progress arrives.
+   */
+  indeterminate?: boolean | null;
+  /** Seconds elapsed since engine_activity_started_at, for an optional elapsed counter. */
+  loadingElapsedSeconds?: number | null;
   // Legacy duplicate fields for backward compatibility
   eta_seconds?: number | null;
   reason_code?: string | null;
@@ -152,6 +160,14 @@ export interface ChapterProgressPayload {
   completedRenderGroups: number | null;
   hasSegmentSupport?: boolean;
   has_segment_support?: boolean;
+  /**
+   * True when the job is in the model-load window (reason_code LOADING_MODEL).
+   * The bar should render as indeterminate with "loading voice model…" label.
+   * Absent / false once real progress arrives (status transitions to running).
+   */
+  indeterminate?: boolean | null;
+  /** Seconds elapsed since engine_activity_started_at, for an optional elapsed counter. */
+  loadingElapsedSeconds?: number | null;
   // Legacy duplicate fields
   eta_seconds?: number | null;
   grouped_progress?: number | null;

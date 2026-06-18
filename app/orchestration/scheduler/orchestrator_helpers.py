@@ -394,12 +394,23 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     exc_info=True,
                 )
 
+        # Emit indeterminate "loading voice model" frame.  This covers the ~36s
+        # XTTS cold-load window before the first [START_SEGMENT] marker arrives.
+        # engine_activity_started_at may already be set if the engine sent its
+        # activity marker before dispatch; if not, elapsed is 0.
+        _loading_elapsed: float | None = None
+        _engine_act_start = timing.get("engine_activity_started_at")
+        if _engine_act_start is not None:
+            _loading_elapsed = max(0.0, time.time() - _engine_act_start)
         self._publish(
             context=context,
             status="preparing",
             progress=0.0,
             started_at=None,
-            message="Preparing synthesis resources...",
+            message="Loading voice model…",
+            reason_code="LOADING_MODEL",
+            indeterminate=True,
+            loading_elapsed_seconds=_loading_elapsed,
             force=False,
         )
 
