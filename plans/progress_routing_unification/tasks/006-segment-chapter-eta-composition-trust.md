@@ -1,6 +1,6 @@
 # 006 — §4A.3 segment→chapter ETA composition + §4A.5 convergence-trust (PI7)
 
-- **Status:** not-started
+- **Status:** done (note: `_should_emit` `_MIN_CONF_DELTA=0.25` added here — 010 to reconcile as throttle policy)
 - **Workload:** WL-C correctness
 - **Severity / type:** major · correctness (owner's explicit requirement)
 - **Effort:** M

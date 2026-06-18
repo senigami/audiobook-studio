@@ -414,8 +414,16 @@ class TestI7Convergence:
 
         NOTE: The service itself doesn't internally cap observed ETAs from callers —
         that ceiling sits in apply_eta_ceiling for the crossfade path.  What we
-        verify here is that the emitted eta_confidence drops under stale conditions,
-        signalling distrust to the consumer rather than silently accepting inflated ETAs.
+        verify here is that the emitted eta_confidence is LOW under stale/cold
+        conditions, signalling distrust to the consumer rather than silently
+        accepting inflated ETAs.
+
+        Baseline shift (Task 006 cold-start fix): first_conf is now also LOW
+        (BASE_FLOOR) because the ring has only 1 sample after the first publish.
+        The §4A.5 maturity factor (min(n/N_MATURE, 1)) ensures that a cold-start
+        frame never produces falsely high confidence.  The invariant is therefore
+        updated: both frames must be at or near BASE_FLOOR (low distrust), and
+        the stale frame must not EXCEED first_conf (it can equal it at the floor).
         """
         svc, events, wall_now, monotonic_now = _make_service()
 
@@ -428,6 +436,12 @@ class TestI7Convergence:
         assert first_emitted is not None
         first_conf = first_emitted.get("eta_confidence")
         assert isinstance(first_conf, float), f"Expected float, got {type(first_conf)}: {first_conf}"
+        # Task 006 cold-start fix: first publish has only 1 ring sample → maturity
+        # factor is low → first_conf must be LOW (near BASE_FLOOR, not ~1.0).
+        assert first_conf < 0.5, (
+            f"Cold-start first confidence must be low (<0.5), got {first_conf:.3f}. "
+            f"Pre-Task006 this was ≈1.0 (no maturity factor); now must be low."
+        )
 
         # Time passes beyond STALL_MS (20s > 10s), progress is STILL 0.44 but ETA inflated
         wall_now["value"] += 20.0
@@ -440,9 +454,16 @@ class TestI7Convergence:
         stale_conf = emitted.get("eta_confidence")
         assert isinstance(stale_conf, float)
 
-        # After 20s stall (10s past STALL_MS), c_fresh decays, so confidence should drop
-        assert stale_conf < first_conf, (
-            f"Stalled confidence {stale_conf} should be < initial {first_conf}"
+        # After a stall + cold start, both frames should be at or near BASE_FLOOR.
+        # The stale confidence must NOT exceed the first confidence (no improvement
+        # when there has been no progress and the ETA inflated).
+        assert stale_conf <= first_conf + 1e-9, (
+            f"Stalled confidence {stale_conf:.3f} must not exceed first_conf {first_conf:.3f} "
+            f"(stall + cold start = low confidence throughout)"
+        )
+        # Both must be at or near BASE_FLOOR (low distrust).
+        assert stale_conf <= 0.5, (
+            f"Stale confidence after 20s stall must remain low (≤0.5), got {stale_conf:.3f}"
         )
 
 

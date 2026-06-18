@@ -14,6 +14,7 @@ from collections.abc import Callable, Mapping
 from .broadcaster import broadcast_progress
 from .eta import (
     EtaSampleRing,
+    N_MATURE,
     apply_eta_ceiling,
     compute_eta_confidence,
     crossfade_eta,
@@ -85,6 +86,12 @@ class ProgressService:
         self._last_progress_by_job: dict[str, float] = {}
         # Per-job ETA velocity sample ring for §4A.2 numeric confidence.
         self._eta_rings: dict[str, EtaSampleRing] = {}
+        # Per-segment ETA velocity sample ring for §4A.3 composition (Task 006-A).
+        # Keyed by active_segment_id.  Guards: same _lock, same D7 constraints.
+        self._segment_eta_rings: dict[str, EtaSampleRing] = {}
+        # Per-job index: maps job_id → set of segment_ids whose rings are owned by that job.
+        # Used to evict segment rings when a job re-queues (same _lock guards this dict).
+        self._job_segment_ids: dict[str, set[str]] = {}
         # Per-job timestamp of last ETA sample (wall seconds).
         self._eta_last_sample_time: dict[str, float] = {}
         # RLock guards per-job state R-M-W (leaf lock — MUST NOT be held while
@@ -374,6 +381,10 @@ class ProgressService:
                 self._last_payload_by_job.pop(job_id, None)
                 self._eta_rings.pop(job_id, None)
                 self._eta_last_sample_time.pop(job_id, None)
+                # Clear per-segment rings owned by this job (Task 006-A cleanup).
+                seg_ids = self._job_segment_ids.pop(job_id, set())
+                for seg_id in seg_ids:
+                    self._segment_eta_rings.pop(seg_id, None)
 
         # 1. Segment progress tick (first)
         if new_active_segment_id is not None or scope == "segment":
@@ -610,9 +621,28 @@ class ProgressService:
         eta_observed: float | None = float(eta_seconds) if eta_seconds is not None else None
 
         # --- §4A.2 numeric confidence + ETA ring sampling ---------------------
+        # --- §4A.5 cold-start fix: pass n_samples to compute_eta_confidence ------
+        # --- Task 006-A: per-segment EtaSampleRing + seg_confidence --------------
         eta_confidence = payload.get("eta_confidence")
         now_wall = self.wall_clock()
-        # D7 leaf-lock: _eta_rings + _eta_last_sample_time R-M-W — no state_jobs call inside.
+
+        # Extract segment fields from payload for ring sampling.
+        active_segment_id = payload.get("active_segment_id")
+        active_segment_progress_raw = payload.get("active_segment_progress")
+        active_segment_eta_raw = payload.get("active_segment_eta_seconds")
+        active_seg_p: float | None = (
+            float(active_segment_progress_raw)
+            if active_segment_progress_raw is not None
+            else None
+        )
+        active_seg_eta: float | None = (
+            float(active_segment_eta_raw)
+            if active_segment_eta_raw is not None
+            else None
+        )
+
+        # D7 leaf-lock: _eta_rings + _segment_eta_rings + _eta_last_sample_time R-M-W.
+        # No state_jobs call inside this block.
         with self._lock:
             if isinstance(eta_confidence, float):
                 # Caller pre-computed the numeric confidence — pass through.
@@ -642,15 +672,47 @@ class ProgressService:
                 age_ms = (now_wall - last_sample_time) * 1000.0 if last_sample_time is not None else 0.0
 
                 p = float(normalized_progress) if normalized_progress is not None else 0.0
+                n_chapter_samples = len(ring)
                 if is_terminal or p >= 1.0:
                     numeric_conf = 1.0
                 else:
+                    # §4A.5 cold-start fix: pass n_samples so low-data frames get low confidence.
                     numeric_conf = compute_eta_confidence(
                         progress=p,
                         age_ms=age_ms,
                         cv=ring.cv(),
+                        n_samples=n_chapter_samples,
                     )
                 payload["eta_confidence"] = numeric_conf
+
+            # --- Task 006-A: per-segment EtaSampleRing sampling (inside same lock) ---
+            seg_confidence: float | None = None
+            if (
+                active_segment_id is not None
+                and active_seg_p is not None
+                and active_seg_eta is not None
+                and not is_terminal
+            ):
+                seg_ring = self._segment_eta_rings.setdefault(active_segment_id, EtaSampleRing())
+                # Track which segments belong to this job for cleanup on requeue.
+                self._job_segment_ids.setdefault(job_id, set()).add(active_segment_id)
+                if sample and active_seg_p > 0 and active_seg_eta > 0:
+                    # Segment velocity proxy: seg_progress / seg_elapsed_est
+                    seg_elapsed_est = max(
+                        0.0,
+                        (active_seg_eta * active_seg_p) / max(1.0 - active_seg_p, 1e-6),
+                    )
+                    if seg_elapsed_est > 0:
+                        seg_velocity = active_seg_p / seg_elapsed_est
+                        seg_ring.push(seg_velocity)
+
+                n_seg_samples = len(seg_ring)
+                seg_confidence = compute_eta_confidence(
+                    progress=active_seg_p,
+                    age_ms=0.0,  # segment frames are always considered fresh
+                    cv=seg_ring.cv(),
+                    n_samples=n_seg_samples,
+                )
 
         # §4A.8 ETA crossfade: blend calculated (cold-start baseline) with observed.
         if is_terminal:
@@ -696,6 +758,48 @@ class ProgressService:
                 velocity=ring_velocity,
                 status=status,
             )
+
+            # --- Task 006-B: §4A.3 share-weighted segment→chapter composition --------
+            # When a segment reports its own ETA with high confidence and covers the
+            # dominant remaining share, the chapter ETA must be pulled toward it.
+            # share = active_render_group_weight / (total_render_weight - completed_render_weight)
+            # w_seg = seg_confidence * share
+            # eta_display = w_seg * seg_eta + (1 - w_seg) * chapter_eta
+            # conf_display = max(chapter_confidence, seg_confidence * share)
+            if (
+                seg_confidence is not None
+                and active_seg_eta is not None
+                and bounded_eta is not None
+                and not is_terminal
+            ):
+                total_w = payload.get("total_render_weight")
+                completed_w = payload.get("completed_render_weight")
+                active_w = payload.get("active_render_group_weight")
+                if (
+                    total_w is not None
+                    and completed_w is not None
+                    and active_w is not None
+                ):
+                    remaining_w = max(float(total_w) - float(completed_w), 0.0)
+                    if remaining_w > 0:
+                        share = min(float(active_w) / remaining_w, 1.0)
+                        w_seg = seg_confidence * share
+                        # eta_display = w_seg * seg_eta + (1 - w_seg) * chapter_eta
+                        composed_eta = w_seg * active_seg_eta + (1.0 - w_seg) * float(bounded_eta)
+                        # Re-apply ceiling to the composed value.
+                        composed_eta_bounded = apply_eta_ceiling(
+                            eta_seconds=composed_eta,
+                            progress=p,
+                            velocity=ring_velocity,
+                            status=status,
+                        )
+                        if composed_eta_bounded is not None:
+                            bounded_eta = composed_eta_bounded
+                        # conf_display = max(chapter_confidence, seg_confidence * share)
+                        chapter_conf = payload.get("eta_confidence")
+                        if isinstance(chapter_conf, float) and not (is_terminal or p >= 1.0):
+                            conf_display = max(chapter_conf, seg_confidence * share)
+                            payload["eta_confidence"] = conf_display
 
             if bounded_eta is not None:
                 sanitized_eta = max(0, int(bounded_eta))
@@ -913,7 +1017,19 @@ class ProgressService:
                 return True
         elif current_segment_eta is not None and previous_segment_eta != current_segment_eta:
             return True
-        if payload.get("eta_confidence") != previous.get("eta_confidence"):
+        # Confidence changes gradually as the maturity ring fills (§4A.5 cold-start).
+        # The maturity factor increments in steps of 1/N_MATURE (= 0.2 with N=5),
+        # so consecutive cold frames can differ by ~0.2 per step.  Only treat a
+        # confidence shift as meaningful when it exceeds 0.25 — large enough to skip
+        # the natural cold-start increment but small enough to surface real transitions
+        # (e.g. a large c_fresh decay or a convergence/divergence event).
+        _MIN_CONF_DELTA: float = 0.25
+        prev_conf = previous.get("eta_confidence")
+        curr_conf = payload.get("eta_confidence")
+        if isinstance(prev_conf, float) and isinstance(curr_conf, float):
+            if abs(curr_conf - prev_conf) >= _MIN_CONF_DELTA:
+                return True
+        elif curr_conf != prev_conf:
             return True
 
         previous_progress = previous.get("progress")

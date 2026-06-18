@@ -16,6 +16,11 @@ STALL_MS: float = 10_000.0
 TAU_MS: float = 8_000.0
 BASE_FLOOR: float = 0.2
 
+# §4A.5 cold-start maturity factor: confidence scales with min(n_samples/N_MATURE, 1).
+# With 0 samples the factor is 0 → confidence = BASE_FLOOR (minimum floor).
+# With N_MATURE or more samples the factor is 1 → no penalty.
+N_MATURE: int = 5
+
 # §4A.8 ETA crossfade constants (same P_LO/P_HI as confidence)
 CEIL_SLACK: float = 1.3
 EPS: float = 1e-6
@@ -38,29 +43,43 @@ def compute_eta_confidence(
     progress: float,
     age_ms: float,
     cv: float,
+    n_samples: int = N_MATURE,
 ) -> float:
-    """Compute numeric eta_confidence per §4A.2.
+    """Compute numeric eta_confidence per §4A.2 + §4A.5 cold-start fix.
 
     Args:
-        progress: Current job progress in [0, 1].
-        age_ms:   Milliseconds since the last ETA sample arrived. Zero when fresh.
-        cv:       Coefficient of variation of recent ETA / velocity samples.
+        progress:  Current job progress in [0, 1].
+        age_ms:    Milliseconds since the last ETA sample arrived. Zero when fresh.
+        cv:        Coefficient of variation of recent ETA / velocity samples.
+        n_samples: Number of samples in the ETA ring.  Used for the §4A.5
+                   maturity factor: ``min(n_samples / N_MATURE, 1)``.  Defaults to
+                   ``N_MATURE`` (fully mature, no cold-start penalty) for callers
+                   that have not yet been updated to pass this parameter.
 
     Returns:
         float in [BASE_FLOOR, 1.0].
 
     Formula::
 
-        c_var   = clamp01(1 - K_VAR * cv)
-        c_done  = smoothstep(progress, P_LO, P_HI)
-        c_fresh = exp(-max(0, age_ms - STALL_MS) / TAU_MS)
-        result  = clamp(BASE_FLOOR, 1, c_fresh * (c_var + (1 - c_var) * c_done))
+        c_var     = clamp01(1 - K_VAR * cv)
+        c_done    = smoothstep(progress, P_LO, P_HI)
+        c_fresh   = exp(-max(0, age_ms - STALL_MS) / TAU_MS)
+        c_mature  = min(n_samples / N_MATURE, 1)          # §4A.5 cold-start fix
+        raw       = c_fresh * c_mature * (c_var + (1 - c_var) * c_done)
+        result    = clamp(BASE_FLOOR, 1, raw)
+
+    §4A.5 cold-start fix: with 0-1 samples the ring cv() is 0 (not enough data
+    to measure instability), so c_var=1.  Without c_mature this produces falsely
+    high confidence on the very first frame.  c_mature = min(n/N_MATURE, 1)
+    scales the raw value toward zero when few samples exist, ensuring confidence
+    starts LOW and RISES as data accumulates — which is the correct behaviour.
     """
     c_var = _clamp01(1.0 - K_VAR * cv)
     c_done = _smoothstep(progress, P_LO, P_HI)
     stale_ms = max(0.0, age_ms - STALL_MS)
     c_fresh = math.exp(-stale_ms / TAU_MS)
-    raw = c_fresh * (c_var + (1.0 - c_var) * c_done)
+    c_mature = min(max(n_samples, 0) / N_MATURE, 1.0)
+    raw = c_fresh * c_mature * (c_var + (1.0 - c_var) * c_done)
     return max(BASE_FLOOR, min(1.0, raw))
 
 
