@@ -267,13 +267,19 @@ class ProgressService:
             indeterminate=indeterminate,
             loading_elapsed_seconds=loading_elapsed_seconds,
         )
-        if not force and not self._should_emit(payload, allow_progress_regression=allow_progress_regression):
+
+        # Atomic emit gate (FIX 8): claim the emit slot atomically so two threads
+        # publishing the same job simultaneously cannot both pass the gate.
+        # _claim_emit_slot checks _should_emit conditions AND writes
+        # _last_emit_tick_by_job in ONE lock acquisition — no get_jobs/state_jobs
+        # call inside (D7).  The returned `previous` snapshot is the pre-commit
+        # value needed for segment-transition and status-change logic below.
+        should_emit, previous = self._claim_emit_slot(
+            payload, allow_progress_regression=allow_progress_regression, force=force,
+        )
+        if not should_emit:
             return None
 
-        # Capture the previous active segment state before mutating self._last_payload_by_job.
-        # D7 leaf-lock: snapshot only — no state_jobs call inside.
-        with self._lock:
-            previous = self._last_payload_by_job.get(job_id)
         prev_status = previous.get("status") if previous else None
         status_changed = (prev_status != status)
         prev_active_segment_id = previous.get("active_segment_id") if previous else None
@@ -975,12 +981,85 @@ class ProgressService:
         return self.enrich(job_id, payload)
 
 
-    def _should_emit(self, payload: dict[str, object], *, allow_progress_regression: bool = False) -> bool:
+    def _claim_emit_slot(
+        self,
+        payload: dict[str, object],
+        *,
+        allow_progress_regression: bool = False,
+        force: bool = False,
+    ) -> tuple[bool, dict[str, object] | None]:
+        """Atomically decide whether to emit AND reserve the throttle state.
+
+        Both the emit decision and the state reservation happen inside a single
+        ``self._lock`` acquisition:
+          1. Read the current ``previous`` snapshot and ``last_emit_tick``.
+          2. Run ``_should_emit_unlocked`` against those snapshots.
+          3. If emitting: write both ``_last_emit_tick_by_job`` AND
+             ``_last_payload_by_job`` under the same lock acquisition.
+
+        Writing ``_last_payload_by_job`` inside the claim ensures that a
+        concurrent thread for the same job_id sees the *new* payload as its
+        ``previous`` when it enters the gate, not the stale pre-emit value.
+        This closes the double-emit race: the second thread compares its
+        candidate against the already-claimed payload; if they are identical
+        (or below the progress/ETA delta thresholds) it returns False.
+
+        D7 constraint: NO ``get_jobs()`` / ``state_jobs`` call inside this
+        critical section.  Only ``_last_payload_by_job``, ``_last_emit_tick_by_job``,
+        and ``self.monotonic_clock()`` are touched inside the lock.
+
+        Args:
+            payload: The candidate payload dict (already enriched by ``enrich()``).
+            allow_progress_regression: Passed through to ``_should_emit_unlocked``.
+            force: When ``True`` the throttle/change-detection gates are bypassed.
+
+        Returns:
+            ``(should_emit, previous)`` — when ``should_emit`` is ``True`` the
+            caller must emit; ``previous`` is the PRE-CLAIM snapshot needed by
+            the segment-transition and status-change logic in ``publish()``
+            (i.e. the state that existed before we reserved the slot).
+        """
         job_id = str(payload["job_id"])
-        # D7 leaf-lock: snapshot per-job state — no state_jobs call inside.
         with self._lock:
             previous = self._last_payload_by_job.get(job_id)
             last_emit_tick = self._last_emit_tick_by_job.get(job_id)
+
+            if force:
+                # Reserve both tick and payload atomically.
+                self._last_emit_tick_by_job[job_id] = float(self.monotonic_clock())
+                self._last_payload_by_job[job_id] = payload
+                return True, previous
+
+            should = self._should_emit_unlocked(
+                payload=payload,
+                previous=previous,
+                last_emit_tick=last_emit_tick,
+                allow_progress_regression=allow_progress_regression,
+            )
+            if should:
+                # Reserve tick AND payload so a racing same-job thread sees both.
+                # D7: monotonic_clock is injected (no lock nesting); no state_jobs call.
+                self._last_emit_tick_by_job[job_id] = float(self.monotonic_clock())
+                self._last_payload_by_job[job_id] = payload
+            return should, previous
+
+    def _should_emit_unlocked(
+        self,
+        *,
+        payload: dict[str, object],
+        previous: dict[str, object] | None,
+        last_emit_tick: float | None,
+        allow_progress_regression: bool = False,
+    ) -> bool:
+        """Core emit-gate logic operating on already-snapshotted state.
+
+        Called INSIDE ``self._lock`` from ``_claim_emit_slot``.  Must NOT
+        acquire any other lock or call ``get_jobs()`` / any ``state_jobs``
+        function (D7).
+
+        Returns:
+            bool: ``True`` when the payload should be emitted.
+        """
         if previous is None:
             return True
 
@@ -1062,6 +1141,26 @@ class ProgressService:
         if last_emit_tick is None:
             return True
         return (now - last_emit_tick) >= self.max_silence_seconds
+
+    def _should_emit(self, payload: dict[str, object], *, allow_progress_regression: bool = False) -> bool:
+        """Public shim kept for backward compatibility with test code.
+
+        The emit-gate logic has moved to ``_should_emit_unlocked`` (called
+        atomically from ``_claim_emit_slot``).  This shim acquires the lock,
+        snapshots state, then delegates — it does NOT commit the tick, so use
+        ``_claim_emit_slot`` for the production path.
+        """
+        job_id = str(payload["job_id"])
+        # D7 leaf-lock: snapshot per-job state — no state_jobs call inside.
+        with self._lock:
+            previous = self._last_payload_by_job.get(job_id)
+            last_emit_tick = self._last_emit_tick_by_job.get(job_id)
+        return self._should_emit_unlocked(
+            payload=payload,
+            previous=previous,
+            last_emit_tick=last_emit_tick,
+            allow_progress_regression=allow_progress_regression,
+        )
 
     def _apply_progress_regression_guard(
         self,

@@ -1,6 +1,6 @@
 # 010 — Throttle/emission reconciliation under the lock
 
-- **Status:** not-started
+- **Status:** done (reconcile only delegates to reconcile_fn — no per-job service state to guard; _MIN_CONF_DELTA kept)
 - **Workload:** WL-C correctness · concurrency
 - **Severity / type:** major · concurrency
 - **Effort:** S
