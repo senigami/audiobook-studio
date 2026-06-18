@@ -179,7 +179,7 @@ export function RailBookBlock({ compact = false }: RailBookBlockProps) {
                       state={activeJob.status === 'error' ? 'failed' : activeJob.status as any}
                       label={activeJob.status}
                       predictive
-                      allowBackwardProgress
+                      allowBackwardProgress={false}
                     />
                   </div>
                 ) : null}

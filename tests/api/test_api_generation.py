@@ -975,3 +975,92 @@ def test_queue_chapter_mixed_engine_builds_weighted_script(clean_db, client):
         for entry in task.script:
             assert entry.get("ids"), entry
             assert entry.get("weight", 0) >= 1, entry
+
+
+def test_queue_chapter_xtts_engine_builds_nonempty_script_with_worker_aligned_ids(clean_db, client):
+    """XTTS chapter render task must carry a non-empty .script so the orchestrator's
+    grouped-progress path (total_weight > 0) is taken — without it the fallback
+    `p = raw_progress` resets the progress bar toward 0 each segment (backwards bar).
+
+    Alignment contract (R1-verified):
+    - Each entry's ``id`` matches what the XTTS worker emits in [START_SEGMENT] {sid}.
+    - Each entry's ``save_path`` matches what the worker emits in [SEGMENT_SAVED] {path}.
+    Both are: chapter_dir / "segments" / "{first_segment_id}.wav".
+
+    R1 revert-check: if `uses_segment_orchestration("xtts")` returns False (or
+    `_build_script_for_chapter` is not called), `task.script` will be None and the
+    ``assert task.script`` line fails — confirming this test catches the regression.
+    """
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments
+    from app.core.config import get_chapter_dir
+
+    pid = create_project("P-xtts-script")
+    cid = create_chapter(pid, "C-xtts-script", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+
+    segment_rows = [
+        {
+            "id": "seg-xtts-1",
+            "speaker_profile_name": "Voice1",
+            "character_speaker_profile_name": None,
+            "text_content": "Hello world.",
+            "audio_status": "unprocessed",
+            "audio_file_path": None,
+        },
+        {
+            "id": "seg-xtts-2",
+            "speaker_profile_name": "Voice1",
+            "character_speaker_profile_name": None,
+            "text_content": "Goodbye world.",
+            "audio_status": "unprocessed",
+            "audio_file_path": None,
+        },
+    ]
+
+    with patch("app.domain.chunk_groups.load_chunk_segments", return_value=segment_rows), \
+         patch("app.db.segments.get_chapter_segments", return_value=segment_rows), \
+         patch("app.api.routers.generation.put_job"), \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit") as mock_submit, \
+         patch("app.db.speakers.get_profile_engine", return_value="xtts"):
+        response = client.post(
+            "/api/processing_queue",
+            data={"project_id": pid, "chapter_id": cid, "speaker_profile": "Voice1"},
+        )
+        assert response.status_code == 200, response.json()
+        task = mock_submit.call_args.args[0]
+
+    # Engine must be xtts (not mixed, not empty string)
+    assert task.engine_id == "xtts", f"expected xtts engine, got {task.engine_id!r}"
+
+    # script must be populated — this is the grouped-progress gate
+    assert task.script, (
+        "XTTS chapter render task must carry a non-empty .script; "
+        "without it total_weight=0 and the orchestrator falls back to raw per-segment "
+        "progress which resets toward 0 each segment (backwards bar)"
+    )
+
+    # Alignment: each entry must have id + save_path matching the worker marker format
+    chapter_dir = get_chapter_dir(pid, cid)
+    for entry in task.script:
+        seg_id = entry.get("id")
+        assert seg_id, f"script entry missing 'id': {entry}"
+
+        # Worker emits [START_SEGMENT] {seg_id} — id must be the segment row id
+        assert seg_id in {r["id"] for r in segment_rows}, (
+            f"script entry id {seg_id!r} not in segment ids — "
+            "orchestrator START_SEGMENT lookup will miss"
+        )
+
+        # Worker emits [SEGMENT_SAVED] {save_path} — must be absolute path
+        save_path = entry.get("save_path")
+        assert save_path, f"script entry missing 'save_path': {entry}"
+        expected_path = str((chapter_dir / "segments" / f"{seg_id}.wav").absolute())
+        assert save_path == expected_path, (
+            f"save_path mismatch: got {save_path!r}, expected {expected_path!r}; "
+            "orchestrator SEGMENT_SAVED path lookup will miss and completed_weight won't advance"
+        )
+
+        # Weight must be positive for the orchestrator's total_weight > 0 gate
+        assert entry.get("weight", 0) >= 1, f"script entry weight must be >= 1: {entry}"

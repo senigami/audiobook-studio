@@ -257,37 +257,6 @@ def _engines_for_profiles(profile_names: list[Optional[str]], fallback_engine: O
     return engines
 
 
-def _first_available_profile() -> Optional[str]:
-    """Last-resort fallback: return a sensible existing voice profile when no
-    explicit default or casting is present.  Preference order:
-      1. A speaker named "Narrator" (case-insensitive) with a default_profile_name.
-      2. The system default speaker profile from settings (re-read from DB, not
-         the cached value the caller already checked — avoids duplicating logic).
-      3. The first speaker in list_speakers() order that has a default_profile_name.
-    Returns None only when no speakers/voices exist at all."""
-    from ...db.speakers import list_speakers
-    speakers = list_speakers()
-    if not speakers:
-        return None
-
-    # Tier 1: a speaker called "Narrator" (case-insensitive)
-    for spk in speakers:
-        if spk.get("name", "").lower() == "narrator" and spk.get("default_profile_name"):
-            return spk["default_profile_name"]
-
-    # Tier 2: system default from settings (re-read to get the freshest value)
-    settings = get_settings()
-    system_default = (settings.get("default_speaker_profile") or "").strip() or None
-    if system_default:
-        return system_default
-
-    # Tier 3: first speaker (alphabetical) with any default_profile_name
-    for spk in speakers:
-        if spk.get("default_profile_name"):
-            return spk["default_profile_name"]
-
-    return None
-
 @router.post("/processing_queue")
 def api_add_to_queue(
     background_tasks: BackgroundTasks,
@@ -298,27 +267,27 @@ def api_add_to_queue(
 ):
     try:
         settings = get_settings()
-        # Resolve a working voice. Priority: explicit pick → global default →
-        # the chapter's own per-segment casting. `active_profile` is only the
-        # FALLBACK for segments that have no voice of their own (the script
-        # builder and engine resolution already honor each segment's
-        # `speaker_profile_name`). So a fully/partly cast chapter renders even
-        # with no explicit pick and no global default. Block ONLY when nothing
-        # resolves anywhere — no pick, no default, and no segment is cast.
+        # Resolve a working voice. Priority chain:
+        #   explicit pick → chapter default → book/project default → global default
+        # `active_profile` is the FALLBACK for segments that have no voice of their
+        # own (the script builder and engine resolution already honor each segment's
+        # `speaker_profile_name`). Block ONLY when some segment is unassigned AND
+        # there is no default at ANY level — never fall back to an arbitrary voice.
         _chapter_row = get_chapter(chapter_id) or {}
         _chapter_default = (_chapter_row.get("speaker_profile_name") or "").strip() or None
         _project_row = get_project(project_id) or {}
         _project_default = (_project_row.get("speaker_profile_name") or "").strip() or None
-        active_profile = (
+        effective_default = (
             speaker_profile
             or _chapter_default
             or _project_default
-            or settings.get("default_speaker_profile")
-            or next((p for p in _resolved_segment_profiles(chapter_id) if p), None)
-            or _first_available_profile()
+            or (settings.get("default_speaker_profile") or "").strip() or None
         )
-        if not active_profile:
+        seg_profiles = _resolved_segment_profiles(chapter_id)
+        has_unassigned = any(not p for p in seg_profiles)
+        if has_unassigned and not effective_default:
             return JSONResponse({"status": "error", "message": "No voice available — assign a speaker to this chapter's text or set a default voice in Settings."}, status_code=400)
+        active_profile = effective_default or next((p for p in seg_profiles if p), None)
 
         validation_error = _validate_generation_engines(chapter_id, active_profile)
         if validation_error:
@@ -480,7 +449,6 @@ def api_add_to_queue(
 @router.post("/generation/bake/{chapter_id}")
 def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
     settings = get_settings()
-    active_profile = settings.get("default_speaker_profile") or _first_available_profile()
 
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -491,6 +459,21 @@ def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
         project_id = chapter["project_id"]
         text_content = chapter["text_content"]
         display_title = build_chapter_queue_title(chapter["title"], chapter["sort_order"])
+
+    _chapter_row = get_chapter(chapter_id) or {}
+    _chapter_default = (_chapter_row.get("speaker_profile_name") or "").strip() or None
+    _project_row = get_project(project_id) or {}
+    _project_default = (_project_row.get("speaker_profile_name") or "").strip() or None
+    effective_default = (
+        _chapter_default
+        or _project_default
+        or (settings.get("default_speaker_profile") or "").strip() or None
+    )
+    seg_profiles = _resolved_segment_profiles(chapter_id)
+    has_unassigned = any(not p for p in seg_profiles)
+    if has_unassigned and not effective_default:
+        return JSONResponse({"status": "error", "message": "No voice available — assign a speaker to this chapter's text or set a default voice in Settings."}, status_code=400)
+    active_profile = effective_default or next((p for p in seg_profiles if p), None)
 
     segs = get_chapter_segments(chapter_id)
     resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
@@ -665,7 +648,21 @@ def api_generate_segments(
     import time
 
     settings = get_settings()
-    active_profile = speaker_profile or settings.get("default_speaker_profile") or _first_available_profile()
+    _chapter_row = get_chapter(chapter_id) or {}
+    _chapter_default = (_chapter_row.get("speaker_profile_name") or "").strip() or None
+    _project_row = get_project(project_id) or {}
+    _project_default = (_project_row.get("speaker_profile_name") or "").strip() or None
+    effective_default = (
+        speaker_profile
+        or _chapter_default
+        or _project_default
+        or (settings.get("default_speaker_profile") or "").strip() or None
+    )
+    seg_profiles = _resolved_segment_profiles(chapter_id, set(sids))
+    has_unassigned = any(not p for p in seg_profiles)
+    if has_unassigned and not effective_default:
+        return JSONResponse({"status": "error", "message": "No voice available — assign a speaker to this chapter's text or set a default voice in Settings."}, status_code=400)
+    active_profile = effective_default or next((p for p in seg_profiles if p), None)
 
     validation_error = _validate_generation_engines(chapter_id, active_profile, set(sids))
     if validation_error:

@@ -1,8 +1,8 @@
 # Progress Presentation Contract
 
 ```
-spec_version: 1.3.4
-updated: 2026-06-16
+spec_version: 1.4.0
+updated: 2026-06-17
 status: active
 sources:
   - frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx
@@ -10,18 +10,22 @@ sources:
   - frontend/src/components/progress/PredictiveProgressBar/useEtaConfidence.ts
   - frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarDebug.ts
   - frontend/src/hooks/useSegmentHandoffQueue.ts
+  - frontend/src/store/live-jobs.ts
+  - frontend/src/api/contracts/liveEvents.ts
   - app/orchestration/progress/service.py
   - app/orchestration/progress/eta.py
+  - app/orchestration/progress/events.py
   - docs/specs/live-events.md
   - docs/specs/queue-jobs.md
 ```
 
-> **TL;DR:** `PredictiveProgressBar` renders server-authoritative progress augmented by a client-side ETA confidence model; every prop that gates backward motion or floors the bar MUST be passed explicitly by callers.
+> **TL;DR:** `PredictiveProgressBar` renders server-authoritative progress augmented by a client-side ETA confidence model; every prop that gates backward motion or floors the bar MUST be passed explicitly by callers. **As of 1.4.0, confidence is ONE backend-authoritative numeric `eta_confidence ∈ [0,1]` that rises toward completion (§4A); a high-confidence late segment ETA composes into the chapter ETA by share-weighting, not multiplication (§4A.3); and the displayed countdown MUST converge to 0 at completion regardless of smoothing (§4A.4). Sections 4A.6/I7–I9 list known drift the implementation must resolve.**
 
 ## Changelog
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.4.0   | 2026-06-17 | **ETA confidence redesign (target contract; implementation in progress).** Added §4A: a single backend-authoritative numeric `eta_confidence ∈ [0,1]` (deprecating the coarse `"stable"/"estimating"/"done"` string) with a three-term formula (variance × completion × freshness) that is **monotone-rising in progress**; §4A.3 segment→chapter **share-weighted** ETA/confidence composition (a confident late segment dominates; NOT a product); §4A.4 **convergence-to-zero** invariant (countdown ≤ mechanical remaining bound, forced to 0 at completion); §4A.5 variance MUST NOT punish a converging ETA; §4A.6 field/transport conformance — `eta_confidence` numeric must be consumed (today ignored by `live-jobs.ts`), `active_segment_eta_seconds` must be consumed (today dropped), and the undocumented flat `studio_job_event` transport must be documented in live-events.md. New invariants I7–I9, B4–B6. §2.3 cross-referenced to §4A.3. |
 | 1.3.4   | 2026-06-16 | Drift corrections: §6 rewritten — `predictiveProgressBarDebug.ts` exports a pure snapshot builder gated by the caller's `onDebugSnapshot` callback, not logging helpers or a `__DEV__` guard; §3.4/I4 scoped to the `done` (completed) transition only — `doneTransitionPendingRef` is never set for `failed`/`cancelled`, and is cleared on done-transition init, not at DOM dismissal; §3.4/§5 terminal animation and eviction clarified — only `done` runs the 500 ms interpolated completion animation, `failed` snaps to `localProgress:1` and `cancelled` snaps to `localProgress:0` with no hold, `progressMemory` eviction fires immediately on any terminal status |
 | 1.3.3   | 2026-06-13 | Staleness fix: chapter-bar surface clarified to "queue drawer and Activity page" (§2.3); §7 note that the segment-handoff fill applies to whichever ScriptView mode is active (book view — primary — or script view), not script view only |
 | 1.3.2   | 2026-06-11 | H7 re-labelled defense-in-depth: backend per-job terminal latch (live-events.md 1.4.0) now guarantees no post-terminal non-terminal frames |
@@ -68,6 +72,8 @@ A progress broadcast fires **only when progress advances by ≥ 1%** relative to
 | Chapter / job   | `job.progress`      | Chapter-level bar (queue drawer and Activity page) |
 
 Callers that render a chapter-level bar MUST source progress from `job.progress` or the equivalent job-level event field. The chapter-level bar surfaces in the **queue drawer** and the **Activity page**; both consume the same `job.progress` field (the §7 segment-handoff fill is a separate, ScriptView-scoped display concern).
+
+> **Scope note (1.4.0).** This separation is about **progress**. The **ETA and confidence** are a different concern: a per-segment ETA *does* compose into the displayed chapter ETA via the share-weighted blend in **§4A.3**. Keeping progress scopes separate does NOT mean the chapter ETA ignores the active segment's clock.
 
 ---
 
@@ -190,6 +196,208 @@ These constants are defined in `ETA_CONFIDENCE` in `predictiveProgressBarHelpers
 
 ---
 
+## 4A. Numeric ETA Confidence, Composition & Convergence (v1.4.0 — authoritative)
+
+> **Status:** This section is the binding target contract introduced in 1.4.0. The
+> implementation is being brought into conformance; current divergences are enumerated in
+> §4A.6 and MUST be resolved. Until each is resolved, the code is the bug, not this spec.
+>
+> **Why this exists.** Three unrelated "confidence" quantities had accreted: a backend
+> status-derived string `eta_confidence` (emitted, gated on, but **never read** by the
+> client), an internal frontend trust weight `w` (never displayed), and a separately
+> computed displayed percentage. They never composed. A render once "finished" while the
+> UI showed ~30 s remaining, because a late, accurate 4 s / high-confidence segment ETA was
+> diluted by smoothing and a low chapter weight, and nothing forced the countdown to 0 at
+> completion. §4A defines the single model that fixes this.
+
+### 4A.1 One confidence — numeric, backend-authoritative
+
+There is exactly **one** confidence quantity: **`eta_confidence ∈ [0, 1]`**, a float computed
+by the backend and emitted on every progress frame at **both** the job/chapter scope and the
+active-segment scope. The UI **MUST** display this value directly and **MUST NOT** compute a
+second, independent confidence number for display.
+
+The coarse string form (`"stable" | "estimating" | "done"`) is **deprecated** as of 1.4.0 and
+replaced by the float. It MAY be retained only as a derived presentational *label* (e.g.
+bucketing the float), never as the source of truth.
+
+The frontend trust weight `w` (§4.1) is retained **only** as the internal smoothing/slope
+control. Its `base` term **MUST** be seeded from the backend `eta_confidence` so the displayed
+confidence and the smoothing trust can never diverge. `w` is never the displayed confidence.
+
+### 4A.2 Confidence formula (monotone-rising toward completion)
+
+`eta_confidence` is composed from three terms, each in `[0, 1]`:
+
+```
+c_var   = clamp01(1 - K_VAR * cv)                      # stability: low ETA variance → high
+c_done  = smoothstep(progress, P_LO, P_HI)             # completion: 0→1 as progress P_LO→P_HI
+c_fresh = exp(-max(0, age_ms - STALL_MS) / TAU_MS)     # freshness: decays when samples go stale
+eta_confidence = clamp(BASE_FLOOR, 1, c_fresh * (c_var + (1 - c_var) * c_done))
+```
+
+- **I-conf-monotone:** with a steady sample stream (`c_fresh = 1`), `eta_confidence` is
+  **monotone non-decreasing in `progress`** — the `c_done` term lifts a noisy-but-progressing
+  estimate toward 1 as the work completes. This is the owner-specified "confidence rises toward
+  the end" rule. A test MUST assert this.
+- Recommended constants (calibrate against render telemetry, do not hardcode in multiple places):
+  `K_VAR = 2.0`, `P_LO = 0.55`, `P_HI = 0.95`, `STALL_MS = 10000`, `TAU_MS = 8000`,
+  `BASE_FLOOR = 0.2`. These SHOULD live beside `ETA_CONFIDENCE`.
+
+### 4A.3 Segment → chapter composition (a confident late segment dominates)
+
+When an active segment reports its own `active_segment_eta_seconds` and segment-scope
+`eta_confidence`, the **displayed chapter ETA and confidence** are composed by a
+**share-weighted blend**, NOT a product:
+
+```
+share        = remaining_in_active_segment / remaining_total      # → 1 near end of chapter
+w_seg        = seg_confidence * share
+eta_display  = w_seg * seg_eta + (1 - w_seg) * chapter_eta_excluding_active
+conf_display = max(chapter_confidence, seg_confidence * share)
+```
+
+- **I-compose:** a high-confidence segment ETA that covers the dominant remaining share
+  (`share → 1`) **MUST** pull the displayed chapter ETA toward the segment estimate and lift
+  `conf_display` toward the segment confidence. It **MUST NOT** be diluted to
+  `seg_confidence * chapter_confidence`.
+- This is precisely why the observed "91% × 37% ≈ 34%" is the wrong operation: multiplication
+  double-penalizes, so a correct final-segment estimate can never take over. Share-weighting
+  lets the last segment win as it should.
+
+### 4A.4 Convergence-to-zero invariant
+
+Independent of EMA / `clampSlope` smoothing, the displayed remaining time MUST be bounded by the
+mechanical remaining-work estimate and MUST reach 0 at completion:
+
+```
+eta_ceiling = (1 - progress) / max(velocity, EPS)         # mechanical bound from observed rate
+eta_shown   = min(eta_smoothed, CEIL_SLACK * eta_ceiling)  # CEIL_SLACK ≈ 1.3 for slack
+eta_shown   = 0   when progress ≥ 0.999  OR  status ∈ {done, failed, cancelled}
+```
+
+- **I7 (convergence):** the displayed countdown **MUST NOT** exceed `CEIL_SLACK * eta_ceiling`
+  and **MUST** be 0 at completion/terminal — regardless of how sticky the smoothed estimate is.
+  This is the rule whose absence let the bar "finish" at 30 s. A revert-checkable test MUST
+  cover: progress→1 with a stale large `eta_smoothed` ⇒ `eta_shown` → 0.
+
+### 4A.5 Trust MUST NOT punish a converging ETA
+
+The variance term (`cv`) **MUST NOT** treat a **monotonically improving** ETA — a late estimate
+dropping sharply toward 0 as the render completes — as instability. Today a 4 s sample landing
+after a run of ~30 s samples produces a high `cv`, which *lowers* trust exactly when it should
+rise. The model MUST compute `cv` so that an expected, completion-driven downward convergence
+does not depress `eta_confidence` (e.g. recency-weight the samples, or measure variance of
+*throughput/velocity* rather than of raw remaining-seconds). A late accurate ETA MUST raise, not
+lower, trust.
+
+### 4A.6 Field & transport conformance (known drift — implementation MUST fix)
+
+1. **`eta_confidence` numeric, emitted AND consumed.** The backend emits a status-derived string
+   that no frontend runtime path reads (`live-jobs.ts` copies ~20 fields, not this one). Replace
+   with the float per §4A.1–4A.2 and consume it for display.
+2. **`active_segment_eta_seconds` MUST be consumed** as the segment ETA. Today it is computed and
+   sent but the UI reads the generic envelope `etaSeconds`, dropping the per-segment clock; the
+   composition in §4A.3 depends on consuming the dedicated field.
+3. **Both transports MUST carry the full ETA field set.** Progress reaches the client on two
+   wires: the documented `studio_event` envelope (camelCase) **and** a flat `studio_job_event`
+   frame (snake_case) — the latter currently carries `eta_basis`, `estimated_end_at`, and the
+   active-segment fields that the envelope omits. Both MUST carry `eta_seconds`/`etaSeconds`,
+   `eta_basis`, `estimated_end_at`, `eta_confidence`, `eta_updated_at`, and the active-segment
+   counterparts, so the merged result is not transport-order-dependent.
+4. **Document the flat transport.** The flat `studio_job_event` frame is undocumented in
+   `live-events.md`, which asserts every backend frame uses the `studio_event` envelope. This is
+   the largest spec gap; `live-events.md` MUST document the flat frame (or the backend MUST route
+   progress through the envelope) and reconcile the camelCase/snake_case split for these fields.
+
+### 4A.7 Empirical evidence (debug capture 2026-06-17, job-845cf017, chapter 1)
+
+A captured render confirms the diagnosis and pins two backend defects the build MUST fix:
+
+- **`etaSeconds` is `null` on nearly every progress frame.** `chapter_progress` frames from
+  `orchestrator_publish._publish` carry `confidence` but `etaSeconds: null`; only frames from a
+  **second publisher**, `app.studio_plugin_sdk.context.update_job_fields`, carry a real
+  `etaSeconds`. The accurate late estimate DID arrive — exactly one frame:
+  `{progress: 0.91, groupedProgress: 0.9, etaSeconds: 4, confidence: 0.91}` — but it was the lone
+  real ETA among many null-ETA frames, so the bar coasted on its own velocity estimate (~30 s)
+  and one 4 s/0.91 frame could not overcome the smoothing (no convergence rule fired). **Fix:**
+  emit `etaSeconds` + numeric `eta_confidence` on **every** chapter_progress frame from a
+  **single authoritative publisher**; the two-publisher split with disjoint field sets makes the
+  merged client state frame-order-dependent (§4A.6.3) and starves the predictive bar of ETAs.
+- **`groupedProgress` caps at 0.9 even at completion.** `queue.txt` shows `progress: 1` with
+  `grouped_progress: 0.9` at `done` (the "stitching room" scaling). The displayed chapter
+  progress MUST reach 1.0 at completion — the 0.9 cap MUST NOT leave the bar visually short
+  (ties to I7 convergence).
+- **Dual confidence fields confirmed disjoint:** numeric `confidence` (observed `0.44`, `0.9`,
+  `0.91`, `1` on the envelope, populated) vs string `eta_confidence` (`null` on the snapshot,
+  dead). Per §4A.1 these MUST collapse to one numeric field.
+
+The full `recentAuditFrames` timeline (queue.txt) makes two **primary backend defects** undeniable —
+these dominate the frontend smoothing and MUST be fixed first:
+
+- **`confidence` is just `progress` echoed.** Every running frame: `progress 0.44 → confidence 0.44`,
+  `0.9 → 0.9`, `0.91 → 0.91`, `1 → 1` (and `confidence 1` while `progress 0`). The emitted
+  `confidence` carries **zero** variance/freshness/ETA-stability information — it is the progress
+  value under another name. **Fix:** `confidence`/`eta_confidence` MUST be the §4A.2 metric
+  (variance × completion × freshness), distinct from `progress`. A test MUST assert `confidence`
+  diverges from `progress` under unstable ETAs. *(New invariant B7.)*
+- **Chapter progress is render-group-quantized and freezes mid-group.** Observed: `progress`
+  held at `0.44` for ~18 s (group 1 of 2 done; group 2 rendering) while `etaSeconds` *grew*
+  28→47 (elapsed rises, progress frozen ⇒ remaining-from-rate inflates), then snapped
+  `0.44→0.9→1` in ~1 s. The within-group segment progress never lifted chapter progress, so the
+  bar stalls then jumps and the ETA climbs instead of falling. **Fix:** chapter `progress`/
+  `grouped_progress` MUST advance *continuously within* a render group from the active segment's
+  progress (`completed_weight + active_seg_progress × active_weight`), not only at group
+  boundaries — i.e. the per-segment `[PROGRESS]` markers MUST feed `active_seg_progress` for the
+  active group. *(New invariant B8.)*
+- **ETA must not inflate during a progress stall.** While progress is flat, `etaSeconds` grew
+  monotonically (28→47). Combined with B8, a stalled-progress ETA MUST be bounded by the
+  mechanical ceiling (§4A.4) and the confidence MUST drop (freshness/variance), rather than the
+  ETA silently climbing.
+
+### 4A.8 ETA source blend — calculated (start) → observed (end)
+
+The displayed ETA is a **progress-driven crossfade** of two sources, because each is reliable at a
+different phase of the render:
+
+- **Calculated ETA** — `remaining_chars × seconds_per_char` (a calibrated chars-per-second rate).
+  Reliable at the **start**, before any observed throughput exists. This is the only sane estimate
+  at progress ≈ 0.
+- **Observed ETA** — `remaining_work / observed_velocity` (velocity measured from actual render
+  throughput). Reliable toward the **end**, once enough real data has accumulated.
+
+```
+ramp        = smoothstep(progress, P_LO, P_HI)         # 0 at start → 1 toward completion
+eta_display = (1 - ramp) * eta_calculated + ramp * eta_observed
+```
+
+- **I-blend:** at `progress = 0` the **calculated** ETA dominates; as `progress → 1` the
+  **observed** ETA dominates. Both inputs MUST be bounded by the §4A.4 mechanical ceiling and the
+  blended result MUST converge to 0 at completion. *(New invariant B10.)*
+- This complements §4A.2: the ramp shifts which ETA *source* is trusted, while `eta_confidence`
+  expresses how much to trust the displayed result; both rise/shift with progress.
+
+### 4A.9 Character-count weighting (real work, not segment count)
+
+All progress/ETA weighting MUST be by **character count**, never segment count:
+
+```
+total_chars       = Σ chars(segment) over the chapter      # e.g. 1685
+weight(segment)   = chars(segment)                          # e.g. 340  (NOT 1/N)
+progress          = completed_chars / total_chars
+active_contribution = active_seg_progress × chars(active_segment)   # within-group credit (B8)
+eta_calculated    = (total_chars - completed_chars) × seconds_per_char
+```
+
+- **I-charweight:** a segment's contribution to chapter progress and to the ETA MUST be proportional
+  to its character count (`340 / 1685`), not `1 / segment_count`. The grouped-progress weight table
+  (`id_to_weight`/`total_weight`) MUST be the per-segment character counts summed; within a render
+  group, each segment's chars MUST be credited as it completes (ties to B8). *(New invariant B9.)*
+- Today the group weight already uses `len(text)` per group entry; this invariant extends it to
+  **per-segment** credit within a group and to the calculated-ETA's `seconds_per_char` basis.
+
+---
+
 ## 5. Terminal Eviction
 
 `progressMemory` (the in-memory store of lane progress history on the frontend) is capped. Terminal jobs (`completed`, `failed`, `cancelled`, or `queued` — any status matched by `isTerminalStatus`) are evicted from `progressMemory` **immediately** when the terminal status is observed (via the `useEffect` that watches `presentationState`). Eviction does not wait for the done-transition animation to finish.
@@ -250,6 +458,7 @@ The following invariants are binding on all callers and on the bar implementatio
 - **C2** — MUST pass a stable `persistenceKey` per lane so the `progressMemory` floor is tracked correctly. (There is no numeric `authoritativeFloor` prop to pass; the floor is derived from `progressMemory`.)
 - **C3** — MUST NOT feed `segments.progress` into a chapter-level `PredictiveProgressBar`.
 - **C4** — MUST NOT remove `PredictiveProgressBar` from the DOM on `done` (completed) status without waiting for the completion animation. `failed` and `cancelled` have no hold, so immediate removal is acceptable for those statuses.
+- **C5 (1.4.0)** — MUST surface the backend numeric `eta_confidence` as the displayed confidence and MUST consume `active_segment_eta_seconds` for segment ETA; MUST NOT invent a separate displayed confidence number (§4A.1, §4A.6).
 
 ### Bar implementation
 
@@ -259,12 +468,22 @@ The following invariants are binding on all callers and on the bar implementatio
 - **I4** — `doneTransitionPendingRef` MUST be set on the first render where `presentationState` becomes `'done'` from an active state, and MUST be cleared when the done-transition object is initialized in the subsequent effect. It MUST NOT be set for `failed` or `cancelled`.
 - **I5** — On a lane boundary the `LaneMigration` MUST interpolate the rendered start/end/startProgress between lanes for a smooth transition. (The confidence hook resets its EMA on lane change — it does not carry velocity forward.)
 - **I6** — On stall (no update for > `STALL_MS`), `getStallDecayedW()` MUST decay the trust weight `w` toward 0; the bar MUST NOT present a high-confidence ETA at a stale value indefinitely.
+- **I7 (1.4.0)** — **Convergence:** the displayed remaining time MUST NOT exceed `CEIL_SLACK * (1-progress)/velocity` and MUST be 0 at completion/terminal, independent of EMA/slope smoothing (§4A.4).
+- **I8 (1.4.0)** — **Composition:** a high-confidence active-segment ETA covering the dominant remaining share MUST pull the displayed chapter ETA toward it and lift displayed confidence toward the segment's (share-weighted, never a product) (§4A.3).
+- **I9 (1.4.0)** — **Display = backend confidence:** the bar MUST display the backend numeric `eta_confidence` and MUST NOT invent a second confidence number; the internal `w` is seeded from it (§4A.1). A converging (monotonically dropping) ETA MUST NOT lower confidence (§4A.5).
 
 ### Backend (cross-reference `live-events.md`)
 
 - **B1** — Progress values broadcast to the frontend MUST be rounded to 2 decimal places.
 - **B2** — A broadcast MUST fire only when progress advances ≥ 1% since the last broadcast.
 - **B3** — `segments.progress` and `job.progress` are distinct fields and MUST NOT be aliased to each other.
+- **B4 (1.4.0)** — `eta_confidence` MUST be a numeric `[0,1]` float computed per §4A.2 (variance × completion × freshness), emitted at job AND active-segment scope. The coarse string form is deprecated.
+- **B5 (1.4.0)** — Every progress transport (the `studio_event` envelope AND the flat `studio_job_event` frame) MUST carry the full ETA field set — `eta_seconds`/`etaSeconds`, `eta_basis`, `estimated_end_at`, `eta_confidence`, `eta_updated_at`, and `active_segment_eta_seconds` + segment-scope `eta_confidence` — so the merged client state is not transport-order-dependent. The flat frame MUST be documented in `live-events.md`.
+- **B6 (1.4.0)** — `eta_confidence` MUST be monotone non-decreasing in `progress` for a steady sample stream (§4A.2 I-conf-monotone).
+- **B7 (1.4.0)** — The emitted `confidence`/`eta_confidence` MUST be the §4A.2 metric and MUST NOT be the `progress` value echoed. Today `confidence == progress` on every frame (§4A.7); a test MUST assert they diverge under an unstable/stalled ETA.
+- **B8 (1.4.0)** — Chapter `progress`/`grouped_progress` MUST advance **continuously within** a render group from the active segment's progress, not only at group boundaries. The per-segment `[PROGRESS]` markers MUST feed `active_seg_progress` so the bar does not freeze mid-group and the ETA does not inflate during the stall (§4A.7).
+- **B9 (1.4.0)** — Progress/ETA weighting MUST be by **character count** (`weight(segment) = chars(segment)`, `progress = completed_chars/total_chars`), never segment count; within-group credit is per-segment chars (§4A.9).
+- **B10 (1.4.0)** — The displayed ETA MUST crossfade from the **calculated** ETA (`remaining_chars × seconds_per_char`, dominant at start) to the **observed** ETA (dominant toward completion) via a progress ramp, both bounded by the §4A.4 ceiling and converging to 0 (§4A.8).
 
 ---
 
@@ -276,3 +495,10 @@ The following invariants are binding on all callers and on the bar implementatio
 | Job status lifecycle               | `docs/specs/queue-jobs.md`            |
 | Progress broadcast topic/fields    | `docs/specs/live-events.md` §progress |
 | ETA field ownership in job store   | `docs/specs/queue-jobs.md` §ETA       |
+
+> **Open cross-spec action (1.4.0).** `live-events.md` currently documents only the
+> `studio_event` envelope, but progress/ETA/confidence ride a second, **flat
+> `studio_job_event`** frame that is undocumented. Per §4A.6/B5, `live-events.md` MUST be
+> updated to document that frame (fields, casing) — or the backend MUST route progress through
+> the envelope. `queue-jobs.md` MUST also bump `eta_confidence` from a string to the numeric
+> `[0,1]` float. Both are tracked as part of the 1.4.0 implementation.

@@ -11,7 +11,7 @@ import sys
 from collections.abc import Callable, Mapping
 
 from .broadcaster import broadcast_progress
-from .eta import estimate_eta_seconds
+from .eta import EtaSampleRing, compute_eta_confidence, estimate_eta_seconds
 from .reconciliation import reconcile_work_item
 
 INTENDED_UPSTREAM_CALLERS = (
@@ -76,6 +76,10 @@ class ProgressService:
         self._last_payload_by_job: dict[str, dict[str, object]] = {}
         self._last_emit_tick_by_job: dict[str, float] = {}
         self._last_progress_by_job: dict[str, float] = {}
+        # Per-job ETA velocity sample ring for §4A.2 numeric confidence.
+        self._eta_rings: dict[str, EtaSampleRing] = {}
+        # Per-job timestamp of last ETA sample (wall seconds).
+        self._eta_last_sample_time: dict[str, float] = {}
 
     def reconcile(
         self,
@@ -151,7 +155,7 @@ class ProgressService:
         chapter_id: str | None = None,
         progress: float | None = None,
         eta_seconds: int | None = None,
-        eta_confidence: str | None = None,
+        eta_confidence: str | float | None = None,
         message: str | None = None,
         reason_code: str | None = None,
         waiting_reason: str | None = None,
@@ -346,6 +350,8 @@ class ProgressService:
             self._last_progress_by_job.pop(job_id, None)
         if status == "queued":
             self._last_payload_by_job.pop(job_id, None)
+            self._eta_rings.pop(job_id, None)
+            self._eta_last_sample_time.pop(job_id, None)
 
         # 1. Segment progress tick (first)
         if new_active_segment_id is not None or scope == "segment":
@@ -524,7 +530,7 @@ class ProgressService:
         status: str,
         progress: float | None,
         eta_seconds: int | None,
-        eta_confidence: str | None,
+        eta_confidence: str | float | None,
         message: str | None,
         reason_code: str | None,
         waiting_reason: str | None,
@@ -616,10 +622,41 @@ class ProgressService:
             payload["estimated_end_at"] = None
             payload["eta_updated_at"] = None
 
-        if eta_confidence is not None:
+        # §4A.2: emit a numeric eta_confidence computed from variance × completion × freshness.
+        # If the caller already passed a pre-computed numeric value, use it directly.
+        # Otherwise, compute it from the per-job ETA velocity sample ring.
+        if isinstance(eta_confidence, float):
             payload["eta_confidence"] = eta_confidence
         else:
-            payload["eta_confidence"] = "stable" if status in {"running", "finalizing", "done"} else "estimating"
+            # Feed a new velocity sample into the ring whenever we have a real ETA.
+            # velocity = completed_progress / elapsed ≈ inferred from progress + eta.
+            # We approximate velocity as progress / (progress * eta + progress / eps)
+            # in a simple form: if progress > 0 and eta > 0, velocity ≈ progress / eta_total_est.
+            ring = self._eta_rings.setdefault(job_id, EtaSampleRing())
+            now_wall = self.wall_clock()
+            if normalized_progress is not None and normalized_progress > 0 and eta_seconds is not None and eta_seconds > 0 and not is_terminal:
+                # velocity = completed fraction / time_elapsed_est
+                # = progress / ((1 - progress) / velocity)  ← circular, so use a proxy:
+                # estimated total seconds = eta / (1 - progress) → elapsed = total - eta
+                elapsed_est = max(0.0, (float(eta_seconds) * normalized_progress) / max(1.0 - normalized_progress, 1e-6))
+                if elapsed_est > 0:
+                    velocity_sample = normalized_progress / elapsed_est
+                    ring.push(velocity_sample)
+                self._eta_last_sample_time[job_id] = now_wall
+
+            last_sample_time = self._eta_last_sample_time.get(job_id)
+            age_ms = (now_wall - last_sample_time) * 1000.0 if last_sample_time is not None else 0.0
+
+            p = float(normalized_progress) if normalized_progress is not None else 0.0
+            if is_terminal or p >= 1.0:
+                numeric_conf = 1.0
+            else:
+                numeric_conf = compute_eta_confidence(
+                    progress=p,
+                    age_ms=age_ms,
+                    cv=ring.cv(),
+                )
+            payload["eta_confidence"] = numeric_conf
         if message is not None:
             payload["message"] = message
         if reason_code is None:
@@ -651,7 +688,13 @@ class ProgressService:
         if active_render_group_weight is not None:
             payload["active_render_group_weight"] = int(active_render_group_weight)
         if grouped_progress is not None:
-            payload["grouped_progress"] = round(max(0.0, min(float(grouped_progress), 1.0)), 2)
+            gp = float(grouped_progress)
+            # §4A.7 / item-5: grouped_progress MUST reach 1.0 at completion.
+            # The 0.90 scaling cap in _get_grouped_progress is appropriate mid-render
+            # (leaves room for stitching), but at done / progress≥0.999 we force 1.0.
+            if is_terminal or (normalized_progress is not None and normalized_progress >= 0.999):
+                gp = 1.0
+            payload["grouped_progress"] = round(max(0.0, min(gp, 1.0)), 2)
         return payload
 
 

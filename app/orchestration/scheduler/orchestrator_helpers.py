@@ -636,6 +636,21 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     else:
                         sid = active_seg_id[0] or (list(marker_state["start_segment_ids"])[-1] if marker_state["start_segment_ids"] else "unknown")
 
+                    # B8 diagnostic: log whether sid is in the weight table and
+                    # whether the dedup guard fires.  Guarded by DEBUG level so
+                    # production logs stay clean.
+                    if logger.isEnabledFor(logging.DEBUG):
+                        known_keys = list(id_to_weight.keys())
+                        in_weight_table = sid in id_to_weight
+                        dedup_would_fire = sid in marker_state["start_segment_ids"]
+                        logger.debug(
+                            "[B8-diag] START_SEGMENT received: sid=%r | "
+                            "in_id_to_weight=%s | dedup_guard=%s | known_keys=%r",
+                            sid,
+                            in_weight_table,
+                            dedup_would_fire,
+                            known_keys,
+                        )
                     if sid in marker_state["start_segment_ids"]:
                         return
                     marker_state["start_segment_ids"].add(sid)

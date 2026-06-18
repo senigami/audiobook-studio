@@ -627,13 +627,13 @@ def test_add_to_queue_uses_character_voice_when_segment_has_no_direct_profile(
     )
 
 
-def test_add_to_queue_proceeds_when_project_has_speaker_but_chapter_is_uncast(
+def test_add_to_queue_blocks_when_no_default_and_no_segments_assigned(
     clean_db_no_default, voices_root, client_no_default
 ):
-    """Bug A fix: chapter has no casting, no chapter/project/global default, but the
-    project has at least one registered speaker with a voice → api_add_to_queue must
-    NOT return 400 'No voice available'. It must pick the first available profile as
-    fallback and proceed to queue."""
+    """Corrected rule: chapter has no casting, no chapter/project/global default, even
+    if speakers exist → api_add_to_queue must return 400 'No voice available'.
+    A registered speaker/voice is NOT a default — the render gate must block unless a
+    default exists at some level OR all content segments are assigned."""
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.speakers import create_speaker
@@ -651,8 +651,11 @@ def test_add_to_queue_proceeds_when_project_has_speaker_but_chapter_is_uncast(
             data={"project_id": pid, "chapter_id": cid},
         )
 
-    assert response.status_code != 400 or "No voice available" not in response.json().get("message", ""), (
-        f"Expected fallback to available speaker voice, got {response.status_code}: {response.json()}"
+    assert response.status_code == 400, (
+        f"Expected 400 when no default and no segments assigned, got {response.status_code}: {response.json()}"
+    )
+    assert "No voice available" in response.json().get("message", ""), (
+        f"Expected 'No voice available' in message, got: {response.json()}"
     )
 
 
@@ -677,4 +680,143 @@ def test_add_to_queue_blocks_when_no_speakers_exist_at_all(
     assert response.status_code == 400
     assert "No voice available" in response.json().get("message", ""), (
         f"Expected 400 No voice available when no speakers exist, got {response.status_code}: {response.json()}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# New correctness tests for the owner-specified resolution rule:
+#   segment own → chapter default → book/project default → global default → ERROR
+# ---------------------------------------------------------------------------
+
+def test_add_to_queue_all_segments_assigned_no_default_proceeds(
+    clean_db_no_default, voices_root, client_no_default
+):
+    """Rule T1: all content segments have an assigned voice, no default at any level
+    (global blank) → api_add_to_queue must NOT 400. The render can proceed using each
+    segment's own voice."""
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, update_segment, get_chapter_segments
+
+    _make_voice(voices_root, "SegmentVoice")
+
+    pid = create_project("proj-all-assigned")
+    cid = create_chapter(pid, "ch-all-assigned", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+
+    segs = get_chapter_segments(cid)
+    for seg in segs:
+        update_segment(seg["id"], speaker_profile_name="SegmentVoice", broadcast=False)
+
+    with patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        response = client_no_default.post(
+            "/api/processing_queue",
+            data={"project_id": pid, "chapter_id": cid},
+        )
+
+    assert response.status_code != 400 or "No voice available" not in response.json().get("message", ""), (
+        f"Rule T1 failed: all segments assigned, global blank → expected proceed, got "
+        f"{response.status_code}: {response.json()}"
+    )
+
+
+def test_add_to_queue_some_unassigned_with_chapter_default_proceeds(
+    clean_db_no_default, voices_root, client_no_default
+):
+    """Rule T2: some segments unassigned + chapter.speaker_profile_name set, global blank
+    → api_add_to_queue must NOT 400. The chapter default covers unassigned segments."""
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter, update_chapter
+    from app.db.segments import sync_chapter_segments, update_segment, get_chapter_segments
+
+    _make_voice(voices_root, "ChapterDefaultVoice")
+
+    pid = create_project("proj-chapter-default-unassigned")
+    cid = create_chapter(pid, "ch-chapter-default-unassigned", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+
+    segs = get_chapter_segments(cid)
+    # Leave first segment unassigned; the chapter default should cover it
+    if len(segs) > 1:
+        update_segment(segs[1]["id"], speaker_profile_name="ChapterDefaultVoice", broadcast=False)
+
+    # Set chapter-level default; global is blank
+    update_chapter(cid, speaker_profile_name="ChapterDefaultVoice")
+
+    with patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        response = client_no_default.post(
+            "/api/processing_queue",
+            data={"project_id": pid, "chapter_id": cid},
+        )
+
+    assert response.status_code != 400 or "No voice available" not in response.json().get("message", ""), (
+        f"Rule T2 failed: unassigned segments + chapter default → expected proceed, got "
+        f"{response.status_code}: {response.json()}"
+    )
+
+
+def test_add_to_queue_some_unassigned_with_project_default_proceeds(
+    clean_db_no_default, voices_root, client_no_default
+):
+    """Rule T3: some segments unassigned + project.speaker_profile_name set, no chapter
+    default, global blank → api_add_to_queue must NOT 400. The book/project default
+    covers unassigned segments."""
+    from app.db.projects import create_project, update_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments
+
+    _make_voice(voices_root, "ProjectDefaultVoice")
+
+    pid = create_project("proj-book-default-unassigned")
+    update_project(pid, speaker_profile_name="ProjectDefaultVoice")
+    cid = create_chapter(pid, "ch-book-default-unassigned", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+    # All segments unassigned; project/book default should cover them
+
+    with patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        response = client_no_default.post(
+            "/api/processing_queue",
+            data={"project_id": pid, "chapter_id": cid},
+        )
+
+    assert response.status_code != 400 or "No voice available" not in response.json().get("message", ""), (
+        f"Rule T3 failed: unassigned segments + project default → expected proceed, got "
+        f"{response.status_code}: {response.json()}"
+    )
+
+
+def test_add_to_queue_some_unassigned_no_default_anywhere_blocks(
+    clean_db_no_default, voices_root, client_no_default
+):
+    """Rule T4: some content segments unassigned AND no default at any level
+    (no explicit, no chapter, no project, no global) → must 400 with 'No voice available'.
+    This is the ONLY case that should block."""
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, update_segment, get_chapter_segments
+
+    _make_voice(voices_root, "AssignedVoice")
+
+    pid = create_project("proj-partial-no-default")
+    cid = create_chapter(pid, "ch-partial-no-default", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+
+    segs = get_chapter_segments(cid)
+    # Assign only the last segment; leave first unassigned (no default anywhere)
+    if segs:
+        update_segment(segs[-1]["id"], speaker_profile_name="AssignedVoice", broadcast=False)
+    # No chapter default, no project default, no global default (fixture sets "" for global)
+
+    with patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        response = client_no_default.post(
+            "/api/processing_queue",
+            data={"project_id": pid, "chapter_id": cid},
+        )
+
+    assert response.status_code == 400, (
+        f"Rule T4 failed: unassigned segment + no default anywhere → expected 400, got "
+        f"{response.status_code}: {response.json()}"
+    )
+    assert "No voice available" in response.json().get("message", ""), (
+        f"Rule T4 failed: expected 'No voice available' message, got: {response.json()}"
     )
