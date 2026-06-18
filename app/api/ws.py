@@ -333,22 +333,43 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
     # Must happen AFTER the terminal-latch check and BEFORE any builder calls.
     # Clock-bearing fields (estimated_end_at, eta_updated_at) come from enrich()
     # which uses the singleton's injected clock — do NOT clobber them with raw time.time().
+    #
+    # FIX 1: enrich sample-mode is gated by skip_job_updated.
+    # - skip_job_updated=True  → Path A (orchestrated): the orchestrator already
+    #   pushed a velocity sample via ProgressService.publish.  Call enrich with
+    #   sample=False so we still get enriched confidence/ETA values (needed by
+    #   chapter-progress builders on callers like put_job that have
+    #   skip_studio_job_event=False) WITHOUT pushing a second sample that would
+    #   corrupt the ring maturity factor / CV.
+    # - skip_job_updated=False → Path B (direct / non-orchestrated): call
+    #   enrich(sample=True) to push a velocity sample and drive §4A confidence.
     _enriched_confidence: float | None = None
     _enriched_eta_seconds: int | None = None
     _enriched_eta_basis: str | None = None
     _enriched_estimated_end_at: float | None = None
     _enriched_grouped_progress: float | None = None
+    _enrich_sample = not skip_job_updated  # FIX 1: only push sample on Path B
     try:
         _ps = _get_progress_service()
         _enrich_payload = dict(merged)
-        _ps.enrich(job_id, _enrich_payload, sample=True)
+        _ps.enrich(job_id, _enrich_payload, sample=_enrich_sample)
         _enriched_confidence = _enrich_payload.get("eta_confidence")
         _enriched_eta_seconds = _enrich_payload.get("eta_seconds")
         _enriched_eta_basis = _enrich_payload.get("eta_basis")
         _enriched_estimated_end_at = _enrich_payload.get("estimated_end_at")
         _enriched_grouped_progress = _enrich_payload.get("grouped_progress")
     except Exception:
-        pass  # enrich is best-effort; fall back to unenriched values
+        # FIX 5: on enrich failure, set a safe floor so the fail-loud builder
+        # contract holds.  Terminal frames get 1.0; live frames get BASE_FLOOR.
+        new_status_for_floor = merged.get("status", "")
+        if new_status_for_floor in {"done", "failed", "cancelled"}:
+            _enriched_confidence = 1.0
+        else:
+            try:
+                from app.orchestration.progress.eta import BASE_FLOOR  # noqa: PLC0415
+                _enriched_confidence = BASE_FLOOR
+            except Exception:
+                _enriched_confidence = 0.2
 
     prev_active_segment_id = current_job.get("active_segment_id") if current_job else None
     new_active_segment_id = updates.get("active_segment_id", merged.get("active_segment_id")) if updates else merged.get("active_segment_id")

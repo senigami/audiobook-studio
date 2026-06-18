@@ -397,6 +397,19 @@ class ProgressService:
                 seg_ids = self._job_segment_ids.pop(job_id, set())
                 for seg_id in seg_ids:
                     self._segment_eta_rings.pop(seg_id, None)
+            # FIX 3: terminal-status cleanup — evict per-job ETA state AFTER the
+            # terminal frame has been emitted so done/failed/cancelled jobs don't
+            # leak _eta_rings/_segment_eta_rings/_job_segment_ids for the lifetime
+            # of the process.  Mirror of the queued-cleanup branch above.
+            elif status in {"done", "failed", "cancelled"}:
+                self._last_payload_by_job.pop(job_id, None)
+                self._eta_rings.pop(job_id, None)
+                self._eta_last_sample_time.pop(job_id, None)
+                self._last_emit_tick_by_job.pop(job_id, None)
+                self._last_progress_by_job.pop(job_id, None)
+                seg_ids = self._job_segment_ids.pop(job_id, set())
+                for seg_id in seg_ids:
+                    self._segment_eta_rings.pop(seg_id, None)
 
         # 1. Segment progress tick (first)
         if new_active_segment_id is not None or scope == "segment":
@@ -600,7 +613,9 @@ class ProgressService:
         §4A.4).  Those helpers are imported but not yet activated here.
         """
         status = str(payload.get("status", ""))
-        is_terminal = status in {"done", "failed", "error", "cancelled"}
+        # FIX 6: "error" is not a real job status; drop it so this set matches
+        # apply_eta_ceiling / the event builders ({"done","failed","cancelled"}).
+        is_terminal = status in {"done", "failed", "cancelled"}
         now = float(payload.get("updated_at") or self.wall_clock())
 
         # --- §4A terminal clearing -------------------------------------------
@@ -657,12 +672,25 @@ class ProgressService:
 
         # D7 leaf-lock: _eta_rings + _segment_eta_rings + _eta_last_sample_time R-M-W.
         # No state_jobs call inside this block.
+        # FIX 2: ring_velocity is captured INSIDE the lock so no other thread can
+        # push() to the deque between the lock release and the crossfade read.
+        # FIX 3 (setdefault): when sample=False (snapshot/hydration path) we must
+        # NOT create a new empty ring via setdefault — use .get() and treat absence
+        # as zero samples to avoid permanent leaky entries for unseen job_ids.
+        ring_velocity: float | None = None  # captured inside the lock (FIX 2)
         with self._lock:
-            if isinstance(eta_confidence, float):
-                # Caller pre-computed the numeric confidence — pass through.
+            if sample:
                 ring = self._eta_rings.setdefault(job_id, EtaSampleRing())
             else:
-                ring = self._eta_rings.setdefault(job_id, EtaSampleRing())
+                ring = self._eta_rings.get(job_id)
+
+            if isinstance(eta_confidence, float):
+                # Caller pre-computed the numeric confidence — pass through.
+                # Still need ring_velocity for §4A.8 crossfade below (FIX 2).
+                ring_velocity = ring.mean() if ring is not None else None
+            else:
+                if ring is None:
+                    ring = EtaSampleRing()  # ephemeral, not stored — sample=False path
                 if (
                     sample
                     and normalized_progress is not None
@@ -698,6 +726,8 @@ class ProgressService:
                         n_samples=n_chapter_samples,
                     )
                 payload["eta_confidence"] = numeric_conf
+                # FIX 2: capture ring velocity while still holding the lock.
+                ring_velocity = ring.mean()
 
             # --- Task 006-A: per-segment EtaSampleRing sampling (inside same lock) ---
             seg_confidence: float | None = None
@@ -707,26 +737,40 @@ class ProgressService:
                 and active_seg_eta is not None
                 and not is_terminal
             ):
-                seg_ring = self._segment_eta_rings.setdefault(active_segment_id, EtaSampleRing())
-                # Track which segments belong to this job for cleanup on requeue.
-                self._job_segment_ids.setdefault(job_id, set()).add(active_segment_id)
-                if sample and active_seg_p > 0 and active_seg_eta > 0:
-                    # Segment velocity proxy: seg_progress / seg_elapsed_est
-                    seg_elapsed_est = max(
-                        0.0,
-                        (active_seg_eta * active_seg_p) / max(1.0 - active_seg_p, 1e-6),
-                    )
-                    if seg_elapsed_est > 0:
-                        seg_velocity = active_seg_p / seg_elapsed_est
-                        seg_ring.push(seg_velocity)
+                # FIX 3: only setdefault when sample=True; snapshot path uses .get().
+                if sample:
+                    seg_ring = self._segment_eta_rings.setdefault(active_segment_id, EtaSampleRing())
+                    # Track which segments belong to this job for cleanup on requeue.
+                    self._job_segment_ids.setdefault(job_id, set()).add(active_segment_id)
+                else:
+                    seg_ring = self._segment_eta_rings.get(active_segment_id)
 
-                n_seg_samples = len(seg_ring)
-                seg_confidence = compute_eta_confidence(
-                    progress=active_seg_p,
-                    age_ms=0.0,  # segment frames are always considered fresh
-                    cv=seg_ring.cv(),
-                    n_samples=n_seg_samples,
-                )
+                if seg_ring is not None:
+                    if sample and active_seg_p > 0 and active_seg_eta > 0:
+                        # Segment velocity proxy: seg_progress / seg_elapsed_est
+                        seg_elapsed_est = max(
+                            0.0,
+                            (active_seg_eta * active_seg_p) / max(1.0 - active_seg_p, 1e-6),
+                        )
+                        if seg_elapsed_est > 0:
+                            seg_velocity = active_seg_p / seg_elapsed_est
+                            seg_ring.push(seg_velocity)
+
+                    n_seg_samples = len(seg_ring)
+                    seg_confidence = compute_eta_confidence(
+                        progress=active_seg_p,
+                        age_ms=0.0,  # segment frames are always considered fresh
+                        cv=seg_ring.cv(),
+                        n_samples=n_seg_samples,
+                    )
+                else:
+                    # No prior ring for this segment — treat as zero-sample cold-start.
+                    seg_confidence = compute_eta_confidence(
+                        progress=active_seg_p,
+                        age_ms=0.0,
+                        cv=0.0,
+                        n_samples=0,
+                    )
 
         # §4A.8 ETA crossfade: blend calculated (cold-start baseline) with observed.
         if is_terminal:
@@ -754,9 +798,7 @@ class ProgressService:
                 except Exception:
                     pass
 
-            # Derive velocity from the ring's mean (progress-units/second).
-            ring_velocity: float | None = ring.mean()
-
+            # ring_velocity is already captured inside self._lock above (FIX 2).
             # §4A.8 crossfade calculated → observed over [P_LO, P_HI].
             blended_eta = crossfade_eta(
                 progress=p,
