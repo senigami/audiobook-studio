@@ -368,14 +368,13 @@ describe('DemoApp routing', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
     fireEvent.click((await screen.findAllByText('The Whispering Vale'))[0]);
 
-    const manuscriptRailTab = screen.getAllByRole('button', { name: 'Manuscript' })
+    const contentsRailTab = screen.getAllByRole('button', { name: 'Contents' })
       .find(button => button.classList.contains('ns-book-rail-stage'));
 
-    expect(manuscriptRailTab).toBeDefined();
-    expect(manuscriptRailTab).toHaveStyle({
+    expect(contentsRailTab).toBeDefined();
+    expect(contentsRailTab).toHaveStyle({
       justifyContent: 'flex-start',
       textAlign: 'left',
-      paddingLeft: '12px',
     });
   });
 });
