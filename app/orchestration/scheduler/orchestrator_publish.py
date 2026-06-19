@@ -285,6 +285,7 @@ class OrchestratorPublishMixin:
             safe_mode=payload.get("safe_mode", True),
             make_mp3=payload.get("make_mp3", False),
             is_bake=payload.get("is_bake", False),
+            force_rerender=bool(payload.get("force_rerender", False)),
             segment_ids=payload.get("segment_ids"),
             custom_title=payload.get("custom_title") or payload.get("book_title"),
             author_meta=payload.get("author") or payload.get("author_meta"),

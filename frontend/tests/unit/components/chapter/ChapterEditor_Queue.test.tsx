@@ -219,6 +219,49 @@ describe('ChapterEditor - Queueing & Generation', () => {
     });
   });
 
+  it('passes force_rerender=true to addProcessingQueue on rebuild', async () => {
+    const renderedChapter = {
+      ...mockChapter,
+      audio_status: 'done' as const,
+      audio_file_path: 'chap-456.wav',
+      has_wav: true,
+      total_segments_count: 1,
+      done_segments_count: 1
+    };
+    const renderedSegments = [{
+      ...mockSegments[0],
+      audio_status: 'done' as const,
+      audio_file_path: 'seg-1.wav',
+      audio_generated_at: Date.now() / 1000
+    }];
+
+    (api.fetchChapters as any).mockResolvedValue([renderedChapter]);
+    (api.fetchSegments as any).mockResolvedValue(renderedSegments);
+    (api.resetChapter as any).mockResolvedValue({ status: 'ok' });
+    (api.addProcessingQueue as any).mockResolvedValue({ status: 'ok' });
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={readySpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+    fireEvent.click(screen.getByTitle('Rebuild Chapter'));
+    expect(await screen.findByText('Requeue Completed Chapter')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Yes, Rebuild It'));
+    await waitFor(() => {
+      expect(api.addProcessingQueue).toHaveBeenCalled();
+      // The 5th argument (forceRerender) must be true for the rebuild path
+      const call = (api.addProcessingQueue as any).mock.calls[0];
+      expect(call[4]).toBe(true);
+    });
+  });
+
   it('does not queue a rebuild if clearing existing chapter audio fails', async () => {
     const renderedChapter = {
       ...mockChapter,

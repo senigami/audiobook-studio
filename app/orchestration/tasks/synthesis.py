@@ -74,6 +74,7 @@ class SynthesisTask(StudioTask):
         safe_mode: bool = True,
         synthesis_settings: dict[str, Any] | None = None,
         script: list[dict[str, Any]] | None = None,
+        force_rerender: bool = False,
     ) -> None:
         self.task_id = task_id
         self.engine_id = engine_id
@@ -96,6 +97,7 @@ class SynthesisTask(StudioTask):
         self.safe_mode = safe_mode
         self.synthesis_settings = synthesis_settings or {}
         self.script = script
+        self.force_rerender = force_rerender
         self.submitted_at = time.monotonic()
         self._cancelled = False
 
@@ -171,6 +173,7 @@ class SynthesisTask(StudioTask):
             "safe_mode": self.safe_mode,
             "synthesis_settings": self.synthesis_settings,
             "script": self.script,
+            "force_rerender": self.force_rerender,
             # Phase 4 reconciliation context — the orchestrator reads
             # these fields when calling reconcile_work_item().
             "requested_revision": self.requested_revision,

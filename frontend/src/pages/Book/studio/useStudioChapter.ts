@@ -537,7 +537,7 @@ export function useStudioChapter({
             onBlocked('Failed to clear existing chapter audio before rebuild. Try clearing audio from the chapter list, then queue again.');
             return;
           }
-          await executeQueue(effectiveSelectedVoice, onBlocked, onSuccess);
+          await executeQueue(effectiveSelectedVoice, onBlocked, onSuccess, true);
         },
         confirmText: 'Yes, Rebuild It',
         isDestructive: true,

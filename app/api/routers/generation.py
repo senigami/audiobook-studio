@@ -263,7 +263,8 @@ def api_add_to_queue(
     project_id: str = Form(...),
     chapter_id: str = Form(...),
     split_part: int = Form(0),
-    speaker_profile: Optional[str] = Form(None)
+    speaker_profile: Optional[str] = Form(None),
+    force_rerender: bool = Form(False)
 ):
     try:
         settings = get_settings()
@@ -413,6 +414,7 @@ def api_add_to_queue(
                 voice_ref=voice_ref,
                 custom_title=display_title,
                 is_bake=has_bakeable_segments,
+                force_rerender=force_rerender,
                 safe_mode=bool(settings.get("safe_mode", True)),
                 make_mp3=make_mp3,
                 synthesis_settings=synthesis_settings,

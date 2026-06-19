@@ -82,6 +82,11 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                 return _segment_group_weight(g["segments"])
 
             def _group_is_done(g: dict) -> bool:
+                # force_rerender: rebuild action requires full re-synthesis; never reuse
+                # cached segment audio even if the segment is marked done on disk.
+                if getattr(j, "force_rerender", False):
+                    return False
+
                 all_segs_done = all(
                     s.get("audio_status") == "done" and s.get("audio_file_path")
                     for s in g["segments"]

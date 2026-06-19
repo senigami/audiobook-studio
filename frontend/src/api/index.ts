@@ -291,12 +291,13 @@ export const api = {
     const res = await fetch('/api/processing_queue');
     return parseApiResponse(res);
   },
-  addProcessingQueue: async (projectId: string, chapterId: string, splitPart: number = 0, speakerProfile?: string): Promise<any> => {
+  addProcessingQueue: async (projectId: string, chapterId: string, splitPart: number = 0, speakerProfile?: string, forceRerender: boolean = false): Promise<any> => {
     const formData = new FormData();
     formData.append('project_id', projectId);
     formData.append('chapter_id', chapterId);
     formData.append('split_part', splitPart.toString());
     if (speakerProfile) formData.append('speaker_profile', speakerProfile);
+    if (forceRerender) formData.append('force_rerender', 'true');
     const res = await fetch('/api/processing_queue', { method: 'POST', body: formData });
     return parseApiResponse(res);
   },
