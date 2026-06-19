@@ -1385,7 +1385,11 @@ describe('useJobs', () => {
     expect(job.active_segment_progress).toBe(0.35);
   });
 
-  it('treats segment_start frames at 0 progress as preparing until real synthesis progress arrives', async () => {
+  it('honors a running 0% segment frame (with an ETA) as running so the bar animates from the first update', async () => {
+    // The segment has genuinely started (START_SEGMENT / [PROGRESS] 0% after the
+    // engine confirmed synthesis), carrying a real per-segment ETA. The projector
+    // must NOT downgrade it to "preparing" — doing so nulls the predictive ETA and
+    // the text highlight can't animate until the second update (the slow start).
     const { result } = renderHook(() => useJobs());
     emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-segment-start', status: 'running', progress: 0 }] });
 
@@ -1399,7 +1403,7 @@ describe('useJobs', () => {
         payload: {
           status: 'running',
           progress: 0,
-          reasonCode: 'segment_start',
+          reasonCode: 'START_SEGMENT',
           etaSeconds: 19,
           segmentIndex: 0,
           segmentCount: 2,
@@ -1409,11 +1413,36 @@ describe('useJobs', () => {
 
     const job = result.current.jobs['job-segment-start'];
     expect(job).toBeDefined();
-    expect(job.status).toBe('preparing');
+    expect(job.status).toBe('running');
     expect(job.active_segment_id).toBe('seg-start');
     expect(job.active_segment_progress).toBe(0);
     expect(job.active_segment_eta_seconds).toBe(19);
     expect(job.eta_seconds).toBeUndefined();
+  });
+
+  it('still treats a SEGMENT_PENDING announce (no engine confirmation yet) as preparing', async () => {
+    // The genuine pre-confirmation/load window: announce before the engine confirms.
+    // No segment ETA → do not pace; show preparing.
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-pending', status: 'preparing', progress: 0 }] });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-pending', jobId: 'job-pending', chapterId: 'chap-1', projectId: 'proj-1' },
+        payload: {
+          status: 'running',
+          progress: 0,
+          reasonCode: 'SEGMENT_PENDING',
+          etaSeconds: null,
+        },
+      });
+    });
+
+    expect(result.current.jobs['job-pending']?.status).toBe('preparing');
   });
 
   it('proves queue.items updates cannot overwrite active_segment_eta_seconds while active_segment_id is present', async () => {
@@ -1460,40 +1489,45 @@ describe('useJobs', () => {
     expect(job.active_segment_updated_at).toBe(400);
   });
 
-  it('keeps status preparing for segment progress at zero and guards against queue.items overwriting it', async () => {
+  it('goes running on a running 0% segment frame (animate from frame 1) and keeps segment-local fields', async () => {
     const { result } = renderHook(() => useJobs());
 
     emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-prep-test', status: 'preparing', progress: 0 }] });
     expect(result.current.jobs['job-prep-test']?.status).toBe('preparing');
 
-    // 1. Emit segments.progress event with running status but progress 0 (sends active_segment_id = 'seg-1')
+    // 1. The real bug-triggering frame: the first [PROGRESS] line at raw 0% that the
+    //    backend publishes as running with reason_code SEGMENT_PROGRESS (started_at set)
+    //    — NOT the canonical START_SEGMENT (which the old projector already let through).
+    //    The projector must honor running so the bar can build a predictive lane
+    //    immediately (not force it to preparing). Fails on pre-fix code.
     emitEvent('segments.progress', 'segment_progress', {
       status: 'running',
       progress: 0.0,
       activeSegmentProgress: 0.0,
-      reasonCode: 'segment_start',
+      etaSeconds: 19,
+      reasonCode: 'SEGMENT_PROGRESS',
     }, { jobId: 'job-prep-test', segmentId: 'seg-1' });
 
-    // Job status should stay preparing
-    expect(result.current.jobs['job-prep-test']?.status).toBe('preparing');
+    expect(result.current.jobs['job-prep-test']?.status).toBe('running');
+    expect(result.current.jobs['job-prep-test']?.active_segment_id).toBe('seg-1');
+    expect(result.current.jobs['job-prep-test']?.active_segment_eta_seconds).toBe(19);
 
-    // 2. Emit queue.items status event with running status (should be ignored/prevented from overwriting)
+    // 2. A queue.items frame must not overwrite the segment-local ETA.
     emitEvent('queue.items', 'queue_item_status', {
       status: 'running',
       progress: 0.0,
     }, { jobId: 'job-prep-test' });
 
-    // Job status should still stay preparing
-    expect(result.current.jobs['job-prep-test']?.status).toBe('preparing');
+    expect(result.current.jobs['job-prep-test']?.status).toBe('running');
+    expect(result.current.jobs['job-prep-test']?.active_segment_eta_seconds).toBe(19);
 
-    // 3. Emit segments.progress event with non-zero progress
+    // 3. Continued progress stays running.
     emitEvent('segments.progress', 'segment_progress', {
       status: 'running',
       progress: 0.05,
       activeSegmentProgress: 0.05,
     }, { jobId: 'job-prep-test', segmentId: 'seg-1' });
 
-    // Job status should now transition to running
     expect(result.current.jobs['job-prep-test']?.status).toBe('running');
   });
 
@@ -1513,21 +1547,22 @@ describe('useJobs', () => {
     expect(result.current.jobs['job-early-prep']?.status).toBe('preparing');
   });
 
-  it('keeps 0% segment_start frame preparing even if active_segment_id has not been attached yet', async () => {
+  it('goes running on a running 0% segment frame (the real segment start signal)', async () => {
     const { result } = renderHook(() => useJobs());
 
     emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-early-prep-2', status: 'preparing', progress: 0, classification: 'segment' }] });
 
-    // Emit segments.progress segment_start event at 0% progress
+    // A running 0% segments.progress frame is the authoritative segment-start signal
+    // (synthesis confirmed) → honor running so the segment bar animates immediately.
     emitEvent('segments.progress', 'segment_progress', {
       status: 'running',
       progress: 0.0,
       activeSegmentProgress: 0.0,
-      reasonCode: 'segment_start',
+      etaSeconds: 19,
+      reasonCode: 'START_SEGMENT',
     }, { jobId: 'job-early-prep-2', segmentId: 'seg-2' });
 
-    // Job status should stay preparing
-    expect(result.current.jobs['job-early-prep-2']?.status).toBe('preparing');
+    expect(result.current.jobs['job-early-prep-2']?.status).toBe('running');
   });
 
   it('treats canonical START_SEGMENT at 0% as the segment timer start', async () => {

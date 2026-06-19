@@ -394,10 +394,13 @@ the startup estimate; it is now also applied to the live mid-render countdown.
 `[PROGRESS]`/`[SEGMENT_SAVED]` but **no** `[START_SEGMENT]` at all (e.g. a stale
 engine build), `active_segment_id` would otherwise stay null and `segments.progress`
 frames would be gated out — collapsing the segment progress bar and the script text
-highlight. The orchestrator's first `[PROGRESS]` therefore derives the active segment
-from the known render-group structure (`completed_group_count` → that group's leader
-id) when `active_seg_id` is null, then publishes the canonical `START_SEGMENT` frame
-for it. `[START_SEGMENT]` is thus advisory for segment identity, not load-bearing.
+highlight. The orchestrator derives the active segment from the known render-group
+structure (`completed_group_count` → that group's leader id) when `active_seg_id` is
+null: **primarily at `[START_SYNTHESIS]`** (the first group's leader is put on the
+running frame, UI-mount only — see 1.5.6), and **as a fallback at the first
+`[PROGRESS]`** (publishing the canonical `START_SEGMENT` frame) if synthesis began
+without a START_SYNTHESIS marker. `[START_SEGMENT]` is thus advisory for segment
+identity, not load-bearing.
 
 ---
 

@@ -41,9 +41,17 @@ export function buildSegmentsProgressProjection(
     const segmentProg = getVal(payload, 'activeSegmentProgress', 'active_segment_progress') ?? payload.progress;
     const rawStatus = getVal(payload, 'status', 'status');
     const rawReasonCode = getVal(payload, 'reasonCode', 'reason_code');
-    const isCanonicalSegmentStart = rawReasonCode === 'START_SEGMENT';
-    const isSegmentAtZero = (segmentProg ?? 0) <= 0;
-    const projectedStatus = isSegmentAtZero && !isCanonicalSegmentStart
+    // Honor the backend's segment status. Only an explicit pre-confirmation /
+    // load window is "preparing": the announce (SEGMENT_PENDING, before engine
+    // confirmation) or an indeterminate frame. Do NOT infer "preparing" from
+    // progress===0 — the backend now emits a true running 0% start
+    // (START_SEGMENT / [PROGRESS] 0% / the START_SYNTHESIS sync frame), and
+    // forcing those to "preparing" nulls the predictive ETA (resolveEndAtMs I10
+    // guard), so the segment bar + text highlight cannot animate until progress
+    // first exceeds 0 — the reported slow start (no animation until the 2nd update).
+    const isLoadWindow = rawReasonCode === 'SEGMENT_PENDING'
+        || getVal(payload, 'indeterminate', 'indeterminate') === true;
+    const projectedStatus = isLoadWindow
         ? 'preparing'
         : (rawStatus && rawStatus !== 'done' && rawStatus !== 'failed' && rawStatus !== 'cancelled')
             ? rawStatus
