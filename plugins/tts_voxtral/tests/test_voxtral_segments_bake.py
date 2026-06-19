@@ -12,6 +12,8 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from app.db.models import Job
+from plugins.tts_voxtral.plugin.studio.bake import handle_voxtral_bake
+from plugins.tts_voxtral.plugin.studio.segments import handle_voxtral_segments
 
 
 # ---------------------------------------------------------------------------
@@ -560,3 +562,151 @@ class TestHandlerRouting:
         assert result == "done"
         mock_bake.assert_called_once()
         mock_seg.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Mid-stream cancel guard tests: bake and segments handlers (R1-verified)
+# ---------------------------------------------------------------------------
+
+def _run_voxtral_bake_with_straggler_save(tmp_path, cancelled):
+    """Drive handle_voxtral_bake with a single unprocessed segment, firing a
+    straggler [SEGMENT_SAVED] from generate_via_bridge while the render's cancel
+    flag is `cancelled`. Returns done-writes (segment_id, kwargs) pairs where
+    audio_status='done'."""
+    pdir = tmp_path / "project"
+    pdir.mkdir()
+    (pdir / "segments").mkdir(parents=True, exist_ok=True)
+    out_wav = pdir / "output.wav"
+
+    segs = [{"id": "b1", "text_content": "Bake text.", "audio_status": "unprocessed",
+             "audio_file_path": None, "character_id": "c1",
+             "speaker_profile_name": "VoiceA", "segment_order": 1}]
+    groups = [{"segments": segs, "profile_name": "VoiceA"}]
+
+    done_writes = []
+    cancel_flag = {"v": False}
+
+    def capture_update_segment(segment_id, **updates):
+        if updates.get("audio_status") == "done":
+            done_writes.append((segment_id, updates))
+        return True
+
+    def generate_side_effect(**kwargs):
+        on_output = kwargs.get("on_output")
+        if cancelled:
+            cancel_flag["v"] = True  # cancel lands mid-render, before the save
+        if on_output:
+            seg_path = str((pdir / "segments" / "b1.wav").absolute())
+            on_output(f"[SEGMENT_SAVED] {seg_path}")
+        return 1  # rc=1 stops the handler before the success/stitch path
+
+    job = _make_job(is_bake=True)
+
+    mock_ctx = MagicMock()
+    mock_ctx.get_sanitize_categories.return_value = []
+    mock_ctx.build_chunk_groups.return_value = groups
+
+    with patch("plugins.tts_voxtral.plugin.studio.bake._get_ctx", return_value=mock_ctx), \
+         patch("plugins.tts_voxtral.plugin.studio.bake.get_chapter_segments", return_value=segs), \
+         patch("plugins.tts_voxtral.plugin.studio.bake.update_segment", side_effect=capture_update_segment), \
+         patch("plugins.tts_voxtral.plugin.studio.bake.generate_via_bridge", side_effect=generate_side_effect), \
+         patch("plugins.tts_voxtral.plugin.studio.bake._handler") as mock_handler_factory:
+
+        h = MagicMock()
+        mock_handler_factory.return_value = h
+
+        handle_voxtral_bake(
+            "bake-jid", job, time.time(),
+            lambda line: None, lambda: cancel_flag["v"],
+            pdir, out_wav, None, {},
+        )
+    return done_writes
+
+
+def test_cancelled_voxtral_bake_does_not_remark_segment_done(tmp_path):
+    """A cancelled voxtral bake render must not write segment audio_status='done' on a
+    straggler [SEGMENT_SAVED]. R1: before the `and not cancel_check()` guard this FAILS."""
+    done_writes = _run_voxtral_bake_with_straggler_save(tmp_path, cancelled=True)
+    assert not done_writes, (
+        f"cancelled voxtral bake re-marked segments done on a straggler save: {done_writes}"
+    )
+
+
+def test_active_voxtral_bake_marks_segment_done(tmp_path):
+    """Control: a non-cancelled voxtral bake render still marks its saved segment done,
+    proving the straggler save reaches the write and the guard is meaningful."""
+    done_writes = _run_voxtral_bake_with_straggler_save(tmp_path, cancelled=False)
+    assert done_writes, "expected a non-cancelled voxtral bake render to mark its saved segment done"
+
+
+def _run_voxtral_segments_with_straggler_save(tmp_path, cancelled):
+    """Drive handle_voxtral_segments with a single targeted segment, firing a
+    straggler [SEGMENT_SAVED] from generate_via_bridge while the render's cancel
+    flag is `cancelled`. Returns done-writes (segment_id, kwargs) pairs where
+    audio_status='done'."""
+    pdir = tmp_path / "project"
+    pdir.mkdir()
+    (pdir / "segments").mkdir(parents=True, exist_ok=True)
+
+    segs = [{"id": "s1", "text_content": "Seg text.", "audio_status": "unprocessed",
+             "audio_file_path": None, "character_id": "c1",
+             "speaker_profile_name": "VoiceA", "segment_order": 1}]
+    groups = [{"segments": segs, "profile_name": "VoiceA"}]
+
+    done_writes = []
+    cancel_flag = {"v": False}
+
+    def capture_update_segment(segment_id, **updates):
+        if updates.get("audio_status") == "done":
+            done_writes.append((segment_id, updates))
+        return True
+
+    def generate_side_effect(**kwargs):
+        on_output = kwargs.get("on_output")
+        if cancelled:
+            cancel_flag["v"] = True  # cancel lands mid-render, before the save
+        if on_output:
+            seg_path = str((pdir / "segments" / "s1.wav").absolute())
+            on_output(f"[SEGMENT_SAVED] {seg_path}")
+        return 1  # rc=1 stops the handler before the success path
+
+    job = _make_job(segment_ids=["s1"])
+
+    mock_ctx = MagicMock()
+    mock_ctx.get_text_chunk_limit.return_value = 500
+    mock_ctx.get_sanitize_categories.return_value = []
+    mock_ctx.build_chunk_groups.return_value = groups
+    mock_ctx.broadcast_segments_updated.return_value = None
+    mock_ctx.get_chapter_segments_counts.return_value = (0, 1)
+
+    with patch("plugins.tts_voxtral.plugin.studio.segments._get_ctx", return_value=mock_ctx), \
+         patch("plugins.tts_voxtral.plugin.studio.segments.get_chapter_segments", return_value=segs), \
+         patch("plugins.tts_voxtral.plugin.studio.segments.update_segment", side_effect=capture_update_segment), \
+         patch("plugins.tts_voxtral.plugin.studio.segments.generate_via_bridge", side_effect=generate_side_effect), \
+         patch("plugins.tts_voxtral.plugin.studio.segments._handler") as mock_handler_factory:
+
+        h = MagicMock()
+        mock_handler_factory.return_value = h
+
+        handle_voxtral_segments(
+            "seg-jid", job, time.time(),
+            lambda line: None, lambda: cancel_flag["v"],
+            pdir, None, {},
+        )
+    return done_writes
+
+
+def test_cancelled_voxtral_segments_does_not_remark_segment_done(tmp_path):
+    """A cancelled voxtral segments render must not write segment audio_status='done' on a
+    straggler [SEGMENT_SAVED]. R1: before the `and not cancel_check()` guard this FAILS."""
+    done_writes = _run_voxtral_segments_with_straggler_save(tmp_path, cancelled=True)
+    assert not done_writes, (
+        f"cancelled voxtral segments render re-marked segments done on a straggler save: {done_writes}"
+    )
+
+
+def test_active_voxtral_segments_marks_segment_done(tmp_path):
+    """Control: a non-cancelled voxtral segments render still marks its saved segment done,
+    proving the straggler save reaches the write and the guard is meaningful."""
+    done_writes = _run_voxtral_segments_with_straggler_save(tmp_path, cancelled=False)
+    assert done_writes, "expected a non-cancelled voxtral segments render to mark its saved segment done"

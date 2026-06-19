@@ -858,6 +858,15 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     pass
 
             if matched_marker == "SEGMENT_SAVED" or "[SEGMENT_SAVED]" in line:
+                # A cancelled render must not write segment 'done' state. cancel()
+                # sets task._cancelled synchronously (on_cancel) before the chapter
+                # reset clears the segments, so any straggler [SEGMENT_SAVED] from
+                # the not-yet-stopped engine subprocess that arrives after the reset
+                # would otherwise resurrect audio_status='done' and make the next
+                # render reuse stale audio. Drop it. (Mirrored in the xtts handler's
+                # chapter_on_output for the in-thread write path.)
+                if getattr(task, "_cancelled", False):
+                    return
                 try:
                     # [SEGMENT_SAVED] {path}
                     if "[SEGMENT_SAVED]" in line:
@@ -1005,6 +1014,14 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
 
         if wd:
             wd.register_log_listener(log_listener)
+            # Stash the listener + watchdog on the task so cancel() can unregister
+            # it synchronously: a cancelled job's listener should stop processing
+            # the engine's straggler output (progress noise, and — guarded above —
+            # segment 'done' writes) the moment the user cancels, not whenever the
+            # subprocess finally stops. The dispatch-exit unregisters below are the
+            # normal-completion path; double-unregister is a no-op.
+            setattr(task, "_log_listener", log_listener)
+            setattr(task, "_watchdog", wd)
 
         # 1. Try registry-based dispatch (Plugin handlers or generic kind handlers)
         reg = get_handler_registry()

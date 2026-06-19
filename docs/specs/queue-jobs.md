@@ -1,12 +1,13 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.2.2
+spec_version: 1.3.0
 status: active
-updated: 2026-06-16
+updated: 2026-06-19
 created: 2026-06-10
 sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
-         app/orchestration/scheduler/{orchestrator,policies,resources,recovery}.py,
+         app/orchestration/scheduler/{orchestrator,orchestrator_helpers,policies,resources,recovery}.py,
+         plugins/tts_xtts/plugin/studio/standard_handler.py,
          app/orchestration/progress/eta.py, app/core/boot.py, app/api/web.py,
          tests/db/test_state_rules.py, test_state_jobs_broadcast.py, test_db_reconcile.py,
          tests/orchestration/test_recovery_db_integration.py
@@ -16,6 +17,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.3.0   | 2026-06-19 | Cooperative-cancel lost-update fix (I17): `cancel()` synchronously detaches the task's engine-log listener (after `on_cancel()` sets the cancel flag), and both `[SEGMENT_SAVED]` `audio_status="done"` write sites — the orchestrator `log_listener` and the xtts handler's `chapter_on_output` — drop the write when the task is cancelled. Prevents a straggler save from the not-yet-stopped subprocess resurrecting segment state a chapter reset just cleared (which made the next render reuse stale audio). Prompt subprocess-stop remains a follow-up (G6). |
 | 1.2.2   | 2026-06-16 | Bug fix: `apply_status_regression_guard` now allows terminal→`preparing` (not only terminal→`queued`); matches §3.5 / `is_terminal_reset` / drop-guard which already treated both as valid resets. Fixed by expanding the `ACTIVE_STATUSES` check in `app/db/state_job_guards.py`. |
 | 1.2.1   | 2026-06-16 | §3.2 corrected line citations: `put_job` remap at `app/db/state_jobs.py:74-75`, `update_job` remap at `app/db/state_jobs.py:188-189`. |
 | 1.2.0   | 2026-06-13 | §10 Presentation surfaces added: documents where jobs are shown (queue drawer = glance, Activity page = depth) per north-star decision 9; dead `/queue` opens the drawer and bounces back; both surfaces read the same job data (live-events.md `queue.items` row authority) |
@@ -565,6 +567,7 @@ that these surfaces render are governed by
 - I14. Status MUST NOT regress to a lower-priority value unless it is a terminal reset or `force_broadcast=True`.
 - I15. Updates to terminal jobs MUST NOT be applied unless the incoming status is `queued`/`preparing` (reset) or `force_broadcast=True`.
 - I16. ETA fields MUST NOT be written by any path other than `update_job` / `state_jobs.py`.
+- I17. A cancelled render MUST NOT write segment `audio_status="done"`. `cancel()` sets the task's cancel flag (`on_cancel()`) and detaches its engine-log listener synchronously; both `[SEGMENT_SAVED]` done-write sites (orchestrator `log_listener`, xtts `chapter_on_output`) MUST drop the write while the task is cancelled, so a straggler save cannot resurrect state a chapter reset cleared.
 
 ---
 
@@ -584,6 +587,8 @@ Each invariant is verified by at least one existing test.
 | I8 — active_segment_progress forced 0 | `tests/db/test_state_rules.py::test_active_segment_progress_forced_to_zero_when_id_is_none` |
 | I8 — active_segment ETA cleared | `tests/db/test_state_rules.py::test_active_segment_eta_fields` |
 | I10 — B3 done-row guard | `tests/db/test_db_reconcile.py::test_reconcile_queue_status_does_not_reset_chapter_with_done_row` |
+| I17 — cancelled render no segment resurrection (path A: orchestrator listener) | `tests/orchestration/test_cancel_no_segment_resurrection.py::test_cancelled_render_does_not_remark_segment_done` |
+| I17 — cancelled render no segment resurrection (path B: xtts handler) | `plugins/tts_xtts/tests/test_handler.py::test_cancelled_chapter_render_does_not_remark_segment_done` |
 | I13 — progress regression blocked | `tests/db/test_state_rules.py::test_progress_regression_protection` |
 | I14 — status regression blocked | `tests/db/test_state_rules.py::test_status_regression_protection` |
 | I15 — terminal updates dropped | `tests/db/test_state_rules.py::test_force_broadcast_overrides_protection` |
@@ -632,3 +637,14 @@ Covered by `tests/db/test_state_jobs_broadcast.py::test_requeue_emits_terminal_r
 exercised as a side-effect of other tests but there is no dedicated test
 asserting that all four ETA fields are None after a `done`/`failed`/`cancelled`
 transition.
+
+**G6 — Cancellation is cooperative, not prompt.** `cancel()` signals the engine
+(`on_cancel()` → bridge cancel) and returns immediately; the engine subprocess
+keeps rendering its in-flight segment until it next checks the cancel signal.
+I17 makes this *correct* (the dead render can no longer resurrect segment state),
+but not *prompt* — wasted compute continues until the subprocess stops. A future
+hardening should make `cancel()` (or the chapter-reset path) wait, with a bounded
+timeout, for the engine to confirm the task stopped, and add a between-segments
+cancel poll in the xtts worker loop (`plugins/tts_xtts/plugin/core/xtts_inference.py`)
+so an in-flight chapter render aborts within one segment instead of running to
+completion.

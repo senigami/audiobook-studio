@@ -126,7 +126,12 @@ def handle_voxtral_segments(jid, j, start, on_output, cancel_check, pdir, voice_
 
     def seg_on_output(line):
         on_output(line)
-        if "[SEGMENT_SAVED]" in line:
+        # A cancelled render must not write segment 'done' state: a chapter reset
+        # clears segments to 'unprocessed', and a straggler [SEGMENT_SAVED] from the
+        # not-yet-stopped engine would otherwise resurrect audio_status='done' and
+        # make the next render reuse stale audio. (Mirrors the standard_handler
+        # chapter_on_output guard / I17.)
+        if "[SEGMENT_SAVED]" in line and not cancel_check():
             saved_path = line.split("[SEGMENT_SAVED]")[1].strip()
             group_segs = path_to_group.get(saved_path)
             if group_segs:

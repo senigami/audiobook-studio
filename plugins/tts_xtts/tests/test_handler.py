@@ -5,6 +5,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 from plugins.tts_xtts.plugin.studio import handler as xtts_handler
 from plugins.tts_xtts.plugin.studio.handler import handle_xtts_job, _group_job_progress
+from plugins.tts_xtts.plugin.studio.bake import handle_xtts_bake
+from plugins.tts_xtts.plugin.studio.segments import handle_xtts_segments
 from app.db.models import Job
 
 @pytest.fixture(autouse=True)
@@ -339,3 +341,225 @@ def test_group_job_progress_weights_short_groups_less():
     assert _group_job_progress(1, 3, 0.0, limit=0.9, group_weights=[500, 450, 50]) == 0.45
     assert _group_job_progress(2, 3, 0.0, limit=0.9, group_weights=[500, 450, 50]) == 0.85
     assert _group_job_progress(2, 3, 0.5, limit=0.9, group_weights=[500, 450, 50]) == 0.88
+
+
+def _run_standard_with_straggler_save(mock_job, tmp_path, cancelled):
+    """Drive handle_xtts_job through the standard chapter path with a single
+    unprocessed segment, firing a straggler [SEGMENT_SAVED] from the engine while
+    the render's cancel flag is `cancelled`. Returns the list of update_segment
+    calls that set audio_status='done' (the resurrection write at
+    standard_handler.py chapter_on_output)."""
+    pdir = tmp_path / "project"
+    pdir.mkdir()
+    (pdir / "segments").mkdir(parents=True, exist_ok=True)
+    out_wav = pdir / "output.wav"
+    out_mp3 = pdir / "output.mp3"
+
+    segs = [{"id": "s1", "character_id": "c1", "text_content": "Text 1", "audio_status": "unprocessed", "audio_file_path": None}]
+    done_writes = []
+    # Mid-stream cancel: the render is already past handle_xtts_job's entry guard
+    # and inside the engine stream when the user cancels. cancel_check is False at
+    # entry (so the handler runs) and flips True just before the straggler save is
+    # processed by chapter_on_output — exactly the production race.
+    cancel_flag = {"v": False}
+
+    def capture_update_segment(segment_id, **updates):
+        if updates.get("audio_status") == "done":
+            done_writes.append((segment_id, updates))
+        return True
+
+    def generate_side_effect(**kwargs):
+        on_output = kwargs.get("on_output")
+        if cancelled:
+            cancel_flag["v"] = True  # cancel lands mid-render, before the save below
+        if on_output:
+            # Straggler save arriving from the not-yet-stopped engine subprocess.
+            # rc=1 stops the handler before the success/stitch path so the ONLY
+            # done-write opportunity is chapter_on_output.
+            on_output("[SEGMENT_SAVED] " + str(pdir / "segments" / "s1.wav"))
+        return 1
+
+    with patch("plugins.tts_xtts.plugin.studio.handler.load_chunk_segments", side_effect=lambda chapter_id: [dict(s) for s in segs]), \
+         patch("plugins.tts_xtts.plugin.studio.standard_handler.update_segment", side_effect=capture_update_segment), \
+         patch("app.db.get_connection"), \
+         patch("app.db.update_segments_status_bulk"), \
+         patch("plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=generate_side_effect), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job"), \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value="spk.wav"):
+        handle_xtts_job(
+            "test_job", mock_job, time.time(),
+            print, lambda: cancel_flag["v"],
+            "default.wav", 1.0, pdir, out_wav, out_mp3, text="Fallback text",
+        )
+    return done_writes
+
+
+def test_cancelled_chapter_render_does_not_remark_segment_done(mock_job, tmp_path):
+    """A cancelled chapter render must not write segment audio_status='done' on a
+    straggler [SEGMENT_SAVED] — that would resurrect state a chapter reset just
+    cleared and make the next render reuse stale audio. R1: before the
+    `and not cancel_check()` guard this FAILS (the write fires regardless)."""
+    done_writes = _run_standard_with_straggler_save(mock_job, tmp_path, cancelled=True)
+    assert not done_writes, (
+        f"cancelled render re-marked segments done on a straggler save: {done_writes}"
+    )
+
+
+def test_active_chapter_render_marks_segment_done(mock_job, tmp_path):
+    """Control: a non-cancelled render still marks its saved segment done,
+    proving the straggler save reaches the write and the guard is meaningful."""
+    done_writes = _run_standard_with_straggler_save(mock_job, tmp_path, cancelled=False)
+    assert done_writes, "expected a non-cancelled render to mark its saved segment done"
+
+
+# ---------------------------------------------------------------------------
+# Mid-stream cancel guard tests: bake and segments handlers (R1-verified)
+# ---------------------------------------------------------------------------
+
+def _run_bake_with_straggler_save(mock_job, tmp_path, cancelled):
+    """Drive handle_xtts_bake with a single unprocessed segment, firing a
+    straggler [SEGMENT_SAVED] from generate_via_bridge while the render's cancel
+    flag is `cancelled`. Returns done-writes (segment_id, kwargs) pairs where
+    audio_status='done'."""
+    pdir = tmp_path / "project"
+    pdir.mkdir()
+    (pdir / "segments").mkdir(parents=True, exist_ok=True)
+    out_wav = pdir / "output.wav"
+
+    segs = [{"id": "b1", "text_content": "Bake text.", "audio_status": "unprocessed",
+             "audio_file_path": None, "character_id": "c1"}]
+    # Group struct mirroring ctx.build_chunk_groups output
+    groups = [{"segments": segs, "profile_name": "VoiceA"}]
+
+    done_writes = []
+    cancel_flag = {"v": False}
+
+    def capture_update_segment(segment_id, **updates):
+        if updates.get("audio_status") == "done":
+            done_writes.append((segment_id, updates))
+        return True
+
+    def generate_side_effect(**kwargs):
+        on_output = kwargs.get("on_output")
+        if cancelled:
+            cancel_flag["v"] = True  # cancel lands mid-render, before the save
+        if on_output:
+            seg_path = str((pdir / "segments" / "b1.wav").absolute())
+            on_output(f"[SEGMENT_SAVED] {seg_path}")
+        return 1  # rc=1 stops the handler before the success/stitch path
+
+    mock_ctx = MagicMock()
+    mock_ctx.get_text_chunk_limit.return_value = 500
+    mock_ctx.build_chunk_groups.return_value = groups
+
+    mock_job.is_bake = True
+    mock_job.safe_mode = False  # disable sanitize path to avoid MagicMock chaining
+
+    with patch("plugins.tts_xtts.plugin.studio.bake._get_ctx", return_value=mock_ctx), \
+         patch("plugins.tts_xtts.plugin.studio.bake.get_chapter_segments", return_value=segs), \
+         patch("plugins.tts_xtts.plugin.studio.bake.update_segment", side_effect=capture_update_segment), \
+         patch("plugins.tts_xtts.plugin.studio.bake.generate_via_bridge", side_effect=generate_side_effect), \
+         patch("plugins.tts_xtts.plugin.studio.bake._handler") as mock_handler_factory, \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value="spk.wav"), \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_voice_profile_dir", return_value=None):
+
+        h = MagicMock()
+        mock_handler_factory.return_value = h
+
+        handle_xtts_bake(
+            "bake-jid", mock_job, time.time(),
+            lambda line: None, lambda: cancel_flag["v"],
+            "default.wav", 1.0, pdir, out_wav,
+        )
+    return done_writes
+
+
+def test_cancelled_bake_render_does_not_remark_segment_done(mock_job, tmp_path):
+    """A cancelled bake render must not write segment audio_status='done' on a
+    straggler [SEGMENT_SAVED] — that would resurrect state a chapter reset just
+    cleared. R1: before the `and not cancel_check()` guard this FAILS."""
+    done_writes = _run_bake_with_straggler_save(mock_job, tmp_path, cancelled=True)
+    assert not done_writes, (
+        f"cancelled bake render re-marked segments done on a straggler save: {done_writes}"
+    )
+
+
+def test_active_bake_render_marks_segment_done(mock_job, tmp_path):
+    """Control: a non-cancelled bake render still marks its saved segment done,
+    proving the straggler save reaches the write and the guard is meaningful."""
+    done_writes = _run_bake_with_straggler_save(mock_job, tmp_path, cancelled=False)
+    assert done_writes, "expected a non-cancelled bake render to mark its saved segment done"
+
+
+def _run_segments_with_straggler_save(mock_job, tmp_path, cancelled):
+    """Drive handle_xtts_segments with a single targeted segment, firing a
+    straggler [SEGMENT_SAVED] from generate_via_bridge while the render's cancel
+    flag is `cancelled`. Returns done-writes (segment_id, kwargs) pairs where
+    audio_status='done'."""
+    pdir = tmp_path / "project"
+    pdir.mkdir()
+    (pdir / "segments").mkdir(parents=True, exist_ok=True)
+
+    segs = [{"id": "seg1", "text_content": "Seg text.", "audio_status": "unprocessed",
+             "audio_file_path": None, "character_id": "c1",
+             "speaker_profile_name": "VoiceA"}]
+
+    done_writes = []
+    cancel_flag = {"v": False}
+
+    def capture_update_segment(segment_id, **updates):
+        if updates.get("audio_status") == "done":
+            done_writes.append((segment_id, updates))
+        return True
+
+    def generate_side_effect(**kwargs):
+        on_output = kwargs.get("on_output")
+        if cancelled:
+            cancel_flag["v"] = True  # cancel lands mid-render, before the save
+        if on_output:
+            seg_path = str((pdir / "segments" / "seg1.wav").absolute())
+            on_output(f"[SEGMENT_SAVED] {seg_path}")
+        return 1  # rc=1 stops the handler before the success path
+
+    mock_ctx = MagicMock()
+    mock_ctx.get_text_chunk_limit.return_value = 500
+    mock_ctx.broadcast_segments_updated.return_value = None
+    mock_ctx.get_chapter_segments_counts.return_value = (0, 1)
+
+    mock_job.segment_ids = ["seg1"]
+    mock_job.is_bake = False
+    mock_job.safe_mode = False
+
+    with patch("plugins.tts_xtts.plugin.studio.segments._get_ctx", return_value=mock_ctx), \
+         patch("plugins.tts_xtts.plugin.studio.segments.get_chapter_segments", return_value=segs), \
+         patch("plugins.tts_xtts.plugin.studio.segments.update_segment", side_effect=capture_update_segment), \
+         patch("plugins.tts_xtts.plugin.studio.segments.generate_via_bridge", side_effect=generate_side_effect), \
+         patch("plugins.tts_xtts.plugin.studio.segments._handler") as mock_handler_factory, \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value="spk.wav"), \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_voice_profile_dir", return_value=None):
+
+        h = MagicMock()
+        mock_handler_factory.return_value = h
+
+        handle_xtts_segments(
+            "seg-jid", mock_job, time.time(),
+            lambda line: None, lambda: cancel_flag["v"],
+            "default.wav", 1.0, pdir,
+        )
+    return done_writes
+
+
+def test_cancelled_segments_render_does_not_remark_segment_done(mock_job, tmp_path):
+    """A cancelled segments render must not write segment audio_status='done' on a
+    straggler [SEGMENT_SAVED]. R1: before the `and not cancel_check()` guard this FAILS."""
+    done_writes = _run_segments_with_straggler_save(mock_job, tmp_path, cancelled=True)
+    assert not done_writes, (
+        f"cancelled segments render re-marked segments done on a straggler save: {done_writes}"
+    )
+
+
+def test_active_segments_render_marks_segment_done(mock_job, tmp_path):
+    """Control: a non-cancelled segments render still marks its saved segment done,
+    proving the straggler save reaches the write and the guard is meaningful."""
+    done_writes = _run_segments_with_straggler_save(mock_job, tmp_path, cancelled=False)
+    assert done_writes, "expected a non-cancelled segments render to mark its saved segment done"

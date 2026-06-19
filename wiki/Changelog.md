@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Fix] - 2026-06-19
+
+### Cancelled render can no longer resurrect segment audio (lost-update race)
+
+Chapter reset (and "Rebuild") cancels the active render, then clears the chapter's segments to `unprocessed`. But cancellation is cooperative: the engine subprocess keeps emitting `[SEGMENT_SAVED]` for its in-flight segment until it stops. Those straggler saves were re-marking segments `audio_status="done"` *after* the reset committed, so the next render saw every group "done" and reused stale audio instead of re-synthesizing (seen as a no-synthesis re-stitch).
+
+**What changed (`docs/specs/queue-jobs.md` → 1.3.0, invariant I17):**
+
+- `orchestrator.cancel()` now synchronously detaches the cancelled task's engine-log listener (right after `on_cancel()` sets the cancel flag), so straggler output stops reaching the orchestrator the moment the user cancels.
+- Both `[SEGMENT_SAVED]` → `audio_status="done"` write sites — the orchestrator `log_listener` and the xtts handler's `chapter_on_output` — now drop the write while the task is cancelled. A save that races the listener detach is still ignored.
+
+This complements the earlier `force_rerender` fix (which made the explicit Rebuild action authoritative) by fixing the underlying race for *all* reset flows (chapter text edit mid-render, clear-audio, etc.). Prompt subprocess-stop (so cancel also stops wasting compute) is tracked as a follow-up (spec G6).
+
 ## [Docs] - 2026-06-18
 
 ### Progress-routing unification — single-source contract at the event-builder layer

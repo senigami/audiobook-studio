@@ -422,6 +422,20 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         except Exception:
             logger.exception("Task %s: on_cancel() raised an exception.", task_id)
 
+        # Synchronously detach the task's engine-log listener so straggler output
+        # from the not-yet-stopped subprocess (progress frames, [SEGMENT_SAVED]
+        # re-marks) stops reaching the orchestrator the moment we cancel — before a
+        # caller (e.g. the chapter reset route) clears segment state. on_cancel()
+        # has already set the task's cancel flag, so the in-dispatch guards also
+        # drop any line that races this unregister.
+        _listener = getattr(task, "_log_listener", None)
+        _wd = getattr(task, "_watchdog", None)
+        if _listener is not None and _wd is not None:
+            try:
+                _wd.unregister_log_listener(_listener)
+            except Exception:
+                logger.exception("Task %s: failed to unregister log listener on cancel.", task_id)
+
         # Release any scheduler resources held by this task.
         claim_dict = _claim_to_dict(getattr(task, "resource_claim", None))
         claim_dict["task_id"] = task_id
