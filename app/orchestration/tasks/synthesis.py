@@ -225,6 +225,7 @@ class SynthesisTask(StudioTask):
             safe_mode=payload.get("safe_mode", True),
             synthesis_settings=payload.get("synthesis_settings"),
             script=payload.get("script"),
+            force_rerender=bool(payload.get("force_rerender", False)),
         )
 
     def run(self) -> TaskResult:

@@ -200,6 +200,46 @@ def test_markers_passed_to_on_output(tmp_path):
         mgr.shutdown()
 
 
+def test_every_job_receives_its_own_markers(tmp_path):
+    """Regression: EVERY job — not just the first — must stream its own stderr
+    markers to on_output.
+
+    The per-job reader threads leaked. After a job's stdout done-sentinel the
+    stdout reader returned, but the stderr reader stayed blocked on read() because
+    the warm worker's stderr never closes between jobs. The next job started a
+    SECOND stderr reader on the same pipe; the orphaned reader competed
+    byte-for-byte and stole the new job's markers into a dead queue. So the second
+    (and every later) chapter render emitted no [SEGMENT_SAVED]/progress markers —
+    segments never flipped to 'done' and the render bar jumped straight to ~complete,
+    which looked like cached/reused audio. One persistent reader per stream fixes it.
+
+    R1: on the pre-fix code the job-2 assertions FAIL (markers stolen); they pass
+    once the readers are per-worker, not per-job.
+    """
+    mgr = _make_manager(extra_env={"FAKE_WORKER_EMIT_SEGMENT": "1"})
+    try:
+        out1: list[str] = []
+        rc1 = mgr.run_job(
+            dict(_simple_job(tmp_path), task_id="job-1", out_path=str(tmp_path / "s1.wav")),
+            on_output=out1.append,
+            cancel_check=lambda: False,
+        )
+        out2: list[str] = []
+        rc2 = mgr.run_job(
+            dict(_simple_job(tmp_path), task_id="job-2", out_path=str(tmp_path / "s2.wav")),
+            on_output=out2.append,
+            cancel_check=lambda: False,
+        )
+        assert rc1 == 0 and rc2 == 0, f"rc1={rc1} rc2={rc2}"
+        for label, out in (("job-1", out1), ("job-2", out2)):
+            joined = "".join(out)
+            assert "[START_SYNTHESIS]" in joined, f"{label} missing [START_SYNTHESIS]; got {out}"
+            assert "[SEGMENT_SAVED]" in joined, f"{label} missing [SEGMENT_SAVED]; got {out}"
+            assert "[PROGRESS] 100%" in joined, f"{label} missing [PROGRESS] 100%; got {out}"
+    finally:
+        mgr.shutdown()
+
+
 # ---------------------------------------------------------------------------
 # Settings / disabled path
 # ---------------------------------------------------------------------------
