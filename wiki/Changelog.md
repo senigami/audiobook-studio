@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Fix] - 2026-06-19
 
+### Segment progress bar: confidence-gated ETA decay + per-segment confidence
+
+The per-segment render bar surged then stalled early in each segment, and the "confidence" value never reset between segments. Both are fixed in the single-source `ProgressService.enrich()` kernel.
+
+- **Segment ETA decay-handoff (`progress-presentation.md` §4A.10 / B11).** The per-segment ETA (`active_segment_eta_seconds`) was raw `remaining_from_update` extrapolation — a tiny first-interval velocity sample makes the implied total swing wildly early (observed in the capture: 22s→25s→13s with the bar speeding up and freezing). It now blends a grounded baseline (`seg_chars × seconds_per_char`, where `seg_chars` is the render group's character weight) with the live observed estimate on the implied-total-duration axis, weighted `w_base = c_base × (1 − progress)` — the owner's law: the baseline's influence equals its own historical confidence and decays to zero by completion. `c_base = min(engine_sample_count / N_MATURE, 1)` is the engine's historical maturity, **fixed per segment** (a freshly-verified engine ≈ 0.2 leans on the live estimate; a well-sampled engine ≈ 1.0 strongly anchors the noisy early frames, killing the surge). New pure helper `decay_segment_eta()`; new cheap reader `app.db.performance.engine_sample_count`. Only the emitted segment ETA changes — the §4A.3 chapter ETA composition still reads the raw observed value, so the chapter path is unchanged.
+- **Per-segment confidence (§4A.10 / B12).** `segments.progress` frames carried the chapter-level `eta_confidence`, which legitimately rises across the whole chapter and never resets — so every segment showed the same climbing number (seg 0: 0.20→0.77, seg 5: 0.79→0.97). They now carry the per-segment `seg_confidence` (from the segment-keyed ring, surfaced via `active_segment_eta_confidence`), resetting per `segment_id`; a saved segment reports `1.0`. The correct per-segment value was already computed for the §4A.3 composition but was discarded for the wire frame.
+
+Specs: `progress-presentation.md` → 1.5.0 (§4A.10, invariants B11/B12); `live-events.md` → 1.6.0 (segment payload semantics). All new tests R1 revert-checked.
+
 ### "Rebuild Audio" now actually re-renders everywhere (force_rerender parity)
 
 The explicit Rebuild action is meant to delete the existing render and re-synthesize from scratch, never reusing cached segment audio. Two paths didn't honor it:

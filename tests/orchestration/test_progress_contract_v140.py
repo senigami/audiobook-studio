@@ -15,6 +15,7 @@ from app.orchestration.progress.eta import (
     EtaSampleRing,
     compute_eta_confidence,
     crossfade_eta,
+    decay_segment_eta,
     apply_eta_ceiling,
     BASE_FLOOR,
     P_LO,
@@ -353,6 +354,92 @@ class TestB10EtaCrossfade:
         assert result <= expected_ceiling + 1e-9, (
             f"Expected result ≤ ceiling {expected_ceiling}, got {result}"
         )
+
+
+# ---------------------------------------------------------------------------
+# §4A.10 — segment ETA decay-handoff (confidence-gated baseline → observed)
+# ---------------------------------------------------------------------------
+
+class TestSegmentEtaDecay:
+    """§4A.10: the per-segment ETA blends a grounded baseline (early, gated by its
+    own confidence) with the live observed estimate (late, as the ring matures),
+    on the implied-total axis.
+
+    R1 revert-check: before the fix decay_segment_eta() did not exist and the
+    segment ETA was raw pass-through — these assertions would NameError / fail.
+    """
+
+    def test_none_baseline_returns_none(self):
+        """No baseline available → None (caller keeps the raw observed value)."""
+        assert decay_segment_eta(
+            progress=0.2, seg_eta_observed=25.0,
+            seg_total_baseline=None, base_confidence=0.2,
+        ) is None
+
+    def test_completion_returns_zero(self):
+        assert decay_segment_eta(
+            progress=0.999, seg_eta_observed=4.0,
+            seg_total_baseline=20.0, base_confidence=0.5,
+        ) == 0.0
+
+    def test_early_spike_is_suppressed_toward_baseline(self):
+        """The owner's case: at p=0.2 the live estimate spikes (25s ⇒ implied
+        total 31s) while the baseline is a stable 20s.  A well-sampled baseline
+        (high c_base) must pull the blended remaining below the raw 25s spike."""
+        raw_observed = 25.0
+        blended = decay_segment_eta(
+            progress=0.2,
+            seg_eta_observed=raw_observed,
+            seg_total_baseline=20.0,   # 20s total ⇒ baseline remaining = 16s
+            base_confidence=0.6,       # well-sampled engine
+        )
+        assert blended is not None
+        assert blended < raw_observed, (
+            f"early live spike must be damped toward baseline: {blended} !< {raw_observed}"
+        )
+        # And it must stay above the pure-baseline remaining (16s) — observed still counts.
+        assert blended > 16.0 - 1e-6
+
+    def test_late_progress_observed_dominates(self):
+        """As progress advances (w_base = c_base·(1−p) → 0) the blend collapses
+        toward the observed estimate, not the baseline."""
+        blended = decay_segment_eta(
+            progress=0.8,
+            seg_eta_observed=4.0,      # implied total 20s
+            seg_total_baseline=40.0,   # baseline grossly disagrees (40s total)
+            base_confidence=0.6,
+        )
+        assert blended is not None
+        # Observed remaining is 4s; baseline remaining would be 8s. Near the end the
+        # observed estimate must dominate.
+        assert blended < 6.0, f"late observed must dominate, got {blended}"
+
+    def test_zero_base_confidence_is_pure_observed(self):
+        """A baseline with no history (c_base=0) must not influence the estimate:
+        w_base=0 → the result equals the raw observed remaining."""
+        blended = decay_segment_eta(
+            progress=0.3,
+            seg_eta_observed=14.0,
+            seg_total_baseline=100.0,  # wildly off baseline — must be ignored
+            base_confidence=0.0,       # zero history → no trust
+        )
+        assert blended is not None
+        assert abs(blended - 14.0) < 1e-6, (
+            f"c_base=0 must yield pure observed (14s), got {blended}"
+        )
+
+    def test_full_base_confidence_at_start_anchors_baseline(self):
+        """c_base=1 at p≈0 → w_base≈1 → the stable baseline fully anchors the
+        noisy first frame (the surge-killer for a well-sampled engine)."""
+        blended = decay_segment_eta(
+            progress=0.0,
+            seg_eta_observed=40.0,     # wild first-frame spike
+            seg_total_baseline=20.0,   # stable baseline total
+            base_confidence=1.0,
+        )
+        assert blended is not None
+        # w_base=1 → pure baseline total 20s, remaining = 20×(1-0) = 20.
+        assert abs(blended - 20.0) < 1e-6, f"expected baseline anchor 20s, got {blended}"
 
 
 # ---------------------------------------------------------------------------

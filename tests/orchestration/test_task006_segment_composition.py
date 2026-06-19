@@ -11,6 +11,8 @@ the pre-fix failure mode and verifying RED before GREEN.
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 from app.orchestration.progress.eta import (
@@ -150,6 +152,126 @@ class TestSegmentScopeConfidenceProducer:
         assert ring_after == ring_before, (
             f"sample=False must not push to segment ring: "
             f"before={ring_before}, after={ring_after}"
+        )
+
+    def test_segment_frame_confidence_is_per_segment_not_chapter(self):
+        """The emitted segments.progress frame's `confidence` must be the PER-SEGMENT
+        seg_confidence (resets per segment_id), not the chapter-level eta_confidence
+        which rises monotonically across the whole chapter and never resets.
+
+        R1 revert-check: before the fix the segment builders passed
+        `confidence=payload.get("eta_confidence")` (service.py:395/456), so segment B's
+        first confidence would be >= segment A's last (chapter conf only rises) — the
+        reset assertion below FAILS.  After the fix, segment B resets to the cold-start
+        floor.  Mocks only the broadcaster (websocket boundary) — R2 compliant.
+        """
+        svc, events, wall_now, monotonic_now = _make_service()
+
+        def _seg_confidences(seg_id: str) -> list[float]:
+            out = []
+            for payload, _ in events:
+                if payload.get("topic") != "segments.progress":
+                    continue
+                inner = payload.get("payload", {})
+                if inner.get("activeSegmentId") == seg_id or inner.get("segmentId") == seg_id:
+                    c = inner.get("confidence")
+                    if isinstance(c, (int, float)):
+                        out.append(float(c))
+            return out
+
+        # Segment A — render across rising progress so its ring matures and
+        # seg_confidence climbs.
+        for p in (0.2, 0.5, 0.8):
+            wall_now["value"] += 5.0
+            monotonic_now["value"] += 5.0
+            svc.publish(
+                job_id="job-segconf-wire",
+                status="running",
+                progress=p,
+                eta_seconds=int(round(30 * (1 - p))),
+                chapter_id="chapter-1",
+                active_segment_id="seg-A",
+                active_segment_progress=p,
+                active_segment_eta_seconds=int(round(30 * (1 - p))),
+                render_group_count=2,
+            )
+
+        conf_a = _seg_confidences("seg-A")
+        assert conf_a, "expected segment A to emit segment-progress confidence values"
+        assert conf_a[-1] > conf_a[0], (
+            f"within a segment, per-segment confidence must rise: {conf_a}"
+        )
+
+        # Segment B — a NEW segment starts at low progress. Its confidence must RESET
+        # toward the cold-start floor, NOT continue from segment A's high value.
+        wall_now["value"] += 5.0
+        monotonic_now["value"] += 5.0
+        svc.publish(
+            job_id="job-segconf-wire",
+            status="running",
+            progress=0.85,
+            eta_seconds=20,
+            chapter_id="chapter-1",
+            active_segment_id="seg-B",
+            active_segment_progress=0.05,
+            active_segment_eta_seconds=24,
+            render_group_count=2,
+        )
+
+        conf_b = _seg_confidences("seg-B")
+        assert conf_b, "expected segment B to emit a segment-progress confidence value"
+        assert conf_b[0] < conf_a[-1], (
+            f"segment B confidence must RESET below segment A's matured value "
+            f"(per-segment, not chapter-level): segB_first={conf_b[0]} segA_last={conf_a[-1]}"
+        )
+
+    def test_emitted_segment_eta_is_decayed_toward_baseline_early(self):
+        """§4A.10: enrich() must blend the noisy early segment ETA toward the grounded
+        baseline.  With a well-sampled engine (high c_base) and an immature live ring
+        (low c_obs at the first frame), a 25s spike at 20% progress must be damped
+        toward the baseline-derived remaining (~16s), NOT emitted raw.
+
+        R1 revert-check: before the §4A.10 decay, enrich left active_segment_eta_seconds
+        as raw pass-through → the emitted etaSeconds would be 25, and the
+        `< 25` / `<= 18` assertions FAIL.  Mocks only the DB boundaries (historical
+        sample count + seconds_per_char), never ProgressService internals — R2.
+        """
+        svc, events, wall_now, monotonic_now = _make_service()
+
+        with patch("app.db.performance.engine_sample_count", return_value=10), \
+             patch("app.db.state_performance.seconds_per_char", return_value=0.04):
+            # 500 chars × 0.04 s/char = 20s grounded baseline total.
+            svc.publish(
+                job_id="job-decay",
+                status="running",
+                progress=0.2,
+                eta_seconds=20,
+                chapter_id="chapter-1",
+                active_segment_id="seg-decay",
+                active_segment_progress=0.2,
+                active_segment_eta_seconds=25,   # live spike (implied total 31s)
+                active_render_group_weight=500,
+                total_render_weight=500,
+                completed_render_weight=0,
+                render_group_count=1,
+            )
+
+        seg_etas = [
+            payload.get("payload", {}).get("etaSeconds")
+            for payload, _ in events
+            if payload.get("topic") == "segments.progress"
+            and payload.get("payload", {}).get("activeSegmentId") == "seg-decay"
+            and payload.get("payload", {}).get("etaSeconds") is not None
+        ]
+        assert seg_etas, "expected a segments.progress frame carrying an etaSeconds"
+        emitted = seg_etas[-1]
+        assert emitted < 25, (
+            f"early live spike (25s) must be damped, got raw-passthrough {emitted}"
+        )
+        # c_base=1 → w_base=0.8 at p=0.2 → blended total ≈22.25 → remaining ≈18s,
+        # firmly damped below the 25s raw spike and near the baseline.
+        assert 14 <= emitted <= 20, (
+            f"blended segment ETA should sit near the baseline remaining, got {emitted}"
         )
 
     def test_segment_ring_cleared_on_job_requeue(self):

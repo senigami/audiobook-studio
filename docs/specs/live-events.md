@@ -1,7 +1,7 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.5.6
+spec_version: 1.6.0
 status: active
 sources:
   - app/api/ws.py
@@ -18,6 +18,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.6.0   | 2026-06-19 | **`segments.progress` carries per-segment confidence + a decayed segment ETA (Path A).** The `segment_progress` payload's `confidence` is now the **per-segment** `seg_confidence` (resets per `segment_id`; `1.0` on `SEGMENT_SAVED`), not the chapter-level `eta_confidence` that rose monotonically across the whole chapter. `etaSeconds` is now the §4A.10 confidence-gated decay-handoff blend (grounded baseline ↔ live observed, weighted by the baseline's historical confidence) rather than raw `remaining_from_update` extrapolation — fixing the per-segment bar's early surge/stall. Both are computed in `ProgressService.enrich()`; see `progress-presentation.md` §4A.10 / invariants B11, B12. Additive payload semantics — envelope `version` stays 1; Option-B direct broadcasts are unchanged. |
 | 1.5.6   | 2026-06-19 | **First segment synced to the real synthesis start; plugin emits a true 0% start.** (1) At `[START_SYNTHESIS]` (the real synthesis start, after model load) the orchestrator marks the first render group's leader active at 0% on the running frame, so the segment progress bar mounts in lockstep with the queue going `running` — fixing the queue appearing ~7s before the segment and a non-zero chapter percent showing before the segment's 0%. UI-mount only: it does not set the per-segment render-timing clock or the START_SEGMENT dedup set, so real marker timing is unaffected. (2) The XTTS plugin now emits `[PROGRESS] 0%` at each segment's true start (before the first sentence), so the first progress signal is 0%, not the first sentence's ~20%. Requires a full app restart so the long-lived warm worker respawns with current plugin code. |
 | 1.5.5   | 2026-06-19 | **Queue cadence narrowed to real progress; inter-group gap factored into live ETA.** (1) `queue_item_status` (Path A) now emits only on a status transition OR a real ≥1% progress advance — NOT on same-percent ETA-only/confidence-only/silence-heartbeat frames, which were re-anchoring the frontend lane and ratcheting/jittering the displayed percent. Contract: the displayed percent changes only on real progress or real segment start/stop. (2) `[SEGMENT_SAVED]` re-anchors the chapter countdown to a gap-aware ETA (`remaining_chars/cps + groups_remaining × inter_group_overhead`), wiring the previously-dead `calculate_chapter_remaining_eta` so the bar no longer coasts through the model-reload gap. |
 | 1.5.4   | 2026-06-19 | **`queue.items` carries live progress (Path A); segment-id fallback when `[START_SEGMENT]` is missing.** (1) `ProgressService.publish` (Path A) now emits `queue_item_status` on every emit-gated frame (status change OR ≥1% advance) for `chapter`/`job` scope — making `queue.items` the row's live progress authority, not just status — so the global queue row no longer freezes at 0% mid-render. Segment scope stays status-only; `broadcast_job_updated` (Path B) stays status-only. See "Queue row authority". (2) When a render emits no `[START_SEGMENT]` markers, the orchestrator derives `active_segment_id` from the render-group structure at first `[PROGRESS]` (and publishes the canonical `START_SEGMENT` frame), so the segment progress bar + script highlight engage regardless of marker delivery. See "per-segment render clock". |
@@ -198,11 +199,18 @@ interface SegmentProgressPayload {
   segmentCount: number | null;
   message: string | null;
   reasonCode: string | null;
-  etaSeconds?: number | null;
+  etaSeconds?: number | null;        // §4A.10 decay-handoff blend (Path A), not raw extrapolation
   activeSegmentId?: string | null;
   activeSegmentProgress?: number | null;
+  confidence?: number | null;        // PER-SEGMENT confidence (resets per segment_id), not chapter eta_confidence; 1.0 on SEGMENT_SAVED — progress-presentation.md §4A.10 / B12
 }
 ```
+
+On the Path A `segments.progress` frame (from `ProgressService.publish`), `confidence` is the
+**per-segment** `seg_confidence` and `etaSeconds` is the §4A.10 confidence-gated decay blend — both
+computed in `enrich()`. The chapter-level `eta_confidence` is NOT used for segment frames. (Option-B
+direct `broadcast_segment_progress` frames remain outside the §4A contract and keep the client
+`computeProgressConfidence` fallback.)
 
 ### `voice.test` / `voice_test_progress`
 

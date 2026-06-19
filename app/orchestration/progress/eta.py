@@ -135,6 +135,68 @@ def crossfade_eta(
     return max(0.0, blended)
 
 
+def decay_segment_eta(
+    *,
+    progress: float,
+    seg_eta_observed: float | None,
+    seg_total_baseline: float | None,
+    base_confidence: float,
+) -> float | None:
+    """Confidence-gated decay handoff for the per-segment ETA (§4A.10).
+
+    Stabilises the noisy early per-segment ETA by blending a grounded baseline
+    with the live observed estimate **on the implied-total-duration axis** (not
+    remaining-seconds — blending remaining double-counts ``(1 - progress)``),
+    then deriving remaining ``= total × (1 - progress)``.
+
+    Weighting (the owner's law)::
+
+        w_base = base_confidence × (1 - progress)
+        eta    = w_base × total_baseline + (1 - w_base) × total_observed
+
+    The grounded baseline's influence equals its OWN confidence at the start and
+    decays linearly to 0 at completion ("20% conf ⇒ 20% influence at p=0, 10% at
+    p=0.5"); the live observed estimate takes the remainder and fully owns the
+    estimate by completion.  Edge behaviour falls out cleanly:
+
+    - ``base_confidence == 0`` (no history): ``w_base == 0`` → pure observed.
+    - ``base_confidence == 1`` at ``p == 0``: ``w_base == 1`` → the stable
+      baseline fully anchors the noisy first frames.
+    - ``p → 1``: ``w_base → 0`` → pure observed (the live run is now authoritative).
+
+    ``base_confidence`` rises with the engine's recorded sample count, so a
+    well-sampled engine gets a strong early baseline anchor (damping the surge),
+    while a freshly-verified engine (low confidence) leans on the live estimate
+    and self-corrects as samples accumulate.
+
+    Args:
+        progress:           Active-segment progress in [0, 1].
+        seg_eta_observed:   Live observed remaining seconds for the segment.
+        seg_total_baseline: Grounded total-duration estimate for the segment
+                            (seg_chars × seconds_per_char).
+        base_confidence:    Confidence of the baseline (historical maturity), [0,1].
+
+    Returns:
+        Blended remaining-seconds (≥ 0), or ``None`` when no baseline is available
+        (caller then keeps the raw observed value — today's behaviour).
+    """
+    if seg_total_baseline is None or seg_total_baseline <= 0:
+        return None
+    p = _clamp01(progress)
+    if p >= 0.999:
+        return 0.0
+
+    if seg_eta_observed is not None and seg_eta_observed > 0:
+        t_obs = float(seg_eta_observed) / max(1.0 - p, EPS)
+    else:
+        # No live estimate yet → lean entirely on the grounded baseline.
+        t_obs = float(seg_total_baseline)
+
+    w_base = _clamp01(base_confidence) * (1.0 - p)
+    t_blend = w_base * float(seg_total_baseline) + (1.0 - w_base) * t_obs
+    return max(0.0, t_blend * (1.0 - p))
+
+
 def apply_eta_ceiling(
     *,
     eta_seconds: float | None,

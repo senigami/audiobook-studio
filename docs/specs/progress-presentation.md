@@ -1,7 +1,7 @@
 # Progress Presentation Contract
 
 ```
-spec_version: 1.4.5
+spec_version: 1.5.0
 updated: 2026-06-19
 status: active
 sources:
@@ -25,6 +25,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.5.0   | 2026-06-19 | **Segment ETA decay-handoff + per-segment confidence (§4A.10).** Two segment-track fixes in `enrich()`. (1) **Segment ETA decay (B11):** the per-segment ETA (`active_segment_eta_seconds`) was raw `remaining_from_update` — noisy early, making the per-segment bar surge then stall. It now blends a grounded baseline (`seg_chars × seconds_per_char`, where `seg_chars = active_render_group_weight`) with the live observed estimate on the implied-total axis, weighted `w_base = c_base × (1 − p)` per the owner's law; `c_base` is the baseline's historical maturity `min(engine_sample_count / N_MATURE, 1)`, fixed per segment. New pure helper `decay_segment_eta()`; new reader `app.db.performance.engine_sample_count`. Only the emitted segment ETA changes — the §4A.3 chapter composition still reads the raw observed value. (2) **Per-segment confidence (B12):** `segments.progress` frames carried the chapter-level `eta_confidence` (rose monotonically across the whole chapter, never reset). They now carry the per-segment `seg_confidence` (from the segment-keyed ring, surfaced via `active_segment_eta_confidence`), resetting per `segment_id`; a saved segment reports `confidence = 1.0`. Added §4A.10, invariants **B11/B12**. |
 | 1.4.5   | 2026-06-19 | **Segment bar honors backend status (fixes slow-start highlight).** The `segments.progress` projector (`frontend/src/utils/segmentsProgressProjector.ts`) previously rewrote the backend segment status `running`→`preparing` whenever `activeSegmentProgress <= 0 && reasonCode !== 'START_SEGMENT'` — an obsolete heuristic from when the backend emitted pre-synthesis `preparing`. That manufactured `preparing` made `resolveEndAtMs` return null (I10), so the segment progress bar + text-highlight could not build a predictive lane and didn't animate until progress first exceeded 0 (the "slow start"). The projector now **honors the backend status**, projecting `preparing` only for an explicit load window (`reasonCode === 'SEGMENT_PENDING'` or `indeterminate`); a true running 0% start (START_SEGMENT / `[PROGRESS] 0%` / the START_SYNTHESIS sync) keeps `running` and animates from the first frame. (The `predictive` prop is a no-op for animation — lane motion is gated by status + ETA, not that flag.) |
 | 1.4.4   | 2026-06-19 | **Finite-display invariant (I11).** The bar rendered `NaN%` (raw optional `job.progress` from RailBookBlock → non-NaN-safe `clamp01`) and `NaN:NaN` in the ETA countdown (NaN `eta_seconds` slipped through `resolveEndAtMs` because `typeof NaN === "number"` and `NaN < 0` is false). `clamp01` now collapses non-finite to 0; `getLaneProgress` guards NaN duration; `resolveEndAtMs` finite-guards every numeric branch; `displayedRemaining` is null for a non-finite end time; `RailBookBlock` defaults `progress` to 0. New invariant **I11**. |
 | 1.4.3   | 2026-06-19 | **Determinate ETA gated on `running` (I10).** Fixes the captured bug where a chapter render emitted `eta_seconds: 57` during `queued`/`preparing` — before `[START_SYNTHESIS]`, across the ~21s XTTS model cold-load — anchored to queue time, then re-anchored at synthesis start, making the bar "jump"; one preparing frame even carried `indeterminate:true` AND `eta_seconds:57` together. `enrich()` now suppresses both the §4A.8 calculated ETA and any incoming observed ETA for non-`running` statuses (nulling `eta_seconds`/`eta_basis`/`estimated_end_at`/`eta_updated_at`); the cold ETA appears at the first `running` frame (START_SYNTHESIS), correctly anchored. Generalized §2.6 (window boundary corrected from `[START_SEGMENT]` announce to `[START_SYNTHESIS]`/first `[PROGRESS]`; new determinate-ETA-only-at-`running` bullet), added §4A.8 I-blend-gate, invariant **I10**. Frontend `PredictiveProgressBar.resolveEndAtMs` enforces the same gate defensively (no countdown for `queued`/`preparing`). Supersedes the 1.4.1 "cold/sparse frames emit non-null ETA" note, which now applies only at `running`. |
@@ -444,6 +445,39 @@ eta_calculated    = (total_chars - completed_chars) × seconds_per_char
 - Today the group weight already uses `len(text)` per group entry; this invariant extends it to
   **per-segment** credit within a group and to the calculated-ETA's `seconds_per_char` basis.
 
+### 4A.10 Segment ETA decay-handoff (confidence-gated baseline → observed)
+
+§4A.8 stabilises the **chapter** ETA. The **per-segment** ETA (`active_segment_eta_seconds`, the
+value that drives the per-segment render bar) was raw `remaining_from_update` extrapolation — noisy
+at the start of each segment (a tiny first-interval velocity sample), which makes the bar surge then
+stall. The segment ETA MUST be stabilised by a confidence-gated decay handoff in `enrich()`,
+analogous to §4A.8 but operating on the **implied total-duration axis** and weighted by the
+baseline's **own historical confidence**:
+
+```
+T_obs   = seg_eta_observed / (1 - p)          # implied total from the live estimate
+T_base  = seg_chars × seconds_per_char        # grounded baseline total (seg_chars = active_render_group_weight)
+w_base  = c_base × (1 - p)                     # baseline influence: its confidence, decaying with progress
+eta     = ( w_base · T_base + (1 - w_base) · T_obs ) × (1 - p)
+```
+
+- **c_base** is the baseline's historical maturity — `min(n_samples / N_MATURE, 1)` over the
+  engine's recorded render samples (`engine_sample_count`). A freshly-verified engine has ~1 sample
+  (`c_base ≈ 0.2`) so the baseline is given little influence and the live estimate leads;
+  `c_base` rises toward 1 as real renders accumulate, so a well-sampled engine gets a strong early
+  baseline anchor that damps the surge. **c_base is FIXED at segment start** (cached per
+  `segment_id`) — the `(1 - p)` term carries all intended time-variation.
+- **I-segeta:** the emitted segment ETA MUST equal the formula above when a baseline is available
+  (`seg_chars > 0` and a positive `seconds_per_char`); when no baseline is available the raw observed
+  value is kept. Edge behaviour: `c_base = 0` → pure observed; `c_base = 1, p = 0` → pure baseline
+  anchor; `p → 1` → pure observed; terminal/`p ≥ 0.999` → 0. *(New invariant B11.)*
+- **I-segconf:** a `segments.progress` frame's `confidence` MUST be the **per-segment** confidence
+  (a `seg_confidence` from the segment-keyed ring, resetting per `segment_id`), never the chapter-level
+  `eta_confidence` (which legitimately accumulates across the whole chapter). A finished segment
+  (`SEGMENT_SAVED`) reports `confidence = 1.0`. *(New invariant B12.)*
+- This blend only adjusts the **emitted segment ETA**; the §4A.3 chapter composition continues to
+  read the raw observed segment ETA, so the chapter ETA path is unchanged.
+
 ---
 
 ## 5. Terminal Eviction
@@ -534,6 +568,8 @@ The following invariants are binding on all callers and on the bar implementatio
 - **B8 (1.4.0)** — Chapter `progress`/`grouped_progress` MUST advance **continuously within** a render group from the active segment's progress, not only at group boundaries. The per-segment `[PROGRESS]` markers MUST feed `active_seg_progress` so the bar does not freeze mid-group and the ETA does not inflate during the stall (§4A.7).
 - **B9 (1.4.0)** — Progress/ETA weighting MUST be by **character count** (`weight(segment) = chars(segment)`, `progress = completed_chars/total_chars`), never segment count; within-group credit is per-segment chars (§4A.9).
 - **B10 (1.4.0)** — The displayed ETA MUST crossfade from the **calculated** ETA (`remaining_chars × seconds_per_char`, dominant at start) to the **observed** ETA (dominant toward completion) via a progress ramp, both bounded by the §4A.4 ceiling and converging to 0 (§4A.8).
+- **B11 (1.5.0)** — The emitted per-segment ETA (`active_segment_eta_seconds`) MUST be the §4A.10 confidence-gated decay blend of the grounded baseline (`seg_chars × seconds_per_char`) and the live observed estimate, weighted `w_base = c_base × (1 − p)` on the implied-total axis, when a baseline is available; otherwise the raw observed value is kept. `c_base` is the engine's historical maturity, fixed per `segment_id`. The blend MUST NOT alter the §4A.3 chapter composition input (§4A.10).
+- **B12 (1.5.0)** — A `segments.progress` frame's `confidence` MUST be the per-segment `seg_confidence` (segment-keyed ring, resetting per `segment_id`), never the chapter-level `eta_confidence`; a finished segment (`SEGMENT_SAVED`) reports `1.0` (§4A.10).
 
 ---
 

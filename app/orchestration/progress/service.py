@@ -18,6 +18,7 @@ from .eta import (
     apply_eta_ceiling,
     compute_eta_confidence,
     crossfade_eta,
+    decay_segment_eta,
     estimate_eta_seconds,
 )
 from .reconciliation import reconcile_work_item
@@ -92,6 +93,10 @@ class ProgressService:
         # Per-job index: maps job_id → set of segment_ids whose rings are owned by that job.
         # Used to evict segment rings when a job re-queues (same _lock guards this dict).
         self._job_segment_ids: dict[str, set[str]] = {}
+        # Per-segment baseline confidence (c_base), FIXED at segment start (§4A.10).
+        # Keyed by active_segment_id; computed once from the engine's historical
+        # sample count, then reused for the segment's lifetime.  Same _lock guards.
+        self._segment_base_conf: dict[str, float] = {}
         # Per-job timestamp of last ETA sample (wall seconds).
         self._eta_last_sample_time: dict[str, float] = {}
         # RLock guards per-job state R-M-W (leaf lock — MUST NOT be held while
@@ -392,7 +397,9 @@ class ProgressService:
                 source=payload.get("source"),
                 eta_seconds=None,
                 has_segment_support=resolved_has_segment_support,
-                confidence=payload.get("eta_confidence"),
+                # A saved/finished segment is fully known → confidence 1.0;
+                # never the rising chapter-level eta_confidence (per-segment scope).
+                confidence=1.0 if seg_status == "done" else payload.get("eta_confidence"),
             )
             self.broadcaster(payload=seg_event, channel="jobs")
 
@@ -412,6 +419,7 @@ class ProgressService:
                 seg_ids = self._job_segment_ids.pop(job_id, set())
                 for seg_id in seg_ids:
                     self._segment_eta_rings.pop(seg_id, None)
+                    self._segment_base_conf.pop(seg_id, None)
             # FIX 3: terminal-status cleanup — evict per-job ETA state AFTER the
             # terminal frame has been emitted so done/failed/cancelled jobs don't
             # leak _eta_rings/_segment_eta_rings/_job_segment_ids for the lifetime
@@ -425,6 +433,7 @@ class ProgressService:
                 seg_ids = self._job_segment_ids.pop(job_id, set())
                 for seg_id in seg_ids:
                     self._segment_eta_rings.pop(seg_id, None)
+                    self._segment_base_conf.pop(seg_id, None)
 
         # 1. Segment progress tick (first)
         if new_active_segment_id is not None or scope == "segment":
@@ -453,7 +462,13 @@ class ProgressService:
                 updated_at=payload.get("updated_at"),
                 has_segment_support=resolved_has_segment_support,
                 eta_updated_at=payload.get("eta_updated_at"),
-                confidence=payload.get("eta_confidence"),
+                # Per-segment confidence (resets per segment_id), falling back to
+                # the chapter eta_confidence only when no active segment is present.
+                confidence=(
+                    payload.get("active_segment_eta_confidence")
+                    if payload.get("active_segment_eta_confidence") is not None
+                    else payload.get("eta_confidence")
+                ),
             )
             self.broadcaster(payload=seg_event, channel="jobs")
 
@@ -602,6 +617,37 @@ class ProgressService:
             if persist:
                 self._last_progress_by_job[job_id] = normalized
         return normalized
+
+    def _segment_baseline_confidence(
+        self, segment_id: str, engine_id: str, *, sample: bool
+    ) -> float:
+        """Return c_base for a segment — its baseline's historical maturity (§4A.10).
+
+        Computed once per segment from the engine's recorded render-sample count
+        (``min(n / N_MATURE, 1)``) and cached for the segment's lifetime so the
+        decay weight is FIXED across the segment (the ``(1 - progress)`` term
+        carries all intended time-variation).  A freshly-verified engine has ~1
+        sample → c_base ≈ 0.2, rising toward 1.0 as real renders accumulate.
+
+        The COUNT query runs at most once per segment (cached); never per frame.
+        On the snapshot path (``sample=False``) the value is computed read-only
+        and not cached, mirroring the ring handling.
+        """
+        with self._lock:
+            cached = self._segment_base_conf.get(segment_id)
+        if cached is not None:
+            return cached
+        n = 0
+        try:
+            from app.db.performance import engine_sample_count  # noqa: PLC0415
+            n = engine_sample_count(str(engine_id or ""))
+        except Exception:
+            n = 0
+        c_base = min(max(n, 0) / float(N_MATURE), 1.0)
+        if sample:
+            with self._lock:
+                self._segment_base_conf[segment_id] = c_base
+        return c_base
 
     def enrich(self, job_id: str, payload: dict, *, sample: bool = True) -> dict:
         """Apply §4A progress-contract math to an in-progress payload dict.
@@ -786,6 +832,53 @@ class ProgressService:
                         cv=0.0,
                         n_samples=0,
                     )
+
+        # Task 006-A: surface the per-segment confidence so the SEGMENT frame
+        # carries its OWN confidence (resets per segment_id) instead of the
+        # chapter-level eta_confidence, which legitimately rises across the whole
+        # chapter.  publish() reads this for the segment-progress builders.
+        if seg_confidence is not None:
+            payload["active_segment_eta_confidence"] = seg_confidence
+
+        # §4A.10: segment ETA decay-handoff.  The raw per-segment ETA
+        # (active_segment_eta_seconds) is a noisy early extrapolation that makes
+        # the segment progress bar surge then stall.  Blend it with a grounded
+        # baseline (seg_chars × seconds_per_char) so the stable baseline leads
+        # early — scaled by its own historical confidence (c_base) and decaying
+        # with progress — and the live estimate takes over as the per-segment ring
+        # matures (c_obs).  Only the EMITTED segment ETA is adjusted; the §4A.3
+        # chapter composition below still reads the raw local active_seg_eta, so
+        # the chapter ETA path is unchanged.
+        if (
+            not is_terminal
+            and active_segment_id is not None
+            and active_seg_p is not None
+            and active_seg_p < 0.999
+        ):
+            active_w = payload.get("active_render_group_weight")
+            engine_id_seg = payload.get("engine_id") or payload.get("engine")
+            seg_total_baseline: float | None = None
+            if active_w is not None and float(active_w) > 0:
+                try:
+                    from app.db.state_performance import seconds_per_char as _spc  # noqa: PLC0415
+                    from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS  # noqa: PLC0415
+                    _spc_seg = _spc(str(engine_id_seg or ""), fallback_cps=DEFAULT_BASELINE_ENGINE_CPS)
+                    if _spc_seg is not None and _spc_seg > 0:
+                        seg_total_baseline = float(active_w) * _spc_seg
+                except Exception:
+                    seg_total_baseline = None
+            if seg_total_baseline is not None:
+                c_base_seg = self._segment_baseline_confidence(
+                    active_segment_id, str(engine_id_seg or ""), sample=sample
+                )
+                decayed_seg_eta = decay_segment_eta(
+                    progress=active_seg_p,
+                    seg_eta_observed=active_seg_eta,
+                    seg_total_baseline=seg_total_baseline,
+                    base_confidence=c_base_seg,
+                )
+                if decayed_seg_eta is not None:
+                    payload["active_segment_eta_seconds"] = int(round(decayed_seg_eta))
 
         # §4A.8 ETA crossfade: blend calculated (cold-start baseline) with observed.
         if is_terminal:
