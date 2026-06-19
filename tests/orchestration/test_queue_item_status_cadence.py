@@ -64,3 +64,27 @@ def test_progress_only_advance_emits_queue_item_status():
     last_q = _queue_events(events)[-1]
     assert last_q["payload"]["progress"] == 0.5
     assert last_q["payload"]["status"] == "running"
+
+
+def test_eta_only_frame_does_not_re_emit_queue_row():
+    """A same-percent frame (only the ETA changed) must NOT re-emit queue.items —
+    that re-anchors the frontend lane and ratchets/jitters the displayed percent.
+    The displayed percent changes only on real progress or status changes."""
+    svc, events, _, mono = _make_service()
+
+    svc.publish(
+        job_id="job-eta", status="running", scope="chapter", chapter_id="chap-1",
+        parent_job_id="proj-1", progress=0.30, eta_seconds=40, updated_at=100.0,
+    )
+    q_before = len(_queue_events(events))
+
+    # Same progress (0.30), only the ETA moved (40 → 20) → must not touch the row.
+    mono["v"] += 5.0
+    svc.publish(
+        job_id="job-eta", status="running", scope="chapter", chapter_id="chap-1",
+        parent_job_id="proj-1", progress=0.30, eta_seconds=20, updated_at=105.0,
+    )
+
+    assert len(_queue_events(events)) == q_before, (
+        "an ETA-only (same-percent) frame must not re-emit the queue row"
+    )

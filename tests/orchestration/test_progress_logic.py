@@ -562,10 +562,9 @@ def test_progress_service_segment_completion_matching_outcome():
         active_segment_id=None,
     )
 
-    # Segment completion + chapter progress + queue row refresh. A chapter-scope
-    # progress frame now refreshes the queue row (the row progress authority)
-    # even without a status change.
-    assert len(broadcast_events) == 3
+    # Segment completion + chapter progress only. No status change and no real
+    # progress advance on this frame → the queue row is NOT re-emitted (same-%).
+    assert len(broadcast_events) == 2
     seg_event = next(p for p, _ in broadcast_events if p["topic"] == "segments.progress")
     assert seg_event["ids"]["segmentId"] == "seg-1"
     assert seg_event["payload"]["status"] == "done"
@@ -573,7 +572,7 @@ def test_progress_service_segment_completion_matching_outcome():
 
     chap_event = next(p for p, _ in broadcast_events if p["topic"] == "chapters.progress")
     assert chap_event["topic"] == "chapters.progress"
-    assert any(p["topic"] == "queue.items" for p, _ in broadcast_events)
+    assert not any(p["topic"] == "queue.items" for p, _ in broadcast_events)
 
     # 3. Start another segment
     service.publish(
@@ -709,12 +708,14 @@ def test_progress_service_emits_active_segment_eta_only_updates():
         has_segment_support=True,
     )
 
-    # segment eta update + chapter progress + queue row refresh (chapter scope).
-    assert len(broadcast_events) == 3
+    # segment eta update + chapter progress only. ETA-only change with no progress
+    # advance → no queue.items re-emit (same-percent frame).
+    assert len(broadcast_events) == 2
     segment_event = next(p for p, _ in broadcast_events if p["topic"] == "segments.progress")
     chapter_event = next(p for p, _ in broadcast_events if p["topic"] == "chapters.progress")
     assert segment_event["payload"]["etaSeconds"] == 25
     assert chapter_event["topic"] == "chapters.progress"
+    assert not any(p["topic"] == "queue.items" for p, _ in broadcast_events)
 
 
 def test_meaningful_chapter_progress_emits_chapter_progress():
@@ -932,10 +933,10 @@ def test_progress_service_coerces_preparing_after_started_at():
         progress=0.0,
     )
 
-    # No jobs.lifecycle should be emitted because status did not change (it stayed
-    # "running"). chapters.progress + queue.items (row refresh) are emitted, both
+    # No jobs.lifecycle (status did not change, stayed "running") and no queue.items
+    # (no progress advance — same-percent coerced frame). Only chapters.progress,
     # with the coerced status "running".
-    assert len(broadcast_events) == 2
+    assert len(broadcast_events) == 1
     assert not any(p["topic"] == "jobs.lifecycle" for p, _ in broadcast_events)
     event = next(p for p, _ in broadcast_events if p["topic"] == "chapters.progress")
     assert event["topic"] == "chapters.progress"

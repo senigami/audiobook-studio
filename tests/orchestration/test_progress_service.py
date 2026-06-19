@@ -103,8 +103,10 @@ def test_publish_emits_heartbeat_after_silence():
         chapter_id="chapter-2",
     )
     assert repeated is not None
-    # Heartbeat after silence refreshes both the queue row and the chapter overlay.
-    assert len(events) == 5
+    # Heartbeat after silence (same percent) refreshes the chapter overlay only;
+    # the queue row is NOT re-emitted on a same-percent frame (no progress advance).
+    assert len(events) == 4
+    assert not [p for p, _ in events[3:] if p.get("topic") == "queue.items"]
 
 
 def test_publish_allows_explicit_progress_regression_for_recovery():

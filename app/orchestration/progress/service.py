@@ -322,13 +322,23 @@ class ProgressService:
         # only. Orchestrated transitions suppress the legacy ws job listener
         # (skip_job_updated), so the queue row must be mirrored here.
         #
-        # Cadence: always on a status change (every scope except voice_test), and
-        # ADDITIONALLY on every emit-gated progress frame for chapter/job scopes —
-        # otherwise the global queue row freezes at 0% and snaps to done.
-        # Segment-scope progress ticks are excluded: they drive the segment bar,
-        # not the parent queue row (which would otherwise churn on every tick).
+        # Cadence: emit on a status change, OR on a REAL progress advance (≥ the
+        # ≥1% emit-delta) for chapter/job scope. We deliberately do NOT emit on
+        # ETA-only / confidence-only / silence-heartbeat frames (same percent):
+        # those re-anchor the frontend lane and ratchet/jitter the displayed
+        # percent past real progress. The displayed percent must change only on
+        # real progress or real segment start/stop. Segment-scope ticks never
+        # touch the parent queue row (they drive the segment bar).
         _is_status_change = status_changed or previous is None
-        if scope != "voice_test" and (_is_status_change or scope != "segment"):
+        _prev_progress = previous.get("progress") if previous else None
+        _curr_progress = payload.get("progress")
+        _progress_advanced = (
+            scope != "segment"
+            and isinstance(_prev_progress, (int, float))
+            and isinstance(_curr_progress, (int, float))
+            and abs(float(_curr_progress) - float(_prev_progress)) >= self.min_progress_delta
+        )
+        if scope != "voice_test" and (_is_status_change or _progress_advanced):
             from app.api.contracts.events import build_queue_item_status_event  # noqa: PLC0415
             queue_status = {"completed": "done", "cancelling": "cancelled"}.get(status, status)
             existing_title = None

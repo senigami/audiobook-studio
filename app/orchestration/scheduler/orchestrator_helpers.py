@@ -112,6 +112,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
 
         engine_id = context.payload.get("engine_id") or getattr(task, "engine_id", "synthesis")
         calibrated_cps = None
+        calibrated_overhead = 0.0  # inter-group (model-reload) overhead seconds; gap factoring
         try:
             from app.db.state import get_performance_metrics  # noqa: PLC0415
             from app.orchestration.scheduler.eta import get_calibrated_model_params  # noqa: PLC0415
@@ -127,6 +128,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             params = get_calibrated_model_params(history)
             if params:
                 calibrated_cps = params[0]
+                calibrated_overhead = max(0.0, float(params[1]))
         except Exception:
             pass
 
@@ -876,10 +878,37 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         except Exception:
                             logger.exception("Failed to update segments %s on [SEGMENT_SAVED]", sids)
 
+                        # Gap-aware ETA at segment completion: re-anchor the
+                        # countdown to the synthesis time for the remaining groups
+                        # PLUS the inter-group (model-reload) overhead, so the bar
+                        # does not coast toward completion during the gap before the
+                        # next group starts. (Wires the previously-dead
+                        # calculate_chapter_remaining_eta; weight == char count.)
+                        # Degrades to the overhead-free estimate when no calibration
+                        # history exists (calibrated_overhead == 0).
+                        _saved_eta: int | None = None
+                        try:
+                            from app.orchestration.scheduler.eta import calculate_chapter_remaining_eta  # noqa: PLC0415
+                            from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS  # noqa: PLC0415
+                            _cps = calibrated_cps if (calibrated_cps and calibrated_cps > 0) else DEFAULT_BASELINE_ENGINE_CPS
+                            _remaining_w = max(int(total_weight) - int(completed_weight[0]), 0)
+                            _groups_remaining = max(render_group_count - completed_group_count[0], 0)
+                            if _remaining_w > 0 and _cps and _cps > 0:
+                                _saved_eta = calculate_chapter_remaining_eta(
+                                    active_group_remaining_chars=0,
+                                    remaining_chars=_remaining_w,
+                                    cps=_cps,
+                                    groups_remaining=_groups_remaining,
+                                    inter_group_overhead=calibrated_overhead,
+                                )
+                        except Exception:
+                            _saved_eta = None
+
                         self._publish(
                             context=context,
                             status="running",
                             progress=_get_grouped_progress(),
+                            eta_seconds=_saved_eta,
                             reason_code="SEGMENT_SAVED",
                             message=f"Completed segment {leader_id}",
                             started_at=timing["render_started_at"],
