@@ -772,6 +772,103 @@ def test_orchestrator_records_render_sample_marker_timing(clean_db, tmp_path, mo
     assert sample["inter_group_overhead_seconds"] == 5.0
 
 
+def test_reuse_render_skips_performance_sample_and_does_not_raise(clean_db, tmp_path, monkeypatch):
+    """A reuse render (cached segments re-stitched by ffmpeg — synthesis confirmed
+    started but no SEGMENT markers / no CHAPTER_SYNTHESIS_COMPLETE, so no synthesis
+    duration) must NOT call record_render_sample (which mandates a positive
+    synthesis duration) — it would raise the 'Failed to record render performance
+    sample' traceback and corrupt CPS calibration. The sample is skipped; produced
+    metadata is still finalized.
+
+    R1: before the fix, record_render_sample IS called (with synthesis_duration
+    None) and raises; after the fix it is not called.
+    """
+    from app.orchestration.tasks.synthesis import SynthesisTask
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext, TaskResult
+    from app.db.state import Job
+    from app.db.performance import get_render_history
+    from app.engines.behavior import normalize_behavior
+
+    job_id = "test-reuse-no-synth-job"
+    task = SynthesisTask(
+        task_id=job_id, engine_id="xtts", script_text="Hello world",
+        output_path="/tmp/out.wav", chapter_id="chap-1", voice_profile_id="Default",
+        script=[{"ids": ["seg-1"], "save_path": "/tmp/seg-1.wav", "text": "Hello world"}],
+    )
+    context = TaskContext(
+        task_id=job_id, task_type="synthesis", project_id="proj-1", chapter_id="chap-1",
+        payload={"engine_id": "xtts", "script_text": "Hello world", "voice_profile_id": "Default"},
+    )
+
+    jobs_db = {}
+    monkeypatch.setattr("app.db.state.put_job", lambda job: jobs_db.__setitem__(job.id, job))
+    monkeypatch.setattr("app.db.state.get_jobs", lambda: jobs_db)
+
+    def mock_update_job(jid, **kwargs):
+        job = jobs_db.get(jid)
+        if job:
+            for k, v in kwargs.items():
+                setattr(job, k, v)
+    monkeypatch.setattr("app.db.state.update_job", mock_update_job)
+
+    def mock_publish(self, context, status=None, progress=None, eta_seconds=None, started_at=None, **kwargs):
+        updates = {}
+        if status is not None:
+            updates["status"] = status
+        if started_at is not None:
+            updates["started_at"] = started_at
+        job_fields = Job.__dataclass_fields__
+        for k, v in kwargs.items():
+            if k in job_fields:
+                updates[k] = v
+        if updates and context.task_id in jobs_db:
+            jobs_db[context.task_id] = Job(**{**jobs_db[context.task_id].__dict__, **updates})
+
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_publish", mock_publish)
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_estimate_task_duration", lambda *a, **k: 10.0)
+    monkeypatch.setattr(
+        "app.engines.behavior.behavior_for_engine",
+        lambda engine_id, **kwargs: normalize_behavior({"behavior": {"timing_markers": {}}}["behavior"]),
+    )
+
+    listener_cb = [None]
+    class FakeWatchdog:
+        def register_log_listener(self, cb):
+            listener_cb[0] = cb
+        def unregister_log_listener(self, cb):
+            pass
+
+    jobs_db[job_id] = Job(id=job_id, engine="xtts", status="running", created_at=time.time())
+    mixin = OrchestratorHelpersMixin()
+
+    record_sample_mock = MagicMock()
+
+    def reuse_handler(*args, **kwargs):
+        listener = listener_cb[0]
+        assert listener is not None
+        # Synthesis confirmed started (render_started_at set), but NO segment markers
+        # and NO CHAPTER_SYNTHESIS_COMPLETE — i.e. a reuse/stitch-only render.
+        with patch("time.time", return_value=105.0):
+            listener("[START_SYNTHESIS]")
+        return TaskResult(status="completed")
+
+    with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_reg, \
+         patch("app.engines.watchdog.get_watchdog", return_value=FakeWatchdog()), \
+         patch("app.db.performance.record_render_sample", record_sample_mock), \
+         patch("app.domain.chunk_groups.load_chunk_segments", return_value=[]), \
+         patch("app.domain.chunk_groups.build_chunk_groups", return_value=[]), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"), \
+         patch("time.time", return_value=125.0):
+        mock_reg.return_value.get_handler.return_value = reuse_handler
+        mixin._dispatch(task=task, context=context)
+
+    record_sample_mock.assert_not_called()
+    assert len(get_render_history()) == 0
+    # Produced metadata is still finalized on the completed (reused) chapter.
+    assert getattr(jobs_db[job_id], "produced_chars", None) == len("Hello world")
+
+
 # ---------------------------------------------------------------------------
 # Engine-confirmed segment clock tests (mixed-render START_SEGMENT timing fix)
 # ---------------------------------------------------------------------------

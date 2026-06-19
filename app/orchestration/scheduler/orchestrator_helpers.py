@@ -353,28 +353,50 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         except (TypeError, ValueError):
                             model_load_seconds = None
 
-                record_render_sample(
-                    engine=str(payload.get("engine_id") or getattr(task, "engine_id", "")),
-                    tts_model=tts_model,
-                    chars=chars,
-                    word_count=word_count,
-                    segment_count=segment_count,
-                    duration_seconds=round(duration_seconds, 2),
-                    job_id=context.task_id,
-                    project_id=context.project_id,
-                    chapter_id=context.chapter_id,
-                    speaker_profile=payload.get("voice_profile_id"),
-                    render_group_count=render_group_count,
-                    started_at=started_at,
-                    audio_duration_seconds=audio_duration_seconds,
-                    completed_at=completed_at_val,
-                    synthesis_duration_seconds=synthesis_dur,
-                    model_load_seconds=model_load_seconds,
-                    sum_segment_render_seconds=(
-                        getattr(perf_job_obj, "sum_segment_render_seconds", None)
-                        if perf_job_obj else None
-                    ) or timing.get("sum_segment_render_seconds"),
-                )
+                sum_segment_render_seconds = (
+                    getattr(perf_job_obj, "sum_segment_render_seconds", None)
+                    if perf_job_obj else None
+                ) or timing.get("sum_segment_render_seconds")
+
+                # Only record a calibration sample when REAL synthesis happened —
+                # i.e. a synthesis duration was actually measured (markers, or the
+                # accumulated per-segment render time). A reuse render (cached
+                # per-segment audio re-stitched by ffmpeg — no synthesis markers,
+                # so no synthesis duration) has none; recording it would corrupt
+                # CPS/ETA calibration, and record_render_sample mandates a positive
+                # synthesis duration (it raises otherwise — the "Failed to record
+                # render performance sample" traceback the user saw). Skip it
+                # quietly; the produced-metadata finalize below still runs.
+                if (synthesis_dur is not None and synthesis_dur > 0) or (
+                    sum_segment_render_seconds is not None and sum_segment_render_seconds > 0
+                ):
+                    record_render_sample(
+                        engine=str(payload.get("engine_id") or getattr(task, "engine_id", "")),
+                        tts_model=tts_model,
+                        chars=chars,
+                        word_count=word_count,
+                        segment_count=segment_count,
+                        duration_seconds=round(duration_seconds, 2),
+                        job_id=context.task_id,
+                        project_id=context.project_id,
+                        chapter_id=context.chapter_id,
+                        speaker_profile=payload.get("voice_profile_id"),
+                        render_group_count=render_group_count,
+                        started_at=started_at,
+                        audio_duration_seconds=audio_duration_seconds,
+                        completed_at=completed_at_val,
+                        synthesis_duration_seconds=synthesis_dur,
+                        model_load_seconds=model_load_seconds,
+                        sum_segment_render_seconds=sum_segment_render_seconds,
+                    )
+                else:
+                    logger.debug(
+                        "Skipping render performance sample for task %s: no synthesis "
+                        "duration (reuse / stitch-only render).",
+                        context.task_id,
+                    )
+
+                # Finalize produced metadata for the completed (incl. reused) chapter.
                 try:
                     from app.db.state import update_job
                     update_job(

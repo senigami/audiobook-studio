@@ -180,13 +180,27 @@ class TestOrchestratorProgressTransitions:
              patch("app.orchestration.scheduler.orchestrator.release_task_resources"), \
              patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
              patch("app.db.performance.record_render_sample") as mock_record:
-            orchestrator.voice_bridge.synthesize.return_value = {"status": "ok"}
+            # Real synthesis: the bridge reports a timing payload, which yields a
+            # positive synthesis duration. A calibration sample is only recorded
+            # when a synthesis duration was actually measured — a reuse render
+            # (no timing/markers) is correctly skipped (see test_startup_eta).
+            orchestrator.voice_bridge.synthesize.return_value = {
+                "status": "ok",
+                "tts_server_result": {
+                    "timing": {
+                        "chapter_render_started_at": 100.0,
+                        "chapter_render_completed_at": 105.0,
+                        "segments": [{"render_started_at": 100.0, "render_completed_at": 105.0}],
+                    }
+                },
+            }
             orchestrator.submit(task)
 
         assert mock_record.call_count == 1
         assert mock_record.call_args.kwargs["engine"] == "xtts"
         assert mock_record.call_args.kwargs["job_id"] == "t-render"
         assert mock_record.call_args.kwargs["tts_model"] == "model-a"
+        assert mock_record.call_args.kwargs["synthesis_duration_seconds"] == 5.0
 
 
 class TestOrchestratorFailureDiagnostics:
