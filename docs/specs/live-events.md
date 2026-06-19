@@ -1,7 +1,7 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.5.2
+spec_version: 1.5.3
 status: active
 sources:
   - app/api/ws.py
@@ -18,6 +18,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.5.3   | 2026-06-19 | **Determinate ETA gated on `running`.** `queued`/`preparing` frames MUST carry `etaSeconds: null`; a determinate ETA appears only at `running` (the first `[START_SYNTHESIS]`/`[PROGRESS]` frame). A frame MUST NOT carry `indeterminate: true` together with a non-null `etaSeconds`. Fixes the pre-synthesis ETA leak (`enrich()` previously synthesized a calculated ETA at `queued`/`preparing`) that made the progress bar jump at synthesis start. See progress-presentation §2.6 / I10. |
 | 1.5.2   | 2026-06-18 | **Single-source progress contract at the event-builder layer.** Retired the dual-path allowance (orchestrated + handler-direct as independent emit paths). Both producers (`ProgressService.publish` via Path A, and `broadcast_job_updated` via Path B) now call `ProgressService.enrich(job_id, payload)` **before** building events, then thread the enriched `confidence`/`eta_seconds`/`eta_basis`/`estimated_end_at`/`grouped_progress` into every `build_*_event(...)` call — making the **event builders in `app/api/contracts/events.py`** the single contract authority. The Python `compute_progress_confidence` echo in `events.py` is deleted; §4A progress-bearing frames (jobs.lifecycle / chapters.progress / queue.items) carry backend-authoritative numeric `confidence` and builders fail-loud on `confidence=None`. The client (`liveEvents.ts`) retains a `computeProgressConfidence` fallback **only** for Option-B direct broadcasts (`segments.progress` / `voice.test`) that legitimately carry no §4A confidence — those frames are never enriched. Snapshot/hydration (`jobs_snapshot` + running queue rows) call `enrich(sample=False)` (read-only, does not mutate the ETA ring or monotonic floor) — PI6. See new ADR-0012. |
 | 1.5.2-c | 2026-06-18 | Clarification: the Python `compute_progress_confidence` echo is deleted from `events.py`; the identically-named client function in `liveEvents.ts` is **retained** as a fallback for non-§4A direct broadcasts (`segments.progress` / `voice.test`). The v1.5.2 claim of "echo deleted" referred to the backend only. |
 | 1.5.1   | 2026-06-16 | `segments.progress` topic: eventKind is only `segment_progress`; segment start/saved are signalled via `reasonCode` (`SEGMENT_PENDING`/`SEGMENT_SAVED`), not as distinct eventKinds. |
@@ -574,6 +575,9 @@ Rules:
   (only for terminal resets and explicit force-broadcast with non-terminal status).
 - Not broadcast a non-terminal frame for a job after its terminal frame, except
   via the `queued`/`preparing` re-entry (see "Terminal ordering guarantee").
+- Emit `etaSeconds: null` on any frame whose status is `queued` or `preparing`; a
+  determinate ETA appears only at `running` (progress-presentation §2.6 / I10).
+  Never emit `indeterminate: true` together with a non-null `etaSeconds`.
 
 **Client MUST:**
 - Enforce the queue row-authority table above: only `queue.items` creates,

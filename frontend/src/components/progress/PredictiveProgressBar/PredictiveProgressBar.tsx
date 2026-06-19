@@ -119,6 +119,7 @@ const resolveEndAtMs = ({
     etaBasis,
     estimatedEndAt,
     updatedAt,
+    presentationState,
 }: {
     nowMs: number;
     startedAt?: number;
@@ -126,7 +127,16 @@ const resolveEndAtMs = ({
     etaBasis?: 'remaining_from_update' | 'total_from_start';
     estimatedEndAt?: number;
     updatedAt?: number;
+    presentationState?: string;
 }) => {
+    // I10 (progress-presentation §2.6): a determinate ETA countdown is valid only
+    // once synthesis is running.  queued / preparing (incl. the model cold-load
+    // window) have no synthesis clock — honoring an ETA there anchors the
+    // countdown to queue time and makes it "jump" when synthesis starts.
+    // Defense-in-depth: ignore any ETA on these statuses even if a frame carries one.
+    if (isQueuedStatus(presentationState) || isPreparingStatus(presentationState)) {
+        return null;
+    }
     if (etaBasis === 'remaining_from_update' && typeof etaSeconds === 'number' && etaSeconds >= 0) {
         const anchorSeconds = updatedAt ?? (nowMs / 1000);
         return (anchorSeconds + etaSeconds) * 1000;
@@ -528,6 +538,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             etaBasis,
             estimatedEndAt,
             updatedAt,
+            presentationState,
         });
 
         const isTransitionAnimating = presentationState === 'done' && (

@@ -960,6 +960,104 @@ class TestColdEtaCrossfade:
 
 
 # ---------------------------------------------------------------------------
+# Pre-synthesis ETA gate: a determinate ETA is valid only at status=="running"
+# ---------------------------------------------------------------------------
+
+class TestPreSynthesisEtaGate:
+    """enrich() must NOT emit a determinate ETA before status == 'running'.
+
+    Before START_SYNTHESIS the job is queued or preparing (incl. the XTTS model
+    cold-load window).  There is no synthesis clock yet, so a calculated ETA
+    anchors to queue time and drifts across the load window — then re-anchors at
+    START_SYNTHESIS, making the progress bar "jump".  §2.6 / I10: queued and
+    preparing frames carry no determinate ETA; the determinate ETA begins at the
+    first running frame.
+
+    R1 revert-check: before the gate, enrich() computed eta_calculated from
+    char_count regardless of status, so a queued/preparing frame with char_count
+    produced a non-null eta_seconds (~57s in the captured render).
+      Pre-fix: result['eta_seconds'] ≈ char_count/cps  (RED)
+      Post-fix: None for queued/preparing; unchanged for running  (GREEN)
+    """
+
+    @pytest.mark.parametrize("status", ["queued", "preparing"])
+    def test_no_calculated_eta_before_running(self, status):
+        """Calculated (char_count) ETA must be suppressed pre-running."""
+        svc, _, _, _ = _make_service()
+        payload_in = {
+            "status": status,
+            "progress": 0.0,
+            "engine_id": "tts_xtts",
+            "char_count": 962,  # would yield ~57s via the calculated baseline
+        }
+        result = svc.enrich(f"pre-{status}", payload_in)
+        assert result.get("eta_seconds") is None, (
+            f"{status} frame must carry no determinate eta_seconds, "
+            f"got {result.get('eta_seconds')}"
+        )
+        assert result.get("eta_basis") is None
+        assert result.get("estimated_end_at") is None
+        assert result.get("eta_updated_at") is None
+
+    @pytest.mark.parametrize("status", ["queued", "preparing"])
+    def test_no_observed_eta_before_running(self, status):
+        """An incoming observed ETA must also be suppressed pre-running."""
+        svc, _, _, _ = _make_service()
+        payload_in = {
+            "status": status,
+            "progress": 0.0,
+            "engine_id": "tts_xtts",
+            "eta_seconds": 42,  # observed value present but synthesis not started
+        }
+        result = svc.enrich(f"pre-obs-{status}", payload_in)
+        assert result.get("eta_seconds") is None, (
+            f"{status} frame must suppress even an incoming observed eta_seconds, "
+            f"got {result.get('eta_seconds')}"
+        )
+
+    def test_indeterminate_preparing_frame_carries_no_eta(self):
+        """The LOADING_MODEL indeterminate frame must not also carry a determinate ETA.
+
+        Regression for the captured contradictory frame
+        (indeterminate=True AND eta_seconds=57 together).
+        """
+        svc, _, _, _ = _make_service()
+        payload_in = {
+            "status": "preparing",
+            "progress": 0.0,
+            "engine_id": "tts_xtts",
+            "char_count": 962,
+            "indeterminate": True,
+            "reason_code": "LOADING_MODEL",
+        }
+        result = svc.enrich("loading-model-job", payload_in)
+        assert result.get("eta_seconds") is None, (
+            "An indeterminate LOADING_MODEL frame must not carry a determinate ETA"
+        )
+        # The indeterminate flag itself must survive enrich untouched.
+        assert result.get("indeterminate") is True
+
+    def test_eta_appears_at_first_running_frame(self):
+        """The cold ETA must still appear at the first running frame (progress=0).
+
+        Guards against over-suppression: the determinate ETA begins exactly at
+        START_SYNTHESIS (status=running), anchored to that frame.
+        """
+        svc, _, _, _ = _make_service()
+        payload_in = {
+            "status": "running",
+            "progress": 0.0,
+            "engine_id": "tts_xtts",
+            "char_count": 962,
+        }
+        result = svc.enrich("first-running-job", payload_in)
+        assert result.get("eta_seconds") is not None, (
+            "First running frame must produce the cold calculated ETA"
+        )
+        assert result["eta_seconds"] > 0
+
+
+# ---------------------------------------------------------------------------
 # 003b-production — cold ETA via publish() (the production entry point)
 # ---------------------------------------------------------------------------
 

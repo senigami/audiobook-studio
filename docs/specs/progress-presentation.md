@@ -1,8 +1,8 @@
 # Progress Presentation Contract
 
 ```
-spec_version: 1.4.2
-updated: 2026-06-18
+spec_version: 1.4.3
+updated: 2026-06-19
 status: active
 sources:
   - frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx
@@ -25,6 +25,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.4.3   | 2026-06-19 | **Determinate ETA gated on `running` (I10).** Fixes the captured bug where a chapter render emitted `eta_seconds: 57` during `queued`/`preparing` — before `[START_SYNTHESIS]`, across the ~21s XTTS model cold-load — anchored to queue time, then re-anchored at synthesis start, making the bar "jump"; one preparing frame even carried `indeterminate:true` AND `eta_seconds:57` together. `enrich()` now suppresses both the §4A.8 calculated ETA and any incoming observed ETA for non-`running` statuses (nulling `eta_seconds`/`eta_basis`/`estimated_end_at`/`eta_updated_at`); the cold ETA appears at the first `running` frame (START_SYNTHESIS), correctly anchored. Generalized §2.6 (window boundary corrected from `[START_SEGMENT]` announce to `[START_SYNTHESIS]`/first `[PROGRESS]`; new determinate-ETA-only-at-`running` bullet), added §4A.8 I-blend-gate, invariant **I10**. Frontend `PredictiveProgressBar.resolveEndAtMs` enforces the same gate defensively (no countdown for `queued`/`preparing`). Supersedes the 1.4.1 "cold/sparse frames emit non-null ETA" note, which now applies only at `running`. |
 | 1.4.2   | 2026-06-18 | **§4A fully shipped; single-source enrich kernel; LOADING_MODEL UX; two-layer floor clarification.** (1) `ProgressService.enrich()` is the single RLock-guarded contract kernel — both producers (Path A `ProgressService.publish` and Path B `broadcast_job_updated`) call `enrich(sample=True)` before building events; snapshot/hydration calls `enrich(sample=False)` (PI6). `compute_progress_confidence` echo deleted; builders fail-loud on `confidence=None` for progress-bearing frames. (2) §4A.2 numeric confidence (variance × completion × freshness, §4A.5 cold-start maturity factor via `n_samples`) implemented and wired. (3) §4A.3 share-weighted segment→chapter ETA/confidence composition implemented in `enrich()`. (4) §4A.8 crossfade `crossfade_eta()` and §4A.4 ceiling `apply_eta_ceiling()` active in `enrich()`. (5) Added **§2.5** to clarify the two-layer monotonic floor: server `enrich` provides monotonically-clamped values; client `progressMemory` is the *display* floor authority. (6) Added **§2.6** for the LOADING_MODEL indeterminate window (Task 009). See also `docs/decisions/ADR-0012`. |
 | 1.4.1   | 2026-06-17 | **§4A.8 crossfade wiring in `enrich()` (003b).** `ProgressService.enrich()` now computes `eta_calculated = remaining_chars × seconds_per_char` from `script_text` + `engine_id` in the payload (falling back to `DEFAULT_BASELINE_ENGINE_CPS=16.7`) and crossfades it with the incoming observed `eta_seconds` via `crossfade_eta()`, then applies the §4A.4 mechanical ceiling via `apply_eta_ceiling()`. Cold/sparse frames (no incoming `eta_seconds`) with a `script_text` payload now emit a non-null, bounded `eta_seconds`. ETA is null only when both calculated and observed are unavailable. Terminal clearing and the sample=False invariant are preserved. `eta_basis` is set to `"calculated"` when only the baseline is used, `"remaining_from_update"` when an observed value contributed. |
 | 1.4.0   | 2026-06-17 | **ETA confidence redesign (target contract; implementation in progress).** Added §4A: a single backend-authoritative numeric `eta_confidence ∈ [0,1]` (deprecating the coarse `"stable"/"estimating"/"done"` string) with a three-term formula (variance × completion × freshness) that is **monotone-rising in progress**; §4A.3 segment→chapter **share-weighted** ETA/confidence composition (a confident late segment dominates; NOT a product); §4A.4 **convergence-to-zero** invariant (countdown ≤ mechanical remaining bound, forced to 0 at completion); §4A.5 variance MUST NOT punish a converging ETA; §4A.6 field/transport conformance — `eta_confidence` numeric must be consumed (today ignored by `live-jobs.ts`), `active_segment_eta_seconds` must be consumed (today dropped), and the undocumented flat `studio_job_event` transport must be documented in live-events.md. New invariants I7–I9, B4–B6. §2.3 cross-referenced to §4A.3. |
@@ -92,7 +93,7 @@ These two floors are complementary, not contradictory. The server floor prevents
 
 ### 2.6 LOADING_MODEL indeterminate state (Task 009)
 
-During the model-load window — from `preparing` status dispatch until the first `[START_SEGMENT]` engine marker — the backend emits an indeterminate progress frame:
+During the model-load window — from `preparing` status dispatch until engine confirmation that synthesis has actually started (the first `[START_SYNTHESIS]` or first `[PROGRESS]` marker, i.e. the status transition to `running` — NOT the earlier `[START_SEGMENT]` *announce*, which can precede a multi-second model cold-load) — the backend emits an indeterminate progress frame:
 
 ```jsonc
 {
@@ -110,6 +111,7 @@ Rules:
 - `loadingElapsedSeconds` is an optional float (seconds since `engine_activity_started_at`); it MAY be used for a wall-clock elapsed display but MUST NOT be used to fabricate a determinate ETA.
 - `indeterminate` absent or `false` means a determinate frame; the bar reverts to its normal progress-driven rendering.
 - No `eta_seconds` is emitted on a `LOADING_MODEL` frame; `eta_seconds` is `null`.
+- **Determinate ETA is valid only at status `running` (I10).** This generalizes the rule above beyond the explicitly-flagged `LOADING_MODEL` frame: frames with status `queued` or `preparing` MUST carry `eta_seconds: null` (and `eta_basis`/`estimated_end_at`/`eta_updated_at` null) *regardless of `reasonCode` or whether a `char_count` payload is present*. `enrich()` MUST NOT emit a §4A.8 calculated ETA (nor pass through an observed one) for a non-`running` status — before synthesis starts there is no synthesis clock, so any ETA would anchor to queue time and visibly "jump" when synthesis begins. The §4A.8 calculated→observed crossfade therefore begins at the first `running` frame. This supersedes the 1.4.1 changelog note that "cold/sparse frames with a `script_text` payload emit a non-null bounded `eta_seconds`": that now applies only once `status == running`. A frame MUST NOT carry `indeterminate: true` together with a non-null `eta_seconds`.
 - `expected_model_load_seconds` (a manifest field that would allow a determinate model-load countdown) is **DEFERRED** — do not implement or document it as available.
 - The frame is emitted by the orchestrator dispatcher (`orchestrator_helpers.py`) via `ProgressService.publish`; it passes through `enrich()` which preserves the `indeterminate` / `loading_elapsed_seconds` fields and does not compute ETA or confidence for this frame.
 - On the next frame that arrives after model load completes (first real `SEGMENT_PENDING` or `START_SEGMENT` derived frame), `indeterminate` is absent/false and the bar reverts to determinate rendering automatically.
@@ -414,6 +416,10 @@ eta_display = (1 - ramp) * eta_calculated + ramp * eta_observed
 - **I-blend:** at `progress = 0` the **calculated** ETA dominates; as `progress → 1` the
   **observed** ETA dominates. Both inputs MUST be bounded by the §4A.4 mechanical ceiling and the
   blended result MUST converge to 0 at completion. *(New invariant B10.)*
+- **I-blend-gate (1.4.3):** the crossfade is **gated on `status == running`**. At `queued`/`preparing`
+  no ETA is emitted (`eta_seconds = null`); the calculated source becomes active only at the first
+  `running` frame (§2.6, I10). "`progress = 0` calculated dominates" applies to the first *running*
+  frame, not to pre-synthesis frames.
 - This complements §4A.2: the ramp shifts which ETA *source* is trusted, while `eta_confidence`
   expresses how much to trust the displayed result; both rise/shift with progress.
 
@@ -511,6 +517,7 @@ The following invariants are binding on all callers and on the bar implementatio
 - **I7 (1.4.0)** — **Convergence:** the displayed remaining time MUST NOT exceed `CEIL_SLACK * (1-progress)/velocity` and MUST be 0 at completion/terminal, independent of EMA/slope smoothing (§4A.4).
 - **I8 (1.4.0)** — **Composition:** a high-confidence active-segment ETA covering the dominant remaining share MUST pull the displayed chapter ETA toward it and lift displayed confidence toward the segment's (share-weighted, never a product) (§4A.3).
 - **I9 (1.4.0)** — **Display = backend confidence:** the bar MUST display the backend numeric `eta_confidence` and MUST NOT invent a second confidence number; the internal `w` is seeded from it (§4A.1). A converging (monotonically dropping) ETA MUST NOT lower confidence (§4A.5).
+- **I10 (1.4.3)** — **ETA gated on `running`:** `eta_seconds` (and `eta_basis`/`estimated_end_at`/`eta_updated_at`) MUST be `null` for any frame whose status is not `running` — a determinate (calculated or observed) ETA MUST NOT appear on `queued`/`preparing` frames (incl. the model cold-load window); the §4A.8 crossfade begins at the first `running` frame (§2.6, §4A.8 I-blend-gate). A frame MUST NOT carry `indeterminate: true` together with a non-null `eta_seconds`. The frontend `PredictiveProgressBar` enforces the same gate defensively (`resolveEndAtMs` returns no countdown for `queued`/`preparing`).
 
 ### Backend (cross-reference `live-events.md`)
 

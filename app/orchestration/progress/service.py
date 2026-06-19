@@ -781,11 +781,22 @@ class ProgressService:
         else:
             p = float(normalized_progress) if normalized_progress is not None else 0.0
 
+            # §2.6 / I10: a determinate ETA is valid only once synthesis is
+            # actually running.  Before START_SYNTHESIS (queued / preparing /
+            # model cold-load) there is no synthesis clock — a calculated or
+            # observed ETA would anchor to queue time and drift across the load
+            # window, then re-anchor at START_SYNTHESIS and make the bar "jump".
+            # Suppress the observed input here; the calculated input is gated
+            # below; the trailing else then nulls all determinate ETA fields.
+            if status != "running":
+                eta_observed = None
+
             # Compute eta_calculated from character count + engine baseline.
             # char_count is threaded in by the publish path; enrich never reads script_text.
+            # Gated on status=="running" (I10): no calculated ETA pre-synthesis.
             eta_calculated: float | None = None
             char_count = payload.get("char_count")
-            if isinstance(char_count, int) and char_count > 0 and p < 0.999:
+            if status == "running" and isinstance(char_count, int) and char_count > 0 and p < 0.999:
                 engine_id = payload.get("engine_id") or payload.get("engine")
                 engine_id_str = str(engine_id) if engine_id else ""
                 try:
@@ -913,8 +924,13 @@ class ProgressService:
                     else:
                         payload["eta_updated_at"] = now
             else:
-                # Both calculated and observed unavailable — leave null.
+                # Both calculated and observed unavailable (or suppressed
+                # pre-running, I10) — clear ALL determinate ETA fields so no
+                # stale value survives onto a queued/preparing frame.
                 payload["eta_seconds"] = None
+                payload["eta_basis"] = None
+                payload["estimated_end_at"] = None
+                payload["eta_updated_at"] = None
 
         # --- §4A.7 / item-5: grouped_progress terminal clamp -----------------
         # Terminal status MUST reach grouped_progress=1.0.  The 0.90 stitching-room

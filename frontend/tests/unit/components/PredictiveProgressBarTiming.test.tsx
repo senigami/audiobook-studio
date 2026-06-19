@@ -691,4 +691,77 @@ describe('PredictiveProgressBar - Timing', () => {
 
         vi.useRealTimers()
     })
+
+    // I10 (progress-presentation §2.6): a determinate ETA countdown is valid
+    // only at status 'running'.  queued / preparing (model cold-load) must not
+    // resolve a determinate end time even if a frame carries etaSeconds — honoring
+    // it would anchor the countdown to queue time and make it jump at synthesis.
+    //
+    // We assert on snapshot.displayedRemaining (the value resolveEndAtMs feeds the
+    // lane) rather than the rendered "ETA:" text: the ETA text is independently
+    // hidden by terminalStatusText ("Queued") and busyStatusText ("Working..."),
+    // so a DOM-text assertion would pass even on pre-fix code and would NOT
+    // revert-check the resolveEndAtMs gate.  displayedRemaining IS controlled by
+    // the gate (null when suppressed, a number when honored).
+    it.each(['preparing', 'queued'] as const)(
+        'suppresses the determinate ETA countdown while %s',
+        (status) => {
+            const now = Date.now()
+            vi.spyOn(Date, 'now').mockReturnValue(now)
+            let snapshot: any = null
+            render(
+                <PredictiveProgressBar
+                    progress={0}
+                    startedAt={undefined}
+                    etaSeconds={57}
+                    etaBasis="remaining_from_update"
+                    updatedAt={now / 1000}
+                    label="Loading"
+                    status={status}
+                    onDebugSnapshot={(snap) => { snapshot = snap; }}
+                />
+            )
+            // No determinate end time is resolved for the lane → no countdown.
+            expect(snapshot.displayedRemaining).toBeNull()
+            // And no ETA text is shown either.
+            expect(screen.queryByText(/ETA:/i)).toBeNull()
+            vi.restoreAllMocks()
+        },
+    )
+
+    it('shows the determinate ETA once the bar transitions to running', () => {
+        const now = Date.now()
+        vi.spyOn(Date, 'now').mockReturnValue(now)
+        let snapshot: any = null
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0}
+                etaSeconds={57}
+                etaBasis="remaining_from_update"
+                updatedAt={now / 1000}
+                label="Loading"
+                status="preparing"
+                onDebugSnapshot={(snap) => { snapshot = snap; }}
+            />
+        )
+        // No countdown resolved during preparing...
+        expect(snapshot.displayedRemaining).toBeNull()
+        expect(screen.queryByText(/ETA:/i)).toBeNull()
+        // ...then it appears at running (anchored to the running frame).
+        rerender(
+            <PredictiveProgressBar
+                progress={0}
+                startedAt={now / 1000}
+                etaSeconds={57}
+                etaBasis="remaining_from_update"
+                updatedAt={now / 1000}
+                label="Synthesizing"
+                status="running"
+                onDebugSnapshot={(snap) => { snapshot = snap; }}
+            />
+        )
+        expect(snapshot.displayedRemaining).toBe(57)
+        expect(screen.getByText(/ETA:/i)).toBeTruthy()
+        vi.restoreAllMocks()
+    })
 })
