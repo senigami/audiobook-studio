@@ -125,6 +125,43 @@ def test_progress_frames_carry_active_segment_id_without_start_segment_marker():
     assert "seg-2" in active_ids
 
 
+def test_first_segment_announced_at_start_synthesis():
+    """At [START_SYNTHESIS] (the real synthesis start) the first render group's
+    leader must be marked started at 0% — so the segment progress bar mounts in
+    lockstep with the queue going 'running', not seconds later at the first
+    [PROGRESS] tick. Drives a stream containing ONLY [START_SYNTHESIS]: with the
+    sync fix a START_SEGMENT frame is published; without it none is (the segment
+    would only be derived at the first PROGRESS)."""
+    bridge = MagicMock()
+    orc = MockOrchestrator()
+    task = TwoGroupTask(bridge)
+    context = task.describe()
+    wd = TtsServerWatchdog()
+
+    start_only_stream = ["[START_SYNTHESIS] job-no-start-seg\n"]
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
+         patch("app.db.update_segments_bulk", lambda *a, **kw: None), \
+         patch("app.api.ws.broadcast_segments_updated", lambda *a, **kw: None):
+        def _side_effect(*args, **kwargs):
+            wd._drain_stream(None, "stdout", MockStream(start_only_stream[:]))
+            return {"status": "ok"}
+        bridge.synthesize.side_effect = _side_effect
+        orc._dispatch(task=task, context=context)
+
+    # The running (synthesis-start) frame must carry the first group's leader as
+    # active_segment_id, so the segment bar mounts in sync — even with no PROGRESS yet.
+    seg_frames = [e for e in orc.published if e.get("active_segment_id") == "seg-1a"]
+    assert seg_frames, (
+        "the first segment (group-0 leader) must be active on the START_SYNTHESIS "
+        "running frame so the segment bar mounts in sync with the queue"
+    )
+    assert seg_frames[0].get("active_segment_progress") in (0, 0.0), (
+        "the first segment must mount at 0%"
+    )
+
+
 def test_canonical_start_segment_frame_published_for_synthesized_segment():
     """The synthesized active segment must still get a canonical START_SEGMENT frame
     (published at first-PROGRESS engine confirmation), so the frontend bar mounts."""

@@ -1,7 +1,7 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.5.5
+spec_version: 1.5.6
 status: active
 sources:
   - app/api/ws.py
@@ -18,6 +18,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.5.6   | 2026-06-19 | **First segment synced to the real synthesis start; plugin emits a true 0% start.** (1) At `[START_SYNTHESIS]` (the real synthesis start, after model load) the orchestrator marks the first render group's leader active at 0% on the running frame, so the segment progress bar mounts in lockstep with the queue going `running` — fixing the queue appearing ~7s before the segment and a non-zero chapter percent showing before the segment's 0%. UI-mount only: it does not set the per-segment render-timing clock or the START_SEGMENT dedup set, so real marker timing is unaffected. (2) The XTTS plugin now emits `[PROGRESS] 0%` at each segment's true start (before the first sentence), so the first progress signal is 0%, not the first sentence's ~20%. Requires a full app restart so the long-lived warm worker respawns with current plugin code. |
 | 1.5.5   | 2026-06-19 | **Queue cadence narrowed to real progress; inter-group gap factored into live ETA.** (1) `queue_item_status` (Path A) now emits only on a status transition OR a real ≥1% progress advance — NOT on same-percent ETA-only/confidence-only/silence-heartbeat frames, which were re-anchoring the frontend lane and ratcheting/jittering the displayed percent. Contract: the displayed percent changes only on real progress or real segment start/stop. (2) `[SEGMENT_SAVED]` re-anchors the chapter countdown to a gap-aware ETA (`remaining_chars/cps + groups_remaining × inter_group_overhead`), wiring the previously-dead `calculate_chapter_remaining_eta` so the bar no longer coasts through the model-reload gap. |
 | 1.5.4   | 2026-06-19 | **`queue.items` carries live progress (Path A); segment-id fallback when `[START_SEGMENT]` is missing.** (1) `ProgressService.publish` (Path A) now emits `queue_item_status` on every emit-gated frame (status change OR ≥1% advance) for `chapter`/`job` scope — making `queue.items` the row's live progress authority, not just status — so the global queue row no longer freezes at 0% mid-render. Segment scope stays status-only; `broadcast_job_updated` (Path B) stays status-only. See "Queue row authority". (2) When a render emits no `[START_SEGMENT]` markers, the orchestrator derives `active_segment_id` from the render-group structure at first `[PROGRESS]` (and publishes the canonical `START_SEGMENT` frame), so the segment progress bar + script highlight engage regardless of marker delivery. See "per-segment render clock". |
 | 1.5.3   | 2026-06-19 | **Determinate ETA gated on `running`.** `queued`/`preparing` frames MUST carry `etaSeconds: null`; a determinate ETA appears only at `running` (the first `[START_SYNTHESIS]`/`[PROGRESS]` frame). A frame MUST NOT carry `indeterminate: true` together with a non-null `etaSeconds`. Fixes the pre-synthesis ETA leak (`enrich()` previously synthesized a calculated ETA at `queued`/`preparing`) that made the progress bar jump at synthesis start. See progress-presentation §2.6 / I10. |

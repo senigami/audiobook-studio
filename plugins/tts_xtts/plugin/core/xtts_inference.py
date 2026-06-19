@@ -360,6 +360,14 @@ def _run_serve_job(job: dict, tts, xtts_model, device) -> int:
                     _emit_stderr_line(f"[START_SEGMENT] {segment['id']}", flush=True)
                 elif "save_path" in segment:
                     _emit_stderr_line(f"[START_SEGMENT] {segment['save_path']}", flush=True)
+                # True 0% start anchor: emit progress 0 at the real start of this
+                # segment's synthesis (before the first sentence), so the segment
+                # progress bar starts at 0% in sync with synthesis starting — not
+                # first appearing at the first sentence's non-zero percent.
+                _seg_start_progress = "[PROGRESS] 0%"
+                if task_id:
+                    _seg_start_progress += f" {task_id}"
+                _emit_stderr_line(_seg_start_progress, flush=True)
 
                 text = segment.get("text", "")
                 sw = segment.get("speaker_wav")
@@ -694,6 +702,11 @@ def main():
                     print(f"[START_SEGMENT] {segment['id']}", file=sys.stderr, flush=True)
                 elif 'save_path' in segment:
                     print(f"[START_SEGMENT] {segment['save_path']}", file=sys.stderr, flush=True)
+                # True 0% start anchor (see _run_serve_job): segment bar starts at 0%.
+                _seg_start = "[PROGRESS] 0%"
+                if args.task_id:
+                    _seg_start += f" {args.task_id}"
+                print(_seg_start, file=sys.stderr, flush=True)
 
                 text = segment.get('text', '')
                 sw = segment.get('speaker_wav')

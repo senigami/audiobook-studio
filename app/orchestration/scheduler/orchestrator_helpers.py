@@ -599,6 +599,25 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 marker_state["start_synthesis_emitted"] = True
                 if timing["render_started_at"] is None:
                     timing["render_started_at"] = now_time
+
+                # Sync the first segment with the REAL synthesis start. If no
+                # [START_SEGMENT] marker has arrived yet (engines/builds that emit
+                # only START_SYNTHESIS + PROGRESS + SEGMENT_SAVED, or a stale warm
+                # worker), derive the first render group's leader so the running
+                # frame below carries active_segment_id — mounting the segment
+                # progress bar at 0% in lockstep with the queue going "running",
+                # instead of first appearing seconds later at the first PROGRESS
+                # tick (already a non-zero percent). UI-mount only: we do NOT set
+                # segment_starts (the render-timing clock) or the START_SEGMENT
+                # dedup set here, so a later real [START_SEGMENT] still records
+                # announce/confirmation timing normally.
+                if active_seg_id[0] is None and script:
+                    _eids0 = (script[0].get("ids") or []) if len(script) > 0 else []
+                    if _eids0:
+                        active_seg_id[0] = _eids0[0]
+                        active_seg_progress[0] = 0.0
+                        active_render_group_index[0] = 0
+
                 trace(
                     "orchestrator.marker_start_synthesis",
                     job_id=context.task_id,
@@ -609,10 +628,12 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 self._publish(
                     context=context,
                     status="running",
-                    progress=0.0,
+                    progress=_get_grouped_progress(),
                     eta_seconds=self._duration_to_eta_seconds(expected_duration),
                     started_at=timing["render_started_at"],
                     message="Synthesis in progress...",
+                    active_segment_id=active_seg_id[0],
+                    active_segment_progress=0.0 if active_seg_id[0] else None,
                     render_group_count=render_group_count,
                     completed_render_groups=completed_group_count[0],
                     active_render_group_index=active_render_group_index[0],
