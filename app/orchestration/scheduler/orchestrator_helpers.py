@@ -726,6 +726,24 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             if raw_progress is not None:
                 if timing["render_started_at"] is None:
                     timing["render_started_at"] = time.time()
+                # Fallback: if the [START_SEGMENT] marker never reached us (e.g. a
+                # stale engine build that still emits PROGRESS/SEGMENT_SAVED but not
+                # START_SEGMENT), active_seg_id is None and the segment progress bar +
+                # text highlight would never engage (service.py gates segment frames
+                # on a non-null active_segment_id). Derive the active segment from the
+                # known render-group structure — the active group is the next unsaved
+                # one (completed_group_count). Only runs when None, so a real
+                # START_SEGMENT marker always takes precedence; the block below then
+                # sets segment_starts and publishes the canonical START_SEGMENT frame.
+                if active_seg_id[0] is None and script:
+                    _idx = min(completed_group_count[0], len(script) - 1)
+                    _eids = (script[_idx].get("ids") or []) if 0 <= _idx < len(script) else []
+                    if _eids:
+                        active_seg_id[0] = _eids[0]
+                        active_render_group_index[0] = _idx
+                        # Register in the dedup set so a late real [START_SEGMENT] for
+                        # this same group cannot re-enter its branch and reset progress.
+                        marker_state["start_segment_ids"].add(active_seg_id[0])
                 # Engine-confirmed clock fallback: engines that skip START_SYNTHESIS but emit
                 # PROGRESS lines — confirm the segment start at first progress.
                 _progress_confirmed_seg = None

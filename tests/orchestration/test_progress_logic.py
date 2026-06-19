@@ -562,16 +562,18 @@ def test_progress_service_segment_completion_matching_outcome():
         active_segment_id=None,
     )
 
-    # Expect segment completion and chapter progress only (status did not change).
-    assert len(broadcast_events) == 2
-    seg_event = broadcast_events[0][0]
-    assert seg_event["topic"] == "segments.progress"
+    # Segment completion + chapter progress + queue row refresh. A chapter-scope
+    # progress frame now refreshes the queue row (the row progress authority)
+    # even without a status change.
+    assert len(broadcast_events) == 3
+    seg_event = next(p for p, _ in broadcast_events if p["topic"] == "segments.progress")
     assert seg_event["ids"]["segmentId"] == "seg-1"
     assert seg_event["payload"]["status"] == "done"
     assert seg_event["payload"]["progress"] == 1.0
 
-    chap_event = broadcast_events[1][0]
+    chap_event = next(p for p, _ in broadcast_events if p["topic"] == "chapters.progress")
     assert chap_event["topic"] == "chapters.progress"
+    assert any(p["topic"] == "queue.items" for p, _ in broadcast_events)
 
     # 3. Start another segment
     service.publish(
@@ -653,17 +655,16 @@ def test_progress_service_segment_handoff_completion_uses_segment_saved_command(
         has_segment_support=True,
     )
 
-    completion_event = broadcast_events[0][0]
-    next_segment_event = broadcast_events[1][0]
+    # A queue.items row refresh is also emitted (chapter-scope progress frame);
+    # select the segment events by topic + segmentId rather than by index.
+    seg_events = [p for p, _ in broadcast_events if p["topic"] == "segments.progress"]
+    completion_event = next(e for e in seg_events if e["ids"]["segmentId"] == "seg-1")
+    next_segment_event = next(e for e in seg_events if e["ids"]["segmentId"] == "seg-2")
 
-    assert completion_event["topic"] == "segments.progress"
-    assert completion_event["ids"]["segmentId"] == "seg-1"
     assert completion_event["payload"]["status"] == "done"
     assert completion_event["payload"]["progress"] == 1.0
     assert completion_event["payload"]["reasonCode"] == "SEGMENT_SAVED"
 
-    assert next_segment_event["topic"] == "segments.progress"
-    assert next_segment_event["ids"]["segmentId"] == "seg-2"
     assert next_segment_event["payload"]["reasonCode"] == "START_SEGMENT"
 
 
@@ -708,10 +709,10 @@ def test_progress_service_emits_active_segment_eta_only_updates():
         has_segment_support=True,
     )
 
-    assert len(broadcast_events) == 2
-    segment_event = broadcast_events[0][0]
-    chapter_event = broadcast_events[1][0]
-    assert segment_event["topic"] == "segments.progress"
+    # segment eta update + chapter progress + queue row refresh (chapter scope).
+    assert len(broadcast_events) == 3
+    segment_event = next(p for p, _ in broadcast_events if p["topic"] == "segments.progress")
+    chapter_event = next(p for p, _ in broadcast_events if p["topic"] == "chapters.progress")
     assert segment_event["payload"]["etaSeconds"] == 25
     assert chapter_event["topic"] == "chapters.progress"
 
@@ -931,10 +932,12 @@ def test_progress_service_coerces_preparing_after_started_at():
         progress=0.0,
     )
 
-    # No jobs.lifecycle should be emitted because status did not change (it stayed "running")
-    # chapters.progress should be emitted with status "running"
-    assert len(broadcast_events) == 1
-    event = broadcast_events[0][0]
+    # No jobs.lifecycle should be emitted because status did not change (it stayed
+    # "running"). chapters.progress + queue.items (row refresh) are emitted, both
+    # with the coerced status "running".
+    assert len(broadcast_events) == 2
+    assert not any(p["topic"] == "jobs.lifecycle" for p, _ in broadcast_events)
+    event = next(p for p, _ in broadcast_events if p["topic"] == "chapters.progress")
     assert event["topic"] == "chapters.progress"
     assert event["payload"]["status"] == "running"
 

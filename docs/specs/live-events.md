@@ -1,7 +1,7 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.5.3
+spec_version: 1.5.4
 status: active
 sources:
   - app/api/ws.py
@@ -18,6 +18,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.5.4   | 2026-06-19 | **`queue.items` carries live progress (Path A); segment-id fallback when `[START_SEGMENT]` is missing.** (1) `ProgressService.publish` (Path A) now emits `queue_item_status` on every emit-gated frame (status change OR ≥1% advance) for `chapter`/`job` scope — making `queue.items` the row's live progress authority, not just status — so the global queue row no longer freezes at 0% mid-render. Segment scope stays status-only; `broadcast_job_updated` (Path B) stays status-only. See "Queue row authority". (2) When a render emits no `[START_SEGMENT]` markers, the orchestrator derives `active_segment_id` from the render-group structure at first `[PROGRESS]` (and publishes the canonical `START_SEGMENT` frame), so the segment progress bar + script highlight engage regardless of marker delivery. See "per-segment render clock". |
 | 1.5.3   | 2026-06-19 | **Determinate ETA gated on `running`.** `queued`/`preparing` frames MUST carry `etaSeconds: null`; a determinate ETA appears only at `running` (the first `[START_SYNTHESIS]`/`[PROGRESS]` frame). A frame MUST NOT carry `indeterminate: true` together with a non-null `etaSeconds`. Fixes the pre-synthesis ETA leak (`enrich()` previously synthesized a calculated ETA at `queued`/`preparing`) that made the progress bar jump at synthesis start. See progress-presentation §2.6 / I10. |
 | 1.5.2   | 2026-06-18 | **Single-source progress contract at the event-builder layer.** Retired the dual-path allowance (orchestrated + handler-direct as independent emit paths). Both producers (`ProgressService.publish` via Path A, and `broadcast_job_updated` via Path B) now call `ProgressService.enrich(job_id, payload)` **before** building events, then thread the enriched `confidence`/`eta_seconds`/`eta_basis`/`estimated_end_at`/`grouped_progress` into every `build_*_event(...)` call — making the **event builders in `app/api/contracts/events.py`** the single contract authority. The Python `compute_progress_confidence` echo in `events.py` is deleted; §4A progress-bearing frames (jobs.lifecycle / chapters.progress / queue.items) carry backend-authoritative numeric `confidence` and builders fail-loud on `confidence=None`. The client (`liveEvents.ts`) retains a `computeProgressConfidence` fallback **only** for Option-B direct broadcasts (`segments.progress` / `voice.test`) that legitimately carry no §4A confidence — those frames are never enriched. Snapshot/hydration (`jobs_snapshot` + running queue rows) call `enrich(sample=False)` (read-only, does not mutate the ETA ring or monotonic floor) — PI6. See new ADR-0012. |
 | 1.5.2-c | 2026-06-18 | Clarification: the Python `compute_progress_confidence` echo is deleted from `events.py`; the identically-named client function in `liveEvents.ts` is **retained** as a fallback for non-§4A direct broadcasts (`segments.progress` / `voice.test`). The v1.5.2 claim of "echo deleted" referred to the backend only. |
@@ -378,6 +379,15 @@ fast remote-API engines such as Voxtral that complete before emitting synthesis
 markers), `sum_segment_render_seconds` falls back to `now − announce_time` so that
 timing samples are always recorded.
 
+**Missing `[START_SEGMENT]` entirely (active-segment fallback):** If a render emits
+`[PROGRESS]`/`[SEGMENT_SAVED]` but **no** `[START_SEGMENT]` at all (e.g. a stale
+engine build), `active_segment_id` would otherwise stay null and `segments.progress`
+frames would be gated out — collapsing the segment progress bar and the script text
+highlight. The orchestrator's first `[PROGRESS]` therefore derives the active segment
+from the known render-group structure (`completed_group_count` → that group's leader
+id) when `active_seg_id` is null, then publishes the canonical `START_SEGMENT` frame
+for it. `[START_SEGMENT]` is thus advisory for segment identity, not load-bearing.
+
 ---
 
 ## Client contract
@@ -546,12 +556,18 @@ Rules:
 
 - An overlay frame for a job id that is unknown in both the canonical snapshot and
   the live store MUST be dropped (dev builds may log it). It is NOT buffered: the
-  backend emits a `queue_item_status` frame on every STATUS TRANSITION of every
-  queue-visible job — from `ProgressService.publish` for orchestrated transitions
-  (which suppress the legacy listener via `skip_job_updated`) and from
-  `broadcast_job_updated` (`app/api/ws.py`) for handler-direct `update_job`
-  writes — so the authoritative row state arrives on its own topic. Progress-only
-  ticks do NOT emit `queue.items`; they flow on the scoped topics as overlays.
+  backend emits a `queue_item_status` frame so the authoritative row state arrives
+  on its own topic. **Cadence (Path A vs Path B differ deliberately):**
+  - `ProgressService.publish` (Path A — orchestrated chapter/job renders, which
+    suppress the legacy listener via `skip_job_updated`) emits `queue_item_status`
+    on **every emit-gated frame** — i.e. on a status transition OR a ≥1% progress
+    advance — for `chapter`/`job` scope. This makes `queue.items` the row's live
+    **progress** authority, not just its status authority; without it the global
+    queue row freezes at its last status's progress and snaps to done. **Segment**
+    scope is excluded except on status change (segment ticks drive the segment bar,
+    not the parent queue row).
+  - `broadcast_job_updated` (`app/api/ws.py`, Path B — handler-direct `update_job`
+    writes) stays status-transition-only for the queue row.
 - A terminal `jobs.lifecycle` frame (`done`/`failed`/`cancelled`) additionally
   triggers a client queue REFETCH (`useQueueSync`) — a legal re-read of the
   durable rows, guaranteeing eventual consistency if a queue.items frame drops.

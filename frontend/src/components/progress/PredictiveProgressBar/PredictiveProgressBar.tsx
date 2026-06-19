@@ -137,16 +137,19 @@ const resolveEndAtMs = ({
     if (isQueuedStatus(presentationState) || isPreparingStatus(presentationState)) {
         return null;
     }
-    if (etaBasis === 'remaining_from_update' && typeof etaSeconds === 'number' && etaSeconds >= 0) {
-        const anchorSeconds = updatedAt ?? (nowMs / 1000);
+    // NaN-safety: a NaN etaSeconds is `typeof 'number'` and `NaN < 0` is false, so
+    // every numeric branch must use Number.isFinite or NaN flows into endAtMs and
+    // surfaces as "NaN:NaN" in the ETA countdown. (Mirrors the clamp01 sink fix.)
+    if (etaBasis === 'remaining_from_update' && typeof etaSeconds === 'number' && Number.isFinite(etaSeconds) && etaSeconds >= 0) {
+        const anchorSeconds = (typeof updatedAt === 'number' && Number.isFinite(updatedAt)) ? updatedAt : (nowMs / 1000);
         return (anchorSeconds + etaSeconds) * 1000;
     }
 
-    if (typeof estimatedEndAt === 'number' && estimatedEndAt > 0) {
+    if (typeof estimatedEndAt === 'number' && Number.isFinite(estimatedEndAt) && estimatedEndAt > 0) {
         return estimatedEndAt * 1000;
     }
 
-    if (typeof etaSeconds !== 'number' || etaSeconds < 0) {
+    if (typeof etaSeconds !== 'number' || !Number.isFinite(etaSeconds) || etaSeconds < 0) {
         return null;
     }
 
@@ -160,9 +163,12 @@ const resolveEndAtMs = ({
 const getLaneProgress = (startAtMs: number, endAtMs: number | null, startProgress: number, nowMs: number) => {
     if (endAtMs === null) return startProgress;
     const duration = endAtMs - startAtMs;
-    if (duration <= 0) return startProgress;
+    // `!(duration > 0)` also catches NaN duration (a NaN lane end from a
+    // null<->number migration blend) — `NaN <= 0` is false and would leak NaN.
+    if (!(duration > 0)) return startProgress;
     const t = Math.max(0, Math.min(1, (nowMs - startAtMs) / duration));
-    return startProgress + ((0.995 - startProgress) * t);
+    const result = startProgress + ((0.995 - startProgress) * t);
+    return Number.isFinite(result) ? result : startProgress;
 };
 
 const getRenderedStartAtMs = (currentLane: ProgressLane | null, migration: LaneMigration | null, nowMs: number) => {
@@ -576,7 +582,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     });
 
     const activeTargetLane = migration?.toLane ?? currentLane;
-    const displayedRemaining = renderedEndAtMs == null
+    // Chokepoint: a null OR non-finite end time yields no countdown (never "NaN:NaN").
+    const displayedRemaining = (renderedEndAtMs == null || !Number.isFinite(renderedEndAtMs))
         ? null
         : Math.max(0, Math.ceil((renderedEndAtMs - now) / 1000));
 

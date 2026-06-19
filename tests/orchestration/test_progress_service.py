@@ -73,7 +73,10 @@ def test_publish_throttles_small_progress_churn():
     )
     assert emitted_again is not None
     assert emitted_again["progress"] == 0.28
-    assert len(events) == 4
+    # A meaningful progress advance now refreshes the queue row too (queue.items
+    # is the row progress authority): queue.items + chapters.progress = +2 → 5.
+    assert len(events) == 5
+    assert [p for p, _ in events if p.get("topic") == "queue.items"][-1]["payload"]["progress"] == 0.28
 
 
 def test_publish_emits_heartbeat_after_silence():
@@ -100,7 +103,8 @@ def test_publish_emits_heartbeat_after_silence():
         chapter_id="chapter-2",
     )
     assert repeated is not None
-    assert len(events) == 4
+    # Heartbeat after silence refreshes both the queue row and the chapter overlay.
+    assert len(events) == 5
 
 
 def test_publish_allows_explicit_progress_regression_for_recovery():
@@ -149,7 +153,9 @@ def test_publish_allows_explicit_progress_regression_for_recovery():
     assert reset_event is not None
     assert reset_event["progress"] == 0.0
     assert reset_event["reason_code"] == "recovery_reconcile"
-    assert len(events) == 7
+    # preparing→preparing is not a status change, but a job-scope frame still
+    # refreshes the queue row + chapter overlay (+2 vs the old chapter-only +1).
+    assert len(events) == 8
 
 
 def test_monotonic_progress_and_eta_selection():
@@ -284,12 +290,16 @@ def test_publish_status_transition_emits_queue_item_status():
     assert queue_frames[0]["payload"]["status"] == "running"
     assert queue_frames[0]["ids"]["jobId"] == "job-q"
 
-    # Progress-only update: no new queue.items frame.
+    # Progress-only update: the queue row is the progress authority, so a
+    # meaningful progress advance (no status change) now ALSO emits queue.items
+    # — otherwise the global queue row freezes at its last status's progress.
     events.clear()
     monotonic_now["value"] += 1.0
     service.publish(job_id="job-q", status="running", scope="job",
                     parent_job_id="proj-1", chapter_id="chap-1", progress=0.4)
-    assert not [p for p, _ in events if p.get("topic") == "queue.items"]
+    progress_queue_frames = [p for p, _ in events if p.get("topic") == "queue.items"]
+    assert len(progress_queue_frames) == 1
+    assert progress_queue_frames[0]["payload"]["progress"] == 0.4
 
     # Terminal transition: queue.items done frame.
     events.clear()

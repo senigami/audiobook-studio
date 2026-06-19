@@ -317,46 +317,51 @@ class ProgressService:
             )
             self.broadcaster(payload=lifecycle_event, channel="jobs")
 
-            # queue.items is the frontend's sole row-status authority
-            # (live-events.md §"Queue row authority"), and orchestrated
-            # transitions suppress the legacy ws job listener
-            # (skip_job_updated), so every status transition MUST be mirrored
-            # here — otherwise queue rows freeze at their snapshot status.
-            # voice_test scope emits its own richer queue event below.
-            if scope != "voice_test":
-                from app.api.contracts.events import build_queue_item_status_event  # noqa: PLC0415
-                queue_status = {"completed": "done", "cancelling": "cancelled"}.get(status, status)
-                existing_title = None
-                existing_engine = None
-                try:
-                    from app.db.state import get_jobs  # noqa: PLC0415
-                    existing_job = get_jobs().get(job_id)
-                    if existing_job is not None:
-                        existing_title = getattr(existing_job, "custom_title", None)
-                        existing_engine = getattr(existing_job, "engine", None)
-                except Exception:
-                    pass
-                queue_event = build_queue_item_status_event(
-                    job_id=job_id,
-                    status=queue_status,
-                    progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
-                    eta_seconds=payload.get("eta_seconds"),
-                    message=message,
-                    reason_code=reason_code,
-                    classification="job",
-                    project_id=parent_job_id,
-                    chapter_id=chapter_id,
-                    started_at=started_at,
-                    completed_at=self.wall_clock() if queue_status in ("done", "failed", "cancelled") else None,
-                    custom_title=existing_title,
-                    engine=existing_engine,
-                    source=payload.get("source"),
-                    has_segment_support=resolved_has_segment_support,
-                    confidence=payload.get("eta_confidence"),
-                    indeterminate=payload.get("indeterminate") if payload.get("indeterminate") else None,
-                    loading_elapsed_seconds=payload.get("loading_elapsed_seconds"),
-                )
-                self.broadcaster(payload=queue_event, channel="jobs")
+        # queue.items is the frontend's sole row-status AND progress authority
+        # (live-events.md §"Queue row authority"); chapters.progress is overlay
+        # only. Orchestrated transitions suppress the legacy ws job listener
+        # (skip_job_updated), so the queue row must be mirrored here.
+        #
+        # Cadence: always on a status change (every scope except voice_test), and
+        # ADDITIONALLY on every emit-gated progress frame for chapter/job scopes —
+        # otherwise the global queue row freezes at 0% and snaps to done.
+        # Segment-scope progress ticks are excluded: they drive the segment bar,
+        # not the parent queue row (which would otherwise churn on every tick).
+        _is_status_change = status_changed or previous is None
+        if scope != "voice_test" and (_is_status_change or scope != "segment"):
+            from app.api.contracts.events import build_queue_item_status_event  # noqa: PLC0415
+            queue_status = {"completed": "done", "cancelling": "cancelled"}.get(status, status)
+            existing_title = None
+            existing_engine = None
+            try:
+                from app.db.state import get_jobs  # noqa: PLC0415
+                existing_job = get_jobs().get(job_id)
+                if existing_job is not None:
+                    existing_title = getattr(existing_job, "custom_title", None)
+                    existing_engine = getattr(existing_job, "engine", None)
+            except Exception:
+                pass
+            queue_event = build_queue_item_status_event(
+                job_id=job_id,
+                status=queue_status,
+                progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
+                eta_seconds=payload.get("eta_seconds"),
+                message=message,
+                reason_code=reason_code,
+                classification="job",
+                project_id=parent_job_id,
+                chapter_id=chapter_id,
+                started_at=started_at,
+                completed_at=self.wall_clock() if queue_status in ("done", "failed", "cancelled") else None,
+                custom_title=existing_title,
+                engine=existing_engine,
+                source=payload.get("source"),
+                has_segment_support=resolved_has_segment_support,
+                confidence=payload.get("eta_confidence"),
+                indeterminate=payload.get("indeterminate") if payload.get("indeterminate") else None,
+                loading_elapsed_seconds=payload.get("loading_elapsed_seconds"),
+            )
+            self.broadcaster(payload=queue_event, channel="jobs")
 
         if prev_active_segment_id and prev_active_segment_id != new_active_segment_id:
             from app.api.contracts.events import build_segment_progress_event  # noqa: PLC0415

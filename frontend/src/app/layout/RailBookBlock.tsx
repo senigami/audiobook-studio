@@ -169,7 +169,7 @@ export function RailBookBlock({ compact = false }: RailBookBlockProps) {
                     data-testid={`rail-book-progress-${chapter.id}`}
                   >
                     <PredictiveProgressBar
-                      progress={activeJob.progress}
+                      progress={activeJob.progress ?? 0}
                       startedAt={activeJob.started_at}
                       etaSeconds={activeJob.eta_seconds}
                       etaBasis={activeJob.eta_basis}
