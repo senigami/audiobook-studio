@@ -320,6 +320,125 @@ class TestVoxtralBake:
         assert "s2" in rendered_ids
         assert "s3" in rendered_ids
 
+    def test_bake_force_rerender_resynthesizes_done_group(self, tmp_path):
+        """force_rerender=True: a bake must re-render even a group whose segment audio
+        is already done on disk — it must NOT reuse cached segment audio.
+
+        R1: before the force_rerender guard in _group_needs_render, the already-done
+        s1 group is skipped and 's1' never appears in rendered_ids."""
+        job = _make_job(is_bake=True, force_rerender=True)
+        segs = _fake_segments()
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        # s1 already rendered + marked done — would normally be reused.
+        (seg_dir / "s1.wav").write_bytes(b"existing")
+        segs[0]["audio_status"] = "done"
+        segs[0]["audio_file_path"] = "s1.wav"
+
+        groups = _fake_groups(segs)
+        rendered_ids = []
+
+        def fake_bridge(**kwargs):
+            script = kwargs.get("script") or []
+            on_out = kwargs.get("on_output")
+            for entry in script:
+                rendered_ids.append(entry["id"])
+                save_path = entry["save_path"]
+                Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+                Path(save_path).write_bytes(b"wav")
+                if on_out:
+                    on_out(f"[START_SEGMENT] {entry['id']}\n")
+                    on_out(f"[SEGMENT_SAVED] {save_path}\n")
+            return 0
+
+        fresh_segs = [dict(s, audio_status="done", audio_file_path=f"{s['id']}.wav") for s in segs]
+        out_wav = tmp_path / "chapter.wav"
+        out_wav.write_bytes(b"stitched")
+
+        with patch("plugins.tts_voxtral.plugin.studio.bake.generate_via_bridge", side_effect=fake_bridge), \
+             patch("app.db.get_chapter_segments", side_effect=[segs, fresh_segs]), \
+             patch("app.db.update_segment"), \
+             patch("app.db.update_queue_item"), \
+             patch("app.engines.audio_ops.stitch_segments", return_value=0), \
+             patch("app.engines.audio_ops.get_audio_duration", return_value=10.0), \
+             patch("plugins.tts_voxtral.plugin.studio.bake._get_ctx") as mock_ctx_factory, \
+             patch("plugins.tts_voxtral.plugin.studio.bake._handler") as mock_handler_factory:
+
+            ctx = MagicMock()
+            ctx.get_sanitize_categories.return_value = []
+            ctx.build_chunk_groups.return_value = groups
+            mock_ctx_factory.return_value = ctx
+            mock_handler_factory.return_value = MagicMock()
+
+            from plugins.tts_voxtral.plugin.studio.bake import handle_voxtral_bake
+            rc = handle_voxtral_bake(
+                "vx-job-1", job, 0.0,
+                lambda line: None, lambda: False,
+                tmp_path, out_wav, None, {}
+            )
+
+        assert rc == 0
+        # The already-done s1 MUST be re-rendered when force_rerender=True.
+        assert "s1" in rendered_ids, (
+            "force_rerender=True must re-synthesize the done s1 group, not reuse it"
+        )
+
+    def test_bake_no_force_reuses_done_group(self, tmp_path):
+        """Control: force_rerender=False reuses the done s1 group (not re-rendered),
+        proving the force_rerender guard is what flips the behavior."""
+        job = _make_job(is_bake=True, force_rerender=False)
+        segs = _fake_segments()
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        (seg_dir / "s1.wav").write_bytes(b"existing")
+        segs[0]["audio_status"] = "done"
+        segs[0]["audio_file_path"] = "s1.wav"
+
+        groups = _fake_groups(segs)
+        rendered_ids = []
+
+        def fake_bridge(**kwargs):
+            script = kwargs.get("script") or []
+            on_out = kwargs.get("on_output")
+            for entry in script:
+                rendered_ids.append(entry["id"])
+                save_path = entry["save_path"]
+                Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+                Path(save_path).write_bytes(b"wav")
+                if on_out:
+                    on_out(f"[SEGMENT_SAVED] {save_path}\n")
+            return 0
+
+        fresh_segs = [dict(s, audio_status="done", audio_file_path=f"{s['id']}.wav") for s in segs]
+        out_wav = tmp_path / "chapter.wav"
+        out_wav.write_bytes(b"stitched")
+
+        with patch("plugins.tts_voxtral.plugin.studio.bake.generate_via_bridge", side_effect=fake_bridge), \
+             patch("app.db.get_chapter_segments", side_effect=[segs, fresh_segs]), \
+             patch("app.db.update_segment"), \
+             patch("app.db.update_queue_item"), \
+             patch("app.engines.audio_ops.stitch_segments", return_value=0), \
+             patch("app.engines.audio_ops.get_audio_duration", return_value=10.0), \
+             patch("plugins.tts_voxtral.plugin.studio.bake._get_ctx") as mock_ctx_factory, \
+             patch("plugins.tts_voxtral.plugin.studio.bake._handler") as mock_handler_factory:
+
+            ctx = MagicMock()
+            ctx.get_sanitize_categories.return_value = []
+            ctx.build_chunk_groups.return_value = groups
+            mock_ctx_factory.return_value = ctx
+            mock_handler_factory.return_value = MagicMock()
+
+            from plugins.tts_voxtral.plugin.studio.bake import handle_voxtral_bake
+            handle_voxtral_bake(
+                "vx-job-1", job, 0.0,
+                lambda line: None, lambda: False,
+                tmp_path, out_wav, None, {}
+            )
+
+        assert "s1" not in rendered_ids, (
+            "force_rerender=False must reuse the already-done s1 group"
+        )
+
     def test_bake_stitches_all_done_segments(self, tmp_path):
         """After rendering, bake must stitch all done segments into the chapter WAV."""
         job = _make_job(is_bake=True)

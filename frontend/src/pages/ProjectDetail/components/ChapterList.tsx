@@ -20,7 +20,7 @@ interface ChapterListProps {
   onReorder: (chapters: Chapter[]) => void;
   onEditChapter: (id: string) => void;
   onRenameChapter: (id: string, newTitle: string) => Promise<void>;
-  onQueueChapter: (chap: Chapter) => void;
+  onQueueChapter: (chap: Chapter, rebuild?: boolean) => void;
   onResetAudio: (id: string) => void;
   onDeleteChapter: (id: string) => void;
   onExportSample: (chap: Chapter) => void;
@@ -191,7 +191,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                       icon: RefreshCw, 
                       disabled: !anyEnginesEnabled,
                       title: !anyEnginesEnabled ? 'All engines disabled' : undefined,
-                      onClick: () => onQueueChapter(chap) 
+                      onClick: () => onQueueChapter(chap, isFullyRendered)
                     }
                   ].filter(() => {
                     const isStale = chap.text_last_modified && chap.audio_generated_at && (chap.text_last_modified > chap.audio_generated_at);
@@ -323,7 +323,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                   <>
                     <div style={{ display: 'flex', gap: '0.15rem', borderLeft: '1px solid var(--border)', paddingLeft: '1rem' }}>
                       <button 
-                        onClick={e => { e.stopPropagation(); onQueueChapter(chap); }} 
+                        onClick={e => { e.stopPropagation(); onQueueChapter(chap, isFullyRendered); }}
                         className="btn-ghost" 
                         disabled={chap.audio_status === 'processing' || !anyEnginesEnabled} 
                         title={!anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : (chap.audio_status === 'processing' ? 'Processing' : queueActionLabel)}

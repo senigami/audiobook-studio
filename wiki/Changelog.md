@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Fix] - 2026-06-19
 
+### "Rebuild Audio" now actually re-renders everywhere (force_rerender parity)
+
+The explicit Rebuild action is meant to delete the existing render and re-synthesize from scratch, never reusing cached segment audio. Two paths didn't honor it:
+
+- **Bake handlers ignored `force_rerender`.** `handle_xtts_bake` / `handle_voxtral_bake` decided per-group reuse purely on file-presence + `audio_status=="done"`, with no `force_rerender` short-circuit (the standard path already had one via `_group_is_done`). A rebuild routed through the bake path (chapters with pre-baked segments) could re-stitch stale audio instead of re-rendering. Both `_group_needs_render` functions now return `True` unconditionally when `j.force_rerender` is set, mirroring the standard path.
+- **Project-list "Rebuild Audio" button did a plain queue.** In the Project chapter list the action relabels to "Rebuild Audio" once a chapter is fully rendered, but it called `handleQueueChapter` with no reset and `force=false` — so it reused everything and re-rendered nothing. It now resets the chapter (deletes audio + marks segments unprocessed) and queues with `force_rerender=true`, behind a destructive-confirm, matching the Studio chapter view's Rebuild. Plain "Queue Chapter" / "Queue Remaining" are unchanged: they still preserve existing segment WAVs and only render gaps (the Book list's honestly-labeled "Queue Chapter" + separate "Reset Audio" was already correct and is untouched).
+
+R1-verified tests added/updated for both bake handlers and `handleQueueChapter`.
+
 ### Cancelled render can no longer resurrect segment audio (lost-update race)
 
 Chapter reset (and "Rebuild") cancels the active render, then clears the chapter's segments to `unprocessed`. But cancellation is cooperative: the engine subprocess keeps emitting `[SEGMENT_SAVED]` for its in-flight segment until it stops. Those straggler saves were re-marking segments `audio_status="done"` *after* the reset committed, so the next render saw every group "done" and reused stale audio instead of re-synthesizing (seen as a no-synthesis re-stitch).

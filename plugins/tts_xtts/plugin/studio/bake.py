@@ -103,6 +103,11 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
     segs = _get_segs(j.chapter_id)
 
     def _group_needs_render(group: dict, _pdir: Path) -> bool:
+        # force_rerender: a rebuild requires full re-synthesis; never reuse cached
+        # segment audio even if the segment is marked done on disk. Mirrors the
+        # standard path's _group_is_done guard so the bake path can't silently reuse.
+        if getattr(j, "force_rerender", False):
+            return True
         expected_name = f"{group['segments'][0]['id']}.wav"
         expected_path = _pdir / "segments" / expected_name
         if not expected_path.exists():

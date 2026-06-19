@@ -75,9 +75,15 @@ export function useProjectActions(
     }, 500);
   };
 
-  const handleQueueChapter = async (chapterId: string, selectedVoice?: string) => {
+  const handleQueueChapter = async (chapterId: string, selectedVoice?: string, rebuild: boolean = false) => {
     try {
-        await api.addProcessingQueue(projectId, chapterId, 0, selectedVoice || undefined);
+        // Rebuild: clear existing audio (delete files + reset segments to unprocessed)
+        // and force full re-synthesis, mirroring the Studio "Rebuild" action. A plain
+        // queue (rebuild=false) preserves existing segment audio and only renders gaps.
+        if (rebuild) {
+            await api.resetChapter(chapterId);
+        }
+        await api.addProcessingQueue(projectId, chapterId, 0, selectedVoice || undefined, rebuild);
         await onDataRefresh();
         return true;
     } catch (e) {

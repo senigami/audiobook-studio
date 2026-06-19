@@ -87,8 +87,15 @@ def _handler():
     return handler
 
 
-def _group_needs_render(group: dict, pdir: Path) -> bool:
-    """Return True if the group's segment audio is missing or stale."""
+def _group_needs_render(group: dict, pdir: Path, force_rerender: bool = False) -> bool:
+    """Return True if the group's segment audio is missing or stale.
+
+    ``force_rerender`` (a rebuild) forces re-synthesis: cached segment audio is
+    never reused even when the segment is marked done on disk. Mirrors the xtts
+    bake/standard guard so the bake path can't silently reuse on a rebuild.
+    """
+    if force_rerender:
+        return True
     expected_name = f"{group['segments'][0]['id']}.wav"
     expected_path = pdir / "segments" / expected_name
     if not expected_path.exists():
@@ -115,7 +122,10 @@ def handle_voxtral_bake(jid, j, start, on_output, cancel_check, pdir, out_wav, v
     segs = _get_segs(j.chapter_id)
 
     all_groups = ctx.build_chunk_groups(segs, default_profile=j.speaker_profile)
-    missing_groups = [group for group in all_groups if _group_needs_render(group, pdir)]
+    missing_groups = [
+        group for group in all_groups
+        if _group_needs_render(group, pdir, getattr(j, "force_rerender", False))
+    ]
 
     total_groups = len(all_groups)
     offset = total_groups - len(missing_groups)

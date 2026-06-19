@@ -487,7 +487,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
                   onReorder={(newOrder) => { setChapters(newOrder); handleReorderChapters(newOrder); }}
                   onEditChapter={id => navigate(`/chapter/${id}`)}
                   onRenameChapter={async (id, title) => { await api.updateChapter(id, { title }); await loadData(); }}
-                  onQueueChapter={chap => { if (chap.char_count > 50000) setConfirmConfig({ title: 'Large Chapter', message: 'Chapter is long. Queue anyway?', onConfirm: () => handleQueueChapter(chap.id, effectiveProjectVoice) }); else handleQueueChapter(chap.id, effectiveProjectVoice); }}
+                  onQueueChapter={(chap, rebuild) => {
+                    if (rebuild) { setConfirmConfig({ title: 'Rebuild Audio', message: 'All audio for this chapter is already complete. Rebuilding will delete the existing render and regenerate from the current segments. Continue?', isDestructive: true, confirmText: 'Yes, Rebuild It', onConfirm: () => handleQueueChapter(chap.id, effectiveProjectVoice, true) }); }
+                    else if (chap.char_count > 50000) { setConfirmConfig({ title: 'Large Chapter', message: 'Chapter is long. Queue anyway?', onConfirm: () => handleQueueChapter(chap.id, effectiveProjectVoice) }); }
+                    else { handleQueueChapter(chap.id, effectiveProjectVoice); }
+                  }}
                   onResetAudio={id => setConfirmConfig({ title: 'Reset Audio', message: 'Delete all audio for this chapter?', isDestructive: true, onConfirm: () => handleResetChapterAudio(id) })}
                   onDeleteChapter={id => setConfirmConfig({ title: 'Delete Chapter', message: 'Permanently delete this chapter?', isDestructive: true, onConfirm: () => handleDeleteChapter(id) })}
                   onExportSample={async chap => { setIsExporting(chap.id); const res = await api.exportSample(chap.id, effectiveProjectId); if (res.url) window.open(res.url, '_blank'); setIsExporting(null); }}
