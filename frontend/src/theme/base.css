@@ -49,6 +49,7 @@ pre {
   font-size: 0.8125rem;
 }
 
+/* tap-target: standard buttons via padding; icon-button 44px hit-area is a follow-up (don't blanket min-height — it deforms compact transport/card buttons) */
 button {
   cursor: pointer;
   font-family: inherit;
@@ -61,7 +62,6 @@ button {
     border-color     var(--dur-fast) var(--ease-standard),
     box-shadow       var(--dur-fast) var(--ease-standard),
     opacity          var(--dur-fast) var(--ease-standard);
-  min-height: 44px;
   border: none;
   display: inline-flex;
   align-items: center;

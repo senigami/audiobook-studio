@@ -138,7 +138,7 @@ Content-Type: application/json
           href="/api/v1/tts/docs"
           target="_blank" 
           rel="noreferrer"
-          style={{ padding: '0.5rem 1rem', borderRadius: '10px', background: 'var(--accent)', color: 'white', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 800 }}
+          style={{ padding: '0.5rem 1rem', borderRadius: '10px', background: 'var(--accent)', color: 'var(--on-action)', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 800 }}
         >
           View Swagger Docs
         </a>

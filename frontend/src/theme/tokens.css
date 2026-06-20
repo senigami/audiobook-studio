@@ -19,7 +19,7 @@
   --on-action: #ffffff;                            /* NEW (≡ --text-on-accent) */
   --primary-border-inset: rgba(255,255,255,.18);   /* NEW — 1px inset border on flat buttons */
   --live-indicator: #1e4fd8;                       /* NEW */
-  --accent-glow: rgba(43, 110, 255, 0.1);
+  --accent-glow: rgba(30, 79, 216, 0.1);
   --success: #10b981;
   --success-muted: #d1fae5;
   --error: #ef4444;
@@ -69,7 +69,7 @@
   --dur-fast: 0.14s;
   --dur-med: 0.24s;
   --dur-slow: 0.4s;
-  --pulse-duration: 3s;   /* NEW — zeroed by reduced-motion guard; .is-running restores */
+  --pulse-duration: 3s;   /* the reduced-motion guard zeroes animation-duration on *; .is-running re-enables it to var(--pulse-duration) */
 
   /* Focus — one consistent visible ring for keyboard nav (a11y). */
   --focus-ring: 0 0 0 3px var(--accent-focus-ring);
@@ -91,7 +91,7 @@
   --space-8: 48px;
 
   /* RGB channel tokens (for rgba() usage) */
-  --accent-rgb: 43, 110, 255;
+  --accent-rgb: 30, 79, 216;
 
   /* Brand tokens */
   --as-ink: #0f172a; /* sleek slate-dark */
@@ -130,15 +130,15 @@
   --error-tint-bg: rgba(239, 68, 68, 0.1);        /* error surface tint */
   --error-tint-border: rgba(239, 68, 68, 0.2);    /* error surface border */
   --error-text-strong: #b91c1c;                   /* error body text (darker red) */
-  --accent-tint-bg: rgba(43, 110, 255, 0.12);     /* accent-blue surface tint (brand blue) */
-  --accent-tint-border: rgba(43, 110, 255, 0.2);  /* accent-blue surface border */
+  --accent-tint-bg: rgba(30, 79, 216, 0.12);     /* accent-blue surface tint (brand blue) */
+  --accent-tint-border: rgba(30, 79, 216, 0.2);  /* accent-blue surface border */
   --surface-tinted-light: rgba(240, 247, 255, 0.9); /* very light blue tinted surface */
   --surface-glass-white: rgba(255, 255, 255, 0.8); /* glass white (higher opacity) */
   --surface-glass-half: rgba(255, 255, 255, 0.5); /* 50% glass white */
   --surface-dim: rgba(0, 0, 0, 0.03);             /* barely-there dark tint */
   --success-tint-bg: rgba(16, 185, 129, 0.1);     /* success surface tint */
   --success-color: #10b981;                        /* success status color (= --success alias) */
-  --accent-focus-ring: rgba(43, 110, 255, 0.08);  /* focus ring glow around inputs */
+  --accent-focus-ring: rgba(30, 79, 216, 0.08);  /* focus ring glow around inputs */
   --cloud-tint-bg: rgba(14, 165, 233, 0.12);      /* cloud-engine accent tint */
   --cloud-color: #0ea5e9;                          /* cloud engine icon/text color */
 
@@ -293,10 +293,10 @@
 
   /* Accent tints */
   --accent-tint:          rgba(99, 102, 241, 0.18);
-  --accent-tint-bg:       rgba(43, 110, 255, 0.15);
-  --accent-tint-border:   rgba(43, 110, 255, 0.3);
-  --accent-glow:          rgba(43, 110, 255, 0.15);
-  --accent-focus-ring:    rgba(43, 110, 255, 0.15);
+  --accent-tint-bg:       rgba(107, 159, 255, 0.15);
+  --accent-tint-border:   rgba(107, 159, 255, 0.3);
+  --accent-glow:          rgba(107, 159, 255, 0.15);
+  --accent-focus-ring:    rgba(107, 159, 255, 0.15);
 
   /* Success */
   --success:              #10b981;

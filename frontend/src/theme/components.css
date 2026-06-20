@@ -43,7 +43,7 @@
 
 .btn-success {
   background: var(--success);
-  color: var(--text-on-accent);
+  color: var(--on-success);
   box-shadow: var(--shadow-sm);
 }
 
@@ -1724,7 +1724,7 @@
   border: 1px solid var(--success-muted);
   border-radius: var(--radius-round);
   background: var(--success);
-  color: var(--text-on-accent);
+  color: var(--on-success);
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;

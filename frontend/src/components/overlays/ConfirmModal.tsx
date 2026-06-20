@@ -160,7 +160,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                                     padding: '0.75rem',
                                     borderRadius: '12px',
                                     backgroundColor: isDestructive && !isAlert ? 'var(--error)' : 'var(--accent)',
-                                    color: 'white',
+                                    color: isDestructive && !isAlert ? 'white' : 'var(--on-action)',
                                     border: 'none',
                                     fontWeight: 600,
                                     cursor: 'pointer'

@@ -1,7 +1,7 @@
 # Design System
 
 ```
-spec_version: 1.6.0
+spec_version: 1.6.1
 status: active
 created: 2026-06-13
 updated: 2026-06-20
@@ -48,6 +48,7 @@ sources:
 | 1.4.0   | 2026-06-19 | Completed the §9 glyph→lucide migration. The 8 real-app glyph-as-icon usages (a `▶` play label, `›` breadcrumb separators ×3, `▲`/`▼` disclosure carets ×2, an `Export ▾` caret, and `✓` markers ×3) now render the mapped lucide components; the redundant `⚠` decorations on `EditTab`/`AnalysisStrip` were dropped in favor of the existing `AlertTriangle`. §9.1 updated; §9.5 changed from a deviations table to **resolved**. Rendering-only change — no behavior change. |
 | 1.5.0   | 2026-06-20 | **P0 fonts.** Self-host Geist Variable + Geist Mono + Source Serif 4 via @fontsource; add `--font-ui`/`--font-display`/`--font-reading`/`--font-mono` tokens; repoint `base.css` stacks; Inter remains as fallback in `--font-ui` stack. Resolves R1. |
 | 1.6.0 | 2026-06-20 | **P1 token re-skin.** Alias --accent to #1e4fd8 (light)/#6b9fff (dark); add role-named --action-primary/-hover/-active, --on-action, --primary-border-inset, --live-indicator; studio-dark --bg #0d0f14; 3-stop dark text ladder (--text-secondary #a8b2c4, --text-muted #8b95a8, NEW --text-subtle #6b7a92); light --text-primary #1c2b4a, --text-muted #5c6a80, --text-subtle #64748b; NEW --surface-reading; --on-success, --status-cached-text/-ring; tightened radii (card 10, button 8, NEW compact 6); --pulse-duration; double-ring :focus-visible; solid --progress-preparing-fill; calm-pulse keyframe; flat buttons (.btn-primary/-success/-home — no gradient/glow/translateY lift). §2.4 recomputed against new --bg. Review fixes: made `--text-on-accent` dark-aware (#0d0f14 — the lightened dark accent needs dark on-accent text, 7.33:1) and wired the `.is-running` reduced-motion exemption so the calm-pulse genuinely survives the guard. |
+| 1.6.1 | 2026-06-20 | **P1 audit fixes.** Synced accent-derived rgba tokens (--accent-rgb/-glow/-tint-bg/-tint-border/-focus-ring) to the new #1e4fd8/#6b9fff channels (were stale #2b6eff); wired success fills (.btn-success, .studio-header-actions__commit) to --on-success and three hardcoded white-on-accent consumers to --on-action (dark-mode AA); removed the blanket button min-height that deformed compact buttons (kept on form controls); corrected §2.4 --success bg values (#10b981, not #16a34a/#22c55e), the §10 --as-blue/--accent equality, and the --pulse-duration mechanism wording. |
 
 ---
 
@@ -84,7 +85,7 @@ Token categories (current):
 | Radius | `--radius-button` (8px — tightened in P1), `--radius-card` (10px — tightened in P1), `--radius-panel` (18px), `--radius-round` (9999px), `--radius-compact` (6px — NEW; compact controls, badges) |
 | Shadow / elevation | `--shadow-sm`, `--shadow-md`, `--shadow-lg`, `--shadow-xl` (soft layered ambient — a wide diffuse halo + a tight contact shadow) |
 | Material (Liquid Glass) | `--blur-glass`, `--blur-glass-strong` (for `backdrop-filter` on chrome/overlays), `--hairline` (low-alpha inner divider, softer than `--border`) |
-| Motion | `--ease-standard`, `--ease-emphasized`, `--ease-spring`, `--dur-fast`, `--dur-med`, `--dur-slow`, `--pulse-duration` (NEW — 3s; zeroed by the reduced-motion guard; `.is-running` structural exemption restores it) |
+| Motion | `--ease-standard`, `--ease-emphasized`, `--ease-spring`, `--dur-fast`, `--dur-med`, `--dur-slow`, `--pulse-duration` (NEW — 3s; the reduced-motion guard sets `animation-duration: .01ms` on all elements; `.is-running` re-enables `animation-duration: var(--pulse-duration)` (with `!important` + higher specificity) so the calm-pulse survives the guard) |
 | Focus | `--accent-focus-ring` (low-alpha glow). **Note:** the keyboard focus ring in `base.css` is now a **double-ring** — `outline: 3px solid var(--action-primary)` plus a 5px `box-shadow` halo (see §8.1). The `--focus-ring` token (`0 0 0 3px …`) is effectively **superseded** by this inline double-ring implementation; `--accent-focus-ring` remains for component-level glow overlays but `--focus-ring` should be considered legacy. |
 | Accent treatments | `--accent-gradient`, `--accent-gradient-hover`, `--accent-glow-strong`, `--hero-glow` (primary-action fills + hero glow) |
 | Spacing (8pt scale) | `--space-1` (4px) … `--space-8` (48px) |
@@ -129,7 +130,7 @@ When a new visual state needs a color, add the token (with both `:root` and `[da
 | `--on-action` #ffffff | `--action-primary` #1e4fd8 | 6.63 | AA |
 | `--status-cached-text` #9a4d0a | `--surface` #ffffff | 6.10 | AA |
 | `--status-cached-ring` #a8530a | `--surface` #ffffff | 5.38 | AA (UI/non-text ≥ 3) |
-| `--on-success` #04240f | `--success` #16a34a | 5.04 | AA |
+| `--on-success` #04240f | `--success` #10b981 | 6.55 | AA |
 | `--error-text` #991b1b | `--error-tint-bg` | 7.28 | AAA |
 | `--error-text-strong` #b91c1c | `--error-tint-bg` | 5.66 | AA |
 | `--warning-text` #92400e | `--warning-tint-bg` | 6.66 | AA |
@@ -152,7 +153,7 @@ When a new visual state needs a color, add the token (with both `:root` and `[da
 | `--text-muted` #8b95a8 | `--surface-alt` #161922 | 5.82 | AA |
 | `--text-subtle` #6b7a92 | `--surface` #1a1d27 | 3.86 | AA (chrome/large only — MUST NOT carry body text) |
 | `--on-action` #0d0f14 | `--action-primary` #6b9fff | 7.33 | AAA |
-| `--on-success` #052e16 | `--success` #22c55e | 6.54 | AA |
+| `--on-success` #052e16 | `--success` #10b981 | 5.88 | AA |
 | `--error-text` #fca5a5 | `--error-tint-bg` | 7.60 | AAA |
 | `--warning-text` #fbbf24 | `--warning-tint-bg` | 8.21 | AAA |
 | `--success-text` #34d399 | `--success-tint-bg` | 7.23 | AAA |
@@ -335,7 +336,7 @@ Color contrast is delivered through the token system: text and surface tokens ar
 
 ### 8.4 The five UI states (binding)
 
-**44px minimum touch target (current):** all buttons and form controls (`button`, `input`, `select`, `textarea`) now have `min-height: 44px` enforced in `base.css` (INV-6). This satisfies WCAG 2.5.5 Target Size (AA, 24×24px minimum) with comfortable margin. New interactive controls MUST not undercut this.
+**44px minimum touch target (current):** form controls (`input`, `select`, `textarea`) have `min-height: 44px` enforced in `base.css` (INV-6). The blanket `button` `min-height: 44px` was **removed** because it deformed compact icon/transport buttons (e.g. `.player-btn`, voice-card buttons) — standard buttons rely on their padding (~40px natural height), and a 44px hit-area for compact icon buttons is a tracked follow-up rather than a blanket `min-height`. This satisfies WCAG 2.5.5 Target Size (AA, 24×24px minimum) for form controls. New form controls MUST not undercut 44px.
 
 From `.agent/rules/frontend-ux.md`: every meaningful screen change MUST account for these states, and each MUST be user-meaningful and testable by role/label/visible behavior (not a bare spinner):
 
@@ -362,7 +363,7 @@ The `prefers-reduced-motion` guard is now the **first rule in `base.css`** (INV-
 }
 ```
 
-This resolves the prior coverage gap (was demo-only). The `--pulse-duration` token is zeroed by this guard; the `.is-running` class (structural exemption) restores `--pulse-duration: 3s` for the `calm-pulse` animation — an exemption that is semantically meaningful (a live running indicator is structural status, not decorative motion). Framer Motion animations on real-app pages remain a tracked follow-up for explicit `useReducedMotion()` adoption, but the global guard provides a safety net for all CSS transitions and keyframe animations.
+This resolves the prior coverage gap (was demo-only). The `--pulse-duration` token is **not** changed by this guard — the guard zeroes `animation-duration` on all elements; `.is-running` re-enables `animation-duration: var(--pulse-duration)` (with `!important` + higher specificity) so the calm-pulse survives the guard — an exemption that is semantically meaningful (a live running indicator is structural status, not decorative motion). Framer Motion animations on real-app pages remain a tracked follow-up for explicit `useReducedMotion()` adoption, but the global guard provides a safety net for all CSS transitions and keyframe animations.
 
 ---
 
@@ -426,7 +427,7 @@ New code MUST NOT introduce glyph-as-icon usage. A `grep`/CI gate on the banned 
 
 - **Product name:** **Audiobook Studio** (per `frontend/index.html` `<title>` and OpenGraph). The short form is **Studio**. The repository directory name `audiobook-factory` is an internal name and is **never** user-facing — do not surface it in UI copy (see [voice-tone.md](voice-tone.md) §9).
 - **Wordmark:** rendered by `BrandLogo` (`components/layout/BrandLogo.tsx`) — the wordmark uses **Space Grotesk** (self-hosted, §4.1) at bespoke `--as-title-fs`/`--as-sub-fs` clamp sizes that sit outside the `--type-*` scale by design. Always use `BrandLogo`; never re-typeset the wordmark by hand.
-- **Brand colors:** brand-blue `--as-blue` (`#2b6eff`, == `--accent`) and brand-amber `--as-amber` (`#f97316`). The amber has light+dark tint tokens (`--as-amber-tint-bg`/`-border`); `--as-blue`, `--as-amber`, and `--as-info-tint` currently have **no dark override** (they inherit their light values) — a known parity gap to revisit if they read low-contrast on dark surfaces.
+- **Brand colors:** brand-blue `--as-blue` (`#2b6eff`) is the stable brand-blue identity; NOTE that `--accent` diverged to `#1e4fd8` in the Quiet Studio re-skin, so `--as-blue` is intentionally **no longer equal** to `--accent`. Brand-amber is `--as-amber` (`#f97316`). The amber has light+dark tint tokens (`--as-amber-tint-bg`/`-border`); `--as-blue`, `--as-amber`, and `--as-info-tint` currently have **no dark override** (they inherit their light values) — a known parity gap to revisit if they read low-contrast on dark surfaces.
 - **Logo / favicon:** `frontend/public/logo.png` (raster brand mark) and `frontend/public/favicon.ico`. *(Two packaging nits to fix as follow-ups: `index.html` declares the favicon `type="image/svg+xml"` but points at an `.ico`; and the OpenGraph `og:image` points at `/docs/assets/banner.png`, which is not served from the built SPA (`frontend/dist`) and will 404. Neither affects in-app rendering.)*
 - Brand imagery beyond the logo (AI-generated voice avatars, plugin engine logos) is purposeful raster artwork and is exempt from the lucide icon rule (§9.3).
 
