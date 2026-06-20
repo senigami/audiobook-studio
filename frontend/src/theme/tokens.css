@@ -178,6 +178,12 @@
   --progress-stripe-finalizing-tint:      rgba(219, 234, 254, 0.20);
   --progress-stripe-finalizing-tint-soft: rgba(219, 234, 254, 0.10);
 
+  /* Typography stacks — updated by Task 000 */
+  --font-ui:      'Geist Variable', 'Geist', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Space Grotesk', 'Geist Variable', system-ui, sans-serif;
+  --font-reading: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-mono:    'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
   /* Type scale tokens — design-system §4 (additive; theme-independent) */
   --type-display:     2.25rem;   /* 36px — splash / large hero moments */
   --type-large-title: 1.875rem;  /* 30px — page greeting, section heroes */

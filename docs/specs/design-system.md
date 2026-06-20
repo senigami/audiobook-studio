@@ -1,10 +1,10 @@
 # Design System
 
 ```
-spec_version: 1.4.0
+spec_version: 1.5.0
 status: active
 created: 2026-06-13
-updated: 2026-06-19
+updated: 2026-06-20
 sources:
   - frontend/src/theme/tokens.css
   - frontend/src/demo/stages/siteMockup/
@@ -46,6 +46,7 @@ sources:
 | 1.2.0   | 2026-06-16 | Reconciled §2/§4/§5 to the current `tokens.css` (some drift predated this session). Radius bumped (`--radius-card` 14px, `--radius-panel` 18px); registry now documents the present Material (`--blur-glass*`, `--hairline`), Motion (`--ease-*`/`--dur-*`), `--focus-ring`, accent gradient/glow, and 8pt `--space-*` families. §4 type scale corrected to **tokenized (current)** and extended with `--type-display/large-title/reading` + `--leading-*`/`--tracking-*`. §5 voice-pill tints corrected to **current** (`--pill-*` exist in `tokens.css`); real-Voices-page adoption remains target. |
 | 1.3.0   | 2026-06-19 | **Style-guide completion pass.** Added **§2.4 Color & contrast** (computed WCAG AA ratios for the key pairs in both themes, with composited-color math for `rgba` tints) and **§10 Brand identity** (Cross-References renumbered §10→§11). §2.1 registered the previously-undocumented **Cloud-engine** and **Waveform-strip** token families + the **progress barber-pole stripe** tokens, completed missing State/Surface/Brand rows, and flagged `--focus-ring` as *defined-but-unused*. §4: typeface decision recorded — **Inter (+ Space Grotesk wordmark) is now self-hosted** (was declared-but-never-loaded → system-ui fallback); type-token adoption status corrected (one real-app file, not a migration-in-progress). §6: added 6 shipped-but-undocumented primitives (`GlassInput`, `SearchableSelect`, `ColorSwatchPicker`, `VoiceDropzone`, `BrandLogo`, `PluginTrustModal`) + the `PlayerBar` transport. §7: added the 1250px breakpoint. §8: recorded the reduced-motion coverage gap. §9: recorded known real-app glyph violations as tracked deviations. UI copy/voice & tone split out to the new [voice-tone.md](voice-tone.md). Same change set fixed the duplicate `--success-text` token and tokenized the progress-bar `rgba` literals. |
 | 1.4.0   | 2026-06-19 | Completed the §9 glyph→lucide migration. The 8 real-app glyph-as-icon usages (a `▶` play label, `›` breadcrumb separators ×3, `▲`/`▼` disclosure carets ×2, an `Export ▾` caret, and `✓` markers ×3) now render the mapped lucide components; the redundant `⚠` decorations on `EditTab`/`AnalysisStrip` were dropped in favor of the existing `AlertTriangle`. §9.1 updated; §9.5 changed from a deviations table to **resolved**. Rendering-only change — no behavior change. |
+| 1.5.0   | 2026-06-20 | **P0 fonts.** Self-host Geist Variable + Geist Mono + Source Serif 4 via @fontsource; add `--font-ui`/`--font-display`/`--font-reading`/`--font-mono` tokens; repoint `base.css` stacks; Inter remains as fallback in `--font-ui` stack. Resolves R1. |
 
 ---
 
@@ -223,7 +224,16 @@ Companion **line-height** and **letter-spacing** tokens pair with the sizes: `--
 
 ### 4.1 Typeface (current)
 
-The body typeface is **Inter**, with **Space Grotesk** reserved for the brand wordmark (`BrandLogo`, §6 / §10). Both are **self-hosted** via `@fontsource` — `@fontsource-variable/inter` and `@fontsource/space-grotesk` are imported in `frontend/src/main.tsx`, so the declared fonts actually render across macOS / Windows / Linux. (Before 2026-06-19 these fonts were named first in the CSS stacks but never delivered — no `@font-face`, no bundled file — so the app silently fell back to system-ui; self-hosting them is the owner-approved fix.) The full body stack stays `"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif` (`base.css`): Inter first, native system fonts as the fallback chain.
+Four typefaces are **self-hosted** via `@fontsource` and assigned to role tokens in `tokens.css`:
+
+| Role | Font | Token | Self-hosted via |
+|------|------|-------|-----------------|
+| UI body | **Geist Variable** | `--font-ui` | `@fontsource-variable/geist` |
+| Display / headings | **Space Grotesk** | `--font-display` | `@fontsource/space-grotesk` |
+| Reading column | **Source Serif 4** | `--font-reading` | `@fontsource/source-serif-4` |
+| Code / logs | **Geist Mono** | `--font-mono` | `@fontsource/geist-mono` |
+
+All four are imported in `frontend/src/main.tsx` (Inter → Geist → Geist Mono → Source Serif 4 → Space Grotesk order). **Inter remains as an explicit third-fallback** in `--font-ui` (`'Geist Variable', 'Geist', 'Inter', system-ui, …`) so a failed import never silently regresses to system-ui. `base.css` consumes the tokens: `body` uses `var(--font-ui)`; `h1–h4` use `var(--font-display)`; `code, pre` use `var(--font-mono)`. Reading-column layouts should apply `var(--font-reading)` directly. (Before 2026-06-19 Inter and Space Grotesk were named in CSS stacks but never delivered — no `@font-face`, no bundled file — so the app silently fell back to system-ui; self-hosting all four faces is the Quiet Studio P0 fix, resolving open question R1.)
 
 ### 4.2 Weight & tracking pairing (current + gaps)
 

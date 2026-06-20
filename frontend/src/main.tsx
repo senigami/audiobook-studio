@@ -1,4 +1,9 @@
 import '@fontsource-variable/inter';
+import '@fontsource-variable/geist';
+import '@fontsource/geist-mono/400.css';
+import '@fontsource/geist-mono/500.css';
+import '@fontsource/source-serif-4/400.css';
+import '@fontsource/source-serif-4/700.css';
 import '@fontsource/space-grotesk/400.css';
 import '@fontsource/space-grotesk/600.css';
 import '@fontsource/space-grotesk/700.css';
