@@ -3,6 +3,9 @@
 Single map of every planning document, with status, so plans aren't scattered. Consolidated
 2026‑06‑19 from a verified classification of all plans created on/before 2026‑06‑17.
 
+- **[master_fix_plan/](master_fix_plan/README.md)** — the consolidated roadmap of **everything left
+  to fix/finish** (umbrella over all open workstreams; newer plan supersedes older). **Start here for
+  what's left.**
 - **[COMPLETED_WORK_REPORT.md](COMPLETED_WORK_REPORT.md)** — formal v1→v2 "what shipped" narrative
   for the wiki / changelog / release highlights. **Start here for what's done.**
 - **Active & partial plans** live at the `plans/` root (the to‑do list below).
