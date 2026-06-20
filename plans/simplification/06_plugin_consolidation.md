@@ -115,32 +115,44 @@ caller-less `raise NotImplementedError` lying around.
 
 ---
 
-## PL-6 — Investigate the legacy xtts dispatch adapter (verify-then-decide)
+## PL-6 — The xtts dispatch adapter is LIVE — do NOT delete (verified 2026-06-19)
 
-**⚠️ NOT a confirmed deletion.** The audit suggested `plugins/tts_xtts/plugin/studio/adapter.py`
-(`xtts_dispatch_adapter`) + `voice_adapter.py` (`voice_job_dispatch_adapter`) are dead because
-`app/orchestration/tasks/synthesis.py` routes xtts via `VoiceBridge` (`to_bridge_request`), not the
-jobs registry. **Verification showed it is still wired:** `manifest.json:18` maps
-`engine_handlers["xtts"]` → `interface:xtts_dispatch_adapter`, and `interface.py:12,19` imports/exports
-it. `app/` has zero *direct* calls, but the registry handler path exists; only
-`tests/engines/test_xtts_timing.py` exercises it directly.
+**⚠️ RESOLVED — the original "possibly dead" hypothesis was WRONG. The adapter is the active XTTS
+render path. Deleting it breaks all XTTS rendering.** Verified call chain:
 
-**Task = prove the path is dead before removing anything:**
-1. Trace every job-submission site: does anything submit an `engine="xtts"` job through the registry
-   (`reg.get_handler` / `app.jobs`) rather than through `SynthesisTask`/`VoiceBridge`? Grep the
-   orchestrator dispatch (`scheduler/orchestrator_helpers.py` `_dispatch`) for the registry-handler
-   branch and confirm xtts never reaches it in production.
-2. Check whether the manifest `engine_handlers` entry is *required* for plugin load/validation even
-   if unused at runtime (`plugin_loader.py` / `plugin-contract.md`).
+```
+SynthesisTask(engine=xtts) → orchestrator _dispatch → [step 1: registry handler] → xtts_dispatch_adapter
+   → handle_xtts_job → handle_xtts_standard → generate_via_bridge → bridge.synthesize() → TTS Server
+```
 
-**If proven dead:** delete `adapter.py` + `voice_adapter.py`, remove from `interface.py __all__`,
-remove the `engine_handlers["xtts"]` manifest entry, and rewrite `test_xtts_timing.py` to test
-through the bridge path. **If not dead (or load-bearing for the manifest contract):** leave it,
-document why in a code comment, and close the finding.
+Key facts established by reading the code:
+- `_dispatch` (`orchestrator_helpers.py:1026-1131`) checks the **registry handler first** and
+  `return`s before reaching the bridge branch (step 3, line 1161). `get_handler` returns
+  `xtts_dispatch_adapter` for `engine='xtts'` (`registry.py:48-49`, exact-engine match), registered
+  at boot (`boot.py:97-98 → initialize_default_handlers`).
+- `handle_xtts_standard` calls `generate_via_bridge` (`standard_handler.py:39`), which calls
+  `create_voice_bridge().synthesize()` (`bridge_helpers.py:49,81`). So **XTTS does reach the TTS
+  Server via the bridge** — it is NOT an in-process bypass.
 
-**Verify:** full suite incl. plugin suites; if removed, confirm xtts still synthesizes end-to-end
-through the bridge. **Effort:** M · **Risk:** med. **Spec:** `plugin-contract.md` /
-`engines-and-plugins.md` if the manifest `engine_handlers` contract changes.
+**The genuinely-redundant piece:** `SynthesisTask.to_bridge_request()` (the "clean" path everyone
+assumes is used) is **never called for XTTS**, because the registry handler short-circuits at step 1.
+Two paths reach the bridge; only the older registry-adapter one runs for xtts.
+
+**Optional cleanup task (owner to decide — NOT a deletion of the adapter):**
+- (a) *Document + leave:* add a code comment at the `_dispatch` registry branch and on
+  `to_bridge_request` noting the adapter is the live xtts path and `to_bridge_request` is the
+  fallback for engines without a registry handler. Lowest risk. **OR**
+- (b) *Unify (bigger):* migrate XTTS onto the `to_bridge_request` path and retire `xtts_dispatch_adapter`
+  + the manifest `engine_handlers["xtts"]` entry, so all engines dispatch one way. This is a real
+  behavior-area change (heavily tested in `test_xtts_timing.py`); only do it with full revert-checked
+  coverage and owner sign-off.
+
+`voice_job_dispatch_adapter` (voice_build/test) is similarly live-ish but wraps `handle_voice_job`;
+the modern `SampleBuildTask.run()`→bridge path is bypassed for xtts speakers the same way. Same
+treatment: document or unify, do not blind-delete.
+
+**Effort:** S (a) / L (b) · **Risk:** low (a) / med-high (b). **Spec:** `system-architecture.md`
+(dispatch ownership) + `plugin-contract.md` (`engine_handlers`) if (b) is taken.
 
 ---
 

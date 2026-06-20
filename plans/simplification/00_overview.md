@@ -70,7 +70,8 @@ Phase 1 has a hard *extract-before-delete* ordering; Phases 2–5 can interleave
 | Phase | Doc | Theme | Risk | Rough size |
 |-------|-----|-------|------|-----------|
 | **0** | [01_quick_wins.md](01_quick_wins.md) | Dead deps, dead files, mandatory color fixes, dead CSS | Very low | ~0.5–1 session |
-| **1** | [02_frontend_dead_code_removal.md](02_frontend_dead_code_removal.md) | Remove the ~4,700 LOC dead ProjectDetail/ChapterEditor trees + stub routes + dead components (extract-first) | Medium (touches 31 test files) | ~1–2 sessions |
+| **1A** | [07_restore_lost_functionality.md](07_restore_lost_functionality.md) | **Harvest + restore functionality lost in the redesign** (owner-confirmed): chapter-list progress/play/download, destructive-action guards, in-Studio edit, default-voice picker, segment-aware player; wire in VoiceDropzone/VoiceModules/SearchableSelect | Low–high (RST-8 delicate) | largest of phase 1 |
+| **1B** | [02_frontend_dead_code_removal.md](02_frontend_dead_code_removal.md) | Delete the dead ProjectDetail/ChapterEditor husks — **only after 1A harvests them** — + safe stub/route deletions | Medium (touches 31 test files) | ~1 session |
 | **2** | [03_styling_separation.md](03_styling_separation.md) | The core ask: shared classes, inline-style → class conversion by hotspot, split `components.css` | Low logic / high churn | Largest; phased |
 | **3** | [04_large_file_splits.md](04_large_file_splits.md) | Split oversized files (frontend hooks/components, backend services) along seams | Medium | Opportunistic |
 | **4** | [05_backend_cleanup.md](05_backend_cleanup.md) | Backend dead code, duplicate timing math, repeated queries, `app/jobs` rename | Low–medium | ~1 session |

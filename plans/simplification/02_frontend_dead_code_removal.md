@@ -4,6 +4,15 @@
 > The **hard rule** here is *extract before delete*: live code imports symbols out of the dead tree,
 > so those move to real homes first (separate commit), then the dead tree goes.
 
+> ⚠️ **GATED BY OWNER REVIEW (2026-06-19).** An investigation found the redesign **lost real
+> functionality** that lives in these "dead" trees, and the owner confirmed most of it should be
+> **restored**, not deleted. The trees are a **harvest source**. Do **NOT** delete `ProjectDetail`/
+> `ChapterEditor` (DC-1b) until the matching restore tasks in
+> [07_restore_lost_functionality.md](07_restore_lost_functionality.md) (RST-1…RST-8, WIRE-1/3) have
+> pulled the wanted features into the live Book pipeline. This doc now covers only (a) the
+> extraction prerequisites, (b) the genuinely-safe deletions, and (c) the final husk-deletion once
+> restoration is done.
+
 ---
 
 ## Background (verified)
@@ -54,9 +63,16 @@ refs if it pins these paths.
 
 ## DC-1b — Delete the dead `ProjectDetail` + `ChapterEditor` trees
 
-**Precondition:** DC-1a merged; `grep -rn "ProjectDetailPage\|ChapterEditorPage" frontend/src` shows
-only the `App.tsx:154` comment; no live file imports anything under `pages/ChapterEditor/` or
-`pages/ProjectDetail/`.
+**Preconditions (BOTH required):**
+1. **Restoration complete** — all owner-confirmed RST-*/WIRE-* tasks in
+   [07_restore_lost_functionality.md](07_restore_lost_functionality.md) that *harvest* from these
+   trees have landed (per-row progress bar, chapter-play-via-global-player, audio download, the
+   destructive-action guards, in-Studio source edit, default-voice picker, engine banner, and — most
+   carefully — RST-8's segment-aware-player logic port). Until then these files are the source of
+   truth for that logic.
+2. DC-1a merged; `grep -rn "ProjectDetailPage\|ChapterEditorPage" frontend/src` shows only the
+   `App.tsx:154` comment; no live file imports anything under `pages/ChapterEditor/` or
+   `pages/ProjectDetail/`.
 
 **Delete (verified members):**
 - `pages/ProjectDetail/` — `ProjectDetailPage.tsx` + `components/` (ChapterList, ProjectHeader,
@@ -101,20 +117,29 @@ dirs); `wiki/Changelog.md`.
 
 ---
 
-## DC-3 — Delete dead components
+## DC-3 — Dead components: RESOLVED by owner review (do NOT delete VoiceDropzone/SearchableSelect)
 
-**Why:** test-only components with no production render site.
+Owner confirmed (2026-06-19) that the two "unused" form components were **meant to be wired in**, not
+deleted:
+- `VoiceDropzone.tsx` → **wire into voice creation** (see WIRE-1 in doc 07). Keep.
+- `SearchableSelect.tsx` → **replace plain `<select>`s** (see WIRE-3 in doc 07). Keep.
 
-- `frontend/src/components/forms/VoiceDropzone.tsx` + its test. No production caller. (Rebuild
-  against the real API contract when voice import actually ships.)
-- `frontend/src/components/forms/SearchableSelect.tsx` (261 lines) + its test. No production caller.
+Their test files stay too. This task is therefore **removed** from the delete set.
 
-**Decision point for the owner:** if either is a near-term building block, relocate to a clearly
-labeled `components/_candidates/` instead of deleting. Default: delete — a 261-line unused component
-in the active library is misleading.
+## DC-3b — Safe deletions (owner-confirmed not wanted / inert)
 
-**Verify:** `grep -rn "VoiceDropzone\|SearchableSelect" frontend/src` → only the files themselves;
-build + tests green.
+These have no restoration claim and are genuinely safe to delete:
+- `frontend/src/pages/ChapterEditor/components/LiveOutputTab.tsx` — owner did **not** want an
+  in-editor live log; the standalone `/event-stream` page is sufficient. One-line re-export, never
+  wired even in the old editor. Delete. (Goes with the ChapterEditor tree in DC-1b anyway, but is
+  safe to drop independently.)
+- `frontend/src/pages/ChapterEditor/ChapterEditorRoute.tsx` — `createChapterEditorRoute()` returns
+  null; never imported; scaffolding for an architecture that the Book pipeline replaced. Delete.
+- The obsolete `export {}` stubs and `app/routes/index.tsx` `createX()` null-stubs (covered by QW-5
+  and DC-2). Delete.
+
+**Verify:** `grep -rn "LiveOutputTab\|ChapterEditorRoute\|createChapterEditorRoute" frontend/src` →
+only the files themselves; build + tests green.
 **Effort:** S · **Risk:** low. **Spec:** none.
 
 ---
