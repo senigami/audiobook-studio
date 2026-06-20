@@ -291,12 +291,13 @@ export const api = {
     const res = await fetch('/api/processing_queue');
     return parseApiResponse(res);
   },
-  addProcessingQueue: async (projectId: string, chapterId: string, splitPart: number = 0, speakerProfile?: string): Promise<any> => {
+  addProcessingQueue: async (projectId: string, chapterId: string, splitPart: number = 0, speakerProfile?: string, forceRerender: boolean = false): Promise<any> => {
     const formData = new FormData();
     formData.append('project_id', projectId);
     formData.append('chapter_id', chapterId);
     formData.append('split_part', splitPart.toString());
     if (speakerProfile) formData.append('speaker_profile', speakerProfile);
+    if (forceRerender) formData.append('force_rerender', 'true');
     const res = await fetch('/api/processing_queue', { method: 'POST', body: formData });
     return parseApiResponse(res);
   },
@@ -418,6 +419,15 @@ export const api = {
     return parseApiResponse(res);
   },
 
+  previewGithubEnginePlugin: async (gitUrl: string): Promise<any> => {
+    const res = await fetch('/api/engines/preview_github', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ git_url: gitUrl }),
+    });
+    return parseApiResponse(res);
+  },
+
   confirmEnginePlugin: async (token: string): Promise<any> => {
     const res = await fetch(`/api/engines/confirm/${encodeURIComponent(token)}`, { method: 'POST' });
     return parseApiResponse(res);
@@ -434,6 +444,11 @@ export const api = {
   },
   installPlugin: async (): Promise<any> => {
     const res = await fetch('/api/engines/install', { method: 'POST' });
+    return parseApiResponse(res);
+  },
+
+  fetchOfficialPluginRegistry: async (): Promise<any> => {
+    const res = await fetch('/api/engines/registry');
     return parseApiResponse(res);
   },
 

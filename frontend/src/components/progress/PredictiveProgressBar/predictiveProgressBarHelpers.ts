@@ -23,7 +23,10 @@ export const isLoadingPresentationStatus = (status?: string) => isPreparingStatu
 export const isTerminalStatus = (status?: string) =>
     isQueuedStatus(status) || isDoneStatus(status) || isFailedStatus(status) || isCancelledStatus(status);
 
-export const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+// NaN-safe: a non-finite input (undefined progress, NaN from a zero-duration
+// lane division, etc.) collapses to 0 rather than propagating "NaN%" to the
+// rendered percentage. This is the single shared sink for displayed progress.
+export const clamp01 = (value: number) => (Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0);
 
 export const formatStylePercent = (value: number) => `${(clamp01(value) * 100).toFixed(1)}%`;
 

@@ -73,8 +73,8 @@ def apply_status_regression_guard(
     if new_p >= old_p:
         return True, None
 
-    # Allow terminal → queued (clean-slate reset)
-    if new_status == "queued" and current_status in TERMINAL_STATUSES:
+    # Allow terminal → queued/preparing (clean-slate reset, spec §3.5)
+    if new_status in ACTIVE_STATUSES and current_status in TERMINAL_STATUSES:
         return True, None
 
     # Block any other regression

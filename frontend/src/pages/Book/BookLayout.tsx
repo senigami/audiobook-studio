@@ -1,0 +1,168 @@
+import { Navigate, NavLink, useParams, useSearchParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { setBookIdentity } from '@/app/layout/bookIdentityStore';
+import type { Job, SegmentProgress, Settings, Speaker, SpeakerProfile, TtsEngine } from '@/types';
+import { BookDataProvider, useBookDataContext } from '@/pages/Book/BookDataContext';
+import { CastingStage } from '@/pages/Book/stages/CastingStage';
+import { ManuscriptStage } from '@/pages/Book/stages/ManuscriptStage';
+import { ReviewStage } from '@/pages/Book/stages/ReviewStage';
+import { StudioStage } from '@/pages/Book/stages/StudioStage';
+import { PublishStage } from '@/pages/Book/stages/PublishStage';
+import {
+  BOOK_STAGE_LABELS,
+  BOOK_STAGES,
+  getLastStage,
+  isBookStage,
+  setLastStage,
+  type BookStage,
+} from '@/pages/Book/lib/stages';
+
+interface BookLayoutProps {
+  jobs?: Record<string, Job>;
+  segmentProgress?: Record<string, SegmentProgress>;
+  speakerProfiles?: SpeakerProfile[];
+  speakers?: Speaker[];
+  settings?: Partial<Settings>;
+  engines?: TtsEngine[];
+  refreshTrigger?: number;
+  segmentUpdate?: { chapterId: string; tick: number };
+  chapterUpdate?: { chapterId: string; tick: number };
+  onOpenQueue?: () => void;
+}
+
+export function BookIndexRedirect() {
+  const { bookId } = useParams<{ bookId: string }>();
+
+  if (!bookId) {
+    return <Navigate to="/library" replace />;
+  }
+
+  return <Navigate to={`/book/${bookId}/${getLastStage(bookId)}`} replace />;
+}
+
+function StageContent({ stage }: { stage: BookStage }) {
+  if (stage === 'manuscript') {
+    return <ManuscriptStage />;
+  }
+  if (stage === 'casting') {
+    return <CastingStage />;
+  }
+  if (stage === 'studio') {
+    return <StudioStage />;
+  }
+  if (stage === 'review') {
+    return <ReviewStage />;
+  }
+  if (stage === 'publish') {
+    return <PublishStage />;
+  }
+  return null;
+}
+
+function BookIdentityPublisher() {
+  const {
+    actions,
+    chapters,
+    jobs,
+    project,
+    totalRuntime,
+    totalPredicted,
+    projectVoiceStatus,
+  } = useBookDataContext();
+
+  useEffect(() => {
+    if (!project) {
+      setBookIdentity(null);
+      return;
+    }
+
+    setBookIdentity({
+      id: project.id,
+      title: project.name,
+      author: project.author,
+      series: project.series,
+      coverUrl: project.cover_image_path,
+      runtimeSeconds: totalRuntime,
+      predictedSeconds: totalPredicted,
+      chapters,
+      jobs,
+      anyEnginesEnabled: projectVoiceStatus.enabled,
+      actions: {
+        onQueueChapter: (chapter) => void actions.handleQueueChapter(chapter.id),
+        onResetAudio: (chapterId) => void actions.handleResetChapterAudio(chapterId),
+        onDeleteChapter: (chapterId) => void actions.handleDeleteChapter(chapterId),
+      },
+    });
+
+    return () => setBookIdentity(null);
+  }, [actions, chapters, jobs, project, totalRuntime, totalPredicted, projectVoiceStatus.enabled]);
+
+  return null;
+}
+
+export function BookLayout({
+  jobs = {},
+  segmentProgress = {},
+  speakerProfiles = [],
+  speakers = [],
+  settings,
+  engines = [],
+  refreshTrigger = 0,
+  segmentUpdate,
+  chapterUpdate,
+  onOpenQueue,
+}: BookLayoutProps) {
+  const { bookId, stage } = useParams<{ bookId: string; stage: string }>();
+  const [searchParams] = useSearchParams();
+
+  if (!bookId) {
+    return <Navigate to="/library" replace />;
+  }
+
+  if (!isBookStage(stage)) {
+    return <Navigate to={`/book/${bookId}`} replace />;
+  }
+
+  // Preserve the active chapter across stage switches. Studio/Review read the
+  // chapter from the URL; without this, switching tabs (e.g. Studio → Review)
+  // drops `?chapter=` and resets to the first chapter. Book-level stages
+  // (Casting/Publish) ignore the param harmlessly, so we carry it on all tabs.
+  const chapterParam = searchParams.get('chapter');
+  const stageHref = (s: BookStage) =>
+    chapterParam ? `/book/${bookId}/${s}?chapter=${encodeURIComponent(chapterParam)}` : `/book/${bookId}/${s}`;
+
+  return (
+    <BookDataProvider
+      jobs={jobs}
+      segmentProgress={segmentProgress}
+      speakerProfiles={speakerProfiles}
+      speakers={speakers}
+      settings={settings}
+      engines={engines}
+      refreshTrigger={refreshTrigger}
+      segmentUpdate={segmentUpdate}
+      chapterUpdate={chapterUpdate}
+      onOpenQueue={onOpenQueue}
+    >
+      <BookIdentityPublisher />
+      <section className="book-layout" aria-label="Book pipeline">
+        <nav className="book-stage-tabs" aria-label="Book stages">
+          {BOOK_STAGES.map((bookStage) => (
+            <NavLink
+              key={bookStage}
+              to={stageHref(bookStage)}
+              className={({ isActive }) =>
+                isActive ? 'book-stage-tabs__link book-stage-tabs__link--active' : 'book-stage-tabs__link'
+              }
+              onClick={() => setLastStage(bookId, bookStage)}
+            >
+              {BOOK_STAGE_LABELS[bookStage]}
+            </NavLink>
+          ))}
+        </nav>
+
+        <StageContent stage={stage} />
+      </section>
+    </BookDataProvider>
+  );
+}

@@ -129,7 +129,7 @@ describe('ChapterEditor - Assets & Voices', () => {
     fireEvent.click(screen.getByTitle('Queue Chapter'));
 
     await waitFor(() => {
-      expect(api.addProcessingQueue).toHaveBeenCalledWith(mockProjectId, mockChapterId, 0, 'Profile 1');
+      expect(api.addProcessingQueue).toHaveBeenCalledWith(mockProjectId, mockChapterId, 0, 'Profile 1', false);
     });
   });
 

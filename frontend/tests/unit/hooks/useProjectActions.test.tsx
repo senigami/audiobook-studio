@@ -106,7 +106,26 @@ describe('useProjectActions', () => {
     });
 
     expect(success).toBe(true);
-    expect(api.addProcessingQueue).toHaveBeenCalledWith(projectId, 'chap1', 0, 'voice1');
+    expect(api.addProcessingQueue).toHaveBeenCalledWith(projectId, 'chap1', 0, 'voice1', false);
+    // A plain queue must NOT reset the chapter (existing segment audio is preserved).
+    expect(api.resetChapter).not.toHaveBeenCalled();
+    expect(onDataRefresh).toHaveBeenCalled();
+  });
+
+  it('rebuild queueChapter resets the chapter and forces re-render', async () => {
+    (api.addProcessingQueue as any).mockResolvedValue({ status: 'success' });
+    (api.resetChapter as any).mockResolvedValue({ status: 'ok' });
+    const { result } = renderHook(() => useProjectActions(projectId, onDataRefresh, navigate));
+
+    let success;
+    await act(async () => {
+      success = await result.current.handleQueueChapter('chap1', 'voice1', true);
+    });
+
+    expect(success).toBe(true);
+    // Rebuild must clear existing audio first, then queue with force_rerender=true.
+    expect(api.resetChapter).toHaveBeenCalledWith('chap1');
+    expect(api.addProcessingQueue).toHaveBeenCalledWith(projectId, 'chap1', 0, 'voice1', true);
     expect(onDataRefresh).toHaveBeenCalled();
   });
 

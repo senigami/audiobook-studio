@@ -6,21 +6,16 @@
  *
  * Sections:
  *   1. Color tokens (auto-generated from tokens.css — zero drift)
- *   2. Typography — current vs proposed (U3)
+ *   2. Typography — shipped type/space/motion tokens (auto-parsed from tokens.css)
  *   3. Components — current states (live-mounted)
- *   4. Proposed directions (U1, U3, U8, U15, U16 mockup gallery)
+ *   4. Proposed directions (U1, U8, U15, U16 mockup gallery)
  *   5. Theme side-by-side
  */
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import tokensCss from '@/theme/tokens.css?raw';
 import { parseTokens, groupTokens, type TokenEntry } from './parseTokens';
-import {
-  PROPOSED_TYPE_SCALE,
-  PROPOSED_SPACE_SCALE,
-  PROPOSED_DURATION_SCALE,
-  AD_HOC_SIZES,
-} from './proposedTokens';
+import { AudioLines, Play, SkipBack, SkipForward, Rewind, FastForward } from 'lucide-react';
 import { GlassInput } from '@/components/forms/GlassInput';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 
@@ -131,6 +126,28 @@ const OwnerDecisionChip: React.FC = () => (
     }}
   >
     OWNER DECISION NEEDED
+  </span>
+);
+
+/** Green status chip for proposals the owner has ratified (affirmed / approved / decided). */
+const DecidedChip: React.FC<{ label?: string }> = ({ label = 'AFFIRMED' }) => (
+  <span
+    style={{
+      display: 'inline-block',
+      background: 'rgba(34, 197, 94, 0.14)',
+      color: 'var(--success-text, #166534)',
+      border: '1px solid rgba(34, 197, 94, 0.32)',
+      borderRadius: 999,
+      fontSize: '0.6875rem',
+      fontWeight: 700,
+      letterSpacing: '0.07em',
+      textTransform: 'uppercase',
+      padding: '2px 10px',
+      verticalAlign: 'middle',
+      marginLeft: 8,
+    }}
+  >
+    {label}
   </span>
 );
 
@@ -419,148 +436,204 @@ const ColorTokensSection: React.FC<{ entries: TokenEntry[] }> = ({ entries }) =>
 // Section 2: Typography
 // ---------------------------------------------------------------------------
 
-const TypographySection: React.FC = () => (
-  <SectionWrapper id={SECTION_IDS.typography} title={SECTION_LABELS.typography}>
-    <SubSection title="Current — 11 ad-hoc sizes (no type tokens)">
+/**
+ * Metadata for the shipped 9-step type scale.
+ * Weight token name is null when tokens.css ships no --type-weight-* for that step.
+ */
+const TYPE_SCALE_META: Array<{
+  sizeToken: string;
+  weightToken: string | null;
+  label: string;
+  usage: string;
+}> = [
+  { sizeToken: '--type-display',     weightToken: '--type-weight-display',  label: 'Display',     usage: 'Splash / large hero moments' },
+  { sizeToken: '--type-large-title', weightToken: null,                      label: 'Large Title', usage: 'Page greeting, section heroes (no weight token)' },
+  { sizeToken: '--type-title',       weightToken: '--type-weight-title',    label: 'Title',       usage: 'Page headings, modal titles' },
+  { sizeToken: '--type-headline',    weightToken: '--type-weight-headline', label: 'Headline',    usage: 'Section headings, panel headers, chapter names' },
+  { sizeToken: '--type-reading',     weightToken: null,                      label: 'Reading',     usage: 'Long-form manuscript / script body (no weight token)' },
+  { sizeToken: '--type-body',        weightToken: '--type-weight-body',     label: 'Body',        usage: 'Primary readable text — descriptions, list items' },
+  { sizeToken: '--type-callout',     weightToken: null,                      label: 'Callout',     usage: 'Secondary info, sub-labels, form hints (no weight token)' },
+  { sizeToken: '--type-caption',     weightToken: '--type-weight-caption',  label: 'Caption',     usage: 'Timestamps, IDs, table cell text, badges' },
+  { sizeToken: '--type-micro',       weightToken: '--type-weight-micro',    label: 'Micro',       usage: 'All-caps labels, status chips, keyboard shortcuts' },
+];
+
+const SPACE_SCALE_META: Array<{ token: string; px: string; label: string }> = [
+  { token: '--space-1', px: '4px',  label: 'icon gaps, tight row padding' },
+  { token: '--space-2', px: '8px',  label: 'within-component padding' },
+  { token: '--space-3', px: '12px', label: 'button padding, card inner gap' },
+  { token: '--space-4', px: '16px', label: 'standard section padding' },
+  { token: '--space-5', px: '24px', label: 'panel padding, section gaps' },
+  { token: '--space-6', px: '32px', label: 'major section gaps' },
+  { token: '--space-7', px: '40px', label: 'large layout spacing' },
+  { token: '--space-8', px: '48px', label: 'page-level gutters' },
+];
+
+const MOTION_SCALE_META: Array<{ token: string; usage: string }> = [
+  { token: '--dur-fast',        usage: 'Hover state appearance, focus ring, simple color transitions (0.14s)' },
+  { token: '--dur-med',         usage: 'Standard UI transitions — panels sliding, cards expanding (0.24s)' },
+  { token: '--dur-slow',        usage: 'Page-level route transitions, overlay enter/exit (0.4s)' },
+  { token: '--ease-standard',   usage: 'Default easing for most transitions' },
+  { token: '--ease-emphasized', usage: 'Emphasized motion — important state changes' },
+  { token: '--ease-spring',     usage: 'Springy entrance effects, delight moments' },
+];
+
+interface TypographySectionProps {
+  allTokens: TokenEntry[];
+}
+
+const TypographySection: React.FC<TypographySectionProps> = ({ allTokens }) => {
+  // Build a lookup map from token name → lightValue for live values
+  const tokenMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const entry of allTokens) {
+      m.set(entry.name, entry.lightValue);
+    }
+    return m;
+  }, [allTokens]);
+
+  return (
+    <SectionWrapper id={SECTION_IDS.typography} title={SECTION_LABELS.typography}>
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
-        The current codebase has <strong>zero type tokens</strong> in <code>tokens.css</code>.
-        Font sizes are hard-coded inline throughout ~50 components spanning 0.625rem–2.75rem.
-        The rows below are live specimens at each size used today, labeled with where they appear.
+        Auto-parsed from <code>tokens.css</code> — values shown are live from the shipped file.
+        Body font: <strong>Inter</strong> (self-hosted).
       </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {AD_HOC_SIZES.map(({ size, usedIn }) => (
-          <div
-            key={size}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '90px 1fr',
-              gap: 16,
-              alignItems: 'baseline',
-              padding: '6px 0',
-              borderBottom: '1px solid var(--border)',
-            }}
-          >
-            <code style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-              {size}
-            </code>
-            <div>
-              <span style={{ fontSize: size, color: 'var(--text-primary)', lineHeight: 1.3 }}>
-                The quick brown fox
-              </span>
-              <span
+
+      {/* 2a. Type scale */}
+      <SubSection title="Type scale (--type-*)">
+        {/* Column header */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '160px 80px 80px 1fr',
+            gap: 16,
+            padding: '4px 0',
+            marginBottom: 4,
+            fontSize: '0.6875rem',
+            fontWeight: 700,
+            color: 'var(--text-muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.07em',
+          }}
+        >
+          <span>Token</span>
+          <span>Size</span>
+          <span>Weight</span>
+          <span>Specimen</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {TYPE_SCALE_META.map(({ sizeToken, weightToken, label, usage }) => {
+            const sizeVal  = tokenMap.get(sizeToken)  ?? sizeToken;
+            const weightVal = weightToken ? (tokenMap.get(weightToken) ?? '') : '';
+            const weightNum = weightVal ? parseInt(weightVal, 10) : undefined;
+            return (
+              <div
+                key={sizeToken}
                 style={{
-                  marginLeft: 12,
-                  fontSize: '0.6875rem',
-                  color: 'var(--text-muted)',
-                  fontStyle: 'italic',
+                  display: 'grid',
+                  gridTemplateColumns: '160px 80px 80px 1fr',
+                  gap: 16,
+                  alignItems: 'center',
+                  padding: '8px 0',
+                  borderBottom: '1px solid var(--border)',
                 }}
               >
-                — {usedIn}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </SubSection>
+                <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
+                  {sizeToken}
+                </code>
+                <code style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                  {sizeVal}
+                </code>
+                <code style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                  {weightToken
+                    ? <>{weightVal}</>
+                    : <span style={{ fontStyle: 'italic', color: 'var(--text-muted)', opacity: 0.7 }}>—</span>
+                  }
+                </code>
+                <div>
+                  <span
+                    style={{
+                      fontSize: `var(${sizeToken})`,
+                      fontWeight: weightNum,
+                      color: 'var(--text-primary)',
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {label}
+                  </span>
+                  <span style={{ marginLeft: 12, fontSize: '0.6875rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    {usage}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </SubSection>
 
-    <SubSection title={`PROPOSED (U3) — 6-step semantic scale`}>
-      <div style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '0.75rem' }}>
-        <ProposedChip />
-        <span style={{ marginLeft: 8, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-          These token names do not exist yet. Rendered from local constants for owner review.
-        </span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {PROPOSED_TYPE_SCALE.map(step => (
-          <div
-            key={step.name}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '160px 60px 56px 1fr',
-              gap: 16,
-              alignItems: 'baseline',
-              padding: '8px 0',
-              borderBottom: '1px solid var(--border)',
-            }}
-          >
-            <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
-              {step.name}
-            </code>
-            <code style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-              {step.size}/{step.weight}
-            </code>
-            <span
-              style={{ fontSize: step.size, fontWeight: step.weight, color: 'var(--text-primary)', lineHeight: 1.2 }}
-            >
-              {step.label}
-            </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-              {step.usage}
-            </span>
-          </div>
-        ))}
-      </div>
-    </SubSection>
+      {/* 2b. Spacing scale */}
+      <SubSection title="Spacing scale (--space-*)">
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          {SPACE_SCALE_META.map(({ token, px, label }) => {
+            const liveVal = tokenMap.get(token) ?? px;
+            return (
+              <div key={token} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <div
+                  style={{
+                    width: liveVal,
+                    height: 32,
+                    background: 'var(--accent)',
+                    opacity: 0.7,
+                    borderRadius: 3,
+                    minWidth: 4,
+                  }}
+                />
+                <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
+                  {token}
+                </code>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{liveVal}</span>
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', maxWidth: 80, textAlign: 'center' }}>
+                  {label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </SubSection>
 
-    <SubSection title="PROPOSED (U3) — Spacing scale (--space-*)">
-      <div style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '0.75rem' }}>
-        <ProposedChip />
-      </div>
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        {PROPOSED_SPACE_SCALE.map(step => (
-          <div key={step.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <div
-              style={{
-                width: step.value,
-                height: 32,
-                background: 'var(--accent)',
-                opacity: 0.7,
-                borderRadius: 3,
-                minWidth: 4,
-              }}
-            />
-            <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
-              {step.name}
-            </code>
-            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{step.value}</span>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', maxWidth: 80, textAlign: 'center' }}>
-              {step.label.split(' — ')[0]}
-            </span>
-          </div>
-        ))}
-      </div>
-    </SubSection>
-
-    <SubSection title="PROPOSED (U3) — Motion duration tokens (--duration-*)">
-      <div style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '0.75rem' }}>
-        <ProposedChip />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {PROPOSED_DURATION_SCALE.map(step => (
-          <div
-            key={step.name}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '180px 80px 1fr',
-              gap: 16,
-              alignItems: 'center',
-              padding: '6px 0',
-              borderBottom: '1px solid var(--border)',
-            }}
-          >
-            <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
-              {step.name}
-            </code>
-            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              {step.value}
-            </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{step.usage}</span>
-          </div>
-        ))}
-      </div>
-    </SubSection>
-  </SectionWrapper>
-);
+      {/* 2c. Motion tokens */}
+      <SubSection title="Motion tokens (--dur-* / --ease-*)">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {MOTION_SCALE_META.map(({ token, usage }) => {
+            const liveVal = tokenMap.get(token) ?? '';
+            return (
+              <div
+                key={token}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '200px 1fr',
+                  gap: 16,
+                  alignItems: 'center',
+                  padding: '6px 0',
+                  borderBottom: '1px solid var(--border)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
+                    {token}
+                  </code>
+                  <code style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                    {liveVal}
+                  </code>
+                </div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{usage}</span>
+              </div>
+            );
+          })}
+        </div>
+      </SubSection>
+    </SectionWrapper>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Section 3: Components
@@ -734,8 +807,7 @@ const U15Mock: React.FC = () => {
     <Card>
       <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
         U15 — Navigation &amp; Information Architecture
-        <ProposedChip />
-        <OwnerDecisionChip />
+        <DecidedChip label="Decided · Option B · Implemented" />
       </h3>
       <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
         The current top-bar nav puts all destinations at the same visual weight, creating
@@ -916,8 +988,9 @@ const U15Mock: React.FC = () => {
   );
 };
 
-/** Fake waveform SVG — varied bar heights to look plausible */
-const WaveformSVG: React.FC = () => {
+/** Fake waveform SVG — varied bar heights; stretches to fill its box so it can
+ *  serve as an inline scrub track (fixed pixel height, full container width). */
+const WaveformSVG: React.FC<{ height?: number }> = ({ height = 32 }) => {
   const bars = [
     12, 28, 18, 40, 32, 20, 44, 36, 22, 50, 42, 30, 48, 38, 24, 46, 34, 20, 40, 28,
     16, 36, 50, 44, 26, 38, 18, 42, 30, 46, 22, 34, 50, 28, 40, 20, 44, 32, 18, 36,
@@ -927,14 +1000,15 @@ const WaveformSVG: React.FC = () => {
   const barW = 4;
   const gap = 2;
   const svgW = totalBars * (barW + gap);
-  const svgH = 56;
+  const vbH = 56;
   const playheadX = svgW * 0.35;
 
   return (
     <svg
       width="100%"
-      viewBox={`0 0 ${svgW} ${svgH}`}
-      preserveAspectRatio="xMidYMid meet"
+      height={height}
+      viewBox={`0 0 ${svgW} ${vbH}`}
+      preserveAspectRatio="none"
       style={{ display: 'block' }}
     >
       {bars.map((h, idx) => {
@@ -944,7 +1018,7 @@ const WaveformSVG: React.FC = () => {
           <rect
             key={idx}
             x={x}
-            y={(svgH - h) / 2}
+            y={(vbH - h) / 2}
             width={barW}
             height={h}
             rx={2}
@@ -958,7 +1032,7 @@ const WaveformSVG: React.FC = () => {
         x1={playheadX}
         y1={0}
         x2={playheadX}
-        y2={svgH}
+        y2={vbH}
         stroke="var(--accent)"
         strokeWidth={2}
         opacity={0.9}
@@ -967,143 +1041,203 @@ const WaveformSVG: React.FC = () => {
   );
 };
 
-/** U16 — Unified player mockup */
+/** U16 — Unified player mockup.
+ *  Representation follows scope (no separate waveform toggle):
+ *   - Segment scope → waveform IS the inline scrub track (short segments have
+ *     readable structure worth annotating).
+ *   - Chapter scope → plain seek bar (an hour of speech is a featureless blur).
+ *  Responsive exception: when the player is narrow there's no room for an inline
+ *  waveform, so in Segment scope it moves ABOVE the controls at a reduced height
+ *  (container query), and the row falls back to a thin seek line. */
 const U16Mock: React.FC = () => {
-  const [waveformOn, setWaveformOn] = useState(false);
+  const [scope, setScope] = useState<'Segment' | 'Chapter'>('Segment');
+  const isSegment = scope === 'Segment';
+
+  // Representation defaults to the scope type (segment → waveform, chapter →
+  // bar) but the far-right toggle lets the user flip it. Switching scope resets
+  // the override so each scope starts at its default.
+  const [forceWave, setForceWave] = useState<boolean | null>(null);
+  const showWave = forceWave ?? isSegment;
+
+  const trackStyle: React.CSSProperties = {
+    height: 6,
+    flex: 1,
+    minWidth: 60,
+    background: 'var(--surface-alt)',
+    border: '1px solid var(--border)',
+    borderRadius: 3,
+    position: 'relative',
+    overflow: 'hidden',
+    cursor: 'pointer',
+  };
 
   return (
     <Card>
       <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
         U16 — Unified Audio Player Surface
-        <ProposedChip />
-        <OwnerDecisionChip />
+        <DecidedChip label="Affirmed" />
       </h3>
       <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
         Today the Chapter Editor has a VCR-style segment player and a separate chapter-level player —
         two separate surfaces that compete for space. The proposed design merges them into one persistent
         bottom player with a scope toggle (Segment ↔ Chapter). Depends on U15&apos;s layout conclusions.
       </p>
-      {/* Player mock */}
-      <div
-        style={{
-          border: '1px solid var(--border)',
-          borderRadius: 10,
-          background: 'var(--surface)',
-          padding: '12px 16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-          maxWidth: 560,
-          transition: 'height 0.22s ease',
-        }}
-      >
-        {/* Scope toggle + waveform button row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ display: 'flex', gap: 4, flex: 1, justifyContent: 'center' }}>
-            {['Segment', 'Chapter'].map((label, i) => (
-              <div
-                key={label}
-                style={{
-                  padding: '4px 14px',
-                  borderRadius: 999,
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  background: i === 0 ? 'var(--accent)' : 'var(--surface-alt)',
-                  color: i === 0 ? '#fff' : 'var(--text-secondary)',
-                  border: '1px solid',
-                  borderColor: i === 0 ? 'var(--accent)' : 'var(--border)',
-                  cursor: 'pointer',
-                }}
-              >
-                {label}
-              </div>
-            ))}
-          </div>
-          {/* Waveform toggle */}
-          <button
-            type="button"
-            onClick={() => setWaveformOn(w => !w)}
-            title="Toggle waveform display"
-            style={{
-              padding: '4px 10px',
-              borderRadius: 6,
-              fontSize: '0.7rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              background: waveformOn ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-              color: waveformOn ? 'var(--accent)' : 'var(--text-muted)',
-              border: '1px solid',
-              borderColor: waveformOn ? 'var(--accent-tint-border, var(--accent))' : 'var(--border)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              transition: 'background 0.15s, color 0.15s',
-            }}
-          >
-            <span>〰</span>
-            <span>Wave</span>
-          </button>
-        </div>
+      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem', lineHeight: 1.6 }}>
+        Click <strong>Segment</strong> / <strong>Chapter</strong> to see representation follow scope.
+      </p>
 
-        {/* Waveform strip — expands in when toggled on */}
-        {waveformOn && (
-          <div
-            style={{
-              padding: '6px 0 2px',
-              borderRadius: 6,
-              background: 'var(--surface-alt)',
-              border: '1px solid var(--border)',
-              overflow: 'hidden',
-            }}
-          >
-            <WaveformSVG />
-          </div>
-        )}
-
-        {/* Label */}
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-          Segment 3 / Chapter 2 · &quot;The Awakening&quot;
-        </div>
-        {/* Scrubber */}
-        <div style={{ position: 'relative', height: 4, background: 'var(--border)', borderRadius: 99 }}>
-          <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: '38%', background: 'var(--accent)', borderRadius: 99 }} />
-          <div style={{ position: 'absolute', left: '38%', top: '50%', transform: 'translate(-50%, -50%)', width: 12, height: 12, background: 'var(--accent)', borderRadius: '50%', boxShadow: '0 0 0 3px var(--accent-tint-bg)' }} />
-        </div>
-        {/* Time */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-          <span>0:14</span>
-          <span>0:38</span>
-        </div>
-        {/* Transport */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'center' }}>
-          {['⏮', '⏪', '▶', '⏩', '⏭'].map(icon => (
+      {/* Player mock — inline single row, matching the mockup + live PlayerBar.
+          container-type makes the waveform reflow above the controls when narrow. */}
+      <div className="u16-player" style={{ containerType: 'inline-size', maxWidth: 820 }}>
+        <style>{`
+          .u16-player .u16-wave-inline { display: block; }
+          .u16-player .u16-wave-above  { display: none; }
+          @container (max-width: 560px) {
+            .u16-player .u16-wave-inline { display: none; }
+            .u16-player .u16-wave-above  { display: block; }
+          }
+        `}</style>
+        <div
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            background: 'var(--surface)',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Responsive-only: waveform above the controls (when shown + narrow). Shorter than inline. */}
+          {showWave && (
             <div
-              key={icon}
+              className="u16-wave-above"
               style={{
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '50%',
-                background: icon === '▶' ? 'var(--accent)' : 'var(--surface-alt)',
-                color: icon === '▶' ? '#fff' : 'var(--text-secondary)',
-                fontSize: icon === '▶' ? '1rem' : '0.875rem',
-                cursor: 'pointer',
-                border: '1px solid var(--border)',
+                padding: '5px 14px 1px',
+                borderBottom: '1px solid var(--border)',
+                background: 'var(--surface-alt)',
+                overflow: 'hidden',
               }}
             >
-              {icon}
+              <WaveformSVG height={24} />
             </div>
-          ))}
+          )}
+
+          {/* Inline control row — wraps when too narrow so nothing clips */}
+          <div style={{ minHeight: 52, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '8px 14px' }}>
+            {/* Transport */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+              {[
+                { Icon: SkipBack, label: 'Previous' },
+                { Icon: Rewind, label: 'Back 10s' },
+                { Icon: Play, label: 'Play' },
+                { Icon: FastForward, label: 'Forward 10s' },
+                { Icon: SkipForward, label: 'Next' },
+              ].map(({ Icon, label }) => {
+                const active = Icon === Play;
+                return (
+                  <div
+                    key={label}
+                    aria-label={label}
+                    style={{
+                      width: active ? 38 : 34,
+                      height: active ? 38 : 34,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 'var(--radius-round, 50%)',
+                      background: active ? 'var(--accent)' : 'var(--surface-alt)',
+                      color: active ? 'var(--text-on-accent, #fff)' : 'var(--text-secondary)',
+                      border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Icon size={active ? 17 : 15} strokeWidth={2.2} style={{ transform: active ? 'translateX(1px)' : undefined }} />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Scrub track — Segment: inline waveform (hidden when narrow; the above
+                strip becomes the scrub track) / Chapter: plain bar. */}
+            {showWave ? (
+              <div className="u16-wave-inline" style={{ flex: 1, minWidth: 60, cursor: 'pointer' }} title="Click to seek">
+                <WaveformSVG height={32} />
+              </div>
+            ) : (
+              <div style={trackStyle} title="Click to seek">
+                <div style={{ width: '38%', height: '100%', background: 'var(--accent)', borderRadius: 3 }} />
+              </div>
+            )}
+
+            {/* Scope toggle — drives representation (sits where the live bar shows title + chip) */}
+            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+              {(['Segment', 'Chapter'] as const).map(label => {
+                const selected = scope === label;
+                return (
+                  <button
+                    type="button"
+                    key={label}
+                    onClick={() => { setScope(label); setForceWave(null); }}
+                    style={{
+                      padding: '4px 12px',
+                      borderRadius: 999,
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      background: selected ? 'var(--accent)' : 'var(--surface-alt)',
+                      color: selected ? 'var(--text-on-accent, #fff)' : 'var(--text-secondary)',
+                      border: `1px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Time — follows the audio (scope), not the scrub look */}
+            <span style={{ fontSize: 'var(--type-micro, 0.65rem)', color: 'var(--text-secondary)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              {isSegment ? '0:03 / 0:06' : '2:14 / 28:10'}
+            </span>
+
+            {/* Representation override (far right) — defaults to scope, flip on demand */}
+            <button
+              type="button"
+              onClick={() => setForceWave(!showWave)}
+              aria-pressed={showWave}
+              aria-label={showWave ? 'Show progress bar' : 'Show waveform'}
+              title={showWave ? 'Switch to progress bar' : 'Switch to waveform'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 28,
+                height: 28,
+                flexShrink: 0,
+                cursor: 'pointer',
+                padding: 0,
+                fontSize: '0.85rem',
+                borderRadius: 6,
+                border: `1px solid ${showWave ? 'var(--accent-tint-border, var(--accent))' : 'var(--border)'}`,
+                color: showWave ? 'var(--accent)' : 'var(--text-muted)',
+                background: showWave ? 'var(--accent-tint-bg)' : 'transparent',
+              }}
+            >
+              <AudioLines size={14} aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </div>
+
       <div style={{ marginTop: 8, fontSize: '0.6875rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-        Waveform display (wavesurfer.js) — user-toggleable, persisted.
+        Representation <em>defaults</em> to scope — Segment shows the wavesurfer.js waveform as the inline scrub
+        track, Chapter shows a plain bar — but the far-right toggle (audio-lines icon) flips waveform ↔ bar on demand.
+        Switching scope resets to that scope&apos;s default. Narrow the window to see the waveform reflow above.
       </div>
       <div style={{ marginTop: 8, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
         Replaces competing VCR segment transport + chapter player. Scope toggle swaps loaded audio.
-        Chapter scope shows chapter-level ETA when no rendered audio yet.
+        Segment scope plays one rendered segment (≤ engine char limit) then auto-advances; Chapter scope
+        plays the assembled chapter and shows chapter-level ETA when no rendered audio yet.
       </div>
     </Card>
   );
@@ -1592,6 +1726,22 @@ const U8Mock: React.FC = () => {
         See Elena Marsh card for the live specimen.
         Click ⋯ to open the popover.
       </p>
+      <div
+        style={{
+          fontSize: '0.8rem',
+          lineHeight: 1.55,
+          color: 'var(--warning-text, #92400e)',
+          background: 'rgba(245, 158, 11, 0.1)',
+          border: '1px solid rgba(245, 158, 11, 0.3)',
+          borderRadius: 8,
+          padding: '8px 12px',
+          marginBottom: '1rem',
+        }}
+      >
+        <strong>Open gap (owner, 2026-06-15):</strong> this proposal covers the voice <em>card</em> only.
+        It does not yet account for the voice <strong>editor</strong> surface, which is a current problem
+        on the live site. The editor needs its own design pass before U8 can be affirmed.
+      </div>
       <PillLegend />
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
         {phases.map(props => (
@@ -1607,8 +1757,7 @@ const U1Mock: React.FC = () => (
   <Card>
     <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
       U1 — Undo Toast (replace most ConfirmModals)
-      <ProposedChip />
-      <OwnerDecisionChip />
+      <DecidedChip label="Approved" />
     </h3>
     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
       <code>ConfirmModal</code> is invoked from ~14 sites and defaults <code>isDestructive=true</code>,
@@ -1686,10 +1835,11 @@ const U3Crosslink: React.FC = () => (
   <Card>
     <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
       U3 — Semantic Type Scale
-      <ProposedChip />
+      <DecidedChip label="Shipped" />
     </h3>
     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', lineHeight: 1.6 }}>
-      The full type-scale mockup (live specimens, spacing, and duration tokens) lives in Section 2.
+      The 9-step type scale, 8-step spacing scale, and motion tokens are all shipped in <code>tokens.css</code>.
+      Live specimens with real values auto-parsed from the source file live in Section 2.
     </p>
     <a
       href={`#${SECTION_IDS.typography}`}
@@ -1876,7 +2026,7 @@ export const StyleguidePage: React.FC = () => {
         </div>
 
         <ColorTokensSection entries={entries} />
-        <TypographySection />
+        <TypographySection allTokens={entries} />
         <ComponentsSection />
         <ProposalsSection />
         <ThemeSection />

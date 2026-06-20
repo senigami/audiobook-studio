@@ -44,7 +44,7 @@ export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, v
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 style={{
-                    width: '400px',
+                    width: 'min(400px, calc(100vw - 2rem))',
                     background: 'var(--surface)',
                     borderRadius: '24px',
                     padding: '24px',
@@ -130,7 +130,7 @@ export const RenameVoiceModal: React.FC<RenameVoiceModalProps> = ({ isOpen, onCl
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 style={{
-                    width: '400px',
+                    width: 'min(400px, calc(100vw - 2rem))',
                     background: 'var(--surface)',
                     borderRadius: '24px',
                     padding: '24px',
@@ -206,7 +206,7 @@ export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClos
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 style={{
-                    width: '400px',
+                    width: 'min(400px, calc(100vw - 2rem))',
                     background: 'var(--surface)',
                     borderRadius: '24px',
                     padding: '24px',
@@ -295,7 +295,7 @@ export const MoveVariantModal: React.FC<MoveVariantModalProps> = ({
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 style={{
-                    width: '440px',
+                    width: 'min(440px, calc(100vw - 2rem))',
                     background: 'var(--surface)',
                     borderRadius: '24px',
                     padding: '24px',

@@ -1,13 +1,15 @@
 # Security
 
 ```
-spec_version: 1.0.0
+spec_version: 1.2.1
 status: active
+updated: 2026-06-16
 sources:
   - app/utils/pathing.py
   - app/core/security.py
   - app/api/routers/system.py
   - app/api/web.py
+  - app/api/tts_api.py
   - app/tts_server/server.py
 ```
 
@@ -17,6 +19,9 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.2.1   | 2026-06-16 | Code brought into compliance with the no-path-leak invariant: plugin import/preview/install error bodies (`app/tts_server/server.py`) no longer echo the submitted zip member name, `engine_id`, or target folder path — they now return generic messages. (Invariant text unchanged.) |
+| 1.2.0   | 2026-06-16 | Recognized-barrier section updated to acknowledge both normpath+startswith and abspath(realpath)+startswith forms; `is_relative_to` carve-out added permitting it as secondary/defense-in-depth barrier |
+| 1.1.0   | 2026-06-15 | Added GitHub plugin repository preview security invariants |
 | 1.0.0   | 2026-06-10 | Initial canonical spec  |
 
 ---
@@ -27,15 +32,25 @@ sources:
 
 Any value originating from request data, database columns, uploaded filenames, or user-editable names MUST be treated as untrusted. An attacker-controlled path component can escape the intended storage root via `../` sequences or absolute prefixes.
 
-### Recognized barrier pattern
+### Recognized barrier patterns
 
-The CodeQL-safe containment check is:
+Two forms are accepted and considered CodeQL-safe:
+
+**Form A — normpath + startswith** (used by `contained_path` at `app/utils/pathing.py:13–15`):
 
 ```python
 os.path.normpath(candidate).startswith(base + os.sep)
 ```
 
-`Path.resolve().is_relative_to()` is **NOT** a recognized sanitizer in CodeQL's `py/path-injection` model and MUST NOT be used as a containment barrier.
+**Form B — abspath(realpath) + startswith** (used by `safe_join` at `:40–44`, `secure_join_flat` at `:84–86`, and `find_secure_file` at `:68–70`):
+
+```python
+base_dir = os.path.abspath(os.path.realpath(root))
+candidate = os.path.abspath(os.path.realpath(os.path.join(base_dir, value)))
+candidate.startswith(base_dir + os.sep)
+```
+
+Both forms are recognized by CodeQL's `py/path-injection` model as sanitizers when the result is used as a barrier between the untrusted value and any I/O operation.
 
 ### Path helper functions (`app/utils/pathing.py`)
 
@@ -52,7 +67,7 @@ os.path.normpath(candidate).startswith(base + os.sep)
 
 - MUST use a helper from `app/utils/pathing.py` before constructing any filesystem path from untrusted input.
 - MUST NOT call `open()`, `os.path.join()`, or `Path()` directly on untrusted input without first passing through a barrier helper.
-- MUST NOT use `Path.resolve().is_relative_to()` as a containment barrier (CodeQL will flag it as unsanitized).
+- MUST NOT use `Path.resolve().is_relative_to()` as the **primary** containment barrier for direct file I/O on untrusted strings (CodeQL will flag it as unsanitized). It is PERMITTED as a **secondary / defense-in-depth** check after a primary barrier has already been applied — for example, as a post-extraction walk guard after a zip or clone staging operation. Accepted call sites: `app/tts_server/server.py:928`, `app/tts_server/server.py:1087`, `app/api/tts_api.py:161`, `app/api/tts_api.py:251`.
 - The recognized pattern MUST appear between the untrusted value and any I/O operation on that value.
 
 ---
@@ -154,6 +169,36 @@ After extraction to a staging directory, every extracted file MUST have its reso
 - MUST NOT include filesystem paths in any HTTP error response from plugin import.
 - MUST NOT include `type(exc).__name__` or `str(exc)` in any HTTP error response from plugin import.
 - Post-extract walk MUST happen even if phase 1 passed (defense in depth).
+
+## Plugin GitHub Repository Preview Security
+
+GitHub repository plugin previews submitted to the TTS server go through a clone-and-stage
+flow in `app/tts_server/server.py`.
+
+### URL validation
+
+| Check | Action on failure |
+|-------|------------------|
+| URL is not `https://github.com/<owner>/<repo>` or `.git` | Reject request |
+| URL contains credentials, query string, or fragment | Reject request |
+| URL points to another host or protocol | Reject request |
+
+### Clone and staging
+
+| Check | Action on failure |
+|-------|------------------|
+| `git clone --depth 1` exits non-zero | Delete staging directory and reject request |
+| Clone exceeds timeout | Delete staging directory and reject request |
+| Cloned repository contains any symlink | Delete staging directory and reject request |
+| Manifest fails the loader's manifest contract | Delete staging directory and reject request |
+
+### Invariants
+
+- MUST NOT import or execute plugin code before the user confirms the trust modal.
+- MUST validate the preview manifest with the same contract used by plugin discovery.
+- MUST NOT return raw subprocess output, filesystem paths, or exception-derived manifest
+  details in HTTP response bodies.
+- MAY log controlled diagnostic details server-side for local debugging.
 
 ---
 

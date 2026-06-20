@@ -98,7 +98,8 @@ export const useChapterQueue = (
   const executeQueue = useCallback(async (
     effectiveSelectedVoice: string,
     onBlocked: (msg: string) => void,
-    onSuccess: (msg: string) => void
+    onSuccess: (msg: string) => void,
+    force: boolean = false
   ) => {
     const queueVoiceStatus = resolveVoiceEngineStatus(effectiveSelectedVoice || getDefaultVoiceProfileName(speakerProfiles || []), engines, speakerProfiles);
     if (!queueVoiceStatus.enabled) {
@@ -113,7 +114,7 @@ export const useChapterQueue = (
     const queueStartedAt = performance.now();
     try {
         onSuccess('Queued. Keep this page open to watch progress.');
-        await api.addProcessingQueue(projectId, chapterId, 0, effectiveSelectedVoice || undefined);
+        await api.addProcessingQueue(projectId, chapterId, 0, effectiveSelectedVoice || undefined, force);
         if (shouldLogLoadTimings) {
           recordStudioDebugSnapshot('queue:chapter submitted', {
             projectId,

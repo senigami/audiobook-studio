@@ -1,12 +1,13 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.5.0
+spec_version: 1.6.0
 status: active
 sources:
   - app/api/ws.py
   - app/api/contracts/events.py
   - app/db/state_jobs.py
+  - app/orchestration/progress/service.py
   - frontend/src/api/contracts/liveEvents.ts
   - frontend/src/store/studioSocketBus.ts
   - frontend/src/hooks/useQueueSync.ts
@@ -17,6 +18,14 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.6.0   | 2026-06-19 | **`segments.progress` carries per-segment confidence + a decayed segment ETA (Path A).** The `segment_progress` payload's `confidence` is now the **per-segment** `seg_confidence` (resets per `segment_id`; `1.0` on `SEGMENT_SAVED`), not the chapter-level `eta_confidence` that rose monotonically across the whole chapter. `etaSeconds` is now the §4A.10 confidence-gated decay-handoff blend (grounded baseline ↔ live observed, weighted by the baseline's historical confidence) rather than raw `remaining_from_update` extrapolation — fixing the per-segment bar's early surge/stall. Both are computed in `ProgressService.enrich()`; see `progress-presentation.md` §4A.10 / invariants B11, B12. Additive payload semantics — envelope `version` stays 1; Option-B direct broadcasts are unchanged. |
+| 1.5.6   | 2026-06-19 | **First segment synced to the real synthesis start; plugin emits a true 0% start.** (1) At `[START_SYNTHESIS]` (the real synthesis start, after model load) the orchestrator marks the first render group's leader active at 0% on the running frame, so the segment progress bar mounts in lockstep with the queue going `running` — fixing the queue appearing ~7s before the segment and a non-zero chapter percent showing before the segment's 0%. UI-mount only: it does not set the per-segment render-timing clock or the START_SEGMENT dedup set, so real marker timing is unaffected. (2) The XTTS plugin now emits `[PROGRESS] 0%` at each segment's true start (before the first sentence), so the first progress signal is 0%, not the first sentence's ~20%. Requires a full app restart so the long-lived warm worker respawns with current plugin code. |
+| 1.5.5   | 2026-06-19 | **Queue cadence narrowed to real progress; inter-group gap factored into live ETA.** (1) `queue_item_status` (Path A) now emits only on a status transition OR a real ≥1% progress advance — NOT on same-percent ETA-only/confidence-only/silence-heartbeat frames, which were re-anchoring the frontend lane and ratcheting/jittering the displayed percent. Contract: the displayed percent changes only on real progress or real segment start/stop. (2) `[SEGMENT_SAVED]` re-anchors the chapter countdown to a gap-aware ETA (`remaining_chars/cps + groups_remaining × inter_group_overhead`), wiring the previously-dead `calculate_chapter_remaining_eta` so the bar no longer coasts through the model-reload gap. |
+| 1.5.4   | 2026-06-19 | **`queue.items` carries live progress (Path A); segment-id fallback when `[START_SEGMENT]` is missing.** (1) `ProgressService.publish` (Path A) now emits `queue_item_status` on every emit-gated frame (status change OR ≥1% advance) for `chapter`/`job` scope — making `queue.items` the row's live progress authority, not just status — so the global queue row no longer freezes at 0% mid-render. Segment scope stays status-only; `broadcast_job_updated` (Path B) stays status-only. See "Queue row authority". (2) When a render emits no `[START_SEGMENT]` markers, the orchestrator derives `active_segment_id` from the render-group structure at first `[PROGRESS]` (and publishes the canonical `START_SEGMENT` frame), so the segment progress bar + script highlight engage regardless of marker delivery. See "per-segment render clock". |
+| 1.5.3   | 2026-06-19 | **Determinate ETA gated on `running`.** `queued`/`preparing` frames MUST carry `etaSeconds: null`; a determinate ETA appears only at `running` (the first `[START_SYNTHESIS]`/`[PROGRESS]` frame). A frame MUST NOT carry `indeterminate: true` together with a non-null `etaSeconds`. Fixes the pre-synthesis ETA leak (`enrich()` previously synthesized a calculated ETA at `queued`/`preparing`) that made the progress bar jump at synthesis start. See progress-presentation §2.6 / I10. |
+| 1.5.2   | 2026-06-18 | **Single-source progress contract at the event-builder layer.** Retired the dual-path allowance (orchestrated + handler-direct as independent emit paths). Both producers (`ProgressService.publish` via Path A, and `broadcast_job_updated` via Path B) now call `ProgressService.enrich(job_id, payload)` **before** building events, then thread the enriched `confidence`/`eta_seconds`/`eta_basis`/`estimated_end_at`/`grouped_progress` into every `build_*_event(...)` call — making the **event builders in `app/api/contracts/events.py`** the single contract authority. The Python `compute_progress_confidence` echo in `events.py` is deleted; §4A progress-bearing frames (jobs.lifecycle / chapters.progress / queue.items) carry backend-authoritative numeric `confidence` and builders fail-loud on `confidence=None`. The client (`liveEvents.ts`) retains a `computeProgressConfidence` fallback **only** for Option-B direct broadcasts (`segments.progress` / `voice.test`) that legitimately carry no §4A confidence — those frames are never enriched. Snapshot/hydration (`jobs_snapshot` + running queue rows) call `enrich(sample=False)` (read-only, does not mutate the ETA ring or monotonic floor) — PI6. See new ADR-0012. |
+| 1.5.2-c | 2026-06-18 | Clarification: the Python `compute_progress_confidence` echo is deleted from `events.py`; the identically-named client function in `liveEvents.ts` is **retained** as a fallback for non-§4A direct broadcasts (`segments.progress` / `voice.test`). The v1.5.2 claim of "echo deleted" referred to the backend only. |
+| 1.5.1   | 2026-06-16 | `segments.progress` topic: eventKind is only `segment_progress`; segment start/saved are signalled via `reasonCode` (`SEGMENT_PENDING`/`SEGMENT_SAVED`), not as distinct eventKinds. |
 | 1.5.0   | 2026-06-11 | `SEGMENT_PENDING` reason code: `[START_SEGMENT]` marker now emits `SEGMENT_PENDING` (announce, no segment ETA) rather than `START_SEGMENT`. Canonical `START_SEGMENT` with ETA is emitted only at engine confirmation (`[START_SYNTHESIS]` or first `[PROGRESS]`). Frontends must not begin pacing a progress bar on `SEGMENT_PENDING`. |
 | 1.4.1   | 2026-06-11 | Engine-confirmed segment ETA clock: per-segment clock starts at engine confirmation (`[START_SYNTHESIS]` or first `[PROGRESS]`), not at `[START_SEGMENT]`; `[START_SEGMENT]` is an announcement that may precede model load. Duration falls back to announce time if no confirmation arrives before `[SEGMENT_SAVED]`. |
 | 1.4.0   | 2026-06-11 | Terminal ordering guarantee: per-job terminal latch at the broadcast chokepoint (`broadcast_job_updated` / `broadcast_segment_progress` in `app/api/ws.py`). After a job's terminal frame (`done`/`failed`/`cancelled`), no non-terminal frame for that job is broadcast on any topic unless the job legally re-enters via `queued`/`preparing` (requeue). Mirrors `ProgressService._should_emit`; frontend H7 suppression (progress-presentation.md) is now defense-in-depth. |
@@ -105,7 +114,7 @@ today. The backend emits on all of them. Verified against `build_*` calls in
 | `chapters.lifecycle`      | `chapter_lifecycle`                                                     | `chapter`  | `app/api/ws.py broadcast_chapter_updated` |
 | `chapters.progress`       | `chapter_progress`                                                      | `chapter`  | `app/api/ws.py broadcast_job_updated` (chapter-classified jobs) |
 | `segments.lifecycle`      | `segment_lifecycle`                                                     | `segment`  | `app/api/ws.py broadcast_segments_updated` |
-| `segments.progress`       | `segment_progress`, `segment_started`, `segment_saved`                  | `segment`  | `app/api/ws.py broadcast_job_updated`, `broadcast_segment_progress` |
+| `segments.progress`       | `segment_progress`                                                      | `segment`  | `app/api/ws.py broadcast_job_updated`, `broadcast_segment_progress` |
 | `voice.test`              | `voice_test_progress`                                                   | `voice`    | `app/api/ws.py broadcast_test_progress` |
 | `tts.logs`                | `tts_log`                                                               | `log`      | `app/api/ws.py broadcast_tts_log_line` |
 | `system.events`           | `system_event`                                                          | `system`   | `app/api/contracts/events.py build_system_event` |
@@ -176,7 +185,11 @@ interface ChapterProgressPayload {
 }
 ```
 
-### `segments.progress` / `segment_progress | segment_started | segment_saved`
+### `segments.progress` / `segment_progress`
+
+Segment start and saved transitions are signalled via the `reasonCode` field
+(`SEGMENT_PENDING` for announce, `START_SEGMENT` for engine-confirmed start,
+`SEGMENT_SAVED` for completion) — never as a distinct envelope `eventKind`.
 
 ```ts
 interface SegmentProgressPayload {
@@ -186,11 +199,18 @@ interface SegmentProgressPayload {
   segmentCount: number | null;
   message: string | null;
   reasonCode: string | null;
-  etaSeconds?: number | null;
+  etaSeconds?: number | null;        // §4A.10 decay-handoff blend (Path A), not raw extrapolation
   activeSegmentId?: string | null;
   activeSegmentProgress?: number | null;
+  confidence?: number | null;        // PER-SEGMENT confidence (resets per segment_id), not chapter eta_confidence; 1.0 on SEGMENT_SAVED — progress-presentation.md §4A.10 / B12
 }
 ```
+
+On the Path A `segments.progress` frame (from `ProgressService.publish`), `confidence` is the
+**per-segment** `seg_confidence` and `etaSeconds` is the §4A.10 confidence-gated decay blend — both
+computed in `enrich()`. The chapter-level `eta_confidence` is NOT used for segment frames. (Option-B
+direct `broadcast_segment_progress` frames remain outside the §4A contract and keep the client
+`computeProgressConfidence` fallback.)
 
 ### `voice.test` / `voice_test_progress`
 
@@ -369,6 +389,27 @@ fast remote-API engines such as Voxtral that complete before emitting synthesis
 markers), `sum_segment_render_seconds` falls back to `now − announce_time` so that
 timing samples are always recorded.
 
+**Inter-group gap in the live ETA (`[SEGMENT_SAVED]`):** At each group completion
+the `SEGMENT_SAVED` frame re-anchors the chapter countdown to a **gap-aware** ETA =
+`remaining_chars / cps + groups_remaining × inter_group_overhead` (via
+`calculate_chapter_remaining_eta`, using the calibrated `inter_group_overhead` from
+render history; degrades to the overhead-free estimate when no calibration exists).
+This stops the bar from coasting to completion during the model-reload gap before
+the next group starts. The overhead is the same calibrated quantity already used in
+the startup estimate; it is now also applied to the live mid-render countdown.
+
+**Missing `[START_SEGMENT]` entirely (active-segment fallback):** If a render emits
+`[PROGRESS]`/`[SEGMENT_SAVED]` but **no** `[START_SEGMENT]` at all (e.g. a stale
+engine build), `active_segment_id` would otherwise stay null and `segments.progress`
+frames would be gated out — collapsing the segment progress bar and the script text
+highlight. The orchestrator derives the active segment from the known render-group
+structure (`completed_group_count` → that group's leader id) when `active_seg_id` is
+null: **primarily at `[START_SYNTHESIS]`** (the first group's leader is put on the
+running frame, UI-mount only — see 1.5.6), and **as a fallback at the first
+`[PROGRESS]`** (publishing the canonical `START_SEGMENT` frame) if synthesis began
+without a START_SYNTHESIS marker. `[START_SEGMENT]` is thus advisory for segment
+identity, not load-bearing.
+
 ---
 
 ## Client contract
@@ -460,6 +501,54 @@ and segment progress.
 
 ---
 
+## Progress contract authority — single-source at the event-builder layer
+
+### Why the event-builder layer (not a broadcast chokepoint)
+
+Progress frames reach the WebSocket via two paths:
+
+- **Path A (orchestrated):** `ProgressService.publish` → `build_*_event(...)` → `broadcast_studio_event` → `manager.broadcast`. Path A sets `skip_job_updated=True` on `update_job`, deliberately bypassing `broadcast_job_updated`.
+- **Path B (handler-direct / TTS subprocess):** `state_jobs.update_job` / `put_job` → `_JOB_LISTENERS` → `broadcast_job_updated` (`app/api/ws.py`) → `build_*_event(...)` → `broadcast_studio_event`.
+
+Because Path A bypasses `broadcast_job_updated`, wiring `broadcast_job_updated` as a universal chokepoint is **incorrect** — it only intercepts Path B. The true convergence point both paths share is the **event builders in `app/api/contracts/events.py`** (`build_chapter_progress_event`, `build_segment_progress_event`, `build_queue_item_status_event`).
+
+### Single-source contract (v1.5.2+)
+
+Both producers call `ProgressService.enrich(job_id, payload)` **before** building events, then pass the enriched values into every `build_*_event(...)` call:
+
+```
+Path A: ProgressService.publish ──► enrich(job_id, payload, sample=True) ──► build_*_event(confidence=, eta_seconds=, …)
+Path B: broadcast_job_updated   ──► enrich(job_id, payload, sample=True) ──► build_*_event(confidence=, eta_seconds=, …)
+```
+
+`enrich` is the single math kernel (RLock-guarded singleton, boot-installed) that applies:
+- §4A.2 numeric `eta_confidence` (variance × completion × freshness — monotone-rising in progress)
+- §4A.3 share-weighted segment→chapter ETA/confidence composition
+- §4A.4 mechanical ETA ceiling (`apply_eta_ceiling`)
+- §4A.5 convergence-trust (converging ETA does NOT lower confidence)
+- §4A.8 calculated→observed ETA crossfade (`crossfade_eta`, cold-start bootstrap `DEFAULT_BASELINE_ENGINE_CPS`)
+- Monotonic-clamped `progress` / `grouped_progress` (grouped forced to `1.0` at terminal)
+
+The Python `compute_progress_confidence` echo (that set `confidence = coverage_ratio * progress`) in `app/api/contracts/events.py` is **deleted**. §4A progress-bearing frames (jobs.lifecycle / chapters.progress / queue.items) carry backend-authoritative numeric `confidence`; builders that receive such a frame with `confidence=None` raise loudly. The client (`frontend/src/api/contracts/liveEvents.ts`) retains a `computeProgressConfidence` function as a **fallback only for non-§4A frames** — specifically Option-B direct broadcasts (`segments.progress` via `broadcast_segment_progress`, `voice.test` via `broadcast_test_progress`) that legitimately carry no `confidence`. Removing the client fallback would leave those frames without confidence; it is not the authoritative path for §4A frames.
+
+### Snapshot / hydration path (PI6)
+
+The `jobs_snapshot` handler and running-queue row serializers call
+`enrich(job_id, payload, sample=False)` — **read-only**: all ETA values are computed from the current ring state without pushing a velocity sample or mutating the monotonic floor. This ensures hydration frames carry the same §4A enrichment as live frames.
+
+### Out-of-contract paths
+
+The following broadcast helpers carry their own `progress` field and are **outside** the enriched-confidence contract — `enrich` is not called for them, and the builders do not require `confidence` on these paths:
+
+- `broadcast_test_progress` (`voice.test` / `voice_test_progress`) — voice test frames have no chapter/char_count/ETA semantics.
+- `broadcast_segment_progress` and `broadcast_tts_log_line` — segment-direct and log frames route via `broadcast_studio_event` without a chapter-level builder.
+
+### Lock hierarchy (D7)
+
+`_STATE_LOCK` (`state_jobs.py`) is always the **outer** lock; the `ProgressService` RLock is a **leaf** lock. Code that already holds the PS-RLock MUST NOT call into `app.db.state_jobs` (which acquires `_STATE_LOCK`). `ProgressService.publish` performs all `get_jobs()` reads **before** entering the RLock-guarded region to avoid `PS-RLock → _STATE_LOCK` inversion. See ADR-0012.
+
+---
+
 ## The "queue must never infer state from tts.logs" rule
 
 The `tts.logs` topic carries diagnostics and engine output only. `useQueueSync` and
@@ -489,12 +578,21 @@ Rules:
 
 - An overlay frame for a job id that is unknown in both the canonical snapshot and
   the live store MUST be dropped (dev builds may log it). It is NOT buffered: the
-  backend emits a `queue_item_status` frame on every STATUS TRANSITION of every
-  queue-visible job — from `ProgressService.publish` for orchestrated transitions
-  (which suppress the legacy listener via `skip_job_updated`) and from
-  `broadcast_job_updated` (`app/api/ws.py`) for handler-direct `update_job`
-  writes — so the authoritative row state arrives on its own topic. Progress-only
-  ticks do NOT emit `queue.items`; they flow on the scoped topics as overlays.
+  backend emits a `queue_item_status` frame so the authoritative row state arrives
+  on its own topic. **Cadence (Path A vs Path B differ deliberately):**
+  - `ProgressService.publish` (Path A — orchestrated chapter/job renders, which
+    suppress the legacy listener via `skip_job_updated`) emits `queue_item_status`
+    on a **status transition OR a real ≥1% progress advance** for `chapter`/`job`
+    scope. This makes `queue.items` the row's live **progress** authority, not just
+    its status authority; without it the global queue row freezes at its last
+    status's progress and snaps to done. It deliberately does **NOT** re-emit the
+    row on same-percent frames (ETA-only / confidence-only / silence-heartbeat):
+    those re-anchor the frontend lane and ratchet/jitter the displayed percent.
+    **The displayed percent changes only on real progress or real segment
+    start/stop.** **Segment** scope is excluded except on status change (segment
+    ticks drive the segment bar, not the parent queue row).
+  - `broadcast_job_updated` (`app/api/ws.py`, Path B — handler-direct `update_job`
+    writes) stays status-transition-only for the queue row.
 - A terminal `jobs.lifecycle` frame (`done`/`failed`/`cancelled`) additionally
   triggers a client queue REFETCH (`useQueueSync`) — a legal re-read of the
   durable rows, guaranteeing eventual consistency if a queue.items frame drops.
@@ -518,6 +616,9 @@ Rules:
   (only for terminal resets and explicit force-broadcast with non-terminal status).
 - Not broadcast a non-terminal frame for a job after its terminal frame, except
   via the `queued`/`preparing` re-entry (see "Terminal ordering guarantee").
+- Emit `etaSeconds: null` on any frame whose status is `queued` or `preparing`; a
+  determinate ETA appears only at `running` (progress-presentation §2.6 / I10).
+  Never emit `indeterminate: true` together with a non-null `etaSeconds`.
 
 **Client MUST:**
 - Enforce the queue row-authority table above: only `queue.items` creates,

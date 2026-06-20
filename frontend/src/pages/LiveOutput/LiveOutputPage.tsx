@@ -48,7 +48,7 @@ export const LiveOutputPage: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - var(--header-height, 72px) - 2rem)', gap: '1rem', minHeight: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - var(--header-height, 56px) - 2rem)', gap: '1rem', minHeight: 0 }}>
       <section style={{
         padding: '1.25rem 1.5rem',
         borderRadius: '20px',

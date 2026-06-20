@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { api } from '@/api';
 import { resolveDefaultVariantName } from '@/utils/chapterEditorHelpers';
 import type { ChapterEditorState } from '@/hooks/chapter/useChapterEditorState';
@@ -16,9 +16,21 @@ export const useChapterAssignments = (
     scriptViewData, setScriptViewData, setSegments,
   } = state;
 
+  // Track the latest known base_revision_id in a ref so consecutive assignments
+  // that fire before React re-renders (and re-creates the useCallback closure)
+  // still send the revision id returned by the previous response. This is the
+  // fix for B2: the closure captures the React state value at render time, but
+  // the ref is updated synchronously when each response arrives.
+  const latestRevisionIdRef = useRef<string | null>(scriptViewData?.base_revision_id ?? null);
+
+  // Keep the ref in sync whenever the canonical state changes (e.g. on loadChapter).
+  useEffect(() => {
+    latestRevisionIdRef.current = scriptViewData?.base_revision_id ?? null;
+  }, [scriptViewData?.base_revision_id]);
+
   const handleScriptAssign = useCallback(async (
-    spanIds: string[], 
-    selectedCharacterId: string | null, 
+    spanIds: string[],
+    selectedCharacterId: string | null,
     selectedProfileName: string | null,
     onConflict?: () => void
   ) => {
@@ -32,7 +44,7 @@ export const useChapterAssignments = (
         if (!prev) return prev;
         return {
             ...prev,
-            spans: prev.spans.map(s => spanIds.includes(s.id) ? { 
+            spans: prev.spans.map(s => spanIds.includes(s.id) ? {
                 ...s, character_id: characterId, speaker_profile_name: profileName,
                 status: (s.status === 'rendered' && (s.character_id !== characterId || s.speaker_profile_name !== profileName)) ? 'draft' : s.status
             } : s)
@@ -40,14 +52,19 @@ export const useChapterAssignments = (
     });
 
     try {
+        // Read from ref so rapid consecutive calls use the freshest revision id,
+        // not the stale closure value from before the previous response arrived.
         const result = await api.saveScriptAssignments(chapterId, {
-            base_revision_id: scriptViewData.base_revision_id,
+            base_revision_id: latestRevisionIdRef.current,
             assignments: [{
                 span_ids: spanIds,
                 character_id: characterId,
                 speaker_profile_name: profileName
             }]
         });
+        // Update the ref synchronously before React re-renders, so the next call
+        // in the same tick already has the correct revision id.
+        latestRevisionIdRef.current = result.base_revision_id;
         setScriptViewData(result);
         const updatedSegs = await api.fetchSegments(chapterId);
         setSegments(updatedSegs);
@@ -73,8 +90,9 @@ export const useChapterAssignments = (
     const profileName = isClearing ? null : (selectedProfileName || resolveDefaultVariantName(selectedCharacterId, characters, speakers, speakerProfiles));
 
     try {
+        // Same ref-based fix as handleScriptAssign.
         const result = await api.saveScriptAssignments(chapterId, {
-            base_revision_id: scriptViewData.base_revision_id,
+            base_revision_id: latestRevisionIdRef.current,
             assignments: [],
             range_assignments: [{
                 ...range,
@@ -82,6 +100,7 @@ export const useChapterAssignments = (
                 speaker_profile_name: profileName
             }]
         });
+        latestRevisionIdRef.current = result.base_revision_id;
         setScriptViewData(result);
         const updatedSegs = await api.fetchSegments(chapterId);
         setSegments(updatedSegs);

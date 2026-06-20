@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from ...domain.chunk_groups import build_chapter_queue_title, build_segment_job_title
 from ...db import (
     add_to_queue as db_add_to_queue, get_chapter_segments,
-    get_connection
+    get_connection, get_chapter, get_project
 )
 from ...db.queue import upsert_queue_row
 
@@ -69,10 +69,11 @@ def _engine_usable_error(engine_id: str):
 
 
 def _resolved_segment_profiles(chapter_id: str, only_segment_ids: Optional[set[str]] = None) -> list[Optional[str]]:
-    segments = get_chapter_segments(chapter_id)
+    from app.domain.chunk_groups import load_chunk_segments, resolve_segment_profile_name
+    segments = load_chunk_segments(chapter_id)
     if only_segment_ids:
-        segments = [segment for segment in segments if segment["id"] in only_segment_ids]
-    return [segment.get("speaker_profile_name") for segment in segments]
+        segments = [s for s in segments if s["id"] in only_segment_ids]
+    return [resolve_segment_profile_name(s, None) for s in segments]
 
 
 def _ensure_engines_enabled(engine_ids: list[str]) -> Optional[JSONResponse]:
@@ -255,19 +256,39 @@ def _engines_for_profiles(profile_names: list[Optional[str]], fallback_engine: O
         engines.append(engine_id)
     return engines
 
+
 @router.post("/processing_queue")
 def api_add_to_queue(
     background_tasks: BackgroundTasks,
     project_id: str = Form(...),
     chapter_id: str = Form(...),
     split_part: int = Form(0),
-    speaker_profile: Optional[str] = Form(None)
+    speaker_profile: Optional[str] = Form(None),
+    force_rerender: bool = Form(False)
 ):
     try:
-        active_profile = speaker_profile or get_settings().get("default_speaker_profile")
-        if not active_profile:
-            return JSONResponse({"status": "error", "message": "No speaker profile selected and no default set. Please choose a voice first."}, status_code=400)
         settings = get_settings()
+        # Resolve a working voice. Priority chain:
+        #   explicit pick → chapter default → book/project default → global default
+        # `active_profile` is the FALLBACK for segments that have no voice of their
+        # own (the script builder and engine resolution already honor each segment's
+        # `speaker_profile_name`). Block ONLY when some segment is unassigned AND
+        # there is no default at ANY level — never fall back to an arbitrary voice.
+        _chapter_row = get_chapter(chapter_id) or {}
+        _chapter_default = (_chapter_row.get("speaker_profile_name") or "").strip() or None
+        _project_row = get_project(project_id) or {}
+        _project_default = (_project_row.get("speaker_profile_name") or "").strip() or None
+        effective_default = (
+            speaker_profile
+            or _chapter_default
+            or _project_default
+            or (settings.get("default_speaker_profile") or "").strip() or None
+        )
+        seg_profiles = _resolved_segment_profiles(chapter_id)
+        has_unassigned = any(not p for p in seg_profiles)
+        if has_unassigned and not effective_default:
+            return JSONResponse({"status": "error", "message": "No voice available — assign a speaker to this chapter's text or set a default voice in Settings."}, status_code=400)
+        active_profile = effective_default or next((p for p in seg_profiles if p), None)
 
         validation_error = _validate_generation_engines(chapter_id, active_profile)
         if validation_error:
@@ -393,6 +414,7 @@ def api_add_to_queue(
                 voice_ref=voice_ref,
                 custom_title=display_title,
                 is_bake=has_bakeable_segments,
+                force_rerender=force_rerender,
                 safe_mode=bool(settings.get("safe_mode", True)),
                 make_mp3=make_mp3,
                 synthesis_settings=synthesis_settings,
@@ -429,7 +451,6 @@ def api_add_to_queue(
 @router.post("/generation/bake/{chapter_id}")
 def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
     settings = get_settings()
-    active_profile = settings.get("default_speaker_profile")
 
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -440,6 +461,21 @@ def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
         project_id = chapter["project_id"]
         text_content = chapter["text_content"]
         display_title = build_chapter_queue_title(chapter["title"], chapter["sort_order"])
+
+    _chapter_row = get_chapter(chapter_id) or {}
+    _chapter_default = (_chapter_row.get("speaker_profile_name") or "").strip() or None
+    _project_row = get_project(project_id) or {}
+    _project_default = (_project_row.get("speaker_profile_name") or "").strip() or None
+    effective_default = (
+        _chapter_default
+        or _project_default
+        or (settings.get("default_speaker_profile") or "").strip() or None
+    )
+    seg_profiles = _resolved_segment_profiles(chapter_id)
+    has_unassigned = any(not p for p in seg_profiles)
+    if has_unassigned and not effective_default:
+        return JSONResponse({"status": "error", "message": "No voice available — assign a speaker to this chapter's text or set a default voice in Settings."}, status_code=400)
+    active_profile = effective_default or next((p for p in seg_profiles if p), None)
 
     segs = get_chapter_segments(chapter_id)
     resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
@@ -614,7 +650,21 @@ def api_generate_segments(
     import time
 
     settings = get_settings()
-    active_profile = speaker_profile or settings.get("default_speaker_profile")
+    _chapter_row = get_chapter(chapter_id) or {}
+    _chapter_default = (_chapter_row.get("speaker_profile_name") or "").strip() or None
+    _project_row = get_project(project_id) or {}
+    _project_default = (_project_row.get("speaker_profile_name") or "").strip() or None
+    effective_default = (
+        speaker_profile
+        or _chapter_default
+        or _project_default
+        or (settings.get("default_speaker_profile") or "").strip() or None
+    )
+    seg_profiles = _resolved_segment_profiles(chapter_id, set(sids))
+    has_unassigned = any(not p for p in seg_profiles)
+    if has_unassigned and not effective_default:
+        return JSONResponse({"status": "error", "message": "No voice available — assign a speaker to this chapter's text or set a default voice in Settings."}, status_code=400)
+    active_profile = effective_default or next((p for p in seg_profiles if p), None)
 
     validation_error = _validate_generation_engines(chapter_id, active_profile, set(sids))
     if validation_error:

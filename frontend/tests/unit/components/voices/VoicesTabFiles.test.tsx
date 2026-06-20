@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi } from 'vitest';
 import type { Speaker, SpeakerProfile } from '@/types';
 import { VoicesTab } from '@/pages/Voices/VoicesPage';
@@ -77,21 +78,27 @@ describe('Voices Tab Components', () => {
 
     describe('VoicesTab', () => {
         it('renders voice lab header and search bar', () => {
-            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} />);
-            expect(screen.getByText('Voices')).toBeInTheDocument();
+            // VoicesPage (R5-T4) removed the <h2>Voices</h2> heading; the header now shows
+            // "My Voices" tab pill, a search bar, and toolbar buttons.
+            // Button labels are hidden in compact mode (JSDOM window.innerWidth=0), so we
+            // query by accessible name (aria-label) which is always present.
+            render(<MemoryRouter><VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} /></MemoryRouter>);
             expect(screen.getByPlaceholderText('Search voices...')).toBeInTheDocument();
-            expect(screen.getByText('Export Voice')).toBeInTheDocument();
-            expect(screen.getByText('Import Voice')).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Export Voice' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Import Voice' })).toBeInTheDocument();
         });
 
         it('renders list of voices', () => {
-            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} />);
+            render(<MemoryRouter><VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} /></MemoryRouter>);
+            // useVoiceManagement mock returns speakers:[{id:'speaker-1', name:'Speaker One'}]
+            // and mockProfile has speaker_id:'speaker-1' → catalog card shows 'Speaker One'
             expect(screen.getByText('Speaker One')).toBeInTheDocument();
         });
 
         it('opens create voice modal', () => {
-            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} />);
-            fireEvent.click(screen.getByText('New Voice'));
+            render(<MemoryRouter><VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} /></MemoryRouter>);
+            // Button label hidden in compact mode; use accessible name
+            fireEvent.click(screen.getByRole('button', { name: 'New Voice' }));
             expect(screen.getByText('Create New Voice')).toBeInTheDocument();
         });
     });
@@ -370,8 +377,9 @@ describe('Voices Tab Components', () => {
 
     describe('Voice Portability (Import/Export)', () => {
         it('renders Import Voice button and handles file selection', () => {
-            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} />);
-            const importBtn = screen.getByText('Import Voice');
+            // Button label text hidden in compact mode (JSDOM innerWidth=0); use aria-label query
+            render(<MemoryRouter><VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} /></MemoryRouter>);
+            const importBtn = screen.getByRole('button', { name: 'Import Voice' });
             expect(importBtn).toBeInTheDocument();
 
             // The button clicks a hidden input
@@ -382,8 +390,9 @@ describe('Voices Tab Components', () => {
         });
 
         it('renders Export Voice button and opens export modal', () => {
-            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} />);
-            const exportBtn = screen.getByText('Export Voice');
+            render(<MemoryRouter><VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} /></MemoryRouter>);
+            // Button label text hidden in compact mode; use accessible name query then click
+            const exportBtn = screen.getByRole('button', { name: 'Export Voice' });
             expect(exportBtn).toBeInTheDocument();
 
             fireEvent.click(exportBtn);
@@ -426,9 +435,9 @@ describe('Voices Tab Components', () => {
 
         it('shows export confirmation modal with source WAV toggle', () => {
             const mockRefresh = vi.fn();
-            render(<VoicesTab onRefresh={mockRefresh} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} />);
+            render(<MemoryRouter><VoicesTab onRefresh={mockRefresh} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} /></MemoryRouter>);
 
-            // Trigger export via NarratorCard (which is rendered inside VoicesTab)
+            // Trigger export via VoiceCatalogCard ActionMenu (replaced NarratorCard in R5-T3)
             fireEvent.click(screen.getByLabelText('More actions'));
             fireEvent.click(screen.getByText('Export Voice Bundle'));
 

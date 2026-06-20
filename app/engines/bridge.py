@@ -204,6 +204,10 @@ class VoiceBridge:
         """Stage plugin zip and return manifest metadata without installing."""
         return self.remote.preview_plugin(file_content, filename)
 
+    def preview_github_plugin(self, git_url: str) -> dict[str, Any]:
+        """Stage a GitHub plugin repo and return manifest metadata without installing."""
+        return self.remote.preview_github_plugin(git_url)
+
     def confirm_plugin_import(self, token: str) -> dict[str, Any]:
         """Complete a staged plugin import."""
         return self.remote.confirm_plugin_import(token)

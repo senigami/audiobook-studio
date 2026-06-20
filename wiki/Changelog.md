@@ -2,6 +2,97 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Fix] - 2026-06-19
+
+### Segment progress bar: confidence-gated ETA decay + per-segment confidence
+
+The per-segment render bar surged then stalled early in each segment, and the "confidence" value never reset between segments. Both are fixed in the single-source `ProgressService.enrich()` kernel.
+
+- **Segment ETA decay-handoff (`progress-presentation.md` §4A.10 / B11).** The per-segment ETA (`active_segment_eta_seconds`) was raw `remaining_from_update` extrapolation — a tiny first-interval velocity sample makes the implied total swing wildly early (observed in the capture: 22s→25s→13s with the bar speeding up and freezing). It now blends a grounded baseline (`seg_chars × seconds_per_char`, where `seg_chars` is the render group's character weight) with the live observed estimate on the implied-total-duration axis, weighted `w_base = c_base × (1 − progress)` — the owner's law: the baseline's influence equals its own historical confidence and decays to zero by completion. `c_base = min(engine_sample_count / N_MATURE, 1)` is the engine's historical maturity, **fixed per segment** (a freshly-verified engine ≈ 0.2 leans on the live estimate; a well-sampled engine ≈ 1.0 strongly anchors the noisy early frames, killing the surge). New pure helper `decay_segment_eta()`; new cheap reader `app.db.performance.engine_sample_count`. Only the emitted segment ETA changes — the §4A.3 chapter ETA composition still reads the raw observed value, so the chapter path is unchanged.
+- **Per-segment confidence (§4A.10 / B12).** `segments.progress` frames carried the chapter-level `eta_confidence`, which legitimately rises across the whole chapter and never resets — so every segment showed the same climbing number (seg 0: 0.20→0.77, seg 5: 0.79→0.97). They now carry the per-segment `seg_confidence` (from the segment-keyed ring, surfaced via `active_segment_eta_confidence`), resetting per `segment_id`; a saved segment reports `1.0`. The correct per-segment value was already computed for the §4A.3 composition but was discarded for the wire frame.
+
+Specs: `progress-presentation.md` → 1.5.0 (§4A.10, invariants B11/B12); `live-events.md` → 1.6.0 (segment payload semantics). All new tests R1 revert-checked.
+
+### "Rebuild Audio" now actually re-renders everywhere (force_rerender parity)
+
+The explicit Rebuild action is meant to delete the existing render and re-synthesize from scratch, never reusing cached segment audio. Two paths didn't honor it:
+
+- **Bake handlers ignored `force_rerender`.** `handle_xtts_bake` / `handle_voxtral_bake` decided per-group reuse purely on file-presence + `audio_status=="done"`, with no `force_rerender` short-circuit (the standard path already had one via `_group_is_done`). A rebuild routed through the bake path (chapters with pre-baked segments) could re-stitch stale audio instead of re-rendering. Both `_group_needs_render` functions now return `True` unconditionally when `j.force_rerender` is set, mirroring the standard path.
+- **Project-list "Rebuild Audio" button did a plain queue.** In the Project chapter list the action relabels to "Rebuild Audio" once a chapter is fully rendered, but it called `handleQueueChapter` with no reset and `force=false` — so it reused everything and re-rendered nothing. It now resets the chapter (deletes audio + marks segments unprocessed) and queues with `force_rerender=true`, behind a destructive-confirm, matching the Studio chapter view's Rebuild. Plain "Queue Chapter" / "Queue Remaining" are unchanged: they still preserve existing segment WAVs and only render gaps (the Book list's honestly-labeled "Queue Chapter" + separate "Reset Audio" was already correct and is untouched).
+
+R1-verified tests added/updated for both bake handlers and `handleQueueChapter`.
+
+### Cancelled render can no longer resurrect segment audio (lost-update race)
+
+Chapter reset (and "Rebuild") cancels the active render, then clears the chapter's segments to `unprocessed`. But cancellation is cooperative: the engine subprocess keeps emitting `[SEGMENT_SAVED]` for its in-flight segment until it stops. Those straggler saves were re-marking segments `audio_status="done"` *after* the reset committed, so the next render saw every group "done" and reused stale audio instead of re-synthesizing (seen as a no-synthesis re-stitch).
+
+**What changed (`docs/specs/queue-jobs.md` → 1.3.0, invariant I17):**
+
+- `orchestrator.cancel()` now synchronously detaches the cancelled task's engine-log listener (right after `on_cancel()` sets the cancel flag), so straggler output stops reaching the orchestrator the moment the user cancels.
+- Both `[SEGMENT_SAVED]` → `audio_status="done"` write sites — the orchestrator `log_listener` and the xtts handler's `chapter_on_output` — now drop the write while the task is cancelled. A save that races the listener detach is still ignored.
+
+This complements the earlier `force_rerender` fix (which made the explicit Rebuild action authoritative) by fixing the underlying race for *all* reset flows (chapter text edit mid-render, clear-audio, etc.). Prompt subprocess-stop (so cancel also stops wasting compute) is tracked as a follow-up (spec G6).
+
+## [Docs] - 2026-06-18
+
+### Progress-routing unification — single-source contract at the event-builder layer
+
+Shipped the complete §4A progress contract. `docs/specs/progress-presentation.md` bumped to 1.4.2; `docs/specs/live-events.md` bumped to 1.5.2.
+
+**What changed:**
+
+- **Single-source `enrich` kernel.** `ProgressService.enrich()` is the one RLock-guarded function both emit paths (orchestrated Path A via `ProgressService.publish`, and handler-direct Path B via `broadcast_job_updated`) call before building events. The event builders in `app/api/contracts/events.py` are the contract authority. The old `compute_progress_confidence` echo (which set `confidence = progress`) is deleted; builders now fail loudly if a progress-bearing frame arrives without an enriched `confidence`.
+- **Numeric ETA confidence (§4A.2).** `eta_confidence ∈ [0,1]` is now a three-term metric (variance × completion × freshness) that rises monotonically toward completion. A cold-start maturity factor prevents overconfident estimates when few velocity samples exist.
+- **Cold-render ETA (§4A.8 + §4A.4).** Frames that carry no observed ETA (cold render, no throughput yet) now emit a non-null, bounded ETA computed from `remaining_chars × seconds_per_char` (bootstrap `DEFAULT_BASELINE_ENGINE_CPS`), crossfaded toward the observed ETA as render velocity accumulates. The mechanical ceiling (`apply_eta_ceiling`) bounds the result.
+- **Share-weighted composition (§4A.3).** When an active segment reports its own ETA with high confidence and covers the dominant remaining share, the chapter ETA blends toward it — not multiplied.
+- **Snapshot enrichment (PI6).** `jobs_snapshot` and running-queue row serializers call `enrich(sample=False)` — read-only enrichment without mutating the ETA ring — so hydration frames carry the same §4A values as live frames.
+- **LOADING_MODEL UX (§2.6).** During the model-load window (status `preparing`, before the first engine marker), the backend emits `indeterminate: true` + `reasonCode: "LOADING_MODEL"`. The frontend renders a pulsing indeterminate bar and "loading voice model…" copy; reverts to determinate on the next frame.
+- **Two-layer floor clarification (§2.5).** Documented that the server `enrich` provides monotonically-clamped values while the client `progressMemory` is the display floor authority — the two layers are complementary, not contradictory.
+- **New ADR-0012** (`docs/decisions/ADR-0012-enrich-kernel-at-event-builder-layer.md`) records the problem, rejected alternative (`broadcast_job_updated` as chokepoint), D7 lock hierarchy, and consequences.
+- Five superseded progress plans marked at their heads. See `plans/progress_routing_unification/02-plan-reconciliation.md`.
+
+---
+
+## [Docs] - 2026-06-14
+
+### Wiki refresh: Studio 2.0 site redesign (R1–R6)
+
+Updated wiki pages to match the shipped Studio 2.0 UI redesign. All navigation, page structure, and workflow references have been corrected.
+
+**What changed in the app:**
+
+- **Left-rail navigation** replaces the old top navigation bar. Four groups: CREATE (Library, Voices), MONITOR (Activity), PLATFORM (Engines, Integrations), MANAGE (Settings).
+- **Book pipeline** replaces the old project/chapter tabbed view. Opening a book navigates to `/book/:id/<stage>` with five stage tabs: Manuscript, Casting, Studio, Review, Publish. Legacy `/project/:id` and `/chapter/:id` URLs redirect automatically.
+- **Engines and Integrations** are now dedicated pages under PLATFORM in the rail, not tabs inside Settings. Settings is now thin: General, About, and Developer (when Developer Mode is on). Legacy `/settings/engines` and `/settings/api` URLs redirect automatically.
+- **Voices catalog** (`/voices`) shows cards for all voices. Clicking a card opens the **Voice Lab** (`/voices/:id`), a full-page per-voice editor. The old accordion-only layout is gone.
+- **Casting stage** holds the narrator default (pinned first row) per book. There is no global default narrator in the Voice Library.
+- **Global Player Bar**: A full-width bottom dock handles all audio playback across every stage. It replaces VCR controls and inline players in the chapter editor.
+- **Activity page** (`/activity`) is a dedicated MONITOR destination for queue depth, job history, and production statistics.
+- **Queue Drawer**: Still accessible from the top bar button on every page for a quick glance without leaving your place.
+
+**Pages updated:** Home, Getting-Started, Library-and-Projects, Voices-and-Voice-Profiles, Settings, Queue-and-Jobs, Concepts, Troubleshooting-and-FAQ, Live-Demos.
+
+**Screenshot recapture list** (images in `wiki/images/` that no longer match the shipped UI):
+
+| Image file | Old content | New route to capture |
+|------------|-------------|----------------------|
+| `images/demoproject.png` | Old library card layout | `/` (Library page — new card grid) |
+| `images/demochapters.png` | Old project chapters tab | `/book/:id/manuscript` (Manuscript stage) |
+| `images/demovoices.png` | Old voices tab in project | `/voices` (Voices catalog page) |
+| `images/project-view.jpg` | Old project-detail page | `/book/:id/manuscript` (chapter list with Status Orbs) |
+| `images/characters-tab.jpg` | Old characters tab in project | `/book/:id/casting` (Casting stage) |
+| `images/chapter-editor.jpg` | Old chapter editor (full page) | `/book/:id/studio` (Studio stage) |
+| `images/queue-sidebar.jpg` | Old queue sidebar layout | Queue Drawer (top bar button) or `/activity` |
+| `images/voice-lab-list.jpg` | Old accordion voice list | `/voices` (Voices catalog grid) |
+| `images/voice-card-expanded.jpg` | Old expanded voice accordion card | `/voices/:id` (Voice Lab page) |
+| `images/settings-tray.jpg` | Old settings page with Engines/API tabs | `/settings` (thin Settings — General/About/Developer) |
+| `images/launch-screen.jpg` | Verify still accurate | `/` |
+| `images/new-project.jpg` | Verify still accurate | New book creation flow |
+
+Screenshots embedded inline in wiki pages were removed where the referenced image content is now outdated; the image files remain on disk pending new captures by the owner.
+
+---
+
 ## [Docs] - 2026-06-11
 
 ### Wiki accuracy pass (W5–W20)

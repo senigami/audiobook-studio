@@ -1,6 +1,6 @@
 # SP6 — Text Processing Spec
 
-**spec_version:** 1.1.0  
+**spec_version:** 1.1.1  
 **status:** active  
 **owner:** Studio 2.0
 
@@ -10,6 +10,7 @@
 
 | Version | Date       | Author      | Notes                         |
 |---------|------------|-------------|-------------------------------|
+| 1.1.1   | 2026-06-13 | Studio team | Staleness fix: refreshed the example "segment" count surface list (analysis strip, cast palette counts, script-view Numbers toggle) — the in-page character sidebar is removed by the site redesign (casting moves to a right-hand Cast palette); binding contract (counts derive from `build_chunk_groups`, not row cardinality) unchanged |
 | 1.1.0   | 2026-06-11 | Studio team | Stage 6 groups exposed read-only at `GET /projects/{pid}/chapters/{cid}/render_groups` (`build_chunk_groups` over ordered segments); UI "segment" counts and the script-view Numbers toggle MUST derive from this canonical computation, not sentence-row counts |
 | 1.0.1   | 2026-06-10 | Studio team | B19: Stage 6 grouping budget now uses `get_text_chunk_limit(engine_id)` (manifest-sourced) — constant-based limit removed from grouper, bake, and standard handler |
 | 1.0.0   | 2026-06-10 | Studio team | Initial spec from implemented behavior |
@@ -284,9 +285,13 @@ manifest, falling back to `DEFAULT_ENGINE_TEXT_CHUNK_LIMIT = 500`.
 settings `default_speaker_profile` — the same resolution queue submissions use.
 
 **Contract:**
-- Any UI surface presenting a "segment" count for rendering (analysis footer,
-  character sidebar, script-view Numbers toggle) MUST derive from this
-  computation, never from sentence-row counts (`chapter_segments` cardinality).
+- Any UI surface presenting a "segment" count for rendering (e.g. the analysis strip,
+  Cast palette counts, the script-view Numbers toggle) MUST derive from this
+  computation, never from sentence-row counts (`chapter_segments` cardinality). The
+  surface list is illustrative, not exhaustive — the binding contract is that the count
+  comes from `build_chunk_groups`, regardless of where it is shown. (The site redesign
+  removes Studio's in-page character sidebar; casting moves to a right-hand Cast palette,
+  so the count formerly attributed to the sidebar now lives on that palette.)
 - The endpoint is read-only and MUST NOT mutate segments or trigger grouping
   side effects.
 

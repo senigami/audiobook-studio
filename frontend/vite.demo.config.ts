@@ -12,7 +12,15 @@ export default defineConfig({
     },
   },
   root: path.resolve(__dirname, 'src/demo'),
-  base: '/audiobook-studio/demo/',
+  // Serve the app's real static assets (logo.png, etc.) so the demo can use the
+  // actual brand logo; copied into docs/demo on build. Without this, the demo's
+  // publicDir defaults to src/demo/public and logo.png 404s.
+  publicDir: path.resolve(__dirname, 'public'),
+  // Relative base: the compiled demo works served from ANY path — GitHub Pages
+  // (/audiobook-studio/demo/), the local audiobook server (/demo), or opened
+  // directly — without rebuilding. Safe because the demo uses hash routing,
+  // so the document path never shifts and relative asset URLs always resolve.
+  base: './',
   build: {
     outDir: path.resolve(__dirname, '../docs/demo'),
     emptyOutDir: true,

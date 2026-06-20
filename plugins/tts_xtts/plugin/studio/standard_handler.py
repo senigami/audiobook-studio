@@ -82,6 +82,11 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                 return _segment_group_weight(g["segments"])
 
             def _group_is_done(g: dict) -> bool:
+                # force_rerender: rebuild action requires full re-synthesis; never reuse
+                # cached segment audio even if the segment is marked done on disk.
+                if getattr(j, "force_rerender", False):
+                    return False
+
                 all_segs_done = all(
                     s.get("audio_status") == "done" and s.get("audio_file_path")
                     for s in g["segments"]
@@ -208,7 +213,12 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                         skip_job_updated=True,
                     )
 
-                if "[SEGMENT_SAVED]" in line:
+                if "[SEGMENT_SAVED]" in line and not cancel_check():
+                    # A cancelled render must not write segment 'done' state: a
+                    # chapter reset clears segments to 'unprocessed', and a straggler
+                    # [SEGMENT_SAVED] from the not-yet-stopped engine would otherwise
+                    # resurrect audio_status='done' and make the next render reuse
+                    # stale audio. (Mirrors the orchestrator log_listener guard.)
                     saved_path = line.split("[SEGMENT_SAVED]")[1].strip()
                     group = path_to_group.get(saved_path)
                     if group:

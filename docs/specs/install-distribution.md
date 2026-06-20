@@ -1,14 +1,17 @@
 # Install & Distribution
 
 ```
-spec_version: 1.0.0
+spec_version: 1.2.0
 status: active
+updated: 2026-06-16
 sources:
   - run.sh
   - run.ps1
   - requirements.txt
-  - requirements-xtts.txt
+  - plugins/tts_xtts/requirements.txt
   - app/core/config.py
+  - app/tts_server/server.py
+  - app/engines/official_registry.py
   - frontend/vite.config.ts
   - plans/final_release/16_pinokio_distribution.md
 ```
@@ -19,6 +22,8 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
+| 1.2.0   | 2026-06-16 | Fix XTTS requirements path to `plugins/tts_xtts/requirements.txt`; note `XTTS_ENV_DIR`/`TTS_ENV_DIR` override; correct demo restore default (`ask`) and mechanism; add `AUDIOBOOK_STUDIO_PORT` and `AUDIOBOOK_STUDIO_DEMO_ZIP` env vars |
+| 1.1.0   | 2026-06-15 | Clarified v2 plugin distribution paths and post-v2 GitHub search/update scope |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 
 ---
@@ -42,7 +47,7 @@ The app is available at `http://127.0.0.1:8123` after launch.
 | Step | Detail |
 |------|--------|
 | 1. Provision `./venv` | Python 3.11; installs `requirements.txt` |
-| 2. Provision `~/xtts-env` | Python 3.11; installs `requirements-xtts.txt` |
+| 2. Provision XTTS env | Python 3.11; installs `plugins/tts_xtts/requirements.txt`; defaults to `~/xtts-env` (overridable via `XTTS_ENV_DIR`/`TTS_ENV_DIR`) |
 | 3. Build frontend | `npm -C frontend run build` → `frontend/dist` |
 | 4. Launch uvicorn | `uvicorn run:app --port 8123` (default) |
 
@@ -78,8 +83,8 @@ XTTS has dependency conflicts with the core Studio requirements. It lives in a d
 
 | Attribute | Value |
 |-----------|-------|
-| Location | `~/xtts-env` (`$HOME/xtts-env`) |
-| Requirements file | `requirements-xtts.txt` |
+| Location | `~/xtts-env` (`$HOME/xtts-env`) by default; overridable via `XTTS_ENV_DIR` (preferred) or legacy `TTS_ENV_DIR` (`run.sh:6`) |
+| Requirements file | `plugins/tts_xtts/requirements.txt` |
 | Core requirements file | `requirements.txt` (deliberately excludes XTTS deps) |
 | Provisioned by | `./run.sh` (both envs in one command) |
 
@@ -106,6 +111,8 @@ All storage roots are resolved from env vars relative to `AUDIOBOOK_BASE_DIR` in
 | `PLUGIN_DATA_DIR` | `BASE_DIR/plugin_data` | Plugin persistent data |
 | `STUDIO_RECOVER_ON_STARTUP` | `"1"` | Re-submit interrupted tasks on restart; set `"0"` to disable |
 | `APP_TEST_MODE` | unset | Set to `"1"` in tests; redirects all storage to a session temp dir |
+| `AUDIOBOOK_STUDIO_PORT` | `8123` | Override the uvicorn listen port (`run.sh:8`) |
+| `AUDIOBOOK_STUDIO_DEMO_ZIP` | `<repo>/demo/demo.zip` | Override the demo bundle path (`run.sh:9`) |
 | `VITE_BACKEND_URL` | `http://127.0.0.1:8123` | Vite dev server proxy target |
 | `VITE_FRONTEND_PORT` | `5173` | Vite dev server port |
 
@@ -147,10 +154,14 @@ Pinokio is the primary end-user distribution channel for Studio. The wrapper liv
 
 ### Demo restore trigger
 
-| Variable | Effect |
-|----------|--------|
-| `AUDIOBOOK_STUDIO_INSTALL_DEMO=1` | Demo project from `demo/demo.zip` is restored into `PROJECTS_DIR` on first boot |
-| Unset / `0` | No demo project created |
+Demo restore runs in `run.sh` during provisioning (not at first boot inside the app). The
+`AUDIOBOOK_STUDIO_INSTALL_DEMO` variable controls the behavior:
+
+| Variable value | Effect |
+|----------------|--------|
+| `1` / `true` / `yes` | Demo bundle is restored unconditionally |
+| `0` / `false` / `no` | Skipped without prompting |
+| Unset (default `ask`) | In an interactive shell: user is prompted (default Y); in a non-interactive shell: installs automatically |
 
 ### Post-v1 blockers
 
@@ -160,23 +171,28 @@ Blockers PK1–PK10 are documented in `plans/final_release/16_pinokio_distributi
 
 - MUST NOT delete `demo/demo.zip` from the repo.
 - The Pinokio wrapper MUST invoke `./run.sh` (or `.\run.ps1`) rather than reimplementing provisioning logic.
-- `AUDIOBOOK_STUDIO_INSTALL_DEMO=1` MUST be the only gate for demo restore; no hardcoded hostname or platform checks.
+- `AUDIOBOOK_STUDIO_INSTALL_DEMO` controls demo restore; setting it to `0`/`false`/`no` is the only reliable way to suppress it non-interactively. No hardcoded hostname or platform checks are permitted.
 
 ---
 
-## Plugin Distribution (Post-v1)
+## Plugin Distribution
 
-Plugin install and update from GitHub is a post-v1 feature. The planned flow is documented in `plans/final_release/05_plugin_ecosystem.md`.
+Studio 2.0 supports three plugin acquisition paths:
 
 | Mechanism | Status |
 |-----------|--------|
-| Discovery via GitHub topic tag | Post-v1 |
-| In-app install / update UI | Post-v1 |
-| Manual drop into `PLUGINS_DIR` | Supported now (v2.0.0) |
+| Official owner-controlled registry | v2.0 release scope |
+| Paste-a-GitHub-repo-URL install | v2.0 release scope |
+| Upload plugin `.zip` | v2.0 release scope |
+| Manual drop into `PLUGINS_DIR` | Supported |
+| Broad GitHub topic search/browse | Post-v2 |
+| Rich installed-plugin update/pull UX | Post-v2 |
 
 ### Invariants
 
-- MUST NOT block the v2.0.0 release on GitHub plugin discovery.
+- MUST NOT block the v2.0.0 release on broad GitHub topic search/browse.
+- Registry and pasted-URL installs MUST use the same staging, manifest validation, and trust
+  confirmation model as plugin ZIP import.
 - Manual plugin installation (drop a plugin directory into `PLUGINS_DIR`) MUST work without any UI changes.
 
 ---

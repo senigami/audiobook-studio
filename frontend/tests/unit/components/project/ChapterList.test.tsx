@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { ChapterList } from '@/pages/ProjectDetail/components/ChapterList';
-import { vi, describe, it, expect } from 'vitest';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type { Chapter } from '@/types';
 
 vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () => ({
@@ -12,6 +12,7 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
     allowBackwardProgress,
     evidenceWeightFraction,
     checkpointMode,
+    label,
   }: {
     progress: number;
     status?: string;
@@ -20,6 +21,7 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
     allowBackwardProgress?: boolean;
     evidenceWeightFraction?: number;
     checkpointMode?: string;
+    label?: string;
   }) => (
     <div
       data-testid="progress-bar"
@@ -30,9 +32,35 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
       data-allow-backward={String(!!allowBackwardProgress)}
       data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
       data-checkpoint-mode={checkpointMode ?? ''}
+      data-label={label ?? ''}
     />
   ),
 }));
+
+import { loadAndPlay, usePlayerBus } from '@/store/playerBus';
+import { fireEvent } from '@testing-library/react';
+
+vi.mock('@/store/playerBus', () => {
+  const state = {
+    scope: null as any,
+    playing: false,
+    audioUrl: null as any,
+  };
+  return {
+    usePlayerBus: vi.fn().mockReturnValue(state),
+    loadAndPlay: vi.fn().mockImplementation((opts) => {
+      state.scope = opts.scope;
+      state.audioUrl = opts.audioUrl;
+      state.playing = true;
+    }),
+    play: vi.fn().mockImplementation(() => {
+      state.playing = true;
+    }),
+    pause: vi.fn().mockImplementation(() => {
+      state.playing = false;
+    }),
+  };
+});
 
 describe('ChapterList', () => {
   const mockChapters: Chapter[] = [
@@ -58,6 +86,13 @@ describe('ChapterList', () => {
     } as any
   ];
 
+  beforeEach(() => {
+    const state = vi.mocked(usePlayerBus)();
+    state.scope = null;
+    state.playing = false;
+    state.audioUrl = null;
+  });
+
   const defaultProps = {
     chapters: mockChapters,
     projectId: 'proj-1',
@@ -78,28 +113,29 @@ describe('ChapterList', () => {
   };
 
   it('renders audio player with correct suffixed source from audio_file_path', () => {
-    const { container } = render(<ChapterList {...defaultProps} />);
+    vi.mocked(loadAndPlay).mockClear();
+    render(<ChapterList {...defaultProps} />);
     
-    const audioTags = container.querySelectorAll('audio');
-    expect(audioTags).toHaveLength(2);
+    const playButtons = screen.getAllByTitle('Play Chapter Audio');
+    expect(playButtons).toHaveLength(2);
     
-    const sources1 = audioTags[0].querySelectorAll('source');
-    // First source is .mp3, second is .wav in my mock maybe?
-    // Let's check ChapterList.tsx logic:
-    // src={`/projects/${projectId}/audio/${chap.audio_file_path}`}
-    // Wait, the logic I added was:
-    // <source src={`/projects/${projectId}/audio/${chap.audio_file_path}`} type={chap.audio_file_path.endsWith('.mp3') ? "audio/mpeg" : "audio/wav"} />
-    
-    expect(sources1[0].getAttribute('src')).toBe('/api/projects/proj-1/chapters/chap-123/assets/audio?filename=chap-123_0.wav');
+    fireEvent.click(playButtons[0]);
+    expect(loadAndPlay).toHaveBeenCalledWith(expect.objectContaining({
+      scope: 'chapter',
+      audioUrl: '/api/projects/proj-1/chapters/chap-123/assets/audio?filename=chap-123_0.wav'
+    }));
   });
 
   it('falls back to chap.id when audio_file_path is missing', () => {
-    const { container } = render(<ChapterList {...defaultProps} />);
+    vi.mocked(loadAndPlay).mockClear();
+    render(<ChapterList {...defaultProps} />);
     
-    const audioTags = container.querySelectorAll('audio');
-    const sources2 = audioTags[1].querySelectorAll('source');
-    
-    expect(sources2[0].getAttribute('src')).toBe('/api/projects/proj-1/chapters/chap-456/assets/audio?filename=chapter.wav');
+    const playButtons = screen.getAllByTitle('Play Chapter Audio');
+    fireEvent.click(playButtons[1]);
+    expect(loadAndPlay).toHaveBeenCalledWith(expect.objectContaining({
+      scope: 'chapter',
+      audioUrl: '/api/projects/proj-1/chapters/chap-456/assets/audio?filename=chapter.wav'
+    }));
   });
 
   it('renders queued pulse when audio_status is processing but no activeJob', () => {
@@ -368,11 +404,10 @@ describe('ChapterList', () => {
       finished_at: Date.now() / 1000 - 1,
     } as any;
 
-    const { container } = render(<ChapterList {...defaultProps} jobs={{ [liveJob.id]: liveJob }} chapters={[{ ...mockChapters[0], has_wav: true, audio_status: 'done' } as any]} />);
+    render(<ChapterList {...defaultProps} jobs={{ [liveJob.id]: liveJob }} chapters={[{ ...mockChapters[0], has_wav: true, audio_status: 'done' } as any]} />);
 
     expect(screen.queryByTestId('progress-bar')).toBeNull();
-    const audioTags = container.querySelectorAll('audio');
-    expect(audioTags).toHaveLength(1);
+    expect(screen.getByTitle('Play Chapter Audio')).toBeInTheDocument();
   });
 
   it('hides estimated runtime badge if predicted_audio_length is missing, rendering only word and character counts', () => {
@@ -417,5 +452,54 @@ describe('ChapterList', () => {
     expect(screen.getByText('500 words')).toBeInTheDocument();
     expect(screen.getByText('3000 chars')).toBeInTheDocument();
     expect(screen.queryByText(/runtime/i)).toBeNull();
+  });
+
+  it('shows "Loading model" badge and "loading voice model…" bar label when reason_code is LOADING_MODEL', () => {
+    // A preparing job with LOADING_MODEL reason_code is the model cold-load window.
+    // ChapterList must render the "Loading model" status badge and pass the
+    // "loading voice model…" label to PredictiveProgressBar (not the status string).
+    const loadingModelJob = {
+      id: 'job-loading-model',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      engine: 'xtts',
+      status: 'preparing',
+      reason_code: 'LOADING_MODEL',
+      progress: 0,
+      started_at: Date.now() / 1000 - 5,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [loadingModelJob.id]: loadingModelJob }} />);
+
+    // Badge text must be "Loading model" not "Preparing"
+    expect(screen.getByText('Loading model')).toBeInTheDocument();
+    expect(screen.queryByText('Preparing')).toBeNull();
+
+    // PredictiveProgressBar label must be the loading-model string, not the status
+    const bar = screen.getByTestId('progress-bar');
+    expect(bar).toHaveAttribute('data-label', 'loading voice model…');
+    expect(bar).toHaveAttribute('data-status', 'preparing');
+  });
+
+  it('shows normal "Preparing" badge and status label when preparing without LOADING_MODEL reason_code', () => {
+    // A plain preparing job (no LOADING_MODEL) should use the normal presentation path.
+    const plainPreparingJob = {
+      id: 'job-plain-preparing',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      engine: 'xtts',
+      status: 'preparing',
+      progress: 0,
+      started_at: Date.now() / 1000 - 3,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [plainPreparingJob.id]: plainPreparingJob }} />);
+
+    expect(screen.getByText('Preparing')).toBeInTheDocument();
+    expect(screen.queryByText('Loading model')).toBeNull();
+
+    const bar = screen.getByTestId('progress-bar');
+    expect(bar).toHaveAttribute('data-label', 'preparing');
+    expect(bar).toHaveAttribute('data-status', 'preparing');
   });
 });

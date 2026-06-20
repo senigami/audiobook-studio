@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, Info, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Info, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
 import type { Chapter } from '@/types';
 
 interface EditTabProps {
@@ -151,7 +151,7 @@ export const EditTab: React.FC<EditTabProps> = ({
                       >
                           <AlertTriangle size={11} color="var(--error)" />
                           <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--error)' }}>
-                              ⚠ ACTION REQUIRED: {analysis.uncleanable} unresolvable {analysis._showUncleanable ? '▲' : '▼'}
+                              ACTION REQUIRED: {analysis.uncleanable} unresolvable {analysis._showUncleanable ? <ChevronUp size={11} aria-hidden="true" /> : <ChevronDown size={11} aria-hidden="true" />}
                           </span>
                       </div>
                   )}

@@ -42,6 +42,13 @@ interface ScriptViewProps {
   engines?: TtsEngine[];
   speakerProfiles?: SpeakerProfile[];
   speakers?: Speaker[];
+  viewMode?: 'book' | 'script';
+  onViewModeChange?: (mode: 'book' | 'script') => void;
+  showSafeText?: boolean;
+  onShowSafeTextChange?: (next: boolean) => void;
+  showNumbers?: boolean;
+  onShowNumbersChange?: (next: boolean) => void;
+  hideToolbarControls?: boolean;
   /**
    * When provided (and non-empty): maps the *first* span_id of each render group → its
    * 1-based group number. Only spans present in this map receive a number label; all others
@@ -242,15 +249,42 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   engines = [],
   speakerProfiles = [],
   speakers = [],
+  viewMode: controlledViewMode,
+  onViewModeChange,
+  showSafeText: controlledShowSafeText,
+  onShowSafeTextChange,
+  showNumbers: controlledShowNumbers,
+  onShowNumbersChange,
+  hideToolbarControls = false,
   groupNumberForSpan,
 }) => {
   const anyEnginesEnabled = useMemo(() => engines.some(e => e.enabled && e.status === 'ready'), [engines]);
-  const [viewMode, setViewMode] = useState<'book' | 'script'>('book');
-  const [showSafeText, setShowSafeText] = useState(false);
-  const [showNumbers, setShowNumbers] = useState(false);
+  const [internalViewMode, setInternalViewMode] = useState<'book' | 'script'>('book');
+  const [internalShowSafeText, setInternalShowSafeText] = useState(false);
+  const [internalShowNumbers, setInternalShowNumbers] = useState(false);
   const [pendingSelection, setPendingSelection] = useState<ScriptRangeAssignment | null>(null);
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewMode = controlledViewMode ?? internalViewMode;
+  const showSafeText = controlledShowSafeText ?? internalShowSafeText;
+  const showNumbers = controlledShowNumbers ?? internalShowNumbers;
+
+  const handleViewModeChange = (next: 'book' | 'script') => {
+    if (onViewModeChange) onViewModeChange(next);
+    else setInternalViewMode(next);
+  };
+
+  const handleShowSafeTextChange = () => {
+    const next = !showSafeText;
+    if (onShowSafeTextChange) onShowSafeTextChange(next);
+    else setInternalShowSafeText(next);
+  };
+
+  const handleShowNumbersChange = () => {
+    const next = !showNumbers;
+    if (onShowNumbersChange) onShowNumbersChange(next);
+    else setInternalShowNumbers(next);
+  };
 
   const spanMap = useMemo(() => {
     const map = new Map<string, ScriptSpan>();
@@ -574,46 +608,48 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       ref={containerRef}
       onMouseUp={handleSelection}
     >
-      <div className="script-view-toolbar">
-        <div className="script-view-toggle-group">
-          <button
-            className={`script-view-toggle-btn ${viewMode === 'book' ? 'active' : ''}`}
-            onClick={() => setViewMode('book')}
-          >
-            <BookOpen size={16} style={{ display: 'inline', marginRight: '6px' }} />
-            Book
-          </button>
-          <button
-            className={`script-view-toggle-btn ${viewMode === 'script' ? 'active' : ''}`}
-            onClick={() => setViewMode('script')}
-          >
-            <AlignLeft size={16} style={{ display: 'inline', marginRight: '6px' }} />
-            Script
-          </button>
-        </div>
+      {!hideToolbarControls && (
+        <div className="script-view-toolbar">
+          <div className="script-view-toggle-group">
+            <button
+              className={`script-view-toggle-btn ${viewMode === 'book' ? 'active' : ''}`}
+              onClick={() => handleViewModeChange('book')}
+            >
+              <BookOpen size={16} style={{ display: 'inline', marginRight: '6px' }} />
+              Book
+            </button>
+            <button
+              className={`script-view-toggle-btn ${viewMode === 'script' ? 'active' : ''}`}
+              onClick={() => handleViewModeChange('script')}
+            >
+              <AlignLeft size={16} style={{ display: 'inline', marginRight: '6px' }} />
+              Script
+            </button>
+          </div>
 
 
-        <div className="script-view-toggle-actions">
-          <button
-            className={`script-view-pill-toggle ${showSafeText ? 'is-active' : ''}`}
-            onClick={() => setShowSafeText(!showSafeText)}
-            title="Toggle Safe Text"
-            aria-pressed={showSafeText}
-          >
-            <Eye size={16} />
-            <span>Safe</span>
-          </button>
-          <button
-            className={`script-view-pill-toggle ${showNumbers ? 'is-active' : ''}`}
-            onClick={() => setShowNumbers(!showNumbers)}
-            title="Toggle Segment Numbers"
-            aria-pressed={showNumbers}
-          >
-            <Hash size={16} />
-            <span>Numbers</span>
-          </button>
+          <div className="script-view-toggle-actions">
+            <button
+              className={`script-view-pill-toggle ${showSafeText ? 'is-active' : ''}`}
+              onClick={handleShowSafeTextChange}
+              title="Toggle Safe Text"
+              aria-pressed={showSafeText}
+            >
+              <Eye size={16} />
+              <span>Safe</span>
+            </button>
+            <button
+              className={`script-view-pill-toggle ${showNumbers ? 'is-active' : ''}`}
+              onClick={handleShowNumbersChange}
+              title="Toggle Segment Numbers"
+              aria-pressed={showNumbers}
+            >
+              <Hash size={16} />
+              <span>Numbers</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="script-content-scroll">
         {viewMode === 'book' ? renderBook() : renderScript()}

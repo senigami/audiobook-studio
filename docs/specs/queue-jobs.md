@@ -1,11 +1,13 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.1.2
+spec_version: 1.4.0
 status: active
+updated: 2026-06-19
 created: 2026-06-10
 sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
-         app/orchestration/scheduler/{orchestrator,policies,resources,recovery}.py,
+         app/orchestration/scheduler/{orchestrator,orchestrator_helpers,policies,resources,recovery}.py,
+         plugins/tts_xtts/plugin/studio/standard_handler.py,
          app/orchestration/progress/eta.py, app/core/boot.py, app/api/web.py,
          tests/db/test_state_rules.py, test_state_jobs_broadcast.py, test_db_reconcile.py,
          tests/orchestration/test_recovery_db_integration.py
@@ -15,6 +17,11 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.4.0   | 2026-06-19 | **Rebuild vs queue semantics documented (§3.7) + `force_rerender` field (§2) + I18.** The shipped behavior was previously undocumented: queue (`POST /processing_queue`, `force_rerender=False`) is additive — deletes nothing, reuses existing segment WAVs per-group and concatenates; rebuild (`POST /chapters/{id}/reset` then `force_rerender=True`) is destructive — deletes all segment WAVs, resets `audio_status`, and re-synthesizes every group. `force_rerender` guards reuse identically in all three render paths (xtts standard, xtts bake, voxtral bake). Backfills the spec for commits 3a834144 / 6373e9ad / 23a3b7d5. |
+| 1.3.0   | 2026-06-19 | Cooperative-cancel lost-update fix (I17): `cancel()` synchronously detaches the task's engine-log listener (after `on_cancel()` sets the cancel flag), and both `[SEGMENT_SAVED]` `audio_status="done"` write sites — the orchestrator `log_listener` and the xtts handler's `chapter_on_output` — drop the write when the task is cancelled. Prevents a straggler save from the not-yet-stopped subprocess resurrecting segment state a chapter reset just cleared (which made the next render reuse stale audio). Prompt subprocess-stop remains a follow-up (G6). |
+| 1.2.2   | 2026-06-16 | Bug fix: `apply_status_regression_guard` now allows terminal→`preparing` (not only terminal→`queued`); matches §3.5 / `is_terminal_reset` / drop-guard which already treated both as valid resets. Fixed by expanding the `ACTIVE_STATUSES` check in `app/db/state_job_guards.py`. |
+| 1.2.1   | 2026-06-16 | §3.2 corrected line citations: `put_job` remap at `app/db/state_jobs.py:74-75`, `update_job` remap at `app/db/state_jobs.py:188-189`. |
+| 1.2.0   | 2026-06-13 | §10 Presentation surfaces added: documents where jobs are shown (queue drawer = glance, Activity page = depth) per north-star decision 9; dead `/queue` opens the drawer and bounces back; both surfaces read the same job data (live-events.md `queue.items` row authority) |
 | 1.1.2   | 2026-06-11 | Terminal latch at the ws broadcast chokepoint (live-events.md §"Terminal ordering guarantee"): terminal reset / `queued`/`preparing` re-entry unlatches; `delete_jobs`/`clear_all_jobs` clear latch entries (§3.5) |
 | 1.1.1   | 2026-06-11 | §3.6 voice-sample exception: samples auto-convert WAV→sample.mp3 (owner ruling) |
 | 1.1.0   | 2026-06-11 | WAV-first synthesis (audit Slice 7): ordinary chapter synthesis never emits `finalizing` and never converts to MP3; `make_mp3` inert for ordinary synthesis (§3.6). Queue row authority lives in live-events.md §"Queue row authority". |
@@ -104,6 +111,7 @@ All fields live on `app.db.models.Job` (a `@dataclass`).
 | `safe_mode` | `bool` | Default True |
 | `make_mp3` | `bool` | Default False |
 | `bypass_pause` | `bool` | Skip pause gate |
+| `force_rerender` | `bool` | Default False. When True, engine handlers bypass per-group WAV reuse and re-synthesize every render group regardless of `audio_status` (§3.7). Set by the rebuild action; threaded through `SynthesisTask` and survives recovery. |
 | `speaker_profile` | `str \| None` | |
 | `is_bake` | `bool` | True for bake-type jobs |
 | `has_segment_support` | `bool` | Engine supports segment-level progress |
@@ -164,7 +172,7 @@ Priority ordering enforced by `update_job`:
 
 Both `put_job` and `update_job` silently remap `status="finalizing"` to
 `status="running"` before writing.  `finalizing` never appears in `state.json`.
-(Source: `put_job` line 67, `update_job` line 182.)
+(Source: `put_job` ~line 74-75, `update_job` ~line 188-189, in `app/db/state_jobs.py`.)
 
 ### 3.3 Normal forward path
 
@@ -243,6 +251,40 @@ also synthesize WAV-first, but the result is then automatically converted to
 `app/engines/audio_ops.py`); on conversion failure the WAV is kept and served
 as fallback. This matches `docs/specs/voice-bundles.md` (previews are MP3).
 Chapter renders are never auto-converted — assembly converts WAV → AAC.
+
+---
+
+### 3.7 Rebuild vs Queue: chapter audio reuse (binding)
+
+Two distinct entry points act on a chapter's render audio, with **opposite**
+reuse semantics. Conflating them loses already-rendered audio, so the
+distinction is binding.
+
+**Queue (additive — the default).** `POST /processing_queue` with
+`force_rerender=False` (`app/api/routers/generation.py`). This is the normal
+"render the missing parts" path: it deletes **nothing**. Engine handlers reuse
+every render group whose segment WAV already exists and is marked `done`, and
+synthesize only the missing/stale groups, then concatenate existing + new
+segment WAVs into the chapter output. The reuse decision is per-group, made by
+`_group_is_done` (xtts standard path) / `_group_needs_render` (xtts + voxtral
+bake paths) against validated artifact metadata — never raw file existence
+alone.
+
+**Rebuild (destructive).** `POST /chapters/{id}/reset`
+(`app/api/routers/chapters.py`) followed by a queue submission with
+`force_rerender=True`. The reset physically deletes all of the chapter's
+segment WAVs (`reset_chapter_audio` → `cleanup_chapter_audio_files`,
+`app/db/chapters.py`) and resets every segment `audio_status` to
+`unprocessed`. `force_rerender=True` then makes the handlers re-synthesize
+every group unconditionally (it short-circuits `_group_is_done` /
+`_group_needs_render` to "render"), so nothing is reused even if a stray WAV
+survived.
+
+The flag guards reuse in **all three render paths** — xtts standard
+(`plugins/tts_xtts/plugin/studio/standard_handler.py`), xtts bake
+(`plugins/tts_xtts/plugin/studio/bake.py`), and voxtral bake
+(`plugins/tts_voxtral/plugin/studio/bake.py`) — so rebuild behaves identically
+regardless of engine. See invariant I18.
 
 ---
 
@@ -473,7 +515,72 @@ the full post-write job dict as `current_job`; listeners with only
 
 ---
 
-## 10. Invariants
+## 10. Presentation Surfaces
+
+This section documents **where** jobs are presented. Sections 1–9 own the job
+*data* — its statuses, transitions, ETA fields, and broadcast routing — but say
+nothing about which UI surfaces show it. The redesign settled that question
+(owner north-star decision 9, "The Queue stops pretending"): there are exactly
+two surfaces, with distinct postures, and **both read the same underlying job
+data**. Neither surface is a separate source of truth.
+
+| Surface | Posture | Where | Audience question |
+|---|---|---|---|
+| Queue drawer | Glance | Slide-over, openable from anywhere | "What's happening right now — without losing my place?" |
+| Activity page | Depth | Routed page | "Show me everything: in-flight, history, calibration, totals." |
+
+### 10.1 Queue drawer (glance)
+
+The queue drawer is a slide-over for **at-a-glance monitoring from anywhere**
+without navigating away from the current page. It is opened from the shell's
+Queue button (which reflects the live queue count — see
+[site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md) §2.3) and
+**survives the redesign** intact: it is genuinely useful precisely because it
+does not cost the user their place.
+
+It shows a compact, live view of active and recently-terminal jobs: per-row
+status, progress, ETA, and per-job cancel. It is scoped to monitoring, not
+analysis — for history, calibration, and totals the user opens the Activity
+page.
+
+**Dead `/queue` URL (legacy behavior):** the old `/queue` route no longer owns a
+page. Navigating to `/queue` **opens the drawer and bounces back** to the prior
+route (`replace`), so the URL never settles on `/queue`. (Source:
+`frontend/src/app/App.tsx` — the `/queue` effect sets the drawer open and
+`navigate(prevPath, { replace: true })`.)
+
+### 10.2 Activity page (depth)
+
+The Activity page (`frontend/src/pages/Activity/ActivityPage.tsx`, reached from
+the rail's MONITOR group) is the **depth view** — the global "what's going on"
+surface. It composes four panels, all derived from the same job data:
+
+- **Now / in-flight + ETA** — active jobs with progress and ETA, via the
+  `GlobalQueue` component (non-compact mode).
+- **History** — full terminal-job history with filters (`All` / `Renders` /
+  `Samples` / `API`).
+- **Stats — per-engine calibration** (`EngineCalibrationCard`): calibrated
+  characters-per-second and confidence percentage per engine, derived from
+  render-performance samples (the same calibration the ETA model in §8 consumes).
+- **Production Tally** (`ProductionTallyCard`): cumulative audio rendered,
+  word/character counts, render time spent, and per-engine breakdown — the
+  long-run "X hours generated" totals, formerly buried in Settings → About.
+
+### 10.3 Shared data; no duplicate authority
+
+Both surfaces render from the same job state described in §1–§2 and receive the
+same live updates. The drawer and the Activity page are **views**, not stores:
+neither holds an independent copy of queue truth, and a job's status/progress/ETA
+shown in one MUST match the other. Live-row authority is unchanged — the
+`queue.items` topic is the sole row authority and every other topic is overlay-
+only on existing rows (see [live-events.md](live-events.md) §"Queue row
+authority" / `QUEUE_OVERLAY_FIELDS`). Chapter-status and progress presentation
+that these surfaces render are governed by
+[progress-presentation.md](progress-presentation.md).
+
+---
+
+## 11. Invariants
 
 **MUST:**
 
@@ -496,10 +603,12 @@ the full post-write job dict as `current_job`; listeners with only
 - I14. Status MUST NOT regress to a lower-priority value unless it is a terminal reset or `force_broadcast=True`.
 - I15. Updates to terminal jobs MUST NOT be applied unless the incoming status is `queued`/`preparing` (reset) or `force_broadcast=True`.
 - I16. ETA fields MUST NOT be written by any path other than `update_job` / `state_jobs.py`.
+- I17. A cancelled render MUST NOT write segment `audio_status="done"`. `cancel()` sets the task's cancel flag (`on_cancel()`) and detaches its engine-log listener synchronously; both `[SEGMENT_SAVED]` done-write sites (orchestrator `log_listener`, xtts `chapter_on_output`) MUST drop the write while the task is cancelled, so a straggler save cannot resurrect state a chapter reset cleared.
+- I18. When `force_rerender=True`, engine handlers MUST NOT reuse an existing segment WAV regardless of its `audio_status`; every render group is re-synthesized. The flag MUST be honored identically in all three render paths (xtts standard, xtts bake, voxtral bake) — §3.7.
 
 ---
 
-## 11. Conformance Checklist
+## 12. Conformance Checklist
 
 Each invariant is verified by at least one existing test.
 
@@ -515,18 +624,21 @@ Each invariant is verified by at least one existing test.
 | I8 — active_segment_progress forced 0 | `tests/db/test_state_rules.py::test_active_segment_progress_forced_to_zero_when_id_is_none` |
 | I8 — active_segment ETA cleared | `tests/db/test_state_rules.py::test_active_segment_eta_fields` |
 | I10 — B3 done-row guard | `tests/db/test_db_reconcile.py::test_reconcile_queue_status_does_not_reset_chapter_with_done_row` |
+| I17 — cancelled render no segment resurrection (path A: orchestrator listener) | `tests/orchestration/test_cancel_no_segment_resurrection.py::test_cancelled_render_does_not_remark_segment_done` |
+| I17 — cancelled render no segment resurrection (path B: xtts handler) | `plugins/tts_xtts/tests/test_handler.py::test_cancelled_chapter_render_does_not_remark_segment_done` |
 | I13 — progress regression blocked | `tests/db/test_state_rules.py::test_progress_regression_protection` |
 | I14 — status regression blocked | `tests/db/test_state_rules.py::test_status_regression_protection` |
 | I15 — terminal updates dropped | `tests/db/test_state_rules.py::test_force_broadcast_overrides_protection` |
 | requeue clean slate | `tests/db/test_state_rules.py::test_requeue_clean_slate` |
 | requeue terminal-reset broadcast | `tests/db/test_state_jobs_broadcast.py::test_requeue_emits_terminal_reset_broadcast` |
+| terminal → preparing reset applies status + clears reset fields | `tests/db/test_state_rules.py::test_reset_to_preparing_from_terminal_status` |
 | ETA projection uses clamped progress | `tests/db/test_state_rules.py::test_eta_projection_uses_clamped_progress` |
 | segment ETA fields not clobbered by chapter update | `tests/db/test_state_rules.py::test_chapter_queue_updates_do_not_overwrite_active_segment_eta` |
 | B2 concurrency: status_changed invariant | `tests/db/test_state_jobs_broadcast.py::test_concurrent_put_job_update_job_broadcast_consistency` |
 
 ---
 
-## 12. Known Gaps
+## 13. Known Gaps
 
 **G1 — `finalizing` in SQLite queue statuses.**  `ACTIVE_QUEUE_STATUSES` in
 `queue.py` includes `"finalizing"`, but `update_job` / `put_job` both silently
@@ -562,3 +674,14 @@ Covered by `tests/db/test_state_jobs_broadcast.py::test_requeue_emits_terminal_r
 exercised as a side-effect of other tests but there is no dedicated test
 asserting that all four ETA fields are None after a `done`/`failed`/`cancelled`
 transition.
+
+**G6 — Cancellation is cooperative, not prompt.** `cancel()` signals the engine
+(`on_cancel()` → bridge cancel) and returns immediately; the engine subprocess
+keeps rendering its in-flight segment until it next checks the cancel signal.
+I17 makes this *correct* (the dead render can no longer resurrect segment state),
+but not *prompt* — wasted compute continues until the subprocess stops. A future
+hardening should make `cancel()` (or the chapter-reset path) wait, with a bounded
+timeout, for the engine to confirm the task stopped, and add a between-segments
+cancel poll in the xtts worker loop (`plugins/tts_xtts/plugin/core/xtts_inference.py`)
+so an in-flight chapter render aborts within one segment instead of running to
+completion.

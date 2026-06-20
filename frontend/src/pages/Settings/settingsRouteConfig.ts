@@ -1,7 +1,7 @@
 import React from 'react';
-import { SlidersHorizontal, PlugZap, Server, BadgeInfo, FlaskConical } from 'lucide-react';
+import { SlidersHorizontal, BadgeInfo, FlaskConical } from 'lucide-react';
 
-export type SettingsTabId = 'general' | 'engines' | 'api' | 'about' | 'developer';
+export type SettingsTabId = 'general' | 'about' | 'developer';
 
 export interface SettingsTab {
   id: SettingsTabId;
@@ -12,6 +12,11 @@ export interface SettingsTab {
   devOnly?: boolean;
 }
 
+/**
+ * Active tabs: General / About / Developer (dev-gated).
+ * TTS Engines and API have been re-homed to /engines and /integrations respectively.
+ * Old bookmark paths (/settings/engines, /settings/api) redirect — see SETTINGS_REDIRECTS.
+ */
 export const SETTINGS_TABS: SettingsTab[] = [
   {
     id: 'general',
@@ -19,20 +24,6 @@ export const SETTINGS_TABS: SettingsTab[] = [
     path: '/settings',
     description: 'Core synthesis defaults and maintenance actions.',
     icon: SlidersHorizontal,
-  },
-  {
-    id: 'engines',
-    label: 'TTS Engines',
-    path: '/settings/engines',
-    description: 'Plugin cards, verification state, and engine-specific settings.',
-    icon: PlugZap,
-  },
-  {
-    id: 'api',
-    label: 'API',
-    path: '/settings/api',
-    description: 'Local API access, authentication, and queue priority.',
-    icon: Server,
   },
   {
     id: 'about',
@@ -51,13 +42,23 @@ export const SETTINGS_TABS: SettingsTab[] = [
   },
 ];
 
-export const VALID_SETTINGS_PATHS = new Set(SETTINGS_TABS.map((tab) => tab.path));
+/**
+ * Old Settings sub-paths that now redirect to standalone pages (R-G: old routes keep working).
+ * Key = old path; value = redirect target.
+ */
+export const SETTINGS_REDIRECTS: Record<string, string> = {
+  '/settings/engines': '/engines',
+  '/settings/api': '/integrations',
+};
+
+export const VALID_SETTINGS_PATHS = new Set([
+  ...SETTINGS_TABS.map((tab) => tab.path),
+  ...Object.keys(SETTINGS_REDIRECTS),
+]);
 
 export const getActiveSettingsTab = (pathname: string): SettingsTab => {
-  if (pathname === '/settings/engines') return SETTINGS_TABS[1];
-  if (pathname === '/settings/api') return SETTINGS_TABS[2];
-  if (pathname === '/settings/about') return SETTINGS_TABS[3];
-  if (pathname === '/settings/developer') return SETTINGS_TABS[4];
+  if (pathname === '/settings/about') return SETTINGS_TABS[1];
+  if (pathname === '/settings/developer') return SETTINGS_TABS[2];
   return SETTINGS_TABS[0];
 };
 

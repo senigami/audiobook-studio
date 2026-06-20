@@ -98,6 +98,21 @@ class TestTtsClientGet:
             with pytest.raises(TtsServerResponseError):
                 client.health()
 
+    def test_response_error_preserves_status_code_and_detail(self):
+        client = TtsClient("http://127.0.0.1:7862")
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 400
+        mock_resp.json.return_value = {"detail": "Plugin manifest failed validation."}
+        mock_resp.text = "Bad Request"
+
+        with patch("httpx.post", return_value=mock_resp):
+            with pytest.raises(TtsServerResponseError) as exc_info:
+                client.preview_github_plugin("https://github.com/audiobook-studio/bad.git")
+
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "Plugin manifest failed validation."
+
     def test_get_engines_returns_list(self):
         client = TtsClient("http://127.0.0.1:7862")
 
@@ -158,4 +173,3 @@ class TestTtsClientSynthesize:
     def test_synthesize_uses_large_read_timeout(self):
         from app.engines.tts_client import _READ_TIMEOUT
         assert _READ_TIMEOUT >= 300.0
-

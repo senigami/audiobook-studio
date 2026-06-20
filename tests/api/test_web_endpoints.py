@@ -1,9 +1,25 @@
 import pytest
 from fastapi.testclient import TestClient
-from app.api.web import app
+from app.api.web import app, DEMO_DIST
 from app.db.models import Job
 
 client = TestClient(app)
+
+
+def test_demo_bare_path_redirects_to_trailing_slash():
+    # /demo (no trailing slash) must redirect to the mounted demo at /demo/,
+    # not fall through to the SPA catch-all (which serves the main app).
+    res = client.get("/demo", follow_redirects=False)
+    assert res.status_code in (307, 308)
+    assert res.headers["location"] == "/demo/"
+
+
+@pytest.mark.skipif(not DEMO_DIST.exists(), reason="demo bundle (docs/demo) not present")
+def test_demo_trailing_slash_serves_demo_not_spa():
+    # /demo/ serves the demo's own index.html (distinct <title>), not the main SPA.
+    res = client.get("/demo/")
+    assert res.status_code == 200
+    assert "Audiobook Studio Demo" in res.text
 
 def test_crud_projects():
     # create

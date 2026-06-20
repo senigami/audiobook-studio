@@ -6,7 +6,7 @@ import logging
 from typing import Optional, List
 from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Depends, HTTPException
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..core.config import (
@@ -129,6 +129,22 @@ for d in [VOICES_DIR, PROJECTS_DIR]:
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
 
+# Serve the compiled design-mockup demo (static, relative-base build) at /demo.
+# Built via `npm run build:demo` into docs/demo; html=True serves index.html for
+# the directory and its hashed assets + logo. Mounted before the SPA catch-all.
+DEMO_DIST = FRONTEND_DIST.parent.parent / "docs" / "demo"
+if DEMO_DIST.exists():
+    app.mount("/demo", StaticFiles(directory=str(DEMO_DIST), html=True), name="demo")
+
+
+# The StaticFiles mount only matches "/demo/..."; a bare "/demo" (no trailing
+# slash) would otherwise fall through to the SPA catch-all and serve the main
+# app instead of the demo. Redirect it to the mounted path. Registered
+# unconditionally (before the catch-all) so the slash is never required.
+@app.get("/demo")
+def _demo_trailing_slash_redirect():
+    return RedirectResponse(url="/demo/")
+
 
 @app.get("/projects/{project_id}/cover/{filename}")
 def get_project_cover_hardened(project_id: str, filename: str):
@@ -222,6 +238,21 @@ async def websocket_endpoint(websocket: WebSocket):
                         continue
                     if 'log' in j:
                         del j['log']
+
+                # §4A hydration: enrich each row with contract-correct progress/ETA
+                # fields so page-load/reconnect carries the same numeric eta_confidence,
+                # ETA basis, and grouped_progress as live frames.  sample=False is
+                # read-only — it computes from the existing ring WITHOUT pushing a new
+                # velocity sample or advancing the monotonic floor (PI8 safety).
+                from ..orchestration.progress.service import get_progress_service  # noqa: PLC0415
+                _svc = get_progress_service()
+                for j in jobs_list:
+                    _jid = j.get("id")
+                    if _jid:
+                        try:
+                            _svc.enrich(_jid, j, sample=False)
+                        except Exception:
+                            pass  # enrich is best-effort; unenriched row is still valid
 
                 await websocket.send_json({
                     "type": "jobs_snapshot",

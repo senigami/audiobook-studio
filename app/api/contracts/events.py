@@ -176,29 +176,6 @@ def normalize_to_canonical_command(
     return canonical
 
 
-def compute_progress_confidence(
-    status: str | None,
-    progress: float | None,
-    active_render_group_weight: int | None = None,
-    reason_code: str | None = None,
-) -> float | None:
-    if not status:
-        return None
-    if progress == 0:
-        return 1.0
-    if status in ("done", "failed", "cancelled", "finalizing"):
-        return 1.0
-    if progress is None:
-        return None
-
-    chunk_char_limit = 3000
-    coverage_ratio = 1.0
-    if active_render_group_weight is not None and active_render_group_weight > 0:
-        coverage_ratio = max(0.0, min(float(active_render_group_weight) / chunk_char_limit, 1.0))
-
-    return float(coverage_ratio * max(0.0, min(float(progress), 1.0)))
-
-
 StudioJobStatus = Literal["queued", "preparing", "running", "finalizing", "done", "failed", "cancelled"]
 StudioJobClassification = Literal["job", "chapter", "segment"]
 StudioJobEventScope = Literal["job", "queue", "chapter", "segment", "export", "voice_test", "voice_build"]
@@ -442,6 +419,8 @@ def build_queue_item_status_event(
     paused: bool | None = None,
     has_segment_support: bool | None = None,
     confidence: float | None = None,
+    indeterminate: bool | None = None,
+    loading_elapsed_seconds: float | None = None,
 ) -> dict:
     """Build a queue.items status envelope."""
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
@@ -449,12 +428,10 @@ def build_queue_item_status_event(
         canonical_command = None
         message = None
 
-    resolved_confidence = confidence
-    if resolved_confidence is None:
-        resolved_confidence = compute_progress_confidence(
-            status=status,
-            progress=progress,
-            reason_code=canonical_command,
+    if progress is not None and confidence is None:
+        raise ValueError(
+            "build_queue_item_status_event received a progress frame with confidence=None"
+            " — the producer must enrich() first"
         )
     payload = {
         "status": status,
@@ -466,7 +443,7 @@ def build_queue_item_status_event(
         "changedFields": None,
         "paused": paused,
         "hasSegmentSupport": has_segment_support,
-        "confidence": resolved_confidence,
+        "confidence": confidence,
         "startedAt": started_at,
         "completedAt": completed_at,
         "customTitle": custom_title,
@@ -475,6 +452,10 @@ def build_queue_item_status_event(
         "producedChars": produced_chars,
         "producedSegmentCount": produced_segment_count,
     }
+    if indeterminate is not None:
+        payload["indeterminate"] = bool(indeterminate)
+    if loading_elapsed_seconds is not None:
+        payload["loadingElapsedSeconds"] = round(float(loading_elapsed_seconds), 1)
     resolved_source = source or _resolve_source_path()
     return build_studio_event(
         topic="queue.items",
@@ -545,6 +526,8 @@ def build_chapter_progress_event(
     has_segment_support: bool | None = None,
     eta_updated_at: float | None = None,
     confidence: float | None = None,
+    indeterminate: bool | None = None,
+    loading_elapsed_seconds: float | None = None,
 ) -> dict:
     """Build a chapters.progress topic envelope."""
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
@@ -560,12 +543,10 @@ def build_chapter_progress_event(
     if resolved_eta_seconds is not None and resolved_eta_seconds > 0:
         resolved_eta_updated_at = eta_updated_at if eta_updated_at is not None else (updated_at if updated_at is not None else time.time())
 
-    resolved_confidence = confidence
-    if resolved_confidence is None:
-        resolved_confidence = compute_progress_confidence(
-            status=status,
-            progress=progress,
-            reason_code=canonical_command,
+    if progress is not None and confidence is None:
+        raise ValueError(
+            "build_chapter_progress_event received a progress frame with confidence=None"
+            " — the producer must enrich() first"
         )
     payload = {
         "status": status,
@@ -577,8 +558,12 @@ def build_chapter_progress_event(
         "renderGroupCount": render_group_count,
         "completedRenderGroups": completed_render_groups,
         "hasSegmentSupport": has_segment_support,
-        "confidence": resolved_confidence,
+        "confidence": confidence,
     }
+    if indeterminate is not None:
+        payload["indeterminate"] = bool(indeterminate)
+    if loading_elapsed_seconds is not None:
+        payload["loadingElapsedSeconds"] = round(float(loading_elapsed_seconds), 1)
     if resolved_eta_updated_at is not None:
         payload["etaUpdatedAt"] = resolved_eta_updated_at
     if updated_at is not None:
@@ -630,13 +615,6 @@ def build_segment_progress_event(
         resolved_eta_updated_at = eta_updated_at if eta_updated_at is not None else (updated_at if updated_at is not None else time.time())
 
     rounded_progress = round(float(progress), 2)
-    resolved_confidence = confidence
-    if resolved_confidence is None:
-        resolved_confidence = compute_progress_confidence(
-            status=status,
-            progress=progress,
-            reason_code=canonical_command,
-        )
     payload = {
         "status": status,
         "progress": rounded_progress,
@@ -648,7 +626,7 @@ def build_segment_progress_event(
         "activeSegmentProgress": rounded_progress,
         "etaSeconds": resolved_eta_seconds,
         "hasSegmentSupport": has_segment_support,
-        "confidence": resolved_confidence,
+        "confidence": confidence,
     }
     if resolved_eta_updated_at is not None:
         payload["etaUpdatedAt"] = resolved_eta_updated_at

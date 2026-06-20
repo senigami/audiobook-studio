@@ -2047,3 +2047,228 @@
 - Next desired segment-progress implementation: do not immediately replace the visible segment bar/text driver when a new `START_SEGMENT` arrives while the previous segment is finishing.
 - Keep the previous segment mounted until its displayed progress reaches 100%; queue the next segment separately as `pendingStart` (the `START_SEGMENT` frame at 0% with ETA/updatedAt) plus `pendingLatest` (the newest progress frame received while waiting).
 - After the previous segment visually completes, mount the next segment from `pendingStart` at 0%/ETA, then apply `pendingLatest` on the next tick so the new segment visibly starts at zero before lane-changing to its latest known progress.
+
+# 2026-06-12 - R1-T3 NavRail verified
+
+- Implemented the grouped shell rail at `frontend/src/app/layout/NavRail.tsx` with dev-mode Developer links, queue badges, collapse persistence, hover-expanded overlay, and the theme/chevron bottom controls.
+- Added the rail width tokens, overlay layering, and component CSS, then verified the focused NavRail test file, frontend lint, and `git diff --check`.
+
+# 2026-06-12 - R1-T9 integrations route verified
+
+- Re-homed the API guide to `frontend/src/pages/Integrations/components/ApiGuidePanel.tsx` and added `frontend/src/pages/Integrations/IntegrationsPage.tsx` plus the `/integrations` app route.
+- Redirected `/settings/api` to `/integrations`, kept `apiExampleStyle` in `frontend/src/pages/Settings/settingsRouteHelpers.ts`, and verified the focused Integrations, SettingsRoute, and App Vitest slice plus frontend lint and `git diff --check`.
+
+# 2026-06-13 - R2-T2 Book data provider verified
+
+- Added `useBookData` and `BookDataProvider` for `/book` routes, hydrating project, chapters, characters, and audiobooks from the existing project endpoints.
+- Wired `BookLayout` through the provider and passed speaker profiles, speakers, settings, engines, and refresh triggers from `App`.
+- Verified focused Book tests, full frontend Vitest, frontend lint, and frontend build.
+
+# 2026-06-13 - R2-T3 TopBar book identity verified
+
+- Added a lightweight `bookIdentityStore` plus `BookIdentityLine` in the shell TopBar identity slot for `/book/:id/*` routes.
+- Published title, author, series, cover, runtime, and predicted runtime from `BookLayout` using the shared Book data provider.
+- Verified the new identity route test, full frontend Vitest, frontend lint, and frontend build.
+
+# 2026-06-13 - R2-T4 Rail book block verified
+
+- Extended `bookIdentityStore` with chapters, jobs, engine availability, and chapter action callbacks.
+- Added `RailBookBlock` to the expanded NavRail with book header, stage links, Studio-only chapter rows, real `StatusOrb` rendering, slim active-job progress, and Queue/Reset/Delete menu actions.
+- Verified focused rail tests, full frontend Vitest, frontend lint, and frontend build.
+
+# 2026-06-13 - R2-T5 Manuscript chapter table verified
+
+- Added `chapterLifecycle.ts` with the R2 Draft/Ready/Cast/Rendered derivation mapping and regression coverage.
+- Added the `/book/:id/manuscript` stage content with a chapter table using `InlineEdit`, `Reorder`, real `StatusOrb`, lifecycle pills, selection, Sort A-Z, and queue/reset/delete/export actions.
+- Verified focused Book tests, full frontend Vitest, frontend lint, and frontend build.
+
+# 2026-06-13 - Site redesign shell top bar restructured
+
+- Reworked the shell so the top bar spans the full width and the rail begins below it, matching the mockup layout direction.
+- Verified with focused Layout/App Vitest, frontend lint, frontend build, and a live Playwright check on the running dev server.
+
+# 2026-06-13 - R2-T6 Manuscript add/import verified
+
+- Extracted `AddChapterModal` to `frontend/src/pages/Book/components/AddChapterModal.tsx` and re-exported it from the ProjectDetail modal module for existing consumers.
+- Wired `ManuscriptStage` to open the modal and call `actions.handleCreateChapter(title, text, file, chapters.length)`.
+- Added the compact file-only import row for `.txt`, `.docx`, and `.epub`, deriving the chapter title from the filename and using the same create action.
+- Verified focused modal/stage tests, full frontend Vitest, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-13 - R2-T7 Manuscript text panel verified
+
+- Added `useChapterText` to fetch full selected chapter text, debounce Draft/Ready autosaves through `api.updateChapter`, and preview produced-chapter resyncs through `api.previewSourceTextResync`.
+- Added `ChapterTextPanel` beside the Manuscript chapter table with read-only produced chapters, the best-effort assignment warning, edit unlock, amber unlocked strip, word-count footer, and shared `ResyncPreviewModal`.
+- Updated `ManuscriptStage` into a table-plus-preview workspace driven by selected chapter state.
+- Verified focused Book panel/stage tests, full frontend Vitest, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-13 - R2-T8 Manuscript focus mode verified
+
+- Added `requestRailAutoCollapse()` to `railState` so focus mode can collapse the rail and restore the prior manual state on exit.
+- Added Focus / Exit focus to `ManuscriptStage`; focus mode hides the table/import column and centers the `ChapterTextPanel` at a 640px max width.
+- Verified focused rail/manuscript tests, full frontend Vitest, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-13 - R2-T9 Casting stage verified
+
+- Added `CastingStage` for `/book/:id/casting`, mounting the existing `CharactersTab` without rewriting its internals.
+- Added the pinned `Narrator (default)` row above the roster, bound to the existing project default voice state through `actions.handleProjectVoiceChange`.
+- Re-homed the project default voice engine-unavailable warning into Casting.
+- Verified focused Casting/useBookData tests, full frontend Vitest, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-13 - R2-T10 Publish book info verified
+
+- Added `PublishStage` for `/book/:id/publish` with a real book-info surface instead of the route placeholder.
+- Added `BookInfoCard` with inline title/author/series editing, cover viewing/changing, and runtime/predicted/created chips.
+- Added assembled audiobook download links in Publish, leaving full AssemblyPanel/backups re-home to R2-T11.
+- Verified focused BookInfoCard tests, full frontend Vitest, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-13 - R2-T11 Publish assemblies/backups verified
+
+- Added `AssemblyChapterPicker` and wired Publish into in-place assembly selection for rendered chapters only.
+- Re-homed `AssemblyProgress`, `AssemblyPanel`, and `ProjectBackupsPanel` into Publish while preserving the existing handlers and download/delete flows.
+- Moved the file-size and relative-time helpers into shared format utilities and updated the Book layout test harness for backups hydration.
+- Verified focused AssemblyChapterPicker/PublishStage/BookLayout tests, full frontend Vitest, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-13 - App shell base layer standardized
+
+- Moved the shell implementation into `frontend/src/app/layout/AppShell.tsx` so the base layer now lives with the app shell/routing code.
+- Kept `frontend/src/components/layout/Layout.tsx` as a compatibility re-export and pointed `App.tsx` at the app-owned shell directly.
+- Verified focused shell/App tests, frontend lint, frontend build, and `git diff --check`.
+
+# 2026-06-13 - Shared left sidebar resize handle verified
+
+- Added a persistent drag resize handle to the shared left rail so widening the sidebar shrinks the main column instead of overlaying it.
+- Stored the expanded rail width in the shared rail state helper, updated the shell shell/spec contract, and kept collapse state independent.
+- Verified focused `NavRail` tests, full frontend Vitest, frontend lint, frontend build, `git diff --check`, and a live browser drag check against `http://127.0.0.1:5175/`.
+
+# 2026-06-13 - Shared book rail chapter rows aligned to mock
+
+- Reordered the contextual book rail chapter rows so the `StatusOrb` appears before the chapter number/title, matching the mock hierarchy more closely.
+- Simplified the active row highlight to a tinted left bar + backshade, removed the inter-row separator, and limited the chapter action menu to the selected row.
+- Verified focused `RailBookBlock` tests, full frontend Vitest, frontend lint, and frontend build; a live browser pass hit a local Chromium permission issue during launch, so the visual check was partially verified by tests rather than screenshot.
+
+# 2026-06-13 - Manuscript analysis footer compacted
+
+- Removed the empty bottom footer from the chapter manuscript panel when no commit action is available, which trims the extra gap below the analysis strip.
+- Kept the analysis summary inline and left the segment count hidden when unavailable so the row can collapse cleanly instead of wrapping.
+- Verified focused `ChapterTextPanel` coverage alongside `RailBookBlock`, full frontend Vitest, frontend lint, and frontend build.
+- Added a dark-theme `StudioStage` render assertion so the remaining design-system parity check is covered by tests instead of a manual browser pass.
+
+# 2026-06-15 - First-pass mock reconciliation inventory created
+
+- Created `plans/site_redesign_rollout/10_mock_reconciliation.md` as an inventory-only reconciliation before any mock/site edits.
+- Integrated read-only area reports for book pipeline, voices/Voice Lab, platform, shell/activity/player/onboarding/copy, and release/showcase/demo bundle.
+- Captured a master matrix, release/post-v2/aspirational future labels, and ready-to-send Gemini Pro / Flash execution packets for the next pass.
+- Owner clarified that the private mock should be an interactive future-state prototype: sub-sentence assignment should feel usable in the mock, GitHub repo URL plugin install and API generate/retrieve are release-relevant, shareable voice bundle export/download is core, and future API config controls may be interactive in the mock even if live implementation defers them.
+- Owner added official plugin registry direction: v2.0 should support an owner-controlled registry with preview metadata/detail, and XTTS/Voxtral should become the first working standalone repo-download plugins before migrating them out of the base repo.
+- Verified with `git diff --check`.
+
+# 2026-06-15 - Interactive site mockup correction pass verified
+
+- Reviewed Gemini's mockup implementation and corrected the remaining gaps locally: removed private-mock planned/current-status labels, replaced Publish coming-soon chips with reviewable quality controls, and rewrote the API security copy as end-state guidance.
+- Made the shared mock `Btn` primitive a native `button`, converted Voice/Book action-menu rows and several action-text spans into semantic buttons, and added tab semantics to the Book pipeline tabs.
+- Updated the Plugin Registry examples to owner-controlled Audiobook Factory repo URLs for XTTS/Voxtral migration direction instead of third-party-looking placeholders.
+- Rebuilt `docs/demo` so the static showcase reflects the corrected mock source.
+- Verified with `npm -C frontend run build`, `npm -C frontend run lint`, `npm -C frontend run test`, `npm -C frontend run build:demo`, `git diff --check`, targeted stale-label searches, and a Playwright smoke check against `http://127.0.0.1:5177/#/stage/site-mockup?embed=1`.
+
+# 2026-06-15 - Site mockup VCR player controls restored
+
+- Fixed the bottom PlayerBar regression where VCR-style transport buttons rendered as empty pill shells after the mock semantic button pass.
+- Replaced the fragile icon-only transport with the styleguide U16 visible glyph treatment: `⏮`, `⏪`, `▶`/`⏸`, `⏩`, `⏭`, while preserving the existing playback/seek handlers and accessible button labels.
+- Rebuilt `docs/demo` so the static showcase uses the restored player controls.
+- Verified with `npm -C frontend run build`, `npm -C frontend run lint`, `npm -C frontend run test`, `npm -C frontend run build:demo`, `git diff --check`, and a Playwright smoke/screenshot check confirming visible transport glyphs.
+
+# 2026-06-15 - Plugin registry release scope reconciled
+
+- Updated the release planning docs so v2.0 plugin install scope is now consistent: ZIP upload, paste-a-GitHub-repo-URL install, and owner-controlled official registry install are release scope.
+- Moved broad GitHub topic search/browse and richer update/pull UX to post-v2 wording across Phase 12, Road to v2, Plan 05, and the mock reconciliation matrix.
+- Confirmed the current platform mock already shows the accurate interaction model: Upload ZIP, GitHub URL, trust analysis, and Plugin Registry detail/install controls.
+- Verified with `git diff --check`.
+
+# 2026-06-15 - Official plugin registry backend verified
+
+- Reviewed the Antigravity backend patch for official registry and GitHub URL plugin preview, then hardened the trust boundary before accepting it.
+- Added strict github.com URL normalization, clone timeout handling, cleanup on failure, symlink rejection, plugin-loader manifest validation, fixed validation errors at the Studio API boundary, and TTS client status/detail propagation.
+- Aligned the engines/plugins, security, and install-distribution specs with the release-scope backend behavior.
+- Verified with focused API/engine/TTS client tests, plugin loader/validation regressions, ruff on touched backend/test files, JSON Memory parse, and `git diff --check`.
+
+# 2026-06-15 - Official plugin registry frontend verified
+
+- Reviewed the Antigravity frontend registry pass and found the new registry test was placed under `frontend/src`, outside the runnable Vitest include tree.
+- Moved the registry test to `frontend/tests/unit/pages/Engines/OfficialRegistryPanel.test.tsx`, removed stale `frontend/test_log.txt`, and gave registry/manual install buttons distinct accessible names.
+- Verified the real Engines frontend now loads the official registry, supports pasted GitHub repo URLs, and routes both paths through the existing trust modal confirm/cancel staging flow.
+- Verified with focused registry/navigation/layout tests, full frontend Vitest, frontend build, frontend lint, JSON Memory parse, and `git diff --check`.
+
+# 2026-06-16 - Site mockup design polish verified
+
+- Completed an Apple-style private site mockup design polish pass focused on the Library covers, splash/player mobile behavior, and demo-shell overflow.
+- Generated six audiobook cover artworks and exported square plus tall variants under `frontend/public/demo-covers`; `docs/demo/demo-covers` was regenerated by `npm -C frontend run build:demo`.
+- Updated `BookCover` to support square and tall cover artwork with reusable material styling: bevel, laminate highlight, edge shadow, and stronger spine cue for tall covers.
+- Wired the Library grid to show a realistic mix: default square audiobook covers plus tall covers for The Silver Thread and Starfall Compact.
+- Tightened mobile layout for the splash pane, top bar, player bar, and demo header; Browser verification confirmed no horizontal overflow at 390px and correct cover rendering in the Library.
+- Verified with `git diff --check`, `npm -C frontend run lint`, `npm -C frontend run build`, `npm -C frontend run build:demo`, and `npm -C frontend run test`.
+
+# 2026-06-16 - Full site mockup design polish verified
+
+- Continued the Apple-style design review beyond Home/Library across Voices, Activity, Engines, Integrations, Settings, and the book workflow tabs.
+- Added consistent pane headers, compact status/summary cards, voice waveform texture, and responsive collapse classes for platform, activity, casting, manuscript, review, publish, and book-tab surfaces.
+- Improved interface semantics by converting rail navigation, book stage links, rail collapse controls, chapter action menu entries, and clickable chips to native buttons while preserving the mock visual language.
+- Removed stale hidden duplicate Engines actions from the DOM and rebuilt `docs/demo` with the latest mock source/assets.
+- Verified with Browser desktop/mobile checks, `git diff --check`, `npm -C frontend run lint`, `npm -C frontend run build`, `npm -C frontend run build:demo`, and `npm -C frontend run test`.
+
+# 2026-06-16 - Voice portrait mockup polish verified
+
+- Added a taxonomy-driven generic portrait system to the private site mockup Voices pane.
+- Voice silhouettes now derive from major visual traits such as gender and age; background/accent colors derive from tone such as warm, deep, bright, gruff, clear, and cool; border color derives from voice class such as narrator, dialogue, or character.
+- Local and Discover voices now show generated generic portraits while Aria and ClearTone-F intentionally preserve the initials-only no-image fallback state.
+- Voice Lab detail now uses the same portrait/fallback system at a larger size, so the card and detail views share one visual language.
+- Added a focused `demoApp.test.tsx` regression for generated portrait count, accessible portrait labels, taxonomy chips, and no-image fallback.
+- Verified with `npm -C frontend run build`, `npm -C frontend run build:demo`, `npm -C frontend run test -- demoApp.test.tsx`, `npm -C frontend run lint`, `node -e` JSON parse, and `git diff --check`; Browser visual verification was blocked by the in-app browser security policy for `localhost:5173`.
+
+# 2026-06-16 - Voice silhouette image library mockup verified
+
+- Replaced the private mock's inline generic voice SVG drawings with a reusable image-asset silhouette library under `frontend/public/demo-voice-silhouettes`.
+- Added transparent grayscale silhouettes for female narrator, male narrator, senior, child, light/fairy, gruff/ogre, and neutral/NB voice types.
+- Updated `VoicePortrait` to compose those image assets with the existing metadata-driven background, accent, and border treatment, preserving the visible relationship between voice taxonomy and card appearance.
+- Rebuilt `docs/demo` so the static showcase includes `docs/demo/demo-voice-silhouettes`.
+- Updated the focused demo regression to assert asset-backed portraits plus no-image fallback behavior.
+- Verified with `npm -C frontend run test -- demoApp.test.tsx`, `npm -C frontend run build`, `npm -C frontend run lint`, `npm -C frontend run build:demo`, `node -e` JSON parse, and `git diff --check`; Browser visual verification remains blocked by the in-app browser security policy for `localhost:5173`.
+
+# 2026-06-16 - Voice profile image prompt mockup verified
+
+- Updated every demo voice silhouette SVG to include its own flat solid background color so assets work outside the card frame and match the requested Hugging Face/export direction.
+- Added two 1024 x 1024 raster voice profile examples under `frontend/public/demo-voice-raster`: warm narrator and gruff character.
+- Wired the raster examples into the mock with `portraitImage` overrides while keeping SVG fallback portraits and initials-only fallback examples.
+- Added `plans/site_redesign_rollout/11_voice_portrait_asset_prompt.md` with the reusable solid-background 1024 x 1024 prompt contract.
+- Wired that same prompt contract into the Voice Profile Editor `Generate prompt` control, deriving prompt text from the selected voice's taxonomy, description, and avatar color.
+- Added focused demo coverage for raster portraits, SVG portraits, local no-image fallback, Discover no-image fallback, and the generated prompt.
+- Verified with `npm -C frontend run test -- demoApp.test.tsx`, `node -e` JSON parse, and `git diff --check`; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.
+
+# 2026-06-16 - Contextual book rail indentation verified
+
+- Adjusted the private mock expanded Library book hierarchy so Manuscript, Casting, Studio, Review, and Publish rail rows are explicitly left-aligned and only slightly indented.
+- Reduced the nested chapter-list indentation under Studio and locked chapter rows to left alignment so the contextual rail reads as an outline rather than a centered button stack.
+- Added focused demo coverage for the contextual book rail stage alignment contract.
+- Verified with `npm -C frontend run test -- demoApp.test.tsx`, `node -e` JSON parse, and `git diff --check`; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.
+
+# 2026-06-16 - Aria default voice portrait verified
+
+- Changed Aria from initials-only fallback to the default taxonomy-derived adult female clear narrator portrait.
+- Updated focused demo coverage to expect six local voice portraits and to verify Aria's default portrait label.
+- Verified with `npm -C frontend run test -- demoApp.test.tsx`, `node -e` JSON parse, and `git diff --check`; skipped frontend build/build:demo per owner instruction.
+
+# 2026-06-16 - Shared voice portrait reuse verified
+
+- Extracted `VoicePortrait` into `frontend/src/demo/stages/siteMockup/panes/voicePortrait.tsx` so voice cards, Voice Lab, Voice Profile Editor, and Edit Metadata preview share one portrait recipe.
+- Reused the raster/default portraits in the Voice Profile Editor sidebar, selected-profile header, and Appearance preview.
+- Added a profile image preview to the Edit Metadata modal and restored card overflow `Edit metadata` to open that modal instead of routing into the full profile editor.
+- Updated focused demo coverage for card portraits, Aria default portrait, metadata preview reuse, Discover raster/no-image states, profile editor reuse, and generated prompt behavior.
+- Verified with `npm -C frontend run test -- demoApp.test.tsx`, `node -e` JSON parse, and `git diff --check`; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.
+
+# 2026-06-16 - Voice taxonomy and variations mockup verified
+
+- Expanded the Voice Profile Editor taxonomy with dropdowns for Primary Role, Entity Type, Gender, and Age, including Unknown for age.
+- Replaced the old language/accent/style chip grids with token-style multi-select controls for Languages, Dialect / Vocal Origin, and Base Voice Qualities.
+- Marked Studio Voice as a Dark Fiction Narrator and added six reviewable variations: Dark Fiction, Neutral, Sad, Excited, Angry, and Whispered.
+- Added a Voice variations editor surface with selectable variation rows, emotion tags, performance style tags, intensity, pacing, energy, and upload/test/default controls.
+- Updated card/lab/profile displays so primary role and variation count are visible.
+- Verified with `npm -C frontend run test -- demoApp.test.tsx`, `npm -C frontend run lint`, `node -e` JSON parse, and `git diff --check`; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.

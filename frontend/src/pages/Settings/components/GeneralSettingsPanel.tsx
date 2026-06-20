@@ -75,6 +75,22 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {/* Platform hint banner */}
+      <div
+        aria-label="Platform hint"
+        style={{
+          padding: '0.6rem 1rem',
+          borderRadius: '10px',
+          background: 'var(--accent-tint-bg)',
+          border: '1px solid var(--accent-tint-border, var(--border))',
+          color: 'var(--text-muted)',
+          fontSize: '0.82rem',
+          lineHeight: 1.5,
+        }}
+      >
+        Engines &amp; Integrations live under <strong style={{ color: 'var(--accent)' }}>Platform</strong> — Settings is intentionally thin.
+      </div>
+
       {/* Appearance section */}
       <section>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>

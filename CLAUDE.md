@@ -81,7 +81,7 @@ Synthesis no longer spawns a one-shot subprocess per render. Instead a **long-li
 - **`app/tts_server/`** is the server-side runtime: `server.py`, `plugin_loader.py` (discovers/validates plugin manifests), `health.py`, `verification.py`, settings stores.
 - **`plugins/`** holds self-contained engine plugins (`tts_xtts`, `tts_voxtral`, `tts_mixed`). Each is a mini-repo: `manifest.json` (declares `engine_id`, capabilities, `behavior` like `text_chunk_limit` and `progress_pattern`, resource needs), `interface.py` entry class, `plugin/` implementation, and **plugin-local `tests/` + fixtures** (collected by pytest). New engines register via manifest + the standard engine contract — never by adding engine-ID branches in core code.
 
-XTTS still needs its heavy, conflicting deps in a **separate env** at `~/xtts-env` (`requirements-xtts.txt`); `requirements.txt` deliberately excludes them.
+XTTS still needs its heavy, conflicting deps in a **separate env** at `~/xtts-env` (provisioned from `plugins/tts_xtts/requirements.txt`); the root `requirements.txt` deliberately excludes them.
 
 ### Boot sequence (explicit side effects)
 

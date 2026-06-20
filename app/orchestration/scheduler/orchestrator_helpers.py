@@ -112,6 +112,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
 
         engine_id = context.payload.get("engine_id") or getattr(task, "engine_id", "synthesis")
         calibrated_cps = None
+        calibrated_overhead = 0.0  # inter-group (model-reload) overhead seconds; gap factoring
         try:
             from app.db.state import get_performance_metrics  # noqa: PLC0415
             from app.orchestration.scheduler.eta import get_calibrated_model_params  # noqa: PLC0415
@@ -127,6 +128,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             params = get_calibrated_model_params(history)
             if params:
                 calibrated_cps = params[0]
+                calibrated_overhead = max(0.0, float(params[1]))
         except Exception:
             pass
 
@@ -351,28 +353,50 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         except (TypeError, ValueError):
                             model_load_seconds = None
 
-                record_render_sample(
-                    engine=str(payload.get("engine_id") or getattr(task, "engine_id", "")),
-                    tts_model=tts_model,
-                    chars=chars,
-                    word_count=word_count,
-                    segment_count=segment_count,
-                    duration_seconds=round(duration_seconds, 2),
-                    job_id=context.task_id,
-                    project_id=context.project_id,
-                    chapter_id=context.chapter_id,
-                    speaker_profile=payload.get("voice_profile_id"),
-                    render_group_count=render_group_count,
-                    started_at=started_at,
-                    audio_duration_seconds=audio_duration_seconds,
-                    completed_at=completed_at_val,
-                    synthesis_duration_seconds=synthesis_dur,
-                    model_load_seconds=model_load_seconds,
-                    sum_segment_render_seconds=(
-                        getattr(perf_job_obj, "sum_segment_render_seconds", None)
-                        if perf_job_obj else None
-                    ) or timing.get("sum_segment_render_seconds"),
-                )
+                sum_segment_render_seconds = (
+                    getattr(perf_job_obj, "sum_segment_render_seconds", None)
+                    if perf_job_obj else None
+                ) or timing.get("sum_segment_render_seconds")
+
+                # Only record a calibration sample when REAL synthesis happened —
+                # i.e. a synthesis duration was actually measured (markers, or the
+                # accumulated per-segment render time). A reuse render (cached
+                # per-segment audio re-stitched by ffmpeg — no synthesis markers,
+                # so no synthesis duration) has none; recording it would corrupt
+                # CPS/ETA calibration, and record_render_sample mandates a positive
+                # synthesis duration (it raises otherwise — the "Failed to record
+                # render performance sample" traceback the user saw). Skip it
+                # quietly; the produced-metadata finalize below still runs.
+                if (synthesis_dur is not None and synthesis_dur > 0) or (
+                    sum_segment_render_seconds is not None and sum_segment_render_seconds > 0
+                ):
+                    record_render_sample(
+                        engine=str(payload.get("engine_id") or getattr(task, "engine_id", "")),
+                        tts_model=tts_model,
+                        chars=chars,
+                        word_count=word_count,
+                        segment_count=segment_count,
+                        duration_seconds=round(duration_seconds, 2),
+                        job_id=context.task_id,
+                        project_id=context.project_id,
+                        chapter_id=context.chapter_id,
+                        speaker_profile=payload.get("voice_profile_id"),
+                        render_group_count=render_group_count,
+                        started_at=started_at,
+                        audio_duration_seconds=audio_duration_seconds,
+                        completed_at=completed_at_val,
+                        synthesis_duration_seconds=synthesis_dur,
+                        model_load_seconds=model_load_seconds,
+                        sum_segment_render_seconds=sum_segment_render_seconds,
+                    )
+                else:
+                    logger.debug(
+                        "Skipping render performance sample for task %s: no synthesis "
+                        "duration (reuse / stitch-only render).",
+                        context.task_id,
+                    )
+
+                # Finalize produced metadata for the completed (incl. reused) chapter.
                 try:
                     from app.db.state import update_job
                     update_job(
@@ -394,12 +418,23 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     exc_info=True,
                 )
 
+        # Emit indeterminate "loading voice model" frame.  This covers the ~36s
+        # XTTS cold-load window before the first [START_SEGMENT] marker arrives.
+        # engine_activity_started_at may already be set if the engine sent its
+        # activity marker before dispatch; if not, elapsed is 0.
+        _loading_elapsed: float | None = None
+        _engine_act_start = timing.get("engine_activity_started_at")
+        if _engine_act_start is not None:
+            _loading_elapsed = max(0.0, time.time() - _engine_act_start)
         self._publish(
             context=context,
             status="preparing",
             progress=0.0,
             started_at=None,
-            message="Preparing synthesis resources...",
+            message="Loading voice model…",
+            reason_code="LOADING_MODEL",
+            indeterminate=True,
+            loading_elapsed_seconds=_loading_elapsed,
             force=False,
         )
 
@@ -586,6 +621,25 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 marker_state["start_synthesis_emitted"] = True
                 if timing["render_started_at"] is None:
                     timing["render_started_at"] = now_time
+
+                # Sync the first segment with the REAL synthesis start. If no
+                # [START_SEGMENT] marker has arrived yet (engines/builds that emit
+                # only START_SYNTHESIS + PROGRESS + SEGMENT_SAVED, or a stale warm
+                # worker), derive the first render group's leader so the running
+                # frame below carries active_segment_id — mounting the segment
+                # progress bar at 0% in lockstep with the queue going "running",
+                # instead of first appearing seconds later at the first PROGRESS
+                # tick (already a non-zero percent). UI-mount only: we do NOT set
+                # segment_starts (the render-timing clock) or the START_SEGMENT
+                # dedup set here, so a later real [START_SEGMENT] still records
+                # announce/confirmation timing normally.
+                if active_seg_id[0] is None and script:
+                    _eids0 = (script[0].get("ids") or []) if len(script) > 0 else []
+                    if _eids0:
+                        active_seg_id[0] = _eids0[0]
+                        active_seg_progress[0] = 0.0
+                        active_render_group_index[0] = 0
+
                 trace(
                     "orchestrator.marker_start_synthesis",
                     job_id=context.task_id,
@@ -596,10 +650,12 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 self._publish(
                     context=context,
                     status="running",
-                    progress=0.0,
+                    progress=_get_grouped_progress(),
                     eta_seconds=self._duration_to_eta_seconds(expected_duration),
                     started_at=timing["render_started_at"],
                     message="Synthesis in progress...",
+                    active_segment_id=active_seg_id[0],
+                    active_segment_progress=0.0 if active_seg_id[0] else None,
                     render_group_count=render_group_count,
                     completed_render_groups=completed_group_count[0],
                     active_render_group_index=active_render_group_index[0],
@@ -636,6 +692,21 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     else:
                         sid = active_seg_id[0] or (list(marker_state["start_segment_ids"])[-1] if marker_state["start_segment_ids"] else "unknown")
 
+                    # B8 diagnostic: log whether sid is in the weight table and
+                    # whether the dedup guard fires.  Guarded by DEBUG level so
+                    # production logs stay clean.
+                    if logger.isEnabledFor(logging.DEBUG):
+                        known_keys = list(id_to_weight.keys())
+                        in_weight_table = sid in id_to_weight
+                        dedup_would_fire = sid in marker_state["start_segment_ids"]
+                        logger.debug(
+                            "[B8-diag] START_SEGMENT received: sid=%r | "
+                            "in_id_to_weight=%s | dedup_guard=%s | known_keys=%r",
+                            sid,
+                            in_weight_table,
+                            dedup_would_fire,
+                            known_keys,
+                        )
                     if sid in marker_state["start_segment_ids"]:
                         return
                     marker_state["start_segment_ids"].add(sid)
@@ -700,6 +771,24 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             if raw_progress is not None:
                 if timing["render_started_at"] is None:
                     timing["render_started_at"] = time.time()
+                # Fallback: if the [START_SEGMENT] marker never reached us (e.g. a
+                # stale engine build that still emits PROGRESS/SEGMENT_SAVED but not
+                # START_SEGMENT), active_seg_id is None and the segment progress bar +
+                # text highlight would never engage (service.py gates segment frames
+                # on a non-null active_segment_id). Derive the active segment from the
+                # known render-group structure — the active group is the next unsaved
+                # one (completed_group_count). Only runs when None, so a real
+                # START_SEGMENT marker always takes precedence; the block below then
+                # sets segment_starts and publishes the canonical START_SEGMENT frame.
+                if active_seg_id[0] is None and script:
+                    _idx = min(completed_group_count[0], len(script) - 1)
+                    _eids = (script[_idx].get("ids") or []) if 0 <= _idx < len(script) else []
+                    if _eids:
+                        active_seg_id[0] = _eids[0]
+                        active_render_group_index[0] = _idx
+                        # Register in the dedup set so a late real [START_SEGMENT] for
+                        # this same group cannot re-enter its branch and reset progress.
+                        marker_state["start_segment_ids"].add(active_seg_id[0])
                 # Engine-confirmed clock fallback: engines that skip START_SYNTHESIS but emit
                 # PROGRESS lines — confirm the segment start at first progress.
                 _progress_confirmed_seg = None
@@ -769,6 +858,15 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     pass
 
             if matched_marker == "SEGMENT_SAVED" or "[SEGMENT_SAVED]" in line:
+                # A cancelled render must not write segment 'done' state. cancel()
+                # sets task._cancelled synchronously (on_cancel) before the chapter
+                # reset clears the segments, so any straggler [SEGMENT_SAVED] from
+                # the not-yet-stopped engine subprocess that arrives after the reset
+                # would otherwise resurrect audio_status='done' and make the next
+                # render reuse stale audio. Drop it. (Mirrored in the xtts handler's
+                # chapter_on_output for the in-thread write path.)
+                if getattr(task, "_cancelled", False):
+                    return
                 try:
                     # [SEGMENT_SAVED] {path}
                     if "[SEGMENT_SAVED]" in line:
@@ -832,10 +930,37 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         except Exception:
                             logger.exception("Failed to update segments %s on [SEGMENT_SAVED]", sids)
 
+                        # Gap-aware ETA at segment completion: re-anchor the
+                        # countdown to the synthesis time for the remaining groups
+                        # PLUS the inter-group (model-reload) overhead, so the bar
+                        # does not coast toward completion during the gap before the
+                        # next group starts. (Wires the previously-dead
+                        # calculate_chapter_remaining_eta; weight == char count.)
+                        # Degrades to the overhead-free estimate when no calibration
+                        # history exists (calibrated_overhead == 0).
+                        _saved_eta: int | None = None
+                        try:
+                            from app.orchestration.scheduler.eta import calculate_chapter_remaining_eta  # noqa: PLC0415
+                            from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS  # noqa: PLC0415
+                            _cps = calibrated_cps if (calibrated_cps and calibrated_cps > 0) else DEFAULT_BASELINE_ENGINE_CPS
+                            _remaining_w = max(int(total_weight) - int(completed_weight[0]), 0)
+                            _groups_remaining = max(render_group_count - completed_group_count[0], 0)
+                            if _remaining_w > 0 and _cps and _cps > 0:
+                                _saved_eta = calculate_chapter_remaining_eta(
+                                    active_group_remaining_chars=0,
+                                    remaining_chars=_remaining_w,
+                                    cps=_cps,
+                                    groups_remaining=_groups_remaining,
+                                    inter_group_overhead=calibrated_overhead,
+                                )
+                        except Exception:
+                            _saved_eta = None
+
                         self._publish(
                             context=context,
                             status="running",
                             progress=_get_grouped_progress(),
+                            eta_seconds=_saved_eta,
                             reason_code="SEGMENT_SAVED",
                             message=f"Completed segment {leader_id}",
                             started_at=timing["render_started_at"],
@@ -889,6 +1014,14 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
 
         if wd:
             wd.register_log_listener(log_listener)
+            # Stash the listener + watchdog on the task so cancel() can unregister
+            # it synchronously: a cancelled job's listener should stop processing
+            # the engine's straggler output (progress noise, and — guarded above —
+            # segment 'done' writes) the moment the user cancels, not whenever the
+            # subprocess finally stops. The dispatch-exit unregisters below are the
+            # normal-completion path; double-unregister is a no-op.
+            setattr(task, "_log_listener", log_listener)
+            setattr(task, "_watchdog", wd)
 
         # 1. Try registry-based dispatch (Plugin handlers or generic kind handlers)
         reg = get_handler_registry()

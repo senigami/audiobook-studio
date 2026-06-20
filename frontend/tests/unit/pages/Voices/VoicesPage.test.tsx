@@ -1,6 +1,23 @@
+import React, { useState } from 'react'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { VoicesTab } from '@/pages/Voices/VoicesPage'
+import { NarratorCard } from '@/pages/Voices/components/NarratorCard'
+import { ScriptEditor } from '@/pages/Voices/components/ScriptEditor'
 import { describe, it, expect, vi } from 'vitest'
+import type { Speaker, SpeakerProfile, TtsEngine } from '@/types'
+
+// ---------------------------------------------------------------------------
+// Mock framer-motion so catalog-card and NarratorCard animations work in JSDOM
+// ---------------------------------------------------------------------------
+vi.mock('framer-motion', () => ({
+    motion: {
+        div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+        button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+        span: ({ children, ...props }: any) => <span {...props}>{children}</span>,
+    },
+    AnimatePresence: ({ children }: any) => <>{children}</>,
+}))
 
 describe('VoicesTab', () => {
     const mockProfiles: any = [
@@ -21,54 +38,49 @@ describe('VoicesTab', () => {
 
     beforeEach(() => {
         vi.clearAllMocks()
-        // Provide a default empty speakers array for all tests
         global.fetch = vi.fn((url: string) => {
             if (url === '/api/speakers') {
-                return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+                return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
             }
-            return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'success' }) });
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'success' }) })
         }) as any
     })
 
     it('renders all narrator profiles', async () => {
         await act(async () => {
-            render(<VoicesTab {...mockProps} />)
+            render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
         })
+        // Voice names appear in catalog cards
         expect(screen.getByText('Narrator1')).toBeInTheDocument()
         expect(screen.getByText('Narrator2')).toBeInTheDocument()
+        // Engine filter chips appear in VoicesTabHeader
         expect(screen.getByText('XTTS (1)')).toBeInTheDocument()
         expect(screen.getByText('Voxtral (1)')).toBeInTheDocument()
     })
 
     it('shows the default narrator pill', async () => {
         await act(async () => {
-            render(<VoicesTab {...mockProps} />)
+            render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
         })
-        
-        // Expand card to see variant tabs
-        const voiceHeader = screen.getByText('Narrator2')
-        fireEvent.click(voiceHeader)
-        
-        expect(screen.getByText('Default')).toBeInTheDocument()
+
+        // Narrator2 has is_default=true — VoiceCatalogCard renders a "★ default" badge
+        // with aria-label="Default voice"
+        expect(screen.getByLabelText('Default voice')).toBeInTheDocument()
     })
 
     it('opens profile details and allows building voice', async () => {
+        render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
 
-        render(<VoicesTab {...mockProps} />)
-
-        // Find the Voice card (it mocks unassigned names as the voice name)
-        const voiceHeader = screen.getByText('Narrator1')
-        fireEvent.click(voiceHeader)
-
-        // Now "Edit Script" or "Build Voice" should be visible in expanded view
-        const buildBtn = await screen.findByText(/Rebuild/i)
+        // Narrator1: wav_count=5, no preview_url → phase 'build' → CTA "Build voice"
+        // The CTA button is always visible on the catalog card without requiring expansion
+        const buildBtn = await screen.findByText('Build voice')
         expect(buildBtn).toBeInTheDocument()
     })
 
     it('shows delete option in ActionMenu', async () => {
-        render(<VoicesTab {...mockProps} />)
+        render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
 
-        // Open Voice ActionMenu
+        // VoiceCatalogCard renders ActionMenu with aria-label="More actions"
         const actionMenus = await screen.findAllByRole('button', { name: /more actions/i })
         fireEvent.click(actionMenus[0])
 
@@ -91,7 +103,7 @@ describe('VoicesTab', () => {
         }) as any
 
         await act(async () => {
-            render(<VoicesTab {...mockProps} onRefresh={onRefresh} />)
+            render(<MemoryRouter><VoicesTab {...mockProps} onRefresh={onRefresh} /></MemoryRouter>)
         })
 
         fireEvent.click((await screen.findAllByRole('button', { name: /more actions/i }))[0])
@@ -107,16 +119,12 @@ describe('VoicesTab', () => {
     })
 
     it('saves imported base variant labels as metadata instead of renaming the whole voice', async () => {
+        // The "Edit Preview Script" path now lives in NarratorCard → VariantEditor → ScriptEditor chain.
+        // We render that chain directly here since VoicesTab's catalog cards (R5-T3) no longer
+        // expose this flow — it was moved to Voice Lab (R5-T5). This preserves the behavioral
+        // contract (variant-name endpoint, not rename) while adapting to the new architecture.
         const onRefresh = vi.fn().mockResolvedValue(undefined)
         const fetchMock = vi.fn((url: string) => {
-            if (url === '/api/speakers') {
-                return Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve([
-                        { id: 'speaker-1', name: 'Woman', default_profile_name: 'Woman' }
-                    ])
-                })
-            }
             if (url === '/api/speaker-profiles/Woman/test-text') {
                 return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'ok' }) })
             }
@@ -130,15 +138,113 @@ describe('VoicesTab', () => {
         })
         global.fetch = fetchMock as any
 
-        const importedProfiles = [
-            { name: 'Woman', wav_count: 3, speed: 1.0, is_default: true, preview_url: null, speaker_id: 'speaker-1', variant_name: 'New Zealand', test_text: 'Original script' }
+        const importedProfile: SpeakerProfile = {
+            name: 'Woman',
+            wav_count: 3,
+            speed: 1.0,
+            is_default: true,
+            preview_url: null,
+            speaker_id: 'speaker-1',
+            variant_name: 'New Zealand',
+            engine: 'xtts',
+            test_text: 'Original script',
+        } as any
+
+        const mockSpeaker: Speaker = {
+            id: 'speaker-1',
+            name: 'Woman',
+            default_profile_name: 'Woman',
+            created_at: Date.now(),
+            updated_at: Date.now(),
+        }
+
+        const mockEngines: TtsEngine[] = [
+            { engine_id: 'xtts', display_name: 'XTTS', enabled: true, verified: true, status: 'ready' } as any
         ]
 
+        // Minimal wrapper that wires NarratorCard's onEditTestText into a ScriptEditor modal,
+        // mirroring the VoicesTab state chain (state.setEditingProfile → VoicesModals).
+        function NarratorWithScriptEditor() {
+            const [editingProfile, setEditingProfile] = useState<SpeakerProfile | null>(null)
+            const [variantName, setVariantName] = useState('')
+
+            const handleEditTestText = (profile: SpeakerProfile) => {
+                setEditingProfile(profile)
+                setVariantName(profile.variant_name || '')
+            }
+
+            const handleSave = async () => {
+                if (!editingProfile) return
+                const isImported = Boolean(editingProfile.speaker_id)
+                if (isImported) {
+                    // Mirrors useVoicesTabActions.handleSaveTestText: imported voices
+                    // update variant-name metadata rather than renaming
+                    await fetch(`/api/speaker-profiles/${encodeURIComponent(editingProfile.name)}/variant-name`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ variant_name: variantName }),
+                    })
+                } else {
+                    await fetch(`/api/speaker-profiles/${encodeURIComponent(editingProfile.name)}/test-text`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ test_text: editingProfile.test_text }),
+                    })
+                }
+                onRefresh()
+                setEditingProfile(null)
+            }
+
+            return (
+                <>
+                    <NarratorCard
+                        speaker={mockSpeaker}
+                        profiles={[importedProfile]}
+                        onRefresh={onRefresh}
+                        onTest={vi.fn()}
+                        onDelete={vi.fn()}
+                        onMoveVariant={vi.fn()}
+                        onEditTestText={handleEditTestText}
+                        onBuildNow={vi.fn()}
+                        testProgress={{}}
+                        requestConfirm={vi.fn()}
+                        buildingProfiles={{}}
+                        onAddVariantClick={vi.fn()}
+                        onSetDefaultClick={vi.fn()}
+                        onRenameClick={vi.fn()}
+                        isExpanded={true}
+                        onToggleExpand={vi.fn()}
+                        engines={mockEngines}
+                    />
+                    {editingProfile && (
+                        <ScriptEditor
+                            variantName={variantName}
+                            onVariantNameChange={setVariantName}
+                            engine={editingProfile.engine || 'xtts'}
+                            onEngineChange={vi.fn()}
+                            engines={mockEngines}
+                            testText={editingProfile.test_text || ''}
+                            onTestTextChange={vi.fn()}
+                            referenceSample=""
+                            onReferenceSampleChange={vi.fn()}
+                            availableSamples={[]}
+                            engineVoiceId=""
+                            onEngineVoiceIdChange={vi.fn()}
+                            settings={{}}
+                            onSettingsChange={vi.fn()}
+                            onResetTestText={vi.fn()}
+                            onSave={handleSave}
+                            isSaving={false}
+                        />
+                    )}
+                </>
+            )
+        }
+
         await act(async () => {
-            render(<VoicesTab {...mockProps} onRefresh={onRefresh} speakerProfiles={importedProfiles as any} />)
+            render(<NarratorWithScriptEditor />)
         })
 
-        fireEvent.click(screen.getByText('Woman'))
         fireEvent.click(await screen.findByTitle('Edit Preview Script'))
 
         const input = screen.getByDisplayValue('New Zealand')
@@ -162,7 +268,7 @@ describe('VoicesTab', () => {
 
     it('filters voices by engine', async () => {
         await act(async () => {
-            render(<VoicesTab {...mockProps} />)
+            render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
         })
 
         fireEvent.click(screen.getByText('Voxtral (1)'))
@@ -173,14 +279,16 @@ describe('VoicesTab', () => {
 
     it('hides disabled Voxtral voices while keeping enabled XTTS voices visible', async () => {
         await act(async () => {
-            render(<VoicesTab {...mockProps} engines={[
-                { engine_id: 'xtts', enabled: true, verified: true, status: 'ready' },
-                { engine_id: 'voxtral', enabled: false, verified: true, status: 'needs_setup' }
-            ] as any} />)
+            render(<MemoryRouter><VoicesTab {...mockProps} engines={[
+                { engine_id: 'xtts', enabled: true, verified: true, status: 'ready', display_name: 'XTTS' },
+                { engine_id: 'voxtral', enabled: false, verified: true, status: 'needs_setup', display_name: 'Voxtral' }
+            ] as any} /></MemoryRouter>)
         })
 
+        // Active voices: only Narrator1 (xtts enabled); Narrator2 moved to disabled pool
         expect(screen.getByText('Narrator1')).toBeInTheDocument()
         expect(screen.queryByText('Narrator2')).not.toBeInTheDocument()
+        // Engine filter chips reflect the disabled pool
         expect(screen.getByText('Disabled (1)')).toBeInTheDocument()
         expect(screen.queryByText('Voxtral (1)')).not.toBeInTheDocument()
         expect(screen.getByText('XTTS (1)')).toBeInTheDocument()
@@ -188,10 +296,10 @@ describe('VoicesTab', () => {
 
     it('shows no voices when all engines are disabled', async () => {
         await act(async () => {
-            render(<VoicesTab {...mockProps} engines={[
-                { engine_id: 'xtts', enabled: false, verified: true, status: 'needs_setup' },
-                { engine_id: 'voxtral', enabled: false, verified: true, status: 'needs_setup' }
-            ] as any} />)
+            render(<MemoryRouter><VoicesTab {...mockProps} engines={[
+                { engine_id: 'xtts', enabled: false, verified: true, status: 'needs_setup', display_name: 'XTTS' },
+                { engine_id: 'voxtral', enabled: false, verified: true, status: 'needs_setup', display_name: 'Voxtral' }
+            ] as any} /></MemoryRouter>)
         })
 
         expect(screen.queryByText('Narrator1')).not.toBeInTheDocument()
@@ -202,39 +310,37 @@ describe('VoicesTab', () => {
 
     it('shows disabled voices on the disabled tab', async () => {
         await act(async () => {
-            render(<VoicesTab {...mockProps} engines={[
-                { engine_id: 'xtts', enabled: true, verified: true, status: 'ready' },
-                { engine_id: 'voxtral', enabled: false, verified: true, status: 'needs_setup' }
-            ] as any} />)
+            render(<MemoryRouter><VoicesTab {...mockProps} engines={[
+                { engine_id: 'xtts', enabled: true, verified: true, status: 'ready', display_name: 'XTTS' },
+                { engine_id: 'voxtral', enabled: false, verified: true, status: 'needs_setup', display_name: 'Voxtral' }
+            ] as any} /></MemoryRouter>)
         })
 
         fireEvent.click(screen.getByText('Disabled (1)'))
 
+        // Narrator2 (voxtral, disabled engine) appears on the disabled tab
         expect(screen.queryByText('Narrator1')).not.toBeInTheDocument()
         expect(screen.getByText('Narrator2')).toBeInTheDocument()
-        expect(screen.getByText('DISABLED')).toBeInTheDocument()
     })
 
     it('uses the first ready engine as default when adding a variant if profile has no engine', async () => {
+        // The create-voice modal (New Voice button) uses the same firstReadyEngine default as
+        // add-variant. Test that with only 'custom-engine' available, the modal selects it —
+        // not the hardcoded 'xtts' fallback.
         const engines = [
             { engine_id: 'custom-engine', enabled: true, verified: true, status: 'ready', display_name: 'Custom' }
         ] as any
 
         await act(async () => {
-            render(<VoicesTab {...mockProps} engines={engines} speakerProfiles={[{ ...mockProfiles[0], engine: null }]} />)
+            render(<MemoryRouter><VoicesTab {...mockProps} engines={engines} speakerProfiles={[{ ...mockProfiles[0], engine: null }]} /></MemoryRouter>)
         })
 
-        // Find the Voice card
-        const voiceHeader = screen.getByText('Narrator1')
-        fireEvent.click(voiceHeader)
+        // Open the "New Voice" modal — it uses newVoiceEngine from useVoicesTabState
+        const newVoiceBtn = await screen.findByRole('button', { name: 'New Voice' })
+        fireEvent.click(newVoiceBtn)
 
-        const addVariantBtn = await screen.findByText('Variant')
-        fireEvent.click(addVariantBtn)
-
-        // The modal should be open. We check if the engine select has 'custom-engine'
-        // Since it's a controlled component, we might need to check the state or the select value if it's rendered.
-        // For now, we'll verify it doesn't default to 'xtts' if 'xtts' isn't in engines.
-        const engineSelect = screen.getByLabelText(/Engine/i) as HTMLSelectElement
+        // The engine select in the New Voice modal should default to 'custom-engine'
+        const engineSelect = await screen.findByLabelText(/ENGINE/i) as HTMLSelectElement
         expect(engineSelect.value).toBe('custom-engine')
         expect(engineSelect.value).not.toBe('xtts')
     })

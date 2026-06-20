@@ -72,6 +72,7 @@
   animation: spin 3s linear infinite;
 }
 
+/* rgba(255,255,255,0.15) below is an intentional theme-agnostic sheen — do not tokenize */
 .progress-bar-animated {
   background-image: linear-gradient(
     45deg,
@@ -99,13 +100,13 @@
   inset: 0;
   background-image: repeating-linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.16) 0px,
-    rgba(255, 255, 255, 0.16) 7px,
-    rgba(255, 255, 255, 0.09) 9px,
-    rgba(148, 163, 184, 0.22) 12px,
-    rgba(148, 163, 184, 0.22) 17px,
-    rgba(148, 163, 184, 0.10) 20px,
-    rgba(255, 255, 255, 0.16) 24px
+    var(--progress-stripe-sheen) 0px,
+    var(--progress-stripe-sheen) 7px,
+    var(--progress-stripe-sheen-soft) 9px,
+    var(--progress-stripe-pending) 12px,
+    var(--progress-stripe-pending) 17px,
+    var(--progress-stripe-pending-soft) 20px,
+    var(--progress-stripe-sheen) 24px
   );
   background-size: 36px 36px;
   animation: barber-pole 0.7s linear infinite;
@@ -125,13 +126,13 @@
   inset: 0;
   background-image: repeating-linear-gradient(
     135deg,
-    rgba(96, 165, 250, 0.36) 0px,
-    rgba(96, 165, 250, 0.36) 7px,
-    rgba(96, 165, 250, 0.20) 9px,
-    rgba(219, 234, 254, 0.20) 12px,
-    rgba(219, 234, 254, 0.20) 17px,
-    rgba(219, 234, 254, 0.10) 20px,
-    rgba(96, 165, 250, 0.36) 24px
+    var(--progress-stripe-finalizing) 0px,
+    var(--progress-stripe-finalizing) 7px,
+    var(--progress-stripe-finalizing-soft) 9px,
+    var(--progress-stripe-finalizing-tint) 12px,
+    var(--progress-stripe-finalizing-tint) 17px,
+    var(--progress-stripe-finalizing-tint-soft) 20px,
+    var(--progress-stripe-finalizing) 24px
   );
   background-size: 36px 36px;
   animation: barber-pole 0.7s linear infinite;
@@ -291,55 +292,15 @@
 }
 
 @media (max-width: 768px) {
-  :root {
-    --header-height: 64px;
-  }
-
-  .header-container {
-    padding: 0 1rem !important;
-  }
-
   .burger {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    align-items: center;
+    justify-content: center;
     padding: 8px;
     background: transparent;
     border: none;
-  }
-
-  .burger span {
-    display: block;
-    width: 20px;
-    height: 2px;
-    background: var(--text-primary);
-    border-radius: 2px;
-    transition: all 0.2s ease;
-  }
-
-  /* Mobile nav drawer */
-  .header-nav {
-    display: none;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 4px;
-    position: fixed;
-    top: var(--header-height, 64px);
-    left: 0;
-    width: 240px;
-    height: calc(100dvh - var(--header-height, 64px));
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    padding: 1rem 0.75rem;
-    transform: translateX(-100%);
-    transition: transform 0.25s ease;
-    z-index: var(--z-drawer, 400);
-    overflow-y: auto;
-  }
-
-  .header-nav--open {
-    display: flex;
-    transform: translateX(0);
+    border-radius: var(--radius-button);
+    color: var(--text-primary);
   }
 
   .mobile-nav-backdrop {

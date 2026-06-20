@@ -1,8 +1,9 @@
 # Data Model
 
 ```
-spec_version: 1.0.0
+spec_version: 1.1.0
 status: active
+updated: 2026-06-16
 sources:
   - app/db/state.py
   - app/db/state_jobs.py
@@ -18,6 +19,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.1.0   | 2026-06-16 | Clarify `finalizing` is a transient phase coerced to `running` on persist in both `put_job` and `update_job`; not a stored value |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 
 ---
@@ -62,7 +64,7 @@ Each key is a job UUID. Values conform to:
 | Field | Type | Values |
 |-------|------|--------|
 | `id` | string | Job UUID |
-| `status` | string | `queued` \| `preparing` \| `running` \| `finalizing` \| `done` \| `failed` \| `cancelled` |
+| `status` | string | `queued` \| `preparing` \| `running` \| `finalizing` \| `done` \| `failed` \| `cancelled` — note: `finalizing` is a transient phase only; both `put_job` and `update_job` coerce it to `running` before persisting, so it is never written to disk |
 | `kind` | string | `synthesis` \| `assembly` \| `voice_build` \| `voice_test` \| `mixed` \| `generic` |
 | `progress` | float | 0.0–1.0, rounded to 2 decimal places |
 | `eta_seconds` | number \| null | Estimated seconds remaining |
@@ -163,7 +165,7 @@ Records every job that has ever been submitted. This is the durable history; liv
 | `chapter_id` | TEXT FK nullable | → chapters.id |
 | `segment_ids` | TEXT | JSON array of segment UUIDs, or NULL |
 | `split_part` | INTEGER | Default 0; chunk index for split jobs |
-| `status` | TEXT | `queued` \| `preparing` \| `running` \| `finalizing` \| `done` \| `failed` \| `cancelled` |
+| `status` | TEXT | `queued` \| `preparing` \| `running` \| `finalizing` \| `done` \| `failed` \| `cancelled` — note: `finalizing` is listed for completeness but is coerced to `running` in the state layer before any DB sync, so it will not appear in durable rows |
 | `created_at` | REAL | Unix epoch seconds |
 | `started_at` | REAL | Unix epoch seconds |
 | `completed_at` | REAL | Unix epoch seconds |

@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { AddChapterModal, EditProjectModal, CoverImageModal } from '@/pages/ProjectDetail/components/ProjectModals';
+import { AddChapterModal } from '@/pages/Book/components/AddChapterModal';
+import { EditProjectModal, CoverImageModal } from '@/pages/ProjectDetail/components/ProjectModals';
 import type { Project } from '@/types';
 
 // Mock framer-motion to avoid animation issues in tests

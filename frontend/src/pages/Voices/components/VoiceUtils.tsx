@@ -138,7 +138,7 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children
                                         width: '2px',
                                         height: '2px',
                                         borderRadius: '50%',
-                                        background: isResizing ? 'white' : 'var(--text-muted)'
+                                        background: isResizing ? 'var(--text-on-accent)' : 'var(--text-muted)'
                                     }} />
                                 ))}
                             </div>

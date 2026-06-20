@@ -67,6 +67,20 @@ _terminal_latched_jobs: set[str] = set()
 _terminal_latch_lock = threading.RLock()
 
 
+def _get_progress_service():
+    """Resolve the boot-installed ProgressService singleton.
+
+    Task 004 note: broadcast_job_updated uses raw ``time.time()`` at lines
+    ~161 and ~573 (received_at / started_at fall-backs).  When Task 004 calls
+    ``enrich`` from broadcast_job_updated, those clock-bearing fields MUST be
+    routed through ``_get_progress_service().wall_clock`` for parity with the
+    orchestrator path's injected clock (needed by the snapshot-equality gate in
+    test_progress_contract_v140.py).
+    """
+    from app.orchestration.progress.service import get_progress_service  # noqa: PLC0415
+    return get_progress_service()
+
+
 def _terminal_latched(job_id: str, prev_status: str | None, new_status: str | None) -> bool:
     """True → drop all frames for this update (job already terminal, incoming
     status is not a legal re-entry). Mirrors the ProgressService._should_emit
@@ -315,6 +329,48 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
         logger.debug("Dropped post-terminal frame for job %s (status=%s)", job_id, new_status)
         return
 
+    # Task 004: enrich merged with §4A confidence/ETA fields via the singleton.
+    # Must happen AFTER the terminal-latch check and BEFORE any builder calls.
+    # Clock-bearing fields (estimated_end_at, eta_updated_at) come from enrich()
+    # which uses the singleton's injected clock — do NOT clobber them with raw time.time().
+    #
+    # FIX 1: enrich sample-mode is gated by skip_job_updated.
+    # - skip_job_updated=True  → Path A (orchestrated): the orchestrator already
+    #   pushed a velocity sample via ProgressService.publish.  Call enrich with
+    #   sample=False so we still get enriched confidence/ETA values (needed by
+    #   chapter-progress builders on callers like put_job that have
+    #   skip_studio_job_event=False) WITHOUT pushing a second sample that would
+    #   corrupt the ring maturity factor / CV.
+    # - skip_job_updated=False → Path B (direct / non-orchestrated): call
+    #   enrich(sample=True) to push a velocity sample and drive §4A confidence.
+    _enriched_confidence: float | None = None
+    _enriched_eta_seconds: int | None = None
+    _enriched_eta_basis: str | None = None
+    _enriched_estimated_end_at: float | None = None
+    _enriched_grouped_progress: float | None = None
+    _enrich_sample = not skip_job_updated  # FIX 1: only push sample on Path B
+    try:
+        _ps = _get_progress_service()
+        _enrich_payload = dict(merged)
+        _ps.enrich(job_id, _enrich_payload, sample=_enrich_sample)
+        _enriched_confidence = _enrich_payload.get("eta_confidence")
+        _enriched_eta_seconds = _enrich_payload.get("eta_seconds")
+        _enriched_eta_basis = _enrich_payload.get("eta_basis")
+        _enriched_estimated_end_at = _enrich_payload.get("estimated_end_at")
+        _enriched_grouped_progress = _enrich_payload.get("grouped_progress")
+    except Exception:
+        # FIX 5: on enrich failure, set a safe floor so the fail-loud builder
+        # contract holds.  Terminal frames get 1.0; live frames get BASE_FLOOR.
+        new_status_for_floor = merged.get("status", "")
+        if new_status_for_floor in {"done", "failed", "cancelled"}:
+            _enriched_confidence = 1.0
+        else:
+            try:
+                from app.orchestration.progress.eta import BASE_FLOOR  # noqa: PLC0415
+                _enriched_confidence = BASE_FLOOR
+            except Exception:
+                _enriched_confidence = 0.2
+
     prev_active_segment_id = current_job.get("active_segment_id") if current_job else None
     new_active_segment_id = updates.get("active_segment_id", merged.get("active_segment_id")) if updates else merged.get("active_segment_id")
 
@@ -340,6 +396,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
             started_at=merged.get("started_at"),
             updated_at=merged.get("updated_at"),
             has_segment_support=inferred_has_segment_support,
+            confidence=_enriched_confidence,
         )
         broadcast_studio_event(lifecycle_event)
 
@@ -384,7 +441,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
             job_id=job_id,
             status=q_status,
             progress=merged.get("progress") or 0.0,
-            eta_seconds=updates.get("eta_seconds") or merged.get("eta_seconds"),
+            eta_seconds=_enriched_eta_seconds if _enriched_eta_seconds is not None else (updates.get("eta_seconds") or merged.get("eta_seconds")),
             message=q_message,
             reason_code=merged.get("reason_code"),
             classification="job",
@@ -398,6 +455,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
             produced_chars=merged.get("produced_chars"),
             produced_segment_count=merged.get("produced_segment_count"),
             source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
+            confidence=_enriched_confidence,
         )
         broadcast_studio_event(q_event)
 
@@ -435,6 +493,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                         else merged.get("active_segment_eta_seconds")
                     ),
                     has_segment_support=True,
+                    confidence=_enriched_confidence,
                 )
                 broadcast_studio_event(seg_event)
 
@@ -442,8 +501,8 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                 chapter_id=merged.get("chapter_id") or "",
                 status=status,
                 progress=merged.get("progress") or 0.0,
-                grouped_progress=merged.get("grouped_progress"),
-                eta_seconds=updates.get("eta_seconds") or merged.get("eta_seconds"),
+                grouped_progress=_enriched_grouped_progress if _enriched_grouped_progress is not None else merged.get("grouped_progress"),
+                eta_seconds=_enriched_eta_seconds if _enriched_eta_seconds is not None else (updates.get("eta_seconds") or merged.get("eta_seconds")),
                 message=message,
                 reason_code=merged.get("reason_code"),
                 render_group_count=merged.get("render_group_count"),
@@ -451,6 +510,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                 job_id=job_id,
                 project_id=merged.get("project_id"),
                 source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
+                confidence=_enriched_confidence,
             )
             broadcast_studio_event(event)
         if not skip_job_updated and (status_changed or terminal_reset):
@@ -478,7 +538,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                 chapter_id=merged.get("chapter_id"),
                 project_id=merged.get("project_id") or merged.get("parent_job_id"),
                 source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
-                eta_seconds=(
+                eta_seconds=_enriched_eta_seconds if _enriched_eta_seconds is not None else (
                     updates.get("active_segment_eta_seconds")
                     if updates.get("active_segment_eta_seconds") is not None
                     else (
@@ -488,6 +548,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                     )
                 ),
                 has_segment_support=True,
+                confidence=_enriched_confidence,
             )
             broadcast_studio_event(event)
         if not skip_job_updated and (status_changed or terminal_reset):
@@ -528,7 +589,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                     job_id=job_id,
                     status=status,
                     progress=merged.get("progress") or 0.0,
-                    eta_seconds=updates.get("eta_seconds") or merged.get("eta_seconds"),
+                    eta_seconds=_enriched_eta_seconds if _enriched_eta_seconds is not None else (updates.get("eta_seconds") or merged.get("eta_seconds")),
                     message=updates.get("message") or updates.get("log") or merged.get("message"),
                     reason_code=merged.get("reason_code"),
                     classification="job",
@@ -542,12 +603,18 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                     produced_chars=merged.get("produced_chars"),
                     produced_segment_count=merged.get("produced_segment_count"),
                     source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
+                    confidence=_enriched_confidence,
                 )
                 broadcast_studio_event(event)
         return
 
 
 def broadcast_segment_progress(job_id: str, chapter_id: str | None, segment_id: str, progress: float, source: str | None = None):
+    # Option B (Task 004): this direct broadcaster carries its own ``progress`` and
+    # is OUTSIDE the §4A enriched-confidence contract — no chapter/char_count/ETA
+    # semantics here.  Do NOT route through enrich().
+    # Task 005: the upcoming fail-loud confidence guard MUST be scoped to
+    # chapter/queue job-progress frames only and MUST NOT fire on this broadcaster.
     with _terminal_latch_lock:
         if job_id in _terminal_latched_jobs:
             logger.debug("Dropped post-terminal segment progress for job %s (segment %s)", job_id, segment_id)
@@ -564,6 +631,12 @@ def broadcast_segment_progress(job_id: str, chapter_id: str | None, segment_id: 
     broadcast_studio_event(event)
 
 def broadcast_test_progress(name: str, progress: float, started_at: float = None, job_id: str = None, source: str | None = None):
+    # Option B (Task 004): this direct broadcaster carries its own ``progress`` and
+    # is OUTSIDE the §4A enriched-confidence contract — voice-test frames have no
+    # chapter/char_count/ETA semantics.  Do NOT route through enrich() and do NOT
+    # add a confidence param to build_voice_test_progress_event.
+    # Task 005: the upcoming fail-loud confidence guard MUST be scoped to
+    # chapter/queue job-progress frames only and MUST NOT fire on this broadcaster.
     if not job_id:
         raise ValueError("broadcast_test_progress requires job_id")
     event = build_voice_test_progress_event(

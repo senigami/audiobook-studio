@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { publishStudioSocketMessage } from '@/store/studioSocketBus';
 import { resetStudioSocketBusForTests } from '@/store/studioSocketBus';
@@ -168,12 +168,25 @@ describe('DemoStage', () => {
 // ---------------------------------------------------------------------------
 
 describe('DemoApp routing', () => {
+  const originalMatchMedia = window.matchMedia;
+
   beforeEach(() => {
     window.location.hash = '#/';
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
   });
 
   afterEach(() => {
     window.location.hash = '#/';
+    window.matchMedia = originalMatchMedia;
   });
 
   it('default hash renders index with one card per stage', () => {
@@ -221,6 +234,147 @@ describe('DemoApp routing', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/stage not found/i)).toBeInTheDocument();
+    });
+  });
+
+  it('site mockup voices show generated portraits and the no-image fallback', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    const { container } = render(<DemoApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Voices' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'My Voices' })).toBeInTheDocument();
+    });
+
+    expect(container.querySelectorAll('.ns-voice-card')).toHaveLength(6);
+    const portraitImages = Array.from(container.querySelectorAll<HTMLImageElement>('.ns-voice-portrait img'));
+    expect(portraitImages).toHaveLength(6);
+    expect(
+      portraitImages.some((image) =>
+        image.getAttribute('src')?.includes('/demo-voice-raster/warm-narrator.png'),
+      ),
+    ).toBe(true);
+    expect(
+      portraitImages.some((image) =>
+        image.getAttribute('src')?.includes('/demo-voice-silhouettes/light-fairy.svg'),
+      ),
+    ).toBe(true);
+    expect(
+      portraitImages.some((image) =>
+        image.getAttribute('src')?.includes('/demo-voice-silhouettes/senior.svg'),
+      ),
+    ).toBe(true);
+    expect(
+      portraitImages.some((image) =>
+        image.getAttribute('src')?.includes('/demo-voice-silhouettes/female-narrator.svg'),
+      ),
+    ).toBe(true);
+    expect(
+      screen.getByLabelText('Studio Voice generic adult female warm narrator portrait'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('Aria generic adult female clear narrator portrait'),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('Adult').length).toBeGreaterThanOrEqual(5);
+
+    const studioCard = screen.getByText('Studio Voice').closest('.ns-voice-card');
+    expect(studioCard).not.toBeNull();
+    fireEvent.click(within(studioCard as HTMLElement).getByLabelText('Voice options'));
+    fireEvent.click(within(studioCard as HTMLElement).getByRole('button', { name: 'Edit metadata' }));
+
+    const metadataDialog = await screen.findByRole('dialog', { name: 'Edit Voice Metadata' });
+    expect(
+      within(metadataDialog).getByLabelText('Studio Voice generic adult female warm narrator portrait'),
+    ).toBeInTheDocument();
+    fireEvent.click(within(metadataDialog).getByLabelText('Close edit metadata dialog'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discover' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Discover Voices' })).toBeInTheDocument();
+    });
+
+    const discoverPortraitImages = Array.from(container.querySelectorAll<HTMLImageElement>('.ns-voice-portrait img'));
+    expect(
+      discoverPortraitImages.some((image) =>
+        image.getAttribute('src')?.includes('/demo-voice-raster/gruff-character.png'),
+      ),
+    ).toBe(true);
+    const clearToneCard = screen.getByText('ClearTone-F').closest('.ns-card');
+    expect(clearToneCard).not.toBeNull();
+    expect(clearToneCard?.querySelector('.ns-voice-portrait')).toBeNull();
+  });
+
+  it('site mockup voice profile editor generates the reusable image prompt', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    render(<DemoApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Voices' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit profiles' }));
+
+    expect(screen.getAllByLabelText('Studio Voice generic adult female warm narrator portrait').length).toBeGreaterThanOrEqual(3);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Generate prompt' }));
+
+    const prompt = await screen.findByLabelText<HTMLTextAreaElement>('Generated voice profile image prompt');
+    expect(prompt.value).toContain('1024x1024 image');
+    expect(prompt.value).toContain('one perfectly solid flat background color');
+    expect(prompt.value).toContain('Hugging Face voice profile');
+    expect(prompt.value).toContain('warm adult female narrator voice named Studio Voice');
+  });
+
+  it('site mockup voice profile editor supports expanded taxonomy and voice variations', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    render(<DemoApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Voices' }));
+
+    expect(await screen.findByText('6 variations')).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit profiles' }));
+
+    const primaryRole = await screen.findByRole('combobox', { name: 'Primary role' });
+    expect(primaryRole).toHaveValue('Dark Fiction Narrator');
+
+    const age = screen.getByRole('combobox', { name: 'Age' });
+    expect(within(age).getByRole('option', { name: 'Unknown' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Add language' }), {
+      target: { value: 'Mandarin Chinese' },
+    });
+    expect(screen.getByRole('button', { name: 'Remove language Mandarin Chinese' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Add dialect or vocal origin' }), {
+      target: { value: 'Fantasy courtly' },
+    });
+    expect(screen.getByRole('button', { name: 'Remove dialect or vocal origin Fantasy courtly' })).toBeInTheDocument();
+
+    expect(screen.getByRole('heading', { name: 'Voice variations' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Dark Fiction.*default variation/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Sad/i }));
+    expect(screen.getByRole('button', { name: 'Remove emotion Sad' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Variation intensity' })).toHaveValue('Moderate');
+  });
+
+  it('site mockup indents contextual book rail tabs instead of centering them', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    render(<DemoApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    fireEvent.click((await screen.findAllByText('The Whispering Vale'))[0]);
+
+    const contentsRailTab = screen.getAllByRole('button', { name: 'Contents' })
+      .find(button => button.classList.contains('ns-book-rail-stage'));
+
+    expect(contentsRailTab).toBeDefined();
+    expect(contentsRailTab).toHaveStyle({
+      justifyContent: 'flex-start',
+      textAlign: 'left',
     });
   });
 });

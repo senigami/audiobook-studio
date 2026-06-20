@@ -1,5 +1,7 @@
 # 15 — Progress Confidence Model (ETA Trust Handoff)
 
+> **SUPERSEDED by `plans/progress_routing_unification/` (shipped 2026-06-18).** The confidence model described here (trust-weight handoff, EMA, §4A.2 formula) is now implemented as `ProgressService.enrich()` — the single RLock-guarded contract kernel. Both emit paths enrich before building events; the event-builder layer (`app/api/contracts/events.py`) is the single contract authority. `compute_progress_confidence` echo deleted. The math reference here is retained for history; `docs/specs/progress-presentation.md` §4A is the live spec.
+
 Design for how the predictive progress bar should weight live backend ETA against its own smooth pacing. Owner's intent (2026-06-10): *"When my confidence is low I rely on the smooth prediction more, in the middle or start of rendering. If my confidence is high I rely on the ETA. As I get closer to the end the ETA is naturally more accurate, so trust hands off to it."* Today this doesn't happen — see Current Defect — and the visible symptom is the bar speeding up and slowing down as the ETA fluctuates.
 
 ## Current defect

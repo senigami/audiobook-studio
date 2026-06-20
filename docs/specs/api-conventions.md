@@ -1,8 +1,9 @@
 # API Conventions
 
 ```
-spec_version: 1.0.0
+spec_version: 1.0.1
 status: active
+updated: 2026-06-16
 sources:
   - app/api/web.py
   - app/api/tts_api.py
@@ -18,6 +19,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.0.1   | 2026-06-16 | WebSocket endpoint source corrected to `app/api/web.py:209` (`ws.py` holds connection manager/broadcast helpers only) |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 
 ---
@@ -99,7 +101,7 @@ The external TTS API has its own OpenAPI docs at `/api/v1/tts/docs` (separate Fa
 
 ## WebSocket (`/ws`)
 
-Single connection per client. All frames are JSON.
+Single connection per client. All frames are JSON. The `/ws` endpoint and `jobs_snapshot_request` → `jobs_snapshot` handling live in `app/api/web.py:209`; `app/api/ws.py` holds the connection manager and `broadcast_*` helpers only.
 
 ### Incoming frames (client → server)
 

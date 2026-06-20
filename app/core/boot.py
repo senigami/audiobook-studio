@@ -99,7 +99,23 @@ def boot_studio() -> None:
     except Exception:
         logger.exception("Job handler initialization failed during boot.")
 
-    # 3. Start services
+    # 3. Install the ProgressService singleton (idempotent — no-op if already set).
+    try:
+        from app.orchestration.progress.service import (  # noqa: PLC0415
+            create_progress_service,
+            get_progress_service,
+            set_progress_service,
+        )
+        existing = get_progress_service()
+        # get_progress_service() lazily creates an instance; if it was already
+        # installed by a prior boot_studio() call the singleton is unchanged.
+        # If it was newly created by the lazy path we've now installed it.
+        # Either way, ensure it is registered.
+        set_progress_service(existing)
+    except Exception:
+        logger.exception("ProgressService singleton installation failed during boot.")
+
+    # 4. Start services
     boot_tts_server()
 
 

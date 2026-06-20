@@ -1,6 +1,7 @@
 import React from 'react';
 import { Reorder } from 'framer-motion';
-import { FileText, GripVertical, CheckSquare, Square, RefreshCw, Zap, Video, Download, Trash2, Loader2 } from 'lucide-react';
+import { FileText, GripVertical, CheckSquare, Square, RefreshCw, Zap, Video, Download, Trash2, Loader2, Play, Pause } from 'lucide-react';
+import { usePlayerBus, loadAndPlay, play, pause } from '@/store/playerBus';
 import { InlineEdit } from '@/components/forms/InlineEdit';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { StatusOrb } from '@/components/ui/StatusOrb';
@@ -19,7 +20,7 @@ interface ChapterListProps {
   onReorder: (chapters: Chapter[]) => void;
   onEditChapter: (id: string) => void;
   onRenameChapter: (id: string, newTitle: string) => Promise<void>;
-  onQueueChapter: (chap: Chapter) => void;
+  onQueueChapter: (chap: Chapter, rebuild?: boolean) => void;
   onResetAudio: (id: string) => void;
   onDeleteChapter: (id: string) => void;
   onExportSample: (chap: Chapter) => void;
@@ -50,6 +51,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
 }) => {
   const RECENT_COMPLETION_WINDOW_SECONDS = 60;
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null);
+  const playerBus = usePlayerBus();
 
   const pickActiveJob = React.useCallback((chapterId: string, includeRecentDone = false) => {
     const liveStatuses = new Set(['running', 'preparing', 'finalizing', 'queued']);
@@ -135,9 +137,12 @@ export const ChapterList: React.FC<ChapterListProps> = ({
             : (chap.done_segments_count || 0) > 0 && (chap.done_segments_count || 0) < (chap.total_segments_count || 0)
               ? 'Queue Remaining'
               : 'Queue Chapter';
+          const isLoadingModel = activeJob?.reason_code === 'LOADING_MODEL' && displayStatus === 'preparing';
           const queueStatus = activeJob
             ? (displayStatus === 'queued'
               ? 'Queued'
+              : isLoadingModel
+                ? 'Loading model'
               : displayStatus === 'preparing'
                 ? 'Preparing'
               : displayStatus === 'running'
@@ -186,7 +191,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                       icon: RefreshCw, 
                       disabled: !anyEnginesEnabled,
                       title: !anyEnginesEnabled ? 'All engines disabled' : undefined,
-                      onClick: () => onQueueChapter(chap) 
+                      onClick: () => onQueueChapter(chap, isFullyRendered)
                     }
                   ].filter(() => {
                     const isStale = chap.text_last_modified && chap.audio_generated_at && (chap.text_last_modified > chap.audio_generated_at);
@@ -228,9 +233,9 @@ export const ChapterList: React.FC<ChapterListProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem', flex: '2 1 0', minWidth: 0 }}>
                 {activeJob ? (
                     <div style={{ width: '100%', maxWidth: '600px' }}>
-                        <PredictiveProgressBar 
+                        <PredictiveProgressBar
                           dataTestId="chapter-list-progress-bar"
-                          progress={progressValue} 
+                          progress={progressValue}
                           startedAt={activeJob.started_at}
                           etaSeconds={activeJob.eta_seconds}
                           etaBasis={activeJob.eta_basis ?? (activeJob.eta_seconds != null ? 'remaining_from_update' : undefined)}
@@ -246,7 +251,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                                   ? (liveRenderBlockIsActive ? 'running' : 'processing')
                                   : (displayStatus === 'error' ? 'failed' : displayStatus as any)
                           }
-                          label={displayStatus} 
+                          label={isLoadingModel ? 'loading voice model…' : displayStatus}
                           predictive={true}
                           allowBackwardProgress={!isGroupedChapterJob}
                           checkpointMode={isGroupedChapterJob ? 'queue' : (isMainQueueSegmentItem(activeJob) ? 'segment' : 'default')}
@@ -261,29 +266,51 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           tickMs={250}
                         />
                     </div>
-                ) : hasChapterAudio && !isAssemblyMode ? (
-                  <audio controls key={chap.id} style={{ height: '36px', width: '100%', maxWidth: '600px' }} onClick={e => e.stopPropagation()} preload="metadata">
-                    {(() => {
-                      const audioPath = chap.audio_file_path;
-                      if (!audioPath) {
-                        return (
-                          <>
-                            <source src={`/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=chapter.wav`} type="audio/wav" />
-                          </>
-                        );
-                      }
-                      const wavPath = audioPath.replace(/\.[^.]+$/, '.wav');
-                      const mp3Path = audioPath.replace(/\.[^.]+$/, '.mp3');
-                      return (
-                        <>
-                          <source src={`/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${audioPath}`} />
-                          {audioPath !== mp3Path && <source src={`/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${mp3Path}`} type="audio/mpeg" />}
-                          {audioPath !== wavPath && <source src={`/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${wavPath}`} type="audio/wav" />}
-                        </>
-                      );
-                    })()}
-                  </audio>
-                ) : (
+                ) : hasChapterAudio && !isAssemblyMode ? (() => {
+                    const audioPath = chap.audio_file_path || 'chapter.wav';
+                    const audioUrl = `/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${encodeURIComponent(audioPath)}`;
+                    const isCurrentChapterAudio = playerBus.scope === 'chapter' && playerBus.audioUrl === audioUrl;
+                    const isChapterPlaying = isCurrentChapterAudio && playerBus.playing;
+
+                    return (
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (isCurrentChapterAudio) {
+                            if (isChapterPlaying) {
+                              pause();
+                            } else {
+                              play();
+                            }
+                          } else {
+                            loadAndPlay({
+                              scope: 'chapter',
+                              title: chap.title || 'Chapter Audio',
+                              subtitle: `Chapter ${idx + 1}`,
+                              audioUrl,
+                            });
+                          }
+                        }}
+                        className="btn-ghost"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          padding: '0.4rem 0.8rem',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border)',
+                          background: 'var(--surface)',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.85rem',
+                          height: '36px',
+                        }}
+                        title={isChapterPlaying ? 'Pause Chapter Audio' : 'Play Chapter Audio'}
+                      >
+                        {isChapterPlaying ? <Pause size={14} /> : <Play size={14} />}
+                        {isChapterPlaying ? 'Pause' : 'Play Audio'}
+                      </button>
+                    );
+                  })() : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                     <span>{chap.word_count ?? 0} words</span>
                     <span>•</span>
@@ -296,7 +323,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                   <>
                     <div style={{ display: 'flex', gap: '0.15rem', borderLeft: '1px solid var(--border)', paddingLeft: '1rem' }}>
                       <button 
-                        onClick={e => { e.stopPropagation(); onQueueChapter(chap); }} 
+                        onClick={e => { e.stopPropagation(); onQueueChapter(chap, isFullyRendered); }}
                         className="btn-ghost" 
                         disabled={chap.audio_status === 'processing' || !anyEnginesEnabled} 
                         title={!anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : (chap.audio_status === 'processing' ? 'Processing' : queueActionLabel)}

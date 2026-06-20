@@ -94,6 +94,14 @@ export interface QueueItemPayload {
   producedAudioLength?: number | null;
   producedChars?: number | null;
   producedSegmentCount?: number | null;
+  /**
+   * True when the job is in the model-load window (reasonCode LOADING_MODEL).
+   * The bar should render as indeterminate with "loading voice model…" label.
+   * Absent / false once real progress arrives.
+   */
+  indeterminate?: boolean | null;
+  /** Seconds elapsed since engine_activity_started_at, for an optional elapsed counter. */
+  loadingElapsedSeconds?: number | null;
   // Legacy duplicate fields for backward compatibility
   eta_seconds?: number | null;
   reason_code?: string | null;
@@ -152,6 +160,14 @@ export interface ChapterProgressPayload {
   completedRenderGroups: number | null;
   hasSegmentSupport?: boolean;
   has_segment_support?: boolean;
+  /**
+   * True when the job is in the model-load window (reason_code LOADING_MODEL).
+   * The bar should render as indeterminate with "loading voice model…" label.
+   * Absent / false once real progress arrives (status transitions to running).
+   */
+  indeterminate?: boolean | null;
+  /** Seconds elapsed since engine_activity_started_at, for an optional elapsed counter. */
+  loadingElapsedSeconds?: number | null;
   // Legacy duplicate fields
   eta_seconds?: number | null;
   grouped_progress?: number | null;
@@ -189,8 +205,12 @@ export interface SegmentProgressPayload {
   reasonCode: string | null;
   hasSegmentSupport?: boolean;
   has_segment_support?: boolean;
+  // Per-segment ETA confidence (seg_confidence from the segment-keyed ring, resets per
+  // segment_id; a finished segment reports 1.0). Distinct from the chapter-level eta_confidence.
+  // See progress-presentation.md §4A.10 / B12.
+  confidence?: number | null;
   // Legacy duplicate fields for active segment mapping
-  etaSeconds?: number | null;
+  etaSeconds?: number | null; // §4A.10 decay-handoff blend, not raw extrapolation
   eta_seconds?: number | null;
   reason_code?: string | null;
   activeSegmentId?: string | null;
@@ -373,6 +393,23 @@ const normalizeUnknown = (
 
 import { CHUNK_CHAR_LIMIT } from '@/constants/audio';
 
+/**
+ * CLIENT FALLBACK for non-§4A frames only.
+ *
+ * §4A progress frames (jobs.lifecycle / chapters.progress / queue.items produced via
+ * ProgressService.enrich) carry a backend-authoritative numeric `confidence` value and
+ * never reach this function — the `if (payload.confidence === undefined)` guard in
+ * normalizeStudioSocketEnvelope short-circuits before calling here.
+ *
+ * This fallback exists solely for Option-B direct broadcasts that legitimately carry no
+ * §4A confidence: `segments.progress` (broadcast_segment_progress) and `voice.test`
+ * (broadcast_test_progress). Those frames have no chapter/char_count/ETA semantics so
+ * the backend does not enrich them. Removing this function would leave those frames with
+ * `confidence === undefined`, breaking the progress-bar predictive path for segment and
+ * voice-test progress.
+ *
+ * Do NOT rely on this function for §4A orchestrated or handler-direct chapter progress.
+ */
 export const computeProgressConfidence = (
   status?: string | null,
   progress?: number | null,

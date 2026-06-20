@@ -1,170 +1,222 @@
-import { render, screen, fireEvent } from '@testing-library/react'
-import { Layout } from '@/components/layout/Layout'
-import { MemoryRouter } from 'react-router-dom'
-import { describe, it, expect } from 'vitest'
-import { createStudioShellState } from '@/app/layout/StudioShell'
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Layout } from '@/components/layout/Layout';
+import { createStudioShellState } from '@/app/layout/StudioShell';
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="pathname">{location.pathname}</div>;
+}
 
 describe('Layout', () => {
-    const defaultProps = {
-        children: <div>Content</div>,
-    }
+  const defaultProps = {
+    children: <div>Content</div>,
+  };
 
-    it('renders the correct branding text', () => {
-        render(
-            <MemoryRouter>
-                <Layout {...defaultProps} />
-            </MemoryRouter>
-        )
+  beforeEach(() => {
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+  });
 
-        expect(screen.getByText(/AUDIOBOOK/i)).toBeTruthy()
-        expect(screen.getByText(/STUDIO/i)).toBeTruthy()
-        expect(screen.getByLabelText(/Audiobook Studio/i)).toBeTruthy()
-    })
+  afterEach(() => {
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+  });
 
-    it('renders navigation tabs', () => {
-        render(
-            <MemoryRouter>
-                <Layout {...defaultProps} />
-            </MemoryRouter>
-        )
+  it('renders the correct branding text', () => {
+    render(
+      <MemoryRouter>
+        <Layout {...defaultProps} />
+      </MemoryRouter>,
+    );
 
-        expect(screen.getByText(/Voices/i)).toBeTruthy()
-        expect(screen.getByText(/Queue/i)).toBeTruthy()
-        expect(screen.getByText(/Library/i)).toBeTruthy()
-        expect(screen.getByText(/Settings/i)).toBeTruthy()
-    })
+    expect(screen.getByRole('button', { name: /Audiobook Studio home/i })).toBeTruthy();
+    expect(document.querySelector('.top-bar')).toBeTruthy();
+    expect(document.querySelector('.header-container')).toBeNull();
+    expect(document.querySelector('.header-nav')).toBeNull();
+  });
 
-    it('uses shell state to keep project surfaces mapped to the visible library tab', () => {
-        const shellState = createStudioShellState({
-            pathname: '/project/p123',
-            loading: false,
-            connected: true,
-            isReconnecting: false,
-        })
+  it('renders the rail as the primary navigation surface', () => {
+    render(
+      <MemoryRouter>
+        <Layout {...defaultProps} />
+      </MemoryRouter>,
+    );
 
-        render(
-            <MemoryRouter>
-                <Layout {...defaultProps} shellState={shellState} />
-            </MemoryRouter>
-        )
+    const rail = screen.getByRole('navigation', { name: 'Primary' });
+    expect(within(rail).getByRole('button', { name: 'Library' })).toBeTruthy();
+    expect(within(rail).getByRole('button', { name: 'Voices' })).toBeTruthy();
+    expect(within(rail).getByRole('button', { name: 'Activity' })).toBeTruthy();
+    expect(within(rail).getByRole('button', { name: 'Engines' })).toBeTruthy();
+    expect(within(rail).getByRole('button', { name: 'Integrations' })).toBeTruthy();
+    expect(within(rail).getByRole('button', { name: 'Settings' })).toBeTruthy();
+  });
 
-        expect(screen.getByRole('button', { name: /Library/i })).toHaveAttribute('aria-current', 'page')
-        expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'ready')
-    })
+  it('renders the top bar above the shell grid and keeps the rail/content beneath it', () => {
+    const onToggleQueue = vi.fn();
+    const shellState = createStudioShellState({
+      pathname: '/project/p123',
+      loading: false,
+      connected: true,
+      isReconnecting: false,
+    });
 
-    it('reports transient hydration status in the DOM', () => {
-        const shellState = createStudioShellState({
-            pathname: '/',
-            loading: false,
-            connected: true,
-            isReconnecting: false,
-            hydrationSource: 'refresh'
-        })
+    render(
+      <MemoryRouter>
+        <Layout
+          {...defaultProps}
+          queueCount={5}
+          shellState={shellState}
+          onToggleQueue={onToggleQueue}
+          isQueueOpen={true}
+        />
+      </MemoryRouter>,
+    );
 
-        render(
-            <MemoryRouter>
-                <Layout {...defaultProps} shellState={shellState} />
-            </MemoryRouter>
-        )
+    const layoutRoot = screen.getByTestId('layout-root');
+    const topBar = layoutRoot.querySelector('.top-bar');
+    const shellGrid = layoutRoot.querySelector('.shell-grid');
+    expect(topBar).toBeTruthy();
+    expect(shellGrid).toBeTruthy();
+    expect(topBar?.nextElementSibling).toBe(shellGrid);
 
-        expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'refreshing')
-    })
+    expect(screen.getByRole('navigation', { name: 'Primary' })).toBeTruthy();
+    expect(screen.getByText('CREATE')).toBeTruthy();
+    expect(screen.getByText('MONITOR')).toBeTruthy();
+    expect(screen.getByText('PLATFORM')).toBeTruthy();
+    expect(screen.getByText('MANAGE')).toBeTruthy();
 
-    it('reports reconnecting status in the DOM', () => {
-        const shellState = createStudioShellState({
-            pathname: '/',
-            loading: false,
-            connected: false,
-            isReconnecting: true
-        })
+    const topBarQueueButton = document.querySelector('.top-bar__queue-btn');
+    expect(topBarQueueButton).toBeTruthy();
+    expect(within(topBarQueueButton as HTMLElement).getByText('5')).toBeTruthy();
 
-        render(
-            <MemoryRouter>
-                <Layout {...defaultProps} shellState={shellState} />
-            </MemoryRouter>
-        )
+    fireEvent.click(topBarQueueButton as HTMLElement);
+    expect(onToggleQueue).toHaveBeenCalledTimes(1);
+  });
 
-        expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'reconnecting')
-    })
+  it('uses shell state to keep project surfaces mapped to the visible library tab', () => {
+    const shellState = createStudioShellState({
+      pathname: '/project/p123',
+      loading: false,
+      connected: true,
+      isReconnecting: false,
+    });
 
-    it('renders the queue count badge even during hydration', () => {
-        const shellState = createStudioShellState({
-            pathname: '/',
-            loading: false,
-            connected: true,
-            isReconnecting: false,
-            hydrationSource: 'reconnect'
-        })
+    render(
+      <MemoryRouter initialEntries={['/project/p123']}>
+        <Layout {...defaultProps} shellState={shellState} />
+      </MemoryRouter>,
+    );
 
-        render(
-            <MemoryRouter>
-                <Layout {...defaultProps} queueCount={5} shellState={shellState} />
-            </MemoryRouter>
-        )
+    const rail = screen.getByRole('navigation', { name: 'Primary' });
+    expect(within(rail).getByRole('button', { name: 'Library' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'ready');
+  });
 
-        // The 'Queue' text should have a badge with '5'
-        expect(screen.getByText('Queue')).toBeTruthy()
-        expect(screen.getByText('5')).toBeTruthy()
-        expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'recovering')
-    })
+  it('reports transient hydration status in the DOM', () => {
+    const shellState = createStudioShellState({
+      pathname: '/',
+      loading: false,
+      connected: true,
+      isReconnecting: false,
+      hydrationSource: 'refresh',
+    });
 
-    it('burger button toggles nav open state', () => {
-        render(
-            <MemoryRouter>
-                <Layout {...defaultProps} />
-            </MemoryRouter>
-        )
+    render(
+      <MemoryRouter>
+        <Layout {...defaultProps} shellState={shellState} />
+      </MemoryRouter>,
+    );
 
-        const burger = screen.getByRole('button', { name: /Open navigation/i })
-        expect(burger.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'refreshing');
+  });
 
-        // Open
-        fireEvent.click(burger)
-        expect(burger.getAttribute('aria-expanded')).toBe('true')
+  it('reports reconnecting status in the DOM', () => {
+    const shellState = createStudioShellState({
+      pathname: '/',
+      loading: false,
+      connected: false,
+      isReconnecting: true,
+    });
 
-        // Close
-        fireEvent.click(burger)
-        expect(burger.getAttribute('aria-expanded')).toBe('false')
-    })
+    render(
+      <MemoryRouter>
+        <Layout {...defaultProps} shellState={shellState} />
+      </MemoryRouter>,
+    );
 
-    it('mobile nav backdrop click closes the drawer', () => {
-        render(
-            <MemoryRouter>
-                <Layout {...defaultProps} />
-            </MemoryRouter>
-        )
+    expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'reconnecting');
+  });
 
-        // Open drawer
-        const burger = screen.getByRole('button', { name: /Open navigation/i })
-        fireEvent.click(burger)
-        expect(burger.getAttribute('aria-expanded')).toBe('true')
+  it('burger button toggles nav open state', () => {
+    render(
+      <MemoryRouter>
+        <Layout {...defaultProps} />
+      </MemoryRouter>,
+    );
 
-        // Backdrop should now be present
-        const backdrop = document.querySelector('.mobile-nav-backdrop')
-        expect(backdrop).toBeTruthy()
+    const burger = screen.getByRole('button', { name: /Open navigation/i });
+    expect(burger.getAttribute('aria-expanded')).toBe('false');
 
-        // Clicking backdrop closes drawer
-        fireEvent.click(backdrop!)
-        expect(burger.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(burger);
+    expect(burger.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('complementary', { name: 'Mobile navigation' })).toBeTruthy();
 
-        // Backdrop should no longer be in DOM
-        expect(document.querySelector('.mobile-nav-backdrop')).toBeNull()
-    })
+    fireEvent.click(burger);
+    expect(burger.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('complementary', { name: 'Mobile navigation' })).toBeNull();
+  });
 
-    it('uses shell state to mark settings as the active global tab', () => {
-        const shellState = createStudioShellState({
-            pathname: '/settings/engines',
-            loading: false,
-            connected: true,
-            isReconnecting: false,
-        })
+  it('mobile nav backdrop click closes the drawer', () => {
+    render(
+      <MemoryRouter>
+        <Layout {...defaultProps} />
+      </MemoryRouter>,
+    );
 
-        render(
-            <MemoryRouter>
-                <Layout {...defaultProps} shellState={shellState} />
-            </MemoryRouter>
-        )
+    const burger = screen.getByRole('button', { name: /Open navigation/i });
+    fireEvent.click(burger);
+    expect(burger.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('complementary', { name: 'Mobile navigation' })).toBeTruthy();
 
-        expect(screen.getByRole('button', { name: /Settings/i })).toHaveAttribute('aria-current', 'page')
-    })
-})
+    const backdrop = document.querySelector('.mobile-nav-backdrop');
+    expect(backdrop).toBeTruthy();
+
+    fireEvent.click(backdrop!);
+    expect(burger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.querySelector('.mobile-nav-backdrop')).toBeNull();
+    expect(screen.queryByRole('complementary', { name: 'Mobile navigation' })).toBeNull();
+  });
+
+  it('uses shell state to mark settings as the active global tab', () => {
+    const shellState = createStudioShellState({
+      pathname: '/settings/engines',
+      loading: false,
+      connected: true,
+      isReconnecting: false,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <Layout {...defaultProps} shellState={shellState} />
+      </MemoryRouter>,
+    );
+
+    const rail = screen.getByRole('navigation', { name: 'Primary' });
+    expect(within(rail).getByRole('button', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('navigates home when the brand button is clicked', () => {
+    render(
+      <MemoryRouter initialEntries={['/voices']}>
+        <LocationProbe />
+        <Layout {...defaultProps} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Audiobook Studio home/i }));
+
+    expect(screen.getByTestId('pathname')).toHaveTextContent('/');
+  });
+});

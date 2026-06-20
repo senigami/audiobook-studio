@@ -103,6 +103,11 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
     segs = _get_segs(j.chapter_id)
 
     def _group_needs_render(group: dict, _pdir: Path) -> bool:
+        # force_rerender: a rebuild requires full re-synthesis; never reuse cached
+        # segment audio even if the segment is marked done on disk. Mirrors the
+        # standard path's _group_is_done guard so the bake path can't silently reuse.
+        if getattr(j, "force_rerender", False):
+            return True
         expected_name = f"{group['segments'][0]['id']}.wav"
         expected_path = _pdir / "segments" / expected_name
         if not expected_path.exists():
@@ -154,7 +159,12 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
 
         def bake_on_output(line):
             on_output(line)
-            if "[SEGMENT_SAVED]" in line:
+            # A cancelled render must not write segment 'done' state: a chapter
+            # reset clears segments to 'unprocessed', and a straggler [SEGMENT_SAVED]
+            # from the not-yet-stopped engine would otherwise resurrect
+            # audio_status='done' and make the next render reuse stale audio.
+            # (Mirrors the standard_handler chapter_on_output guard / I17.)
+            if "[SEGMENT_SAVED]" in line and not cancel_check():
                 saved_path = line.split("[SEGMENT_SAVED]")[1].strip()
                 group_segs = path_to_group.get(saved_path)
                 if group_segs:

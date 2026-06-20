@@ -5,6 +5,11 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 describe('Navigation Regression', () => {
     beforeEach(() => {
+        const originalError = console.error;
+        console.error = vi.fn((...args) => {
+            console.log('CAUGHT CONSOLE ERROR:', ...args);
+            originalError(...args);
+        });
         global.fetch = vi.fn((url) => {
             if (url === '/api/home') {
                 return Promise.resolve({
@@ -45,7 +50,7 @@ describe('Navigation Regression', () => {
 
     it('navigates to project page when project card is clicked', async () => {
         render(
-            <MemoryRouter initialEntries={['/']}>
+            <MemoryRouter initialEntries={['/library']}>
                 <App />
             </MemoryRouter>
         );

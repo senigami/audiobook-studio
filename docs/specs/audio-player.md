@@ -1,0 +1,196 @@
+# Global Audio Player
+
+```
+spec_version: 1.6.0
+status: active
+created: 2026-06-13
+updated: 2026-06-16
+sources:
+  - plans/site_experience_north_star.md
+  - plans/audio_player_scrubbing_waveform_proposal.md
+  - plans/audio_player_waveform_scrubber/
+  - frontend/src/store/playerBus.ts
+  - frontend/src/app/layout/PlayerBar.tsx
+  - frontend/src/app/layout/WaveformStrip.tsx
+  - frontend/src/demo/stages/siteMockup/   (reference implementation of the tape)
+```
+
+> **TL;DR:** Audio has exactly one owner — a `playerBus` store with a single `<audio>` element in a full-window bottom `PlayerBar`. Every other surface is a client that loads the bus and reads its state; nothing else creates audio. The bar is hidden unless audio is loaded, mounted once in the global shell, and persists across every route (§3). The player is **scope-agnostic**: there is no segment/chapter toggle — the scrub representation is decided by **clip duration**. A short clip shows an inline waveform; a long one shows a plain seek bar, and the far-right `AudioLines` toggle then opens an **expandable zoomed "tape"** (§5): a paged-or-moving, click/drag-scrubbable detail view with bounded zoom presets, a minimap, and a `m:ss` time ruler. Playback is *started* by content-owned play affordances (§4.1); the bar is transport for an already-loaded source.
+
+## Changelog
+
+| Version | Date       | Change |
+|---------|------------|--------|
+| 1.0.0   | 2026-06-13 | Initial target contract for the global single-owner audio player (Phase R4) |
+| 1.1.0   | 2026-06-14 | R7 shipped: full VCR transport; `skip(deltaSeconds)`; Segment↔Chapter `altScope`/`switchScope` scope toggle; wavesurfer.js waveform strip; Review transport delegation; `status: target → active` |
+| 1.2.0–1.4.0 | 2026-06-15 | U16 scope-driven waveform iterations (waveform inline for segment scope, bar for chapter; far-right representation override). Superseded by 1.6.0. |
+| 1.5.0   | 2026-06-16 | Transport + toggle icons standardized on `lucide-react`; mock PlayerBar migrated off glyphs. Canonical control→icon mapping owned by `design-system.md` §9. |
+| 1.5.1   | 2026-06-16 | Visibility/persistence contract clarified (§3): keys solely on `audioUrl !== null`, mounted once in the global `AppShell`, persists across **all** routes. Added §4.1 (content-owned play affordances). |
+| 1.6.0   | 2026-06-16 | **Scope-agnostic player + scrubbing-waveform tape (§3, §5).** Removed the segment/chapter scope toggle entirely (`altScope`/`switchScope` retired from the bus): representation is now **duration-driven**, not scope-driven, and time is the loaded clip's position/duration. The `AudioLines` toggle, in bar mode, opens an **expandable tape** — paged (default) or moving motion, click+drag scrub, bounded discrete zoom presets (cover-slider style: 8/15/30/60/120 s), a whole-clip minimap, and a smart `m:ss` ruler. Peaks are **browser-decoded below a duration cap, server-sidecar above it** (§5.4; a `data-model.md` change). Annotation is post-V2. Reference implementation: the North-Star mock; live port tracked by `plans/audio_player_waveform_scrubber/`. |
+
+---
+
+## 1. Purpose
+
+This spec is the **binding contract** for the global audio player: a single `playerBus` store, a single `<audio>` element inside a global `PlayerBar`, and the conversion of every ad-hoc player into a bus client.
+
+**Implementation status (drift is explicit and tracked).** The single-owner model, transport, collapse-when-empty, global persistence, Review delegation, and content-owned play affordances are **shipped live**. The **scope-agnostic representation + the expandable tape (§3, §5)** are **fully realized in the North-Star mock** (`frontend/src/demo/stages/siteMockup/`, the reference implementation) and are **mid-migration into the live `PlayerBar`** — the live bar still ships the older scope-driven waveform/bar. The migration is tracked task-by-task in `plans/audio_player_waveform_scrubber/` (Workloads 1–3). Until it lands, this is a deliberate, recorded spec-ahead-of-code gap, not silent drift.
+
+Specs and code are jointly authoritative. If they disagree, resolve the drift explicitly by changing one or the other, and note it in the changelog.
+
+**Icons (binding):** all controls render as `lucide-react` components — `SkipBack` · `Rewind` · `Play`/`Pause` · `FastForward` · `SkipForward` for transport, `Square` for stop, `AudioLines` for the waveform/tape toggle, `Waves`/`GalleryHorizontalEnd` for the tape motion toggle — never Unicode media glyphs. The canonical control→icon mapping is owned by [design-system.md](design-system.md) §9 Iconography.
+
+Cross-reference: shell/route placement of the bar is governed by [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md).
+
+---
+
+## 2. Single-owner model
+
+There MUST be exactly **one** owner of audio playback state for the whole app: the `playerBus` store (`frontend/src/store/playerBus.ts`). It exposes a `useSyncExternalStore`-based snapshot so consumers subscribe without prop-drilling.
+
+### 2.1 Bus state
+
+| Field | Type | Meaning |
+|---|---|---|
+| `scope` | `'segment' \| 'chapter' \| 'preview' \| null` | **Informational** kind-of-audio label used by adapters for sequencing semantics and titling; `null` = nothing loaded (bar hidden). It MUST NOT drive scrub representation or any user toggle (that is duration-driven — §5). |
+| `title` | `string` | Primary label of the loaded source |
+| `subtitle` | `string \| undefined` | Optional secondary label |
+| `audioUrl` | `string \| null` | Source URL of the currently-loaded audio; `null` when nothing is loaded |
+| `playing` | `boolean` | Whether the element is currently playing |
+| `position` | `number` | Current playhead position in seconds |
+| `duration` | `number` | Total duration in seconds (from `loadedmetadata`) |
+| `queue` | `{ hasPrev: boolean; hasNext: boolean }` | Whether prev/next are available within the current sequence |
+| `requestId` | `number` | Monotonic load token so the PlayerBar element can ignore stale loads |
+| `seekRequestId` | `number` | Monotonic seek token so the seek effect fires without conflicting with `timeupdate` reporting |
+
+The `altScope` field and the `switchScope()` toggle of earlier versions are **removed** (1.6.0): the player no longer offers switching between a segment and chapter rendering of the same content. A surface that wants chapter-level playback simply loads chapter audio; one that wants a segment loads the segment.
+
+### 2.2 Bus API
+
+- `loadAndPlay({ scope, title, subtitle?, audioUrl, onEnded?, onPrev?, onNext?, onError?, hasPrev?, hasNext? })` — load a new source and begin playback.
+- `play()` / `pause()` — transport.
+- `seek(seconds)` — move the playhead; increments `seekRequestId`.
+- `skip(deltaSeconds)` — `seek(clamp(position + delta, 0, duration))`; skim-back/forward.
+- `stop()` — clear state (`audioUrl → null`); the bar hides.
+- `reportTime(position, duration)` — called *by the PlayerBar element* from `timeupdate` / `loadedmetadata`; consumers never call it.
+- `notifyEnded()` / `notifyError()` / `notifyPrev()` / `notifyNext()` — dispatched by the element; the bus invokes the stored per-load callbacks.
+- `subscribe` / `getSnapshot` / `usePlayerBus()` — subscription surface. `getSnapshot` MUST return a cached object until state actually changes.
+
+### 2.3 Single-owner invariants
+
+- **Exactly one `<audio>` element exists app-wide**, inside the PlayerBar. Recording-capture components (e.g. `VariantEditor`) are the only exemption — capture is not playback.
+- **Loading a new source stops the old one by construction.** Only one element exists, so `loadAndPlay` replacing `src` is the stop.
+- Per-load callbacks (`onEnded`/`onPrev`/`onNext`/`onError`) are stored **per load** so the *adapter* owns queue semantics (segment/chapter sequencing, wav→mp3 retry). The bus only signals.
+- No module other than `playerBus.ts` / `PlayerBar.tsx` may write playback state or own an audio element. The conversion is complete when `grep -rn "<audio\|new Audio(" frontend/src` matches only `PlayerBar.tsx` and recording-capture components.
+
+---
+
+## 3. Player bar presentation
+
+The `PlayerBar` (`frontend/src/app/layout/PlayerBar.tsx`) is rendered **once** in the global app shell.
+
+- **Full-window-width bottom dock**, below both the rail and the content column. It spans the full window width in every rail state.
+- **VCR transport row:** prev · skim-back (−10 s) · play/pause · skim-fwd (+10 s) · next · stop (secondary, smaller). All `aria-label`-ed; prev/next disabled from `queue.hasPrev/hasNext`.
+- **No scope toggle.** There is no segment/chapter switch. Where a passive label is useful, the title/subtitle area carries it; it is not interactive.
+- **Scrub representation is DURATION-driven (scope-agnostic):**
+  - **Short clip** → the scrub track *is* an inline waveform (the seek surface). "Short" is decided by fit — the whole clip renders legibly at the current bar width (legibility floor ≈ 3 px/sec; bootstrap threshold ≈ a clip that fits, ~≤ 30 s before bar width is known).
+  - **Long clip** → a *plain seek slider*; the `AudioLines` toggle opens the expandable tape (§5).
+  - A far-right **`AudioLines` toggle** overrides representation: in waveform mode it flips to a plain bar; in bar mode it opens/closes the **tape**. The override (`forceWave` / tape-open state) is session-only and resets to the duration default on each new source (`requestId`).
+- **Time** (`m:ss / m:ss`) is the loaded clip's `position / duration` — scope-agnostic (no segment-relative special-casing).
+- **Visibility keys SOLELY on playback state, never on the route/screen.** Shown iff `audioUrl !== null`; when nothing is loaded it renders no chrome and removes the content inset (owner Q6). It MUST NOT be shown/hidden based on which page is active.
+- **Persists across all navigation.** Mounted **once** in the global `AppShell` (`frontend/src/app/layout/AppShell.tsx`), outside the router outlet, so moving between *any* pages keeps audio playing. It collapses only once `stop()` clears the bus.
+- When visible, the content area gets bottom padding/inset so the bar never covers content.
+
+---
+
+## 4. Consumers become adapters
+
+Every existing player converts into a thin **bus client**. The audio element and transport move to the PlayerBar; the consumer keeps only its domain logic and feeds the bus.
+
+| Consumer | Today | Becomes |
+|---|---|---|
+| Studio VCR (`PlaybackControls.tsx` + `useChapterPlayback.ts`) | `new Audio()` per segment; owns sequencing, wav→mp3 fallback, `onended`→next, skim, space-to-play | Keeps sequencing/fallback/skim/highlight; calls `loadAndPlay({ scope:'segment', … })`, drives advance from the bus `onEnded`. The in-page VCR is removed; the PlayerBar is the transport. Public hook shape preserved. |
+| Inline chapter player (`ChapterHeader.tsx`, legacy `ChapterList.tsx`) | Native `<audio>` on the row/header | A play button that calls `loadAndPlay({ scope:'chapter', audioUrl, title:'Ch N · Title' })`, reflecting play/pause from `usePlayerBus()`. |
+| Voice preview/sample (`VariantEditor.tsx`, Voices callsites) | `<audio>` per preview | `loadAndPlay({ scope:'preview', … })`. Recording capture stays as-is. |
+| Review follow-along panel (`FollowAlongPanel.tsx`) | Owned its own transport | Text-tracking + re-render surface only; transport is the global `PlayerBar`. Keeps the chapter label, segment indicator, "Regenerate Segment" + states, a **play** affordance (§4.1), and tap-to-seek. |
+
+**Capability parity is binding:** no playback capability may vanish. VCR transport, playing-segment highlight, space-bar play, chapter-row playback, and preview/sample playback all survive — re-homed, not removed.
+
+### 4.1 Starting playback — content-owned play affordances
+
+The bar is **transport for an already-loaded source**, and it is hidden when nothing is loaded (§3). So the bar can never *start* playback from cold. **Every surface that can originate audio MUST expose its own play affordance** that calls `loadAndPlay`; pressing it loads the bus (which reveals the bar and begins playback).
+
+| Surface | Play affordance | Loads as |
+|---|---|---|
+| Library / book card | hover ▶ on the cover / resume | the book (chapters sequenced) |
+| Chapter row or chapter view | ▶ the chapter | `scope: 'chapter'` |
+| Studio (chapter editor) | ▶ play chapter + per-segment ▶ | `scope: 'chapter'` / `'segment'`, sequenced |
+| Review (follow-along) | ▶ play chapter + tap a section to play from there | `scope: 'chapter'`/`'segment'`, `seek()` on tap |
+| Voices / Voice Lab | preview / sample / test | `scope: 'preview'` |
+| Whole book | "Play book" — end to end | book playback (chapters sequenced via `onEnded`) |
+
+- A surface that delegates *ongoing* transport to the bar (e.g. Review) MUST still keep a **start** affordance.
+- "Play the book in its entirety" is a first-class entry point; the adapter sequences chapters on the bus `onEnded`.
+
+---
+
+## 5. Scrubbing-waveform tape (duration-adaptive)
+
+The detail/annotation surface for long audio. Design source: `plans/audio_player_scrubbing_waveform_proposal.md`. Reference implementation: the North-Star mock (`MockWaveTape` + `MockTapeControls`).
+
+### 5.1 Inline scrub vs. tape
+
+- The inline scrub track is a **waveform when the whole clip fits legibly** at the current bar width, else a **plain bar** (§3). Decision is **duration-driven, scope-blind**.
+- When the inline track is a bar, the far-right **`AudioLines` toggle opens the tape**, which **grows the bar upward** (a taller region above the control row, inside the bar's own footprint — not a floating sheet, not a second audio owner). Closing returns the bar to one row.
+
+### 5.2 Tape interaction
+
+- **Motion — paged by default, moving optional.** *Paged*: the playhead sweeps the window and the window advances one page at the edge (no continuous scroll). *Moving* (opt-in via a footer toggle): the playhead is **fixed at center** and the waveform slides past it. **`prefers-reduced-motion` forces paged** (the moving mode is suppressed) — paged has no continuous motion to violate the setting.
+- **Click-to-jump** anywhere on the tape → `seek()`. **Drag-to-scrub** — drag the waveform under the playhead.
+- **Minimap** — a thin full-clip strip with a translucent draggable window rectangle whose width reflects the current zoom span. Because the tape never shows the whole clip, the minimap is the whole-clip navigation surface; dragging it is coarse navigation.
+- **Zoom — bounded discrete presets** styled as the Library cover-size slider (track + tick dots + accent thumb, **no second-labels**): seconds-of-audio across the viewport `8 / 15 / 30 / 60 / 120` (default 30). Pinch/scroll-wheel-over-tape snaps through presets; the slider is the explicit control. **Zoom-in caps at the available peak resolution** (never fabricate detail); **zoom-out caps before a featureless blob** and never the whole clip (the minimap owns that). Zoom resets to the default on each new source.
+- **Time ruler** — a row under the tape with `m:ss` tick markers at an **interval chosen intelligently from the zoom level** (≈3 ticks across the viewport: e.g. 2 s ticks at 8 s zoom, 30 s ticks at 120 s zoom), labelling where the user is currently viewing.
+- **Contrast on glass** — the playhead line and minimap rectangle use a solid accent, never glass-on-glass tint. Hit/scrub targets are generous.
+
+### 5.3 Rendering — fixed-grid sampling (binding)
+
+The tape renders bars by sampling the peak data on a **fixed absolute-time grid** (`gridSec = windowSec / barCount`), snapping the window's left edge to that grid and translating the bar row by the sub-bar remainder. Samples MUST NOT be anchored to the moving window (i.e. "bar *i* = sample at `viewStart + i/N·windowSec`"): that re-samples a shifting point every frame and makes the waveform crawl/shimmer. Grid-anchored samples are stable per time-bucket, so the shape holds still in paged mode and slides seamlessly in moving mode. (Discovered in the mock; see the proposal.)
+
+### 5.4 Peaks data — browser-first, server sidecar later
+
+The tape renders from a **peak array**; where the array comes from is keyed on **duration**, not scope:
+
+- **At or below a duration cap (~10–15 min, tunable):** decode in the browser (Web Audio → downsample to peaks). Zero backend.
+- **Above the cap:** browser decode is infeasible (an hour WAV is ~150–300 MB on the wire and ~600 MB decoded PCM/channel — download + memory, not CPU). A **peaks sidecar** is emitted **at production time** by whichever task produces the over-threshold artifact — synthesis for a long segment, assembly for a chapter — as a validated artifact alongside the WAV (a `data-model.md` addition). The tape renders from the sidecar; the cap lifts toward the full clip; long windows use virtualized rendering.
+- The peak **source** is swappable behind one seam: *if a sidecar exists for the URL, render from it; else browser-decode.* The tape UI is identical either way — adding the sidecar is a source swap, not a rebuild.
+- The sidecar's resolution sets the tape's **zoom-in cap** (§5.2).
+
+### 5.5 Annotation — post-V2
+
+Marking edit points on the tape is **out of scope for V2**. An *actionable* chapter-scope mark needs timestamp→segment mapping the backend lacks (§6); rather than ship visual-only bookmarks, the whole annotation workflow is deferred. This spec covers display + navigation only.
+
+---
+
+## 6. Follow-along feed
+
+The bus position drives **Review's follow-along highlight**: the text panel highlights the currently-playing **section (§N)**, dims past sections, and auto-scrolls.
+
+Binding timing constraint: there is **no per-segment timestamp/offset into the assembled chapter WAV**. Follow-along therefore highlights by the **currently-loaded segment** (Review plays via segment-sequenced playback), so the highlight = the playing segment's section. Intra-section highlight and timestamp-anchored annotation are impossible until per-WAV timing data exists on the backend; re-render annotations attach to sections (§N), never timestamps. **Future backend work**, not a player concern.
+
+The `FollowAlongPanel` is a pure text-tracking + re-render surface; transport is the global `PlayerBar`'s responsibility.
+
+Cross-reference: the Review stage contract lives in [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md) §3.2.
+
+---
+
+## 7. Cross-References
+
+- Design source for the tape: `plans/audio_player_scrubbing_waveform_proposal.md`
+- Live-port implementation plan: `plans/audio_player_waveform_scrubber/` (00-audit, 01-roadmap, tasks/)
+- Shell composition / where the bar mounts: [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md)
+- Iconography (control→icon map): [design-system.md](design-system.md) §9
+- Peaks sidecar artifact metadata: [data-model.md](data-model.md)
+- Owner decisions (U16 bar, Q6 collapse-when-empty): `plans/site_experience_north_star.md`
+- Chapter audio status driving availability: [progress-presentation.md](progress-presentation.md)
+- Job/queue state behind rendered audio: [queue-jobs.md](queue-jobs.md)
+- Single-owner decision: [ADR-0010](../decisions/ADR-0010-single-owner-audio-player.md)

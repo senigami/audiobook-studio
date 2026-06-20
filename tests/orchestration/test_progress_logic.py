@@ -562,16 +562,17 @@ def test_progress_service_segment_completion_matching_outcome():
         active_segment_id=None,
     )
 
-    # Expect segment completion and chapter progress only (status did not change).
+    # Segment completion + chapter progress only. No status change and no real
+    # progress advance on this frame → the queue row is NOT re-emitted (same-%).
     assert len(broadcast_events) == 2
-    seg_event = broadcast_events[0][0]
-    assert seg_event["topic"] == "segments.progress"
+    seg_event = next(p for p, _ in broadcast_events if p["topic"] == "segments.progress")
     assert seg_event["ids"]["segmentId"] == "seg-1"
     assert seg_event["payload"]["status"] == "done"
     assert seg_event["payload"]["progress"] == 1.0
 
-    chap_event = broadcast_events[1][0]
+    chap_event = next(p for p, _ in broadcast_events if p["topic"] == "chapters.progress")
     assert chap_event["topic"] == "chapters.progress"
+    assert not any(p["topic"] == "queue.items" for p, _ in broadcast_events)
 
     # 3. Start another segment
     service.publish(
@@ -653,17 +654,16 @@ def test_progress_service_segment_handoff_completion_uses_segment_saved_command(
         has_segment_support=True,
     )
 
-    completion_event = broadcast_events[0][0]
-    next_segment_event = broadcast_events[1][0]
+    # A queue.items row refresh is also emitted (chapter-scope progress frame);
+    # select the segment events by topic + segmentId rather than by index.
+    seg_events = [p for p, _ in broadcast_events if p["topic"] == "segments.progress"]
+    completion_event = next(e for e in seg_events if e["ids"]["segmentId"] == "seg-1")
+    next_segment_event = next(e for e in seg_events if e["ids"]["segmentId"] == "seg-2")
 
-    assert completion_event["topic"] == "segments.progress"
-    assert completion_event["ids"]["segmentId"] == "seg-1"
     assert completion_event["payload"]["status"] == "done"
     assert completion_event["payload"]["progress"] == 1.0
     assert completion_event["payload"]["reasonCode"] == "SEGMENT_SAVED"
 
-    assert next_segment_event["topic"] == "segments.progress"
-    assert next_segment_event["ids"]["segmentId"] == "seg-2"
     assert next_segment_event["payload"]["reasonCode"] == "START_SEGMENT"
 
 
@@ -708,12 +708,14 @@ def test_progress_service_emits_active_segment_eta_only_updates():
         has_segment_support=True,
     )
 
+    # segment eta update + chapter progress only. ETA-only change with no progress
+    # advance → no queue.items re-emit (same-percent frame).
     assert len(broadcast_events) == 2
-    segment_event = broadcast_events[0][0]
-    chapter_event = broadcast_events[1][0]
-    assert segment_event["topic"] == "segments.progress"
+    segment_event = next(p for p, _ in broadcast_events if p["topic"] == "segments.progress")
+    chapter_event = next(p for p, _ in broadcast_events if p["topic"] == "chapters.progress")
     assert segment_event["payload"]["etaSeconds"] == 25
     assert chapter_event["topic"] == "chapters.progress"
+    assert not any(p["topic"] == "queue.items" for p, _ in broadcast_events)
 
 
 def test_meaningful_chapter_progress_emits_chapter_progress():
@@ -931,10 +933,12 @@ def test_progress_service_coerces_preparing_after_started_at():
         progress=0.0,
     )
 
-    # No jobs.lifecycle should be emitted because status did not change (it stayed "running")
-    # chapters.progress should be emitted with status "running"
+    # No jobs.lifecycle (status did not change, stayed "running") and no queue.items
+    # (no progress advance — same-percent coerced frame). Only chapters.progress,
+    # with the coerced status "running".
     assert len(broadcast_events) == 1
-    event = broadcast_events[0][0]
+    assert not any(p["topic"] == "jobs.lifecycle" for p, _ in broadcast_events)
+    event = next(p for p, _ in broadcast_events if p["topic"] == "chapters.progress")
     assert event["topic"] == "chapters.progress"
     assert event["payload"]["status"] == "running"
 
@@ -1032,14 +1036,14 @@ def test_chapter_progress_eta_samples_include_eta_updated_at():
     from app.api.contracts.events import build_chapter_progress_event
     # 1. When eta_seconds is positive, etaUpdatedAt / eta_updated_at must be present
     e1 = build_chapter_progress_event(
-        chapter_id="chap-1", status="running", progress=0.5, eta_seconds=30
+        chapter_id="chap-1", status="running", progress=0.5, eta_seconds=30, confidence=0.5
     )
     assert "etaUpdatedAt" in e1["payload"]
     assert isinstance(e1["payload"]["etaUpdatedAt"], (int, float))
 
     # 2. When eta_seconds is None, etaUpdatedAt / eta_updated_at must be None
     e2 = build_chapter_progress_event(
-        chapter_id="chap-1", status="running", progress=0.5, eta_seconds=None
+        chapter_id="chap-1", status="running", progress=0.5, eta_seconds=None, confidence=0.5
     )
     assert e2["payload"].get("etaUpdatedAt") is None
 
@@ -1147,10 +1151,11 @@ def test_progress_service_duplicate_same_eta_progress_prevents_timestamp_update(
 
 def test_xtts_plugin_handler_terminal_clears_eta(monkeypatch):
     from unittest.mock import MagicMock
+    import plugins.tts_xtts.plugin.studio.handler as handler_module
     from plugins.tts_xtts.plugin.studio.handler import handle_xtts_job
 
     mock_update_job = MagicMock()
-    monkeypatch.setattr("plugins.tts_xtts.plugin.studio.handler.update_job", mock_update_job)
+    monkeypatch.setattr(handler_module, "update_job", mock_update_job)
 
     # Mock parameters
     class MockJob:

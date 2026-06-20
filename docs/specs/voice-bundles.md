@@ -1,18 +1,21 @@
 # Voice Bundle & Voice Directory Contract
 
 ```
-spec_version: 1.0.0
+spec_version: 1.2.0
 status: active
 sources:
   - app/domain/voices/manifest.py
   - app/domain/voices/migration.py
   - app/domain/voices/bundles.py
   - app/db/speakers.py
+  - app/api/routers/voices_metadata.py
   - docs/specs/voice.schema.json
   - docs/specs/voice-taxonomy.json
   - docs/specs/engine-bundle-template
   - docs/specs/voice-bundle-template
   - plans/final_release/04
+  - plans/site_experience_north_star.md
+  - plans/site_redesign_rollout/07_phase_r5_platform.md
 ```
 
 > **TL;DR:** Voice assets live in a versioned two-level directory (`{VoiceName}/{VariantName}/`); portable bundles are zips with the same layout; all preview audio is MP3, reference samples are WAV, render output is WAV.
@@ -21,6 +24,8 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.2.0   | 2026-06-16 | §8 taxonomy table replaced with actual facets/vocabularies from voice-taxonomy.json (added class/timbre/pace/use_case/quality; replaced age_range→age, corrected gender values, dropped style/emotion_range); §6.3 import validation restated to match code (validates against voice.schema.json, not integer version:2); §6.1/§6.3 WAV samples marked as opt-in (include_source_wavs), MP3 preview is the required per-variant audio asset; §6.1 bundle root contents updated (added bundle.json, README.md; noted .voice.zip extension); §5 get_profile_wavs signature and sort-order corrected (profile_name_or_id arg, lexicographic order); §11 Voice Lab status updated (page and all sections exist, TARGET label removed) |
+| 1.1.0   | 2026-06-13 | Added §11 "Voice catalog & Voice Lab UI" — presentation contract for the catalog card content set and the Voice Lab page (TARGET); cross-refs design-system.md for pill tints and §8 for taxonomy values |
 | 1.0.0   | 2026-06-10 | Initial canonical spec  |
 
 ---
@@ -49,7 +54,7 @@ Code that disagrees with this spec is a bug in one or the other.
 | UI preview / sample audio         | MP3    | `sample.mp3` or `samples/preview.mp3`      |
 | Portable bundle preview           | MP3    | `sample.mp3` inside the bundle zip         |
 | Chapter / book render output      | WAV    | Produced by synthesis; never MP3           |
-| Portable voice bundle container   | ZIP    | Contains WAV references + MP3 preview      |
+| Portable voice bundle container   | ZIP    | Always contains MP3 preview; WAV references are opt-in (`include_source_wavs=True`) |
 
 **MUST NOT** store render output as MP3.
 **MUST NOT** store reference samples as MP3 inside the live voices directory.
@@ -145,7 +150,7 @@ Given a voice string, the backend resolves it to a variant directory in this ord
 3. **Legacy fallback** — no `voice.json` present:
    - Fall back to `voices/{name}/` flat layout (V1 compatibility path).
 
-`get_profile_wavs(variant_dir)` returns a comma-separated string of absolute paths for numbered WAV files found in `variant_dir`, in ascending numeric order. Files matching `[0-9]+.wav` are preferred; `sample.wav` is the fallback if no numbered files exist.
+`get_profile_wavs(profile_name_or_id)` (`app/db/speakers.py`) resolves the profile directory from a profile name or speaker ID, then returns a comma-separated string of absolute paths for all `.wav` files in that directory (excluding `sample.wav`), sorted in **lexicographic** order. If no numbered WAVs are present, `sample.wav` is returned as the fallback; returns `None` if the profile cannot be resolved.
 
 **MUST** resolve through `voice.json` for all V2 voices; never hard-code variant names in callers.
 **MUST NOT** use raw filesystem existence checks as a proxy for voice validity; check `voice.json` schema version.
@@ -158,36 +163,42 @@ A voice bundle is a self-contained zip distributed or imported as a unit.
 
 ### 6.1 Required contents
 
+Exported bundles use the `.voice.zip` extension (e.g. `VoiceName.voice.zip`).
+
 ```
-VoiceName.zip
-  voice.json
+VoiceName.voice.zip
+  voice.json       # Distribution manifest (voice.schema.json format — no integer version field)
+  bundle.json      # Export manifest (schema_version, created_at, variants, included_asset_classes)
+  README.md        # Generated HuggingFace-compatible README (auto-generated from voice.json)
   Default/
     profile.json
-    1.wav          # At least one numbered reference sample
-    sample.mp3     # Preview audio (MP3)
+    sample.mp3     # Preview audio (MP3) — required per-variant audio asset
 ```
 
 ### 6.2 Optional contents
 
 ```
   Default/
-    2.wav … 5.wav  # Additional reference samples
+    1.wav … 5.wav  # Numbered source WAV reference samples (opt-in: include_source_wavs=True)
     latent.pth     # Engine latent cache (engine MUST regenerate if absent)
 ```
+
+Numbered WAV reference samples are included only when the export API is called with `include_source_wavs=True` (default: `False`). The default export ships only the MP3 preview (plus latent cache if present).
 
 ### 6.3 Bundle invariants
 
 **MUST** include `voice.json` at the zip root.
-**MUST** include at least one numbered `.wav` reference sample per variant.
-**MUST** include `sample.mp3` per variant for UI preview.
+**MUST** include at least one `profile.json` (i.e. at least one variant) in the bundle.
+**MUST** include `sample.mp3` per variant for UI preview (the required per-variant audio asset).
+**MAY** include numbered `.wav` reference samples per variant when exported with `include_source_wavs=True`; these are not required for a valid bundle.
 **MUST NOT** include render output (chapter/book WAV files) in the bundle.
 **MUST NOT** require `latent.pth`; engines regenerate it from reference samples if missing.
-**MUST** validate `voice.json` `"version": 2` on import before writing to disk.
+**MUST** validate `voice.json` against `docs/specs/voice.schema.json` on import (requires `spec`, `spec_version`, `id`, `name`, `image`, `samples`, `languages`, `attributes` fields; `"version"` is a runtime-only field that is stripped from exports and never present in bundle `voice.json`).
 
 ### 6.4 Import and export
 
-- Export: produced by the voices API; strips any engine-specific files the user opts out of.
-- Import: schema-validated before extraction; path traversal in zip entries MUST be rejected (no `../` components).
+- Export: `export_voice_bundle()` strips runtime-only fields (`version`, `default_variant`, `_untagged`, `_taxonomy_version`) from `voice.json` before writing, so the exported manifest conforms to `voice.schema.json`. Numbered WAV sources are included only when `include_source_wavs=True`.
+- Import: `import_voice_bundle()` validates zip structure and path safety before extraction; path traversal in zip entries MUST be rejected (no `../` components). The `voice.json` in a bundle uses the distribution schema shape, not the runtime `"version": 2` integer shape.
 
 ---
 
@@ -206,19 +217,24 @@ One Speaker can have multiple SpeakerProfiles (e.g., one per engine, or stylisti
 
 ## 8. Attribute Taxonomy
 
-Voices are tagged using the attribute vocabulary defined in `docs/specs/voice-taxonomy.json`.
+Voices are tagged using the attribute vocabulary defined in `docs/specs/voice-taxonomy.json`. The table below reflects the exact facets and value vocabularies in that file. The JSON Schema for the distribution bundle (`docs/specs/voice.schema.json`) enforces the same vocabulary and marks `class`, `gender`, and `age` as required fields inside `attributes`.
 
-| Attribute       | Values (examples)                              | Required for export |
-|-----------------|------------------------------------------------|---------------------|
-| `gender`        | `male`, `female`, `neutral`                    | Recommended         |
-| `age_range`     | `child`, `young_adult`, `adult`, `senior`      | Recommended         |
-| `tone`          | `warm`, `neutral`, `authoritative`, `playful`  | Recommended         |
-| `accent`        | BCP-47 locale tag or free text                 | Recommended         |
-| `style`         | `narrative`, `conversational`, `dramatic`      | Recommended         |
-| `emotion_range` | `narrow`, `moderate`, `expressive`             | Recommended         |
+| Attribute    | Cardinality    | Required | Value vocabulary (from voice-taxonomy.json)                                                                             |
+|--------------|----------------|----------|-------------------------------------------------------------------------------------------------------------------------|
+| `class`      | one-required   | **Yes**  | `human`, `synthetic`, `creature`, `character`, `deity`                                                                  |
+| `gender`     | one-required   | **Yes**  | `feminine`, `masculine`, `neutral`, `ambiguous`, `not-applicable`                                                       |
+| `age`        | one-required   | **Yes**  | `child`, `teen`, `young-adult`, `adult`, `middle-aged`, `senior`, `ageless`                                             |
+| `accent`     | one-optional   | No       | `none`, `us-general`, `us-southern`, `us-nyc`, `us-midwest`, `us-african-american`, `british-rp`, `british-cockney`, `british-northern`, `scottish`, `irish`, `welsh`, `australian`, `new-zealand`, `canadian`, `south-african`, `indian`, `caribbean`, `european`, `other` |
+| `tone`       | many-optional  | No       | `warm`, `friendly`, `calm`, `soothing`, `cheerful`, `upbeat`, `energetic`, `confident`, `authoritative`, `professional`, `serious`, `somber`, `dramatic`, `intense`, `epic`, `mysterious`, `menacing`, `sinister`, `playful`, `quirky`, `sarcastic`, `deadpan`, `gentle`, `wise`, `sensual`, `melancholic`, `heroic`, `villainous` |
+| `timbre`     | many-optional  | No       | `deep`, `low`, `high-pitched`, `bright`, `rich`, `resonant`, `booming`, `smooth`, `velvety`, `silky`, `clear`, `crisp`, `soft`, `breathy`, `husky`, `raspy`, `gravelly`, `gritty`, `rough`, `nasal`, `thin`, `light`, `robotic`, `distorted` |
+| `pace`       | one-optional   | No       | `slow`, `measured`, `moderate`, `brisk`, `fast`, `variable`                                                             |
+| `use_case`   | many-optional  | No       | `audiobook`, `narration`, `character-dialogue`, `storytelling`, `documentary`, `e-learning`, `meditation`, `news`, `podcast`, `advertising`, `gaming`, `animation`, `assistant`, `ivr` |
+| `quality`    | many-optional  | No       | `studio-quality`, `clean`, `denoised`, `hi-fi`, `phone-quality`, `vintage`, `multilingual`, `expressive`, `fast-inference` |
+
+A `tags` free-text array (pattern `^[a-z0-9][a-z0-9-]*$`) is also available for anything the controlled sections cannot hold.
 
 - **Untagged voices MUST NOT produce an error.** Show a warning icon in the UI; do not block synthesis.
-- Tags become required only when the user edits and saves a voice (required-on-edit).
+- `class`, `gender`, and `age` become required when the user edits and saves a voice (required-on-edit), and are required for a valid distribution bundle (enforced by `voice.schema.json`).
 - Casting card recommendations use these attributes to score voice-to-character fit (see `plans/final_release/04`).
 
 ---
@@ -245,3 +261,94 @@ The flat V1 layout (`voices/{name}/sample.wav`, `voices/{name}/config.json`) is 
 
 **MUST NOT** write new voices in V1 format.
 **MUST NOT** delete V1 voices without migrating them first.
+
+---
+
+## 11. Voice Catalog & Voice Lab UI
+
+This section owns the **presentation** of the voice data defined above (§3–§9). It does
+not redefine any data shape: attribute values come from the taxonomy in §8, the casting
+card payload is §9, and the bundle/export contract is §6. Where this section needs a
+visual rule (pill tints, category colours) it **cross-references**
+`docs/specs/design-system.md` rather than restating it.
+
+> **Status — shipped.** The Voice Lab page (`frontend/src/pages/VoiceLab/VoiceLabPage.tsx`)
+> exists as a routed production page at `/voices/:id`. It includes the full header (back
+> link, avatar, name, pill row, description, "Edit metadata" button), a `PhaseStepper`
+> driven by `getVoicePhase`, and lazy-loaded body sections:
+> `SamplesSection`, `VariantsSection`, `TestSection`, and `VoiceIconControls` — all
+> implemented under `frontend/src/pages/VoiceLab/components/`.
+>
+> The icon-upload backend also exists — `POST /api/voices/{id}/icon`
+> (`app/api/routers/voices_metadata.py`, multipart image, 1:1 aspect enforced) — and is
+> wired to `VoiceIconControls`.
+>
+> Canonical design sources: `plans/site_experience_north_star.md` §5 + decision Q4 (U8
+> card content set) and `plans/site_redesign_rollout/07_phase_r5_platform.md`.
+
+### 11.1 Catalog card content set
+
+Each voice in the catalog (`frontend/src/pages/Voices/`) is presented as a card. The
+content set is:
+
+| Element                | Source                                                      | Notes                                                                 |
+|------------------------|-------------------------------------------------------------|-----------------------------------------------------------------------|
+| Voice icon             | Uploaded image (`POST /api/voices/{id}/icon`)               | 1:1; falls back to a generated initial/placeholder when none uploaded |
+| Attribute pills        | Taxonomy values from §8 (e.g. class/gender/age)             | Category-tinted — tint presentation rules live in `design-system.md`  |
+| One-line description   | Voice metadata `description`                                | Single line; truncates with ellipsis                                  |
+| ▶ Preview              | `sample.mp3` / `samples/preview.mp3` (§2)                   | Inline play; never the WAV references                                 |
+| Primary CTA            | One **phase-appropriate** action                            | The single CTA for the voice's current phase (Samples→Build→Test→Ready) |
+| Overflow menu (⋯)      | Secondary actions (rename, delete, edit metadata, move, …)  | Everything not the primary CTA                                        |
+
+- **Pill tints** are a presentation concern owned by `docs/specs/design-system.md`
+  (category → tint mapping); this spec only states that the pill **values** are the §8
+  taxonomy attributes. Untagged voices still render (warning affordance per §8), they
+  MUST NOT error.
+- **Copy icon prompt (doc 04 C6).** Beside the icon, the UI exposes a copyable
+  image-generation prompt built by **frontend string templating** from the voice's
+  attributes (§8) + description, with a fixed style preamble so user-generated icons stay
+  visually uniform across the catalog. This is pure client-side templating —
+  **no image generation and no API call happen inside Studio.** The same builder is used
+  in the Voice Lab header (§11.2).
+
+**MUST** drive the catalog card's preview from MP3 preview audio, never the WAV
+reference samples (§2).
+**MUST NOT** hard-code pill colours in the card; consume the category tint rules from
+`design-system.md`.
+
+### 11.2 Voice Lab (full page)
+
+The Voice Lab is a **full page workspace**, not a modal or an expanding card (north-star
+decision Q4: "it's a workspace — build/test cycles — not a quick edit"). It lives at
+route **`/voices/:id`** (where `:id` is the speaker/voice-group id used by the catalog
+card CTA).
+
+Page composition:
+
+| Region              | Content                                                                                          |
+|---------------------|--------------------------------------------------------------------------------------------------|
+| Header              | ← Voices back link, voice icon, name, full pill row (§8), description, "Edit metadata" affordance |
+| Phase stepper       | Four steps **Samples → Build → Test → Ready**; past = done, active = filled, future = muted      |
+| Sample manager      | List / play / delete / drop-zone upload of reference samples                                     |
+| Variants            | One row per variant (§3/§4.2); **per-variant engine settings**; the **default variant is starred** |
+| Engine settings     | Engine-owned settings for the selected variant (never engine-ID branching in core UI per §4.2)   |
+| Test strip          | Synthesize-and-listen against the current variant/settings                                       |
+| Export              | Portable bundle `.zip` (§6) **or** HuggingFace publish                                            |
+| Icon controls       | Icon upload (`POST /api/voices/{id}/icon`) + "📋 Copy icon prompt" (the §11.1 builder)            |
+
+- The phase shown by the stepper and the catalog card's primary CTA derive from the same
+  voice-phase computation (Samples→Build→Test→Ready); they MUST agree.
+- **Export** is the same bundle contract as §6 — the `.voice.zip` MUST satisfy the §6.3
+  invariants (root `voice.json` + `bundle.json` + `README.md`, `sample.mp3` per variant,
+  no render output, schema-validated against `voice.schema.json`). Numbered WAV sources
+  are included only with `include_source_wavs=True`. HF publish ships the same bundle layout.
+- Per-variant engine settings and the default-variant star map to the variant /
+  `profile.json` semantics in §4.2 and §7; the Voice Lab is the editing surface, not a
+  new data model.
+
+**MUST** treat the Voice Lab as a routed page (`/voices/:id`), not a modal over the
+catalog.
+**MUST** route export through the §6 bundle contract; the page MUST NOT emit a bundle
+shape that diverges from §6.
+**MUST NOT** branch on engine ID in the Voice Lab's core layout/behaviour; engine
+specifics live behind the variant's engine settings (§4.2).

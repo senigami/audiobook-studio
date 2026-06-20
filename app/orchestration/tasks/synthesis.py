@@ -74,6 +74,7 @@ class SynthesisTask(StudioTask):
         safe_mode: bool = True,
         synthesis_settings: dict[str, Any] | None = None,
         script: list[dict[str, Any]] | None = None,
+        force_rerender: bool = False,
     ) -> None:
         self.task_id = task_id
         self.engine_id = engine_id
@@ -96,6 +97,7 @@ class SynthesisTask(StudioTask):
         self.safe_mode = safe_mode
         self.synthesis_settings = synthesis_settings or {}
         self.script = script
+        self.force_rerender = force_rerender
         self.submitted_at = time.monotonic()
         self._cancelled = False
 
@@ -134,6 +136,55 @@ class SynthesisTask(StudioTask):
         Returns:
             TaskContext: Scheduler-compatible context with revision payload.
         """
+        # Resolve char_count once at context-build time so _publish never needs
+        # a per-frame DB query.  Resolution order (first non-zero wins):
+        #   a) len(script_text) when the task carries its own text
+        #   b) chapter.char_count from the DB when routed via segment_ids
+        #   c) unset/None — both computed and observed ETA remain unavailable
+        _char_count: int | None = None
+        if self.script_text:
+            _text_len = len(self.script_text)
+            if _text_len > 0:
+                _char_count = _text_len
+        if _char_count is None and self.chapter_id:
+            try:
+                from app.db.chapters import get_chapter  # noqa: PLC0415
+                _chap = get_chapter(self.chapter_id)
+                if _chap is not None:
+                    _raw = _chap.get("char_count")
+                    if isinstance(_raw, int) and _raw > 0:
+                        _char_count = _raw
+            except Exception:
+                pass
+
+        payload: dict[str, Any] = {
+            "engine_id": self.engine_id,
+            "script_text": self.script_text,
+            "output_path": self.output_path,
+            "voice_profile_id": self.voice_profile_id,
+            "reference_audio_path": self.voice_ref,
+            "language": self.language,
+            "source": self.source,
+            "render_batch_id": self.render_batch_id,
+            "is_bake": self.is_bake,
+            "segment_ids": self.segment_ids,
+            "custom_title": self.custom_title,
+            "make_mp3": self.make_mp3,
+            "safe_mode": self.safe_mode,
+            "synthesis_settings": self.synthesis_settings,
+            "script": self.script,
+            "force_rerender": self.force_rerender,
+            # Phase 4 reconciliation context — the orchestrator reads
+            # these fields when calling reconcile_work_item().
+            "requested_revision": self.requested_revision,
+            "task_revision_id": self.requested_revision.get(
+                "source_revision_id", self.task_id
+            ),
+            "scope": "chapter" if self.chapter_id and not self.segment_ids else "job",
+        }
+        if _char_count is not None:
+            payload["char_count"] = _char_count
+
         return TaskContext(
             task_id=self.task_id,
             task_type="synthesis",
@@ -141,30 +192,7 @@ class SynthesisTask(StudioTask):
             chapter_id=self.chapter_id,
             source=self.source,
             submitted_at=self.submitted_at,
-            payload={
-                "engine_id": self.engine_id,
-                "script_text": self.script_text,
-                "output_path": self.output_path,
-                "voice_profile_id": self.voice_profile_id,
-                "reference_audio_path": self.voice_ref,
-                "language": self.language,
-                "source": self.source,
-                "render_batch_id": self.render_batch_id,
-                "is_bake": self.is_bake,
-                "segment_ids": self.segment_ids,
-                "custom_title": self.custom_title,
-                "make_mp3": self.make_mp3,
-                "safe_mode": self.safe_mode,
-                "synthesis_settings": self.synthesis_settings,
-                "script": self.script,
-                # Phase 4 reconciliation context — the orchestrator reads
-                # these fields when calling reconcile_work_item().
-                "requested_revision": self.requested_revision,
-                "task_revision_id": self.requested_revision.get(
-                    "source_revision_id", self.task_id
-                ),
-                "scope": "chapter" if self.chapter_id and not self.segment_ids else "job",
-            },
+            payload=payload,
         )
 
     @classmethod
@@ -197,6 +225,7 @@ class SynthesisTask(StudioTask):
             safe_mode=payload.get("safe_mode", True),
             synthesis_settings=payload.get("synthesis_settings"),
             script=payload.get("script"),
+            force_rerender=bool(payload.get("force_rerender", False)),
         )
 
     def run(self) -> TaskResult:

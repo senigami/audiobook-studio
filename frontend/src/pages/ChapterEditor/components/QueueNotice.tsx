@@ -1,4 +1,5 @@
 import React from 'react';
+import { Check } from 'lucide-react';
 
 interface QueueNoticeProps {
   message: string;
@@ -34,7 +35,7 @@ export const QueueNotice: React.FC<QueueNoticeProps> = ({ message }) => {
         fontWeight: 800,
         flexShrink: 0
       }}>
-        ✓
+        <Check size={14} aria-hidden="true" />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
         <span style={{ fontWeight: 700 }}>Queued</span>

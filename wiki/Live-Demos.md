@@ -9,7 +9,7 @@ The demo mounts the actual React components from the production build and replay
 - **Live Event Stream**: the event table as the scripted session plays, with topic, event kind, job/chapter/segment IDs, progress, ETA, and the group counter ticking 1/4 through 4/4.
 - **Queue**: Processing Now, Up Next, and History sections filling as the render arc progresses.
 - **Progress bars**: PredictiveProgressBar walking through preparing, running, finalizing, and done, with a live ETA countdown.
-- **Voice Lab**: real NarratorCard components showing 4 demo voices in different states (READY, BUILD TO TEST, NO SAMPLES) with engine badges. Voice previews are silent placeholders.
+- **Voice Lab**: real Voice Lab components showing 4 demo voices in different states (READY, BUILD TO TEST, NO SAMPLES) with engine badges. Voice previews are silent placeholders.
 
 REST reads come from a static fixture implementation, so the demo makes no network calls.
 
@@ -31,7 +31,7 @@ Stages are routed by hash: `#/stage/<id>`. The stage IDs exported by `DemoApp.ts
 - `live-output`: the Live Output Table (event stream)
 - `queue`: the Global Queue with Processing Now / Up Next / History
 - `progress`: PredictiveProgressBar with full lane transitions
-- `voice-lab`: NarratorCards in READY, BUILD TO TEST, and NO SAMPLES states
+- `voice-lab`: Voice Lab cards in READY, BUILD TO TEST, and NO SAMPLES states
 
 Append `?embed=1` to hide the demo header. The showcase page uses this for its iframe embed.
 

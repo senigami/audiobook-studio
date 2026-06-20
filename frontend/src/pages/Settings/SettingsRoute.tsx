@@ -4,14 +4,13 @@ import { Settings as SettingsIcon } from 'lucide-react';
 import type { Settings as AppSettings, SpeakerProfile, TtsEngine } from '@/types';
 import {
   SETTINGS_TABS,
+  SETTINGS_REDIRECTS,
   VALID_SETTINGS_PATHS,
   getActiveSettingsTab,
   normalizeSettingsPath
 } from '@/pages/Settings/settingsRouteConfig';
 import { SettingsTabLink, TabHeading } from '@/pages/Settings/components/SettingsComponents';
 import { GeneralSettingsPanel } from '@/pages/Settings/components/GeneralSettingsPanel';
-import { EnginesPanel } from '@/pages/Settings/components/EnginesPanel';
-import { ApiSettingsPanel } from '@/pages/Settings/components/ApiSettingsPanel';
 import { AboutSettingsPanel } from '@/pages/Settings/components/AboutSettingsPanel';
 import { DeveloperSettingsPanel } from '@/pages/Settings/components/DeveloperSettingsPanel';
 import { useDevMode } from '@/utils/devMode';
@@ -31,7 +30,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
   speakerProfiles,
   speakers = [],
   engines = [],
-  startupReady = true,
+  startupReady: _startupReady = true,
   onRefresh,
   onShowNotification
 }) => {
@@ -46,6 +45,11 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
 
   if (!VALID_SETTINGS_PATHS.has(canonicalPathname)) {
     return <Navigate to="/settings" replace />;
+  }
+  // Redirect old sub-paths that have been re-homed to standalone pages (R-G).
+  const redirectTarget = SETTINGS_REDIRECTS[canonicalPathname];
+  if (redirectTarget) {
+    return <Navigate to={redirectTarget} replace />;
   }
   // Redirect away from /settings/developer if dev mode is off
   if (activeTab.id === 'developer' && !devMode) {
@@ -63,7 +67,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
           justifyContent: 'space-between',
           gap: '1rem',
           background:
-            'linear-gradient(135deg, rgba(255,255,255,0.98), rgba(240,247,255,0.86)), radial-gradient(circle at top right, rgba(255,138,31,0.16), transparent 36%)',
+            'linear-gradient(135deg, var(--surface-glass-white), var(--surface-tinted-light)), radial-gradient(circle at top right, var(--accent-tint-bg), transparent 36%)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -110,7 +114,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
             flexDirection: 'column',
             gap: '0.35rem',
             position: 'sticky',
-            top: 'calc(var(--header-height, 72px) + 1.5rem)',
+            top: 'calc(var(--header-height, 56px) + 1.5rem)',
           }}
         >
           {visibleTabs.map((tab) => (
@@ -130,14 +134,6 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
               onShowNotification={onShowNotification}
             />
           )}
-          {activeTab.id === 'engines' && (
-            <EnginesPanel
-              onShowNotification={onShowNotification}
-              onRefresh={onRefresh}
-              startupReady={startupReady}
-            />
-          )}
-          {activeTab.id === 'api' && <ApiSettingsPanel />}
           {activeTab.id === 'about' && <AboutSettingsPanel onRefresh={onRefresh} />}
           {activeTab.id === 'developer' && <DeveloperSettingsPanel />}
         </div>

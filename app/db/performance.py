@@ -105,6 +105,35 @@ def record_render_sample(
 
 
 
+def engine_sample_count(engine: str) -> int:
+    """Return the number of recorded render samples for *engine*.
+
+    Used as the maturity signal for the ETA baseline confidence (``c_base``):
+    a freshly-verified engine has ~1 sample (low confidence → the baseline is
+    given little influence in the segment ETA decay-handoff), rising toward full
+    confidence as real renders accumulate.  Cheap COUNT — callers cache it per
+    segment so it never runs per progress frame.
+    """
+    if not engine:
+        return 0
+    try:
+        with _db_lock:
+            with get_studio_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT COUNT(*) AS n FROM render_performance_samples WHERE engine = ?",
+                    (engine,),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    return 0
+                value = row["n"] if hasattr(row, "keys") else row[0]
+                return max(0, int(value or 0))
+    except Exception:
+        logger.debug("Failed to count render samples for engine %s", engine, exc_info=True)
+        return 0
+
+
 def delete_render_samples_for_engine(engine: str) -> int:
     """Delete all render samples recorded for a specific engine."""
     if not engine:

@@ -407,3 +407,143 @@ def test_watchdog_uses_readline_to_avoid_buffering():
     # We want it to have called readline, not __iter__
     assert stream.readline_called > 0
     assert stream.iter_called == 0
+
+
+# --------------------------------------------------------------------------- #
+# B8 regression: chapter progress must rise continuously within a render group #
+# --------------------------------------------------------------------------- #
+
+class TwoGroupScriptTask(StudioTask):
+    """
+    2-group script using the production script format (id + ids + save_path).
+    Group 1 weight=50 (segments seg-A, seg-B), group 2 weight=50 (segment seg-C).
+    Equal weights → completed-group fraction = 0.5 → grouped_progress = 0.5*0.9 = 0.45.
+    """
+    def __init__(self, bridge):
+        self.bridge = bridge
+        self.script = [
+            {
+                "id": "seg-A",
+                "ids": ["seg-A", "seg-B"],
+                "text": "Group one text.",
+                "save_path": "/tmp/seg-A.wav",
+                "weight": 50,
+            },
+            {
+                "id": "seg-C",
+                "ids": ["seg-C"],
+                "text": "Group two text.",
+                "save_path": "/tmp/seg-C.wav",
+                "weight": 50,
+            },
+        ]
+
+    def get_expected_duration(self, text: str, engine_id: str) -> float:
+        return 20.0
+
+    def describe(self):
+        return TaskContext(
+            task_id="job-b8",
+            task_type="synthesis",
+            payload={"script_text": "Group one text. Group two text.", "engine_id": "xtts"},
+        )
+
+    @property
+    def prefers_local_execution(self) -> bool:
+        return True
+
+    def run(self):
+        self.bridge.synthesize({"text": "test"})
+        return TaskResult(status="completed")
+
+
+def test_b8_progress_advances_within_group2(monkeypatch):
+    """B8 — chapter progress MUST advance continuously within a render group.
+
+    Simulate a 2-group render:
+      • Group 1 completes ([SEGMENT_SAVED]).
+      • Group 2 starts ([START_SEGMENT] seg-C) then emits [PROGRESS] at 25 / 50 / 75%.
+
+    Assert:
+      1. After SEGMENT_SAVED for group 1, grouped_progress = completed-group fraction
+         (0.45 for equal weights). This is the "frozen" value from the bug.
+      2. After each [PROGRESS] in group 2, grouped_progress STRICTLY exceeds the frozen
+         value — i.e., progress advances within the group rather than staying frozen.
+      3. active_segment_id is set to "seg-C" during the group-2 progress events.
+
+    Revert-check: on pre-fix code where active_seg_id[0] is None or doesn't resolve a
+    weight, all three group-2 PROGRESS events publish the same frozen value (0.45).
+    """
+    bridge = MagicMock()
+    orc = MockOrchestrator(voice_bridge=bridge)
+    task = TwoGroupScriptTask(bridge)
+    context = task.describe()
+    wd = TtsServerWatchdog()
+
+    # Mock DB / WS side effects that would be triggered by SEGMENT_SAVED handler
+    monkeypatch.setattr("app.db.update_segments_bulk", lambda *a, **kw: None, raising=False)
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
+         patch("app.db.update_segments_bulk", lambda *a, **kw: None), \
+         patch("app.api.ws.broadcast_segments_updated", lambda *a, **kw: None):
+
+        def side_effect(*args, **kwargs):
+            # Drive the full 2-group marker sequence through the watchdog:
+            #   [START_SYNTHESIS]  — engine confirmed
+            #   [START_SEGMENT] seg-A — group 1 starts
+            #   [PROGRESS] 100%   — group 1 completes synthesis
+            #   [SEGMENT_SAVED]   — group 1 audio saved → completed_weight += 50
+            #   [START_SEGMENT] seg-C — group 2 starts  → active_seg_id = "seg-C"
+            #   [PROGRESS] 25%    — group 2 at 25%
+            #   [PROGRESS] 50%    — group 2 at 50%
+            #   [PROGRESS] 75%    — group 2 at 75%
+            wd._drain_stream(None, "stdout", MockStream([
+                "[START_SYNTHESIS] job-b8\n",
+                "[START_SEGMENT] seg-A job-b8\n",
+                "[PROGRESS] 100% job-b8\n",
+                "[SEGMENT_SAVED] /tmp/seg-A.wav job-b8\n",
+                "[START_SEGMENT] seg-C job-b8\n",
+                "[PROGRESS] 25% job-b8\n",
+                "[PROGRESS] 50% job-b8\n",
+                "[PROGRESS] 75% job-b8\n",
+            ]))
+            return {"status": "ok"}
+
+        bridge.synthesize.side_effect = side_effect
+        orc.progress_service = MagicMock()
+
+        orc._dispatch(task=task, context=context)
+
+    running = [e for e in orc.published if e.get("status") == "running" and e.get("progress") is not None]
+
+    # Find the SEGMENT_SAVED publish (group 1 completion — the "frozen" baseline)
+    saved_events = [e for e in running if e.get("reason_code") == "SEGMENT_SAVED"]
+    assert saved_events, "No SEGMENT_SAVED event published"
+    frozen_progress = saved_events[-1]["progress"]
+
+    # Find the SEGMENT_PROGRESS events for group 2
+    group2_progress_events = [
+        e for e in running
+        if e.get("reason_code") == "SEGMENT_PROGRESS"
+        and e.get("active_segment_id") == "seg-C"
+    ]
+    assert len(group2_progress_events) >= 3, (
+        f"Expected >=3 SEGMENT_PROGRESS events for seg-C, got {len(group2_progress_events)}. "
+        f"Published events: {[e.get('reason_code') for e in running]}"
+    )
+
+    # B8 core assertion: progress MUST rise above the frozen value
+    group2_progress_values = [e["progress"] for e in group2_progress_events]
+    assert all(p > frozen_progress for p in group2_progress_values), (
+        f"B8 violation: group-2 progress did not advance above the group-1 completion "
+        f"floor {frozen_progress}. Got: {group2_progress_values}. "
+        f"active_segment_ids: {[e.get('active_segment_id') for e in group2_progress_events]}"
+    )
+
+    # Progress must be strictly increasing during group 2
+    for i in range(1, len(group2_progress_values)):
+        assert group2_progress_values[i] >= group2_progress_values[i - 1], (
+            f"B8 violation: progress regressed from {group2_progress_values[i-1]} to "
+            f"{group2_progress_values[i]} within group 2"
+        )

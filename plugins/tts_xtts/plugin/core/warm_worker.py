@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import queue
 import subprocess
 import sys
 import threading
@@ -52,6 +53,11 @@ class WarmWorker:
         self._script_path = script_path
         self._env = env
         self._proc: subprocess.Popen | None = None
+        # Persistent (worker-lifetime) reader queues. ONE reader per stream feeds
+        # these for the whole life of the process — see _start_readers for why
+        # per-job readers corrupt subsequent jobs.
+        self._stderr_q: queue.Queue[str | None] = queue.Queue()
+        self._done_q: queue.Queue[dict | None] = queue.Queue()
         self._start()
 
     def _start(self) -> None:
@@ -66,6 +72,67 @@ class WarmWorker:
             env=self._env,
             start_new_session=True,
         )
+        self._start_readers()
+
+    def _start_readers(self) -> None:
+        """Start ONE stdout + ONE stderr reader for the worker's whole lifetime.
+
+        Why not per-job readers: the worker is long-lived (warm), so its stdout
+        and stderr never close between jobs. A per-job stderr reader therefore
+        never hits EOF; after a job's stdout done-sentinel it stays blocked on
+        ``proc.stderr.read(1)`` forever. The next job would start a SECOND stderr
+        reader on the SAME pipe, and the orphaned reader would compete
+        byte-for-byte with it — stealing/garbling the new job's markers into a
+        dead queue. The symptom: the 2nd (and every later) chapter render emits no
+        [SEGMENT_SAVED]/progress, segments never flip to 'done', and the bar jumps
+        straight to ~complete — indistinguishable from cached/reused audio.
+
+        A single reader per stream, draining into worker-lifetime queues that
+        ``run_job`` consumes per-job (jobs are serialised by the manager lock),
+        removes the race entirely.
+        """
+        proc = self._proc
+        assert proc is not None and proc.stdout is not None and proc.stderr is not None
+
+        def _read_stdout() -> None:
+            buf = b""
+            while True:
+                ch = proc.stdout.read(1)
+                if not ch:
+                    break
+                if ch == b"\n":
+                    try:
+                        payload = json.loads(buf.decode())
+                        if isinstance(payload, dict) and payload.get("done"):
+                            self._done_q.put(payload)
+                    except Exception:
+                        pass
+                    buf = b""
+                else:
+                    buf += ch
+            self._done_q.put(None)  # EOF — worker exited
+
+        def _read_stderr() -> None:
+            buf = b""
+            try:
+                while True:
+                    ch = proc.stderr.read(1)
+                    if not ch:
+                        break
+                    if ch in (b"\n", b"\r"):
+                        line_str = buf.decode("utf-8", errors="replace").rstrip()
+                        if line_str:
+                            self._stderr_q.put(line_str + "\n")
+                        buf = b""
+                    else:
+                        buf += ch
+                if buf:
+                    self._stderr_q.put(buf.decode("utf-8", errors="replace") + "\n")
+            finally:
+                self._stderr_q.put(None)  # EOF sentinel
+
+        threading.Thread(target=_read_stdout, daemon=True).start()
+        threading.Thread(target=_read_stderr, daemon=True).start()
 
     @property
     def is_alive(self) -> bool:
@@ -88,10 +155,12 @@ class WarmWorker:
         proc = self._proc
         assert proc is not None
         assert proc.stdin is not None
-        assert proc.stderr is not None
-        assert proc.stdout is not None
 
-        # Send job over stdin.
+        # Send job over stdin. The persistent readers (started at spawn) stream
+        # this job's stderr markers into self._stderr_q and its stdout
+        # done-sentinel into self._done_q. Jobs are serialised by the manager
+        # lock, so everything between this write and the next done-sentinel
+        # belongs to this job.
         line = json.dumps(job) + "\n"
         try:
             proc.stdin.write(line.encode())
@@ -99,67 +168,9 @@ class WarmWorker:
         except BrokenPipeError as exc:
             raise RuntimeError(f"WarmWorker: broken pipe writing job: {exc}") from exc
 
-        # Stream stderr (markers + progress) in a side thread into a queue.
-        # Read the stdout done-sentinel in another thread.
-        # The main thread drains the stderr queue and checks cancellation.
-        import queue as _queue
-
-        done_event = threading.Event()
-        rc_holder: list[int] = [1]
-        stderr_queue: _queue.Queue[str | None] = _queue.Queue()
-
-        def _read_stdout() -> None:
-            """Read the done-sentinel line from stdout."""
-            assert proc.stdout is not None
-            buf = b""
-            while True:
-                ch = proc.stdout.read(1)
-                if not ch:
-                    break
-                if ch == b"\n":
-                    try:
-                        payload = json.loads(buf.decode())
-                        if payload.get("done"):
-                            rc_holder[0] = int(payload.get("rc", 1))
-                            done_event.set()
-                            return
-                    except Exception:
-                        pass
-                    buf = b""
-                else:
-                    buf += ch
-            done_event.set()  # EOF without sentinel — signal completion anyway
-
-        def _read_stderr() -> None:
-            """Read stderr lines into the queue."""
-            assert proc.stderr is not None
-            buf = b""
-            try:
-                while True:
-                    ch = proc.stderr.read(1)
-                    if not ch:
-                        break
-                    if ch in (b"\n", b"\r"):
-                        line_str = buf.decode("utf-8", errors="replace").rstrip()
-                        if line_str:
-                            stderr_queue.put(line_str + "\n")
-                        buf = b""
-                    else:
-                        buf += ch
-                if buf:
-                    stderr_queue.put(buf.decode("utf-8", errors="replace") + "\n")
-            finally:
-                stderr_queue.put(None)  # EOF sentinel
-
-        stdout_reader = threading.Thread(target=_read_stdout, daemon=True)
-        stderr_reader = threading.Thread(target=_read_stderr, daemon=True)
-        stdout_reader.start()
-        stderr_reader.start()
-
-        # Drain the stderr queue.  After done_event fires we keep draining
-        # until the stderr reader signals EOF (None sentinel).
-        stderr_eof = False
-        while not stderr_eof:
+        rc = 1
+        worker_died = False
+        while True:
             if cancel_check():
                 logger.debug("WarmWorker: cancel requested — killing process")
                 try:
@@ -170,40 +181,60 @@ class WarmWorker:
                 self._proc = None
                 return 1
 
+            # Relay any markers the persistent reader has queued so far.
+            self._relay_pending_stderr(on_output)
+
+            # Wait briefly for this job's done-sentinel.
             try:
-                item = stderr_queue.get(timeout=0.05)
-                if item is None:
-                    stderr_eof = True
-                else:
-                    on_output(item)
-            except _queue.Empty:
-                # If done and queue is empty, we can stop waiting.
-                if done_event.is_set():
-                    # Give stderr reader a moment to flush remaining lines.
-                    try:
-                        stderr_reader.join(timeout=0.5)
-                    except Exception:
-                        pass
-                    # Drain whatever arrived during the join.
-                    while True:
-                        try:
-                            item = stderr_queue.get_nowait()
-                            if item is None:
-                                break
-                            on_output(item)
-                        except _queue.Empty:
-                            break
-                    break
+                payload = self._done_q.get(timeout=0.05)
+            except queue.Empty:
+                continue
+            if payload is None:
+                worker_died = True
+            else:
+                rc = int(payload.get("rc", 1))
+            break
 
-        stdout_reader.join(timeout=2.0)
+        # The worker flushes all stderr markers BEFORE writing the stdout
+        # done-sentinel, but the two pipes are read concurrently — a few trailing
+        # marker lines may still be in flight. Drain them for a short grace window
+        # so the job's final [SEGMENT_SAVED]/progress are not lost.
+        self._relay_trailing_stderr(on_output)
 
-        # If the process died without sending a sentinel, report failure.
-        if not done_event.is_set():
+        if worker_died:
             if not self.is_alive:
                 self._proc = None
             return 1
+        return rc
 
-        return rc_holder[0]
+    def _relay_pending_stderr(self, on_output: Callable[[str], None]) -> None:
+        """Relay every stderr line currently queued, without blocking."""
+        while True:
+            try:
+                item = self._stderr_q.get_nowait()
+            except queue.Empty:
+                return
+            if item is None:  # worker EOF
+                return
+            on_output(item)
+
+    def _relay_trailing_stderr(
+        self, on_output: Callable[[str], None], grace: float = 0.3
+    ) -> None:
+        """Relay trailing stderr lines that arrive within ``grace`` of the
+        done-sentinel (markers already flushed by the worker before 'done')."""
+        deadline = time.monotonic() + grace
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return
+            try:
+                item = self._stderr_q.get(timeout=min(0.05, remaining))
+            except queue.Empty:
+                continue
+            if item is None:  # worker EOF
+                return
+            on_output(item)
 
     def shutdown(self) -> None:
         """Terminate the worker process."""

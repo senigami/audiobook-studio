@@ -1,5 +1,7 @@
 # Implementation Blueprint: Progress & ETA Service (Studio 2.0)
 
+> **SUPERSEDED by `plans/progress_routing_unification/` (shipped 2026-06-18).** `ProgressService` is implemented at `app/orchestration/progress/service.py`; the files listed below exist and are live. `enrich()` is the single contract kernel; routing is single-source at the event-builder layer. Retained for history.
+
 This document specifies how I want progress and ETA implemented so the UI can trust it.
 
 ## 1. Files I Want To Create

@@ -164,6 +164,10 @@ def test_api_jobs_preserves_live_metadata_fields(clean_jobs):
         updated_at=now + 5,
         progress=0.55,
         eta_seconds=12,
+        # Task 007: the snapshot handler routes each row through enrich(sample=False),
+        # which replaces the raw Job.eta_confidence string/None with the §4A.2 float.
+        # Asserting the raw string value here is no longer correct — the contract is
+        # that eta_confidence is a numeric float in the snapshot, not the stored string.
         eta_confidence="stable",
         reason_code="resource_wait_gpu",
         active_render_batch_id="batch-1",
@@ -177,7 +181,13 @@ def test_api_jobs_preserves_live_metadata_fields(clean_jobs):
     job_data = next((j for j in data if j["id"] == "job-live-metadata"), None)
     assert job_data is not None
     assert job_data["updated_at"] == now + 5
-    assert job_data["eta_confidence"] == "stable"
+    # Task 007: eta_confidence is now a §4A.2 float from enrich(sample=False),
+    # not the raw "stable" string stored in the Job model.
+    assert isinstance(job_data["eta_confidence"], float), (
+        f"After Task 007 wiring, eta_confidence must be a §4A.2 float, "
+        f"got {type(job_data['eta_confidence'])}: {job_data['eta_confidence']!r}"
+    )
+    assert 0.0 <= job_data["eta_confidence"] <= 1.0
     assert job_data["reason_code"] == "resource_wait_gpu"
     assert job_data["active_render_batch_id"] == "batch-1"
     assert job_data["active_render_batch_progress"] == 0.6

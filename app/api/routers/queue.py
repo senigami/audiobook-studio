@@ -98,6 +98,25 @@ def api_get_queue():
         job = all_jobs.get(jid)
         if job:
             _merge_live_queue_job(item, job)
+            # PI6: enrich running/in-flight rows that carry a progress value so
+            # the queue hydration snapshot surfaces numeric eta_confidence and
+            # contract ETA fields matching what live frames carry.  QUEUED and
+            # terminal rows (no progress or no ring state) are left as-is —
+            # enrich on a progress-less row is a no-op / could add a meaningless
+            # BASE_FLOOR confidence.  sample=False guarantees no mutation of the
+            # live ring or monotonic floor.
+            item_status = item.get("status")
+            item_progress = item.get("progress")
+            if (
+                item_status in {"running", "preparing", "finalizing"}
+                and item_progress is not None
+            ):
+                try:
+                    from ...orchestration.progress.service import get_progress_service  # noqa: PLC0415
+                    svc = get_progress_service()
+                    svc.enrich(jid, item, sample=False)
+                except Exception:
+                    pass
     return JSONResponse(queue_items)
 
 @router.delete("/processing_queue")

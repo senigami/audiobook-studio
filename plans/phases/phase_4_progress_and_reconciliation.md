@@ -1,5 +1,7 @@
 # Phase 4: Progress And Reconciliation
 
+> **SUPERSEDED by `plans/progress_routing_unification/` (shipped 2026-06-18).** All Phase 4 deliverables (reconciliation service, progress service, ETA service, normalized event contract, live-progress stability rules) are implemented and shipped. Open items carried forward into `plans/progress_routing_unification/01-roadmap.md`. Retained for history.
+
 ## Objective
 
 Build trustworthy progress, ETA, and artifact reconciliation before the orchestrator becomes the source of execution truth.

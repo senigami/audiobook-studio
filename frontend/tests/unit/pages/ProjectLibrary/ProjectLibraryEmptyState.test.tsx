@@ -66,20 +66,20 @@ describe('ProjectLibrary empty-state branch (Q12)', () => {
     mockHook.mockReset()
   })
 
-  it('shows only the centered empty state (no hero) when projects is empty', () => {
+  it('shows only the centered empty state (no greeting header) when projects is empty', () => {
     mockHook.mockReturnValue(baseHookReturn({ projects: [] }))
     wrap(<ProjectLibrary />)
     // Empty state CTA present
     expect(screen.getByRole('button', { name: /new project/i })).toBeTruthy()
-    // Hero headline absent
-    expect(screen.queryByText(/Natural AI Audio Lab/i)).toBeNull()
+    // Populated-state greeting header absent in the empty state
+    expect(screen.queryByText(/Good (morning|afternoon|evening)/i)).toBeNull()
   })
 
-  it('shows the hero section when projects exist', () => {
+  it('shows the greeting header when projects exist', () => {
     const project = { id: 'p1', title: 'Test', created_at: 0, updated_at: 0, chapters: [], characters: [] }
     mockHook.mockReturnValue(baseHookReturn({ projects: [project], sortedProjects: [project] }))
     wrap(<ProjectLibrary />)
-    expect(screen.getByText(/Natural AI Audio Lab/i)).toBeTruthy()
+    expect(screen.getByText(/Good (morning|afternoon|evening)/i)).toBeTruthy()
   })
 
   it('opens the create modal when the empty-state CTA is clicked', () => {

@@ -32,7 +32,7 @@ def test_plugin_requirements_owns_full_xtts_dependency_set():
 
     # Essential heavy dependencies that must be present
     essentials = [
-        "coqui-ai-TTS",
+        "coqui-tts",
         "coqpit-config",
         "transformers",
         "torch",

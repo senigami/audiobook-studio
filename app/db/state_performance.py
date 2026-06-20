@@ -150,3 +150,63 @@ def update_performance_metrics(**updates) -> None:
         metrics.update(updates)
         metrics = _normalize_performance_metrics(metrics)
         _write_performance_metrics_to_db(metrics)
+
+
+def _read_engine_cps_only() -> Dict[str, float]:
+    """Lightweight read of engine_cps settings without loading render_history.
+
+    Used by seconds_per_char on the hot progress path (called per-frame via
+    enrich()).  Skips get_render_history() to avoid the wasted repeated query
+    that _read_performance_metrics_from_db() performs (FIX 4).
+    """
+    engine_cps: Dict[str, float] = {}
+    try:
+        from .core import get_studio_connection  # noqa: PLC0415
+
+        with get_studio_connection() as conn:
+            cursor = conn.cursor()
+            _ensure_settings_table(cursor)
+            cursor.execute("SELECT key, value FROM settings WHERE key LIKE 'performance_metric:cps:%'")
+            for row in cursor.fetchall():
+                key = row["key"] if hasattr(row, "keys") else row[0]
+                val = row["value"] if hasattr(row, "keys") else row[1]
+                eid = key.split(":")[-1]
+                try:
+                    engine_cps[eid] = float(val)
+                except (TypeError, ValueError):
+                    pass
+    except Exception:
+        logger.debug("Failed to read engine_cps from database", exc_info=True)
+    return engine_cps
+
+
+def seconds_per_char(engine_id: str, *, fallback_cps: float | None = None) -> float | None:
+    """Return the estimated seconds-per-character for *engine_id*.
+
+    Resolution order:
+    1. Warm path: if a positive CPS has been recorded for *engine_id* in
+       ``engine_cps``, return ``1 / cps``.
+    2. Fallback path: if *fallback_cps* is provided and positive, return
+       ``1 / fallback_cps``.  The caller is responsible for supplying a
+       sensible baseline (e.g. ``DEFAULT_BASELINE_ENGINE_CPS`` from
+       ``app.engines.behavior``).
+    3. Unknown: return ``None`` when no velocity data is available.
+
+    Units: seconds per character (inverse of characters-per-second).
+    Pure read — does NOT mutate ``engine_cps`` or write ``state.json``.
+
+    FIX 4: uses _read_engine_cps_only() (skips get_render_history) so each
+    mid-render progress frame via enrich() does not trigger a wasted history
+    query.
+    """
+    with _STATE_LOCK:
+        engine_cps = _read_engine_cps_only()
+
+    cps = engine_cps.get(engine_id)
+    if cps is not None and cps > 0:
+        return 1.0 / cps
+
+    if fallback_cps is not None and fallback_cps > 0:
+        return 1.0 / fallback_cps
+
+    return None
