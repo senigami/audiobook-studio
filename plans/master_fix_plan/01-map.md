@@ -22,8 +22,8 @@ interlock. The two load-bearing couplings an executor must never forget:
 |----|-----------|----------------------|--------|
 | **W1** | Foundation cleanup (deps, dead files, hardcoded colors, dead CSS) | `simplification/01` + folded `final_release/06 §1`, `09 D-items` | low-risk, unblocks all |
 | **W2** | Code simplification (FE dead-code delete, styling separation, large-file splits, BE cleanup, plugin SDK consolidation) | `simplification/02–06` | refactor |
-| **W3** | Restore lost functionality (chapter-list, guards, in-Studio edit, default voice, **segment-aware player**, wire orphaned features) | `simplification/07` | feature restore |
-| **W4** | Book/Chapter IA live-app port (two-level IA: Book workspace + Chapter workspace) | `book_view_redesign/` + `book_view_ia_proposal` | redesign |
+| **W3** | Wire orphaned features (VoiceDropzone, VoiceModules, SearchableSelect) — re-scoped; the chapter-list/Studio/player restores (RST-1..8) now fold into W4 | `simplification/07` (WIRE-*) | feature |
+| **W4** | Book/Chapter IA port (two-level Book + Chapter workspace) — **replaces the broken 5-stage pipeline**; **carries the RST-1..8 lost-feature checklist** | `book_view_redesign/` + `book_view_ia_proposal` + `simplification/07` (RST-*) | redesign (primary) |
 | **W5** | Audio player completion (scope-agnostic live player, waveform tape, peaks) | `audio_player_waveform_scrubber/` W1–W3 | feature |
 | **W6** | Voice taxonomy v2 — Phase G (language/accent/style, tinted pills U8, HF tags) | `final_release/04` Phase G | feature; unblocks demo bundle |
 | **W7** | UX backlog (U1–U14, minus styling folded into W2) | `final_release/10` | polish |
@@ -40,10 +40,11 @@ interlock. The two load-bearing couplings an executor must never forget:
 W1 Foundation cleanup ──┬─> unblocks W2 (clean base)
                         └─> feeds W12 (release dead-code gate)
 
-W3 Restore lost fn ──HARVESTS FROM──> W2's dead trees   (W3 MUST precede W2's DC-1b deletion)
-        │
-        ├──shares Book pipeline surface──> W4 IA port    (coordinate; W3 items must survive W4)
-        └──RST-8 segment-aware player──> W5 audio player (RST-8 + W5 W1 are the SAME player; merge)
+W4 IA port ──CARRIES RST-1..8 checklist & HARVESTS FROM──> the dead trees  (W4 MUST precede W2 DC-1b)
+        │   (owner-decided 2026-06-20: restoration folds INTO the port; the broken 5-stage pipeline
+        │    is being REPLACED by the two-level IA — owner design review of the pipeline pending)
+        └──RST-8 segment-aware player──> W5 audio player (same player; deliver together)
+W3 (re-scoped) = WIRE-1/2/3 only ──> independent of the port
 
 W2 styling separation ──FOLDS──> W7 U3/U9/U10            (do once, in W2)
 W2 large-file splits  ──TOUCHES──> useStudioChapter (W3/W4 depend on its segment-playback logic;
@@ -61,8 +62,8 @@ W13 ──deferred──> post-v2.0 (not gating)
 
 - **INV-1 — Specs are jointly authoritative.** Any behavior change bumps the matching `docs/specs/`
   spec (`spec_version` + changelog) in the same commit. (CLAUDE.md)
-- **INV-2 — Harvest before delete.** No `ProjectDetail`/`ChapterEditor` husk is deleted until the
-  owner-confirmed restoration items that live in it have been ported (W3 → then W2 DC-1b).
+- **INV-2 — Harvest before delete.** No `ProjectDetail`/`ChapterEditor` husk is deleted until the IA
+  port (W4) has restored the RST-1..8 lost features it carries (W4 → then W2 DC-1b).
 - **INV-3 — No engine-ID branches in core.** Plugin/SDK work (W2, W10, W11) parameterizes; never
   `if engine == "xtts"`. (`modular_architecture.md`)
 - **INV-4 — Preserve segment-playback logic.** `useStudioChapter`'s segment playback exports
@@ -83,10 +84,11 @@ W13 ──deferred──> post-v2.0 (not gating)
 
 | Risk / question | Where | Note |
 |-----------------|-------|------|
-| W3 and W4 run uncoordinated → features re-lost or restoration wasted | W3↔W4 | Decide sequencing: restore-into-current-pipeline first, OR fold restoration into the IA port. **Open — owner call.** |
-| RST-8 (segment-aware player) is the hardest item; segment timing + global-player sync | W3/W5 | Treat as its own mini-project; characterize with tests before moving logic (INV-4). |
+| Pipeline design review still pending → port should follow it | W4 | The 5-stage pipeline "doesn't work right" (owner, 06-20). Owner will run a design review of it; **W4 build should start after that review** so the two-level IA reflects its conclusions. |
+| Port silently drops a lost feature | W4 | Mitigated by the carried RST-1..8 checklist as W4 acceptance criteria (owner: "as long as we know it's coming"). |
+| RST-8 (segment-aware player) is the hardest item; segment timing + global-player sync | W4/W5 | Treat as its own mini-project; characterize with tests before moving logic (INV-4). |
 | W10 namespace rename breaks plugin imports across repo | W10 | Cross-cutting; do alone, full suite incl. plugin suites; coordinate with W11. |
-| Deleting dead trees too early | W2 | Gated by INV-2. |
-| Localization scope (deferred?) | W13 | Confirm post-v2 vs in-v2. **Open — owner call.** |
+| Deleting dead trees too early | W2 | Gated by INV-2 (now: after W4 harvests). |
 | Sub-sentence speaker assignment undecided | W13 | Needs a design decision before it can be planned. **Open — owner call.** |
-| W4 IA port (book_view_ia) vs the already-shipped 5-stage pipeline | W4 | The proposal restructures to two-level (Book + Chapter workspace); confirm this still reflects intent given the redesign already shipped 5 flat stages. **Open — owner call.** |
+| ~~Localization in/post v2~~ | W13 | **RESOLVED 06-20: post-v2.0** (deferred). |
+| ~~W3↔W4 sequencing; W4 IA scope~~ | W3/W4 | **RESOLVED 06-20:** restoration folds into the port; two-level IA confirmed as the target (replaces 5-stage). |

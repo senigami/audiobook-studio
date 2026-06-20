@@ -21,8 +21,12 @@ detail to the authoritative sub-plans it references.
   - **INV-2 harvest-before-delete** (002 before 005's tree deletion),
   - **INV-4 preserve segment-playback logic** (004 needs it; 005 must not strip it),
   - **INV-5 the xtts adapter is live** (don't delete it).
-- This is **planning only** — nothing here has been executed. Three owner forks (see roadmap) gate
-  workstreams W3/W4 and W13; resolve them before starting those.
+- This is **planning only** — nothing here has been executed.
+- **Owner forks RESOLVED 2026-06-20** (see [02-roadmap.md](02-roadmap.md)): (1) lost-feature
+  restoration **folds into the IA port** (003) as a carried checklist; (2) the **two-level Book +
+  Chapter workspace IA is the target**, replacing the broken 5-stage pipeline — **a pipeline design
+  review is pending and should precede the W4 build**; (3) **localization is post-v2.0**. The one
+  remaining open question is sub-sentence speaker assignment (W13, needs a design decision).
 
 ## Status protocol
 Mark progress in the task file header as `proposed → in-progress → done`. When a workstream's

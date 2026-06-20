@@ -16,9 +16,10 @@ W1–W3 (06-16) **+** [`simplification/07`](../../simplification/07_restore_lost
   PlayerBar integration, CSS + tests to the live app.
 - **W3** (tasks 010–012): peaks source abstraction, backend sidecar emission, source-swap + virtualization.
 
-**Map links:** W5. **RST-8 belongs to W3 (002) but is implemented here** — do not duplicate; 002 hands
-the preserved segment logic to this task. Honors INV-4 (preserve segment logic), INV-7. Spec:
-`audio-player.md` (already at 1.6.0 — keep in sync).
+**Map links:** W5. **RST-8 is part of the lost-feature restoration folded into the IA port (003) but
+implemented here** — deliver alongside the Chapter workspace. The segment-playback logic it needs is
+preserved per INV-4 (005's split must not strip it). Honors INV-4, INV-7. Spec: `audio-player.md`
+(already at 1.6.0 — keep in sync).
 **Dependencies:** INV-4 means the W2 large-file split of `useStudioChapter` (005) must not strip the
 segment-playback exports before this lands; coordinate. RST-8 is the delicate part — characterize with
 tests first.

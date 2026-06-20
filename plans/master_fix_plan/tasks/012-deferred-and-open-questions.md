@@ -10,8 +10,8 @@ block the release.
 + [`examples/`](../../phases/phase_12_multilingual_interface_examples/). **Spec is done**
 (`docs/specs/interface-localization.md`); **implementation is not started** — no `frontend/src/i18n/`,
 no i18n library, no committed source catalogs (the `examples/` locales are review-only, `completion=0`).
-**Status:** deferred to Phase 13 / post-v2.0 per `phase_12_polish_and_cleanup.md`. ⚠️ OWNER FORK:
-confirm in-v2.0 vs post-v2.0.
+**Status:** **RESOLVED 2026-06-20 — post-v2.0** (owner). Spec stays; implementation is not part of the
+v2.0 release.
 
 ### Voice provider integrations (unconfirmed-shipped)
 **Source:** `v2_huggingface_voice_interface.md`, `v2_voice_metadata_and_casting.md`. Direct HF

@@ -9,12 +9,14 @@ before their workstream starts (see Open Questions in the map).
 ```
 W1 (foundation cleanup) ─────────────────────────────► (unblocks everything; ship first)
         │
-W3 (restore lost fn) ──must precede──► W2 dead-tree delete (DC-1b)
-        │                              │
-        ├─ coordinate with ─► W4 (IA port)   ◄── OWNER FORK: sequence W3 vs W4
-        └─ RST-8 merges with ─► W5 (audio player)
+[owner design review of the broken 5-stage pipeline] ──informs──► W4
         │
-W2 (simplification: styling, splits, BE, plugins) ──► (parallel-safe except DC-1b)
+W4 (IA port) ──CARRIES RST-1..8 checklist──► harvests lost features from old trees
+        │      └── RST-8 segment-aware player delivered with W5 (audio player)
+        └──must precede──► W2 dead-tree delete (DC-1b)
+W3 (re-scoped) = WIRE-1/2/3 only ──► independent of the port
+        │
+W2 (simplification: styling, splits, BE, plugins) ──► (parallel-safe except DC-1b, gated by W4)
         │
 W6 (taxonomy v2) ──unblocks──► W12 PK7 demo refresh
 W10 (namespace rename) ── alone, late ──► coordinates with W11
@@ -31,11 +33,18 @@ W13 (localization, sub-sentence) ── deferred / needs decision ──► post
   hardcoded-color fixes, dead CSS, `.coveragerc`, `last_test.json`, + folded `final_release/06 §1`
   and `09` dead-code items. Ships immediately; unblocks the rest.
 
-### Milestone 2 — Restore before you delete  *(OWNER FORK: confirm W3↔W4 sequencing first)*
-- **[002 Restore lost functionality](tasks/002-restore-lost-functionality.md)** (W3) — RST-1..8 +
-  WIRE-1/2/3. **Gates** the dead-tree deletion in 004.
-- **[003 Book/Chapter IA live-app port](tasks/003-ia-live-app-port.md)** (W4) — coordinate with 002.
-- **[004 Audio player completion](tasks/004-audio-player-completion.md)** (W5) — absorbs RST-8.
+### Milestone 2 — Two-level IA port (absorbs the lost-feature restoration)  *(owner-decided 2026-06-20)*
+The live 5-stage pipeline is being **replaced** by the two-level Book + Chapter workspace IA — it
+"doesn't work right" (owner design review pending, which informs this port). The lost features are
+restored **as part of** this port, carried by an explicit checklist so none are dropped.
+- **[003 Book/Chapter IA port](tasks/003-ia-live-app-port.md)** (W4) — the primary redesign. **Carries
+  the RST-1..8 lost-feature checklist** (from 002) as acceptance criteria, and **gates** the dead-tree
+  deletion in 005 (DC-1b): the port harvests those features from the old trees before they're removed.
+- **[002 Wire orphaned features](tasks/002-restore-lost-functionality.md)** (W3, re-scoped) — the
+  non-IA restores only: WIRE-1 VoiceDropzone, WIRE-2 VoiceModules, WIRE-3 SearchableSelect. Independent
+  of the port.
+- **[004 Audio player completion](tasks/004-audio-player-completion.md)** (W5) — RST-8 segment-aware
+  player, delivered alongside the Chapter workspace.
 
 ### Milestone 3 — Simplification
 - **[005 Code simplification](tasks/005-code-simplification.md)** (W2) — styling separation,
@@ -65,9 +74,10 @@ W13 (localization, sub-sentence) ── deferred / needs decision ──► post
 - 007/008/009 are independent polish; parallel-safe.
 - 011 is strictly last and owner-driven.
 
-## Owner decisions needed before starting the gated workstreams
-1. **W3 ↔ W4 sequencing** — restore into the current 5-stage pipeline first, or fold restoration into
-   the two-level IA port? (Affects 002 vs 003 order.)
-2. **W4 scope** — is the two-level Book+Chapter workspace IA still the target, given the 5-stage
-   pipeline already shipped? (Confirms or re-scopes 003.)
-3. **W13 localization** — in v2.0 or post-v2.0? (Currently deferred.)
+## Owner decisions — RESOLVED (2026-06-20)
+1. **W3 ↔ W4 sequencing** → **fold restoration into the IA port.** RST-1..8 ride along with 003 as a
+   tracked checklist ("as long as we know it's coming"); no separate restore-first milestone.
+2. **W4 scope** → **two-level Book + Chapter workspace confirmed as the target.** It replaces the
+   5-stage pipeline, which doesn't work right. **Owner design review on the pipeline is pending** and
+   will inform 003 — start the build after that review.
+3. **W13 localization** → **post-v2.0** (deferred; tracked in 012).
