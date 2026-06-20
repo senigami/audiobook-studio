@@ -1,0 +1,1772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Audiobook Studio — PROPOSED · Quiet Studio</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   REDUCED-MOTION GUARD — must be first rule in cascade
+   ═══════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* --pulse-duration token zeroed by guard; .is-running restores below */
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PROPOSED TOKENS — LIGHT (:root)
+   ═══════════════════════════════════════════════════════════════════ */
+:root {
+  /* Page surfaces */
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-reading: #fffef9;
+  --surface-alt: #f0f3f9;
+
+  /* Action */
+  --action-primary: #1e4fd8;
+  --action-primary-hover: #1a45c0;
+  --action-primary-active: #163aa3;
+  --on-action: #ffffff;
+  --primary-border-inset: rgba(255,255,255,.18);
+
+  /* Text ladder */
+  --text-primary: #1c2b4a;
+  --text-secondary: #475569;
+  --text-muted: #5c6a80;
+  --text-subtle: #64748b; /* large/chrome only in light; here for completeness */
+
+  /* Semantic */
+  --success: #16a34a;
+  --on-success: #04240f;
+  --status-cached-text: #9a4d0a;
+  --status-cached-ring: #a8530a; /* spec said #d97706 but that is 2.57:1 as text — corrected to #a8530a which passes 3:1 non-text; ring/icon use only */
+  --error: #ef4444;
+  --error-text: #b91c1c;
+  --warning: #f59e0b;
+  --warning-text: #92400e;
+  --info: #1e4fd8;
+  --info-text: #1e4fd8;
+
+  /* Structural */
+  --hairline: rgba(15,23,42,.08);
+  --overlay-backdrop: rgba(0,0,0,.4);
+
+  /* Progress */
+  --progress-track: rgba(0,0,0,.05);
+  --progress-preparing-fill: #64748b;
+  --live-indicator: #1e4fd8;
+
+  /* Pills */
+  --pill-class-bg: rgba(99,102,241,.10);
+  --pill-class-border: rgba(99,102,241,.22);
+  --pill-class-text: #4338ca;
+  --pill-gender-bg: rgba(236,72,153,.10);
+  --pill-gender-border: rgba(236,72,153,.20);
+  --pill-gender-text: #be185d;
+  --pill-age-bg: rgba(245,158,11,.10);
+  --pill-age-border: rgba(245,158,11,.20);
+  --pill-age-text: #92400e;
+  --pill-extended-bg: rgba(20,184,166,.10);
+  --pill-extended-border: rgba(20,184,166,.20);
+  --pill-extended-text: #0f766e;
+
+  /* Radii */
+  --radius-card: 10px;
+  --radius-button: 8px;
+  --radius-compact: 6px;
+  --radius-round: 9999px;
+
+  /* Elevation shadows */
+  --shadow-sm: 0 1px 2px rgba(15,23,42,.06), 0 1px 1px rgba(15,23,42,.04);
+  --shadow-md: 0 2px 4px rgba(15,23,42,.04), 0 8px 18px -6px rgba(15,23,42,.12);
+  --shadow-lg: 0 4px 10px rgba(15,23,42,.05), 0 18px 36px -10px rgba(15,23,42,.16);
+  --shadow-xl: 0 8px 18px rgba(15,23,42,.06), 0 36px 60px -14px rgba(15,23,42,.22);
+
+  --elev-flat: none;
+  --elev-raised: var(--shadow-sm);
+  --elev-floating: var(--shadow-md);
+  --elev-modal: var(--shadow-xl);
+
+  /* Typography */
+  --font-ui: 'Geist Variable','Geist',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --font-display: 'Space Grotesk','Geist',system-ui,sans-serif;
+  --font-reading: 'Source Serif 4',Georgia,'Times New Roman',serif;
+  --font-mono: 'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+
+  /* Type scale */
+  --type-display: 2.25rem;
+  --type-large-title: 1.875rem;
+  --type-title: 1.5rem;
+  --type-headline: 1.125rem;
+  --type-body: 0.9375rem;
+  --type-reading: 1.125rem;
+  --type-callout: 0.875rem;
+  --type-caption: 0.8125rem;
+  --type-micro: 0.6875rem;
+
+  /* Spacing (8pt scale) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+
+  /* Motion */
+  --ease-standard: cubic-bezier(.4,0,.2,1);
+  --ease-emphasized: cubic-bezier(.2,0,0,1);
+  --dur-fast: .14s;
+  --dur-med: .24s;
+  --dur-slow: .4s;
+  --pulse-duration: 3s; /* zeroed by reduced-motion guard; .is-running restores */
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DARK TOKENS — [data-theme="dark"] AND system dark preference
+   ═══════════════════════════════════════════════════════════════════ */
+[data-theme="dark"],
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0d0f14;
+  --surface: #1a1d27;
+  --surface-reading: #1c1f2a;
+  --surface-alt: #161922;
+
+  --action-primary: #6b9fff;
+  --action-primary-hover: #5b90f5;
+  --action-primary-active: #4f86ff;
+  --on-action: #0d0f14;
+  --primary-border-inset: rgba(0,0,0,.12);
+
+  --text-primary: #e8eaf0;
+  --text-secondary: #a8b2c4;
+  --text-muted: #8b95a8;
+  --text-subtle: #6b7a92;
+
+  --success: #22c55e;
+  --on-success: #052e16;
+  --status-cached-text: #fbbf24;
+  --status-cached-ring: #fbbf24;
+  --error: #f87171;
+  --error-text: #fca5a5;
+  --warning-text: #fbbf24;
+  --info-text: #6b9fff;
+
+  --hairline: rgba(255,255,255,.08);
+  --overlay-backdrop: rgba(0,0,0,.65);
+
+  --progress-track: rgba(255,255,255,.06);
+  --progress-preparing-fill: #94a3b8;
+  --live-indicator: #6b9fff;
+
+  --pill-class-bg: rgba(99,102,241,.16);
+  --pill-class-border: rgba(99,102,241,.32);
+  --pill-class-text: #a5b4fc;
+  --pill-gender-bg: rgba(236,72,153,.14);
+  --pill-gender-border: rgba(236,72,153,.28);
+  --pill-gender-text: #f9a8d4;
+  --pill-age-bg: rgba(245,158,11,.12);
+  --pill-age-border: rgba(245,158,11,.24);
+  --pill-age-text: #fcd34d;
+  --pill-extended-bg: rgba(20,184,166,.13);
+  --pill-extended-border: rgba(20,184,166,.26);
+  --pill-extended-text: #5eead4;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4), 0 1px 1px rgba(0,0,0,.3);
+  --shadow-md: 0 2px 4px rgba(0,0,0,.3), 0 8px 18px -6px rgba(0,0,0,.5);
+  --shadow-lg: 0 4px 10px rgba(0,0,0,.35), 0 18px 36px -10px rgba(0,0,0,.55);
+  --shadow-xl: 0 8px 18px rgba(0,0,0,.4), 0 36px 60px -14px rgba(0,0,0,.6);
+} }
+
+/* Explicit [data-theme="dark"] override (takes precedence when toggled explicitly) */
+[data-theme="dark"] {
+  --bg: #0d0f14;
+  --surface: #1a1d27;
+  --surface-reading: #1c1f2a;
+  --surface-alt: #161922;
+  --action-primary: #6b9fff;
+  --action-primary-hover: #5b90f5;
+  --action-primary-active: #4f86ff;
+  --on-action: #0d0f14;
+  --primary-border-inset: rgba(0,0,0,.12);
+  --text-primary: #e8eaf0;
+  --text-secondary: #a8b2c4;
+  --text-muted: #8b95a8;
+  --text-subtle: #6b7a92;
+  --success: #22c55e;
+  --on-success: #052e16;
+  --status-cached-text: #fbbf24;
+  --status-cached-ring: #fbbf24;
+  --error: #f87171;
+  --error-text: #fca5a5;
+  --warning-text: #fbbf24;
+  --info-text: #6b9fff;
+  --hairline: rgba(255,255,255,.08);
+  --overlay-backdrop: rgba(0,0,0,.65);
+  --progress-track: rgba(255,255,255,.06);
+  --progress-preparing-fill: #94a3b8;
+  --live-indicator: #6b9fff;
+  --pill-class-bg: rgba(99,102,241,.16);
+  --pill-class-border: rgba(99,102,241,.32);
+  --pill-class-text: #a5b4fc;
+  --pill-gender-bg: rgba(236,72,153,.14);
+  --pill-gender-border: rgba(236,72,153,.28);
+  --pill-gender-text: #f9a8d4;
+  --pill-age-bg: rgba(245,158,11,.12);
+  --pill-age-border: rgba(245,158,11,.24);
+  --pill-age-text: #fcd34d;
+  --pill-extended-bg: rgba(20,184,166,.13);
+  --pill-extended-border: rgba(20,184,166,.26);
+  --pill-extended-text: #5eead4;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4), 0 1px 1px rgba(0,0,0,.3);
+  --shadow-md: 0 2px 4px rgba(0,0,0,.3), 0 8px 18px -6px rgba(0,0,0,.5);
+  --shadow-lg: 0 4px 10px rgba(0,0,0,.35), 0 18px 36px -10px rgba(0,0,0,.55);
+  --shadow-xl: 0 8px 18px rgba(0,0,0,.4), 0 36px 60px -14px rgba(0,0,0,.6);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   BASE RESET & TYPOGRAPHY
+   ═══════════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--type-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color var(--dur-med) var(--ease-standard),
+              color var(--dur-med) var(--ease-standard);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  color: var(--text-primary);
+}
+h1 { font-size: var(--type-large-title); font-weight: 700; letter-spacing: -.03em; line-height: 1.1; }
+h2 { font-size: var(--type-title); font-weight: 700; letter-spacing: -.025em; line-height: 1.2; }
+h3 { font-size: var(--type-headline); font-weight: 600; letter-spacing: -.01em; }
+h4 { font-size: var(--type-body); font-weight: 600; letter-spacing: -.005em; }
+
+p { line-height: 1.6; }
+code, pre {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+/* Calm-pulse keyframe — shared by running progress + orb */
+@keyframes calm-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1.0; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes orb-done-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.15); }
+  100% { transform: scale(1.0); }
+}
+
+/* Running class restores pulse even under reduced-motion (structural exemption) */
+.is-running {
+  --pulse-duration: 3s;
+  animation: calm-pulse var(--pulse-duration) ease-in-out infinite;
+}
+
+/* Focus — double-ring */
+:focus-visible {
+  outline: 3px solid var(--action-primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(255,255,255,.55);
+}
+[data-theme="dark"] :focus-visible {
+  box-shadow: 0 0 0 5px rgba(0,0,0,.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   STYLEGUIDE PAGE CHROME (sg- prefixed)
+   ═══════════════════════════════════════════════════════════════════ */
+.sg-wrap { max-width: 1060px; margin: 0 auto; padding: 0 20px 90px; }
+
+/* Topbar — SOLID pinned (not glass) per the spec: pinned = solid */
+.sg-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--hairline);
+  padding: 14px 20px;
+  margin-bottom: 24px;
+  /* NO backdrop-filter — pinned chrome is opaque structural material */
+}
+.sg-topbar-inner {
+  max-width: 1060px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.sg-brand {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.0625rem;
+  letter-spacing: -.01em;
+  color: var(--text-primary);
+}
+.sg-brand .d { color: var(--action-primary); }
+.sg-concept-badge {
+  font-size: var(--type-micro);
+  font-weight: 600;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  padding: 3px 10px;
+  border-radius: var(--radius-round);
+  background: rgba(30,79,216,.10);
+  color: var(--action-primary);
+  border: 1px solid rgba(30,79,216,.20);
+}
+[data-theme="dark"] .sg-concept-badge {
+  background: rgba(107,159,255,.12);
+  color: var(--action-primary);
+  border-color: rgba(107,159,255,.25);
+}
+.sg-spacer { flex: 1; }
+
+/* 3-state theme toggle */
+.sg-toggle-group { display: flex; align-items: center; gap: 4px; }
+.sg-toggle {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-button);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-standard),
+              color var(--dur-fast) var(--ease-standard),
+              border-color var(--dur-fast) var(--ease-standard);
+  min-height: 36px;
+}
+.sg-toggle:hover { background: var(--surface-alt); color: var(--text-primary); }
+.sg-toggle.active {
+  background: var(--action-primary);
+  color: var(--on-action);
+  border-color: var(--action-primary);
+}
+.sg-toggle:active { transform: scale(.985); }
+
+/* Nav strip */
+.sg-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 24px; }
+.sg-nav a {
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: var(--radius-round);
+  border: 1px solid var(--hairline);
+  transition: background-color var(--dur-fast) var(--ease-standard),
+              color var(--dur-fast) var(--ease-standard);
+}
+.sg-nav a:hover {
+  background: var(--surface-alt);
+  color: var(--text-primary);
+}
+
+/* Section headings */
+h2.sg-h2 {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  margin: 52px 0 6px;
+  padding-top: 14px;
+  scroll-margin-top: 72px;
+  border-top: 1px solid var(--hairline);
+}
+h2.sg-h2:first-of-type { border-top: 0; margin-top: 0; }
+h2.sg-h2 .n {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  margin-right: 8px;
+}
+.sg-eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--type-micro);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.sg-lead { color: var(--text-secondary); font-size: 0.9375rem; margin: 8px 0 18px; max-width: 74ch; line-height: 1.65; }
+h3.sg-h3 {
+  font-family: var(--font-display);
+  font-size: var(--type-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: var(--text-muted);
+  margin: 28px 0 12px;
+}
+.sg-specimen {
+  border: 1px dashed var(--hairline);
+  border-radius: var(--radius-card);
+  padding: 22px;
+  background: var(--bg);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+.sg-specimen.col { flex-direction: column; align-items: stretch; }
+.sg-cap {
+  font-family: var(--font-mono);
+  font-size: var(--type-micro);
+  color: var(--text-muted);
+  margin: 8px 0 18px;
+  display: block;
+  line-height: 1.6;
+}
+.sg-cap strong { color: var(--text-secondary); }
+.sg-grid { display: grid; gap: 14px; }
+.sg-sw-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.sg-sw {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-compact);
+  overflow: hidden;
+  background: var(--surface);
+}
+.sg-sw .c { display: block; width: 100%; height: 44px; }
+.sg-sw .m { display: block; padding: 8px 10px; }
+.sg-sw .nm { display: block; font-family: var(--font-mono); font-size: 0.625rem; color: var(--text-primary); word-break: break-all; }
+.sg-sw .hx { display: block; font-family: var(--font-mono); font-size: 0.5625rem; color: var(--text-muted); }
+
+.sg-ba { /* Before→After annotation */
+  background: var(--surface-alt);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-compact);
+  padding: 10px 14px;
+  font-size: var(--type-caption);
+  color: var(--text-secondary);
+  margin: 10px 0 16px;
+  line-height: 1.55;
+}
+.sg-ba strong { color: var(--text-primary); }
+.sg-ba .before { color: var(--error-text); }
+.sg-ba .after { color: var(--success); }
+
+.sg-rule { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--hairline); font-size: 0.875rem; }
+.sg-rule .k { color: var(--text-muted); min-width: 140px; font-weight: 600; font-family: var(--font-mono); font-size: 0.75rem; }
+.sg-scroll { overflow-x: auto; }
+
+footer {
+  margin-top: 64px;
+  padding-top: 20px;
+  border-top: 1px solid var(--hairline);
+  font-size: var(--type-caption);
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+footer a { color: var(--action-primary); }
+footer code { font-family: var(--font-mono); color: var(--text-secondary); }
+
+/* Font note banner */
+.sg-font-note {
+  background: rgba(245,158,11,.08);
+  border: 1px solid rgba(245,158,11,.24);
+  border-radius: var(--radius-compact);
+  padding: 10px 14px;
+  font-size: var(--type-caption);
+  color: var(--warning-text);
+  margin: 12px 0 20px;
+}
+[data-theme="dark"] .sg-font-note { color: var(--warning-text); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   1. PROPOSED BUTTONS
+   ═══════════════════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: var(--radius-button);
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  /* Explicit property list — no transition:all */
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    box-shadow var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard);
+}
+.btn:active { transform: scale(.985); }
+.btn:disabled, .btn[disabled] { opacity: .45; cursor: not-allowed; pointer-events: none; }
+
+/* PRIMARY — flat fill + inset pressable border, no gradient, no glow, no lift */
+.btn-primary {
+  background: var(--action-primary);
+  color: var(--on-action);
+  box-shadow: inset 0 0 0 1px var(--primary-border-inset);
+}
+.btn-primary:hover {
+  background: var(--action-primary-hover);
+  /* no lift, no glow */
+}
+.btn-primary:active {
+  background: var(--action-primary-active);
+}
+
+/* SECONDARY */
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--elev-flat);
+}
+.btn-secondary:hover {
+  background: var(--surface-alt); /* neutral fill, never accent */
+  color: var(--text-primary);
+}
+
+/* GHOST */
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+}
+.btn-ghost:hover {
+  background: var(--surface-alt);
+  color: var(--text-primary);
+}
+
+/* DANGER */
+.btn-danger {
+  background: var(--error);
+  color: #ffffff;
+}
+.btn-danger:hover { filter: brightness(.92); }
+
+/* LOADING */
+.btn-loading {
+  background: var(--action-primary);
+  color: var(--on-action);
+  box-shadow: inset 0 0 0 1px var(--primary-border-inset);
+  pointer-events: none;
+}
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--on-action);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  flex-shrink: 0;
+}
+
+/* SMALL variant */
+.btn-sm {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 0.8125rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   2. FORM CONTROLS
+   ═══════════════════════════════════════════════════════════════════ */
+.control-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--action-primary);
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.control-label {
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Text inputs — radius-button, not pill */
+.input {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: var(--radius-button);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  outline: none;
+  transition: border-color var(--dur-fast) var(--ease-standard),
+              box-shadow var(--dur-fast) var(--ease-standard);
+}
+.input:focus {
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px rgba(30,79,216,.15);
+}
+[data-theme="dark"] .input:focus {
+  box-shadow: 0 0 0 3px rgba(107,159,255,.18);
+}
+.input::placeholder { color: var(--text-subtle, var(--text-muted)); }
+
+/* SEMANTIC SWITCH */
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 48px;
+  height: 26px;
+  flex-shrink: 0;
+}
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch-track {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-round);
+  background: var(--surface-alt);
+  border: 1.5px solid var(--hairline);
+  transition: background-color .16s var(--ease-standard),
+              border-color .16s var(--ease-standard);
+}
+.switch input:checked ~ .switch-track {
+  background: var(--action-primary);
+  border-color: var(--action-primary);
+}
+.switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.18);
+  transition: transform .16s var(--ease-standard);
+}
+.switch input:checked ~ .switch-knob { transform: translateX(22px); }
+/* Reduced-motion: snap, no mid-translate */
+@media (prefers-reduced-motion: reduce) {
+  .switch-knob { transition: none; }
+  .switch-track { transition: none; }
+}
+.switch-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.switch-wrap:focus-within .switch-track {
+  outline: 3px solid var(--action-primary);
+  outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   3. NAVIGATION SPECIMENS
+   ═══════════════════════════════════════════════════════════════════ */
+/* Vertical rail */
+.nav-rail {
+  width: 190px;
+  background: var(--surface-alt);
+  border-right: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  padding: 8px 0;
+  overflow: hidden;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 16px 0 14px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color var(--dur-fast) var(--ease-standard),
+              color var(--dur-fast) var(--ease-standard);
+  position: relative;
+  border-left: 2px solid transparent;
+}
+.nav-item:hover {
+  background: rgba(0,0,0,.03); /* neutral fill, not accent */
+  color: var(--text-primary);
+}
+[data-theme="dark"] .nav-item:hover { background: rgba(255,255,255,.04); }
+.nav-item.active {
+  background: rgba(30,79,216,.08);
+  color: var(--action-primary);
+  border-left-color: var(--action-primary); /* 2px left bar */
+}
+[data-theme="dark"] .nav-item.active { background: rgba(107,159,255,.12); }
+.nav-icon { width: 16px; height: 16px; flex-shrink: 0; opacity: .8; }
+
+/* Horizontal tabs */
+.tab-strip {
+  display: flex;
+  border-bottom: 1px solid var(--hairline);
+  gap: 0;
+}
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 16px;
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  text-decoration: none;
+  transition: color var(--dur-fast) var(--ease-standard),
+              border-color var(--dur-fast) var(--ease-standard);
+  white-space: nowrap;
+}
+.tab-item:hover { color: var(--text-primary); background: var(--surface-alt); }
+.tab-item.active {
+  color: var(--action-primary);
+  border-bottom-color: var(--action-primary); /* 3px top idiom = bottom here since it's on the bottom */
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   4. STATUS & PROGRESS
+   ═══════════════════════════════════════════════════════════════════ */
+/* Status Orb */
+.orb-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.orb {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+.orb-queued {
+  background: rgba(100,116,139,.10);
+  border: 2px solid rgba(100,116,139,.30);
+  color: #64748b;
+}
+.orb-running {
+  background: rgba(30,79,216,.10);
+  border: 2px solid var(--live-indicator);
+  color: var(--live-indicator);
+  animation: calm-pulse var(--pulse-duration) ease-in-out infinite;
+}
+[data-theme="dark"] .orb-running { background: rgba(107,159,255,.12); }
+.orb-done {
+  background: rgba(22,163,74,.10);
+  border: 2px solid var(--success);
+  color: var(--success);
+}
+[data-theme="dark"] .orb-done { background: rgba(34,197,94,.12); }
+.orb-cached {
+  background: rgba(168,83,10,.08);
+  border: 2px solid var(--status-cached-ring);
+  color: var(--status-cached-text);
+}
+[data-theme="dark"] .orb-cached { background: rgba(251,191,36,.10); }
+.orb-label { font-size: 0.875rem; font-weight: 500; color: var(--text-primary); }
+.orb-sub { font-size: var(--type-caption); color: var(--text-muted); }
+
+/* Predictive progress bar */
+.prog-wrap { margin: 8px 0; }
+.prog-bar {
+  position: relative;
+  height: 8px;
+  background: var(--progress-track);
+  border-radius: var(--radius-round);
+  overflow: hidden;
+}
+.prog-fill {
+  height: 100%;
+  border-radius: var(--radius-round);
+  transition: width .6s var(--ease-emphasized);
+  position: relative;
+}
+.prog-fill-preparing {
+  background: var(--progress-preparing-fill); /* SOLID — not a faint wash */
+  width: 18%;
+}
+.prog-fill-running {
+  background: var(--live-indicator); /* full-opacity beam */
+  width: 58%;
+  animation: calm-pulse var(--pulse-duration) ease-in-out infinite;
+}
+.prog-fill-done { background: var(--success); width: 100%; }
+.prog-fill-failed { background: var(--error); width: 64%; }
+
+/* Terminus icon on progress bar */
+.prog-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.prog-terminus {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--live-indicator);
+}
+.prog-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--type-caption);
+  color: var(--text-muted);
+  margin-top: 5px;
+}
+.prog-label { font-size: 0.875rem; font-weight: 600; color: var(--text-primary); }
+.prog-pct { font-family: var(--font-mono); font-size: var(--type-caption); color: var(--text-muted); }
+
+/* Status grid */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.status-card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  padding: 16px;
+}
+.status-card-title { font-size: var(--type-caption); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; font-family: var(--font-display); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   5. CARDS & BANNERS
+   ═══════════════════════════════════════════════════════════════════ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  padding: 20px;
+  box-shadow: var(--elev-flat);
+}
+.card-raised {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  padding: 20px;
+  box-shadow: var(--elev-raised);
+}
+
+/* Section masthead */
+.masthead {
+  margin-bottom: 20px;
+}
+.masthead-eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--type-micro);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.masthead-title {
+  font-family: var(--font-display);
+  font-size: var(--type-title);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--text-primary);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* Banners — one recipe, semantic tints */
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-card);
+  border: 1px solid;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  box-shadow: none; /* in-flow content, elev-flat */
+}
+.banner-icon { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+.banner-success {
+  background: rgba(22,163,74,.08);
+  border-color: rgba(22,163,74,.22);
+  color: var(--on-success);
+}
+[data-theme="dark"] .banner-success {
+  background: rgba(34,197,94,.10);
+  border-color: rgba(34,197,94,.25);
+  color: var(--success);
+}
+.banner-warning {
+  background: rgba(245,158,11,.08);
+  border-color: rgba(245,158,11,.24);
+  color: var(--warning-text);
+}
+.banner-error {
+  background: rgba(239,68,68,.08);
+  border-color: rgba(239,68,68,.22);
+  color: var(--error-text);
+}
+[data-theme="dark"] .banner-error { color: var(--error-text); }
+.banner-info {
+  background: rgba(30,79,216,.07);
+  border-color: rgba(30,79,216,.18);
+  color: var(--info-text);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   6. PILLS (unchanged — already AA-clean)
+   ═══════════════════════════════════════════════════════════════════ */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-round);
+  font-size: var(--type-micro);
+  font-weight: 600;
+  border: 1px solid;
+  font-family: var(--font-ui);
+  line-height: 1.4;
+}
+.pill-class  { background: var(--pill-class-bg);  border-color: var(--pill-class-border);  color: var(--pill-class-text); }
+.pill-gender { background: var(--pill-gender-bg); border-color: var(--pill-gender-border); color: var(--pill-gender-text); }
+.pill-age    { background: var(--pill-age-bg);    border-color: var(--pill-age-border);    color: var(--pill-age-text); }
+.pill-ext    { background: var(--pill-extended-bg); border-color: var(--pill-extended-border); color: var(--pill-extended-text); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   7. MATERIAL DEMO
+   ═══════════════════════════════════════════════════════════════════ */
+.mat-demo-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.mat-pinned {
+  background: var(--surface-alt);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  padding: 20px;
+  flex: 1;
+  min-width: 200px;
+}
+.mat-floating {
+  background: rgba(255,255,255,.72);
+  backdrop-filter: saturate(180%) blur(28px);
+  -webkit-backdrop-filter: saturate(180%) blur(28px);
+  border: 1px solid rgba(255,255,255,.5);
+  border-radius: var(--radius-card);
+  box-shadow: var(--elev-floating);
+  padding: 20px;
+  flex: 1;
+  min-width: 200px;
+}
+[data-theme="dark"] .mat-floating {
+  background: rgba(26,29,39,.78);
+  border-color: rgba(255,255,255,.08);
+}
+.mat-label {
+  font-family: var(--font-display);
+  font-size: var(--type-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.mat-desc { font-size: var(--type-caption); color: var(--text-secondary); line-height: 1.55; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   8. READING COLUMN (Source Serif 4, strictly scoped)
+   ═══════════════════════════════════════════════════════════════════ */
+.reading-column {
+  background: var(--surface-reading);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  padding: 28px 32px;
+  max-width: 72ch;
+}
+.reading-column p {
+  font-family: var(--font-reading);
+  font-size: var(--type-reading);
+  line-height: 1.7;
+  color: var(--text-primary);
+  max-width: 68ch;
+}
+.reading-column p + p { margin-top: 1.2em; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   9. ELEVATION DEMO
+   ═══════════════════════════════════════════════════════════════════ */
+.elev-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 20px;
+}
+.elev-box {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  padding: 18px;
+  text-align: center;
+}
+.elev-flat  { box-shadow: none; }
+.elev-raised   { box-shadow: var(--shadow-sm); }
+.elev-floating { box-shadow: var(--shadow-md); }
+.elev-modal    { box-shadow: var(--shadow-xl); }
+.elev-name {
+  font-family: var(--font-mono);
+  font-size: var(--type-micro);
+  color: var(--text-muted);
+  margin-top: 8px;
+  display: block;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   10. FOCUS DEMO
+   ═══════════════════════════════════════════════════════════════════ */
+.focus-demo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  min-height: 44px;
+  border-radius: var(--radius-button);
+  background: var(--action-primary);
+  color: var(--on-action);
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  /* Double-ring focus wired via :focus-visible above */
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SVG ICONS (inline lucide-style, currentColor)
+   ═══════════════════════════════════════════════════════════════════ */
+.icon { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.icon-sm { width: 14px; height: 14px; }
+.icon-lg { width: 20px; height: 20px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     TOPBAR — solid pinned (no blur), Space Grotesk wordmark
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="sg-topbar" id="topbar">
+  <div class="sg-topbar-inner">
+    <span class="sg-brand">Audiobook&nbsp;Studio<span class="d">.</span></span>
+    <span class="sg-concept-badge">PROPOSED · Quiet Studio — Precision Pressroom</span>
+    <span class="sg-spacer"></span>
+    <div class="sg-toggle-group">
+      <button class="sg-toggle" id="tBtnLight" onclick="setTheme('light')">Light</button>
+      <button class="sg-toggle" id="tBtnSystem" onclick="setTheme('system')">System</button>
+      <button class="sg-toggle" id="tBtnDark" onclick="setTheme('dark')">Dark</button>
+    </div>
+  </div>
+</div>
+
+<div class="sg-wrap">
+
+  <!-- NAV -->
+  <nav class="sg-nav" aria-label="Section navigation">
+    <a href="#intro">Intro</a>
+    <a href="#type">1 Type</a>
+    <a href="#color">2 Color</a>
+    <a href="#surfaces">3 Surfaces</a>
+    <a href="#elevation">4 Elevation</a>
+    <a href="#buttons">5 Buttons</a>
+    <a href="#forms">6 Forms</a>
+    <a href="#nav">7 Navigation</a>
+    <a href="#status">8 Status & Progress</a>
+    <a href="#cards">9 Cards & Banners</a>
+    <a href="#pills">10 Pills</a>
+    <a href="#focus">11 Focus & Motion</a>
+  </nav>
+
+  <!-- INTRO -->
+  <section id="intro">
+    <p class="sg-lead">
+      <strong>Quiet Studio — Precision Pressroom</strong> is the proposed redesign direction for Audiobook Studio 2.0.
+      This page renders every proposed component from new CSS — it does <em>not</em> copy the old component CSS.
+      <br><br>
+      Compare with: <a href="styleguide.html" style="color:var(--action-primary);font-weight:600;">the current/frozen catalog →</a>
+      &nbsp;|&nbsp; Source of truth remains <code style="font-family:var(--font-mono);font-size:.875rem">docs/specs/design-system.md</code> (current).
+    </p>
+
+    <div class="sg-font-note">
+      <strong>Typeface note:</strong> Typefaces shown in <em>fallback</em> in this static preview — a strict CSP blocks external font CDNs here.
+      The real direction self-hosts <strong>Geist</strong>, <strong>Space Grotesk</strong>, <strong>Source Serif 4</strong>, and <strong>Geist Mono</strong>
+      via <code>@fontsource</code> in the frontend build. Stacks are declared correctly; system-ui/Georgia/monospace are the visible substitutes.
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       SECTION 1 — IDENTITY & TYPE
+       ═══════════════════════════════════════════════════════════════ -->
+  <h2 class="sg-h2" id="type"><span class="n">1</span>Identity &amp; Type</h2>
+  <p class="sg-lead">A two-voice geometric system: <strong>Space Grotesk</strong> for display/headings/eyebrows/nav (structural voice — already in the bundle), <strong>Geist</strong> for UI/body (functional voice — tabular figures for ETA/queue/timing surfaces). Source Serif 4 strictly scoped to the reading column.</p>
+
+  <h3 class="sg-h3">Heading hierarchy — weight + tracking, one face</h3>
+  <div class="sg-specimen col">
+    <div style="margin-bottom:12px">
+      <div style="font-size:.625rem;font-family:var(--font-mono);color:var(--text-muted);margin-bottom:4px">h1 — Space Grotesk 700, −0.03em, 2.25rem</div>
+      <h1>The Long Render</h1>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:.625rem;font-family:var(--font-mono);color:var(--text-muted);margin-bottom:4px">h2 — Space Grotesk 700, −0.025em, 1.5rem</div>
+      <h2>Chapter Overview</h2>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:.625rem;font-family:var(--font-mono);color:var(--text-muted);margin-bottom:4px">h3 — Space Grotesk 600, −0.01em, 1.125rem</div>
+      <h3>Voice Settings</h3>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:.625rem;font-family:var(--font-mono);color:var(--text-muted);margin-bottom:4px">h4 — Space Grotesk 600, −0.005em, 0.9375rem</div>
+      <h4>Segment Controls</h4>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:.625rem;font-family:var(--font-mono);color:var(--text-muted);margin-bottom:4px">Eyebrow — Space Grotesk 600, uppercase, 0.1em tracking, 0.6875rem</div>
+      <div class="sg-eyebrow">Manuscript</div>
+    </div>
+    <div>
+      <div style="font-size:.625rem;font-family:var(--font-mono);color:var(--text-muted);margin-bottom:4px">Body — Geist 400, 0.9375rem / 1.6</div>
+      <p style="color:var(--text-primary)">This tool reads your manuscript, assigns voices to characters, and renders the full audiobook in one continuous GPU pass. Tabular numerals from Geist Variable: 1:23:45 → 0:08:32.</p>
+    </div>
+  </div>
+  <span class="sg-cap">Hierarchy carried by WEIGHT + tracking on a single display face, not by introducing additional typefaces. h1 700 / h2 700 / h3 600 / h4 600.</span>
+
+  <h3 class="sg-h3">Reading column — Source Serif 4, 18px / 1.7 / 68ch</h3>
+  <div class="reading-column">
+    <p>The old lighthouse had been dark for thirty years. Mira climbed the spiral stairs in silence, her torch sweeping across salt-bleached walls, the iron handrail cold beneath her fingers. At the top the lantern room was smaller than she'd imagined — a glass hexagon barely wide enough for two people, the Fresnel lens gone, replaced by bare air and the grey morning sea.</p>
+    <p>She set her bag down and opened the notebook. Chapter one, page one. The cursor blinked on the recorder. Outside, a gull cried once and was swallowed by the wind.</p>
+  </div>
+  <span class="sg-cap"><strong>--surface-reading #fffef9</strong> (light) / <strong>#1c1f2a</strong> (dark) — a hair warmer than --surface; material signal that "you are reading now." Font: --font-reading = Source Serif 4 → Georgia fallback here. This surface is the ONLY place the serif applies.</span>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 2 — COLOR
+     ═══════════════════════════════════════════════════════════════ -->
+  <h2 class="sg-h2" id="color"><span class="n">2</span>Color</h2>
+  <p class="sg-lead">WCAG AA verified. Accent deepened to #1e4fd8 (6.63:1). Dark text ladder fixed to three distinguishable stops. New semantic tokens: --on-action, --on-success, --status-cached-text. Chips render LITERAL hex — always accurate regardless of active theme.</p>
+
+  <h3 class="sg-h3">Page surfaces (light hex — always fixed)</h3>
+  <div class="sg-grid sg-sw-grid">
+    <div class="sg-sw"><span class="c" style="background:#f5f7fb;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--bg</span><span class="hx">#f5f7fb</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#ffffff;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--surface</span><span class="hx">#ffffff</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#fffef9;display:block;width:100%;height:44px;border-bottom:1px solid #e5e7eb"></span><span class="m"><span class="nm">--surface-reading</span><span class="hx">#fffef9</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#f0f3f9;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--surface-alt</span><span class="hx">#f0f3f9</span></span></div>
+  </div>
+
+  <h3 class="sg-h3">Action blue — rationed to 3 jobs (light hex)</h3>
+  <div class="sg-grid sg-sw-grid">
+    <div class="sg-sw"><span class="c" style="background:#1e4fd8;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--action-primary</span><span class="hx">#1e4fd8 · 6.63:1</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#1a45c0;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--action-primary-hover</span><span class="hx">#1a45c0</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#163aa3;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--action-primary-active</span><span class="hx">#163aa3</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#6b9fff;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--action-primary (dark)</span><span class="hx">#6b9fff · 6.43:1</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#0d0f14;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--on-action (dark)</span><span class="hx">#0d0f14 · 7.33:1</span></span></div>
+  </div>
+  <span class="sg-cap">Before: --accent #2b6eff (5.90:1), generic name allows any use. After: --action-primary #1e4fd8 (6.63:1), name enforces ration in code review. Dark accent lightens to #6b9fff — dark label #0d0f14 required (7.33:1).</span>
+
+  <h3 class="sg-h3">Text ladder — light (fixed hex)</h3>
+  <div class="sg-grid sg-sw-grid">
+    <div class="sg-sw"><span class="c" style="background:#1c2b4a;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--text-primary</span><span class="hx">#1c2b4a · 14.06:1</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#475569;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--text-secondary</span><span class="hx">#475569 · 7.58:1</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#5c6a80;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--text-muted</span><span class="hx">#5c6a80 · 5.49:1</span></span></div>
+  </div>
+  <span class="sg-cap">Before: --text-primary #0f172a (cold near-black). After: ink-blue #1c2b4a — connects text to the accent family at 14.06:1 (one-token brand detail). --text-muted raised from #64748b to #5c6a80 (5.49:1).</span>
+
+  <h3 class="sg-h3">Text ladder — dark (fixed hex)</h3>
+  <div class="sg-grid sg-sw-grid">
+    <div class="sg-sw"><span class="c" style="background:#e8eaf0;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--text-primary (dk)</span><span class="hx">#e8eaf0 · 13.98:1</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#a8b2c4;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--text-secondary (dk)</span><span class="hx">#a8b2c4 · 7.87:1</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#8b95a8;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--text-muted (dk)</span><span class="hx">#8b95a8 · 5.57:1</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#6b7a92;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--text-subtle (dk)</span><span class="hx">#6b7a92 · 3.86:1</span></span></div>
+  </div>
+  <span class="sg-cap">Before: dark muted #6b7280 (3.48:1 — sub-AA). After: three-stop ladder — secondary #a8b2c4 (7.87:1), muted #8b95a8 (5.57:1), subtle #6b7a92 (3.86:1 — chrome/large only). --text-subtle MUST NOT carry normal-weight sentence text.</span>
+
+  <h3 class="sg-h3">Semantic colors (light hex)</h3>
+  <div class="sg-grid sg-sw-grid">
+    <div class="sg-sw"><span class="c" style="background:#16a34a;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--success</span><span class="hx">#16a34a</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#04240f;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--on-success</span><span class="hx">#04240f · 5.04:1</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#9a4d0a;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--status-cached-text</span><span class="hx">#9a4d0a · 4.92:1</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#a8530a;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--status-cached-ring</span><span class="hx">#a8530a (ring/icon)</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#ef4444;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--error</span><span class="hx">#ef4444</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#b91c1c;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--error-text</span><span class="hx">#b91c1c</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#f59e0b;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--warning</span><span class="hx">#f59e0b</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#92400e;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--warning-text</span><span class="hx">#92400e</span></span></div>
+    <div class="sg-sw"><span class="c" style="background:#64748b;display:block;width:100%;height:44px"></span><span class="m"><span class="nm">--progress-preparing</span><span class="hx">#64748b SOLID</span></span></div>
+  </div>
+  <span class="sg-cap">
+    <strong>--on-success</strong> NEW: #04240f on #16a34a = 5.04:1 (PASS). Prevents white-on-success accident. Note: the A11Y panel proposed #0a4f27 which computes 2.95:1 — FAILS; corrected here to #04240f.
+    <br><strong>--status-cached-ring</strong> correction: spec said #d97706 but that is 2.57:1 as text and FAILS WCAG 1.4.3. --status-cached-ring = #a8530a (non-text ring/icon use only, passes 3:1 non-text); text uses --status-cached-text #9a4d0a (4.92:1).
+  </span>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 3 — SURFACES & MATERIAL
+     ═══════════════════════════════════════════════════════════════ -->
+  <h2 class="sg-h2" id="surfaces"><span class="n">3</span>Surfaces &amp; material</h2>
+  <p class="sg-lead">Structural rule: PINNED = SOLID. Only genuinely floating layers earn glass. The topbar above this page demonstrates it — opaque --surface-alt + hairline, zero backdrop-filter.</p>
+
+  <div class="mat-demo-row">
+    <div class="mat-pinned">
+      <div class="mat-label">Pinned (rail / topbar)</div>
+      <div class="mat-desc">--surface-alt + 1px hairline. Zero backdrop-filter. Any surface fixed/sticky to a viewport edge is solid structural material. This is not a taste call — it is a wiring rule.</div>
+      <br>
+      <code style="font-size:.6875rem;color:var(--text-muted)">background: var(--surface-alt); border: 1px solid var(--hairline);</code>
+    </div>
+    <div class="mat-floating">
+      <div class="mat-label">Floating (popovers / sheets / player-while-active)</div>
+      <div class="mat-desc">Translucent fill + backdrop-filter: saturate(180%) blur(28px). Earned by z-order: this layer genuinely floats over scrolling content. Blur tightened 40→28px — lighter on compositor during GPU render.</div>
+      <br>
+      <code style="font-size:.6875rem;color:var(--text-muted)">background: rgba(255,255,255,.72); backdrop-filter: saturate(180%) blur(28px);</code>
+    </div>
+  </div>
+  <div class="sg-ba">
+    <span class="before">Before: everything glass/blurred — static rails, topbar, cards all had backdrop-filter.</span>
+    &nbsp;→&nbsp;
+    <span class="after">After: pinned = solid + hairline (no blur). Only floating transient layers get glass. Blur tightened 40→28px.</span>
+  </div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 4 — ELEVATION
+     ═══════════════════════════════════════════════════════════════ -->
+  <h2 class="sg-h2" id="elevation"><span class="n">4</span>Elevation</h2>
+  <p class="sg-lead">Each shadow is bound to a named z-level. Surface shadow = function of z-layer. Resting cards and all pinned chrome: --elev-flat (hairline only, no shadow).</p>
+
+  <div class="elev-grid">
+    <div class="elev-box elev-flat">
+      <div style="font-weight:600;font-family:var(--font-display)">Flat</div>
+      <span class="elev-name">--elev-flat</span>
+      <span class="elev-name">hairline only</span>
+      <span class="elev-name">base / resting cards / ALL pinned chrome</span>
+    </div>
+    <div class="elev-box elev-raised">
+      <div style="font-weight:600;font-family:var(--font-display)">Raised</div>
+      <span class="elev-name">--elev-raised</span>
+      <span class="elev-name">--shadow-sm</span>
+      <span class="elev-name">elevated / active cards</span>
+    </div>
+    <div class="elev-box elev-floating">
+      <div style="font-weight:600;font-family:var(--font-display)">Floating</div>
+      <span class="elev-name">--elev-floating</span>
+      <span class="elev-name">--shadow-md</span>
+      <span class="elev-name">popovers / player / dragged</span>
+    </div>
+    <div class="elev-box elev-modal">
+      <div style="font-weight:600;font-family:var(--font-display)">Modal</div>
+      <span class="elev-name">--elev-modal</span>
+      <span class="elev-name">--shadow-xl</span>
+      <span class="elev-name">dialogs over scrim</span>
+    </div>
+  </div>
+  <span class="sg-cap">Before: per-component inline shadow recipes, no named z-level. After: four named tiers; a developer assigning a shadow picks a tier, not a raw CSS value — stops arbitrary shadow escalation.</span>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 5 — BUTTONS
+     ═══════════════════════════════════════════════════════════════ -->
+  <h2 class="sg-h2" id="buttons"><span class="n">5</span>Buttons</h2>
+  <p class="sg-lead">Flat solid fill + 1px inset border (pressable cue without glow). No gradient, no glow, no translateY hover lift. min-height 44px. Hover = fill darken only. Dark theme: button label swaps to dark #0d0f14 on the lightened accent.</p>
+
+  <h3 class="sg-h3">All variants</h3>
+  <div class="sg-specimen" style="gap:12px">
+    <button class="btn btn-primary">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      Primary
+    </button>
+    <button class="btn btn-secondary">Secondary</button>
+    <button class="btn btn-ghost">Ghost</button>
+    <button class="btn btn-danger">
+      <svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+      Danger
+    </button>
+    <button class="btn btn-primary" disabled>Disabled</button>
+    <button class="btn btn-loading">
+      <span class="btn-spinner"></span>
+      Rendering…
+    </button>
+    <button class="btn btn-primary btn-sm">Small</button>
+  </div>
+  <div class="sg-ba">
+    <span class="before">Before: gradient fill + accent-glow (box-shadow 0 6px 20px rgba(43,110,255,.45)) + translateY(-1px) hover lift.</span>
+    &nbsp;→&nbsp;
+    <span class="after">After: flat solid fill + 1px inset border (box-shadow: inset 0 0 0 1px rgba(255,255,255,.18)) — pressable without glow. Hover = fill darken only. No lift. Active = scale(.985). Dark label (#0d0f14) on dark accent (never white on #6b9fff).</span>
+  </div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 6 — FORMS & CONTROLS
+     ═══════════════════════════════════════════════════════════════ -->
+  <h2 class="sg-h2" id="forms"><span class="n">6</span>Forms &amp; controls</h2>
+  <p class="sg-lead">Accent-colored checkboxes/radios (18px, accent-color: var(--action-primary)) inside 44px tap regions. Real semantic switch. Text inputs at --radius-button (8px), not the 100px pill.</p>
+
+  <h3 class="sg-h3">Checkbox &amp; radio</h3>
+  <div class="sg-specimen" style="gap:20px;flex-direction:column;align-items:flex-start">
+    <label class="control-target">
+      <input type="checkbox" checked>
+      <span class="control-label">Accent-colored checkbox (checked)</span>
+    </label>
+    <label class="control-target">
+      <input type="checkbox">
+      <span class="control-label">Accent-colored checkbox (unchecked)</span>
+    </label>
+    <label class="control-target">
+      <input type="radio" name="demo" checked>
+      <span class="control-label">Radio option A (checked)</span>
+    </label>
+    <label class="control-target">
+      <input type="radio" name="demo">
+      <span class="control-label">Radio option B</span>
+    </label>
+  </div>
+
+  <h3 class="sg-h3">Semantic switch (role=switch)</h3>
+  <div class="sg-specimen" style="gap:24px;flex-direction:column;align-items:flex-start">
+    <label class="switch-wrap">
+      <span class="switch">
+        <input type="checkbox" role="switch" aria-checked="true" checked id="sw1">
+        <span class="switch-track"></span>
+        <span class="switch-knob"></span>
+      </span>
+      <span class="control-label">Auto-warm workers (ON)</span>
+    </label>
+    <label class="switch-wrap">
+      <span class="switch">
+        <input type="checkbox" role="switch" aria-checked="false" id="sw2">
+        <span class="switch-track"></span>
+        <span class="switch-knob"></span>
+      </span>
+      <span class="control-label">Export WAV after render (OFF)</span>
+    </label>
+  </div>
+
+  <h3 class="sg-h3">Text inputs — --radius-button (8px)</h3>
+  <div class="sg-specimen col">
+    <input class="input" type="text" placeholder="Chapter title…" style="max-width:340px">
+    <input class="input" type="text" value="Chapter 3: The Lighthouse" style="max-width:340px">
+    <input class="input" type="text" placeholder="Search voices…" style="max-width:340px">
+  </div>
+  <div class="sg-ba">
+    <span class="before">Before: raw OS checkboxes/radios (no accent-color), no switch component (used a text button), 100px pill-radius inputs.</span>
+    &nbsp;→&nbsp;
+    <span class="after">After: accent-color: var(--action-primary) on checkbox/radio (18px, 44px tap target), real semantic switch (dual-encoded: knob position + track color), text inputs at --radius-button 8px. Switch reduced-motion: snaps to final position, no mid-translate.</span>
+  </div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 7 — NAVIGATION
+     ═══════════════════════════════════════════════════════════════ -->
+  <h2 class="sg-h2" id="nav"><span class="n">7</span>Navigation</h2>
+  <p class="sg-lead">Vertical rail: 2px solid --action-primary LEFT bar + accent-tint bg + accent text for active item. Horizontal tabs: 3px solid --action-primary TOP/BOTTOM border for active. Inactive = --text-secondary; hover = subtle neutral fill (never accent bleed).</p>
+
+  <h3 class="sg-h3">Vertical rail (opaque --surface-alt, hairline right)</h3>
+  <div class="sg-specimen">
+    <nav class="nav-rail" aria-label="Demo rail">
+      <a class="nav-item active" href="#" onclick="return false" aria-current="page">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+        Projects
+      </a>
+      <a class="nav-item" href="#" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        Chapters
+      </a>
+      <a class="nav-item" href="#" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0 0 6h.01A3 3 0 0 0 12 2z"/><path d="M19 8a7 7 0 1 0-14 0"/><path d="M12 12v9"/><path d="M9 18l3 3 3-3"/></svg>
+        Voices
+      </a>
+      <a class="nav-item" href="#" onclick="return false">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Settings
+      </a>
+    </nav>
+  </div>
+  <span class="sg-cap">Active item: 2px solid --action-primary LEFT border + rgba(30,79,216,.08) tint bg + --action-primary text. Hover: rgba(0,0,0,.03) neutral fill only — never accent on inactive items.</span>
+
+  <h3 class="sg-h3">Horizontal tab strip (chapter / script view)</h3>
+  <div class="sg-specimen col">
+    <div class="tab-strip" role="tablist" aria-label="Chapter tabs">
+      <a class="tab-item active" role="tab" aria-selected="true" href="#" onclick="return false">Overview</a>
+      <a class="tab-item" role="tab" aria-selected="false" href="#" onclick="return false">Segments</a>
+      <a class="tab-item" role="tab" aria-selected="false" href="#" onclick="return false">Characters</a>
+      <a class="tab-item" role="tab" aria-selected="false" href="#" onclick="return false">Audio Review</a>
+    </div>
+  </div>
+  <span class="sg-cap">Active: 3px solid --action-primary bottom border (the native "selected tab" idiom on a horizontal strip — the vertical left-bar convention breaks down here). Inactive: --text-secondary; hover: neutral --surface-alt fill.</span>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 8 — STATUS & PROGRESS (the hero)
+     ═══════════════════════════════════════════════════════════════ -->
+  <h2 class="sg-h2" id="status"><span class="n">8</span>Status &amp; progress</h2>
+  <p class="sg-lead">The defining moment of this tool is a multi-minute GPU render. Status must be readable at a glance. Four-state grammar: grey Queued / blue Rendering (calm-pulse) / green Fresh-done / amber Cached. WCAG 1.4.1: color is never the sole differentiator — each state has a distinct lucide icon shape.</p>
+
+  <h3 class="sg-h3">StatusOrb — 4-state grammar with icon insets</h3>
+  <div class="sg-specimen" style="gap:24px;flex-wrap:wrap">
+    <!-- Queued -->
+    <div>
+      <div class="orb-wrap">
+        <div class="orb orb-queued" aria-label="Queued">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div>
+          <div class="orb-label">Queued</div>
+          <div class="orb-sub">Waiting for GPU</div>
+        </div>
+      </div>
+    </div>
+    <!-- Running -->
+    <div>
+      <div class="orb-wrap">
+        <div class="orb orb-running is-running" aria-label="Rendering">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        </div>
+        <div>
+          <div class="orb-label">Rendering</div>
+          <div class="orb-sub">Chapter 3 · 58%</div>
+        </div>
+      </div>
+    </div>
+    <!-- Done -->
+    <div>
+      <div class="orb-wrap">
+        <div class="orb orb-done" aria-label="Done (fresh)">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div>
+          <div class="orb-label">Done</div>
+          <div class="orb-sub">Fresh · this session</div>
+        </div>
+      </div>
+    </div>
+    <!-- Cached -->
+    <div>
+      <div class="orb-wrap">
+        <div class="orb orb-cached" aria-label="Cached (persisted)">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <div>
+          <div class="orb-label" style="color:var(--status-cached-text)">Cached</div>
+          <div class="orb-sub">Persisted on disk</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <span class="sg-cap">Icon insets: Clock (queued), Loader2 (running), Check (done), Archive/Download (cached). Color is NEVER the sole differentiator — shape + color together satisfy WCAG 1.4.1. Running orb uses calm-pulse (is-running class, 3s opacity breathe, reduced-motion-structural exemption via --pulse-duration token).</span>
+
+  <h3 class="sg-h3">PredictiveProgressBar — 4 states with terminus icon</h3>
+  <div class="status-grid">
+    <!-- Queued -->
+    <div class="status-card">
+      <div class="status-card-title">Queued</div>
+      <div class="prog-row">
+        <span class="prog-label">Ch 1 · Preparing</span>
+        <svg class="prog-terminus" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <div class="prog-wrap">
+        <div class="prog-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Queued — 0%">
+          <div class="prog-fill" style="background:rgba(100,116,139,.15);width:4%"></div>
+        </div>
+      </div>
+      <div class="prog-meta"><span>Waiting in queue</span><span class="prog-pct">—</span></div>
+    </div>
+
+    <!-- Preparing — SOLID fill, not faint wash -->
+    <div class="status-card">
+      <div class="status-card-title">Preparing</div>
+      <div class="prog-row">
+        <span class="prog-label">Ch 2 · Loading model</span>
+        <svg class="prog-terminus" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      </div>
+      <div class="prog-wrap">
+        <div class="prog-bar" role="progressbar" aria-valuenow="18" aria-valuemin="0" aria-valuemax="100" aria-label="Preparing — 18%">
+          <div class="prog-fill prog-fill-preparing"></div>
+        </div>
+      </div>
+      <div class="prog-meta"><span>Warm-up phase</span><span class="prog-pct">18%</span></div>
+    </div>
+
+    <!-- Running — full-opacity beam + calm-pulse -->
+    <div class="status-card">
+      <div class="status-card-title">Running</div>
+      <div class="prog-row">
+        <span class="prog-label">Ch 3 · Synthesizing</span>
+        <svg class="prog-terminus is-running" viewBox="0 0 24 24" fill="none" stroke="var(--live-indicator)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      </div>
+      <div class="prog-wrap">
+        <div class="prog-bar" role="progressbar" aria-valuenow="58" aria-valuemin="0" aria-valuemax="100" aria-label="Running — 58%">
+          <div class="prog-fill prog-fill-running is-running"></div>
+        </div>
+      </div>
+      <div class="prog-meta">
+        <span style="color:var(--live-indicator);font-weight:600">Live · ETA 3:42</span>
+        <span class="prog-pct" style="color:var(--live-indicator);font-weight:700">58%</span>
+      </div>
+    </div>
+
+    <!-- Done -->
+    <div class="status-card">
+      <div class="status-card-title">Done</div>
+      <div class="prog-row">
+        <span class="prog-label">Ch 4 · Complete</span>
+        <svg class="prog-terminus" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="prog-wrap">
+        <div class="prog-bar" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" aria-label="Done — 100%">
+          <div class="prog-fill prog-fill-done"></div>
+        </div>
+      </div>
+      <div class="prog-meta"><span style="color:var(--success);font-weight:600">Fresh · rendered 2m ago</span><span class="prog-pct" style="color:var(--success)">100%</span></div>
+    </div>
+  </div>
+
+  <div class="sg-ba">
+    <span class="before">Before: --progress-preparing-fill was near-white rgba wash (~1.5:1–2.4:1 vs track — looked stuck; WCAG 1.4.11 fail). Running fill was a timid rgba wash. Color-only state — no icon insets (WCAG 1.4.1 fail).</span>
+    &nbsp;→&nbsp;
+    <span class="after">After: SOLID #64748b preparing fill (4.25:1 light / 5.51:1 dark — clearly visible). Full-opacity --live-indicator beam when running. Shared calm-pulse (one keyframe, bar + orb ring breathe together = "coordinated alive"). Terminus icon on every bar state — readable even at 2% fill. Reduced-motion exemption structural: --pulse-duration zeroed by guard, .is-running restores to 3s.</span>
+  </div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 9 — CARDS & BANNERS
+     ═══════════════════════════════════════════════════════════════ -->
+  <h2 class="sg-h2" id="cards"><span class="n">9</span>Cards &amp; banners</h2>
+  <p class="sg-lead">One flat card recipe (--surface, hairline, --radius-card, no shadow). Section mastheads with Space Grotesk uppercase eyebrow + baseline rule-line. Banners: semantic tint + same-hue text + icon. No shadow on in-flow banners.</p>
+
+  <h3 class="sg-h3">Cards — flat (elev-flat)</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:8px">
+    <div class="card">
+      <div style="font-size:var(--type-micro);font-family:var(--font-display);text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:6px">Chapter 1</div>
+      <div style="font-size:0.9375rem;font-weight:600;color:var(--text-primary);margin-bottom:4px">The Lighthouse</div>
+      <div style="font-size:var(--type-caption);color:var(--text-secondary)">2,340 words · 4 voices · 18 min</div>
+    </div>
+    <div class="card-raised">
+      <div style="font-size:var(--type-micro);font-family:var(--font-display);text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:6px">Active render</div>
+      <div style="font-size:0.9375rem;font-weight:600;color:var(--text-primary);margin-bottom:4px">Chapter 3 — Running</div>
+      <div style="font-size:var(--type-caption);color:var(--live-indicator);font-weight:600">58% · ETA 3:42</div>
+    </div>
+    <div class="card">
+      <div style="font-size:var(--type-micro);font-family:var(--font-display);text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:6px">Voice</div>
+      <div style="font-size:0.9375rem;font-weight:600;color:var(--text-primary);margin-bottom:8px">Studio Voice — Narrator</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <span class="pill pill-class">Narrator</span>
+        <span class="pill pill-gender">Female</span>
+        <span class="pill pill-age">Adult</span>
+      </div>
+    </div>
+  </div>
+  <span class="sg-cap">One card recipe: background var(--surface), border 1px solid var(--hairline), border-radius var(--radius-card) 10px, box-shadow none (--elev-flat). Active render card gets --elev-raised to float it visually as focal point.</span>
+
+  <h3 class="sg-h3">Section masthead</h3>
+  <div class="sg-specimen col">
+    <div class="masthead">
+      <div class="masthead-eyebrow">Book project</div>
+      <div class="masthead-title">The Old Lighthouse</div>
+    </div>
+  </div>
+
+  <h3 class="sg-h3">Banners — one recipe, semantic tints</h3>
+  <div class="sg-specimen col" style="gap:10px">
+    <div class="banner banner-success" role="status">
+      <svg class="banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      <span><strong>Render complete.</strong> Chapter 3 exported to <code style="font-family:var(--font-mono);font-size:.8125rem">renders/ch03.wav</code> (18 min 22 sec).</span>
+    </div>
+    <div class="banner banner-warning" role="alert">
+      <svg class="banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span><strong>GPU memory low.</strong> Large chapters may fail. Consider splitting at chapter boundaries.</span>
+    </div>
+    <div class="banner banner-error" role="alert">
+      <svg class="banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span><strong>Render failed.</strong> XTTS server returned a non-2xx on segment 47. Check the engine log.</span>
+    </div>
+    <div class="banner banner-info">
+      <svg class="banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span><strong>Voice bundle imported.</strong> Voices are ready for assignment. Visit the Voices tab to cast characters.</span>
+    </div>
+  </div>
+  <span class="sg-cap">One banner recipe: semantic tint fill + same-hue text + icon. No shadow (--elev-flat; in-flow content). Success uses --on-success (#04240f) for label — never white-on-green.</span>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 10 — PILLS (KEPT VERBATIM)
+     ═══════════════════════════════════════════════════════════════ -->
+  <h2 class="sg-h2" id="pills"><span class="n">10</span>Pills</h2>
+  <p class="sg-lead">Voice-attribute taxonomy preserved verbatim — already AA-clean, already the model the rest of the system imitates. Class indigo / gender pink / age amber / extended teal. Tinted fill + same-hue text + low-alpha same-hue border. Fixed display order, no leading icons.</p>
+
+  <div class="sg-specimen" style="gap:10px;flex-wrap:wrap">
+    <span class="pill pill-class">Narrator</span>
+    <span class="pill pill-class">Character</span>
+    <span class="pill pill-gender">Female</span>
+    <span class="pill pill-gender">Male</span>
+    <span class="pill pill-gender">Non-binary</span>
+    <span class="pill pill-age">Child</span>
+    <span class="pill pill-age">Adult</span>
+    <span class="pill pill-age">Elder</span>
+    <span class="pill pill-ext">Accent</span>
+    <span class="pill pill-ext">Whisper</span>
+    <span class="pill pill-ext">Gravelly</span>
+  </div>
+  <span class="sg-cap"><strong>Unchanged — already AA-clean and the model the system imitates.</strong> Note: --pill-age-text #92400e and --status-cached-text #9a4d0a are DISTINCT named tokens with distinct values so the two ambers cannot be swapped. Age pill uses its own token; cached state uses its own.</span>
+
+  <h3 class="sg-h3">Full voice card specimen</h3>
+  <div class="sg-specimen">
+    <div class="card" style="max-width:300px">
+      <div style="font-size:1rem;font-weight:700;color:var(--text-primary);margin-bottom:10px;font-family:var(--font-display)">Studio Voice</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="pill pill-class">Narrator</span>
+        <span class="pill pill-gender">Female</span>
+        <span class="pill pill-age">Adult</span>
+        <span class="pill pill-ext">Warm</span>
+      </div>
+      <div style="font-size:var(--type-caption);color:var(--text-muted)">Default voice · 3 sample clips</div>
+    </div>
+  </div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 11 — FOCUS & MOTION
+     ═══════════════════════════════════════════════════════════════ -->
+  <h2 class="sg-h2" id="focus"><span class="n">11</span>Focus &amp; motion</h2>
+  <p class="sg-lead">Double-ring focus: 3px solid --action-primary + 5px halo. Reduced-motion guard is the first CSS rule (above). Calm-pulse structural exemption via --pulse-duration token + .is-running class.</p>
+
+  <h3 class="sg-h3">Focus indicator (tab into this button)</h3>
+  <div class="sg-specimen">
+    <button class="focus-demo-btn" id="focusDemo">Tab to focus me</button>
+    <button class="btn btn-secondary" style="margin-left:8px" onclick="document.getElementById('focusDemo').focus()">Focus the button →</button>
+  </div>
+  <span class="sg-cap">Double-ring: <code style="font-family:var(--font-mono)">outline: 3px solid var(--action-primary); outline-offset: 2px; box-shadow: 0 0 0 5px rgba(255,255,255,.55)</code>. Dark theme halo: <code style="font-family:var(--font-mono)">rgba(0,0,0,.5)</code>. Legible over any surface including glass layers.</span>
+
+  <h3 class="sg-h3">Calm-pulse (shared keyframe — progress bar + orb ring)</h3>
+  <div class="sg-specimen" style="gap:20px;align-items:center">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="orb orb-running is-running" aria-label="Running — calm pulse demo" style="width:44px;height:44px">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      </div>
+      <div style="flex:1;min-width:180px">
+        <div class="prog-bar" style="height:8px" role="progressbar" aria-valuenow="62" aria-label="Running demo">
+          <div class="prog-fill is-running" style="background:var(--live-indicator);width:62%"></div>
+        </div>
+        <div style="font-size:var(--type-caption);color:var(--live-indicator);font-weight:600;margin-top:4px">62% · ETA 2:18</div>
+      </div>
+    </div>
+    <div style="font-size:var(--type-caption);color:var(--text-muted);max-width:32ch;line-height:1.6">Orb ring and progress fill breathe on the SAME @keyframes — one definition, two places. "Alive and working" reads as coordinated, not dual-channel noise.</div>
+  </div>
+
+  <h3 class="sg-h3">Reduced-motion guard</h3>
+  <div style="background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius-card);padding:16px;font-family:var(--font-mono);font-size:0.75rem;color:var(--text-secondary);line-height:1.8;overflow-x:auto">
+    <span style="color:var(--text-muted)">/* FIRST RULE in cascade — before reset, @font-face, :root */</span><br>
+    @media (prefers-reduced-motion: reduce) {<br>
+    &nbsp;&nbsp;*, *::before, *::after {<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;animation-duration: .01ms !important;<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;animation-iteration-count: 1 !important;<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;transition-duration: .01ms !important;<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;scroll-behavior: auto !important;<br>
+    &nbsp;&nbsp;}<br>
+    &nbsp;&nbsp;<span style="color:var(--text-muted)">/* --pulse-duration zeroed here */</span><br>
+    }<br>
+    <span style="color:var(--text-muted)">/* .is-running restores pulse — structural exemption, not developer memory */</span><br>
+    .is-running { --pulse-duration: 3s; animation: calm-pulse var(--pulse-duration) ease-in-out infinite; }
+  </div>
+  <div class="sg-ba">
+    <span class="before">Before: reduced-motion guard bundled into aesthetic pass (not first rule; cascade-order race possible). Calm-pulse exemption relied on developer memory. Global <code>transition: all 0.2s</code> on buttons. Resting translateY(-1px) hover lift on buttons.</span>
+    &nbsp;→&nbsp;
+    <span class="after">After: guard is the LITERAL FIRST rule (cascade-order race closed). --pulse-duration token zeroed by guard; .is-running class restores it — "alive vs hung" wired, not remembered. Button transition is an explicit property list (background-color, color, box-shadow, border-color). translateY lift removed — hover = fill darken only. Spring easing removed from :root (local to popover/sheet/done-pop only).</span>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <p>
+      <strong>PROPOSED DIRECTION — not yet built.</strong>
+      This page renders the "Quiet Studio — Precision Pressroom" concept from new CSS authored against the spec.
+      It is a design proposal for comparison against the frozen catalog.
+      The canonical source of truth remains <a href="../docs/specs/design-system.md"><code>docs/specs/design-system.md</code></a> (current).
+    </p>
+    <br>
+    <p>
+      Theme: system-follows by default (reads <code>@media (prefers-color-scheme: dark)</code> · toggle above for explicit light/system/dark).
+      Fonts: Geist / Space Grotesk / Source Serif 4 / Geist Mono declared in stacks; system-ui / Georgia / monospace visible as fallbacks in this static artifact.
+      All contrast ratios machine-verified against WCAG 2.2 AA. Generated 2026-06-20.
+    </p>
+  </footer>
+
+</div><!-- /.sg-wrap -->
+
+<script>
+(function () {
+  // 3-way theme toggle: light / system / dark
+  var html = document.documentElement;
+  var btns = {
+    light: document.getElementById('tBtnLight'),
+    system: document.getElementById('tBtnSystem'),
+    dark: document.getElementById('tBtnDark')
+  };
+
+  function applyTheme(mode) {
+    if (mode === 'dark') {
+      html.setAttribute('data-theme', 'dark');
+    } else if (mode === 'light') {
+      html.setAttribute('data-theme', 'light');
+    } else {
+      html.removeAttribute('data-theme'); // let @media prefers-color-scheme win
+    }
+    // Update active state on buttons
+    Object.keys(btns).forEach(function(k) {
+      btns[k].classList.toggle('active', k === mode);
+    });
+    try { localStorage.setItem('sg-proposed-theme', mode); } catch(e) {}
+  }
+
+  window.setTheme = applyTheme;
+
+  // On load: restore saved preference or default to system
+  var saved = null;
+  try { saved = localStorage.getItem('sg-proposed-theme'); } catch(e) {}
+  applyTheme(saved || 'system');
+
+  // Switch interactivity demo
+  document.querySelectorAll('.switch input').forEach(function(input) {
+    input.addEventListener('change', function() {
+      input.setAttribute('aria-checked', input.checked ? 'true' : 'false');
+    });
+  });
+})();
+</script>
+</body>
+</html>
