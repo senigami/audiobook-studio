@@ -1,18 +1,38 @@
+/* ==========================================================================
+   Keyframes
+   ========================================================================== */
+
+@keyframes calm-pulse {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 1.0; }
+}
+
+/* Running state restores pulse even under reduced-motion (structural exemption per INV-5) */
+.is-running {
+  --pulse-duration: 3s;
+  animation: calm-pulse var(--pulse-duration) ease-in-out infinite;
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
 .btn-primary {
-  background: var(--accent);
-  color: var(--text-on-accent);
-  box-shadow: var(--shadow-sm);
+  background: var(--action-primary);
+  color: var(--on-action);
+  border: 1px solid transparent;
+  box-shadow: inset 0 0 0 1px var(--primary-border-inset);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  background: var(--action-primary-hover);
+  /* NO transform: translateY — flat */
+  box-shadow: inset 0 0 0 1px var(--primary-border-inset);
 }
 
 .btn-primary:active:not(:disabled) {
-  background: var(--accent-active);
-  transform: translateY(0);
+  background: var(--action-primary-active);
+  box-shadow: inset 0 0 0 1px var(--primary-border-inset);
 }
 
 .btn-primary:disabled {
@@ -28,14 +48,11 @@
 }
 
 .btn-success:hover:not(:disabled) {
-  background: var(--success-strong); /* darker success */
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  background: var(--success-strong); /* darker success — flat, no lift */
 }
 
 .btn-success:active:not(:disabled) {
   background: var(--success-strong-hover);
-  transform: translateY(0);
 }
 
 .btn-glass {
@@ -78,7 +95,6 @@
   background: var(--surface);
   color: var(--text-secondary);
   border: 1px solid var(--border);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-sm);
 }
 
@@ -86,15 +102,12 @@
   background: var(--accent-glow);
   color: var(--accent);
   border-color: var(--accent);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
 }
 
 .btn-home:active:not(:disabled) {
   background: var(--accent-active);
   color: var(--text-on-accent);
   border-color: var(--accent-active);
-  transform: translateY(0);
 }
 
 .btn-home.primary {

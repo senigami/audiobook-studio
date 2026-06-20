@@ -1,7 +1,7 @@
 # Design System
 
 ```
-spec_version: 1.5.0
+spec_version: 1.6.0
 status: active
 created: 2026-06-13
 updated: 2026-06-20
@@ -47,6 +47,7 @@ sources:
 | 1.3.0   | 2026-06-19 | **Style-guide completion pass.** Added **§2.4 Color & contrast** (computed WCAG AA ratios for the key pairs in both themes, with composited-color math for `rgba` tints) and **§10 Brand identity** (Cross-References renumbered §10→§11). §2.1 registered the previously-undocumented **Cloud-engine** and **Waveform-strip** token families + the **progress barber-pole stripe** tokens, completed missing State/Surface/Brand rows, and flagged `--focus-ring` as *defined-but-unused*. §4: typeface decision recorded — **Inter (+ Space Grotesk wordmark) is now self-hosted** (was declared-but-never-loaded → system-ui fallback); type-token adoption status corrected (one real-app file, not a migration-in-progress). §6: added 6 shipped-but-undocumented primitives (`GlassInput`, `SearchableSelect`, `ColorSwatchPicker`, `VoiceDropzone`, `BrandLogo`, `PluginTrustModal`) + the `PlayerBar` transport. §7: added the 1250px breakpoint. §8: recorded the reduced-motion coverage gap. §9: recorded known real-app glyph violations as tracked deviations. UI copy/voice & tone split out to the new [voice-tone.md](voice-tone.md). Same change set fixed the duplicate `--success-text` token and tokenized the progress-bar `rgba` literals. |
 | 1.4.0   | 2026-06-19 | Completed the §9 glyph→lucide migration. The 8 real-app glyph-as-icon usages (a `▶` play label, `›` breadcrumb separators ×3, `▲`/`▼` disclosure carets ×2, an `Export ▾` caret, and `✓` markers ×3) now render the mapped lucide components; the redundant `⚠` decorations on `EditTab`/`AnalysisStrip` were dropped in favor of the existing `AlertTriangle`. §9.1 updated; §9.5 changed from a deviations table to **resolved**. Rendering-only change — no behavior change. |
 | 1.5.0   | 2026-06-20 | **P0 fonts.** Self-host Geist Variable + Geist Mono + Source Serif 4 via @fontsource; add `--font-ui`/`--font-display`/`--font-reading`/`--font-mono` tokens; repoint `base.css` stacks; Inter remains as fallback in `--font-ui` stack. Resolves R1. |
+| 1.6.0 | 2026-06-20 | **P1 token re-skin.** Alias --accent to #1e4fd8 (light)/#6b9fff (dark); add role-named --action-primary/-hover/-active, --on-action, --primary-border-inset, --live-indicator; studio-dark --bg #0d0f14; 3-stop dark text ladder (--text-secondary #a8b2c4, --text-muted #8b95a8, NEW --text-subtle #6b7a92); light --text-primary #1c2b4a, --text-muted #5c6a80, --text-subtle #64748b; NEW --surface-reading; --on-success, --status-cached-text/-ring; tightened radii (card 10, button 8, NEW compact 6); --pulse-duration; double-ring :focus-visible; solid --progress-preparing-fill; calm-pulse keyframe; flat buttons (.btn-primary/-success/-home — no gradient/glow/translateY lift). §2.4 recomputed against new --bg. Review fixes: made `--text-on-accent` dark-aware (#0d0f14 — the lightened dark accent needs dark on-accent text, 7.33:1) and wired the `.is-running` reduced-motion exemption so the calm-pulse genuinely survives the guard. |
 
 ---
 
@@ -72,19 +73,19 @@ Token categories (current):
 
 | Category | Example tokens |
 |----------|----------------|
-| Background / surface | `--bg`, `--background`, `--surface`, `--surface-alt`, `--surface-light`, `--surface-white`, `--surface-pressed`, `--surface-code`, `--surface-code-border`, `--surface-dim`, `--surface-tinted-light` |
-| Text | `--text-primary`, `--text-secondary`, `--text-muted`, `--text`, `--text-on-accent`, `--text-code-muted`, `--text-code-info` |
+| Background / surface | `--bg`, `--background`, `--surface`, `--surface-alt`, `--surface-light`, `--surface-white`, `--surface-pressed`, `--surface-code`, `--surface-code-border`, `--surface-dim`, `--surface-tinted-light`, `--surface-reading` (warm off-white for manuscript/reading columns) |
+| Text | `--text-primary`, `--text-secondary`, `--text-muted`, `--text-subtle` (NEW — large/chrome only; MUST NOT carry body text), `--text`, `--text-on-accent`, `--text-code-muted`, `--text-code-info` |
 | Border | `--border`, `--border-muted`, `--glass-border` |
-| Accent | `--accent`, `--accent-hover`, `--accent-active`, `--accent-secondary`, `--accent-glow`, `--accent-tint`, `--accent-tint-bg`, `--accent-tint-border`, `--accent-focus-ring`, `--accent-rgb` |
-| State (success / warning / error) | `--success`, `--success-muted`, `--success-strong`, `--success-strong-hover`, `--success-color`, `--success-text`, `--success-tint-bg`, `--warning`, `--warning-text`, `--warning-text-strong`, `--warning-tint-bg`, `--warning-tint-border`, `--error`, `--error-text`, `--error-text-strong`, `--error-tint-bg`, `--error-tint-border`, `--error-glow` |
+| Accent | `--accent` (#1e4fd8 light / #6b9fff dark — value changed in P1; name kept as alias), `--accent-hover`, `--accent-active`, `--accent-secondary`, `--accent-glow`, `--accent-tint`, `--accent-tint-bg`, `--accent-tint-border`, `--accent-focus-ring`, `--accent-rgb`; **role-named family (NEW):** `--action-primary` / `--action-primary-hover` / `--action-primary-active` (semantic alias for `--accent`), `--on-action` (text on action-primary fills), `--primary-border-inset` (1px inset border on flat buttons), `--live-indicator` |
+| State (success / warning / error / cached) | `--success`, `--success-muted`, `--success-strong`, `--success-strong-hover`, `--success-color`, `--success-text`, `--success-tint-bg`, `--on-success` (NEW — text on success fills), `--warning`, `--warning-text`, `--warning-text-strong`, `--warning-tint-bg`, `--warning-tint-border`, `--error`, `--error-text`, `--error-text-strong`, `--error-tint-bg`, `--error-tint-border`, `--error-glow`; **Cached state (NEW):** `--status-cached-text` (amber text on surface — #9a4d0a light / #fbbf24 dark), `--status-cached-ring` (ring/icon use only — #a8530a light / #fbbf24 dark) |
 | Cloud engine | `--cloud-color`, `--cloud-tint-bg` (the cloud/API-engine accent family — distinct from the local-engine `--accent`) |
 | Waveform strip | `--color-wave`, `--color-wave-progress`, `--color-wave-cursor`, `--color-wave-bg`, `--color-wave-btn-bg`, `--color-wave-btn-border`, `--color-wave-btn-active-{bg,border,text}` (audio scrubber; see [audio-player.md](audio-player.md)) |
 | Glass / overlay | `--glass`, `--glass-hover`, `--glass-subtle`, `--glass-surface-light`, `--surface-glass-white`, `--surface-glass-half`, `--overlay-backdrop` |
-| Radius | `--radius-button` (10px), `--radius-card` (14px), `--radius-panel` (18px), `--radius-round` (9999px) |
+| Radius | `--radius-button` (8px — tightened in P1), `--radius-card` (10px — tightened in P1), `--radius-panel` (18px), `--radius-round` (9999px), `--radius-compact` (6px — NEW; compact controls, badges) |
 | Shadow / elevation | `--shadow-sm`, `--shadow-md`, `--shadow-lg`, `--shadow-xl` (soft layered ambient — a wide diffuse halo + a tight contact shadow) |
 | Material (Liquid Glass) | `--blur-glass`, `--blur-glass-strong` (for `backdrop-filter` on chrome/overlays), `--hairline` (low-alpha inner divider, softer than `--border`) |
-| Motion | `--ease-standard`, `--ease-emphasized`, `--ease-spring`, `--dur-fast`, `--dur-med`, `--dur-slow` |
-| Focus | `--accent-focus-ring` (low-alpha glow). **Note:** `--focus-ring` (`0 0 0 3px …`) is *defined but currently unused* — the keyboard focus ring in `base.css` is `outline: 2px solid var(--accent)` applied directly (§8.1), not this token. Do not assume `--focus-ring` is canonical; wiring it would diverge from the shipped ring. |
+| Motion | `--ease-standard`, `--ease-emphasized`, `--ease-spring`, `--dur-fast`, `--dur-med`, `--dur-slow`, `--pulse-duration` (NEW — 3s; zeroed by the reduced-motion guard; `.is-running` structural exemption restores it) |
+| Focus | `--accent-focus-ring` (low-alpha glow). **Note:** the keyboard focus ring in `base.css` is now a **double-ring** — `outline: 3px solid var(--action-primary)` plus a 5px `box-shadow` halo (see §8.1). The `--focus-ring` token (`0 0 0 3px …`) is effectively **superseded** by this inline double-ring implementation; `--accent-focus-ring` remains for component-level glow overlays but `--focus-ring` should be considered legacy. |
 | Accent treatments | `--accent-gradient`, `--accent-gradient-hover`, `--accent-glow-strong`, `--hero-glow` (primary-action fills + hero glow) |
 | Spacing (8pt scale) | `--space-1` (4px) … `--space-8` (48px) |
 | Typography | `--type-*` sizes + `--type-weight-*`, `--leading-*`, `--tracking-*` (see §4) |
@@ -119,15 +120,16 @@ When a new visual state needs a color, add the token (with both `:root` and `[da
 
 | Foreground | Background | Ratio | Verdict |
 |------------|------------|-------|---------|
-| `--text-primary` #0f172a | `--surface` #fff | 17.85 | AAA |
-| `--text-primary` #0f172a | `--bg` #f8fafc | 17.06 | AAA |
-| `--text-secondary` #475569 | `--surface` #fff | 7.58 | AAA |
-| `--text-muted` #64748b | `--surface` #fff | 4.76 | AA |
-| `--text-muted` #64748b | `--surface-alt` #f1f5f9 | 4.34 | ⚠ large-only (< 4.5) |
-| `--text-on-accent` #fff | `--accent` #2b6eff | **4.40** | ⚠ large/UI only (< 4.5) |
-| `--text-on-accent` #fff | `--accent-hover` #1d54da | 6.30 | AA |
-| `--text-on-accent` #fff | `--accent-active` #1642b5 | 8.47 | AAA |
-| `--accent` #2b6eff (UI/non-text) | `--surface` #fff | 4.40 | AA (≥ 3) |
+| `--text-primary` #1c2b4a | `--bg` #f5f7fb | 13.11 | AAA |
+| `--text-primary` #1c2b4a | `--surface` #ffffff | 13.11 | AAA |
+| `--text-secondary` #475569 | `--surface` #ffffff | 7.58 | AAA |
+| `--text-muted` #5c6a80 | `--surface` #ffffff | 5.49 | AA |
+| `--text-muted` #5c6a80 | `--surface-alt` #f0f3f9 | 4.94 | AA |
+| `--text-subtle` #64748b | `--surface` #ffffff | 4.76 | AA (chrome/large only — MUST NOT carry body text) |
+| `--on-action` #ffffff | `--action-primary` #1e4fd8 | 6.63 | AA |
+| `--status-cached-text` #9a4d0a | `--surface` #ffffff | 6.10 | AA |
+| `--status-cached-ring` #a8530a | `--surface` #ffffff | 5.38 | AA (UI/non-text ≥ 3) |
+| `--on-success` #04240f | `--success` #16a34a | 5.04 | AA |
 | `--error-text` #991b1b | `--error-tint-bg` | 7.28 | AAA |
 | `--error-text-strong` #b91c1c | `--error-tint-bg` | 5.66 | AA |
 | `--warning-text` #92400e | `--warning-tint-bg` | 6.66 | AA |
@@ -143,13 +145,14 @@ When a new visual state needs a color, add the token (with both `:root` and `[da
 
 | Foreground | Background | Ratio | Verdict |
 |------------|------------|-------|---------|
+| `--text-primary` #e8eaf0 | `--bg` #0d0f14 | 15.94 | AAA |
 | `--text-primary` #e8eaf0 | `--surface` #1a1d27 | 13.98 | AAA |
-| `--text-primary` #e8eaf0 | `--bg` #0f1117 | 15.69 | AAA |
-| `--text-secondary` #9ca3af | `--surface` #1a1d27 | 6.62 | AA |
-| `--text-muted` #6b7280 | `--surface` #1a1d27 | **3.48** | ✗ fails AA for body (large/UI only) |
-| `--text-muted` #6b7280 | `--surface-alt` #22263a | 3.09 | ✗ fails AA for body |
-| `--text-on-accent` #fff | `--accent` #2b6eff | **4.40** | ⚠ large/UI only (accent is not dark-overridden) |
-| `--accent` #2b6eff (UI/non-text) | `--surface` #1a1d27 | 3.82 | AA (≥ 3) |
+| `--text-secondary` #a8b2c4 | `--surface` #1a1d27 | 7.87 | AAA |
+| `--text-muted` #8b95a8 | `--surface` #1a1d27 | 5.57 | AA — RESOLVES prior failure |
+| `--text-muted` #8b95a8 | `--surface-alt` #161922 | 5.82 | AA |
+| `--text-subtle` #6b7a92 | `--surface` #1a1d27 | 3.86 | AA (chrome/large only — MUST NOT carry body text) |
+| `--on-action` #0d0f14 | `--action-primary` #6b9fff | 7.33 | AAA |
+| `--on-success` #052e16 | `--success` #22c55e | 6.54 | AA |
 | `--error-text` #fca5a5 | `--error-tint-bg` | 7.60 | AAA |
 | `--warning-text` #fbbf24 | `--warning-tint-bg` | 8.21 | AAA |
 | `--success-text` #34d399 | `--success-tint-bg` | 7.23 | AAA |
@@ -160,9 +163,10 @@ When a new visual state needs a color, add the token (with both `:root` and `[da
 
 **Binding rules & known borderline pairs:**
 
-- ⚠ **White text on `--accent` (`#2b6eff`) is 4.40:1 — just under the 4.5 AA floor for normal-size text.** The primary button at rest carries a white ~14.4px/600 label (not "large"), so it conforms only as large/UI text. Hover (`#1d54da`, 6.30) and active (`#1642b5`, 8.47) pass. Treat as a known borderline: nudge the resting accent slightly darker, render primary-button labels ≥ 18.66px-bold, or accept large/UI-only conformance — **do not lighten the accent**. (Recorded as a tracked follow-up, not yet acted on.)
-- ✗ **Dark-mode `--text-muted` (`#6b7280`) is 3.48:1 on `--surface` (3.09 on `--surface-alt`) — below AA for body text.** In dark mode, use `--text-muted` only for large text or non-essential decoration; for any small text that must meet AA use `--text-secondary` (`#9ca3af`, 6.62).
-- `--text-muted` in **light** mode is 4.34 on `--surface-alt` (large-only) but 4.76 on `--surface` — keep muted body text on the white surface, not the alt surface.
+- ✓ **RESOLVED — white-on-accent:** `--on-action` #ffffff on `--action-primary` #1e4fd8 is now **6.63:1** (AA). The prior borderline (white on #2b6eff = 4.40) is resolved by the P1 accent shift to #1e4fd8. Primary-button labels in both themes are now fully AA-compliant at normal text sizes.
+- ✓ **RESOLVED — dark-mode `--text-muted`:** `--text-muted` #8b95a8 on `--surface` #1a1d27 is now **5.57:1** (AA). The prior failure (#6b7280, 3.48:1) is resolved by the P1 dark text ladder update. `--text-muted` may now be used for body text in dark mode.
+- ⚠ **`--text-subtle` is chrome/large-only in both themes:** #64748b on surface (light) = 4.76 and #6b7a92 on surface (dark) = 3.86. The dark value meets AA only for large text (≥ 24px or ≥ 18.66px bold) and UI elements (≥ 3:1). **`--text-subtle` MUST NOT carry body text in either theme** — use `--text-muted` or `--text-secondary` instead.
+- `--text-muted` in **light** mode (#5c6a80) is 5.49 on `--surface` and 4.94 on `--surface-alt` — both pass AA.
 - Every other pair meets AA (most AAA). **New colors MUST be added as tokens whose *composited* contrast meets AA in both themes** — verify before adding, not after.
 
 ---
@@ -317,7 +321,7 @@ The accessibility target is **WCAG 2.2 AA**. The following are binding.
 ### 8.1 Focus management (current)
 
 - **Focus trap in modals/dialogs:** `useFocusTrap(ref, isOpen)` (`frontend/src/hooks/useFocusTrap.ts`) traps Tab / Shift-Tab inside the container, focuses the first focusable element on open, and restores focus to the trigger element on close. It manages focus only — it does NOT call `onClose`; the caller owns Escape handling. `ConfirmModal` uses it; every new modal/dialog MUST use it.
-- **`:focus-visible` rings (current):** `base.css` suppresses the outline for pointer interaction and applies a keyboard-only focus ring — `outline: 2px solid var(--accent); outline-offset: 2px` on `:focus-visible` for buttons, inputs, selects, textareas, anchors, and `[tabindex]`. New interactive elements MUST keep a visible keyboard focus ring (via `:focus-visible`, not a global `outline: none`). The ring is applied **directly** with `var(--accent)`; the `--focus-ring` token in `tokens.css` is **not** wired here (see §2.1) — don't assume it's the source of the ring.
+- **`:focus-visible` rings (current — double-ring):** `base.css` suppresses the outline for pointer interaction and applies a keyboard-only **double-ring** on `:focus-visible` for buttons, inputs, selects, textareas, anchors, and `[tabindex]`: `outline: 3px solid var(--action-primary); outline-offset: 2px` plus a 5px halo via `box-shadow: 0 0 0 5px rgba(255,255,255,.55)` (light) / `rgba(0,0,0,.5)` (dark). The `[data-theme="dark"]` selector overrides the `box-shadow` halo for studio-dark contrast. New interactive elements MUST keep a visible keyboard focus ring (via `:focus-visible`, not a global `outline: none`). The `--focus-ring` token in `tokens.css` is effectively **superseded** by this inline double-ring implementation (see §2.1 Focus note).
 
 ### 8.2 Semantics & ARIA (current/binding)
 
@@ -327,9 +331,11 @@ The accessibility target is **WCAG 2.2 AA**. The following are binding.
 
 ### 8.3 Contrast (binding)
 
-Color contrast is delivered through the token system: text and surface tokens are tuned per theme (§2.3). New colors MUST be added as tokens with contrast that meets AA in both light and dark, rather than inlined literals that satisfy only one theme. **The computed AA ratios for every key text/surface/state/pill pair (both themes) are in §2.4** — consult it before choosing token pairings. Two known borderline pairs are recorded there: white-on-`--accent` (4.40:1, just under the normal-text floor) and dark-mode `--text-muted` (3.48:1, below AA for body text).
+Color contrast is delivered through the token system: text and surface tokens are tuned per theme (§2.3). New colors MUST be added as tokens with contrast that meets AA in both light and dark, rather than inlined literals that satisfy only one theme. **The computed AA ratios for every key text/surface/state/pill pair (both themes) are in §2.4** — consult it before choosing token pairings. The two previously-known failures (white-on-`--accent` and dark-mode `--text-muted`) are **RESOLVED** as of P1; the only remaining chrome/large-only restriction is `--text-subtle` (see §2.4 borderline pairs).
 
 ### 8.4 The five UI states (binding)
+
+**44px minimum touch target (current):** all buttons and form controls (`button`, `input`, `select`, `textarea`) now have `min-height: 44px` enforced in `base.css` (INV-6). This satisfies WCAG 2.5.5 Target Size (AA, 24×24px minimum) with comfortable margin. New interactive controls MUST not undercut this.
 
 From `.agent/rules/frontend-ux.md`: every meaningful screen change MUST account for these states, and each MUST be user-meaningful and testable by role/label/visible behavior (not a bare spinner):
 
@@ -341,9 +347,22 @@ From `.agent/rules/frontend-ux.md`: every meaningful screen change MUST account 
 
 Prefer interfaces that explain *why* something is waiting or stale over generic spinners, and prefer inline recovery actions over forcing the user out of the editor. UI-copy rules for these states live in [voice-tone.md](voice-tone.md).
 
-### 8.5 Reduced motion (current gap)
+### 8.5 Reduced motion (implemented)
 
-The app ships Framer Motion plus a global `transition: all 0.2s` on buttons (`base.css`) and many token-driven animations, but **`prefers-reduced-motion` is currently honored only in the demo mock, not in the real app**. WCAG 2.2 AA does not strictly require honoring it (it maps to WCAG 2.3.3, a AAA criterion), so this is recorded as a **known coverage gap / tracked follow-up**, not a conformance failure. New animated surfaces SHOULD wrap non-essential motion in an `@media (prefers-reduced-motion: reduce)` guard; a global guard is the eventual target.
+The `prefers-reduced-motion` guard is now the **first rule in `base.css`** (INV-5), applied globally before any other styles:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+```
+
+This resolves the prior coverage gap (was demo-only). The `--pulse-duration` token is zeroed by this guard; the `.is-running` class (structural exemption) restores `--pulse-duration: 3s` for the `calm-pulse` animation — an exemption that is semantically meaningful (a live running indicator is structural status, not decorative motion). Framer Motion animations on real-app pages remain a tracked follow-up for explicit `useReducedMotion()` adoption, but the global guard provides a safety net for all CSS transitions and keyframe animations.
 
 ---
 

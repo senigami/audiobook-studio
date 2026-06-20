@@ -5,13 +5,20 @@
    the dark tokens from a [data-theme="dark"] ancestor and renders dark. */
 :root,
 [data-theme="light"] {
-  --bg: #f8fafc;
+  --bg: #f5f7fb;
   --surface: #ffffff;
-  --surface-alt: #f1f5f9;
-  --accent: #2b6eff;
+  --surface-alt: #f0f3f9;
+  --surface-reading: #fffef9;
+  --accent: #1e4fd8;                               /* aliased from #2b6eff — value changed, name kept */
   --accent-secondary: #ff8a1f;
-  --accent-hover: #1d54da;
-  --accent-active: #1642b5;
+  --accent-hover: #1a45c0;                         /* was #1d54da */
+  --accent-active: #163aa3;                        /* was #1642b5 */
+  --action-primary: #1e4fd8;                       /* NEW role-named alias */
+  --action-primary-hover: #1a45c0;                 /* NEW */
+  --action-primary-active: #163aa3;                /* NEW */
+  --on-action: #ffffff;                            /* NEW (≡ --text-on-accent) */
+  --primary-border-inset: rgba(255,255,255,.18);   /* NEW — 1px inset border on flat buttons */
+  --live-indicator: #1e4fd8;                       /* NEW */
   --accent-glow: rgba(43, 110, 255, 0.1);
   --success: #10b981;
   --success-muted: #d1fae5;
@@ -20,9 +27,10 @@
   --warning: #f59e0b;
   --glass-hover: rgba(0, 0, 0, 0.04);
   --error-glow: rgba(239, 68, 68, 0.1);
-  --text-primary: #0f172a;
+  --text-primary: #1c2b4a;     /* was #0f172a */
   --text-secondary: #475569;
-  --text-muted: #64748b;
+  --text-muted: #5c6a80;       /* was #64748b */
+  --text-subtle: #64748b;      /* NEW — large/chrome only in light */
   --border: #e6eaf2;
   --glass: rgba(255, 255, 255, 0.8);
   --glass-border: rgba(255, 255, 255, 0.5);
@@ -34,10 +42,11 @@
   --rail-width-collapsed: 56px;
 
   /* Unified Design Tokens */
-  --radius-button: 10px;
-  --radius-card: 14px;
+  --radius-button: 8px;    /* was 10px */
+  --radius-card: 10px;     /* was 14px */
   --radius-panel: 18px;
   --radius-round: 9999px;
+  --radius-compact: 6px;   /* NEW — compact controls, badges */
 
   /* Elevation — soft, layered, Apple-style ambient shadows (a wide diffuse
      halo + a tight contact shadow) rather than a single hard drop. */
@@ -60,6 +69,7 @@
   --dur-fast: 0.14s;
   --dur-med: 0.24s;
   --dur-slow: 0.4s;
+  --pulse-duration: 3s;   /* NEW — zeroed by reduced-motion guard; .is-running restores */
 
   /* Focus — one consistent visible ring for keyboard nav (a11y). */
   --focus-ring: 0 0 0 3px var(--accent-focus-ring);
@@ -99,6 +109,9 @@
   --success-text: #15803d;                       /* success status text */
   --warning-text-strong: #b45309;               /* warning/caution inline text */
   --text-on-accent: #ffffff;                    /* text on colored accent surfaces */
+  --on-success: #04240f;                        /* NEW — text on success fills */
+  --status-cached-text: #9a4d0a;               /* NEW */
+  --status-cached-ring: #a8530a;               /* NEW — ring/icon use only, NOT text */
   --glass-surface-light: rgba(248, 249, 252, 0.78); /* panel glass in light mode */
   --glass-subtle: rgba(255, 255, 255, 0.05);    /* very subtle glass tint */
 
@@ -155,7 +168,7 @@
   --progress-track: rgba(0, 0, 0, 0.05);           /* progress bar track background */
   --progress-finalizing-fill: rgba(191, 219, 254, 0.34); /* finalizing state fill color */
   --progress-finalizing-glow: rgba(59, 130, 246, 0.45);  /* finalizing glow shadow */
-  --progress-preparing-fill: rgba(248, 250, 252, 0.96);  /* preparing indeterminate fill */
+  --progress-preparing-fill: #64748b;                     /* was rgba(248,250,252,.96) — now solid/opaque */
   --progress-preparing-glow: rgba(226, 232, 240, 0.45);  /* preparing glow shadow */
   --progress-badge-running: rgba(37, 99, 235, 0.10);     /* running/processing badge bg */
   --progress-badge-preparing: rgba(245, 158, 11, 0.12);  /* preparing badge bg */
@@ -224,10 +237,11 @@
 
 [data-theme="dark"] {
   /* Surfaces */
-  --bg:                   #0f1117;
-  --background:           #0f1117;
+  --bg:                   #0d0f14;   /* was #0f1117 — studio near-black */
+  --background:           #0d0f14;
   --surface:              #1a1d27;
-  --surface-alt:          #22263a;
+  --surface-alt:          #161922;   /* was #22263a */
+  --surface-reading:      #1c1f2a;   /* NEW */
   --surface-light:        #1a1d27;
   --surface-white:        #1a1d27;
   --surface-pressed:      #2d3148;
@@ -240,8 +254,9 @@
 
   /* Text */
   --text-primary:         #e8eaf0;
-  --text-secondary:       #9ca3af;
-  --text-muted:           #6b7280;
+  --text-secondary:       #a8b2c4;   /* was #9ca3af */
+  --text-muted:           #8b95a8;   /* was #6b7280 — fixes AA failure in §2.4 */
+  --text-subtle:          #6b7a92;   /* NEW */
   --text:                 var(--text-primary);
   --text-code-muted:      #b0b8c8;
   --text-code-info:       #38bdf8;
@@ -264,6 +279,18 @@
   --glass-surface-light:  rgba(15, 17, 23, 0.78);
   --glass-subtle:         rgba(0, 0, 0, 0.25);
 
+  /* Accent alias + role-named action tokens (dark) */
+  --accent:               #6b9fff;              /* dark alias — aligns with --action-primary dark */
+  --accent-hover:         #5b90f5;
+  --accent-active:        #4f86ff;
+  --action-primary:       #6b9fff;              /* NEW */
+  --action-primary-hover: #5b90f5;              /* NEW */
+  --action-primary-active: #4f86ff;             /* NEW */
+  --on-action:            #0d0f14;              /* NEW — dark bg, not white */
+  --text-on-accent:       #0d0f14;              /* dark-aware (was inheriting #fff): dark --accent is light-blue #6b9fff, so on-accent text must be dark — 7.33:1 */
+  --primary-border-inset: rgba(0,0,0,.12);      /* NEW */
+  --live-indicator:       #6b9fff;              /* NEW */
+
   /* Accent tints */
   --accent-tint:          rgba(99, 102, 241, 0.18);
   --accent-tint-bg:       rgba(43, 110, 255, 0.15);
@@ -279,6 +306,9 @@
   --success-text:         #34d399;
   --success-color:        #10b981;
   --success-tint-bg:      rgba(16, 185, 129, 0.12);
+  --on-success:           #052e16;              /* NEW */
+  --status-cached-text:   #fbbf24;              /* NEW */
+  --status-cached-ring:   #fbbf24;              /* NEW */
 
   /* Warning */
   --warning:              #f59e0b;
@@ -329,7 +359,7 @@
   --progress-track:            rgba(255, 255, 255, 0.06);
   --progress-finalizing-fill:  rgba(96, 165, 250, 0.3);
   --progress-finalizing-glow:  rgba(59, 130, 246, 0.5);
-  --progress-preparing-fill:   rgba(51, 65, 85, 0.96);
+  --progress-preparing-fill:   #94a3b8;   /* was rgba(51,65,85,.96) — now solid */
   --progress-preparing-glow:   rgba(71, 85, 105, 0.45);
   --progress-badge-running:    rgba(99, 102, 241, 0.18);
   --progress-badge-preparing:  rgba(245, 158, 11, 0.18);

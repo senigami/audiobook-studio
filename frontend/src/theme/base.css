@@ -1,3 +1,20 @@
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* State-communicating exemption (INV-5): the running pulse conveys "actively
+     working" (essential info) and is a calm opacity breathe (no movement), so it
+     survives reduced-motion. Higher specificity + !important re-enables it over
+     the blanket * rule. Consumed in P3 (StatusOrb / PredictiveProgressBar). */
+  .is-running {
+    animation-duration: var(--pulse-duration) !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -38,13 +55,23 @@ button {
   padding: 0.75rem 1.25rem;
   font-size: 0.9rem;
   font-weight: 600;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    color            var(--dur-fast) var(--ease-standard),
+    border-color     var(--dur-fast) var(--ease-standard),
+    box-shadow       var(--dur-fast) var(--ease-standard),
+    opacity          var(--dur-fast) var(--ease-standard);
+  min-height: 44px;
   border: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   border-radius: var(--radius-button);
+}
+
+input, select, textarea {
+  min-height: 44px;
 }
 
 /* Suppress focus ring on mouse/pointer interaction; keep it for keyboard navigation */
@@ -56,15 +83,25 @@ a:not(:focus-visible) {
   outline: none;
 }
 
-/* WCAG-AA keyboard focus ring — applies only when focused via keyboard */
+/* WCAG-AA keyboard focus ring — double-ring: applies only when focused via keyboard */
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 a:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 3px solid var(--action-primary);
   outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(255,255,255,.55);
+}
+
+[data-theme="dark"] button:focus-visible,
+[data-theme="dark"] input:focus-visible,
+[data-theme="dark"] select:focus-visible,
+[data-theme="dark"] textarea:focus-visible,
+[data-theme="dark"] a:focus-visible,
+[data-theme="dark"] [tabindex]:focus-visible {
+  box-shadow: 0 0 0 5px rgba(0,0,0,.5);
 }
 
 .divider {
