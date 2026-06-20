@@ -205,8 +205,12 @@ export interface SegmentProgressPayload {
   reasonCode: string | null;
   hasSegmentSupport?: boolean;
   has_segment_support?: boolean;
+  // Per-segment ETA confidence (seg_confidence from the segment-keyed ring, resets per
+  // segment_id; a finished segment reports 1.0). Distinct from the chapter-level eta_confidence.
+  // See progress-presentation.md §4A.10 / B12.
+  confidence?: number | null;
   // Legacy duplicate fields for active segment mapping
-  etaSeconds?: number | null;
+  etaSeconds?: number | null; // §4A.10 decay-handoff blend, not raw extrapolation
   eta_seconds?: number | null;
   reason_code?: string | null;
   activeSegmentId?: string | null;

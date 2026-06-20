@@ -1,7 +1,7 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.3.0
+spec_version: 1.4.0
 status: active
 updated: 2026-06-19
 created: 2026-06-10
@@ -17,6 +17,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.4.0   | 2026-06-19 | **Rebuild vs queue semantics documented (§3.7) + `force_rerender` field (§2) + I18.** The shipped behavior was previously undocumented: queue (`POST /processing_queue`, `force_rerender=False`) is additive — deletes nothing, reuses existing segment WAVs per-group and concatenates; rebuild (`POST /chapters/{id}/reset` then `force_rerender=True`) is destructive — deletes all segment WAVs, resets `audio_status`, and re-synthesizes every group. `force_rerender` guards reuse identically in all three render paths (xtts standard, xtts bake, voxtral bake). Backfills the spec for commits 3a834144 / 6373e9ad / 23a3b7d5. |
 | 1.3.0   | 2026-06-19 | Cooperative-cancel lost-update fix (I17): `cancel()` synchronously detaches the task's engine-log listener (after `on_cancel()` sets the cancel flag), and both `[SEGMENT_SAVED]` `audio_status="done"` write sites — the orchestrator `log_listener` and the xtts handler's `chapter_on_output` — drop the write when the task is cancelled. Prevents a straggler save from the not-yet-stopped subprocess resurrecting segment state a chapter reset just cleared (which made the next render reuse stale audio). Prompt subprocess-stop remains a follow-up (G6). |
 | 1.2.2   | 2026-06-16 | Bug fix: `apply_status_regression_guard` now allows terminal→`preparing` (not only terminal→`queued`); matches §3.5 / `is_terminal_reset` / drop-guard which already treated both as valid resets. Fixed by expanding the `ACTIVE_STATUSES` check in `app/db/state_job_guards.py`. |
 | 1.2.1   | 2026-06-16 | §3.2 corrected line citations: `put_job` remap at `app/db/state_jobs.py:74-75`, `update_job` remap at `app/db/state_jobs.py:188-189`. |
@@ -110,6 +111,7 @@ All fields live on `app.db.models.Job` (a `@dataclass`).
 | `safe_mode` | `bool` | Default True |
 | `make_mp3` | `bool` | Default False |
 | `bypass_pause` | `bool` | Skip pause gate |
+| `force_rerender` | `bool` | Default False. When True, engine handlers bypass per-group WAV reuse and re-synthesize every render group regardless of `audio_status` (§3.7). Set by the rebuild action; threaded through `SynthesisTask` and survives recovery. |
 | `speaker_profile` | `str \| None` | |
 | `is_bake` | `bool` | True for bake-type jobs |
 | `has_segment_support` | `bool` | Engine supports segment-level progress |
@@ -249,6 +251,40 @@ also synthesize WAV-first, but the result is then automatically converted to
 `app/engines/audio_ops.py`); on conversion failure the WAV is kept and served
 as fallback. This matches `docs/specs/voice-bundles.md` (previews are MP3).
 Chapter renders are never auto-converted — assembly converts WAV → AAC.
+
+---
+
+### 3.7 Rebuild vs Queue: chapter audio reuse (binding)
+
+Two distinct entry points act on a chapter's render audio, with **opposite**
+reuse semantics. Conflating them loses already-rendered audio, so the
+distinction is binding.
+
+**Queue (additive — the default).** `POST /processing_queue` with
+`force_rerender=False` (`app/api/routers/generation.py`). This is the normal
+"render the missing parts" path: it deletes **nothing**. Engine handlers reuse
+every render group whose segment WAV already exists and is marked `done`, and
+synthesize only the missing/stale groups, then concatenate existing + new
+segment WAVs into the chapter output. The reuse decision is per-group, made by
+`_group_is_done` (xtts standard path) / `_group_needs_render` (xtts + voxtral
+bake paths) against validated artifact metadata — never raw file existence
+alone.
+
+**Rebuild (destructive).** `POST /chapters/{id}/reset`
+(`app/api/routers/chapters.py`) followed by a queue submission with
+`force_rerender=True`. The reset physically deletes all of the chapter's
+segment WAVs (`reset_chapter_audio` → `cleanup_chapter_audio_files`,
+`app/db/chapters.py`) and resets every segment `audio_status` to
+`unprocessed`. `force_rerender=True` then makes the handlers re-synthesize
+every group unconditionally (it short-circuits `_group_is_done` /
+`_group_needs_render` to "render"), so nothing is reused even if a stray WAV
+survived.
+
+The flag guards reuse in **all three render paths** — xtts standard
+(`plugins/tts_xtts/plugin/studio/standard_handler.py`), xtts bake
+(`plugins/tts_xtts/plugin/studio/bake.py`), and voxtral bake
+(`plugins/tts_voxtral/plugin/studio/bake.py`) — so rebuild behaves identically
+regardless of engine. See invariant I18.
 
 ---
 
@@ -568,6 +604,7 @@ that these surfaces render are governed by
 - I15. Updates to terminal jobs MUST NOT be applied unless the incoming status is `queued`/`preparing` (reset) or `force_broadcast=True`.
 - I16. ETA fields MUST NOT be written by any path other than `update_job` / `state_jobs.py`.
 - I17. A cancelled render MUST NOT write segment `audio_status="done"`. `cancel()` sets the task's cancel flag (`on_cancel()`) and detaches its engine-log listener synchronously; both `[SEGMENT_SAVED]` done-write sites (orchestrator `log_listener`, xtts `chapter_on_output`) MUST drop the write while the task is cancelled, so a straggler save cannot resurrect state a chapter reset cleared.
+- I18. When `force_rerender=True`, engine handlers MUST NOT reuse an existing segment WAV regardless of its `audio_status`; every render group is re-synthesized. The flag MUST be honored identically in all three render paths (xtts standard, xtts bake, voxtral bake) — §3.7.
 
 ---
 

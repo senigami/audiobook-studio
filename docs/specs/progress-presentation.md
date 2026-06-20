@@ -455,7 +455,7 @@ analogous to §4A.8 but operating on the **implied total-duration axis** and wei
 baseline's **own historical confidence**:
 
 ```
-T_obs   = seg_eta_observed / (1 - p)          # implied total from the live estimate
+T_obs   = seg_eta_observed / max(1 - p, EPS)  # implied total from the live estimate (T_obs = T_base when no observed value)
 T_base  = seg_chars × seconds_per_char        # grounded baseline total (seg_chars = active_render_group_weight)
 w_base  = c_base × (1 - p)                     # baseline influence: its confidence, decaying with progress
 eta     = ( w_base · T_base + (1 - w_base) · T_obs ) × (1 - p)
@@ -466,7 +466,9 @@ eta     = ( w_base · T_base + (1 - w_base) · T_obs ) × (1 - p)
   (`c_base ≈ 0.2`) so the baseline is given little influence and the live estimate leads;
   `c_base` rises toward 1 as real renders accumulate, so a well-sampled engine gets a strong early
   baseline anchor that damps the surge. **c_base is FIXED at segment start** (cached per
-  `segment_id`) — the `(1 - p)` term carries all intended time-variation.
+  `segment_id` on the live `sample=True` path) — the `(1 - p)` term carries all intended
+  time-variation. The snapshot/hydration path (`sample=False`) computes `c_base` read-only and
+  does not write the cache, so a hydration call never fixes the value mid-segment.
 - **I-segeta:** the emitted segment ETA MUST equal the formula above when a baseline is available
   (`seg_chars > 0` and a positive `seconds_per_char`); when no baseline is available the raw observed
   value is kept. Edge behaviour: `c_base = 0` → pure observed; `c_base = 1, p = 0` → pure baseline

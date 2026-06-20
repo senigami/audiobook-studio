@@ -17,8 +17,8 @@ Last updated: 2026-06-19
 | [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md) | Shared app shell, global chrome, routed book pipeline, Studio/Review stage detail, platform/manage split, frontend state ownership, legacy redirects, Library cover-size control | 1.5.0 |
 | [design-system.md](design-system.md) | Design tokens, theming (System/Light/Dark, no-flash), type scale, voice-pill tints, shared UI primitives, iconography (lucide canonical), responsive breakpoints, accessibility baseline | 1.2.0 |
 | [audio-player.md](audio-player.md) | Global single-owner audio player: `playerBus` store, one `<audio>` in `PlayerBar`, full VCR transport (lucide icons). **Scope-agnostic** — no segment/chapter toggle; scrub representation is duration-driven; far-right `AudioLines` opens an expandable scrubbing-waveform **tape** (paged/moving motion, click+drag scrub, cover-slider zoom presets, minimap, m:ss ruler, fixed-grid rendering); peaks browser-decoded below a duration cap, server sidecar above. Visibility keys on playback state + persists across all routes; content-owned play affordances (§4.1). Tape realized in the mock; live port tracked by plans/audio_player_waveform_scrubber/ | 1.6.0 |
-| [live-events.md](live-events.md) | WebSocket live event topics, envelope schema, reconnect/bootstrap contract | 1.5.3 |
-| [queue-jobs.md](queue-jobs.md) | Job statuses, allowed transitions, two-store model, terminal-reset semantics, broadcast routing, presentation surfaces | 1.3.0 |
+| [live-events.md](live-events.md) | WebSocket live event topics, envelope schema, reconnect/bootstrap contract | 1.6.0 |
+| [queue-jobs.md](queue-jobs.md) | Job statuses, allowed transitions, two-store model, terminal-reset semantics, rebuild-vs-queue reuse (§3.7), broadcast routing, presentation surfaces | 1.4.0 |
 | [text-processing.md](text-processing.md) | Six-stage text pipeline (clean→split→pack→group→assign→render), invariants on packing and grouping | 1.1.1 |
 | [testing-standards.md](testing-standards.md) | Binding rules R1–R4, mock-boundary discipline, test classification rubric | 1.0.1 |
 | [system-architecture.md](system-architecture.md) | Two-process model (Studio + TTS Server), boot sequence, component ownership boundaries | 1.1.0 |
@@ -28,7 +28,7 @@ Last updated: 2026-06-19
 | [engines-and-plugins.md](engines-and-plugins.md) | Plugin discovery, health state machine, verification flow, hot-reload rules | 1.1.1 |
 | [voice-bundles.md](voice-bundles.md) | Bundle directory structure, MP3/WAV format rules, voice attribute taxonomy, voice catalog + Voice Lab UI | 1.2.0 |
 | [interface-localization.md](interface-localization.md) | Interface localization, locale catalogs, first-run picker, settings selector, locale-aware formatting | 1.0.4 |
-| [progress-presentation.md](progress-presentation.md) | `PredictiveProgressBar` contract, ETA trust model, broadcast thresholds | 1.4.3 |
+| [progress-presentation.md](progress-presentation.md) | `PredictiveProgressBar` contract, ETA trust model, broadcast thresholds, segment ETA decay-handoff (§4A.10) | 1.5.0 |
 | [code-organization.md](code-organization.md) | Repo layout, module boundary rules, file-size norms, import constraints | 1.1.0 |
 | [security.md](security.md) | Path containment pattern, API key auth, input validation, CodeQL requirements | 1.2.1 |
 | [install-distribution.md](install-distribution.md) | `run.sh` behaviour, env var reference, Pinokio wrapper, first-run defaults | 1.2.0 |
