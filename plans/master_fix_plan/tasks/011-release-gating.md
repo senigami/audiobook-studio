@@ -16,6 +16,19 @@ not automate or skip them.
   release wiring + `v1.html` screenshot refresh to the current 2.0 UI, **Pinokio PK3** (publish wrapper
   repo — owner), **PK7** (demo bundle refresh — blocked on 007), **PK8** (first-run smoke test macOS+Windows),
   **SP9** spec-conformance cross-check pass (**gates the tag**), release notes + install matrix + version tag.
+- **Stage 6 — Resource cleanup before the squash merge (owner-decided 2026-06-20):** the working branch
+  squash-merges to `main`, so all planning scaffolding can be stripped at release and never lands in
+  production history. **Delete:** `plans/master_fix_plan/`, the open source plans it references
+  (`simplification/`, `book_view_redesign/`, `final_release/`, `audio_player_waveform_scrubber/`,
+  `master_agnostic_tasks.md`, etc.), and `plans/_archive/`.
+  **KEEP (owner — still useful, to be linked from the in-app debug/hidden-pages section):** the
+  **style guide** and the **demo/showcase + workup pages** (`frontend/src/demo/`, the `docs/demo/`
+  build, the in-app styleguide route).
+  **Preserve as durable docs:** `plans/COMPLETED_WORK_REPORT.md` (feeds wiki/changelog/highlights).
+  **Before deleting spec-cited plans, repoint or inline their provenance** — `docs/specs/` link into
+  several of them (`site_experience_north_star.md` ×9, `audio_player_scrubbing_waveform_proposal.md` ×3,
+  the `v2_*` provenance set, `site_redesign_rollout/`, `phases/phase_12_multilingual_*`); rewrite those
+  spec references to the report or remove the links so no spec is left with a dangling pointer.
 
 **Map links:** W12. Consumes outputs of W1/W2/W6/W7/W8/W9/W11. SP9 enforces INV-1 across all specs.
 Owner gates per INV-8.
