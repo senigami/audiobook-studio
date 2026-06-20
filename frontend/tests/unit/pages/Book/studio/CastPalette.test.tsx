@@ -111,7 +111,8 @@ describe('CastPalette', () => {
     fireEvent.click(marenRow);
     expect(marenRow).toHaveAttribute('aria-pressed', 'true');
 
-    fireEvent.click(screen.getByRole('button', { name: /variants/i }));
+    // Selecting a multi-profile character auto-expands its variant list
+    // (no separate "variants" toggle).
     expect(screen.getByRole('button', { name: /^a$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^b$/i })).toBeInTheDocument();
   });
