@@ -6,7 +6,7 @@ import logging
 from typing import Optional, List
 from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Depends, HTTPException
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..core.config import (
@@ -135,6 +135,15 @@ if FRONTEND_DIST.exists():
 DEMO_DIST = FRONTEND_DIST.parent.parent / "docs" / "demo"
 if DEMO_DIST.exists():
     app.mount("/demo", StaticFiles(directory=str(DEMO_DIST), html=True), name="demo")
+
+
+# The StaticFiles mount only matches "/demo/..."; a bare "/demo" (no trailing
+# slash) would otherwise fall through to the SPA catch-all and serve the main
+# app instead of the demo. Redirect it to the mounted path. Registered
+# unconditionally (before the catch-all) so the slash is never required.
+@app.get("/demo")
+def _demo_trailing_slash_redirect():
+    return RedirectResponse(url="/demo/")
 
 
 @app.get("/projects/{project_id}/cover/{filename}")
