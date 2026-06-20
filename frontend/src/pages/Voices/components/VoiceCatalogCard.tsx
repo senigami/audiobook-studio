@@ -3,11 +3,11 @@
  *
  * Grid card for the Voices catalog. Displays:
  * - Circular avatar (uploaded icon if available, else User lucide on accent tint)
- * - ★ default badge (top-right) and ⚠ untagged badge
+ * - default badge (top-right) and untagged badge
  * - Voice name
  * - VoicePillRow (max 3, overflow collapses)
  * - One-line description
- * - ▶ Preview button (routes through playerBus)
+ * - Preview (Play) button (routes through playerBus)
  * - Phase-appropriate primary CTA (from getPrimaryCta/getVoicePhase)
  * - ⋯ ActionMenu: Set as default / Edit Metadata / Rename Voice / Export Voice Bundle / Delete Voice
  */
@@ -209,7 +209,7 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                     className="btn-glass voice-catalog-card__preview-btn"
                 >
                     {isPlaying ? <Pause size={12} /> : <Play size={12} />}
-                    {isPlaying ? 'Pause' : '▶'}
+                    {isPlaying ? 'Pause' : 'Play'}
                 </button>
 
                 {/* Primary CTA */}

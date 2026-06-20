@@ -139,23 +139,50 @@ describe('StyleguidePage section headings', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test 3 — Proposed section has all 5 proposal cards with PROPOSED chip
+// Test 3a — Typography (Section 2) renders the SHIPPED tokens, not proposals
 // ---------------------------------------------------------------------------
 
-describe('StyleguidePage proposals', () => {
-  it('renders all 5 proposal cards with PROPOSED chip', () => {
+describe('StyleguidePage typography shows current shipped tokens', () => {
+  it('renders the shipped type/space/motion scales and drops the stale "proposed" framing', () => {
     render(<StyleguidePage />);
 
-    // Cards by their headings
+    // Section 2 now renders the tokens that actually ship in tokens.css
+    // (type scale + spacing + motion), parsed live — not the retired
+    // proposedTokens.ts constants.
+    expect(screen.getAllByText(/Spacing scale/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Motion tokens/i).length).toBeGreaterThan(0);
+
+    // The stale framing that claimed the tokens did not exist is gone. These
+    // are the discriminators — they were present on the pre-repair page.
+    expect(screen.queryByText(/do not exist yet/i)).toBeNull();
+    expect(screen.queryByText(/zero type tokens/i)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 3b — Section 4 keeps the future-direction proposal gallery
+// ---------------------------------------------------------------------------
+
+describe('StyleguidePage proposed-directions gallery', () => {
+  it('still renders the future-direction proposal cards', () => {
+    render(<StyleguidePage />);
+
     expect(screen.getByText(/U15.*Navigation/i)).toBeInTheDocument();
     expect(screen.getByText(/U16.*Unified Audio Player/i)).toBeInTheDocument();
     expect(screen.getByText(/U8.*Voice Card/i)).toBeInTheDocument();
     expect(screen.getByText(/U1.*Undo Toast/i)).toBeInTheDocument();
     expect(screen.getByText(/U3.*Semantic Type Scale/i)).toBeInTheDocument();
+  });
 
-    // All proposal cards carry "PROPOSED" chips — there should be multiple
-    const chips = screen.getAllByText('PROPOSED');
-    expect(chips.length).toBeGreaterThanOrEqual(5);
+  it('marks shipped proposals as decided, leaving only open ones as PROPOSED', () => {
+    render(<StyleguidePage />);
+
+    // Items that have shipped now carry "decided" chips (U3 type scale =
+    // "Shipped", U16 player = "Affirmed"); only the U8 voice card remains an
+    // open proposal. Pre-repair the page showed ≥5 PROPOSED chips.
+    expect(screen.getAllByText(/Shipped/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Affirmed/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('PROPOSED').length).toBe(1);
   });
 });
 

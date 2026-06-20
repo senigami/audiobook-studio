@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Copy, Download, RefreshCw, Zap } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, Download, RefreshCw, Zap } from 'lucide-react';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { useDevMode } from '@/utils/devMode';
 
@@ -41,7 +41,7 @@ export function StudioHeaderActions({
     <span className="studio-header-actions__export-trigger">
       {exportingFormat ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
       <span>
-        {exportingFormat ? `Exporting ${exportingFormat.toUpperCase()}…` : 'Export ▾'}
+        {exportingFormat ? `Exporting ${exportingFormat.toUpperCase()}…` : <><span>Export</span><ChevronDown size={14} aria-hidden="true" /></>}
       </span>
     </span>
   );

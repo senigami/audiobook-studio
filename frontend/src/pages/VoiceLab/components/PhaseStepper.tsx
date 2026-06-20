@@ -2,10 +2,11 @@
  * PhaseStepper.tsx — R5-T5
  *
  * 4-step phase indicator: Samples → Build → Test → Ready.
- * Past steps show ✓ in accent, active is filled, future is muted.
+ * Past steps show a check in accent, active is filled, future is muted.
  * Driven by VoicePhase from voicePhase.ts.
  */
 import React from 'react';
+import { Check } from 'lucide-react';
 import type { VoicePhase } from '@/pages/Voices/voicePhase';
 
 const STEPS: { phase: VoicePhase; label: string }[] = [
@@ -59,7 +60,7 @@ export const PhaseStepper: React.FC<PhaseStepperProps> = ({ phase }) => {
                                     (isPast ? ' voice-lab-phase-stepper__dot--past' : '')
                                 }
                             >
-                                {isPast ? '✓' : i + 1}
+                                {isPast ? <Check size={14} aria-hidden="true" /> : i + 1}
                             </div>
                             <span
                                 className={

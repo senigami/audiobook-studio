@@ -1,5 +1,5 @@
 import { useMatch, useNavigate } from 'react-router-dom';
-import { Zap } from 'lucide-react';
+import { ChevronRight, Zap } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { BrandLogo } from '@/components/layout/BrandLogo';
 import type { StudioShellState } from '@/app/navigation/model';
@@ -69,7 +69,7 @@ export function TopBar({
   const connection = getConnectionState(shellState?.hydration.status);
   const showQueueBadge = typeof queueCount === 'number' && queueCount > 0;
 
-  // Inside a book the breadcrumb becomes a continuous path: Library › [book] › Stage.
+  // Inside a book the breadcrumb becomes a continuous path: Library / [book] / Stage.
   const stageMatch = useMatch('/book/:bookId/:stage');
   const stageParam = stageMatch?.params.stage;
   const stageLabel = stageParam ? stageParam.charAt(0).toUpperCase() + stageParam.slice(1) : null;
@@ -100,18 +100,18 @@ export function TopBar({
             >
               Library
             </button>
-            <span className="top-bar__breadcrumb-caret" aria-hidden="true">›</span>
+            <span className="top-bar__breadcrumb-caret" aria-hidden="true"><ChevronRight size={14} /></span>
             {/* Book identity, threaded inline into the breadcrumb path. */}
             <span className="top-bar__crumb-identity" data-testid="topbar-identity-slot">
               {identitySlot}
             </span>
-            <span className="top-bar__breadcrumb-caret" aria-hidden="true">›</span>
+            <span className="top-bar__breadcrumb-caret" aria-hidden="true"><ChevronRight size={14} /></span>
             <span className="top-bar__crumb-current">{stageLabel}</span>
           </>
         ) : (
           <>
             <span className="top-bar__breadcrumb-label">{breadcrumb ?? defaultBreadcrumb}</span>
-            <span className="top-bar__breadcrumb-caret" aria-hidden="true">›</span>
+            <span className="top-bar__breadcrumb-caret" aria-hidden="true"><ChevronRight size={14} /></span>
           </>
         )}
       </nav>

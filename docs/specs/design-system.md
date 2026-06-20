@@ -1,10 +1,10 @@
 # Design System
 
 ```
-spec_version: 1.2.0
+spec_version: 1.4.0
 status: active
 created: 2026-06-13
-updated: 2026-06-16
+updated: 2026-06-19
 sources:
   - frontend/src/theme/tokens.css
   - frontend/src/demo/stages/siteMockup/
@@ -18,11 +18,19 @@ sources:
   - frontend/src/components/ui/StatusOrb.tsx
   - frontend/src/components/ui/GhostButton.tsx
   - frontend/src/components/forms/InlineEdit.tsx
+  - frontend/src/components/forms/GlassInput.tsx
+  - frontend/src/components/forms/SearchableSelect.tsx
+  - frontend/src/components/forms/ColorSwatchPicker.tsx
+  - frontend/src/components/forms/VoiceDropzone.tsx
+  - frontend/src/components/layout/BrandLogo.tsx
   - frontend/src/components/overlays/ConfirmModal.tsx
+  - frontend/src/components/overlays/PluginTrustModal.tsx
+  - frontend/src/app/layout/PlayerBar.tsx
   - frontend/src/app/layout/NavRail.tsx
   - frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx
   - .agent/rules/frontend-interactions.md
   - .agent/rules/frontend-ux.md
+  - docs/specs/voice-tone.md
   - plans/site_experience_north_star.md
   - plans/site_redesign_rollout/
 ```
@@ -36,6 +44,8 @@ sources:
 | 1.0.0   | 2026-06-13 | Initial canonical spec for the frontend design system |
 | 1.1.0   | 2026-06-16 | Added §9 Iconography (binding): `lucide-react` is the single icon system; canonical control→icon mapping; deliberate non-icon exceptions (status dots, raster artwork, "from→to" notation). North-Star mock standardized off Unicode glyphs onto lucide. Cross-References renumbered to §10. |
 | 1.2.0   | 2026-06-16 | Reconciled §2/§4/§5 to the current `tokens.css` (some drift predated this session). Radius bumped (`--radius-card` 14px, `--radius-panel` 18px); registry now documents the present Material (`--blur-glass*`, `--hairline`), Motion (`--ease-*`/`--dur-*`), `--focus-ring`, accent gradient/glow, and 8pt `--space-*` families. §4 type scale corrected to **tokenized (current)** and extended with `--type-display/large-title/reading` + `--leading-*`/`--tracking-*`. §5 voice-pill tints corrected to **current** (`--pill-*` exist in `tokens.css`); real-Voices-page adoption remains target. |
+| 1.3.0   | 2026-06-19 | **Style-guide completion pass.** Added **§2.4 Color & contrast** (computed WCAG AA ratios for the key pairs in both themes, with composited-color math for `rgba` tints) and **§10 Brand identity** (Cross-References renumbered §10→§11). §2.1 registered the previously-undocumented **Cloud-engine** and **Waveform-strip** token families + the **progress barber-pole stripe** tokens, completed missing State/Surface/Brand rows, and flagged `--focus-ring` as *defined-but-unused*. §4: typeface decision recorded — **Inter (+ Space Grotesk wordmark) is now self-hosted** (was declared-but-never-loaded → system-ui fallback); type-token adoption status corrected (one real-app file, not a migration-in-progress). §6: added 6 shipped-but-undocumented primitives (`GlassInput`, `SearchableSelect`, `ColorSwatchPicker`, `VoiceDropzone`, `BrandLogo`, `PluginTrustModal`) + the `PlayerBar` transport. §7: added the 1250px breakpoint. §8: recorded the reduced-motion coverage gap. §9: recorded known real-app glyph violations as tracked deviations. UI copy/voice & tone split out to the new [voice-tone.md](voice-tone.md). Same change set fixed the duplicate `--success-text` token and tokenized the progress-bar `rgba` literals. |
+| 1.4.0   | 2026-06-19 | Completed the §9 glyph→lucide migration. The 8 real-app glyph-as-icon usages (a `▶` play label, `›` breadcrumb separators ×3, `▲`/`▼` disclosure carets ×2, an `Export ▾` caret, and `✓` markers ×3) now render the mapped lucide components; the redundant `⚠` decorations on `EditTab`/`AnalysisStrip` were dropped in favor of the existing `AlertTriangle`. §9.1 updated; §9.5 changed from a deviations table to **resolved**. Rendering-only change — no behavior change. |
 
 ---
 
@@ -43,7 +53,7 @@ sources:
 
 This spec is the authoritative reference for the frontend design system: the design-token registry, the theming contract, the type scale, the voice-attribute pill presentation, the shared component primitives, the responsive model, and the accessibility baseline.
 
-It governs how UI looks and behaves consistently across pages — colors, surfaces, spacing, radius, typography, focus, keyboard access, and the canonical building blocks every screen reuses. It does **not** own page layout/routing (see `site-shell-and-book-pipeline.md`), progress-bar internals (see `progress-presentation.md`), or the voice-attribute *vocabulary* (see `voice-bundles.md` §8).
+It governs how UI looks and behaves consistently across pages — brand identity (§10), colors and their measured contrast (§2, incl. §2.4), surfaces, spacing, radius, typography, focus, keyboard access, and the canonical building blocks every screen reuses. It does **not** own page layout/routing (see `site-shell-and-book-pipeline.md`), progress-bar internals (see `progress-presentation.md`), the voice-attribute *vocabulary* (see `voice-bundles.md` §8), or UI *copy / voice & tone* (see [voice-tone.md](voice-tone.md)).
 
 Specs and code are jointly authoritative. If this spec and the implementation disagree, resolve the drift explicitly by changing one or the other in the same PR.
 
@@ -61,24 +71,26 @@ Token categories (current):
 
 | Category | Example tokens |
 |----------|----------------|
-| Background / surface | `--bg`, `--background`, `--surface`, `--surface-alt`, `--surface-light`, `--surface-white`, `--surface-pressed`, `--surface-code`, `--surface-dim` |
+| Background / surface | `--bg`, `--background`, `--surface`, `--surface-alt`, `--surface-light`, `--surface-white`, `--surface-pressed`, `--surface-code`, `--surface-code-border`, `--surface-dim`, `--surface-tinted-light` |
 | Text | `--text-primary`, `--text-secondary`, `--text-muted`, `--text`, `--text-on-accent`, `--text-code-muted`, `--text-code-info` |
 | Border | `--border`, `--border-muted`, `--glass-border` |
 | Accent | `--accent`, `--accent-hover`, `--accent-active`, `--accent-secondary`, `--accent-glow`, `--accent-tint`, `--accent-tint-bg`, `--accent-tint-border`, `--accent-focus-ring`, `--accent-rgb` |
-| State (success / warning / error) | `--success`, `--success-strong`, `--success-text`, `--success-tint-bg`, `--warning`, `--warning-text`, `--warning-tint-bg`, `--warning-tint-border`, `--error`, `--error-text`, `--error-text-strong`, `--error-tint-bg`, `--error-tint-border`, `--error-glow` |
+| State (success / warning / error) | `--success`, `--success-muted`, `--success-strong`, `--success-strong-hover`, `--success-color`, `--success-text`, `--success-tint-bg`, `--warning`, `--warning-text`, `--warning-text-strong`, `--warning-tint-bg`, `--warning-tint-border`, `--error`, `--error-text`, `--error-text-strong`, `--error-tint-bg`, `--error-tint-border`, `--error-glow` |
+| Cloud engine | `--cloud-color`, `--cloud-tint-bg` (the cloud/API-engine accent family — distinct from the local-engine `--accent`) |
+| Waveform strip | `--color-wave`, `--color-wave-progress`, `--color-wave-cursor`, `--color-wave-bg`, `--color-wave-btn-bg`, `--color-wave-btn-border`, `--color-wave-btn-active-{bg,border,text}` (audio scrubber; see [audio-player.md](audio-player.md)) |
 | Glass / overlay | `--glass`, `--glass-hover`, `--glass-subtle`, `--glass-surface-light`, `--surface-glass-white`, `--surface-glass-half`, `--overlay-backdrop` |
 | Radius | `--radius-button` (10px), `--radius-card` (14px), `--radius-panel` (18px), `--radius-round` (9999px) |
 | Shadow / elevation | `--shadow-sm`, `--shadow-md`, `--shadow-lg`, `--shadow-xl` (soft layered ambient — a wide diffuse halo + a tight contact shadow) |
 | Material (Liquid Glass) | `--blur-glass`, `--blur-glass-strong` (for `backdrop-filter` on chrome/overlays), `--hairline` (low-alpha inner divider, softer than `--border`) |
 | Motion | `--ease-standard`, `--ease-emphasized`, `--ease-spring`, `--dur-fast`, `--dur-med`, `--dur-slow` |
-| Focus | `--focus-ring` (3px keyboard ring, built on `--accent-focus-ring`) |
+| Focus | `--accent-focus-ring` (low-alpha glow). **Note:** `--focus-ring` (`0 0 0 3px …`) is *defined but currently unused* — the keyboard focus ring in `base.css` is `outline: 2px solid var(--accent)` applied directly (§8.1), not this token. Do not assume `--focus-ring` is canonical; wiring it would diverge from the shipped ring. |
 | Accent treatments | `--accent-gradient`, `--accent-gradient-hover`, `--accent-glow-strong`, `--hero-glow` (primary-action fills + hero glow) |
 | Spacing (8pt scale) | `--space-1` (4px) … `--space-8` (48px) |
 | Typography | `--type-*` sizes + `--type-weight-*`, `--leading-*`, `--tracking-*` (see §4) |
 | Voice-pill tints | `--pill-{class,gender,age,extended,tag}-{bg,border,text}` (see §5) |
 | Layout metrics | `--header-height` (56px), `--rail-width` (190px), `--rail-width-collapsed` (56px) |
-| Brand | `--as-ink`, `--as-muted`, `--as-blue`, `--as-amber`, `--as-info-tint` |
-| Progress visual states | `--progress-track`, `--progress-finalizing-fill`, `--progress-preparing-fill`, `--progress-done-fill`, `--progress-failed-fill`, `--progress-badge-*` (see `progress-presentation.md`) |
+| Brand | `--as-ink`, `--as-muted`, `--as-blue`, `--as-amber`, `--as-amber-tint-bg`, `--as-amber-tint-border`, `--as-info-tint` (see §10) |
+| Progress visual states | `--progress-track`, `--progress-finalizing-fill`, `--progress-preparing-fill`, `--progress-queued-fill`, `--progress-done-fill`, `--progress-failed-fill`, `--progress-badge-*`, and the barber-pole overlay family `--progress-stripe-{sheen,pending,finalizing,…}` (see `progress-presentation.md`) |
 
 An 8pt **spacing scale** (`--space-1` = 4px, `--space-2` = 8px, … `--space-8` = 48px) is now defined in `tokens.css` and is the preferred way to express gaps and padding. Adoption is **in progress**: the North-Star mock (`frontend/src/demo/stages/siteMockup/`) uses `--space-*` throughout; some legacy real-app pages still apply literal `rem`/`px` values and should migrate onto the scale when next touched.
 
@@ -97,6 +109,60 @@ There is currently **no automated lint/CI gate** enforcing token usage; enforcem
 Every surface MUST work in **both** light and dark. Because dark is implemented purely as token overrides on `[data-theme="dark"]`, a component that uses only tokens gets dark mode for free. A component that hardcodes a value will break one theme — which is why §2.2 is binding.
 
 When a new visual state needs a color, add the token (with both `:root` and `[data-theme="dark"]` values) to `tokens.css` rather than inlining a literal.
+
+### 2.4 Color contrast (AA — computed)
+
+**Target: WCAG 2.2 AA** — **4.5:1** for normal text, **3:1** for large text (≥ 24px, or ≥ 18.66px bold) and non-text UI (focus rings, control borders). The ratios below are **computed from the shipped token values** (sRGB relative luminance per WCAG). Tint backgrounds (`*-tint-bg`, pill `-bg`, `*-muted`) are `rgba` over their surface, so each is **composited against the underlying opaque surface first** — measuring against the bare `rgba` overstates contrast. Recompute when a token value changes.
+
+**Light theme**
+
+| Foreground | Background | Ratio | Verdict |
+|------------|------------|-------|---------|
+| `--text-primary` #0f172a | `--surface` #fff | 17.85 | AAA |
+| `--text-primary` #0f172a | `--bg` #f8fafc | 17.06 | AAA |
+| `--text-secondary` #475569 | `--surface` #fff | 7.58 | AAA |
+| `--text-muted` #64748b | `--surface` #fff | 4.76 | AA |
+| `--text-muted` #64748b | `--surface-alt` #f1f5f9 | 4.34 | ⚠ large-only (< 4.5) |
+| `--text-on-accent` #fff | `--accent` #2b6eff | **4.40** | ⚠ large/UI only (< 4.5) |
+| `--text-on-accent` #fff | `--accent-hover` #1d54da | 6.30 | AA |
+| `--text-on-accent` #fff | `--accent-active` #1642b5 | 8.47 | AAA |
+| `--accent` #2b6eff (UI/non-text) | `--surface` #fff | 4.40 | AA (≥ 3) |
+| `--error-text` #991b1b | `--error-tint-bg` | 7.28 | AAA |
+| `--error-text-strong` #b91c1c | `--error-tint-bg` | 5.66 | AA |
+| `--warning-text` #92400e | `--warning-tint-bg` | 6.66 | AA |
+| `--warning-text-strong` #b45309 | `--warning-tint-bg` | 4.72 | AA |
+| `--success-text` #15803d | `--success-tint-bg` | 4.56 | AA |
+| `--success-text` #15803d | `--success-muted` #d1fae5 | 4.42 | ⚠ large-only (< 4.5) |
+| `--pill-class-text` #4338ca | `--pill-class-bg` | 6.81 | AA |
+| `--pill-gender-text` #be185d | `--pill-gender-bg` | 5.35 | AA |
+| `--pill-age-text` #92400e | `--pill-age-bg` | 6.56 | AA |
+| `--pill-extended-text` #0f766e | `--pill-extended-bg` | 5.00 | AA |
+
+**Dark theme**
+
+| Foreground | Background | Ratio | Verdict |
+|------------|------------|-------|---------|
+| `--text-primary` #e8eaf0 | `--surface` #1a1d27 | 13.98 | AAA |
+| `--text-primary` #e8eaf0 | `--bg` #0f1117 | 15.69 | AAA |
+| `--text-secondary` #9ca3af | `--surface` #1a1d27 | 6.62 | AA |
+| `--text-muted` #6b7280 | `--surface` #1a1d27 | **3.48** | ✗ fails AA for body (large/UI only) |
+| `--text-muted` #6b7280 | `--surface-alt` #22263a | 3.09 | ✗ fails AA for body |
+| `--text-on-accent` #fff | `--accent` #2b6eff | **4.40** | ⚠ large/UI only (accent is not dark-overridden) |
+| `--accent` #2b6eff (UI/non-text) | `--surface` #1a1d27 | 3.82 | AA (≥ 3) |
+| `--error-text` #fca5a5 | `--error-tint-bg` | 7.60 | AAA |
+| `--warning-text` #fbbf24 | `--warning-tint-bg` | 8.21 | AAA |
+| `--success-text` #34d399 | `--success-tint-bg` | 7.23 | AAA |
+| `--pill-class-text` #a5b4fc | `--pill-class-bg` | 6.93 | AA |
+| `--pill-gender-text` #f9a8d4 | `--pill-gender-bg` | 7.70 | AAA |
+| `--pill-age-text` #fcd34d | `--pill-age-bg` | 9.07 | AAA |
+| `--pill-extended-text` #5eead4 | `--pill-extended-bg` | 8.91 | AAA |
+
+**Binding rules & known borderline pairs:**
+
+- ⚠ **White text on `--accent` (`#2b6eff`) is 4.40:1 — just under the 4.5 AA floor for normal-size text.** The primary button at rest carries a white ~14.4px/600 label (not "large"), so it conforms only as large/UI text. Hover (`#1d54da`, 6.30) and active (`#1642b5`, 8.47) pass. Treat as a known borderline: nudge the resting accent slightly darker, render primary-button labels ≥ 18.66px-bold, or accept large/UI-only conformance — **do not lighten the accent**. (Recorded as a tracked follow-up, not yet acted on.)
+- ✗ **Dark-mode `--text-muted` (`#6b7280`) is 3.48:1 on `--surface` (3.09 on `--surface-alt`) — below AA for body text.** In dark mode, use `--text-muted` only for large text or non-essential decoration; for any small text that must meet AA use `--text-secondary` (`#9ca3af`, 6.62).
+- `--text-muted` in **light** mode is 4.34 on `--surface-alt` (large-only) but 4.76 on `--surface` — keep muted body text on the white surface, not the alt surface.
+- Every other pair meets AA (most AAA). **New colors MUST be added as tokens whose *composited* contrast meets AA in both themes** — verify before adding, not after.
 
 ---
 
@@ -155,7 +221,17 @@ The approved 6-step semantic type scale (owner decision U3, approved 2026-06-12 
 
 Companion **line-height** and **letter-spacing** tokens pair with the sizes: `--leading-tight | --leading-snug | --leading-normal | --leading-reading` and `--tracking-display | --tracking-tight | --tracking-wide`.
 
-Adoption is **in progress**: the North-Star mock uses these tokens throughout; the global rules in `base.css` (body `font-family`, `line-height`; heading weight/letter-spacing) still cover legacy pages, and literal sizes on older real-app pages should migrate onto the tokens when next touched.
+### 4.1 Typeface (current)
+
+The body typeface is **Inter**, with **Space Grotesk** reserved for the brand wordmark (`BrandLogo`, §6 / §10). Both are **self-hosted** via `@fontsource` — `@fontsource-variable/inter` and `@fontsource/space-grotesk` are imported in `frontend/src/main.tsx`, so the declared fonts actually render across macOS / Windows / Linux. (Before 2026-06-19 these fonts were named first in the CSS stacks but never delivered — no `@font-face`, no bundled file — so the app silently fell back to system-ui; self-hosting them is the owner-approved fix.) The full body stack stays `"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif` (`base.css`): Inter first, native system fonts as the fallback chain.
+
+### 4.2 Weight & tracking pairing (current + gaps)
+
+Six of the nine sizes have a paired weight token (`--type-weight-display/title/headline/body/caption/micro`). **`--type-large-title`, `--type-reading`, and `--type-callout` have no weight token** — authors pick a weight by hand for those. Letter-spacing tokens are likewise asymmetric (`--tracking-display/-tight/-wide` only; no `normal`/`snug`), so some size+leading pairings have no matching tracking token. Closing these gaps is a tracked follow-up; until then default `--type-callout`/`--type-reading` to weight 400 and `--type-large-title` to 700.
+
+### 4.3 Adoption status (current)
+
+Token adoption in the **real app is minimal**: of ~615 `var(--type-*)` references in the frontend, ~604 are in the demo (`frontend/src/demo/`) and **only ~11 are in real pages — all in `WelcomePage.tsx`**. Real pages otherwise render through the `base.css` globals plus ~96 literal `font-size` declarations, several off-scale (e.g. `0.72rem`, `0.82rem`, `0.65rem`) or duplicating a token value as a literal. This is a **not-yet-started migration**, not one "in progress"; migrating real pages onto the `--type-*` tokens is a tracked follow-up (`plans/site_redesign_rollout/`) — apply tokens whenever a page is next touched.
 
 ---
 
@@ -189,9 +265,18 @@ These are the canonical building blocks. New UI MUST reuse them rather than re-i
 | `ActionMenu` | `components/ui/ActionMenu.tsx` | Canonical kebab / overflow menu. Portal-rendered, viewport-flip-aware, closes on outside-click and Escape, supports dividers, destructive items, and disabled items. | The standard overflow / "⋯" affordance. MUST be used for row/card action menus rather than bespoke dropdowns. |
 | `GhostButton` | `components/ui/GhostButton.tsx` | Canonical low-emphasis icon/icon+label button with hover/active states and built-in `aria-label` fallback. | The default for secondary/tertiary actions and toolbar buttons. |
 | `InlineEdit` | `components/forms/InlineEdit.tsx` | Canonical click-to-edit text field: single click to edit, save on blur/Enter, cancel on Escape, no pencil affordance, auto-select on focus, optional multiline. | The standard pattern for in-place rename/edit of titles and labels. |
-| `ConfirmModal` | `components/overlays/ConfirmModal.tsx` | Canonical confirmation/alert dialog. `role="dialog"`, `aria-modal`, `aria-labelledby`, backdrop scrim, Escape-to-cancel, focus-trapped via `useFocusTrap`, destructive vs. neutral confirm styling. | The standard destructive-confirm / alert surface (per north star U1, modals remain for project delete and bulk audio reset). |
+| `ConfirmModal` | `components/overlays/ConfirmModal.tsx` | Canonical confirmation/alert dialog. `role="dialog"`, `aria-modal`, `aria-labelledby`, backdrop scrim, Escape-to-cancel, focus-trapped via `useFocusTrap`, destructive vs. neutral confirm styling. `isDestructive` defaults **true** (→ `btn-danger`); `isAlert` collapses to a single Close button. | The standard destructive-confirm / alert surface (per north star U1, modals remain for project delete and bulk audio reset). Copy rules live in [voice-tone.md](voice-tone.md). |
+| `PluginTrustModal` | `components/overlays/PluginTrustModal.tsx` | Second canonical focus-trapped (`useFocusTrap`) modal: a security-confirm for plugin import / dependency install that surfaces remote requirement sources. | The standard trust/permission confirmation. Same focus-trap + dialog-semantics contract as `ConfirmModal`. |
+| `GlassInput` | `components/forms/GlassInput.tsx` | Pill (radius 100px) glass text input; optional leading icon; focus ring built on `--accent-focus-ring`. No size variants (size follows context). | The default single-line text / search input. |
+| `SearchableSelect` | `components/forms/SearchableSelect.tsx` | Filterable select (**default export**) with a none-option and an optional create-new affordance. | The standard typeahead/select for long option lists (voices, characters). |
+| `ColorSwatchPicker` | `components/forms/ColorSwatchPicker.tsx` | 64-swatch palette popover (`sm`/`md`) plus a custom-color pipette. | The canonical color chooser for character / voice colors. |
+| `VoiceDropzone` | `components/forms/VoiceDropzone.tsx` | Drag-drop audio upload with per-file validation/warnings and a duration readout. | The standard audio-file drop target (voice-sample ingest). Domain-leaning but reusable. |
+| `BrandLogo` | `components/layout/BrandLogo.tsx` | Scalable brand wordmark + optional pictorial mark; single-line vs stacked. Uses bespoke `--as-title-fs`/`--as-sub-fs` clamp sizes (outside the `--type-*` scale). | The canonical brand mark — never hand-roll the wordmark. See §10. |
+| `PlayerBar` | `app/layout/PlayerBar.tsx` | Global audio-transport chrome — a **singleton** bound to the player store that renders `null` when no audio is loaded; lucide transport icons, scrub/waveform via `WaveformStrip`. | The single audio-transport surface (cross-ref [audio-player.md](audio-player.md)). There is **no** standalone `PlayButton` primitive — transport lives only here. |
 
 `PredictiveProgressBar` is also a shared primitive but is fully specified in `progress-presentation.md` — see that spec; do not re-document its contract here.
+
+**Not yet primitives (gaps).** Two common patterns are *not* extracted and currently have no canonical component: **Toast** (success/notice feedback is inline `useState` + `setTimeout` in `app/App.tsx`, not a reusable component or hook) and **Tooltip** (hover hints are native `title=` attributes only — there is no `.tooltip` class or `Tooltip` component). Building a `Toast` and a `Tooltip` primitive, or formally ratifying the `title=` convention, are tracked follow-ups; until then, do not hand-roll bespoke toast/tooltip implementations per page.
 
 ---
 
@@ -205,7 +290,7 @@ The codebase uses a small set of `max-width` breakpoints across `theme/component
 |------------|----------|
 | `max-width: 768px` | **Rail → drawer.** `.nav-rail { display: none }` (`components.css`); the global navigation is served by the mobile drawer instead (cross-ref `site-shell-and-book-pipeline.md` §2.5). Form/layout utilities also stack at this width (`utilities.css`). |
 | `max-width: 1450px` | Chapter header collapses to a 2-column grid. |
-| `max-width: 1100px` / `1000px` / `800px` / `640px` | Page-level grid/flex columns collapse to single-column (publish stage, activity page, assembly picker, etc.). |
+| `max-width: 1250px` / `1100px` / `1000px` / `800px` / `640px` | Page-level grid/flex columns collapse to single-column (publish stage, activity page, assembly picker, etc.). |
 
 ### 7.2 Graceful degradation (binding)
 
@@ -222,7 +307,7 @@ The accessibility target is **WCAG 2.2 AA**. The following are binding.
 ### 8.1 Focus management (current)
 
 - **Focus trap in modals/dialogs:** `useFocusTrap(ref, isOpen)` (`frontend/src/hooks/useFocusTrap.ts`) traps Tab / Shift-Tab inside the container, focuses the first focusable element on open, and restores focus to the trigger element on close. It manages focus only — it does NOT call `onClose`; the caller owns Escape handling. `ConfirmModal` uses it; every new modal/dialog MUST use it.
-- **`:focus-visible` rings (current):** `base.css` suppresses the outline for pointer interaction and applies a keyboard-only focus ring — `outline: 2px solid var(--accent); outline-offset: 2px` on `:focus-visible` for buttons, inputs, selects, textareas, anchors, and `[tabindex]`. New interactive elements MUST keep a visible keyboard focus ring (via `:focus-visible`, not a global `outline: none`).
+- **`:focus-visible` rings (current):** `base.css` suppresses the outline for pointer interaction and applies a keyboard-only focus ring — `outline: 2px solid var(--accent); outline-offset: 2px` on `:focus-visible` for buttons, inputs, selects, textareas, anchors, and `[tabindex]`. New interactive elements MUST keep a visible keyboard focus ring (via `:focus-visible`, not a global `outline: none`). The ring is applied **directly** with `var(--accent)`; the `--focus-ring` token in `tokens.css` is **not** wired here (see §2.1) — don't assume it's the source of the ring.
 
 ### 8.2 Semantics & ARIA (current/binding)
 
@@ -232,7 +317,7 @@ The accessibility target is **WCAG 2.2 AA**. The following are binding.
 
 ### 8.3 Contrast (binding)
 
-Color contrast is delivered through the token system: text and surface tokens are tuned per theme (§2.3). New colors MUST be added as tokens with contrast that meets AA in both light and dark, rather than inlined literals that satisfy only one theme.
+Color contrast is delivered through the token system: text and surface tokens are tuned per theme (§2.3). New colors MUST be added as tokens with contrast that meets AA in both light and dark, rather than inlined literals that satisfy only one theme. **The computed AA ratios for every key text/surface/state/pill pair (both themes) are in §2.4** — consult it before choosing token pairings. Two known borderline pairs are recorded there: white-on-`--accent` (4.40:1, just under the normal-text floor) and dark-mode `--text-muted` (3.48:1, below AA for body text).
 
 ### 8.4 The five UI states (binding)
 
@@ -244,7 +329,11 @@ From `.agent/rules/frontend-ux.md`: every meaningful screen change MUST account 
 4. **reconnecting**
 5. **recovered** (and the related interrupted/stale/queued/rendering/rendered/failed markers)
 
-Prefer interfaces that explain *why* something is waiting or stale over generic spinners, and prefer inline recovery actions over forcing the user out of the editor.
+Prefer interfaces that explain *why* something is waiting or stale over generic spinners, and prefer inline recovery actions over forcing the user out of the editor. UI-copy rules for these states live in [voice-tone.md](voice-tone.md).
+
+### 8.5 Reduced motion (current gap)
+
+The app ships Framer Motion plus a global `transition: all 0.2s` on buttons (`base.css`) and many token-driven animations, but **`prefers-reduced-motion` is currently honored only in the demo mock, not in the real app**. WCAG 2.2 AA does not strictly require honoring it (it maps to WCAG 2.3.3, a AAA criterion), so this is recorded as a **known coverage gap / tracked follow-up**, not a conformance failure. New animated surfaces SHOULD wrap non-essential motion in an `@media (prefers-reduced-motion: reduce)` guard; a global guard is the eventual target.
 
 ---
 
@@ -254,7 +343,7 @@ Prefer interfaces that explain *why* something is waiting or stale over generic 
 
 `lucide-react` (pinned in `frontend/package.json`) is the **single** icon system for the app. Every functional or decorative *icon* MUST be rendered as a lucide component. Unicode media/arrow/caret glyphs (`▶ ⏸ ⏮ ⏭ ⏪ ⏩ ■ ▾ ▲ ▼ › ‹ ← → ✓ ✗`) and emoji (`🌙 ☀️`) MUST NOT be used to render an icon: glyphs do not inherit `currentColor`, stroke weight, or optical sizing, and they drift visually between platforms and fonts. lucide gives one coherent, `currentColor`-driven, stroke-consistent set that themes for free.
 
-This rule is binding for the real app and the North-Star mock (`frontend/src/demo/stages/siteMockup/`) alike. The live `PlayerBar` already complied; the mock was standardized off glyphs onto lucide on 2026-06-16. The intent of recording it here is to prevent regressions back to glyphs.
+This rule is binding for the real app and the North-Star mock (`frontend/src/demo/stages/siteMockup/`) alike. The live `PlayerBar` already complied; the mock was standardized onto lucide on 2026-06-16, and the **remaining real-app glyph-as-icon usages were migrated on 2026-06-19** (the 8 sites formerly tracked in §9.5). The real app is now glyph-clean; the intent of recording the rule here is to prevent regressions back to glyphs.
 
 ### 9.2 Canonical control → icon mapping (binding)
 
@@ -294,10 +383,29 @@ These are intentionally NOT lucide and are exempt from §9.1:
 
 Icon-only controls MUST carry an `aria-label` (reaffirms §8.2). A decorative icon paired with a visible text label SHOULD be `aria-hidden`.
 
+### 9.5 Glyph migration (resolved 2026-06-19)
+
+All real-app glyph-as-icon usages have been migrated to lucide. The 8 sites formerly tracked here — a `▶` play label (`VoiceCatalogCard`), `›` breadcrumb separators ×3 (`TopBar`), `▲`/`▼` disclosure carets (`EditTab`, `AnalysisStrip`), an `Export ▾` caret (`StudioHeaderActions`), and `✓` markers (`QueueNotice`, `PhaseStepper`, `ChapterTextPanel`) — now render the mapped lucide components per §9.2 (`Play`, `ChevronRight`, `ChevronUp`/`ChevronDown`, `ChevronDown`, `Check`). The redundant `⚠` text decorations on `EditTab`/`AnalysisStrip` were dropped in favor of the existing lucide `AlertTriangle`. Stale glyph references in nearby code comments were cleaned too, so the app is glyph-clean by grep.
+
+New code MUST NOT introduce glyph-as-icon usage. A `grep`/CI gate on the banned glyph set (§9.1) is a reasonable **target** to lock this in.
+
 ---
 
-## 10. Cross-References
+## 10. Brand Identity
 
+> Brand assets and naming. The visual brand is carried by the `BrandLogo` primitive (§6) and the two brand-blue/amber accent families, not by ad-hoc imagery.
+
+- **Product name:** **Audiobook Studio** (per `frontend/index.html` `<title>` and OpenGraph). The short form is **Studio**. The repository directory name `audiobook-factory` is an internal name and is **never** user-facing — do not surface it in UI copy (see [voice-tone.md](voice-tone.md) §9).
+- **Wordmark:** rendered by `BrandLogo` (`components/layout/BrandLogo.tsx`) — the wordmark uses **Space Grotesk** (self-hosted, §4.1) at bespoke `--as-title-fs`/`--as-sub-fs` clamp sizes that sit outside the `--type-*` scale by design. Always use `BrandLogo`; never re-typeset the wordmark by hand.
+- **Brand colors:** brand-blue `--as-blue` (`#2b6eff`, == `--accent`) and brand-amber `--as-amber` (`#f97316`). The amber has light+dark tint tokens (`--as-amber-tint-bg`/`-border`); `--as-blue`, `--as-amber`, and `--as-info-tint` currently have **no dark override** (they inherit their light values) — a known parity gap to revisit if they read low-contrast on dark surfaces.
+- **Logo / favicon:** `frontend/public/logo.png` (raster brand mark) and `frontend/public/favicon.ico`. *(Two packaging nits to fix as follow-ups: `index.html` declares the favicon `type="image/svg+xml"` but points at an `.ico`; and the OpenGraph `og:image` points at `/docs/assets/banner.png`, which is not served from the built SPA (`frontend/dist`) and will 404. Neither affects in-app rendering.)*
+- Brand imagery beyond the logo (AI-generated voice avatars, plugin engine logos) is purposeful raster artwork and is exempt from the lucide icon rule (§9.3).
+
+---
+
+## 11. Cross-References
+
+- Rendered visual style guide (open in a browser, no build needed): [`../style-guide/current.html`](../style-guide/current.html) — a rendered snapshot of this spec's tokens + components, with a light/dark toggle and the computed contrast table; see [`../style-guide/README.md`](../style-guide/README.md). This spec stays canonical; the HTML is a view that can go stale.
 - Voice attribute vocabulary / taxonomy: [voice-bundles.md](voice-bundles.md) §8 and `docs/specs/voice-taxonomy.json`
 - `PredictiveProgressBar` and progress/ETA presentation: [progress-presentation.md](progress-presentation.md)
 - App shell, nav rail, mobile drawer, top bar, book pipeline routing: [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md)

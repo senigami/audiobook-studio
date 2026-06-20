@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, Info } from 'lucide-react';
+import { AlertTriangle, Check, Info } from 'lucide-react';
 import { ResyncPreviewModal } from '@/pages/ChapterEditor/components/ResyncPreviewModal';
 import { useChapterText } from '@/pages/Book/lib/useChapterText';
 import type { Chapter } from '@/types';
@@ -38,7 +38,7 @@ function formatDuration(seconds?: number | null): string {
 
 function SaveChip({ state }: { state: ReturnType<typeof useChapterText>['saveState'] }) {
   if (state === 'saving') return <span className="chapter-text-panel__chip">saving...</span>;
-  if (state === 'saved') return <span className="chapter-text-panel__chip chapter-text-panel__chip--saved">editing - autosaved ✓</span>;
+  if (state === 'saved') return <span className="chapter-text-panel__chip chapter-text-panel__chip--saved">editing - autosaved <Check size={12} aria-hidden="true" /></span>;
   if (state === 'error') return <span className="chapter-text-panel__chip chapter-text-panel__chip--error">autosave failed</span>;
   return <span className="chapter-text-panel__chip">editing</span>;
 }

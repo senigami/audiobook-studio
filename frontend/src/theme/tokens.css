@@ -15,11 +15,9 @@
   --accent-glow: rgba(43, 110, 255, 0.1);
   --success: #10b981;
   --success-muted: #d1fae5;
-  --success-text: #065f46;
   --error: #ef4444;
   --error-text: #991b1b;
   --warning: #f59e0b;
-  --warning-text: #92400e;
   --glass-hover: rgba(0, 0, 0, 0.04);
   --error-glow: rgba(239, 68, 68, 0.1);
   --text-primary: #0f172a;
@@ -169,6 +167,16 @@
   --progress-failed-fill: linear-gradient(90deg, rgba(239, 68, 68, 0.82) 0%, rgba(185, 28, 28, 0.98) 100%);
   --progress-failed-glow: rgba(239, 68, 68, 0.40);
   --progress-queued-fill: rgba(148, 163, 184, 0.12);
+
+  /* Progress barber-pole stripe overlays (animated ::before; overlay a colored fill, theme-agnostic) */
+  --progress-stripe-sheen:            rgba(255, 255, 255, 0.16);
+  --progress-stripe-sheen-soft:       rgba(255, 255, 255, 0.09);
+  --progress-stripe-pending:          rgba(148, 163, 184, 0.22);
+  --progress-stripe-pending-soft:     rgba(148, 163, 184, 0.10);
+  --progress-stripe-finalizing:       rgba(96, 165, 250, 0.36);
+  --progress-stripe-finalizing-soft:  rgba(96, 165, 250, 0.20);
+  --progress-stripe-finalizing-tint:      rgba(219, 234, 254, 0.20);
+  --progress-stripe-finalizing-tint-soft: rgba(219, 234, 254, 0.10);
 
   /* Type scale tokens — design-system §4 (additive; theme-independent) */
   --type-display:     2.25rem;   /* 36px — splash / large hero moments */

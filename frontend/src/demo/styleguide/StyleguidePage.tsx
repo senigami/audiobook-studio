@@ -6,21 +6,15 @@
  *
  * Sections:
  *   1. Color tokens (auto-generated from tokens.css — zero drift)
- *   2. Typography — current vs proposed (U3)
+ *   2. Typography — shipped type/space/motion tokens (auto-parsed from tokens.css)
  *   3. Components — current states (live-mounted)
- *   4. Proposed directions (U1, U3, U8, U15, U16 mockup gallery)
+ *   4. Proposed directions (U1, U8, U15, U16 mockup gallery)
  *   5. Theme side-by-side
  */
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import tokensCss from '@/theme/tokens.css?raw';
 import { parseTokens, groupTokens, type TokenEntry } from './parseTokens';
-import {
-  PROPOSED_TYPE_SCALE,
-  PROPOSED_SPACE_SCALE,
-  PROPOSED_DURATION_SCALE,
-  AD_HOC_SIZES,
-} from './proposedTokens';
 import { AudioLines, Play, SkipBack, SkipForward, Rewind, FastForward } from 'lucide-react';
 import { GlassInput } from '@/components/forms/GlassInput';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
@@ -442,148 +436,204 @@ const ColorTokensSection: React.FC<{ entries: TokenEntry[] }> = ({ entries }) =>
 // Section 2: Typography
 // ---------------------------------------------------------------------------
 
-const TypographySection: React.FC = () => (
-  <SectionWrapper id={SECTION_IDS.typography} title={SECTION_LABELS.typography}>
-    <SubSection title="Current — 11 ad-hoc sizes (no type tokens)">
+/**
+ * Metadata for the shipped 9-step type scale.
+ * Weight token name is null when tokens.css ships no --type-weight-* for that step.
+ */
+const TYPE_SCALE_META: Array<{
+  sizeToken: string;
+  weightToken: string | null;
+  label: string;
+  usage: string;
+}> = [
+  { sizeToken: '--type-display',     weightToken: '--type-weight-display',  label: 'Display',     usage: 'Splash / large hero moments' },
+  { sizeToken: '--type-large-title', weightToken: null,                      label: 'Large Title', usage: 'Page greeting, section heroes (no weight token)' },
+  { sizeToken: '--type-title',       weightToken: '--type-weight-title',    label: 'Title',       usage: 'Page headings, modal titles' },
+  { sizeToken: '--type-headline',    weightToken: '--type-weight-headline', label: 'Headline',    usage: 'Section headings, panel headers, chapter names' },
+  { sizeToken: '--type-reading',     weightToken: null,                      label: 'Reading',     usage: 'Long-form manuscript / script body (no weight token)' },
+  { sizeToken: '--type-body',        weightToken: '--type-weight-body',     label: 'Body',        usage: 'Primary readable text — descriptions, list items' },
+  { sizeToken: '--type-callout',     weightToken: null,                      label: 'Callout',     usage: 'Secondary info, sub-labels, form hints (no weight token)' },
+  { sizeToken: '--type-caption',     weightToken: '--type-weight-caption',  label: 'Caption',     usage: 'Timestamps, IDs, table cell text, badges' },
+  { sizeToken: '--type-micro',       weightToken: '--type-weight-micro',    label: 'Micro',       usage: 'All-caps labels, status chips, keyboard shortcuts' },
+];
+
+const SPACE_SCALE_META: Array<{ token: string; px: string; label: string }> = [
+  { token: '--space-1', px: '4px',  label: 'icon gaps, tight row padding' },
+  { token: '--space-2', px: '8px',  label: 'within-component padding' },
+  { token: '--space-3', px: '12px', label: 'button padding, card inner gap' },
+  { token: '--space-4', px: '16px', label: 'standard section padding' },
+  { token: '--space-5', px: '24px', label: 'panel padding, section gaps' },
+  { token: '--space-6', px: '32px', label: 'major section gaps' },
+  { token: '--space-7', px: '40px', label: 'large layout spacing' },
+  { token: '--space-8', px: '48px', label: 'page-level gutters' },
+];
+
+const MOTION_SCALE_META: Array<{ token: string; usage: string }> = [
+  { token: '--dur-fast',        usage: 'Hover state appearance, focus ring, simple color transitions (0.14s)' },
+  { token: '--dur-med',         usage: 'Standard UI transitions — panels sliding, cards expanding (0.24s)' },
+  { token: '--dur-slow',        usage: 'Page-level route transitions, overlay enter/exit (0.4s)' },
+  { token: '--ease-standard',   usage: 'Default easing for most transitions' },
+  { token: '--ease-emphasized', usage: 'Emphasized motion — important state changes' },
+  { token: '--ease-spring',     usage: 'Springy entrance effects, delight moments' },
+];
+
+interface TypographySectionProps {
+  allTokens: TokenEntry[];
+}
+
+const TypographySection: React.FC<TypographySectionProps> = ({ allTokens }) => {
+  // Build a lookup map from token name → lightValue for live values
+  const tokenMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const entry of allTokens) {
+      m.set(entry.name, entry.lightValue);
+    }
+    return m;
+  }, [allTokens]);
+
+  return (
+    <SectionWrapper id={SECTION_IDS.typography} title={SECTION_LABELS.typography}>
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
-        The current codebase has <strong>zero type tokens</strong> in <code>tokens.css</code>.
-        Font sizes are hard-coded inline throughout ~50 components spanning 0.625rem–2.75rem.
-        The rows below are live specimens at each size used today, labeled with where they appear.
+        Auto-parsed from <code>tokens.css</code> — values shown are live from the shipped file.
+        Body font: <strong>Inter</strong> (self-hosted).
       </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {AD_HOC_SIZES.map(({ size, usedIn }) => (
-          <div
-            key={size}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '90px 1fr',
-              gap: 16,
-              alignItems: 'baseline',
-              padding: '6px 0',
-              borderBottom: '1px solid var(--border)',
-            }}
-          >
-            <code style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-              {size}
-            </code>
-            <div>
-              <span style={{ fontSize: size, color: 'var(--text-primary)', lineHeight: 1.3 }}>
-                The quick brown fox
-              </span>
-              <span
+
+      {/* 2a. Type scale */}
+      <SubSection title="Type scale (--type-*)">
+        {/* Column header */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '160px 80px 80px 1fr',
+            gap: 16,
+            padding: '4px 0',
+            marginBottom: 4,
+            fontSize: '0.6875rem',
+            fontWeight: 700,
+            color: 'var(--text-muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.07em',
+          }}
+        >
+          <span>Token</span>
+          <span>Size</span>
+          <span>Weight</span>
+          <span>Specimen</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {TYPE_SCALE_META.map(({ sizeToken, weightToken, label, usage }) => {
+            const sizeVal  = tokenMap.get(sizeToken)  ?? sizeToken;
+            const weightVal = weightToken ? (tokenMap.get(weightToken) ?? '') : '';
+            const weightNum = weightVal ? parseInt(weightVal, 10) : undefined;
+            return (
+              <div
+                key={sizeToken}
                 style={{
-                  marginLeft: 12,
-                  fontSize: '0.6875rem',
-                  color: 'var(--text-muted)',
-                  fontStyle: 'italic',
+                  display: 'grid',
+                  gridTemplateColumns: '160px 80px 80px 1fr',
+                  gap: 16,
+                  alignItems: 'center',
+                  padding: '8px 0',
+                  borderBottom: '1px solid var(--border)',
                 }}
               >
-                — {usedIn}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </SubSection>
+                <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
+                  {sizeToken}
+                </code>
+                <code style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                  {sizeVal}
+                </code>
+                <code style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                  {weightToken
+                    ? <>{weightVal}</>
+                    : <span style={{ fontStyle: 'italic', color: 'var(--text-muted)', opacity: 0.7 }}>—</span>
+                  }
+                </code>
+                <div>
+                  <span
+                    style={{
+                      fontSize: `var(${sizeToken})`,
+                      fontWeight: weightNum,
+                      color: 'var(--text-primary)',
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {label}
+                  </span>
+                  <span style={{ marginLeft: 12, fontSize: '0.6875rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    {usage}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </SubSection>
 
-    <SubSection title={`PROPOSED (U3) — 6-step semantic scale`}>
-      <div style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '0.75rem' }}>
-        <ProposedChip />
-        <span style={{ marginLeft: 8, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-          These token names do not exist yet. Rendered from local constants for owner review.
-        </span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {PROPOSED_TYPE_SCALE.map(step => (
-          <div
-            key={step.name}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '160px 60px 56px 1fr',
-              gap: 16,
-              alignItems: 'baseline',
-              padding: '8px 0',
-              borderBottom: '1px solid var(--border)',
-            }}
-          >
-            <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
-              {step.name}
-            </code>
-            <code style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-              {step.size}/{step.weight}
-            </code>
-            <span
-              style={{ fontSize: step.size, fontWeight: step.weight, color: 'var(--text-primary)', lineHeight: 1.2 }}
-            >
-              {step.label}
-            </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-              {step.usage}
-            </span>
-          </div>
-        ))}
-      </div>
-    </SubSection>
+      {/* 2b. Spacing scale */}
+      <SubSection title="Spacing scale (--space-*)">
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          {SPACE_SCALE_META.map(({ token, px, label }) => {
+            const liveVal = tokenMap.get(token) ?? px;
+            return (
+              <div key={token} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <div
+                  style={{
+                    width: liveVal,
+                    height: 32,
+                    background: 'var(--accent)',
+                    opacity: 0.7,
+                    borderRadius: 3,
+                    minWidth: 4,
+                  }}
+                />
+                <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
+                  {token}
+                </code>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{liveVal}</span>
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', maxWidth: 80, textAlign: 'center' }}>
+                  {label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </SubSection>
 
-    <SubSection title="PROPOSED (U3) — Spacing scale (--space-*)">
-      <div style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '0.75rem' }}>
-        <ProposedChip />
-      </div>
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        {PROPOSED_SPACE_SCALE.map(step => (
-          <div key={step.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <div
-              style={{
-                width: step.value,
-                height: 32,
-                background: 'var(--accent)',
-                opacity: 0.7,
-                borderRadius: 3,
-                minWidth: 4,
-              }}
-            />
-            <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
-              {step.name}
-            </code>
-            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{step.value}</span>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', maxWidth: 80, textAlign: 'center' }}>
-              {step.label.split(' — ')[0]}
-            </span>
-          </div>
-        ))}
-      </div>
-    </SubSection>
-
-    <SubSection title="PROPOSED (U3) — Motion duration tokens (--duration-*)">
-      <div style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '0.75rem' }}>
-        <ProposedChip />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {PROPOSED_DURATION_SCALE.map(step => (
-          <div
-            key={step.name}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '180px 80px 1fr',
-              gap: 16,
-              alignItems: 'center',
-              padding: '6px 0',
-              borderBottom: '1px solid var(--border)',
-            }}
-          >
-            <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
-              {step.name}
-            </code>
-            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              {step.value}
-            </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{step.usage}</span>
-          </div>
-        ))}
-      </div>
-    </SubSection>
-  </SectionWrapper>
-);
+      {/* 2c. Motion tokens */}
+      <SubSection title="Motion tokens (--dur-* / --ease-*)">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {MOTION_SCALE_META.map(({ token, usage }) => {
+            const liveVal = tokenMap.get(token) ?? '';
+            return (
+              <div
+                key={token}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '200px 1fr',
+                  gap: 16,
+                  alignItems: 'center',
+                  padding: '6px 0',
+                  borderBottom: '1px solid var(--border)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
+                    {token}
+                  </code>
+                  <code style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                    {liveVal}
+                  </code>
+                </div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{usage}</span>
+              </div>
+            );
+          })}
+        </div>
+      </SubSection>
+    </SectionWrapper>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Section 3: Components
@@ -1785,10 +1835,11 @@ const U3Crosslink: React.FC = () => (
   <Card>
     <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
       U3 — Semantic Type Scale
-      <ProposedChip />
+      <DecidedChip label="Shipped" />
     </h3>
     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', lineHeight: 1.6 }}>
-      The full type-scale mockup (live specimens, spacing, and duration tokens) lives in Section 2.
+      The 9-step type scale, 8-step spacing scale, and motion tokens are all shipped in <code>tokens.css</code>.
+      Live specimens with real values auto-parsed from the source file live in Section 2.
     </p>
     <a
       href={`#${SECTION_IDS.typography}`}
@@ -1975,7 +2026,7 @@ export const StyleguidePage: React.FC = () => {
         </div>
 
         <ColorTokensSection entries={entries} />
-        <TypographySection />
+        <TypographySection allTokens={entries} />
         <ComponentsSection />
         <ProposalsSection />
         <ThemeSection />

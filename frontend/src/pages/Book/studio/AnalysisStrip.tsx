@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Info, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ChevronUp, ChevronDown, Info, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { Chapter } from '@/types';
 
@@ -118,7 +118,7 @@ export function AnalysisStrip({
                 aria-controls="studio-analysis-strip-details"
               >
                 <AlertTriangle size={11} />
-                <span>⚠ ACTION REQUIRED: {uncleanableCount} unresolvable {showLongSentenceDetails ? '▲' : '▼'}</span>
+                <span>ACTION REQUIRED: {uncleanableCount} unresolvable {showLongSentenceDetails ? <ChevronUp size={11} aria-hidden="true" /> : <ChevronDown size={11} aria-hidden="true" />}</span>
               </button>
             )}
           </div>
