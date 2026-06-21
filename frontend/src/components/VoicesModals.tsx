@@ -23,6 +23,8 @@ interface VoicesModalsProps {
     engines: TtsEngine[];
     isCreatingVoice: boolean;
     handleCreateVoice: () => void;
+    newVoiceSamples?: File[];
+    setNewVoiceSamples?: (files: File[]) => void;
 
     // Rename Modal
     isRenameModalOpen: boolean;
@@ -103,6 +105,8 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                 engines={props.engines}
                 onSubmit={props.handleCreateVoice}
                 isCreating={props.isCreatingVoice}
+                sampleFiles={props.newVoiceSamples}
+                onSampleFilesChange={props.setNewVoiceSamples}
             />
 
             <RenameVoiceModal

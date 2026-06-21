@@ -1,6 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { GlassInput } from '@/components/forms/GlassInput';
+import { VoiceDropzone } from '@/components/forms/VoiceDropzone';
+import SearchableSelect from '@/components/forms/SearchableSelect';
 import type { TtsEngine, VoiceEngine } from '@/types';
 
 const engineSelectStyle: React.CSSProperties = {
@@ -25,9 +27,11 @@ interface NewVoiceModalProps {
     engines?: TtsEngine[];
     onSubmit: () => void;
     isCreating: boolean;
+    sampleFiles?: File[];
+    onSampleFilesChange?: (files: File[]) => void;
 }
 
-export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, value, onChange, engine, onEngineChange, engines = [], onSubmit, isCreating }) => {
+export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, value, onChange, engine, onEngineChange, engines = [], onSubmit, isCreating, sampleFiles = [], onSampleFilesChange }) => {
     if (!isOpen) return null;
     return (
         <div style={{
@@ -40,11 +44,11 @@ export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, v
             background: 'var(--overlay-backdrop)',
             backdropFilter: 'blur(4px)'
         }}>
-            <motion.div 
+            <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 style={{
-                    width: 'min(400px, calc(100vw - 2rem))',
+                    width: 'min(520px, calc(100vw - 2rem))',
                     background: 'var(--surface)',
                     borderRadius: '24px',
                     padding: '24px',
@@ -54,7 +58,7 @@ export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, v
             >
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '8px' }}>Create New Voice</h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>
-                    Give your voice a name. You can add variants and audio samples once it's created.
+                    Give your voice a name and optionally upload samples now. You can also add samples after creation.
                 </p>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
@@ -87,9 +91,18 @@ export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, v
                     </select>
                 </div>
 
+                {onSampleFilesChange && (
+                    <div style={{ marginBottom: '24px' }}>
+                        <VoiceDropzone
+                            files={sampleFiles}
+                            onFilesChange={onSampleFilesChange}
+                        />
+                    </div>
+                )}
+
                 <div style={{ display: 'flex', gap: '12px' }}>
                     <button onClick={onClose} className="btn-ghost" style={{ flex: 1, height: '44px', borderRadius: '12px' }}>Cancel</button>
-                    <button 
+                    <button
                         disabled={!value.trim() || isCreating}
                         onClick={onSubmit}
                         className="btn-primary"
@@ -310,26 +323,14 @@ export const MoveVariantModal: React.FC<MoveVariantModalProps> = ({
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>SELECT TARGET SPEAKER</label>
-                    <select 
-                        value={selectedSpeakerId}
-                        onChange={(e) => onSelectSpeaker(e.target.value)}
-                        style={{
-                            width: '100%',
-                            padding: '10px 14px',
-                            borderRadius: '12px',
-                            background: 'var(--surface-alt)',
-                            border: '1px solid var(--border)',
-                            color: 'var(--text-primary)',
-                            fontSize: '0.9rem',
-                            outline: 'none',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <option value="" disabled>Select a speaker...</option>
-                        {speakers.map((v, idx) => (
-                            <option key={`${v.id}-${idx}`} value={v.id}>{v.name}</option>
-                        ))}
-                    </select>
+                    <SearchableSelect
+                        options={speakers}
+                        value={selectedSpeakerId || 'none'}
+                        onChange={(val) => onSelectSpeaker(val === 'none' ? '' : val)}
+                        placeholder="Select a speaker..."
+                        noneLabel="Select a speaker..."
+                        showCreateNew={false}
+                    />
                 </div>
 
                 <div style={{ display: 'flex', gap: '12px' }}>

@@ -85,26 +85,30 @@ describe('Voice Modals', () => {
   });
 
   describe('MoveVariantModal', () => {
-    it('renders list of speakers and handles selection', () => {
+    it('renders list of speakers and handles selection via SearchableSelect', () => {
         const onSelectSpeaker = vi.fn();
         const onSubmit = vi.fn();
         const speakers = [{ id: 's1', name: 'Speaker 1' }, { id: 's2', name: 'Speaker 2' }];
-        
+
         render(
-            <MoveVariantModal 
-                isOpen={true} 
-                onClose={vi.fn()} 
-                variantName="Variant X" 
-                speakers={speakers} 
-                selectedSpeakerId="s1" 
-                onSelectSpeaker={onSelectSpeaker} 
-                onSubmit={onSubmit} 
-                isMoving={false} 
+            <MoveVariantModal
+                isOpen={true}
+                onClose={vi.fn()}
+                variantName="Variant X"
+                speakers={speakers}
+                selectedSpeakerId="s1"
+                onSelectSpeaker={onSelectSpeaker}
+                onSubmit={onSubmit}
+                isMoving={false}
             />
         );
 
         expect(screen.getByText(/"Variant X"/i)).toBeInTheDocument();
-        fireEvent.change(screen.getByRole('combobox'), { target: { value: 's2' } });
+        // SearchableSelect renders a button trigger (not a native <select>).
+        // The current selection "s1" means "Speaker 1" is shown; click to open.
+        fireEvent.click(screen.getByRole('button', { name: 'Speaker 1' }));
+        // Select Speaker 2
+        fireEvent.click(screen.getByRole('button', { name: 'Speaker 2' }));
         expect(onSelectSpeaker).toHaveBeenCalledWith('s2');
 
         fireEvent.click(screen.getByRole('button', { name: 'Move Variant' }));

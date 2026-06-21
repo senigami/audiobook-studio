@@ -65,6 +65,7 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
     const [addVariantSpeaker, setAddVariantSpeaker] = useState<{ speaker: Speaker; nextVariantNum: number } | null>(null);
     const [newVariantNameModal, setNewVariantNameModal] = useState('');
     const [newVariantEngine, setNewVariantEngine] = useState<VoiceEngine>(firstReadyEngine);
+    const [newVoiceSamples, setNewVoiceSamples] = useState<File[]>([]);
     const [isCreatingVoice, setIsCreatingVoice] = useState(false);
     const [isAddingVariantModal, setIsAddingVariantModal] = useState(false);
     const [isRenamingSpeaker, setIsRenamingSpeaker] = useState(false);
@@ -122,6 +123,7 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
         newSpeakerName, setNewSpeakerName,
         newVoiceName, setNewVoiceName,
         newVoiceEngine, setNewVoiceEngine,
+        newVoiceSamples, setNewVoiceSamples,
         addVariantSpeaker, setAddVariantSpeaker,
         newVariantNameModal, setNewVariantNameModal,
         newVariantEngine, setNewVariantEngine,
