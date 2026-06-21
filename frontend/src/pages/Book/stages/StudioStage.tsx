@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlignLeft, BookOpen, Eye, Hash } from 'lucide-react';
+import { AlignLeft, AlertTriangle, BookOpen, Eye, Hash } from 'lucide-react';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { InlineEdit } from '@/components/forms/InlineEdit';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
@@ -27,6 +27,7 @@ export function StudioStage() {
     selectedVoice,
     segmentUpdate,
     chapterUpdate,
+    projectVoiceStatus,
   } = useBookDataContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<'book' | 'script'>('book');
@@ -130,6 +131,9 @@ export function StudioStage() {
     handleCreateTempCharacter,
     handlePromoteCharacter,
     renderGroupCount,
+    handleVoiceChange,
+    chapterDefaultVoiceLabel,
+    availableVoices,
   } = studio;
 
   const activeChapterIndex = useMemo(
@@ -161,6 +165,16 @@ export function StudioStage() {
 
   return (
     <section className="book-stage-studio" data-testid="stage-studio" aria-label="Studio">
+      {!projectVoiceStatus.enabled && projectVoiceStatus.message && (
+        <div className="studio-stage__engine-warning" role="alert">
+          <AlertTriangle size={18} aria-hidden="true" />
+          <div>
+            <strong>Project Default Voice Engine Unavailable</strong>
+            <span>{projectVoiceStatus.message}</span>
+          </div>
+        </div>
+      )}
+
       <div className="studio-stage__toolbar" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
         <div className="studio-stage__title">
           <InlineEdit
@@ -334,6 +348,10 @@ export function StudioStage() {
           currentChapterId={activeChapterId}
           onCreateTempCharacter={handleCreateTempCharacter}
           onPromoteCharacter={handlePromoteCharacter}
+          localVoice={studio.localVoice}
+          handleVoiceChange={handleVoiceChange}
+          availableVoices={availableVoices}
+          chapterDefaultVoiceLabel={chapterDefaultVoiceLabel}
         />
       </div>
 
@@ -349,7 +367,7 @@ export function StudioStage() {
           onStopAll={handleStopAll}
           onCopyDebugState={handleCopyDebugState}
           onCommitSourceText={handleRequestResyncPreview}
-          canCommitSourceText={false}
+          canCommitSourceText={hasUnsavedChanges}
           onSegmentDisplayProgress={setLiveBarSegmentProgress}
           onProgressBarDebugSnapshot={handleProgressBarDebugSnapshot}
           status={status}

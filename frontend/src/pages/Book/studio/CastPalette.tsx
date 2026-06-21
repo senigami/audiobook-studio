@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, Plus, ArrowUpCircle } from 'lucide-react';
 import { ColorSwatchPicker } from '@/components/forms/ColorSwatchPicker';
+import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
 import type { Character, ChapterSegment, Speaker, SpeakerProfile, TtsEngine } from '@/types';
+import type { VoiceOption } from '@/utils/voiceProfiles';
 import {
   formatVoiceEngineLabel,
   getDefaultEngineId,
@@ -30,6 +32,14 @@ interface CastPaletteProps {
   onCreateTempCharacter?: () => void;
   /** Called when user clicks Promote on a tier-2 character. */
   onPromoteCharacter?: (characterId: string) => void;
+  /** Chapter-level default voice override (localVoice from useStudioChapter). */
+  localVoice?: string;
+  /** Called when the chapter default voice is changed. Required to show the voice select. */
+  handleVoiceChange?: (voice: string) => void;
+  /** Available voice options for the chapter default voice select. */
+  availableVoices?: VoiceOption[];
+  /** Label for the "use project default" option in the voice select. */
+  chapterDefaultVoiceLabel?: string;
 }
 
 function buildSegmentCounts(segments: ChapterSegment[]) {
@@ -397,6 +407,10 @@ export function CastPalette({
   currentChapterId,
   onCreateTempCharacter,
   onPromoteCharacter,
+  localVoice,
+  handleVoiceChange,
+  availableVoices = [],
+  chapterDefaultVoiceLabel,
 }: CastPaletteProps) {
   const segmentCounts = useMemo(() => buildSegmentCounts(segments), [segments]);
 
@@ -524,6 +538,26 @@ export function CastPalette({
         }}>
           Cast
         </div>
+        {handleVoiceChange && (
+          <div style={{ marginTop: '0.4rem' }}>
+            <label style={{
+              display: 'block',
+              fontSize: 'var(--type-micro)',
+              color: 'var(--text-muted)',
+              marginBottom: '0.2rem',
+              cursor: 'default',
+            }}>
+              Chapter default voice
+              <VoiceProfileSelect
+                value={localVoice ?? ''}
+                onChange={handleVoiceChange}
+                options={availableVoices}
+                defaultLabel={chapterDefaultVoiceLabel ?? 'Use Project Default'}
+                style={{ width: '100%', fontSize: '0.7rem', padding: '0.25rem 1.5rem 0.25rem 0.4rem', marginTop: '0.2rem' }}
+              />
+            </label>
+          </div>
+        )}
       </div>
 
       <div style={{
