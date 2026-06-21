@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useState, useEffect } from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { ReviewStage } from '@/pages/Book/stages/ReviewStage';
 import { useReviewPlayback } from '@/pages/Book/stages/ReviewStage/useReviewPlayback';
 import * as playerBus from '@/store/playerBus';
@@ -109,6 +109,17 @@ vi.mock('@/pages/Book/BookDataContext', () => {
   };
 });
 
+// Helper: render ReviewStage inside a router that provides the chapterId route param.
+function renderReviewStage(chapterId = 'chap-1') {
+  return render(
+    <MemoryRouter initialEntries={[`/book/proj-123/chapter/${chapterId}`]}>
+      <Routes>
+        <Route path="/book/:bookId/chapter/:chapterId" element={<ReviewStage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 describe('useReviewPlayback hook', () => {
   beforeEach(() => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -164,7 +175,8 @@ describe('useReviewPlayback hook', () => {
 describe('ReviewStage component', () => {
   beforeEach(() => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
-    // Reset playerBus mock state so !isPlaying renders the Load & Play button
+    vi.clearAllMocks();
+    // Reset playerBus mock state
     mockPlayerBusState.scope = null;
     mockPlayerBusState.audioUrl = null;
     mockPlayerBusState.playing = false;
@@ -181,30 +193,95 @@ describe('ReviewStage component', () => {
     );
   });
 
-  it('renders sidebars, central text pane, annotations, and control actions', () => {
-    render(
-      <MemoryRouter>
-        <ReviewStage />
-      </MemoryRouter>
-    );
-    
-    // Review title or container
+  it('renders left chapter rail, main text area, follow-along controls, and annotations toggle', () => {
+    renderReviewStage();
+
+    // Root container
     expect(screen.getByTestId('stage-review')).toBeInTheDocument();
-    
-    // Check controls panel / follow along panel elements
+
+    // Left rail: chapter list
+    expect(screen.getByRole('listbox', { name: /select a chapter/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Chapter 1/i })).toBeInTheDocument();
+
+    // Main area: Follow-Along Playback panel
     expect(screen.getByText(/Follow-Along Playback/i)).toBeInTheDocument();
-    
-    // Check annotations panel
+
+    // Annotations toggle button
     expect(screen.getAllByText(/Annotations/i).length).toBeGreaterThan(0);
+
+    // Text view container
+    expect(screen.getByTestId('review-text-view')).toBeInTheDocument();
+  });
+
+  it('does NOT render a standalone "Load & Play Chapter" button — chapter rail click is the entry point', () => {
+    renderReviewStage();
+    // The old standalone play button must be gone
+    expect(screen.queryByRole('button', { name: /load & play chapter/i })).not.toBeInTheDocument();
+  });
+
+  it('clicking a chapter in the left rail triggers load-and-play and navigates to that chapter', () => {
+    mockChapters = [
+      { id: 'chap-1', title: 'Chapter 1', audio_status: 'done', audio_file_path: 'chap1.mp3' },
+      { id: 'chap-2', title: 'Chapter 2', audio_status: 'done', audio_file_path: 'chap2.mp3' },
+    ];
+
+    // Render with a route that can absorb navigation to chap-2
+    const navigated: string[] = [];
+    render(
+      <MemoryRouter initialEntries={['/book/proj-123/chapter/chap-1']}>
+        <Routes>
+          <Route
+            path="/book/:bookId/chapter/:chapterId"
+            element={<ReviewStage />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // Both chapters must be in the left rail
+    const chap2Btn = screen.getByRole('option', { name: /Chapter 2/i });
+    expect(chap2Btn).toBeInTheDocument();
+
+    // Click Chapter 2 in the left rail
+    fireEvent.click(chap2Btn);
+
+    // loadAndPlay must have been called with the chapter 2 audio URL
+    expect(playerBus.loadAndPlay).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: 'chapter',
+        audioUrl: expect.stringContaining('chap2.mp3'),
+        title: 'Chapter 2',
+      }),
+    );
+  });
+
+  it('clicking a chapter with no audio does NOT call loadAndPlay', () => {
+    mockChapters = [
+      { id: 'chap-1', title: 'Chapter 1', audio_status: 'done', audio_file_path: 'chap1.mp3' },
+      { id: 'chap-2', title: 'Chapter 2', audio_status: 'unprocessed', audio_file_path: null },
+    ];
+
+    renderReviewStage('chap-1');
+
+    const chap2Btn = screen.getByRole('option', { name: /Chapter 2/i });
+    fireEvent.click(chap2Btn);
+
+    // Navigation happens but playback must NOT be triggered
+    expect(playerBus.loadAndPlay).not.toHaveBeenCalled();
+  });
+
+  it('follow-along text view renders segments for the active chapter', async () => {
+    renderReviewStage();
+
+    // Segments are loaded asynchronously
+    const seg = await screen.findByText('Short segment');
+    expect(seg).toBeInTheDocument();
+    expect(screen.getByText('Longer segment text here')).toBeInTheDocument();
   });
 
   it('allows regenerating the active segment', async () => {
     const { api } = await import('@/api');
-    render(
-      <MemoryRouter>
-        <ReviewStage />
-      </MemoryRouter>
-    );
+    renderReviewStage();
 
     // Wait for segments to load
     const segmentEl = await screen.findByText('Short segment');
@@ -245,11 +322,7 @@ describe('ReviewStage component', () => {
   it('S2: surfaces an inline error when re-render API call fails', async () => {
     mockGenerateSegments = vi.fn().mockRejectedValue(new Error('TTS engine unavailable'));
 
-    render(
-      <MemoryRouter>
-        <ReviewStage />
-      </MemoryRouter>
-    );
+    renderReviewStage();
 
     // Wait for segments to load
     await screen.findByText('Short segment');
@@ -272,31 +345,27 @@ describe('ReviewStage component', () => {
     await screen.findByText(/re-render failed/i);
   });
 
-  it('S4: Load & Play button is disabled when chapter has no audio', async () => {
+  it('S4: chapter with no audio is marked as not-rendered in the left rail and is still clickable', async () => {
     mockChapters = [
       { id: 'chap-1', title: 'Chapter 1', audio_status: 'unprocessed', audio_file_path: null },
     ];
 
-    render(
-      <MemoryRouter>
-        <ReviewStage />
-      </MemoryRouter>
-    );
+    renderReviewStage('chap-1');
 
-    // When chapter has no audio the button renders with a hint text and is disabled
-    const playBtn = await screen.findByRole('button', { name: /render this chapter first/i });
-    expect(playBtn).toBeDisabled();
+    // Chapter is still shown in the rail
+    const chapterBtn = screen.getByRole('option', { name: /Chapter 1/i });
+    expect(chapterBtn).toBeInTheDocument();
+
+    // Clicking it does NOT crash or call loadAndPlay (no audio available)
+    fireEvent.click(chapterBtn);
+    expect(playerBus.loadAndPlay).not.toHaveBeenCalled();
   });
 
   it('S1: shows progress percentage on re-render button when segmentProgress is populated', async () => {
     // Start with a never-resolving re-render so we can inspect the in-progress state
     mockGenerateSegments = vi.fn().mockImplementation(() => new Promise(() => {}));
 
-    render(
-      <MemoryRouter>
-        <ReviewStage />
-      </MemoryRouter>
-    );
+    renderReviewStage();
 
     await screen.findByText('Short segment');
 
@@ -327,4 +396,3 @@ describe('ReviewStage component', () => {
     await screen.findByText('Regenerating... 50%');
   });
 });
-

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Play, MessageSquare, ChevronRight, ChevronLeft } from 'lucide-react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { MessageSquare, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import { api } from '@/api';
 import type { ChapterSegment } from '@/types';
@@ -11,7 +11,9 @@ import { AnnotationsPanel } from './ReviewStage/AnnotationsPanel';
 
 export function ReviewStage() {
   const { bookId, chapters, segmentProgress } = useBookDataContext();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { chapterId: routeChapterId } = useParams<{ chapterId?: string }>();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [segments, setSegments] = useState<ChapterSegment[]>([]);
   const [loadingSegments, setLoadingSegments] = useState(false);
   const [showAnnotations, setShowAnnotations] = useState(true);
@@ -19,7 +21,10 @@ export function ReviewStage() {
   const [reRenderError, setReRenderError] = useState<string | null>(null);
   const [renderGroupsRefreshKey, setRenderGroupsRefreshKey] = useState(0);
 
-  const resolvedChapterId = searchParams.get('chapter') || chapters[0]?.id || null;
+  // The resolved chapter: prefer the route param, fall back to ?chapter= param, then first chapter.
+  const resolvedChapterId =
+    routeChapterId || searchParams.get('chapter') || chapters[0]?.id || null;
+
   const selectedChapter = useMemo(
     () => chapters.find((chapter) => chapter.id === resolvedChapterId) || null,
     [chapters, resolvedChapterId],
@@ -105,34 +110,40 @@ export function ReviewStage() {
     return -1;
   }, [activeSegmentId, groupNumberBySegmentId]);
 
-  const chapterHasAudio = Boolean(
-    selectedChapter?.audio_file_path || selectedChapter?.audio_status === 'done',
-  );
+  /**
+   * Navigate to a chapter and immediately load + play it.
+   * Selecting a chapter in the left rail is the sole entry point for playback —
+   * no separate "Load & Play" button is needed.
+   */
+  const handleChapterSelect = (chapterId: string) => {
+    // Navigate the workspace to the selected chapter so the header switcher and
+    // route stay in sync.  The ChapterWorkspace useEffect will sync ?chapter= from
+    // the route param automatically.
+    navigate(`/book/${bookId}/chapter/${chapterId}`);
 
-  const handlePlayChapterClick = () => {
-    if (!selectedChapter || !chapterHasAudio) return;
-    const audioUrl = `/api/projects/${bookId}/chapters/${selectedChapter.id}/assets/audio?filename=${encodeURIComponent(selectedChapter.audio_file_path!)}`;
+    // If the chapter has audio, trigger playback immediately.
+    const chapter = chapters.find((c) => c.id === chapterId);
+    if (!chapter) return;
+    const hasAudio = Boolean(chapter.audio_file_path || chapter.audio_status === 'done');
+    if (!hasAudio) return;
 
-    // Best-effort: register the first rendered segment as an altScope so the
-    // Segment↔Chapter scope toggle appears when both URLs are genuinely available.
+    const audioUrl = `/api/projects/${bookId}/chapters/${chapter.id}/assets/audio?filename=${encodeURIComponent(chapter.audio_file_path!)}`;
+
+    // Best-effort altScope: use the first rendered segment URL if one exists.
+    // Segments for the newly selected chapter may not be loaded yet; when they
+    // arrive the play state is already wired through playerBus, so this is fine.
     const firstRenderedSeg = segments.find(
       (s) => s.audio_status === 'done' && s.audio_file_path,
     );
     const segmentAltScope = firstRenderedSeg
       ? {
-          audioUrl: `/api/projects/${bookId}/chapters/${selectedChapter.id}/assets/audio?filename=${encodeURIComponent(firstRenderedSeg.audio_file_path!)}`,
+          audioUrl: `/api/projects/${bookId}/chapters/${chapter.id}/assets/audio?filename=${encodeURIComponent(firstRenderedSeg.audio_file_path!)}`,
           title: `Segment ${firstRenderedSeg.segment_order + 1}`,
-          subtitle: selectedChapter.title,
+          subtitle: chapter.title,
         }
       : undefined;
 
-    playChapter(audioUrl, selectedChapter.title, segmentAltScope);
-  };
-
-  const handleChapterSelect = (chapterId: string) => {
-    const nextSearchParams = new URLSearchParams(searchParams);
-    nextSearchParams.set('chapter', chapterId);
-    setSearchParams(nextSearchParams, { replace: true });
+    playChapter(audioUrl, chapter.title, segmentAltScope);
   };
 
   return (
@@ -140,78 +151,47 @@ export function ReviewStage() {
       className="book-stage-review"
       data-testid="stage-review"
       aria-label="Review Stage"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        gap: '12px',
-      }}
     >
-      {/* Chapter navigation header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          background: 'var(--surface)',
-          padding: '8px 12px',
-          borderRadius: 'var(--radius-button)',
-          border: '1px solid var(--border)',
-        }}
-      >
-        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-          Select Chapter:
-        </span>
-        <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', flex: 1 }}>
+      {/* Left sidebar: vertical chapter list */}
+      <aside className="review-chapter-rail" aria-label="Chapter list">
+        <div className="review-chapter-rail__header">
+          <span className="review-chapter-rail__label">Chapters</span>
+        </div>
+        <div className="review-chapter-rail__list" role="listbox" aria-label="Select a chapter">
           {chapters.map((ch) => {
             const isSelected = ch.id === resolvedChapterId;
+            const chHasAudio = Boolean(ch.audio_file_path || ch.audio_status === 'done');
             return (
               <button
                 key={ch.id}
                 type="button"
+                role="option"
+                aria-selected={isSelected}
                 onClick={() => handleChapterSelect(ch.id)}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '12px',
-                  border: isSelected ? '1px solid var(--accent)' : '1px solid var(--border)',
-                  background: isSelected ? 'var(--accent-tint-bg)' : 'var(--surface)',
-                  color: isSelected ? 'var(--accent)' : 'var(--text-primary)',
-                  fontSize: '0.7rem',
-                  fontWeight: isSelected ? 700 : 500,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
+                className={`review-chapter-rail__item${isSelected ? ' review-chapter-rail__item--selected' : ''}${isPlaying && isSelected ? ' review-chapter-rail__item--playing' : ''}`}
+                title={chHasAudio ? `Play ${ch.title}` : `${ch.title} — render first`}
               >
-                {ch.title}
+                <span className="review-chapter-rail__item-title">{ch.title}</span>
+                {!chHasAudio && (
+                  <span className="review-chapter-rail__item-badge" aria-label="Not rendered">
+                    ·
+                  </span>
+                )}
+                {isPlaying && isSelected && (
+                  <span className="review-chapter-rail__item-badge review-chapter-rail__item-badge--playing" aria-label="Now playing">
+                    ▶
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
-        <button
-          type="button"
-          onClick={() => setShowAnnotations(!showAnnotations)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            padding: '4px 8px',
-            fontSize: '0.7rem',
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-button)',
-            cursor: 'pointer',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          <MessageSquare size={14} />
-          <span>Annotations</span>
-          {showAnnotations ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-        </button>
-      </div>
+      </aside>
 
-      <div style={{ display: 'flex', gap: '12px', flex: 1, minHeight: 0, alignItems: 'stretch' }}>
-        {/* Sidebar panel for FollowAlong controls */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {/* Main area: follow-along playback */}
+      <div className="review-main">
+        {/* Top bar: follow-along controls + annotation toggle */}
+        <div className="review-main__topbar">
           <FollowAlongPanel
             chapterTitle={selectedChapter?.title || ''}
             activeSegmentId={activeSegmentId}
@@ -222,95 +202,55 @@ export function ReviewStage() {
             reRenderError={reRenderError}
             reRenderProgress={reRenderProgress}
           />
-          {!isPlaying && selectedChapter && (
-            <button
-              type="button"
-              onClick={handlePlayChapterClick}
-              disabled={!chapterHasAudio}
-              title={chapterHasAudio ? undefined : 'Render this chapter first'}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '8px 12px',
-                background: chapterHasAudio ? 'var(--accent)' : 'var(--surface)',
-                color: chapterHasAudio ? 'white' : 'var(--text-muted)',
-                border: chapterHasAudio ? 'none' : '1px solid var(--border)',
-                borderRadius: 'var(--radius-button)',
-                fontWeight: 600,
-                fontSize: '0.75rem',
-                cursor: chapterHasAudio ? 'pointer' : 'not-allowed',
-                opacity: chapterHasAudio ? 1 : 0.5,
-              }}
-            >
-              <Play size={16} fill="currentColor" />
-              <span>{chapterHasAudio ? 'Load & Play Chapter' : 'Render this chapter first'}</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowAnnotations(!showAnnotations)}
+            className="review-main__annotations-toggle"
+            aria-pressed={showAnnotations}
+            aria-label="Toggle annotations panel"
+          >
+            <MessageSquare size={14} aria-hidden="true" />
+            <span>Annotations</span>
+            {showAnnotations ? <ChevronRight size={14} aria-hidden="true" /> : <ChevronLeft size={14} aria-hidden="true" />}
+          </button>
         </div>
 
-        {/* Central scrolling book panel representing chapter text mapped to segments */}
-        <div
-          className="review-text-view"
-          style={{
-            flex: 1,
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-panel)',
-            padding: '16px',
-            overflowY: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-          }}
-        >
-          {loadingSegments ? (
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', padding: '24px' }}>
-              Loading segments...
-            </div>
-          ) : segments.length === 0 ? (
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', padding: '24px' }}>
-              No segments found for this chapter.
-            </div>
-          ) : (
-            segments.map((seg) => {
-              const isActive = seg.id === activeSegmentId;
-              return (
-                <div
-                  key={seg.id}
-                  ref={(el) => {
-                    activeSegmentRefs.current[seg.id] = el;
-                  }}
-                  onClick={() => seekToSegment(seg.id)}
-                  style={{
-                    fontSize: '0.75rem',
-                    lineHeight: 1.6,
-                    color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    padding: '6px 8px',
-                    borderRadius: 'var(--radius-button)',
-                    background: isActive ? 'var(--accent-tint-bg)' : 'transparent',
-                    border: isActive ? '1px solid var(--accent)' : '1px solid transparent',
-                    cursor: 'pointer',
-                    fontWeight: isActive ? 600 : 400,
-                    transition: 'all 0.15s ease-in-out',
-                  }}
-                >
-                  {seg.text_content}
-                </div>
-              );
-            })
+        {/* Body: text view + optional annotations */}
+        <div className="review-main__body">
+          {/* Central scrolling book panel representing chapter text mapped to segments */}
+          <div className="review-text-view" data-testid="review-text-view">
+            {loadingSegments ? (
+              <div className="review-text-view__empty">Loading segments...</div>
+            ) : segments.length === 0 ? (
+              <div className="review-text-view__empty">No segments found for this chapter.</div>
+            ) : (
+              segments.map((seg) => {
+                const isActive = seg.id === activeSegmentId;
+                return (
+                  <div
+                    key={seg.id}
+                    ref={(el) => {
+                      activeSegmentRefs.current[seg.id] = el;
+                    }}
+                    onClick={() => seekToSegment(seg.id)}
+                    className={`review-text-view__segment${isActive ? ' review-text-view__segment--active' : ''}`}
+                  >
+                    {seg.text_content}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Side drawer / collapsible panel for Annotations */}
+          {showAnnotations && (
+            <AnnotationsPanel
+              chapterId={resolvedChapterId}
+              activeSegmentId={activeSegmentId}
+              onSeekToSegment={seekToSegment}
+            />
           )}
         </div>
-
-        {/* Side drawer / collapsible panel for Annotations */}
-        {showAnnotations && (
-          <AnnotationsPanel
-            chapterId={resolvedChapterId}
-            activeSegmentId={activeSegmentId}
-            onSeekToSegment={seekToSegment}
-          />
-        )}
       </div>
     </section>
   );
