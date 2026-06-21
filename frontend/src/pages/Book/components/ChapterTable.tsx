@@ -19,6 +19,8 @@ interface ChapterTableProps {
   onDeleteChapter: (chapterId: string) => void;
   onExportSample: (chapter: Chapter) => void;
   anyEnginesEnabled?: boolean;
+  /** When provided, clicking a chapter row opens the Chapter Workspace. */
+  onOpenChapter?: (chapterId: string) => void;
 }
 
 function pickChapterJob(chapter: Chapter, jobs: Record<string, Job>): Job | undefined {
@@ -42,6 +44,7 @@ export function ChapterTable({
   onDeleteChapter,
   onExportSample,
   anyEnginesEnabled = true,
+  onOpenChapter,
 }: ChapterTableProps) {
   const handleSort = () => {
     onReorder([...chapters].sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true })));
@@ -104,6 +107,16 @@ export function ChapterTable({
 
               <div className="chapter-table__title">
                 <InlineEdit value={chapter.title} onSave={(title) => onRenameChapter(chapter.id, title)} />
+                {onOpenChapter && (
+                  <button
+                    type="button"
+                    className="chapter-table__open-btn"
+                    onClick={() => onOpenChapter(chapter.id)}
+                    aria-label={`Open workspace for ${chapter.title}`}
+                  >
+                    Open
+                  </button>
+                )}
               </div>
 
               <div className="chapter-table__words">{chapter.word_count ?? '-'}</div>

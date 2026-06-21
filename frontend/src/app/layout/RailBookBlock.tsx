@@ -64,12 +64,17 @@ export function RailBookBlock({ compact = false }: RailBookBlockProps) {
   }
 
   const activeStage = getActiveStage(location.pathname);
-  const showChapters = activeStage === 'studio';
+  // Show chapter list in the rail when on the Contents tab or inside a chapter workspace.
+  const isChapterWorkspace = /\/book\/[^/]+\/chapter\/[^/]+/.test(location.pathname);
+  const showChapters = activeStage === 'contents' || isChapterWorkspace;
   const chapters = identity.chapters || [];
   const jobs = identity.jobs || {};
   const actions = identity.actions || {};
+  // Determine the active chapter: workspace route carries it as a path segment;
+  // contents tab uses the ?chapter= query param for legacy compat.
+  const workspaceChapterId = isChapterWorkspace ? location.pathname.split('/chapter/')[1] ?? null : null;
   const activeChapterId = showChapters
-    ? new URLSearchParams(location.search).get('chapter') ?? chapters[0]?.id ?? null
+    ? workspaceChapterId ?? new URLSearchParams(location.search).get('chapter') ?? chapters[0]?.id ?? null
     : null;
 
   return (
@@ -99,9 +104,9 @@ export function RailBookBlock({ compact = false }: RailBookBlockProps) {
               {BOOK_STAGE_LABELS[stage]}
             </NavLink>
 
-            {/* Studio expands its chapters inline, between Studio and Review. */}
-            {stage === 'studio' && showChapters ? (
-              <div className="rail-book-block__chapters" aria-label="Studio chapters">
+            {/* Contents tab and chapter workspace expand chapters inline. */}
+            {stage === 'contents' && showChapters ? (
+              <div className="rail-book-block__chapters" aria-label="Chapters">
                 {chapters.map((chapter, index) => {
             const activeJob = pickChapterJob(chapter, identity.id, jobs);
             const queuePending = !activeJob && chapter.audio_status === 'processing';
@@ -120,7 +125,7 @@ export function RailBookBlock({ compact = false }: RailBookBlockProps) {
                   className={selected
                     ? 'rail-book-block__chapter rail-book-block__chapter--active'
                     : 'rail-book-block__chapter'}
-                  onClick={() => navigate(`/book/${identity.id}/studio?chapter=${chapter.id}`)}
+                  onClick={() => navigate(`/book/${identity.id}/chapter/${chapter.id}`)}
                   aria-label={`${index + 1}. ${chapter.title}`}
                 >
                   <div className="rail-book-block__chapter-main">

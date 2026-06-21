@@ -268,8 +268,9 @@ describe('App', () => {
       </MemoryRouter>
     )
 
+    // tab=characters maps to the 'cast' tab in the new IA
     await waitFor(() => {
-      expect(screen.getByTestId('location-probe')).toHaveTextContent('/book/p1/casting')
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('/book/p1/cast')
     })
 
     const search = new URLSearchParams(screen.getByTestId('location-probe').textContent?.split('?')[1] || '')
@@ -277,7 +278,7 @@ describe('App', () => {
     expect(search.has('tab')).toBe(false)
   })
 
-  it('redirects chapter routes into the book studio stage with the chapter query', async () => {
+  it('redirects chapter routes into the chapter workspace with the chapter path', async () => {
     render(
       <MemoryRouter initialEntries={['/chapter/c1?foo=bar']}>
         <LocationProbe />
@@ -285,12 +286,12 @@ describe('App', () => {
       </MemoryRouter>
     )
 
+    // Legacy /chapter/:id routes now land in the chapter workspace
     await waitFor(() => {
-      expect(screen.getByTestId('location-probe')).toHaveTextContent('/book/p1/studio')
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('/book/p1/chapter/c1')
     })
 
     const search = new URLSearchParams(screen.getByTestId('location-probe').textContent?.split('?')[1] || '')
-    expect(search.get('chapter')).toBe('c1')
     expect(search.get('foo')).toBe('bar')
   })
 
@@ -410,8 +411,10 @@ describe('App', () => {
       </MemoryRouter>
     )
 
+    // The chapter workspace header shows the back-to-Contents button; that uniquely
+    // identifies we landed in the chapter workspace (not a loading placeholder).
     await waitFor(() => {
-      expect(screen.getByText(/Chapter 1/i)).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Back to Contents' })).toBeTruthy()
     })
 
     expect(screen.queryByText('Loading chapter...')).toBeFalsy()

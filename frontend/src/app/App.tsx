@@ -56,10 +56,12 @@ function navigateToBookStage(projectId: string, search: string): { pathname: str
   const params = new URLSearchParams(search);
   const tab = params.get('tab');
   const stage = tab === 'characters'
-    ? 'casting'
-    : tab === 'assemblies' || tab === 'backups'
+    ? 'cast'
+    : tab === 'assemblies'
       ? 'publish'
-      : 'manuscript';
+      : tab === 'backups'
+        ? 'backups'
+        : 'contents';
   params.delete('tab');
   const nextSearch = params.toString();
   return {
@@ -106,7 +108,7 @@ function ChapterRedirectRoute({
     <Navigate
       replace
       to={{
-        pathname: `/book/${chapter.project_id}/studio`,
+        pathname: `/book/${chapter.project_id}/chapter/${chapterId}`,
         search: nextSearch ? `?${nextSearch}` : '',
       }}
     />
@@ -318,6 +320,20 @@ function App() {
               <Route path="/library" element={<ProjectLibrary onSelectProject={(id) => navigate(`/project/${id}`)} />} />
               <Route path="/book/:bookId" element={<BookIndexRedirect />} />
               <Route path="/book/:bookId/:stage" element={
+                <BookLayout
+                  jobs={jobs}
+                  segmentProgress={segmentProgress}
+                  speakerProfiles={initialData?.speaker_profiles || []}
+                  speakers={initialData?.speakers || []}
+                  settings={initialData?.settings}
+                  engines={initialData?.engines || []}
+                  refreshTrigger={queueRefreshTrigger}
+                  segmentUpdate={segmentUpdate}
+                  chapterUpdate={chapterUpdate}
+                  onOpenQueue={() => setIsQueueDrawerOpen(true)}
+                />
+              } />
+              <Route path="/book/:bookId/chapter/:chapterId" element={
                 <BookLayout
                   jobs={jobs}
                   segmentProgress={segmentProgress}
