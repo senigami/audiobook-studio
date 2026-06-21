@@ -19,7 +19,24 @@ Each commit is task-labeled (S-id / WIRE-id / task number) for later bug cross-c
 - Model: **book starts with an index and reads like a book; chapters have their own flow, separate from the book.** Already documented + reflected in the demo.
 - Still gated on the owner pipeline design review for the full build; this guidance feeds it. Not built tonight (visual-verification-heavy).
 
-## In progress / planned tonight (safe, backend, no visual check)
-- PL-6 (document the live xtts adapter / redundant `to_bridge_request`, INV-5)
-- S10 (secret-aware plugin settings, with tests)
-- task 005 backend cleanup / bounded large-file splits (behavior-preserving, test-gated)
+## Session end — what I judged unsafe to do blind (held, not abandoned)
+After S11 + S7, the remaining backlog is gated on your input, needs visual verification, or is a
+risky/sensitive change I shouldn't make unsupervised. Reasons:
+- **S10 (secret-aware plugin settings)** — held. Not a single chokepoint: the read/serialize path
+  spans `app/tts_server/settings_store.py` + the Studio engines router + the tts_client proxy.
+  "Mask on read / never log" done incompletely is worse than not done (false security confidence).
+  Plus it's a versioned-contract change. Wants your review. *(There's a clean pattern to follow:
+  mirror the existing `_strip_read_only_settings(settings, schema)` with a `_redact_secret_settings`
+  applied at the read chokepoint — but I need to confirm every read site first.)*
+- **PL-6 (document the xtts/`to_bridge_request` redundancy)** — held. Documenting it accurately needs
+  a full dispatch trace (registry-adapter path vs the bridge path at `orchestrator_helpers.py:442`);
+  low value for the verification cost, and a wrong comment misleads. Note: `to_bridge_request` is NOT
+  dead — `api_synthesis.py:147` calls it and the orchestrator reads it via `getattr`.
+- **task 005 large-file splits** — held. The big files are core (`progress/service.py` 1449,
+  `tts_server/server.py` 1333, `orchestrator_helpers.py` 1233) — exactly where a subtle break causes
+  hard-to-find regressions; not safe to refactor blind. `events.py` (800) splits cleanly but it's a
+  low-value reorg of a sensitive versioned-contract file. Best done supervised.
+- **S6, WIRE-1/2/3, IA port (003)** — held per the questions above (decisions / visual verification).
+
+**Net:** stopped after the cleanly-safe items rather than force risky work overnight (you said holding
+off is OK). Everything done is behavior-preserving and easy to validate against studio-2.0.
