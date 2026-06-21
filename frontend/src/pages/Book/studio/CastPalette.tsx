@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, ArrowUpCircle, Settings, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, ArrowUpCircle, Trash2, MoreVertical } from 'lucide-react';
 import { ColorSwatchPicker } from '@/components/forms/ColorSwatchPicker';
 import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
+import { ActionMenu } from '@/components/ui/ActionMenu';
 import type { Character, ChapterSegment, Speaker, SpeakerProfile, TtsEngine } from '@/types';
 import type { VoiceOption } from '@/utils/voiceProfiles';
 import {
@@ -32,8 +33,6 @@ interface CastPaletteProps {
   onCreateTempCharacter?: () => void;
   /** Called when user clicks Promote on a tier-2 character. */
   onPromoteCharacter?: (characterId: string) => void;
-  /** Set a (temp) character's voice. */
-  onSetCharacterVoice?: (characterId: string, profileName: string) => void;
   /** Delete a (temp) character (with confirm handled by the caller). */
   onDeleteCharacter?: (characterId: string) => void;
   /** Chapter-level default voice override (localVoice from useStudioChapter). */
@@ -129,9 +128,7 @@ interface CharacterRowProps {
   onVariantSelect: (variantName: string) => void;
   onVariantDisarm: () => void;
   onPromote?: () => void;
-  onSetVoice?: (profileName: string) => void;
   onDelete?: () => void;
-  availableVoices?: VoiceOption[];
 }
 
 function CharacterRow({
@@ -151,11 +148,10 @@ function CharacterRow({
   onVariantSelect,
   onVariantDisarm,
   onPromote,
-  onSetVoice,
   onDelete,
-  availableVoices,
 }: CharacterRowProps) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const charProfile = speakerProfiles.find((p) => p.name === char.speaker_profile_name);
   const baseName = (char.speaker_profile_name ?? '').split(' - ')[0];
@@ -194,7 +190,11 @@ function CharacterRow({
   })();
 
   return (
-    <div style={{ margin: '0 0.35rem 0.35rem' }}>
+    <div
+      style={{ margin: '0 0.35rem 0.35rem', position: 'relative' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <button
         type="button"
         onClick={() => {
@@ -294,118 +294,17 @@ function CharacterRow({
         )}
       </button>
 
-      {/* Settings toggle for tier-2 temps */}
-      {(onSetVoice || onDelete || onPromote) && (
-        <div style={{ paddingLeft: 4, paddingBottom: 2, display: 'flex', gap: 4 }}>
-          <button
-            type="button"
-            aria-label="Character settings"
-            aria-expanded={settingsOpen}
-            title="Settings"
-            onClick={(e) => { e.stopPropagation(); setSettingsOpen((v) => !v); }}
-            style={{
-              fontSize: 'var(--type-micro)',
-              padding: '2px 6px',
-              borderRadius: 6,
-              border: '1px solid var(--accent-tint-border)',
-              background: 'transparent',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 3,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <Settings size={9} aria-hidden="true" />
-            Settings
-          </button>
-        </div>
-      )}
-
-      {/* Inline settings panel */}
-      {settingsOpen && (onSetVoice || onDelete || onPromote) && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            marginLeft: 4,
-            marginRight: 0,
-            marginBottom: 4,
-            padding: '0.4rem 0.5rem',
-            border: '1px solid var(--hairline)',
-            borderRadius: 8,
-            background: 'var(--surface-alt)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 6,
-          }}
-        >
-          {onSetVoice && (
-            <label style={{
-              display: 'block',
-              fontSize: 'var(--type-micro)',
-              color: 'var(--text-muted)',
-              cursor: 'default',
-            }}>
-              Voice
-              <VoiceProfileSelect
-                value={char.speaker_profile_name ?? ''}
-                onChange={(v) => onSetVoice(v)}
-                options={availableVoices ?? []}
-                defaultLabel="No voice yet"
-                style={{ width: '100%', fontSize: '0.7rem', padding: '0.2rem 1.4rem 0.2rem 0.35rem' }}
-              />
-            </label>
-          )}
-          {onPromote && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onPromote(); }}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                fontSize: 'var(--type-micro)',
-                padding: '3px 6px',
-                borderRadius: 6,
-                border: '1px solid var(--accent-tint-border)',
-                background: 'var(--accent-tint-bg)',
-                color: 'var(--accent)',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <ArrowUpCircle size={11} aria-hidden="true" />
-              Promote to book cast
-            </button>
-          )}
-          {onDelete && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                fontSize: 'var(--type-micro)',
-                padding: '3px 6px',
-                borderRadius: 6,
-                border: '1px solid color-mix(in srgb, var(--error) 30%, transparent)',
-                background: 'color-mix(in srgb, var(--error) 10%, transparent)',
-                color: 'var(--error)',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <Trash2 size={11} aria-hidden="true" />
-              Delete character
-            </button>
-          )}
+      {/* Hover kebab for tier-2 temps */}
+      {(onPromote || onDelete) && (hovered || menuOpen) && (
+        <div style={{ position: 'absolute', top: 4, right: 4, zIndex: 2 }}>
+          <ActionMenu
+            trigger={<MoreVertical size={14} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />}
+            onOpenChange={setMenuOpen}
+            items={[
+              ...(onPromote ? [{ label: 'Promote to book cast', icon: ArrowUpCircle, onClick: onPromote }] : []),
+              ...(onDelete ? [{ label: 'Delete character', icon: Trash2, isDestructive: true, onClick: onDelete }] : []),
+            ]}
+          />
         </div>
       )}
 
@@ -502,7 +401,6 @@ export function CastPalette({
   currentChapterId,
   onCreateTempCharacter,
   onPromoteCharacter,
-  onSetCharacterVoice,
   onDeleteCharacter,
   localVoice,
   handleVoiceChange,
@@ -611,9 +509,7 @@ export function CastPalette({
         onVariantSelect={handlers.onVariantSelect}
         onVariantDisarm={handlers.onVariantDisarm}
         onPromote={tier === 'tier2' && onPromoteCharacter ? () => onPromoteCharacter(char.id) : undefined}
-        onSetVoice={tier === 'tier2' && onSetCharacterVoice ? (profile: string) => onSetCharacterVoice(char.id, profile) : undefined}
         onDelete={tier === 'tier2' && onDeleteCharacter ? () => onDeleteCharacter(char.id) : undefined}
-        availableVoices={availableVoices}
       />
     );
   };

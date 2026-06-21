@@ -138,11 +138,10 @@ interface TieredHarnessProps {
   onCreateTempCharacter?: () => void;
   onPromoteCharacter?: (id: string) => void;
   onDeleteCharacter?: (id: string) => void;
-  onSetCharacterVoice?: (id: string, profileName: string) => void;
   availableVoices?: import('@/utils/voiceProfiles').VoiceOption[];
 }
 
-function TieredHarness({ characters, segments, currentChapterId, onCreateTempCharacter, onPromoteCharacter, onDeleteCharacter, onSetCharacterVoice, availableVoices }: TieredHarnessProps) {
+function TieredHarness({ characters, segments, currentChapterId, onCreateTempCharacter, onPromoteCharacter, onDeleteCharacter, availableVoices }: TieredHarnessProps) {
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [selectedProfileName, setSelectedProfileName] = useState<string | null>(null);
   const [expandedCharacterId, setExpandedCharacterId] = useState<string | null>(null);
@@ -164,7 +163,6 @@ function TieredHarness({ characters, segments, currentChapterId, onCreateTempCha
       onCreateTempCharacter={onCreateTempCharacter}
       onPromoteCharacter={onPromoteCharacter}
       onDeleteCharacter={onDeleteCharacter}
-      onSetCharacterVoice={onSetCharacterVoice}
       availableVoices={availableVoices}
     />
   );
@@ -257,7 +255,7 @@ describe('CastPalette — 3-tier grouping', () => {
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onPromoteCharacter with the correct characterId from the temp settings menu', () => {
+  it('calls onPromoteCharacter with the correct characterId from the kebab menu', () => {
     const onPromote = vi.fn();
     render(
       <TieredHarness
@@ -268,13 +266,14 @@ describe('CastPalette — 3-tier grouping', () => {
       />
     );
 
-    // Open the temp character's settings menu, then click Promote inside it.
-    fireEvent.click(screen.getByRole('button', { name: /character settings/i }));
+    const rowBtn = screen.getByRole('button', { name: /T Temp One/i });
+    fireEvent.mouseEnter(rowBtn.parentElement as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
     fireEvent.click(screen.getByRole('button', { name: /promote to book cast/i }));
     expect(onPromote).toHaveBeenCalledWith('temp-1');
   });
 
-  it('calls onDeleteCharacter from the temp settings menu', () => {
+  it('calls onDeleteCharacter from the kebab menu', () => {
     const onDelete = vi.fn();
     render(
       <TieredHarness
@@ -285,32 +284,14 @@ describe('CastPalette — 3-tier grouping', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /character settings/i }));
+    const rowBtn = screen.getByRole('button', { name: /T Temp One/i });
+    fireEvent.mouseEnter(rowBtn.parentElement as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
     fireEvent.click(screen.getByRole('button', { name: /delete character/i }));
     expect(onDelete).toHaveBeenCalledWith('temp-1');
   });
 
-  it('lets a temp character pick a voice via the settings menu', () => {
-    const onSetVoice = vi.fn();
-    const voices = [
-      { id: 'v1', name: 'Voice One', value: 'Voice One', is_speaker: false },
-    ];
-    render(
-      <TieredHarness
-        characters={[alice, tempChar]}
-        segments={segments}
-        currentChapterId={CHAPTER_A}
-        onSetCharacterVoice={onSetVoice}
-        availableVoices={voices}
-      />
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: /character settings/i }));
-    fireEvent.change(screen.getByLabelText('Voice'), { target: { value: 'Voice One' } });
-    expect(onSetVoice).toHaveBeenCalledWith('temp-1', 'Voice One');
-  });
-
-  it('does not show a settings menu on book-scoped (tier-1) characters', () => {
+  it('does not show a kebab on book (tier-1) characters', () => {
     render(
       <TieredHarness
         characters={[alice, tempChar]}
@@ -321,8 +302,14 @@ describe('CastPalette — 3-tier grouping', () => {
       />
     );
 
-    // alice is tier-1 (book char used in this chapter); only the single temp row
-    // (tempChar) exposes a settings menu.
-    expect(screen.getAllByRole('button', { name: /character settings/i })).toHaveLength(1);
+    // alice is tier-1 — hovering her row should NOT produce a kebab
+    const aliceBtn = screen.getByRole('button', { name: /A Alice/i });
+    fireEvent.mouseEnter(aliceBtn.parentElement as HTMLElement);
+    expect(screen.queryByRole('button', { name: /more actions/i })).not.toBeInTheDocument();
+
+    // tempChar is tier-2 — hovering its row DOES produce a kebab
+    const tempBtn = screen.getByRole('button', { name: /T Temp One/i });
+    fireEvent.mouseEnter(tempBtn.parentElement as HTMLElement);
+    expect(screen.getByRole('button', { name: /more actions/i })).toBeInTheDocument();
   });
 });

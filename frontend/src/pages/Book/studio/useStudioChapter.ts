@@ -415,17 +415,17 @@ export function useStudioChapter({
     ].slice(0, 8);
   }, []);
 
-  const handleCreateTempCharacter = useCallback(async () => {
+  const handleCreateTempCharacter = useCallback(async (name: string, profileName?: string) => {
     if (!chapterId || !projectId) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
     try {
-      const tempCount = chapterEditor.characters.filter((c) => c.chapter_id === chapterId).length;
-      const name = `Temp · Character ${tempCount + 1}`;
-      await api.createCharacter(projectId, name, undefined, undefined, undefined, chapterId);
+      await api.createCharacter(projectId, trimmed, profileName || undefined, undefined, undefined, chapterId);
       await loadChapter('create-temp');
     } catch (error) {
       console.error('Failed to create temp character', error);
     }
-  }, [chapterId, projectId, chapterEditor.characters, loadChapter]);
+  }, [chapterId, projectId, loadChapter]);
 
   const handlePromoteCharacter = useCallback(async (characterId: string) => {
     try {
@@ -433,15 +433,6 @@ export function useStudioChapter({
       await loadChapter('promote-character');
     } catch (error) {
       console.error('Failed to promote character', error);
-    }
-  }, [loadChapter]);
-
-  const handleSetCharacterVoice = useCallback(async (characterId: string, profileName: string) => {
-    try {
-      await api.updateCharacter(characterId, undefined, profileName || '');
-      await loadChapter('set-character-voice');
-    } catch (error) {
-      console.error('Failed to set character voice', error);
     }
   }, [loadChapter]);
 
@@ -898,7 +889,6 @@ export function useStudioChapter({
     handleStopAll,
     handleCreateTempCharacter,
     handlePromoteCharacter,
-    handleSetCharacterVoice,
     handleDeleteCharacter,
     handoffTransitions: getHandoffTransitions(),
   };

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { TempCharacterModal } from '@/pages/Book/studio/TempCharacterModal';
 import { useSearchParams } from 'react-router-dom';
 import { AlignLeft, AlertTriangle, BookOpen, Eye, Hash } from 'lucide-react';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
@@ -33,6 +34,7 @@ export function StudioStage() {
   const [viewMode, setViewMode] = useState<'book' | 'script'>('book');
   const [showSafeText, setShowSafeText] = useState(false);
   const [showNumbers, setShowNumbers] = useState(false);
+  const [tempModalOpen, setTempModalOpen] = useState(false);
 
   const resolvedChapterId = searchParams.get('chapter') || chapters[0]?.id || null;
   const selectedChapter = useMemo(
@@ -130,7 +132,6 @@ export function StudioStage() {
     handleUpdateCharacterColor,
     handleCreateTempCharacter,
     handlePromoteCharacter,
-    handleSetCharacterVoice,
     handleDeleteCharacter,
     renderGroupCount,
     handleVoiceChange,
@@ -349,9 +350,8 @@ export function StudioStage() {
           setExpandedCharacterId={setExpandedCharacterId}
           onUpdateCharacterColor={handleUpdateCharacterColor}
           currentChapterId={activeChapterId}
-          onCreateTempCharacter={handleCreateTempCharacter}
+          onCreateTempCharacter={() => setTempModalOpen(true)}
           onPromoteCharacter={(characterId) => setConfirmConfig({ title: 'Promote to book cast', message: 'Promote this temp character to the book-wide cast? It will be available in every chapter. This cannot be undone (there is no demote).', confirmText: 'Promote', onConfirm: () => { setConfirmConfig(null); void handlePromoteCharacter(characterId); } })}
-          onSetCharacterVoice={handleSetCharacterVoice}
           onDeleteCharacter={(characterId) => setConfirmConfig({ title: 'Delete character', message: 'Delete this temp character? Any lines assigned to it will revert to the narrator. This cannot be undone.', confirmText: 'Delete', isDestructive: true, onConfirm: () => { setConfirmConfig(null); void handleDeleteCharacter(characterId); } })}
           localVoice={studio.localVoice}
           handleVoiceChange={handleVoiceChange}
@@ -380,6 +380,13 @@ export function StudioStage() {
           handoffState={pageHandoff}
         />
       </div>
+
+      <TempCharacterModal
+        isOpen={tempModalOpen}
+        onClose={() => setTempModalOpen(false)}
+        availableVoices={availableVoices}
+        onCreate={(name, voice) => { setTempModalOpen(false); void handleCreateTempCharacter(name, voice); }}
+      />
 
       <ConfirmModal
         isOpen={Boolean(confirmConfig)}
