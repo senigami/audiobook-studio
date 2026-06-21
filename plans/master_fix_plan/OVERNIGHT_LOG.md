@@ -6,6 +6,17 @@ Each commit is task-labeled (S-id / WIRE-id / task number) for later bug cross-c
 ## Done (committed + pushed)
 - **S11** (ffmpeg concat quoting) — verified the audit was WRONG; current `'\''` escaping is correct, double-quoting breaks concat. No code change; regression tests added. `c18dd385`
 - **S7** (rate-limiter docs) — documented in-memory/per-process + IP-key limits; `security.md` → 1.2.2. `9ce5c6a5`
+- **S6** (WebSocket Origin check) — CSWSH prevention on `/ws`; `security.md` → 1.2.3; revert-checked tests. `6657722b`
+- **S10** (secret-aware plugin settings) — `secret:true` masked at the TTS-server source (covers bridge + external API); round-trip guard; `plugin-contract.md` → 1.4.0; 15 tests. `082bae1a`
+- **S12** (Dependabot deps) — vite 7.3.5 / @babel 7.29.7 / js-yaml 4.2.0 → **npm audit: 0 vulnerabilities**. `33d0ccb7`
+  → **Security backlog (task 009) COMPLETE.**
+- **.gitignore root-cause fix** — bare `lib/` was hiding `frontend/src/pages/Book/lib/` (stages.ts, chapterJobs.ts untracked → studio-2.0 broken in fresh clones). Anchored to `/lib/`; tracked the hidden source files. `30b5c8d6`
+- **IA port Phase 1** (task 003) — two-level shell: Contents·Cast·Publish·Backups + `/book/:id/chapter/:chapterId` workspace route; ManuscriptStage→ContentsStage + drill-through; Backups stub. 1376 tests. `ab87ed90`
+- **IA port Phase 2** (task 003) — Chapter Workspace header (switcher/prev-next/back) + Review re-homed (Studio/Review toggle). 1388 tests. `596e8b4b`
+
+## IA port — remaining phases (task 003)
+- **RST-8 (deferred, deliberate):** the deep segment-aware universal-player unification — the plan's highest-risk item ("characterize with tests, its own mini-project"). Not attempted in the autonomous blitz; needs a careful dedicated pass.
+- **Phase 3–5 (taste-heavy):** cast-panel 3-tier, `Character ▾·Variation ▾` per-span control, range/span assignment, named bookmarks + jump-unrendered, inline pronunciation + lexicon. These are the most design-fluid pieces (owner: "not happy with everything, take liberties") — flagged for an owner eyeball of the Phase 1–2 shell before building, to avoid rework.
 
 ## Questions for owner (non-blocking — held per instruction)
 1. **S12 / Dependabot deps** — you rejected the `npm audit fix` call. 3 dev/build-only alerts remain (vite 7.3.2→>7.3.4, @babel/core, js-yaml). Want me to bump them, or are you handling these via Dependabot PRs against main? (Held.)
