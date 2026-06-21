@@ -232,7 +232,7 @@ export function LexiconPanel({ projectId }: LexiconPanelProps) {
     setError(null);
     try {
       const data = await api.fetchLexicon(projectId);
-      setEntries(data);
+      setEntries(Array.isArray(data) ? data : []);
     } catch (e) {
       setError((e as Error).message ?? 'Failed to load lexicon');
     } finally {

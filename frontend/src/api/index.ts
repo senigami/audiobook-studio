@@ -461,23 +461,30 @@ export const api = {
   // --- Pronunciation Lexicon ---
   fetchLexicon: async (projectId: string): Promise<import('@/types').LexiconEntry[]> => {
     const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lexicon`);
-    return parseApiResponse(res);
+    const data = await parseApiResponse(res);
+    return Array.isArray(data?.entries) ? data.entries : [];
   },
   addLexiconEntry: async (projectId: string, word: string, replacement: string): Promise<import('@/types').LexiconEntry> => {
+    const formData = new FormData();
+    formData.append('word', word);
+    formData.append('replacement', replacement);
     const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lexicon`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ word, replacement }),
+      body: formData,
     });
-    return parseApiResponse(res);
+    const data = await parseApiResponse(res);
+    return { id: String(data.id), project_id: projectId, word, replacement };
   },
   updateLexiconEntry: async (projectId: string, entryId: string, word: string, replacement: string): Promise<import('@/types').LexiconEntry> => {
+    const formData = new FormData();
+    formData.append('word', word);
+    formData.append('replacement', replacement);
     const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lexicon/${encodeURIComponent(entryId)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ word, replacement }),
+      body: formData,
     });
-    return parseApiResponse(res);
+    await parseApiResponse(res);
+    return { id: entryId, project_id: projectId, word, replacement };
   },
   deleteLexiconEntry: async (projectId: string, entryId: string): Promise<{ status: string }> => {
     const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lexicon/${encodeURIComponent(entryId)}`, {
