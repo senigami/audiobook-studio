@@ -1,10 +1,10 @@
 # Design System
 
 ```
-spec_version: 1.6.4
+spec_version: 1.6.5
 status: active
 created: 2026-06-13
-updated: 2026-06-20
+updated: 2026-06-21
 sources:
   - frontend/src/theme/tokens.css
   - frontend/src/demo/stages/siteMockup/
@@ -52,6 +52,7 @@ sources:
 | 1.6.2 | 2026-06-20 | **Adversarial-review fixes.** Exempted essential busy indicators (.animate-spin/-slow, indeterminate progress barber-pole) from the reduced-motion guard at a calm cadence (§8.5) — the blanket guard had frozen the only "working vs hung" cue for reduced-motion users. Documented --action-primary/--on-action as the canonical action tokens (--accent/--text-on-accent retained aliases, P5 collapses); marked six not-yet-consumed tokens as pending (not dead); de-duplicated --pulse-duration. |
 | 1.6.3 | 2026-06-20 | **Adversarial-review round 2 fixes.** Added dark-mode `--accent-rgb` override (was inheriting light channels — the sibling `--accent-tint-*` were synced but this wasn't). Removed the spec's own "don't mix on-color families" counter-examples: action buttons (ConfirmModal confirm, ApiGuidePanel link) now pair `--on-action` with `--action-primary`; the NarratorCard accent avatar pairs `--text-on-accent` with `--accent`. Doc-accuracy fixes: corrected the `--accent` consumer count (~94 files, was ~36), corrected mislabeled "pending P3" markers on reading-column/chrome tokens, completed the §8.5 fenced code block to show the busy-indicator exemptions, and documented the per-cadence derivation. |
 | 1.6.4 | 2026-06-20 | **§2.2 compliance (QW-7).** Registered two on-color tokens — `--text-on-error` (#ffffff, fixed in both themes) and `--text-on-warning` (#1c1300, fixed in both themes) — and converted the last five hardcoded color literals in real-app components to tokens: `StatusOrb` `!`-on-error and triangle-on-warning, `LiveOutputTable` two on-accent button labels (→ `--text-on-accent`), and the `ColorSwatchPicker` highlight dot (→ `--surface-glass-half`). Light theme unchanged. Two intentional dark-mode effects: `LiveOutputTable` on-accent labels now resolve to dark text on the lightened dark accent (a contrast fix — the old `#fff` was low-contrast there), and the warning glyph shifted from pure `#000` to `#1c1300`. Known pre-existing item (not introduced here, decorative 10px glyph): dark `--text-on-error` #ffffff on dark `--error` #f87171 ≈ 3.5:1 — tracked for the a11y pass. |
+| 1.6.5 | 2026-06-21 | **A4/A6/A7/A8/A10 a11y pass.** `StatusOrb` gains `role="img"` (A8, §8.2). Icon-only buttons in `ScriptView` (Play, Generate/Rebuild), `ReorderableQueueItem` (Trash2 remove, GripVertical drag handle), and the existing `ActionMenu`/`PlayerBar`/`ConfirmModal` are now all labelled — §8.2 binding rule met. `GlobalQueue` mounts an always-present `role="status" aria-live="polite"` region that announces job completions; `App.tsx` toast already had an equivalent region (A6). `JsonSchemaForm` wires `htmlFor`/`id` on every rendered control (range, select, text/password, toggle, read-only display) via a `setting-${key}` stable id; `ToggleButton` accepts an optional `id` prop (A7). Visually-hidden `<h1>` added to `ProjectLibrary`, `VoicesPage`, and `GlobalQueue` (page mode only); `NavRail` keeps `aria-label="Primary"` (matches existing Layout tests) and `<main>` was already present in `AppShell` (A10). A5 (keyboard drag-reorder for `ChapterTable`) deferred — Framer Motion `Reorder` does not provide a keyboard reorder API; would require bespoke ArrowUp/Down handlers + position arithmetic. |
 
 ---
 

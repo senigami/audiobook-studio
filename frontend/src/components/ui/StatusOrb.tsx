@@ -103,6 +103,7 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
 
   return (
     <div
+      role="img"
       title={combinedTooltip}
       aria-label={combinedTooltip}
       style={{

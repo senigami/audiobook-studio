@@ -131,6 +131,9 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+            <h1 style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+                Voices
+            </h1>
             <VoicesTabHeader
                 searchQuery={state.searchQuery}
                 setSearchQuery={state.setSearchQuery}

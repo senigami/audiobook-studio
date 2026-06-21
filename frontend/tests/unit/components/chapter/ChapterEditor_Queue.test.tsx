@@ -969,7 +969,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
-    const generateBtn = screen.getByRole('button', { name: 'Generate' });
+    const generateBtn = screen.getByRole('button', { name: 'Generate segment audio' });
     fireEvent.click(generateBtn);
     fireEvent.click(generateBtn);
 
@@ -994,7 +994,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Generate segment audio' }));
 
     expect(await screen.findByText('Generation Blocked')).toBeInTheDocument();
   });

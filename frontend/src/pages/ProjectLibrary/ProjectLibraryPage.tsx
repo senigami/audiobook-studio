@@ -198,6 +198,9 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
 
     return (
         <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', minHeight: '100%' }}>
+            <h1 style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+                Library
+            </h1>
             {/* Page header */}
             <header style={{
                 display: 'flex',

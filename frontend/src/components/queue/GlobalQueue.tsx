@@ -106,6 +106,8 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
     const chapterJobs = React.useMemo(() => queue.filter(q => !isMainQueueSegmentItem(q)), [queue]);
     const [recentlyCompleted, setRecentlyCompleted] = React.useState<Record<string, number>>({});
     const [visuallyPendingJobs, setVisuallyPendingJobs] = React.useState<Record<string, boolean>>({});
+    // Live-region announcement text — updated when a job completes so screen readers announce it.
+    const [liveAnnouncement, setLiveAnnouncement] = React.useState('');
 
     const handleVisualPendingChange = React.useCallback((jobId: string, pending: boolean) => {
         setVisuallyPendingJobs(prev => {
@@ -178,6 +180,11 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                         });
                         delete timeoutsRef.current[job.id];
                     }, 30000);
+
+                    // Announce completion to screen readers via the live region.
+                    const title = job.custom_title || job.chapter_title || 'Task';
+                    const outcome = job.status === 'done' ? 'completed' : job.status === 'failed' ? 'failed' : 'cancelled';
+                    setLiveAnnouncement(`${title} ${outcome}.`);
                 }
 
                 if (wasActive && job.status === 'done') {
@@ -224,6 +231,21 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
 
     return (
         <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: compact ? '1rem' : '2rem', minHeight: '100%', paddingBottom: compact ? '2rem' : '4rem' }}>
+            {/* Visually-hidden live region: announces job completions to screen readers */}
+            <div
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}
+            >
+                {liveAnnouncement}
+            </div>
+            {/* Visually-hidden h1 when rendered as the full page (not compact drawer) */}
+            {!compact && (
+                <h1 style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+                    Queue
+                </h1>
+            )}
             <header style={{
                 display: 'flex',
                 flexDirection: compact ? 'column' : 'row',

@@ -174,10 +174,11 @@ const ScriptSpanItem = React.memo<ScriptSpanItemProps>(({
             e.stopPropagation();
             onPlaySpan?.(span.id);
           }}
+          aria-label="Play audio"
           title="Play Audio"
           disabled={!canPlay}
         >
-          <Play size={14} fill={canPlay ? 'currentColor' : 'none'} />
+          <Play size={14} fill={canPlay ? 'currentColor' : 'none'} aria-hidden="true" />
         </button>
         <button
           className="span-control-btn"
@@ -186,6 +187,11 @@ const ScriptSpanItem = React.memo<ScriptSpanItemProps>(({
             e.stopPropagation();
             if (batchSpanIds && canGenerate) onGenerateBatch?.(batchSpanIds);
           }}
+          aria-label={!canGenerate
+            ? (unavailableEngine
+                ? `Engine ${formatVoiceEngineLabel(unavailableEngine)} is disabled in Settings`
+                : 'All engines disabled')
+            : (!anyEnginesEnabled ? 'All engines disabled' : (isReady ? 'Rebuild segment audio' : 'Generate segment audio'))}
           title={!canGenerate
             ? (unavailableEngine
                 ? `Engine ${formatVoiceEngineLabel(unavailableEngine)} is disabled in Settings`
@@ -193,7 +199,7 @@ const ScriptSpanItem = React.memo<ScriptSpanItemProps>(({
             : (!anyEnginesEnabled ? 'All engines disabled' : (isReady ? 'Rebuild' : 'Generate'))}
           disabled={isPending || !canGenerate || !onGenerateBatch}
         >
-          {isReady ? <RotateCcw size={14} /> : <WandSparkles size={14} />}
+          {isReady ? <RotateCcw size={14} aria-hidden="true" /> : <WandSparkles size={14} aria-hidden="true" />}
         </button>
       </div>
     </span>

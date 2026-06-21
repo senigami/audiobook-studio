@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { StatusOrb } from '@/components/ui/StatusOrb'
 import { describe, it, expect } from 'vitest'
 import type { Chapter } from '@/types'
@@ -21,6 +21,15 @@ describe('StatusOrb', () => {
     predicted_audio_length: 10,
     audio_length_seconds: 0
   }
+
+  it('has role=img and a descriptive aria-label (A8)', () => {
+    const chap = { ...baseChapter, audio_status: 'done' as const, has_wav: true, audio_generated_at: 2000 }
+    render(<StatusOrb chap={chap} />)
+    const orb = screen.getByRole('img')
+    expect(orb).toBeTruthy()
+    expect(orb.getAttribute('aria-label')).toBeTruthy()
+    expect(orb.getAttribute('aria-label')).toContain('WAV rendered')
+  })
 
   it('renders correct tooltip with M4A status', () => {
     const chap = { ...baseChapter, has_m4a: true, has_mp3: false }

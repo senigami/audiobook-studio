@@ -90,8 +90,9 @@ export const SettingCard: React.FC<{
   </div>
 );
 
-export const ToggleButton: React.FC<{ enabled: boolean; busy: boolean; disabled?: boolean; title?: string; onClick: (e: React.MouseEvent) => void }> = ({ enabled, busy, disabled, title, onClick }) => (
+export const ToggleButton: React.FC<{ id?: string; enabled: boolean; busy: boolean; disabled?: boolean; title?: string; onClick: (e: React.MouseEvent) => void }> = ({ id, enabled, busy, disabled, title, onClick }) => (
   <button
+    id={id}
     type="button"
     disabled={busy || disabled}
     onClick={onClick}
