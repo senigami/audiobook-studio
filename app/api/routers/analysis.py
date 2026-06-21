@@ -100,7 +100,7 @@ def api_analyze_chapter(chapter_id: str):
 
         def process_chapter():
             segs = get_chapter_segments(chapter_id)
-            chars = get_characters(chap["project_id"])
+            chars = get_characters(chap["project_id"], chapter_id=chapter_id)
             char_map = {c["id"]: c for c in chars}
 
             settings = state.get_settings()

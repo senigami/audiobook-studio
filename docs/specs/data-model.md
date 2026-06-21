@@ -1,9 +1,9 @@
 # Data Model
 
 ```
-spec_version: 1.1.0
+spec_version: 1.2.0
 status: active
-updated: 2026-06-16
+updated: 2026-06-21
 sources:
   - app/db/state.py
   - app/db/state_jobs.py
@@ -11,6 +11,7 @@ sources:
   - app/db/state_performance.py
   - app/db/state_helpers.py
   - app/db/__init__.py
+  - app/db/characters.py
 ```
 
 > **TL;DR:** Studio 2.0 uses two complementary stores — volatile in-memory state.json for live job state and settings, and durable SQLite for project/chapter/queue history — with disk artifact state as the ultimate source of truth.
@@ -19,6 +20,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.2.0   | 2026-06-21 | Add `chapter_id` column to `characters` table for chapter-scoped temp characters; document scope rule (NULL=book, set=chapter-temp) and promote semantics |
 | 1.1.0   | 2026-06-16 | Clarify `finalizing` is a transient phase coerced to `running` on persist in both `put_job` and `update_job`; not a stored value |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 
@@ -183,6 +185,15 @@ Records every job that has ever been submitted. This is the durable history; liv
 | `speaker_profile_name` | TEXT | Assigned voice |
 | `default_emotion` | TEXT | |
 | `color` | TEXT | Hex color, default `"#8b5cf6"` |
+| `chapter_id` | TEXT nullable | Scope key: `NULL` = book-scoped (visible everywhere in the project); a chapter UUID = chapter-scoped temp (visible only within that chapter). Added via idempotent `ALTER TABLE` migration — existing rows default to `NULL`. |
+
+**Scope rule:** A character with `chapter_id IS NULL` is a book character and appears in all chapter contexts. A character with `chapter_id` set is a temporary character belonging to that chapter only.
+
+**`get_characters(project_id, chapter_id=None)` semantics:**
+- When `chapter_id` is `None` (default): returns all characters for the project regardless of scope (backwards-compatible).
+- When `chapter_id` is supplied: returns `WHERE project_id = ? AND (chapter_id IS NULL OR chapter_id = ?)` — book characters plus that chapter's temps, but NOT other chapters' temps.
+
+**Promote:** `promote_character(character_id)` sets `chapter_id = NULL`, converting a temp to a permanent book character. Exposed via `POST /api/characters/{character_id}/promote`.
 
 ### speakers
 

@@ -253,6 +253,7 @@ def init_db():
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN custom_title TEXT", "processing_queue.custom_title")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN engine TEXT", "processing_queue.engine")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN segment_ids TEXT", "processing_queue.segment_ids")
+            add_column_if_missing("ALTER TABLE characters ADD COLUMN chapter_id TEXT", "characters.chapter_id")
 
             # Migration: Ensure project_id and chapter_id allow NULLs for system tasks
             try:
