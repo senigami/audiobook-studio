@@ -21,6 +21,12 @@ vi.mock('@/pages/Book/stages/StudioStage', () => ({
   StudioStage: () => <div data-testid="studio-stage-stub">Studio placeholder</div>,
 }));
 
+// ReviewStage is the second sub-view inside ChapterWorkspace; mock to avoid
+// fetching segments/render-groups in shell-level routing tests.
+vi.mock('@/pages/Book/stages/ReviewStage', () => ({
+  ReviewStage: () => <div data-testid="review-stage-stub">Review placeholder</div>,
+}));
+
 // ChapterTextPanel triggers a fetchChapter call on mount; mock it for routing tests.
 vi.mock('@/pages/Book/components/ChapterTextPanel', () => ({
   ChapterTextPanel: () => <section aria-label="Chapter preview" />,

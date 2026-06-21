@@ -1,19 +1,21 @@
-import { Navigate, NavLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { Navigate, NavLink, useParams, useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { setBookIdentity } from '@/app/layout/bookIdentityStore';
 import type { Job, SegmentProgress, Settings, Speaker, SpeakerProfile, TtsEngine } from '@/types';
 import { BookDataProvider, useBookDataContext } from '@/pages/Book/BookDataContext';
 import { CastingStage } from '@/pages/Book/stages/CastingStage';
 import { ContentsStage } from '@/pages/Book/stages/ContentsStage';
 import { StudioStage } from '@/pages/Book/stages/StudioStage';
+import { ReviewStage } from '@/pages/Book/stages/ReviewStage';
 import { PublishStage } from '@/pages/Book/stages/PublishStage';
 import { BackupsStage } from '@/pages/Book/stages/BackupsStage';
+import { ChapterWorkspaceHeader } from '@/pages/Book/components/ChapterWorkspaceHeader';
 import {
   BOOK_STAGE_LABELS,
   BOOK_STAGES,
   getLastStage,
   isBookStage,
+  setLastChapter,
   setLastStage,
   type BookStage,
 } from '@/pages/Book/lib/stages';
@@ -98,37 +100,66 @@ function BookIdentityPublisher() {
   return null;
 }
 
+type WorkspaceView = 'studio' | 'review';
+
 /** Chapter Workspace — renders when a chapter is opened from Contents. */
 function ChapterWorkspace({ bookId, chapterId }: { bookId: string; chapterId: string }) {
-  const navigate = useNavigate();
   const { chapters } = useBookDataContext();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeView, setActiveView] = useState<WorkspaceView>('studio');
 
   const chapter = chapters.find((c) => c.id === chapterId);
   const chapterTitle = chapter?.title ?? chapterId;
 
-  const handleBack = () => {
-    navigate(`/book/${bookId}/contents`);
-  };
+  // Persist the last-opened chapter so Contents can restore it.
+  useEffect(() => {
+    setLastChapter(bookId, chapterId);
+  }, [bookId, chapterId]);
+
+  // Sync the route-level chapterId into ?chapter= so StudioStage and ReviewStage
+  // (which read searchParams.get('chapter')) pick up the correct chapter without
+  // modification.  Replace rather than push so the extra param doesn't pollute history.
+  // Depend only on chapterId: re-fire when the route param changes.
+  // searchParams is intentionally omitted — the conditional guard is idempotent,
+  // and including setSearchParams in deps would create a re-entrancy loop.
+  useEffect(() => {
+    if (searchParams.get('chapter') !== chapterId) {
+      const next = new URLSearchParams(searchParams);
+      next.set('chapter', chapterId);
+      setSearchParams(next, { replace: true });
+    }
+  }, [chapterId]); // intentional: see comment above
 
   return (
     <section className="chapter-workspace" aria-label={`Chapter workspace: ${chapterTitle}`}>
-      <div className="chapter-workspace__header">
+      <ChapterWorkspaceHeader
+        bookId={bookId}
+        chapters={chapters}
+        activeChapterId={chapterId}
+      />
+
+      {/* Studio / Review sub-view toggle */}
+      <div className="workspace-view-toggle" role="group" aria-label="Workspace view">
         <button
           type="button"
-          className="chapter-workspace__back"
-          onClick={handleBack}
-          aria-label="Back to Contents"
+          className={`workspace-view-toggle__btn${activeView === 'studio' ? ' workspace-view-toggle__btn--active' : ''}`}
+          onClick={() => setActiveView('studio')}
+          aria-pressed={activeView === 'studio'}
         >
-          <ArrowLeft size={14} strokeWidth={2.2} aria-hidden="true" />
-          Contents
+          Studio
         </button>
-        <span className="chapter-workspace__separator" aria-hidden="true">·</span>
-        <span className="chapter-workspace__title">{chapterTitle}</span>
+        <button
+          type="button"
+          className={`workspace-view-toggle__btn${activeView === 'review' ? ' workspace-view-toggle__btn--active' : ''}`}
+          onClick={() => setActiveView('review')}
+          aria-pressed={activeView === 'review'}
+        >
+          Review
+        </button>
       </div>
 
-      {/* Phase 1 placeholder: render StudioStage as the workspace body.
-          Phase 2 will merge Review into this surface. */}
-      <StudioStage />
+      {/* Sub-view body */}
+      {activeView === 'studio' ? <StudioStage /> : <ReviewStage />}
     </section>
   );
 }

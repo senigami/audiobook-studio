@@ -1,0 +1,255 @@
+/**
+ * Tests for the Chapter Workspace surface (Phase 2).
+ *
+ * Covers:
+ * - Studio and Review sub-views are both reachable via the toggle.
+ * - Chapter-switcher dropdown (Contents ▾) opens and lets you jump to a chapter.
+ * - Prev/Next buttons navigate to adjacent chapters.
+ * - Back button returns to /contents.
+ * - setLastChapter is called on mount so the chapter persists across visits.
+ */
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { api } from '@/api';
+import { BookLayout } from '@/pages/Book';
+
+// ── API mock ──────────────────────────────────────────────────────────────────
+vi.mock('@/api', () => ({
+  api: {
+    fetchProject: vi.fn(),
+    fetchChapters: vi.fn(),
+    fetchCharacters: vi.fn(),
+    fetchProjectAudiobooks: vi.fn(),
+    fetchProjectBackups: vi.fn(),
+  },
+}));
+
+// ── Stage stubs — keep workspace tests focused on navigation shell ─────────
+vi.mock('@/pages/Book/stages/StudioStage', () => ({
+  StudioStage: () => <div data-testid="studio-stage-stub">Studio view</div>,
+}));
+
+vi.mock('@/pages/Book/stages/ReviewStage', () => ({
+  ReviewStage: () => <div data-testid="review-stage-stub">Review view</div>,
+}));
+
+vi.mock('@/pages/Book/components/ChapterTextPanel', () => ({
+  ChapterTextPanel: () => <section aria-label="Chapter preview" />,
+}));
+
+vi.mock('@/pages/Book/components/ChapterTable', () => ({
+  ChapterTable: () => <section aria-label="Manuscript chapters" />,
+}));
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const THREE_CHAPTERS = [
+  {
+    id: 'c1', project_id: 'book-1', title: 'Chapter One', text_content: '',
+    speaker_profile_name: null, sort_order: 0, audio_status: 'unprocessed',
+    audio_file_path: null, text_last_modified: null, audio_generated_at: null,
+    char_count: 50, word_count: 10, sent_count: 2, predicted_audio_length: 5,
+    audio_length_seconds: 0, total_segments_count: 0, done_segments_count: 0,
+  },
+  {
+    id: 'c2', project_id: 'book-1', title: 'Chapter Two', text_content: '',
+    speaker_profile_name: null, sort_order: 1, audio_status: 'unprocessed',
+    audio_file_path: null, text_last_modified: null, audio_generated_at: null,
+    char_count: 60, word_count: 12, sent_count: 3, predicted_audio_length: 6,
+    audio_length_seconds: 0, total_segments_count: 0, done_segments_count: 0,
+  },
+  {
+    id: 'c3', project_id: 'book-1', title: 'Chapter Three', text_content: '',
+    speaker_profile_name: null, sort_order: 2, audio_status: 'unprocessed',
+    audio_file_path: null, text_last_modified: null, audio_generated_at: null,
+    char_count: 40, word_count: 8, sent_count: 2, predicted_audio_length: 4,
+    audio_length_seconds: 0, total_segments_count: 0, done_segments_count: 0,
+  },
+] as any[];
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="pathname">{location.pathname}</div>;
+}
+
+function renderWorkspaceRoute(initialEntry: string) {
+  return render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <LocationProbe />
+      <Routes>
+        <Route path="/book/:bookId/:stage" element={<BookLayout />} />
+        <Route path="/book/:bookId/chapter/:chapterId" element={<BookLayout />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe('ChapterWorkspace', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(api.fetchProject).mockResolvedValue({
+      id: 'book-1', name: 'Book One', series: null, author: null,
+      speaker_profile_name: null, cover_image_path: null, created_at: 1, updated_at: 1,
+    });
+    vi.mocked(api.fetchChapters).mockResolvedValue(THREE_CHAPTERS);
+    vi.mocked(api.fetchCharacters).mockResolvedValue([]);
+    vi.mocked(api.fetchProjectAudiobooks).mockResolvedValue([]);
+    vi.mocked(api.fetchProjectBackups).mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  // ── Back navigation ─────────────────────────────────────────────────────────
+  it('back button navigates to /contents', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c2');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Back to Contents' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Contents' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pathname')).toHaveTextContent('/book/book-1/contents');
+    });
+  });
+
+  // ── Studio / Review toggle ──────────────────────────────────────────────────
+  it('Studio view is shown by default', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c1');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('studio-stage-stub')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('review-stage-stub')).not.toBeInTheDocument();
+  });
+
+  it('switching to Review shows ReviewStage and hides StudioStage', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /review/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /review/i }));
+
+    expect(screen.getByTestId('review-stage-stub')).toBeInTheDocument();
+    expect(screen.queryByTestId('studio-stage-stub')).not.toBeInTheDocument();
+  });
+
+  it('switching back to Studio shows StudioStage and hides ReviewStage', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /review/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /review/i }));
+    fireEvent.click(screen.getByRole('button', { name: /studio/i }));
+
+    expect(screen.getByTestId('studio-stage-stub')).toBeInTheDocument();
+    expect(screen.queryByTestId('review-stage-stub')).not.toBeInTheDocument();
+  });
+
+  // ── Chapter title shown in header ───────────────────────────────────────────
+  it('shows the chapter title in the workspace header', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c2');
+
+    await waitFor(() => {
+      expect(screen.getByText('Chapter Two')).toBeInTheDocument();
+    });
+  });
+
+  // ── Contents ▾ dropdown switcher ────────────────────────────────────────────
+  it('Contents ▾ dropdown lists all chapters and opens on click', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c2');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Switch chapter' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch chapter' }));
+
+    // All three chapters should be listed in the menu
+    expect(screen.getByRole('menuitem', { name: /Chapter One/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /Chapter Two/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /Chapter Three/i })).toBeInTheDocument();
+  });
+
+  it('selecting a chapter from the dropdown navigates to that chapter route', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c2');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Switch chapter' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch chapter' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Chapter Three/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pathname')).toHaveTextContent('/book/book-1/chapter/c3');
+    });
+  });
+
+  it('persists the chosen chapter in localStorage via setLastChapter', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c2');
+
+    // Wait for chapter data to load and effect to run
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Switch chapter' })).toBeInTheDocument();
+    });
+
+    expect(localStorage.getItem('studio.book.book-1.lastChapter')).toBe('c2');
+  });
+
+  // ── Prev / Next navigation ──────────────────────────────────────────────────
+  it('Previous chapter button is disabled for the first chapter', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Previous chapter' })).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('button', { name: 'Previous chapter' })).toBeDisabled();
+  });
+
+  it('Next chapter button is disabled for the last chapter', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c3');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Next chapter' })).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('button', { name: 'Next chapter' })).toBeDisabled();
+  });
+
+  it('clicking Next navigates to the next chapter route', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Next chapter' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next chapter' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pathname')).toHaveTextContent('/book/book-1/chapter/c2');
+    });
+  });
+
+  it('clicking Previous navigates to the previous chapter route', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c3');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Previous chapter' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previous chapter' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pathname')).toHaveTextContent('/book/book-1/chapter/c2');
+    });
+  });
+});

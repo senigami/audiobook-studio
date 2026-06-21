@@ -1104,6 +1104,221 @@
   color: var(--accent);
 }
 
+/* ─── Chapter Workspace ─────────────────────────────────────────── */
+
+.chapter-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Header: back · title · switcher · prev/next */
+.chapter-workspace-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+  flex-wrap: wrap;
+}
+
+.chapter-workspace-header__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--type-caption);
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: var(--radius-button);
+  transition: color var(--dur-fast) var(--ease-standard),
+              background var(--dur-fast) var(--ease-standard);
+}
+
+.chapter-workspace-header__back:hover {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.chapter-workspace-header__sep {
+  color: var(--text-muted);
+  font-size: var(--type-caption);
+  user-select: none;
+}
+
+.chapter-workspace-header__title {
+  font-size: var(--type-caption);
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 280px;
+}
+
+/* Contents ▾ chapter-switcher */
+.chapter-workspace-header__switcher {
+  position: relative;
+  margin-left: auto;
+}
+
+.chapter-workspace-header__switcher-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-button);
+  font-size: var(--type-caption);
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-standard),
+              border-color var(--dur-fast) var(--ease-standard);
+}
+
+.chapter-workspace-header__switcher-trigger:hover,
+.chapter-workspace-header__switcher-trigger--open {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Chapter dropdown panel */
+.workspace-chapter-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 300;
+  min-width: 220px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-1) 0;
+}
+
+.workspace-chapter-dropdown__item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: var(--type-caption);
+  transition: background var(--dur-fast) var(--ease-standard);
+}
+
+.workspace-chapter-dropdown__item:hover {
+  background: var(--surface-alt);
+}
+
+.workspace-chapter-dropdown__item--active {
+  background: var(--accent-glow);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.workspace-chapter-dropdown__num {
+  font-size: var(--type-micro);
+  color: var(--text-muted);
+  min-width: 18px;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.workspace-chapter-dropdown__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Prev / Next chapter navigation buttons */
+.chapter-workspace-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.chapter-workspace-header__nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-button);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-standard),
+              border-color var(--dur-fast) var(--ease-standard);
+}
+
+.chapter-workspace-header__nav-btn:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.chapter-workspace-header__nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Studio / Review sub-view toggle */
+.workspace-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-sm);
+  align-self: flex-start;
+}
+
+.workspace-view-toggle__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem 0.75rem;
+  border: none;
+  background: transparent;
+  border-radius: calc(var(--radius-button) - 2px);
+  font-size: var(--type-caption);
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-standard),
+              background var(--dur-fast) var(--ease-standard);
+}
+
+.workspace-view-toggle__btn:hover:not(.workspace-view-toggle__btn--active) {
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.workspace-view-toggle__btn--active {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+/* ─── End Chapter Workspace ─────────────────────────────────────── */
+
 .book-stage-placeholder {
   display: flex;
   flex-direction: column;
