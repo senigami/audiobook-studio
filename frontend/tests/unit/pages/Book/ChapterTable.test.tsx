@@ -107,4 +107,45 @@ describe('ChapterTable', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Export Video Sample' }));
     expect(onExportSample).toHaveBeenCalledWith(chapters[1]);
   });
+
+  it('drills into the chapter workspace on row click, but not on rename or menu', async () => {
+    const onOpenChapter = vi.fn();
+    const noop = vi.fn();
+
+    render(
+      <ChapterTable
+        chapters={chapters}
+        jobs={{}}
+        selectedChapterId="chapter-b"
+        onSelectChapter={noop}
+        onReorder={noop}
+        onRenameChapter={noop}
+        onQueueChapter={noop}
+        onResetAudio={noop}
+        onDeleteChapter={noop}
+        onExportSample={noop}
+        onOpenChapter={onOpenChapter}
+      />,
+    );
+
+    const betaRow = screen.getByTestId('chapter-table-row-chapter-b');
+
+    // Clicking a non-interactive part of the row opens the workspace.
+    fireEvent.click(within(betaRow).getByText('20'));
+    expect(onOpenChapter).toHaveBeenCalledWith('chapter-b');
+
+    // Renaming via the title must NOT open the workspace (stopPropagation).
+    onOpenChapter.mockClear();
+    fireEvent.click(within(betaRow).getByText('Beta'));
+    expect(onOpenChapter).not.toHaveBeenCalled();
+
+    // Opening the action menu must NOT open the workspace (stopPropagation).
+    onOpenChapter.mockClear();
+    fireEvent.click(within(betaRow).getByRole('button', { name: 'More actions' }));
+    expect(onOpenChapter).not.toHaveBeenCalled();
+
+    // The explicit "Open" button still opens the workspace.
+    fireEvent.click(within(betaRow).getByRole('button', { name: /Open workspace for Beta/i }));
+    expect(onOpenChapter).toHaveBeenCalledWith('chapter-b');
+  });
 });

@@ -85,12 +85,14 @@ export function ChapterTable({
               value={chapter}
               className={selected ? 'chapter-table__row chapter-table__row--selected' : 'chapter-table__row'}
               data-testid={`chapter-table-row-${chapter.id}`}
+              onClick={onOpenChapter ? () => onOpenChapter(chapter.id) : undefined}
+              style={onOpenChapter ? { cursor: 'pointer' } : undefined}
             >
               <div className="chapter-table__number-cell">
                 <button
                   type="button"
                   className="chapter-table__select"
-                  onClick={() => onSelectChapter(chapter.id)}
+                  onClick={(e) => { e.stopPropagation(); onSelectChapter(chapter.id); }}
                   aria-label={`Select ${chapter.title}`}
                 >
                   <span>{index + 1}</span>
@@ -106,12 +108,15 @@ export function ChapterTable({
               </div>
 
               <div className="chapter-table__title">
-                <InlineEdit value={chapter.title} onSave={(title) => onRenameChapter(chapter.id, title)} />
+                {/* Rename is an explicit affordance; stop the row-open click from firing. */}
+                <span onClick={(e) => e.stopPropagation()}>
+                  <InlineEdit value={chapter.title} onSave={(title) => onRenameChapter(chapter.id, title)} />
+                </span>
                 {onOpenChapter && (
                   <button
                     type="button"
                     className="chapter-table__open-btn"
-                    onClick={() => onOpenChapter(chapter.id)}
+                    onClick={(e) => { e.stopPropagation(); onOpenChapter(chapter.id); }}
                     aria-label={`Open workspace for ${chapter.title}`}
                   >
                     Open
@@ -121,7 +126,7 @@ export function ChapterTable({
 
               <div className="chapter-table__words">{chapter.word_count ?? '-'}</div>
               <div className={`chapter-table__pill chapter-table__pill--${lifecycle.toLowerCase()}`}>{lifecycle}</div>
-              <div className="chapter-table__status">
+              <div className="chapter-table__status" onClick={(e) => e.stopPropagation()}>
                 <ActionMenu
                   items={[
                     {
