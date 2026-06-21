@@ -27,12 +27,26 @@ Owner chose the larger option (real chapter-scoped temp-character concept). Buil
   "+ Temp character" + "Promote" actions; workspace hydrates chapter-scoped chars; temp badge.
   INV-4 + INV-7 honored; 1399 tests.
 
-## IA port — remaining phases (task 003) — NOT yet built
-- **Per-span range assignment** (assign a voice to a selected text range, replacing sentence-paint) —
-  RISKIER: touches the segment/assignment model (RST-8-adjacent). Wants care / a characterized pass.
-- **Bookmarks + jump-to-next-unrendered.**
-- **Inline pronunciation + lexicon** (scoped book/series/global).
-- **Contents publish-readiness CTA** (safe, small — "Book ready → Publish" when all chapters rendered).
+## IA port — also DONE this push (2026-06-21)
+- **Contents publish-readiness CTA** (`7f3f293e`).
+- **Bookmarks + jump-to-next-unrendered** (`5f678c0f`, localStorage).
+- **RST-1..4** chapter-list restores: per-row progress bar / play via global player / download /
+  destructive guards (`eb9ab2b2`).
+- **RST-5,6,7** Studio restores: in-Studio source edit / chapter default-voice picker / engine banner
+  (`4ca1e9e9`).
+
+## REMAINING — needs owner input (batched questions 2026-06-21)
+- **RST-8 segment-aware universal player** — deferred; the single riskiest item (touches the
+  playback engine). Gates dead-tree deletion (DC-1b). Studio/Review toggle works as interim.
+- **Per-span range assignment** (replace sentence-paint) — touches the segment/assignment model.
+- **Lexicon + inline pronunciation** — needs a scope (book vs series/global) + representation
+  (plain-text respelling vs IPA/SSML) + synthesis-integration decision.
+- **Dead-tree deletion (DC-1b)** — gated on RST-8 harvest; husks (ProjectDetail/ChapterEditor) still
+  referenced for segment-playback logic.
+- **CastPalette.tsx now 745 lines** — over the 600 split threshold (task 005 follow-up).
+- **a11y:** dark `--text-on-error` (#fff on #f87171 ≈ 3.5:1) — a Quiet-Studio palette decision.
+- **Non-IA workstreams** (005 cleanup/splits, 006 namespace rename, 007 taxonomy v2, 008 UX/a11y/perf)
+  — priority + (for 006) risk acknowledgement needed.
 
 ## IA port — remaining phases (task 003)
 - **RST-8 (deferred, deliberate):** the deep segment-aware universal-player unification — the plan's highest-risk item ("characterize with tests, its own mini-project"). Not attempted in the autonomous blitz; needs a careful dedicated pass.
