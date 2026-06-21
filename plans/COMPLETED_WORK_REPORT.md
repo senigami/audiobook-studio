@@ -177,7 +177,22 @@ but **not implemented** (no `i18n/` yet); demo bundle refresh pending.
 
 ---
 
-## 12. What remains before v2.0.0 (pointer, not detail)
+## 12. Quiet Studio visual redesign — Phase 12.5 (P0 + P1 shipped 2026-06-20)
+
+**Shipped (branch `studio2/phase-12.5-style`, PR #126, base `studio-2.0`):**
+
+The "Quiet Studio — Precision Pressroom" visual redesign — a token-layer re-skin of the CSS-variable design system (no Tailwind, no framework rewrite). Direction converged from a 5-lens fusion panel (Apple HIG + design critique + WCAG AA + modern-web + personas); every color value WCAG-AA-verified.
+
+- **P0 — Fonts** (commit `3e3067ed`): self-hosted **Geist** (UI/body), **Geist Mono** (logs), **Source Serif 4** (reading column) via `@fontsource`; added `--font-ui`/`--font-display`/`--font-reading`/`--font-mono` tokens; repointed `base.css` stacks. spec_version → 1.5.0.
+- **P1 — Token re-skin** (commits `c6b974cd`→`9bdcc17f`): rationed accent `#1e4fd8`/`#6b9fff` (light/dark), studio near-black `--bg #0d0f14`, 3-stop dark text ladder, `--action-primary`/`--on-action` canonical role tokens, `--on-success`/`--status-cached-*`, tightened radii (card 10/button 8/compact 6), double-ring focus, reduced-motion-guard-first with essential busy-indicator exemptions (spinners, indeterminate bars), flat buttons (no gradient/glow/lift), calm-pulse keyframe. Three review rounds ran (4-angle fusion audit + 2 adversarial passes); the loop stopped clean at round 2. spec_version → 1.6.3.
+
+**P2–P6 pending** (forms/Switch → status icon-insets → glass audit → cleanup → demo+baseline). Plan at [`plans/quiet_studio_migration/`](quiet_studio_migration/).
+
+*Now specified in:* `docs/specs/design-system.md` (v1.6.3). *Canonical rendered targets:* `docs/style-guide/proposed-quiet-studio.html` (redesign) · `docs/style-guide/current.html` (frozen pre-redesign baseline).
+
+---
+
+## 13. What remains before v2.0.0 (pointer, not detail)
 
 The conversion is functionally complete; remaining work is **release polish**, not architecture:
 - **Release gates** (`final_release/08`, `road_to_v2`): owner‑run manual render verification, doc‑06

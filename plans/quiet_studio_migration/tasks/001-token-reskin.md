@@ -1,5 +1,5 @@
 # Task 001 — Core token re-skin: colors, radii, focus, motion, flat buttons
-STATUS: todo
+STATUS: DONE — commits c6b974cd (P1 re-skin) + 157dac8e (audit fixes) + b3943300 (adv-review R1 fixes) + 9bdcc17f (adv-review R2 fixes) (2026-06-20); spec_version 1.6.3; 3 review rounds (fusion + adv R1 + adv R2), all green
 
 ## Goal
 

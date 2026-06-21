@@ -1,5 +1,5 @@
 # Task 000 — Self-host Geist + Geist Mono + Source Serif 4; add --font-* tokens
-STATUS: todo
+STATUS: DONE — commit 3e3067ed (2026-06-20); spec_version 1.5.0
 
 ## Goal
 
