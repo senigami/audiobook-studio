@@ -92,8 +92,8 @@ export function ChapterTable({
                 <button
                   type="button"
                   className="chapter-table__select"
-                  onClick={(e) => { e.stopPropagation(); onSelectChapter(chapter.id); }}
-                  aria-label={`Select ${chapter.title}`}
+                  onClick={(e) => { e.stopPropagation(); (onOpenChapter ?? onSelectChapter)(chapter.id); }}
+                  aria-label={onOpenChapter ? `Open ${chapter.title}` : `Select ${chapter.title}`}
                 >
                   <span>{index + 1}</span>
                 </button>
@@ -112,16 +112,6 @@ export function ChapterTable({
                 <span onClick={(e) => e.stopPropagation()}>
                   <InlineEdit value={chapter.title} onSave={(title) => onRenameChapter(chapter.id, title)} />
                 </span>
-                {onOpenChapter && (
-                  <button
-                    type="button"
-                    className="chapter-table__open-btn"
-                    onClick={(e) => { e.stopPropagation(); onOpenChapter(chapter.id); }}
-                    aria-label={`Open workspace for ${chapter.title}`}
-                  >
-                    Open
-                  </button>
-                )}
               </div>
 
               <div className="chapter-table__words">{chapter.word_count ?? '-'}</div>

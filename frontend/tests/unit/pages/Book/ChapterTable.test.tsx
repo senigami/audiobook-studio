@@ -144,8 +144,9 @@ describe('ChapterTable', () => {
     fireEvent.click(within(betaRow).getByRole('button', { name: 'More actions' }));
     expect(onOpenChapter).not.toHaveBeenCalled();
 
-    // The explicit "Open" button still opens the workspace.
-    fireEvent.click(within(betaRow).getByRole('button', { name: /Open workspace for Beta/i }));
+    // The number cell is the keyboard-accessible open handle (no separate "Open" button).
+    onOpenChapter.mockClear();
+    fireEvent.click(within(betaRow).getByRole('button', { name: 'Open Beta' }));
     expect(onOpenChapter).toHaveBeenCalledWith('chapter-b');
   });
 });
