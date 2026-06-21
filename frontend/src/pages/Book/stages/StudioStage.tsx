@@ -127,6 +127,8 @@ export function StudioStage() {
     expandedCharacterId,
     setExpandedCharacterId,
     handleUpdateCharacterColor,
+    handleCreateTempCharacter,
+    handlePromoteCharacter,
     renderGroupCount,
   } = studio;
 
@@ -329,6 +331,9 @@ export function StudioStage() {
           expandedCharacterId={expandedCharacterId}
           setExpandedCharacterId={setExpandedCharacterId}
           onUpdateCharacterColor={handleUpdateCharacterColor}
+          currentChapterId={activeChapterId}
+          onCreateTempCharacter={handleCreateTempCharacter}
+          onPromoteCharacter={handlePromoteCharacter}
         />
       </div>
 

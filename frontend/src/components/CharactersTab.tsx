@@ -190,6 +190,22 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
 
               <ColorSwatchPicker value={char.color || '#8b5cf6'} onChange={(color) => handleUpdateColor(char.id, color)} size="md" />
 
+              {char.chapter_id && (
+                <span title="Chapter-scoped temporary character" style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 600,
+                  padding: '1px 6px',
+                  borderRadius: 999,
+                  background: 'var(--warning-tint-bg)',
+                  border: '1px solid var(--warning-tint-border)',
+                  color: 'var(--warning-text)',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}>
+                  temp
+                </span>
+              )}
+
               <div style={{ flex: 3 }}>
                   <input
                       type="text"

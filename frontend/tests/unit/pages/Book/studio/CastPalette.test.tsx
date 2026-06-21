@@ -117,3 +117,160 @@ describe('CastPalette', () => {
     expect(screen.getByRole('button', { name: /^b$/i })).toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// 3-tier tests
+
+/** Build a character with optional chapter_id. */
+function makeChar(id: string, name: string, chapterId?: string | null): Character {
+  return { id, project_id: 'proj-1', name, speaker_profile_name: null, default_emotion: null, color: '#8b5cf6', chapter_id: chapterId ?? null };
+}
+
+/** Build a segment assigned to characterId for the given chapterId. */
+function makeSeg(id: string, chapterId: string, characterId: string | null): ChapterSegment {
+  return { id, chapter_id: chapterId, segment_order: 0, text_content: 'text', character_id: characterId, speaker_profile_name: null, audio_file_path: null, audio_status: 'unprocessed', audio_generated_at: null };
+}
+
+interface TieredHarnessProps {
+  characters: Character[];
+  segments: ChapterSegment[];
+  currentChapterId: string;
+  onCreateTempCharacter?: () => void;
+  onPromoteCharacter?: (id: string) => void;
+}
+
+function TieredHarness({ characters, segments, currentChapterId, onCreateTempCharacter, onPromoteCharacter }: TieredHarnessProps) {
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+  const [selectedProfileName, setSelectedProfileName] = useState<string | null>(null);
+  const [expandedCharacterId, setExpandedCharacterId] = useState<string | null>(null);
+  return (
+    <CastPalette
+      characters={characters}
+      segments={segments}
+      speakers={[]}
+      speakerProfiles={[]}
+      engines={[]}
+      selectedCharacterId={selectedCharacterId}
+      setSelectedCharacterId={setSelectedCharacterId}
+      selectedProfileName={selectedProfileName}
+      setSelectedProfileName={setSelectedProfileName}
+      expandedCharacterId={expandedCharacterId}
+      setExpandedCharacterId={setExpandedCharacterId}
+      onUpdateCharacterColor={vi.fn()}
+      currentChapterId={currentChapterId}
+      onCreateTempCharacter={onCreateTempCharacter}
+      onPromoteCharacter={onPromoteCharacter}
+    />
+  );
+}
+
+describe('CastPalette — 3-tier grouping', () => {
+  const CHAPTER_A = 'chapter-a';
+  const CHAPTER_B = 'chapter-b';
+
+  // alice is a book char assigned in chapter-a (tier 1)
+  const alice = makeChar('alice', 'Alice');
+  // bob is a book char NOT assigned in chapter-a (tier 3)
+  const bob = makeChar('bob', 'Bob');
+  // tempChar is scoped to chapter-a (tier 2)
+  const tempChar = makeChar('temp-1', 'Temp One', CHAPTER_A);
+  // otherTemp is scoped to chapter-b (should NOT appear in chapter-a view)
+  const otherTemp = makeChar('temp-b', 'Bob Temp', CHAPTER_B);
+
+  const segments = [
+    makeSeg('seg-a1', CHAPTER_A, 'alice'),
+  ];
+
+  it('places book chars with ≥1 segment in tier 1 (In this chapter)', () => {
+    render(
+      <TieredHarness
+        characters={[alice, bob, tempChar]}
+        segments={segments}
+        currentChapterId={CHAPTER_A}
+      />
+    );
+    // "In this chapter" header should be present
+    expect(screen.getByText(/in this chapter/i)).toBeInTheDocument();
+    // Alice has a segment in chapter-a, so she's in tier 1
+    expect(screen.getByRole('button', { name: /A Alice/i })).toBeInTheDocument();
+  });
+
+  it('places book chars with no assignment in this chapter in tier 3 (Everyone else)', () => {
+    render(
+      <TieredHarness
+        characters={[alice, bob, tempChar]}
+        segments={segments}
+        currentChapterId={CHAPTER_A}
+      />
+    );
+    expect(screen.getByText(/everyone else/i)).toBeInTheDocument();
+    // Bob has no segment in chapter-a; he's hidden until tier 3 is expanded
+    // (tier3 defaults to collapsed — button is not visible yet)
+    // Expand tier 3
+    fireEvent.click(screen.getByText(/everyone else/i));
+    expect(screen.getByRole('button', { name: /B Bob/i })).toBeInTheDocument();
+  });
+
+  it('places characters whose chapter_id matches currentChapterId in tier 2 (Chapter cast)', () => {
+    render(
+      <TieredHarness
+        characters={[alice, bob, tempChar]}
+        segments={segments}
+        currentChapterId={CHAPTER_A}
+      />
+    );
+    expect(screen.getByText(/chapter cast/i)).toBeInTheDocument();
+    // Temp One has chapter_id === chapter-a
+    expect(screen.getByRole('button', { name: /T Temp One/i })).toBeInTheDocument();
+  });
+
+  it('does NOT render characters scoped to a different chapter', () => {
+    render(
+      <TieredHarness
+        characters={[alice, otherTemp]}
+        segments={segments}
+        currentChapterId={CHAPTER_A}
+      />
+    );
+    // Bob Temp is scoped to chapter-b — should not appear in chapter-a view
+    expect(screen.queryByRole('button', { name: /B Bob Temp/i })).not.toBeInTheDocument();
+  });
+
+  it('calls onCreateTempCharacter when "+ Temp character" button is clicked', () => {
+    const onCreate = vi.fn();
+    render(
+      <TieredHarness
+        characters={[alice]}
+        segments={segments}
+        currentChapterId={CHAPTER_A}
+        onCreateTempCharacter={onCreate}
+      />
+    );
+    const addBtn = screen.getByRole('button', { name: /temp character/i });
+    fireEvent.click(addBtn);
+    expect(onCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onPromoteCharacter with the correct characterId when Promote is clicked', () => {
+    const onPromote = vi.fn();
+    render(
+      <TieredHarness
+        characters={[alice, tempChar]}
+        segments={segments}
+        currentChapterId={CHAPTER_A}
+        onPromoteCharacter={onPromote}
+      />
+    );
+
+    // CharacterRow renders: <div onMouseEnter/onMouseLeave><button .../>{promoteBtn}</div>
+    // The button's immediate parentElement IS the CharacterRow hover-target div.
+    const tempRowBtn = screen.getByRole('button', { name: /T Temp One/i });
+    const hoverTarget = tempRowBtn.parentElement as HTMLElement;
+    fireEvent.mouseEnter(hoverTarget);
+
+    // The Promote button is now visible after hovering.
+    const promoteBtn = screen.getByRole('button', { name: /promote/i });
+    fireEvent.click(promoteBtn);
+    expect(onPromote).toHaveBeenCalledWith('temp-1');
+  });
+});

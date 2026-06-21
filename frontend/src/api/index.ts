@@ -92,18 +92,24 @@ export const api = {
   },
 
   // --- Characters ---
-  fetchCharacters: async (projectId: string): Promise<import('@/types').Character[]> => {
-    const res = await fetch(`/api/projects/${projectId}/characters`);
+  fetchCharacters: async (projectId: string, chapterId?: string | null): Promise<import('@/types').Character[]> => {
+    const params = chapterId ? `?chapter_id=${encodeURIComponent(chapterId)}` : '';
+    const res = await fetch(`/api/projects/${projectId}/characters${params}`);
     const data = await parseApiResponse(res);
     return data.characters || [];
   },
-  createCharacter: async (projectId: string, name: string, speaker_profile_name?: string, default_emotion?: string, color?: string): Promise<{status: string, character_id: string}> => {
+  createCharacter: async (projectId: string, name: string, speaker_profile_name?: string, default_emotion?: string, color?: string, chapterId?: string | null): Promise<{status: string, character_id: string}> => {
     const formData = new FormData();
     formData.append('name', name);
     if (speaker_profile_name) formData.append('speaker_profile_name', speaker_profile_name);
     if (default_emotion) formData.append('default_emotion', default_emotion);
     if (color) formData.append('color', color);
+    if (chapterId) formData.append('chapter_id', chapterId);
     const res = await fetch(`/api/projects/${projectId}/characters`, { method: 'POST', body: formData });
+    return parseApiResponse(res);
+  },
+  promoteCharacter: async (characterId: string): Promise<{status: string}> => {
+    const res = await fetch(`/api/characters/${encodeURIComponent(characterId)}/promote`, { method: 'POST' });
     return parseApiResponse(res);
   },
   updateCharacter: async (characterId: string, name?: string, speaker_profile_name?: string, default_emotion?: string, color?: string): Promise<{status: string}> => {

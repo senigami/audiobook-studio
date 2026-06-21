@@ -413,6 +413,27 @@ export function useStudioChapter({
     ].slice(0, 8);
   }, []);
 
+  const handleCreateTempCharacter = useCallback(async () => {
+    if (!chapterId || !projectId) return;
+    try {
+      const tempCount = chapterEditor.characters.filter((c) => c.chapter_id === chapterId).length;
+      const name = `Temp · Character ${tempCount + 1}`;
+      await api.createCharacter(projectId, name, undefined, undefined, undefined, chapterId);
+      await loadChapter('create-temp');
+    } catch (error) {
+      console.error('Failed to create temp character', error);
+    }
+  }, [chapterId, projectId, chapterEditor.characters, loadChapter]);
+
+  const handlePromoteCharacter = useCallback(async (characterId: string) => {
+    try {
+      await api.promoteCharacter(characterId);
+      await loadChapter('promote-character');
+    } catch (error) {
+      console.error('Failed to promote character', error);
+    }
+  }, [loadChapter]);
+
   const handleRequestResyncPreview = useCallback(async () => {
     if (!text || text === chapter?.text_content) return;
     setIsPreviewingResync(true);
@@ -854,6 +875,8 @@ export function useStudioChapter({
     handleProgressBarDebugSnapshot,
     handleQueue,
     handleStopAll,
+    handleCreateTempCharacter,
+    handlePromoteCharacter,
     handoffTransitions: getHandoffTransitions(),
   };
 }

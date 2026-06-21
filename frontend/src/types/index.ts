@@ -68,6 +68,7 @@ export interface Character {
   speaker_profile_name: string | null;
   default_emotion: string | null;
   color: string;
+  chapter_id?: string | null;
 }
 
 export interface ChapterSegment {

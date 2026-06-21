@@ -62,7 +62,7 @@ export const useChapterLoader = (
       const detailsStartedAt = performance.now();
       const [segs, chars, scriptView] = await Promise.all([
         api.fetchSegments(chapterId),
-        api.fetchCharacters(projectId),
+        api.fetchCharacters(projectId, chapterId),
         api.fetchScriptView(chapterId).catch(() => null)
       ]);
       if (shouldLogLoadTimings) {
