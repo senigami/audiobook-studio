@@ -109,6 +109,8 @@
   --success-text: #15803d;                       /* success status text */
   --warning-text-strong: #b45309;               /* warning/caution inline text */
   --text-on-accent: #ffffff;                    /* text on colored accent surfaces */
+  --text-on-error: #ffffff;                     /* text/icon on error fills (stays white in both themes) */
+  --text-on-warning: #1c1300;                   /* text/icon on warning fills (fixed dark in both themes) */
   --on-success: #04240f;                        /* NEW — text on success fills */
   --status-cached-text: #9a4d0a;               /* NEW; pending P3 (StatusOrb cached state) */
   --status-cached-ring: #a8530a;               /* NEW — ring/icon use only, NOT text; pending P3 (StatusOrb cached state) */
@@ -310,6 +312,10 @@
   --on-success:           #052e16;              /* NEW */
   --status-cached-text:   #fbbf24;              /* NEW; pending P3 (StatusOrb cached state) */
   --status-cached-ring:   #fbbf24;              /* NEW; pending P3 (StatusOrb cached state) */
+
+  /* On-state text tokens (fixed values — same in both themes) */
+  --text-on-error: #ffffff;                     /* text/icon on error fills (stays white in both themes) */
+  --text-on-warning: #1c1300;                   /* text/icon on warning fills (fixed dark in both themes) */
 
   /* Warning */
   --warning:              #f59e0b;

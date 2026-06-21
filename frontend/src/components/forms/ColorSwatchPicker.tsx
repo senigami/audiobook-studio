@@ -77,7 +77,7 @@ export const ColorSwatchPicker: React.FC<ColorSwatchPickerProps> = ({ value, onC
                 }}
                 title="Change Color"
             >
-                <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(255,255,255,0.5)' }} />
+                <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--surface-glass-half)' }} />
             </button>
 
             {/* Popover */}

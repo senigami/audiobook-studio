@@ -49,7 +49,7 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
 
   if (isError) {
     fill = 'var(--error)';
-    content = <span style={{ color: '#fff', fontSize: '10px', fontWeight: 'bold', lineHeight: '1' }}>!</span>;
+    content = <span style={{ color: 'var(--text-on-error)', fontSize: '10px', fontWeight: 'bold', lineHeight: '1' }}>!</span>;
     tooltip = 'Render failed. View Queue for details.';
   } else if (isTrulyProcessing) {
     fill = 'var(--surface-light)'; // Neutral/subtle blue or grey
@@ -64,7 +64,7 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
     orbRadius = 8.5; // Slightly larger
     orbStroke = 'var(--warning-text)'; // Orange border
     orbStrokeWidth = 1.2;
-    content = <AlertTriangle size={10} color="#000" strokeWidth={3} style={{ display: 'block' }} />;
+    content = <AlertTriangle size={10} color="var(--text-on-warning)" strokeWidth={3} style={{ display: 'block' }} />;
     tooltip = isStuckProcessing 
       ? 'Render was interrupted. Needs rebuild.' 
       : 'Needs rebuild: script or voice assignment changed since last render';
