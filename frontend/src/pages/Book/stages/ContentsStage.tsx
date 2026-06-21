@@ -10,6 +10,15 @@ import { setLastChapter } from '@/pages/Book/lib/stages';
 import { requestRailAutoCollapse } from '@/utils/railState';
 import type { Chapter } from '@/types';
 
+function usePublishReadiness(chapters: Chapter[]) {
+  return useMemo(() => {
+    const total = chapters.length;
+    const rendered = chapters.filter((ch) => ch.audio_status === 'done').length;
+    const allReady = total > 0 && rendered === total;
+    return { total, rendered, allReady };
+  }, [chapters]);
+}
+
 function chapterTitleFromFile(file: File): string {
   return file.name.replace(/\.[^/.]+$/, '') || 'Imported chapter';
 }
@@ -25,6 +34,7 @@ export function ContentsStage() {
   } = useBookDataContext();
   const { bookId } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
+  const { total, rendered, allReady } = usePublishReadiness(chapters);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(chapters[0]?.id ?? null);
   const [showAddChapterModal, setShowAddChapterModal] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
@@ -116,6 +126,21 @@ export function ContentsStage() {
           + New chapter
         </button>
       </div>
+
+      {allReady ? (
+        <button
+          type="button"
+          className="btn-primary manuscript-stage__publish-cta"
+          onClick={() => navigate(`/book/${bookId}/publish`)}
+          aria-label="Book ready — navigate to Publish tab"
+        >
+          Book ready &#8594; Publish
+        </button>
+      ) : total > 0 && (
+        <p className="manuscript-stage__render-progress">
+          {rendered} of {total} chapter{total !== 1 ? 's' : ''} rendered
+        </p>
+      )}
 
       <div className={focusMode ? 'manuscript-stage__workspace manuscript-stage__workspace--focus' : 'manuscript-stage__workspace'}>
         {!focusMode && (

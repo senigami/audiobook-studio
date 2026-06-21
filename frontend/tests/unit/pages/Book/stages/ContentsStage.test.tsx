@@ -1,0 +1,146 @@
+import { act, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { ContentsStage } from '@/pages/Book/stages/ContentsStage';
+import { useBookDataContext } from '@/pages/Book/BookDataContext';
+import type { Chapter } from '@/types';
+
+vi.mock('@/pages/Book/BookDataContext', () => ({
+  useBookDataContext: vi.fn(),
+}));
+
+vi.mock('@/pages/Book/components/ChapterTable', () => ({
+  ChapterTable: () => <section aria-label="Chapter table" />,
+}));
+
+vi.mock('@/pages/Book/components/ChapterTextPanel', () => ({
+  ChapterTextPanel: () => <section aria-label="Chapter text panel" />,
+}));
+
+vi.mock('@/pages/Book/components/AddChapterModal', () => ({
+  AddChapterModal: () => null,
+}));
+
+function makeChapter(id: string, audioStatus: Chapter['audio_status']): Chapter {
+  return {
+    id,
+    project_id: 'book-1',
+    title: `Chapter ${id}`,
+    text_content: 'text',
+    speaker_profile_name: null,
+    sort_order: 0,
+    audio_status: audioStatus,
+    audio_file_path: audioStatus === 'done' ? `${id}.wav` : null,
+    text_last_modified: null,
+    audio_generated_at: null,
+    char_count: 20,
+    word_count: 4,
+    sent_count: 1,
+    predicted_audio_length: 3,
+    audio_length_seconds: audioStatus === 'done' ? 3 : 0,
+    total_segments_count: 1,
+    done_segments_count: audioStatus === 'done' ? 1 : 0,
+  };
+}
+
+function renderInRouter(ui: React.ReactElement, { bookId = 'book-1' } = {}) {
+  return render(
+    <MemoryRouter initialEntries={[`/book/${bookId}/contents`]}>
+      <Routes>
+        <Route path="/book/:bookId/contents" element={ui} />
+        <Route path="/book/:bookId/publish" element={<div>Publish tab</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe('ContentsStage publish-readiness control', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useBookDataContext).mockReturnValue({
+      actions: {
+        submitting: false,
+        handleCreateChapter: vi.fn(),
+        handleReorderChapters: vi.fn(),
+        handleQueueChapter: vi.fn(),
+        handleResetChapterAudio: vi.fn(),
+        handleDeleteChapter: vi.fn(),
+        handleQueueAllUnprocessed: vi.fn(),
+      },
+      chapters: [],
+      jobs: {},
+      projectVoiceStatus: { enabled: true },
+      effectiveProjectVoice: 'Studio Voice',
+      reload: vi.fn(),
+    } as any);
+  });
+
+  it('shows the Publish CTA when all chapters are rendered', () => {
+    vi.mocked(useBookDataContext).mockReturnValue({
+      ...vi.mocked(useBookDataContext)(),
+      chapters: [
+        makeChapter('ch-1', 'done'),
+        makeChapter('ch-2', 'done'),
+        makeChapter('ch-3', 'done'),
+      ],
+    } as any);
+
+    renderInRouter(<ContentsStage />);
+
+    const cta = screen.getByRole('button', { name: /Book ready.*Publish/i });
+    expect(cta).toBeInTheDocument();
+    expect(screen.queryByText(/of \d+ chapters? rendered/)).not.toBeInTheDocument();
+  });
+
+  it('Publish CTA navigates to the book publish route', () => {
+    vi.mocked(useBookDataContext).mockReturnValue({
+      ...vi.mocked(useBookDataContext)(),
+      chapters: [makeChapter('ch-1', 'done')],
+    } as any);
+
+    renderInRouter(<ContentsStage />, { bookId: 'book-42' });
+
+    const cta = screen.getByRole('button', { name: /Book ready.*Publish/i });
+    // Verify the link destination by clicking and checking the destination page renders
+    act(() => { cta.click(); });
+    expect(screen.getByText('Publish tab')).toBeInTheDocument();
+  });
+
+  it('shows partial progress text when some chapters are not rendered', () => {
+    vi.mocked(useBookDataContext).mockReturnValue({
+      ...vi.mocked(useBookDataContext)(),
+      chapters: [
+        makeChapter('ch-1', 'done'),
+        makeChapter('ch-2', 'done'),
+        makeChapter('ch-3', 'unprocessed'),
+        makeChapter('ch-4', 'unprocessed'),
+      ],
+    } as any);
+
+    renderInRouter(<ContentsStage />);
+
+    expect(screen.getByText('2 of 4 chapters rendered')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Book ready.*Publish/i })).not.toBeInTheDocument();
+  });
+
+  it('shows nothing when there are no chapters', () => {
+    // chapters: [] is the default from beforeEach
+    renderInRouter(<ContentsStage />);
+
+    expect(screen.queryByRole('button', { name: /Book ready.*Publish/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/of \d+ chapters? rendered/)).not.toBeInTheDocument();
+  });
+
+  it('uses singular "chapter" when only one chapter exists partially rendered', () => {
+    vi.mocked(useBookDataContext).mockReturnValue({
+      ...vi.mocked(useBookDataContext)(),
+      chapters: [
+        makeChapter('ch-1', 'unprocessed'),
+      ],
+    } as any);
+
+    renderInRouter(<ContentsStage />);
+
+    expect(screen.getByText('0 of 1 chapter rendered')).toBeInTheDocument();
+  });
+});
