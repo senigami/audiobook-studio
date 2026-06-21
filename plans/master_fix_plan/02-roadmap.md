@@ -28,44 +28,47 @@ W13 (localization, sub-sentence) ── deferred / needs decision ──► post
 
 ## Execution order
 
-### Milestone 1 — Safe base (no behavior change)
+### Milestone 1 — Safe base (no behavior change) — **DONE (2026-06-20/21)**
 - **[001 Foundation cleanup](tasks/001-foundation-cleanup.md)** (W1) — dead deps, dead files,
   hardcoded-color fixes, dead CSS, `.coveragerc`, `last_test.json`, + folded `final_release/06 §1`
-  and `09` dead-code items. Ships immediately; unblocks the rest.
+  and `09` dead-code items. **DONE.** Unblocks the rest.
 
 ### Milestone 2 — Two-level IA port (absorbs the lost-feature restoration)  *(owner-decided 2026-06-20)*
-The live 5-stage pipeline is being **replaced** by the two-level Book + Chapter workspace IA — it
-"doesn't work right" (owner design review pending, which informs this port). The lost features are
-restored **as part of** this port, carried by an explicit checklist so none are dropped.
-- **[003 Book/Chapter IA port](tasks/003-ia-live-app-port.md)** (W4) — the primary redesign. **Carries
-  the RST-1..8 lost-feature checklist** (from 002) as acceptance criteria, and **gates** the dead-tree
-  deletion in 005 (DC-1b): the port harvests those features from the old trees before they're removed.
-- **[002 Wire orphaned features](tasks/002-restore-lost-functionality.md)** (W3, re-scoped) — the
-  non-IA restores only: WIRE-1 VoiceDropzone, WIRE-2 VoiceModules, WIRE-3 SearchableSelect. Independent
-  of the port.
-- **[004 Audio player completion](tasks/004-audio-player-completion.md)** (W5) — RST-8 segment-aware
-  player, delivered alongside the Chapter workspace.
+**SUBSTANTIALLY DONE (2026-06-21).** The live 5-stage pipeline has been **replaced** by the two-level
+Book + Chapter workspace IA. RST-1..7 and the book-scope Lexicon (added feature) are shipped. Two items
+remain deferred by owner decision: RST-8 segment-aware player (→ task 004) and per-span range
+assignment. DC-1b dead-tree deletion remains gated on RST-8.
+
+- **[003 Book/Chapter IA port](tasks/003-ia-live-app-port.md)** (W4) — **SUBSTANTIALLY DONE**; RST-8 +
+  range-assignment DEFERRED (see task file for full breakdown).
+- **[002 Wire orphaned features](tasks/002-restore-lost-functionality.md)** (W3, re-scoped) — **DONE.**
+  WIRE-1 VoiceDropzone, WIRE-2 VoiceModules, WIRE-3 SearchableSelect all wired.
+- **[004 Audio player completion](tasks/004-audio-player-completion.md)** (W5) — **NOT STARTED.**
+  RST-8 deferred by owner; this task is blocked pending that decision.
 
 ### Milestone 3 — Simplification
-- **[005 Code simplification](tasks/005-code-simplification.md)** (W2) — styling separation,
-  large-file splits, backend cleanup, plugin SDK consolidation. The FE dead-tree **deletion** step is
-  gated on Milestone 2 (INV-2).
+- **[005 Code simplification](tasks/005-code-simplification.md)** (W2) — **NOT STARTED.** QW-6
+  dead-CSS and `CastPalette.tsx` split pending; DC-1b still gated on Milestone 2 RST-8.
 - **[006 Backend namespace rename & code-org](tasks/006-backend-namespace-and-codeorg.md)** (W10) —
-  run alone; coordinate with 007.
+  **NOT STARTED.** Run alone; coordinate with 007.
 
 ### Milestone 4 — Feature + polish backlog
-- **[007 Voice taxonomy v2 (Phase G)](tasks/007-voice-taxonomy-v2.md)** (W6) — unblocks demo bundle.
-- **[008 UX / A11y / Perf backlog](tasks/008-ux-a11y-perf-backlog.md)** (W7+W8) — minus styling (in 005).
-- **[009 Security backlog](tasks/009-security-backlog.md)** (W9).
-- **[010 Standalone plugin repos](tasks/010-standalone-plugin-repos.md)** (W11) — after 005 plugin work.
+- **[007 Voice taxonomy v2 (Phase G)](tasks/007-voice-taxonomy-v2.md)** (W6) — **NOT STARTED.**
+  Unblocks demo bundle.
+- **[008 UX / A11y / Perf backlog](tasks/008-ux-a11y-perf-backlog.md)** (W7+W8) — **PARTIAL.**
+  A11y A4/A6/A7/A8/A10 done; Perf P7/P8/P9 done; A5 deferred (Framer); A11/A12 + all UX U-items pending.
+- **[009 Security backlog](tasks/009-security-backlog.md)** (W9) — **DONE.** S6/S7/S10/S11 shipped;
+  S12 dep-bump is a release-gate hygiene step (see task file).
+- **[010 Standalone plugin repos](tasks/010-standalone-plugin-repos.md)** (W11) — **NOT STARTED.**
+  After 005 plugin work.
 
 ### Milestone 5 — Release  *(owner-run, last)*
-- **[011 Release gating](tasks/011-release-gating.md)** (W12) — manual render verify, Pinokio
-  PK3/PK7/PK8, wiki corrections, demo refresh, spec conformance SP9, release notes + tag.
+- **[011 Release gating](tasks/011-release-gating.md)** (W12) — **NOT STARTED.** Manual render verify,
+  Pinokio PK3/PK7/PK8, wiki corrections, demo refresh, spec conformance SP9, release notes + tag.
 
 ### Deferred — post-v2.0
 - **[012 Deferred & open questions](tasks/012-deferred-and-open-questions.md)** (W13) — localization
-  implementation; sub-sentence speaker assignment design decision.
+  implementation; sub-sentence speaker assignment design decision. **HOLDING.**
 
 ## Parallelization notes
 - Milestone 1 (001) and most of Milestone 3 (005, except DC-1b) are independent and can run alongside

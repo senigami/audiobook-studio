@@ -1,5 +1,7 @@
 # 004 — Audio player completion (W5)
 
+**Status: NOT STARTED** — RST-8 (segment-aware player) deferred by owner; this task is blocked pending that decision. DC-1b dead-tree deletion in 005 remains gated here.
+
 **Goal:** finish the global audio player: make it **scope-agnostic and segment-aware**, and port the
 waveform-tape scrubber from the demo mock to the live app.
 **Authoritative sources:** [`audio_player_waveform_scrubber/`](../../audio_player_waveform_scrubber/README.md)

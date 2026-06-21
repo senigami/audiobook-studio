@@ -1,5 +1,7 @@
 # 012 — Deferred work & open questions (W13)
 
+**Status: HOLDING** — post-v2.0 / pending owner design decisions. No action needed before release.
+
 **Goal:** hold the work that is explicitly post-v2.0 or not-yet-decided, so it isn't lost but doesn't
 block the release.
 

@@ -1,5 +1,7 @@
 # 011 — Release gating (W12) — owner-driven, LAST
 
+**Status: NOT STARTED** — owner-driven; requires prior milestones. Holding for when all upstream workstreams are complete.
+
 **Goal:** run the staged release sequence to ship v2.0.0. Several gates are **owner-run** (INV-8) — do
 not automate or skip them.
 **Authoritative sources:** [`final_release/08_release_sequence.md`](../../final_release/08_release_sequence.md)

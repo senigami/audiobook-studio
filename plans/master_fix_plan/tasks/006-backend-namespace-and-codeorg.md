@@ -1,5 +1,7 @@
 # 006 — Backend namespace rename & remaining code-org (W10)
 
+**Status: NOT STARTED**
+
 **Goal:** the structural rename `plugins/` → `tts_engines/` and the remaining code-org items not folded
 into 005.
 **Authoritative sources:** [`master_agnostic_tasks.md`](../../master_agnostic_tasks.md) (06-14,

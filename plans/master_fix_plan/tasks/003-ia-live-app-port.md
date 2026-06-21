@@ -1,5 +1,23 @@
 # 003 — Book/Chapter IA port + lost-feature restoration (W4) — PRIMARY redesign
 
+**Status: SUBSTANTIALLY DONE (2026-06-21)** — see sub-item breakdown below.
+
+**Done:**
+- Two-level shell: Contents / Cast / Lexicon / Publish / Backups tabs.
+- Chapter Workspace + chapter switcher.
+- Review redesign: left rail + load-on-select.
+- Chapter drill-through via row click (no Open button).
+- Cast panel 3-tier + chapter-scoped temp characters (new `characters.chapter_id` data model).
+- Contents publish-ready CTA.
+- Bookmarks + jump-to-next-unrendered.
+- RST-1 through RST-7 lost-feature restores (per-row progress bar, chapter play, download, destructive guards, in-Studio source edit, default-voice picker, engine-unavailable banner).
+- **Added (not originally planned):** book-scope pronunciation Lexicon — `apply_lexicon` wired across all render paths; `data-model.md` bumped to 1.3.1; book Lexicon tab + dockable workspace panel.
+
+**DEFERRED (owner decision):**
+- RST-8 segment-aware player → owned by task 004; deferred by owner.
+- Per-span range assignment → deferred by owner.
+- DC-1b dead-tree deletion → GATED on RST-8 (remains blocked until 004 ships).
+
 **Owner decisions (06-20):**
 - The **two-level Book + Chapter workspace IA is confirmed as the target.** It **replaces the live
   5-stage pipeline**, which "doesn't work right."

@@ -1,5 +1,7 @@
 # 002 — Wire orphaned features (W3, re-scoped 2026-06-20)
 
+**Status: DONE (2026-06-21)** — WIRE-1 VoiceDropzone mounted in the New Voice modal; WIRE-2 VoiceModules live as a "Module Settings" tab on /engines; WIRE-3 SearchableSelect swapped into the move-variant speaker picker. Committed on `studio2/phase-12.5-style`.
+
 **Owner decision (06-20):** the *lost* Book-pipeline/Studio features (RST-1..8) are **folded into the
 IA port (003)** as a carried checklist — they are NOT a separate restore-first step. This task is
 re-scoped to only the **orphaned features that aren't part of the book IA** and can be wired

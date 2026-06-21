@@ -1,5 +1,7 @@
 # 005 — Code simplification (W2)
 
+**Status: NOT STARTED** — QW-6 dead-CSS removal (deferred from 001) is pending here; `CastPalette.tsx` is now 745 lines and needs the split called out in simplification/04. DC-1b remains gated on task 004 (RST-8). No sub-parts have been executed yet.
+
 **Goal:** the simplification refactor — remove FE dead code, separate styling, split oversized files,
 clean the backend, consolidate plugin duplication. Behavior-preserving.
 **Authoritative source:** the [`simplification/`](../../simplification/00_overview.md) folder

@@ -1,5 +1,7 @@
 # 009 — Security backlog (W9)
 
+**Status: DONE (2026-06-21)** — S6 (WS origin check), S7 (rate-limit docs), S10 (secret-aware settings), S11 (ffmpeg quoting verified correct); S1–S5/S8/S9 were already done. S12 (Dependabot dep bumps) is a release-gate hygiene step, not a blocker — see note below. All committed on `studio2/phase-12.5-style`.
+
 **Goal:** the pre-release security hardening items (release blockers already shipped; these are the
 remaining pre-LAN-hardening items).
 **Authoritative source:** [`final_release/12_security_and_opportunities.md`](../../final_release/12_security_and_opportunities.md).

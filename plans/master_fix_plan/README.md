@@ -13,6 +13,13 @@ detail to the authoritative sub-plans it references.
 3. [02-roadmap.md](02-roadmap.md) — ordered milestones, dependency graph, and the 3 owner-decision forks.
 4. `tasks/001..012` — one consolidated task per workstream.
 
+## Status as of 2026-06-21
+- **Done:** 001 (foundation cleanup), 002 (WIRE-1/2/3), 009 (security S6/S7/S10/S11). All committed on `studio2/phase-12.5-style`.
+- **Substantially done:** 003 (IA port) — RST-1..7 + book Lexicon shipped; RST-8 + range-assignment deferred by owner; DC-1b gated.
+- **Partial:** 008 (UX/A11y/Perf) — A11y A4/A6/A7/A8/A10 + Perf P7/P8/P9 done; A5/A11/A12 + all UX U-items pending.
+- **Not started:** 004, 005, 006, 007, 010, 011 (012 is holding/deferred).
+- See `OVERNIGHT_LOG.md` for the running session-by-session detail.
+
 ## How to pick up work
 - Open the task file for the workstream + [01-map.md](01-map.md). The task names its **authoritative
   source** (e.g. `simplification/07`, `final_release/04`) — that source holds the executable detail;
@@ -21,7 +28,7 @@ detail to the authoritative sub-plans it references.
   - **INV-2 harvest-before-delete** (002 before 005's tree deletion),
   - **INV-4 preserve segment-playback logic** (004 needs it; 005 must not strip it),
   - **INV-5 the xtts adapter is live** (don't delete it).
-- This is **planning only** — nothing here has been executed.
+- See the **Status as of 2026-06-21** section above for what has been executed.
 - **Owner forks RESOLVED 2026-06-20** (see [02-roadmap.md](02-roadmap.md)): (1) lost-feature
   restoration **folds into the IA port** (003) as a carried checklist; (2) the **two-level Book +
   Chapter workspace IA is the target**, replacing the broken 5-stage pipeline — **a pipeline design

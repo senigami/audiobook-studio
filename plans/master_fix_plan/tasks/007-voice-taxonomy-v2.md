@@ -1,5 +1,7 @@
 # 007 — Voice taxonomy v2 (Phase G) (W6)
 
+**Status: NOT STARTED**
+
 **Goal:** extend the voice taxonomy with v2 attributes and the matching UI; it re-blocks the demo
 bundle refresh.
 **Authoritative source:** [`final_release/04_voice_metadata_and_tagging.md`](../../final_release/04_voice_metadata_and_tagging.md)

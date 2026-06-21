@@ -1,5 +1,7 @@
 # 010 — Standalone plugin repos (W11)
 
+**Status: NOT STARTED** — blocked on 005 (plugin SDK consolidation) + coordination with 006 (namespace rename).
+
 **Goal:** extract the bundled engines into standalone, installable plugin repositories with a registry
 and a paste-URL install flow.
 **Authoritative source:** [`final_release/05_standalone_plugin_repos.md`](../../final_release/05_standalone_plugin_repos.md)

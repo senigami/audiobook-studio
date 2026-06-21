@@ -1,5 +1,17 @@
 # 008 — UX / A11y / Perf backlog (W7 + W8)
 
+**Status: PARTIAL (2026-06-21)** — breakdown:
+
+**DONE (A11y):** A4 icon-button aria-labels, A6 live regions, A7 JsonSchemaForm label association, A8 StatusOrb `role=img`, A10 landmarks/headings.
+
+**DONE (Perf):** P7 interval hygiene in `useQueueSync`, P8 bundle chunking, P9 mega-payload debounce.
+
+**DEFERRED:** A5 keyboard drag-reorder — Framer Motion has no public API for this; deferred until an alternative is available.
+
+**PENDING (A11y):** A11 `--text-muted` contrast (styling-track palette), A12 `prefers-reduced-motion`.
+
+**PENDING (UX):** U1 undo toasts, U2 focus management, U4 startup experience, U5 queue-drawer affordances, U6 guided failure recovery, U7 ActionMenu correctness, U11 resync→queue flow, U12 cancel single queued job, U13 first-run onboarding, U14 route transitions.
+
 **Goal:** the cosmetic, accessibility, and performance polish items that gate release stages 5–6.
 **Authoritative sources:** [`final_release/10_ux_improvements.md`](../../final_release/10_ux_improvements.md)
 (U-items) + [`final_release/11_accessibility_and_performance.md`](../../final_release/11_accessibility_and_performance.md)
@@ -11,10 +23,10 @@
   queued job, U13 first-run onboarding, U14 route transitions.
   *(U3 type scale, U8 voice-pill disclosure, U9 button/input, U10 z-index are FOLDED ELSEWHERE: U3/U9/U10
   → 005 styling; U8 → 007 taxonomy. Do NOT duplicate here.)*
-- **A11y (W8):** A4 icon-button aria-labels, A5 drag-reorder keyboard, A6 live regions, A7
-  JsonSchemaForm label association, A8 StatusOrb `role=img`, A10 landmarks/headings, A11 `--text-muted`
+- **A11y (W8):** ~~A4 icon-button aria-labels~~ ✓, A5 drag-reorder keyboard (DEFERRED), ~~A6 live regions~~ ✓, ~~A7
+  JsonSchemaForm label association~~ ✓, ~~A8 StatusOrb `role=img`~~ ✓, ~~A10 landmarks/headings~~ ✓, A11 `--text-muted`
   contrast, A12 `prefers-reduced-motion`. (MobileNavDrawer focus-trap is also tracked in 006.)
-- **Perf (W8):** P7 interval hygiene in `useQueueSync`, P8 bundle chunking, P9 mega-payload debounce.
+- **Perf (W8):** ~~P7 interval hygiene in `useQueueSync`~~ ✓, ~~P8 bundle chunking~~ ✓, ~~P9 mega-payload debounce~~ ✓.
 
 **Map links:** W7+W8. Feeds W12 release stages 5–6. U3/U9/U10→005, U8→007 (de-dup). Honors INV-1, INV-7.
 **Dependencies:** independent; parallel-safe with 007/009.
