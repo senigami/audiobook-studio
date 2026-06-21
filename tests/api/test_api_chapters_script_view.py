@@ -135,6 +135,52 @@ def test_script_view_base_revision_id_stability(clean_db, client):
     assert rev1 != rev2
 
 
+def test_reassignment_not_blocked_by_render_status_change(clean_db, client):
+    """Reassigning a span must not 409 just because a render flipped audio_status.
+
+    Regression: audio_status was part of the optimistic-concurrency token, so a
+    render completing between two assignments rebuilt the base_revision_id and
+    produced a false "modified by another process" conflict on reassignment.
+    A render finishing is not a concurrent *assignment* edit and must not block one.
+    """
+    pid = create_project("P-reassign")
+    cid = create_chapter(pid, "C1", "Sentence one. Sentence two.")
+    char_a = create_character(pid, "Alice", "VoiceA")
+    char_b = create_character(pid, "Bob", "VoiceB")
+
+    view = client.get(f"/api/chapters/{cid}/script-view").json()
+    span_id = view["spans"][0]["id"]
+
+    # 1) Assign the span to Alice; capture the revision the client now holds.
+    resp1 = client.put(
+        f"/api/chapters/{cid}/script-view/assignments",
+        json={
+            "base_revision_id": view["base_revision_id"],
+            "assignments": [
+                {"span_ids": [span_id], "character_id": char_a, "speaker_profile_name": "VoiceA"}
+            ],
+        },
+    )
+    assert resp1.status_code == 200, resp1.text
+    rev_after_assign = resp1.json()["base_revision_id"]
+
+    # 2) A render completes for that span -> audio_status flips to 'done'.
+    #    This is NOT an assignment edit and must not invalidate the held token.
+    update_segment(span_id, audio_status="done")
+
+    # 3) Reassign the span to Bob using the revision the client still holds.
+    resp2 = client.put(
+        f"/api/chapters/{cid}/script-view/assignments",
+        json={
+            "base_revision_id": rev_after_assign,
+            "assignments": [
+                {"span_ids": [span_id], "character_id": char_b, "speaker_profile_name": "VoiceB"}
+            ],
+        },
+    )
+    assert resp2.status_code == 200, resp2.text
+
+
 def test_script_view_empty_chapter(clean_db, client):
     pid = create_project("P5")
     cid = create_chapter(pid, "Empty", "")
