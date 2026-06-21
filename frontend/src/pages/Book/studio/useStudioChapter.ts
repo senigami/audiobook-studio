@@ -117,11 +117,13 @@ export function useStudioChapter({
   const { count: renderGroupCount, firstSpanGroupNumber } = useRenderGroups(projectId, chapterId, renderGroupsRefreshKey);
 
   const effectiveSelectedVoice = localVoice || externalVoice || '';
-  const chapterDefaultVoiceLabel = useMemo(() => {
+  const chapterDefaultVoiceName = useMemo(() => {
     const fallbackVoiceValue = externalVoice || getDefaultVoiceProfileName(speakerProfiles || [], engines) || '';
-    const fallbackVoiceLabel = getVoiceOptionLabel(fallbackVoiceValue, speakerProfiles || [], speakers || [], engines, characters);
-    return fallbackVoiceLabel ? `Use Project Default (${fallbackVoiceLabel})` : 'Use Project Default';
+    return getVoiceOptionLabel(fallbackVoiceValue, speakerProfiles || [], speakers || [], engines, characters) ?? '';
   }, [externalVoice, speakerProfiles, speakers, engines, characters]);
+  const chapterDefaultVoiceLabel = chapterDefaultVoiceName
+    ? `Use Project Default (${chapterDefaultVoiceName})`
+    : 'Use Project Default';
 
   const availableVoices = useMemo(
     () => buildVoiceOptions(speakerProfiles || [], speakers || [], engines, characters),
@@ -831,6 +833,7 @@ export function useStudioChapter({
     firstSpanGroupNumber,
     effectiveSelectedVoice,
     chapterDefaultVoiceLabel,
+    chapterDefaultVoiceName,
     availableVoices,
     chunkGroups,
     effectivePendingSegmentIds,

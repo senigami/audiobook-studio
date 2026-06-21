@@ -1,10 +1,10 @@
 # Site Shell & Book Pipeline
 
 ```
-spec_version: 1.5.0
+spec_version: 1.6.0
 status: active
 created: 2026-06-13
-updated: 2026-06-16
+updated: 2026-06-21
 sources:
   - frontend/src/app/App.tsx
   - frontend/src/app/layout/AppShell.tsx
@@ -29,6 +29,7 @@ sources:
 | 1.3.0   | 2026-06-13 | Added the shared left-rail drag resize handle contract with persisted expanded width and layout-shifting main column behavior |
 | 1.4.0   | 2026-06-13 | Casting: Narrator (default) is the pinned, non-deletable FIRST row of the characters list (not a separate block) and the sole place the default voice is set; add-character form must not suggest "Narrator". Studio cast palette: requires a `Narrator (default)` clear/unassign brush and MUST NOT contain a default-voice selector. Studio analysis-strip segment count MUST use the render-group count (text-processing.md §6). |
 | 1.5.0   | 2026-06-16 | Added §2.7 Library cover-size control (target): Finder-style inline snap slider (grid view only, hidden < 768px) with the approved 12-step cover ramp `48…512`, per-step tick dots, scale-grid-and-cover-together behavior, and keyboard/`aria-label` accessibility. |
+| 1.6.0   | 2026-06-21 | Amends the 1.4.0 Studio default-voice rule (owner decision): Studio's cast palette MAY carry a **per-chapter** default-voice override merged into the `Narrator (default)` entry (effective voice shown in small print + an "Override voice" selector writing `chapter.speaker_profile_name`), alongside (not replacing) the clear/unassign brush. Casting remains the sole place the **project** default is set; the per-chapter override is a distinct, chapter-scoped value. |
 
 ---
 
@@ -164,7 +165,7 @@ Casting owns character roster management and the project default voice:
 - The `Narrator (default)` row MUST be the **pinned first entry of the characters & voices list itself** — not a separate block above the roster. It carries the project default voice selector and reads as the top voice selection alongside the cast.
 - The Narrator row is **non-deletable**: it MUST render without a delete control (a lock affordance in the delete slot is the established treatment) because the default voice cannot be removed.
 - The default narrator row MUST be the fallback for any unassigned line.
-- Casting is the **only** place the project default / narrator voice is set. Other stages (notably Studio) MUST NOT present a chapter/project default-voice selector — they consume the value, they do not set it.
+- Casting is the **only** place the **project** default / narrator voice is set. Other stages consume the project default and MUST NOT present a *project* default-voice selector. (Studio MAY present a **per-chapter** default-voice override — a chapter-scoped value distinct from the project default — on its `Narrator (default)` entry; see the Studio section.)
 - The remaining characters render below the pinned Narrator row; the add-character form MUST NOT suggest "Narrator" as an example name (it already exists as the pinned default).
 - If the project default voice engine is unavailable, the stage MUST show the warning state rather than silently hiding the issue.
 
@@ -187,7 +188,7 @@ The R3 redesign re-homes the ChapterEditor's orchestration into Studio's own chr
 - **Safe-text and section-number (`#`) toggles are kept** as dev-leaning view options in both modes. Safe text is rendered **per-engine** and MAY differ per section depending on the voice's engine — it is not a single global rewrite.
 - **Voice assignment via a right-hand CAST PALETTE (voice painting is the primary gesture).** A slim right-hand palette lists each character (color dot + avatar + name). Click a character swatch to **arm a brush**, then click sentences in the prose to assign — the underline re-colors live. A second click on the armed swatch disarms it. The palette is placed in-page next to the text (not in the rail) because painting needs the chapter list and the palette visible at once, and the rail is wayfinding. The Casting stage remains the roster/table view (who is in the book, voice per character); Studio is where per-line assignment happens.
 - **The palette's first entry MUST be a `Narrator (default)` clear/unassign brush.** Arming it and clicking sentences reverts them to the default narrator (the existing `CLEAR_ASSIGNMENT` mechanism). Without this, an assigned sentence cannot be un-assigned — so it is a required capability, not optional.
-- **Studio's cast palette MUST NOT contain a chapter/project default-voice selector.** Setting the default voice belongs to Casting (see the Casting section). Studio only paints assignments and clears them; it consumes the default but never sets it.
+- **Studio's cast palette MUST NOT set the _project_ default voice** — that belongs to Casting (see the Casting section). It MAY, however, carry a **per-chapter default-voice override** merged into the `Narrator (default)` entry: the entry shows the effective narrator voice in small print (the per-chapter override if set, otherwise the project default it consumes from Casting), with an "Override voice" selector beneath it that writes `chapter.speaker_profile_name`. The override selector MUST sit **alongside** (not replace) the clear/unassign brush gesture on that entry — arming the brush and setting the override are independent affordances on the same `Narrator (default)` card.
 - **Sub-sentence span assignment** (the mixed `«"He excelled," Dove said…»` case — quoted span carries the character's underline, the remainder is narrator) extends the same painting gesture. This is a future increment; the layout MUST reserve room for it but it does not ship in the first R3 cut.
 - **Analysis strip** under the view-pills row: chars · words · sentences · segments · estimated runtime, plus long-sentence badges — a green "N/N auto-fixed" badge and an amber, expandable "ACTION REQUIRED" badge listing unresolvable segments with an Edit jump into Manuscript. The **segments** figure MUST be the canonical render-group count (`renderGroupCount`), NOT the raw sentence/packed-segment count — per [text-processing.md](text-processing.md) §6, any UI surface presenting a segment count derives it from `build_chunk_groups`.
 - **Commit / resync flow.** Editing a produced chapter's text re-analyzes the affected sections with best-effort assignment preservation, surfaced through the `ResyncPreviewModal`. This flow MUST be reachable from BOTH Manuscript and Studio off the same shared hook state — do not fork it.

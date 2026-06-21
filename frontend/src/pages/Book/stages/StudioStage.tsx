@@ -133,6 +133,7 @@ export function StudioStage() {
     renderGroupCount,
     handleVoiceChange,
     chapterDefaultVoiceLabel,
+    chapterDefaultVoiceName,
     availableVoices,
   } = studio;
 
@@ -352,6 +353,7 @@ export function StudioStage() {
           handleVoiceChange={handleVoiceChange}
           availableVoices={availableVoices}
           chapterDefaultVoiceLabel={chapterDefaultVoiceLabel}
+          chapterDefaultVoiceName={chapterDefaultVoiceName}
         />
       </div>
 

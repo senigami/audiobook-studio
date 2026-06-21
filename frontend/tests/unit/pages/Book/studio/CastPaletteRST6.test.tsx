@@ -1,8 +1,10 @@
 /**
  * RST-6 — Chapter default-voice picker in CastPalette.
  *
- * Tests that CastPalette renders a VoiceProfileSelect when localVoice/handleVoiceChange
- * props are supplied, and hides it when they are not.
+ * The chapter default voice is merged into the "Narrator (default)" entry: it shows the
+ * effective voice in small print, with an "Override voice" select beneath it (rendered only
+ * when handleVoiceChange is supplied). These tests cover the select's presence/absence,
+ * the change callback, and the small-print effective-voice display.
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -99,13 +101,13 @@ describe('RST-6 — CastPalette default-voice picker', () => {
     );
 
     // Label is wrapped around the select — getByLabelText resolves via implicit label
-    expect(screen.getByLabelText('Chapter default voice')).toBeInTheDocument();
+    expect(screen.getByLabelText('Override voice')).toBeInTheDocument();
   });
 
   it('does not render the voice select when handleVoiceChange is not supplied', () => {
     render(<CastPalette {...basePaletteProps()} />);
 
-    expect(screen.queryByLabelText('Chapter default voice')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Override voice')).not.toBeInTheDocument();
   });
 
   it('calls handleVoiceChange when the select value changes', () => {
@@ -120,9 +122,26 @@ describe('RST-6 — CastPalette default-voice picker', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('Chapter default voice'), {
+    fireEvent.change(screen.getByLabelText('Override voice'), {
       target: { value: 'Narrator Default' },
     });
     expect(handleVoiceChange).toHaveBeenCalledWith('Narrator Default');
+  });
+
+  it("shows the project default voice as the narrator's voice in small print when no override is set", () => {
+    render(
+      <CastPalette
+        {...basePaletteProps()}
+        localVoice=""
+        handleVoiceChange={vi.fn()}
+        availableVoices={voiceOptions}
+        chapterDefaultVoiceLabel="Use Project Default (David)"
+        chapterDefaultVoiceName="David"
+      />,
+    );
+
+    // The Narrator (default) entry surfaces the effective voice, not just the paint-mode hint.
+    expect(screen.getByText('David')).toBeInTheDocument();
+    expect(screen.queryByText('revert lines to narrator')).not.toBeInTheDocument();
   });
 });

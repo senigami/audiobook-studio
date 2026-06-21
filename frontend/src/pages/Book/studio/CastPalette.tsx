@@ -40,6 +40,8 @@ interface CastPaletteProps {
   availableVoices?: VoiceOption[];
   /** Label for the "use project default" option in the voice select. */
   chapterDefaultVoiceLabel?: string;
+  /** Resolved name of the project-default voice (e.g. "David"), shown as the narrator's voice in small print. */
+  chapterDefaultVoiceName?: string;
 }
 
 function buildSegmentCounts(segments: ChapterSegment[]) {
@@ -411,8 +413,14 @@ export function CastPalette({
   handleVoiceChange,
   availableVoices = [],
   chapterDefaultVoiceLabel,
+  chapterDefaultVoiceName,
 }: CastPaletteProps) {
   const segmentCounts = useMemo(() => buildSegmentCounts(segments), [segments]);
+  // The narrator's effective voice: the chapter override if set, otherwise the project default.
+  const isClearMode = selectedCharacterId === 'CLEAR_ASSIGNMENT';
+  const effectiveNarratorVoice = localVoice
+    ? (availableVoices.find((option) => option.value === localVoice)?.name ?? localVoice)
+    : (chapterDefaultVoiceName ?? '');
 
   // IDs of book characters that appear in current chapter (≥1 segment assigned)
   const usedInChapter = useMemo(() => {
@@ -538,26 +546,6 @@ export function CastPalette({
         }}>
           Cast
         </div>
-        {handleVoiceChange && (
-          <div style={{ marginTop: '0.4rem' }}>
-            <label style={{
-              display: 'block',
-              fontSize: 'var(--type-micro)',
-              color: 'var(--text-muted)',
-              marginBottom: '0.2rem',
-              cursor: 'default',
-            }}>
-              Chapter default voice
-              <VoiceProfileSelect
-                value={localVoice ?? ''}
-                onChange={handleVoiceChange}
-                options={availableVoices}
-                defaultLabel={chapterDefaultVoiceLabel ?? 'Use Project Default'}
-                style={{ width: '100%', fontSize: '0.7rem', padding: '0.25rem 1.5rem 0.25rem 0.4rem', marginTop: '0.2rem' }}
-              />
-            </label>
-          </div>
-        )}
       </div>
 
       <div style={{
@@ -566,13 +554,14 @@ export function CastPalette({
         overflowY: 'auto',
         padding: '0.35rem 0',
       }}>
-        {/* Narrator (default) clear-assignment button */}
-        <div style={{ margin: '0 0.35rem 0.35rem' }}>
+        {/* Narrator (default) — the chapter's default voice + clear-assignment paint mode */}
+        <div style={{ margin: '0 0.35rem 0.5rem' }}>
           <button
             type="button"
-            aria-pressed={selectedCharacterId === 'CLEAR_ASSIGNMENT'}
+            aria-pressed={isClearMode}
+            title="Click sentences to revert them to the narrator's voice"
             onClick={() => {
-              if (selectedCharacterId === 'CLEAR_ASSIGNMENT') {
+              if (isClearMode) {
                 setSelectedCharacterId(null);
               } else {
                 setSelectedCharacterId('CLEAR_ASSIGNMENT');
@@ -581,16 +570,10 @@ export function CastPalette({
             }}
             style={{
               width: '100%',
-              border: selectedCharacterId === 'CLEAR_ASSIGNMENT'
-                ? '1px solid var(--accent)'
-                : '1px solid var(--border)',
-              borderLeft: selectedCharacterId === 'CLEAR_ASSIGNMENT'
-                ? '3px solid var(--accent)'
-                : '3px solid transparent',
+              border: isClearMode ? '1px solid var(--accent)' : '1px solid var(--border)',
+              borderLeft: isClearMode ? '3px solid var(--accent)' : '3px solid transparent',
               borderRadius: 10,
-              background: selectedCharacterId === 'CLEAR_ASSIGNMENT'
-                ? 'var(--surface-light)'
-                : 'transparent',
+              background: isClearMode ? 'var(--surface-light)' : 'transparent',
               display: 'flex',
               alignItems: 'center',
               gap: 8,
@@ -598,7 +581,7 @@ export function CastPalette({
               color: 'var(--text-primary)',
               cursor: 'pointer',
               textAlign: 'left',
-              opacity: selectedCharacterId !== null && selectedCharacterId !== 'CLEAR_ASSIGNMENT' ? 0.55 : 1,
+              opacity: selectedCharacterId !== null && !isClearMode ? 0.55 : 1,
             }}
           >
             <div style={{
@@ -632,15 +615,35 @@ export function CastPalette({
               </div>
               <div style={{
                 fontSize: '0.58rem',
-                color: 'var(--text-muted)',
+                color: isClearMode ? 'var(--accent)' : 'var(--text-muted)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
               }}>
-                {selectedCharacterId === 'CLEAR_ASSIGNMENT' ? 'click sentences to clear' : 'revert lines to narrator'}
+                {isClearMode
+                  ? 'click sentences to clear'
+                  : (effectiveNarratorVoice || 'revert lines to narrator')}
               </div>
             </div>
           </button>
+          {handleVoiceChange && (
+            <label style={{
+              display: 'block',
+              marginTop: '0.3rem',
+              fontSize: 'var(--type-micro)',
+              color: 'var(--text-muted)',
+              cursor: 'default',
+            }}>
+              <span style={{ display: 'block', marginBottom: '0.15rem' }}>Override voice</span>
+              <VoiceProfileSelect
+                value={localVoice ?? ''}
+                onChange={handleVoiceChange}
+                options={availableVoices}
+                defaultLabel={chapterDefaultVoiceLabel ?? 'Use Project Default'}
+                style={{ width: '100%', fontSize: '0.7rem', padding: '0.25rem 1.5rem 0.25rem 0.4rem', marginTop: '0.1rem' }}
+              />
+            </label>
+          )}
         </div>
 
         {/* ── Tiered layout ─────────────────────────────────── */}
