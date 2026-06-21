@@ -9,7 +9,6 @@
 
 /* Running state restores pulse even under reduced-motion (structural exemption per INV-5) */
 .is-running {
-  --pulse-duration: 3s;
   animation: calm-pulse var(--pulse-duration) ease-in-out infinite;
 }
 

@@ -1,7 +1,7 @@
 # Design System
 
 ```
-spec_version: 1.6.1
+spec_version: 1.6.2
 status: active
 created: 2026-06-13
 updated: 2026-06-20
@@ -49,6 +49,7 @@ sources:
 | 1.5.0   | 2026-06-20 | **P0 fonts.** Self-host Geist Variable + Geist Mono + Source Serif 4 via @fontsource; add `--font-ui`/`--font-display`/`--font-reading`/`--font-mono` tokens; repoint `base.css` stacks; Inter remains as fallback in `--font-ui` stack. Resolves R1. |
 | 1.6.0 | 2026-06-20 | **P1 token re-skin.** Alias --accent to #1e4fd8 (light)/#6b9fff (dark); add role-named --action-primary/-hover/-active, --on-action, --primary-border-inset, --live-indicator; studio-dark --bg #0d0f14; 3-stop dark text ladder (--text-secondary #a8b2c4, --text-muted #8b95a8, NEW --text-subtle #6b7a92); light --text-primary #1c2b4a, --text-muted #5c6a80, --text-subtle #64748b; NEW --surface-reading; --on-success, --status-cached-text/-ring; tightened radii (card 10, button 8, NEW compact 6); --pulse-duration; double-ring :focus-visible; solid --progress-preparing-fill; calm-pulse keyframe; flat buttons (.btn-primary/-success/-home — no gradient/glow/translateY lift). §2.4 recomputed against new --bg. Review fixes: made `--text-on-accent` dark-aware (#0d0f14 — the lightened dark accent needs dark on-accent text, 7.33:1) and wired the `.is-running` reduced-motion exemption so the calm-pulse genuinely survives the guard. |
 | 1.6.1 | 2026-06-20 | **P1 audit fixes.** Synced accent-derived rgba tokens (--accent-rgb/-glow/-tint-bg/-tint-border/-focus-ring) to the new #1e4fd8/#6b9fff channels (were stale #2b6eff); wired success fills (.btn-success, .studio-header-actions__commit) to --on-success and three hardcoded white-on-accent consumers to --on-action (dark-mode AA); removed the blanket button min-height that deformed compact buttons (kept on form controls); corrected §2.4 --success bg values (#10b981, not #16a34a/#22c55e), the §10 --as-blue/--accent equality, and the --pulse-duration mechanism wording. |
+| 1.6.2 | 2026-06-20 | **Adversarial-review fixes.** Exempted essential busy indicators (.animate-spin/-slow, indeterminate progress barber-pole) from the reduced-motion guard at a calm cadence (§8.5) — the blanket guard had frozen the only "working vs hung" cue for reduced-motion users. Documented --action-primary/--on-action as the canonical action tokens (--accent/--text-on-accent retained aliases, P5 collapses); marked six not-yet-consumed tokens as pending (not dead); de-duplicated --pulse-duration. |
 
 ---
 
@@ -77,7 +78,7 @@ Token categories (current):
 | Background / surface | `--bg`, `--background`, `--surface`, `--surface-alt`, `--surface-light`, `--surface-white`, `--surface-pressed`, `--surface-code`, `--surface-code-border`, `--surface-dim`, `--surface-tinted-light`, `--surface-reading` (warm off-white for manuscript/reading columns) |
 | Text | `--text-primary`, `--text-secondary`, `--text-muted`, `--text-subtle` (NEW — large/chrome only; MUST NOT carry body text), `--text`, `--text-on-accent`, `--text-code-muted`, `--text-code-info` |
 | Border | `--border`, `--border-muted`, `--glass-border` |
-| Accent | `--accent` (#1e4fd8 light / #6b9fff dark — value changed in P1; name kept as alias), `--accent-hover`, `--accent-active`, `--accent-secondary`, `--accent-glow`, `--accent-tint`, `--accent-tint-bg`, `--accent-tint-border`, `--accent-focus-ring`, `--accent-rgb`; **role-named family (NEW):** `--action-primary` / `--action-primary-hover` / `--action-primary-active` (semantic alias for `--accent`), `--on-action` (text on action-primary fills), `--primary-border-inset` (1px inset border on flat buttons), `--live-indicator` |
+| Accent | `--accent` (#1e4fd8 light / #6b9fff dark — value changed in P1; name kept as alias), `--accent-hover`, `--accent-active`, `--accent-secondary`, `--accent-glow`, `--accent-tint`, `--accent-tint-bg`, `--accent-tint-border`, `--accent-focus-ring`, `--accent-rgb`; **role-named family (NEW):** `--action-primary` / `--action-primary-hover` / `--action-primary-active` (semantic alias for `--accent`), `--on-action` (text on action-primary fills), `--primary-border-inset` (1px inset border on flat buttons), `--live-indicator`. **Canonical:** use `--action-primary` / `--on-action` for new action surfaces; `--accent` / `--text-on-accent` are retained aliases for existing consumers (same value today; the full rename is tracked for P5). Don't mix — pair `--on-action` with `--action-primary`, `--text-on-accent` with `--accent`. |
 | State (success / warning / error / cached) | `--success`, `--success-muted`, `--success-strong`, `--success-strong-hover`, `--success-color`, `--success-text`, `--success-tint-bg`, `--on-success` (NEW — text on success fills), `--warning`, `--warning-text`, `--warning-text-strong`, `--warning-tint-bg`, `--warning-tint-border`, `--error`, `--error-text`, `--error-text-strong`, `--error-tint-bg`, `--error-tint-border`, `--error-glow`; **Cached state (NEW):** `--status-cached-text` (amber text on surface — #9a4d0a light / #fbbf24 dark), `--status-cached-ring` (ring/icon use only — #a8530a light / #fbbf24 dark) |
 | Cloud engine | `--cloud-color`, `--cloud-tint-bg` (the cloud/API-engine accent family — distinct from the local-engine `--accent`) |
 | Waveform strip | `--color-wave`, `--color-wave-progress`, `--color-wave-cursor`, `--color-wave-bg`, `--color-wave-btn-bg`, `--color-wave-btn-border`, `--color-wave-btn-active-{bg,border,text}` (audio scrubber; see [audio-player.md](audio-player.md)) |
@@ -103,7 +104,7 @@ Components MUST style themselves through tokens, not hardcoded color/elevation v
 
 - **MUST** reference `var(--token)` for any color, surface, border, shadow, radius, or overlay value.
 - **MUST NOT** introduce raw hex/`rgb()`/`rgba()` literals in component code for themed surfaces. Where a literal is unavoidable (e.g. `color: '#fff'` on a known-colored fill such as the error orb glyph), it MUST be a value that is correct in *both* themes by construction.
-- A handful of exempt literals exist (e.g. white text on a saturated accent fill); new code SHOULD prefer `--text-on-accent` over a raw `white`/`#fff`.
+- A handful of exempt literals exist (e.g. white text on a saturated accent fill); new code SHOULD prefer `--on-action` over a raw `white`/`#fff` (the canonical token for text on action-primary fills); `--text-on-accent` remains valid as its alias but `--on-action` is preferred for new code.
 
 There is currently **no automated lint/CI gate** enforcing token usage; enforcement is by review against this rule. A stylelint/CI check is a reasonable **target** but is not asserted to ship today.
 
@@ -363,7 +364,9 @@ The `prefers-reduced-motion` guard is now the **first rule in `base.css`** (INV-
 }
 ```
 
-This resolves the prior coverage gap (was demo-only). The `--pulse-duration` token is **not** changed by this guard — the guard zeroes `animation-duration` on all elements; `.is-running` re-enables `animation-duration: var(--pulse-duration)` (with `!important` + higher specificity) so the calm-pulse survives the guard — an exemption that is semantically meaningful (a live running indicator is structural status, not decorative motion). Framer Motion animations on real-app pages remain a tracked follow-up for explicit `useReducedMotion()` adoption, but the global guard provides a safety net for all CSS transitions and keyframe animations.
+This resolves the prior coverage gap (was demo-only). The `--pulse-duration` token is **not** changed by this guard — the guard zeroes `animation-duration` on all elements; `.is-running` re-enables `animation-duration: var(--pulse-duration)` (with `!important` + higher specificity) so the calm-pulse survives the guard — an exemption that is semantically meaningful (a live running indicator is structural status, not decorative motion).
+
+**Functional-motion exemptions (essential, per WCAG 2.3.3):** the blanket guard must NOT freeze motion that is the *sole* cue distinguishing "working" from "hung". Loading spinners (`.animate-spin`, `.animate-spin-slow`) and indeterminate progress (`.progress-bar-animated`, `.progress-bar-pending::before`, `.progress-bar-finalizing::before`) are therefore re-enabled (slowed to a calm cadence) inside the guard alongside `.is-running`. These are the universal busy indicators across the app (boot screen, every submit button, modals, the predictive progress bar's preparing/finalizing states); freezing them would leave a reduced-motion user unable to tell a running render from a stalled one. Framer Motion animations on real-app pages remain a tracked follow-up for explicit `useReducedMotion()` adoption, but the global guard provides a safety net for all *decorative* CSS transitions and keyframe animations.
 
 ---
 

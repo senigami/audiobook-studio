@@ -8,8 +8,8 @@
   --bg: #f5f7fb;
   --surface: #ffffff;
   --surface-alt: #f0f3f9;
-  --surface-reading: #fffef9;
-  --accent: #1e4fd8;                               /* aliased from #2b6eff — value changed, name kept */
+  --surface-reading: #fffef9;  /* pending P3 (manuscript reading column) */
+  --accent: #1e4fd8;                               /* aliased from #2b6eff — value changed, name kept as a transition alias for ~36 existing consumers; --action-primary is the canonical role name going forward (full rename is phase P5) */
   --accent-secondary: #ff8a1f;
   --accent-hover: #1a45c0;                         /* was #1d54da */
   --accent-active: #163aa3;                        /* was #1642b5 */
@@ -18,7 +18,7 @@
   --action-primary-active: #163aa3;                /* NEW */
   --on-action: #ffffff;                            /* NEW (≡ --text-on-accent) */
   --primary-border-inset: rgba(255,255,255,.18);   /* NEW — 1px inset border on flat buttons */
-  --live-indicator: #1e4fd8;                       /* NEW */
+  --live-indicator: #1e4fd8;                       /* NEW; pending P3 (progress/nav-active) */
   --accent-glow: rgba(30, 79, 216, 0.1);
   --success: #10b981;
   --success-muted: #d1fae5;
@@ -30,7 +30,7 @@
   --text-primary: #1c2b4a;     /* was #0f172a */
   --text-secondary: #475569;
   --text-muted: #5c6a80;       /* was #64748b */
-  --text-subtle: #64748b;      /* NEW — large/chrome only in light */
+  --text-subtle: #64748b;      /* NEW — large/chrome only in light; pending — no consumers yet (P3) */
   --border: #e6eaf2;
   --glass: rgba(255, 255, 255, 0.8);
   --glass-border: rgba(255, 255, 255, 0.5);
@@ -46,7 +46,7 @@
   --radius-card: 10px;     /* was 14px */
   --radius-panel: 18px;
   --radius-round: 9999px;
-  --radius-compact: 6px;   /* NEW — compact controls, badges */
+  --radius-compact: 6px;   /* NEW — compact controls, badges; pending P2 (compact controls) */
 
   /* Elevation — soft, layered, Apple-style ambient shadows (a wide diffuse
      halo + a tight contact shadow) rather than a single hard drop. */
@@ -110,8 +110,8 @@
   --warning-text-strong: #b45309;               /* warning/caution inline text */
   --text-on-accent: #ffffff;                    /* text on colored accent surfaces */
   --on-success: #04240f;                        /* NEW — text on success fills */
-  --status-cached-text: #9a4d0a;               /* NEW */
-  --status-cached-ring: #a8530a;               /* NEW — ring/icon use only, NOT text */
+  --status-cached-text: #9a4d0a;               /* NEW; pending P3 (StatusOrb cached state) */
+  --status-cached-ring: #a8530a;               /* NEW — ring/icon use only, NOT text; pending P3 (StatusOrb cached state) */
   --glass-surface-light: rgba(248, 249, 252, 0.78); /* panel glass in light mode */
   --glass-subtle: rgba(255, 255, 255, 0.05);    /* very subtle glass tint */
 
@@ -194,7 +194,7 @@
   /* Typography stacks — updated by Task 000 */
   --font-ui:      'Geist Variable', 'Geist', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Space Grotesk', 'Geist Variable', system-ui, sans-serif;
-  --font-reading: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-reading: 'Source Serif 4', Georgia, 'Times New Roman', serif;  /* pending P3 (reading column) */
   --font-mono:    'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Type scale tokens — design-system §4 (additive; theme-independent) */
@@ -241,7 +241,7 @@
   --background:           #0d0f14;
   --surface:              #1a1d27;
   --surface-alt:          #161922;   /* was #22263a */
-  --surface-reading:      #1c1f2a;   /* NEW */
+  --surface-reading:      #1c1f2a;   /* NEW; pending P3 (manuscript reading column) */
   --surface-light:        #1a1d27;
   --surface-white:        #1a1d27;
   --surface-pressed:      #2d3148;
@@ -256,7 +256,7 @@
   --text-primary:         #e8eaf0;
   --text-secondary:       #a8b2c4;   /* was #9ca3af */
   --text-muted:           #8b95a8;   /* was #6b7280 — fixes AA failure in §2.4 */
-  --text-subtle:          #6b7a92;   /* NEW */
+  --text-subtle:          #6b7a92;   /* NEW; pending — no consumers yet (P3) */
   --text:                 var(--text-primary);
   --text-code-muted:      #b0b8c8;
   --text-code-info:       #38bdf8;
@@ -289,7 +289,7 @@
   --on-action:            #0d0f14;              /* NEW — dark bg, not white */
   --text-on-accent:       #0d0f14;              /* dark-aware (was inheriting #fff): dark --accent is light-blue #6b9fff, so on-accent text must be dark — 7.33:1 */
   --primary-border-inset: rgba(0,0,0,.12);      /* NEW */
-  --live-indicator:       #6b9fff;              /* NEW */
+  --live-indicator:       #6b9fff;              /* NEW; pending P3 (progress/nav-active) */
 
   /* Accent tints */
   --accent-tint:          rgba(99, 102, 241, 0.18);
@@ -307,8 +307,8 @@
   --success-color:        #10b981;
   --success-tint-bg:      rgba(16, 185, 129, 0.12);
   --on-success:           #052e16;              /* NEW */
-  --status-cached-text:   #fbbf24;              /* NEW */
-  --status-cached-ring:   #fbbf24;              /* NEW */
+  --status-cached-text:   #fbbf24;              /* NEW; pending P3 (StatusOrb cached state) */
+  --status-cached-ring:   #fbbf24;              /* NEW; pending P3 (StatusOrb cached state) */
 
   /* Warning */
   --warning:              #f59e0b;

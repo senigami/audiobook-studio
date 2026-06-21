@@ -13,6 +13,25 @@
     animation-duration: var(--pulse-duration) !important;
     animation-iteration-count: infinite !important;
   }
+  /* Functional/essential motion exemption: loading spinners and indeterminate
+     progress (preparing/finalizing barber-pole) are the SOLE cue distinguishing
+     "working" from "hung" — freezing them is worse than the motion. WCAG 2.3.3
+     only requires suppressing non-essential motion. These convey busy state, so
+     they survive the guard (slowed slightly to stay calm). */
+  .animate-spin {
+    animation-duration: 1.6s !important;
+    animation-iteration-count: infinite !important;
+  }
+  .animate-spin-slow {
+    animation-duration: 3s !important;
+    animation-iteration-count: infinite !important;
+  }
+  .progress-bar-animated,
+  .progress-bar-pending::before,
+  .progress-bar-finalizing::before {
+    animation-duration: 1.2s !important;
+    animation-iteration-count: infinite !important;
+  }
 }
 
 * {
