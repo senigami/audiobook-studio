@@ -10,6 +10,7 @@
       <stop offset="1" stop-color="#bdbdbd" stop-opacity=".12"/>
     </linearGradient>
   </defs>
+  <rect width="96" height="96" fill="#c6e8f5"/>
   <path fill="url(#wing)" d="M24 31C13.8 28.9 7.2 32.1 6 40.6c-1.5 11 11.2 16.1 28.2 11.9C25 46.8 21.6 39.7 24 31Z"/>
   <path fill="url(#wing)" d="M72 31c10.2-2.1 16.8 1.1 18 9.6 1.5 11-11.2 16.1-28.2 11.9C71 46.8 74.4 39.7 72 31Z"/>
   <path fill="url(#g)" d="M19 86c4.9-16.2 14.6-24.3 29-24.3S72.2 69.8 77 86H19Z"/>

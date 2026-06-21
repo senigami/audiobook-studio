@@ -6,6 +6,7 @@
       <stop offset="1" stop-color="#080808"/>
     </linearGradient>
   </defs>
+  <rect width="96" height="96" fill="#9aa38d"/>
   <path fill="url(#g)" d="M12 86c6.5-18.7 18.5-28 36-28s29.6 9.3 36 28H12Z"/>
   <path fill="url(#g)" d="M23 38.9c0-17.6 9.4-28 25-28s25 10.4 25 28c0 17.9-10.4 29.8-25 29.8S23 56.8 23 38.9Z"/>
   <path fill="#111" d="M20 28 7 20l6 16 7-8ZM76 28l13-8-6 16-7-8Z"/>
