@@ -8,11 +8,9 @@ pytest
 watchdog
 ruff
 pytest-cov
-mistralai
 
 # XTTS requirements (Managed separately for compatibility)
 # See plugins/tts_xtts/requirements.txt
-beautifulsoup4
 psutil
 jsonschema>=4.0
 pillow

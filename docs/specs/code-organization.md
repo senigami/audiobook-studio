@@ -208,7 +208,7 @@ frontend/
     theme/            # CSS variables, design tokens, base styles
     config/           # App-level configuration constants
     constants/        # Shared constant values
-    shared/           # Cross-cutting utilities shared across layers
+    shared/           # Cross-cutting utilities shared across layers (use only for code that is truly cross-feature; feature-specific code must NOT migrate here)
     demo/             # Demo-mode assets (build-separate; not included in production bundle)
     types/            # TypeScript domain types
     utils/            # Pure helpers (jobEventAdapters, jobSelection, etc.)

@@ -166,6 +166,7 @@ mkdocs/_build/
 __pypackages__/
 /scratch
 plugins/*/assets/test_output.wav
+plugins/*/assets/last_test.json
 /Memory
 /debug
 
