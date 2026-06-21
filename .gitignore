@@ -54,8 +54,11 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored to repo root: these are Python build/packaging dirs. An unanchored
+# "lib/" footgun-matched nested source dirs like frontend/src/pages/Book/lib/,
+# silently leaving source files untracked.
+/lib/
+/lib64/
 parts/
 sdist/
 var/
