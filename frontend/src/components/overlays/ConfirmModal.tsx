@@ -159,7 +159,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                                     flex: 1,
                                     padding: '0.75rem',
                                     borderRadius: '12px',
-                                    backgroundColor: isDestructive && !isAlert ? 'var(--error)' : 'var(--accent)',
+                                    backgroundColor: isDestructive && !isAlert ? 'var(--error)' : 'var(--action-primary)',
                                     color: isDestructive && !isAlert ? 'white' : 'var(--on-action)',
                                     border: 'none',
                                     fontWeight: 600,

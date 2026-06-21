@@ -111,7 +111,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: 'var(--on-action)',
+                        color: 'var(--text-on-accent)',
                         boxShadow: 'var(--shadow-sm)'
                     }}>
                         <User size={20} />

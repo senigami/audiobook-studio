@@ -1,7 +1,7 @@
 # Design System
 
 ```
-spec_version: 1.6.2
+spec_version: 1.6.3
 status: active
 created: 2026-06-13
 updated: 2026-06-20
@@ -50,6 +50,7 @@ sources:
 | 1.6.0 | 2026-06-20 | **P1 token re-skin.** Alias --accent to #1e4fd8 (light)/#6b9fff (dark); add role-named --action-primary/-hover/-active, --on-action, --primary-border-inset, --live-indicator; studio-dark --bg #0d0f14; 3-stop dark text ladder (--text-secondary #a8b2c4, --text-muted #8b95a8, NEW --text-subtle #6b7a92); light --text-primary #1c2b4a, --text-muted #5c6a80, --text-subtle #64748b; NEW --surface-reading; --on-success, --status-cached-text/-ring; tightened radii (card 10, button 8, NEW compact 6); --pulse-duration; double-ring :focus-visible; solid --progress-preparing-fill; calm-pulse keyframe; flat buttons (.btn-primary/-success/-home — no gradient/glow/translateY lift). §2.4 recomputed against new --bg. Review fixes: made `--text-on-accent` dark-aware (#0d0f14 — the lightened dark accent needs dark on-accent text, 7.33:1) and wired the `.is-running` reduced-motion exemption so the calm-pulse genuinely survives the guard. |
 | 1.6.1 | 2026-06-20 | **P1 audit fixes.** Synced accent-derived rgba tokens (--accent-rgb/-glow/-tint-bg/-tint-border/-focus-ring) to the new #1e4fd8/#6b9fff channels (were stale #2b6eff); wired success fills (.btn-success, .studio-header-actions__commit) to --on-success and three hardcoded white-on-accent consumers to --on-action (dark-mode AA); removed the blanket button min-height that deformed compact buttons (kept on form controls); corrected §2.4 --success bg values (#10b981, not #16a34a/#22c55e), the §10 --as-blue/--accent equality, and the --pulse-duration mechanism wording. |
 | 1.6.2 | 2026-06-20 | **Adversarial-review fixes.** Exempted essential busy indicators (.animate-spin/-slow, indeterminate progress barber-pole) from the reduced-motion guard at a calm cadence (§8.5) — the blanket guard had frozen the only "working vs hung" cue for reduced-motion users. Documented --action-primary/--on-action as the canonical action tokens (--accent/--text-on-accent retained aliases, P5 collapses); marked six not-yet-consumed tokens as pending (not dead); de-duplicated --pulse-duration. |
+| 1.6.3 | 2026-06-20 | **Adversarial-review round 2 fixes.** Added dark-mode `--accent-rgb` override (was inheriting light channels — the sibling `--accent-tint-*` were synced but this wasn't). Removed the spec's own "don't mix on-color families" counter-examples: action buttons (ConfirmModal confirm, ApiGuidePanel link) now pair `--on-action` with `--action-primary`; the NarratorCard accent avatar pairs `--text-on-accent` with `--accent`. Doc-accuracy fixes: corrected the `--accent` consumer count (~94 files, was ~36), corrected mislabeled "pending P3" markers on reading-column/chrome tokens, completed the §8.5 fenced code block to show the busy-indicator exemptions, and documented the per-cadence derivation. |
 
 ---
 
@@ -361,6 +362,10 @@ The `prefers-reduced-motion` guard is now the **first rule in `base.css`** (INV-
     transition-duration: .01ms !important;
     scroll-behavior: auto !important;
   }
+  /* Essential-motion exemptions re-enabled inside the guard (see prose below):
+     .is-running (calm-pulse, var(--pulse-duration)), .animate-spin (1.6s),
+     .animate-spin-slow (3s), and the indeterminate-progress barber-pole
+     (.progress-bar-animated / -pending::before / -finalizing::before, 1.2s). */
 }
 ```
 

@@ -17,7 +17,13 @@
      progress (preparing/finalizing barber-pole) are the SOLE cue distinguishing
      "working" from "hung" — freezing them is worse than the motion. WCAG 2.3.3
      only requires suppressing non-essential motion. These convey busy state, so
-     they survive the guard (slowed slightly to stay calm). */
+     they survive the guard. Each cadence below is the element's normal-state
+     duration (in utilities.css) slowed ~1.5–2x to stay calm under reduced-motion:
+       .animate-spin       normal 1s   -> 1.6s
+       .animate-spin-slow  normal 3s   -> 3s   (already calm; left as-is)
+       barber-pole         normal 0.7s -> 1.2s
+     (Literal seconds, not tokens: these are reduced-motion-only overrides with no
+     normal-state token to share; keep in sync if the utilities.css durations change.) */
   .animate-spin {
     animation-duration: 1.6s !important;
     animation-iteration-count: infinite !important;
