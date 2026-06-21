@@ -1,8 +1,8 @@
 # Plugin Contract
 
 ```
-spec_version: 1.3.1
-updated: 2026-06-16
+spec_version: 1.4.0
+updated: 2026-06-21
 status: active
 sources:
   - app/engines/voice/sdk.py
@@ -23,6 +23,7 @@ sources:
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 | 1.1.0   | 2026-06-11 | Additive: optional `behavior.sanitize_categories` list; unknown names cause load error; absent means all categories applied (backward-compatible) |
 | 1.2.0   | 2026-06-11 | Additive: optional `check_output(req, result) -> tuple[bool, str]` method on `StudioTTSEngine`; default accept-all; TTS Server calls this after synthesize() and deletes artifact + returns `output_rejected` on (False, reason); crashing hook is failure-isolated (logs + accepts) |
+| 1.4.0   | 2026-06-21 | S10: secret-aware plugin settings — `settings_schema.json` properties may carry `"secret": true`; the TTS Server masks such fields as `"***"` on all read-to-client paths (`GET /engines/{id}/settings`, `PUT /engines/{id}/settings` response, `build_engine_detail` `current_settings`); posting the sentinel back never overwrites the stored value; see §Settings schema — secret fields |
 | 1.3.1   | 2026-06-16 | Corrected resource-profile documentation: `gpu`, `vram_mb`, `cpu_heavy` are nested inside an optional `resource` object, not top-level manifest keys; mirrors actual manifest layout and `manifest.resource` / `ResourceProfile` in `app/engines/models.py` |
 | 1.3.0   | 2026-06-12 | S10 closeout: (1) loader now validates all five required method signatures + declared optional overrides via `inspect.signature` at load time (wrong param name / insufficient arity → `PluginLoadError` naming the method and expected signature; extra optional params tolerated); (2) all four manifest version fields (`contract_version`, `sdk_version`, `settings_schema_version`, `event_envelope_version`) are hard-required since S8; (3) `check_output` §2.3 stale "does not exist yet" note corrected — the method has been in `base.py` since v1.2.0; (4) `ctx.stitch_segments` gains `on_output` and `cancel_check` optional params plus `pdir` (defaults to parent of `out_wav`); returns `int` (was `None`); (5) `ctx.finalize_sample_artifact`, `ctx.run_voice_job`, and `ctx.resolve_voice_preview_inputs` added to §3.3 tables; (6) in-tree plugin wrapper-boundary note: function-body `app.*` imports are tolerated in bake/segments/standard_handler because tests monkeypatch those targets directly (resolves with S9 dispatcher integration); standalone plugins must have zero `app.*` imports at any scope |
 
@@ -243,3 +244,41 @@ a per-engine limit.
 **MUST NOT:**
 - `text_split_target` MUST NOT exceed `text_chunk_limit` when both are present.
 - `studio_tts_manifest` MUST NOT be any value other than `"1.0"`.
+
+---
+
+## Settings schema — secret fields
+
+`settings_schema.json` (or the dict returned by `settings_schema()`) may mark any
+string property with `"secret": true`:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "api_key": {
+      "type": "string",
+      "title": "API Key",
+      "secret": true
+    }
+  }
+}
+```
+
+**Contract:**
+
+- The TTS Server's `settings_store.secret_keys(schema)` identifies all such keys.
+- `settings_store.redact_secret_settings(settings, schema)` returns a copy of the
+  settings dict where every secret key is replaced with `"***"` (if the value is
+  truthy) or `""` (if falsy).
+- **All read-to-client chokepoints MUST call `redact_secret_settings`** before
+  embedding settings in a response: `GET /engines/{id}/settings`,
+  `PUT /engines/{id}/settings` (response body), and `build_engine_detail`
+  (`current_settings` field). The bridge and external `/api/v1/tts/engines` are
+  covered transitively because they proxy TTS Server responses without mutation.
+- `settings_store.merge_settings` silently drops any incoming value of `"***"` for a
+  secret key, so posting the sentinel back never overwrites the stored real value.
+- Secret values MUST NOT be written to log files. If logging is added at the
+  save/merge path, pass the merged dict through `redact_secret_settings` first.
+- The `readOnly` field (used for computed read-only settings like
+  `computer_speed_multiplier`) is orthogonal to `secret`; a field may carry both.

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
 from app.engines.enablement import can_enable_engine
-from app.tts_server.settings_store import load_settings
+from app.tts_server.settings_store import load_settings, redact_secret_settings, _load_settings_schema
 
 logger = logging.getLogger(__name__)
 
@@ -212,6 +212,13 @@ def build_engine_detail(
     elif status != STATUS_NEEDS_SETUP:
         setup_message = None
 
+    # Redact secret fields before embedding settings in the client-bound payload.
+    # Load the schema from disk (the authoritative source for secret declarations)
+    # rather than the injected schema above, which may have been augmented with
+    # sanitize_overrides and should not affect secret detection.
+    _fs_schema = _load_settings_schema(plugin.plugin_dir) if getattr(plugin, "plugin_dir", None) else {}
+    redacted_settings = redact_secret_settings(current_settings, _fs_schema)
+
     return {
         **info_extra,
         "engine_id": plugin.engine_id,
@@ -237,7 +244,7 @@ def build_engine_detail(
         "health_message": setup_message,
         "verification_error": getattr(plugin, "load_error", None) or getattr(plugin, "verification_error", None),
         "settings_schema": schema,
-        "current_settings": current_settings,
+        "current_settings": redacted_settings,
         "dependencies_satisfied": plugin.dependencies_satisfied,
         "missing_dependencies": plugin.missing_dependencies,
         "dev": manifest.get("dev"),

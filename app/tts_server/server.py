@@ -34,7 +34,13 @@ from app.tts_server.health import (
 )
 from app.engines.enablement import can_enable_engine
 from app.tts_server.plugin_loader import LoadedPlugin, PluginLoadError, _validate_manifest, discover_plugins
-from app.tts_server.settings_store import load_settings, merge_settings, save_settings
+from app.tts_server.settings_store import (
+    load_settings,
+    merge_settings,
+    save_settings,
+    redact_secret_settings,
+    _load_settings_schema,
+)
 from app.tts_server.verification import verify_plugin
 
 logger = logging.getLogger(__name__)
@@ -227,9 +233,15 @@ def get_engine(engine_id: str) -> dict[str, Any]:
 
 @app.get("/engines/{engine_id}/settings")
 def get_engine_settings(engine_id: str) -> dict[str, Any]:
-    """Get current persisted settings for an engine."""
+    """Get current persisted settings for an engine.
+
+    Secret fields (marked ``"secret": true`` in ``settings_schema.json``) are
+    masked as ``"***"`` so they never reach the client in plain text.
+    """
     plugin = _plugin_by_id(engine_id)
-    return load_settings(plugin.plugin_dir)
+    settings = load_settings(plugin.plugin_dir)
+    schema = _load_settings_schema(plugin.plugin_dir)
+    return redact_secret_settings(settings, schema)
 
 
 @app.put("/engines/{engine_id}/settings")
@@ -314,7 +326,9 @@ def update_engine_settings(
         logger.exception("Could not save settings for engine %s", engine_id)
         raise HTTPException(status_code=500, detail="Could not save settings.")
 
-    return {"ok": True, "settings": merged}
+    # NOTE: if logging is ever added for the merged dict, use
+    # redact_secret_settings(merged, schema) before writing to logs.
+    return {"ok": True, "settings": redact_secret_settings(merged, schema)}
 
 
 @app.delete("/engines/{engine_id}/settings/{setting_key}")

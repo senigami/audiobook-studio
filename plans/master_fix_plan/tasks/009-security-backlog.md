@@ -8,7 +8,7 @@ remaining pre-LAN-hardening items).
 - ~~**S6** WebSocket auth~~ **DONE (2026-06-21)** — Origin check added to `/ws` upgrade: absent Origin → allow; present Origin → allow only for localhost/127.0.0.1/[::1] or server's own Host; otherwise close(1008). Spec 1.2.3 + revert-checked tests in `test_websocket_broadcast.py`.
 - ~~**S7** rate-limiter docs~~ **DONE (2026-06-21)** — limitations documented in the `SimpleRateLimiter`
   docstring + `security.md` §Rate Limiting (→ 1.2.2). No behavior change.
-- **S10** secret-aware plugin settings (mask/redact secret fields in schema-driven engine settings).
+- ~~**S10** secret-aware plugin settings~~ **DONE (2026-06-21)** — `secret_keys()` + `redact_secret_settings()` added to `settings_store.py`; sentinel guard in `merge_settings`; redaction applied at all read-to-client paths in `health.py` (`build_engine_detail`) and `server.py` (`GET`/`PUT /engines/{id}/settings`); bridge + external API covered transitively. Plugin-contract spec bumped to 1.4.0; revert-checked tests in `tests/security/test_secret_plugin_settings.py`.
 - ~~**S11** ffmpeg concat quoting~~ **DONE / VERIFIED CORRECT (2026-06-21)** — the finding was wrong;
   the current `'\''` escaping is right (empirically tested, ffmpeg 8.0.1) and the audit's double-quote
   recommendation breaks concat. No code change; regression tests added. See `final_release/12` S11.
