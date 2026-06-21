@@ -121,5 +121,4 @@ React 19 + TypeScript + Vite, React Router, Framer Motion. Standard shape under 
 
 - Files over 500 lines are candidates for splitting; over 600 should be refactored when touched for meaningful changes — along existing boundaries, not mechanically by line count (`modular_architecture.md`).
 - `docs/` holds the plugin SDK docs (`plugin-guide.md`, `plugin-submission-guidelines.md`, `plugin-template/`, `studio-as-tts-gateway.md`). `plans/` holds the v2 conversion roadmap and phase delivery plans.
-- Top-level `audiobook.py` and `audit_routes.py` are legacy/standalone utilities, not part of the running app. `app.db`/`database.sqlite` at the repo root are empty placeholder files.
 - Update `wiki/` pages and add a dated `wiki/Changelog.md` entry when shipped behavior changes. CI (`.github/workflows/ci.yml`) runs ruff + pytest and eslint + vitest + build; `codeql.yml` runs security scanning.

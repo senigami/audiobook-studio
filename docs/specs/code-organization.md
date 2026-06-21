@@ -58,9 +58,9 @@ audiobook-factory/
   pyproject.toml         # Ruff config (line-length 120)
 ```
 
-`audiobook.py` and `audit_routes.py` at the repo root are legacy standalone
-utilities; they are NOT part of the running app.  `app.db` and
-`database.sqlite` at the repo root are empty placeholder files.
+(The former top-level `audiobook.py` / `audit_routes.py` legacy utilities and the
+empty `app.db` / `database.sqlite` placeholders were removed in the foundation
+cleanup — see `wiki/Changelog.md` 2026-06-20.)
 
 ---
 

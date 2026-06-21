@@ -1,11 +1,24 @@
 # 001 — Foundation cleanup (W1)
 
-**Status: DONE (2026-06-20)** — QW-1/2/3/4/5/8 + QW-7 executed and verified green (ruff, pytest 1800,
-FE build+lint+test 1375). Two adjustments made during execution:
-- **QW-6 deferred to [005](005-code-simplification.md)** — the dead-CSS removal folds into the
-  `components.css` split (the file just moved to `theme/components.css` and 2 of its 5 dead selectors
-  are used by the kept demo styleguide; doing it with the split avoids a double-touch and lets those
-  rules be relocated to the demo's own CSS).
+**Status: DONE (2026-06-20)** — QW-2/3/4/5/7/8 done; QW-1 partial (see below). Verified green (ruff,
+pytest 1800, FE build+lint+test 1375) and re-checked by a 3-lens adversarial review (2026-06-21).
+Notes & adjustments:
+- **QW-1 is PARTIAL by design.** Removed the 4 confirmed-dead deps (clsx, tailwind-merge, mistralai,
+  beautifulsoup4). **Intentionally retained:** `ruff` (dev/CI tool, not app runtime — annotated in
+  `requirements.txt`) and the transitive deps `websockets`/`jinja2`/`python-multipart` (the spec's
+  "verify-then-remove via clean-venv" check is deferred to the release dependency pass; `python-multipart`
+  is the likely keeper — form uploads).
+- **QW-2 end-state correct; partly pre-done.** `audiobook.py`/`audit_routes.py`/`text_progress_demo.html`
+  deleted here; `app.db`/`database.sqlite` placeholders were already removed in phase 12.3 (1e475d5e) and
+  only verified-absent here (the real `DB_PATH` is gitignored).
+- **QW-3 parity preserved.** `.coveragerc` precedes `pyproject.toml` in coverage's config search, so its
+  settings were authoritative; on deletion its `concurrency=thread`, `show_missing`, and the
+  `if self.debug:`/`pass`/`raise ImportError` excludes were migrated into `pyproject.toml` so coverage
+  behavior is unchanged (review finding, fixed 2026-06-21).
+- **QW-4 read-path verified:** `app/engines/bridge.py` guards the `last_test.json` read with `.exists()`.
+- **QW-6 deferred to [005](005-code-simplification.md)** — `components.css` already moved to
+  `theme/components.css` in the re-skin; the dead-CSS *deletion* folds into the components.css split there
+  (2 of its 5 dead selectors are used by the kept demo styleguide → relocate, don't delete).
 - **3 fold-in delete candidates were STALE and kept (verified live):** `app/infra/` (imported by
   `app/core/logging.py` + both plugins' `app_adapter.py`), `frontend/src/api/client.ts` (imported by
   `app/providers/index.tsx`), `frontend/src/api/queries/index.ts` (3 importers — intentional boundary).

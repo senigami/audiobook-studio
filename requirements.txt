@@ -6,7 +6,7 @@ python-multipart>=0.0.26
 httpx
 pytest
 watchdog
-ruff
+ruff  # dev/CI lint tool (not an app-runtime dependency)
 pytest-cov
 
 # XTTS requirements (Managed separately for compatibility)

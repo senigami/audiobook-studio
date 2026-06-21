@@ -19,13 +19,21 @@ ignore = [
 ]
 
 [tool.coverage.run]
+# concurrency = thread preserved from the former .coveragerc: this app runs work
+# in threads (boot, watchdog, orchestrator dispatch); without it coverage
+# under-counts lines executed off the main thread.
+concurrency = ["thread"]
 omit = ["plugins/tts_xtts/plugin/core/xtts_inference.py"]
 
 [tool.coverage.report]
+show_missing = true
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
+    "if self.debug:",
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
+    "pass",
+    "raise ImportError",
 ]
