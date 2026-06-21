@@ -81,6 +81,18 @@ def safe_split_long_sentences(text: str, *, target: int) -> str:
     return _fn(text, target=target)
 
 
+def get_project_lexicon(project_id: str) -> list:
+    """Module-level alias for db.lexicon.get_lexicon — patchable by tests."""
+    from app.db.lexicon import get_lexicon as _fn  # noqa: PLC0415
+    return _fn(project_id)
+
+
+def apply_project_lexicon(text: str, entries: list) -> str:
+    """Module-level alias for utils.text.lexicon.apply_lexicon — patchable by tests."""
+    from app.utils.text.lexicon import apply_lexicon as _fn  # noqa: PLC0415
+    return _fn(text, entries)
+
+
 # ---------------------------------------------------------------------------
 # Lazy handler accessor — avoids circular import at module body level.
 # handler.py imports bake.py; bake imports handler lazily at call time.
@@ -127,6 +139,14 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
     missing_group_weights = [_segment_group_weight(group["segments"]) for group in all_groups]
 
     if missing_groups:
+        # Load the project lexicon once for the whole render (zero-impact when empty).
+        _lexicon_entries: list = []
+        if j.project_id:
+            try:
+                _lexicon_entries = get_project_lexicon(j.project_id)
+            except Exception:
+                logger.warning("Failed to load lexicon for project %s; proceeding without substitution.", j.project_id, exc_info=True)
+
         full_script = []
         path_to_group = {}
         for group in missing_groups:
@@ -136,6 +156,11 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
             if j.safe_mode:
                 combined_text = ctx.sanitize_text(combined_text)
                 combined_text = _split(combined_text, target=sent_char_limit)
+            if _lexicon_entries:
+                try:
+                    combined_text = apply_project_lexicon(combined_text, _lexicon_entries)
+                except Exception:
+                    logger.warning("Lexicon substitution failed for group %s; using original text.", group["segments"][0].get("id"), exc_info=True)
             sid = group["segments"][0]['id']
             seg_out = pdir / "segments" / f"{sid}.wav"
             seg_out.parent.mkdir(parents=True, exist_ok=True)

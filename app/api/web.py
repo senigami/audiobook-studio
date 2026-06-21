@@ -16,6 +16,7 @@ from ..core.config import (
 )
 from ..db import init_db
 from .routers import projects, chapters, voices, queue, settings, generation, system, analysis, migration, engines
+from .routers.projects_lexicon import router as lexicon_router
 from .ws import manager, broadcast_job_updated
 from .tts_api import tts_app
 from .routers.analysis import AnalysisError
@@ -497,6 +498,7 @@ app.include_router(system.router)
 app.include_router(analysis.router)
 app.include_router(migration.router)
 app.include_router(engines.router)
+app.include_router(lexicon_router, prefix="/api")
 
 # --- External TTS API ---
 app.mount("/api/v1/tts", tts_app)

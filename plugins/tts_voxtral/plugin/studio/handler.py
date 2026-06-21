@@ -65,6 +65,18 @@ def get_db_connection():
     return _fn()
 
 
+def get_project_lexicon(project_id: str) -> list:
+    """Module-level alias for db.lexicon.get_lexicon — patchable by tests."""
+    from app.db.lexicon import get_lexicon as _fn  # noqa: PLC0415
+    return _fn(project_id)
+
+
+def apply_project_lexicon(text: str, entries: list) -> str:
+    """Module-level alias for utils.text.lexicon.apply_lexicon — patchable by tests."""
+    from app.utils.text.lexicon import apply_lexicon as _fn  # noqa: PLC0415
+    return _fn(text, entries)
+
+
 def _get_bridge_error():
     """Return EngineBridgeError — module-level, patchable by tests.
 
@@ -197,6 +209,16 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         render_text = text or str(spk.get("test_text") or "")
     else:
         render_text = text or (_chapter_text_from_segments(j.chapter_id) if j.chapter_id else "")
+
+    # Apply project lexicon substitution (zero-impact when no entries).
+    if j.project_id and not _is_sample_job(j):
+        try:
+            _lexicon_entries = get_project_lexicon(j.project_id)
+            if _lexicon_entries:
+                render_text = apply_project_lexicon(render_text, _lexicon_entries)
+        except Exception:
+            logger.warning("Failed to apply lexicon for project %s; proceeding without substitution.", j.project_id, exc_info=True)
+
     logger.info(
         "[%s-debug %s] start job=%s chapter=%s profile=%s out_wav=%s text_len=%s",
         j.engine,

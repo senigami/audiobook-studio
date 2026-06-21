@@ -169,6 +169,16 @@ def broadcast_segments_updated(chapter_id):
     return _fn(chapter_id)
 
 
+def get_project_lexicon(project_id):
+    from app.db.lexicon import get_lexicon as _fn  # noqa: PLC0415
+    return _fn(project_id)
+
+
+def apply_project_lexicon(text, entries):
+    from app.utils.text.lexicon import apply_lexicon as _fn  # noqa: PLC0415
+    return _fn(text, entries)
+
+
 def build_chunk_groups(segments, speaker_profile):
     from app.domain.chunk_groups import build_chunk_groups as _fn  # noqa: PLC0415
     return _fn(segments, speaker_profile)
@@ -311,6 +321,13 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
 
     total_synthesis_seconds: float = 0.0
 
+    # Load the project lexicon once for the whole render (zero-impact when empty).
+    _lexicon_entries: list = []
+    try:
+        _lexicon_entries = get_project_lexicon(j.project_id)
+    except Exception:
+        logger.warning("Failed to load lexicon for project %s; proceeding without substitution.", j.project_id, exc_info=True)
+
     for group in target_groups:
         if cancel_check():
             update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
@@ -320,6 +337,13 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         profile_name = group["profile_name"]
         engine = group["engine"]
         chunk_text = " ".join(group["text_parts"]).strip()
+
+        # Apply lexicon substitution before text reaches the engine.
+        if _lexicon_entries:
+            try:
+                chunk_text = apply_project_lexicon(chunk_text, _lexicon_entries)
+            except Exception:
+                logger.warning("Lexicon substitution failed for segment %s; using original text.", segment_id, exc_info=True)
         seg_out = _chunk_output_path(pdir, group)
 
         # The orchestrator's marker pipeline owns chapter-level progress:

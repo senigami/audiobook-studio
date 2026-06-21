@@ -294,9 +294,26 @@ class SynthesisTask(StudioTask):
         if self.engine_id == "mixed":
             return None
 
+        # Apply project lexicon before the text reaches the engine.
+        # Load once per task; zero-impact when the project has no entries.
+        script_text = self.script_text
+        if self.project_id:
+            try:
+                from app.db.lexicon import get_lexicon  # noqa: PLC0415
+                from app.utils.text.lexicon import apply_lexicon  # noqa: PLC0415
+                entries = get_lexicon(self.project_id)
+                if entries:
+                    script_text = apply_lexicon(script_text, entries)
+            except Exception:
+                logger.warning(
+                    "Failed to apply lexicon for project %s; using original text.",
+                    self.project_id,
+                    exc_info=True,
+                )
+
         return {
             "engine_id": self.engine_id,
-            "script_text": self.script_text,
+            "script_text": script_text,
             "output_path": self.output_path,
             "project_id": self.project_id,
             "chapter_id": self.chapter_id,

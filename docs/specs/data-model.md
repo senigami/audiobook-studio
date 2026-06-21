@@ -1,7 +1,7 @@
 # Data Model
 
 ```
-spec_version: 1.2.0
+spec_version: 1.3.1
 status: active
 updated: 2026-06-21
 sources:
@@ -12,6 +12,8 @@ sources:
   - app/db/state_helpers.py
   - app/db/__init__.py
   - app/db/characters.py
+  - app/db/lexicon.py
+  - app/utils/text/lexicon.py
 ```
 
 > **TL;DR:** Studio 2.0 uses two complementary stores — volatile in-memory state.json for live job state and settings, and durable SQLite for project/chapter/queue history — with disk artifact state as the ultimate source of truth.
@@ -20,6 +22,8 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.3.1   | 2026-06-21 | Correct lexicon application-point docs: xtts/voxtral apply it in per-plugin text-prep handlers, NOT in `SynthesisTask.to_bridge_request()` (api_synthesis path only) |
+| 1.3.0   | 2026-06-21 | Add `lexicon` table (per-project pronunciation substitutions); document `apply_lexicon` pre-synthesis application point |
 | 1.2.0   | 2026-06-21 | Add `chapter_id` column to `characters` table for chapter-scoped temp characters; document scope rule (NULL=book, set=chapter-temp) and promote semantics |
 | 1.1.0   | 2026-06-16 | Clarify `finalizing` is a transient phase coerced to `running` on persist in both `put_job` and `update_job`; not a stored value |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
@@ -194,6 +198,30 @@ Records every job that has ever been submitted. This is the durable history; liv
 - When `chapter_id` is supplied: returns `WHERE project_id = ? AND (chapter_id IS NULL OR chapter_id = ?)` — book characters plus that chapter's temps, but NOT other chapters' temps.
 
 **Promote:** `promote_character(character_id)` sets `chapter_id = NULL`, converting a temp to a permanent book character. Exposed via `POST /api/characters/{character_id}/promote`.
+
+### lexicon
+
+Per-project pronunciation substitutions. Each entry maps a source word to a replacement string that is substituted **before** text is sent to the TTS engine.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | TEXT PK | UUID |
+| `project_id` | TEXT FK | → projects.id |
+| `word` | TEXT | Source word (matched whole-word, case-insensitive) |
+| `replacement` | TEXT | Plain-text replacement |
+| `created_at` | REAL | Unix epoch seconds |
+
+**Application:** `app/utils/text/lexicon.apply_lexicon(text, entries)` is called with all entries for a project loaded once per render job. Application points by path:
+- **xtts** (standard, bake, segments): loaded once then applied per group in `plugins/tts_xtts/plugin/studio/standard_handler.handle_xtts_standard()`, `bake.handle_xtts_bake()`, and `segments.handle_xtts_segments()`.
+- **voxtral** (bake, segments): same pattern in `plugins/tts_voxtral/plugin/studio/bake.handle_voxtral_bake()` and `segments.handle_voxtral_segments()`; standard (single-text) path: applied in `handler.handle_voxtral_job()` after `render_text` is resolved.
+- **mixed engine**: applied in `plugins/tts_mixed/handler.handle_mixed_job()` before each segment group is dispatched to `_render_segment`.
+- **api_synthesis (bridge) path**: applied in `app/orchestration/tasks/synthesis.SynthesisTask.to_bridge_request()` for external TTS API requests.
+
+**Zero-impact invariant:** when a project has no lexicon entries, the original text string is returned unchanged (no allocation, no regex compile). Existing renders for projects without a lexicon are byte-identical.
+
+**Scope:** book/project only (no series/global). Plain-text substitution only (no IPA/SSML).
+
+API: `GET/POST /api/projects/{project_id}/lexicon`, `PUT/DELETE /api/projects/{project_id}/lexicon/{entry_id}`.
 
 ### speakers
 

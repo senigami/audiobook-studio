@@ -235,6 +235,18 @@ def init_db():
                 )
             """)
 
+            # Lexicon table (per-project pronunciation substitutions)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS lexicon (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    word TEXT NOT NULL,
+                    replacement TEXT NOT NULL,
+                    created_at REAL,
+                    FOREIGN KEY (project_id) REFERENCES projects (id)
+                )
+            """)
+
             # Projects/User migrations
             def add_column_if_missing(sql: str, label: str):
                 try:
