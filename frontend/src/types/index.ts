@@ -434,3 +434,12 @@ export interface RuntimeService {
   can_restart?: boolean;
   circuit_open?: boolean;
 }
+
+/** Per-book pronunciation lexicon entry — plain-text respelling, book-scoped only. */
+export interface LexiconEntry {
+  id: string;
+  project_id: string;
+  word: string;
+  replacement: string;
+  created_at?: number;
+}

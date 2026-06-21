@@ -458,6 +458,34 @@ export const api = {
     return parseApiResponse(res);
   },
 
+  // --- Pronunciation Lexicon ---
+  fetchLexicon: async (projectId: string): Promise<import('@/types').LexiconEntry[]> => {
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lexicon`);
+    return parseApiResponse(res);
+  },
+  addLexiconEntry: async (projectId: string, word: string, replacement: string): Promise<import('@/types').LexiconEntry> => {
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lexicon`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word, replacement }),
+    });
+    return parseApiResponse(res);
+  },
+  updateLexiconEntry: async (projectId: string, entryId: string, word: string, replacement: string): Promise<import('@/types').LexiconEntry> => {
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lexicon/${encodeURIComponent(entryId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word, replacement }),
+    });
+    return parseApiResponse(res);
+  },
+  deleteLexiconEntry: async (projectId: string, entryId: string): Promise<{ status: string }> => {
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lexicon/${encodeURIComponent(entryId)}`, {
+      method: 'DELETE',
+    });
+    return parseApiResponse(res);
+  },
+
   exportVoiceBundleUrl: (voiceName: string, includeSourceWavs: boolean = false): string => {
     const params = new URLSearchParams({ include_source_wavs: String(includeSourceWavs) });
     return `/api/voices/${encodeURIComponent(voiceName)}/bundle/download?${params.toString()}`;

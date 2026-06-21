@@ -5,6 +5,7 @@ import type { Job, SegmentProgress, Settings, Speaker, SpeakerProfile, TtsEngine
 import { BookDataProvider, useBookDataContext } from '@/pages/Book/BookDataContext';
 import { CastingStage } from '@/pages/Book/stages/CastingStage';
 import { ContentsStage } from '@/pages/Book/stages/ContentsStage';
+import { LexiconStage } from '@/pages/Book/stages/LexiconStage';
 import { StudioStage } from '@/pages/Book/stages/StudioStage';
 import { ReviewStage } from '@/pages/Book/stages/ReviewStage';
 import { PublishStage } from '@/pages/Book/stages/PublishStage';
@@ -49,6 +50,9 @@ function StageContent({ stage }: { stage: BookStage }) {
   }
   if (stage === 'cast') {
     return <CastingStage />;
+  }
+  if (stage === 'lexicon') {
+    return <LexiconStage />;
   }
   if (stage === 'publish') {
     return <PublishStage />;
