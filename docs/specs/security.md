@@ -1,7 +1,7 @@
 # Security
 
 ```
-spec_version: 1.2.2
+spec_version: 1.2.3
 status: active
 updated: 2026-06-21
 sources:
@@ -19,6 +19,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.2.3   | 2026-06-21 | S6: Added WebSocket Origin check to `/ws` to prevent cross-site WebSocket hijacking (CSWSH). Absent Origin → allowed (non-browser clients); present Origin → allowed only if host is localhost/127.0.0.1/[::1] or matches the server's own Host header; otherwise close(1008). LAN exposure note documented. |
 | 1.2.2   | 2026-06-21 | Documented the rate limiter's known limitations (S7): in-memory/per-process (resets on restart, not shared across workers) and IP-keyed (shared behind NAT, no per-API-key bucketing). Behavior unchanged — documentation only. |
 | 1.2.1   | 2026-06-16 | Code brought into compliance with the no-path-leak invariant: plugin import/preview/install error bodies (`app/tts_server/server.py`) no longer echo the submitted zip member name, `engine_id`, or target folder path — they now return generic messages. (Invariant text unchanged.) |
 | 1.2.0   | 2026-06-16 | Recognized-barrier section updated to acknowledge both normpath+startswith and abspath(realpath)+startswith forms; `is_relative_to` carve-out added permitting it as secondary/defense-in-depth barrier |
@@ -230,6 +231,36 @@ return {"status": "error", "message": "A fixed literal string"}
 ```
 
 This rule applies to all routers, task handlers, and middleware. It is not scoped to plugin import alone.
+
+---
+
+## WebSocket Origin Check (S6)
+
+The `/ws` WebSocket endpoint in `app/api/web.py` enforces an Origin check on upgrade to prevent cross-site WebSocket hijacking (CSWSH).
+
+### Behavior
+
+| Condition | Result |
+|-----------|--------|
+| `Origin` header absent | ALLOW — non-browser clients (native apps, CLI tools) do not send Origin; the CSWSH attack requires a browser |
+| `Origin` host is `localhost`, `127.0.0.1`, or `[::1]` | ALLOW |
+| `Origin` host matches the server's own `Host` header host | ALLOW (same-origin request) |
+| `Origin` present and host does not match any of the above | REJECT — `close(code=1008)` and return before accepting |
+
+### Implementation
+
+`_ws_origin_allowed(origin, host_header)` parses the Origin URL with `urllib.parse.urlparse`, extracts the hostname, and compares against the loopback set and the server's own Host header (port stripped).
+
+### LAN exposure note
+
+Studio is a local-first app designed to listen on loopback. When `lan_binding_enabled` is `True` (LAN mode), the server may bind on a LAN address. In that case, the server's own `Host` header received from a LAN client will carry the LAN hostname/IP, which is permitted by the "matches server's Host header" rule. A page served from a different LAN origin is still blocked. The Origin check does **not** replace network-level access controls for a public deployment.
+
+### Invariants
+
+- MUST check Origin on every `/ws` upgrade, before `manager.connect()`.
+- MUST allow absent Origin (non-browser clients).
+- MUST close with code 1008 (policy violation) on a rejected cross-origin request.
+- MUST NOT hardcode an explicit allowlist beyond loopback — same-origin is determined dynamically from the `Host` header.
 
 ---
 

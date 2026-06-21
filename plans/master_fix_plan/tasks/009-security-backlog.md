@@ -5,7 +5,7 @@ remaining pre-LAN-hardening items).
 **Authoritative source:** [`final_release/12_security_and_opportunities.md`](../../final_release/12_security_and_opportunities.md).
 
 **Open items:**
-- **S6** WebSocket auth (pre-LAN hardening — the `/ws` channel currently has no auth gate).
+- ~~**S6** WebSocket auth~~ **DONE (2026-06-21)** — Origin check added to `/ws` upgrade: absent Origin → allow; present Origin → allow only for localhost/127.0.0.1/[::1] or server's own Host; otherwise close(1008). Spec 1.2.3 + revert-checked tests in `test_websocket_broadcast.py`.
 - ~~**S7** rate-limiter docs~~ **DONE (2026-06-21)** — limitations documented in the `SimpleRateLimiter`
   docstring + `security.md` §Rate Limiting (→ 1.2.2). No behavior change.
 - **S10** secret-aware plugin settings (mask/redact secret fields in schema-driven engine settings).

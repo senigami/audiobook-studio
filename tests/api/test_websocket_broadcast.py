@@ -2061,3 +2061,39 @@ def test_terminal_latch_cleared_by_clear_all_jobs(monkeypatch, tmp_path):
         {"status": "running", "progress": 0.2, "chapter_id": "chap-l4", "project_id": "proj-l4"},
     )
     assert any(m["topic"] == "chapters.progress" for m in messages), "latch must not survive clear_all_jobs"
+
+
+# --- S6: WebSocket Origin check ---
+
+def test_websocket_cross_origin_is_rejected():
+    """S6: A connection from a disallowed cross-origin is closed with code 1008 (policy violation).
+
+    R1 revert-check: before the Origin-check is in place, this test would pass (connect succeeds)
+    rather than see a rejection — confirming it truly fails on pre-fix code.
+    """
+    client = TestClient(app)
+    rejected = False
+    try:
+        with client.websocket_connect("/ws", headers={"origin": "https://evil.example.com"}):
+            pass
+    except Exception:
+        # TestClient raises WebSocketDisconnect or similar when the server closes the socket.
+        rejected = True
+    assert rejected, (
+        "Expected cross-origin WebSocket connection to be rejected (close 1008), "
+        "but the connection was accepted"
+    )
+
+
+def test_websocket_no_origin_is_allowed():
+    """S6: A connection with no Origin header (native/CLI clients) must be accepted.
+
+    Non-browser clients (native apps, CLI tools) do not send an Origin header, so
+    absence of the header MUST be treated as allowed — the risk is browser-based
+    CSWSH, not direct programmatic access.
+    """
+    with timeout_after(5, "websocket connect without Origin should not hang"):
+        client = TestClient(app)
+        with client.websocket_connect("/ws") as websocket:
+            # Graceful connect/disconnect without error is the observable contract.
+            pass

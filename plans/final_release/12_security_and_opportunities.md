@@ -18,7 +18,7 @@ Note: this audit found live code under `app/orchestration/tasks/` (e.g. `api_syn
 
 ### Hardening (before enabling LAN binding by default)
 
-- [ ] **S6. WebSocket `/ws` unauthenticated** — `app/api/web.py:202-234`. Origin check or query-token on upgrade; at minimum document the LAN exposure (script text leaks via progress events).
+- [x] **S6. WebSocket `/ws` unauthenticated** — `app/api/web.py:202-234`. Origin check on upgrade: absent Origin → allow (non-browser clients); present Origin → allow only if host is localhost/127.0.0.1/[::1] or matches server's Host header; otherwise close(1008). LAN exposure documented in `security.md` §S6.
 - [x] **S7. Rate limiter in-memory, keyed by IP** — `app/core/security.py:40-78`. Acceptable for 2.0; restart-reset and NAT-shared-key limits **documented** (2026-06-21) in the `SimpleRateLimiter` docstring and `security.md` §Rate Limiting → 1.2.2. No behavior change.
 - [x] **S8. `safe_basename("…/")` returns ""** — `app/utils/pathing.py:6-7`. Raise on empty result (caller at `voices_actions.py:231` is currently saved by a downstream containment check).
 - [x] **S9. Backup filename check cosmetic** — `app/api/routers/projects_backups.py:199,244,308`: `endswith(".zip")` passes `../x.zip`; real containment comes from the scandir name-match. Replace with `os.path.basename(filename) == filename` for defense-in-depth clarity.
