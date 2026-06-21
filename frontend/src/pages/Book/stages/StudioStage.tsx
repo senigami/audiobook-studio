@@ -130,6 +130,8 @@ export function StudioStage() {
     handleUpdateCharacterColor,
     handleCreateTempCharacter,
     handlePromoteCharacter,
+    handleSetCharacterVoice,
+    handleDeleteCharacter,
     renderGroupCount,
     handleVoiceChange,
     chapterDefaultVoiceLabel,
@@ -348,7 +350,9 @@ export function StudioStage() {
           onUpdateCharacterColor={handleUpdateCharacterColor}
           currentChapterId={activeChapterId}
           onCreateTempCharacter={handleCreateTempCharacter}
-          onPromoteCharacter={handlePromoteCharacter}
+          onPromoteCharacter={(characterId) => setConfirmConfig({ title: 'Promote to book cast', message: 'Promote this temp character to the book-wide cast? It will be available in every chapter. This cannot be undone (there is no demote).', confirmText: 'Promote', onConfirm: () => { setConfirmConfig(null); void handlePromoteCharacter(characterId); } })}
+          onSetCharacterVoice={handleSetCharacterVoice}
+          onDeleteCharacter={(characterId) => setConfirmConfig({ title: 'Delete character', message: 'Delete this temp character? Any lines assigned to it will revert to the narrator. This cannot be undone.', confirmText: 'Delete', isDestructive: true, onConfirm: () => { setConfirmConfig(null); void handleDeleteCharacter(characterId); } })}
           localVoice={studio.localVoice}
           handleVoiceChange={handleVoiceChange}
           availableVoices={availableVoices}

@@ -137,9 +137,12 @@ interface TieredHarnessProps {
   currentChapterId: string;
   onCreateTempCharacter?: () => void;
   onPromoteCharacter?: (id: string) => void;
+  onDeleteCharacter?: (id: string) => void;
+  onSetCharacterVoice?: (id: string, profileName: string) => void;
+  availableVoices?: import('@/utils/voiceProfiles').VoiceOption[];
 }
 
-function TieredHarness({ characters, segments, currentChapterId, onCreateTempCharacter, onPromoteCharacter }: TieredHarnessProps) {
+function TieredHarness({ characters, segments, currentChapterId, onCreateTempCharacter, onPromoteCharacter, onDeleteCharacter, onSetCharacterVoice, availableVoices }: TieredHarnessProps) {
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [selectedProfileName, setSelectedProfileName] = useState<string | null>(null);
   const [expandedCharacterId, setExpandedCharacterId] = useState<string | null>(null);
@@ -160,6 +163,9 @@ function TieredHarness({ characters, segments, currentChapterId, onCreateTempCha
       currentChapterId={currentChapterId}
       onCreateTempCharacter={onCreateTempCharacter}
       onPromoteCharacter={onPromoteCharacter}
+      onDeleteCharacter={onDeleteCharacter}
+      onSetCharacterVoice={onSetCharacterVoice}
+      availableVoices={availableVoices}
     />
   );
 }
@@ -251,7 +257,7 @@ describe('CastPalette — 3-tier grouping', () => {
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onPromoteCharacter with the correct characterId when Promote is clicked', () => {
+  it('calls onPromoteCharacter with the correct characterId from the temp settings menu', () => {
     const onPromote = vi.fn();
     render(
       <TieredHarness
@@ -262,15 +268,61 @@ describe('CastPalette — 3-tier grouping', () => {
       />
     );
 
-    // CharacterRow renders: <div onMouseEnter/onMouseLeave><button .../>{promoteBtn}</div>
-    // The button's immediate parentElement IS the CharacterRow hover-target div.
-    const tempRowBtn = screen.getByRole('button', { name: /T Temp One/i });
-    const hoverTarget = tempRowBtn.parentElement as HTMLElement;
-    fireEvent.mouseEnter(hoverTarget);
-
-    // The Promote button is now visible after hovering.
-    const promoteBtn = screen.getByRole('button', { name: /promote/i });
-    fireEvent.click(promoteBtn);
+    // Open the temp character's settings menu, then click Promote inside it.
+    fireEvent.click(screen.getByRole('button', { name: /character settings/i }));
+    fireEvent.click(screen.getByRole('button', { name: /promote to book cast/i }));
     expect(onPromote).toHaveBeenCalledWith('temp-1');
+  });
+
+  it('calls onDeleteCharacter from the temp settings menu', () => {
+    const onDelete = vi.fn();
+    render(
+      <TieredHarness
+        characters={[alice, tempChar]}
+        segments={segments}
+        currentChapterId={CHAPTER_A}
+        onDeleteCharacter={onDelete}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /character settings/i }));
+    fireEvent.click(screen.getByRole('button', { name: /delete character/i }));
+    expect(onDelete).toHaveBeenCalledWith('temp-1');
+  });
+
+  it('lets a temp character pick a voice via the settings menu', () => {
+    const onSetVoice = vi.fn();
+    const voices = [
+      { id: 'v1', name: 'Voice One', value: 'Voice One', is_speaker: false },
+    ];
+    render(
+      <TieredHarness
+        characters={[alice, tempChar]}
+        segments={segments}
+        currentChapterId={CHAPTER_A}
+        onSetCharacterVoice={onSetVoice}
+        availableVoices={voices}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /character settings/i }));
+    fireEvent.change(screen.getByLabelText('Voice'), { target: { value: 'Voice One' } });
+    expect(onSetVoice).toHaveBeenCalledWith('temp-1', 'Voice One');
+  });
+
+  it('does not show a settings menu on book-scoped (tier-1) characters', () => {
+    render(
+      <TieredHarness
+        characters={[alice, tempChar]}
+        segments={segments}
+        currentChapterId={CHAPTER_A}
+        onPromoteCharacter={vi.fn()}
+        onDeleteCharacter={vi.fn()}
+      />
+    );
+
+    // alice is tier-1 (book char used in this chapter); only the single temp row
+    // (tempChar) exposes a settings menu.
+    expect(screen.getAllByRole('button', { name: /character settings/i })).toHaveLength(1);
   });
 });

@@ -436,6 +436,24 @@ export function useStudioChapter({
     }
   }, [loadChapter]);
 
+  const handleSetCharacterVoice = useCallback(async (characterId: string, profileName: string) => {
+    try {
+      await api.updateCharacter(characterId, undefined, profileName || '');
+      await loadChapter('set-character-voice');
+    } catch (error) {
+      console.error('Failed to set character voice', error);
+    }
+  }, [loadChapter]);
+
+  const handleDeleteCharacter = useCallback(async (characterId: string) => {
+    try {
+      await api.deleteCharacter(characterId);
+      await loadChapter('delete-character');
+    } catch (error) {
+      console.error('Failed to delete character', error);
+    }
+  }, [loadChapter]);
+
   const handleRequestResyncPreview = useCallback(async () => {
     if (!text || text === chapter?.text_content) return;
     setIsPreviewingResync(true);
@@ -880,6 +898,8 @@ export function useStudioChapter({
     handleStopAll,
     handleCreateTempCharacter,
     handlePromoteCharacter,
+    handleSetCharacterVoice,
+    handleDeleteCharacter,
     handoffTransitions: getHandoffTransitions(),
   };
 }

@@ -48,6 +48,22 @@ def delete_character(character_id: str) -> bool:
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
+            # Revert any segments assigned to this character back to the narrator,
+            # rather than leaving a dangling character_id. Any audio rendered in the
+            # deleted character's voice is now stale, so invalidate it so the line
+            # re-renders with the narrator/default voice.
+            cursor.execute(
+                """
+                UPDATE chapter_segments
+                SET character_id = NULL,
+                    speaker_profile_name = NULL,
+                    audio_status = CASE WHEN audio_status = 'done' THEN 'unprocessed' ELSE audio_status END,
+                    audio_file_path = CASE WHEN audio_status = 'done' THEN NULL ELSE audio_file_path END,
+                    audio_generated_at = CASE WHEN audio_status = 'done' THEN NULL ELSE audio_generated_at END
+                WHERE character_id = ?
+                """,
+                (character_id,),
+            )
             cursor.execute("DELETE FROM characters WHERE id = ?", (character_id,))
             conn.commit()
             return cursor.rowcount > 0

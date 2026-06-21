@@ -131,3 +131,26 @@ def test_promote_character_clears_chapter_id(db_conn):
     cursor.execute("SELECT chapter_id FROM characters WHERE id = ?", (temp_id,))
     row = cursor.fetchone()
     assert row[0] is None
+
+
+def test_delete_character_reverts_assigned_segments(db_conn):
+    """Deleting a character must clear its assignment off any segments, not leave a
+    dangling character_id. Regression for temp-character delete leaving orphaned refs.
+    """
+    from app.db.chapters import create_chapter
+    from app.db.segments import get_chapter_segments, update_segment, sync_chapter_segments
+
+    pid = create_project("DelCharProj")
+    cid = create_chapter(pid, "C1", "Sentence one. Sentence two.")
+    sync_chapter_segments(cid, "Sentence one. Sentence two.")
+
+    char_id = create_character(pid, "Doomed", "DoomedVoice")
+    seg_id = get_chapter_segments(cid)[0]["id"]
+    update_segment(seg_id, character_id=char_id, speaker_profile_name="DoomedVoice")
+    assert get_chapter_segments(cid)[0]["character_id"] == char_id
+
+    assert delete_character(char_id) is True
+
+    seg = get_chapter_segments(cid)[0]
+    assert seg["character_id"] is None
+    assert seg["speaker_profile_name"] is None
