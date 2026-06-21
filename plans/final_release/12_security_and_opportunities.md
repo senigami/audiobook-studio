@@ -23,7 +23,14 @@ Note: this audit found live code under `app/orchestration/tasks/` (e.g. `api_syn
 - [x] **S8. `safe_basename("…/")` returns ""** — `app/utils/pathing.py:6-7`. Raise on empty result (caller at `voices_actions.py:231` is currently saved by a downstream containment check).
 - [x] **S9. Backup filename check cosmetic** — `app/api/routers/projects_backups.py:199,244,308`: `endswith(".zip")` passes `../x.zip`; real containment comes from the scandir name-match. Replace with `os.path.basename(filename) == filename` for defense-in-depth clarity.
 - [ ] **S10. Secret-aware plugin settings** — `app/tts_server/settings_store.py` stores engine API keys as plain JSON with no secret flag. Add `"secret": true` support in `settings_schema.json` (doc 02 contract): masked on read, never logged. Encryption-at-rest is a post-release candidate.
-- [ ] **S11. ffmpeg concat quoting** — `app/engines/audio_ops.py:101-105`: shell-style `'\''` escaping isn't valid in ffmpeg concat lists; apostrophe filenames (O'Brien.wav) break. Use double-quoted paths.
+- [x] **S11. ffmpeg concat quoting — VERIFIED CORRECT, no change (2026-06-21).** The original finding
+  was **wrong**. `_ffmpeg_concat_entry` (`app/engines/audio_ops.py:140`) uses the documented
+  ffmpeg-utils single-quote escaping (`'` → `'\''`), which is exactly right for the concat demuxer.
+  Empirically tested on ffmpeg 8.0.1: the current escaping concatenates `O'Brien.wav` correctly
+  (output = both segments); the audit's recommended **double-quoted paths FAIL** entirely
+  (`Impossible to open '"plain.wav"'`). Applying the recommended "fix" would have broken all audio
+  assembly. Locked in by regression tests in `tests/engines/test_audio_ops_finalize.py` (unit + a
+  real-ffmpeg integration test, skipped when ffmpeg is absent).
   *(ffmpeg invocation overall is list-based, no shell=True — no injection found.)*
 
 

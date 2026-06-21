@@ -8,7 +8,9 @@ remaining pre-LAN-hardening items).
 - **S6** WebSocket auth (pre-LAN hardening — the `/ws` channel currently has no auth gate).
 - **S7** rate-limiter docs.
 - **S10** secret-aware plugin settings (mask/redact secret fields in schema-driven engine settings).
-- **S11** ffmpeg concat quoting (assembly path — shell-safe argument handling).
+- ~~**S11** ffmpeg concat quoting~~ **DONE / VERIFIED CORRECT (2026-06-21)** — the finding was wrong;
+  the current `'\''` escaping is right (empirically tested, ffmpeg 8.0.1) and the audit's double-quote
+  recommendation breaks concat. No code change; regression tests added. See `final_release/12` S11.
 
 ## S12 — Dependabot dependency alerts (triaged 2026-06-20)
 
