@@ -85,3 +85,22 @@ risky/sensitive change I shouldn't make unsupervised. Reasons:
 
 **Net:** stopped after the cleanly-safe items rather than force risky work overnight (you said holding
 off is OK). Everything done is behavior-preserving and easy to validate against studio-2.0.
+
+---
+
+## ✅ AUTHORITATIVE FINAL STATE (2026-06-21) — supersedes the dated sections above
+
+### Done + pushed this session (studio2/phase-12.5-style)
+- **Security (task 009): COMPLETE** — S6 WS-origin, S7 rate-limit docs, S10 secret-aware settings, S11 (verified ffmpeg quoting was already correct), S12 deps → 0 vulnerabilities.
+- **`.gitignore` `lib/` bug** — was hiding `Book/lib/` source (broke fresh clones); fixed.
+- **IA port (task 003):** two-level shell (Contents/Cast/[Lexicon]/Publish/Backups) · Chapter Workspace + switcher · Review redesign (left rail, load-on-select) · drill-through (row click, no Open button) · **cast panel 3-tier + temp characters** (new `characters.chapter_id` data model) · Contents publish-ready CTA · bookmarks + jump-to-next-unrendered · **RST-1..7** restores · **lexicon** (book-scope, applied across all render paths, backend+frontend).
+- **task 008:** A11y (A4/A6/A7/A8/A10) + Perf (P7/P8/P9).
+
+### Remaining — needs your input
+- **Deferred by you:** RST-8 segment-aware player; per-span range assignment. (Dead-tree deletion DC-1b stays gated on RST-8.)
+- **WIRE-1/2/3** (orphaned VoiceDropzone / VoiceModules / SearchableSelect) — never built; WIRE-2 needs a placement call; all need visual verify.
+- **task 008 UX items** (U1/U2/U4/U5/U6/U7/U11/U12/U13/U14) — mix of concrete (U2/U7/U12) and design-needed (U4/U6/U13).
+- **Other workstreams:** 005 (backend cleanup/splits incl. CastPalette 745-line split), 006 (namespace rename — risky, run alone), 007 (taxonomy v2 — needs design).
+- **Confirm:** Lexicon placed as a 5th book tab (vs the demo's workspace panel).
+- **Styling-track:** a11y A11 (`--text-muted` contrast) / A12 reduced-motion; dark `--text-on-error` contrast.
+- **Owner/release:** 010 standalone repos, 011 release gating.
