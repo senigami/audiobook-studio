@@ -14,6 +14,18 @@ Each commit is task-labeled (S-id / WIRE-id / task number) for later bug cross-c
 - **IA port Phase 1** (task 003) — two-level shell: Contents·Cast·Publish·Backups + `/book/:id/chapter/:chapterId` workspace route; ManuscriptStage→ContentsStage + drill-through; Backups stub. 1376 tests. `ab87ed90`
 - **IA port Phase 2** (task 003) — Chapter Workspace header (switcher/prev-next/back) + Review re-homed (Studio/Review toggle). 1388 tests. `596e8b4b`
 
+## IA port — owner feedback addressed (2026-06-21)
+- **Drill-through wired** (`4be1253b`) then **Open button removed** (`b7a2746f`) — clicking the chapter row opens the workspace (owner: "click the bar is the open, no Open button").
+- **Review layout reworked** (`1020c8d8`) — left vertical chapter rail; selecting a chapter navigates + load+plays into a follow-along main pane; inline styles → token CSS. Owner approved the two-level structure ("looks pretty good, continue").
+
+## IA port Phase 3 — Cast panel: FULL 3-TIER + temp characters (owner-chosen 2026-06-21)
+Owner picked the larger option: a real chapter-scoped **temp-character** concept, not just 2 tiers.
+Vertical feature — build backend first, then the panel:
+- **Backend:** data-model for chapter-scoped characters (chapter-owned char + promote-to-book),
+  migration, API (create temp / promote / list-by-scope), casting logic, versioned spec.
+- **Frontend:** 3-tier panel (used-in-chapter / chapter-scoped temps / everyone else) with
+  surface / promote / +temp actions, integrated into the workspace.
+
 ## IA port — remaining phases (task 003)
 - **RST-8 (deferred, deliberate):** the deep segment-aware universal-player unification — the plan's highest-risk item ("characterize with tests, its own mini-project"). Not attempted in the autonomous blitz; needs a careful dedicated pass.
 - **Phase 3–5 (taste-heavy):** cast-panel 3-tier, `Character ▾·Variation ▾` per-span control, range/span assignment, named bookmarks + jump-unrendered, inline pronunciation + lexicon. These are the most design-fluid pieces (owner: "not happy with everything, take liberties") — flagged for an owner eyeball of the Phase 1–2 shell before building, to avoid rework.
