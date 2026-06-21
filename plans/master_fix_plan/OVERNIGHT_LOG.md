@@ -18,13 +18,21 @@ Each commit is task-labeled (S-id / WIRE-id / task number) for later bug cross-c
 - **Drill-through wired** (`4be1253b`) then **Open button removed** (`b7a2746f`) — clicking the chapter row opens the workspace (owner: "click the bar is the open, no Open button").
 - **Review layout reworked** (`1020c8d8`) — left vertical chapter rail; selecting a chapter navigates + load+plays into a follow-along main pane; inline styles → token CSS. Owner approved the two-level structure ("looks pretty good, continue").
 
-## IA port Phase 3 — Cast panel: FULL 3-TIER + temp characters (owner-chosen 2026-06-21)
-Owner picked the larger option: a real chapter-scoped **temp-character** concept, not just 2 tiers.
-Vertical feature — build backend first, then the panel:
-- **Backend:** data-model for chapter-scoped characters (chapter-owned char + promote-to-book),
-  migration, API (create temp / promote / list-by-scope), casting logic, versioned spec.
-- **Frontend:** 3-tier panel (used-in-chapter / chapter-scoped temps / everyone else) with
-  surface / promote / +temp actions, integrated into the workspace.
+## IA port Phase 3 — Cast panel: FULL 3-TIER + temp characters — DONE (2026-06-21)
+Owner chose the larger option (real chapter-scoped temp-character concept). Built as a vertical feature:
+- **Backend** (`5ed500ec`): nullable `characters.chapter_id` (NULL=book, set=chapter-temp); idempotent
+  migration; `get_characters` scope filter; `promote_character`; API create-with-chapter_id, list
+  `?chapter_id`, `POST /characters/{id}/promote`; `data-model.md` → 1.2.0. 221 tests, R1-checked.
+- **Frontend** (`2072bfcc`): CastPalette → 3 tiers (in-this-chapter / chapter temps / everyone else);
+  "+ Temp character" + "Promote" actions; workspace hydrates chapter-scoped chars; temp badge.
+  INV-4 + INV-7 honored; 1399 tests.
+
+## IA port — remaining phases (task 003) — NOT yet built
+- **Per-span range assignment** (assign a voice to a selected text range, replacing sentence-paint) —
+  RISKIER: touches the segment/assignment model (RST-8-adjacent). Wants care / a characterized pass.
+- **Bookmarks + jump-to-next-unrendered.**
+- **Inline pronunciation + lexicon** (scoped book/series/global).
+- **Contents publish-readiness CTA** (safe, small — "Book ready → Publish" when all chapters rendered).
 
 ## IA port — remaining phases (task 003)
 - **RST-8 (deferred, deliberate):** the deep segment-aware universal-player unification — the plan's highest-risk item ("characterize with tests, its own mini-project"). Not attempted in the autonomous blitz; needs a careful dedicated pass.
