@@ -1,5 +1,15 @@
 # 001 — Foundation cleanup (W1)
 
+**Status: DONE (2026-06-20)** — QW-1/2/3/4/5/8 + QW-7 executed and verified green (ruff, pytest 1800,
+FE build+lint+test 1375). Two adjustments made during execution:
+- **QW-6 deferred to [005](005-code-simplification.md)** — the dead-CSS removal folds into the
+  `components.css` split (the file just moved to `theme/components.css` and 2 of its 5 dead selectors
+  are used by the kept demo styleguide; doing it with the split avoids a double-touch and lets those
+  rules be relocated to the demo's own CSS).
+- **3 fold-in delete candidates were STALE and kept (verified live):** `app/infra/` (imported by
+  `app/core/logging.py` + both plugins' `app_adapter.py`), `frontend/src/api/client.ts` (imported by
+  `app/providers/index.tsx`), `frontend/src/api/queries/index.ts` (3 importers — intentional boundary).
+
 **Goal:** remove all low-risk dead weight so later workstreams start from a clean base.
 **Authoritative source:** [`simplification/01_quick_wins.md`](../../simplification/01_quick_wins.md)
 (newest, 06-19) — execute its QW-1..QW-8 verbatim.

@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Cleanup] - 2026-06-20
+
+### Foundation cleanup (master fix plan — Milestone 1, W1)
+
+Low-risk dead-weight removal and a design-system compliance pass, with no behavior change.
+
+- **Dead dependencies removed.** Frontend: `clsx`, `tailwind-merge` (no imports; no Tailwind in the project). Backend: `mistralai`, `beautifulsoup4` (zero imports across `app/` + plugins). `package-lock.json` regenerated.
+- **Legacy files deleted.** Top-level v1 utilities `audiobook.py`, `audit_routes.py`, the standalone `text_progress_demo.html`, and the redundant `.coveragerc` (coverage config already lives in `pyproject.toml`). Two obsolete `export {}` frontend stubs (`predictiveProgressBarEngine.ts`, `utils/predictiveProgress.ts`) and four empty `shared/` placeholder barrels.
+- **Runtime artifacts untracked.** `plugins/*/assets/last_test.json` (runtime-written) added to `.gitignore` and removed from the index so engine tests no longer dirty the tree.
+- **§2.2 color compliance (QW-7).** Converted the last five hardcoded color literals in real-app components to CSS tokens (`StatusOrb`, `LiveOutputTable`, `ColorSwatchPicker`); added `--text-on-error` and `--text-on-warning` to `tokens.css` (both themes). Rendered values unchanged. `design-system.md` → 1.6.4.
+- **Excluded as still-live** (the plan's fold-in list was stale): `app/infra/`, `frontend/src/api/client.ts`, `frontend/src/api/queries/index.ts` are imported and were kept. **Deferred:** QW-6 dead-CSS removal folds into the `components.css` split (Milestone 3 / task 005) to avoid touching the file twice and to safely relocate the styleguide-referenced rules.
+
+Verification: `ruff`, `pytest` (1800 passed), frontend `build` + `lint` + `test` (1375 passed) all green.
+
 ## [Fix] - 2026-06-19
 
 ### Segment progress bar: confidence-gated ETA decay + per-segment confidence

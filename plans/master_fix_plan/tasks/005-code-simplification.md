@@ -11,7 +11,12 @@ and records what older plans they supersede.
   (restoration)** per INV-2. Folds `final_release/09` R4/R5.
 - **Styling separation** → `simplification/03`. Folds `final_release/10` **U3** (semantic type scale),
   **U9** (button/input system), **U10** (z-index single source) — do them here, not in 008.
-  Supersedes `final_release/07` residue.
+  Supersedes `final_release/07` residue. **Also absorbs QW-6** (dead-CSS removal, deferred here from 001
+  on 2026-06-20): delete the 5 dead selectors in `frontend/src/theme/components.css` (`.btn-home`,
+  `.btn-menu-destructive`, `.action-menu-item`, `.select-glass`, `.engine-chunk`) **as part of the
+  components.css split** so the file is touched once. ⚠️ 2 of the 5 (incl. `.btn-home`) are referenced
+  by the demo styleguide the owner is keeping — **relocate those rules into the demo's own CSS**, don't
+  delete them outright; re-grep each selector before removing.
 - **Large-file splits** → `simplification/04`. Folds `file_split_plan` split #5 (`scriptViewProgress.ts`)
   + backend seams (`state_jobs.py`, `speakers.py`, `plugin_loader.py`). ⚠️ INV-4: do NOT strip
   `useStudioChapter` segment-playback exports (004 needs them).
