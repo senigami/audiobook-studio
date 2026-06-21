@@ -1117,4 +1117,70 @@ describe('useQueueSync', () => {
     });
     expect(api.getProcessingQueue).toHaveBeenCalledTimes(1);
   });
+
+  // ── P7 — Fallback-poll interval hygiene ──────────────────────────────────
+
+  it('[P7] fallback-poll interval is cleared on unmount (no leak)', async () => {
+    vi.useFakeTimers();
+
+    try {
+      const clearIntervalSpy = vi.spyOn(window, 'clearInterval');
+
+      // Disconnect so the fallback interval effect is active
+      act(() => { setStudioSocketConnected(false); });
+
+      const { unmount } = renderHook(() => useQueueSync());
+
+      // Flush microtasks so the hook fully mounts and the interval is registered
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // Unmount — the fallback-poll effect cleanup must call clearInterval
+      const clearCallsBefore = clearIntervalSpy.mock.calls.length;
+      unmount();
+
+      // At least one clearInterval call must have been made on unmount
+      expect(clearIntervalSpy.mock.calls.length).toBeGreaterThan(clearCallsBefore);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('[P7] reconnecting removes the fallback interval so no overlap fires', async () => {
+    vi.useFakeTimers();
+
+    try {
+      const clearIntervalSpy = vi.spyOn(window, 'clearInterval');
+
+      // Start disconnected so the fallback interval is created
+      act(() => { setStudioSocketConnected(false); });
+
+      renderHook(() => useQueueSync());
+
+      // Flush microtasks so the hook fully mounts
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      const clearCallsBefore = clearIntervalSpy.mock.calls.length;
+
+      // Reconnect — the effect dep array includes `connected`, so React will run the
+      // cleanup (clearInterval) before re-running the effect; with connected=true the
+      // new effect body returns early without creating an interval.
+      act(() => { setStudioSocketConnected(true); });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // clearInterval must have been called (the old interval was torn down)
+      expect(clearIntervalSpy.mock.calls.length).toBeGreaterThan(clearCallsBefore);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
