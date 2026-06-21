@@ -1,5 +1,6 @@
 import { Navigate, NavLink, useParams, useSearchParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
+import { BookOpen, X } from 'lucide-react';
 import { setBookIdentity } from '@/app/layout/bookIdentityStore';
 import type { Job, SegmentProgress, Settings, Speaker, SpeakerProfile, TtsEngine } from '@/types';
 import { BookDataProvider, useBookDataContext } from '@/pages/Book/BookDataContext';
@@ -11,6 +12,7 @@ import { ReviewStage } from '@/pages/Book/stages/ReviewStage';
 import { PublishStage } from '@/pages/Book/stages/PublishStage';
 import { BackupsStage } from '@/pages/Book/stages/BackupsStage';
 import { ChapterWorkspaceHeader } from '@/pages/Book/components/ChapterWorkspaceHeader';
+import { LexiconPanel } from '@/pages/Book/components/LexiconPanel';
 import {
   BOOK_STAGE_LABELS,
   BOOK_STAGES,
@@ -106,11 +108,96 @@ function BookIdentityPublisher() {
 
 type WorkspaceView = 'studio' | 'review';
 
+// ---------------------------------------------------------------------------
+// WorkspacePanel — reusable dockable side panel for the Chapter Workspace.
+//
+// This is the first of the "dockable workspace panels" pattern.  To add more
+// panels (e.g. Cast, Notes), follow the same shape: a toggle button in the
+// toolbar row, an open/close boolean in ChapterWorkspace state, and render
+// a <WorkspacePanel> beside the stage body.  The pattern intentionally stays
+// simple (CSS flex + boolean state) — no plugin registry needed yet.
+// ---------------------------------------------------------------------------
+
+interface WorkspacePanelProps {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}
+
+function WorkspacePanel({ title, onClose, children }: WorkspacePanelProps) {
+  return (
+    <aside
+      className="workspace-side-panel"
+      aria-label={title}
+      style={{
+        width: 320,
+        flexShrink: 0,
+        borderLeft: '1px solid var(--border)',
+        background: 'var(--surface)',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+        overflowY: 'auto',
+      }}
+    >
+      {/* Panel header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-2)',
+          padding: 'var(--space-2) var(--space-3)',
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--surface)',
+          flexShrink: 0,
+        }}
+      >
+        <span
+          style={{
+            flex: 1,
+            fontSize: 'var(--type-caption)',
+            fontWeight: 700,
+            color: 'var(--text-primary)',
+          }}
+        >
+          {title}
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={`Close ${title} panel`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 24,
+            height: 24,
+            border: '1px solid var(--border)',
+            background: 'transparent',
+            borderRadius: 'var(--radius-button)',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            padding: 0,
+          }}
+        >
+          <X size={12} aria-hidden="true" />
+        </button>
+      </div>
+
+      {/* Panel body */}
+      <div style={{ flex: 1, padding: 'var(--space-3)', minHeight: 0 }}>
+        {children}
+      </div>
+    </aside>
+  );
+}
+
 /** Chapter Workspace — renders when a chapter is opened from Contents. */
 function ChapterWorkspace({ bookId, chapterId }: { bookId: string; chapterId: string }) {
   const { chapters } = useBookDataContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeView, setActiveView] = useState<WorkspaceView>('studio');
+  const [lexiconOpen, setLexiconOpen] = useState(false);
 
   const chapter = chapters.find((c) => c.id === chapterId);
   const chapterTitle = chapter?.title ?? chapterId;
@@ -142,28 +229,82 @@ function ChapterWorkspace({ bookId, chapterId }: { bookId: string; chapterId: st
         activeChapterId={chapterId}
       />
 
-      {/* Studio / Review sub-view toggle */}
-      <div className="workspace-view-toggle" role="group" aria-label="Workspace view">
+      {/* Toolbar row: Studio/Review toggle + workspace panel toggles */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-2)',
+          flexWrap: 'wrap',
+        }}
+      >
+        {/* Studio / Review sub-view toggle */}
+        <div className="workspace-view-toggle" role="group" aria-label="Workspace view">
+          <button
+            type="button"
+            className={`workspace-view-toggle__btn${activeView === 'studio' ? ' workspace-view-toggle__btn--active' : ''}`}
+            onClick={() => setActiveView('studio')}
+            aria-pressed={activeView === 'studio'}
+          >
+            Studio
+          </button>
+          <button
+            type="button"
+            className={`workspace-view-toggle__btn${activeView === 'review' ? ' workspace-view-toggle__btn--active' : ''}`}
+            onClick={() => setActiveView('review')}
+            aria-pressed={activeView === 'review'}
+          >
+            Review
+          </button>
+        </div>
+
+        {/* Dockable panel toggles */}
         <button
           type="button"
-          className={`workspace-view-toggle__btn${activeView === 'studio' ? ' workspace-view-toggle__btn--active' : ''}`}
-          onClick={() => setActiveView('studio')}
-          aria-pressed={activeView === 'studio'}
+          onClick={() => setLexiconOpen((v) => !v)}
+          aria-pressed={lexiconOpen}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 'var(--space-1)',
+            padding: '0.3rem 0.6rem',
+            border: `1px solid ${lexiconOpen ? 'var(--accent)' : 'var(--border)'}`,
+            borderRadius: 'var(--radius-button)',
+            background: lexiconOpen ? 'var(--accent-glow)' : 'var(--surface)',
+            color: lexiconOpen ? 'var(--accent)' : 'var(--text-secondary)',
+            fontSize: 'var(--type-caption)',
+            fontWeight: 600,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}
         >
-          Studio
-        </button>
-        <button
-          type="button"
-          className={`workspace-view-toggle__btn${activeView === 'review' ? ' workspace-view-toggle__btn--active' : ''}`}
-          onClick={() => setActiveView('review')}
-          aria-pressed={activeView === 'review'}
-        >
-          Review
+          <BookOpen size={13} aria-hidden="true" />
+          Lexicon
         </button>
       </div>
 
-      {/* Sub-view body */}
-      {activeView === 'studio' ? <StudioStage /> : <ReviewStage />}
+      {/* Sub-view body + optional docked side panels */}
+      <div
+        style={{
+          display: 'flex',
+          flex: 1,
+          minHeight: 0,
+          gap: 0,
+          border: lexiconOpen ? '1px solid var(--border)' : undefined,
+          borderRadius: lexiconOpen ? 'var(--radius-panel)' : undefined,
+          overflow: lexiconOpen ? 'hidden' : undefined,
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {activeView === 'studio' ? <StudioStage /> : <ReviewStage />}
+        </div>
+
+        {lexiconOpen && (
+          <WorkspacePanel title="Lexicon" onClose={() => setLexiconOpen(false)}>
+            <LexiconPanel projectId={bookId} />
+          </WorkspacePanel>
+        )}
+      </div>
     </section>
   );
 }

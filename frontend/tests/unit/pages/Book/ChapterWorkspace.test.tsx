@@ -7,6 +7,7 @@
  * - Prev/Next buttons navigate to adjacent chapters.
  * - Back button returns to /contents.
  * - setLastChapter is called on mount so the chapter persists across visits.
+ * - Lexicon dockable panel toggle opens/closes the LexiconPanel.
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -40,6 +41,13 @@ vi.mock('@/pages/Book/components/ChapterTextPanel', () => ({
 
 vi.mock('@/pages/Book/components/ChapterTable', () => ({
   ChapterTable: () => <section aria-label="Manuscript chapters" />,
+}));
+
+// ── LexiconPanel stub — keep workspace tests focused on toggle behaviour ───
+vi.mock('@/pages/Book/components/LexiconPanel', () => ({
+  LexiconPanel: ({ projectId }: { projectId: string }) => (
+    <div data-testid="lexicon-panel-stub" data-project-id={projectId}>Lexicon panel</div>
+  ),
 }));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -251,5 +259,74 @@ describe('ChapterWorkspace', () => {
     await waitFor(() => {
       expect(screen.getByTestId('pathname')).toHaveTextContent('/book/book-1/chapter/c2');
     });
+  });
+
+  // ── Lexicon dockable panel toggle ───────────────────────────────────────────
+
+  it('Lexicon panel is hidden by default', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Lexicon/i })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('lexicon-panel-stub')).not.toBeInTheDocument();
+  });
+
+  it('clicking Lexicon toggle opens the panel', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Lexicon/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Lexicon/i }));
+
+    expect(screen.getByTestId('lexicon-panel-stub')).toBeInTheDocument();
+  });
+
+  it('clicking the panel close button hides the panel', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Lexicon/i })).toBeInTheDocument();
+    });
+
+    // Open
+    fireEvent.click(screen.getByRole('button', { name: /Lexicon/i }));
+    expect(screen.getByTestId('lexicon-panel-stub')).toBeInTheDocument();
+
+    // Close via X button inside the WorkspacePanel
+    fireEvent.click(screen.getByRole('button', { name: /Close Lexicon panel/i }));
+
+    expect(screen.queryByTestId('lexicon-panel-stub')).not.toBeInTheDocument();
+  });
+
+  it('clicking Lexicon toggle again closes the panel', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Lexicon/i })).toBeInTheDocument();
+    });
+
+    // Open then close via the same toggle button
+    const toggle = screen.getByRole('button', { name: /Lexicon/i });
+    fireEvent.click(toggle);
+    expect(screen.getByTestId('lexicon-panel-stub')).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(screen.queryByTestId('lexicon-panel-stub')).not.toBeInTheDocument();
+  });
+
+  it('LexiconPanel receives the current bookId as projectId', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Lexicon/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Lexicon/i }));
+
+    expect(screen.getByTestId('lexicon-panel-stub')).toHaveAttribute('data-project-id', 'book-1');
   });
 });
