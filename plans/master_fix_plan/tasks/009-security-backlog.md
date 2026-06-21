@@ -6,7 +6,8 @@ remaining pre-LAN-hardening items).
 
 **Open items:**
 - **S6** WebSocket auth (pre-LAN hardening — the `/ws` channel currently has no auth gate).
-- **S7** rate-limiter docs.
+- ~~**S7** rate-limiter docs~~ **DONE (2026-06-21)** — limitations documented in the `SimpleRateLimiter`
+  docstring + `security.md` §Rate Limiting (→ 1.2.2). No behavior change.
 - **S10** secret-aware plugin settings (mask/redact secret fields in schema-driven engine settings).
 - ~~**S11** ffmpeg concat quoting~~ **DONE / VERIFIED CORRECT (2026-06-21)** — the finding was wrong;
   the current `'\''` escaping is right (empirically tested, ffmpeg 8.0.1) and the audit's double-quote

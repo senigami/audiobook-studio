@@ -1,9 +1,9 @@
 # Security
 
 ```
-spec_version: 1.2.1
+spec_version: 1.2.2
 status: active
-updated: 2026-06-16
+updated: 2026-06-21
 sources:
   - app/utils/pathing.py
   - app/core/security.py
@@ -19,6 +19,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.2.2   | 2026-06-21 | Documented the rate limiter's known limitations (S7): in-memory/per-process (resets on restart, not shared across workers) and IP-keyed (shared behind NAT, no per-API-key bucketing). Behavior unchanged — documentation only. |
 | 1.2.1   | 2026-06-16 | Code brought into compliance with the no-path-leak invariant: plugin import/preview/install error bodies (`app/tts_server/server.py`) no longer echo the submitted zip member name, `engine_id`, or target folder path — they now return generic messages. (Invariant text unchanged.) |
 | 1.2.0   | 2026-06-16 | Recognized-barrier section updated to acknowledge both normpath+startswith and abspath(realpath)+startswith forms; `is_relative_to` carve-out added permitting it as secondary/defense-in-depth barrier |
 | 1.1.0   | 2026-06-15 | Added GitHub plugin repository preview security invariants |
@@ -113,6 +114,13 @@ Both forms are recognized by CodeQL's `py/path-injection` model as sanitizers wh
 | Window | 60 seconds |
 | Limit | 30 requests per client IP |
 | Exceeded response | HTTP 429 |
+
+### Documented limitations (S7)
+
+Acceptable for the local-first 2.0 release; **not** a substitute for an edge rate limiter if Studio is exposed publicly:
+
+- **In-memory, per-process.** Counters are **reset on restart** and are **not shared** across worker processes — a restart (or multi-worker deployment) clears/splits the limit.
+- **Keyed by client IP.** Callers behind one NAT/proxy/VPN share a bucket (one client can throttle neighbours); a client rotating IPs is not effectively limited. There is no per-API-key bucketing.
 
 ### Invariants
 
