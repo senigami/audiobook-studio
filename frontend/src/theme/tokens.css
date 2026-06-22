@@ -58,7 +58,7 @@
   /* Material — Liquid Glass. Apply --blur-glass via backdrop-filter on chrome
      (top bar, player, rail, drawers) over a translucent --glass surface. */
   --blur-glass: saturate(180%) blur(20px);
-  --blur-glass-strong: saturate(180%) blur(40px);
+  --blur-glass-strong: saturate(180%) blur(28px);
   --hairline: rgba(15, 23, 42, 0.08);   /* softer than --border, for inner divisions */
 
   /* Motion — shared easing + duration tokens so transitions feel consistent.

@@ -183,9 +183,10 @@
   width: var(--nav-rail-expanded-width, var(--rail-width));
   min-height: 100%;
   overflow: visible;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
+  background: var(--surface-alt);
+  border-right: 1px solid var(--hairline);
   transition: width 0.18s ease;
+  /* NO backdrop-filter — pinned chrome is opaque structural material */
 }
 
 .nav-rail--collapsed {
@@ -830,9 +831,10 @@
   width: 100%;
   height: var(--header-height, 56px);
   padding-inline: 1rem;
-  background: var(--glass);
-  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--hairline);
   box-sizing: border-box;
+  /* NO backdrop-filter — pinned chrome is opaque structural material */
 }
 
 .top-bar__brand-btn {
@@ -2654,7 +2656,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
   box-shadow: var(--shadow-xl);
-  backdrop-filter: blur(20px);
+  backdrop-filter: var(--blur-glass-strong);
   padding: 1.25rem;
   z-index: 1001;
   animation: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
