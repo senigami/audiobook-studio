@@ -1,5 +1,5 @@
 # Task 002 — Forms: Switch primitive, accent-color controls, drop pill radii, GlassInput token class
-STATUS: todo
+STATUS: done
 
 ## Goal
 

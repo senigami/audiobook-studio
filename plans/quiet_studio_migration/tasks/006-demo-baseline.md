@@ -1,5 +1,5 @@
 # Task 006 — Demo Polish + Regenerate Baseline
-STATUS: todo
+STATUS: done
 
 ## Goal
 

@@ -1,5 +1,5 @@
 # Task 003 — Status / Progress Icon-Insets
-STATUS: todo
+STATUS: done
 
 ## Goal
 

@@ -1,5 +1,5 @@
 # Task 004 — Glass Material Audit
-STATUS: todo
+STATUS: done
 
 ## Goal
 

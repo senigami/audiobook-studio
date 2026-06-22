@@ -1,5 +1,5 @@
 # Task 005 — Inline-Style Extraction + Hardcoded Color Tokenization
-STATUS: todo
+STATUS: done (sub-task A); sub-task B (--accent→--action-primary 94-file rename) DEFERRED — owner-gated, alias kept as permanent compatibility pointer
 
 ## Goal
 
