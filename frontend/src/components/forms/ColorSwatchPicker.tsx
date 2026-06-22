@@ -54,7 +54,7 @@ export const ColorSwatchPicker: React.FC<ColorSwatchPickerProps> = ({ value, onC
     const swatchSize = size === 'sm' ? '18px' : '24px';
 
     return (
-        <div ref={containerRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+        <div ref={containerRef} className="color-swatch-picker">
             {/* Active Color Trigger */}
             <button
                 type="button"

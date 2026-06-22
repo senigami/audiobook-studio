@@ -34,9 +34,8 @@ describe('ConfirmModal', () => {
   it('X button hit area is at least 40×40px via padding', () => {
     render(<ConfirmModal {...baseProps()} />)
     const closeBtn = screen.getByLabelText('Close dialog') as HTMLElement
-    // padding is set to 10px; min-width/min-height to 40px
-    expect(closeBtn.style.minWidth).toBe('40px')
-    expect(closeBtn.style.minHeight).toBe('40px')
+    // min-width/min-height (40px) and padding (10px) moved to .modal-close-btn CSS class (P5)
+    expect(closeBtn.classList.contains('modal-close-btn')).toBe(true)
   })
 
   it('calls onCancel when Escape key is pressed', () => {

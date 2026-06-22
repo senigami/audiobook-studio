@@ -83,7 +83,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                             width: '100%',
                             maxWidth: '440px',
                             background: 'var(--surface)',
-                            borderRadius: '20px',
+                            borderRadius: 'var(--radius-card)',
                             boxShadow: 'var(--shadow-xl)',
                             border: '1px solid var(--border)',
                             padding: '2rem',
@@ -96,7 +96,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                             <div style={{
                                 width: '48px',
                                 height: '48px',
-                                borderRadius: '12px',
+                                borderRadius: 'var(--radius-card)',
                                 background: isDestructive ? 'var(--error-tint-bg)' : 'var(--accent-glow)',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -108,19 +108,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                             <button
                                 onClick={onCancel}
                                 aria-label="Close dialog"
-                                style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    color: 'var(--text-muted)',
-                                    cursor: 'pointer',
-                                    padding: '10px',
-                                    minWidth: '40px',
-                                    minHeight: '40px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    borderRadius: '8px'
-                                }}
+                                className="modal-close-btn"
                             >
                                 <X size={20} />
                             </button>
@@ -147,7 +135,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                                 <button
                                     onClick={onCancel}
                                     className="btn-ghost"
-                                    style={{ flex: 1, padding: '0.75rem', borderRadius: '12px' }}
+                                    style={{ flex: 1, padding: '0.75rem', borderRadius: 'var(--radius-button)' }}
                                 >
                                     {cancelText}
                                 </button>
@@ -158,9 +146,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                                 style={{
                                     flex: 1,
                                     padding: '0.75rem',
-                                    borderRadius: '12px',
-                                    backgroundColor: isDestructive && !isAlert ? 'var(--error)' : 'var(--action-primary)',
-                                    color: isDestructive && !isAlert ? 'white' : 'var(--on-action)',
+                                    borderRadius: 'var(--radius-button)',
                                     border: 'none',
                                     fontWeight: 600,
                                     cursor: 'pointer'

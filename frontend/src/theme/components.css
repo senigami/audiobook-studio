@@ -3694,6 +3694,40 @@
   padding-left: 40px;
 }
 
+/* ─── Form Primitives (P5) ─── */
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 10px;
+  min-width: 40px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-button);
+}
+
+.color-swatch-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.voice-dropzone {
+  border-radius: var(--radius-card);
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
 /* ==========================================================================
    Control target wrapper — 44px interactive region for checkboxes/radios (P2)
    ========================================================================== */

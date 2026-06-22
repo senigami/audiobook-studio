@@ -113,18 +113,10 @@ export const VoiceDropzone: React.FC<VoiceDropzoneProps> = ({ files = [], onFile
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={onDrop}
                 onClick={() => document.getElementById('voice-upload-input')?.click()}
+                className="voice-dropzone"
                 style={{
                     border: `2px dashed ${isDragging ? 'var(--accent)' : 'var(--border)'}`,
-                    borderRadius: 'var(--radius-card)',
-                    padding: '2rem',
-                    textAlign: 'center',
                     background: isDragging ? 'var(--accent-glow)' : 'var(--surface-light)',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '12px'
                 }}
             >
                 <input
@@ -211,7 +203,7 @@ export const VoiceDropzone: React.FC<VoiceDropzoneProps> = ({ files = [], onFile
                                     padding: '8px 12px',
                                     background: 'var(--surface)',
                                     border: '1px solid var(--border)',
-                                    borderRadius: '8px',
+                                    borderRadius: 'var(--radius-button)',
                                     fontSize: '0.85rem'
                                 }}
                             >
@@ -249,7 +241,7 @@ export const VoiceDropzone: React.FC<VoiceDropzoneProps> = ({ files = [], onFile
                 marginTop: '12px',
                 padding: '8px 12px',
                 background: 'var(--as-info-tint)',
-                borderRadius: '8px',
+                borderRadius: 'var(--radius-button)',
                 border: '1px solid var(--accent-glow)'
             }}>
                 <CheckCircle2 size={14} color="var(--accent)" />
