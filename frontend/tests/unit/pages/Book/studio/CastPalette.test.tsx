@@ -103,6 +103,15 @@ describe('CastPalette', () => {
     expect(screen.getByText(/click sentences to clear/i)).toBeInTheDocument();
   });
 
+  it('labels the line-count pill and shows a chevron (not a bare number) for variants', () => {
+    render(<Harness />);
+
+    // The line-count pill carries a clear label (Narrator has 2 assigned lines)...
+    expect(screen.getByLabelText(/2 lines assigned/i)).toBeInTheDocument();
+    // ...and the multi-voice character exposes a labelled disclosure, not a 2nd raw count.
+    expect(screen.getByLabelText(/2 voices available/i)).toBeInTheDocument();
+  });
+
   it('expands variants for a character with multiple profiles', () => {
     render(<Harness />);
 

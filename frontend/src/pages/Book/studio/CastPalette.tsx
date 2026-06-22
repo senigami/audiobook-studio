@@ -267,30 +267,32 @@ function CharacterRow({
           </div>
         </div>
         {segmentCount > 0 && (
-          <div style={{
-            fontSize: '0.55rem',
-            fontWeight: 700,
-            color: isSpeakerSelected ? char.color : 'var(--text-muted)',
-            background: isSpeakerSelected ? `${char.color}14` : 'var(--surface-light)',
-            padding: '1px 5px',
-            borderRadius: 999,
-            flexShrink: 0,
-          }}>
+          <div
+            title={`${segmentCount} line${segmentCount === 1 ? '' : 's'} assigned`}
+            aria-label={`${segmentCount} line${segmentCount === 1 ? '' : 's'} assigned`}
+            style={{
+              fontSize: '0.55rem',
+              fontWeight: 700,
+              color: isSpeakerSelected ? char.color : 'var(--text-muted)',
+              background: isSpeakerSelected ? `${char.color}14` : 'var(--surface-light)',
+              padding: '1px 5px',
+              borderRadius: 999,
+              flexShrink: 0,
+            }}
+          >
             {segmentCount}
           </div>
         )}
         {variants.length > 1 && (
-          <div style={{
-            fontSize: '0.55rem',
-            fontWeight: 700,
-            color: 'var(--text-muted)',
-            background: 'var(--surface-light)',
-            padding: '1px 5px',
-            borderRadius: 999,
-            flexShrink: 0,
-          }}>
-            {variants.length}
-          </div>
+          <span
+            title={`${variants.length} voices — click to choose`}
+            aria-label={`${variants.length} voices available`}
+            style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', flexShrink: 0 }}
+          >
+            {isSpeakerSelected
+              ? <ChevronUp size={12} aria-hidden="true" />
+              : <ChevronDown size={12} aria-hidden="true" />}
+          </span>
         )}
       </button>
 
