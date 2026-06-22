@@ -711,7 +711,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                         {presentationState && checkpointMode !== 'segment' && (
                             <span style={{
                                 fontSize: '0.58rem', textTransform: 'uppercase', letterSpacing: '0.08em',
-                                padding: '0.14rem 0.42rem', borderRadius: '999px', border: '1px solid var(--progress-badge-border)',
+                                padding: '0.14rem 0.42rem', borderRadius: 'var(--radius-compact)', border: '1px solid var(--progress-badge-border)',
                                 background: presentationState === 'running' || presentationState === 'processing' ? 'var(--progress-badge-running)' : presentationState === 'preparing' ? 'var(--progress-badge-preparing)' : presentationState === 'finalizing' ? 'var(--progress-badge-finalizing)' : 'var(--progress-badge-default)',
                                 color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap',
                             }}>

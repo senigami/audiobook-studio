@@ -41,7 +41,7 @@ export const GlassInput: React.FC<GlassInputProps> = ({
             )}
             <input
                 {...props}
-                className={`form-input ${className}`}
+                className={`form-input${icon ? ' form-input--with-icon' : ''}${className ? ` ${className}` : ''}`}
                 onFocus={(e) => {
                     setIsFocused(true);
                     onFocus?.(e);
@@ -50,20 +50,7 @@ export const GlassInput: React.FC<GlassInputProps> = ({
                     setIsFocused(false);
                     onBlur?.(e);
                 }}
-                style={{
-                    padding: icon ? '10px 14px 10px 40px' : '10px 16px',
-                    borderRadius: '100px',
-                    background: 'var(--surface)',
-                    border: '1px solid',
-                    borderColor: isFocused ? 'var(--accent)' : 'var(--border)',
-                    boxShadow: isFocused ? '0 0 0 4px var(--accent-focus-ring)' : 'none',
-                    fontSize: '0.9rem',
-                    width: '100%',
-                    transition: 'all 0.2s ease',
-                    outline: 'none',
-                    color: 'var(--text-primary)',
-                    ...style
-                }}
+                style={style}
             />
         </div>
     );

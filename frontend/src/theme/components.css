@@ -3578,3 +3578,135 @@
   font-weight: 600;
 }
 
+/* ==========================================================================
+   Switch — role="switch" pill toggle (P2)
+   ========================================================================== */
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.switch__track {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  border-radius: 13px;
+  background: rgba(0, 0, 0, .18);
+  transition: background-color var(--dur-fast) var(--ease-standard);
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .switch__track {
+  background: rgba(255, 255, 255, .18);
+}
+
+.switch--on .switch__track {
+  background: var(--action-primary);
+}
+
+.switch__knob {
+  position: absolute;
+  top: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translateX(2px);
+  transition: transform var(--dur-fast) var(--ease-standard);
+  box-shadow: var(--shadow-sm);
+}
+
+.switch--on .switch__knob {
+  transform: translateX(22px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch__knob {
+    transition: none;
+  }
+  .switch__track {
+    transition: none;
+  }
+}
+
+.switch__label {
+  font-size: var(--type-callout);
+  color: var(--text-primary);
+  user-select: none;
+}
+
+.switch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.switch:focus-visible {
+  outline: 3px solid var(--action-primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, .55);
+}
+
+[data-theme="dark"] .switch:focus-visible {
+  box-shadow: 0 0 0 5px rgba(0, 0, 0, .5);
+}
+
+/* ==========================================================================
+   Form input token class (P2) — extracted from GlassInput inline styles
+   ========================================================================== */
+
+.form-input {
+  padding: 10px 16px;
+  border-radius: var(--radius-button);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: var(--type-body);
+  width: 100%;
+  outline: none;
+  color: var(--text-primary);
+  transition:
+    border-color var(--dur-fast) var(--ease-standard),
+    box-shadow   var(--dur-fast) var(--ease-standard);
+}
+
+.form-input:focus {
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px rgba(30, 79, 216, .12);
+}
+
+[data-theme="dark"] .form-input:focus {
+  box-shadow: 0 0 0 3px rgba(107, 159, 255, .15);
+}
+
+/* Icon padding variant — used by GlassInput when icon prop is provided */
+.form-input--with-icon {
+  padding-left: 40px;
+}
+
+/* ==========================================================================
+   Control target wrapper — 44px interactive region for checkboxes/radios (P2)
+   ========================================================================== */
+
+.control-target {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--action-primary);
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
