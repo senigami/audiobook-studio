@@ -4,8 +4,8 @@ Open these `.html` files **directly in a browser** (no build, no server — `fil
 
 | File | What it is |
 |------|------------|
-| [`current.html`](current.html) | The **current, as-built** visual catalog — every element (color, type, surfaces, buttons, forms, navigation, alerts, progress, status, lists, tables, badges, player…) rendered with the **real shipped CSS** (inlined verbatim from `frontend/src/theme/`). Includes a light/dark toggle and the computed WCAG AA contrast table. |
-| [`proposed-quiet-studio.html`](proposed-quiet-studio.html) | A **proposed redesign** direction — *"Quiet Studio — Precision Pressroom"* — for evaluation/comparison against `current.html`. **Not built.** A design proposal only, with before→after notes. |
+| [`current.html`](current.html) | The **current, as-built** visual catalog — as-built snapshot dated **2026-06-21** (Quiet Studio baseline). Every element (color, type, surfaces, buttons, forms, navigation, alerts, progress, status, lists, tables, badges, player…) rendered with the **real shipped CSS** (inlined verbatim from `frontend/src/theme/`). Includes a light/dark toggle and the computed WCAG AA contrast table. |
+| [`proposed-quiet-studio.html`](proposed-quiet-studio.html) | The **Quiet Studio — Precision Pressroom** proposal that was shipped in the P0–P5 migration. Retained for historical reference. |
 
 ## Source of truth (read this)
 
@@ -15,5 +15,5 @@ The **drift-free live view** is the in-app **`/#/styleguide`** page, which rende
 
 ## Provenance & regenerating
 
-- `current.html` reproduces `frontend/src/theme/tokens.css` + `components.css` verbatim as a **snapshot dated 2026-06-20**. Because it copies CSS rather than importing it, it can drift as the theme changes — regenerate it (or prefer the in-app page) after material design-system changes, and update the date here.
-- `proposed-quiet-studio.html` is a forward-looking proposal produced from a multi-lens design review (Apple HIG + design-critique + WCAG a11y + modern-web + personas). Its color values are WCAG-AA-verified, but its typefaces (Geist / Space Grotesk / Source Serif 4) render in fallback inside the static file because the sandbox blocks external font CDNs — see the note on that page.
+- `current.html` reproduces `frontend/src/theme/tokens.css` + `components.css` verbatim as a **snapshot dated 2026-06-21** (Quiet Studio baseline — regenerated as the final P6 step after P0–P5 migration). Because it copies CSS rather than importing it, it can drift as the theme changes — regenerate it (or prefer the in-app page) after material design-system changes, and update the date here.
+- `proposed-quiet-studio.html` was the forward-looking *"Quiet Studio — Precision Pressroom"* proposal produced from a multi-lens design review. It is now the shipped design direction and is retained as a historical artifact. Its color values are WCAG-AA-verified, but its typefaces (Geist / Space Grotesk / Source Serif 4) render in fallback inside the static file because the sandbox blocks external font CDNs — see the note on that page.

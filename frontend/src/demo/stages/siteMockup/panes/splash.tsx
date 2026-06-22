@@ -186,7 +186,7 @@ export const SplashPane: React.FC<{ onGetStarted: () => void }> = ({ onGetStarte
               inset: 0,
               borderRadius: 'var(--radius-round)',
               background: 'radial-gradient(circle, var(--accent-glow) 0%, transparent 68%)',
-              filter: 'blur(6px)',
+              filter: 'blur(6px)', /* decorative */
             }}
           />
           <img

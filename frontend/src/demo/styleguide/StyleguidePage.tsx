@@ -18,6 +18,8 @@ import { parseTokens, groupTokens, type TokenEntry } from './parseTokens';
 import { AudioLines, Play, SkipBack, SkipForward, Rewind, FastForward } from 'lucide-react';
 import { GlassInput } from '@/components/forms/GlassInput';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
+import { StatusOrb } from '@/components/ui/StatusOrb';
+import type { Chapter, Job } from '@/types';
 
 // ---------------------------------------------------------------------------
 // Shared primitives
@@ -750,15 +752,131 @@ const ProgressSpecimens: React.FC = () => (
   </SubSection>
 );
 
+// ---------------------------------------------------------------------------
+// StatusOrb specimen helpers — synthetic Chapter/Job mocks
+// ---------------------------------------------------------------------------
+
+/** Minimal Chapter stub — only the fields StatusOrb reads */
+function makeChap(overrides: Partial<Chapter>): Chapter {
+  return {
+    id: 'sg-chap',
+    project_id: 'sg-proj',
+    title: 'Chapter 1',
+    text_content: '',
+    speaker_profile_name: null,
+    sort_order: 0,
+    audio_status: 'unprocessed',
+    audio_file_path: null,
+    has_wav: false,
+    has_mp3: false,
+    has_m4a: false,
+    text_last_modified: null,
+    audio_generated_at: null,
+    char_count: 0,
+    word_count: 0,
+    sent_count: 0,
+    predicted_audio_length: 0,
+    audio_length_seconds: 0,
+    ...overrides,
+  };
+}
+
+/** Minimal Job stub — only the fields StatusOrb reads */
+function makeJob(overrides: Partial<Job>): Job {
+  return {
+    id: 'sg-job',
+    engine: 'xtts',
+    chapter_file: '',
+    status: 'running',
+    created_at: Date.now(),
+    safe_mode: false,
+    make_mp3: false,
+    progress: 0.45,
+    ...overrides,
+  } as unknown as Job;
+}
+
+const StatusOrbSpecimens: React.FC = () => {
+  const NOW = Date.now();
+  const PAST = NOW - 10000; // 10 s ago — audio_generated before text change
+
+  const specimens: Array<{ label: string; caption: string; chap: Chapter; job?: Job; queuePending?: boolean; done?: number; total?: number }> = [
+    {
+      label: 'Unprocessed (empty)',
+      caption: 'No audio, no cached M4A — blank orb',
+      chap: makeChap({ audio_status: 'unprocessed' }),
+    },
+    {
+      label: 'Queued',
+      caption: 'queue_pending=true, no active job',
+      chap: makeChap({ audio_status: 'unprocessed' }),
+      queuePending: true,
+    },
+    {
+      label: 'Running',
+      caption: 'Active job present → spinner ring',
+      chap: makeChap({ audio_status: 'processing' }),
+      job: makeJob({ status: 'running' }),
+    },
+    {
+      label: 'Partial (50%)',
+      caption: '2 of 4 segments done',
+      chap: makeChap({ audio_status: 'unprocessed' }),
+      done: 2,
+      total: 4,
+    },
+    {
+      label: 'Done',
+      caption: 'has_wav=true, in-sync',
+      chap: makeChap({ audio_status: 'done', has_wav: true, audio_generated_at: NOW, text_last_modified: PAST }),
+    },
+    {
+      label: 'Cached (M4A only)',
+      caption: 'has_m4a=true, no WAV — Archive icon',
+      chap: makeChap({ audio_status: 'unprocessed', has_m4a: true }),
+    },
+    {
+      label: 'Stale (needs rebuild)',
+      caption: 'text changed after last render',
+      chap: makeChap({ audio_status: 'done', has_wav: true, audio_generated_at: PAST, text_last_modified: NOW }),
+    },
+    {
+      label: 'Error',
+      caption: 'audio_status=error → X icon',
+      chap: makeChap({ audio_status: 'error' }),
+    },
+  ];
+
+  return (
+    <SubSection title="StatusOrb">
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+        {specimens.map(({ label, caption, chap, job, queuePending, done, total }) => (
+          <SpecimenCard key={label} label={label} caption={caption} style={{ minWidth: 110 }}>
+            <StatusOrb
+              chap={chap}
+              activeJob={job}
+              queuePending={queuePending}
+              doneSegments={done}
+              totalSegments={total}
+              size={28}
+            />
+          </SpecimenCard>
+        ))}
+      </div>
+    </SubSection>
+  );
+};
+
 const ComponentsSection: React.FC = () => (
   <SectionWrapper id={SECTION_IDS.components} title={SECTION_LABELS.components}>
     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
       Live-mounted real components in static-prop states. Skipped (require heavy store context):
-      StatusOrb (depends on Chapter + Job types), NarratorCard (VoicesPage store), full Queue Drawer.
+      NarratorCard (VoicesPage store), full Queue Drawer.
     </p>
     <ButtonSpecimens />
     <InputSpecimens />
     <ProgressSpecimens />
+    <StatusOrbSpecimens />
   </SectionWrapper>
 );
 
