@@ -49,6 +49,11 @@
   to { transform: rotate(360deg); }
 }
 
+@keyframes calm-pulse {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 1.0; }
+}
+
 @keyframes fadeInDown {
   from {
     opacity: 0;

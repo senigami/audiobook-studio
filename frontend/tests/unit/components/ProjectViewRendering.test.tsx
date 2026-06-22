@@ -60,6 +60,8 @@ vi.mock('lucide-react', () => ({
   Clock: () => <div />,
   CheckCircle: () => <div />,
   Database: () => <div />,
+  Check: () => <div />,
+  Archive: () => <div />,
 }));
 
 // Mock framer-motion

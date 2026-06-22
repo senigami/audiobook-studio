@@ -7,8 +7,11 @@
   50%       { opacity: 1.0; }
 }
 
-/* Running state restores pulse even under reduced-motion (structural exemption per INV-5) */
+/* Calm-pulse — shared by running orb ring + progress bar fill.
+   Restores --pulse-duration even when the reduced-motion guard zeroed it at :root.
+   INV-5: structural motion (state communication) survives reduced-motion. */
 .is-running {
+  --pulse-duration: 3s;
   animation: calm-pulse var(--pulse-duration) ease-in-out infinite;
 }
 

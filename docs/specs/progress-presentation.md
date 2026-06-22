@@ -56,6 +56,8 @@ This spec defines:
 
 This spec is the binding reference; code that disagrees with it is a bug in one or the other. Progress broadcast rules are cross-referenced to `docs/specs/live-events.md` rather than duplicated here.
 
+> **Visual rendering note (P3):** `StatusOrb` and `PredictiveProgressBar` add icon-insets in the Quiet Studio migration (task 003) — see `design-system.md` §6 for the icon-per-state tables and calm-pulse/`.is-running` details. The progress contract (props, math, lane logic, invariants) is unchanged.
+
 ---
 
 ## 2. Server-Side Progress Rules

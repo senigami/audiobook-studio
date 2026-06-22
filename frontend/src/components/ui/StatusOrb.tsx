@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Clock, Loader2, Check, X, Archive } from 'lucide-react';
 import type { Chapter, Job } from '@/types';
 
 interface StatusOrbProps {
@@ -48,16 +48,31 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
   let orbStrokeWidth = 1;
 
   if (isError) {
-    fill = 'var(--error)';
-    content = <span style={{ color: 'var(--text-on-error)', fontSize: '10px', fontWeight: 'bold', lineHeight: '1' }}>!</span>;
+    fill = 'rgba(239,68,68,.10)';
+    orbStroke = 'var(--error)';
+    content = (
+      <span data-testid="orb-icon-error" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0 }}>
+        <X size={10} strokeWidth={2.5} color="var(--error)" style={{ display: 'block' }} />
+      </span>
+    );
     tooltip = 'Render failed. View Queue for details.';
   } else if (isTrulyProcessing) {
-    fill = 'var(--surface-light)'; // Neutral/subtle blue or grey
-    content = <RefreshCw size={10} color="var(--accent)" className="animate-spin" style={{ display: 'block' }} />;
+    fill = 'rgba(30,79,216,.10)';
+    orbStroke = 'var(--live-indicator)';
+    content = (
+      <span data-testid="orb-icon-running" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0 }}>
+        <Loader2 size={10} color="var(--live-indicator)" className="animate-spin" style={{ display: 'block' }} />
+      </span>
+    );
     tooltip = 'Rendering... (see Queue for progress)';
   } else if (isQueued) {
-    fill = 'var(--surface-light)';
-    content = <RefreshCw size={10} color="var(--text-muted)" className="animate-spin" style={{ display: 'block' }} />;
+    fill = 'rgba(100,116,139,.10)';
+    orbStroke = 'rgba(100,116,139,.30)';
+    content = (
+      <span data-testid="orb-icon-queued" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0 }}>
+        <Clock size={10} color="var(--text-muted)" style={{ display: 'block' }} />
+      </span>
+    );
     tooltip = 'Queued for rendering';
   } else if (isStale || isStuckProcessing) {
     fill = 'var(--warning)';
@@ -69,8 +84,13 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
       ? 'Render was interrupted. Needs rebuild.' 
       : 'Needs rebuild: script or voice assignment changed since last render';
   } else if (isComplete) {
-    fill = 'var(--success)';
-    content = null;
+    fill = 'rgba(22,163,74,.10)';
+    orbStroke = 'var(--success)';
+    content = (
+      <span data-testid="orb-icon-done" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0 }}>
+        <Check size={10} color="var(--success)" style={{ display: 'block' }} />
+      </span>
+    );
     tooltip = 'WAV rendered (in sync)';
   } else if (isReadyToStitch) {
     fill = 'var(--surface)';
@@ -83,8 +103,15 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
     percent = totalSegments > 0 ? Math.round((doneSegments / totalSegments) * 100) : 0;
     tooltip = `${percent}% of segments rendered. Queue remaining to finish WAV.`;
   } else {
-    // Empty state
+    // Empty state — show Archive icon when M4A cached is the sole signal
     fill = 'var(--surface)';
+    if (hasM4a) {
+      content = (
+        <span data-testid="orb-icon-cached" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0 }}>
+          <Archive size={10} color="var(--status-cached-ring)" style={{ display: 'block' }} />
+        </span>
+      );
+    }
     tooltip = 'No audio yet';
   }
 
@@ -122,10 +149,11 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
           <circle
             cx="12" cy="12" r={ringRadius}
             fill="none"
-            stroke={hasM4a ? 'var(--accent)' : 'var(--border)'}
+            stroke={isTrulyProcessing ? 'var(--live-indicator)' : (hasM4a ? 'var(--status-cached-ring)' : 'var(--border)')}
             strokeWidth="1.2"
             strokeLinecap="round"
-            style={{ opacity: isStale ? 0 : (hasM4a ? 0.8 : 0.3), transition: 'all 0.3s' }}
+            className={isTrulyProcessing ? 'is-running' : undefined}
+            style={{ opacity: isStale ? 0 : (isTrulyProcessing ? 0.8 : (hasM4a ? 0.8 : 0.3)), transition: 'all 0.3s' }}
           />
 
           {/* Base Orb */}

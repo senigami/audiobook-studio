@@ -155,10 +155,10 @@ describe('ChapterList', () => {
     // StatusOrb should render as queued rather than interrupted while the live job attaches
     const orb = screen.getByLabelText(/Queued for rendering/i);
     expect(orb).toBeTruthy();
-    
-    // It should render a spinner, not a warning icon
-    const spinner = container.querySelector('.animate-spin');
-    expect(spinner).toBeTruthy();
+
+    // P3: queued state uses Clock icon (static, no spin) — not a warning icon
+    const queuedIcon = container.querySelector('[data-testid="orb-icon-queued"]');
+    expect(queuedIcon).toBeTruthy();
   });
 
   it('uses live job progress when available', () => {
