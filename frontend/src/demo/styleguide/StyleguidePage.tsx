@@ -715,7 +715,7 @@ const ProgressSpecimens: React.FC = () => (
             showEta={false}
             showPercent
             showLabel
-            label="Preparing"
+            label="Rendering chapter audio"
             allowBackwardProgress={false}
           />
         </div>
@@ -743,7 +743,7 @@ const ProgressSpecimens: React.FC = () => (
             showEta={false}
             showPercent
             showLabel
-            label="Complete"
+            label="Rendering chapter audio"
             allowBackwardProgress={false}
           />
         </div>

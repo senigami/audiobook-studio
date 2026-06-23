@@ -2,49 +2,49 @@ import { render } from '@testing-library/react'
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar'
 import { describe, it, expect } from 'vitest'
 
-// P3 terminus-icon tests (INV-4: state conveyed by icon, not color alone)
-describe('PredictiveProgressBar — P3 terminus icon', () => {
-    it('shows a terminus icon at the leading edge of the fill when fill > 8% and status is running', () => {
+// Per owner feedback the leading-edge terminus icon (spinner/check) and the redundant
+// uppercase status pill were removed. State is still conveyed without color alone — by
+// the label, the right-side status/ETA text, and the fill — so WCAG 1.4.1 holds.
+describe('PredictiveProgressBar — no terminus icon, no status pill', () => {
+    it('renders no terminus icon at the leading edge of the fill', () => {
         const { container } = render(
             <PredictiveProgressBar
                 progress={0.5}
                 status="running"
                 showEta={false}
-                label="Test"
+                label="Rendering chapter audio"
                 allowBackwardProgress={false}
             />
         )
-        const terminusIcon = container.querySelector('[data-testid="progress-terminus-icon"]')
-        expect(terminusIcon).toBeTruthy()
+        expect(container.querySelector('[data-testid="progress-terminus-icon"]')).toBeNull()
     })
 
-    it('hides the terminus icon when displayed fill <= 8%', () => {
-        const { container } = render(
-            <PredictiveProgressBar
-                progress={0.02}
-                status="running"
-                showEta={false}
-                label="Test"
-                allowBackwardProgress={false}
-                predictive={false}
-            />
-        )
-        const terminusIcon = container.querySelector('[data-testid="progress-terminus-icon"]')
-        expect(terminusIcon).toBeNull()
-    })
-
-    it('applies is-running class to fill div when status is running', () => {
+    it('does not render a redundant status pill (no standalone RUNNING chip)', () => {
         const { container } = render(
             <PredictiveProgressBar
                 progress={0.5}
                 status="running"
                 showEta={false}
-                label="Test"
+                showPercent
+                label="Chapter audio"
                 allowBackwardProgress={false}
             />
         )
-        // The fill div that receives calm-pulse animation
-        const runningFill = container.querySelector('.is-running')
-        expect(runningFill).toBeTruthy()
+        // The label is the only left-side header text; the status is carried by the
+        // right-side text/percent + fill, not a duplicated "RUNNING" pill.
+        expect(/running/i.test(container.textContent ?? '')).toBe(false)
+    })
+
+    it('keeps the is-running calm-pulse on the fill when running', () => {
+        const { container } = render(
+            <PredictiveProgressBar
+                progress={0.5}
+                status="running"
+                showEta={false}
+                label="Chapter audio"
+                allowBackwardProgress={false}
+            />
+        )
+        expect(container.querySelector('.is-running')).toBeTruthy()
     })
 })

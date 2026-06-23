@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, Loader2, Check, X } from 'lucide-react';
 import {
     clamp01,
     formatStylePercent,
-    formatStatusLabel,
     formatTime,
     getBusyStatusText,
     getProgressInfo,
@@ -618,9 +616,6 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     }, [localProgress, onDisplayProgress]);
 
     const visualState = autoFinalizing ? 'finalizing' : presentationState;
-    const displayStatusLabel = presentationState === 'running' && checkpointMode === 'queue'
-        ? 'Rendering'
-        : formatStatusLabel(presentationState);
     const shouldAnimateWidth = !indeterminate && isActiveStatus(visualState);
     const indeterminateClassName = indeterminate
         ? (visualState === 'finalizing' ? 'progress-bar-finalizing' : preparingIndeterminate ? 'progress-bar-pending' : 'progress-bar-animated')
@@ -684,27 +679,6 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         presentationState, currentLane, migration, activeTargetLane, renderedEndAtMs, tickMs
     ]);
 
-    // Terminus icon: visible at the leading edge of the fill when displayed fill > ~8%
-    const showTerminusIcon = !indeterminate && localProgress > 0.08;
-    const terminusIcon = showTerminusIcon ? (() => {
-        if (isPreparingStatus(presentationState)) {
-            return <Clock size={12} color="var(--text-muted)" style={{ display: 'block' }} />;
-        }
-        if (isLiveAnimatedStatus(presentationState)) {
-            return <Loader2 size={12} color="var(--on-action)" className="animate-spin" style={{ display: 'block' }} />;
-        }
-        if (isDoneStatus(presentationState)) {
-            return <Check size={12} color="var(--on-success)" style={{ display: 'block' }} />;
-        }
-        if (isFailedStatus(presentationState)) {
-            return <X size={12} color="#ffffff" style={{ display: 'block' }} />;
-        }
-        if (isCancelledStatus(presentationState)) {
-            return <X size={12} color="var(--text-muted)" style={{ display: 'block' }} />;
-        }
-        return null;
-    })() : null;
-
     // Apply is-running class on the fill when live-animated (calm-pulse per INV-5)
     const fillRunningClass = isLiveAnimatedStatus(presentationState) ? 'is-running' : undefined;
 
@@ -733,16 +707,6 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
                         {showLabel && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>}
-                        {presentationState && checkpointMode !== 'segment' && (
-                            <span style={{
-                                fontSize: '0.58rem', textTransform: 'uppercase', letterSpacing: '0.08em',
-                                padding: '0.14rem 0.42rem', borderRadius: 'var(--radius-compact)', border: '1px solid var(--progress-badge-border)',
-                                background: presentationState === 'running' || presentationState === 'processing' ? 'var(--progress-badge-running)' : presentationState === 'preparing' ? 'var(--progress-badge-preparing)' : presentationState === 'finalizing' ? 'var(--progress-badge-finalizing)' : 'var(--progress-badge-default)',
-                                color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap',
-                            }}>
-                                {displayStatusLabel}
-                            </span>
-                        )}
                     </div>
                     <div>
                         {showEta && displayedRemaining !== null && !terminalStatusText && !busyStatusText ? (
@@ -760,12 +724,11 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                     </div>
                 </div>
             )}
-            <div style={{ height: '6px', background: 'var(--progress-track)', borderRadius: '3px', overflow: terminusIcon ? 'visible' : 'hidden' }}>
+            <div style={{ height: '6px', background: 'var(--progress-track)', borderRadius: '3px', overflow: 'hidden' }}>
                 <div
                     key={stablePhaseKey}
                     className={[visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName, fillRunningClass].filter(Boolean).join(' ') || undefined}
                     style={{
-                        position: 'relative',
                         height: '100%',
                         width: indeterminate ? (visualState === 'preparing' ? '0%' : visualState === 'finalizing' ? '100%' : '35%') : (isDoneStatus(visualState) && localProgress < 1.0) ? formatStylePercent(localProgress) : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : formatStylePercent(localProgress),
                         background: visualState === 'finalizing' ? 'var(--progress-finalizing-fill)' : (indeterminate && preparingIndeterminate ? 'var(--progress-preparing-fill)' : terminalFillStyle?.background ?? 'var(--accent)'),
@@ -773,26 +736,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                         boxShadow: visualState === 'finalizing' ? '0 0 15px var(--progress-finalizing-glow)' : (indeterminate && preparingIndeterminate ? '0 0 10px var(--progress-preparing-glow)' : terminalFillStyle?.boxShadow ?? '0 0 15px var(--accent)'),
                         transition: (shouldAnimateWidth && !isTerminalStatus(visualState)) || (isDoneStatus(visualState) && localProgress < 1.0) ? 'width 0.25s linear' : 'none'
                     }}
-                >
-                    {terminusIcon !== null && (
-                        <span
-                            data-testid="progress-terminus-icon"
-                            style={{
-                                position: 'absolute',
-                                right: '2px',
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                lineHeight: 0,
-                                pointerEvents: 'none',
-                            }}
-                        >
-                            {terminusIcon}
-                        </span>
-                    )}
-                </div>
+                />
             </div>
         </div>
     );

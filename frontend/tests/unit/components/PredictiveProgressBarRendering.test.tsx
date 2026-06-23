@@ -20,7 +20,8 @@ describe('PredictiveProgressBar - Rendering', () => {
                 showEta={false}
             />
         )
-        expect(screen.getAllByText('Queued')).toHaveLength(2)
+        // "Queued" now appears once (right-side status text); the duplicate status pill was removed.
+        expect(screen.getAllByText('Queued')).toHaveLength(1)
     })
 
     it('shows preparing as an indeterminate state even when live timing data exists', () => {
@@ -34,8 +35,9 @@ describe('PredictiveProgressBar - Rendering', () => {
                 showEta={false}
             />
         )
+        // Preparing surfaces via the label + right-side "Working..." text (the status
+        // pill was removed); the indeterminate behavior is the .progress-bar-pending fill.
         expect(screen.getAllByText(/Prep|Proc|Working\.\.\./).length).toBeGreaterThan(0)
-        expect(screen.getByText('Preparing')).toBeTruthy()
         expect(container.querySelector('.progress-bar-pending')).toBeTruthy()
     })
 
@@ -213,21 +215,7 @@ describe('PredictiveProgressBar - Rendering', () => {
         expect(screen.getByTestId('custom-test-id-bar')).toBeInTheDocument()
     })
 
-    it('hides the status pill when checkpointMode is segment', () => {
-        render(
-            <PredictiveProgressBar
-                progress={0.4}
-                label="Seg"
-                status="running"
-                showEta={false}
-                checkpointMode="segment"
-            />
-        )
-        // The pill text (e.g. 'Synthesizing' or 'Running') should not appear
-        expect(screen.queryByText(/synthesizing|running|preparing|finalizing/i)).toBeNull()
-    })
-
-    it('shows the status pill when checkpointMode is queue', () => {
+    it('renders no status pill for a running bar (pill removed per owner feedback)', () => {
         render(
             <PredictiveProgressBar
                 progress={0.4}
@@ -237,8 +225,9 @@ describe('PredictiveProgressBar - Rendering', () => {
                 checkpointMode="queue"
             />
         )
-        // The pill text 'Rendering' is the queue-mode label for running
-        expect(screen.getByText('Rendering')).toBeTruthy()
+        // The uppercase status pill (e.g. 'Rendering'/'Running') was removed; the label
+        // is the only left-side header text and no status chip duplicates it.
+        expect(screen.queryByText(/^(rendering|running|synthesizing|preparing|finalizing)$/i)).toBeNull()
     })
 
 })

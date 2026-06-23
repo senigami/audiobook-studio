@@ -279,11 +279,15 @@ describe('PredictiveProgressBar - Transitions', () => {
         vi.useRealTimers()
     })
 
-    it('does not label the job status as Rendering or Finalizing before the backend status reaches those states', () => {
+    it('does not surface Finalizing before the backend status reaches finalizing', () => {
         vi.useFakeTimers()
         vi.setSystemTime(100_000)
 
-        // 1. When status is preparing, it shows Preparing, not Rendering or Finalizing
+        // The status pill was removed; phase is carried by the right-side busy text
+        // (getBusyStatusText keys off presentationState, not the internal visualState),
+        // so the premature-label invariant now lives on that surface.
+
+        // 1. Preparing → "Working..." on the right; never "Finalizing...".
         const { rerender } = render(
             <PredictiveProgressBar
                 progress={0.1}
@@ -292,11 +296,11 @@ describe('PredictiveProgressBar - Transitions', () => {
                 showLabel={true}
             />
         )
-        expect(screen.getByText('Preparing')).toBeTruthy()
-        expect(screen.queryByText('Rendering')).toBeNull()
-        expect(screen.queryByText('Finalizing')).toBeNull()
+        expect(screen.getByText('Working...')).toBeTruthy()
+        expect(screen.queryByText(/Finalizing/)).toBeNull()
 
-        // 2. When status is running, it shows Rendering, not Finalizing, even if ETA is 0 (which triggers autoFinalizing internally)
+        // 2. Running with ETA 0 triggers autoFinalizing INTERNALLY, but presentationState
+        //    is still 'running' — so "Finalizing..." must NOT leak.
         rerender(
             <PredictiveProgressBar
                 progress={0.99}
@@ -307,10 +311,9 @@ describe('PredictiveProgressBar - Transitions', () => {
                 showLabel={true}
             />
         )
-        expect(screen.getByText('Rendering')).toBeTruthy()
-        expect(screen.queryByText('Finalizing')).toBeNull()
+        expect(screen.queryByText(/Finalizing/)).toBeNull()
 
-        // 3. Only when status is actually finalizing, it shows Finalizing
+        // 3. Only when the backend status is actually finalizing does "Finalizing..." show.
         rerender(
             <PredictiveProgressBar
                 progress={0.99}
@@ -319,8 +322,7 @@ describe('PredictiveProgressBar - Transitions', () => {
                 showLabel={true}
             />
         )
-        expect(screen.getByText('Finalizing')).toBeTruthy()
-        expect(screen.queryByText('Rendering')).toBeNull()
+        expect(screen.getByText('Finalizing...')).toBeTruthy()
 
         vi.useRealTimers()
     })
