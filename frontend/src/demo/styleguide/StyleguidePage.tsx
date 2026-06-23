@@ -12,7 +12,7 @@
  *   5. Theme side-by-side
  */
 
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import tokensCss from '@/theme/tokens.css?raw';
 import { parseTokens, groupTokens, type TokenEntry } from './parseTokens';
 import { AudioLines, Play, SkipBack, SkipForward, Rewind, FastForward } from 'lucide-react';
@@ -20,6 +20,33 @@ import { GlassInput } from '@/components/forms/GlassInput';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import { StatusOrb } from '@/components/ui/StatusOrb';
 import type { Chapter, Job } from '@/types';
+
+// ---------------------------------------------------------------------------
+// Scroll-spy hook
+// ---------------------------------------------------------------------------
+
+function useActiveSection(ids: string[]): string {
+  const [active, setActive] = useState(ids[0]);
+  const key = ids.join('|');
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActive(visible[0].target.id);
+      },
+      { rootMargin: '-20% 0px -70% 0px', threshold: 0 },
+    );
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [key]);
+  return active;
+}
 
 // ---------------------------------------------------------------------------
 // Shared primitives
@@ -1959,8 +1986,9 @@ const U3Crosslink: React.FC = () => (
       The 9-step type scale, 8-step spacing scale, and motion tokens are all shipped in <code>tokens.css</code>.
       Live specimens with real values auto-parsed from the source file live in Section 2.
     </p>
-    <a
-      href={`#${SECTION_IDS.typography}`}
+    <button
+      type="button"
+      onClick={() => document.getElementById(SECTION_IDS.typography)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
       style={{
         display: 'inline-block',
         padding: '6px 14px',
@@ -1971,10 +1999,11 @@ const U3Crosslink: React.FC = () => (
         fontSize: '0.875rem',
         fontWeight: 600,
         textDecoration: 'none',
+        cursor: 'pointer',
       }}
     >
       Go to Section 2 — Typography
-    </a>
+    </button>
   </Card>
 );
 
@@ -2067,53 +2096,150 @@ const ThemeSection: React.FC = () => (
 );
 
 // ---------------------------------------------------------------------------
-// Sticky section nav
+// Sticky left sidebar nav
 // ---------------------------------------------------------------------------
 
-const SectionNav: React.FC = () => (
-  <nav
-    aria-label="Styleguide sections"
-    style={{
-      position: 'sticky',
-      top: 0,
-      zIndex: 50,
-      background: 'var(--surface)',
-      borderBottom: '1px solid var(--border)',
-      padding: '0 24px',
-      display: 'flex',
-      gap: 4,
-      overflowX: 'auto',
-    }}
-  >
-    {(Object.keys(SECTION_IDS) as (keyof typeof SECTION_IDS)[]).map(key => (
-      <a
-        key={key}
-        href={`#${SECTION_IDS[key]}`}
+const NAV_GROUPS: Array<{ label: string; keys: (keyof typeof SECTION_IDS)[] }> = [
+  { label: 'Foundations', keys: ['colors', 'typography'] },
+  { label: 'Components',  keys: ['components'] },
+  { label: 'Direction',   keys: ['proposals', 'theme'] },
+];
+
+const StyleguideSidebar: React.FC<{ active: string }> = ({ active }) => {
+  const scrollTo = useCallback((id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  return (
+    <nav
+      aria-label="Style guide sections"
+      className="sg-sidebar"
+      style={{
+        position: 'sticky',
+        top: 50,
+        alignSelf: 'flex-start',
+        height: 'calc(100vh - 50px)',
+        overflowY: 'auto',
+        width: 248,
+        flexShrink: 0,
+        background: 'var(--surface-alt)',
+        borderRight: '1px solid var(--hairline, var(--border))',
+        padding: '1.5rem 0',
+      }}
+    >
+      {/* Branding block */}
+      <div
         style={{
-          display: 'block',
-          padding: '10px 12px',
-          fontSize: '0.8rem',
-          fontWeight: 600,
-          color: 'var(--text-secondary)',
-          textDecoration: 'none',
-          whiteSpace: 'nowrap',
-          borderBottom: '2px solid transparent',
-          transition: 'color 0.15s, border-color 0.15s',
-        }}
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLAnchorElement).style.color = 'var(--accent)';
-          (e.currentTarget as HTMLAnchorElement).style.borderBottomColor = 'var(--accent)';
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLAnchorElement).style.color = 'var(--text-secondary)';
-          (e.currentTarget as HTMLAnchorElement).style.borderBottomColor = 'transparent';
+          padding: '0 1.25rem 1.25rem',
+          borderBottom: '1px solid var(--hairline, var(--border))',
+          marginBottom: '1rem',
         }}
       >
-        {SECTION_LABELS[key]}
-      </a>
-    ))}
-  </nav>
-);
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <AudioLines size={18} color="var(--action-primary, var(--accent))" aria-hidden="true" />
+          <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem' }}>
+            Audiobook Studio
+          </span>
+        </div>
+        <div
+          style={{
+            fontSize: 'var(--type-micro, 0.65rem)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: 'var(--text-muted)',
+            marginBottom: 2,
+          }}
+        >
+          Visual Style Guide
+        </div>
+        <div
+          style={{
+            fontSize: 'var(--type-micro, 0.65rem)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: 'var(--text-muted)',
+          }}
+        >
+          design-system v1.12.0
+        </div>
+      </div>
+
+      {/* Grouped nav links */}
+      {NAV_GROUPS.map(({ label: groupLabel, keys }) => (
+        <div key={groupLabel}>
+          <div
+            style={{
+              padding: '0.9rem 1.25rem 0.25rem',
+              fontSize: 'var(--type-micro, 0.65rem)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              color: 'var(--text-muted)',
+              fontWeight: 700,
+            }}
+          >
+            {groupLabel}
+          </div>
+          {keys.map((key) => {
+            const id = SECTION_IDS[key];
+            const isActive = active === id;
+            return (
+              <NavItem
+                key={key}
+                label={SECTION_LABELS[key]}
+                isActive={isActive}
+                onClick={() => scrollTo(id)}
+              />
+            );
+          })}
+        </div>
+      ))}
+    </nav>
+  );
+};
+
+/** Single nav button — extracted so hover state uses local useState (token-only, no global CSS). */
+const NavItem: React.FC<{ label: string; isActive: boolean; onClick: () => void }> = ({
+  label, isActive, onClick,
+}) => {
+  const [hovered, setHovered] = useState(false);
+
+  const style: React.CSSProperties = {
+    display: 'block',
+    width: '100%',
+    textAlign: 'left',
+    padding: '0.45rem 1.25rem',
+    fontSize: '0.8rem',
+    cursor: 'pointer',
+    background: isActive
+      ? 'var(--accent-tint-bg)'
+      : hovered
+        ? 'var(--surface)'
+        : 'none',
+    border: 'none',
+    borderLeft: isActive
+      ? '3px solid var(--action-primary, var(--accent))'
+      : '3px solid transparent',
+    color: isActive
+      ? 'var(--action-primary, var(--accent))'
+      : hovered
+        ? 'var(--text-primary)'
+        : 'var(--text-secondary)',
+    fontWeight: isActive ? 600 : 400,
+  };
+
+  return (
+    <button
+      type="button"
+      style={style}
+      aria-current={isActive ? 'true' : undefined}
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {label}
+    </button>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Root page
@@ -2121,33 +2247,45 @@ const SectionNav: React.FC = () => (
 
 export const StyleguidePage: React.FC = () => {
   const entries = useMemo(() => parseTokens(tokensCss), []);
+  const sectionIds = useMemo(() => Object.values(SECTION_IDS) as string[], []);
+  const active = useActiveSection(sectionIds);
+
+  // Responsive: hide sidebar below 768px via matchMedia.
+  // Default to true (sidebar visible); jsdom / SSR envs lack matchMedia so guard it.
+  const [sidebarVisible, setSidebarVisible] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
+    return window.matchMedia('(min-width: 768px)').matches;
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(min-width: 768px)');
+    const handler = (e: MediaQueryListEvent) => setSidebarVisible(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <SectionNav />
-      <div
-        style={{
-          maxWidth: 960,
-          margin: '0 auto',
-          padding: '2rem 24px',
-        }}
-      >
-        <div style={{ marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
-            Design Spec Sheet
-          </h1>
-          <p style={{ fontSize: '0.9375rem', color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 680 }}>
-            Auto-generated token registry, live component specimens, and static mockups of proposed
-            design directions from doc 10 (UX Improvements). Intended to make theming and redesign
-            decisions cheap to evaluate — no production code changes needed to read and approve.
-          </p>
-        </div>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'flex-start' }}>
+      {sidebarVisible && <StyleguideSidebar active={active} />}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ maxWidth: 960, margin: '0 auto', padding: '2.5rem 48px' }}>
+          <div style={{ marginBottom: '2rem' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
+              Design Spec Sheet
+            </h1>
+            <p style={{ fontSize: '0.9375rem', color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 680 }}>
+              Auto-generated token registry, live component specimens, and static mockups of proposed
+              design directions from doc 10 (UX Improvements). Intended to make theming and redesign
+              decisions cheap to evaluate — no production code changes needed to read and approve.
+            </p>
+          </div>
 
-        <ColorTokensSection entries={entries} />
-        <TypographySection allTokens={entries} />
-        <ComponentsSection />
-        <ProposalsSection />
-        <ThemeSection />
+          <ColorTokensSection entries={entries} />
+          <TypographySection allTokens={entries} />
+          <ComponentsSection />
+          <ProposalsSection />
+          <ThemeSection />
+        </div>
       </div>
     </div>
   );
