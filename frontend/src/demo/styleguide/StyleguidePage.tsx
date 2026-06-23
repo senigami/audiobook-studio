@@ -1,24 +1,45 @@
 /**
- * StyleguidePage — design spec sheet for Audiobook Studio.
+ * StyleguidePage — Audiobook Studio canonical design system reference.
  *
- * A storybook-like page laying out the design system: tokens, type rules,
- * component states, and PROPOSED design directions for owner review.
+ * This is the authoritative visual source of truth for building UI in this app.
+ * Every token, type rule, and component state shown here is the adopted standard.
+ * Code that contradicts it is a bug. Tokens and type auto-derive from tokens.css
+ * (zero drift) and this page aligns with docs/specs/design-system.md.
  *
- * Sections:
- *   1. Color tokens (auto-generated from tokens.css — zero drift)
- *   2. Typography — shipped type/space/motion tokens (auto-parsed from tokens.css)
- *   3. Components — current states (live-mounted)
- *   4. Proposed directions (U1, U8, U15, U16 mockup gallery)
- *   5. Theme side-by-side
+ * Sections (13):
+ *   1. Principles        — design tenets
+ *   2. Brand & Identity  — BrandLogo, assets, naming rules
+ *   3. Color             — auto-generated token table from tokens.css
+ *   4. Typography        — type scale (auto-parsed)
+ *   5. Spacing & Radius  — spacing scale, motion tokens, radius
+ *   6. Buttons           — button variants + states
+ *   7. Forms & Focus     — GlassInput, Switch, SearchableSelect, ColorSwatchPicker, VoiceDropzone
+ *   8. Status & Progress — StatusOrb, PredictiveProgressBar
+ *   9. Overlays          — modal preview, ActionMenu, toast note
+ *  10. Voice Pills       — VoicePill taxonomy, VoicePillRow, UntaggedBadge
+ *  11. Iconography       — lucide library, control→icon mapping
+ *  12. Accessibility     — five UI states, focus, contrast, reduced motion
+ *  13. Theme             — side-by-side light/dark composite
  */
 
-import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import tokensCss from '@/theme/tokens.css?raw';
 import { parseTokens, groupTokens, type TokenEntry } from './parseTokens';
-import { AudioLines, Play, SkipBack, SkipForward, Rewind, FastForward } from 'lucide-react';
+import {
+  AudioLines,
+  Play, Pause, Check, X, AlertTriangle, Loader2, Settings, Trash2,
+} from 'lucide-react';
 import { GlassInput } from '@/components/forms/GlassInput';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import { StatusOrb } from '@/components/ui/StatusOrb';
+import { Switch } from '@/components/ui/Switch';
+import { ActionMenu } from '@/components/ui/ActionMenu';
+import { BrandLogo } from '@/components/layout/BrandLogo';
+import SearchableSelect from '@/components/forms/SearchableSelect';
+import { ColorSwatchPicker } from '@/components/forms/ColorSwatchPicker';
+import { VoiceDropzone } from '@/components/forms/VoiceDropzone';
+import { VoicePill, VoicePillRow, UntaggedBadge } from '@/pages/Voices/components/VoicePills';
+import type { PillSpec } from '@/pages/Voices/components/VoicePills';
 import type { Chapter, Job } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -49,23 +70,39 @@ function useActiveSection(ids: string[]): string {
 }
 
 // ---------------------------------------------------------------------------
-// Shared primitives
+// Shared section/id constants
 // ---------------------------------------------------------------------------
 
 const SECTION_IDS = {
-  colors: 'sg-colors',
-  typography: 'sg-typography',
-  components: 'sg-components',
-  proposals: 'sg-proposals',
-  theme: 'sg-theme',
+  principles:   'sg-principles',
+  brand:        'sg-brand',
+  colors:       'sg-colors',
+  typography:   'sg-typography',
+  spacing:      'sg-spacing',
+  buttons:      'sg-buttons',
+  forms:        'sg-forms',
+  status:       'sg-status',
+  overlays:     'sg-overlays',
+  pills:        'sg-pills',
+  iconography:  'sg-iconography',
+  accessibility:'sg-accessibility',
+  theme:        'sg-theme',
 } as const;
 
 const SECTION_LABELS: Record<keyof typeof SECTION_IDS, string> = {
-  colors: '1. Color Tokens',
-  typography: '2. Typography',
-  components: '3. Components',
-  proposals: '4. Proposed Directions',
-  theme: '5. Theme Side-by-Side',
+  principles:   '1. Principles',
+  brand:        '2. Brand & Identity',
+  colors:       '3. Color',
+  typography:   '4. Typography',
+  spacing:      '5. Spacing & Radius',
+  buttons:      '6. Buttons',
+  forms:        '7. Forms & Focus',
+  status:       '8. Status & Progress',
+  overlays:     '9. Overlays',
+  pills:        '10. Voice Pills',
+  iconography:  '11. Iconography',
+  accessibility:'12. Accessibility',
+  theme:        '13. Theme',
 };
 
 // ---------------------------------------------------------------------------
@@ -116,86 +153,6 @@ const SubSection: React.FC<{ title: string; children: React.ReactNode }> = ({ ti
   </div>
 );
 
-const ProposedChip: React.FC = () => (
-  <span
-    style={{
-      display: 'inline-block',
-      background: 'rgba(245, 158, 11, 0.15)',
-      color: 'var(--warning-text, #92400e)',
-      border: '1px solid rgba(245, 158, 11, 0.35)',
-      borderRadius: 999,
-      fontSize: '0.6875rem',
-      fontWeight: 700,
-      letterSpacing: '0.07em',
-      textTransform: 'uppercase',
-      padding: '2px 10px',
-      verticalAlign: 'middle',
-      marginLeft: 8,
-    }}
-  >
-    PROPOSED
-  </span>
-);
-
-const OwnerDecisionChip: React.FC = () => (
-  <span
-    style={{
-      display: 'inline-block',
-      background: 'rgba(239, 68, 68, 0.1)',
-      color: 'var(--error-text, #991b1b)',
-      border: '1px solid rgba(239, 68, 68, 0.25)',
-      borderRadius: 999,
-      fontSize: '0.6875rem',
-      fontWeight: 700,
-      letterSpacing: '0.07em',
-      textTransform: 'uppercase',
-      padding: '2px 10px',
-      verticalAlign: 'middle',
-      marginLeft: 8,
-    }}
-  >
-    OWNER DECISION NEEDED
-  </span>
-);
-
-/** Green status chip for proposals the owner has ratified (affirmed / approved / decided). */
-const DecidedChip: React.FC<{ label?: string }> = ({ label = 'AFFIRMED' }) => (
-  <span
-    style={{
-      display: 'inline-block',
-      background: 'rgba(34, 197, 94, 0.14)',
-      color: 'var(--success-text, #166534)',
-      border: '1px solid rgba(34, 197, 94, 0.32)',
-      borderRadius: 999,
-      fontSize: '0.6875rem',
-      fontWeight: 700,
-      letterSpacing: '0.07em',
-      textTransform: 'uppercase',
-      padding: '2px 10px',
-      verticalAlign: 'middle',
-      marginLeft: 8,
-    }}
-  >
-    {label}
-  </span>
-);
-
-const Card: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({
-  children, style,
-}) => (
-  <div
-    style={{
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      borderRadius: 'var(--radius-card, 12px)',
-      padding: '1.25rem',
-      ...style,
-    }}
-  >
-    {children}
-  </div>
-);
-
 const SpecimenCard: React.FC<{
   label: string;
   caption?: string;
@@ -238,10 +195,212 @@ const SpecimenCard: React.FC<{
 );
 
 // ---------------------------------------------------------------------------
-// Section 1: Color tokens
+// Section 1: Principles
 // ---------------------------------------------------------------------------
 
-/** Detect if a CSS value looks like a color (not a shadow, var ref, px value, etc.) */
+const PRINCIPLES = [
+  {
+    title: 'Rationed accent',
+    body: 'One brand blue (#1e4fd8 / --action-primary). Used for the single most important interactive element per surface. Not repeated as decoration.',
+  },
+  {
+    title: 'Calm over flashy',
+    body: 'Flat surfaces, minimal gradient, restrained motion. Transitions inform rather than entertain. The interface steps back; the content leads.',
+  },
+  {
+    title: 'State never by color alone',
+    body: 'Every status is dual-encoded: icon + color, or icon + text. Never rely on hue as the sole signal — this is WCAG 1.4.1 and a usability baseline.',
+  },
+  {
+    title: 'Token-only styling',
+    body: 'No hardcoded hex or rgba literals in component code. Every color, surface, shadow, and radius references a CSS variable from tokens.css.',
+  },
+  {
+    title: 'WCAG AA in both themes',
+    body: 'Every text/surface pair must meet 4.5:1 AA contrast in both light and dark. Contrast is computed against the composited token value, not the raw rgba.',
+  },
+  {
+    title: 'Reduced motion respected',
+    body: 'A global prefers-reduced-motion guard freezes decorative animations. Essential busy indicators (spinners, calm-pulse running ring) are exempted at a slower cadence so users can distinguish "working" from "hung".',
+  },
+];
+
+const PrinciplesSection: React.FC = () => (
+  <SectionWrapper id={SECTION_IDS.principles} title={SECTION_LABELS.principles}>
+    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.25rem', lineHeight: 1.6 }}>
+      Derived from <code>docs/specs/design-system.md §1</code> and the shipped Quiet Studio direction.
+      These are the governing constraints — not aspirational guidelines.
+    </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      {PRINCIPLES.map(({ title, body }) => (
+        <div
+          key={title}
+          style={{
+            display: 'flex',
+            gap: '1rem',
+            alignItems: 'flex-start',
+            padding: '0.875rem 1rem',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-card)',
+          }}
+        >
+          <div style={{ minWidth: 8, height: 8, borderRadius: '50%', background: 'var(--action-primary, var(--accent))', marginTop: 6, flexShrink: 0 }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)', marginBottom: 2 }}>
+              {title}
+            </div>
+            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+              {body}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </SectionWrapper>
+);
+
+// ---------------------------------------------------------------------------
+// Section 2: Brand & Identity
+// ---------------------------------------------------------------------------
+
+const BrandSection: React.FC = () => (
+  <SectionWrapper id={SECTION_IDS.brand} title={SECTION_LABELS.brand}>
+    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.25rem', lineHeight: 1.6 }}>
+      From <code>docs/specs/design-system.md §10</code>. Always use the <code>BrandLogo</code> primitive — never
+      hand-typeset the wordmark. Product name: <strong>Audiobook Studio</strong> (short: <strong>Studio</strong>).
+      The repo name <code>audiobook-factory</code> is internal and never user-facing.
+    </p>
+
+    <SubSection title="Wordmark variants">
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        {/* Light surface */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div
+            style={{
+              background: 'var(--surface-white, #ffffff)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-card)',
+              padding: '1.25rem 1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <BrandLogo showIcon />
+          </div>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            Inline — light surface
+          </div>
+        </div>
+
+        {/* Dark surface */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div
+            style={{
+              background: '#0d0f14',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 'var(--radius-card)',
+              padding: '1.25rem 1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            data-theme="dark"
+          >
+            <BrandLogo showIcon />
+          </div>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            Inline — dark surface
+          </div>
+        </div>
+
+        {/* Stacked variant */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-card)',
+              padding: '1.25rem 1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <BrandLogo showIcon stacked scale={0.7} />
+          </div>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            Stacked — banner use
+          </div>
+        </div>
+      </div>
+    </SubSection>
+
+    <SubSection title="Raw logo asset">
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
+          <img
+            src={`${import.meta.env.BASE_URL}logo.png`}
+            alt="Audiobook Studio logo"
+            style={{ width: 48, height: 48, objectFit: 'contain' }}
+          />
+          <code style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>logo.png</code>
+        </div>
+        <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.55, maxWidth: 480 }}>
+          Served from <code>frontend/public/logo.png</code> via <code>{'${import.meta.env.BASE_URL}logo.png'}</code>.
+          Also registered as <code>favicon.ico</code> in <code>index.html</code>.
+          Use <code>BrandLogo showIcon</code> rather than referencing this file directly.
+        </div>
+      </div>
+    </SubSection>
+
+    <SubSection title="Brand color tokens">
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        {[
+          { name: '--as-blue', value: '#2b6eff', note: 'Brand identity blue (stable). Distinct from --accent (#1e4fd8) since Quiet Studio re-skin.' },
+          { name: '--as-amber', value: '#f97316', note: 'Brand amber. Tint tokens: --as-amber-tint-bg, --as-amber-tint-border.' },
+          { name: '--action-primary', value: '#1e4fd8', note: 'Action/accent blue (light). The interactive accent — rationed to one per surface.' },
+        ].map(({ name, value, note }) => (
+          <div
+            key={name}
+            style={{
+              display: 'flex',
+              gap: 12,
+              alignItems: 'flex-start',
+              padding: '10px 14px',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-card)',
+              maxWidth: 340,
+            }}
+          >
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                background: value,
+                border: '1px solid rgba(0,0,0,0.12)',
+                flexShrink: 0,
+              }}
+            />
+            <div>
+              <code style={{ fontSize: '0.75rem', color: 'var(--accent)', fontFamily: 'monospace' }}>{name}</code>
+              <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: 1 }}>{value}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.45 }}>{note}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </SubSection>
+  </SectionWrapper>
+);
+
+// ---------------------------------------------------------------------------
+// Section 3: Color tokens (auto-generated)
+// ---------------------------------------------------------------------------
+
 function isColorValue(value: string): boolean {
   const v = value.trim();
   if (v.startsWith('#')) return true;
@@ -282,44 +441,32 @@ const GROUP_LABELS: Record<string, string> = {
 
 const ColorSwatch: React.FC<{ value: string; theme: 'light' | 'dark'; name: string }> = ({
   value, theme, name,
-}) => {
-  return (
+}) => (
+  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+    <div
+      title={`${name} (${theme}): ${value}`}
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: 8,
+        border: '1px solid rgba(0,0,0,0.12)',
+        background: value,
+        flexShrink: 0,
+      }}
+    />
     <div
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 4,
+        fontSize: '0.6875rem',
+        color: theme === 'dark' ? '#9ca3af' : 'var(--text-muted)',
+        maxWidth: 80,
+        textAlign: 'center',
+        wordBreak: 'break-all',
       }}
     >
-      {/* Paint the parsed literal value, NOT var(--name): a CSS variable would
-          resolve against the page's ACTIVE theme, so the "light" column would
-          show dark values whenever the page itself is in dark mode. */}
-      <div
-        title={`${name} (${theme}): ${value}`}
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 8,
-          border: '1px solid rgba(0,0,0,0.12)',
-          background: value,
-          flexShrink: 0,
-        }}
-      />
-      <div
-        style={{
-          fontSize: '0.6875rem',
-          color: theme === 'dark' ? '#9ca3af' : 'var(--text-muted)',
-          maxWidth: 80,
-          textAlign: 'center',
-          wordBreak: 'break-all',
-        }}
-      >
-        {value.length > 22 ? value.slice(0, 22) + '…' : value}
-      </div>
+      {value.length > 22 ? value.slice(0, 22) + '…' : value}
     </div>
-  );
-};
+  </div>
+);
 
 const TokenRow: React.FC<{ entry: TokenEntry }> = ({ entry }) => {
   const isColor = isColorValue(entry.lightValue) || isColorValue(entry.darkValue);
@@ -338,65 +485,31 @@ const TokenRow: React.FC<{ entry: TokenEntry }> = ({ entry }) => {
         fontSize: '0.75rem',
       }}
     >
-      <code
-        style={{
-          fontFamily: 'monospace',
-          color: 'var(--text-primary)',
-          fontSize: '0.6875rem',
-          wordBreak: 'break-all',
-        }}
-      >
+      <code style={{ fontFamily: 'monospace', color: 'var(--text-primary)', fontSize: '0.6875rem', wordBreak: 'break-all' }}>
         {entry.name}
       </code>
       <div style={{ color: 'var(--text-muted)', fontSize: '0.6875rem', wordBreak: 'break-word' }}>
         {entry.comment || (entry.lightValue.length > 40 ? entry.lightValue.slice(0, 40) + '…' : entry.lightValue)}
       </div>
-      {/* Light swatch */}
       <div style={{ display: 'flex', justifyContent: 'center' }}>
         {isColor ? (
           <ColorSwatch value={entry.lightValue} theme="light" name={entry.name} />
         ) : isShadow ? (
-          <div
-            style={{
-              width: 36,
-              height: 20,
-              borderRadius: 6,
-              background: 'var(--surface)',
-              boxShadow: entry.lightValue,
-              border: '1px solid var(--border)',
-            }}
-          />
+          <div style={{ width: 36, height: 20, borderRadius: 6, background: 'var(--surface)', boxShadow: entry.lightValue, border: '1px solid var(--border)' }} />
         ) : isRadius ? (
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              background: 'var(--accent)',
-              borderRadius: entry.lightValue,
-              opacity: 0.7,
-            }}
-          />
+          <div style={{ width: 36, height: 36, background: 'var(--accent)', borderRadius: entry.lightValue, opacity: 0.7 }} />
         ) : (
           <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', fontStyle: 'italic' }}>
             {entry.lightValue.slice(0, 18)}
           </span>
         )}
       </div>
-      {/* Dark swatch */}
       <div style={{ display: 'flex', justifyContent: 'center' }}>
         {entry.darkValue && isColor ? (
           <ColorSwatch value={entry.darkValue} theme="dark" name={entry.name} />
         ) : entry.darkValue && isShadow ? (
           <div data-theme="dark" style={{ background: '#0f1117', padding: 4, borderRadius: 6 }}>
-            <div
-              style={{
-                width: 36,
-                height: 20,
-                borderRadius: 6,
-                background: 'var(--surface)',
-                boxShadow: entry.darkValue,
-              }}
-            />
+            <div style={{ width: 36, height: 20, borderRadius: 6, background: 'var(--surface)', boxShadow: entry.darkValue }} />
           </div>
         ) : (
           <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', fontStyle: 'italic' }}>
@@ -415,9 +528,9 @@ const ColorTokensSection: React.FC<{ entries: TokenEntry[] }> = ({ entries }) =>
     <SectionWrapper id={SECTION_IDS.colors} title={SECTION_LABELS.colors}>
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
         Auto-generated from <code>tokens.css</code> — light and dark values shown side-by-side.
-        Swatches use CSS variables directly so they stay in sync with the source file.
+        Components MUST reference <code>var(--token)</code> for every color, surface, border, shadow, and radius.
+        No hardcoded hex/rgba in component code.
       </p>
-      {/* Column header */}
       <div
         style={{
           display: 'grid',
@@ -462,13 +575,9 @@ const ColorTokensSection: React.FC<{ entries: TokenEntry[] }> = ({ entries }) =>
 };
 
 // ---------------------------------------------------------------------------
-// Section 2: Typography
+// Section 4: Typography
 // ---------------------------------------------------------------------------
 
-/**
- * Metadata for the shipped 9-step type scale.
- * Weight token name is null when tokens.css ships no --type-weight-* for that step.
- */
 const TYPE_SCALE_META: Array<{
   sizeToken: string;
   weightToken: string | null;
@@ -476,34 +585,14 @@ const TYPE_SCALE_META: Array<{
   usage: string;
 }> = [
   { sizeToken: '--type-display',     weightToken: '--type-weight-display',  label: 'Display',     usage: 'Splash / large hero moments' },
-  { sizeToken: '--type-large-title', weightToken: null,                      label: 'Large Title', usage: 'Page greeting, section heroes (no weight token)' },
+  { sizeToken: '--type-large-title', weightToken: null,                     label: 'Large Title', usage: 'Page greeting, section heroes (no weight token)' },
   { sizeToken: '--type-title',       weightToken: '--type-weight-title',    label: 'Title',       usage: 'Page headings, modal titles' },
   { sizeToken: '--type-headline',    weightToken: '--type-weight-headline', label: 'Headline',    usage: 'Section headings, panel headers, chapter names' },
-  { sizeToken: '--type-reading',     weightToken: null,                      label: 'Reading',     usage: 'Long-form manuscript / script body (no weight token)' },
+  { sizeToken: '--type-reading',     weightToken: null,                     label: 'Reading',     usage: 'Long-form manuscript / script body (no weight token)' },
   { sizeToken: '--type-body',        weightToken: '--type-weight-body',     label: 'Body',        usage: 'Primary readable text — descriptions, list items' },
-  { sizeToken: '--type-callout',     weightToken: null,                      label: 'Callout',     usage: 'Secondary info, sub-labels, form hints (no weight token)' },
+  { sizeToken: '--type-callout',     weightToken: null,                     label: 'Callout',     usage: 'Secondary info, sub-labels, form hints (no weight token)' },
   { sizeToken: '--type-caption',     weightToken: '--type-weight-caption',  label: 'Caption',     usage: 'Timestamps, IDs, table cell text, badges' },
   { sizeToken: '--type-micro',       weightToken: '--type-weight-micro',    label: 'Micro',       usage: 'All-caps labels, status chips, keyboard shortcuts' },
-];
-
-const SPACE_SCALE_META: Array<{ token: string; px: string; label: string }> = [
-  { token: '--space-1', px: '4px',  label: 'icon gaps, tight row padding' },
-  { token: '--space-2', px: '8px',  label: 'within-component padding' },
-  { token: '--space-3', px: '12px', label: 'button padding, card inner gap' },
-  { token: '--space-4', px: '16px', label: 'standard section padding' },
-  { token: '--space-5', px: '24px', label: 'panel padding, section gaps' },
-  { token: '--space-6', px: '32px', label: 'major section gaps' },
-  { token: '--space-7', px: '40px', label: 'large layout spacing' },
-  { token: '--space-8', px: '48px', label: 'page-level gutters' },
-];
-
-const MOTION_SCALE_META: Array<{ token: string; usage: string }> = [
-  { token: '--dur-fast',        usage: 'Hover state appearance, focus ring, simple color transitions (0.14s)' },
-  { token: '--dur-med',         usage: 'Standard UI transitions — panels sliding, cards expanding (0.24s)' },
-  { token: '--dur-slow',        usage: 'Page-level route transitions, overlay enter/exit (0.4s)' },
-  { token: '--ease-standard',   usage: 'Default easing for most transitions' },
-  { token: '--ease-emphasized', usage: 'Emphasized motion — important state changes' },
-  { token: '--ease-spring',     usage: 'Springy entrance effects, delight moments' },
 ];
 
 interface TypographySectionProps {
@@ -511,25 +600,22 @@ interface TypographySectionProps {
 }
 
 const TypographySection: React.FC<TypographySectionProps> = ({ allTokens }) => {
-  // Build a lookup map from token name → lightValue for live values
   const tokenMap = useMemo(() => {
     const m = new Map<string, string>();
-    for (const entry of allTokens) {
-      m.set(entry.name, entry.lightValue);
-    }
+    for (const entry of allTokens) m.set(entry.name, entry.lightValue);
     return m;
   }, [allTokens]);
 
   return (
     <SectionWrapper id={SECTION_IDS.typography} title={SECTION_LABELS.typography}>
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
-        Auto-parsed from <code>tokens.css</code> — values shown are live from the shipped file.
-        Body font: <strong>Inter</strong> (self-hosted).
+        Auto-parsed from <code>tokens.css</code> — values are live from the shipped file.
+        UI body: <strong>Geist Variable</strong>; display/headings: <strong>Space Grotesk</strong>;
+        reading column: <strong>Source Serif 4</strong>; code/logs: <strong>Geist Mono</strong>.
+        All four self-hosted via <code>@fontsource</code>.
       </p>
 
-      {/* 2a. Type scale */}
       <SubSection title="Type scale (--type-*)">
-        {/* Column header */}
         <div
           style={{
             display: 'grid',
@@ -551,7 +637,7 @@ const TypographySection: React.FC<TypographySectionProps> = ({ allTokens }) => {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {TYPE_SCALE_META.map(({ sizeToken, weightToken, label, usage }) => {
-            const sizeVal  = tokenMap.get(sizeToken)  ?? sizeToken;
+            const sizeVal   = tokenMap.get(sizeToken)  ?? sizeToken;
             const weightVal = weightToken ? (tokenMap.get(weightToken) ?? '') : '';
             const weightNum = weightVal ? parseInt(weightVal, 10) : undefined;
             return (
@@ -574,8 +660,8 @@ const TypographySection: React.FC<TypographySectionProps> = ({ allTokens }) => {
                 </code>
                 <code style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
                   {weightToken
-                    ? <>{weightVal}</>
-                    : <span style={{ fontStyle: 'italic', color: 'var(--text-muted)', opacity: 0.7 }}>—</span>
+                    ? weightVal
+                    : <span style={{ fontStyle: 'italic', opacity: 0.7 }}>—</span>
                   }
                 </code>
                 <div>
@@ -598,38 +684,96 @@ const TypographySection: React.FC<TypographySectionProps> = ({ allTokens }) => {
           })}
         </div>
       </SubSection>
+    </SectionWrapper>
+  );
+};
 
-      {/* 2b. Spacing scale */}
+// ---------------------------------------------------------------------------
+// Section 5: Spacing & Radius
+// ---------------------------------------------------------------------------
+
+const SPACE_SCALE_META: Array<{ token: string; px: string; label: string }> = [
+  { token: '--space-1', px: '4px',  label: 'icon gaps, tight row padding' },
+  { token: '--space-2', px: '8px',  label: 'within-component padding' },
+  { token: '--space-3', px: '12px', label: 'button padding, card inner gap' },
+  { token: '--space-4', px: '16px', label: 'standard section padding' },
+  { token: '--space-5', px: '24px', label: 'panel padding, section gaps' },
+  { token: '--space-6', px: '32px', label: 'major section gaps' },
+  { token: '--space-7', px: '40px', label: 'large layout spacing' },
+  { token: '--space-8', px: '48px', label: 'page-level gutters' },
+];
+
+const MOTION_SCALE_META: Array<{ token: string; usage: string }> = [
+  { token: '--dur-fast',        usage: 'Hover state appearance, focus ring, simple color transitions (0.14s)' },
+  { token: '--dur-med',         usage: 'Standard UI transitions — panels sliding, cards expanding (0.24s)' },
+  { token: '--dur-slow',        usage: 'Page-level route transitions, overlay enter/exit (0.4s)' },
+  { token: '--ease-standard',   usage: 'Default easing for most transitions' },
+  { token: '--ease-emphasized', usage: 'Emphasized motion — important state changes' },
+  { token: '--ease-spring',     usage: 'Springy entrance effects, delight moments' },
+];
+
+const RADIUS_META: Array<{ token: string; label: string }> = [
+  { token: '--radius-compact', label: 'compact controls, badges (6px)' },
+  { token: '--radius-button',  label: 'buttons, inputs (8px)' },
+  { token: '--radius-card',    label: 'cards, panels (10px)' },
+  { token: '--radius-panel',   label: 'large panels, drawers (18px)' },
+  { token: '--radius-round',   label: 'pills, full-round (9999px)' },
+];
+
+interface SpacingSectionProps {
+  allTokens: TokenEntry[];
+}
+
+const SpacingSection: React.FC<SpacingSectionProps> = ({ allTokens }) => {
+  const tokenMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const entry of allTokens) m.set(entry.name, entry.lightValue);
+    return m;
+  }, [allTokens]);
+
+  return (
+    <SectionWrapper id={SECTION_IDS.spacing} title={SECTION_LABELS.spacing}>
+
       <SubSection title="Spacing scale (--space-*)">
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           {SPACE_SCALE_META.map(({ token, px, label }) => {
             const liveVal = tokenMap.get(token) ?? px;
             return (
               <div key={token} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <div
-                  style={{
-                    width: liveVal,
-                    height: 32,
-                    background: 'var(--accent)',
-                    opacity: 0.7,
-                    borderRadius: 3,
-                    minWidth: 4,
-                  }}
-                />
-                <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
-                  {token}
-                </code>
+                <div style={{ width: liveVal, height: 32, background: 'var(--accent)', opacity: 0.7, borderRadius: 3, minWidth: 4 }} />
+                <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>{token}</code>
                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{liveVal}</span>
-                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', maxWidth: 80, textAlign: 'center' }}>
-                  {label}
-                </span>
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', maxWidth: 80, textAlign: 'center' }}>{label}</span>
               </div>
             );
           })}
         </div>
       </SubSection>
 
-      {/* 2c. Motion tokens */}
+      <SubSection title="Radius tokens (--radius-*)">
+        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          {RADIUS_META.map(({ token, label }) => {
+            const liveVal = tokenMap.get(token) ?? '8px';
+            return (
+              <div key={token} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <div
+                  style={{
+                    width: 52,
+                    height: 52,
+                    background: 'var(--accent)',
+                    opacity: 0.75,
+                    borderRadius: liveVal,
+                  }}
+                />
+                <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>{token}</code>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{liveVal}</span>
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', maxWidth: 90, textAlign: 'center' }}>{label}</span>
+              </div>
+            );
+          })}
+        </div>
+      </SubSection>
+
       <SubSection title="Motion tokens (--dur-* / --ease-*)">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {MOTION_SCALE_META.map(({ token, usage }) => {
@@ -647,12 +791,8 @@ const TypographySection: React.FC<TypographySectionProps> = ({ allTokens }) => {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
-                    {token}
-                  </code>
-                  <code style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                    {liveVal}
-                  </code>
+                  <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>{token}</code>
+                  <code style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{liveVal}</code>
                 </div>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{usage}</span>
               </div>
@@ -665,74 +805,233 @@ const TypographySection: React.FC<TypographySectionProps> = ({ allTokens }) => {
 };
 
 // ---------------------------------------------------------------------------
-// Section 3: Components
+// Section 6: Buttons
 // ---------------------------------------------------------------------------
 
-const ButtonSpecimens: React.FC = () => (
-  <SubSection title="Buttons">
+const ButtonsSection: React.FC = () => (
+  <SectionWrapper id={SECTION_IDS.buttons} title={SECTION_LABELS.buttons}>
+    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
+      Flat buttons — no gradient, no glow, no translateY lift. Classes live in <code>components.css</code>.
+      Minimum touch target for form controls is 44px (enforced in <code>base.css</code>); standard
+      button padding achieves ~40px natural height.
+    </p>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 16 }}>
-      <SpecimenCard label=".btn-primary" caption="Rest state; hover darkens, :disabled dims">
-        <button className="btn-primary" type="button" style={{ fontSize: '0.875rem' }}>
-          Primary
-        </button>
+      <SpecimenCard label=".btn-primary" caption="Rest; hover darkens; :disabled dims">
+        <button className="btn-primary" type="button" style={{ fontSize: '0.875rem' }}>Primary</button>
       </SpecimenCard>
       <SpecimenCard label=".btn-primary :disabled" caption="Reduced opacity">
-        <button className="btn-primary" type="button" disabled style={{ fontSize: '0.875rem' }}>
-          Disabled
-        </button>
+        <button className="btn-primary" type="button" disabled style={{ fontSize: '0.875rem' }}>Disabled</button>
       </SpecimenCard>
       <SpecimenCard label=".btn-ghost" caption="Transparent bg, accent text on hover">
-        <button className="btn-ghost" type="button" style={{ fontSize: '0.875rem' }}>
-          Ghost
-        </button>
+        <button className="btn-ghost" type="button" style={{ fontSize: '0.875rem' }}>Ghost</button>
       </SpecimenCard>
       <SpecimenCard label=".btn-ghost :disabled">
-        <button className="btn-ghost" type="button" disabled style={{ fontSize: '0.875rem' }}>
-          Ghost Disabled
-        </button>
+        <button className="btn-ghost" type="button" disabled style={{ fontSize: '0.875rem' }}>Ghost Disabled</button>
       </SpecimenCard>
       <SpecimenCard label=".btn-glass" caption="Glassmorphism surface">
-        <button className="btn-glass" type="button" style={{ fontSize: '0.875rem' }}>
-          Glass
-        </button>
+        <button className="btn-glass" type="button" style={{ fontSize: '0.875rem' }}>Glass</button>
       </SpecimenCard>
       <SpecimenCard label=".btn-success" caption="Green fill">
-        <button className="btn-success" type="button" style={{ fontSize: '0.875rem' }}>
-          Success
-        </button>
+        <button className="btn-success" type="button" style={{ fontSize: '0.875rem' }}>Success</button>
       </SpecimenCard>
       <SpecimenCard label=".btn-danger" caption="Red fill">
-        <button className="btn-danger" type="button" style={{ fontSize: '0.875rem' }}>
-          Danger
-        </button>
+        <button className="btn-danger" type="button" style={{ fontSize: '0.875rem' }}>Danger</button>
       </SpecimenCard>
-      <SpecimenCard label=".btn-home" caption="Hero CTA — uses !important (Q5 pending)">
-        <button className="btn-home" type="button" style={{ fontSize: '0.875rem' }}>
-          Home CTA
-        </button>
+      <SpecimenCard label=".btn-home" caption="Hero CTA">
+        <button className="btn-home" type="button" style={{ fontSize: '0.875rem' }}>Home CTA</button>
       </SpecimenCard>
     </div>
-  </SubSection>
+  </SectionWrapper>
 );
 
-const InputSpecimens: React.FC = () => (
-  <SubSection title="GlassInput">
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
-      <SpecimenCard label="Empty" caption="No value, placeholder visible">
-        <GlassInput placeholder="Placeholder text…" />
-      </SpecimenCard>
-      <SpecimenCard label="Filled" caption="Has value">
-        <GlassInput defaultValue="My audiobook project" />
-      </SpecimenCard>
-      <SpecimenCard label="Disabled" caption="opacity-dimmed, non-interactive">
-        <GlassInput defaultValue="Can't edit this" disabled />
-      </SpecimenCard>
-    </div>
-  </SubSection>
-);
+// ---------------------------------------------------------------------------
+// Section 7: Forms & Focus
+// ---------------------------------------------------------------------------
+
+const FormsSection: React.FC = () => {
+  const [switchOn, setSwitchOn] = useState(true);
+  const [switchOff, setSwitchOff] = useState(false);
+  const [selectVal, setSelectVal] = useState('opt-2');
+  const [swatch, setSwatch] = useState('#3b82f6');
+
+  return (
+    <SectionWrapper id={SECTION_IDS.forms} title={SECTION_LABELS.forms}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem', lineHeight: 1.6 }}>
+        Form controls have <code>min-height: 44px</code> enforced in <code>base.css</code> (WCAG 2.5.5).
+        Focus ring is a <strong>double-ring</strong>: <code>3px solid var(--action-primary)</code> outline
+        plus a 5px halo via <code>box-shadow</code> — keyboard-only, applied via <code>:focus-visible</code>.
+      </p>
+
+      <SubSection title="GlassInput">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+          <SpecimenCard label="Empty" caption="No value, placeholder visible">
+            <GlassInput placeholder="Placeholder text…" />
+          </SpecimenCard>
+          <SpecimenCard label="Filled" caption="Has value">
+            <GlassInput defaultValue="My audiobook project" />
+          </SpecimenCard>
+          <SpecimenCard label="Disabled" caption="opacity-dimmed, non-interactive">
+            <GlassInput defaultValue="Can't edit this" disabled />
+          </SpecimenCard>
+        </div>
+      </SubSection>
+
+      <SubSection title="Switch (role=&quot;switch&quot;)">
+        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+          <SpecimenCard label="On" caption="checked=true, --action-primary fill">
+            <Switch checked={switchOn} onChange={setSwitchOn} label="Enable feature" />
+          </SpecimenCard>
+          <SpecimenCard label="Off" caption="checked=false, neutral fill">
+            <Switch checked={switchOff} onChange={setSwitchOff} label="Enable feature" />
+          </SpecimenCard>
+          <SpecimenCard label="Disabled (on)" caption="pointer-events none">
+            <Switch checked={true} onChange={() => {}} label="Locked on" disabled />
+          </SpecimenCard>
+        </div>
+        <div style={{ marginTop: 8, fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+          <code>Switch</code> is the canonical boolean toggle — dual-encoded by position + color.
+          Under <code>prefers-reduced-motion</code> the knob translate snaps (no animation).
+          44px min-height interactive target. Always pair with a visible <code>label</code>.
+        </div>
+      </SubSection>
+
+      <SubSection title="SearchableSelect">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+          <SpecimenCard label="SearchableSelect" caption="Filterable dropdown; selected option highlighted">
+            <div style={{ width: '100%' }}>
+              <SearchableSelect
+                options={[
+                  { id: 'opt-1', name: 'Studio Voice' },
+                  { id: 'opt-2', name: 'Narrator — David' },
+                  { id: 'opt-3', name: 'Character — Maren' },
+                  { id: 'opt-4', name: 'XTTS Default' },
+                ]}
+                value={selectVal}
+                onChange={setSelectVal}
+                placeholder="Select a voice…"
+              />
+            </div>
+          </SpecimenCard>
+        </div>
+      </SubSection>
+
+      <SubSection title="ColorSwatchPicker">
+        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <SpecimenCard label="ColorSwatchPicker" caption="64-color palette + native color picker (pipette)">
+            <ColorSwatchPicker value={swatch} onChange={setSwatch} />
+          </SpecimenCard>
+        </div>
+      </SubSection>
+
+      <SubSection title="VoiceDropzone">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+          <SpecimenCard label="VoiceDropzone" caption="Drag-and-drop voice sample upload">
+            <div style={{ width: '100%' }}>
+              <VoiceDropzone files={[]} onFilesChange={() => {}} />
+            </div>
+          </SpecimenCard>
+        </div>
+      </SubSection>
+    </SectionWrapper>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Section 8: Status & Progress
+// ---------------------------------------------------------------------------
+
+function makeChap(overrides: Partial<Chapter>): Chapter {
+  return {
+    id: 'sg-chap',
+    project_id: 'sg-proj',
+    title: 'Chapter 1',
+    text_content: '',
+    speaker_profile_name: null,
+    sort_order: 0,
+    audio_status: 'unprocessed',
+    audio_file_path: null,
+    has_wav: false,
+    has_mp3: false,
+    has_m4a: false,
+    text_last_modified: null,
+    audio_generated_at: null,
+    char_count: 0,
+    word_count: 0,
+    sent_count: 0,
+    predicted_audio_length: 0,
+    audio_length_seconds: 0,
+    ...overrides,
+  };
+}
+
+function makeJob(overrides: Partial<Job>): Job {
+  return {
+    id: 'sg-job',
+    engine: 'xtts',
+    chapter_file: '',
+    status: 'running',
+    created_at: Date.now(),
+    safe_mode: false,
+    make_mp3: false,
+    progress: 0.45,
+    ...overrides,
+  } as unknown as Job;
+}
+
+const StatusOrbSpecimens: React.FC = () => {
+  const NOW = Date.now();
+  const PAST = NOW - 10000;
+
+  const specimens: Array<{
+    label: string;
+    caption: string;
+    chap: Chapter;
+    job?: Job;
+    queuePending?: boolean;
+    done?: number;
+    total?: number;
+  }> = [
+    { label: 'Unprocessed', caption: 'No audio — blank orb', chap: makeChap({ audio_status: 'unprocessed' }) },
+    { label: 'Queued', caption: 'queue_pending=true, no active job', chap: makeChap({ audio_status: 'unprocessed' }), queuePending: true },
+    { label: 'Running', caption: 'Active job → Loader2 + calm-pulse ring', chap: makeChap({ audio_status: 'processing' }), job: makeJob({ status: 'running' }) },
+    { label: 'Partial (50%)', caption: '2 of 4 segments done', chap: makeChap({ audio_status: 'unprocessed' }), done: 2, total: 4 },
+    { label: 'Done', caption: 'has_wav=true, in-sync', chap: makeChap({ audio_status: 'done', has_wav: true, audio_generated_at: NOW, text_last_modified: PAST }) },
+    { label: 'Cached (M4A)', caption: 'has_m4a=true, no WAV — Archive icon', chap: makeChap({ audio_status: 'unprocessed', has_m4a: true }) },
+    { label: 'Stale', caption: 'text changed after last render', chap: makeChap({ audio_status: 'done', has_wav: true, audio_generated_at: PAST, text_last_modified: NOW }) },
+    { label: 'Error', caption: 'audio_status=error → X icon', chap: makeChap({ audio_status: 'error' }) },
+  ];
+
+  return (
+    <SubSection title="StatusOrb">
+      <div style={{ marginBottom: 8, fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+        The canonical chapter status indicator. State is <strong>dual-encoded</strong> (icon + color).
+        Never substitute a plain colored dot — <code>StatusOrb</code> is binding everywhere chapter status appears.
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+        {specimens.map(({ label, caption, chap, job, queuePending, done, total }) => (
+          <SpecimenCard key={label} label={label} caption={caption} style={{ minWidth: 110 }}>
+            <StatusOrb
+              chap={chap}
+              activeJob={job}
+              queuePending={queuePending}
+              doneSegments={done}
+              totalSegments={total}
+              size={28}
+            />
+          </SpecimenCard>
+        ))}
+      </div>
+    </SubSection>
+  );
+};
 
 const ProgressSpecimens: React.FC = () => (
   <SubSection title="PredictiveProgressBar">
+    <div style={{ marginBottom: 8, fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+      State is conveyed by label + right-side status/ETA text + fill — satisfying WCAG 1.4.1 without color alone.
+      The fill receives <code>.is-running</code> when live-animated, wiring <code>@keyframes calm-pulse</code>.
+      Terminus icon and status pill were removed (v1.12.0) as redundant.
+    </div>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <SpecimenCard label="Preparing — 0%" caption="Indeterminate preparing state">
         <div style={{ width: '100%' }}>
@@ -779,1143 +1078,85 @@ const ProgressSpecimens: React.FC = () => (
   </SubSection>
 );
 
-// ---------------------------------------------------------------------------
-// StatusOrb specimen helpers — synthetic Chapter/Job mocks
-// ---------------------------------------------------------------------------
-
-/** Minimal Chapter stub — only the fields StatusOrb reads */
-function makeChap(overrides: Partial<Chapter>): Chapter {
-  return {
-    id: 'sg-chap',
-    project_id: 'sg-proj',
-    title: 'Chapter 1',
-    text_content: '',
-    speaker_profile_name: null,
-    sort_order: 0,
-    audio_status: 'unprocessed',
-    audio_file_path: null,
-    has_wav: false,
-    has_mp3: false,
-    has_m4a: false,
-    text_last_modified: null,
-    audio_generated_at: null,
-    char_count: 0,
-    word_count: 0,
-    sent_count: 0,
-    predicted_audio_length: 0,
-    audio_length_seconds: 0,
-    ...overrides,
-  };
-}
-
-/** Minimal Job stub — only the fields StatusOrb reads */
-function makeJob(overrides: Partial<Job>): Job {
-  return {
-    id: 'sg-job',
-    engine: 'xtts',
-    chapter_file: '',
-    status: 'running',
-    created_at: Date.now(),
-    safe_mode: false,
-    make_mp3: false,
-    progress: 0.45,
-    ...overrides,
-  } as unknown as Job;
-}
-
-const StatusOrbSpecimens: React.FC = () => {
-  const NOW = Date.now();
-  const PAST = NOW - 10000; // 10 s ago — audio_generated before text change
-
-  const specimens: Array<{ label: string; caption: string; chap: Chapter; job?: Job; queuePending?: boolean; done?: number; total?: number }> = [
-    {
-      label: 'Unprocessed (empty)',
-      caption: 'No audio, no cached M4A — blank orb',
-      chap: makeChap({ audio_status: 'unprocessed' }),
-    },
-    {
-      label: 'Queued',
-      caption: 'queue_pending=true, no active job',
-      chap: makeChap({ audio_status: 'unprocessed' }),
-      queuePending: true,
-    },
-    {
-      label: 'Running',
-      caption: 'Active job present → spinner ring',
-      chap: makeChap({ audio_status: 'processing' }),
-      job: makeJob({ status: 'running' }),
-    },
-    {
-      label: 'Partial (50%)',
-      caption: '2 of 4 segments done',
-      chap: makeChap({ audio_status: 'unprocessed' }),
-      done: 2,
-      total: 4,
-    },
-    {
-      label: 'Done',
-      caption: 'has_wav=true, in-sync',
-      chap: makeChap({ audio_status: 'done', has_wav: true, audio_generated_at: NOW, text_last_modified: PAST }),
-    },
-    {
-      label: 'Cached (M4A only)',
-      caption: 'has_m4a=true, no WAV — Archive icon',
-      chap: makeChap({ audio_status: 'unprocessed', has_m4a: true }),
-    },
-    {
-      label: 'Stale (needs rebuild)',
-      caption: 'text changed after last render',
-      chap: makeChap({ audio_status: 'done', has_wav: true, audio_generated_at: PAST, text_last_modified: NOW }),
-    },
-    {
-      label: 'Error',
-      caption: 'audio_status=error → X icon',
-      chap: makeChap({ audio_status: 'error' }),
-    },
-  ];
-
-  return (
-    <SubSection title="StatusOrb">
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-        {specimens.map(({ label, caption, chap, job, queuePending, done, total }) => (
-          <SpecimenCard key={label} label={label} caption={caption} style={{ minWidth: 110 }}>
-            <StatusOrb
-              chap={chap}
-              activeJob={job}
-              queuePending={queuePending}
-              doneSegments={done}
-              totalSegments={total}
-              size={28}
-            />
-          </SpecimenCard>
-        ))}
-      </div>
-    </SubSection>
-  );
-};
-
-const ComponentsSection: React.FC = () => (
-  <SectionWrapper id={SECTION_IDS.components} title={SECTION_LABELS.components}>
+const StatusSection: React.FC = () => (
+  <SectionWrapper id={SECTION_IDS.status} title={SECTION_LABELS.status}>
     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
-      Live-mounted real components in static-prop states. Skipped (require heavy store context):
-      NarratorCard (VoicesPage store), full Queue Drawer.
+      Live-mounted real components in static-prop states. See <code>progress-presentation.md</code> for
+      the full <code>PredictiveProgressBar</code> contract.
     </p>
-    <ButtonSpecimens />
-    <InputSpecimens />
-    <ProgressSpecimens />
     <StatusOrbSpecimens />
+    <ProgressSpecimens />
   </SectionWrapper>
 );
 
 // ---------------------------------------------------------------------------
-// Section 4: Proposed directions
+// Section 9: Overlays
 // ---------------------------------------------------------------------------
 
-/** Thumbnail-scale layout mockup helper */
-const LayoutThumb: React.FC<{
-  label: string;
-  children: React.ReactNode;
-  caption?: string;
-}> = ({ label, children, caption }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-    <div
-      style={{
-        width: 280,
-        height: 200,
-        border: '1px solid var(--border)',
-        borderRadius: 8,
-        overflow: 'hidden',
-        background: 'var(--bg)',
-        flexShrink: 0,
-        position: 'relative',
-      }}
-    >
-      {children}
-    </div>
-    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{label}</div>
-    {caption && (
-      <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', maxWidth: 280 }}>{caption}</div>
-    )}
-  </div>
-);
-
-/** U15 — Navigation mockup */
-const U15Mock: React.FC = () => {
-  const [railCollapsed, setRailCollapsed] = useState(false);
-  const [railHovered, setRailHovered] = useState(false);
-
-  // In collapsed state: hovering temporarily expands the rail as overlay
-  const railExpanded = !railCollapsed || railHovered;
-  const railWidth = railExpanded ? 80 : 28;
+const OverlaysSection: React.FC = () => {
+  const [menuOpenState, setMenuOpenState] = useState(false);
 
   return (
-    <Card>
-      <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
-        U15 — Navigation &amp; Information Architecture
-        <DecidedChip label="Decided · Option B · Implemented" />
-      </h3>
-      <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
-        The current top-bar nav puts all destinations at the same visual weight, creating
-        competing attention across Library, Voices, Queue, Settings, and System. The proposed
-        grouped left-rail separates "Create" workflows (Library, Voices, Queue) from "Manage"
-        (Settings, System), giving each screen one obvious purpose. Decisions here shape where
-        U1–U14 controls live, so this runs first in Stage 5.
+    <SectionWrapper id={SECTION_IDS.overlays} title={SECTION_LABELS.overlays}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem', lineHeight: 1.6 }}>
+        Static, in-page previews of overlay patterns. The real floating layers (portaled modals, ActionMenu popovers)
+        use <code>backdrop-filter: var(--blur-glass-strong)</code> only on floating layers — never on pinned chrome.
       </p>
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-        <LayoutThumb
-          label="(A) Current — top-bar nav"
-          caption="All destinations at equal weight; no grouping by purpose"
-        >
-          {/* Top bar */}
-          <div style={{ height: 36, background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 10px', gap: 8 }}>
-            <div style={{ width: 70, height: 12, background: 'var(--accent)', borderRadius: 4, opacity: 0.8 }} />
-            <div style={{ flex: 1 }} />
-            {['Library', 'Voices', 'Queue', '⚙'].map(label => (
-              <div key={label} style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', padding: '2px 6px', borderRadius: 4, background: 'var(--surface-alt)' }}>
-                {label}
-              </div>
-            ))}
-          </div>
-          {/* Content */}
-          <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {[1,2,3].map(i => (
-              <div key={i} style={{ height: 30, background: 'var(--surface-alt)', borderRadius: 6, border: '1px solid var(--border)' }} />
-            ))}
-          </div>
-        </LayoutThumb>
 
-        {/* Interactive proposed rail mock */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div
-            style={{
-              width: 280,
-              height: 200,
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              overflow: 'hidden',
-              background: 'var(--bg)',
-              flexShrink: 0,
-              position: 'relative',
-            }}
-          >
-            {/* Top bar slim */}
-            <div style={{ height: 28, background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 10px' }}>
-              <div style={{ width: 60, height: 10, background: 'var(--accent)', borderRadius: 4, opacity: 0.8 }} />
-            </div>
-            <div style={{ display: 'flex', height: 'calc(100% - 28px)', position: 'relative' }}>
-              {/* Left rail — collapses to icon-only, hover expands as overlay */}
-              <div
-                onMouseEnter={() => setRailHovered(true)}
-                onMouseLeave={() => setRailHovered(false)}
-                style={{
-                  width: railWidth,
-                  minWidth: railWidth,
-                  background: 'var(--surface)',
-                  borderRight: '1px solid var(--border)',
-                  padding: '8px 4px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 2,
-                  transition: 'width 0.22s ease, min-width 0.22s ease',
-                  overflow: 'hidden',
-                  // When collapsed + hovered, float over content
-                  position: railCollapsed && railHovered ? 'absolute' : 'relative',
-                  top: 0,
-                  bottom: 0,
-                  left: 0,
-                  zIndex: railCollapsed && railHovered ? 10 : 'auto',
-                  boxShadow: railCollapsed && railHovered ? '2px 0 8px rgba(0,0,0,0.18)' : 'none',
-                }}
-              >
-                {railExpanded && (
-                  <div style={{ fontSize: '0.5rem', color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap', paddingLeft: 2 }}>Create</div>
-                )}
-                {[
-                  { label: 'Library', icon: '📚' },
-                  { label: 'Voices', icon: '🎙' },
-                  { label: 'Queue', icon: '⏳' },
-                ].map(({ label, icon }, i) => (
-                  <div
-                    key={label}
-                    title={railCollapsed && !railHovered ? label : undefined}
-                    style={{
-                      fontSize: '0.55rem',
-                      padding: '4px 4px',
-                      borderRadius: 4,
-                      background: i === 0 ? 'var(--accent-tint-bg)' : 'transparent',
-                      color: i === 0 ? 'var(--accent)' : 'var(--text-secondary)',
-                      fontWeight: i === 0 ? 600 : 400,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    <span style={{ fontSize: '0.75rem', flexShrink: 0 }}>{icon}</span>
-                    {railExpanded && <span>{label}</span>}
-                  </div>
-                ))}
-                <div style={{ flex: 1 }} />
-                {railExpanded && (
-                  <div style={{ fontSize: '0.5rem', color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap', paddingLeft: 2 }}>Manage</div>
-                )}
-                {[
-                  { label: 'Settings', icon: '⚙️' },
-                  { label: 'System', icon: '🖥' },
-                ].map(({ label, icon }) => (
-                  <div
-                    key={label}
-                    title={railCollapsed && !railHovered ? label : undefined}
-                    style={{
-                      fontSize: '0.55rem',
-                      padding: '4px 4px',
-                      borderRadius: 4,
-                      color: 'var(--text-muted)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    <span style={{ fontSize: '0.75rem', flexShrink: 0 }}>{icon}</span>
-                    {railExpanded && <span>{label}</span>}
-                  </div>
-                ))}
-                {/* Collapse/pin toggle */}
-                <button
-                  type="button"
-                  onClick={() => setRailCollapsed(c => !c)}
-                  title={railCollapsed ? 'Pin rail open' : 'Collapse rail'}
-                  style={{
-                    marginTop: 4,
-                    padding: '3px 4px',
-                    borderRadius: 4,
-                    background: 'none',
-                    border: '1px solid var(--border)',
-                    cursor: 'pointer',
-                    fontSize: '0.6rem',
-                    color: 'var(--text-muted)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '100%',
-                    gap: 2,
-                  }}
-                >
-                  <span>{railCollapsed ? '▶' : '◀'}</span>
-                  {railExpanded && <span style={{ whiteSpace: 'nowrap' }}>{railCollapsed ? 'Pin' : 'Collapse'}</span>}
-                </button>
-              </div>
-              {/* Content area — always fills remaining space */}
-              <div style={{ flex: 1, padding: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                {[1,2,3].map(i => (
-                  <div key={i} style={{ height: 26, background: 'var(--surface-alt)', borderRadius: 5, border: '1px solid var(--border)' }} />
-                ))}
-              </div>
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-              (B) Proposed — grouped left-rail (interactive)
-            </div>
-            <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', maxWidth: 280, marginTop: 2 }}>
-              Full rail → icon rail (manual collapse or medium viewport) → mobile drawer.
-            </div>
-          </div>
+      <SubSection title="Modal panel">
+        <div style={{ marginBottom: 8, fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+          <code>ConfirmModal</code> is the canonical destructive-confirm/alert dialog: <code>role="dialog"</code>,
+          <code> aria-modal</code>, focus-trapped via <code>useFocusTrap</code>, Escape-to-cancel.
+          Rendered here as a static in-page preview (not floating).
         </div>
-      </div>
-      <div style={{ marginTop: 12, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-        <strong>Tradeoffs:</strong> Left-rail requires ~80px horizontal space and changes muscle memory.
-        Top-bar is familiar but cannot express hierarchy. Decision needed before any Stage 5 visual work.
-        Click the collapse button in the mock rail to toggle icon-only mode; hover to temporarily expand.
-      </div>
-    </Card>
-  );
-};
-
-/** Fake waveform SVG — varied bar heights; stretches to fill its box so it can
- *  serve as an inline scrub track (fixed pixel height, full container width). */
-const WaveformSVG: React.FC<{ height?: number }> = ({ height = 32 }) => {
-  const bars = [
-    12, 28, 18, 40, 32, 20, 44, 36, 22, 50, 42, 30, 48, 38, 24, 46, 34, 20, 40, 28,
-    16, 36, 50, 44, 26, 38, 18, 42, 30, 46, 22, 34, 50, 28, 40, 20, 44, 32, 18, 36,
-    48, 24, 38, 50, 28, 16, 42, 30, 44, 22,
-  ];
-  const totalBars = bars.length;
-  const barW = 4;
-  const gap = 2;
-  const svgW = totalBars * (barW + gap);
-  const vbH = 56;
-  const playheadX = svgW * 0.35;
-
-  return (
-    <svg
-      width="100%"
-      height={height}
-      viewBox={`0 0 ${svgW} ${vbH}`}
-      preserveAspectRatio="none"
-      style={{ display: 'block' }}
-    >
-      {bars.map((h, idx) => {
-        const x = idx * (barW + gap);
-        const isPlayed = x + barW / 2 < playheadX;
-        return (
-          <rect
-            key={idx}
-            x={x}
-            y={(vbH - h) / 2}
-            width={barW}
-            height={h}
-            rx={2}
-            fill={isPlayed ? 'var(--accent)' : 'var(--border)'}
-            opacity={isPlayed ? 0.9 : 0.6}
-          />
-        );
-      })}
-      {/* Playhead line */}
-      <line
-        x1={playheadX}
-        y1={0}
-        x2={playheadX}
-        y2={vbH}
-        stroke="var(--accent)"
-        strokeWidth={2}
-        opacity={0.9}
-      />
-    </svg>
-  );
-};
-
-/** U16 — Unified player mockup.
- *  Representation follows scope (no separate waveform toggle):
- *   - Segment scope → waveform IS the inline scrub track (short segments have
- *     readable structure worth annotating).
- *   - Chapter scope → plain seek bar (an hour of speech is a featureless blur).
- *  Responsive exception: when the player is narrow there's no room for an inline
- *  waveform, so in Segment scope it moves ABOVE the controls at a reduced height
- *  (container query), and the row falls back to a thin seek line. */
-const U16Mock: React.FC = () => {
-  const [scope, setScope] = useState<'Segment' | 'Chapter'>('Segment');
-  const isSegment = scope === 'Segment';
-
-  // Representation defaults to the scope type (segment → waveform, chapter →
-  // bar) but the far-right toggle lets the user flip it. Switching scope resets
-  // the override so each scope starts at its default.
-  const [forceWave, setForceWave] = useState<boolean | null>(null);
-  const showWave = forceWave ?? isSegment;
-
-  const trackStyle: React.CSSProperties = {
-    height: 6,
-    flex: 1,
-    minWidth: 60,
-    background: 'var(--surface-alt)',
-    border: '1px solid var(--border)',
-    borderRadius: 3,
-    position: 'relative',
-    overflow: 'hidden',
-    cursor: 'pointer',
-  };
-
-  return (
-    <Card>
-      <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
-        U16 — Unified Audio Player Surface
-        <DecidedChip label="Affirmed" />
-      </h3>
-      <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
-        Today the Chapter Editor has a VCR-style segment player and a separate chapter-level player —
-        two separate surfaces that compete for space. The proposed design merges them into one persistent
-        bottom player with a scope toggle (Segment ↔ Chapter). Depends on U15&apos;s layout conclusions.
-      </p>
-      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem', lineHeight: 1.6 }}>
-        Click <strong>Segment</strong> / <strong>Chapter</strong> to see representation follow scope.
-      </p>
-
-      {/* Player mock — inline single row, matching the mockup + live PlayerBar.
-          container-type makes the waveform reflow above the controls when narrow. */}
-      <div className="u16-player" style={{ containerType: 'inline-size', maxWidth: 820 }}>
-        <style>{`
-          .u16-player .u16-wave-inline { display: block; }
-          .u16-player .u16-wave-above  { display: none; }
-          @container (max-width: 560px) {
-            .u16-player .u16-wave-inline { display: none; }
-            .u16-player .u16-wave-above  { display: block; }
-          }
-        `}</style>
         <div
           style={{
-            border: '1px solid var(--border)',
-            borderRadius: 10,
             background: 'var(--surface)',
-            overflow: 'hidden',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-card)',
+            boxShadow: 'var(--shadow-lg)',
+            padding: '1.5rem',
+            maxWidth: 380,
           }}
+          role="img"
+          aria-label="Modal panel preview"
         >
-          {/* Responsive-only: waveform above the controls (when shown + narrow). Shorter than inline. */}
-          {showWave && (
-            <div
-              className="u16-wave-above"
-              style={{
-                padding: '5px 14px 1px',
-                borderBottom: '1px solid var(--border)',
-                background: 'var(--surface-alt)',
-                overflow: 'hidden',
-              }}
-            >
-              <WaveformSVG height={24} />
-            </div>
-          )}
-
-          {/* Inline control row — wraps when too narrow so nothing clips */}
-          <div style={{ minHeight: 52, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '8px 14px' }}>
-            {/* Transport */}
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-              {[
-                { Icon: SkipBack, label: 'Previous' },
-                { Icon: Rewind, label: 'Back 10s' },
-                { Icon: Play, label: 'Play' },
-                { Icon: FastForward, label: 'Forward 10s' },
-                { Icon: SkipForward, label: 'Next' },
-              ].map(({ Icon, label }) => {
-                const active = Icon === Play;
-                return (
-                  <div
-                    key={label}
-                    aria-label={label}
-                    style={{
-                      width: active ? 38 : 34,
-                      height: active ? 38 : 34,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: 'var(--radius-round, 50%)',
-                      background: active ? 'var(--accent)' : 'var(--surface-alt)',
-                      color: active ? 'var(--text-on-accent, #fff)' : 'var(--text-secondary)',
-                      border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-                      cursor: 'pointer',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Icon size={active ? 17 : 15} strokeWidth={2.2} style={{ transform: active ? 'translateX(1px)' : undefined }} />
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Scrub track — Segment: inline waveform (hidden when narrow; the above
-                strip becomes the scrub track) / Chapter: plain bar. */}
-            {showWave ? (
-              <div className="u16-wave-inline" style={{ flex: 1, minWidth: 60, cursor: 'pointer' }} title="Click to seek">
-                <WaveformSVG height={32} />
-              </div>
-            ) : (
-              <div style={trackStyle} title="Click to seek">
-                <div style={{ width: '38%', height: '100%', background: 'var(--accent)', borderRadius: 3 }} />
-              </div>
-            )}
-
-            {/* Scope toggle — drives representation (sits where the live bar shows title + chip) */}
-            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-              {(['Segment', 'Chapter'] as const).map(label => {
-                const selected = scope === label;
-                return (
-                  <button
-                    type="button"
-                    key={label}
-                    onClick={() => { setScope(label); setForceWave(null); }}
-                    style={{
-                      padding: '4px 12px',
-                      borderRadius: 999,
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      background: selected ? 'var(--accent)' : 'var(--surface-alt)',
-                      color: selected ? 'var(--text-on-accent, #fff)' : 'var(--text-secondary)',
-                      border: `1px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Time — follows the audio (scope), not the scrub look */}
-            <span style={{ fontSize: 'var(--type-micro, 0.65rem)', color: 'var(--text-secondary)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-              {isSegment ? '0:03 / 0:06' : '2:14 / 28:10'}
-            </span>
-
-            {/* Representation override (far right) — defaults to scope, flip on demand */}
-            <button
-              type="button"
-              onClick={() => setForceWave(!showWave)}
-              aria-pressed={showWave}
-              aria-label={showWave ? 'Show progress bar' : 'Show waveform'}
-              title={showWave ? 'Switch to progress bar' : 'Switch to waveform'}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 28,
-                height: 28,
-                flexShrink: 0,
-                cursor: 'pointer',
-                padding: 0,
-                fontSize: '0.85rem',
-                borderRadius: 6,
-                border: `1px solid ${showWave ? 'var(--accent-tint-border, var(--accent))' : 'var(--border)'}`,
-                color: showWave ? 'var(--accent)' : 'var(--text-muted)',
-                background: showWave ? 'var(--accent-tint-bg)' : 'transparent',
-              }}
-            >
-              <AudioLines size={14} aria-hidden="true" />
-            </button>
+          <div style={{ fontWeight: 700, fontSize: 'var(--type-title)', color: 'var(--text-primary)', marginBottom: 8 }}>
+            Delete chapter?
+          </div>
+          <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: '1.25rem' }}>
+            This will permanently remove the chapter and its rendered audio. You cannot undo this action.
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="btn-ghost" type="button" style={{ fontSize: '0.875rem' }}>Cancel</button>
+            <button className="btn-danger" type="button" style={{ fontSize: '0.875rem' }}>Delete</button>
           </div>
         </div>
-      </div>
+      </SubSection>
 
-      <div style={{ marginTop: 8, fontSize: '0.6875rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-        Representation <em>defaults</em> to scope — Segment shows the wavesurfer.js waveform as the inline scrub
-        track, Chapter shows a plain bar — but the far-right toggle (audio-lines icon) flips waveform ↔ bar on demand.
-        Switching scope resets to that scope&apos;s default. Narrow the window to see the waveform reflow above.
-      </div>
-      <div style={{ marginTop: 8, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-        Replaces competing VCR segment transport + chapter player. Scope toggle swaps loaded audio.
-        Segment scope plays one rendered segment (≤ engine char limit) then auto-advances; Chapter scope
-        plays the assembled chapter and shows chapter-level ETA when no rendered audio yet.
-      </div>
-    </Card>
-  );
-};
-
-const OVERFLOW_MENU_ITEMS = ['Rename', 'Duplicate', 'Export', 'Reset', 'Delete'];
-
-// ---------------------------------------------------------------------------
-// Category-tinted pill taxonomy (U8 v2 — 2026-06-12)
-// ---------------------------------------------------------------------------
-
-/**
- * Tint definitions for each pill category.
- * Low-alpha backgrounds read on both light and dark surfaces.
- * Text uses a medium-strength hue value that passes contrast on both themes.
- */
-const CATEGORY_TINTS = {
-  /** Voice class: narrator, character — violet/purple */
-  class: {
-    bg: 'rgba(124, 58, 237, 0.13)',
-    text: 'rgb(109, 40, 217)',
-    border: 'rgba(124, 58, 237, 0.28)',
-  },
-  /** Gender — blue */
-  gender: {
-    bg: 'rgba(37, 99, 235, 0.12)',
-    text: 'rgb(37, 99, 235)',
-    border: 'rgba(37, 99, 235, 0.26)',
-  },
-  /** Age group — amber/warm */
-  age: {
-    bg: 'rgba(217, 119, 6, 0.13)',
-    text: 'rgb(180, 83, 9)',
-    border: 'rgba(217, 119, 6, 0.28)',
-  },
-  /** Extended taxonomy: language, accent, style — teal/slate */
-  extended: {
-    bg: 'rgba(15, 118, 110, 0.11)',
-    text: 'rgb(15, 118, 110)',
-    border: 'rgba(15, 118, 110, 0.24)',
-  },
-  /** Free-form tags — neutral ghost */
-  tag: {
-    bg: 'transparent',
-    text: 'var(--text-muted)',
-    border: 'var(--border)',
-  },
-} as const;
-
-type PillCategory = keyof typeof CATEGORY_TINTS;
-
-/** Canonical class keywords (voice class attribute values) */
-const CLASS_VALUES = new Set(['narrator', 'character', 'assistant', 'custom']);
-/** Canonical gender keywords */
-const GENDER_VALUES = new Set(['male', 'female', 'neutral', 'nonbinary']);
-/** Canonical age keywords */
-const AGE_VALUES = new Set(['child', 'teen', 'young', 'adult', 'middle', 'senior', 'elder']);
-/** Extended taxonomy keywords */
-const EXTENDED_KEYS = new Set(['english', 'british', 'american', 'australian', 'irish', 'scottish', 'narration', 'educational', 'conversational', 'dramatic', 'news', 'casual']);
-
-function pillCategory(label: string): PillCategory {
-  const l = label.toLowerCase();
-  if (CLASS_VALUES.has(l)) return 'class';
-  if (GENDER_VALUES.has(l)) return 'gender';
-  if (AGE_VALUES.has(l)) return 'age';
-  if (EXTENDED_KEYS.has(l)) return 'extended';
-  return 'tag';
-}
-
-const CATEGORY_ORDER: PillCategory[] = ['class', 'gender', 'age', 'extended', 'tag'];
-
-function sortedPills(labels: string[]): string[] {
-  return [...labels].sort((a, b) => {
-    const ai = CATEGORY_ORDER.indexOf(pillCategory(a));
-    const bi = CATEGORY_ORDER.indexOf(pillCategory(b));
-    return ai - bi;
-  });
-}
-
-/** Single category-tinted pill */
-const AttrPill: React.FC<{ label: string; category?: PillCategory }> = ({ label, category }) => {
-  const cat = category ?? pillCategory(label);
-  const tint = CATEGORY_TINTS[cat];
-  return (
-    <span
-      style={{
-        display: 'inline-block',
-        padding: '2px 7px',
-        borderRadius: 999,
-        fontSize: '0.625rem',
-        fontWeight: cat === 'tag' ? 400 : 500,
-        background: tint.bg,
-        color: tint.text,
-        border: `1px solid ${tint.border}`,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {label}
-    </span>
-  );
-};
-
-/** Legacy alias — used by cards without extended taxonomy */
-const AttrBadge: React.FC<{ label: string }> = ({ label }) => <AttrPill label={label} />;
-
-// ---------------------------------------------------------------------------
-// Pill legend row
-// ---------------------------------------------------------------------------
-
-const PillLegend: React.FC = () => (
-  <div
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      flexWrap: 'wrap',
-      padding: '6px 10px',
-      background: 'var(--surface-alt)',
-      border: '1px solid var(--border)',
-      borderRadius: 8,
-      marginBottom: 12,
-    }}
-  >
-    <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginRight: 4 }}>
-      Pill key:
-    </span>
-    {(['class', 'gender', 'age', 'extended', 'tag'] as PillCategory[]).map(cat => (
-      <span key={cat} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-        <AttrPill label={cat} category={cat} />
-      </span>
-    ))}
-  </div>
-);
-
-// ---------------------------------------------------------------------------
-// Overflow pill row (used by Elena Marsh extended-taxonomy card)
-// ---------------------------------------------------------------------------
-
-interface OverflowPillRowProps {
-  /** All pills in display order (pre-sorted by category) */
-  pills: string[];
-  /** How many to show before collapsing (default: 5 = class+gender+age + 2 more) */
-  alwaysShow?: number;
-}
-
-const OverflowPillRow: React.FC<OverflowPillRowProps> = ({ pills, alwaysShow = 5 }) => {
-  const [expanded, setExpanded] = useState(false);
-
-  const visible = pills.slice(0, alwaysShow);
-  const hidden = pills.slice(alwaysShow);
-  const overflowCount = hidden.length;
-
-  return (
-    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-      {visible.map(p => <AttrPill key={p} label={p} />)}
-      {overflowCount > 0 && !expanded && (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            padding: '2px 7px',
-            borderRadius: 999,
-            fontSize: '0.625rem',
-            fontWeight: 600,
-            background: 'rgba(15, 118, 110, 0.11)',
-            color: 'rgb(15, 118, 110)',
-            border: '1px solid rgba(15, 118, 110, 0.24)',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          +{overflowCount}
-        </button>
-      )}
-      {expanded && hidden.map(p => <AttrPill key={p} label={p} />)}
-      {expanded && overflowCount > 0 && (
-        <button
-          type="button"
-          onClick={() => setExpanded(false)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            padding: '2px 7px',
-            borderRadius: 999,
-            fontSize: '0.625rem',
-            fontWeight: 500,
-            background: 'transparent',
-            color: 'var(--text-muted)',
-            border: '1px solid var(--border)',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          less
-        </button>
-      )}
-    </div>
-  );
-};
-
-interface U8VoiceCardProps {
-  phase: string;
-  cta: string;
-  ctaStyle: React.CSSProperties;
-  /** Emoji or short initials displayed in the avatar circle */
-  avatarEmoji: string;
-  /** Background color for the avatar circle (raw CSS color or variable) */
-  avatarBg: string;
-  name: string;
-  badges: string[];
-  description: string;
-  /** When true, pill row uses OverflowPillRow with sorted pills */
-  useOverflow?: boolean;
-}
-
-/** Individual U8 voice card with functional overflow popover */
-const U8VoiceCard: React.FC<U8VoiceCardProps> = ({
-  phase, cta, ctaStyle, avatarEmoji, avatarBg, name, badges, description, useOverflow,
-}) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const overflowRef = useRef<HTMLDivElement>(null);
-
-  // Close on outside click
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [menuOpen]);
-
-  return (
-    <div
-      style={{
-        minWidth: 260,
-        flex: '1 1 260px',
-        maxWidth: 320,
-        border: '1px solid var(--border)',
-        borderRadius: 10,
-        background: 'var(--surface)',
-        padding: 14,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-      }}
-    >
-      {/* Top row: avatar + name/phase + overflow */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        {/* Voice icon — circular avatar ~40px, mocked with colored circle + emoji */}
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: '50%',
-            background: avatarBg,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.2rem',
-            flexShrink: 0,
-            border: '1px solid var(--border)',
-          }}
-        >
-          {avatarEmoji}
+      <SubSection title="ActionMenu (kebab / overflow)">
+        <div style={{ marginBottom: 8, fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+          <code>ActionMenu</code> is the canonical overflow / "⋯" affordance. Portal-rendered, viewport-flip-aware,
+          closes on outside-click and Escape. MUST be used for row/card action menus. Click the trigger below:
         </div>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {name}
-          </div>
-          <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            {phase}
-          </div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <ActionMenu
+            onOpenChange={setMenuOpenState}
+            items={[
+              { label: 'Rename' },
+              { label: 'Duplicate' },
+              { label: 'Export' },
+              { isDivider: true },
+              { label: 'Delete', isDestructive: true },
+            ]}
+          />
+          <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+            {menuOpenState ? 'Menu open' : 'Click ⋯ to open menu'}
+          </span>
         </div>
-        {/* Overflow button + popover */}
-        <div ref={overflowRef} style={{ marginLeft: 'auto', position: 'relative', flexShrink: 0 }}>
-          <button
-            type="button"
-            onClick={() => setMenuOpen(o => !o)}
-            aria-label="More actions"
-            style={{
-              width: 28,
-              height: 28,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 6,
-              background: menuOpen ? 'var(--accent-tint-bg)' : 'transparent',
-              border: '1px solid',
-              borderColor: menuOpen ? 'var(--accent-tint-border, var(--border))' : 'transparent',
-              color: menuOpen ? 'var(--accent)' : 'var(--text-muted)',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              lineHeight: 1,
-              transition: 'background 0.12s, color 0.12s',
-            }}
-          >
-            ⋯
-          </button>
-          {menuOpen && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 'calc(100% + 4px)',
-                right: 0,
-                zIndex: 100,
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                boxShadow: 'var(--shadow-md, 0 4px 16px rgba(0,0,0,0.18))',
-                minWidth: 140,
-                overflow: 'hidden',
-              }}
-            >
-              {OVERFLOW_MENU_ITEMS.map(item => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setMenuOpen(false)}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '7px 14px',
-                    fontSize: '0.8125rem',
-                    color: item === 'Delete' ? 'var(--error, #dc2626)' : 'var(--text-primary)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontWeight: item === 'Delete' ? 600 : 400,
-                    borderTop: item === 'Delete' ? '1px solid var(--border)' : 'none',
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-alt)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      </SubSection>
 
-      {/* Attribute badges row: class · gender · age [· extended · tags] */}
-      {useOverflow ? (
-        <OverflowPillRow pills={sortedPills(badges)} alwaysShow={5} />
-      ) : (
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {sortedPills(badges).map(b => <AttrBadge key={b} label={b} />)}
-        </div>
-      )}
-
-      {/* One-line description — ellipsized */}
-      <div
-        style={{
-          fontSize: '0.75rem',
-          color: 'var(--text-secondary)',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          lineHeight: 1.4,
-        }}
-        title={description}
-      >
-        {description}
-      </div>
-
-      {/* CTA row: preview button + phase primary CTA */}
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        {/* ▶ Preview button */}
-        <button
-          type="button"
-          aria-label="Preview voice"
-          style={{
-            flexShrink: 0,
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            border: '1px solid var(--border)',
-            background: 'var(--surface-alt)',
-            color: 'var(--text-secondary)',
-            fontSize: '0.8rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          ▶
-        </button>
-        {/* Phase primary CTA */}
-        <button
-          type="button"
-          style={{
-            borderRadius: 8,
-            padding: '6px 12px',
-            fontSize: '0.8125rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            flex: 1,
-            ...ctaStyle,
-          }}
-        >
-          {cta}
-        </button>
-      </div>
-
-      <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-        ~{phase === 'empty' ? '6' : phase === 'has-samples' ? '5' : '4'} actions hidden in ⋯
-      </div>
-    </div>
-  );
-};
-
-/** U8 — Voice card progressive disclosure */
-const U8Mock: React.FC = () => {
-  const phases: U8VoiceCardProps[] = [
-    {
-      phase: 'empty',
-      cta: 'Add Samples',
-      ctaStyle: { background: 'var(--surface-alt)', color: 'var(--text-secondary)', border: '1px dashed var(--border)' },
-      avatarEmoji: '🎩',
-      avatarBg: 'rgba(124, 58, 237, 0.12)',
-      name: 'Professor Vale',
-      badges: ['narrator', 'male', 'senior'],
-      description: 'Deep, authoritative narrator with a dry wit and precise diction.',
-    },
-    {
-      phase: 'has-samples',
-      cta: 'Build Voice',
-      ctaStyle: { background: 'var(--accent)', color: '#fff', border: 'none' },
-      avatarEmoji: '👵',
-      avatarBg: 'rgba(16, 185, 129, 0.12)',
-      name: 'Agatha Wren',
-      badges: ['character', 'female', 'elder'],
-      description: 'Warm, weathered grandmother voice with a slight Scottish lilt.',
-    },
-    {
-      phase: 'built',
-      cta: 'Test Voice',
-      ctaStyle: { background: 'var(--success)', color: '#fff', border: 'none' },
-      avatarEmoji: 'EM',
-      avatarBg: 'rgba(245, 158, 11, 0.12)',
-      name: 'Elena Marsh',
-      // Extended taxonomy: class · gender · age + language · accent · style×3
-      badges: ['narrator', 'female', 'adult', 'english', 'british', 'narration', 'educational', 'conversational'],
-      description: 'Warm, measured narrator with a British accent — narration, education, conversational.',
-      useOverflow: true,
-    },
-    {
-      phase: 'tested',
-      cta: 'Use in Project',
-      ctaStyle: { background: 'var(--accent)', color: '#fff', border: 'none' },
-      avatarEmoji: '🎙',
-      avatarBg: 'rgba(59, 130, 246, 0.12)',
-      name: 'Studio Voice',
-      badges: ['narrator', 'neutral', 'adult'],
-      description: 'Clean, neutral studio voice suitable for any genre.',
-    },
-  ];
-  return (
-    <Card>
-      <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
-        U8 — Voice Card Progressive Disclosure
-        <ProposedChip />
-        <OwnerDecisionChip />
-      </h3>
-      <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
-        Today each voice card shows 7–8 peer-level actions. The proposal derives a <code>voicePhase</code> from
-        the voice&apos;s actual state and shows exactly one primary CTA for that phase, demoting other actions to
-        an overflow (⋯) menu. This eliminates choice overload and surfaces the right next step.
-        Each card now also shows a circular voice icon (user-uploaded image, mocked here with an emoji or initials),
-        <strong> category-tinted attribute pills</strong> (class · gender · age — each category carries a distinct
-        hue that works in both light and dark themes), a one-line description, and a ▶ Preview button beside the CTA.
-        Pills are always ordered: <em>class · gender · age</em>, then extended attributes, then free-form tags.
-        Attributes + description can generate a copyable image prompt to help users create a uniform voice icon
-        (owner direction, 2026-06-12).{' '}
-        <strong>Extended taxonomy (language, accent, style) re-opened into 2.0 scope — owner, 2026-06-12:</strong>{' '}
-        style is multi-select (e.g. narration + educational + conversational); accent is single-value.
-        When a card carries more pills than fit, identity pills (class/gender/age) plus 2 extended always show;
-        the remainder collapse into a <em>+N</em> pill — tap/click to expand inline (tap-friendly, no hover-only).
-        See Elena Marsh card for the live specimen.
-        Click ⋯ to open the popover.
-      </p>
-      <div
-        style={{
-          fontSize: '0.8rem',
-          lineHeight: 1.55,
-          color: 'var(--warning-text, #92400e)',
-          background: 'rgba(245, 158, 11, 0.1)',
-          border: '1px solid rgba(245, 158, 11, 0.3)',
-          borderRadius: 8,
-          padding: '8px 12px',
-          marginBottom: '1rem',
-        }}
-      >
-        <strong>Open gap (owner, 2026-06-15):</strong> this proposal covers the voice <em>card</em> only.
-        It does not yet account for the voice <strong>editor</strong> surface, which is a current problem
-        on the live site. The editor needs its own design pass before U8 can be affirmed.
-      </div>
-      <PillLegend />
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-        {phases.map(props => (
-          <U8VoiceCard key={props.phase} {...props} />
-        ))}
-      </div>
-    </Card>
-  );
-};
-
-/** U1 — Undo toast vs confirm modal */
-const U1Mock: React.FC = () => (
-  <Card>
-    <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
-      U1 — Undo Toast (replace most ConfirmModals)
-      <DecidedChip label="Approved" />
-    </h3>
-    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
-      <code>ConfirmModal</code> is invoked from ~14 sites and defaults <code>isDestructive=true</code>,
-      blocking the user with a modal for low-stakes reversible operations. The proposed rule: non-project
-      deletes (chapter, sample, voice reset, chapter-audio reset) → immediate action + 5 s undo toast.
-      Keep modal only for project delete and bulk audio reset.
-    </p>
-    <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-      {/* Undo toast mock */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--success)', marginBottom: 2 }}>
-          PROPOSED — non-destructive ops
-        </div>
+      <SubSection title="Toast (not yet a primitive)">
         <div
           style={{
             display: 'flex',
@@ -1923,109 +1164,388 @@ const U1Mock: React.FC = () => (
             gap: 12,
             background: 'var(--surface)',
             border: '1px solid var(--border)',
-            borderRadius: 10,
+            borderRadius: 'var(--radius-card)',
             padding: '10px 16px',
             boxShadow: 'var(--shadow-md)',
-            minWidth: 280,
+            maxWidth: 360,
           }}
+          role="img"
+          aria-label="Toast preview"
         >
-          <span style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>
-            Chapter deleted
-          </span>
+          <span style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>Chapter deleted</span>
           <div style={{ flex: 1 }} />
-          <button type="button" style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 8px', borderRadius: 6, textDecoration: 'underline' }}>
+          <button
+            type="button"
+            style={{
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: 'var(--accent)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '2px 8px',
+              borderRadius: 6,
+            }}
+          >
             Undo
           </button>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(5 s)</span>
         </div>
-        {/* Progress sliver */}
-        <div style={{ height: 3, background: 'var(--border)', borderRadius: 99 }}>
-          <div style={{ width: '60%', height: '100%', background: 'var(--accent)', borderRadius: 99, transition: 'width 0.2s linear' }} />
+        <div style={{ marginTop: 6, fontSize: '0.8125rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          Note: Toast is not yet a shared primitive — current inline <code>useState + setTimeout</code> in
+          <code> App.tsx</code>. Until extracted, do not hand-roll bespoke toast implementations per page.
         </div>
-      </div>
+      </SubSection>
+    </SectionWrapper>
+  );
+};
 
-      {/* Struck-through modal mock */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, opacity: 0.55 }}>
-        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--error)', marginBottom: 2, textDecoration: 'line-through' }}>
-          REPLACED — non-destructive confirm modal
-        </div>
-        <div
-          style={{
-            border: '1px solid var(--error-tint-border)',
-            borderRadius: 10,
-            background: 'var(--surface)',
-            padding: '12px 16px',
-            minWidth: 240,
-            boxShadow: 'var(--shadow-md)',
-            textDecoration: 'line-through',
-          }}
-        >
-          <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 8, color: 'var(--text-primary)' }}>Delete chapter?</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 12 }}>This cannot be undone.</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <div style={{ flex: 1, padding: '5px', textAlign: 'center', background: 'var(--surface-alt)', borderRadius: 6, fontSize: '0.75rem', color: 'var(--text-muted)' }}>Cancel</div>
-            <div style={{ flex: 1, padding: '5px', textAlign: 'center', background: 'var(--error)', borderRadius: 6, fontSize: '0.75rem', color: '#fff' }}>Delete</div>
-          </div>
-        </div>
-        <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', maxWidth: 240 }}>
-          Modal kept only for: project delete, bulk audio reset.
-        </div>
-      </div>
-    </div>
-  </Card>
-);
+// ---------------------------------------------------------------------------
+// Section 10: Voice Pills
+// ---------------------------------------------------------------------------
 
-/** U3 cross-link */
-const U3Crosslink: React.FC = () => (
-  <Card>
-    <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
-      U3 — Semantic Type Scale
-      <DecidedChip label="Shipped" />
-    </h3>
-    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', lineHeight: 1.6 }}>
-      The 9-step type scale, 8-step spacing scale, and motion tokens are all shipped in <code>tokens.css</code>.
-      Live specimens with real values auto-parsed from the source file live in Section 2.
-    </p>
-    <button
-      type="button"
-      onClick={() => document.getElementById(SECTION_IDS.typography)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-      style={{
-        display: 'inline-block',
-        padding: '6px 14px',
-        background: 'var(--accent-tint-bg)',
-        color: 'var(--accent)',
-        border: '1px solid var(--accent-tint-border)',
-        borderRadius: 8,
-        fontSize: '0.875rem',
-        fontWeight: 600,
-        textDecoration: 'none',
-        cursor: 'pointer',
-      }}
-    >
-      Go to Section 2 — Typography
-    </button>
-  </Card>
-);
+const ALL_CATEGORIES_ROW: PillSpec[] = [
+  { label: 'Narration',  category: 'class',    key: 'class' },
+  { label: 'Female',     category: 'gender',   key: 'gender' },
+  { label: 'Adult',      category: 'age',      key: 'age' },
+  { label: 'Warm',       category: 'extended', key: 'tone' },
+  { label: 'audiobook',  category: 'tag',      key: 'tags' },
+];
 
-const ProposalsSection: React.FC = () => (
-  <SectionWrapper id={SECTION_IDS.proposals} title={SECTION_LABELS.proposals}>
+const OVERFLOW_ROW: PillSpec[] = [
+  { label: 'Narration',  category: 'class',    key: 'class' },
+  { label: 'Male',       category: 'gender',   key: 'gender' },
+  { label: 'Senior',     category: 'age',      key: 'age' },
+  { label: 'Gravelly',   category: 'extended', key: 'tone' },
+  { label: 'Rich',       category: 'extended', key: 'timbre' },
+  { label: 'podcast',    category: 'tag',      key: 'tags' },
+];
+
+const VoicePillsSection: React.FC = () => (
+  <SectionWrapper id={SECTION_IDS.pills} title={SECTION_LABELS.pills}>
     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.25rem', lineHeight: 1.6 }}>
-      Static token-styled mockups for proposals from doc 10 UX Improvements. Each shows a rationale
-      and a visual mock. <strong>No production code has been changed</strong> to build these — approve
-      by reading, then implement in the separate phase.
+      Canonical voice-attribute pills (§5 Voice Attribute Pill Taxonomy). Each category maps to a fixed
+      hue via <code>--pill-*</code> tokens; shape is always <code>--radius-round</code>. This is the
+      sole place voice metadata renders as chips — never use plain text or custom badges.
     </p>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <U15Mock />
-      <U16Mock />
-      <U8Mock />
-      <U1Mock />
-      <U3Crosslink />
-    </div>
+
+    <SubSection title="All five category tints">
+      <div style={{ marginBottom: 8, fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+        One pill per category so all five <code>--pill-*</code> tint groups are visible simultaneously.
+      </div>
+      <div
+        style={{
+          background: 'var(--surface-alt)',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+          padding: '1rem',
+          display: 'inline-flex',
+        }}
+      >
+        <VoicePillRow pills={ALL_CATEGORIES_ROW} />
+      </div>
+    </SubSection>
+
+    <SubSection title="Overflow +N chip (max={3})">
+      <div style={{ marginBottom: 8, fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+        When <code>max</code> is set and the pill count exceeds it, hidden pills collapse into a ghost
+        "+N" chip. Clicking expands the full row.
+      </div>
+      <div
+        style={{
+          background: 'var(--surface-alt)',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+          padding: '1rem',
+          display: 'inline-flex',
+        }}
+      >
+        <VoicePillRow pills={OVERFLOW_ROW} max={3} />
+      </div>
+    </SubSection>
+
+    <SubSection title="UntaggedBadge">
+      <div style={{ marginBottom: 8, fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+        Shown in place of pills when a voice has no metadata. Warning-tinted, icon-dual-encoded.
+      </div>
+      <div
+        style={{
+          background: 'var(--surface-alt)',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+          padding: '1rem',
+          display: 'inline-flex',
+        }}
+      >
+        <UntaggedBadge />
+      </div>
+    </SubSection>
+
+    <SubSection title="Individual pill variants">
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+        {ALL_CATEGORIES_ROW.map((spec) => (
+          <SpecimenCard key={spec.category} label={`category="${spec.category}"`} caption={`--pill-${spec.category}-*`} style={{ minWidth: 130 }}>
+            <VoicePill spec={spec} />
+          </SpecimenCard>
+        ))}
+      </div>
+    </SubSection>
   </SectionWrapper>
 );
 
 // ---------------------------------------------------------------------------
-// Section 5: Theme side-by-side
+// Section 11: Iconography
+// ---------------------------------------------------------------------------
+
+const ICON_GRID: Array<{ Icon: React.FC<{ size?: number; 'aria-hidden'?: boolean | 'true' | 'false' }>; name: string }> = [
+  { Icon: Play,          name: 'Play' },
+  { Icon: Pause,         name: 'Pause' },
+  { Icon: Check,         name: 'Check' },
+  { Icon: X,             name: 'X' },
+  { Icon: AlertTriangle, name: 'AlertTriangle' },
+  { Icon: Loader2,       name: 'Loader2' },
+  { Icon: Settings,      name: 'Settings' },
+  { Icon: Trash2,        name: 'Trash2' },
+];
+
+const CONTROL_ICON_MAP: Array<{ control: string; icon: string }> = [
+  { control: 'Play / Resume',        icon: 'Play' },
+  { control: 'Pause',                icon: 'Pause' },
+  { control: 'Previous / jump start', icon: 'SkipBack' },
+  { control: 'Next / jump end',      icon: 'SkipForward' },
+  { control: 'Skip back N seconds',  icon: 'Rewind' },
+  { control: 'Skip forward N seconds', icon: 'FastForward' },
+  { control: 'Stop',                 icon: 'Square' },
+  { control: 'Breadcrumb separator / drill-in', icon: 'ChevronRight' },
+  { control: 'Dropdown / expander caret', icon: 'ChevronDown' },
+  { control: 'Affirmative / completed', icon: 'Check' },
+  { control: 'Dismiss / failed / close', icon: 'X' },
+  { control: 'Theme: switch to dark', icon: 'Moon' },
+  { control: 'Theme: switch to light', icon: 'Sun' },
+  { control: 'Waveform ↔ bar toggle', icon: 'AudioLines' },
+];
+
+const IconographySection: React.FC = () => (
+  <SectionWrapper id={SECTION_IDS.iconography} title={SECTION_LABELS.iconography}>
+    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem', lineHeight: 1.6 }}>
+      From <code>docs/specs/design-system.md §9</code>. <strong>Binding:</strong> every functional or decorative
+      icon MUST be a <code>lucide-react</code> component. Unicode glyphs (<code>▶ ⏸ ▾ ✓ ›</code>) and emoji
+      MUST NOT be used as icons — they do not inherit <code>currentColor</code>, stroke weight, or optical sizing.
+    </p>
+
+    <SubSection title="Representative icons (lucide-react)">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 12 }}>
+        {ICON_GRID.map(({ Icon, name }) => (
+          <div
+            key={name}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 6,
+              padding: '10px 8px',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-button)',
+            }}
+          >
+            <Icon size={22} aria-hidden="true" />
+            <code style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textAlign: 'center' }}>{name}</code>
+          </div>
+        ))}
+      </div>
+    </SubSection>
+
+    <SubSection title="Control → icon mapping (binding)">
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '2fr 1fr',
+          gap: 0,
+          fontSize: '0.75rem',
+          maxWidth: 560,
+        }}
+      >
+        <div
+          style={{
+            display: 'contents',
+            fontWeight: 700,
+            color: 'var(--text-muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+          }}
+        >
+          <div style={{ padding: '4px 8px', borderBottom: '1px solid var(--border)', fontWeight: 700, color: 'var(--text-muted)' }}>Control / meaning</div>
+          <div style={{ padding: '4px 8px', borderBottom: '1px solid var(--border)', fontWeight: 700, color: 'var(--text-muted)' }}>lucide icon</div>
+        </div>
+        {CONTROL_ICON_MAP.map(({ control, icon }) => (
+          <React.Fragment key={control}>
+            <div style={{ padding: '5px 8px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
+              {control}
+            </div>
+            <div style={{ padding: '5px 8px', borderBottom: '1px solid var(--border)' }}>
+              <code style={{ color: 'var(--accent)', fontFamily: 'monospace' }}>{icon}</code>
+            </div>
+          </React.Fragment>
+        ))}
+      </div>
+    </SubSection>
+
+    <SubSection title="Accessibility rules">
+      <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        <strong>Icon-only controls</strong> MUST carry <code>aria-label</code>.
+        A decorative icon paired with a visible text label SHOULD be <code>aria-hidden="true"</code>.
+        Status dots (connection indicator, character-color markers) are intentionally NOT lucide — they are
+        colored <strong>fills</strong>, not icons. Chapter status is always <code>StatusOrb</code>; a plain dot
+        is never acceptable.
+      </div>
+    </SubSection>
+  </SectionWrapper>
+);
+
+// ---------------------------------------------------------------------------
+// Section 11: Accessibility
+// ---------------------------------------------------------------------------
+
+const UI_STATES: Array<{ state: string; guidance: string }> = [
+  {
+    state: 'loading',
+    guidance: 'Show a spinner (lucide Loader2 + .animate-spin) with a brief explanation — "Loading chapters…" not a bare spinner. Spinning is exempt from reduced-motion guard.',
+  },
+  {
+    state: 'empty',
+    guidance: 'Explain what is empty and what the user can do next. "No chapters yet — add your first chapter to get started." Never leave a blank container.',
+  },
+  {
+    state: 'error',
+    guidance: 'State what failed and offer a recovery action. Use --error-text on --error-tint-bg, dual-encoded with AlertTriangle icon + text. Never color alone.',
+  },
+  {
+    state: 'reconnecting',
+    guidance: 'Signal that the WebSocket is attempting to reconnect. Show a spinner + "Reconnecting…" message. Do not block the UI; show inline near the affected area.',
+  },
+  {
+    state: 'recovered',
+    guidance: 'Briefly confirm the connection was restored ("Reconnected"). Auto-dismiss after a few seconds. Also covers stale/queued/rendering/rendered/failed markers.',
+  },
+];
+
+const AccessibilitySection: React.FC = () => (
+  <SectionWrapper id={SECTION_IDS.accessibility} title={SECTION_LABELS.accessibility}>
+    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.25rem', lineHeight: 1.6 }}>
+      Target: <strong>WCAG 2.2 AA</strong> in both themes. Binding rules from
+      <code> docs/specs/design-system.md §8</code>.
+    </p>
+
+    <SubSection title="The five UI states (§8.4 — binding)">
+      <div style={{ marginBottom: 8, fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+        Every meaningful screen change MUST account for all five states. Each must be user-meaningful and
+        testable by role/label/visible behavior — not a bare spinner.
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {UI_STATES.map((item) => {
+          const guidance = (item as { state: string; guidance?: string; body?: string }).guidance
+            ?? (item as { state: string; body?: string }).body
+            ?? '';
+          return (
+            <div
+              key={item.state}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '110px 1fr',
+                gap: 12,
+                padding: '8px 12px',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-button)',
+                alignItems: 'flex-start',
+              }}
+            >
+              <code
+                style={{
+                  fontWeight: 700,
+                  fontSize: '0.8125rem',
+                  color: 'var(--action-primary, var(--accent))',
+                  fontFamily: 'monospace',
+                }}
+              >
+                {item.state}
+              </code>
+              <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                {guidance}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </SubSection>
+
+    <SubSection title="Focus ring (§8.1)">
+      <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 8 }}>
+        <strong>Double-ring</strong> on <code>:focus-visible</code>: <code>outline: 3px solid var(--action-primary)</code>
+        plus a 5px <code>box-shadow</code> halo (light/dark variant). Pointer interactions suppress it;
+        keyboard-only shows it. New interactive elements MUST keep a visible focus ring — never apply a
+        blanket <code>outline: none</code>.
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          gap: 12,
+          alignItems: 'center',
+          padding: '10px 14px',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-button)',
+          maxWidth: 360,
+        }}
+      >
+        <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Tab to see the ring:</span>
+        <button
+          className="btn-primary"
+          type="button"
+          style={{ fontSize: '0.875rem' }}
+        >
+          Focus me
+        </button>
+        <GlassInput placeholder="Or focus here" style={{ width: 120 } as React.CSSProperties} />
+      </div>
+    </SubSection>
+
+    <SubSection title="Contrast (§8.3)">
+      <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        All key text/surface/state/pill pairs are computed in <code>docs/specs/design-system.md §2.4</code>.
+        All pass AA (most AAA). Exceptions: <code>--text-subtle</code> is chrome/large-only in both themes —
+        MUST NOT carry body text. New colors MUST be added as tokens with composited contrast meeting AA in
+        both light and dark.
+      </div>
+    </SubSection>
+
+    <SubSection title="Reduced motion (§8.5)">
+      <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        A global <code>prefers-reduced-motion</code> guard is the <strong>first rule in base.css</strong> —
+        zeroes all animation/transition durations globally. <strong>Essential busy indicators</strong> are
+        re-enabled inside the guard at a calm cadence:
+        <code> .is-running</code> (calm-pulse via <code>--pulse-duration: 3s</code>),
+        <code> .animate-spin</code> (1.6 s), <code>.animate-spin-slow</code> (3 s), and the indeterminate
+        progress barber-pole (1.2 s). Freezing these would leave a reduced-motion user unable to distinguish
+        "working" from "hung". All other decorative CSS transitions are suppressed.
+      </div>
+    </SubSection>
+
+    <SubSection title="44px touch targets (§8.4)">
+      <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        Form controls (<code>input</code>, <code>select</code>, <code>textarea</code>) have
+        <code> min-height: 44px</code> enforced in <code>base.css</code>. The blanket button
+        <code> min-height</code> was removed (it deformed compact icon buttons); standard button
+        padding achieves ~40px natural height. New form controls MUST NOT undercut 44px.
+        Icon-only compact buttons remain a tracked follow-up for explicit 44px hit-area expansion.
+      </div>
+    </SubSection>
+  </SectionWrapper>
+);
+
+// ---------------------------------------------------------------------------
+// Section 12: Theme side-by-side
 // ---------------------------------------------------------------------------
 
 const CompositeSpecimen: React.FC = () => (
@@ -2100,10 +1620,54 @@ const ThemeSection: React.FC = () => (
 // ---------------------------------------------------------------------------
 
 const NAV_GROUPS: Array<{ label: string; keys: (keyof typeof SECTION_IDS)[] }> = [
-  { label: 'Foundations', keys: ['colors', 'typography'] },
-  { label: 'Components',  keys: ['components'] },
-  { label: 'Direction',   keys: ['proposals', 'theme'] },
+  { label: 'Foundations', keys: ['principles', 'brand', 'colors', 'typography', 'spacing'] },
+  { label: 'Components',  keys: ['buttons', 'forms', 'status', 'overlays', 'pills', 'iconography'] },
+  { label: 'Standards',   keys: ['accessibility', 'theme'] },
 ];
+
+/** Single nav button — extracted so hover state uses local useState (token-only, no global CSS). */
+const NavItem: React.FC<{ label: string; isActive: boolean; onClick: () => void }> = ({
+  label, isActive, onClick,
+}) => {
+  const [hovered, setHovered] = useState(false);
+
+  const style: React.CSSProperties = {
+    display: 'block',
+    width: '100%',
+    textAlign: 'left',
+    padding: '0.45rem 1.25rem',
+    fontSize: '0.8rem',
+    cursor: 'pointer',
+    background: isActive
+      ? 'var(--accent-tint-bg)'
+      : hovered
+        ? 'var(--surface)'
+        : 'none',
+    border: 'none',
+    borderLeft: isActive
+      ? '3px solid var(--action-primary, var(--accent))'
+      : '3px solid transparent',
+    color: isActive
+      ? 'var(--action-primary, var(--accent))'
+      : hovered
+        ? 'var(--text-primary)'
+        : 'var(--text-secondary)',
+    fontWeight: isActive ? 600 : 400,
+  };
+
+  return (
+    <button
+      type="button"
+      style={style}
+      aria-current={isActive ? 'true' : undefined}
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {label}
+    </button>
+  );
+};
 
 const StyleguideSidebar: React.FC<{ active: string }> = ({ active }) => {
   const scrollTo = useCallback((id: string) => {
@@ -2150,7 +1714,7 @@ const StyleguideSidebar: React.FC<{ active: string }> = ({ active }) => {
             marginBottom: 2,
           }}
         >
-          Visual Style Guide
+          Design System
         </div>
         <div
           style={{
@@ -2197,50 +1761,6 @@ const StyleguideSidebar: React.FC<{ active: string }> = ({ active }) => {
   );
 };
 
-/** Single nav button — extracted so hover state uses local useState (token-only, no global CSS). */
-const NavItem: React.FC<{ label: string; isActive: boolean; onClick: () => void }> = ({
-  label, isActive, onClick,
-}) => {
-  const [hovered, setHovered] = useState(false);
-
-  const style: React.CSSProperties = {
-    display: 'block',
-    width: '100%',
-    textAlign: 'left',
-    padding: '0.45rem 1.25rem',
-    fontSize: '0.8rem',
-    cursor: 'pointer',
-    background: isActive
-      ? 'var(--accent-tint-bg)'
-      : hovered
-        ? 'var(--surface)'
-        : 'none',
-    border: 'none',
-    borderLeft: isActive
-      ? '3px solid var(--action-primary, var(--accent))'
-      : '3px solid transparent',
-    color: isActive
-      ? 'var(--action-primary, var(--accent))'
-      : hovered
-        ? 'var(--text-primary)'
-        : 'var(--text-secondary)',
-    fontWeight: isActive ? 600 : 400,
-  };
-
-  return (
-    <button
-      type="button"
-      style={style}
-      aria-current={isActive ? 'true' : undefined}
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      {label}
-    </button>
-  );
-};
-
 // ---------------------------------------------------------------------------
 // Root page
 // ---------------------------------------------------------------------------
@@ -2250,8 +1770,6 @@ export const StyleguidePage: React.FC = () => {
   const sectionIds = useMemo(() => Object.values(SECTION_IDS) as string[], []);
   const active = useActiveSection(sectionIds);
 
-  // Responsive: hide sidebar below 768px via matchMedia.
-  // Default to true (sidebar visible); jsdom / SSR envs lack matchMedia so guard it.
   const [sidebarVisible, setSidebarVisible] = useState(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
     return window.matchMedia('(min-width: 768px)').matches;
@@ -2271,19 +1789,29 @@ export const StyleguidePage: React.FC = () => {
         <div style={{ maxWidth: 960, margin: '0 auto', padding: '2.5rem 48px' }}>
           <div style={{ marginBottom: '2rem' }}>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
-              Design Spec Sheet
+              Audiobook Studio — Design System
             </h1>
             <p style={{ fontSize: '0.9375rem', color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 680 }}>
-              Auto-generated token registry, live component specimens, and static mockups of proposed
-              design directions from doc 10 (UX Improvements). Intended to make theming and redesign
-              decisions cheap to evaluate — no production code changes needed to read and approve.
+              This is the authoritative visual source of truth for building UI in this app.
+              Every token, type rule, and component state shown here is the adopted standard.
+              Code that contradicts it is a bug. Tokens and type auto-derive from{' '}
+              <code>tokens.css</code> (zero drift) and this page aligns with{' '}
+              <code>docs/specs/design-system.md</code>.
             </p>
           </div>
 
+          <PrinciplesSection />
+          <BrandSection />
           <ColorTokensSection entries={entries} />
           <TypographySection allTokens={entries} />
-          <ComponentsSection />
-          <ProposalsSection />
+          <SpacingSection allTokens={entries} />
+          <ButtonsSection />
+          <FormsSection />
+          <StatusSection />
+          <OverlaysSection />
+          <VoicePillsSection />
+          <IconographySection />
+          <AccessibilitySection />
           <ThemeSection />
         </div>
       </div>

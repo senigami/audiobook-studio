@@ -37,6 +37,38 @@ vi.mock('@/components/forms/GlassInput', () => ({
   ),
 }));
 
+// Mock SearchableSelect
+vi.mock('@/components/forms/SearchableSelect', () => ({
+  default: (props: { placeholder?: string; value?: string }) => (
+    <div data-testid="searchable-select">{props.placeholder ?? props.value}</div>
+  ),
+}));
+
+// Mock ColorSwatchPicker
+vi.mock('@/components/forms/ColorSwatchPicker', () => ({
+  ColorSwatchPicker: (props: { value?: string }) => (
+    <div data-testid="color-swatch-picker">{props.value}</div>
+  ),
+}));
+
+// Mock VoiceDropzone
+vi.mock('@/components/forms/VoiceDropzone', () => ({
+  VoiceDropzone: () => <div data-testid="voice-dropzone">VoiceDropzone</div>,
+}));
+
+// Mock VoicePills
+vi.mock('@/pages/Voices/components/VoicePills', () => ({
+  VoicePill: (props: { spec?: { label?: string } }) => (
+    <span data-testid="voice-pill">{props.spec?.label}</span>
+  ),
+  VoicePillRow: (props: { pills?: Array<{ label: string }> }) => (
+    <div data-testid="voice-pill-row">
+      {props.pills?.map((p, i) => <span key={i}>{p.label}</span>)}
+    </div>
+  ),
+  UntaggedBadge: () => <span data-testid="untagged-badge">missing attributes</span>,
+}));
+
 // Mock PredictiveProgressBar
 vi.mock(
   '@/components/progress/PredictiveProgressBar/PredictiveProgressBar',
@@ -46,6 +78,34 @@ vi.mock(
     ),
   }),
 );
+
+// Mock Switch (avoids CSS class dependency)
+vi.mock('@/components/ui/Switch', () => ({
+  Switch: (props: { label?: string; checked?: boolean }) => (
+    <button type="button" role="switch" aria-checked={props.checked}>
+      {props.label}
+    </button>
+  ),
+}));
+
+// Mock ActionMenu (avoids portal/framer-motion dependency)
+vi.mock('@/components/ui/ActionMenu', () => ({
+  ActionMenu: () => <button type="button" aria-label="More actions">⋯</button>,
+}));
+
+// Mock BrandLogo
+vi.mock('@/components/layout/BrandLogo', () => ({
+  BrandLogo: (props: { stacked?: boolean; showIcon?: boolean }) => (
+    <div data-testid="brand-logo" data-stacked={props.stacked} data-show-icon={props.showIcon}>
+      Audiobook Studio
+    </div>
+  ),
+}));
+
+// Mock StatusOrb
+vi.mock('@/components/ui/StatusOrb', () => ({
+  StatusOrb: () => <div data-testid="status-orb" />,
+}));
 
 // Dynamic import after mocks are registered
 const { StyleguidePage } = await import('@/demo/styleguide/StyleguidePage');
@@ -115,79 +175,117 @@ describe('parseTokens', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test 2 — StyleguidePage renders all 5 section headings
+// Test 2 — StyleguidePage renders the 12 canonical section headings
 // ---------------------------------------------------------------------------
 
 describe('StyleguidePage section headings', () => {
-  it('renders all 5 section headings', () => {
+  it('renders all 13 canonical section headings', () => {
     render(<StyleguidePage />);
+
     // Each label appears in both the sticky nav and the section h2 — use getAllByText
-    expect(screen.getAllByText(/1\. Color Tokens/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/2\. Typography/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/3\. Components/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/4\. Proposed Directions/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/5\. Theme Side-by-Side/i).length).toBeGreaterThanOrEqual(1);
-    // Confirm the actual h2 headings are present by role
+    expect(screen.getAllByText(/1\. Principles/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/2\. Brand & Identity/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/3\. Color/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/4\. Typography/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/5\. Spacing & Radius/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/6\. Buttons/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/7\. Forms & Focus/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/8\. Status & Progress/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/9\. Overlays/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/10\. Voice Pills/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/11\. Iconography/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/12\. Accessibility/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/13\. Theme/i).length).toBeGreaterThanOrEqual(1);
+
+    // Confirm h2 headings are present by role
     const headings = screen.getAllByRole('heading', { level: 2 });
     const headingTexts = headings.map(h => h.textContent ?? '');
-    expect(headingTexts.some(t => /Color Tokens/i.test(t))).toBe(true);
+    expect(headingTexts.some(t => /Principles/i.test(t))).toBe(true);
+    expect(headingTexts.some(t => /Brand.*Identity/i.test(t))).toBe(true);
+    expect(headingTexts.some(t => /Color/i.test(t))).toBe(true);
     expect(headingTexts.some(t => /Typography/i.test(t))).toBe(true);
-    expect(headingTexts.some(t => /Components/i.test(t))).toBe(true);
-    expect(headingTexts.some(t => /Proposed Directions/i.test(t))).toBe(true);
-    expect(headingTexts.some(t => /Theme Side-by-Side/i.test(t))).toBe(true);
+    expect(headingTexts.some(t => /Spacing.*Radius/i.test(t))).toBe(true);
+    expect(headingTexts.some(t => /Buttons/i.test(t))).toBe(true);
+    expect(headingTexts.some(t => /Forms.*Focus/i.test(t))).toBe(true);
+    expect(headingTexts.some(t => /Status.*Progress/i.test(t))).toBe(true);
+    expect(headingTexts.some(t => /Overlays/i.test(t))).toBe(true);
+    expect(headingTexts.some(t => /Voice Pills/i.test(t))).toBe(true);
+    expect(headingTexts.some(t => /Iconography/i.test(t))).toBe(true);
+    expect(headingTexts.some(t => /Accessibility/i.test(t))).toBe(true);
+    expect(headingTexts.some(t => /Theme/i.test(t))).toBe(true);
+  });
+
+  it('renders the canonical page title "Audiobook Studio — Design System"', () => {
+    render(<StyleguidePage />);
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1.textContent).toMatch(/Audiobook Studio.*Design System/i);
+  });
+
+  it('does NOT render removed meta sections', () => {
+    render(<StyleguidePage />);
+    // Old title "Design Spec Sheet" should be gone
+    expect(screen.queryByText(/Design Spec Sheet/i)).toBeNull();
+    // Old "Proposed Directions" section heading should be gone
+    expect(screen.queryByRole('heading', { level: 2, name: /Proposed Directions/i })).toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// Test 3a — Typography (Section 2) renders the SHIPPED tokens, not proposals
+// Test 3 — Typography section renders the type scale
 // ---------------------------------------------------------------------------
 
-describe('StyleguidePage typography shows current shipped tokens', () => {
-  it('renders the shipped type/space/motion scales and drops the stale "proposed" framing', () => {
+describe('StyleguidePage typography shows shipped token scale', () => {
+  it('renders the type scale without stale "proposed" framing', () => {
     render(<StyleguidePage />);
 
-    // Section 2 now renders the tokens that actually ship in tokens.css
-    // (type scale + spacing + motion), parsed live — not the retired
-    // proposedTokens.ts constants.
-    expect(screen.getAllByText(/Spacing scale/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Motion tokens/i).length).toBeGreaterThan(0);
+    // Type scale header is present
+    expect(screen.getAllByText(/Type scale/i).length).toBeGreaterThan(0);
 
-    // The stale framing that claimed the tokens did not exist is gone. These
-    // are the discriminators — they were present on the pre-repair page.
+    // Stale framing that claimed tokens did not exist is gone
     expect(screen.queryByText(/do not exist yet/i)).toBeNull();
     expect(screen.queryByText(/zero type tokens/i)).toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// Test 3b — Section 4 keeps the future-direction proposal gallery
+// Test 4 — Spacing section (moved out of Typography)
 // ---------------------------------------------------------------------------
 
-describe('StyleguidePage proposed-directions gallery', () => {
-  it('still renders the future-direction proposal cards', () => {
+describe('StyleguidePage spacing section', () => {
+  it('renders spacing scale and motion tokens in Section 5', () => {
     render(<StyleguidePage />);
-
-    expect(screen.getByText(/U15.*Navigation/i)).toBeInTheDocument();
-    expect(screen.getByText(/U16.*Unified Audio Player/i)).toBeInTheDocument();
-    expect(screen.getByText(/U8.*Voice Card/i)).toBeInTheDocument();
-    expect(screen.getByText(/U1.*Undo Toast/i)).toBeInTheDocument();
-    expect(screen.getByText(/U3.*Semantic Type Scale/i)).toBeInTheDocument();
-  });
-
-  it('marks shipped proposals as decided, leaving only open ones as PROPOSED', () => {
-    render(<StyleguidePage />);
-
-    // Items that have shipped now carry "decided" chips (U3 type scale =
-    // "Shipped", U16 player = "Affirmed"); only the U8 voice card remains an
-    // open proposal. Pre-repair the page showed ≥5 PROPOSED chips.
-    expect(screen.getAllByText(/Shipped/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Affirmed/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('PROPOSED').length).toBe(1);
+    expect(screen.getAllByText(/Spacing scale/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Motion tokens/i).length).toBeGreaterThan(0);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Test 4 — Theme side-by-side renders both data-theme wrappers
+// Test 5 — Proposals / chips are fully removed
+// ---------------------------------------------------------------------------
+
+describe('StyleguidePage proposals removed', () => {
+  it('renders no PROPOSED chips', () => {
+    render(<StyleguidePage />);
+    // The ProposedChip text "PROPOSED" (exact all-caps) should be absent
+    expect(screen.queryByText('PROPOSED')).toBeNull();
+  });
+
+  it('renders no OWNER DECISION NEEDED chips', () => {
+    render(<StyleguidePage />);
+    expect(screen.queryByText(/OWNER DECISION NEEDED/i)).toBeNull();
+  });
+
+  it('renders no U15/U16/U8/U1 proposal cards', () => {
+    render(<StyleguidePage />);
+    expect(screen.queryByText(/U15.*Navigation/i)).toBeNull();
+    expect(screen.queryByText(/U16.*Unified Audio Player/i)).toBeNull();
+    expect(screen.queryByText(/U8.*Voice Card/i)).toBeNull();
+    expect(screen.queryByText(/U1.*Undo Toast/i)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 6 — Theme side-by-side renders both data-theme wrappers
 // ---------------------------------------------------------------------------
 
 describe('StyleguidePage theme side-by-side', () => {
@@ -197,5 +295,52 @@ describe('StyleguidePage theme side-by-side', () => {
     const darkWrapper = container.querySelector('[data-theme="dark"]');
     expect(lightWrapper).not.toBeNull();
     expect(darkWrapper).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 7 — New sections have substantive content
+// ---------------------------------------------------------------------------
+
+describe('StyleguidePage new canonical sections', () => {
+  it('Principles section renders design tenets', () => {
+    render(<StyleguidePage />);
+    expect(screen.getAllByText(/Rationed accent/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Calm over flashy/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Token-only styling/i).length).toBeGreaterThan(0);
+  });
+
+  it('Brand section renders the BrandLogo component', () => {
+    render(<StyleguidePage />);
+    const logos = screen.getAllByTestId('brand-logo');
+    expect(logos.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('Iconography section renders lucide icon names', () => {
+    render(<StyleguidePage />);
+    expect(screen.getAllByText('Play').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Check').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Trash2').length).toBeGreaterThan(0);
+  });
+
+  it('Accessibility section renders the five UI states', () => {
+    render(<StyleguidePage />);
+    expect(screen.getAllByText(/loading/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/empty/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/error/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/reconnecting/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/recovered/i).length).toBeGreaterThan(0);
+  });
+
+  it('Voice Pills section renders pill rows and UntaggedBadge', () => {
+    render(<StyleguidePage />);
+    // Section heading present
+    expect(screen.getAllByText(/10\. Voice Pills/i).length).toBeGreaterThanOrEqual(1);
+    // VoicePillRow mocks rendered
+    expect(screen.getAllByTestId('voice-pill-row').length).toBeGreaterThanOrEqual(2);
+    // UntaggedBadge rendered
+    expect(screen.getByTestId('untagged-badge')).toBeDefined();
+    // Individual VoicePill specimens rendered
+    expect(screen.getAllByTestId('voice-pill').length).toBeGreaterThan(0);
   });
 });
