@@ -16,6 +16,9 @@
   --action-primary: #1e4fd8;                       /* NEW role-named alias */
   --action-primary-hover: #1a45c0;                 /* NEW */
   --action-primary-active: #163aa3;                /* NEW */
+  --action-danger:        #c41a1a;                 /* danger fill button — deep red, ~10:1 with white */
+  --action-danger-hover:  #a81515;                 /* darkens on hover (light mode) */
+  --action-danger-active: #901010;                 /* even darker on press */
   --on-action: #ffffff;                            /* NEW (≡ --text-on-accent) */
   --primary-border-inset: rgba(255,255,255,.18);   /* NEW — 1px inset border on flat buttons */
   --live-indicator: #1e4fd8;                       /* NEW; pending P3 (progress/nav-active) */
@@ -114,6 +117,9 @@
   --on-success: #04240f;                        /* NEW — text on success fills */
   --status-cached-text: #9a4d0a;               /* NEW; pending P3 (StatusOrb cached state) */
   --status-cached-ring: #a8530a;               /* NEW — ring/icon use only, NOT text; pending P3 (StatusOrb cached state) */
+  --status-m4a: #d4a020;                       /* gold fill for M4A exported state */
+  --status-m4a-border: #9a7010;               /* darker gold border/stroke */
+  --status-m4a-icon: #1c2b4a;                  /* dark icon on gold fill (check mark) */
   --glass-surface-light: rgba(248, 249, 252, 0.78); /* panel glass in light mode */
   --glass-subtle: rgba(255, 255, 255, 0.05);    /* very subtle glass tint */
 
@@ -170,8 +176,8 @@
   --progress-track: rgba(0, 0, 0, 0.05);           /* progress bar track background */
   --progress-finalizing-fill: rgba(191, 219, 254, 0.34); /* finalizing state fill color */
   --progress-finalizing-glow: rgba(59, 130, 246, 0.45);  /* finalizing glow shadow */
-  --progress-preparing-fill: #64748b;                     /* was rgba(248,250,252,.96) — now solid/opaque */
-  --progress-preparing-glow: rgba(226, 232, 240, 0.45);  /* preparing glow shadow */
+  --progress-preparing-fill: #ffffff;                     /* white — blue stripes define the state */
+  --progress-preparing-glow: transparent;                 /* no glow needed on white fill */
   --progress-badge-running: rgba(37, 99, 235, 0.10);     /* running/processing badge bg */
   --progress-badge-preparing: rgba(245, 158, 11, 0.12);  /* preparing badge bg */
   --progress-badge-finalizing: rgba(59, 130, 246, 0.10); /* finalizing badge bg */
@@ -186,8 +192,8 @@
   /* Progress barber-pole stripe overlays (animated ::before; overlay a colored fill, theme-agnostic) */
   --progress-stripe-sheen:            rgba(255, 255, 255, 0.16);
   --progress-stripe-sheen-soft:       rgba(255, 255, 255, 0.09);
-  --progress-stripe-pending:          rgba(148, 163, 184, 0.22);
-  --progress-stripe-pending-soft:     rgba(148, 163, 184, 0.10);
+  --progress-stripe-pending:          rgba(30, 79, 216, 0.44);    /* blue stripe over white fill */
+  --progress-stripe-pending-soft:     rgba(30, 79, 216, 0.20);    /* soft blue */
   --progress-stripe-finalizing:       rgba(96, 165, 250, 0.36);
   --progress-stripe-finalizing-soft:  rgba(96, 165, 250, 0.20);
   --progress-stripe-finalizing-tint:      rgba(219, 234, 254, 0.20);
@@ -288,6 +294,9 @@
   --action-primary:       #6b9fff;              /* NEW */
   --action-primary-hover: #5b90f5;              /* NEW */
   --action-primary-active: #4f86ff;             /* NEW */
+  --action-danger:        #c41a1a;              /* deep red on dark surface — white text */
+  --action-danger-hover:  #e53e3e;              /* lightens on hover (dark mode) */
+  --action-danger-active: #a81515;              /* darkens on press */
   --on-action:            #0d0f14;              /* NEW — dark bg, not white */
   --text-on-accent:       #0d0f14;              /* dark-aware (was inheriting #fff): dark --accent is light-blue #6b9fff, so on-accent text must be dark — 7.33:1 */
   --primary-border-inset: rgba(0,0,0,.12);      /* NEW */
@@ -312,6 +321,8 @@
   --on-success:           #052e16;              /* NEW */
   --status-cached-text:   #fbbf24;              /* NEW; pending P3 (StatusOrb cached state) */
   --status-cached-ring:   #fbbf24;              /* NEW; pending P3 (StatusOrb cached state) */
+  --status-m4a: #e6aa18;                        /* gold fill — brighter on dark bg */
+  --status-m4a-border: #b08010;               /* darker gold border on dark bg */
 
   /* On-state text tokens (fixed values — same in both themes) */
   --text-on-error: #ffffff;                     /* text/icon on error fills (stays white in both themes) */
@@ -366,8 +377,10 @@
   --progress-track:            rgba(255, 255, 255, 0.06);
   --progress-finalizing-fill:  rgba(96, 165, 250, 0.3);
   --progress-finalizing-glow:  rgba(59, 130, 246, 0.5);
-  --progress-preparing-fill:   #94a3b8;   /* was rgba(51,65,85,.96) — now solid */
-  --progress-preparing-glow:   rgba(71, 85, 105, 0.45);
+  --progress-preparing-fill:       #0d0f14;                   /* studio-dark — stripes define the state */
+  --progress-preparing-glow:       transparent;               /* no glow needed on dark fill */
+  --progress-stripe-pending:       rgba(107, 159, 255, 0.44); /* periwinkle stripe over dark fill */
+  --progress-stripe-pending-soft:  rgba(107, 159, 255, 0.20); /* soft periwinkle */
   --progress-badge-running:    rgba(99, 102, 241, 0.18);
   --progress-badge-preparing:  rgba(245, 158, 11, 0.18);
   --progress-badge-finalizing: rgba(59, 130, 246, 0.18);

@@ -35,7 +35,7 @@ describe('PredictiveProgressBar — no terminus icon, no status pill', () => {
         expect(/running/i.test(container.textContent ?? '')).toBe(false)
     })
 
-    it('keeps the is-running calm-pulse on the fill when running', () => {
+    it('applies progress-bar-breathe (not is-running) on the fill when running', () => {
         const { container } = render(
             <PredictiveProgressBar
                 progress={0.5}
@@ -45,6 +45,7 @@ describe('PredictiveProgressBar — no terminus icon, no status pill', () => {
                 allowBackwardProgress={false}
             />
         )
-        expect(container.querySelector('.is-running')).toBeTruthy()
+        expect(container.querySelector('.progress-bar-breathe')).toBeTruthy()
+        expect(container.querySelector('.is-running')).toBeNull()
     })
 })

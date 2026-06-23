@@ -16,7 +16,7 @@ describe('PredictiveProgressBar - Lifecycle', () => {
         )
         const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
         expect(fill()).toBeTruthy()
-        expect(fill().style.width).toBe('0%')
+        expect(fill().style.width).toBe('100%') // preparing fills full bar so barber-pole spans the track
         rerender(
             <PredictiveProgressBar
                 progress={0.01}
@@ -116,7 +116,7 @@ describe('PredictiveProgressBar - Lifecycle', () => {
             />
         )
         const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
-        expect(fill().style.width).toBe('0%')
+        expect(fill().style.width).toBe('100%') // preparing fills full bar so barber-pole spans the track
         act(() => {
             rerender(
                 <PredictiveProgressBar
@@ -126,7 +126,7 @@ describe('PredictiveProgressBar - Lifecycle', () => {
                 />
             )
         })
-        expect(fill().style.width).toBe('0%')
+        expect(fill().style.width).toBe('0%') // after handoff to running at progress=0, jumps to 0
         vi.useRealTimers()
     })
 

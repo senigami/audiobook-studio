@@ -24,10 +24,12 @@
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import tokensCss from '@/theme/tokens.css?raw';
-import { parseTokens, groupTokens, type TokenEntry } from './parseTokens';
+import { parseTokens, type TokenEntry } from './parseTokens';
 import {
   AudioLines,
   Play, Pause, Check, X, AlertTriangle, Loader2, Settings, Trash2,
+  SkipBack, SkipForward, Rewind, FastForward, Square, Pipette,
+  ChevronRight, ChevronDown, Moon, Sun,
 } from 'lucide-react';
 import { GlassInput } from '@/components/forms/GlassInput';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
@@ -36,7 +38,7 @@ import { Switch } from '@/components/ui/Switch';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { BrandLogo } from '@/components/layout/BrandLogo';
 import SearchableSelect from '@/components/forms/SearchableSelect';
-import { ColorSwatchPicker } from '@/components/forms/ColorSwatchPicker';
+// ColorSwatchPicker is shown as a static expanded specimen below (no import needed for live component)
 import { VoiceDropzone } from '@/components/forms/VoiceDropzone';
 import { VoicePill, VoicePillRow, UntaggedBadge } from '@/pages/Voices/components/VoicePills';
 import type { PillSpec } from '@/pages/Voices/components/VoicePills';
@@ -111,29 +113,32 @@ const SECTION_LABELS: Record<keyof typeof SECTION_IDS, string> = {
 
 const SectionWrapper: React.FC<{ id: string; title: string; children: React.ReactNode }> = ({
   id, title, children,
-}) => (
-  <section
-    id={id}
-    style={{
-      marginBottom: '3rem',
-      scrollMarginTop: '56px',
-    }}
-  >
-    <h2
-      style={{
-        fontSize: '1.25rem',
-        fontWeight: 700,
-        color: 'var(--text-primary)',
-        marginBottom: '1rem',
-        paddingBottom: '0.5rem',
-        borderBottom: '2px solid var(--border)',
-      }}
-    >
-      {title}
-    </h2>
-    {children}
-  </section>
-);
+}) => {
+  // title format: "N. Section Name" → num and name
+  const match = title.match(/^(\d+)\.\s+(.+)$/);
+  const num = match ? String(Number(match[1])).padStart(2, '0') : '';
+  const name = match ? match[2] : title;
+
+  return (
+    <section id={id} style={{ marginBottom: '4rem', scrollMarginTop: '56px' }}>
+      <h2
+        style={{
+          fontSize: '2rem',
+          fontWeight: 800,
+          color: 'var(--text-primary)',
+          marginBottom: '0.625rem',
+          lineHeight: 1,
+        }}
+      >
+        <span style={{ color: 'var(--action-primary)', marginRight: '0.5rem' }}>{num}</span>
+        <span style={{ color: 'var(--text-muted)', margin: '0 0.4rem', fontWeight: 400 }}>·</span>
+        {name}
+      </h2>
+      <hr style={{ border: 'none', borderTop: '1px solid var(--border)', marginBottom: '1.75rem' }} />
+      {children}
+    </section>
+  );
+};
 
 const SubSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <div style={{ marginBottom: '1.5rem' }}>
@@ -209,7 +214,7 @@ const PRINCIPLES = [
   },
   {
     title: 'State never by color alone',
-    body: 'Every status is dual-encoded: icon + color, or icon + text. Never rely on hue as the sole signal — this is WCAG 1.4.1 and a usability baseline.',
+    body: 'Every status is dual-encoded: icon + color, or icon + text. Never rely on hue as the sole signal — this satisfies WCAG 1.4.1.',
   },
   {
     title: 'Token-only styling',
@@ -217,45 +222,52 @@ const PRINCIPLES = [
   },
   {
     title: 'WCAG AA in both themes',
-    body: 'Every text/surface pair must meet 4.5:1 AA contrast in both light and dark. Contrast is computed against the composited token value, not the raw rgba.',
+    body: 'Every text/surface pair must meet 4.5:1 AA contrast in both light and dark. Contrast is computed against the composited token value.',
   },
   {
     title: 'Reduced motion respected',
-    body: 'A global prefers-reduced-motion guard freezes decorative animations. Essential busy indicators (spinners, calm-pulse running ring) are exempted at a slower cadence so users can distinguish "working" from "hung".',
+    body: 'A global prefers-reduced-motion guard freezes decorative animations. Essential busy indicators (spinners, running ring) are exempted at a slower cadence.',
   },
 ];
 
 const PrinciplesSection: React.FC = () => (
   <SectionWrapper id={SECTION_IDS.principles} title={SECTION_LABELS.principles}>
-    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.25rem', lineHeight: 1.6 }}>
-      Derived from <code>docs/specs/design-system.md §1</code> and the shipped Quiet Studio direction.
-      These are the governing constraints — not aspirational guidelines.
+    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+      Six rules the whole system enforces. Every component decision traces back to one of these.
     </p>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      {PRINCIPLES.map(({ title, body }) => (
-        <div
-          key={title}
-          style={{
-            display: 'flex',
-            gap: '1rem',
-            alignItems: 'flex-start',
-            padding: '0.875rem 1rem',
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-card)',
-          }}
-        >
-          <div style={{ minWidth: 8, height: 8, borderRadius: '50%', background: 'var(--action-primary, var(--accent))', marginTop: 6, flexShrink: 0 }} />
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)', marginBottom: 2 }}>
-              {title}
-            </div>
-            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+    <div
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-panel, 18px)',
+        padding: '2rem 2.25rem',
+      }}
+    >
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '2rem 3.5rem',
+        }}
+      >
+        {PRINCIPLES.map(({ title, body }, i) => (
+          <div key={title}>
+            <h3
+              style={{
+                fontSize: '1rem',
+                fontWeight: 700,
+                color: 'var(--action-primary)',
+                marginBottom: '0.5rem',
+              }}
+            >
+              {i + 1} · {title}
+            </h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
               {body}
-            </div>
+            </p>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   </SectionWrapper>
 );
@@ -328,7 +340,14 @@ const BrandSection: React.FC = () => (
               justifyContent: 'center',
             }}
           >
-            <BrandLogo showIcon stacked scale={0.7} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <img
+                src={`${import.meta.env.BASE_URL}logo.png`}
+                alt=""
+                style={{ width: 48, height: 48, objectFit: 'contain', flexShrink: 0 }}
+              />
+              <BrandLogo stacked scale={0.7} />
+            </div>
           </div>
           <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
             Stacked — banner use
@@ -394,6 +413,42 @@ const BrandSection: React.FC = () => (
         ))}
       </div>
     </SubSection>
+
+    <SubSection title="Inline / compact icon">
+      <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: '1rem' }}>
+        <code>AudioLines</code> (Lucide) is the canonical brand mark for tight spaces where{' '}
+        <code>BrandLogo</code> is too large — sidebar headers, tooltip triggers, tab labels, and inline
+        app-name rows. Use <code>color="var(--action-primary)"</code>; never a hardcoded hex.
+      </p>
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        {([16, 18, 24] as const).map((sz) => (
+          <div key={sz} style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 14px',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-card)',
+              }}
+            >
+              <AudioLines size={sz} color="var(--action-primary)" aria-hidden="true" />
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: sz * 0.889 }}>
+                Audiobook Studio
+              </span>
+            </div>
+            <code style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{sz}px</code>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: '1rem', fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+        <strong>When to use:</strong> Sidebar branding block, nav tabs, and any row where the full wordmark
+        doesn't fit. <strong>Never</strong> replace <code>BrandLogo showIcon</code> with a bare{' '}
+        <code>AudioLines</code> icon in primary brand contexts — use the full component there.
+      </div>
+    </SubSection>
   </SectionWrapper>
 );
 
@@ -401,178 +456,122 @@ const BrandSection: React.FC = () => (
 // Section 3: Color tokens (auto-generated)
 // ---------------------------------------------------------------------------
 
-function isColorValue(value: string): boolean {
-  const v = value.trim();
-  if (v.startsWith('#')) return true;
-  if (/^rgba?\s*\(/.test(v)) return true;
-  if (/^hsl/.test(v)) return true;
-  if (v === 'transparent' || v === 'inherit') return true;
-  return false;
-}
+// Curated semantic color cards — uses var() directly so they respond to the theme toggle.
+// This is the KEY fix: chips show current-theme colors, not hardcoded light/dark side-by-side.
 
-function isShadowValue(value: string): boolean {
-  return /\d+px/.test(value) && !value.startsWith('#') && !value.startsWith('rgba');
-}
+const COLOR_GROUPS: Array<{
+  title: string;
+  tokens: Array<{ name: string; label: string; usage: string }>;
+}> = [
+  {
+    title: 'Brand & Action',
+    tokens: [
+      { name: '--action-primary',       label: 'action-primary',       usage: 'CTA button fill. Rationed to one per surface.' },
+      { name: '--action-primary-hover', label: 'action-primary-hover', usage: 'Hover state of primary button.' },
+      { name: '--action-danger',        label: 'action-danger',        usage: 'Danger fill button — confirm-dialog primary CTA only.' },
+      { name: '--action-danger-hover',  label: 'action-danger-hover',  usage: 'Hover state of danger fill button.' },
+      { name: '--as-blue',              label: 'as-blue',              usage: 'Brand identity blue (stable, distinct from action).' },
+      { name: '--as-amber',             label: 'as-amber',             usage: 'Brand amber — export/bake accent.' },
+    ],
+  },
+  {
+    title: 'Surfaces',
+    tokens: [
+      { name: '--bg',             label: 'bg',             usage: 'Page background.' },
+      { name: '--surface',        label: 'surface',        usage: 'Card and panel background.' },
+      { name: '--surface-alt',    label: 'surface-alt',    usage: 'Sidebar, alternate panel, raised section.' },
+      { name: '--surface-white',  label: 'surface-white',  usage: 'Overlay and modal fill.' },
+    ],
+  },
+  {
+    title: 'Text',
+    tokens: [
+      { name: '--text-primary',   label: 'text-primary',   usage: 'Headings, primary body text.' },
+      { name: '--text-secondary', label: 'text-secondary', usage: 'Labels, body text, supporting copy.' },
+      { name: '--text-muted',     label: 'text-muted',     usage: 'Captions, placeholders, chrome text.' },
+    ],
+  },
+  {
+    title: 'Semantic',
+    tokens: [
+      { name: '--success',     label: 'success',     usage: 'Completion, confirmed state.' },
+      { name: '--warning',     label: 'warning',     usage: 'Caution — never error.' },
+      { name: '--error',       label: 'error',       usage: 'Errors and destructive signal.' },
+      { name: '--error-text',  label: 'error-text',  usage: 'Error text on light background.' },
+    ],
+  },
+  {
+    title: 'Borders & Overlay',
+    tokens: [
+      { name: '--border',         label: 'border',         usage: 'Standard dividers and card outlines.' },
+      { name: '--hairline',       label: 'hairline',       usage: 'Pinned-chrome dividers (thinner).' },
+      { name: '--overlay-scrim',  label: 'overlay-scrim',  usage: 'Modal backdrop scrim.' },
+    ],
+  },
+];
 
-function isRadiusValue(name: string): boolean {
-  return name.includes('radius');
-}
-
-const GROUP_LABELS: Record<string, string> = {
-  surface: 'Surfaces',
-  bg: 'Backgrounds',
-  background: 'Backgrounds (alias)',
-  text: 'Text',
-  accent: 'Accent / Brand Blue',
-  success: 'Success',
-  warning: 'Warning',
-  error: 'Error',
-  glass: 'Glass',
-  border: 'Borders',
-  shadow: 'Shadows',
-  progress: 'Progress Bars',
-  radius: 'Radius',
-  overlay: 'Overlay',
-  cloud: 'Cloud Engine',
-  as: 'Brand (AS)',
-  header: 'Header',
-  misc: 'Miscellaneous',
-};
-
-const ColorSwatch: React.FC<{ value: string; theme: 'light' | 'dark'; name: string }> = ({
-  value, theme, name,
-}) => (
-  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+const ColorChip: React.FC<{ name: string; label: string; usage: string }> = ({ name, label, usage }) => (
+  <div
+    style={{
+      borderRadius: 'var(--radius-card)',
+      overflow: 'hidden',
+      border: '1px solid var(--border)',
+      background: 'var(--surface)',
+    }}
+  >
     <div
-      title={`${name} (${theme}): ${value}`}
       style={{
-        width: 36,
-        height: 36,
-        borderRadius: 8,
-        border: '1px solid rgba(0,0,0,0.12)',
-        background: value,
-        flexShrink: 0,
+        height: 72,
+        background: `var(${name})`,
+        width: '100%',
       }}
     />
-    <div
-      style={{
-        fontSize: '0.6875rem',
-        color: theme === 'dark' ? '#9ca3af' : 'var(--text-muted)',
-        maxWidth: 80,
-        textAlign: 'center',
-        wordBreak: 'break-all',
-      }}
-    >
-      {value.length > 22 ? value.slice(0, 22) + '…' : value}
+    <div style={{ padding: '10px 12px' }}>
+      <code style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: 2 }}>
+        {label}
+      </code>
+      <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>{usage}</div>
     </div>
   </div>
 );
 
-const TokenRow: React.FC<{ entry: TokenEntry }> = ({ entry }) => {
-  const isColor = isColorValue(entry.lightValue) || isColorValue(entry.darkValue);
-  const isShadow = isShadowValue(entry.lightValue);
-  const isRadius = isRadiusValue(entry.name);
-
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '220px 1fr 80px 80px',
-        gap: 8,
-        alignItems: 'center',
-        padding: '6px 4px',
-        borderBottom: '1px solid var(--border)',
-        fontSize: '0.75rem',
-      }}
-    >
-      <code style={{ fontFamily: 'monospace', color: 'var(--text-primary)', fontSize: '0.6875rem', wordBreak: 'break-all' }}>
-        {entry.name}
-      </code>
-      <div style={{ color: 'var(--text-muted)', fontSize: '0.6875rem', wordBreak: 'break-word' }}>
-        {entry.comment || (entry.lightValue.length > 40 ? entry.lightValue.slice(0, 40) + '…' : entry.lightValue)}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        {isColor ? (
-          <ColorSwatch value={entry.lightValue} theme="light" name={entry.name} />
-        ) : isShadow ? (
-          <div style={{ width: 36, height: 20, borderRadius: 6, background: 'var(--surface)', boxShadow: entry.lightValue, border: '1px solid var(--border)' }} />
-        ) : isRadius ? (
-          <div style={{ width: 36, height: 36, background: 'var(--accent)', borderRadius: entry.lightValue, opacity: 0.7 }} />
-        ) : (
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', fontStyle: 'italic' }}>
-            {entry.lightValue.slice(0, 18)}
-          </span>
-        )}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        {entry.darkValue && isColor ? (
-          <ColorSwatch value={entry.darkValue} theme="dark" name={entry.name} />
-        ) : entry.darkValue && isShadow ? (
-          <div data-theme="dark" style={{ background: '#0f1117', padding: 4, borderRadius: 6 }}>
-            <div style={{ width: 36, height: 20, borderRadius: 6, background: 'var(--surface)', boxShadow: entry.darkValue }} />
-          </div>
-        ) : (
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', fontStyle: 'italic' }}>
-            {entry.darkValue ? 'see dark' : '—'}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const ColorTokensSection: React.FC<{ entries: TokenEntry[] }> = ({ entries }) => {
-  const groups = useMemo(() => groupTokens(entries), [entries]);
-
-  return (
-    <SectionWrapper id={SECTION_IDS.colors} title={SECTION_LABELS.colors}>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
-        Auto-generated from <code>tokens.css</code> — light and dark values shown side-by-side.
-        Components MUST reference <code>var(--token)</code> for every color, surface, border, shadow, and radius.
-        No hardcoded hex/rgba in component code.
-      </p>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '220px 1fr 80px 80px',
-          gap: 8,
-          padding: '4px 4px',
-          marginBottom: 4,
-          fontSize: '0.6875rem',
-          fontWeight: 700,
-          color: 'var(--text-muted)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.07em',
-        }}
-      >
-        <span>Token</span>
-        <span>Comment / Value</span>
-        <span style={{ textAlign: 'center' }}>Light</span>
-        <span style={{ textAlign: 'center' }}>Dark</span>
-      </div>
-      {Array.from(groups.entries()).map(([group, groupEntries]) => (
-        <div key={group} style={{ marginBottom: '1.5rem' }}>
+const ColorTokensSection: React.FC<{ entries: TokenEntry[] }> = () => (
+  <SectionWrapper id={SECTION_IDS.colors} title={SECTION_LABELS.colors}>
+    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.25rem', lineHeight: 1.6 }}>
+      Chips inherit the current theme — toggle dark mode in the top nav to see both.
+      Components MUST reference <code>var(--token)</code> for every color; no hardcoded hex in component code.
+    </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      {COLOR_GROUPS.map(({ title, tokens }) => (
+        <div key={title}>
           <div
             style={{
-              fontSize: '0.75rem',
+              fontSize: '0.6875rem',
               fontWeight: 700,
-              color: 'var(--accent)',
               textTransform: 'uppercase',
               letterSpacing: '0.08em',
-              marginBottom: 4,
-              marginTop: 12,
+              color: 'var(--text-muted)',
+              marginBottom: '0.75rem',
             }}
           >
-            {GROUP_LABELS[group] ?? group}
+            {title}
           </div>
-          {groupEntries.map(entry => (
-            <TokenRow key={entry.name} entry={entry} />
-          ))}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+              gap: 12,
+            }}
+          >
+            {tokens.map((t) => (
+              <ColorChip key={t.name} {...t} />
+            ))}
+          </div>
         </div>
       ))}
-    </SectionWrapper>
-  );
-};
+    </div>
+  </SectionWrapper>
+);
 
 // ---------------------------------------------------------------------------
 // Section 4: Typography
@@ -693,14 +692,14 @@ const TypographySection: React.FC<TypographySectionProps> = ({ allTokens }) => {
 // ---------------------------------------------------------------------------
 
 const SPACE_SCALE_META: Array<{ token: string; px: string; label: string }> = [
-  { token: '--space-1', px: '4px',  label: 'icon gaps, tight row padding' },
-  { token: '--space-2', px: '8px',  label: 'within-component padding' },
-  { token: '--space-3', px: '12px', label: 'button padding, card inner gap' },
-  { token: '--space-4', px: '16px', label: 'standard section padding' },
-  { token: '--space-5', px: '24px', label: 'panel padding, section gaps' },
-  { token: '--space-6', px: '32px', label: 'major section gaps' },
-  { token: '--space-7', px: '40px', label: 'large layout spacing' },
-  { token: '--space-8', px: '48px', label: 'page-level gutters' },
+  { token: '--space-1', px: '4px',  label: 'icon gaps' },
+  { token: '--space-2', px: '8px',  label: 'within-component' },
+  { token: '--space-3', px: '12px', label: 'button padding' },
+  { token: '--space-4', px: '16px', label: 'section padding' },
+  { token: '--space-5', px: '24px', label: 'panel padding' },
+  { token: '--space-6', px: '32px', label: 'section gaps' },
+  { token: '--space-7', px: '40px', label: 'layout spacing' },
+  { token: '--space-8', px: '48px', label: 'page gutters' },
 ];
 
 const MOTION_SCALE_META: Array<{ token: string; usage: string }> = [
@@ -712,92 +711,106 @@ const MOTION_SCALE_META: Array<{ token: string; usage: string }> = [
   { token: '--ease-spring',     usage: 'Springy entrance effects, delight moments' },
 ];
 
-const RADIUS_META: Array<{ token: string; label: string }> = [
-  { token: '--radius-compact', label: 'compact controls, badges (6px)' },
-  { token: '--radius-button',  label: 'buttons, inputs (8px)' },
-  { token: '--radius-card',    label: 'cards, panels (10px)' },
-  { token: '--radius-panel',   label: 'large panels, drawers (18px)' },
-  { token: '--radius-round',   label: 'pills, full-round (9999px)' },
+// Only 3 DISTINCT radius decisions:
+const RADIUS_META: Array<{ token: string; px: string; label: string; use: string }> = [
+  { token: '--radius-compact', px: '6px',    label: 'compact',  use: 'badges · chips · compact controls' },
+  { token: '--radius-card',    px: '10px',   label: 'card',     use: 'cards · modals · dialogs · buttons · inputs' },
+  { token: '--radius-round',   px: '9999px', label: 'round',    use: 'pills · avatars · full-round' },
 ];
 
 interface SpacingSectionProps {
   allTokens: TokenEntry[];
 }
 
-const SpacingSection: React.FC<SpacingSectionProps> = ({ allTokens }) => {
-  const tokenMap = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const entry of allTokens) m.set(entry.name, entry.lightValue);
-    return m;
-  }, [allTokens]);
+const SpacingSection: React.FC<SpacingSectionProps> = () => {
+  const MAX_PX = 48;
 
   return (
     <SectionWrapper id={SECTION_IDS.spacing} title={SECTION_LABELS.spacing}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+        4px base unit. Three border-radius values: compact (6px), card (10px), and round (9999px). Compact controls nest concentrically inside card containers.
+      </p>
 
       <SubSection title="Spacing scale (--space-*)">
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 20,
+            padding: '1.25rem 1.25rem 1rem',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-card)',
+            width: 'fit-content',
+          }}
+        >
           {SPACE_SCALE_META.map(({ token, px, label }) => {
-            const liveVal = tokenMap.get(token) ?? px;
+            const pxNum = parseInt(px, 10);
+            const blockH = Math.max(4, Math.round((pxNum / MAX_PX) * 80));
             return (
-              <div key={token} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: liveVal, height: 32, background: 'var(--accent)', opacity: 0.7, borderRadius: 3, minWidth: 4 }} />
-                <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>{token}</code>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{liveVal}</span>
-                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', maxWidth: 80, textAlign: 'center' }}>{label}</span>
+              <div key={token} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 44 }}>
+                {/* Fixed-height bar area — all bars bottom-align here regardless of height */}
+                <div style={{ height: 88, display: 'flex', alignItems: 'flex-end', marginBottom: 6 }}>
+                  <div
+                    style={{
+                      width: 28,
+                      height: blockH,
+                      background: 'var(--action-primary)',
+                      borderRadius: 3,
+                      opacity: 0.8,
+                    }}
+                  />
+                </div>
+                <code style={{ fontSize: '0.6rem', color: 'var(--action-primary)', fontFamily: 'monospace', textAlign: 'center', marginBottom: 3 }}>
+                  {token.replace('--space-', '')}
+                </code>
+                <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>{px}</span>
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.35 }}>{label}</span>
               </div>
             );
           })}
         </div>
       </SubSection>
 
-      <SubSection title="Radius tokens (--radius-*)">
-        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          {RADIUS_META.map(({ token, label }) => {
-            const liveVal = tokenMap.get(token) ?? '8px';
-            return (
-              <div key={token} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <div
-                  style={{
-                    width: 52,
-                    height: 52,
-                    background: 'var(--accent)',
-                    opacity: 0.75,
-                    borderRadius: liveVal,
-                  }}
-                />
-                <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>{token}</code>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{liveVal}</span>
-                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', maxWidth: 90, textAlign: 'center' }}>{label}</span>
-              </div>
-            );
-          })}
+      <SubSection title="Border radius">
+        <div style={{ display: 'flex', gap: 40, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+          {RADIUS_META.map(({ token, px, use }) => (
+            <div key={token} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+              <div
+                style={{
+                  width: 80,
+                  height: 80,
+                  background: 'var(--action-primary)',
+                  opacity: 0.8,
+                  borderRadius: px,
+                }}
+              />
+              <code style={{ fontSize: '0.75rem', color: 'var(--action-primary)', fontFamily: 'monospace' }}>{token}</code>
+              <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>{px}</span>
+              <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textAlign: 'center', maxWidth: 110 }}>{use}</span>
+            </div>
+          ))}
         </div>
       </SubSection>
 
       <SubSection title="Motion tokens (--dur-* / --ease-*)">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {MOTION_SCALE_META.map(({ token, usage }) => {
-            const liveVal = tokenMap.get(token) ?? '';
-            return (
-              <div
-                key={token}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '200px 1fr',
-                  gap: 16,
-                  alignItems: 'center',
-                  padding: '6px 0',
-                  borderBottom: '1px solid var(--border)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>{token}</code>
-                  <code style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{liveVal}</code>
-                </div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{usage}</span>
-              </div>
-            );
-          })}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+          {MOTION_SCALE_META.map(({ token, usage }) => (
+            <div
+              key={token}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '200px 1fr',
+                gap: 16,
+                alignItems: 'center',
+                padding: '6px 0',
+                borderBottom: '1px solid var(--border)',
+              }}
+            >
+              <code style={{ fontSize: '0.75rem', color: 'var(--action-primary)', fontFamily: 'monospace' }}>{token}</code>
+              <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{usage}</span>
+            </div>
+          ))}
         </div>
       </SubSection>
     </SectionWrapper>
@@ -808,39 +821,233 @@ const SpacingSection: React.FC<SpacingSectionProps> = ({ allTokens }) => {
 // Section 6: Buttons
 // ---------------------------------------------------------------------------
 
+// Variant definitions for the buttons section
+const BUTTON_VARIANTS = [
+  {
+    label: 'PRIMARY',
+    el: <button className="btn-primary" type="button">Save changes</button>,
+    rule: 'The ONE committing action per view (Save, Submit, Create). Never more than one primary per surface.',
+  },
+  {
+    label: 'GLASS',
+    el: <button className="btn-glass" type="button">Export</button>,
+    rule: 'Neutral supporting actions. Sits beside a primary. Never filled red.',
+  },
+  {
+    label: 'GHOST',
+    el: <button className="btn-ghost" type="button">View all</button>,
+    rule: 'Low-emphasis & repeated actions (table rows, "Cancel"). Keeps chrome quiet.',
+  },
+  {
+    label: 'LINK',
+    el: (
+      <button type="button" style={{ background: 'none', border: 'none', color: 'var(--action-primary)', fontWeight: 600, cursor: 'pointer', padding: '6px 2px', fontSize: '0.9375rem' }}>
+        Learn more
+      </button>
+    ),
+    rule: 'Inline text-level navigation/action. Lowest visual weight.',
+  },
+  {
+    label: 'DESTRUCTIVE',
+    el: <button className="btn-danger" type="button" style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid var(--error-text)' }}><Trash2 size={14} aria-hidden="true" /> Delete chapter</button>,
+    rule: 'Hollow red + icon. Quieter than primary. Always paired with a confirm dialog.',
+  },
+];
+
+// Painted states for the state matrix — inline styles simulate interaction states
+const STATE_COLUMNS: Array<{ key: string; label: string }> = [
+  { key: 'default',  label: 'DEFAULT' },
+  { key: 'hover',    label: 'HOVER' },
+  { key: 'focus',    label: 'FOCUS (KBD)' },
+  { key: 'disabled', label: 'DISABLED' },
+  { key: 'loading',  label: 'LOADING' },
+];
+
+// Render a button variant in a specific painted state
+const PaintedButton: React.FC<{
+  variant: 'primary' | 'glass' | 'ghost' | 'danger';
+  state: string;
+  label: string;
+}> = ({ variant, state, label }) => {
+  const baseStyle: React.CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+    padding: '0.5rem 1rem',
+    borderRadius: 'var(--radius-button, 8px)',
+    fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
+    border: '1px solid transparent',
+    transition: 'none',
+    whiteSpace: 'nowrap',
+  };
+
+  // Build per-variant × per-state styles
+  const styleMap: Record<string, Record<string, React.CSSProperties>> = {
+    primary: {
+      default:  { background: 'var(--action-primary)', color: 'var(--on-action, #fff)', borderColor: 'transparent' },
+      hover:    { background: 'var(--action-primary-hover)', color: 'var(--on-action, #fff)', borderColor: 'transparent' },
+      focus:    { background: 'var(--action-primary)', color: 'var(--on-action, #fff)', outline: '3px solid var(--action-primary)', outlineOffset: 2, boxShadow: '0 0 0 5px rgba(30,79,216,0.18)' },
+      disabled: { background: 'var(--action-primary)', color: 'var(--on-action, #fff)', opacity: 0.4, cursor: 'not-allowed', filter: 'grayscale(0.5)' },
+      loading:  { background: 'var(--action-primary)', color: 'var(--on-action, #fff)', opacity: 0.85 },
+    },
+    glass: {
+      default:  { background: 'var(--surface-white)', color: 'var(--text-primary)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' },
+      hover:    { background: 'var(--surface-alt)', color: 'var(--text-primary)', border: '1px solid var(--border-muted)' },
+      focus:    { background: 'var(--surface-white)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: '3px solid var(--action-primary)', outlineOffset: 2, boxShadow: '0 0 0 5px rgba(30,79,216,0.18)' },
+      disabled: { background: 'var(--surface-white)', color: 'var(--text-primary)', border: '1px solid var(--border)', opacity: 0.4, cursor: 'not-allowed' },
+      loading:  { background: 'var(--surface-white)', color: 'var(--text-primary)', border: '1px solid var(--border)', opacity: 0.85 },
+    },
+    ghost: {
+      default:  { background: 'transparent', color: 'var(--text-secondary)', borderColor: 'transparent' },
+      hover:    { background: 'var(--accent-glow, rgba(30,79,216,0.08))', color: 'var(--action-primary)', borderColor: 'transparent' },
+      focus:    { background: 'transparent', color: 'var(--text-secondary)', outline: '3px solid var(--action-primary)', outlineOffset: 2, boxShadow: '0 0 0 5px rgba(30,79,216,0.18)' },
+      disabled: { background: 'transparent', color: 'var(--text-secondary)', opacity: 0.4, cursor: 'not-allowed' },
+      loading:  { background: 'transparent', color: 'var(--text-secondary)', opacity: 0.85 },
+    },
+    danger: {
+      default:  { background: 'transparent', color: 'var(--error-text)', borderColor: 'var(--error-text)' },
+      hover:    { background: 'var(--error-glow, rgba(220,38,38,0.08))', color: 'var(--error)', borderColor: 'var(--error)' },
+      focus:    { background: 'transparent', color: 'var(--error-text)', outline: '3px solid var(--action-primary)', outlineOffset: 2, boxShadow: '0 0 0 5px rgba(30,79,216,0.18)' },
+      disabled: { background: 'transparent', color: 'var(--error-text)', opacity: 0.4, cursor: 'not-allowed' },
+      loading:  { background: 'transparent', color: 'var(--error-text)', opacity: 0.85 },
+    },
+  };
+
+  const paintedStyle = { ...baseStyle, ...styleMap[variant][state] };
+
+  if (state === 'loading') {
+    const loadingLabel = label === 'Save changes' ? 'Saving…' : label === 'Export' ? 'Exporting…' : label === 'View all' ? 'Loading…' : 'Deleting…';
+    return (
+      <button type="button" style={paintedStyle} disabled aria-label={loadingLabel}>
+        <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+        {loadingLabel}
+      </button>
+    );
+  }
+
+  const content = variant === 'danger'
+    ? <><Trash2 size={14} aria-hidden="true" /> {label}</>
+    : label;
+
+  return (
+    <button type="button" style={paintedStyle} disabled={state === 'disabled'} aria-hidden="true">
+      {content}
+    </button>
+  );
+};
+
 const ButtonsSection: React.FC = () => (
   <SectionWrapper id={SECTION_IDS.buttons} title={SECTION_LABELS.buttons}>
-    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
-      Flat buttons — no gradient, no glow, no translateY lift. Classes live in <code>components.css</code>.
-      Minimum touch target for form controls is 44px (enforced in <code>base.css</code>); standard
-      button padding achieves ~40px natural height.
+    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+      Flat buttons — no gradient, no glow, no translateY lift. Visual weight signals consequence:
+      filled = commit, hollow/ghost = caution or low-emphasis. Intent maps to variant — never reach for a color, reach for a variant.
     </p>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 16 }}>
-      <SpecimenCard label=".btn-primary" caption="Rest; hover darkens; :disabled dims">
-        <button className="btn-primary" type="button" style={{ fontSize: '0.875rem' }}>Primary</button>
-      </SpecimenCard>
-      <SpecimenCard label=".btn-primary :disabled" caption="Reduced opacity">
-        <button className="btn-primary" type="button" disabled style={{ fontSize: '0.875rem' }}>Disabled</button>
-      </SpecimenCard>
-      <SpecimenCard label=".btn-ghost" caption="Transparent bg, accent text on hover">
-        <button className="btn-ghost" type="button" style={{ fontSize: '0.875rem' }}>Ghost</button>
-      </SpecimenCard>
-      <SpecimenCard label=".btn-ghost :disabled">
-        <button className="btn-ghost" type="button" disabled style={{ fontSize: '0.875rem' }}>Ghost Disabled</button>
-      </SpecimenCard>
-      <SpecimenCard label=".btn-glass" caption="Glassmorphism surface">
-        <button className="btn-glass" type="button" style={{ fontSize: '0.875rem' }}>Glass</button>
-      </SpecimenCard>
-      <SpecimenCard label=".btn-success" caption="Green fill">
-        <button className="btn-success" type="button" style={{ fontSize: '0.875rem' }}>Success</button>
-      </SpecimenCard>
-      <SpecimenCard label=".btn-danger" caption="Red fill">
-        <button className="btn-danger" type="button" style={{ fontSize: '0.875rem' }}>Danger</button>
-      </SpecimenCard>
-      <SpecimenCard label=".btn-home" caption="Hero CTA">
-        <button className="btn-home" type="button" style={{ fontSize: '0.875rem' }}>Home CTA</button>
-      </SpecimenCard>
-    </div>
+
+    <SubSection title="Variants">
+      <div
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-card)',
+          overflow: 'hidden',
+        }}
+      >
+        {BUTTON_VARIANTS.map(({ label, el, rule }, i) => (
+          <div
+            key={label}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '130px 200px 1fr',
+              gap: 16,
+              alignItems: 'center',
+              padding: '14px 20px',
+              borderBottom: i < BUTTON_VARIANTS.length - 1 ? '1px solid var(--border)' : 'none',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '0.6875rem',
+                fontWeight: 700,
+                letterSpacing: '0.07em',
+                color: 'var(--text-muted)',
+              }}
+            >
+              {label}
+            </span>
+            <div>{el}</div>
+            <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              {rule}
+            </span>
+          </div>
+        ))}
+      </div>
+    </SubSection>
+
+    <SubSection title="State matrix">
+      <div
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-card)',
+          overflow: 'hidden',
+          fontSize: '0.75rem',
+        }}
+      >
+        {/* Header row */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '110px repeat(5, 1fr)',
+            gap: 0,
+            padding: '10px 16px',
+            background: 'var(--surface-alt)',
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
+          <span style={{ fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.6875rem' }}>VARIANT</span>
+          {STATE_COLUMNS.map(({ label }) => (
+            <span key={label} style={{ fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.6875rem', textAlign: 'center' }}>
+              {label}
+            </span>
+          ))}
+        </div>
+
+        {/* Matrix rows */}
+        {(
+          [
+            { name: 'Primary', sub: 'commit action', variant: 'primary', label: 'Save changes' },
+            { name: 'Glass',   sub: 'supporting',    variant: 'glass',   label: 'Export' },
+            { name: 'Ghost',   sub: 'low-emphasis',  variant: 'ghost',   label: 'Cancel' },
+            { name: 'Danger',  sub: 'hollow + confirm', variant: 'danger', label: 'Delete' },
+          ] as Array<{ name: string; sub: string; variant: 'primary' | 'glass' | 'ghost' | 'danger'; label: string }>
+        ).map(({ name, sub, variant, label }, ri) => (
+          <div
+            key={name}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '110px repeat(5, 1fr)',
+              gap: 0,
+              padding: '12px 16px',
+              borderBottom: ri < 3 ? '1px solid var(--border)' : 'none',
+              alignItems: 'center',
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.8125rem' }}>{name}</div>
+              <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>{sub}</div>
+            </div>
+            {STATE_COLUMNS.map(({ key }) => (
+              <div key={key} style={{ display: 'flex', justifyContent: 'center' }}>
+                <PaintedButton variant={variant} state={key} label={label} />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 10, fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        <strong>Focus</strong> — 3px solid var(--action-primary) outline + 5px halo via box-shadow (keyboard only, :focus-visible).{' '}
+        <strong>Disabled</strong> — 40% opacity + grayscale(0.5), cursor: not-allowed.{' '}
+        <strong>Loading</strong> — Loader2 spinner replaces leading icon, label → gerund.
+      </div>
+    </SubSection>
   </SectionWrapper>
 );
 
@@ -877,16 +1084,36 @@ const FormsSection: React.FC = () => {
       </SubSection>
 
       <SubSection title="Switch (role=&quot;switch&quot;)">
-        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-          <SpecimenCard label="On" caption="checked=true, --action-primary fill">
-            <Switch checked={switchOn} onChange={setSwitchOn} label="Enable feature" />
-          </SpecimenCard>
-          <SpecimenCard label="Off" caption="checked=false, neutral fill">
-            <Switch checked={switchOff} onChange={setSwitchOff} label="Enable feature" />
-          </SpecimenCard>
-          <SpecimenCard label="Disabled (on)" caption="pointer-events none">
-            <Switch checked={true} onChange={() => {}} label="Locked on" disabled />
-          </SpecimenCard>
+        <div
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-card)',
+            overflow: 'hidden',
+          }}
+        >
+          {[
+            { label: 'On',          caption: 'checked=true — --action-primary fill',  el: <Switch checked={switchOn}  onChange={setSwitchOn}  label="Enable feature" /> },
+            { label: 'Off',         caption: 'checked=false — neutral fill',           el: <Switch checked={switchOff} onChange={setSwitchOff} label="Enable feature" /> },
+            { label: 'Disabled',    caption: 'pointer-events none, 40% opacity',       el: <Switch checked={true}      onChange={() => {}}    label="Locked on" disabled /> },
+          ].map(({ label, caption, el }, i, arr) => (
+            <div
+              key={label}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 20,
+                padding: '14px 20px',
+                borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+              }}
+            >
+              <div style={{ flexShrink: 0 }}>{el}</div>
+              <div>
+                <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)' }}>{label}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>{caption}</div>
+              </div>
+            </div>
+          ))}
         </div>
         <div style={{ marginTop: 8, fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
           <code>Switch</code> is the canonical boolean toggle — dual-encoded by position + color.
@@ -916,10 +1143,74 @@ const FormsSection: React.FC = () => {
       </SubSection>
 
       <SubSection title="ColorSwatchPicker">
+        {/* Static expanded view — demonstrates the opened palette without requiring a click */}
         <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <SpecimenCard label="ColorSwatchPicker" caption="64-color palette + native color picker (pipette)">
-            <ColorSwatchPicker value={swatch} onChange={setSwatch} />
-          </SpecimenCard>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-card)',
+                padding: '12px 14px',
+                width: 'fit-content',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 40 }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Palette</span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <Pipette size={14} style={{ color: 'var(--text-muted)' }} aria-hidden="true" />
+                  <X size={14} style={{ color: 'var(--text-muted)' }} aria-hidden="true" />
+                </div>
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(8, 20px)',
+                  gap: 4,
+                }}
+              >
+                {[
+                  '#f43f5e','#fb7185','#fda4af','#fecdd3','#e11d48','#be123c','#9f1239','#881337',
+                  '#f97316','#fb923c','#ffb26b','#ffd8a8','#ea580c','#c2410c','#9a3412','#7c2d12',
+                  '#f59e0b','#fbbf24','#fcd34d','#fde68a','#d97706','#b45309','#92400e','#78350f',
+                  '#84cc16','#a3e635','#bef264','#d9f99d','#65a30d','#4d7c0f','#3f6212','#365314',
+                  '#10b981','#34d399','#6ee7b7','#a7f3d0','#059669','#047857','#065f46','#064e3b',
+                  '#06b6d4','#22d3ee','#67e8f9','#a5f3fc','#0891b2','#0e7490','#155e75','#164e63',
+                  '#3b82f6','#60a5fa','#93c5fd','#bfdbfe','#2563eb','#1d4ed8','#1e40af','#1e3a8a',
+                  '#8b5cf6','#a78bfa','#c4b5fd','#ddd6fe','#7c3aed','#6d28d9','#5b21b6','#4c1d95',
+                ].map((color) => (
+                  <div
+                    key={color}
+                    title={color}
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 3,
+                      background: color,
+                      border: color === swatch ? '2px solid var(--action-primary)' : '1px solid var(--border)',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => setSwatch(color)}
+                  />
+                ))}
+              </div>
+              <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 4,
+                    background: swatch,
+                    border: '1px solid var(--border)',
+                    flexShrink: 0,
+                  }}
+                />
+                <code style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{swatch}</code>
+              </div>
+            </div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ColorSwatchPicker</div>
+            <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>64-color palette + pipette (native color input). Click any swatch.</div>
+          </div>
         </div>
       </SubSection>
 
@@ -982,45 +1273,47 @@ const StatusOrbSpecimens: React.FC = () => {
   const NOW = Date.now();
   const PAST = NOW - 10000;
 
-  const specimens: Array<{
-    label: string;
-    caption: string;
-    chap: Chapter;
-    job?: Job;
-    queuePending?: boolean;
-    done?: number;
-    total?: number;
-  }> = [
+  type Specimen = { label: string; caption: string; chap: Chapter; job?: Job; queuePending?: boolean; done?: number; total?: number };
+
+  const stableSpecimens: Specimen[] = [
+    { label: '50% segments', caption: 'Blue arc at actual %, no WAV or M4A', chap: makeChap({ audio_status: 'unprocessed' }), done: 2, total: 4 },
+    { label: 'All segments', caption: 'Full arc, ready to stitch', chap: makeChap({ audio_status: 'unprocessed' }), done: 4, total: 4 },
+    { label: 'WAV only', caption: 'Green + check, no arc', chap: makeChap({ audio_status: 'done', has_wav: true, audio_generated_at: NOW, text_last_modified: PAST }) },
+    { label: 'Segments + WAV', caption: 'Full arc + green check', chap: makeChap({ audio_status: 'done', has_wav: true, audio_generated_at: NOW, text_last_modified: PAST }), done: 4, total: 4 },
+    { label: 'M4A only', caption: 'Gold orb, no icon', chap: makeChap({ audio_status: 'unprocessed', has_m4a: true }) },
+    { label: 'Segments + M4A', caption: 'Blue arc + gold orb, no check', chap: makeChap({ audio_status: 'unprocessed', has_m4a: true }), done: 2, total: 4 },
+    { label: 'WAV + M4A', caption: 'Gold orb + black check, no arc', chap: makeChap({ audio_status: 'done', has_wav: true, has_m4a: true, audio_generated_at: NOW, text_last_modified: PAST }) },
+    { label: 'Segments + WAV + M4A', caption: 'Full arc + gold orb + black check', chap: makeChap({ audio_status: 'done', has_wav: true, has_m4a: true, audio_generated_at: NOW, text_last_modified: PAST }), done: 4, total: 4 },
+  ];
+
+  const transientSpecimens: Specimen[] = [
     { label: 'Unprocessed', caption: 'No audio — blank orb', chap: makeChap({ audio_status: 'unprocessed' }) },
     { label: 'Queued', caption: 'queue_pending=true, no active job', chap: makeChap({ audio_status: 'unprocessed' }), queuePending: true },
     { label: 'Running', caption: 'Active job → Loader2 + calm-pulse ring', chap: makeChap({ audio_status: 'processing' }), job: makeJob({ status: 'running' }) },
-    { label: 'Partial (50%)', caption: '2 of 4 segments done', chap: makeChap({ audio_status: 'unprocessed' }), done: 2, total: 4 },
-    { label: 'Done', caption: 'has_wav=true, in-sync', chap: makeChap({ audio_status: 'done', has_wav: true, audio_generated_at: NOW, text_last_modified: PAST }) },
-    { label: 'Cached (M4A)', caption: 'has_m4a=true, no WAV — Archive icon', chap: makeChap({ audio_status: 'unprocessed', has_m4a: true }) },
-    { label: 'Stale', caption: 'text changed after last render', chap: makeChap({ audio_status: 'done', has_wav: true, audio_generated_at: PAST, text_last_modified: NOW }) },
+    { label: 'Stale', caption: 'Text changed after last render', chap: makeChap({ audio_status: 'done', has_wav: true, audio_generated_at: PAST, text_last_modified: NOW }) },
     { label: 'Error', caption: 'audio_status=error → X icon', chap: makeChap({ audio_status: 'error' }) },
   ];
+
+  const OrbRow: React.FC<{ items: Specimen[] }> = ({ items }) => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+      {items.map(({ label, caption, chap, job, queuePending, done, total }) => (
+        <SpecimenCard key={label} label={label} caption={caption} style={{ minWidth: 110 }}>
+          <StatusOrb chap={chap} activeJob={job} queuePending={queuePending} doneSegments={done} totalSegments={total} size={28} />
+        </SpecimenCard>
+      ))}
+    </div>
+  );
 
   return (
     <SubSection title="StatusOrb">
       <div style={{ marginBottom: 8, fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
-        The canonical chapter status indicator. State is <strong>dual-encoded</strong> (icon + color).
-        Never substitute a plain colored dot — <code>StatusOrb</code> is binding everywhere chapter status appears.
+        Three independent signals — <strong>S</strong> (segments, blue arc at actual %), <strong>W</strong> (WAV, green check),
+        <strong> M</strong> (M4A, gold orb). Combine freely. Never substitute a plain dot.
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-        {specimens.map(({ label, caption, chap, job, queuePending, done, total }) => (
-          <SpecimenCard key={label} label={label} caption={caption} style={{ minWidth: 110 }}>
-            <StatusOrb
-              chap={chap}
-              activeJob={job}
-              queuePending={queuePending}
-              doneSegments={done}
-              totalSegments={total}
-              size={28}
-            />
-          </SpecimenCard>
-        ))}
-      </div>
+      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>Stable states</div>
+      <OrbRow items={stableSpecimens} />
+      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '16px 0 8px' }}>Transient states</div>
+      <OrbRow items={transientSpecimens} />
     </SubSection>
   );
 };
@@ -1129,7 +1422,7 @@ const OverlaysSection: React.FC = () => {
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button className="btn-ghost" type="button" style={{ fontSize: '0.875rem' }}>Cancel</button>
-            <button className="btn-danger" type="button" style={{ fontSize: '0.875rem' }}>Delete</button>
+            <button className="btn-danger-fill" type="button" style={{ fontSize: '0.875rem' }}>Delete</button>
           </div>
         </div>
       </SubSection>
@@ -1300,8 +1593,18 @@ const VoicePillsSection: React.FC = () => (
 const ICON_GRID: Array<{ Icon: React.FC<{ size?: number; 'aria-hidden'?: boolean | 'true' | 'false' }>; name: string }> = [
   { Icon: Play,          name: 'Play' },
   { Icon: Pause,         name: 'Pause' },
+  { Icon: Square,        name: 'Square (Stop)' },
+  { Icon: SkipBack,      name: 'SkipBack' },
+  { Icon: SkipForward,   name: 'SkipForward' },
+  { Icon: Rewind,        name: 'Rewind' },
+  { Icon: FastForward,   name: 'FastForward' },
   { Icon: Check,         name: 'Check' },
   { Icon: X,             name: 'X' },
+  { Icon: ChevronRight,  name: 'ChevronRight' },
+  { Icon: ChevronDown,   name: 'ChevronDown' },
+  { Icon: Moon,          name: 'Moon' },
+  { Icon: Sun,           name: 'Sun' },
+  { Icon: AudioLines,    name: 'AudioLines' },
   { Icon: AlertTriangle, name: 'AlertTriangle' },
   { Icon: Loader2,       name: 'Loader2' },
   { Icon: Settings,      name: 'Settings' },
@@ -1704,17 +2007,6 @@ const StyleguideSidebar: React.FC<{ active: string }> = ({ active }) => {
           <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem' }}>
             Audiobook Studio
           </span>
-        </div>
-        <div
-          style={{
-            fontSize: 'var(--type-micro, 0.65rem)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            color: 'var(--text-muted)',
-            marginBottom: 2,
-          }}
-        >
-          Design System
         </div>
         <div
           style={{

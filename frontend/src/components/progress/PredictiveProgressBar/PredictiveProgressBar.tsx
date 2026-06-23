@@ -679,15 +679,16 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         presentationState, currentLane, migration, activeTargetLane, renderedEndAtMs, tickMs
     ]);
 
-    // Apply is-running class on the fill when live-animated (calm-pulse per INV-5)
-    const fillRunningClass = isLiveAnimatedStatus(presentationState) ? 'is-running' : undefined;
+    // Apply bar-breathe on the fill when live-animated (5% opacity swell, 4s hold-and-ease).
+    // StatusOrb ring keeps calm-pulse (30%); fills use this gentler class instead.
+    const fillRunningClass = isLiveAnimatedStatus(presentationState) ? 'progress-bar-breathe' : undefined;
 
     if (barOnly) {
         return (
             <div style={{ height: '6px', background: 'var(--progress-track)', borderRadius: '3px', overflow: 'hidden' }} data-testid={dataTestId ?? "progress-bar-tiny"}>
                 <div
                     key={stablePhaseKey}
-                    className={visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName}
+                    className={[visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName, fillRunningClass].filter(Boolean).join(' ') || undefined}
                     style={{
                         height: '100%',
                         width: indeterminate ? '100%' : (isDoneStatus(visualState) && localProgress < 1.0) ? formatStylePercent(localProgress) : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : formatStylePercent(localProgress),
@@ -730,7 +731,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                     className={[visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName, fillRunningClass].filter(Boolean).join(' ') || undefined}
                     style={{
                         height: '100%',
-                        width: indeterminate ? (visualState === 'preparing' ? '0%' : visualState === 'finalizing' ? '100%' : '35%') : (isDoneStatus(visualState) && localProgress < 1.0) ? formatStylePercent(localProgress) : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : formatStylePercent(localProgress),
+                        width: indeterminate ? (visualState === 'preparing' ? '100%' : visualState === 'finalizing' ? '100%' : '35%') : (isDoneStatus(visualState) && localProgress < 1.0) ? formatStylePercent(localProgress) : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : formatStylePercent(localProgress),
                         background: visualState === 'finalizing' ? 'var(--progress-finalizing-fill)' : (indeterminate && preparingIndeterminate ? 'var(--progress-preparing-fill)' : terminalFillStyle?.background ?? 'var(--accent)'),
                         opacity: terminalStatusText && (isQueuedStatus(visualState) || isCancelledStatus(visualState)) ? 0.55 : 1,
                         boxShadow: visualState === 'finalizing' ? '0 0 15px var(--progress-finalizing-glow)' : (indeterminate && preparingIndeterminate ? '0 0 10px var(--progress-preparing-glow)' : terminalFillStyle?.boxShadow ?? '0 0 15px var(--accent)'),

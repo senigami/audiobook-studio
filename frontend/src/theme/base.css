@@ -13,6 +13,11 @@
     animation-duration: var(--pulse-duration) !important;
     animation-iteration-count: infinite !important;
   }
+  /* Fill breathe survives reduced-motion (same reasoning as is-running: communicates active state). */
+  .progress-bar-breathe {
+    animation-duration: 4s !important;
+    animation-iteration-count: infinite !important;
+  }
   /* Functional/essential motion exemption: loading spinners and indeterminate
      progress (preparing/finalizing barber-pole) are the SOLE cue distinguishing
      "working" from "hung" — freezing them is worse than the motion. WCAG 2.3.3
@@ -33,9 +38,14 @@
     animation-iteration-count: infinite !important;
   }
   .progress-bar-animated,
-  .progress-bar-pending::before,
   .progress-bar-finalizing::before {
     animation-duration: 1.2s !important;
+    animation-iteration-count: infinite !important;
+  }
+  /* pending has two animations: barber-pole (movement) + stripe-breathe (opacity).
+     Provide both durations: barber-pole slowed to 1.2s, stripe-breathe kept at 3s. */
+  .progress-bar-pending::before {
+    animation-duration: 1.2s, 3s !important;
     animation-iteration-count: infinite !important;
   }
 }

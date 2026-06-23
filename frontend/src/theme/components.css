@@ -129,6 +129,26 @@
   border-color: var(--error);
 }
 
+/* Primary-fill destructive — for confirm dialogs where delete IS the primary CTA.
+   Uses --on-action for text so it matches btn-primary's mode-switching (white in light, dark in dark). */
+.btn-danger-fill {
+  background: var(--action-danger);
+  color: var(--text-on-error);
+  border: 1px solid transparent;
+}
+
+.btn-danger-fill:hover:not(:disabled) {
+  background: var(--action-danger-hover);
+}
+
+.btn-danger-fill:active:not(:disabled) {
+  background: var(--action-danger-active);
+}
+
+.btn-danger-fill:disabled {
+  opacity: 0.4;
+}
+
 .btn-menu-destructive:hover {
   background: var(--error-glow);
 }
@@ -3619,6 +3639,7 @@
 .switch__knob {
   position: absolute;
   top: 2px;
+  left: 0;
   width: 22px;
   height: 22px;
   border-radius: 50%;

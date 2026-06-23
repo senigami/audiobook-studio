@@ -142,7 +142,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                             )}
                             <button
                                 onClick={onConfirm}
-                                className={isDestructive && !isAlert ? 'btn-danger' : 'btn-primary'}
+                                className={isDestructive && !isAlert ? 'btn-danger-fill' : 'btn-primary'}
                                 style={{
                                     flex: 1,
                                     padding: '0.75rem',
