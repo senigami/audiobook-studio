@@ -1,9 +1,9 @@
 # Data Model
 
 ```
-spec_version: 1.3.1
+spec_version: 1.4.0
 status: active
-updated: 2026-06-21
+updated: 2026-06-23
 sources:
   - app/db/state.py
   - app/db/state_jobs.py
@@ -14,6 +14,8 @@ sources:
   - app/db/characters.py
   - app/db/lexicon.py
   - app/utils/text/lexicon.py
+  - app/db/segment_gc.py
+  - app/db/chapters_cleanup.py
 ```
 
 > **TL;DR:** Studio 2.0 uses two complementary stores — volatile in-memory state.json for live job state and settings, and durable SQLite for project/chapter/queue history — with disk artifact state as the ultimate source of truth.
@@ -22,6 +24,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.4.0   | 2026-06-23 | Sharpen source-of-truth invariant to *validated metadata, not raw file existence*; add § Segment audio artifacts & orphan reconciliation (group→filename fan-out, orphan GC keyed on referenced filenames, per-book on-open sweep); see [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md) |
 | 1.3.1   | 2026-06-21 | Correct lexicon application-point docs: xtts/voxtral apply it in per-plugin text-prep handlers, NOT in `SynthesisTask.to_bridge_request()` (api_synthesis path only) |
 | 1.3.0   | 2026-06-21 | Add `lexicon` table (per-project pronunciation substitutions); document `apply_lexicon` pre-synthesis application point |
 | 1.2.0   | 2026-06-21 | Add `chapter_id` column to `characters` table for chapter-scoped temp characters; document scope rule (NULL=book, set=chapter-temp) and promote semantics |
@@ -39,7 +42,7 @@ Audiobook Studio maintains two tracking stores:
 | **state.json** (in-memory) | `state.json` | Volatile — lost on crash | Live job state, settings, event listeners |
 | **SQLite** | `audiobook_studio.db` | Durable | Projects, chapters, segments, characters, speakers, queue history, performance samples |
 
-**Source of truth invariant:** disk/validated-artifact state is the canonical source of truth. Reconciliation enforces this on restart. `state.json` is volatile and MUST NOT be treated as authoritative after a process restart.
+**Source of truth invariant:** **validated artifact metadata** is the canonical source of truth — *not raw file existence*. An on-disk artifact is authoritative only when a durable DB row validates it (e.g. a `chapter_segments.audio_file_path` pointing at it); a file present on disk but referenced by no DB row is an **orphan**, never promoted to "done" on the strength of existing alone. Reconciliation enforces this. `state.json` is volatile and MUST NOT be treated as authoritative after a process restart. See [§ Segment audio artifacts & orphan reconciliation](#segment-audio-artifacts--orphan-reconciliation) and [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md).
 
 ---
 
@@ -156,9 +159,19 @@ Managed by `app/db/`. The DB MUST NOT auto-migrate on import — callers invoke 
 | `sanitized_text` | TEXT | Sanitized for TTS |
 | `character_id` | TEXT FK nullable | → characters.id |
 | `speaker_profile_name` | TEXT | Resolved speaker for this segment |
-| `audio_file_path` | TEXT | |
+| `audio_file_path` | TEXT | Bare filename (no path) of the segment's rendered audio under `chapters/<id>/segments/`; NULL until rendered. See § below. |
 | `audio_status` | TEXT | `unprocessed` \| `processing` \| `done` \| `failed` |
 | `audio_generated_at` | REAL | Unix epoch seconds |
+
+#### Segment audio artifacts & orphan reconciliation
+
+Rendering groups consecutive compatible segments into a **render group** and synthesizes **one** WAV per group, written to `projects/<project_id>/chapters/<chapter_id>/segments/` and named `<batch_timestamp_ns>_<leader_segment_order_index>.wav`. On success that single filename is written as the `audio_file_path` of **every** member segment of the group (the **group→filename fan-out**): many `chapter_segments` rows share one bare filename.
+
+Consequences and rules:
+
+- **DB is the source of truth, not the disk.** A segment file is "live" only while at least one row references its basename. Reset paths (text re-segmentation, `update_segments_status_bulk('unprocessed')`, reassignment) NULL `audio_file_path` on rows; because the deletion helper (`cleanup_chapter_audio_files`) matches a segment file either by exact name (`explicit_files`) or by the `{segment_id}.*` prefix — and group files are named `<ts>_<index>`, never `{segment_id}` — a reset that does not pass `explicit_files` strands the group WAVs as **orphans** (on disk, referenced by no row).
+- **Orphans are garbage-collected, never adopted.** `app/db/segment_gc.py::reconcile_orphan_segment_files_for_project(project_id)` deletes every file in a chapter's `segments/` dir whose basename is not in the keep-set `{audio_file_path basenames of that chapter's rows}`. It is keyed on **referenced filenames** (NOT on `file.stem` as a segment id — that mistake, still present in the legacy `cleanup_orphaned_segments`, would delete valid shared group files). It skips chapters with an active render (`_chapter_has_active_generation`) and never touches chapter-root outputs (`chapter.wav`/`.m4a`).
+- **The GC runs per-book, on book open** (`GET /api/projects/{id}` schedules it via FastAPI `BackgroundTasks`), **not library-wide at boot.** Rationale and the boot-vs-on-open decision: [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md).
 
 ### processing_queue
 

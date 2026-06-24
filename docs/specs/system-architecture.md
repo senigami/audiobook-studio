@@ -1,10 +1,10 @@
 # SP9 — System Architecture Spec
 
 ```
-spec_version: 1.1.0
+spec_version: 1.2.0
 status: active
 created: 2026-06-10
-updated: 2026-06-16
+updated: 2026-06-23
 sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
          app/engines/watchdog.py, app/engines/bridge.py,
          app/engines/bridge_remote.py, app/engines/tts_client.py,
@@ -17,6 +17,7 @@ sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
 
 | Version | Date       | Summary                                                    |
 |---------|------------|------------------------------------------------------------|
+| 1.2.0   | 2026-06-23 | Add invariant I13: boot MUST NOT host destructive/expensive reconciliation (re-runs on `--reload`); on-demand instead. See [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md) |
 | 1.1.0   | 2026-06-16 | §4 rewritten: `startup_event` orchestrates steps 1–9, `boot_studio()` handles migration + handler init + watchdog; clarify two `init_db`/`migrate_state_json_to_db` call sites; I7 corrected from `/health` to `/engines` |
 | 1.0.0   | 2026-06-10 | Initial spec documenting the Studio 2.0 two-process model |
 
@@ -264,6 +265,7 @@ accidental ordering dependencies between imports.
 - I10. The watchdog MUST NOT make decisions about job lifecycle (cancel, re-queue).
 - I11. The orchestrator MUST NOT spawn, monitor, or restart the TTS Server process.
 - I12. New Studio 2.0 modules MUST NOT import `app.api.web` or the `app.jobs` worker loop directly.
+- I13. `boot_studio()` MUST NOT host destructive or expensive-at-scale reconciliation. Boot side effects re-run on every `uvicorn --reload` restart (the dev default), so a destructive sweep placed there fires on routine source edits. Such work belongs on an explicit on-demand trigger (e.g. segment-orphan GC runs per-book on `GET /api/projects/{id}`). See [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md); refines [ADR-0006](../decisions/ADR-0006-explicit-boot-sequence.md).
 
 ---
 

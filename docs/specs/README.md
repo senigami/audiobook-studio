@@ -6,7 +6,7 @@ When a spec and the running code disagree, that is a bug in one or the other; th
 to update the spec (with a version bump and changelog note) or to correct the code. Silently
 accepting the divergence is not acceptable.
 
-Last updated: 2026-06-19
+Last updated: 2026-06-23
 
 ---
 
@@ -21,9 +21,9 @@ Last updated: 2026-06-19
 | [queue-jobs.md](queue-jobs.md) | Job statuses, allowed transitions, two-store model, terminal-reset semantics, rebuild-vs-queue reuse (§3.7), broadcast routing, presentation surfaces | 1.4.0 |
 | [text-processing.md](text-processing.md) | Six-stage text pipeline (clean→split→pack→group→assign→render), invariants on packing and grouping | 1.1.1 |
 | [testing-standards.md](testing-standards.md) | Binding rules R1–R4, mock-boundary discipline, test classification rubric | 1.0.1 |
-| [system-architecture.md](system-architecture.md) | Two-process model (Studio + TTS Server), boot sequence, component ownership boundaries | 1.1.0 |
-| [data-model.md](data-model.md) | SQLite schema, state.json structure, voice directory layout V2 | 1.1.0 |
-| [api-conventions.md](api-conventions.md) | REST URL patterns, standard error shape, API key auth, WebSocket protocol, external TTS API | 1.0.1 |
+| [system-architecture.md](system-architecture.md) | Two-process model (Studio + TTS Server), boot sequence, component ownership boundaries; boot must not host destructive reconciliation (I13) | 1.2.0 |
+| [data-model.md](data-model.md) | SQLite schema, state.json structure, voice directory layout V2; segment-audio artifacts (group→filename fan-out) + orphan GC; source-of-truth = validated metadata, not file existence | 1.4.0 |
+| [api-conventions.md](api-conventions.md) | REST URL patterns, standard error shape, API key auth, WebSocket protocol, external TTS API; live reads must bypass browser cache (`no-store`); per-book GC on project open | 1.1.0 |
 | [plugin-contract.md](plugin-contract.md) | `StudioTTSEngine` ABC, manifest schema, SDK types, capability flags | 1.3.1 |
 | [engines-and-plugins.md](engines-and-plugins.md) | Plugin discovery, health state machine, verification flow, hot-reload rules | 1.1.1 |
 | [voice-bundles.md](voice-bundles.md) | Bundle directory structure, MP3/WAV format rules, voice attribute taxonomy, voice catalog + Voice Lab UI | 1.2.0 |
@@ -66,6 +66,7 @@ internet connection is required during synthesis.
 | Shell + book pipeline | Shared app shell in `app/layout` and routed `/book/:id/...` workflow | [ADR-0009](../decisions/ADR-0009-app-shell-and-book-pipeline.md) |
 | Audio playback | Single-owner `playerBus` + one `<audio>` in the `PlayerBar`; all other players are adapters | [ADR-0010](../decisions/ADR-0010-single-owner-audio-player.md) |
 | Frontend state ownership | Canonical entities via API hydration; store owns only overlays/reconnect/notifications/drafts; `queue.items` is the sole row authority | [ADR-0011](../decisions/ADR-0011-frontend-state-ownership.md) |
+| Segment-artifact reconciliation | DB is truth (validated metadata, not file existence); orphan segment WAVs GC'd per-book on open, never library-wide at boot | [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md) |
 
 ---
 

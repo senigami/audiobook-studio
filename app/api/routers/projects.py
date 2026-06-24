@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Form, File, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Form, File, UploadFile
 from fastapi.responses import JSONResponse
 
 from ...db import (
@@ -24,6 +24,22 @@ from .projects_assembly import router as assembly_router
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
+
+
+def _schedule_segment_gc(project_id: str) -> None:
+    """Run the per-project segment GC pass.  Called as a BackgroundTask.
+
+    Errors are logged and swallowed — a GC failure must never surface to the
+    request that triggered the book-open.
+    """
+    try:
+        from app.db.segment_gc import reconcile_orphan_segment_files_for_project  # noqa: PLC0415
+
+        reconcile_orphan_segment_files_for_project(project_id)
+    except Exception:
+        logger.warning(
+            "segment_gc: background sweep failed for project %s", project_id, exc_info=True
+        )
 
 # Include sub-routers for backups and assembly
 router.include_router(backups_router)
@@ -48,7 +64,7 @@ def api_reorder_chapters_route(project_id: str, chapter_ids: str = Form(...)):
 
 
 @router.get("/{project_id}")
-def api_get_project(project_id: str):
+def api_get_project(project_id: str, background_tasks: BackgroundTasks):
     fetch_started_at = time.perf_counter()
     p = get_project(project_id)
     fetch_ms = round((time.perf_counter() - fetch_started_at) * 1000)
@@ -57,6 +73,7 @@ def api_get_project(project_id: str):
 
     if not p:
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+    background_tasks.add_task(_schedule_segment_gc, project_id)
     total_ms = round((time.perf_counter() - fetch_started_at) * 1000)
     if total_ms >= 100:
         logger.info("Project detail total timing project=%s ms=%s", project_id, total_ms)

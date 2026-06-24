@@ -168,11 +168,13 @@ export const api = {
     return parseApiResponse(res);
   },
   fetchScriptView: async (chapterId: string): Promise<ScriptViewResponse> => {
-    const res = await fetch(`/api/chapters/${chapterId}/script-view`);
+    // Live, mutable render state — never serve a stale browser-cached payload
+    // (a cached "rendered" payload replays a black prefix on soft nav; see cache: 'no-store').
+    const res = await fetch(`/api/chapters/${chapterId}/script-view`, { cache: 'no-store' });
     return parseApiResponse(res);
   },
   fetchChapterRenderGroups: async (projectId: string, chapterId: string): Promise<import('@/api/types').RenderGroupsResponse> => {
-    const res = await fetch(`/api/projects/${projectId}/chapters/${chapterId}/render_groups`);
+    const res = await fetch(`/api/projects/${projectId}/chapters/${chapterId}/render_groups`, { cache: 'no-store' });
     return parseApiResponse(res);
   },
   saveScriptAssignments: async (chapterId: string, payload: ScriptAssignmentsUpdate): Promise<ScriptViewResponse> => {
@@ -239,7 +241,8 @@ export const api = {
 
   // --- Segments ---
   fetchSegments: async (chapterId: string): Promise<import('@/types').ChapterSegment[]> => {
-    const res = await fetch(`/api/chapters/${chapterId}/segments`);
+    // Live, mutable segment state — bypass the browser HTTP cache so soft nav re-hydrates fresh.
+    const res = await fetch(`/api/chapters/${chapterId}/segments`, { cache: 'no-store' });
     const data = await parseApiResponse(res);
     return data.segments || [];
   },

@@ -1,9 +1,9 @@
 # API Conventions
 
 ```
-spec_version: 1.0.1
+spec_version: 1.1.0
 status: active
-updated: 2026-06-16
+updated: 2026-06-23
 sources:
   - app/api/web.py
   - app/api/tts_api.py
@@ -11,6 +11,7 @@ sources:
   - app/core/security.py
   - app/utils/pathing.py
   - app/api/routers/
+  - frontend/src/api/index.ts
 ```
 
 > **TL;DR:** All Studio endpoints live under `/api`, follow a consistent JSON contract with typed error shapes, and treat every path derived from user input as untrusted.
@@ -19,6 +20,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.1.0   | 2026-06-23 | Add § Live reads & caching (mutable read endpoints MUST bypass the browser HTTP cache via `cache: 'no-store'`); document that `GET /api/projects/{id}` schedules the per-book segment-orphan GC via `BackgroundTasks` |
 | 1.0.1   | 2026-06-16 | WebSocket endpoint source corrected to `app/api/web.py:209` (`ws.py` holds connection manager/broadcast helpers only) |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 
@@ -54,6 +56,22 @@ All error responses follow a single envelope:
 | `HTTPException` | FastAPI default shape |
 
 Error messages MUST NOT include exception class names, stack traces, or internal path fragments. See the security note in `app/api/web.py`.
+
+---
+
+## Live reads & caching
+
+GET endpoints that return **live, mutable render state** MUST NOT be served from the browser HTTP cache. They carry no cache validators (`ETag`/`Last-Modified`) and no `Cache-Control`, so on soft (in-app) navigation a browser will replay a stale earlier response — e.g. a `script-view` payload captured while segments were rendered will paint a stale "rendered" prefix even though the server now reports `draft`. The client MUST request these with `{ cache: 'no-store' }` (see `frontend/src/api/index.ts`):
+
+| Endpoint | Reason |
+|----------|--------|
+| `/api/chapters/{id}/script-view` | per-segment render status; changes on every render/reset |
+| `/api/chapters/{id}/segments` | per-segment audio state |
+| `/api/projects/{pid}/chapters/{cid}/render_groups` | render-group composition/count |
+
+Rule: a hard reload (which bypasses the HTTP cache) and a soft navigation MUST yield the same data. If they differ, a mutable read is being cached — add `no-store`.
+
+**Side effect on book open:** `GET /api/projects/{project_id}` schedules the per-book segment-orphan GC (`reconcile_orphan_segment_files_for_project`) via FastAPI `BackgroundTasks` — after the response is sent, so it adds no latency. This is the on-demand reconciliation hook (see [data-model.md § Segment audio artifacts](data-model.md#segment-audio-artifacts--orphan-reconciliation), [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md)); it is deliberately NOT a boot-time library-wide sweep.
 
 ---
 
