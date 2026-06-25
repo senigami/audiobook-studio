@@ -27,12 +27,13 @@ Primary question: Does the editor make the next meaningful manuscript, casting, 
 
 - Casting Director
 - Narrator Performer
+- Voice-Clone Trainer
 - Plugin Tinkerer
 - Localization Lead
 - Sensitivity Reader
 - Power User
 
-Primary question: Are voice assignment, voice testing, language fit, and performance intent visible enough to avoid bad renders?
+Primary question: Are voice assignment, voice cloning/iteration, voice testing, language fit, and performance intent visible enough to avoid bad renders?
 
 ## Render Queue And Progress
 
@@ -62,10 +63,11 @@ Primary question: Are plugin/API contracts explicit, safe, and recoverable witho
 - Accessibility QA
 - Motor-Impaired Keyboard User
 - Dyslexic Reader
+- Color-Blind / Low-Vision User
 - Multilingual Author
 - Sensitivity Reader
 
-Primary question: Can the same workflow be completed with keyboard, assistive tech, low visual load, and language variation?
+Primary question: Can the same workflow be completed with keyboard, assistive tech, low visual load, color-independent status, and language variation?
 
 ## Publish And Release Readiness
 

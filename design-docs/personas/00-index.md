@@ -35,6 +35,7 @@ All current personas are **INFERRED** — synthesized from product domain knowle
 | [11](11-sensitivity-reader.md) | Sensitivity Reader | Zara Ahmed | Mid | Content review, representation, performance risk |
 | [12](12-rights-manager.md) | Rights Manager | Helen Novak | Mid | Rights boundary, authorized export scope |
 | [13](13-review-only-proofreader.md) | Review-Only Proofreader | Tom Fletcher | Mid | Narrow, non-destructive annotation without workflow noise |
+| [42](42-voice-clone-trainer.md) | Voice-Clone Trainer | Grace Okafor | Mid | The train→test→refine→retrain loop; clone versioning, sample quality |
 
 ### Technical & Operator
 
@@ -73,6 +74,7 @@ All current personas are **INFERRED** — synthesized from product domain knowle
 | [39](39-plugin-tinkerer.md) | Plugin Tinkerer | Victor Zhang | Mid | Fast try/compare/recover plugin install cycles |
 | [40](40-support-triage-agent.md) | Support Triage Agent | Jenny Park | Mid | Diagnostics, debug state export, error attribution |
 | [41](41-large-catalog-curator.md) | Large Catalog Curator | Harriet Brooks | Mid | List scale, search/filter/sort, safe bulk operations |
+| [43](43-color-blind-user.md) | Color-Blind / Low-Vision User | Marcus Liang | Mid | State signaled by color alone; status orbs, swatches, banner contrast |
 
 ---
 
@@ -80,17 +82,20 @@ All current personas are **INFERRED** — synthesized from product domain knowle
 
 Ask: **"What would [Name] want to know about this screen, and what would make them close the tab?"**
 
+For ready-made multi-persona panels covering **every** persona (first-run, chapter editor, casting, queue, plugins, accessibility, publish, support), see [review-panels.md](review-panels.md). To compose a panel for a *novel* ask, or to check a panel for stance/level diversity, use the [persona-matrix.md](persona-matrix.md) trait view. The table below is just the highest-signal starting point per area — not the full mapping.
+
 **High-signal pairings by design area:**
 
 | Area | Use first | Also check |
 |---|---|---|
 | First-run / onboarding | Rosa (28), Emma (27) | Morgan (01) |
 | Voice assignment / casting | Alex (06), Morgan (01) | Jake (16) |
+| Voice cloning / training | Grace (42) | Alex (06) |
 | Chapter editor — Voices mode | Alex (06), Morgan (01) | Rosa (28) |
 | Performance annotation / delivery | Jimmy (05), Morgan (01) | Alex (06) |
 | Queue and progress | Jake (16), Carlos (23) | Marta (07) |
 | Plugin install / management | Victor (39), Sam (15) | Fatima (22) |
-| Accessibility | Diane (32), Michael (29) | Lily (30) |
+| Accessibility | Diane (32), Michael (29) | Lily (30), Connor (31), Marcus (43) |
 | Export / publish | Sandra (09), Helen (12) | Marta (07) |
 | Error recovery | Rosa (28), Jake (16) | Jenny (40) |
 | Large-scale / performance | Jake (16), Harriet (41) | Liam (37) |

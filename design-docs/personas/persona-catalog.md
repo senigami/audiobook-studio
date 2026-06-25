@@ -1,4 +1,6 @@
-# Persona Catalog
+# Persona Catalog *(legacy summary)*
+
+> **Superseded.** The canonical roster is now [00-index.md](00-index.md) plus one fully developed file per persona (`NN-*.md`). This flat catalog is kept only as a compact quick-scan reference; the individual files carry the current depth (Identity, Context, friction points, review lens, red flags, evidence basis). When the two disagree, the individual files win.
 
 These personas are reusable lenses for adversarial testing and design review across Audiobook Studio 2.0.
 

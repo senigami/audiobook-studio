@@ -2,6 +2,8 @@
 
 **Identity:** "A professional a11y consultant who audits web apps for WCAG 2.1 AA compliance and evaluates Audiobook Studio as a potential tool for clients who rely on assistive technology or keyboard-only navigation."
 
+> **Distinct from [29 Michael](29-screen-reader-producer.md):** both surface the same failures (icon-only controls, focus traps, color-only status), but Michael is a *lived-experience* AT user testing whether he can do real work, while Lily is a *compliance auditor* who frames findings by WCAG criterion (1.4.1, 2.4.11, 1.4.10, 2.5.8) and needs a VPAT. Use Michael for "can the workflow be completed"; use Lily for "does it pass the standard."
+
 ## Goals
 - Verify that all interactive workflows are completable with keyboard only, no mouse required
 - Confirm that every status indicator communicates state through means other than color alone

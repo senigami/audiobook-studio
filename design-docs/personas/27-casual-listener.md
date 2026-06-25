@@ -2,6 +2,8 @@
 
 **Identity:** "A hobbyist writer who wants to turn her short story into a listenable audiobook in one sitting — and who will not return if the first session ends without hearing her own words read back to her."
 
+> **Distinct from [28 Rosa](28-nontechnical-author.md):** both are non-technical first-run users, but Emma is a *one-shot* hobbyist who abandons permanently on first failure — she never reaches the recovery/diagnosis loop. Rosa (the primary persona) is an *ongoing* author who returns across sessions, retries failures, and needs plain-language error recovery. Use Emma to test the cold-open happy path; use Rosa to test persistence and recovery.
+
 ## Goals
 - Hear a rendered sample of her manuscript within ten minutes of opening the app for the first time
 - Use the default voice without needing to understand what voice cloning means

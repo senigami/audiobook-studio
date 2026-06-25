@@ -6,9 +6,12 @@ Use these as review lenses, not as fictional user stories to satisfy mechanicall
 
 ## Files
 
-- [persona-catalog.md](persona-catalog.md) - canonical persona cards grouped by review domain.
-- [review-panels.md](review-panels.md) - ready-made persona panels for common review tasks.
+- [00-index.md](00-index.md) - **canonical roster.** Confidence ladder, the full persona table, high-signal pairings, and the validation backlog.
+- `NN-*.md` (01–41) - one fully developed persona per file: Identity, Goals, Context, Key workflow moments, Top friction points, What they need, Review lens, Red flags, Evidence basis.
+- [review-panels.md](review-panels.md) - ready-made persona panels for common review tasks (every persona appears in at least one panel).
+- [persona-matrix.md](persona-matrix.md) - trait matrix (stage / level / stance / scale / optimizes-for) for composing a custom panel or checking panel diversity.
 - [prompt-templates.md](prompt-templates.md) - copy-paste prompts for design review, adversarial QA, and implementation planning.
+- [persona-catalog.md](persona-catalog.md) - **legacy** compact one-card-per-persona summary, superseded by the individual files. Kept as a quick-scan reference only.
 
 ## How To Use
 
@@ -17,15 +20,21 @@ Use these as review lenses, not as fictional user stories to satisfy mechanicall
 3. Convert findings into specific defects or design changes.
 4. Keep the final decision owned by the product/spec, not by a persona vote.
 
-## Persona Card Schema
+## Persona Schema
 
-Each persona uses the same compact fields:
+Each fully developed persona (`NN-*.md`) uses the same sections:
 
-- `Role`: the user or reviewer type.
-- `Primary goals`: what success means to this persona.
-- `Stress cases`: flows or states likely to break for them.
-- `Review lens`: the perspective they should apply during review.
-- `Adversarial prompt`: a one-line question to start a test pass.
+- **Identity**: a one-line first-person statement of who they are and what they fundamentally need.
+- **Goals**: what success means to this persona.
+- **Context & environment**: hardware, how they came to Studio, their work cadence.
+- **Key workflow moments**: the concrete points where they touch the app.
+- **Top friction points** (F1–Fn): specific friction tied to real app behavior.
+- **What they need from the studio**: concrete asks.
+- **Review lens**: the questions they ask of any screen.
+- **Red flags**: what makes them quit or distrust the app.
+- **Evidence basis**: confidence level (all currently INFERRED) and who to interview to validate.
+
+The legacy [persona-catalog.md](persona-catalog.md) uses an older compact schema (Role / Primary goals / Stress cases / Review lens / Adversarial prompt).
 
 ## Default Coverage
 
