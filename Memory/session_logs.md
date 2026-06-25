@@ -43,7 +43,7 @@
 
 # 2026-06-03 - Document event stream processing schema
 
-- Added `design-docs/plans/implementation/event_stream_processing_schema.md` as the canonical queue/item lifecycle and voice-test processing schema for developers.
+- Added `design-docs/plans/implementation/design-docs/specs/event-stream-processing-schema.md` as the canonical queue/item lifecycle and voice-test processing schema for developers.
 - Linked the new schema from the plugin guide, broadcaster contract, and live event stream contract so the queue and voice-test ownership rules are easier to find.
 - Verified the existing voice-test regressions still pass, including the backend isolation test and the frontend queue-refresh test.
 
@@ -730,8 +730,8 @@
 
 # 2026-04-23 - TTS Plugin Docs And Template Added
 
-- Added `docs/plugin-guide.md` to document the current TTS plugin contract, hook stages, settings schema expectations, testing flow, and security boundaries for third-party plugin authors.
-- Added `docs/plugin-template/` with a minimal manifest, settings schema, engine skeleton, and contributor README so new plugin authors have a copyable starting point.
+- Added `docs/plugin-sdk/plugin-guide.md` to document the current TTS plugin contract, hook stages, settings schema expectations, testing flow, and security boundaries for third-party plugin authors.
+- Added `docs/plugin-sdk/plugin-template/` with a minimal manifest, settings schema, engine skeleton, and contributor README so new plugin authors have a copyable starting point.
 - Verified the template engine file with a syntax compile check.
 
 # 2026-04-23 - Voice Filter Labels and Cloud Fallbacks Pushed
