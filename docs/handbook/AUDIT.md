@@ -26,9 +26,9 @@ destination in the new `handbook/`.
 
 | Source | Disposition | Destination / Notes |
 | --- | --- | --- |
-| `docs/plugin-guide.md` | split → source | Becomes `plugin-sdk/{overview,anatomy,manifest,engine-contract,behavior-metadata,...}`. Align to v2-only runtime + contract v1. |
-| `docs/plugin-submission-guidelines.md` | keep+update | → `plugin-sdk/submission`. |
-| `docs/plugin-template/` | keep+update | → `plugin-sdk/template`; verify manifest/`settings_schema.json` (`x-ui`) fields current. |
+| `docs/plugin-sdk/plugin-guide.md` | split → source | Becomes `plugin-sdk/{overview,anatomy,manifest,engine-contract,behavior-metadata,...}`. Align to v2-only runtime + contract v1. |
+| `docs/plugin-sdk/plugin-submission-guidelines.md` | keep+update | → `plugin-sdk/submission`. |
+| `docs/plugin-sdk/plugin-template/` | keep+update | → `plugin-sdk/template`; verify manifest/`settings_schema.json` (`x-ui`) fields current. |
 | `docs/studio-as-tts-gateway.md` | split → source | Becomes `api/{overview,auth,endpoints,sync-vs-queued,priority,examples}`. |
 | OpenAPI ref (`/api/v1/tts/docs`) | replace (generated) | Link the live/generated spec rather than hand-maintaining endpoint tables. |
 

@@ -15,7 +15,7 @@ If a behavior is not supported, declare it as unsupported or return an explicit 
 
 ## Quick Start
 
-1. Copy `docs/plugin-template/` to a new folder and customize it.
+1. Copy `docs/plugin-sdk/plugin-template/` to a new folder and customize it.
 2. Update `manifest.json` with your `engine_id`, `display_name`, and `entry_class`.
 3. Compress your plugin folder into a **.zip** file (ensure `manifest.json` is at the root of the zip).
 4. In Studio, go to **Settings > TTS Engines** and click **Import Plugin (.zip)**.
@@ -83,7 +83,7 @@ The plugin owns:
 If a behavior is specific to one encoder, keep it in the plugin. If Studio would need to know about it for a second plugin, that is a hook.
 
 For the live event stream and queue lifecycle contract, read
-[`docs/event_stream_processing_schema.md`](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/docs/event_stream_processing_schema.md).
+[`design-docs/specs/event-stream-processing-schema.md`](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/design-docs/specs/event-stream-processing-schema.md).
 That document spells out the required queue row sequence, the voice-test
 exception, and which topics own state versus diagnostics.
 
@@ -111,7 +111,7 @@ exception, and which topics own state versus diagnostics.
 
 The current plugin hook surface is intentionally small and composable, but the declaration lives in the manifest and SDK contract first.
 
-Use the plugin template in `docs/plugin-template/` as the canonical example of the smallest valid declared plugin.
+Use the plugin template in `docs/plugin-sdk/plugin-template/` as the canonical example of the smallest valid declared plugin.
 
 When you add a plugin:
 

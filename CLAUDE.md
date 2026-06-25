@@ -120,5 +120,5 @@ React 19 + TypeScript + Vite, React Router, Framer Motion. Standard shape under 
 ## Notes
 
 - Files over 500 lines are candidates for splitting; over 600 should be refactored when touched for meaningful changes — along existing boundaries, not mechanically by line count (`modular_architecture.md`).
-- `docs/` holds the plugin SDK docs (`plugin-guide.md`, `plugin-submission-guidelines.md`, `plugin-template/`, `studio-as-tts-gateway.md`). `design-docs/plans/` holds the v2 conversion roadmap and phase delivery plans.
+- `docs/` is the public GitHub Pages site: `index.html`, `demo/`, `handbook/`, `user-guide/`, `assets/`, and the plugin SDK under `docs/plugin-sdk/` (`plugin-guide.md`, `plugin-submission-guidelines.md`, `plugin-template/`, `studio-as-tts-gateway.md`). `design-docs/plans/` holds the v2 conversion roadmap and phase delivery plans.
 - Update `wiki/` pages and add a dated `wiki/Changelog.md` entry when shipped behavior changes. CI (`.github/workflows/ci.yml`) runs ruff + pytest and eslint + vitest + build; `codeql.yml` runs security scanning.
