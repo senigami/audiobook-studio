@@ -1,7 +1,9 @@
 from app.engines.behavior import (
     extract_engine_settings,
+    get_timing_markers,
     get_sanitize_categories,
     has_behavior,
+    match_timing_marker,
     required_settings_for,
 )
 from app.engines.enablement import can_enable_engine
@@ -63,6 +65,13 @@ def test_extract_engine_settings_uses_declared_aliases_for_any_engine() -> None:
     )
 
     assert settings == {"model": "future-v1", "style": "bright"}
+
+
+def test_mixed_manifest_declares_engine_activity_started_marker() -> None:
+    markers = get_timing_markers("mixed")
+
+    assert markers["ENGINE_ACTIVITY_STARTED"] == ["[ENGINE_ACTIVITY_STARTED]"]
+    assert match_timing_marker("mixed", "[ENGINE_ACTIVITY_STARTED] seg-1") == "ENGINE_ACTIVITY_STARTED"
 
 
 class TestGetSanitizeCategoriesResolution:

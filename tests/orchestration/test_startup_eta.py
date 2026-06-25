@@ -960,6 +960,637 @@ def _make_listener_harness(monkeypatch, job_id, seg_id, save_path):
     return listener_cb, jobs_db, published_events
 
 
+def _make_listener_harness_with_engines(
+    monkeypatch,
+    *,
+    job_id,
+    job_engine_id,
+    seg_id,
+    save_path,
+    script_entry_engine,
+    engine_behaviors=None,
+):
+    """Variant harness that lets tests control the job engine and active-group engine."""
+    from app.orchestration.tasks.synthesis import SynthesisTask
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext
+    from app.db.state import Job
+    from app.engines import behavior as _behavior_mod
+
+    # Manifest behavior is memoized via LRU caches; clear them so the per-test
+    # behavior_for_engine patch below is not shadowed by a previous test's
+    # cached real-manifest read (otherwise marker resolution is order-dependent).
+    _behavior_mod._load_full_manifest.cache_clear()
+    _behavior_mod._load_manifest_behavior.cache_clear()
+
+    script_entry = {"ids": [seg_id], "save_path": save_path, "text": "Hello world"}
+    if script_entry_engine is not None:
+        script_entry["engine"] = script_entry_engine
+
+    task = SynthesisTask(
+        task_id=job_id,
+        engine_id=job_engine_id,
+        script_text="Hello world",
+        output_path="/tmp/out.wav",
+        chapter_id="chap-1",
+        voice_profile_id="Default",
+        script=[script_entry],
+    )
+    context = TaskContext(
+        task_id=job_id,
+        task_type="synthesis",
+        project_id="proj-1",
+        chapter_id="chap-1",
+        payload={"engine_id": job_engine_id},
+    )
+
+    jobs_db = {}
+
+    def mock_put_job(job):
+        jobs_db[job.id] = job
+
+    def mock_get_jobs():
+        return jobs_db
+
+    def mock_update_job(jid, **kwargs):
+        job = jobs_db.get(jid)
+        if job:
+            for k, v in kwargs.items():
+                setattr(job, k, v)
+
+    monkeypatch.setattr("app.db.state.put_job", mock_put_job)
+    monkeypatch.setattr("app.db.state.get_jobs", mock_get_jobs)
+    monkeypatch.setattr("app.db.state.update_job", mock_update_job)
+
+    published_events = []
+
+    def mock_publish(self, context, **kwargs):
+        published_events.append(dict(kwargs))
+
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_publish", mock_publish)
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_estimate_task_duration", lambda *a, **kw: 30.0)
+    if engine_behaviors is not None:
+        from app.engines.behavior import normalize_behavior
+
+        monkeypatch.setattr(
+            "app.engines.behavior.behavior_for_engine",
+            lambda engine_id, **kw: normalize_behavior(engine_behaviors.get(engine_id, {})),
+        )
+
+    listener_cb = [None]
+
+    class FakeWatchdog:
+        def register_log_listener(self, cb):
+            listener_cb[0] = cb
+
+        def unregister_log_listener(self, cb):
+            pass
+
+    mock_put_job(Job(id=job_id, engine=job_engine_id, status="running", created_at=0.0))
+
+    mock_segments = [
+        {"id": seg_id, "text_content": "Hello world", "character_id": 1, "speaker_profile_name": "Narrator"}
+    ]
+
+    with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_reg, \
+         patch("app.engines.watchdog.get_watchdog", return_value=FakeWatchdog()), \
+         patch("app.domain.chunk_groups.load_chunk_segments", return_value=mock_segments), \
+         patch("app.domain.chunk_groups.build_chunk_groups", return_value=[{
+             "id": seg_id,
+             "leader_segment_id": seg_id,
+             "segments": mock_segments,
+             "text_content": "Hello world",
+         }]), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value=job_engine_id):
+        mock_reg.return_value.get_handler.return_value = lambda *a, **kw: None
+        mixin = OrchestratorHelpersMixin()
+        mixin._dispatch(task=task, context=context)
+
+    return listener_cb, jobs_db, published_events
+
+
+def _make_listener_harness_for_groups(
+    monkeypatch,
+    *,
+    job_id,
+    job_engine_id,
+    groups,
+    engine_behaviors=None,
+):
+    """Harness for multi-group mixed renders with per-group declared engines."""
+    from app.orchestration.tasks.synthesis import SynthesisTask
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext
+    from app.db.state import Job
+    from app.engines import behavior as _behavior_mod
+
+    # See note in _make_listener_harness_with_engines: clear memoized manifest
+    # behavior so the behavior_for_engine patch is order-independent.
+    _behavior_mod._load_full_manifest.cache_clear()
+    _behavior_mod._load_manifest_behavior.cache_clear()
+
+    script = []
+    mock_segments = []
+    chunk_groups = []
+    for group in groups:
+        seg_id = group["seg_id"]
+        save_path = group["save_path"]
+        text = group.get("text", f"Text for {seg_id}")
+        script_entry = {
+            "ids": [seg_id],
+            "save_path": save_path,
+            "text": text,
+            "engine": group["engine"],
+        }
+        script.append(script_entry)
+        segment = {
+            "id": seg_id,
+            "text_content": text,
+            "character_id": len(mock_segments) + 1,
+            "speaker_profile_name": group.get("speaker_profile_name", "Narrator"),
+        }
+        mock_segments.append(segment)
+        chunk_groups.append({
+            "id": seg_id,
+            "leader_segment_id": seg_id,
+            "segments": [segment],
+            "text_content": text,
+        })
+
+    task = SynthesisTask(
+        task_id=job_id,
+        engine_id=job_engine_id,
+        script_text=" ".join(group.get("text", "") for group in groups) or "Hello world",
+        output_path="/tmp/out.wav",
+        chapter_id="chap-1",
+        voice_profile_id="Default",
+        script=script,
+    )
+    context = TaskContext(
+        task_id=job_id,
+        task_type="synthesis",
+        project_id="proj-1",
+        chapter_id="chap-1",
+        payload={"engine_id": job_engine_id},
+    )
+
+    jobs_db = {}
+
+    def mock_put_job(job):
+        jobs_db[job.id] = job
+
+    def mock_get_jobs():
+        return jobs_db
+
+    def mock_update_job(jid, **kwargs):
+        job = jobs_db.get(jid)
+        if job:
+            for k, v in kwargs.items():
+                setattr(job, k, v)
+
+    monkeypatch.setattr("app.db.state.put_job", mock_put_job)
+    monkeypatch.setattr("app.db.state.get_jobs", mock_get_jobs)
+    monkeypatch.setattr("app.db.state.update_job", mock_update_job)
+
+    published_events = []
+
+    def mock_publish(self, context, **kwargs):
+        published_events.append(dict(kwargs))
+
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_publish", mock_publish)
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_estimate_task_duration", lambda *a, **kw: 30.0)
+    if engine_behaviors is not None:
+        from app.engines.behavior import normalize_behavior
+
+        monkeypatch.setattr(
+            "app.engines.behavior.behavior_for_engine",
+            lambda engine_id, **kw: normalize_behavior(engine_behaviors.get(engine_id, {})),
+        )
+
+    listener_cb = [None]
+
+    class FakeWatchdog:
+        def register_log_listener(self, cb):
+            listener_cb[0] = cb
+
+        def unregister_log_listener(self, cb):
+            pass
+
+    mock_put_job(Job(id=job_id, engine=job_engine_id, status="running", created_at=0.0))
+
+    with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_reg, \
+         patch("app.engines.watchdog.get_watchdog", return_value=FakeWatchdog()), \
+         patch("app.domain.chunk_groups.load_chunk_segments", return_value=mock_segments), \
+         patch("app.domain.chunk_groups.build_chunk_groups", return_value=chunk_groups), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value=job_engine_id):
+        mock_reg.return_value.get_handler.return_value = lambda *a, **kw: None
+        mixin = OrchestratorHelpersMixin()
+        mixin._dispatch(task=task, context=context)
+
+    return listener_cb, jobs_db, published_events
+
+
+def test_mixed_log_listener_resolves_timing_markers_from_active_group_engine(clean_db, tmp_path, monkeypatch):
+    job_id = "mixed-active-engine-marker"
+    seg_id = "seg-mixed-1"
+    save_path = "/tmp/seg-mixed-1.wav"
+    listener_cb, jobs_db, _published_events = _make_listener_harness_with_engines(
+        monkeypatch,
+        job_id=job_id,
+        job_engine_id="mixed",
+        seg_id=seg_id,
+        save_path=save_path,
+        script_entry_engine="xtts",
+        engine_behaviors={
+            "mixed": {},
+            "xtts": {"timing_markers": {"ENGINE_ACTIVITY_STARTED": "Loading XTTS model..."}},
+        },
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    with patch("time.time", return_value=100.0):
+        listener(f"[START_SEGMENT] {seg_id}")
+    with patch("time.time", return_value=101.0):
+        listener("Loading XTTS model...")
+
+    assert jobs_db[job_id].engine_activity_started_at == pytest.approx(101.0)
+
+
+def test_mixed_log_listener_falls_back_to_job_engine_markers_when_active_engine_has_no_match(
+    clean_db, tmp_path, monkeypatch
+):
+    from app.engines.behavior import match_timing_marker, _load_full_manifest, _load_manifest_behavior
+
+    _load_full_manifest.cache_clear()
+    _load_manifest_behavior.cache_clear()
+
+    assert match_timing_marker("xtts", "[ENGINE_ACTIVITY_STARTED] seg-1") is None
+    assert match_timing_marker("mixed", "[ENGINE_ACTIVITY_STARTED] seg-1") == "ENGINE_ACTIVITY_STARTED"
+
+    job_id = "mixed-job-engine-fallback-marker"
+    seg_id = "seg-mixed-fallback-1"
+    save_path = "/tmp/seg-mixed-fallback-1.wav"
+    listener_cb, jobs_db, _published_events = _make_listener_harness_with_engines(
+        monkeypatch,
+        job_id=job_id,
+        job_engine_id="mixed",
+        seg_id=seg_id,
+        save_path=save_path,
+        script_entry_engine="xtts",
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    with patch("time.time", return_value=100.0):
+        listener(f"[START_SEGMENT] {seg_id}")
+    with patch("time.time", return_value=101.0):
+        listener("[ENGINE_ACTIVITY_STARTED] seg-1")
+    with patch("time.time", return_value=104.0):
+        listener("[START_SYNTHESIS] seg-1")
+
+    assert jobs_db[job_id].engine_activity_started_at == pytest.approx(101.0)
+    assert jobs_db[job_id].model_load_seconds == pytest.approx(3.0)
+
+
+def test_log_listener_falls_back_to_job_engine_when_no_active_group_engine(clean_db, tmp_path, monkeypatch):
+    job_id = "job-engine-fallback-marker"
+    seg_id = "seg-fallback-1"
+    save_path = "/tmp/seg-fallback-1.wav"
+    listener_cb, jobs_db, _published_events = _make_listener_harness_with_engines(
+        monkeypatch,
+        job_id=job_id,
+        job_engine_id="xtts",
+        seg_id=seg_id,
+        save_path=save_path,
+        script_entry_engine=None,
+        engine_behaviors={
+            "xtts": {"timing_markers": {"ENGINE_ACTIVITY_STARTED": "Loading XTTS model..."}},
+        },
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    with patch("time.time", return_value=200.0):
+        listener("Loading XTTS model...")
+
+    assert jobs_db[job_id].engine_activity_started_at == pytest.approx(200.0)
+
+
+def test_mixed_log_listener_uses_job_engine_before_any_group_is_active(clean_db, tmp_path, monkeypatch):
+    job_id = "mixed-no-active-group-fallback"
+    seg_id = "seg-mixed-pending"
+    save_path = "/tmp/seg-mixed-pending.wav"
+    listener_cb, jobs_db, _published_events = _make_listener_harness_with_engines(
+        monkeypatch,
+        job_id=job_id,
+        job_engine_id="mixed",
+        seg_id=seg_id,
+        save_path=save_path,
+        script_entry_engine="xtts",
+        engine_behaviors={
+            "mixed": {},
+            "xtts": {"timing_markers": {"ENGINE_ACTIVITY_STARTED": "Loading XTTS model..."}},
+        },
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    with patch("time.time", return_value=250.0):
+        listener("Loading XTTS model...")
+
+    assert jobs_db[job_id].engine_activity_started_at is None
+
+
+def test_mixed_log_listener_ignores_other_engine_markers_and_progress(clean_db, tmp_path, monkeypatch):
+    job_id = "mixed-other-engine-no-match"
+    seg_id = "seg-mixed-2"
+    save_path = "/tmp/seg-mixed-2.wav"
+    listener_cb, jobs_db, published_events = _make_listener_harness_with_engines(
+        monkeypatch,
+        job_id=job_id,
+        job_engine_id="mixed",
+        seg_id=seg_id,
+        save_path=save_path,
+        script_entry_engine="voxtral",
+        engine_behaviors={
+            "mixed": {},
+            "voxtral": {"progress_pattern": r"voxtral=(?P<value>[0-9.]+)"},
+            "xtts": {
+                "timing_markers": {"ENGINE_ACTIVITY_STARTED": "Loading XTTS model..."},
+                "progress_pattern": r"xtts=(?P<value>[0-9.]+)",
+            },
+        },
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    with patch("time.time", return_value=300.0):
+        listener(f"[START_SEGMENT] {seg_id}")
+    events_before = len(published_events)
+    with patch("time.time", return_value=301.0):
+        listener("Loading XTTS model...")
+    with patch("time.time", return_value=302.0):
+        listener("xtts=0.5")
+
+    assert jobs_db[job_id].engine_activity_started_at is None
+    assert [event.get("reason_code") for event in published_events[events_before:]] == []
+
+
+def test_engine_activity_marker_after_start_segment_closes_on_start_synthesis_and_does_not_leak(clean_db, monkeypatch):
+    job_id = "mixed-load-window-closed-at-confirmation"
+    groups = [
+        {"seg_id": "seg-1", "save_path": "/tmp/seg-1.wav", "engine": "xtts", "text": "First group text"},
+        {"seg_id": "seg-2", "save_path": "/tmp/seg-2.wav", "engine": "xtts", "text": "Second group text"},
+    ]
+    listener_cb, jobs_db, _published_events = _make_listener_harness_for_groups(
+        monkeypatch,
+        job_id=job_id,
+        job_engine_id="mixed",
+        groups=groups,
+        engine_behaviors={
+            "mixed": {},
+            "xtts": {"timing_markers": {"ENGINE_ACTIVITY_STARTED": "[ENGINE_ACTIVITY_STARTED]"}},
+        },
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    with patch("time.time", return_value=100.0):
+        listener("[START_SEGMENT] seg-1")
+    with patch("time.time", return_value=101.0):
+        listener("[ENGINE_ACTIVITY_STARTED] seg-1")
+    with patch("time.time", return_value=103.0):
+        listener("[START_SYNTHESIS] seg-1")
+
+    assert jobs_db[job_id].model_load_seconds == pytest.approx(2.0)
+
+    with patch("time.time", return_value=105.0):
+        listener("[SEGMENT_SAVED] /tmp/seg-1.wav")
+    with patch("time.time", return_value=130.0):
+        listener("[START_SEGMENT] seg-2")
+
+    assert jobs_db[job_id].model_load_seconds == pytest.approx(2.0)
+
+
+def test_engine_activity_marker_after_start_segment_closes_on_first_progress(clean_db, monkeypatch):
+    job_id = "mixed-load-window-closed-at-progress"
+    groups = [
+        {"seg_id": "seg-1", "save_path": "/tmp/seg-1.wav", "engine": "xtts", "text": "First group text"},
+    ]
+    listener_cb, jobs_db, _published_events = _make_listener_harness_for_groups(
+        monkeypatch,
+        job_id=job_id,
+        job_engine_id="mixed",
+        groups=groups,
+        engine_behaviors={
+            "mixed": {},
+            "xtts": {
+                "timing_markers": {"ENGINE_ACTIVITY_STARTED": "[ENGINE_ACTIVITY_STARTED]"},
+                "progress_pattern": r"xtts=(?P<progress>[0-9.]+)",
+            },
+        },
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    with patch("time.time", return_value=100.0):
+        listener("[START_SEGMENT] seg-1")
+    with patch("time.time", return_value=101.0):
+        listener("[ENGINE_ACTIVITY_STARTED] seg-1")
+    with patch("time.time", return_value=104.0):
+        listener("xtts=0.5")
+
+    assert jobs_db[job_id].model_load_seconds == pytest.approx(3.0)
+
+
+def test_engine_activity_before_next_group_announce_closes_on_next_start_segment_after_prior_group_confirmed(
+    clean_db, monkeypatch
+):
+    job_id = "mixed-next-group-load-window-closed-at-announce"
+    groups = [
+        {"seg_id": "seg-1", "save_path": "/tmp/seg-1.wav", "engine": "xtts", "text": "First group text"},
+        {"seg_id": "seg-2", "save_path": "/tmp/seg-2.wav", "engine": "xtts", "text": "Second group text"},
+    ]
+    listener_cb, jobs_db, _published_events = _make_listener_harness_for_groups(
+        monkeypatch,
+        job_id=job_id,
+        job_engine_id="mixed",
+        groups=groups,
+        engine_behaviors={
+            "mixed": {},
+            "xtts": {"timing_markers": {"ENGINE_ACTIVITY_STARTED": "[ENGINE_ACTIVITY_STARTED]"}},
+        },
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    with patch("time.time", return_value=100.0):
+        listener("[START_SEGMENT] seg-1")
+    with patch("time.time", return_value=101.0):
+        listener("[START_SYNTHESIS] seg-1")
+
+    assert jobs_db[job_id].model_load_seconds is None
+
+    with patch("time.time", return_value=110.0):
+        listener("[ENGINE_ACTIVITY_STARTED] seg-2")
+    with patch("time.time", return_value=116.0):
+        listener("[START_SEGMENT] seg-2")
+
+    assert jobs_db[job_id].model_load_seconds == pytest.approx(6.0)
+
+
+def test_progress_parsing_switches_with_active_group_engine(clean_db, monkeypatch):
+    job_id = "mixed-progress-active-engine-switch"
+    groups = [
+        {"seg_id": "seg-1", "save_path": "/tmp/seg-1.wav", "engine": "xtts", "text": "Alpha group"},
+        {"seg_id": "seg-2", "save_path": "/tmp/seg-2.wav", "engine": "voxtral", "text": "Beta group"},
+    ]
+    listener_cb, jobs_db, published_events = _make_listener_harness_for_groups(
+        monkeypatch,
+        job_id=job_id,
+        job_engine_id="mixed",
+        groups=groups,
+        engine_behaviors={
+            "mixed": {},
+            "xtts": {"progress_pattern": r"xtts=(?P<progress>[0-9.]+)"},
+            "voxtral": {"progress_pattern": r"voxtral=(?P<progress>[0-9.]+)"},
+        },
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    with patch("time.time", return_value=10.0):
+        listener("[START_SEGMENT] seg-1")
+    events_before_group_1 = len(published_events)
+    with patch("time.time", return_value=11.0):
+        listener("xtts=0.25")
+
+    group_1_events = published_events[events_before_group_1:]
+    group_1_progress = [e for e in group_1_events if e.get("reason_code") == "SEGMENT_PROGRESS"]
+    assert len(group_1_progress) == 1
+    assert group_1_progress[0]["active_segment_id"] == "seg-1"
+    assert group_1_progress[0]["active_segment_progress"] == pytest.approx(0.25)
+
+    with patch("time.time", return_value=12.0):
+        listener("[SEGMENT_SAVED] /tmp/seg-1.wav")
+    with patch("time.time", return_value=13.0):
+        listener("[START_SEGMENT] seg-2")
+
+    events_before_group_2 = len(published_events)
+    with patch("time.time", return_value=14.0):
+        listener("xtts=0.9")
+    with patch("time.time", return_value=15.0):
+        listener("voxtral=0.75")
+
+    group_2_events = published_events[events_before_group_2:]
+    group_2_progress = [e for e in group_2_events if e.get("reason_code") == "SEGMENT_PROGRESS"]
+    assert len(group_2_progress) == 1
+    assert group_2_progress[0]["active_segment_id"] == "seg-2"
+    assert group_2_progress[0]["active_segment_progress"] == pytest.approx(0.75)
+    assert jobs_db[job_id].engine_activity_started_at is None
+
+
+def test_voxtral_first_group_does_not_mask_subsequent_xtts_model_load(clean_db, monkeypatch):
+    """Success-criteria repro order: Voxtral group -> cold XTTS group.
+
+    The mixed handler emits [ENGINE_ACTIVITY_STARTED] before *every* group's
+    bridge call. The leading Voxtral group loads no model, so its activity
+    window is ~0. A single-shot capture would let that ~0 window latch the job's
+    model_load_seconds and MASK the real ~30s XTTS cold-load in the second group
+    (defeating Task 001's headline acceptance criterion). Capture must keep the
+    real (largest) load window regardless of group order. This feeds the actual
+    per-group emission order the handler produces.
+    """
+    job_id = "mixed-voxtral-first-then-cold-xtts"
+    groups = [
+        {"seg_id": "seg-vox", "save_path": "/tmp/seg-vox.wav", "engine": "voxtral", "text": "Voxtral group"},
+        {"seg_id": "seg-xtts", "save_path": "/tmp/seg-xtts.wav", "engine": "xtts", "text": "XTTS group"},
+    ]
+    listener_cb, jobs_db, _published_events = _make_listener_harness_for_groups(
+        monkeypatch,
+        job_id=job_id,
+        job_engine_id="mixed",
+        groups=groups,
+        engine_behaviors={
+            "mixed": {},
+            "voxtral": {},
+            "xtts": {"timing_markers": {"ENGINE_ACTIVITY_STARTED": "Loading XTTS model..."}},
+        },
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    # Group 1 (Voxtral): no model load. Handler emits the bracketed activity
+    # marker, then the engine confirms almost immediately.
+    with patch("time.time", return_value=100.0):
+        listener("[START_SEGMENT] seg-vox")
+    with patch("time.time", return_value=100.5):
+        listener("[ENGINE_ACTIVITY_STARTED] seg-vox")
+    with patch("time.time", return_value=101.0):
+        listener("[START_SYNTHESIS] seg-vox")
+    with patch("time.time", return_value=103.0):
+        listener("[SEGMENT_SAVED] /tmp/seg-vox.wav")
+
+    # Group 2 (cold XTTS): handler marker, then the engine's own load line,
+    # then a ~30s gap before synthesis confirms.
+    with patch("time.time", return_value=110.0):
+        listener("[START_SEGMENT] seg-xtts")
+    with patch("time.time", return_value=110.5):
+        listener("[ENGINE_ACTIVITY_STARTED] seg-xtts")
+    with patch("time.time", return_value=111.0):
+        listener("Loading XTTS model...")
+    with patch("time.time", return_value=141.0):
+        listener("[START_SYNTHESIS] seg-xtts")
+
+    # The real XTTS load window (141 - 111 = 30s) must win, not the Voxtral ~0.5s.
+    assert jobs_db[job_id].model_load_seconds == pytest.approx(30.0)
+    assert jobs_db[job_id].engine_activity_started_at == pytest.approx(111.0)
+
+
+def test_voxtral_only_render_resolves_markers_via_job_engine(clean_db, monkeypatch):
+    """Regression guard: a Voxtral-only mixed render is unaffected — its progress
+    parses via the active/job engine and no spurious XTTS load window is captured.
+    """
+    job_id = "mixed-voxtral-only"
+    groups = [
+        {"seg_id": "seg-1", "save_path": "/tmp/seg-1.wav", "engine": "voxtral", "text": "Only group"},
+    ]
+    listener_cb, jobs_db, published_events = _make_listener_harness_for_groups(
+        monkeypatch,
+        job_id=job_id,
+        job_engine_id="mixed",
+        groups=groups,
+        engine_behaviors={
+            "mixed": {},
+            "voxtral": {"progress_pattern": r"voxtral=(?P<progress>[0-9.]+)"},
+        },
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    with patch("time.time", return_value=10.0):
+        listener("[START_SEGMENT] seg-1")
+    with patch("time.time", return_value=10.5):
+        listener("[ENGINE_ACTIVITY_STARTED] seg-1")
+    with patch("time.time", return_value=11.0):
+        listener("[START_SYNTHESIS] seg-1")
+    events_before = len(published_events)
+    with patch("time.time", return_value=12.0):
+        listener("voxtral=0.5")
+
+    progress_events = [
+        e for e in published_events[events_before:]
+        if e.get("reason_code") == "SEGMENT_PROGRESS"
+    ]
+    assert len(progress_events) == 1
+    assert progress_events[0]["active_segment_id"] == "seg-1"
+    assert progress_events[0]["active_segment_progress"] == pytest.approx(0.5)
+    # No XTTS "Loading..." line ever arrived; the only window is the trivial
+    # Voxtral prep, so nothing resembling a real model load is fabricated.
+    assert jobs_db[job_id].model_load_seconds == pytest.approx(0.5)
+
+
 def test_segment_clock_starts_at_start_synthesis_not_start_segment(clean_db, tmp_path, monkeypatch):
     """Bug regression: in mixed renders START_SEGMENT arrives before the engine loads the model.
     The segment render duration recorded in sum_segment_render_seconds must reflect the time from

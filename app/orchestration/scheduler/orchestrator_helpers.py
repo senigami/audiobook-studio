@@ -107,6 +107,10 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             "start_synthesis_emitted": False,
             "start_segment_ids": set(),
         }
+        pending_engine_activity = {
+            "started_at": None,
+            "activity_after_start_segment": False,
+        }
         marker_driven = bool(getattr(task, "is_marker_driven", False))
         expected_duration = self._estimate_task_duration(task=task, context=context)
 
@@ -552,6 +556,92 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 grouped_progress=_get_grouped_progress(),
             )
 
+        def _resolve_active_engine_for_matching() -> str:
+            """Resolve marker/progress matching from the active render group when available."""
+            job_engine_id = ""
+            if context and context.payload:
+                job_engine_id = context.payload.get("engine_id") or ""
+            if not job_engine_id:
+                job_engine_id = getattr(task, "engine_id", "") or ""
+
+            if not script or not active_seg_id[0]:
+                return job_engine_id
+
+            candidate_indices: list[int] = []
+            leader_index = group_index_by_leader.get(active_seg_id[0])
+            if leader_index is not None:
+                candidate_indices.append(leader_index)
+            if active_render_group_index[0] not in candidate_indices:
+                candidate_indices.append(active_render_group_index[0])
+
+            for index in candidate_indices:
+                if index is None or index < 0 or index >= len(script):
+                    continue
+                group_engine = script[index].get("engine")
+                if group_engine:
+                    return str(group_engine)
+            return job_engine_id
+
+        def _match_timing_marker_with_job_fallback(
+            *, active_engine_id: str, job_engine_id: str, line: str
+        ) -> str | None:
+            """Prefer active-engine timing markers, then fall back to the job engine."""
+            from app.engines.behavior import match_timing_marker
+
+            candidate_engine_ids: list[str] = []
+            for candidate in (active_engine_id, job_engine_id):
+                candidate = str(candidate or "").strip()
+                if candidate and candidate not in candidate_engine_ids:
+                    candidate_engine_ids.append(candidate)
+
+            for candidate_engine_id in candidate_engine_ids:
+                matched = match_timing_marker(candidate_engine_id, line)
+                if matched is not None:
+                    return matched
+            return None
+
+        def _close_pending_engine_activity_interval(*, confirmed_at: float, require_post_announce_confirmation: bool) -> None:
+            pending_started_at = pending_engine_activity.get("started_at")
+            if pending_started_at is None:
+                return
+            activity_after_start_segment = bool(pending_engine_activity.get("activity_after_start_segment"))
+            if activity_after_start_segment != require_post_announce_confirmation:
+                return
+
+            # Re-armable across render groups: a later, genuine model-load window
+            # (e.g. a cold XTTS group) must never be masked by an earlier group
+            # whose activity window was ~0 — a Voxtral group or a warm XTTS group
+            # that loads no model. The handler emits [ENGINE_ACTIVITY_STARTED]
+            # before *every* group, so a single-shot latch would let the first
+            # group (whatever its engine) claim the job's model-load slot and hide
+            # the real load. Keep the largest window observed — the dominant load —
+            # so capture is correct regardless of group order. Per-group sampling /
+            # accumulation and the sole-writer split are W2 (task 002); this only
+            # ensures the job-level window reflects the real load.
+            window_seconds = max(0.0, confirmed_at - float(pending_started_at))
+            existing = timing.get("model_load_seconds")
+            if existing is None or window_seconds > existing:
+                timing["model_load_seconds"] = window_seconds
+                timing["engine_activity_started_at"] = float(pending_started_at)
+                try:
+                    from app.db.state import update_job
+                    update_job(
+                        context.task_id,
+                        model_load_seconds=window_seconds,
+                        engine_activity_started_at=float(pending_started_at),
+                    )
+                except Exception:
+                    pass
+
+            pending_engine_activity["started_at"] = None
+            pending_engine_activity["activity_after_start_segment"] = False
+
+        def _active_segment_is_announced_and_unconfirmed() -> bool:
+            sid = active_seg_id[0]
+            if not sid:
+                return False
+            return sid in segment_announced and sid not in segment_starts
+
         def log_listener(line: str, line_task_id: Optional[str] = None):
             # If a task_id is present in the line, it MUST match ours.
             if line_task_id and line_task_id != context.task_id:
@@ -592,8 +682,13 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             except Exception:
                 logger.exception("Failed to broadcast TTS log line for task %s", context.task_id)
 
-            from app.engines.behavior import match_timing_marker
-            matched_marker = match_timing_marker(plugin_id or engine_id, line)
+            active_engine_id = _resolve_active_engine_for_matching()
+
+            matched_marker = _match_timing_marker_with_job_fallback(
+                active_engine_id=active_engine_id,
+                job_engine_id=engine_id or "",
+                line=line,
+            )
             now_time = time.time()
 
             if matched_marker == "ENGINE_ACTIVITY_STARTED":
@@ -604,8 +699,14 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         update_job(context.task_id, engine_activity_started_at=now_time)
                     except Exception:
                         pass
+                pending_engine_activity["started_at"] = now_time
+                pending_engine_activity["activity_after_start_segment"] = _active_segment_is_announced_and_unconfirmed()
 
             if matched_marker == "START_SYNTHESIS" or "[START_SYNTHESIS]" in line:
+                _close_pending_engine_activity_interval(
+                    confirmed_at=now_time,
+                    require_post_announce_confirmation=True,
+                )
                 # Engine-confirmed clock: if a segment was already announced but not yet
                 # confirmed (mixed-render: START_SEGMENT before model load), record the
                 # engine-confirmed start time now so the model-load window is excluded.
@@ -677,13 +778,10 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         update_job(context.task_id, first_start_segment_at=now_time)
                     except Exception:
                         pass
-                if timing.get("engine_activity_started_at") is not None and timing.get("model_load_seconds") is None:
-                    timing["model_load_seconds"] = now_time - timing["engine_activity_started_at"]
-                    try:
-                        from app.db.state import update_job
-                        update_job(context.task_id, model_load_seconds=timing["model_load_seconds"])
-                    except Exception:
-                        pass
+                _close_pending_engine_activity_interval(
+                    confirmed_at=now_time,
+                    require_post_announce_confirmation=False,
+                )
 
                 try:
                     # [START_SEGMENT] {segment_id}
@@ -765,10 +863,13 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     pass
 
             from app.engines.behavior import parse_engine_progress
-            engine_id = context.payload.get("engine_id") or ""
-            raw_progress = parse_engine_progress(engine_id, line)
+            raw_progress = parse_engine_progress(active_engine_id or engine_id, line)
 
             if raw_progress is not None:
+                _close_pending_engine_activity_interval(
+                    confirmed_at=now_time,
+                    require_post_announce_confirmation=True,
+                )
                 if timing["render_started_at"] is None:
                     timing["render_started_at"] = time.time()
                 # Fallback: if the [START_SEGMENT] marker never reached us (e.g. a

@@ -296,6 +296,59 @@ def test_handle_mixed_job_emits_segment_saved_markers_and_owns_no_chapter_progre
         assert "grouped_progress" not in call.kwargs, f"handler wrote grouped progress: {call.kwargs}"
 
 
+def test_handle_mixed_job_emits_engine_activity_started_before_bridge_call(clean_db, tmp_path):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+    sync_chapter_segments(cid, "Hello world.")
+    segs = get_chapter_segments(cid)
+    leader_id = segs[0]["id"]
+    update_segment(leader_id, speaker_profile_name="XTTS Voice")
+
+    job = Job(
+        id="mixed-engine-activity-job",
+        engine="mixed",
+        chapter_file=f"{cid}_0.txt",
+        status="queued",
+        created_at=time.time(),
+        project_id=pid,
+        chapter_id=cid,
+        speaker_profile="XTTS Voice",
+    )
+
+    tmp_path = tmp_path / "audio"
+    tmp_path.mkdir()
+    output_lines: list[str] = []
+
+    def fake_generate_via_bridge(**kwargs):
+        output_lines.append(f"bridge:{kwargs['engine']}\n")
+        Path(kwargs["out_wav"]).write_text("xtts")
+        return 0
+
+    def fake_stitch(_pdir, _segments, out_wav, _on_output, _cancel_check):
+        Path(out_wav).write_text("stitched")
+        return 0
+
+    with patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"), \
+         patch("plugins.tts_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.tts_mixed.handler.update_job"):
+        result, _ = handle_mixed_job("mixed-engine-activity-job", job, time.time(), output_lines.append, lambda: False)
+
+    assert result == "done"
+    engine_activity_index = output_lines.index(f"[ENGINE_ACTIVITY_STARTED] {leader_id}\n")
+    bridge_index = output_lines.index("bridge:xtts\n")
+    assert engine_activity_index < bridge_index
+
+
 def test_handle_mixed_job_forwards_engine_progress_lines(clean_db, tmp_path):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter

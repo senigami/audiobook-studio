@@ -363,6 +363,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
 
         try:
             _seg_start = time.monotonic()
+            on_output(f"[ENGINE_ACTIVITY_STARTED] {segment_id}\n")
             # Forward engine output (including [PROGRESS] lines) untouched; the
             # orchestrator parses them and computes weighted chapter progress.
             rc = _render_segment(engine, chunk_text, profile_name, seg_out, j.safe_mode, on_output, cancel_check, task_id=jid)

@@ -1,6 +1,7 @@
 import pytest
 import os
 import importlib
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 from tests.utils.timeout import timeout_after
 
@@ -278,6 +279,44 @@ def test_bake_chapter_rejects_voxtral_without_api_key(clean_db, client):
         response = client.post(f"/api/generation/bake/{cid}")
         assert response.status_code == 400
         assert "API key" in response.json()["message"]
+
+
+def test_build_script_for_chapter_propagates_group_engine(clean_db, monkeypatch):
+    from app.api.routers import generation
+
+    monkeypatch.setattr(
+        generation,
+        "get_chapter_segments",
+        lambda _chapter_id: [{"id": "s1", "text_content": "Hello", "speaker_profile_name": "Voice"}],
+    )
+    monkeypatch.setattr(
+        generation,
+        "build_chunk_groups",
+        lambda _segments, _default_profile: [{
+            "segments": [{"id": "s1"}],
+            "profile_name": "Voice",
+            "text_parts": ["Hello"],
+            "engine": "xtts",
+        }],
+    )
+    monkeypatch.setattr(generation, "get_chapter_dir", lambda _project_id, _chapter_id: Path("/tmp/project/chapter"))
+    monkeypatch.setattr(generation, "has_behavior", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(generation, "resolve_profile_engine", lambda *_args, **_kwargs: "unexpected")
+    monkeypatch.setattr("app.db.speakers.get_profile_wavs", lambda _profile_name: "ref.wav")
+    monkeypatch.setattr("app.db.speakers.get_profile_dir", lambda _profile_name: Path("/tmp/voice"))
+
+    script = generation._build_script_for_chapter("chapter-1", "project-1", "Default Voice", safe_mode=False)
+
+    assert script == [{
+        "text": "Hello",
+        "speaker_wav": "ref.wav",
+        "id": "s1",
+        "ids": ["s1"],
+        "save_path": str(Path("/tmp/project/chapter/segments/s1.wav").absolute()),
+        "weight": 5,
+        "engine": "xtts",
+        "voice_profile_dir": str(Path("/tmp/voice")),
+    }]
 
 def test_pause_resume(clean_db, client):
     response = client.post("/api/generation/pause")

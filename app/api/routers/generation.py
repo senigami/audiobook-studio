@@ -177,6 +177,7 @@ def _build_script_for_chapter(chapter_id: str, project_id: str, default_profile:
     for group in groups:
         first = group["segments"][0]
         profile_name = group["profile_name"]
+        engine_id = group.get("engine") or resolve_profile_engine(profile_name, default_profile)
 
         # Resolve voice details
         try:
@@ -196,7 +197,6 @@ def _build_script_for_chapter(chapter_id: str, project_id: str, default_profile:
 
         processed = " ".join(group["text_parts"]).strip()
         if safe_mode:
-            engine_id = group.get("engine") or resolve_profile_engine(profile_name, default_profile)
             if has_behavior(engine_id, "sanitize_text"):
                 processed = sanitize_text(processed, get_sanitize_categories(engine_id))
             processed = safe_split_long_sentences(processed, target=get_text_split_target(engine_id))
@@ -212,6 +212,7 @@ def _build_script_for_chapter(chapter_id: str, project_id: str, default_profile:
             "ids": [s["id"] for s in group["segments"]],
             "save_path": str(seg_out.absolute()),
             "weight": max(1, len(processed)), # Store weight for orchestrator progress tracking
+            "engine": engine_id,
         }
         if vdir:
             script_entry["voice_profile_dir"] = vdir

@@ -13,6 +13,11 @@
     "synthesis"
   ],
   "behavior": {
+    "timing_markers": {
+      "ENGINE_ACTIVITY_STARTED": [
+        "[ENGINE_ACTIVITY_STARTED]"
+      ]
+    },
     "features": [
       "mixed_rendering",
       "segment_orchestration"
