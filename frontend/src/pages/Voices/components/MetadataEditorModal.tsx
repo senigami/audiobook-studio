@@ -1,7 +1,7 @@
 /**
  * MetadataEditorModal — edit voice attributes, description, tags, languages, and icon.
  *
- * Attribute vocabulary sourced from docs/specs/voice-taxonomy.json (taxonomy_version 1.0).
+ * Attribute vocabulary sourced from design-docs/specs/voice-taxonomy.json (taxonomy_version 1.0).
  * Fetched at build time via a static import so the UI works offline; the import comment
  * ties the bundled data to the taxonomy_version for auditors.
  */
@@ -14,7 +14,7 @@ import type { VoiceAttributes, VoiceMetadata } from '@/types';
 import { api } from '@/api';
 
 // ---------------------------------------------------------------------------
-// Taxonomy vocabulary — statically bundled from docs/specs/voice-taxonomy.json
+// Taxonomy vocabulary — statically bundled from design-docs/specs/voice-taxonomy.json
 // taxonomy_version "1.0". Update both this const and the source JSON when the
 // taxonomy version bumps.
 // ---------------------------------------------------------------------------

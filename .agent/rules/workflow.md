@@ -13,7 +13,7 @@ Use this file when the task changes implementation direction, migration strategy
 - Keep scope tight: touch only the files and behavior needed for the task unless a broader change is explicitly requested or required for correctness.
 - If you notice adjacent problems outside scope, mention them as follow-up work instead of silently adding them to the diff.
 - Before removing or substantially rewriting existing code, understand why it exists and verify that reason no longer applies.
-- Treat `docs/specs/` as the source of truth for product and architecture behavior. Before changing or adding user-facing behavior, route the work through the matching spec; if no matching spec exists, create one first. If a spec must change, get the user's approval, update the spec, and sweep the affected code in the same change so code and specs stay aligned.
+- Treat `design-docs/specs/` as the source of truth for product and architecture behavior. Before changing or adding user-facing behavior, route the work through the matching spec; if no matching spec exists, create one first. If a spec must change, get the user's approval, update the spec, and sweep the affected code in the same change so code and specs stay aligned.
 - Maintain the agent guidance system proactively: if the current rules, routing, or organization are getting in the way, improve them in the same spirit as any other maintainability work.
 - For Studio 2.0 work, update the relevant plan docs when the chosen architecture or rollout approach changes.
 - Do not treat plans as stale prework; they are part of implementation.

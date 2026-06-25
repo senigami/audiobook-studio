@@ -89,7 +89,7 @@ Per-project or per-chapter voice selection does not affect these stored override
 
 Voice bundles are the portable package format for moving a voice between Studio installs or preparing a voice for external distribution.
 
-The canonical bundle layout (see `docs/specs/voice-bundle-template/`) is:
+The canonical bundle layout (see `design-docs/specs/voice-bundle-template/`) is:
 
 ```
 <voice-id>/
@@ -102,7 +102,7 @@ The canonical bundle layout (see `docs/specs/voice-bundle-template/`) is:
 └── README.md           # optional — HF-compatible page (generated from voice.json by the exporter)
 ```
 
-`voice.json` is validated against `docs/specs/voice.schema.json`. Key top-level fields include `spec`, `spec_version`, `id` (must match the bundle folder name), `name`, `image`, `samples`, `languages`, `attributes`, `engines`, and `provenance`.
+`voice.json` is validated against `design-docs/specs/voice.schema.json`. Key top-level fields include `spec`, `spec_version`, `id` (must match the bundle folder name), `name`, `image`, `samples`, `languages`, `attributes`, `engines`, and `provenance`.
 
 The bundle format supports both local Studio imports and Hugging Face-compatible distribution. On Hugging Face, the `README.md` YAML front-matter wires the `widget … output.url` to `samples/preview.mp3`, making the sample playable directly on the repo page without live inference.
 

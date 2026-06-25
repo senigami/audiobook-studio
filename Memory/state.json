@@ -1,15 +1,15 @@
 {
-  "snapshot_version": 215,
-  "current_task": "Continue private site mockup polish after contextual book rail indentation verification",
-  "status": "book_rail_indentation_verified",
+  "snapshot_version": 217,
+  "current_task": "Reusable persona review pack added",
+  "status": "persona_review_pack_added",
   "last_committed_milestone": {
-    "title": "Contextual book rail indentation verified",
+    "title": "Reusable persona review pack added",
     "commit": "uncommitted",
     "notes": [
-      "Adjusted the private mock's expanded Library book hierarchy so Manuscript/Casting/Studio/Review/Publish rail rows are explicitly left-aligned and only slightly indented.",
-      "Reduced the nested chapter-list indentation under Studio and locked chapter rows to left alignment so the contextual rail reads as an outline rather than a centered button stack.",
-      "Added a focused demo regression for the contextual book rail stage row alignment contract.",
-      "Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check. Per owner instruction, did not run frontend build/build:demo and did not touch player-bar work."
+      "Added docs/personas as a reusable persona source for adversarial testing, design review, QA planning, and implementation prompts.",
+      "Persona coverage spans creative/editorial users, technical/operator users, accessibility and edge-case users, support/recovery users, release readiness, and local-first trust concerns.",
+      "Created a catalog, review-panel shortcuts, and copy-paste prompt templates so future agents can apply personas without re-deriving the taxonomy.",
+      "Verified as documentation-only work with JSON parse and git diff --check."
     ]
   },
   "active_constraints": [
@@ -35,15 +35,15 @@
     "phase_13": "deferred_release_documentation_and_distribution"
   },
   "phase_11_guidance": [
-    "Phase 11 audit entry point is plans/phase_11_audit.md.",
-    "Phase 11 historical task board is plans/implementation/phase_11_remaining_work.md.",
-    "Phase 11 completed work log is plans/implementation/phase_11_completed_work.md.",
+    "Phase 11 audit entry point is design-docs/plans/phase_11_audit.md.",
+    "Phase 11 historical task board is design-docs/plans/implementation/phase_11_remaining_work.md.",
+    "Phase 11 completed work log is design-docs/plans/implementation/phase_11_completed_work.md.",
     "Phase 11 core cleanup is closeout-ready: runtime fallbacks are removed, engine implementation is plugin-local, behavior is metadata-driven, frontend engine fallbacks are registry-driven, storage/output route exposure is hardened, and metrics/settings cleanup is complete or migration-only.",
     "The voice registry fallback bug is fixed with is_engine_locally_available in app/engines/behavior.py and a permanent API regression test.",
     "Remaining user-facing polish and manual app checks now belong to Phase 12, not Phase 11."
   ],
   "phase_12_guidance": [
-    "Phase 12 plan is plans/phases/phase_12_polish_and_cleanup.md.",
+    "Phase 12 plan is design-docs/plans/phases/phase_12_polish_and_cleanup.md.",
     "Plugin install scope clarified 2026-06-15: release scope includes ZIP upload, paste-a-GitHub-repo-URL install, and an owner-controlled official plugin registry; broad GitHub topic search/browse and richer update/pull UX are post-v2 unless explicitly promoted.",
     "Plugin registry backend verified 2026-06-15: GET /api/engines/registry and POST /api/engines/preview_github are implemented through the Studio API/bridge/TTS server path with strict GitHub preview validation; frontend integration remains the next pass.",
     "Plugin registry frontend verified 2026-06-15: Engines now renders the owner-controlled registry and pasted GitHub URL install path against the real backend APIs, using the existing trust modal flow for preview confirmation/cancel cleanup.",
@@ -91,9 +91,12 @@
     "Progress consumer ingress is now audited: main queue ignores segment topics and rogue queue.items segment fields, segment progress ETA is preserved through stale timestamp paths, and synthetic handoff completions use SEGMENT_SAVED.",
     "Segment progress bar now uses predictive ticking animation (predictive=true) and prevents visual regressions by disabling backward progress (allowBackwardProgress=false).",
     "Wiki pages now document the Phase 12 plugin-to-queue event stream contract, voice-test queue visibility rules, plugin Settings UX, WAV-first output behavior, per-voice plugin settings, voice bundle schema direction, Library list/sort controls, and Chapter Editor VCR playback."
+    ,
+    "Mixed-synthesis W1 verified 2026-06-24: generation script entries carry group engine ids, orchestrator marker/progress parsing resolves from the active group engine with timing-marker fallback to the mixed job manifest, and the mixed plugin emits an explicit ENGINE_ACTIVITY_STARTED marker before bridge rendering. W2/W3 metrics and ETA follow-up remain open.",
+    "Reusable persona review pack added 2026-06-24: docs/personas now contains a persona catalog, review panels, and prompt templates for adversarial testing and design review across creative/editorial, technical/operator, accessibility, support, privacy, release, and large-scale workflow lenses."
   ],
   "phase_13_guidance": [
-    "Phase 13 plan is plans/phases/phase_13_release_documentation_and_distribution.md.",
+    "Phase 13 plan is design-docs/plans/phases/phase_13_release_documentation_and_distribution.md.",
     "Phase 13 owns release documentation, docs/demo assets, install validation, API docs, plugin author docs, release notes, and promotional materials."
   ],
   "codeql_context": {
@@ -111,14 +114,14 @@
     "Prepare the voice icon and tagging implementation to improve large-library usability."
   ],
   "verification": {
-    "latest_backend_focus": "2026-06-15: Official plugin registry and GitHub URL plugin preview backend verified. Focused API/engine/TTS client tests passed, plugin loader/validation regressions passed, ruff passed for touched backend/test files, and git diff --check passed.",
+    "latest_backend_focus": "2026-06-24: Mixed-synthesis W1 marker/progress resolution verified. Affected API, engine-behavior, orchestration, and mixed-plugin tests passed (435 tests); Ruff passed for touched backend/plugin/test files; git diff --check passed.",
     "latest_frontend_focus": "2026-06-16: Private site mockup contextual book rail indentation verified. Expanded Library book stage rows and Studio chapter rows are left-aligned with lighter nested indentation. Focused demo Vitest and git diff --check passed; frontend build/build:demo were intentionally skipped per owner instruction.",
     "latest_queue_focus": "2026-05-30: Main queue consumer ingress audited against debug logs; queue.items can no longer inject active segment fields, and terminal lifecycle/queue clears still reset stale segment state.",
     "latest_websocket_focus": "2026-05-30: Segment handoff completions emit SEGMENT_SAVED, websocket segment helpers pass explicit segment capability, and same-progress segment ETA updates are no longer coalesced.",
     "latest_lint_focus": "2026-06-08: ruff passed for app/api/routers/generation.py and tests/api/test_api_generation.py; commit hook also ran Ruff/ESLint auto-fix checks cleanly.",
     "latest_frontend_event_stream_focus": "2026-05-22: Live Output route renamed to /event-stream and consumer filter toggles implemented; focused Vitest passed, full frontend Vitest passed (580 tests), frontend build passed, frontend lint passed, and git diff --check passed.",
     "latest_frontend_live_output_ownership": "2026-05-22: Removed the false jobs-state ownership from tts.logs so the Live Output subscribers column now reflects actual consumer handling.",
-    "latest_diff_check": "2026-06-15: git diff --check passed after the official plugin registry and GitHub URL preview backend integration.",
+    "latest_diff_check": "2026-06-24: git diff --check passed after adding docs/personas reusable review pack.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."
@@ -130,11 +133,13 @@
     "memory": "Update Memory/state.json and Memory/session_logs.md after verified milestones; update .agent rules only for durable repo-level guidance."
   },
   "completed_followups": [
+    "2026-06-24: Added docs/personas as a reusable persona review pack. The pack includes a canonical persona catalog, task-specific review panels, and copy-paste prompt templates for adversarial testing, design review, QA planning, support triage, and release readiness. Verified with JSON Memory parse and git diff --check.",
     "2026-06-16: Fixed the private mock contextual book rail indentation. The expanded Library book hierarchy now left-aligns Manuscript/Casting/Studio/Review/Publish rows, reduces the nested outline offset, and applies lighter chapter indentation under Studio. Added focused demo coverage for the rail-stage alignment contract. Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.",
+    "2026-06-24: Verified mixed-synthesis W1 marker/progress resolution. Script entries carry group engine ids, mixed handler emits explicit ENGINE_ACTIVITY_STARTED markers, timing-marker matching falls back to the mixed job manifest for generic markers, active-engine progress parsing switches per group, and live-events specs were bumped to 1.6.1. Verified with affected backend/plugin suite, Ruff, git diff --check, and three adversarial review rounds.",
     "2026-06-16: Expanded the private mock Voice Profile Editor taxonomy and restored reviewable voice variation support. Base voice metadata now uses dropdowns for Primary Role, Entity Type, Gender, and Age with Unknown, token/pill pickers for Languages, Dialect / Vocal Origin, and Base Voice Qualities, and Studio Voice is now a Dark Fiction Narrator with six visible variations. Added a Voice variations editor with emotion tags, performance style tags, intensity, pacing, energy, and upload/test/default actions. Verified with npm -C frontend run test -- demoApp.test.tsx, npm -C frontend run lint, and git diff --check; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.",
     "2026-06-16: Reused the shared VoicePortrait system across voice cards, Voice Lab, Voice Profile Editor, and the Edit Metadata preview. The profile editor sidebar/header/appearance preview now show the same raster/default portraits, the metadata modal includes a live profile image preview, and card overflow Edit metadata once again opens that metadata modal. Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.",
     "2026-06-16: Updated Aria to use the default taxonomy-derived adult female clear narrator portrait instead of the initials-only fallback. Focused demo coverage now expects six local voice portraits and explicitly verifies Aria's default portrait label. Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check; skipped frontend build/build:demo per owner instruction.",
-    "2026-06-16: Completed the voice profile image prompt mockup pass. The silhouette SVG library now includes solid color backgrounds, two 1024 x 1024 raster examples are stored under frontend/public/demo-voice-raster and wired into Studio Voice plus DeepCast-M, and the Voice Profile Editor Generate prompt control now displays a reusable prompt derived from the selected voice's taxonomy, description, and avatar color for Studio/export/Hugging Face profile art. Added plans/site_redesign_rollout/11_voice_portrait_asset_prompt.md and focused demo coverage for raster, SVG, local no-image, Discover no-image, and prompt generation paths. Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.",
+    "2026-06-16: Completed the voice profile image prompt mockup pass. The silhouette SVG library now includes solid color backgrounds, two 1024 x 1024 raster examples are stored under frontend/public/demo-voice-raster and wired into Studio Voice plus DeepCast-M, and the Voice Profile Editor Generate prompt control now displays a reusable prompt derived from the selected voice's taxonomy, description, and avatar color for Studio/export/Hugging Face profile art. Added design-docs/plans/site_redesign_rollout/11_voice_portrait_asset_prompt.md and focused demo coverage for raster, SVG, local no-image, Discover no-image, and prompt generation paths. Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.",
     "2026-06-16: Replaced the private mock's inline generic voice SVG drawings with a reusable transparent silhouette image library under frontend/public/demo-voice-silhouettes. The mapping now covers female narrator, male narrator, senior, child, light/fairy, gruff/ogre, and neutral/NB portraits, while metadata-driven background, accent, and border colors continue to reflect tone and class. Rebuilt docs/demo so the showcase includes docs/demo/demo-voice-silhouettes. Verified with frontend build, frontend build:demo, focused demo Vitest, frontend lint, JSON Memory parse, and git diff --check; Browser visual verification remains blocked by the in-app browser security policy for localhost:5173.",
     "2026-06-16: Added taxonomy-driven generic voice portraits to the private site mockup. The portrait recipe maps gender/age to silhouette shape, tone to background/accent colors, and class to border color; local and Discover voices include generated portrait examples plus initials-only fallback examples. Voice Lab uses the same portrait system at detail size. Verified with frontend build, frontend build:demo, focused demo Vitest, frontend lint, JSON Memory parse, and git diff --check; Browser visual verification was blocked by the in-app browser security policy for localhost:5173.",
     "2026-06-16: Completed the full-site Apple-style private mockup polish pass beyond the home page. Voices, Activity, Engines, Integrations, Settings, and book workflow tabs now have stronger pane headers, status cards, responsive layout classes, and cleaner native-control semantics for rail navigation, stage links, collapse controls, chapter action menus, and clickable chips. Verified with Browser desktop/mobile checks, git diff --check, frontend lint, frontend build, frontend build:demo, full frontend Vitest, and JSON Memory parse.",
@@ -143,7 +148,7 @@
     "2026-06-15: Verified and hardened the official plugin registry/GitHub URL preview backend. The Studio API now exposes registry metadata and a GitHub preview path through the bridge/TTS server, with strict github.com URL normalization, clone timeout cleanup, symlink rejection, loader manifest validation, fixed validation errors, specs aligned, and focused backend regressions green.",
     "2026-06-15: Reconciled plugin installation planning docs so v2.0 release scope is ZIP upload, paste-a-GitHub-repo-URL install, and an owner-controlled official plugin registry. Broad GitHub topic search/browse and richer update/pull UX are now consistently post-v2; the current mock already matches this scope.",
     "2026-06-15: Corrected and verified Gemini's interactive site mockup pass. The private mock no longer calls features planned/current-status, Voice actions and shared mock controls use native button semantics, Publish shows runnable quality controls instead of coming-soon chips, and Plugin Registry previews use owner-controlled Audiobook Factory repo URLs for XTTS/Voxtral migration direction.",
-    "2026-06-15: Created the first-pass roadmap/mock reconciliation inventory at plans/site_redesign_rollout/10_mock_reconciliation.md. It reconciles shipped app abilities, stale/mock-only controls, old text/copy parity, release dependencies, and future labels before any mock/site edits.",
+    "2026-06-15: Created the first-pass roadmap/mock reconciliation inventory at design-docs/plans/site_redesign_rollout/10_mock_reconciliation.md. It reconciles shipped app abilities, stale/mock-only controls, old text/copy parity, release dependencies, and future labels before any mock/site edits.",
     "2026-06-13: The manuscript chapter text panel now drops the empty bottom footer when no commit action is available, so the analysis strip no longer leaves extra blank space under the stats row.",
     "2026-06-13: The shared book rail chapter rows now match the mock more closely: StatusOrb sits before the chapter number/title, the active row uses a simple tinted left-bar highlight, row separators were removed, and the chapter action menu is shown only for the selected chapter.",
     "2026-06-13: The shared left sidebar now exposes a draggable resize handle that persists the expanded rail width and shifts the main column instead of overlaying it; verified with focused NavRail tests, full frontend Vitest, frontend lint, frontend build, git diff --check, and a live browser drag check.",

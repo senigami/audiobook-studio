@@ -40,7 +40,7 @@ R1-verified tests added/updated for both bake handlers and `handleQueueChapter`.
 
 Chapter reset (and "Rebuild") cancels the active render, then clears the chapter's segments to `unprocessed`. But cancellation is cooperative: the engine subprocess keeps emitting `[SEGMENT_SAVED]` for its in-flight segment until it stops. Those straggler saves were re-marking segments `audio_status="done"` *after* the reset committed, so the next render saw every group "done" and reused stale audio instead of re-synthesizing (seen as a no-synthesis re-stitch).
 
-**What changed (`docs/specs/queue-jobs.md` → 1.3.0, invariant I17):**
+**What changed (`design-docs/specs/queue-jobs.md` → 1.3.0, invariant I17):**
 
 - `orchestrator.cancel()` now synchronously detaches the cancelled task's engine-log listener (right after `on_cancel()` sets the cancel flag), so straggler output stops reaching the orchestrator the moment the user cancels.
 - Both `[SEGMENT_SAVED]` → `audio_status="done"` write sites — the orchestrator `log_listener` and the xtts handler's `chapter_on_output` — now drop the write while the task is cancelled. A save that races the listener detach is still ignored.
@@ -51,7 +51,7 @@ This complements the earlier `force_rerender` fix (which made the explicit Rebui
 
 ### Progress-routing unification — single-source contract at the event-builder layer
 
-Shipped the complete §4A progress contract. `docs/specs/progress-presentation.md` bumped to 1.4.2; `docs/specs/live-events.md` bumped to 1.5.2.
+Shipped the complete §4A progress contract. `design-docs/specs/progress-presentation.md` bumped to 1.4.2; `design-docs/specs/live-events.md` bumped to 1.5.2.
 
 **What changed:**
 
@@ -62,8 +62,8 @@ Shipped the complete §4A progress contract. `docs/specs/progress-presentation.m
 - **Snapshot enrichment (PI6).** `jobs_snapshot` and running-queue row serializers call `enrich(sample=False)` — read-only enrichment without mutating the ETA ring — so hydration frames carry the same §4A values as live frames.
 - **LOADING_MODEL UX (§2.6).** During the model-load window (status `preparing`, before the first engine marker), the backend emits `indeterminate: true` + `reasonCode: "LOADING_MODEL"`. The frontend renders a pulsing indeterminate bar and "loading voice model…" copy; reverts to determinate on the next frame.
 - **Two-layer floor clarification (§2.5).** Documented that the server `enrich` provides monotonically-clamped values while the client `progressMemory` is the display floor authority — the two layers are complementary, not contradictory.
-- **New ADR-0012** (`docs/decisions/ADR-0012-enrich-kernel-at-event-builder-layer.md`) records the problem, rejected alternative (`broadcast_job_updated` as chokepoint), D7 lock hierarchy, and consequences.
-- Five superseded progress plans marked at their heads. See `plans/progress_routing_unification/02-plan-reconciliation.md`.
+- **New ADR-0012** (`design-docs/decisions/ADR-0012-enrich-kernel-at-event-builder-layer.md`) records the problem, rejected alternative (`broadcast_job_updated` as chokepoint), D7 lock hierarchy, and consequences.
+- Five superseded progress plans marked at their heads. See `design-docs/plans/progress_routing_unification/02-plan-reconciliation.md`.
 
 ---
 

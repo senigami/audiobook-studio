@@ -43,7 +43,7 @@
 
 # 2026-06-03 - Document event stream processing schema
 
-- Added `plans/implementation/event_stream_processing_schema.md` as the canonical queue/item lifecycle and voice-test processing schema for developers.
+- Added `design-docs/plans/implementation/event_stream_processing_schema.md` as the canonical queue/item lifecycle and voice-test processing schema for developers.
 - Linked the new schema from the plugin guide, broadcaster contract, and live event stream contract so the queue and voice-test ownership rules are easier to find.
 - Verified the existing voice-test regressions still pass, including the backend isolation test and the frontend queue-refresh test.
 
@@ -284,7 +284,7 @@
 
 # 2026-05-22 - Create durable Studio Event Broadcaster contract plan document
 
-- Authored [studio_event_broadcaster_contract.md](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/plans/implementation/studio_event_broadcaster_contract.md) defining the contract for the next event stream refactor.
+- Authored [studio_event_broadcaster_contract.md](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/design-docs/plans/implementation/studio_event_broadcaster_contract.md) defining the contract for the next event stream refactor.
 - Specified the backend broadcaster architecture, canonical envelope structure, strict core topics (`queue.items`, `chapters.progress`, `segments.progress`, etc.), plugin-private namespaced topics (`plugins.<plugin_id>.<area>`), typed helper APIs, and consumer surface registries.
 - Verified plan document formatting with `git diff --check`.
 
@@ -430,11 +430,11 @@
 - **Plugin dependency UX**: Confirmed complete via Engines panel "Install Deps" action and XTTS-specific feedback.
 - **Per-voice plugin settings**: Confirmed complete and rendered in ScriptEditor via JsonSchemaForm.
 - **Plugin boundary cleanup**: Confirmed complete for portable core logic; studio adapters now handle app-specific bridges.
-- Updated `plans/phases/phase_12_polish_and_cleanup.md` and `plans/master_agnostic_tasks.md` to reflect actual completion status.
+- Updated `design-docs/plans/phases/phase_12_polish_and_cleanup.md` and `design-docs/plans/master_agnostic_tasks.md` to reflect actual completion status.
 - Explicitly deferred composite/mixed renaming to Phase 13 to maintain final-polish stability.
 - **Phase 12 Audit Completion**: Reconciled the Phase 12 and Master-Agnostic boards against actual repo state.
 - **Verified Complete**: Library list/sort, Plugin dependency UX, Per-voice settings, Plugin boundary cleanup, Chapter Editor tab removal, VCR controls, Plugin ZIP import/delete, Queue output metadata.
-- **Updated Plans**: Synchronized `plans/phases/phase_12_polish_and_cleanup.md`, `plans/master_agnostic_tasks.md`, and `Memory/state.json` to reflect audited status.
+- **Updated Plans**: Synchronized `design-docs/plans/phases/phase_12_polish_and_cleanup.md`, `design-docs/plans/master_agnostic_tasks.md`, and `Memory/state.json` to reflect audited status.
 - **Next Slice Selection**: Recommended **Legacy jobs API retirement** as the first implementation slice to resolve open Phase 12 items.
 
 # 2026-05-15 - Standalone First-Party TTS Repo Readiness Added
@@ -461,9 +461,9 @@
 
 - Fixed and verified the voice registry fallback path by replacing the missing `is_built_in` import with manifest-driven `is_engine_locally_available`.
 - Added permanent regression coverage for TTS Server-unavailable voice listing behavior.
-- Reconciled `plans/master_agnostic_plan.md` and `plans/master_agnostic_tasks.md` against actual app/plugin files and route searches.
-- Marked Phase 11 closeout-ready and moved remaining polish/manual-QA work into new `plans/phases/phase_12_polish_and_cleanup.md`.
-- Renamed the previous release documentation phase to `plans/phases/phase_13_release_documentation_and_distribution.md`.
+- Reconciled `design-docs/plans/master_agnostic_plan.md` and `design-docs/plans/master_agnostic_tasks.md` against actual app/plugin files and route searches.
+- Marked Phase 11 closeout-ready and moved remaining polish/manual-QA work into new `design-docs/plans/phases/phase_12_polish_and_cleanup.md`.
+- Renamed the previous release documentation phase to `design-docs/plans/phases/phase_13_release_documentation_and_distribution.md`.
 - Added Phase 12 pre-change verification gates for migration idempotency, plugin boundary leaks, recovery coverage, frontend state/store pressure, helper/service ownership, and corrupt-state handling.
 - Added the initial Phase 12 product backlog: Library list/sort, plugin dependency UX, plugin import/delete, plugin compatibility verification, per-voice plugin controls, voice settings placement, Hugging Face-compatible voice bundles, voice icons/tags, external controller API readiness, queue output metadata, Chapter Editor cleanup, and forgotten-request scanning.
 - Marked direct GitHub plugin search/download, Hugging Face direct search/download, and actual Claude/LLM controller plugins as future/post-v2.0 work rather than Phase 12 implementation.
@@ -526,21 +526,21 @@
 
 # 2026-05-06 - Phase 11 Reported Regressions Fixed Pending Manual QA
 
-- Mapped four user-reported regressions into `plans/implementation/phase_11_remaining_work.md` and used bounded Antigravity prompts for the non-trivial fixes.
+- Mapped four user-reported regressions into `design-docs/plans/implementation/phase_11_remaining_work.md` and used bounded Antigravity prompts for the non-trivial fixes.
 - Verified and tightened fixes for Settings engine test audio without a default voice, slow Library project listing, blank chapter enqueue enablement messages, and duplicate React option keys.
 - Added permanent regression tests for engine test samples, project list migration avoidance, enqueue error messages, and duplicate frontend option keys.
 - Focused backend/frontend tests and frontend build passed; remaining status is manual app verification for the four reported flows.
 
 # 2026-05-05 - Phase 11 Planning Docs Consolidated
 
-- Consolidated Phase 11 planning into `plans/phase_11_audit.md`, `plans/phases/phase_11_v2_only_runtime_cleanup.md`, and `plans/implementation/phase_11_remaining_work.md`.
-- Added `plans/implementation/phase_11_completed_work.md` so future summaries can recover completed Phase 11 work after stale docs were removed.
+- Consolidated Phase 11 planning into `design-docs/plans/phase_11_audit.md`, `design-docs/plans/phases/phase_11_v2_only_runtime_cleanup.md`, and `design-docs/plans/implementation/phase_11_remaining_work.md`.
+- Added `design-docs/plans/implementation/phase_11_completed_work.md` so future summaries can recover completed Phase 11 work after stale docs were removed.
 - Removed stale implementation handoff, inventory, audit report, audit plan, and behavior-cutover docs that duplicated or contradicted the current task board.
 - Updated local memory references so future sessions start from the consolidated audit index and remaining-work task board.
 
 # 2026-05-05 - Phase 11 Docs Organized Around Active Open Work
 
-- Added `plans/phase_11_audit.md` as a central index for Phase 11 planning docs.
+- Added `design-docs/plans/phase_11_audit.md` as a central index for Phase 11 planning docs.
 - Reconciled the active phase plan, inventory, and handoff so the remaining work is listed in one place.
 - Updated the inventory snapshot to distinguish current open work from historical audit notes.
 
@@ -573,8 +573,8 @@
 
 # 2026-04-30 - Phase 11 Initial Inventory Created
 
-- Created `plans/implementation/phase_11_v1_cleanup_inventory.md` as the audit-first working checklist for v1/fallback cleanup.
-- Restored `plans/implementation/phase_11_session_handoff.md`, which memory/session logs referenced but the workspace was missing.
+- Created `design-docs/plans/implementation/phase_11_v1_cleanup_inventory.md` as the audit-first working checklist for v1/fallback cleanup.
+- Restored `design-docs/plans/implementation/phase_11_session_handoff.md`, which memory/session logs referenced but the workspace was missing.
 - Used a bounded Antigravity/Gemini explorer for the grep-heavy audit sweep, then Codex reviewed and integrated the findings.
 - Classified boot/watchdog env mutation, bridge/local registry fallback, duplicate built-in XTTS/Voxtral metadata, fallback-asserting tests, plugin-internal legacy dependencies, and migration/data compatibility separately.
 - Identified the first behavior-changing slice: rewrite fallback-readiness tests, remove `USE_TTS_SERVER=0` mutation from boot/watchdog failure paths, and make unavailable TTS Server state visible instead of ready fallback.
@@ -602,7 +602,7 @@
 
 - Cleaned `.agent/notes.md` so it only contains durable repo-worthy guidance instead of session state.
 - Updated ignored `Memory/` files with the actual current handoff state: active branch `studio2/phase-11`, Phase 10 wrapped, Phase 11 ready for audit-first cleanup, and Phase 12 deferred.
-- Added `plans/implementation/phase_11_session_handoff.md` as the repo-visible handoff artifact for the next session.
+- Added `design-docs/plans/implementation/phase_11_session_handoff.md` as the repo-visible handoff artifact for the next session.
 - Updated the handoff to explicitly use `Memory/` for persistent Studio 2.0 session memory.
 - Recorded that Antigravity/Gemini should be used as a bounded worker with JSON-style prompts to minimize token usage, while Codex owns direction, verification, and pushback.
 - Recorded that Studio 2.0 should keep `USE_TTS_SERVER=True` and `USE_STUDIO_ORCHESTRATOR=True` as intended defaults.
@@ -971,7 +971,7 @@
 ## 2026-04-19 - Phase 6 Checklist Synced After Audit
 
 - Audited the Phase 6 implementation against the phase plan and confirmed the product deliverables are complete.
-- Updated `plans/phases/phase_6_frontend_foundations.md` so the checklist and verification state match the current code and test coverage.
+- Updated `design-docs/plans/phases/phase_6_frontend_foundations.md` so the checklist and verification state match the current code and test coverage.
 - Confirmed the remaining phase work is cleanup/push-level rather than feature implementation.
 - Checkpoint commit created: `4338d26 Mark Phase 6 checklist complete`
 
@@ -1006,7 +1006,7 @@
   - `e4be987 Fix progress hook test expectations`
 ## 2026-05-01 - Phase 11 Plugin Behavior Cutover Planned
 
-- Recorded the next Phase 11 cleanup slice at `plans/implementation/phase_11_plugin_behavior_cutover.md`.
+- Recorded the next Phase 11 cleanup slice at `design-docs/plans/implementation/phase_11_plugin_behavior_cutover.md`.
 - User review identified remaining app-level engine-name coupling after the v2-only bridge migration: behavior decisions should use plugin-declared behavior rather than hardcoded `voxtral`/`xtts` checks.
 - Updated memory to treat the handler generator migration as checkpointed through `126aac9` and to make the plugin behavior helper the next implementation focus.
 - Chosen direction: hard cutover for new behavior logic, with legacy stored fields read only as migration inputs where needed to avoid data loss.
@@ -1046,7 +1046,7 @@
 ## 2026-05-01 - Phase 11 Plan Realigned
 
 - Reviewed Antigravity planning files for organizational cleanup and engine-agnostic conversion.
-- Updated `plans/phases/phase_11_v2_only_runtime_cleanup.md` to reflect that Phase 11 remains active and now includes engine-agnostic cleanup beyond the initial fallback removal work.
+- Updated `design-docs/plans/phases/phase_11_v2_only_runtime_cleanup.md` to reflect that Phase 11 remains active and now includes engine-agnostic cleanup beyond the initial fallback removal work.
 - Added guardrails against unsafe hard deletions or public route renames: preserve `xtts_audio`, `/out/xtts`, compatibility shims, and user-data paths until aliases/migrations are verified.
 - `git diff --check` passed for the documentation update.
 
@@ -1060,7 +1060,7 @@
 ## 2026-05-01 - Worker Registry Slice Corrected
 
 - Reviewed the claimed job-dispatch registry slice and confirmed main-app engine-name seams still exist in `app/jobs/worker.py` and `app/jobs/registry.py`.
-- Corrected `plans/implementation/phase_11_v1_cleanup_inventory.md` so Slice B is marked partial instead of complete.
+- Corrected `design-docs/plans/implementation/phase_11_v1_cleanup_inventory.md` so Slice B is marked partial instead of complete.
 # 2026-05-03 - Phase 11 Legacy Runtime Purification Audit (In Progress)
 
 - [CORRECTION] Previous session claim of "Purification Completed" was premature.
@@ -1267,7 +1267,7 @@
 - **Boundary Finding**: Identified direct Studio imports in `tts_xtts` and `tts_voxtral`. Portable `plugin/core` imports of `app.db` or app behavior helpers are Phase 12 cleanup violations; `plugin/studio` imports are app-side adapter debt that should move behind an explicit Studio plugin context/contract.
 - **Risk Identified**: `useChapterEditorState` and `ScriptView` letter-by-letter span rendering may create frontend performance pressure for large books; profile before broad refactoring.
 - **Verified**: Startup reconciliation and corrupt-state handling (`state.json.corrupt`) are robust and functional.
-- **Updated Plans**: Updated `plans/phases/phase_12_polish_and_cleanup.md` with detailed audit findings and marked audit task as complete.
+- **Updated Plans**: Updated `design-docs/plans/phases/phase_12_polish_and_cleanup.md` with detailed audit findings and marked audit task as complete.
 
 # 2026-05-14 - Phase 12 Plugin Core Boundary Cleanup Verified
 
@@ -1314,7 +1314,7 @@
 
 # 2026-05-15 - Phase 12 Master Agnostic Completion Added
 
-- Updated Phase 12 planning so completing the remaining `plans/master_agnostic_tasks.md` conversion checklist is an explicit Phase 12 requirement.
+- Updated Phase 12 planning so completing the remaining `design-docs/plans/master_agnostic_tasks.md` conversion checklist is an explicit Phase 12 requirement.
 - Phase 12 exit criteria now require remaining master agnostic items to be completed or explicitly deferred with rationale before Phase 13.
 
 # 2026-05-15 - Phase 12 Storage Abstraction Layer Checkpoint Ready
@@ -1433,7 +1433,7 @@
 
 # 2026-05-16 - Phase 12 Plan Boards Synced
 
-- Marked Chapter Editor cleanup complete in `plans/phases/phase_12_polish_and_cleanup.md` and `plans/master_agnostic_tasks.md`.
+- Marked Chapter Editor cleanup complete in `design-docs/plans/phases/phase_12_polish_and_cleanup.md` and `design-docs/plans/master_agnostic_tasks.md`.
 - Checkpointed the docs sync at commit `9bbdfef` after `jq empty Memory/state.json` and `git diff --check` passed for the touched planning files.
 - Next active Phase 12 candidate is queue output metadata.
 
@@ -1609,7 +1609,7 @@
 
 # 2026-05-21 - Live Event Stream Contract Tightened
 
-- Created and tightened `plans/implementation/live_event_stream_contract.md` as the source of truth for the frontend live event stream.
+- Created and tightened `design-docs/plans/implementation/live_event_stream_contract.md` as the source of truth for the frontend live event stream.
 - Added executable TypeScript schemas and normalizer helpers in `frontend/src/api/contracts/liveEvents.ts`, with the socket bus reusing the shared `StudioSocketEnvelope` type.
 - Tightened runtime compatibility so nested `job_updated.updates` payloads are flattened before normalization and legacy `segment_progress.segment_id` is preserved as active segment identity in the debug stream.
 - Defined concrete live event topics, categories, event kinds, discriminated event shapes, and subscriber observation records.
@@ -1928,7 +1928,7 @@
 
 # 2026-06-07 - Queue and event-stream audit saved
 
-- Saved a repo audit report at `docs/audits/voice_queue_event_stream_audit.md`.
+- Saved a repo audit report at `design-docs/audits/voice_queue_event_stream_audit.md`.
 - Captured the current queue writers, queue/topic ownership, Voxtral mapping, mixed-render mapping, and the main contract discrepancies for the next voice slice.
 - Synced Memory state to the audit milestone.
 
@@ -1945,19 +1945,19 @@
 
 # 2026-06-07 - Queue and event-stream audit adversarial review integrated
 
-- Updated `docs/audits/voice_queue_event_stream_audit.md` with adversarial-review corrections.
+- Updated `design-docs/audits/voice_queue_event_stream_audit.md` with adversarial-review corrections.
 - Split persistent queue-row ownership from live `queue.items` transport ownership.
 - Escalated bake/segment/assembly missing durable queue rows as a high-priority correctness gap, clarified frontend overlay-vs-row authority, and added the unresolved voice-preview MP3 policy decision.
 
 # 2026-06-07 - Queue and event-stream audit made worker-handoff ready
 
-- Expanded `docs/audits/voice_queue_event_stream_audit.md` into a standalone handoff document for implementation workers without prior queue context.
+- Expanded `design-docs/audits/voice_queue_event_stream_audit.md` into a standalone handoff document for implementation workers without prior queue context.
 - Added evidence anchors, explicit objectives and non-goals, priority ordering, files likely in scope, suggested first failing tests, acceptance criteria, and verification commands.
 - Kept the implementation decisions separate from audit findings so product choices such as voice-preview MP3 policy are not assumed.
 
 # 2026-06-07 - Queue and event-stream audit split into measurable stages
 
-- Broke the implementation plan in `docs/audits/voice_queue_event_stream_audit.md` into small independently verifiable slices.
+- Broke the implementation plan in `design-docs/audits/voice_queue_event_stream_audit.md` into small independently verifiable slices.
 - Added per-slice scope, exclusions, measurable exit criteria, suggested tests, and verification commands.
 - Renamed the worker detail sections to match the slice numbers so the document has one staged implementation path.
 
@@ -2155,7 +2155,7 @@
 
 # 2026-06-15 - First-pass mock reconciliation inventory created
 
-- Created `plans/site_redesign_rollout/10_mock_reconciliation.md` as an inventory-only reconciliation before any mock/site edits.
+- Created `design-docs/plans/site_redesign_rollout/10_mock_reconciliation.md` as an inventory-only reconciliation before any mock/site edits.
 - Integrated read-only area reports for book pipeline, voices/Voice Lab, platform, shell/activity/player/onboarding/copy, and release/showcase/demo bundle.
 - Captured a master matrix, release/post-v2/aspirational future labels, and ready-to-send Gemini Pro / Flash execution packets for the next pass.
 - Owner clarified that the private mock should be an interactive future-state prototype: sub-sentence assignment should feel usable in the mock, GitHub repo URL plugin install and API generate/retrieve are release-relevant, shareable voice bundle export/download is core, and future API config controls may be interactive in the mock even if live implementation defers them.
@@ -2238,7 +2238,7 @@
 - Updated every demo voice silhouette SVG to include its own flat solid background color so assets work outside the card frame and match the requested Hugging Face/export direction.
 - Added two 1024 x 1024 raster voice profile examples under `frontend/public/demo-voice-raster`: warm narrator and gruff character.
 - Wired the raster examples into the mock with `portraitImage` overrides while keeping SVG fallback portraits and initials-only fallback examples.
-- Added `plans/site_redesign_rollout/11_voice_portrait_asset_prompt.md` with the reusable solid-background 1024 x 1024 prompt contract.
+- Added `design-docs/plans/site_redesign_rollout/11_voice_portrait_asset_prompt.md` with the reusable solid-background 1024 x 1024 prompt contract.
 - Wired that same prompt contract into the Voice Profile Editor `Generate prompt` control, deriving prompt text from the selected voice's taxonomy, description, and avatar color.
 - Added focused demo coverage for raster portraits, SVG portraits, local no-image fallback, Discover no-image fallback, and the generated prompt.
 - Verified with `npm -C frontend run test -- demoApp.test.tsx`, `node -e` JSON parse, and `git diff --check`; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.
@@ -2272,3 +2272,18 @@
 - Added a Voice variations editor surface with selectable variation rows, emotion tags, performance style tags, intensity, pacing, energy, and upload/test/default controls.
 - Updated card/lab/profile displays so primary role and variation count are visible.
 - Verified with `npm -C frontend run test -- demoApp.test.tsx`, `npm -C frontend run lint`, `node -e` JSON parse, and `git diff --check`; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.
+
+# 2026-06-24 - Mixed-synthesis W1 marker resolution verified
+
+- Implemented W1 from `design-docs/design-docs/plans/mixed-synthesis-fused-proposal`: generation script entries now carry each render group's resolved engine, and orchestrator timing/progress parsing resolves from the active group engine.
+- Mixed handler now emits a bracketed `[ENGINE_ACTIVITY_STARTED]` marker before each bridge render, with the mixed manifest declaring that marker; timing marker matching falls back to the job/mixed manifest when the child manifest does not match the generic marker.
+- Added pending engine-activity interval handling so the first captured `model_load_seconds` closes on the correct confirmation point without leaking into later groups; W2 metric accumulation and W3 ETA suspension remain follow-up work.
+- Updated `design-docs/specs/live-events.md` and `design-docs/specs/README.md` to version 1.6.1.
+- Verified with TDD red/green evidence, `./venv/bin/python -m pytest tests/api/test_api_generation.py tests/engines/test_engine_behavior.py tests/orchestration plugins/tts_mixed/tests/test_mixed_handler.py -q` (435 passed), Ruff, `git diff --check`, and three adversarial review rounds.
+
+# 2026-06-24 - Persona review pack added
+
+- Added `design-docs/personas/` as a reusable persona source for adversarial testing, design review, QA planning, support triage, and release readiness.
+- Created a canonical persona catalog covering creative/editorial users, technical/operator users, accessibility and edge cases, support/recovery, privacy/security, release readiness, and large-catalog workflows.
+- Added review-panel shortcuts and prompt templates so future agents can apply persona lenses without re-deriving the taxonomy.
+- Verified with JSON Memory parse and `git diff --check`.

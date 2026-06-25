@@ -5,7 +5,7 @@ Covers:
 - A3: taxonomy_version reader — unknown major version warns but loads
 - D7: missing attributes → is_untagged=True
 - Round-trip: valid attributes pass through unchanged
-- Schema conformance: docs/specs/voice-bundle-template/voice.json passes strict
+- Schema conformance: design-docs/specs/voice-bundle-template/voice.json passes strict
 """
 
 import json
@@ -264,9 +264,9 @@ class TestSchemaConformance:
         import jsonschema
 
         repo_root = Path(__file__).resolve().parents[2]
-        schema = json.loads((repo_root / "docs/specs/voice.schema.json").read_text())
+        schema = json.loads((repo_root / "design-docs/specs/voice.schema.json").read_text())
         instance = json.loads(
-            (repo_root / "docs/specs/voice-bundle-template/voice.json").read_text()
+            (repo_root / "design-docs/specs/voice-bundle-template/voice.json").read_text()
         )
         # Should not raise
         jsonschema.validate(instance, schema)

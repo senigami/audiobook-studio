@@ -8,7 +8,7 @@ facet filtering, and the AI casting assistant that suggests voices for character
 
 ## Tag taxonomy
 
-Attributes come from a fixed taxonomy (`docs/specs/voice-taxonomy.json`, v1.0). The table
+Attributes come from a fixed taxonomy (`design-docs/specs/voice-taxonomy.json`, v1.0). The table
 below lists each field, its cardinality, and the accepted values.
 
 | Field | Cardinality | Accepted values |

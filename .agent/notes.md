@@ -11,4 +11,4 @@ This file is for durable repo-specific learnings that help future work but do no
 ## Durable Project Notes
 
 - Studio 2.0 runtime work should treat the managed TTS Server and Studio orchestrator as the intended production defaults. Do not flip production defaults back to older behavior to hide test failures.
-- Session handoffs, branch status, and temporary CI context belong in the ignored `Memory/` directory or in explicit phase handoff artifacts under `plans/implementation/`, not in this repo-persistent notes file.
+- Session handoffs, branch status, and temporary CI context belong in the ignored `Memory/` directory or in explicit phase handoff artifacts under `design-docs/plans/implementation/`, not in this repo-persistent notes file.

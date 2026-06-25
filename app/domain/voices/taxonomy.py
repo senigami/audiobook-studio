@@ -1,6 +1,6 @@
 """Voice taxonomy validation (Phase A — voice metadata plan).
 
-Loads docs/specs/voice-taxonomy.json and docs/specs/voice.schema.json to provide:
+Loads design-docs/specs/voice-taxonomy.json and design-docs/specs/voice.schema.json to provide:
   - controlled-vocabulary validation for ``attributes`` fields
   - lenient degrading: unknown enum values dropped from ``attributes``, appended to ``tags``
   - ``taxonomy_version`` compatibility check (unknown major version → warning, still loads)

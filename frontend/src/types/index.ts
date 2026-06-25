@@ -250,7 +250,7 @@ export interface Speaker {
   updated_at: number;
 }
 
-/** Voice attributes — controlled vocabularies per docs/specs/voice-taxonomy.json v1.0 */
+/** Voice attributes — controlled vocabularies per design-docs/specs/voice-taxonomy.json v1.0 */
 export interface VoiceAttributes {
   class?: string;
   gender?: string;

@@ -4,7 +4,7 @@
  * This is the authoritative visual source of truth for building UI in this app.
  * Every token, type rule, and component state shown here is the adopted standard.
  * Code that contradicts it is a bug. Tokens and type auto-derive from tokens.css
- * (zero drift) and this page aligns with docs/specs/design-system.md.
+ * (zero drift) and this page aligns with design-docs/specs/design-system.md.
  *
  * Sections (13):
  *   1. Principles        — design tenets
@@ -279,7 +279,7 @@ const PrinciplesSection: React.FC = () => (
 const BrandSection: React.FC = () => (
   <SectionWrapper id={SECTION_IDS.brand} title={SECTION_LABELS.brand}>
     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.25rem', lineHeight: 1.6 }}>
-      From <code>docs/specs/design-system.md §10</code>. Always use the <code>BrandLogo</code> primitive — never
+      From <code>design-docs/specs/design-system.md §10</code>. Always use the <code>BrandLogo</code> primitive — never
       hand-typeset the wordmark. Product name: <strong>Audiobook Studio</strong> (short: <strong>Studio</strong>).
       The repo name <code>audiobook-factory</code> is internal and never user-facing.
     </p>
@@ -1631,7 +1631,7 @@ const CONTROL_ICON_MAP: Array<{ control: string; icon: string }> = [
 const IconographySection: React.FC = () => (
   <SectionWrapper id={SECTION_IDS.iconography} title={SECTION_LABELS.iconography}>
     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem', lineHeight: 1.6 }}>
-      From <code>docs/specs/design-system.md §9</code>. <strong>Binding:</strong> every functional or decorative
+      From <code>design-docs/specs/design-system.md §9</code>. <strong>Binding:</strong> every functional or decorative
       icon MUST be a <code>lucide-react</code> component. Unicode glyphs (<code>▶ ⏸ ▾ ✓ ›</code>) and emoji
       MUST NOT be used as icons — they do not inherit <code>currentColor</code>, stroke weight, or optical sizing.
     </p>
@@ -1737,7 +1737,7 @@ const AccessibilitySection: React.FC = () => (
   <SectionWrapper id={SECTION_IDS.accessibility} title={SECTION_LABELS.accessibility}>
     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.25rem', lineHeight: 1.6 }}>
       Target: <strong>WCAG 2.2 AA</strong> in both themes. Binding rules from
-      <code> docs/specs/design-system.md §8</code>.
+      <code> design-docs/specs/design-system.md §8</code>.
     </p>
 
     <SubSection title="The five UI states (§8.4 — binding)">
@@ -1816,7 +1816,7 @@ const AccessibilitySection: React.FC = () => (
 
     <SubSection title="Contrast (§8.3)">
       <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-        All key text/surface/state/pill pairs are computed in <code>docs/specs/design-system.md §2.4</code>.
+        All key text/surface/state/pill pairs are computed in <code>design-docs/specs/design-system.md §2.4</code>.
         All pass AA (most AAA). Exceptions: <code>--text-subtle</code> is chrome/large-only in both themes —
         MUST NOT carry body text. New colors MUST be added as tokens with composited contrast meeting AA in
         both light and dark.
@@ -2088,7 +2088,7 @@ export const StyleguidePage: React.FC = () => {
               Every token, type rule, and component state shown here is the adopted standard.
               Code that contradicts it is a bug. Tokens and type auto-derive from{' '}
               <code>tokens.css</code> (zero drift) and this page aligns with{' '}
-              <code>docs/specs/design-system.md</code>.
+              <code>design-docs/specs/design-system.md</code>.
             </p>
           </div>
 

@@ -3,7 +3,7 @@
 Phase E acceptance criteria (doc 04 §Phase E):
 
 E1-a  Export of a fully-tagged voice produces a voice.json that passes strict
-       jsonschema validation against docs/specs/voice.schema.json.
+       jsonschema validation against design-docs/specs/voice.schema.json.
 E1-b  Export of an UNTAGGED voice raises VoiceBundleError with an actionable message
        describing the missing required attributes.
 E1-c  Export of a voice with schema-invalid attribute values raises VoiceBundleError

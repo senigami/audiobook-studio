@@ -59,7 +59,7 @@ The system tracks **Characters Per Second (CPS)** and uses it to provide:
 
 Studio 2.0 uses named websocket topics so plugins, orchestration, and the frontend agree on who owns each piece of live state.
 
-The full set of stable topics (authoritative spec: `docs/specs/live-events.md`):
+The full set of stable topics (authoritative spec: `design-docs/specs/live-events.md`):
 
 | Topic | What it carries |
 |---|---|
@@ -85,7 +85,7 @@ The documented-intent ordering for any queue-visible render path is:
 6. Emit a terminal `queue_item_status` on `queue.items`.
 7. Emit `queue_item_invalidated` only when a snapshot refresh is needed.
 
-In practice the exact ordering may vary slightly; consult `docs/specs/live-events.md` for the authoritative contract.
+In practice the exact ordering may vary slightly; consult `design-docs/specs/live-events.md` for the authoritative contract.
 
 Voice preview/test jobs follow the same queue visibility rules, but their scoped progress belongs on `voice.test`, not `chapters.progress`. They still need a `jobId` so the frontend can connect the voice-test frame to the visible queue row.
 

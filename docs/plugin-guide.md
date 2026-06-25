@@ -92,15 +92,15 @@ exception, and which topics own state versus diagnostics.
 - **One queue authority.** Update job state only through `update_job(...)`
   (`app.db.state`). Never write `processing_queue` rows directly from plugin
   code — the shared path keeps the durable row, `state.json`, and the
-  `queue.items` websocket topic in sync. (`docs/specs/queue-jobs.md`)
+  `queue.items` websocket topic in sync. (`design-docs/specs/queue-jobs.md`)
 - **Topic ownership.** `queue.items` is the only topic with queue-row
   authority on the frontend; progress topics (`chapters.progress`,
   `segments.progress`, `voice.test`) are live overlays on existing rows, and
   `tts.logs` is diagnostics only. Voice-test frames MUST carry `ids.jobId`.
-  (`docs/specs/live-events.md` §"Queue row authority")
+  (`design-docs/specs/live-events.md` §"Queue row authority")
 - **WAV-first synthesis.** Chapter synthesis completes with `output_wav`
   only: no `finalizing` status, no MP3 conversion inside the synthesis
-  lifecycle. MP3 is an explicit export action. (`docs/specs/queue-jobs.md`
+  lifecycle. MP3 is an explicit export action. (`design-docs/specs/queue-jobs.md`
   §3.6)
 - **Sample jobs have no chapter context.** Handlers registered as engine
   handlers also receive voice sample/preview jobs (`kind` in `sample_build`,

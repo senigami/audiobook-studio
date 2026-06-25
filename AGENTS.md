@@ -46,4 +46,4 @@ For rules-only documentation changes, run lightweight verification such as `git 
 
 ## Canonical specs
 
-Read `docs/specs/README.md` before changing behavior in any area — it routes to the binding spec for that domain. Specs and code are jointly authoritative; resolve drift explicitly in the same change, and bump the spec's version + changelog when shipped behavior changes. Architectural rationale lives in `docs/decisions/` (ADRs).
+Read `design-docs/specs/README.md` before changing behavior in any area — it routes to the binding spec for that domain. Specs and code are jointly authoritative; resolve drift explicitly in the same change, and bump the spec's version + changelog when shipped behavior changes. Architectural rationale lives in `design-docs/decisions/` (ADRs).
