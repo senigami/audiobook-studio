@@ -54,9 +54,9 @@ Audit targets:
 - `frontend/README.md`
 - `wiki/`
 - `docs/index.html`
-- `docs/plugin-guide.md`
-- `docs/plugin-submission-guidelines.md`
-- `docs/plugin-template/`
+- `docs/plugin-sdk/plugin-guide.md`
+- `docs/plugin-sdk/plugin-submission-guidelines.md`
+- `docs/plugin-sdk/plugin-template/`
 - `docs/studio-as-tts-gateway.md`
 - docs assets under `docs/assets/`
 - OpenAPI or generated API references

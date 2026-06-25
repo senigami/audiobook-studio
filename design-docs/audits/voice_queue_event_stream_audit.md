@@ -2,7 +2,7 @@
 
 Date: 2026-06-07; post-implementation review updated 2026-06-08
 
-Scope: current queue writers, live event-stream contracts, Voxtral mapping, and mixed-render mapping compared with the declared contract in `docs/event_stream_processing_schema.md`.
+Scope: current queue writers, live event-stream contracts, Voxtral mapping, and mixed-render mapping compared with the declared contract in `design-docs/specs/event-stream-processing-schema.md`.
 
 Status: implementation complete for the queue/event-stream repair slices listed in `Post-Implementation Verification`. Historical findings are preserved for context, but the post-implementation sections are the current source of truth for what remains.
 
@@ -563,13 +563,13 @@ git diff --check
 
 ### Slice 9: Contract Documentation And Final Cross-Checks
 
-> **Status (2026-06-11): Implemented.** Row authority: `design-docs/specs/live-events.md` 1.2.0 §"Queue row authority". WAV-first: `design-docs/specs/queue-jobs.md` 1.1.0 §3.6. Plugin-author guidance: `docs/plugin-guide.md` queue/lifecycle section.
+> **Status (2026-06-11): Implemented.** Row authority: `design-docs/specs/live-events.md` 1.2.0 §"Queue row authority". WAV-first: `design-docs/specs/queue-jobs.md` 1.1.0 §3.6. Plugin-author guidance: `docs/plugin-sdk/plugin-guide.md` queue/lifecycle section.
 
 Goal: make the finished contract discoverable for plugin authors and prevent regressions.
 
 Scope:
 
-- Update `docs/event_stream_processing_schema.md` and `docs/plugin-guide.md` with final behavior.
+- Update `design-docs/specs/event-stream-processing-schema.md` and `docs/plugin-sdk/plugin-guide.md` with final behavior.
 - Add any missing contract-level tests that do not belong to the earlier slices.
 - Run the focused backend/frontend suites touched by the prior slices.
 

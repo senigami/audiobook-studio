@@ -20,8 +20,8 @@ engine-agnostic historical checklist plus backlog parking lot. If a status confl
 - [x] Remove `XTTS_OUT_DIR` from core runtime config; `AUDIO_OUT_DIR` remains migration-only.
 
 ## Phase 3: Declared Plugin Contract
-- [x] Update `docs/plugin-guide.md` to define manifest-declared capabilities, behavior, and worker hooks as the default model.
-- [x] Update `docs/plugin-template/README.md` to present the template as the canonical declared-hook example.
+- [x] Update `docs/plugin-sdk/plugin-guide.md` to define manifest-declared capabilities, behavior, and worker hooks as the default model.
+- [x] Update `docs/plugin-sdk/plugin-template/README.md` to present the template as the canonical declared-hook example.
 - [x] Document hook ownership rules in the SDK so new hooks are added through the plugin contract rather than app-side engine branches.
 - [x] Ensure `manifest.json` fields are the source of truth for supported behavior.
 

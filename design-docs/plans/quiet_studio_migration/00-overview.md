@@ -4,7 +4,7 @@
 
 ## The task
 
-The redesign direction is already decided, fused (Apple HIG + design-critique + WCAG a11y + modern-web + persona panel), and WCAG-AA-verified. The rendered proposal lives at `docs/style-guide/proposed-quiet-studio.html`. This plan is the **implementation** of that direction — it does not re-open the design.
+The redesign direction is already decided, fused (Apple HIG + design-critique + WCAG a11y + modern-web + persona panel), and WCAG-AA-verified. The rendered proposal lives at `design-docs/style-guide/proposed-quiet-studio.html`. This plan is the **implementation** of that direction — it does not re-open the design.
 
 What changes, in one screen:
 - **Type:** self-host **Geist** (UI/body, tabular figures) + **Space Grotesk** (display/eyebrow/nav — promote from wordmark-only) + **Source Serif 4** (reading column only) + **Geist Mono** (logs), via `@fontsource`.

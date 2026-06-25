@@ -6,7 +6,7 @@ Open these `.html` files **directly in a browser** (no build, no server — `fil
 |------|------------|
 | [`current.html`](current.html) | The **current, as-built** visual catalog — snapshot dated **2026-06-21** (Quiet Studio baseline). Every element rendered with the real shipped CSS (inlined from `frontend/src/theme/`). Includes a light/dark toggle and the computed WCAG AA contrast table. |
 
-`proposed-quiet-studio.html` has moved to `design-docs/proposed-quiet-studio.html` — it is the spec-definition artifact for the Quiet Studio design direction.
+`proposed-quiet-studio.html` has moved to `design-docs/style-guide/proposed-quiet-studio.html` — it is the spec-definition artifact for the Quiet Studio design direction.
 
 ## Source of truth (read this)
 

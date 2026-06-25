@@ -10,7 +10,7 @@ The executable TypeScript contract lives in
 `frontend/src/api/contracts/liveEvents.ts`. Keep that file and this document in
 sync. The backend event builders live in `app/api/contracts/events.py`.
 The queue and voice-test processing schema lives in
-`docs/event_stream_processing_schema.md`.
+`design-docs/specs/event-stream-processing-schema.md`.
 
 ## Scope
 

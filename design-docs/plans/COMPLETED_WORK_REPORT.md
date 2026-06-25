@@ -188,7 +188,7 @@ The "Quiet Studio — Precision Pressroom" visual redesign — a token-layer re-
 
 **P2–P6 pending** (forms/Switch → status icon-insets → glass audit → cleanup → demo+baseline). Plan at [`design-docs/plans/quiet_studio_migration/`](quiet_studio_migration/).
 
-*Now specified in:* `design-docs/specs/design-system.md` (v1.6.3). *Canonical rendered targets:* `docs/style-guide/proposed-quiet-studio.html` (redesign) · `docs/style-guide/current.html` (frozen pre-redesign baseline).
+*Now specified in:* `design-docs/specs/design-system.md` (v1.6.3). *Canonical rendered targets:* `design-docs/style-guide/proposed-quiet-studio.html` (redesign) · `docs/style-guide/current.html` (frozen pre-redesign baseline).
 
 ---
 

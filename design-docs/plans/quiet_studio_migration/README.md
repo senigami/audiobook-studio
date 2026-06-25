@@ -11,7 +11,7 @@ Implementation plan for adopting the approved **"Quiet Studio — Precision Pres
 
 ## Design source of truth
 
-- Rendered proposal (the target look): `docs/style-guide/proposed-quiet-studio.html`
+- Rendered proposal (the target look): `design-docs/style-guide/proposed-quiet-studio.html`
 - Canonical written spec (update in lockstep): `design-docs/specs/design-system.md` (+ `design-docs/specs/voice-tone.md` for copy)
 - Frozen "before" reference: `docs/style-guide/current.html` (do **not** touch until P6)
 

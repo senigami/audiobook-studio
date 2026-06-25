@@ -65,7 +65,7 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 - [PHASE 12] Resource requirements (GPU, VRAM) from `resources.py` defaults to plugin manifests.
 
 ### [DOC] Plugin Template And Hook Contract
-- [DOC] `docs/plugin-guide.md` and `docs/plugin-template/README.md` should describe the manifest-declared hook model as the default development pattern.
+- [DOC] `docs/plugin-sdk/plugin-guide.md` and `docs/plugin-sdk/plugin-template/README.md` should describe the manifest-declared hook model as the default development pattern.
 - [DOC] New plugin authors should treat the template as a concrete reference implementation, not as a stub library.
 - [DOC] Any future hook addition should be declared in the manifest and documented in the SDK, not inferred from app-side engine names.
 

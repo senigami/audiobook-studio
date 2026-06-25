@@ -37,7 +37,7 @@ This is the headline deliverable (M2). After this phase ships, both the real app
 
 ### `tokens.css` — light `:root` changes and additions
 
-All values pulled verbatim from `docs/style-guide/proposed-quiet-studio.html`.
+All values pulled verbatim from `design-docs/style-guide/proposed-quiet-studio.html`.
 
 **Page surfaces (changed values):**
 ```css
