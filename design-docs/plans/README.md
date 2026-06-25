@@ -50,7 +50,6 @@ Everything below is accounted for in exactly one bucket. The master plan covers 
 | [quiet_studio_migration/](reference/quiet_studio_migration/README.md) | Done; cited by `design-system.md`, `voice-tone.md`. One owner-gated rename deferred. |
 | [site_experience_north_star.md](reference/site_experience_north_star.md) | Superseded; cited by 4 specs (`design-system`, `site-shell-and-book-pipeline`, `audio-player`, `voice-bundles`). |
 | [site_shell_phase_a_plan.md](reference/site_shell_phase_a_plan.md) · [master_agnostic_plan.md](reference/master_agnostic_plan.md) | Superseded with residuals tracked elsewhere; cited by active plans. |
-| [audio_player_scrubbing_waveform_proposal.md](reference/audio_player_scrubbing_waveform_proposal.md) | Superseded design source; cited by `audio-player.md`. |
 | [v2_plugin_sdk.md](reference/v2_plugin_sdk.md) · [v2_voice_system_interface.md](reference/v2_voice_system_interface.md) · [v2_voice_tag_taxonomy.md](reference/v2_voice_tag_taxonomy.md) · [v2_huggingface_voice_repo_spec.md](reference/v2_huggingface_voice_repo_spec.md) · [v2_engine_bundle_github_distribution.md](reference/v2_engine_bundle_github_distribution.md) | Superseded; cited as provenance by `design-docs/specs/` templates + schemas (`voice.schema.json`, `voice-taxonomy.json`, `engine-bundle-template/`). |
 
 ## `proposals/` — undecided design drafts
@@ -59,6 +58,7 @@ Everything below is accounted for in exactly one bucket. The master plan covers 
 |------|-------|
 | [performance_script_model/](proposals/performance_script_model/README.md) | Design draft (no tasks). Per-span performance metadata + casting export. **Couples with sub-sentence assignment** — shared span/DB model; ship together. |
 | [sub_sentence_speaker_assignment.md](proposals/sub_sentence_speaker_assignment.md) | Open proposal — sub-sentence span model undecided. Master W13 (owner decision pending). |
+| [audio_player_scrubbing_waveform_proposal.md](proposals/audio_player_scrubbing_waveform_proposal.md) | Active design input for M2/004 (waveform scrubber); cited by `audio-player.md`. Work not yet started. |
 
 ## `_archive/` — done, nothing depends on them
 

@@ -14,7 +14,7 @@ changed.
 > nested portable storage, a centralized progress/ETA engine, and a fully redesigned routed frontend.
 
 **Companion docs:** [README.md](README.md) (the live status index of all plans) ·
-[final_release/](final_release/08_release_sequence.md) (remaining release gates) ·
+[final_release/](active/final_release/08_release_sequence.md) (remaining release gates) ·
 `design-docs/specs/` (binding contracts).
 
 ---
@@ -139,7 +139,7 @@ v2_chapter_editor_workflow, v2_project_library_management, v2_settings_architect
 final_release/07, /10, player_piano_scrolling.
 > ⚠️ **Known regressions from this redesign** (owner‑confirmed 2026‑06‑19): some chapter‑list and
 > editor capabilities were lost and some features were built‑but‑never‑wired. Tracked for restoration
-> in [simplification/07_restore_lost_functionality.md](simplification/07_restore_lost_functionality.md).
+> in [simplification/07_restore_lost_functionality.md](active/simplification/07_restore_lost_functionality.md).
 
 ## 8. External TTS API (Studio as a gateway)
 
@@ -186,7 +186,7 @@ The "Quiet Studio — Precision Pressroom" visual redesign — a token-layer re-
 - **P0 — Fonts** (commit `3e3067ed`): self-hosted **Geist** (UI/body), **Geist Mono** (logs), **Source Serif 4** (reading column) via `@fontsource`; added `--font-ui`/`--font-display`/`--font-reading`/`--font-mono` tokens; repointed `base.css` stacks. spec_version → 1.5.0.
 - **P1 — Token re-skin** (commits `c6b974cd`→`9bdcc17f`): rationed accent `#1e4fd8`/`#6b9fff` (light/dark), studio near-black `--bg #0d0f14`, 3-stop dark text ladder, `--action-primary`/`--on-action` canonical role tokens, `--on-success`/`--status-cached-*`, tightened radii (card 10/button 8/compact 6), double-ring focus, reduced-motion-guard-first with essential busy-indicator exemptions (spinners, indeterminate bars), flat buttons (no gradient/glow/lift), calm-pulse keyframe. Three review rounds ran (4-angle fusion audit + 2 adversarial passes); the loop stopped clean at round 2. spec_version → 1.6.3.
 
-**P2–P6 pending** (forms/Switch → status icon-insets → glass audit → cleanup → demo+baseline). Plan at [`design-docs/plans/reference/quiet_studio_migration/`](reference/quiet_studio_migration/).
+**P2–P6 complete** (forms/Switch → status icon-insets → glass audit → cleanup → demo+baseline). The only residual is the owner-gated `--accent`→`--action-primary` 94-file rename (P5 sub-task B), deferred with the alias kept as a permanent compat pointer. Plan at [`design-docs/plans/reference/quiet_studio_migration/`](reference/quiet_studio_migration/).
 
 *Now specified in:* `design-docs/specs/design-system.md` (v1.6.3). *Canonical rendered targets:* `design-docs/style-guide/proposed-quiet-studio.html` (redesign) · `docs/style-guide/current.html` (frozen pre-redesign baseline).
 

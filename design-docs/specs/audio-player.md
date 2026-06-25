@@ -7,7 +7,7 @@ created: 2026-06-13
 updated: 2026-06-16
 sources:
   - design-docs/plans/reference/site_experience_north_star.md
-  - design-docs/plans/reference/audio_player_scrubbing_waveform_proposal.md
+  - design-docs/plans/proposals/audio_player_scrubbing_waveform_proposal.md
   - design-docs/plans/active/audio_player_waveform_scrubber/
   - frontend/src/store/playerBus.ts
   - frontend/src/app/layout/PlayerBar.tsx
@@ -136,7 +136,7 @@ The bar is **transport for an already-loaded source**, and it is hidden when not
 
 ## 5. Scrubbing-waveform tape (duration-adaptive)
 
-The detail/annotation surface for long audio. Design source: `design-docs/plans/reference/audio_player_scrubbing_waveform_proposal.md`. Reference implementation: the North-Star mock (`MockWaveTape` + `MockTapeControls`).
+The detail/annotation surface for long audio. Design source: `design-docs/plans/proposals/audio_player_scrubbing_waveform_proposal.md`. Reference implementation: the North-Star mock (`MockWaveTape` + `MockTapeControls`).
 
 ### 5.1 Inline scrub vs. tape
 
@@ -185,7 +185,7 @@ Cross-reference: the Review stage contract lives in [site-shell-and-book-pipelin
 
 ## 7. Cross-References
 
-- Design source for the tape: `design-docs/plans/reference/audio_player_scrubbing_waveform_proposal.md`
+- Design source for the tape: `design-docs/plans/proposals/audio_player_scrubbing_waveform_proposal.md`
 - Live-port implementation plan: `design-docs/plans/active/audio_player_waveform_scrubber/` (00-audit, 01-roadmap, tasks/)
 - Shell composition / where the bar mounts: [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md)
 - Iconography (control→icon map): [design-system.md](design-system.md) §9

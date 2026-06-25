@@ -1,6 +1,6 @@
 # Task 001 — Marker / progress resolution per active group engine
 
-**Workstream:** W1  ·  **Depends on:** none  ·  **Blocks:** 002, 003  ·  **Status:** Not started
+**Workstream:** W1  ·  **Depends on:** none  ·  **Blocks:** 002, 003  ·  **Status:** DONE (2026-06-25)
 
 > Read [`../01-map.md`](../01-map.md) (surface **A**, invariants **INV-1…INV-6**) and
 > [`../00-overview.md`](../00-overview.md) (Layer 1 root cause) before starting. This task is the
