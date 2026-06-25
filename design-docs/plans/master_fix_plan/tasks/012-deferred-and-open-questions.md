@@ -8,8 +8,8 @@ block the release.
 ## Deferred to post-v2.0
 
 ### Localization implementation
-**Source:** [`phase_12_multilingual_interface_plan.md`](../../phases/phase_12_multilingual_interface_plan.md)
-+ [`examples/`](../../phases/phase_12_multilingual_interface_examples/). **Spec is done**
+**Source:** [`phase_12_multilingual_interface_plan.md`](../../_archive/phases/phase_12_multilingual_interface_plan.md)
++ [`examples/`](../../_archive/phases/phase_12_multilingual_interface_examples/). **Spec is done**
 (`design-docs/specs/interface-localization.md`); **implementation is not started** — no `frontend/src/i18n/`,
 no i18n library, no committed source catalogs (the `examples/` locales are review-only, `completion=0`).
 **Status:** **RESOLVED 2026-06-20 — post-v2.0** (owner). Spec stays; implementation is not part of the
@@ -23,7 +23,7 @@ action are **not confirmed shipped**. Treat as post-v2 product backlog; verify-t
 ## Open question (needs a design decision before it can be planned)
 
 ### Sub-sentence speaker assignment
-**Source:** [`sub_sentence_speaker_assignment.md`](../../sub_sentence_speaker_assignment.md). All design
+**Source:** [`sub_sentence_speaker_assignment.md`](../../proposals/sub_sentence_speaker_assignment.md). All design
 questions are **unresolved**: does the segments table become the span table? where does span-splitting
 live (backend vs frontend)? how do per-sentence features map onto spans? what's the undo story?
 **Action:** this needs an owner/design decision (a fusion-reasoning pass would fit) before it becomes

@@ -14,7 +14,7 @@ Two (or more) sequential single-sentence reassignments inside the **same** secti
 This is bug **B2** in the audit ([`../00-audit-report.md`](../00-audit-report.md) Track B; [`../../book_view_ia_proposal.md`](../../book_view_ia_proposal.md) §10 B2). The redesign's core gesture is painting voices across sentences; if every second paint in a section errors out, the workflow is unusable. The guard is doing its job (optimistic-concurrency protection) but the client never adopts the new revision id the server hands back, so it self-collides.
 
 ## Context an executor needs
-Specs / rules: [`design-docs/specs/testing-standards.md`](../../../design-docs/specs/testing-standards.md) — R1 (revert-check), R2 (mock boundaries only). Frontend live-event/contract rules don't apply here (this is a request/response path, not a socket frame).
+Specs / rules: [`design-docs/specs/testing-standards.md`](../../../../specs/testing-standards.md) — R1 (revert-check), R2 (mock boundaries only). Frontend live-event/contract rules don't apply here (this is a request/response path, not a socket frame).
 
 Current-state evidence:
 

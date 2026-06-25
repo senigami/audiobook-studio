@@ -6,9 +6,9 @@ status: active
 created: 2026-06-13
 updated: 2026-06-16
 sources:
-  - design-docs/plans/site_experience_north_star.md
-  - design-docs/plans/audio_player_scrubbing_waveform_proposal.md
-  - design-docs/plans/audio_player_waveform_scrubber/
+  - design-docs/plans/reference/site_experience_north_star.md
+  - design-docs/plans/reference/audio_player_scrubbing_waveform_proposal.md
+  - design-docs/plans/active/audio_player_waveform_scrubber/
   - frontend/src/store/playerBus.ts
   - frontend/src/app/layout/PlayerBar.tsx
   - frontend/src/app/layout/WaveformStrip.tsx
@@ -26,7 +26,7 @@ sources:
 | 1.2.0–1.4.0 | 2026-06-15 | U16 scope-driven waveform iterations (waveform inline for segment scope, bar for chapter; far-right representation override). Superseded by 1.6.0. |
 | 1.5.0   | 2026-06-16 | Transport + toggle icons standardized on `lucide-react`; mock PlayerBar migrated off glyphs. Canonical control→icon mapping owned by `design-system.md` §9. |
 | 1.5.1   | 2026-06-16 | Visibility/persistence contract clarified (§3): keys solely on `audioUrl !== null`, mounted once in the global `AppShell`, persists across **all** routes. Added §4.1 (content-owned play affordances). |
-| 1.6.0   | 2026-06-16 | **Scope-agnostic player + scrubbing-waveform tape (§3, §5).** Removed the segment/chapter scope toggle entirely (`altScope`/`switchScope` retired from the bus): representation is now **duration-driven**, not scope-driven, and time is the loaded clip's position/duration. The `AudioLines` toggle, in bar mode, opens an **expandable tape** — paged (default) or moving motion, click+drag scrub, bounded discrete zoom presets (cover-slider style: 8/15/30/60/120 s), a whole-clip minimap, and a smart `m:ss` ruler. Peaks are **browser-decoded below a duration cap, server-sidecar above it** (§5.4; a `data-model.md` change). Annotation is post-V2. Reference implementation: the North-Star mock; live port tracked by `design-docs/plans/audio_player_waveform_scrubber/`. |
+| 1.6.0   | 2026-06-16 | **Scope-agnostic player + scrubbing-waveform tape (§3, §5).** Removed the segment/chapter scope toggle entirely (`altScope`/`switchScope` retired from the bus): representation is now **duration-driven**, not scope-driven, and time is the loaded clip's position/duration. The `AudioLines` toggle, in bar mode, opens an **expandable tape** — paged (default) or moving motion, click+drag scrub, bounded discrete zoom presets (cover-slider style: 8/15/30/60/120 s), a whole-clip minimap, and a smart `m:ss` ruler. Peaks are **browser-decoded below a duration cap, server-sidecar above it** (§5.4; a `data-model.md` change). Annotation is post-V2. Reference implementation: the North-Star mock; live port tracked by `design-docs/plans/active/audio_player_waveform_scrubber/`. |
 
 ---
 
@@ -34,7 +34,7 @@ sources:
 
 This spec is the **binding contract** for the global audio player: a single `playerBus` store, a single `<audio>` element inside a global `PlayerBar`, and the conversion of every ad-hoc player into a bus client.
 
-**Implementation status (drift is explicit and tracked).** The single-owner model, transport, collapse-when-empty, global persistence, Review delegation, and content-owned play affordances are **shipped live**. The **scope-agnostic representation + the expandable tape (§3, §5)** are **fully realized in the North-Star mock** (`frontend/src/demo/stages/siteMockup/`, the reference implementation) and are **mid-migration into the live `PlayerBar`** — the live bar still ships the older scope-driven waveform/bar. The migration is tracked task-by-task in `design-docs/plans/audio_player_waveform_scrubber/` (Workloads 1–3). Until it lands, this is a deliberate, recorded spec-ahead-of-code gap, not silent drift.
+**Implementation status (drift is explicit and tracked).** The single-owner model, transport, collapse-when-empty, global persistence, Review delegation, and content-owned play affordances are **shipped live**. The **scope-agnostic representation + the expandable tape (§3, §5)** are **fully realized in the North-Star mock** (`frontend/src/demo/stages/siteMockup/`, the reference implementation) and are **mid-migration into the live `PlayerBar`** — the live bar still ships the older scope-driven waveform/bar. The migration is tracked task-by-task in `design-docs/plans/active/audio_player_waveform_scrubber/` (Workloads 1–3). Until it lands, this is a deliberate, recorded spec-ahead-of-code gap, not silent drift.
 
 Specs and code are jointly authoritative. If they disagree, resolve the drift explicitly by changing one or the other, and note it in the changelog.
 
@@ -136,7 +136,7 @@ The bar is **transport for an already-loaded source**, and it is hidden when not
 
 ## 5. Scrubbing-waveform tape (duration-adaptive)
 
-The detail/annotation surface for long audio. Design source: `design-docs/plans/audio_player_scrubbing_waveform_proposal.md`. Reference implementation: the North-Star mock (`MockWaveTape` + `MockTapeControls`).
+The detail/annotation surface for long audio. Design source: `design-docs/plans/reference/audio_player_scrubbing_waveform_proposal.md`. Reference implementation: the North-Star mock (`MockWaveTape` + `MockTapeControls`).
 
 ### 5.1 Inline scrub vs. tape
 
@@ -185,12 +185,12 @@ Cross-reference: the Review stage contract lives in [site-shell-and-book-pipelin
 
 ## 7. Cross-References
 
-- Design source for the tape: `design-docs/plans/audio_player_scrubbing_waveform_proposal.md`
-- Live-port implementation plan: `design-docs/plans/audio_player_waveform_scrubber/` (00-audit, 01-roadmap, tasks/)
+- Design source for the tape: `design-docs/plans/reference/audio_player_scrubbing_waveform_proposal.md`
+- Live-port implementation plan: `design-docs/plans/active/audio_player_waveform_scrubber/` (00-audit, 01-roadmap, tasks/)
 - Shell composition / where the bar mounts: [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md)
 - Iconography (control→icon map): [design-system.md](design-system.md) §9
 - Peaks sidecar artifact metadata: [data-model.md](data-model.md)
-- Owner decisions (U16 bar, Q6 collapse-when-empty): `design-docs/plans/site_experience_north_star.md`
+- Owner decisions (U16 bar, Q6 collapse-when-empty): `design-docs/plans/reference/site_experience_north_star.md`
 - Chapter audio status driving availability: [progress-presentation.md](progress-presentation.md)
 - Job/queue state behind rendered audio: [queue-jobs.md](queue-jobs.md)
 - Single-owner decision: [ADR-0010](../decisions/ADR-0010-single-owner-audio-player.md)

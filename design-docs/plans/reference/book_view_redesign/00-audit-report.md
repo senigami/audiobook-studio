@@ -8,7 +8,7 @@
 ## Scope
 
 - **No audit pass was run.** The design was settled with the owner over several rounds and lives in
-  [`../book_view_ia_proposal.md`](../book_view_ia_proposal.md) (§6 converged target, §9 locked answers,
+  [`../book_view_ia_proposal.md`](../../active/book_view_ia_proposal.md) (§6 converged target, §9 locked answers,
   §10 bugs, §11 merged angles). This folder only sequences it.
 - **Grounding sweep (read-only):** one `Explore` agent mapped the real-app systems the spec depends on
   (segments, invalidation, assignment/concurrency, status orb, autosave, pronunciation). Its file:line

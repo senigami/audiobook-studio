@@ -32,8 +32,8 @@ sources:
   - .agent/rules/frontend-interactions.md
   - .agent/rules/frontend-ux.md
   - design-docs/specs/voice-tone.md
-  - design-docs/plans/site_experience_north_star.md
-  - design-docs/plans/site_redesign_rollout/
+  - design-docs/plans/reference/site_experience_north_star.md
+  - design-docs/plans/reference/site_redesign_rollout/
 ```
 
 > **TL;DR:** Every surface is themed through CSS variables in `tokens.css`, works in both light and dark, and is built from a small set of canonical shared primitives. Components consume tokens, never hardcoded colors; theming is `system | light | dark` driven by a `data-theme` attribute with a no-flash bootstrap; and chapter status is always rendered with `StatusOrb`, never a plain dot.
@@ -71,7 +71,7 @@ It governs how UI looks and behaves consistently across pages — brand identity
 
 Specs and code are jointly authoritative. If this spec and the implementation disagree, resolve the drift explicitly by changing one or the other in the same PR.
 
-Throughout this spec, **current** marks behavior that ships in the running app today; **target** marks behavior that is approved and mocked but not yet wired into the real pages (implementation tracked in `design-docs/plans/site_redesign_rollout/`).
+Throughout this spec, **current** marks behavior that ships in the running app today; **target** marks behavior that is approved and mocked but not yet wired into the real pages (implementation tracked in `design-docs/plans/reference/site_redesign_rollout/`).
 
 ---
 
@@ -217,7 +217,7 @@ The toggle, route map, and navigation model are shared between the rail and the 
 
 ## 4. Type Scale
 
-The approved 6-step semantic type scale (owner decision U3, approved 2026-06-12 in `design-docs/plans/site_experience_north_star.md` §12):
+The approved 6-step semantic type scale (owner decision U3, approved 2026-06-12 in `design-docs/plans/reference/site_experience_north_star.md` §12):
 
 | Step | Size | Weight | Role |
 |------|------|--------|------|
@@ -257,7 +257,7 @@ Six of the nine sizes have a paired weight token (`--type-weight-display/title/h
 
 ### 4.3 Adoption status (current)
 
-Token adoption in the **real app is minimal**: of ~615 `var(--type-*)` references in the frontend, ~604 are in the demo (`frontend/src/demo/`) and **only ~11 are in real pages — all in `WelcomePage.tsx`**. Real pages otherwise render through the `base.css` globals plus ~96 literal `font-size` declarations, several off-scale (e.g. `0.72rem`, `0.82rem`, `0.65rem`) or duplicating a token value as a literal. This is a **not-yet-started migration**, not one "in progress"; migrating real pages onto the `--type-*` tokens is a tracked follow-up (`design-docs/plans/site_redesign_rollout/`) — apply tokens whenever a page is next touched.
+Token adoption in the **real app is minimal**: of ~615 `var(--type-*)` references in the frontend, ~604 are in the demo (`frontend/src/demo/`) and **only ~11 are in real pages — all in `WelcomePage.tsx`**. Real pages otherwise render through the `base.css` globals plus ~96 literal `font-size` declarations, several off-scale (e.g. `0.72rem`, `0.82rem`, `0.65rem`) or duplicating a token value as a literal. This is a **not-yet-started migration**, not one "in progress"; migrating real pages onto the `--type-*` tokens is a tracked follow-up (`design-docs/plans/reference/site_redesign_rollout/`) — apply tokens whenever a page is next touched.
 
 ---
 
@@ -265,7 +265,7 @@ Token adoption in the **real app is minimal**: of ~615 `var(--type-*)` reference
 
 This section governs the **presentation** of voice-attribute pills only. The attribute *values/vocabulary* (class, gender, age, language, accent, style, etc.) are owned by `voice-bundles.md` §8 and `design-docs/specs/voice-taxonomy.json` — do not duplicate them here.
 
-**Status: tint tokens current; real-page adoption target.** The `--pill-*` tint tokens (class / gender / age / extended / tag, each with `-bg` / `-border` / `-text`, and light + dark values) are defined in `tokens.css` and consumed by the `VoiceAttrPill` primitive in the site mockup demo stage (`frontend/src/demo/stages/siteMockup`). The owner-approved styling (`design-docs/plans/site_experience_north_star.md` §12) is **not yet** wired into the real Voices page; that adoption is tracked in `design-docs/plans/site_redesign_rollout/`.
+**Status: tint tokens current; real-page adoption target.** The `--pill-*` tint tokens (class / gender / age / extended / tag, each with `-bg` / `-border` / `-text`, and light + dark values) are defined in `tokens.css` and consumed by the `VoiceAttrPill` primitive in the site mockup demo stage (`frontend/src/demo/stages/siteMockup`). The owner-approved styling (`design-docs/plans/reference/site_experience_north_star.md` §12) is **not yet** wired into the real Voices page; that adoption is tracked in `design-docs/plans/reference/site_redesign_rollout/`.
 
 Approved presentation rules:
 
@@ -323,7 +323,7 @@ The codebase uses a small set of `max-width` breakpoints across `theme/component
 
 Layouts MUST degrade gracefully on smaller screens (`.agent/rules/frontend-interactions.md`): sticky controls and two-pane layouts must remain usable, and global navigation must remain reachable via the drawer below 768px.
 
-The **390px ChapterEditor tablet minimum** is a documented design **target** (the editor should remain operable down to ~390px width); it is **not** currently expressed as a hardcoded breakpoint in the theme CSS. Tracking lives in `design-docs/plans/site_redesign_rollout/`.
+The **390px ChapterEditor tablet minimum** is a documented design **target** (the editor should remain operable down to ~390px width); it is **not** currently expressed as a hardcoded breakpoint in the theme CSS. Tracking lives in `design-docs/plans/reference/site_redesign_rollout/`.
 
 ---
 
@@ -460,4 +460,4 @@ New code MUST NOT introduce glyph-as-icon usage. A `grep`/CI gate on the banned 
 - Repository layout and frontend file-placement rules: [code-organization.md](code-organization.md)
 - Live-event / reconnecting state source: [live-events.md](live-events.md)
 - Informal interaction & UX guidance formalized here: `.agent/rules/frontend-interactions.md`, `.agent/rules/frontend-ux.md`
-- Redesign rollout (target tracking for type-scale tokens, pill tints, responsive minimums): `design-docs/plans/site_redesign_rollout/`, `design-docs/plans/site_experience_north_star.md`
+- Redesign rollout (target tracking for type-scale tokens, pill tints, responsive minimums): `design-docs/plans/reference/site_redesign_rollout/`, `design-docs/plans/reference/site_experience_north_star.md`

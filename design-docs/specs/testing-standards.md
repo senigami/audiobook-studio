@@ -11,7 +11,7 @@ sources:
   - pytest.ini
   - conftest.py
   - frontend/tests/
-  - design-docs/plans/final_release/audits/
+  - design-docs/plans/active/final_release/audits/
 ```
 
 ## Changelog
@@ -231,7 +231,7 @@ When reviewing a new test, verify all five items:
 
 ## Classification Tables & Audit Records
 
-Test classification tables live under `design-docs/plans/final_release/audits/`:
+Test classification tables live under `design-docs/plans/active/final_release/audits/`:
 - `test_audit_backend_queue_jobs.md` — Queue/job lifecycle tests (T1)
 - `test_audit_progress_segments.md` — Segment/progress tests (T2)
 - `test_audit_frontend_components.md` — Frontend websocket/socket tests (T3 scope)
@@ -245,5 +245,5 @@ Each table documents the file, test name, classification, action taken (KEEP/DEL
 ## See Also
 
 - **CLAUDE.md** — High-level testing guidance and isolation setup (conftest, timeouts).
-- **doc 17** (`design-docs/plans/final_release/17_test_quality_audit.md`) — Full audit strategy and priority sequencing.
-- **doc 18** (`design-docs/plans/final_release/18_canonical_specs.md`) — Spec versioning and conformance conventions.
+- **doc 17** (`design-docs/plans/active/final_release/17_test_quality_audit.md`) — Full audit strategy and priority sequencing.
+- **doc 18** (`design-docs/plans/active/final_release/18_canonical_specs.md`) — Spec versioning and conformance conventions.

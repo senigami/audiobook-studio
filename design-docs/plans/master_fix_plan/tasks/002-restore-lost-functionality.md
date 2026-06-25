@@ -6,7 +6,7 @@
 IA port (003)** as a carried checklist — they are NOT a separate restore-first step. This task is
 re-scoped to only the **orphaned features that aren't part of the book IA** and can be wired
 independently.
-**Authoritative source:** [`simplification/07_restore_lost_functionality.md`](../../simplification/07_restore_lost_functionality.md)
+**Authoritative source:** [`simplification/07_restore_lost_functionality.md`](../../active/simplification/07_restore_lost_functionality.md)
 (WIRE-1/2/3 section).
 
 **In scope here (independent of the port):**

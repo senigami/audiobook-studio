@@ -1,6 +1,6 @@
 # Audio Player — Scrubbing Waveform & Tape (implementation plan)
 
-This folder turns [`design-docs/plans/audio_player_scrubbing_waveform_proposal.md`](../audio_player_scrubbing_waveform_proposal.md) into an ordered, verifiable, hand-offable plan. The proposal is the **design source of truth**; the binding contract is [`design-docs/specs/audio-player.md`](../../design-docs/specs/audio-player.md) (currently 1.5.0), which Workload 1 rewrites.
+This folder turns [`design-docs/plans/audio_player_scrubbing_waveform_proposal.md`](../../reference/audio_player_scrubbing_waveform_proposal.md) into an ordered, verifiable, hand-offable plan. The proposal is the **design source of truth**; the binding contract is [`design-docs/specs/audio-player.md`](../../../specs/audio-player.md) (currently 1.5.0), which Workload 1 rewrites.
 
 ## What this builds
 

@@ -15,7 +15,7 @@ A voice "variation" (a voice has a **default** plus named **variants** — any v
 This is bug **B4** ([`../00-audit-report.md`](../00-audit-report.md) Track B; [`../../book_view_ia_proposal.md`](../../book_view_ia_proposal.md) §10 B4). Per-span variation is one of the redesign's headline controls (`Character ▾ · Variation ▾`, task 010). If a non-default variant silently renders as the default voice, the author's vocal direction is lost with no error. Fixing it now means the mock prototypes real behavior. Because the path is not yet mapped, this task is explicitly **discover-then-fix** and the executor must record what they find.
 
 ## Context an executor needs
-Specs / rules: [`design-docs/specs/testing-standards.md`](../../../design-docs/specs/testing-standards.md) — R1 (revert-check), R2 (mock boundaries only — for synthesis, the TTS engine itself is a legitimate boundary; the request-building code under test is **not**). Voice/engine routing lives behind the engine registry + `VoiceBridge`; core code must not branch on engine IDs (modular_architecture rule).
+Specs / rules: [`design-docs/specs/testing-standards.md`](../../../../specs/testing-standards.md) — R1 (revert-check), R2 (mock boundaries only — for synthesis, the TTS engine itself is a legitimate boundary; the request-building code under test is **not**). Voice/engine routing lives behind the engine registry + `VoiceBridge`; core code must not branch on engine IDs (modular_architecture rule).
 
 What the grounding *does* establish (use as discovery starting points, verify each yourself — file:line may have drifted):
 

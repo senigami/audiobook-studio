@@ -4,7 +4,7 @@
 
 **Goal:** the simplification refactor — remove FE dead code, separate styling, split oversized files,
 clean the backend, consolidate plugin duplication. Behavior-preserving.
-**Authoritative source:** the [`simplification/`](../../simplification/00_overview.md) folder
+**Authoritative source:** the [`simplification/`](../../active/simplification/00_overview.md) folder
 (newest, 06-19), docs 02–06. Execute those task docs; this file only places them in the master order
 and records what older plans they supersede.
 

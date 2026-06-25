@@ -9,7 +9,7 @@ Audiobook Studio is a local-first FastAPI + React app that turns manuscripts int
 - **Clean break (Studio 2.0):** legacy/v1 code is deleted, not preserved; only the v1→v2 data migration path survives. Compatibility obligations begin at the v2.0.0 release.
 - **Versioned contracts:** every contract/manifest/schema (plugin manifest, SDK, event envelope, voice bundle, casting card) declares an explicit version validated at load time.
 - **Audio formats:** voice samples/previews are MP3 (`sample.mp3`, `samples/preview.mp3`); chapter/book render audio is WAV; portable voice bundles are MP3.
-- The release plan lives in `design-docs/plans/final_release/` (doc 08 is the execution order). Where it conflicts with older `design-docs/plans/` docs or other guidance in this file, the final_release folder wins.
+- The release plan lives in `design-docs/plans/active/final_release/` (doc 08 is the execution order). Where it conflicts with older `design-docs/plans/` docs or other guidance in this file, the final_release folder wins.
 
 ## Canonical specs (binding — read `design-docs/specs/README.md` first)
 
@@ -24,7 +24,7 @@ Authoritative spec: `design-docs/specs/testing-standards.md`.
 - **R3 — Contract-shaped event frames:** frontend live-event tests build socket frames via the types in `frontend/src/api/contracts/liveEvents.ts` and publish through `publishStudioSocketMessage` — no untyped hand-rolled frame literals.
 - **R4 — No sleep-based timing:** use vitest fake timers / `waitFor` on the frontend and explicit synchronization (threading events) in pytest. No `setTimeout(n)`/`sleep(n)` waits.
 - A test that re-implements the unit's internal math and asserts it against itself is a mocked-out test — assert observable behavior instead.
-- Test-quality classification tables live in `design-docs/plans/final_release/audits/`.
+- Test-quality classification tables live in `design-docs/plans/active/final_release/audits/`.
 
 ## Read first: agent rules & memory
 

@@ -1,6 +1,6 @@
 {
   "taxonomy_version": "1.0",
-  "description": "Machine-readable form of design-docs/plans/v2_voice_tag_taxonomy.md. Drives the tagging UI and validation. 'rule' is cardinality + requiredness; values carry stable ids and display labels.",
+  "description": "Machine-readable form of design-docs/plans/reference/v2_voice_tag_taxonomy.md. Drives the tagging UI and validation. 'rule' is cardinality + requiredness; values carry stable ids and display labels.",
   "hf_tag_prefix": "as-",
   "anchors": ["audiobook-studio-voice", "audiobook-studio-spec-v1"],
   "sections": [

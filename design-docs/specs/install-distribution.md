@@ -13,7 +13,7 @@ sources:
   - app/tts_server/server.py
   - app/engines/official_registry.py
   - frontend/vite.config.ts
-  - design-docs/plans/final_release/16_pinokio_distribution.md
+  - design-docs/plans/active/final_release/16_pinokio_distribution.md
 ```
 
 > **TL;DR:** `./run.sh` provisions both Python envs, builds the frontend, and launches uvicorn on port 8123; the Pinokio wrapper handles end-user distribution and optional demo restore.
@@ -165,7 +165,7 @@ Demo restore runs in `run.sh` during provisioning (not at first boot inside the 
 
 ### Post-v1 blockers
 
-Blockers PK1–PK10 are documented in `design-docs/plans/final_release/16_pinokio_distribution.md`. None of these are required for the v2.0.0 release but MUST be resolved before Pinokio is the primary download link.
+Blockers PK1–PK10 are documented in `design-docs/plans/active/final_release/16_pinokio_distribution.md`. None of these are required for the v2.0.0 release but MUST be resolved before Pinokio is the primary download link.
 
 ### Invariants
 

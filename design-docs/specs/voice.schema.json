@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://audiobook.studio/specs/voice.schema.json",
   "title": "Audiobook Studio Voice Bundle (voice.json)",
-  "description": "Canonical, engine-agnostic voice spec. See design-docs/plans/v2_huggingface_voice_repo_spec.md and design-docs/plans/v2_voice_tag_taxonomy.md.",
+  "description": "Canonical, engine-agnostic voice spec. See design-docs/plans/reference/v2_huggingface_voice_repo_spec.md and design-docs/plans/reference/v2_voice_tag_taxonomy.md.",
   "type": "object",
   "required": ["spec", "spec_version", "id", "name", "image", "samples", "languages", "attributes"],
   "additionalProperties": false,

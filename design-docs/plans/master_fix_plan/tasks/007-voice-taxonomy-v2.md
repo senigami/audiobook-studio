@@ -4,7 +4,7 @@
 
 **Goal:** extend the voice taxonomy with v2 attributes and the matching UI; it re-blocks the demo
 bundle refresh.
-**Authoritative source:** [`final_release/04_voice_metadata_and_tagging.md`](../../final_release/04_voice_metadata_and_tagging.md)
+**Authoritative source:** [`final_release/04_voice_metadata_and_tagging.md`](../../active/final_release/04_voice_metadata_and_tagging.md)
 Phase G (also tracked in `phase_12_polish_and_cleanup.md` 06-15 and `master_agnostic_tasks.md`).
 
 **Open items (Phase G):**

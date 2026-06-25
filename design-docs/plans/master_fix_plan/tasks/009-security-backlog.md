@@ -4,7 +4,7 @@
 
 **Goal:** the pre-release security hardening items (release blockers already shipped; these are the
 remaining pre-LAN-hardening items).
-**Authoritative source:** [`final_release/12_security_and_opportunities.md`](../../final_release/12_security_and_opportunities.md).
+**Authoritative source:** [`final_release/12_security_and_opportunities.md`](../../active/final_release/12_security_and_opportunities.md).
 
 **Open items:**
 - ~~**S6** WebSocket auth~~ **DONE (2026-06-21)** — Origin check added to `/ws` upgrade: absent Origin → allow; present Origin → allow only for localhost/127.0.0.1/[::1] or server's own Host; otherwise close(1008). Spec 1.2.3 + revert-checked tests in `test_websocket_broadcast.py`.

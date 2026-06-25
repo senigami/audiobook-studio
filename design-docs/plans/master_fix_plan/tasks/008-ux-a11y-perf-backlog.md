@@ -13,8 +13,8 @@
 **PENDING (UX):** U1 undo toasts, U2 focus management, U4 startup experience, U5 queue-drawer affordances, U6 guided failure recovery, U7 ActionMenu correctness, U11 resync→queue flow, U12 cancel single queued job, U13 first-run onboarding, U14 route transitions.
 
 **Goal:** the cosmetic, accessibility, and performance polish items that gate release stages 5–6.
-**Authoritative sources:** [`final_release/10_ux_improvements.md`](../../final_release/10_ux_improvements.md)
-(U-items) + [`final_release/11_accessibility_and_performance.md`](../../final_release/11_accessibility_and_performance.md)
+**Authoritative sources:** [`final_release/10_ux_improvements.md`](../../active/final_release/10_ux_improvements.md)
+(U-items) + [`final_release/11_accessibility_and_performance.md`](../../active/final_release/11_accessibility_and_performance.md)
 (A/P-items).
 
 **Open items:**

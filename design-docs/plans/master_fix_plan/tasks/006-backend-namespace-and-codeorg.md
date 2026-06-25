@@ -4,8 +4,8 @@
 
 **Goal:** the structural rename `plugins/` → `tts_engines/` and the remaining code-org items not folded
 into 005.
-**Authoritative sources:** [`master_agnostic_tasks.md`](../../master_agnostic_tasks.md) (06-14,
-namespace rename) + [`organizational_cleanup.md`](../../organizational_cleanup.md) (residual reorg).
+**Authoritative sources:** [`master_agnostic_tasks.md`](../../active/master_agnostic_tasks.md) (06-14,
+namespace rename) + [`organizational_cleanup.md`](../../active/organizational_cleanup.md) (residual reorg).
 
 **Open items:**
 - Namespace rename `plugins/` → `tts_engines/` — update every importer (core, plugins, manifests,

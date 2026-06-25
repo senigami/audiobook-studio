@@ -1,103 +1,78 @@
 # Plans Index
 
-Single map of every planning document, with status, so plans aren't scattered. Consolidated
-2026‑06‑19 from a verified classification of all plans created on/before 2026‑06‑17.
+The single map of every planning document. Reorganized 2026-06-25 into buckets so the root stays
+clean and each plan's role is obvious. Old paths → new paths are in [MOVE_MAP.md](MOVE_MAP.md).
 
-- **[master_fix_plan/](master_fix_plan/README.md)** — the consolidated roadmap of **everything left
-  to fix/finish** (umbrella over all open workstreams; newer plan supersedes older). **Start here for
-  what's left.**
-- **[COMPLETED_WORK_REPORT.md](COMPLETED_WORK_REPORT.md)** — formal v1→v2 "what shipped" narrative
-  for the wiki / changelog / release highlights. **Start here for what's done.**
-- **Active & partial plans** live at the `design-docs/plans/` root (the to‑do list below).
-- **`_archive/`** — completed/superseded plans with no open work that nothing else references
-  (moved here to declutter; history preserved via `git mv`).
-- Plans **cited by a `design-docs/specs/` spec or another active plan are kept in place even when done**
-  (moving them would break references); they're marked ✅ below.
+## Start here
 
-> Excluded from this consolidation (intentionally): **`simplification/`** (created 2026‑06‑19, the
-> active dead‑code/styling effort) and anything from the in‑progress style‑guide work.
+- **[master_fix_plan/](master_fix_plan/README.md)** — **THE master plan.** The umbrella roadmap of
+  everything left to fix/finish for v2.0.0. It orders the workstreams and points each at its
+  authoritative sub-plan (in `active/`). **If you want to know what to work on, start here.**
+- **[COMPLETED_WORK_REPORT.md](COMPLETED_WORK_REPORT.md)** — the mirror: what's already shipped
+  (v1→v2 narrative for wiki / changelog).
 
----
+## Folder structure
 
-## 🔲 Remaining work (active / partially complete) — at `design-docs/plans/` root
+| Folder | Meaning |
+|--------|---------|
+| `master_fix_plan/` | The master roadmap (entry point). |
+| `active/` | Plans with **open work**, each an authoritative data source the master points at. |
+| `reference/` | **Done/superseded** plans kept because a spec or active plan **cites them as provenance**. Not a to-do list. |
+| `proposals/` | **Undecided design drafts** awaiting a decision before they become work. |
+| `_archive/` | **Done, nothing depends on them.** History only; narrated by COMPLETED_WORK_REPORT. |
 
-### Release gating
-| Plan | Remaining |
-|------|-----------|
-| [final_release/08_release_sequence.md](final_release/08_release_sequence.md) · [road_to_v2.md](final_release/road_to_v2.md) | Owner‑run manual render verification (Stage 1); doc‑06 cleanup; Phase‑11 checkpoint; staged gates to v2.0.0 |
-| [final_release/05_standalone_plugin_repos.md](final_release/05_standalone_plugin_repos.md) | XTTS/Voxtral repo extraction; official registry |
-| [final_release/00_overview.md](final_release/00_overview.md) · [01](final_release/01_discrepancies_and_corrections.md) | Living release map; Stages 2–6 in progress |
-| [final_release/16_pinokio_distribution.md](final_release/16_pinokio_distribution.md) | PK3 publish wrapper repo (owner); PK7 demo bundle refresh |
-
-### Backlog (cosmetic / hardening / audits)
-| Plan | Remaining |
-|------|-----------|
-| [final_release/09_logic_audit.md](final_release/09_logic_audit.md) | Dead‑code D1–D4, redundancy R1–R5 (overlaps `simplification/`) |
-| [final_release/10_ux_improvements.md](final_release/10_ux_improvements.md) | U1–U14 cosmetic items |
-| [final_release/11_accessibility_and_performance.md](final_release/11_accessibility_and_performance.md) | A4–A7 a11y items |
-| [final_release/12_security_and_opportunities.md](final_release/12_security_and_opportunities.md) | S6/S7/S10/S11 (post‑LAN hardening) |
-| [final_release/04_voice_metadata_and_tagging.md](final_release/04_voice_metadata_and_tagging.md) | Phase G taxonomy v2 (language/accent/style, tinted pills) |
-| [final_release/06_code_organization_cleanup.md](final_release/06_code_organization_cleanup.md) | §1–§3 cleanup (overlaps `simplification/01`) |
-| [final_release/14_live_demo_revamp.md](final_release/14_live_demo_revamp.md) · [17](final_release/17_test_quality_audit.md) · [18](final_release/18_canonical_specs.md) | Demo refresh; T5 coverage spot‑check; SP2/SP3 spec closure |
-
-### Feature / redesign follow‑ons
-| Plan | Remaining |
-|------|-----------|
-| [book_view_redesign/](book_view_redesign/README.md) | Track A: port the two‑level IA from the demo mock into the live app |
-| [book_view_ia_proposal.md](book_view_ia_proposal.md) · [book_chapter_ia_proposal.md](book_chapter_ia_proposal.md) | Live restructure to Book + Chapter workspaces |
-| [audio_player_waveform_scrubber/](audio_player_waveform_scrubber/README.md) | W1: scope‑agnostic live player (`fitsLegibly()`, drop scope toggle) |
-| [phases/phase_12_multilingual_interface_plan.md](phases/phase_12_multilingual_interface_plan.md) + [examples/](phases/phase_12_multilingual_interface_examples/) | i18n **not implemented** — spec + inventory only; no `i18n/` yet |
-| [v2_huggingface_voice_interface.md](v2_huggingface_voice_interface.md) · [v2_voice_metadata_and_casting.md](v2_voice_metadata_and_casting.md) | HF browse/upload UI; AI casting suggestions; per‑character casting UI |
-
-### Code‑org / refactor
-| Plan | Remaining |
-|------|-----------|
-| [phases/phase_12_polish_and_cleanup.md](phases/phase_12_polish_and_cleanup.md) | Taxonomy v2 Phase G; VCR/segment follow‑ups; wiki/changelog |
-| [master_agnostic_tasks.md](master_agnostic_tasks.md) | Namespace rename (`plugins/`→`tts_engines/`); MobileNav focus‑trap; CONTRIBUTING |
-| [v2_phase_delivery_plan.md](v2_phase_delivery_plan.md) | Phase 12 (active); Phase 13 (release docs) not started |
-| [organizational_cleanup.md](organizational_cleanup.md) | `speakers.py` decomposition; router reorg finish |
-| [file_split_plan.md](file_split_plan.md) | `scriptViewProgress.ts` extraction (split #5) |
-| [sub_sentence_speaker_assignment.md](sub_sentence_speaker_assignment.md) | Open proposal — sub‑sentence span model undecided |
-| **[simplification/](simplification/00_overview.md)** | **New (06‑19):** dead‑code/styling cleanup + restore lost functionality. Owner‑gated. |
+Everything below is accounted for in exactly one bucket. The master plan covers every item in
+`active/` and `proposals/`; `reference/` and `_archive/` hold no open work the master needs to schedule.
 
 ---
 
-## ✅ Done — kept in place (cited by specs or active plans; not archived)
+## `active/` — open work (tracked by the master)
 
-| Plan | Status | Why kept | Owned by |
-|------|--------|----------|----------|
-| [final_release/](final_release/00_overview.md) | mixed (release folder) | CLAUDE.md + 4 specs cite it; still the live release roadmap | — |
-| [site_redesign_rollout/](site_redesign_rollout/01_overview_and_phases.md) | completed (R1–R7) | cited by design‑system / site‑shell / voice‑bundles | `site-shell-and-book-pipeline.md` |
-| [site_experience_north_star.md](site_experience_north_star.md) | superseded | cited by 5 specs | `site-shell-and-book-pipeline.md` |
-| [audio_player_scrubbing_waveform_proposal.md](audio_player_scrubbing_waveform_proposal.md) | superseded | cited by `audio-player.md` | `audio-player.md` |
-| [implementation/](implementation/) | mostly superseded/completed | cited by `.agent/notes.md`; coherent impl set | various specs |
-| [phases/](phases/) | early phases completed | holds the cited `phase_12_multilingual*` | various specs |
-| [v2_plugin_sdk.md](v2_plugin_sdk.md) · [v2_voice_system_interface.md](v2_voice_system_interface.md) · [v2_voice_tag_taxonomy.md](v2_voice_tag_taxonomy.md) · [v2_huggingface_voice_repo_spec.md](v2_huggingface_voice_repo_spec.md) · [v2_engine_bundle_github_distribution.md](v2_engine_bundle_github_distribution.md) | superseded | cited as provenance by `design-docs/specs/` templates + schemas | `plugin-contract.md`, `voice-bundles.md`, `install-distribution.md` |
-| [master_agnostic_plan.md](master_agnostic_plan.md) · [site_shell_phase_a_plan.md](site_shell_phase_a_plan.md) | superseded w/ minor open items | small residual tasks tracked elsewhere | `engines-and-plugins.md`, `site-shell-and-book-pipeline.md` |
+| Plan | Status / remaining |
+|------|--------------------|
+| [final_release/](active/final_release/00_overview.md) | The v2.0.0 release plan (docs 00–18). Phases 0–11 done; Stage-1 owner render gate, standalone repos (05), taxonomy v2 Phase G (04), Pinokio (16), and the cosmetic/audit backlogs (09–12, 17, 18) remain. |
+| [simplification/](active/simplification/00_overview.md) | Dead-code/dup removal, large-file splits, CSS separation, **restore lost functionality (07)**. Master W2/W3 — not started. |
+| [audio_player_waveform_scrubber/](active/audio_player_waveform_scrubber/README.md) | Live-app port of the scrub-track + expandable tape. Mock + spec done; real-app tasks 005–012 open. Master W5. |
+| [mixed-synthesis-fused-proposal/](active/mixed-synthesis-fused-proposal/README.md) | **Mixed-engine model-load progress/ETA fix** (newly folded into the master). **W1 done**; W2–W4 + W6 spec pending; W5 deferred. |
+| [master_agnostic_tasks.md](active/master_agnostic_tasks.md) | Namespace rename (`plugins/`→`tts_engines/`), MobileNav focus-trap, CONTRIBUTING. Master W6. |
+| [organizational_cleanup.md](active/organizational_cleanup.md) | `speakers.py` decomposition, router reorg finish. Master W6 (overlaps simplification). |
+| [file_split_plan.md](active/file_split_plan.md) | Residual split #5 (`scriptViewProgress.ts`). Folded into simplification/04. |
+| [v2_phase_delivery_plan.md](active/v2_phase_delivery_plan.md) | Phase 12 active; Phase 13 (release docs) not started. |
+| [book_view_ia_proposal.md](active/book_view_ia_proposal.md) · [book_chapter_ia_proposal.md](active/book_chapter_ia_proposal.md) | Book + Chapter workspace IA. Live port substantially done (W4); design source kept active. |
+| [v2_huggingface_voice_interface.md](active/v2_huggingface_voice_interface.md) · [v2_voice_metadata_and_casting.md](active/v2_voice_metadata_and_casting.md) | HF browse/upload UI; AI casting suggestions; per-character casting UI. Open feature work. |
+
+## `reference/` — done/superseded, cited as data sources (don't treat as to-do)
+
+| Plan | Cited by |
+|------|----------|
+| [book_view_redesign/](reference/book_view_redesign/README.md) | Done (tasks 001–019); the executed IA port. Master W4 provenance. |
+| [site_redesign_rollout/](reference/site_redesign_rollout/) | Done (R1–R7); cited by `design-system.md`, `site-shell-and-book-pipeline.md`, ADR-0010. |
+| [quiet_studio_migration/](reference/quiet_studio_migration/README.md) | Done; cited by `design-system.md`, `voice-tone.md`. One owner-gated rename deferred. |
+| [site_experience_north_star.md](reference/site_experience_north_star.md) | Superseded; cited by 4 specs (`design-system`, `site-shell-and-book-pipeline`, `audio-player`, `voice-bundles`). |
+| [site_shell_phase_a_plan.md](reference/site_shell_phase_a_plan.md) · [master_agnostic_plan.md](reference/master_agnostic_plan.md) | Superseded with residuals tracked elsewhere; cited by active plans. |
+| [audio_player_scrubbing_waveform_proposal.md](reference/audio_player_scrubbing_waveform_proposal.md) | Superseded design source; cited by `audio-player.md`. |
+| [v2_plugin_sdk.md](reference/v2_plugin_sdk.md) · [v2_voice_system_interface.md](reference/v2_voice_system_interface.md) · [v2_voice_tag_taxonomy.md](reference/v2_voice_tag_taxonomy.md) · [v2_huggingface_voice_repo_spec.md](reference/v2_huggingface_voice_repo_spec.md) · [v2_engine_bundle_github_distribution.md](reference/v2_engine_bundle_github_distribution.md) | Superseded; cited as provenance by `design-docs/specs/` templates + schemas (`voice.schema.json`, `voice-taxonomy.json`, `engine-bundle-template/`). |
+
+## `proposals/` — undecided design drafts
+
+| Plan | State |
+|------|-------|
+| [performance_script_model/](proposals/performance_script_model/README.md) | Design draft (no tasks). Per-span performance metadata + casting export. **Couples with sub-sentence assignment** — shared span/DB model; ship together. |
+| [sub_sentence_speaker_assignment.md](proposals/sub_sentence_speaker_assignment.md) | Open proposal — sub-sentence span model undecided. Master W13 (owner decision pending). |
+
+## `_archive/` — done, nothing depends on them
+
+Historical, narrated by [COMPLETED_WORK_REPORT.md](COMPLETED_WORK_REPORT.md). Added 2026-06-25:
+**`implementation/`** (per-area v2 conversion impl docs, Phase-11 closeout) and **`phases/`** (the
+phase 0–13 conversion plan; `phases/phase_12_multilingual_*` remains the localization design source,
+cited by `interface-localization.md`, but localization is deferred post-v2). Plus the earlier v1→v2
+conversion docs, completed delivery folders (`progress_routing_unification/`, `audit_systemic_bug_classes/`,
+`checklists/`), and superseded design docs already archived in the 2026-06-19 pass.
 
 ---
 
-## 🗄️ Archived → [`_archive/`](_archive/)
-
-Completed or fully spec‑superseded, no open work, nothing references them. Moved to declutter; the
-[COMPLETED_WORK_REPORT.md](COMPLETED_WORK_REPORT.md) narrates what they delivered.
-
-**v1→v2 conversion (superseded by `design-docs/specs/`):** `current_architecture.md`,
-`current_behavior_preservation_audit.md`, `v2_future_work_analysis.md`, `v2_conversion_roadmap.md`,
-`v2_folder_structure.md`, `v2_chapter_editor_workflow.md`, `v2_navigation_ux.md`,
-`v2_progress_tracking.md`, `v2_project_library_management.md`, `v2_queuing_system.md`,
-`v2_local_tts_api.md`, `v2_settings_architecture.md`, `v2_tts_server.md`, `proposed_epic_update.md`,
-`github_branching_and_beta_strategy.md`, `plugin_contract_qa_hooks_plan.md`, `phase_11_audit.md`.
-
-**Completed delivery folders:** `audit_systemic_bug_classes/` (6 systemic‑bug fixes),
-`progress_routing_unification/` (12‑task progress engine unification), `checklists/` (ETA rebuild +
-synthesis success‑path audits).
-
-**Superseded design docs:** `book_chapter_ia_options.md` (→ `book_view_ia_proposal.md`),
-`player_piano_scrolling_plan.md` (shipped in demo mock).
-
----
-
-*Method:* classified by a 6‑batch agent audit (status from each plan's own completion markers +
-canonical‑spec supersession + code presence), then archival restricted to items with zero inbound
-references (verified by grep across `docs/`, `.agent/`, code, and other plans).
+*Reorg method:* a per-file/-folder status + inbound-reference audit (grep across `design-docs/specs/`,
+`CLAUDE.md`, `.agent/`, code, and cross-plan links), then `git mv` into buckets with all authoritative
+references repointed in the same change. The three plans postdating the master (`mixed-synthesis-fused-proposal`,
+`performance_script_model`, `quiet_studio_migration`) were explicitly folded into
+[master_fix_plan/](master_fix_plan/README.md) so nothing sits outside the master's coverage.

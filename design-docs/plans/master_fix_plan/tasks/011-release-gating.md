@@ -4,8 +4,8 @@
 
 **Goal:** run the staged release sequence to ship v2.0.0. Several gates are **owner-run** (INV-8) — do
 not automate or skip them.
-**Authoritative sources:** [`final_release/08_release_sequence.md`](../../final_release/08_release_sequence.md)
-+ [`final_release/road_to_v2.md`](../../final_release/road_to_v2.md) (06-15, the living gate list).
+**Authoritative sources:** [`final_release/08_release_sequence.md`](../../active/final_release/08_release_sequence.md)
++ [`final_release/road_to_v2.md`](../../active/final_release/road_to_v2.md) (06-15, the living gate list).
 
 **Open items by stage:**
 - **Stage 1 (owner):** manual render verification session — confirm real XTTS/Voxtral/mixed renders

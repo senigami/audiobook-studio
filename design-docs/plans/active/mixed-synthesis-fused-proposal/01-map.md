@@ -34,7 +34,7 @@
 
 ## Invariants to preserve
 
-- **INV-1 — Durable job status is monotonic.** Never regress `running→preparing`. The preparing state is a per-group phase / `reason_code`, per [design-docs/specs/live-events.md:343](../../specs/live-events.md) (`SEGMENT_PENDING` is announcement-only).
+- **INV-1 — Durable job status is monotonic.** Never regress `running→preparing`. The preparing state is a per-group phase / `reason_code`, per [design-docs/specs/live-events.md:343](../../../specs/live-events.md) (`SEGMENT_PENDING` is announcement-only).
 - **INV-2 — No engine-ID branching in core.** Marker/progress resolution keys on the *active group's declared engine* via its manifest, never `if engine == "xtts"` (`modular_architecture.md`).
 - **INV-3 — `model_load_seconds` stays out of `synthesis_duration_seconds` and out of ETA/CPS training data.** Synthesis CPS is computed from confirmation→saved only.
 - **INV-4 — Ownership split holds.** Orchestrator owns lifecycle/progress/metrics; watchdog only passes log lines through (no model-load semantics); VoiceBridge owns routing. The fix must not teach the watchdog about model state.

@@ -13,8 +13,8 @@ sources:
   - frontend/src/components/layout/Layout.tsx
   - frontend/src/pages/Book/
   - frontend/src/pages/ProjectDetail/
-  - design-docs/plans/site_redesign_rollout/
-  - design-docs/plans/site_experience_north_star.md
+  - design-docs/plans/reference/site_redesign_rollout/
+  - design-docs/plans/reference/site_experience_north_star.md
 ```
 
 > **TL;DR:** The app shares one standard shell for every page, and book work lives in routed stages under `/book/:bookId/...`. Global chrome belongs in the shell; book workflow belongs in the stage routes; legacy deep links redirect into the book pipeline instead of owning their own page chrome.
@@ -108,7 +108,7 @@ Legacy Settings deep links MUST keep working by redirecting (current behavior, R
 
 ### 2.7 Library cover-size control (target)
 
-**Status: target** — approved and implemented in the North-Star mock (`frontend/src/demo/stages/siteMockup/panes/library.tsx`); to be wired into the real Library page (tracked in `design-docs/plans/site_redesign_rollout/`).
+**Status: target** — approved and implemented in the North-Star mock (`frontend/src/demo/stages/siteMockup/panes/library.tsx`); to be wired into the real Library page (tracked in `design-docs/plans/reference/site_redesign_rollout/`).
 
 The Library **grid** view offers a macOS Finder–style **cover-size slider** for choosing cover-art display size, placed inline in the "All Books" controls row beside the sort chips and the grid/list toggle. The contract (the step values and default below are the approved decision — do not change them without an owner decision):
 
@@ -179,7 +179,7 @@ Studio is the chapter editing / performance entry point and the per-line voice-a
 - It MUST read and update the `chapter=` query parameter for chapter-to-chapter navigation.
 - It MUST fall back to the first chapter when the query parameter is absent.
 
-**Target (binding once built — tracking phase R3, `design-docs/plans/site_redesign_rollout/05_phase_r3_studio.md`):**
+**Target (binding once built — tracking phase R3, `design-docs/plans/reference/site_redesign_rollout/05_phase_r3_studio.md`):**
 
 The R3 redesign re-homes the ChapterEditor's orchestration into Studio's own chrome. The hooks and render plumbing survive nearly verbatim; only the chrome changes. The following are the binding contract once R3 lands:
 
@@ -200,7 +200,7 @@ Review is the follow-along player workspace.
 
 **Current (shipping):** Review is a routed stage that MAY render a placeholder until the workspace is implemented. The route itself MUST exist now so the pipeline is complete.
 
-**Target (binding once built — tracking phase R4, `design-docs/plans/site_redesign_rollout/06_phase_r4_player_review.md`):**
+**Target (binding once built — tracking phase R4, `design-docs/plans/reference/site_redesign_rollout/06_phase_r4_player_review.md`):**
 
 - **Follow-along text panel.** The text panel highlights the currently-playing sentence/section; past sections are dimmed; the current section auto-scrolls into view; tapping a section seeks playback to it ("play from here").
 - **Transport row** with replay and skip-back controls, scoped to the chapter being reviewed.

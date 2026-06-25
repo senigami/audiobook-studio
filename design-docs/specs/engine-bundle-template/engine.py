@@ -1,7 +1,7 @@
 """Example TTS engine — template for an Audiobook Studio engine bundle.
 
-Implements the StudioTTSEngine contract (see design-docs/plans/v2_plugin_sdk.md and
-design-docs/plans/v2_voice_system_interface.md §11). Five required methods, two optional.
+Implements the StudioTTSEngine contract (see design-docs/plans/reference/v2_plugin_sdk.md and
+design-docs/plans/reference/v2_voice_system_interface.md §11). Five required methods, two optional.
 
 Boundary rules (enforced by the SDK):
 - Do NOT import `app.*`. Engines run in the TTS Server subprocess, isolated from Studio.

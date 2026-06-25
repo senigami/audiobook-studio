@@ -186,7 +186,7 @@ The "Quiet Studio — Precision Pressroom" visual redesign — a token-layer re-
 - **P0 — Fonts** (commit `3e3067ed`): self-hosted **Geist** (UI/body), **Geist Mono** (logs), **Source Serif 4** (reading column) via `@fontsource`; added `--font-ui`/`--font-display`/`--font-reading`/`--font-mono` tokens; repointed `base.css` stacks. spec_version → 1.5.0.
 - **P1 — Token re-skin** (commits `c6b974cd`→`9bdcc17f`): rationed accent `#1e4fd8`/`#6b9fff` (light/dark), studio near-black `--bg #0d0f14`, 3-stop dark text ladder, `--action-primary`/`--on-action` canonical role tokens, `--on-success`/`--status-cached-*`, tightened radii (card 10/button 8/compact 6), double-ring focus, reduced-motion-guard-first with essential busy-indicator exemptions (spinners, indeterminate bars), flat buttons (no gradient/glow/lift), calm-pulse keyframe. Three review rounds ran (4-angle fusion audit + 2 adversarial passes); the loop stopped clean at round 2. spec_version → 1.6.3.
 
-**P2–P6 pending** (forms/Switch → status icon-insets → glass audit → cleanup → demo+baseline). Plan at [`design-docs/plans/quiet_studio_migration/`](quiet_studio_migration/).
+**P2–P6 pending** (forms/Switch → status icon-insets → glass audit → cleanup → demo+baseline). Plan at [`design-docs/plans/reference/quiet_studio_migration/`](reference/quiet_studio_migration/).
 
 *Now specified in:* `design-docs/specs/design-system.md` (v1.6.3). *Canonical rendered targets:* `design-docs/style-guide/proposed-quiet-studio.html` (redesign) · `docs/style-guide/current.html` (frozen pre-redesign baseline).
 

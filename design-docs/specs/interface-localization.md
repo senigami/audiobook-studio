@@ -14,8 +14,8 @@ sources:
   - frontend/src/pages/Voices/
   - frontend/src/pages/Activity/
   - frontend/src/pages/Settings/
-  - design-docs/plans/phases/phase_12_multilingual_interface_plan.md
-  - design-docs/plans/phases/phase_12_multilingual_interface_examples/
+  - design-docs/plans/_archive/phases/phase_12_multilingual_interface_plan.md
+  - design-docs/plans/_archive/phases/phase_12_multilingual_interface_examples/
   - design-docs/specs/site-shell-and-book-pipeline.md
   - design-docs/specs/design-system.md
 ```
@@ -248,7 +248,7 @@ expansion beyond the English source length.
 
 The working inventory for the current site lives in:
 
-- `design-docs/plans/phases/phase_12_multilingual_interface_examples/`
+- `design-docs/plans/_archive/phases/phase_12_multilingual_interface_examples/`
 
 That folder is a review aid, not runtime code. It contains:
 
@@ -269,7 +269,7 @@ The implementation plan for localization MUST include:
 
 ## 8. References
 
-- `design-docs/plans/phases/phase_12_multilingual_interface_plan.md`
-- `design-docs/plans/phases/phase_12_multilingual_interface_examples/`
+- `design-docs/plans/_archive/phases/phase_12_multilingual_interface_plan.md`
+- `design-docs/plans/_archive/phases/phase_12_multilingual_interface_examples/`
 - `design-docs/specs/site-shell-and-book-pipeline.md`
 - `design-docs/specs/design-system.md`

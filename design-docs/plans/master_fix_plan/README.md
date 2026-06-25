@@ -20,6 +20,12 @@ detail to the authoritative sub-plans it references.
 - **Not started:** 004, 005, 006, 007, 010, 011 (012 is holding/deferred).
 - See `OVERNIGHT_LOG.md` for the running session-by-session detail.
 
+## Newer workstreams folded in 2026-06-25 (postdate the original 001–012)
+These plans were created after this folder and are now tracked here so nothing falls outside the master:
+- **W-MIX — Mixed-engine model-load progress/ETA** → [`../active/mixed-synthesis-fused-proposal/`](../active/mixed-synthesis-fused-proposal/README.md). A residual bug the core Progress/ETA work (above) did **not** cover. **W1 done** (committed `studio2/phase-12.5-style`); W2–W4 + W6 spec reconciliation pending; W5 (mixed `ResourceClaim`) deferred.
+- **W-PERF — Per-span performance metadata / casting export** → [`../proposals/performance_script_model/`](../proposals/performance_script_model/README.md). **Design draft, not scheduled.** Shares the span/DB model with W13 sub-sentence assignment — the two must ship together or the DB migrates twice.
+- **W-QS — Quiet Studio visual redesign** → [`../reference/quiet_studio_migration/`](../reference/quiet_studio_migration/README.md). **Done** (06-24); only the owner-gated `--accent`→`--action-primary` 94-file rename is deferred (alias kept as a permanent compat pointer).
+
 ## How to pick up work
 - Open the task file for the workstream + [01-map.md](01-map.md). The task names its **authoritative
   source** (e.g. `simplification/07`, `final_release/04`) — that source holds the executable detail;

@@ -1,7 +1,7 @@
 # Book View Redesign — implementation plan
 
 This folder is the live, ordered implementation plan for the **book/chapter workspace redesign** and
-the real-app bugs it surfaced. The design **spec** is [`design-docs/plans/book_view_ia_proposal.md`](../book_view_ia_proposal.md)
+the real-app bugs it surfaced. The design **spec** is [`design-docs/plans/book_view_ia_proposal.md`](../../active/book_view_ia_proposal.md)
 and remains the source of truth — this folder turns it into executable, verifiable tasks.
 
 > Built with the `code-audit-planner` conventions, but **no audit was run** — the spec was already

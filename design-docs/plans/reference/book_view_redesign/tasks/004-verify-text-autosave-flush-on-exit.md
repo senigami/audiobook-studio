@@ -14,7 +14,7 @@ Pending chapter-text edits must be persisted when the editor unmounts or the use
 This is bug **B3** ([`../00-audit-report.md`](../00-audit-report.md) Track B; [`../../book_view_ia_proposal.md`](../../book_view_ia_proposal.md) §10 B3). Losing the author's text edits because they switched chapters a beat too quickly is a quiet data-loss bug that erodes trust in the whole workspace. The owner believes exit-save was already fixed — so this may already be handled by a route-leave / `beforeunload` handler elsewhere. The job is to find the truth and lock it in with a test.
 
 ## Context an executor needs
-Specs / rules: [`design-docs/specs/testing-standards.md`](../../../design-docs/specs/testing-standards.md) — R1 (revert-check; if you *change* behavior, the test must be red on pre-change code), R2 (mock only boundaries — `api.updateChapter` is the network boundary; the hook under test is not), R4 (no sleep-based timing — use vitest fake timers).
+Specs / rules: [`design-docs/specs/testing-standards.md`](../../../../specs/testing-standards.md) — R1 (revert-check; if you *change* behavior, the test must be red on pre-change code), R2 (mock only boundaries — `api.updateChapter` is the network boundary; the hook under test is not), R4 (no sleep-based timing — use vitest fake timers).
 
 Current-state evidence — `frontend/src/pages/Book/lib/useChapterText.ts`, the autosave effect (lines 58-75):
 ```ts

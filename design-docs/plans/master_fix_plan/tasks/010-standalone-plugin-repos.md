@@ -4,7 +4,7 @@
 
 **Goal:** extract the bundled engines into standalone, installable plugin repositories with a registry
 and a paste-URL install flow.
-**Authoritative source:** [`final_release/05_standalone_plugin_repos.md`](../../final_release/05_standalone_plugin_repos.md)
+**Authoritative source:** [`final_release/05_standalone_plugin_repos.md`](../../active/final_release/05_standalone_plugin_repos.md)
 (06-15). **Supersedes** `v2_engine_bundle_github_distribution.md` (archived) per the date rule and the
 plan's own header note.
 

@@ -1,7 +1,7 @@
 # ADR-0010: Single-Owner Global Audio Player
 
 **Date:** 2026-06-13  
-**Status:** Accepted (implementation lands in the redesign Phase R4; see `design-docs/plans/site_redesign_rollout/06_phase_r4_player_review.md`)  
+**Status:** Accepted (implementation lands in the redesign Phase R4; see `design-docs/plans/reference/site_redesign_rollout/06_phase_r4_player_review.md`)  
 **Deciders:** Studio owner
 
 ## Context

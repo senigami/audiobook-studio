@@ -29,9 +29,9 @@
 **Goal:** restructure the live app from the (broken) 5-stage pipeline to the two-level IA (Book
 workspace + Chapter workspace, Studio↔Review modes, chapter pinned header, prev/next), **restoring the
 lost features in the process**.
-**Authoritative sources:** [`book_view_redesign/`](../../book_view_redesign/README.md) (Track A, 06-17)
-+ [`book_view_ia_proposal.md`](../../book_view_ia_proposal.md) (locked IA, 06-17) +
-[`simplification/07`](../../simplification/07_restore_lost_functionality.md) (RST checklist).
+**Authoritative sources:** [`book_view_redesign/`](../../reference/book_view_redesign/README.md) (Track A, 06-17)
++ [`book_view_ia_proposal.md`](../../active/book_view_ia_proposal.md) (locked IA, 06-17) +
+[`simplification/07`](../../active/simplification/07_restore_lost_functionality.md) (RST checklist).
 **Supersedes:** `book_chapter_ia_proposal.md` (06-16), `book_chapter_ia_options.md` (archived).
 
 **Open items — IA port:** book_view_redesign Track A tasks 005–013 (book nav restructure, Contents

@@ -50,7 +50,7 @@ audiobook-factory/
   docs/
     specs/               # Canonical specs (this directory)
     decisions/           # Architecture Decision Records
-  design-docs/plans/final_release/   # Release execution plan (doc 08 = execution order)
+  design-docs/plans/active/final_release/   # Release execution plan (doc 08 = execution order)
   wiki/                  # End-user documentation + Changelog
   run.py                 # App entry point (exposes `app` from app/api/web.py)
   tts_server.py          # TTS Server subprocess entry point
@@ -334,8 +334,8 @@ attempts MUST be rejected, not silently corrected.
   decision with date and status.
 - `wiki/` — end-user documentation.  `wiki/Changelog.md` MUST receive a dated
   entry for every shipped behavior change.
-- `design-docs/plans/final_release/` — release execution plan.  Doc 08 is the execution
-  order.  Where `design-docs/plans/final_release/` conflicts with older `design-docs/plans/` docs,
+- `design-docs/plans/active/final_release/` — release execution plan.  Doc 08 is the execution
+  order.  Where `design-docs/plans/active/final_release/` conflicts with older `design-docs/plans/` docs,
   `final_release/` wins.
 
 ---

@@ -1,7 +1,7 @@
 # Example TTS — engine bundle template
 
 A copyable skeleton for an Audiobook Studio TTS engine, distributed as a **GitHub repo**.
-See `design-docs/plans/v2_engine_bundle_github_distribution.md` and `design-docs/plans/v2_plugin_sdk.md`.
+See `design-docs/plans/reference/v2_engine_bundle_github_distribution.md` and `design-docs/plans/reference/v2_plugin_sdk.md`.
 
 ## How distribution works (Stable Diffusion style)
 

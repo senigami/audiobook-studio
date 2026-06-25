@@ -13,9 +13,9 @@ sources:
   - design-docs/specs/voice-taxonomy.json
   - design-docs/specs/engine-bundle-template
   - design-docs/specs/voice-bundle-template
-  - design-docs/plans/final_release/04
-  - design-docs/plans/site_experience_north_star.md
-  - design-docs/plans/site_redesign_rollout/07_phase_r5_platform.md
+  - design-docs/plans/active/final_release/04
+  - design-docs/plans/reference/site_experience_north_star.md
+  - design-docs/plans/reference/site_redesign_rollout/07_phase_r5_platform.md
 ```
 
 > **TL;DR:** Voice assets live in a versioned two-level directory (`{VoiceName}/{VariantName}/`); portable bundles are zips with the same layout; all preview audio is MP3, reference samples are WAV, render output is WAV.
@@ -235,7 +235,7 @@ A `tags` free-text array (pattern `^[a-z0-9][a-z0-9-]*$`) is also available for 
 
 - **Untagged voices MUST NOT produce an error.** Show a warning icon in the UI; do not block synthesis.
 - `class`, `gender`, and `age` become required when the user edits and saves a voice (required-on-edit), and are required for a valid distribution bundle (enforced by `voice.schema.json`).
-- Casting card recommendations use these attributes to score voice-to-character fit (see `design-docs/plans/final_release/04`).
+- Casting card recommendations use these attributes to score voice-to-character fit (see `design-docs/plans/active/final_release/04`).
 
 ---
 
@@ -283,8 +283,8 @@ visual rule (pill tints, category colours) it **cross-references**
 > (`app/api/routers/voices_metadata.py`, multipart image, 1:1 aspect enforced) — and is
 > wired to `VoiceIconControls`.
 >
-> Canonical design sources: `design-docs/plans/site_experience_north_star.md` §5 + decision Q4 (U8
-> card content set) and `design-docs/plans/site_redesign_rollout/07_phase_r5_platform.md`.
+> Canonical design sources: `design-docs/plans/reference/site_experience_north_star.md` §5 + decision Q4 (U8
+> card content set) and `design-docs/plans/reference/site_redesign_rollout/07_phase_r5_platform.md`.
 
 ### 11.1 Catalog card content set
 

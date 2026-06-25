@@ -48,12 +48,15 @@ older one's overlapping items are folded into it (not planned twice). Resolved o
 | Book/Chapter IA design | **`book_view_ia_proposal`** (06-17) | `book_chapter_ia_proposal` (06-16), `book_chapter_ia_options` (archived) |
 | IA live-app port | **`book_view_redesign/`** (06-17) | `site_redesign_rollout` Track A (demo-mock only) |
 | Audio player (segment-aware + tape) | **`simplification/07` RST-8** (06-19) + **`audio_player_waveform_scrubber/`** (06-16) | `audio_player_scrubbing_waveform_proposal` (superseded) |
-| Progress / ETA | **DONE** — `progress_routing_unification` (archived) | `v2_progress_tracking`, `final_release/15`, `phase_4` (all superseded) |
-| Voice taxonomy v2 (Phase G) | **`final_release/04`** Phase G + `phase_12_polish` (06-15) | — |
-| Standalone plugin repos | **`final_release/05`** (06-15) | `v2_engine_bundle_github_distribution` (archived) |
-| Localization | **`phase_12_multilingual_interface_plan`** (06-14) | — (deferred post-v2) |
-| Release gating | **`road_to_v2`** + `final_release/08` (06-15/06-12) | — |
-| Backend namespace rename | **`master_agnostic_tasks`** (06-14) | — |
+| Progress / ETA (core engine) | **DONE** — `progress_routing_unification` (archived) | `v2_progress_tracking`, `final_release/15`, `phase_4` (all superseded) |
+| **Mixed-engine model-load progress/ETA** | **`active/mixed-synthesis-fused-proposal/`** (06-25) | *(new — a residual mixed-engine bug the core Progress/ETA work above did NOT cover)* |
+| Voice taxonomy v2 (Phase G) | **`active/final_release/04`** Phase G + `phase_12_polish` (06-15) | — |
+| Standalone plugin repos | **`active/final_release/05`** (06-15) | `v2_engine_bundle_github_distribution` (archived) |
+| Localization | **`_archive/phases/phase_12_multilingual_interface_plan`** (06-14) | — (deferred post-v2) |
+| Release gating | **`road_to_v2`** + `active/final_release/08` (06-15/06-12) | — |
+| Backend namespace rename | **`active/master_agnostic_tasks`** (06-14) | — |
+| Per-span performance metadata / casting export | **`proposals/performance_script_model/`** (06-25, design draft) | couples with W13 sub-sentence assignment (must ship together — shared span/DB model) |
+| Visual redesign (Quiet Studio) | **DONE** — `reference/quiet_studio_migration/` (06-24) | one owner-gated `--accent`→`--action-primary` rename deferred |
 
 ## How to read this folder
 

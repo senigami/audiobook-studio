@@ -24,7 +24,7 @@ Notes & adjustments:
   `app/providers/index.tsx`), `frontend/src/api/queries/index.ts` (3 importers — intentional boundary).
 
 **Goal:** remove all low-risk dead weight so later workstreams start from a clean base.
-**Authoritative source:** [`simplification/01_quick_wins.md`](../../simplification/01_quick_wins.md)
+**Authoritative source:** [`simplification/01_quick_wins.md`](../../active/simplification/01_quick_wins.md)
 (newest, 06-19) — execute its QW-1..QW-8 verbatim.
 
 **Also fold in (older, superseded by 06-19 but not all captured in simplification/01):**
