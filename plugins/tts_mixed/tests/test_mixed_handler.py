@@ -525,7 +525,8 @@ def test_handle_mixed_segment_job_forwards_progress_lines(clean_db, tmp_path):
          patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
          patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
          patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("plugins.tts_mixed.handler.update_job") as mock_update:
+         patch("plugins.tts_mixed.handler.update_job") as mock_update, \
+         patch("plugins.tts_mixed.handler.record_engine_sample") as mock_record:
         output_lines: list[str] = []
         result, _ = handle_mixed_job("mixed-segment-job", job, time.time(), output_lines.append, lambda: False)
 
@@ -541,10 +542,12 @@ def test_handle_mixed_segment_job_forwards_progress_lines(clean_db, tmp_path):
             continue
         assert "progress" not in call.kwargs
         assert "active_segment_progress" not in call.kwargs
+    assert mock_record.call_count == 0
+    assert not any("synthesis_duration_seconds" in call.kwargs for call in mock_update.call_args_list)
 
 
-def test_handle_mixed_job_records_true_render_group_count(clean_db, tmp_path):
-    """record_engine_sample must receive the actual rendered group count, not fallback 0."""
+def test_handle_mixed_job_does_not_write_render_performance_sample(clean_db, tmp_path):
+    """The mixed handler must not write a render-performance sample at all."""
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
@@ -589,14 +592,10 @@ def test_handle_mixed_job_records_true_render_group_count(clean_db, tmp_path):
         result, _ = handle_mixed_job("mixed-metrics-job", job, time.time(), lambda _line: None, lambda: False)
 
     assert result == "done"
-    assert mock_record.called, "record_engine_sample must be called after a successful render"
-    # 5th positional argument is source_segment_count; there are 2 render groups (one per profile)
-    call_args = mock_record.call_args
-    recorded_count = call_args.args[4] if len(call_args.args) >= 5 else call_args.kwargs.get("source_segment_count")
-    assert recorded_count == 2, f"expected 2 render groups but got {recorded_count}"
+    mock_record.assert_not_called()
 
 
-def test_handle_mixed_job_bake_metrics_uses_rendered_chars_only(clean_db, tmp_path):
+def test_handle_mixed_job_bake_skips_existing_segment_audio_and_does_not_write_samples(clean_db, tmp_path):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
@@ -653,13 +652,7 @@ def test_handle_mixed_job_bake_metrics_uses_rendered_chars_only(clean_db, tmp_pa
 
         handle_mixed_job("bake-job", job, time.time(), lambda _line: None, lambda: False)
 
-    assert mock_record.called
-    args, _ = mock_record.call_args
-    # recorded_chars = args[2]
-    # Total chars is ~24. Group 1 is ~12, Group 2 is ~12.
-    # If we incorrectly use tracking_groups (all_groups), it will be ~24.
-    # If we correctly use target_groups (rendered only), it will be ~12.
-    assert args[2] < 20, f"Recorded {args[2]} chars, expected only rendered subset (< 20)"
+    mock_record.assert_not_called()
 
 
 def test_render_segment_passes_voice_profile_dir_to_bridge(clean_db, tmp_path):
@@ -718,18 +711,8 @@ def test_render_segment_passes_voice_profile_dir_to_bridge(clean_db, tmp_path):
     assert call_kwargs["voice_profile_dir"] == expected_profile_dir
 
 
-def test_handle_mixed_job_accumulates_synthesis_duration_when_bridge_returns_no_duration(clean_db, tmp_path):
-    """
-    When generate_via_bridge returns 0 (success) but TTSResult.duration_sec is None,
-    the handler must still persist a positive synthesis_duration_seconds via update_job
-    before calling record_engine_sample — otherwise record_engine_sample raises ValueError
-    and the orchestrator marks a completed job as failed.
-
-    Pre-fix: update_job is never called with synthesis_duration_seconds, so
-    record_engine_sample raises ValueError: synthesis_duration_seconds is mandatory.
-    Post-fix: the terminal update_job call sequence includes a synthesis_duration_seconds > 0,
-    and the handler returns ('done', None).
-    """
+def test_handle_mixed_job_does_not_persist_handler_synthesis_duration_seconds(clean_db, tmp_path):
+    """The handler must leave synthesis timing ownership to the orchestrator."""
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
@@ -771,33 +754,22 @@ def test_handle_mixed_job_accumulates_synthesis_duration_when_bridge_returns_no_
          patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
          patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
          patch("plugins.tts_mixed.handler.update_job") as mock_update_job, \
-         patch("plugins.tts_mixed.handler.record_engine_sample"):
+         patch("plugins.tts_mixed.handler.record_engine_sample") as mock_record:
         result, err = handle_mixed_job("mixed-no-duration-job", job, time.time(), lambda _line: None, lambda: False)
 
     assert result == "done", f"handler returned {result!r} instead of 'done': {err}"
+    mock_record.assert_not_called()
 
-    # The handler must have persisted synthesis_duration_seconds > 0 before status='done'
     duration_updates = [
         call.kwargs.get("synthesis_duration_seconds")
         for call in mock_update_job.call_args_list
         if call.kwargs.get("synthesis_duration_seconds") is not None
     ]
-    assert duration_updates, "synthesis_duration_seconds was never passed to update_job"
-    assert all(d > 0 for d in duration_updates), f"synthesis_duration_seconds must be positive, got {duration_updates}"
+    assert not duration_updates, f"handler should not persist synthesis_duration_seconds, got {duration_updates}"
 
 
-def test_handle_mixed_job_metrics_failure_does_not_change_done_status(clean_db, tmp_path):
-    """
-    If record_engine_sample raises ValueError (e.g. missing synthesis_duration_seconds),
-    the handler must NOT propagate the exception or allow the orchestrator to mark the
-    job failed. The handler must still return ('done', None).
-
-    This reproduces the production failure shape: successful render -> metrics recording
-    raises -> orchestrator marks done job as failed.
-
-    Pre-fix: the ValueError propagates out of handle_mixed_job.
-    Post-fix: it is caught with a logger.warning, handler returns ('done', None).
-    """
+def test_handle_mixed_job_no_metrics_writer_does_not_change_done_status(clean_db, tmp_path):
+    """Removing the mixed-handler metrics writer must not change the render outcome."""
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
@@ -838,11 +810,12 @@ def test_handle_mixed_job_metrics_failure_does_not_change_done_status(clean_db, 
          patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
          patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
          patch("plugins.tts_mixed.handler.update_job") as mock_update_job, \
-         patch("plugins.tts_mixed.handler.record_engine_sample", side_effect=ValueError("synthesis_duration_seconds is mandatory and must be positive")):
+         patch("plugins.tts_mixed.handler.record_engine_sample") as mock_record:
         result, err = handle_mixed_job("mixed-metrics-fail-job", job, time.time(), lambda _line: None, lambda: False)
 
-    assert result == "done", f"handler returned {result!r} — metrics exception must not change job outcome"
-    assert err is None or "MP3" in str(err), f"unexpected error: {err}"
+    assert result == "done", f"handler returned {result!r} — the render outcome changed unexpectedly"
+    assert err is None, f"unexpected error: {err}"
+    mock_record.assert_not_called()
 
     # Confirm no failed status was set after the done status
     call_statuses = [call.kwargs.get("status") for call in mock_update_job.call_args_list if call.kwargs.get("status")]

@@ -1,9 +1,9 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.4.0
+spec_version: 1.4.1
 status: active
-updated: 2026-06-19
+updated: 2026-06-25
 created: 2026-06-10
 sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
          app/orchestration/scheduler/{orchestrator,orchestrator_helpers,policies,resources,recovery}.py,
@@ -17,6 +17,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.4.1   | 2026-06-25 | Clarify `synthesis_duration_seconds` is synthesis-only render time, derived from engine-confirmed group timing and excluding model-load windows; aligns mixed render timing with the orchestrator-owned sample path. |
 | 1.4.0   | 2026-06-19 | **Rebuild vs queue semantics documented (§3.7) + `force_rerender` field (§2) + I18.** The shipped behavior was previously undocumented: queue (`POST /processing_queue`, `force_rerender=False`) is additive — deletes nothing, reuses existing segment WAVs per-group and concatenates; rebuild (`POST /chapters/{id}/reset` then `force_rerender=True`) is destructive — deletes all segment WAVs, resets `audio_status`, and re-synthesizes every group. `force_rerender` guards reuse identically in all three render paths (xtts standard, xtts bake, voxtral bake). Backfills the spec for commits 3a834144 / 6373e9ad / 23a3b7d5. |
 | 1.3.0   | 2026-06-19 | Cooperative-cancel lost-update fix (I17): `cancel()` synchronously detaches the task's engine-log listener (after `on_cancel()` sets the cancel flag), and both `[SEGMENT_SAVED]` `audio_status="done"` write sites — the orchestrator `log_listener` and the xtts handler's `chapter_on_output` — drop the write when the task is cancelled. Prevents a straggler save from the not-yet-stopped subprocess resurrecting segment state a chapter reset just cleared (which made the next render reuse stale audio). Prompt subprocess-stop remains a follow-up (G6). |
 | 1.2.2   | 2026-06-16 | Bug fix: `apply_status_regression_guard` now allows terminal→`preparing` (not only terminal→`queued`); matches §3.5 / `is_terminal_reset` / drop-guard which already treated both as valid resets. Fixed by expanding the `ACTIVE_STATUSES` check in `app/db/state_job_guards.py`. |
@@ -130,7 +131,7 @@ All fields live on `app.db.models.Job` (a `@dataclass`).
 | `completed_render_weight` | `int` | |
 | `active_render_group_weight` | `int` | |
 | `grouped_progress` | `float` | |
-| `synthesis_duration_seconds` | `float \| None` | Wall time for synthesis phase |
+| `synthesis_duration_seconds` | `float \| None` | Synthesis-only render time; excludes model load windows |
 | `classification_override` | `str \| None` | Forces `classification` property result |
 | `engine_activity_started_at` | `float \| None` | |
 | `first_start_segment_at` | `float \| None` | |

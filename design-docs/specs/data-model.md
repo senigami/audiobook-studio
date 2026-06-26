@@ -1,9 +1,9 @@
 # Data Model
 
 ```
-spec_version: 1.4.0
+spec_version: 1.4.1
 status: active
-updated: 2026-06-23
+updated: 2026-06-25
 sources:
   - app/db/state.py
   - app/db/state_jobs.py
@@ -24,6 +24,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.4.1   | 2026-06-25 | Clarify render-performance samples are orchestrator-owned and `synthesis_duration_seconds` is synthesis-only (engine-confirmed group time), excluding load windows and inter-group overhead; align the mixed render contract with the single-writer path |
 | 1.4.0   | 2026-06-23 | Sharpen source-of-truth invariant to *validated metadata, not raw file existence*; add § Segment audio artifacts & orphan reconciliation (group→filename fan-out, orphan GC keyed on referenced filenames, per-book on-open sweep); see [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md) |
 | 1.3.1   | 2026-06-21 | Correct lexicon application-point docs: xtts/voxtral apply it in per-plugin text-prep handlers, NOT in `SynthesisTask.to_bridge_request()` (api_synthesis path only) |
 | 1.3.0   | 2026-06-21 | Add `lexicon` table (per-project pronunciation substitutions); document `apply_lexicon` pre-synthesis application point |
@@ -266,7 +267,7 @@ Stores per-render timing samples used for ETA prediction. (Lives in the separate
 | `started_at` | REAL | Unix epoch seconds |
 | `completed_at` | REAL | Unix epoch seconds |
 | `duration_seconds` | REAL | Wall time |
-| `synthesis_duration_seconds` | REAL | |
+| `synthesis_duration_seconds` | REAL | Synthesis-only render duration; excludes model load and inter-group overhead |
 | `inter_group_overhead_seconds` | REAL | |
 | `model_load_seconds` | REAL | |
 | `sum_segment_render_seconds` | REAL | |

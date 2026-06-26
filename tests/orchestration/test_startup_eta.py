@@ -1691,6 +1691,11 @@ def test_segment_clock_no_confirmation_fallback_to_announce_time(clean_db, tmp_p
     with patch("time.time", return_value=200.0):
         listener(f"[START_SEGMENT] {seg_id}")
 
+    # t=201: the mixed handler's synthetic activity marker should not suppress the
+    # announce fallback for confirmation-less engines.
+    with patch("time.time", return_value=201.0):
+        listener(f"[ENGINE_ACTIVITY_STARTED] {seg_id}")
+
     # t=203: SEGMENT_SAVED immediately (no START_SYNTHESIS or PROGRESS)
     with patch("time.time", return_value=203.0):
         listener(f"[SEGMENT_SAVED] {save_path}")
@@ -1700,6 +1705,45 @@ def test_segment_clock_no_confirmation_fallback_to_announce_time(clean_db, tmp_p
     assert job.sum_segment_render_seconds == pytest.approx(3.0), (
         f"Expected 3.0 (fallback to announce time) but got {job.sum_segment_render_seconds}"
     )
+
+
+def test_segment_clock_load_window_does_not_fall_back_to_announce_time(clean_db, tmp_path, monkeypatch):
+    """When an XTTS load window is observed, SEGMENT_SAVED must not use announce time."""
+    from app.db.performance import get_render_history
+
+    job_id = "load-window-no-announce-fallback-test"
+    listener_cb, jobs_db, _published_events = _make_listener_harness_for_groups(
+        monkeypatch,
+        job_id=job_id,
+        job_engine_id="mixed",
+        groups=[
+            {
+                "seg_id": "seg-xtts",
+                "save_path": "/tmp/seg-xtts.wav",
+                "engine": "xtts",
+                "text": "XTTS group",
+            }
+        ],
+        engine_behaviors={
+            "mixed": {},
+            "xtts": {"timing_markers": {"ENGINE_ACTIVITY_STARTED": "Loading XTTS model..."}},
+        },
+    )
+    listener = listener_cb[0]
+    assert listener is not None
+
+    with patch("time.time", return_value=100.0):
+        listener("[START_SEGMENT] seg-xtts")
+    with patch("time.time", return_value=101.0):
+        listener("Loading XTTS model...")
+    with patch("time.time", return_value=104.0):
+        listener("[SEGMENT_SAVED] /tmp/seg-xtts.wav")
+    with patch("time.time", return_value=110.0):
+        listener("Successfully synthesized 1 audio chunks.")
+
+    history = get_render_history()
+    assert history == [], f"expected no render sample when the XTTS load window never confirmed, got {history}"
+    assert jobs_db[job_id].sum_segment_render_seconds == 0.0
 
 
 def test_engine_without_manifest_ignores_fallback_completion(clean_db, tmp_path, monkeypatch):

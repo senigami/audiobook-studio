@@ -319,8 +319,6 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     else:
         target_groups = all_groups
 
-    total_synthesis_seconds: float = 0.0
-
     # Load the project lexicon once for the whole render (zero-impact when empty).
     _lexicon_entries: list = []
     try:
@@ -362,12 +360,10 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             logger.warning("Failed to broadcast segment update for chapter %s", j.chapter_id, exc_info=True)
 
         try:
-            _seg_start = time.monotonic()
             on_output(f"[ENGINE_ACTIVITY_STARTED] {segment_id}\n")
             # Forward engine output (including [PROGRESS] lines) untouched; the
             # orchestrator parses them and computes weighted chapter progress.
             rc = _render_segment(engine, chunk_text, profile_name, seg_out, j.safe_mode, on_output, cancel_check, task_id=jid)
-            total_synthesis_seconds += time.monotonic() - _seg_start
         except EngineBridgeError as exc:
             update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=str(exc))
             return "failed", str(exc)
@@ -448,19 +444,6 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         finished_at=time.time(),
         progress=1.0,
         output_wav=out_wav.name,
-        synthesis_duration_seconds=max(round(total_synthesis_seconds, 2), 0.01),
     )
-
-    # Record metrics for the mixed engine performance history
-    chars = sum(_group_weight(g) for g in target_groups)
-    perf = get_performance_metrics()
-    # record_engine_sample's 5th arg is the SEGMENT count actually rendered in this
-    # job (it drives seconds_per_segment). Render-group count is tracked separately on
-    # the job. Count the segments across the groups rendered here, not the group count.
-    rendered_segment_count = sum(len(g.get("segments") or []) for g in target_groups)
-    try:
-        record_engine_sample(j, start, chars, perf, rendered_segment_count)
-    except Exception:
-        logger.warning("Failed to record engine sample for job %s — metrics not updated", jid, exc_info=True)
 
     return "done", None

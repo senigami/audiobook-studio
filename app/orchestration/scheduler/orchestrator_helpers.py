@@ -103,6 +103,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
         }
         segment_starts = {}
         segment_announced = {}
+        segment_load_observed = set()
         marker_state = {
             "start_synthesis_emitted": False,
             "start_segment_ids": set(),
@@ -584,7 +585,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
 
         def _match_timing_marker_with_job_fallback(
             *, active_engine_id: str, job_engine_id: str, line: str
-        ) -> str | None:
+        ) -> tuple[str | None, str | None]:
             """Prefer active-engine timing markers, then fall back to the job engine."""
             from app.engines.behavior import match_timing_marker
 
@@ -597,8 +598,27 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             for candidate_engine_id in candidate_engine_ids:
                 matched = match_timing_marker(candidate_engine_id, line)
                 if matched is not None:
-                    return matched
-            return None
+                    return matched, candidate_engine_id
+            return None, None
+
+        def _active_engine_has_specific_activity_marker(engine_id: str) -> bool:
+            """Return True when the active engine declares a real load marker.
+
+            Mixed and Voxtral both expose the generic bracketed placeholder
+            ``[ENGINE_ACTIVITY_STARTED]``. That marker is emitted by the mixed
+            handler before every group and must not be treated as a model-load
+            observation for synthesis-timing fallback.
+            """
+            if not engine_id:
+                return False
+            from app.engines.behavior import get_timing_markers
+
+            markers = get_timing_markers(engine_id).get("ENGINE_ACTIVITY_STARTED") or []
+            for marker in markers:
+                marker_text = str(marker).strip()
+                if marker_text and marker_text != "[ENGINE_ACTIVITY_STARTED]":
+                    return True
+            return False
 
         def _close_pending_engine_activity_interval(*, confirmed_at: float, require_post_announce_confirmation: bool) -> None:
             pending_started_at = pending_engine_activity.get("started_at")
@@ -684,7 +704,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
 
             active_engine_id = _resolve_active_engine_for_matching()
 
-            matched_marker = _match_timing_marker_with_job_fallback(
+            matched_marker, matched_marker_engine = _match_timing_marker_with_job_fallback(
                 active_engine_id=active_engine_id,
                 job_engine_id=engine_id or "",
                 line=line,
@@ -701,6 +721,12 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         pass
                 pending_engine_activity["started_at"] = now_time
                 pending_engine_activity["activity_after_start_segment"] = _active_segment_is_announced_and_unconfirmed()
+                if (
+                    active_seg_id[0]
+                    and matched_marker_engine == active_engine_id
+                    and _active_engine_has_specific_activity_marker(active_engine_id)
+                ):
+                    segment_load_observed.add(active_seg_id[0])
 
             if matched_marker == "START_SYNTHESIS" or "[START_SYNTHESIS]" in line:
                 _close_pending_engine_activity_interval(
@@ -1004,9 +1030,12 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                             line=line,
                         )
 
-                        # Capture timing: prefer engine-confirmed start; fall back to announce
-                        # time for engines (e.g. Voxtral) that emit no confirmation signal.
-                        started = segment_starts.get(leader_id) or segment_announced.get(leader_id)
+                        # Capture timing: prefer engine-confirmed start. Only fall back to
+                        # announce time for engines that never emitted a load window or
+                        # confirmation signal (for example Voxtral).
+                        started = segment_starts.get(leader_id)
+                        if started is None and leader_id not in segment_load_observed:
+                            started = segment_announced.get(leader_id)
                         if started is not None:
                             seg_dur = now_time - started
                             timing["sum_segment_render_seconds"] += seg_dur
@@ -1074,6 +1103,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                             active_render_group_weight=0,
                             grouped_progress=_get_grouped_progress(),
                         )
+                        segment_load_observed.discard(leader_id)
                 except (IndexError, ValueError):
                     pass
 
@@ -1092,8 +1122,12 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 elif timing["render_started_at"] is not None:
                     timing["chapter_wall_duration"] = now_time - timing["render_started_at"]
 
-                if timing["render_started_at"] is not None:
+                if timing["sum_segment_render_seconds"] > 0:
+                    timing["synthesis_duration_seconds"] = timing["sum_segment_render_seconds"]
+                elif timing["render_started_at"] is not None and not segment_load_observed:
                     timing["synthesis_duration_seconds"] = now_time - timing["render_started_at"]
+                else:
+                    timing["synthesis_duration_seconds"] = None
 
                 if timing["first_start_segment_at"] is not None:
                     timing["chapter_post_start_window"] = now_time - timing["first_start_segment_at"]
