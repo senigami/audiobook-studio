@@ -61,6 +61,25 @@ Plan: [active/mixed-synthesis-fused-proposal/README.md](active/mixed-synthesis-f
 
 ---
 
+## W-MIX-LA — Mixed-synthesis load attribution *(active — planned, not started)*
+
+Plan: [active/mixed-synthesis-load-attribution/README.md](active/mixed-synthesis-load-attribution/README.md) · map: [01-map.md](active/mixed-synthesis-load-attribution/01-map.md) · roadmap: [02-roadmap.md](active/mixed-synthesis-load-attribution/02-roadmap.md)
+
+W-MIX follow-up — **G0 visual check failed (2026-06-26)**. A mixed Voxtral→XTTS render exposed three gaps in the sequential core: (A) mid-chapter XTTS cold-load shows "frozen first letter" instead of "preparing" because load windows are attributed by ambient context, not segment identity; (B) chapter/queue never pauses + ETA isn't load-aware; (C) `model_load_seconds` is recorded but never used. Lands the segment-tagged load-marker **log contract** that also unblocks W-PAR 006. **Gates resuming W-PAR.**
+
+- [x] **001** — Diagnostic: pin exact marker ordering *(DONE 2026-06-26 — [001-findings.md](active/mixed-synthesis-load-attribution/tasks/001-findings.md): root cause = XTTS cold-load line dropped at `engine.py` `relay_marker` (non-bracket → None), never reaches orchestrator; XTTS-first works via dispatch-time frame only)*
+- [ ] **002** — Segment-tagged, real-load marker (log contract: XTTS emits `[ENGINE_ACTIVITY_STARTED] {sid} {task_id}` on real load only; watchdog extracts segment_id)
+- [ ] **003** — Orchestrator identity-based attribution *(keystone)* — fire preparing frame for mid-chapter loads by marker segment id; warm/cloud stay silent
+- [ ] **004** — Frontend mid-chapter preparing render (relax `live-jobs.ts:262` scope-gate; correct span pulses)
+- [ ] **005** — *(optional)* Chapter/queue-level preparing (owner 👁 decision on semantics)
+- [ ] **006** — *(optional)* Load-aware ETA from `model_load_seconds` history
+- [ ] **007** — Spec reconciliation + 👁 **G0 re-check** (gates W-PAR resume)
+
+  > 👁 **VISUAL CHECK — ML-2 (mid-chapter preparing fixed)**
+  > Re-run the mixed render: Voxtral→XTTS shows the preparing pulse on the XTTS segment (not frozen first letter); XTTS-first still pulses-then-animates; Voxtral-only + warm XTTS group show no preparing flash.
+
+---
+
 ## W-PAR — Parallel segment rendering *(active — planned, not started)*
 
 Plan: [active/parallel-segment-rendering/README.md](active/parallel-segment-rendering/README.md) · map: [01-map.md](active/parallel-segment-rendering/01-map.md) · roadmap: [02-roadmap.md](active/parallel-segment-rendering/02-roadmap.md)
@@ -335,30 +354,44 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
 
 These plans exist but need a design/owner call before they become schedulable work.
 
-- [ ] **Chapter editor art-program** — Mode≠View≠Panel palette redesign — [exploration doc](../workflows/chapter-editor-modes.md)
-  - [ ] Design decision: what is the paint unit? (segment / sentence / word span)
-  - [ ] Design decision: mutation-batching approach to fix 409 revision-conflict bug (B2) during drag-paint
-  - [ ] Design decision: "unlock editing" guard for Edit mode vs one-tap peer of Voices/Read
-  - [ ] Design decision: quasimode (hold Space in Voices → temporarily Read) — ship in v1?
-  - [ ] Design decision: primary persona (Nontechnical Author vs Power User defaults; cast-panel pinned default)
-  - [ ] Design decision: flag follow-through depth (written notes + session persistence vs margin pins only)
-  - [ ] *After decisions:* a11y keyboard model — roving-tabindex composite manuscript, `C+N` keyboard load-brush, `Shift+Arrow` range select *(hard requirement, not optional)*
-  - [ ] *After decisions:* dyslexia reading layer (`D` toggle: wider spacing, ~65ch column, optional dyslexia face, desaturated tints)
-  - [ ] *After decisions:* build left-rail palette (Voices / Read / Edit modes + keyboard shortcuts `V`/`R`/`E`)
-  - [ ] *After decisions:* Voices mode paint gestures (load brush, drag-paint, variation as brush tip, eyedropper, eraser)
-  - [ ] *After decisions:* Read mode (karaoke highlight, tap-to-play, flag-a-line, speed control, auto-scroll)
-  - [ ] *After decisions:* Edit Text mode (replaces Source-Text tab; commit → Resync Preview)
-  - [ ] *After decisions:* ambient render pill in top bar (visible across all modes)
-  - [ ] *After decisions:* kill Script/Source-Text tab pair; kill per-span inline dropdowns; unify generate actions
+- [ ] **Chapter editor art-program** — Director's Console (Cast/Booth/Revise) — [design doc](../workflows/chapter-editor-modes.md) *(design decisions resolved 2026-06-26 — ready to plan; gated on WL1 bug fixes B1–B4)*
+
+  **Decisions resolved (see doc §13 for full detail):**
+  - [x] Design decision: assignment granularity → Word / Sentence / Paragraph brush sizes; Sentence default; never raw segments
+  - [x] Design decision: mutation-batching (B2) → event→collector queue→flush on gesture-end; render queued on mode-exit from Cast
+  - [x] Design decision: Revise mode → in-place paragraph edit per segment; structural editing = labeled escape hatch; balanced split on buffer overflow (sentence boundary nearest midpoint, 80-char floor)
+  - [x] Design decision: primary persona → narrator-first; Cast panel hidden until characters are assigned
+  - [x] Design decision: quasimode → replaced by ambient auto-render + Booth play-what's-ready; no hold-Space v1
+  - [x] Design decision: flag depth → session-only margin pins in v1; persistent + notes = post-v2
+  - [x] Design decision: terminology → Cast / Booth / Revise / Director's Console / On Air (recording studio + authorship language)
+  - [x] Design decision: left rail → slotted/extensible; demo placeholders for all future tool slots from day one; internal-only
+
+  **Ready to build (after WL1) — sequence matters: scaffold first, then fill:**
+  - [ ] **Step 1 — Scaffold (must land before any individual tool):** create the `DirectorsConsole/` folder structure and tool registration system as defined in doc §17; stub all three tools (CastTool, BoothTool, ReviseTool) + demo placeholder slots for future tools (Casting Call, Script Supervisor, plugin); wire the Console so it renders registered tools in order. Each stub renders its icon + label + "coming soon" body. No real functionality yet — this is the skeleton that all subsequent work slots into.
+  - [ ] Cast mode: brush size selector (Word/Sentence/Paragraph), voice assignment gesture, mutation collector queue, Cast palette, Match Voice, Narrator eraser
+  - [ ] Booth mode: karaoke highlight, tap-line-to-play, playback speed, session-only margin pins (line flags)
+  - [ ] Revise mode: in-place paragraph editor per segment, balanced segment split, structural-edit escape hatch
+  - [ ] Render-on-mode-exit: queue changed segments on Cast→any switch; explicit tap in Booth bumps to top
+  - [ ] Ambient On Air indicator + render progress pill (visible from all modes)
+  - [ ] Kill Script/Source-Text tab pair; kill per-span inline dropdowns; unify generate actions
+  - [ ] A11y keyboard model: roving-tabindex composite manuscript, `C+N` keyboard load-brush, `Shift+Arrow` range select *(hard requirement)*
+
+  **Future / post-v2 (not scheduled — see doc §16):**
+  - [ ] Casting Call tool slot: AI speaker detection (seeds Cast mode; triage panel; re-detect never clobbers confirmed)
+  - [ ] Script Supervisor tool slot: character discovery, chapter summaries, timeline, locations, scene breakdown, map
+  - [ ] Session-persistent flags with written notes
+  - [ ] Plugin tool slots (internal architecture reserved; external API deferred)
+  - [ ] Dyslexia reading layer (`D` toggle: wider spacing, 65ch column, desaturated tints)
+  - [ ] Narrow viewport / mobile collapse strategy
 
   > 👁 **VISUAL CHECK — chapter editor art-program complete**
   > Open a chapter in the editor:
-  > - A **left-rail palette** is visible with Voices / Read / Edit icons; the active mode is unambiguously highlighted
-  > - Pressing `V` / `R` / `E` switches modes instantly; mode label shown in the header
-  > - **Voices mode:** click a character in the Cast panel → cursor changes to a paint cursor; click a text span → it takes that character's color; drag across spans → paints a run in one gesture
-  > - **Read mode:** page dissolves to a clean reading column; tap any line → audio plays from that point; karaoke highlight follows the playhead
-  > - **Edit mode:** text becomes editable; tints stay visible but spans aren't click-targets; committing shows the Resync Preview diff
-  > - Switch modes rapidly — scroll position, playback position, and assignments are all preserved across every switch
+  > - **Director's Console** (left rail) shows Cast / Booth / Revise icons; active mode is unambiguously highlighted; future tool slots show placeholder icons
+  > - Pressing `V` / `R` / `E` switches modes instantly; mode breadcrumb shown in header
+  > - **Cast mode:** tap a character in the Cast panel → voice chip loads; click a sentence → it takes that character's color (brush size = Sentence default); drag across sentences → assigns a run; leaving Cast mode triggers background re-render with On Air light
+  > - **Booth mode:** clean listening column; tap any line → audio plays from that point (renders first if needed); karaoke highlight follows playhead; margin pin `F` drops a session flag
+  > - **Revise mode:** click a paragraph → that paragraph's text becomes editable inline; commit re-renders only that segment
+  > - Switch modes rapidly — scroll position, playback position, and assignments are all preserved
 
 - [ ] **HuggingFace voice browse + upload** — [plan](active/v2_huggingface_voice_interface.md)
   - [ ] Import flow: search HF Hub → inspect card + license → consent gate → download → build voice asset → annotate metadata
