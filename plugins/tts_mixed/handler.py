@@ -27,10 +27,6 @@ def set_ctx(ctx) -> None:
     _ctx_instance = ctx
 
 
-def _group_weight(group: dict) -> int:
-    return max(1, int(group.get("text_length") or 0))
-
-
 def _segment_output_path(pdir: Path, segment_id: str) -> Path:
     sdir = pdir / "segments"
     sdir.mkdir(parents=True, exist_ok=True)
@@ -78,6 +74,11 @@ def update_job(jid, **kwargs):
     return _update_job(jid, **kwargs)
 
 
+# Retained intentionally as a patchable guard target — NOT called by this
+# handler. Since W2, the orchestrator is the sole render-performance-sample
+# writer (INV-6); the mixed handler must never record its own sample. Tests
+# patch this symbol and assert it is never invoked, so that re-introducing a
+# handler-side metrics write is caught as a regression.
 def record_engine_sample(j, start, chars, perf, rendered_segment_count):
     from app.jobs.worker_metrics import record_engine_sample as _record  # noqa: PLC0415
     return _record(j, start, chars, perf, rendered_segment_count)
@@ -187,11 +188,6 @@ def build_chunk_groups(segments, speaker_profile):
 def load_chunk_segments(chapter_id):
     from app.domain.chunk_groups import load_chunk_segments as _fn  # noqa: PLC0415
     return _fn(chapter_id)
-
-
-def get_performance_metrics():
-    from app.db.state import get_performance_metrics as _fn  # noqa: PLC0415
-    return _fn()
 
 
 def get_chapter_segments_counts(chapter_id):

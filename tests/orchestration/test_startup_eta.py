@@ -1708,9 +1708,15 @@ def test_segment_clock_no_confirmation_fallback_to_announce_time(clean_db, tmp_p
 
 
 def test_segment_clock_load_window_does_not_fall_back_to_announce_time(clean_db, tmp_path, monkeypatch):
-    """When an XTTS load window is observed, SEGMENT_SAVED must not use announce time."""
-    from app.db.performance import get_render_history
+    """When an XTTS load window is observed, SEGMENT_SAVED must not use announce time.
 
+    This harness drives the log listener only (the handler is stubbed and markers
+    are fed after dispatch returns), so it does NOT exercise the render-sample
+    recording path — `sum_segment_render_seconds` is the assertion with teeth here
+    (reverting the announce-fallback gate makes it non-zero). The full
+    record-path coverage for the load-window scenario lives in
+    `test_load_window_unconfirmed_records_no_load_polluted_sample`.
+    """
     job_id = "load-window-no-announce-fallback-test"
     listener_cb, jobs_db, _published_events = _make_listener_harness_for_groups(
         monkeypatch,
@@ -1741,9 +1747,201 @@ def test_segment_clock_load_window_does_not_fall_back_to_announce_time(clean_db,
     with patch("time.time", return_value=110.0):
         listener("Successfully synthesized 1 audio chunks.")
 
-    history = get_render_history()
-    assert history == [], f"expected no render sample when the XTTS load window never confirmed, got {history}"
+    # An unconfirmed segment behind a load window contributes no synthesis time:
+    # the announce fallback is suppressed, so the per-segment render clock stays 0.
     assert jobs_db[job_id].sum_segment_render_seconds == 0.0
+
+
+def _run_recording_render_with_markers(
+    monkeypatch, *, job_id, engine_id, engine_behavior, marker_script, completed_at,
+    script_text="Hello world there friends",
+):
+    """Drive a full single-group render through `_dispatch` so the REAL
+    `record_render_sample` path runs (unlike `_make_listener_harness_for_groups`,
+    which only drives the log listener). Markers in `marker_script`
+    ``[(t, line), ...]`` are fed from inside the stubbed handler, then the handler
+    returns ``completed`` so the orchestrator records the sample.
+
+    Returns ``(history, jobs_db)``.
+    """
+    from app.orchestration.tasks.synthesis import SynthesisTask
+    from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+    from app.orchestration.tasks.base import TaskContext, TaskResult
+    from app.db.state import Job
+    from app.db.performance import get_render_history
+    from app.engines.behavior import normalize_behavior, _load_full_manifest, _load_manifest_behavior
+
+    _load_full_manifest.cache_clear()
+    _load_manifest_behavior.cache_clear()
+
+    task = SynthesisTask(
+        task_id=job_id,
+        engine_id=engine_id,
+        script_text=script_text,
+        output_path="/tmp/out.wav",
+        chapter_id="chap-1",
+        voice_profile_id="Default",
+        script=[{"ids": ["seg-1"], "save_path": "/tmp/seg-1.wav", "text": script_text}],
+    )
+    context = TaskContext(
+        task_id=job_id,
+        task_type="synthesis",
+        project_id="proj-1",
+        chapter_id="chap-1",
+        payload={"engine_id": engine_id, "script_text": script_text, "voice_profile_id": "Default"},
+    )
+
+    jobs_db = {}
+
+    def mock_put_job(job):
+        jobs_db[job.id] = job
+
+    def mock_get_jobs():
+        return jobs_db
+
+    def mock_update_job(jid, **kwargs):
+        job = jobs_db.get(jid)
+        if job:
+            for k, v in kwargs.items():
+                setattr(job, k, v)
+
+    monkeypatch.setattr("app.db.state.put_job", mock_put_job)
+    monkeypatch.setattr("app.db.state.get_jobs", mock_get_jobs)
+    monkeypatch.setattr("app.db.state.update_job", mock_update_job)
+
+    def mock_publish(self, context, status=None, progress=None, eta_seconds=None, started_at=None, **kwargs):
+        updates = {}
+        if status is not None:
+            updates["status"] = status
+        if started_at is not None:
+            updates["started_at"] = started_at
+        job_fields = Job.__dataclass_fields__
+        for k, v in kwargs.items():
+            if k in job_fields:
+                updates[k] = v
+        if updates and context.task_id in jobs_db:
+            mock_put_job(Job(**{**jobs_db[context.task_id].__dict__, **updates}))
+
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_publish", mock_publish)
+    monkeypatch.setattr(OrchestratorHelpersMixin, "_estimate_task_duration", lambda *a, **kw: 10.0)
+    monkeypatch.setattr(
+        "app.engines.behavior.behavior_for_engine",
+        lambda eid, **kw: normalize_behavior(engine_behavior if eid == engine_id else {}),
+    )
+
+    mock_segments = [
+        {"id": "seg-1", "text_content": script_text, "character_id": 1, "speaker_profile_name": "Narrator"}
+    ]
+    chunk_groups = [
+        {"id": "seg-1", "leader_segment_id": "seg-1", "segments": mock_segments, "text_content": script_text}
+    ]
+
+    listener_cb = [None]
+
+    class FakeWatchdog:
+        def register_log_listener(self, cb):
+            listener_cb[0] = cb
+
+        def unregister_log_listener(self, cb):
+            pass
+
+    mock_put_job(Job(id=job_id, engine=engine_id, status="running", created_at=0.0))
+
+    def custom_handler(*args, **kwargs):
+        listener = listener_cb[0]
+        assert listener is not None
+        for t, line in marker_script:
+            with patch("time.time", return_value=t):
+                listener(line)
+        return TaskResult(status="completed")
+
+    with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_reg, \
+         patch("app.engines.watchdog.get_watchdog", return_value=FakeWatchdog()), \
+         patch("app.domain.chunk_groups.load_chunk_segments", return_value=mock_segments), \
+         patch("app.domain.chunk_groups.build_chunk_groups", return_value=chunk_groups), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value=engine_id), \
+         patch("time.time", return_value=completed_at):
+        mock_reg.return_value.get_handler.return_value = custom_handler
+        mixin = OrchestratorHelpersMixin()
+        mixin._dispatch(task=task, context=context)
+
+    return get_render_history(), jobs_db
+
+
+def test_load_window_excluded_from_recorded_synthesis_duration(clean_db, tmp_path, monkeypatch):
+    """W2 headline: a confirmed render behind a 39 s model-load window records a
+    synthesis-only duration (saved − engine confirmation = 10 s), NOT the naive
+    announce→saved span (50 s) that folds the load window in. This is the
+    62 s-vs-40 s inflation the fix targets, pinned through the real record path.
+    """
+    history, jobs_db = _run_recording_render_with_markers(
+        monkeypatch,
+        job_id="load-excluded-positive",
+        engine_id="xtts",
+        engine_behavior={
+            "timing_markers": {
+                "ENGINE_ACTIVITY_STARTED": "Loading XTTS model...",
+                "CHAPTER_SYNTHESIS_COMPLETE": "Successfully synthesized",
+            }
+        },
+        marker_script=[
+            (100.0, "[START_SEGMENT] seg-1"),
+            (101.0, "Loading XTTS model..."),     # 39 s load window opens, attributed to seg-1
+            (140.0, "[START_SYNTHESIS] seg-1"),    # engine confirmation — synthesis clock starts
+            (150.0, "[SEGMENT_SAVED] /tmp/seg-1.wav"),
+            (152.0, "Successfully synthesized 1 audio chunks."),
+        ],
+        completed_at=152.0,
+    )
+
+    assert len(history) == 1, f"expected exactly one render sample, got {history}"
+    sample = history[0]
+    # Synthesis-only clock = saved(150) − confirmation(140) = 10, NOT saved − announce(100) = 50.
+    assert sample["sum_segment_render_seconds"] == 10.0
+    assert sample["synthesis_duration_seconds"] == 10.0
+    assert sample["synthesis_duration_seconds"] < 50.0  # the load window is excluded
+    assert sample["model_load_seconds"] == 39.0
+    # CPS derives from synthesis-only time, never the load-inclusive span (INV-3).
+    assert sample["cps"] == round(sample["chars"] / 10.0, 2)
+    assert sample["cps"] != round(sample["chars"] / 50.0, 2)
+    assert jobs_db["load-excluded-positive"].sum_segment_render_seconds == 10.0
+    assert jobs_db["load-excluded-positive"].model_load_seconds == 39.0
+
+
+def test_load_window_unconfirmed_records_no_load_polluted_sample(clean_db, tmp_path, monkeypatch):
+    """Discard-fix guard (R1): a segment behind a load window that saves WITHOUT
+    engine confirmation must not produce a load-inclusive wall-time sample. The
+    render-started clock is set (an earlier bare START_SYNTHESIS), the segment is
+    load-observed, and it saves with no per-segment confirmation. Because the
+    load-observed latch is retained through chapter completion (the
+    `segment_load_observed.discard` at [SEGMENT_SAVED] was removed), the terminal
+    wall-time fallback stays suppressed → synthesis is None → no sample recorded.
+    Re-introducing that discard empties the latch before the terminal check, the
+    wall fallback fires, and a load-polluted sample is recorded — turning this
+    test red.
+    """
+    history, jobs_db = _run_recording_render_with_markers(
+        monkeypatch,
+        job_id="load-unconfirmed-no-pollution",
+        engine_id="xtts",
+        engine_behavior={
+            "timing_markers": {
+                "ENGINE_ACTIVITY_STARTED": "Loading XTTS model...",
+                "CHAPTER_SYNTHESIS_COMPLETE": "Successfully synthesized",
+            }
+        },
+        marker_script=[
+            (100.0, "[START_SYNTHESIS]"),            # bare confirmation, no active segment → sets render-started clock
+            (101.0, "[START_SEGMENT] seg-1"),
+            (102.0, "Loading XTTS model..."),         # load window attributed to seg-1
+            (140.0, "[SEGMENT_SAVED] /tmp/seg-1.wav"),  # saved WITHOUT a per-segment START_SYNTHESIS
+            (142.0, "Successfully synthesized 1 audio chunks."),
+        ],
+        completed_at=142.0,
+    )
+
+    assert history == [], f"a load-polluted sample was recorded: {history}"
+    assert jobs_db["load-unconfirmed-no-pollution"].sum_segment_render_seconds == 0.0
 
 
 def test_engine_without_manifest_ignores_fallback_completion(clean_db, tmp_path, monkeypatch):

@@ -1103,7 +1103,16 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                             active_render_group_weight=0,
                             grouped_progress=_get_grouped_progress(),
                         )
-                        segment_load_observed.discard(leader_id)
+                        # NOTE: intentionally do NOT discard leader_id from
+                        # segment_load_observed here. It is a "load observed this
+                        # render" latch consumed by the CHAPTER_SYNTHESIS_COMPLETE
+                        # terminal block below: if a group loaded a model but its
+                        # segment was saved without engine confirmation, the
+                        # terminal wall-time fallback must stay suppressed so a
+                        # load-inclusive duration never re-enters synthesis time
+                        # (INV-3). Discarding here defeated that guard for any
+                        # saved segment. The per-leader announce-fallback check
+                        # above is unaffected (each leader is saved once).
                 except (IndexError, ValueError):
                     pass
 
