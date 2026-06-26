@@ -1,6 +1,6 @@
 # Task 003 — Orchestrator identity-based attribution (keystone)
 
-**Workstream:** W-MIX-LA · **Depends on:** 002 · **Blocks:** 004, 005, 006 · **Status:** Not started
+**Workstream:** W-MIX-LA · **Depends on:** 002 · **Blocks:** 004, 005, 006 · **Status:** DONE (2026-06-26) — `log_listener` handles `MODEL_LOAD_STARTED` → emits LOADING_MODEL/indeterminate frame (clear_eta, attributed to marker sid or active_seg_id); warm/cloud silent by construction; adversarial review CLEAN
 
 > Read [`../01-map.md`](../01-map.md) part **P-C**, connections **C1/C3/C4**, invariants **INV-1/INV-2/INV-3/INV-5/INV-6**, risks **R-D**. This is the keystone — it turns the now-delivered load marker from 002 into a correctly-attributed preparing frame.
 

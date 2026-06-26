@@ -408,11 +408,17 @@ DEFAULT_TIMING_MARKERS = {
 
 
 def get_timing_markers(engine_id: str) -> dict[str, list[str]]:
-    """Return the timing markers configured for this engine, falling back to default values."""
+    """Return the timing markers configured for this engine, falling back to default values.
+
+    Returns all default categories (with per-engine overrides applied) plus any
+    additional non-default categories declared in the engine's manifest
+    (e.g. ``MODEL_LOAD_STARTED`` declared only by XTTS).
+    """
     behavior = behavior_for_engine(engine_id)
     markers = behavior.get("timing_markers", {})
 
     result = {}
+    # Default categories: apply per-engine override or keep the default pattern list.
     for key, default_vals in DEFAULT_TIMING_MARKERS.items():
         val = markers.get(key, default_vals)
         if isinstance(val, str):
@@ -421,6 +427,17 @@ def get_timing_markers(engine_id: str) -> dict[str, list[str]]:
             result[key] = [str(v) for v in val]
         else:
             result[key] = default_vals
+
+    # Non-default categories declared by the engine manifest (e.g. MODEL_LOAD_STARTED).
+    for key, val in markers.items():
+        if key in DEFAULT_TIMING_MARKERS:
+            continue  # already handled above
+        if isinstance(val, str):
+            result[key] = [val]
+        elif isinstance(val, list):
+            result[key] = [str(v) for v in val]
+        # else: malformed entry — skip silently
+
     return result
 
 

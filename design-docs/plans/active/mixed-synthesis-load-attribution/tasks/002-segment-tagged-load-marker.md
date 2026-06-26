@@ -1,6 +1,6 @@
 # Task 002 — Segment-tagged, real-load marker (log contract)
 
-**Workstream:** W-MIX-LA · **Depends on:** 001 · **Blocks:** 003, (W-PAR 006) · **Status:** Not started
+**Workstream:** W-MIX-LA · **Depends on:** 001 · **Blocks:** 003, (W-PAR 006) · **Status:** DONE (2026-06-26) — `[MODEL_LOAD_STARTED]` marker (engine.py emit + watchdog extract + manifest + behavior.py pass-through); adversarial review CLEAN
 
 > Read [`../01-map.md`](../01-map.md) parts **P-A/P-B/P-D**, connections **C2/C4**, invariants **INV-2/INV-3/INV-4/INV-7**, risks **R-A/R-D**.
 

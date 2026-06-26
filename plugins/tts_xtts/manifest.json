@@ -52,6 +52,7 @@
     "progress_pattern": "\\[PROGRESS\\]\\s*(?P<value>\\d+(?:\\.\\d+)?)\\s*%",
     "timing_markers": {
       "ENGINE_ACTIVITY_STARTED": ["Loading XTTS model..."],
+      "MODEL_LOAD_STARTED": ["[MODEL_LOAD_STARTED]"],
       "START_SYNTHESIS": ["[START_SYNTHESIS]"],
       "START_SEGMENT": ["[START_SEGMENT]"],
       "SEGMENT_SAVED": ["[SEGMENT_SAVED]"],

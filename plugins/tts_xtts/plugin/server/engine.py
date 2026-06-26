@@ -399,6 +399,28 @@ class XttsPlugin(StudioTTSEngine):
                 except Exception:
                     pass
 
+            # Emit a dedicated [MODEL_LOAD_STARTED] marker when the XTTS worker's
+            # cold-load line is observed.  These bare text lines are dropped by
+            # relay_marker (which only recognizes bracketed markers), but they are
+            # the only real-load signal: the worker prints them ONCE per process on
+            # cold load; warm reuse and Voxtral never print them.  Re-emitting as a
+            # recognized bracketed marker lets the watchdog and orchestrator see the
+            # real-load event (INV-2 safe — never fires on warm/cloud groups).
+            if req.task_id:
+                try:
+                    stripped_for_load = line.strip()
+                    if (
+                        stripped_for_load == "Loading XTTS model..."
+                        or stripped_for_load == "XTTS serve mode: loading model..."
+                    ):
+                        if active_segment_id:
+                            load_marker = f"[MODEL_LOAD_STARTED] {active_segment_id} {req.task_id}"
+                        else:
+                            load_marker = f"[MODEL_LOAD_STARTED] {req.task_id}"
+                        print(load_marker, file=sys.stderr, flush=True)
+                except Exception:
+                    pass
+
         rc = 1
         try:
             try:

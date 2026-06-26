@@ -578,6 +578,14 @@ class TtsServerWatchdog:
                         sub_parts = parts[1].strip().split()
                         if len(sub_parts) >= 2:
                             task_id = sub_parts[1]
+                elif "[MODEL_LOAD_STARTED]" in line:
+                    parts = line.split("[MODEL_LOAD_STARTED]")
+                    if len(parts) > 1:
+                        # Grammar: [MODEL_LOAD_STARTED] {sid?} {task_id}
+                        # task_id is always the LAST token; sid is optional.
+                        sub_parts = parts[1].strip().split()
+                        if sub_parts:
+                            task_id = sub_parts[-1]
 
                 with self._lock:
                     self._log_buffer.append(f"[{name}] {line}")

@@ -755,6 +755,55 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         force=True,
                     )
 
+            if matched_marker == "MODEL_LOAD_STARTED":
+                # Dedicated real-load marker emitted by the XTTS wrapper only when
+                # the worker's cold-load line is observed (never on warm reuse or Voxtral).
+                # Real-load-only by construction → INV-2 safe; no extra gate needed.
+                # Parse sid: tokens after [MODEL_LOAD_STARTED]; if 2+ tokens, sid=first;
+                # if 1 token (just task_id), fall back to active_seg_id[0].
+                _mls_sid: Optional[str] = None
+                try:
+                    _mls_parts = line.split("[MODEL_LOAD_STARTED]", 1)
+                    if len(_mls_parts) > 1:
+                        _mls_tokens = _mls_parts[1].strip().split()
+                        if len(_mls_tokens) >= 2:
+                            _mls_sid = _mls_tokens[0]
+                        elif len(_mls_tokens) == 1:
+                            # Only task_id present; fall through to active_seg_id below.
+                            _mls_sid = None
+                except Exception:
+                    pass
+                if _mls_sid is None:
+                    _mls_sid = active_seg_id[0]
+
+                if _mls_sid:
+                    segment_load_observed.add(_mls_sid)
+                    self._publish(
+                        context=context,
+                        status="running",
+                        progress=_get_grouped_progress(),
+                        eta_seconds=None,
+                        clear_eta=True,
+                        indeterminate=True,
+                        loading_elapsed_seconds=max(0.0, now_time - float(pending_engine_activity["started_at"])) if pending_engine_activity.get("started_at") else 0.0,
+                        active_segment_eta_seconds=None,
+                        reason_code="LOADING_MODEL",
+                        message="Loading voice model…",
+                        started_at=timing["render_started_at"],
+                        active_segment_id=_mls_sid,
+                        render_group_count=render_group_count,
+                        completed_render_groups=completed_group_count[0],
+                        active_render_group_index=active_render_group_index[0],
+                        total_render_weight=total_weight,
+                        completed_render_weight=completed_weight[0],
+                        active_render_group_weight=id_to_weight.get(_mls_sid, 0),
+                        grouped_progress=_get_grouped_progress(),
+                        force=True,
+                    )
+                # Do NOT open a new pending_engine_activity interval here —
+                # the generic [ENGINE_ACTIVITY_STARTED] already opened it;
+                # this marker only emits the frame (avoids double model_load_seconds).
+
             if matched_marker == "START_SYNTHESIS" or "[START_SYNTHESIS]" in line:
                 _close_pending_engine_activity_interval(
                     confirmed_at=now_time,

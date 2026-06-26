@@ -68,8 +68,8 @@ Plan: [active/mixed-synthesis-load-attribution/README.md](active/mixed-synthesis
 W-MIX follow-up — **G0 visual check failed (2026-06-26)**. A mixed Voxtral→XTTS render exposed three gaps in the sequential core: (A) mid-chapter XTTS cold-load shows "frozen first letter" instead of "preparing" because load windows are attributed by ambient context, not segment identity; (B) chapter/queue never pauses + ETA isn't load-aware; (C) `model_load_seconds` is recorded but never used. Lands the segment-tagged load-marker **log contract** that also unblocks W-PAR 006. **Gates resuming W-PAR.**
 
 - [x] **001** — Diagnostic: pin exact marker ordering *(DONE 2026-06-26 — [001-findings.md](active/mixed-synthesis-load-attribution/tasks/001-findings.md): root cause = XTTS cold-load line dropped at `engine.py` `relay_marker` (non-bracket → None), never reaches orchestrator; XTTS-first works via dispatch-time frame only)*
-- [ ] **002** — Segment-tagged, real-load marker (log contract: XTTS emits `[ENGINE_ACTIVITY_STARTED] {sid} {task_id}` on real load only; watchdog extracts segment_id)
-- [ ] **003** — Orchestrator identity-based attribution *(keystone)* — fire preparing frame for mid-chapter loads by marker segment id; warm/cloud stay silent
+- [x] **002** — Real-load marker *(DONE 2026-06-26)* — XTTS emits dedicated `[MODEL_LOAD_STARTED] {sid?} {task_id}` only on real cold load; watchdog extracts task_id; manifest + `behavior.py` pass-through
+- [x] **003** — Orchestrator identity-based attribution *(keystone — DONE 2026-06-26)* — `log_listener` fires the LOADING_MODEL/indeterminate frame on `MODEL_LOAD_STARTED` (clear_eta, attributed to marker sid / `active_seg_id`); warm/cloud silent by construction; adversarial CLEAN
 - [ ] **004** — Frontend mid-chapter preparing render (relax `live-jobs.ts:262` scope-gate; correct span pulses)
 - [ ] **005** — *(optional)* Chapter/queue-level preparing (owner 👁 decision on semantics)
 - [ ] **006** — *(optional)* Load-aware ETA from `model_load_seconds` history
