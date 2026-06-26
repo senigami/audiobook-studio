@@ -37,6 +37,9 @@ export const QUEUE_OVERLAY_FIELDS = [
   'active_segment_eta_seconds',
   'active_segment_eta_basis',
   'active_segment_updated_at',
+  // Model-load / indeterminate telemetry
+  'indeterminate',
+  'loadingElapsedSeconds',
   // Debug / message provenance
   'message',
   'log',

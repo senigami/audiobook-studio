@@ -109,6 +109,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     pageHandoff,
     chapterRenderRenderingSegmentIds,
     chapterRenderQueuedSegmentIds,
+    chapterRenderPreparingSegmentIds,
     chapterRenderRenderingBatchProgressById,
     playingSegmentId,
     playingSegmentIds,
@@ -229,6 +230,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                 pendingSpanIds={effectivePendingSegmentIds}
                 renderingSpanIds={chapterRenderRenderingSegmentIds}
                 queuedSpanIds={chapterRenderQueuedSegmentIds}
+                preparingSpanIds={chapterRenderPreparingSegmentIds}
                 renderingBatchProgressById={chapterRenderRenderingBatchProgressById}
                 playingSpanId={playingSegmentId}
                 playingSpanIds={playingSegmentIds}

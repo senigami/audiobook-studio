@@ -93,6 +93,7 @@ export function StudioStage() {
     effectivePendingSegmentIds,
     chapterRenderRenderingSegmentIds,
     chapterRenderQueuedSegmentIds,
+    chapterRenderPreparingSegmentIds,
     chapterRenderRenderingBatchProgressById,
     playingSegmentId,
     playingSegmentIds,
@@ -300,6 +301,7 @@ export function StudioStage() {
               pendingSpanIds={effectivePendingSegmentIds}
               renderingSpanIds={chapterRenderRenderingSegmentIds}
               queuedSpanIds={chapterRenderQueuedSegmentIds}
+              preparingSpanIds={chapterRenderPreparingSegmentIds}
               renderingBatchProgressById={chapterRenderRenderingBatchProgressById}
               playingSpanId={playingSegmentId}
               playingSpanIds={playingSegmentIds}

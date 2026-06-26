@@ -200,7 +200,7 @@ export const useChapterStatus = (
     queueStatus, heldQueueStatus, effectiveQueueLocked, isQueued,
     liveSegmentProgressJob, liveSegmentProgressValue, hasChapterAudio,
     generatingSegmentIdsCount, liveSegmentProgressIsRenderBlock,
-    segmentProgressBarSelection
+    segmentProgressBarSelection, selectedSegmentReasonCode
   };
 };
 
@@ -566,6 +566,7 @@ export const ChapterScriptToolbar: React.FC<{
                             etaSeconds: displayedEtaSeconds,
                             etaBasis: displayedEtaBasis as any,
                             updatedAt: displayedUpdatedAt,
+                            reasonCode: status.selectedSegmentReasonCode,
                             state: liveJobStatus === 'preparing'
                                 ? (status.segmentProgressBarSelection.isSegmentStartAtZero ? 'processing' : 'preparing')
                                 : liveJobStatus === 'finalizing'

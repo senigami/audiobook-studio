@@ -80,6 +80,7 @@ export function buildSegmentsProgressProjection(
         has_segment_support: typeof rawHasSegmentSupport === 'boolean' ? rawHasSegmentSupport : undefined,
         status: projectedStatus,
         reason_code: rawReasonCode,
+        indeterminate: getVal(payload, 'indeterminate', 'indeterminate'),
         log: payload.message || payload.log,
         updated_at: resolveEventUpdatedAt(event as any, payload),
         db_updated_at: typeof rawUpdatedAt === 'number' ? rawUpdatedAt : (typeof rawUpdatedAt === 'string' ? Date.parse(rawUpdatedAt) / 1000 : undefined),

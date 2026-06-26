@@ -216,6 +216,8 @@ export interface ProcessingQueueItem {
   produced_chars?: number;
   produced_word_count?: number;
   produced_segment_count?: number;
+  indeterminate?: boolean | null;
+  loadingElapsedSeconds?: number | null;
 }
 
 export interface SpeakerProfile {

@@ -35,6 +35,8 @@ export interface OverlayDelta {
   active_render_group_weight?: number | null;
   grouped_progress?: number | null;
   reason_code?: string | null;
+  indeterminate?: boolean | null;
+  loadingElapsedSeconds?: number | null;
   message?: string | null;
   error?: string | null;
   audio_length_seconds?: number | null;
@@ -245,6 +247,8 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     if (event.message) nextDelta.message = event.message;
     if (event.message) nextDelta.error = event.message;
     if (event.reason_code) nextDelta.reason_code = event.reason_code;
+    if (event.indeterminate !== undefined) nextDelta.indeterminate = event.indeterminate;
+    if (event.loadingElapsedSeconds !== undefined) nextDelta.loadingElapsedSeconds = event.loadingElapsedSeconds;
     if (event.active_render_batch_id !== undefined) {
       nextDelta.active_render_batch_id = event.active_render_batch_id;
     }
@@ -369,6 +373,8 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       grouped_progress: jobUpdated.grouped_progress,
       message: jobUpdated.message || jobUpdated.log || jobUpdated.error || undefined,
       reason_code: jobUpdated.reason_code,
+      indeterminate: jobUpdated.indeterminate,
+      loadingElapsedSeconds: jobUpdated.loadingElapsedSeconds,
       eta_updated_at: typeof jobUpdated.eta_updated_at === 'number' ? jobUpdated.eta_updated_at : (typeof jobUpdated.etaUpdatedAt === 'number' ? jobUpdated.etaUpdatedAt : undefined),
       etaUpdatedAt: typeof jobUpdated.etaUpdatedAt === 'number' ? jobUpdated.etaUpdatedAt : (typeof jobUpdated.eta_updated_at === 'number' ? jobUpdated.eta_updated_at : undefined),
       confidence: typeof jobUpdated.confidence === 'number' ? jobUpdated.confidence : undefined,

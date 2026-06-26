@@ -31,6 +31,7 @@ interface ScriptViewProps {
   pendingSpanIds: Set<string>;
   renderingSpanIds?: Set<string>;
   queuedSpanIds?: Set<string>;
+  preparingSpanIds?: Set<string>;
   renderingBatchProgressById?: Record<string, number>;
   playingSpanId?: string | null;
   playingSpanIds?: Set<string>;
@@ -69,6 +70,7 @@ interface ScriptSpanItemProps {
   isPending: boolean;
   isRendering: boolean;
   isQueued: boolean;
+  isPreparing: boolean;
   isPlaying: boolean;
   isReady: boolean;
   canPlay: boolean;
@@ -98,6 +100,7 @@ const ScriptSpanItem = React.memo<ScriptSpanItemProps>(({
   isPending,
   isRendering,
   isQueued,
+  isPreparing,
   isPlaying,
   isReady,
   canPlay,
@@ -123,8 +126,8 @@ const ScriptSpanItem = React.memo<ScriptSpanItemProps>(({
   const textClassName = [
     'script-span-text',
     mode === 'script'
-      ? (isRendering ? 'script-span-text-rendering' : isQueued ? 'script-span-text-queued' : isPending ? 'script-span-text-pending' : '')
-      : (isRendering ? 'script-span-text-book-rendering' : isQueued ? 'script-span-text-book-queued' : isPending ? 'script-span-text-book-pending' : ''),
+      ? (isPreparing ? 'script-span-text-preparing' : isRendering ? 'script-span-text-rendering' : isQueued ? 'script-span-text-queued' : isPending ? 'script-span-text-pending' : '')
+      : (isPreparing ? 'script-span-text-book-preparing' : isRendering ? 'script-span-text-book-rendering' : isQueued ? 'script-span-text-book-queued' : isPending ? 'script-span-text-book-pending' : ''),
     isPlaying ? 'script-span-text-playing' : '',
     isReady ? 'script-span-text-ready' : 'script-span-text-muted',
   ].filter(Boolean).join(' ');
@@ -133,8 +136,8 @@ const ScriptSpanItem = React.memo<ScriptSpanItemProps>(({
     <span
       data-span-id={span.id}
       data-testid={`script-span-${span.id}`}
-      data-render-status={isRendering ? 'rendering' : isQueued ? 'queued' : isPending ? 'pending' : isReady ? 'rendered' : 'idle'}
-      className={`script-span ${char ? 'is-assigned' : ''} ${isHighlighted ? 'is-highlighted' : ''} ${isPlaying ? 'is-playing' : ''} ${mode === 'book' && isRendering ? 'is-book-rendering' : ''} ${mode === 'book' && isQueued ? 'is-book-queued' : ''} ${mode === 'book' && isPending && !isRendering && !isQueued ? 'is-book-pending' : ''} ${mode === 'script' && isRendering ? 'is-rendering' : ''} ${mode === 'script' && isQueued ? 'is-queued' : ''} ${mode === 'script' && isPending && !isRendering && !isQueued ? 'is-pending' : ''} ${activeCharacterId ? 'is-paintable' : ''}`}
+      data-render-status={isPreparing ? 'preparing' : isRendering ? 'rendering' : isQueued ? 'queued' : isPending ? 'pending' : isReady ? 'rendered' : 'idle'}
+      className={`script-span ${char ? 'is-assigned' : ''} ${isHighlighted ? 'is-highlighted' : ''} ${isPlaying ? 'is-playing' : ''} ${mode === 'book' && isPreparing ? 'is-book-preparing' : ''} ${mode === 'book' && isRendering && !isPreparing ? 'is-book-rendering' : ''} ${mode === 'book' && isQueued ? 'is-book-queued' : ''} ${mode === 'book' && isPending && !isRendering && !isQueued ? 'is-book-pending' : ''} ${mode === 'script' && isPreparing ? 'is-preparing' : ''} ${mode === 'script' && isRendering && !isPreparing ? 'is-rendering' : ''} ${mode === 'script' && isQueued ? 'is-queued' : ''} ${mode === 'script' && isPending && !isRendering && !isQueued ? 'is-pending' : ''} ${activeCharacterId ? 'is-paintable' : ''}`}
       style={char ? ({ '--script-span-accent': char.color } as React.CSSProperties) : undefined}
       onClick={(e) => {
         const selection = window.getSelection();
@@ -152,7 +155,7 @@ const ScriptSpanItem = React.memo<ScriptSpanItemProps>(({
       )}
 
       <span className={textClassName}>
-        {isRendering
+        {isRendering && !isPreparing
           ? <SegmentProgressText text={displayText} litCount={litCount} showCursor={showCursor} />
           : displayText}
       </span>
@@ -244,6 +247,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   pendingSpanIds,
   renderingSpanIds = new Set<string>(),
   queuedSpanIds = new Set<string>(),
+  preparingSpanIds = new Set<string>(),
   renderingBatchProgressById = {},
   playingSpanId = null,
   playingSpanIds,
@@ -436,12 +440,14 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   };
 
   const batchRenderClassName = (batch: ScriptRenderBatch) => {
-    const isRendering = batch.span_ids.some(spanId => renderingSpanIds.has(spanId));
-    const isQueued = !isRendering && batch.span_ids.some(spanId => queuedSpanIds.has(spanId));
-    const isPending = !isRendering && !isQueued && batch.span_ids.some(spanId => pendingSpanIds.has(spanId));
+    const isPreparing = batch.span_ids.some(spanId => preparingSpanIds.has(spanId));
+    const isRendering = !isPreparing && batch.span_ids.some(spanId => renderingSpanIds.has(spanId));
+    const isQueued = !isPreparing && !isRendering && batch.span_ids.some(spanId => queuedSpanIds.has(spanId));
+    const isPending = !isPreparing && !isRendering && !isQueued && batch.span_ids.some(spanId => pendingSpanIds.has(spanId));
 
     return [
       'script-render-group',
+      isPreparing ? 'is-preparing' : '',
       isRendering ? 'is-rendering' : '',
       isQueued ? 'is-queued' : '',
       isPending ? 'is-pending' : '',
@@ -455,6 +461,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     const isPending = pendingSpanIds.has(span.id);
     const isRendering = renderingSpanIds.has(span.id);
     const isQueued = queuedSpanIds.has(span.id);
+    const isPreparing = preparingSpanIds.has(span.id);
     const renderingTextProgress = isRendering
       ? getRenderingTextProgress(batch, span)
       : { litCount: 0, showCursor: false };
@@ -479,6 +486,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
         isPending={isPending}
         isRendering={isRendering}
         isQueued={isQueued}
+        isPreparing={isPreparing}
         isPlaying={isPlaying}
         isReady={isReady}
         canPlay={canPlay}

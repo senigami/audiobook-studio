@@ -19,25 +19,27 @@ Plan: [active/mixed-synthesis-fused-proposal/README.md](active/mixed-synthesis-f
   - [x] `tts_mixed/manifest.json`: declare `ENGINE_ACTIVITY_STARTED` timing marker
   - [x] Tests: mixed marker resolution; Voxtral-first masking regression (R1 revert-checked)
 
-- [ ] **W2** — Synthesis-only duration; orchestrator sole writer ← *next* — [task 002](active/mixed-synthesis-fused-proposal/tasks/002-synthesis-only-duration-single-writer.md)
-  - [ ] `tts_mixed/handler.py`: remove load-inclusive `synthesis_duration_seconds` from final `update_job`
-  - [ ] `tts_mixed/handler.py`: remove competing `record_engine_sample` call (orchestrator is sole writer)
-  - [ ] `orchestrator_helpers.py`: gate `segment_announced` fallback — only use when no load window exists
-  - [ ] `orchestrator_helpers.py`: verify `_record_render_stats_inner` sources synthesis-only duration
-  - [ ] `performance.py`: regression test pinning `model_load_seconds` out of CPS
+- [x] **W2** — Synthesis-only duration; orchestrator sole writer — [task 002](active/mixed-synthesis-fused-proposal/tasks/002-synthesis-only-duration-single-writer.md) *(commit 28a8317a + review fixes 077d5251)*
+  - [x] `tts_mixed/handler.py`: remove load-inclusive `synthesis_duration_seconds` from final `update_job`
+  - [x] `tts_mixed/handler.py`: remove competing `record_engine_sample` call (orchestrator is sole writer; wrapper kept as a documented test guard target)
+  - [x] `orchestrator_helpers.py`: gate `segment_announced` fallback — only use when no load window exists (retain `segment_load_observed` latch through chapter-complete; INV-3 fix)
+  - [x] `orchestrator_helpers.py`: verify `_record_render_stats_inner` sources synthesis-only duration
+  - [x] `performance.py`: CPS purity (`model_load_seconds` out of CPS) covered by existing `test_record_render_sample_stores_load_and_pure_render_seconds`; positive marker-path test added in `test_startup_eta.py`
 
-- [ ] **W3** — ETA suspension + per-group preparing phase (serial after W2) — [task 003](active/mixed-synthesis-fused-proposal/tasks/003-eta-suspension-preparing-phase.md)
-  - [ ] `orchestrator_publish.py`: null `eta_seconds` clears persisted ETA (explicit clear path)
-  - [ ] `orchestrator_helpers.py`: force-emit preparing frames with `indeterminate=true`, cleared ETA, `status="running"`
-  - [ ] Verify ETA resumes fresh from zero at engine confirmation (no stale-value snap)
+- [x] **W3** — ETA suspension + per-group preparing phase — [task 003](active/mixed-synthesis-fused-proposal/tasks/003-eta-suspension-preparing-phase.md) *(commit f474d300 + refinement 94ee199f)*
+  - [x] `orchestrator_publish.py`: `clear_eta` param — null `eta_seconds` + clear → persisted ETA `None`; incidental null never clobbers a good ETA
+  - [x] `orchestrator_helpers.py`: force-emit preparing frame with `indeterminate=true`, cleared ETA, `status="running"` — **gated on a real load marker** (per-group `LOADING_MODEL` frame), not every `SEGMENT_PENDING` announce, so warm renders don't flash
+  - [x] Verify ETA resumes fresh at engine confirmation (no stale-value snap) — pinned in `test_preparing_window.py`
+  - [x] Backend signals verified on the wire (`etaSeconds: null` + `indeterminate: true`); **user-visible chapter-bar effect lands in W4** (frontend consumption)
 
-- [ ] **W4** — Frontend preparing-state presentation (after W3) — [task 004](active/mixed-synthesis-fused-proposal/tasks/004-frontend-preparing-presentation.md)
-  - [ ] `live-jobs.ts`: derive and surface `is_preparing` / `indeterminate` onto overlay delta
-  - [ ] `useStudioChapter.ts`: add `chapterRenderPreparingSegmentIds`; subtract from rendering set
-  - [ ] `ScriptView.tsx`: add `preparing` tier (`data-render-status="preparing"`, no render cursor)
-  - [ ] `ChapterHeader.tsx`: pass `reasonCode` into `buildSegmentProgressBarProps`
-  - [ ] `predictiveProgressBarHelpers.ts`: relabel indeterminate window "Preparing… / Loading voice model…"
-  - [ ] `StatusOrb.tsx`: distinct preparing appearance *(optional)*
+- [x] **W4** — Frontend preparing-state presentation — [task 004](active/mixed-synthesis-fused-proposal/tasks/004-frontend-preparing-presentation.md) *(mastermind run; commit pending — not pushed)*
+  - [x] `live-jobs.ts` + `OverlayDelta`: surface `indeterminate` / `loadingElapsedSeconds` on the delta — **plus the two-layer runtime gap**: `jobEventAdapters.ts` (extract from payload), `queueOverlayFields.ts` (whitelist), `api/hydration/index.ts` (merge) — the fields were dropped at two layers; integration test through `publishStudioSocketMessage`→`useQueueSync` guards it
+  - [x] `useStudioChapter.ts`: `chapterRenderPreparingSegmentIds` (reason_code/indeterminate), subtracted from rendering set + exported
+  - [x] `ScriptView.tsx` + `.css`: `preparing` tier (`data-render-status="preparing"`, precedence over rendering, no render cursor, reduced-motion-guarded pulse); wired at **both** call sites (`StudioStage.tsx`, `ChapterEditorPage.tsx`)
+  - [x] `ChapterHeader.tsx`: pass `reasonCode` into `buildSegmentProgressBarProps` (activates the existing 120s-lane suppression)
+  - [x] Label: `getBusyStatusText` → generic `"Preparing…"` (shared across all indeterminate bars — fixes the over-broad relabel an adversarial pass caught); the **segment** load-window bar gets `"Preparing… / Loading voice model…"` via a scoped `busyLabel` prop (`progressBarContracts` + `PredictiveProgressBar`)
+  - [x] `segmentsProgressProjector.ts`: forward `indeterminate` (completes end-to-end threading)
+  - [ ] `StatusOrb.tsx`: distinct preparing appearance *(optional — deferred; not in acceptance criteria)*
 
   > 👁 **VISUAL CHECK — W-MIX complete**
   > Trigger a mixed XTTS+Voxtral render on a book with multiple chapters. During the ~30s XTTS model-load window:
@@ -50,12 +52,12 @@ Plan: [active/mixed-synthesis-fused-proposal/README.md](active/mixed-synthesis-f
 
 - [ ] **W5** — Mixed `ResourceClaim` *(deferred — owner-gated)*
 
-- [ ] **W6** — Spec reconciliation — [task 005](active/mixed-synthesis-fused-proposal/tasks/005-spec-reconciliation.md)
-  - [ ] `live-events.md` → 1.7.0: document mixed marker resolution + load-window frame contract
-  - [ ] `progress-presentation.md` → 1.6.0: segment-granularity preparing tier, remove 120s lane, ETA suspend/resume
-  - [ ] `queue-jobs.md` → 1.5.0: clarify per-group phase vs monotonic durable status
-  - [ ] `data-model.md` → 1.5.0: note synthesis-only clock + orchestrator sole-writer contract
-  - [ ] `system-architecture.md` → 1.3.0 *(only if W1 added explicit handler marker — else no change)*
+- [~] **W6** — Spec reconciliation — [task 005](active/mixed-synthesis-fused-proposal/tasks/005-spec-reconciliation.md) *(landed alongside W1/W2/W3 per joint-authority; two items remain)*
+  - [x] `live-events.md` → 1.7.1: mixed marker resolution (1.6.1, W1) + load-window frame contract + load-marker-gated suspension (1.7.0/1.7.1, W3)
+  - [ ] `progress-presentation.md` → 1.6.0: segment-granularity preparing tier, remove 120s lane, ETA suspend/resume — **coupled with W4** (frontend presentation); land it with W4
+  - [x] `queue-jobs.md` → 1.5.1: per-group phase vs monotonic durable status (1.5.0/1.5.1, W3) + synthesis-only clock note (1.4.1, W2)
+  - [x] `data-model.md` → 1.4.1: synthesis-only clock + orchestrator sole-writer contract (W2) *(landed as 1.4.1, not 1.5.0 — content complete)*
+  - [ ] `system-architecture.md` → 1.3.0: W1 did add the explicit `[ENGINE_ACTIVITY_STARTED]` handler marker, so the per-active-engine marker-resolution note is now warranted — owner/W6 decision to add it
 
 ---
 

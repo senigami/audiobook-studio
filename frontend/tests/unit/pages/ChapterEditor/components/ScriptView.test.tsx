@@ -672,4 +672,79 @@ describe('ScriptView', () => {
     // The first span must show 'Narrator' even though lastCharId starts as null
     expect(screen.getAllByText('Narrator').length).toBeGreaterThan(0);
   });
+
+  it('renders a preparing span with data-render-status="preparing", preparing class, and no rendering cursor', () => {
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['s2'])}
+        renderingSpanIds={new Set(['s2'])}
+        preparingSpanIds={new Set(['s2'])}
+        renderingBatchProgressById={{ b1: 0.4 }}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    const spanEl = screen.getByTestId('script-span-s2');
+
+    // data-render-status must be 'preparing'
+    expect(spanEl).toHaveAttribute('data-render-status', 'preparing');
+
+    // the text element must carry the preparing class (book mode)
+    const textEl = spanEl.querySelector('.script-span-text');
+    expect(textEl).toHaveClass('script-span-text-book-preparing');
+
+    // the span container must carry the book-mode preparing class
+    expect(spanEl).toHaveClass('is-book-preparing');
+
+    // no rendering cursor (SegmentProgressText) — no .script-progress-letter elements on this span
+    expect(spanEl.querySelectorAll('.script-progress-letter')).toHaveLength(0);
+  });
+
+  it('resolves a span in both preparingSpanIds and renderingSpanIds as preparing (precedence)', () => {
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['s2'])}
+        renderingSpanIds={new Set(['s2'])}
+        preparingSpanIds={new Set(['s2'])}
+        renderingBatchProgressById={{ b1: 0.4 }}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    const spanEl = screen.getByTestId('script-span-s2');
+
+    // Must resolve to preparing, not rendering
+    expect(spanEl).toHaveAttribute('data-render-status', 'preparing');
+    expect(spanEl).not.toHaveAttribute('data-render-status', 'rendering');
+
+    // Must not have any rendering classes
+    const textEl = spanEl.querySelector('.script-span-text');
+    expect(textEl).not.toHaveClass('script-span-text-book-rendering');
+    expect(textEl).not.toHaveClass('script-span-text-rendering');
+  });
+
+  it('batch group gets is-preparing class when any span is preparing', () => {
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['s1', 's2'])}
+        renderingSpanIds={new Set(['s1', 's2'])}
+        preparingSpanIds={new Set(['s1'])}
+        renderingBatchProgressById={{ b1: 0.3 }}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    const renderGroup = screen.getByTestId('script-render-group-b1');
+    expect(renderGroup).toHaveClass('is-preparing');
+    expect(renderGroup).not.toHaveClass('is-rendering');
+  });
 });

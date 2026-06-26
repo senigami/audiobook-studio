@@ -41,6 +41,7 @@ export const buildSegmentProgressBarProps = ({
     // SEGMENT_PENDING: engine not confirmed yet — keep null ETA so the bar is indeterminate.
     // Only seed the default 120s ETA when the engine has confirmed (START_SEGMENT or no code).
     const isSegmentPending = reasonCode === 'SEGMENT_PENDING';
+    const isLoadWindow = isSegmentPending || reasonCode === 'LOADING_MODEL';
     const seededEtaSeconds = typeof etaSeconds === 'number'
         ? etaSeconds
         : (!isSegmentPending && segmentProgress === 0 && (status === 'running' || state === 'processing') ? 120 : undefined);
@@ -65,5 +66,6 @@ export const buildSegmentProgressBarProps = ({
         updatedAt: updatedAt ?? undefined,
         onDisplayProgress,
         onDebugSnapshot,
+        ...(isLoadWindow ? { busyLabel: 'Preparing… / Loading voice model…' } : {}),
     };
 };

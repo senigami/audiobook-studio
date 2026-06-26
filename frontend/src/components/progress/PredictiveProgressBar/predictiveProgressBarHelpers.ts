@@ -215,7 +215,7 @@ export const getBusyStatusText = (visualState: string | undefined, indeterminate
     visualState === 'finalizing'
         ? 'Finalizing...'
         : indeterminate
-        ? 'Working...'
+        ? 'Preparing…'
         : null;
 
 export const getTerminalStatusText = (visualState: string | undefined) =>

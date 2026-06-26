@@ -287,7 +287,7 @@ describe('PredictiveProgressBar - Transitions', () => {
         // (getBusyStatusText keys off presentationState, not the internal visualState),
         // so the premature-label invariant now lives on that surface.
 
-        // 1. Preparing → "Working..." on the right; never "Finalizing...".
+        // 1. Preparing → "Preparing…" on the right; never "Finalizing...".
         const { rerender } = render(
             <PredictiveProgressBar
                 progress={0.1}
@@ -296,7 +296,7 @@ describe('PredictiveProgressBar - Transitions', () => {
                 showLabel={true}
             />
         )
-        expect(screen.getByText('Working...')).toBeTruthy()
+        expect(screen.getByText('Preparing…')).toBeTruthy()
         expect(screen.queryByText(/Finalizing/)).toBeNull()
 
         // 2. Running with ETA 0 triggers autoFinalizing INTERNALLY, but presentationState

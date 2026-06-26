@@ -91,3 +91,42 @@ describe('segmentsProgressProjector status projection', () => {
         expect(out.status).toBeUndefined()
     })
 })
+
+// Gap 2: indeterminate must be forwarded through projectedUpdates.
+// R1 revert-check: pre-change projectedUpdates has no indeterminate key (undefined);
+// post-change a payload with indeterminate:true yields projectedUpdates.indeterminate===true.
+describe('segmentsProgressProjector indeterminate forwarding', () => {
+    it('(INDETERMINATE-FWD) forwards indeterminate:true from camelCase payload key', () => {
+        const out = project({
+            status: 'running',
+            activeSegmentProgress: 0,
+            progress: 0,
+            indeterminate: true,
+            reasonCode: 'LOADING_MODEL',
+        })
+        // R1: fails pre-change because indeterminate is not in projectedUpdates
+        expect(out.indeterminate).toBe(true)
+    })
+
+    it('(INDETERMINATE-FWD) forwards indeterminate:false from payload', () => {
+        const out = project({
+            status: 'running',
+            activeSegmentProgress: 0.3,
+            progress: 0.3,
+            indeterminate: false,
+            reasonCode: 'SEGMENT_PROGRESS',
+        })
+        expect(out.indeterminate).toBe(false)
+    })
+
+    it('(INDETERMINATE-FWD) indeterminate is undefined when not present in payload', () => {
+        const out = project({
+            status: 'running',
+            activeSegmentProgress: 0.3,
+            progress: 0.3,
+            reasonCode: 'SEGMENT_PROGRESS',
+        })
+        // When absent in payload, getVal returns undefined — acceptable to forward as undefined
+        expect(out.indeterminate).toBeUndefined()
+    })
+})

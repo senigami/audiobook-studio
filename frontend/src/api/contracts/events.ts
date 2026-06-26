@@ -65,6 +65,8 @@ export interface StudioJobEvent {
   produced_audio_length?: number | null;
   produced_chars?: number | null;
   produced_segment_count?: number | null;
+  indeterminate?: boolean | null;
+  loadingElapsedSeconds?: number | null;
 }
 
 export const isStudioJobEvent = (value: unknown): value is StudioJobEvent => {

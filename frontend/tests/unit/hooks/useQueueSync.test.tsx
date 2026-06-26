@@ -1183,4 +1183,65 @@ describe('useQueueSync', () => {
       vi.useRealTimers();
     }
   });
+
+  // ── Integration: indeterminate / loadingElapsedSeconds survive pickOverlayFields ──
+
+  it('[W3-integration] chapters.progress frame carries indeterminate+loadingElapsedSeconds through pickOverlayFields to the store overlay', async () => {
+    // This test exercises the REAL dispatch path:
+    //   socket → useQueueSync dispatchQueueEvent → pickOverlayFields → applyJobUpdated → store
+    // If indeterminate / loadingElapsedSeconds are absent from QUEUE_OVERLAY_FIELDS the
+    // fields are stripped before reaching the store and this test goes red.
+    const jobItem = {
+      id: 'job-indeterminate',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'preparing',
+      progress: 0,
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Publish a chapters.progress frame via the live-event bus (R3 — typed payload)
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'preparing',
+      progress: 0,
+      groupedProgress: null,
+      etaSeconds: null,
+      message: 'Loading model…',
+      reasonCode: 'LOADING_MODEL',
+      renderGroupCount: null,
+      completedRenderGroups: null,
+      indeterminate: true,
+      loadingElapsedSeconds: 5,
+    }, { jobId: 'job-indeterminate', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'job-indeterminate');
+      expect(job?.indeterminate).toBe(true);
+      expect(job?.loadingElapsedSeconds).toBe(5);
+    });
+
+    // Follow-up frame clears the flag — must not stay latched
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.1,
+      groupedProgress: null,
+      etaSeconds: 30,
+      message: null,
+      reasonCode: null,
+      renderGroupCount: null,
+      completedRenderGroups: null,
+      indeterminate: false,
+      loadingElapsedSeconds: null,
+    }, { jobId: 'job-indeterminate', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'job-indeterminate');
+      expect(job?.indeterminate).toBe(false);
+      expect(job?.loadingElapsedSeconds).toBeNull();
+    });
+  });
 });

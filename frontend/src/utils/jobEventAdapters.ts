@@ -108,6 +108,8 @@ export const adaptEventToJobUpdates = (event: any) => {
     produced_segment_count: getPayloadValue(payload, 'producedSegmentCount', 'produced_segment_count'),
     has_segment_support: getPayloadValue(payload, 'hasSegmentSupport', 'has_segment_support'),
     hasSegmentSupport: getPayloadValue(payload, 'hasSegmentSupport', 'has_segment_support'),
+    indeterminate: getPayloadValue(payload, 'indeterminate', 'indeterminate'),
+    loadingElapsedSeconds: getPayloadValue(payload, 'loadingElapsedSeconds', 'loading_elapsed_seconds'),
   };
 
   if (!shouldOmitMessage) {

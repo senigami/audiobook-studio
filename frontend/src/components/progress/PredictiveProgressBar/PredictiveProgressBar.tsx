@@ -60,6 +60,14 @@ export interface PredictiveProgressBarProps {
     /** Fires every animation tick with the bar's live interpolated progress (0–1). */
     onDisplayProgress?: (progress: number) => void;
     dataTestId?: string;
+    /**
+     * Per-bar label override for the indeterminate busy-text (right-side status string).
+     * Only takes effect when the bar is indeterminate; finalizing and all other states
+     * continue to use the standard getBusyStatusText path. Leave undefined for the
+     * generic "Preparing…" fallback (assembly / export / queue-row bars).
+     * Model-load bars set this to "Preparing… / Loading voice model…".
+     */
+    busyLabel?: string;
 }
 
 const progressMemory = new Map<string, number>();
@@ -231,6 +239,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     onDebugSnapshot,
     onDisplayProgress,
     dataTestId,
+    busyLabel,
 }) => {
     const presentationState = state ?? status;
     const effectiveAllowBackward = allowBackwardProgress ?? !authoritativeFloor;
@@ -620,7 +629,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     const indeterminateClassName = indeterminate
         ? (visualState === 'finalizing' ? 'progress-bar-finalizing' : preparingIndeterminate ? 'progress-bar-pending' : 'progress-bar-animated')
         : undefined;
-    const busyStatusText = getBusyStatusText(presentationState, indeterminate);
+    const busyStatusText = (indeterminate && busyLabel) ? busyLabel : getBusyStatusText(presentationState, indeterminate);
     const terminalStatusText = getTerminalStatusText(presentationState);
     const terminalFillStyle = getTerminalFillStyle(presentationState);
 

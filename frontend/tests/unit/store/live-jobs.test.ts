@@ -434,4 +434,69 @@ describe('LiveJobsStore', () => {
 
     expect(store.getState().eventsById['job1'].confidence).toBe(0.42);
   });
+
+  it('surfaces indeterminate and loadingElapsedSeconds onto overlay delta from applyEvent', () => {
+    const store = createLiveJobsStore();
+
+    // Frame 1: preparing with indeterminate=true and loadingElapsedSeconds=5
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'preparing',
+      progress: 0,
+      updated_at: 1000,
+      scope: 'job',
+      indeterminate: true,
+      loadingElapsedSeconds: 5,
+    } as any);
+
+    const state1 = store.getState();
+    expect(state1.eventsById['job1'].indeterminate).toBe(true);
+    expect(state1.eventsById['job1'].loadingElapsedSeconds).toBe(5);
+
+    // Frame 2: follow-up without indeterminate (running progress) — flag must update, not stay latched
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      progress: 0.1,
+      updated_at: 1100,
+      scope: 'job',
+      indeterminate: false,
+      loadingElapsedSeconds: null,
+    } as any);
+
+    const state2 = store.getState();
+    expect(state2.eventsById['job1'].indeterminate).toBe(false);
+    expect(state2.eventsById['job1'].loadingElapsedSeconds).toBeNull();
+  });
+
+  it('surfaces indeterminate and loadingElapsedSeconds onto overlay delta from applyJobUpdated', () => {
+    const store = createLiveJobsStore();
+
+    store.applyJobUpdated('job1', {
+      status: 'preparing',
+      progress: 0,
+      updated_at: 1000,
+      indeterminate: true,
+      loadingElapsedSeconds: 5,
+    });
+
+    const state1 = store.getState();
+    expect(state1.eventsById['job1'].indeterminate).toBe(true);
+    expect(state1.eventsById['job1'].loadingElapsedSeconds).toBe(5);
+
+    // Follow-up without indeterminate — must update
+    store.applyJobUpdated('job1', {
+      status: 'running',
+      progress: 0.1,
+      updated_at: 1100,
+      indeterminate: false,
+      loadingElapsedSeconds: null,
+    });
+
+    const state2 = store.getState();
+    expect(state2.eventsById['job1'].indeterminate).toBe(false);
+    expect(state2.eventsById['job1'].loadingElapsedSeconds).toBeNull();
+  });
 });

@@ -232,4 +232,56 @@ describe('PredictiveProgressBar - Rendering', () => {
         expect(screen.queryByText(/^(rendering|running|synthesizing|preparing|finalizing)$/i)).toBeNull()
     })
 
+    // Gap 1: busyLabel override — per-bar label for the model-load indeterminate window.
+    // R1 revert-check: pre-change PredictiveProgressBar ignores the busyLabel prop entirely
+    // (prop doesn't exist), so it falls back to getBusyStatusText → 'Preparing…'.
+    // Post-change: when indeterminate && busyLabel, the override text is rendered instead.
+    it('(BUSY-LABEL) renders busyLabel text when indeterminate=true and busyLabel is provided', () => {
+        render(
+            <PredictiveProgressBar
+                progress={0}
+                status="preparing"
+                indeterminate={true}
+                busyLabel="Preparing… / Loading voice model…"
+                showEta={true}
+                showLabel={true}
+                label="Segment"
+            />
+        )
+        // R1: fails pre-change because busyLabel prop is not consumed — text shows 'Preparing…' not the override
+        expect(screen.getByText('Preparing… / Loading voice model…')).toBeTruthy()
+        expect(screen.queryByText('Preparing…')).toBeNull()
+    })
+
+    it('(BUSY-LABEL) renders generic "Preparing…" when indeterminate=true but no busyLabel provided', () => {
+        render(
+            <PredictiveProgressBar
+                progress={0}
+                status="preparing"
+                indeterminate={true}
+                showEta={true}
+                showLabel={true}
+                label="Segment"
+            />
+        )
+        // Generic fallback via getBusyStatusText — must not break
+        expect(screen.getByText('Preparing…')).toBeTruthy()
+    })
+
+    it('(BUSY-LABEL) busyLabel is ignored when NOT indeterminate (finalizing still works)', () => {
+        render(
+            <PredictiveProgressBar
+                progress={0.9}
+                status="finalizing"
+                busyLabel="Preparing… / Loading voice model…"
+                showEta={true}
+                showLabel={true}
+                label="Segment"
+            />
+        )
+        // finalizing is NOT indeterminate; busyLabel must be ignored; 'Finalizing...' must show
+        expect(screen.getByText('Finalizing...')).toBeTruthy()
+        expect(screen.queryByText('Preparing… / Loading voice model…')).toBeNull()
+    })
+
 })

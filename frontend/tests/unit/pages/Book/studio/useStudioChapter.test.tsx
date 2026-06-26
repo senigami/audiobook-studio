@@ -93,6 +93,23 @@ vi.mock('@/hooks/useChapterEditor', () => ({
 }));
 
 import { useStudioChapter } from '@/pages/Book/studio/useStudioChapter';
+import type { Job } from '@/types';
+
+/** Minimal valid Job shape for testing — cast to any to allow overlay-only fields. */
+function makeJob(overrides: Record<string, unknown>): Job {
+  return {
+    id: 'job-1',
+    engine: 'xtts',
+    chapter_file: '',
+    status: 'running',
+    created_at: 1000,
+    safe_mode: false,
+    make_mp3: false,
+    progress: 0.1,
+    warning_count: 0,
+    ...overrides,
+  } as Job;
+}
 
 describe('useStudioChapter', () => {
   beforeEach(() => {
@@ -130,5 +147,128 @@ describe('useStudioChapter', () => {
     expect(result.current.isPreviewingResync).toBe(true);
     expect(result.current.isResyncing).toBe(true);
     expect(result.current.exportingFormat).toBe('wav');
+  });
+
+  describe('chapterRenderPreparingSegmentIds', () => {
+    it('puts active segment in preparing (not rendering) when reason_code is LOADING_MODEL', () => {
+      // R1 anchor: before the hook change, S lands in rendering on presence alone.
+      // After the change, S must be in preparing and absent from rendering.
+      const preparingJob = makeJob({
+        status: 'running',
+        active_segment_id: 'S',
+        reason_code: 'LOADING_MODEL',
+        indeterminate: true,
+      });
+
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+          job: preparingJob,
+        }),
+      );
+
+      expect(result.current.chapterRenderPreparingSegmentIds.has('S')).toBe(true);
+      expect(result.current.chapterRenderRenderingSegmentIds.has('S')).toBe(false);
+    });
+
+    it('moves active segment from preparing into rendering when reason_code changes to START_SEGMENT', () => {
+      const preparingJob = makeJob({
+        status: 'running',
+        active_segment_id: 'S',
+        reason_code: 'LOADING_MODEL',
+        indeterminate: true,
+      });
+
+      const { result, rerender } = renderHook(
+        ({ job }: { job: Job }) =>
+          useStudioChapter({
+            chapterId: 'chapter-1',
+            projectId: 'project-1',
+            speakerProfiles: [],
+            speakers: [],
+            job,
+          }),
+        { initialProps: { job: preparingJob } },
+      );
+
+      // Verify initial preparing state
+      expect(result.current.chapterRenderPreparingSegmentIds.has('S')).toBe(true);
+      expect(result.current.chapterRenderRenderingSegmentIds.has('S')).toBe(false);
+
+      // Transition to rendering: reason_code = START_SEGMENT, indeterminate falsy
+      const renderingJob = makeJob({
+        status: 'running',
+        active_segment_id: 'S',
+        reason_code: 'START_SEGMENT',
+        indeterminate: false,
+      });
+
+      act(() => {
+        rerender({ job: renderingJob });
+      });
+
+      expect(result.current.chapterRenderPreparingSegmentIds.has('S')).toBe(false);
+      expect(result.current.chapterRenderRenderingSegmentIds.has('S')).toBe(true);
+    });
+
+    it('puts active segment in preparing when only indeterminate is true (no reason_code)', () => {
+      const preparingJob = makeJob({
+        status: 'running',
+        active_segment_id: 'S',
+        reason_code: undefined,
+        indeterminate: true,
+      });
+
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+          job: preparingJob,
+        }),
+      );
+
+      expect(result.current.chapterRenderPreparingSegmentIds.has('S')).toBe(true);
+      expect(result.current.chapterRenderRenderingSegmentIds.has('S')).toBe(false);
+    });
+
+    it('puts active segment in preparing when reason_code is SEGMENT_PENDING', () => {
+      const preparingJob = makeJob({
+        status: 'running',
+        active_segment_id: 'S',
+        reason_code: 'SEGMENT_PENDING',
+        indeterminate: false,
+      });
+
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+          job: preparingJob,
+        }),
+      );
+
+      expect(result.current.chapterRenderPreparingSegmentIds.has('S')).toBe(true);
+      expect(result.current.chapterRenderRenderingSegmentIds.has('S')).toBe(false);
+    });
+
+    it('returns empty preparing set when there is no active job', () => {
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+        }),
+      );
+
+      expect(result.current.chapterRenderPreparingSegmentIds.size).toBe(0);
+    });
   });
 });

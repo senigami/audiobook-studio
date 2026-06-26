@@ -250,6 +250,8 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
         active_segment_id: isOverlayNewer ? (delta.active_segment_id !== undefined ? delta.active_segment_id ?? undefined : item.active_segment_id) : item.active_segment_id,
         active_segment_progress: isOverlayNewer ? (delta.active_segment_progress !== undefined ? delta.active_segment_progress ?? undefined : item.active_segment_progress) : item.active_segment_progress,
         confidence: isOverlayNewer ? (delta.confidence !== undefined ? delta.confidence ?? undefined : item.confidence) : item.confidence,
+        indeterminate: isOverlayNewer ? (delta.indeterminate !== undefined ? delta.indeterminate : item.indeterminate) : item.indeterminate,
+        loadingElapsedSeconds: isOverlayNewer ? (delta.loadingElapsedSeconds !== undefined ? delta.loadingElapsedSeconds : item.loadingElapsedSeconds) : item.loadingElapsedSeconds,
       };
 
       // Apply Finalizing Hold heuristic

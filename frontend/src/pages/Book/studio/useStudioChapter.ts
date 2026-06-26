@@ -231,6 +231,20 @@ export function useStudioChapter({
     return ids;
   }, [effectivePendingSegmentIds, isChapterProcessing, segments]);
 
+  const isActiveJobPreparing =
+    (job as any)?.reason_code === 'SEGMENT_PENDING' ||
+    (job as any)?.reason_code === 'LOADING_MODEL' ||
+    (job as any)?.indeterminate === true;
+
+  const chapterRenderPreparingSegmentIds = useMemo(() => {
+    if (!isActiveJobPreparing || !chapterRenderActiveSegmentId) return new Set<string>();
+    const ids = new Set<string>([chapterRenderActiveSegmentId]);
+    for (const id of chapterRenderActiveBatchSegmentIds) {
+      ids.add(id);
+    }
+    return ids;
+  }, [isActiveJobPreparing, chapterRenderActiveSegmentId, chapterRenderActiveBatchSegmentIds]);
+
   const chapterRenderRenderingSegmentIds = useMemo(() => {
     const ids = new Set<string>();
     if (!isChapterProcessing && !pageHandoff.hasPending) return ids;
@@ -241,10 +255,10 @@ export function useStudioChapter({
     }
     if (!chapterRenderActiveSegmentId) return ids;
     for (const id of chapterRenderActiveBatchSegmentIds) {
-      ids.add(id);
+      if (!chapterRenderPreparingSegmentIds.has(id)) ids.add(id);
     }
     return ids;
-  }, [isChapterProcessing, pageHandoff.hasPending, generatingSegmentIds, liveSegmentJobIds, chapterRenderActiveSegmentId, chapterRenderActiveBatchSegmentIds]);
+  }, [isChapterProcessing, pageHandoff.hasPending, generatingSegmentIds, liveSegmentJobIds, chapterRenderActiveSegmentId, chapterRenderActiveBatchSegmentIds, chapterRenderPreparingSegmentIds]);
 
   const chapterRenderQueuedSegmentIds = useMemo(() => {
     if (!job || !['queued', 'preparing', 'running'].includes(job.status)) return new Set<string>();
@@ -850,6 +864,7 @@ export function useStudioChapter({
     isChapterProcessing,
     pageHandoff,
     chapterRenderActiveSegmentId,
+    chapterRenderPreparingSegmentIds,
     chapterRenderRenderingSegmentIds,
     chapterRenderQueuedSegmentIds,
     chapterRenderPendingSegmentIds,
