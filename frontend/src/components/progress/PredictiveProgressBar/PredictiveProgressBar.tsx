@@ -68,6 +68,13 @@ export interface PredictiveProgressBarProps {
      * Model-load bars set this to "Preparing… / Loading voice model…".
      */
     busyLabel?: string;
+    /**
+     * When true the bar renders as indeterminate (preparing pulse, no predictive lane)
+     * regardless of status. Used for mid-chapter model-load frames that arrive with
+     * status:'running' + indeterminate:true (W-MIX-LA 004).
+     * Has no effect when status is already 'preparing'.
+     */
+    indeterminate?: boolean;
 }
 
 const progressMemory = new Map<string, number>();
@@ -240,11 +247,12 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     onDisplayProgress,
     dataTestId,
     busyLabel,
+    indeterminate: incomingIndeterminate,
 }) => {
     const presentationState = state ?? status;
     const effectiveAllowBackward = allowBackwardProgress ?? !authoritativeFloor;
     const memoryKey = getProgressMemoryKey(persistenceKey, startedAt);
-    const preparingIndeterminate = isPreparingStatus(presentationState);
+    const preparingIndeterminate = isPreparingStatus(presentationState) || incomingIndeterminate === true;
     const [tickState, forceUpdate] = useState(Date.now());
     const [currentLane, setCurrentLane] = useState<ProgressLane | null>(null);
     const [migration, setMigration] = useState<LaneMigration | null>(null);
@@ -545,7 +553,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             doneTransitionPendingRef.current = false;
         }
 
-        const nextEndAtMs = resolveEndAtMs({
+        const resolvedEndAtMs = resolveEndAtMs({
             nowMs,
             startedAt,
             etaSeconds,
@@ -554,6 +562,9 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             updatedAt,
             presentationState,
         });
+        // I10 extension: when the bar is indeterminate (mid-chapter model-load window),
+        // suppress the predictive lane end time so the bar holds still — no creep.
+        const nextEndAtMs = preparingIndeterminate ? null : resolvedEndAtMs;
 
         const isTransitionAnimating = presentationState === 'done' && (
             !isDoneAnimating || prevPresentationStateRef.current !== 'done'
@@ -636,7 +647,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     // Deriving a stable phase key forces a remount on broad mode transitions (preparing -> active),
     // which prevents the browser from trying to animate widthRegressions from 100% back to 0.
     const stablePhaseKey = indeterminate
-        ? (visualState === 'preparing' ? 'preparing-indeterminate' : 'finalizing-indeterminate')
+        ? (preparingIndeterminate ? 'preparing-indeterminate' : 'finalizing-indeterminate')
         : (isActiveStatus(visualState) || visualState === 'running' ? 'determinate-active' : 'terminal');
 
     useEffect(() => {
@@ -740,7 +751,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                     className={[visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName, fillRunningClass].filter(Boolean).join(' ') || undefined}
                     style={{
                         height: '100%',
-                        width: indeterminate ? (visualState === 'preparing' ? '100%' : visualState === 'finalizing' ? '100%' : '35%') : (isDoneStatus(visualState) && localProgress < 1.0) ? formatStylePercent(localProgress) : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : formatStylePercent(localProgress),
+                        width: indeterminate ? (preparingIndeterminate ? '100%' : visualState === 'finalizing' ? '100%' : '35%') : (isDoneStatus(visualState) && localProgress < 1.0) ? formatStylePercent(localProgress) : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : formatStylePercent(localProgress),
                         background: visualState === 'finalizing' ? 'var(--progress-finalizing-fill)' : (indeterminate && preparingIndeterminate ? 'var(--progress-preparing-fill)' : terminalFillStyle?.background ?? 'var(--accent)'),
                         opacity: terminalStatusText && (isQueuedStatus(visualState) || isCancelledStatus(visualState)) ? 0.55 : 1,
                         boxShadow: visualState === 'finalizing' ? '0 0 15px var(--progress-finalizing-glow)' : (indeterminate && preparingIndeterminate ? '0 0 10px var(--progress-preparing-glow)' : terminalFillStyle?.boxShadow ?? '0 0 15px var(--accent)'),

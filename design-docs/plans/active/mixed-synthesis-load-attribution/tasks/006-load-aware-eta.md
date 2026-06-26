@@ -1,12 +1,21 @@
-# Task 006 — Load-aware ETA from history *(optional)*
+# Task 006 — Load-aware ETA from history
 
-**Workstream:** W-MIX-LA · **Depends on:** 003 · **Blocks:** — · **Status:** Not started (optional — ML-3)
+**Workstream:** W-MIX-LA · **Depends on:** 003 · **Blocks:** — · **Status:** Not started (chosen approach — see owner design 2026-06-26)
 
 > Read [`../01-map.md`](../01-map.md) parts **P-G/P-H**, connection **C5**, invariant **INV-6**. This realizes the owner's "add the loading time to the prediction" intuition using data we already store.
 
+## Owner design (2026-06-26) — add ETA at load-time, do NOT pause
+
+The owner ruled out pausing for loads. The chosen behavior:
+
+- **Don't pre-add** the load time. We can't know a load will happen until it does (warm reuse loads nothing). **Add it only when the load actually starts** — i.e. when the `MODEL_LOAD_STARTED` marker arrives (task 002/003).
+- **On `MODEL_LOAD_STARTED`:** look up the expected `model_load_seconds` for that engine/model from the DB (`render_performance_samples`) and **add it to the live ETA**. The **ETA clock keeps counting down** through the load; the **progress bar/percentage holds still** (no creep, no jump-ahead — that "hold still, don't creep" behavior is the 004 indeterminate fix). So it reads as "still working, ~N s left," never a frozen pause.
+- **Account for the *extra* time only.** Under future parallelism (W-PAR), another engine (e.g. Voxtral) may be rendering *while* XTTS loads, so the load partly overlaps useful work — the load term is an additive correction to the ETA, not a stop-the-world. Keep it as "expected remaining + expected load," not "freeze everything for load."
+- **Progress display will get much simpler with the BitTorrent char-based model** (W-PAR Phase 2 / the running completed-chars÷total-chars total carried on every segment update). Don't over-engineer progress-% here; this task is about the **ETA clock**, not the fill math.
+
 ## Goal
 
-Fold the recorded `model_load_seconds` history into the **forward ETA**, so a render that will incur a model load reflects that load time in its prediction (rather than treating it as unattributed delay that the user perceives as a stall or an over-optimistic countdown).
+When a model load actually begins (`MODEL_LOAD_STARTED`), fold the recorded `model_load_seconds` history into the **live ETA** so the countdown absorbs the load time — rather than the clock hitting ~0 during the load (over-optimistic) or the bar creeping/jumping. The progress bar holds; the clock keeps ticking with the load time added.
 
 ## Why it matters
 

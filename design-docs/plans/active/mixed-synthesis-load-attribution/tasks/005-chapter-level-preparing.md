@@ -1,6 +1,6 @@
 # Task 005 — Chapter/queue-level preparing *(optional)*
 
-**Workstream:** W-MIX-LA · **Depends on:** 003 · **Blocks:** — · **Status:** Not started (optional — ML-3)
+**Workstream:** W-MIX-LA · **Depends on:** 003 · **Blocks:** — · **Status:** SUPERSEDED (owner decision 2026-06-26) — "pausing for loading does not make sense." The chapter-level answer is **don't pause**: the progress bar holds still (no creep — that's the 004 indeterminate fix) and the **ETA clock keeps counting down with the load time added** (task 006). No chapter-level "pause/hold" UI is built. The option-(a) "hold progress" idea here is retained only as the no-creep behavior in 004; the option-(b) "reserve time in ETA" is the chosen path → 006.
 
 > Read [`../01-map.md`](../01-map.md) parts **P-C/P-F**, risk **R-E**, invariant **INV-2**. Owner 👁 decision required on semantics before building.
 

@@ -567,6 +567,7 @@ export const ChapterScriptToolbar: React.FC<{
                             etaBasis: displayedEtaBasis as any,
                             updatedAt: displayedUpdatedAt,
                             reasonCode: status.selectedSegmentReasonCode,
+                            indeterminate: status.liveSegmentProgressJob?.indeterminate ?? null,
                             state: liveJobStatus === 'preparing'
                                 ? (status.segmentProgressBarSelection.isSegmentStartAtZero ? 'processing' : 'preparing')
                                 : liveJobStatus === 'finalizing'
