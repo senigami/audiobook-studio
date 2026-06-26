@@ -4,7 +4,11 @@
 
 > Read [`../01-map.md`](../01-map.md) parts **P-A/P-B/P-D**, connections **C2/C4**, invariants **INV-2/INV-3/INV-4/INV-7**, risks **R-A/R-D**.
 
-> **⚠ LOCKED by [001-findings.md](001-findings.md) — read it first; it supersedes parts of the spec below.** The diagnostic confirmed the real bug: the cold-load line is **dropped at the XTTS wrapper** (`engine.py:394-398`, `relay_marker` returns `None` for non-bracket lines) and never reaches the orchestrator. So the core of 002 is *"stop dropping it — re-emit it as a recognized marker"*, not inventing a new emission. Emit layer = the XTTS wrapper `parse_output`/`relay_marker`; grammar = `[ENGINE_ACTIVITY_STARTED] {sid?} {task_id}` (segment id optional — the orchestrator attributes via its own authoritative `active_seg_id`; the optional sid token is for W-PAR 006). Real-load-only is free (the worker prints the line only on cold load). Treat the sections below as the fuller contract, reconciled to this.
+> **⚠ LOCKED by [001-findings.md](001-findings.md) (runtime-confirmed) — read it first; it supersedes the grammar below.** The bug: the XTTS cold-load line is **dropped at the wrapper** (`engine.py:394-398`, `relay_marker` returns `None` for non-bracket lines) and never reaches the orchestrator. **Use a DEDICATED marker, not `[ENGINE_ACTIVITY_STARTED]`** (the mixed handler emits that generically before every group → reusing it would flash warm/cloud groups, violating INV-2). Final design:
+> - **Emit** `[MODEL_LOAD_STARTED] {sid?} {task_id}` from `engine.py parse_output` **only when it sees the worker's real cold-load line** (`"Loading XTTS model..."` / `"XTTS serve mode: loading model..."`). Real-load-only for free; never on warm reuse / Voxtral.
+> - **Watchdog:** extract `{sid, task_id}` (task_id = last token) following the `[START_SEGMENT]` pattern; thread `segment_id` to listeners.
+> - **Manifest:** add `timing_markers.MODEL_LOAD_STARTED: ["[MODEL_LOAD_STARTED]"]` to `tts_xtts` (INV-3). Voxtral: none.
+> The orchestrator handling of this marker is **task 003**. Treat the sections below as the fuller contract, reconciled to this dedicated-marker design.
 
 ## Goal
 

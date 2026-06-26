@@ -1,8 +1,10 @@
 # Chapter Editor as an "Art Program" — Modes, Palette & Workflow Catalog
 
-> **Status: EXPLORATION / BRAINSTORM.** No code. This is a design-direction document for the **single-chapter editor** (the Chapter Workspace), not the whole-book or library flow. It catalogs every workflow that runs through that one screen and proposes how to reorganize them around a creative-tool "palette + modes" model. It is the synthesis of a six-angle design panel (Apple HIG, paint-gesture/casting, read/performance, accessibility, AI casting, information architecture) channeling ~20 personas from [`design-docs/personas/persona-catalog.md`](../personas/persona-catalog.md).
+> **Status: DECISIONS RECORDED — 2026-06-26.** No code yet. This is a design-direction document for the **single-chapter editor** (the Chapter Workspace), not the whole-book or library flow. It catalogs every workflow that runs through that one screen and proposes how to reorganize them around a creative-tool "palette + modes" model. It is the synthesis of a six-angle design panel (Apple HIG, paint-gesture/casting, read/performance, accessibility, AI casting, information architecture) channeling ~20 personas from [`design-docs/personas/persona-catalog.md`](../personas/persona-catalog.md).
 >
 > It **reorganizes the presentation** of workflows already specified in [`design-docs/plans/book_view_ia_proposal.md`](../../design-docs/plans/book_view_ia_proposal.md); it does not change the data model, the segment contract, or the bug-fix work in [`design-docs/plans/book_view_redesign/`](../../design-docs/plans/book_view_redesign/). See §14.
+>
+> **Owner decisions recorded 2026-06-26** — see §13 for resolutions. §16 catalogues future features. §17 defines the modular architecture.
 
 ---
 
@@ -109,24 +111,54 @@ Edit the manuscript prose directly · commit (→ Resync Preview) · discard. Re
 
 ---
 
-## 5. Mode 1 — Voices (the paint mode)
+### Recording studio terminology (canonical — supersedes paint metaphor)
 
-The heart of the art-program vision. **The cast is the color palette; assigning a speaker is painting.**
+The left rail and mode names use **authorship + recording studio** language, not paint program language. The paint metaphor was useful for describing the interaction pattern in design; users never see it.
 
-- **Load the brush:** click a character swatch in the Cast palette → cursor becomes a paint cursor, and a **"current brush" chip** shows the loaded character's color next to the mode label. (Empty state: *"Tap a character to begin painting"* — solves the "I clicked and nothing happened" trap.)
-- **Paint:** hover a span → live tint *preview* with the segment boundary shown → click to commit (a 150ms fill confirms the range). **Drag** across spans to paint a run.
-- **Variation = the brush tip.** A voice's emotional variant (Urgent / Whisper / Warm) is a secondary property of the loaded brush, shown inline on the swatch. Re-paint the same speaker with a different variation to change *only* the emotional reading — a fast "sweep the whole flashback to Whisper" gesture that select-then-confirm can't match.
-- **Eyedropper** (`Alt`/`Option`): sample an existing span's speaker+variation into the brush — continue what you set pages ago.
-- **Eraser**: a palette tool that unassigns (falls back to chapter-default voice).
-- **The Cast panel** is the three-tier registry from the prior spec (in-chapter / chapter-scoped temps / everyone else) — but here it's the *palette*, and editing a character's details happens in a detail drawer, not inline.
+| Interaction concept | User-facing name | Icon |
+|---|---|---|
+| Left rail (mode switcher) | **Director's Console** | — |
+| Voices/paint mode | **Cast** | Microphone |
+| Read/preview mode | **Booth** | Headphones |
+| Edit text mode | **Revise** | Pencil |
+| AI detect speakers action | **Casting Call** | Wand/stars |
+| AI manuscript analysis (future) | **Script Supervisor** | Clipboard |
+| Plugin tool slot (future) | *(plugin-defined)* | Plugin-defined |
+| Ambient render indicator | **On Air** (red dot) | ● |
+| Eyedropper (copy voice) | **Match Voice** | — |
+| Eraser (unassign) | **Narrator** (revert to default) | — |
 
-**Two hard requirements this mode imposes (both real, both grounded):**
-1. **Mutation-batching for the paint gesture.** A drag = *one* batched assignment call on mouse-up; rapid single clicks debounce ~120ms. This is mandatory because the current code throws a **409 revision conflict when you assign adjacent spans quickly** (the known B2 bug). The paint model literally cannot ship without optimistic local commit + batched writes.
-2. **Paint the unit the user *sees*** (see §13, open decision #1).
+**The left rail is a slotted list**, not hardcoded to three items. Future tools (Script Supervisor, plugin-contributed) register a slot; the rail renders them in order. This is internal-only in v1 — no external plugin API exposed yet. Each tool has a matching **demo placeholder** so the Director's Console can be fully mocked in the demo with "coming soon" states for unreleased tools.
 
 ---
 
-## 6. Mode 2 — Read / Preview (the listening booth)
+---
+
+## 5. Mode 1 — Cast (the voice assignment mode)
+
+*(Formerly "Voices mode" — see §4 terminology table.)*
+
+The heart of the director's workflow. **The cast is the palette; assigning a speaker is marking up the script.**
+
+- **Load the voice:** click a character swatch in the Cast palette → cursor becomes an assignment cursor, and a **"current voice" chip** shows the loaded character's color next to the mode label. (Empty state: *"Tap a character to begin assigning"* — solves the "I clicked and nothing happened" trap.)
+- **Assign:** hover a span → live tint *preview* → click to commit (a 150ms fill confirms the range). **Drag** across spans to assign a run.
+- **Brush size** (DECIDED): the assignment unit is a sizable control in the Cast palette — **Word · Sentence · Paragraph**. Never a raw segment (segments are engine units, not user-visible reading units). Default is Sentence. The user picks the size before clicking; it determines how much text lights up on hover and gets assigned on click.
+- **Variation = the emotional register.** A voice's variant (Urgent / Whisper / Warm) is a secondary property of the loaded voice. Re-assign the same speaker with a different variation to change only the emotional reading across a passage.
+- **Match Voice** (`Alt`/`Option`): sample an existing span's speaker+variation into the active voice — continue a voice from earlier in the chapter.
+- **Narrator** (eraser tool): unassigns the span, falling back to the chapter-default voice.
+- **The Cast panel** is the three-tier registry (in-chapter / chapter-scoped temps / everyone else) — the *palette*. Editing a character's details happens in a detail drawer.
+
+**Hard requirements:**
+
+1. **Mutation-batching for the assignment gesture** (B2 fix). Architecture: each assignment gesture fires an event → a collector queue picks it up → the queue flushes as a single batched write on gesture-end (or every ~120ms for held drags). The UI commits the assignment optimistically on every click; the server write happens asynchronously. No 409 conflicts because the server sees one atomic operation per gesture, not one per click. This is mandatory — the assignment model cannot ship without it.
+
+2. **Render on mode-exit** (DECIDED). Cast mode is purely for assignment — no rendering, no queuing. When the user switches to Booth, Revise, or any other mode, all segments with changed assignments since the last mode-entry are queued for re-render silently. The **On Air** indicator lights. If the user taps a specific segment in Booth before it finishes rendering, that segment is bumped to the top of the render queue.
+
+3. **Paint the unit the user sees** (DECIDED — Sentence default, Word/Paragraph selectable).
+
+---
+
+## 6. Mode 2 — Booth (the listening booth)
 
 Entering Read mode **dissolves the editor**: no palette, no sidebars, no per-span buttons. The page becomes a teleprompter-meets-transcript — one comfortable column, a floating transport you could run with your eyes closed.
 
@@ -139,14 +171,28 @@ Entering Read mode **dissolves the editor**: no palette, no sidebars, no per-spa
 
 ---
 
-## 7. Mode 3 — Edit Text
+## 7. Mode 3 — Revise (edit text)
+
+*(Formerly "Edit Text mode.")*
 
 The same prose surface becomes editable. **Replaces the separate Source-Text tab** — it's not another document, it's the same one with the caret in it.
 
-- Tints fade to subtle-but-visible; spans aren't click-targets; the caret is in the text.
-- A slim banner: *"Editing source — assignments may need re-sync after saving."*
-- Commit → the existing **Resync Preview** modal (diff; warns assignments may move) fires *after* commit, not on entry.
-- **Guarded entry** (open decision #3): because accidental edits are costly, Edit may warrant a deliberate "unlock editing" step rather than being a one-tap peer of Voices/Read.
+### In-place paragraph editing (DECIDED — primary path)
+
+Click a paragraph → only that paragraph's text becomes editable inline. Tints fade to subtle but stay visible; spans in other paragraphs remain read-only. A slim banner appears: *"Editing — save to re-render this section."*
+
+On commit: only the edited segment's audio is invalidated and queued for re-render. If the segment is unchanged in length, it re-renders cleanly. **Data model note:** the chapter stores source text as a canonical blob; segments are derived from it with speaker assignments overlaid. An in-place paragraph edit modifies one segment's `text` field directly — downstream segments are untouched.
+
+**Segment overflow and balanced split** (DECIDED): if an edit causes the segment text to exceed the engine's character buffer (e.g., ~500 chars for XTTS), a naive split at the limit could leave a 3-word orphan segment — too short for the engine to read prosody or emotion correctly. The correct behavior:
+
+1. Find the nearest **sentence boundary** (`.`, `?`, `!`, `;`) to the **midpoint** of the combined text.
+2. Split there. Both halves must be above a minimum floor (~80–100 characters) to carry enough prosodic context.
+3. If no sentence boundary exists near the midpoint and one half would fall below the floor, **do not split** — let the segment run slightly long and surface a passive indicator to the user (not a blocking error).
+4. Both split segments inherit the original speaker assignment.
+
+### Structural editing (escape hatch)
+
+If the user needs to add/remove paragraphs, reorder content, or make changes that cross segment boundaries — this triggers the expensive full-chapter Resync (the existing Source-Text path). This is clearly labeled as a structural operation: *"Editing the full source will re-sync all assignments."* It is tucked away (accessible but not the default) to avoid accidental triggers.
 
 ---
 
@@ -232,14 +278,118 @@ Chapter + scroll should live in the **route/session history**, not just componen
 
 ---
 
-## 13. Key open decisions (owner's call)
+## 13. Design decisions (owner-resolved 2026-06-26)
 
-These are genuine forks the reasoning can't settle alone — they're taste / product-priority calls:
+All four open decisions from the original brainstorm have been resolved.
 
-1. **Paint granularity — the hardest joint.** Segments are *engine* units (contiguous same-speaker runs capped by the chunk limit), so a "segment" can end mid-dialogue for a non-semantic reason. **Recommendation:** let the user *paint the unit they perceive* (a sentence/clause), and coalesce contiguous same-speaker sentences into render-segments invisibly downstream — with a precision split (`Alt`+click) for sub-sentence cases. The alternative (paint raw segments) is simpler to build but will surprise users ("I clicked one sentence and three lit up"). **This is the #1 thing to decide before any build.**
-2. **Primary persona.** The Nontechnical Author and the Power User pull the design in different directions (brush discoverability + onboarding investment; whether the Cast panel is gated to Voices or pinnable everywhere; how much keyboard surface to expose). **Recommendation:** optimize the *default* path for the Nontechnical Author (cast unpinned for full-width reading/editing; strong empty-state and first-run hints) and let Power Users opt into density (pin the cast, learn the keys). Worth your explicit call.
-3. **Is "Edit Text" a peer mode or a guarded mode?** Peer = consistent and simple; guarded (deliberate unlock) = protects against accidental edits that trigger costly re-syncs.
-4. **Flag follow-through depth.** Do flags need written notes + session persistence (production review) or are pins enough? (Review-Only Proofreader wants notes.)
+| # | Decision | Resolution |
+|---|---|---|
+| 1 | **Assignment granularity** | **Word / Sentence / Paragraph** brush sizes; Sentence is default. Never raw segments (engine units, not reading units). Sizable control in the Cast palette. |
+| 2 | **Primary persona** | **Narrator-first.** Cast panel hidden by default — full width for reading/editing. Panel appears pinned only when the book has characters assigned. Single-narrator users never see the cast panel unless they need it. |
+| 3 | **Revise mode entry** | **In-place paragraph edit** (click a paragraph → inline edit of that segment only). Not a guarded unlock, not a full-page editor. Structural editing (full source text) is the expensive escape hatch, clearly labeled, not the default entry. |
+| 4 | **Flag follow-through** | **Session-only margin pins ship in v1** (lightweight, no persistence). Written notes and persistent flags are post-v2 (see §16). |
+
+**Additional decisions:**
+
+| Decision | Resolution |
+|---|---|
+| Mutation batching (B2) | Event → collector queue → flush on gesture-end / mode-exit (see §5) |
+| Render trigger | **Render on mode-exit from Cast** — not on timer, not on each stroke. Explicit tap in Booth bumps to top of queue. |
+| Balanced segment split | Split at nearest sentence boundary to midpoint; 80-char minimum floor; don't split if no clean boundary (see §7) |
+| Quasimode (Space-to-listen) | Replaced by ambient auto-render + play-what's-ready in Booth. No quasimode in v1. |
+| Terminology / metaphor | Recording studio + authorship. Cast / Booth / Revise / Director's Console / On Air (see §4 table). |
+| Left rail extensibility | Slotted list, not hardcoded to 3 items. Future tools register slots. Internal-only in v1. |
+| Demo mockability | Each tool slot has a demo placeholder; future tools show as "coming soon" in the demo. |
+
+---
+
+## 16. Future features catalogue (not v1)
+
+These are not scheduled. They are recorded here so the architecture and demo can accommodate them without requiring structural rework. Each has a **demo placeholder slot** in the Director's Console so the demo can show the full future vision.
+
+### Script Supervisor (AI manuscript analysis)
+
+A second AI role distinct from the Casting Call. Where the Casting Call reads for *who speaks*, the Script Supervisor reads for *what's happening*. All features below live under this tool slot:
+
+| Feature | What it produces |
+|---|---|
+| Character discovery | Named character list with inferred personas, relationship notes |
+| Book / chapter summary | Short prose summary per chapter; arc overview |
+| Timeline | Chronological event list, timestamped by chapter/scene |
+| Location tracker | Named locations with first appearance and chapter context |
+| Scene breakdown | Scene-by-scene list with characters present, tone, setting |
+| Map (future) | Visual location graph for geography-heavy fiction |
+
+The Script Supervisor and Casting Call share the same AI infrastructure (both read the manuscript); they are separated so they can ship independently and so the user understands the distinct intent of each action.
+
+### Casting Call (AI speaker detection)
+
+Already specified in §8. Ships as a one-shot action in the Cast palette, not a mode. Recorded here as a future item for the Director's Console demo slot.
+
+### Session-persistent flags with notes
+
+In Booth mode: flags that survive session close and accept written notes. Post-v2. The v1 session-only pin is the foundation; persistence and notes layer on top.
+
+### Plugin tool slots
+
+Third-party or user-written tools that register a Director's Console icon, a panel, and a keyboard shortcut. Internal-only in v1. The slot registration API will be defined when the external plugin system is designed. For now, the architecture must reserve the extensibility point (see §17).
+
+### Narrow viewport / mobile
+
+The three-edge-chrome layout (left rail + right Cast + bottom transport) does not fit narrow viewports. The mode model is an advantage here — one focused surface per mode means less simultaneous chrome — but a responsive collapse strategy is not yet designed. Deferred.
+
+---
+
+## 17. Modular architecture (implementation contract)
+
+Each Director's Console tool is a **self-contained module** with its own folder. This is an internal architecture requirement — not about external APIs. The structure prevents the chapter editor from becoming a monolithic file again and makes adding future tools (§16) a matter of adding a folder, not refactoring existing code.
+
+```
+pages/ChapterEditor/
+  components/
+    DirectorsConsole/         # Left-rail router: renders active tool, owns mode state
+      index.tsx
+      CastTool/               # Cast mode
+        index.tsx             # Exports the tool registration object
+        CastPalette.tsx       # Character swatches + brush size selector
+        VoiceBrush.tsx        # Hover preview + click/drag assignment
+        MutationCollector.ts  # Collector queue → batched write on gesture-end
+        CastTool.test.tsx
+      BoothTool/              # Booth/listen mode
+        index.tsx
+        TransportControls.tsx
+        KaraokeHighlight.tsx
+        LineFlags.tsx         # Session-only margin pins
+        BoothTool.test.tsx
+      ReviseTool/             # Revise/edit mode
+        index.tsx
+        InlineEditor.tsx      # Per-paragraph in-place editor
+        SegmentSplitter.ts    # Balanced split logic (midpoint / sentence boundary / min floor)
+        ReviseTool.test.tsx
+      # Future slots (demo placeholders exist from day one):
+      # CastingCallTool/      # AI speaker detection (§8)
+      # ScriptSupervisorTool/ # AI manuscript analysis (§16)
+      # PluginTools/          # Registered plugin slots (§16)
+    AmbientStatus/            # On Air indicator + render progress pill
+    ChapterSurface/           # The prose document (shared by all modes)
+```
+
+**Each tool module exports a registration object:**
+```ts
+// example shape — exact API TBD at implementation time
+export const CastTool: DirectorsTool = {
+  id: 'cast',
+  label: 'Cast',
+  icon: MicrophoneIcon,
+  shortcut: 'V',              // kept from original spec for keyboard users
+  panel: CastPalette,
+  onModeEnter: () => void,
+  onModeExit: flushRenderQueue,  // render-on-mode-exit hook
+  demoPlaceholder: false,      // real tool, not a placeholder
+}
+```
+
+The `DirectorsConsole` renders whatever tools are in the registry in order. Future tools add an entry; nothing else changes. Demo placeholders set `demoPlaceholder: true` and render a "coming soon" state in the demo without any real functionality wired.
 
 ---
 

@@ -32,5 +32,25 @@ Even once the load line reaches the orchestrator, the frame only fires if the gu
 - **Task 003:** (a) confirm/fix "Bug 2" (mixed active-engine resolution) so the guard fires for the XTTS segment; (b) keep warm/cloud silent (INV-2) — guaranteed because no load line is emitted for them. The ambient `_active_engine_has_specific_activity_marker` heuristic can largely stay; the fix is making the trigger *arrive* + resolving the active engine correctly, not replacing the attribution wholesale.
 - **Per-segment tagging across the plain-text mixed path** (full identity independent of a single ambient `active_seg_id`) is the residual that **W-PAR 006** formalizes; for the current single-active reality the orchestrator's `active_seg_id` is sufficient once the trigger arrives.
 
+## Runtime confirmation (2026-06-26 — owner-provided live trace)
+
+Owner supplied a live Voxtral→XTTS mixed render (`/Users/stevendunn/Documents/debug/{chapter-segment,event-stream,queue}.txt`, job `job-6aa4acbb…`, engine `mixed`, 3 render groups). It confirms the static diagnosis and resolves the open items:
+
+- **Group 0 = Voxtral `_0`:** rendered instantly (19:25:37→39, no load), chapter progress → 0.06.
+- **XTTS cold load = 19:25:39 → 19:25:59 (~20s):** during this window the backend published **zero frames**. Last frame before the gap = `chapter_progress status=running progress=0.06 reasonCode=SEGMENT_PENDING` (frame 38); next frame at 19:25:59 = `_close_pending_engine_activity_interval` (frame 46), still `progress=0.06 eta=51`. **No `LOADING_MODEL`/`indeterminate` frame was ever emitted for the load.** ✅ confirms gap A.
+- **ETA not suspended (gap B):** `eta_seconds` went 53 → 51 across the load — never cleared/indeterminate — so the predictive bar kept creeping ("didn't pause"). Chapter progress held at 0.06 but with no preparing indicator.
+- **Timing capture works (gap C):** the mixed handler's *generic* `[ENGINE_ACTIVITY_STARTED] {sid}` **does** reach the orchestrator and opened/closed the `pending_engine_activity` interval (frame 46), capturing the ~20s load. `predicted_audio_length=57` vs `produced=82s` → load-aware ETA has real data.
+- **Bug 2 resolved:** the generic `[ENGINE_ACTIVITY_STARTED]` reaches the orchestrator but is (correctly) ignored as a preparing trigger; the *specific* `"Loading XTTS model..."` trigger never arrives (dropped at `relay_marker`). So attribution doesn't depend on `_resolve_active_engine_for_matching` — it depends on **delivering a real-load signal that the orchestrator acts on**.
+
+## LOCKED DESIGN (final — supersedes the tentative grammar above)
+
+**Reusing `[ENGINE_ACTIVITY_STARTED]` is rejected** — the mixed handler emits it before *every* group (warm XTTS, Voxtral included), so firing "preparing" on it would flash warm/cloud groups (INV-2 violation). Instead:
+
+- **Dedicated marker `[MODEL_LOAD_STARTED] {sid} {task_id}`**, emitted by the **XTTS wrapper** (`engine.py parse_output`) **only when it observes the worker's real cold-load line** (`"Loading XTTS model..."` / `"XTTS serve mode: loading model..."`). Real-load-only by construction (the worker prints those once per process, on cold load) → INV-2 safe; never emitted for warm reuse or Voxtral.
+- `sid` = the wrapper's `active_segment_id` when known (omit if not); `task_id` = `req.task_id` (last token, for the per-job filter — avoids the cross-job leak a bare text line would cause).
+- **Watchdog** extracts `{sid, task_id}` from `[MODEL_LOAD_STARTED]` (following the `[START_SEGMENT]` positional pattern).
+- **Manifest:** add `timing_markers.MODEL_LOAD_STARTED: ["[MODEL_LOAD_STARTED]"]` to `tts_xtts` (manifest-driven; INV-3). Voxtral declares none (no load).
+- **Orchestrator:** handle `matched_marker == "MODEL_LOAD_STARTED"` → emit the `LOADING_MODEL`/`indeterminate` frame (`clear_eta=True`, attributed to the marker's `sid` or `active_seg_id`). No `_active_engine_has_specific_activity_marker` gate needed — the marker *is* the real-load signal. Keep the existing generic-marker timing-interval capture for `model_load_seconds` (avoid double-count). This is real-load-only, so warm/cloud stay silent automatically.
+
 ## No code left behind
-No production instrumentation was added (the trace was static). `git diff` for this task = this findings note only.
+No production instrumentation was added (the trace was static; the live trace was owner-run). `git diff` for this task = this findings note only.
