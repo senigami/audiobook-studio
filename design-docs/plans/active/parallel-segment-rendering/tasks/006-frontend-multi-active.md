@@ -14,6 +14,28 @@ Today `useStudioChapter` tracks exactly **one** `chapterRenderActiveSegmentId`. 
 
 The two-layer wire gap from W-MIX W4 is the central technical lesson here: a field added to the store type but not extracted in `jobEventAdapters.ts` AND not whitelisted in `queueOverlayFields.ts` AND not merged in `hydration/index.ts` is dead at runtime — it never reaches the hook. This exact gap bit W4 for `reason_code`/`indeterminate`. This task must not repeat it.
 
+## Architecture decision — captured from owner discussion (2026-06-26)
+
+> This section captures a design conversation and is the authoritative intent for *how* to build the below. Read it first; where the Files/Target sections sketch a bare `{progress, eta_seconds, reason_code}` entry, this supersedes it (the entry carries a full lifecycle, including the preparing/load phase).
+
+**Confirmed current model (what we have).** Verified 2026-06-26 against the code: the live-render path is **single-active by construction.** The store (`frontend/src/store/live-jobs.ts`) is keyed by **jobId** — `eventsById: Record<jobId, OverlayDelta>` — and each job overlay holds a **single `active_segment_id`**. `useStudioChapter` derives the preparing/rendering **Sets from that one id** (`chapterRenderPreparingSegmentIds = new Set([chapterRenderActiveSegmentId])` + its batch) and passes Sets down as props to `ScriptView`. There is **no per-segment store entry and no per-segment selector subscription** (`grep active_segments_map` → nothing; `useSyncExternalStore` is used only for unrelated stores — annotations/bookmarks/player). Two segments physically cannot light up at once today.
+
+**Target model (what to build here): normalized, segment-keyed — not job-keyed-with-one-active-id.**
+- Store carries `active_segments_map` keyed by **`segmentId`**, each entry a full **per-segment lifecycle**, e.g. `{ phase: 'preparing' | 'rendering' | 'done', progress, eta_seconds, reason_code?, indeterminate? }` — **not just a progress number.** The **preparing/load state is part of the entry** (see W-MIX-LA load attribution: a segment enters `preparing` during its model-load window *before* it renders). Keep the singular `active_segment_id` only as the cap=1 fallback during migration.
+- Each span subscribes to **its own segment's slice** (a per-segment selector / `useSyncExternalStore`, or the rAF-coalesced module-store subscription specified in the Performance Contract below) so a segment re-renders only on **its own** updates and N segments animate independently. This is the efficiency property the owner asked for: the coordinator **routes once** into the keyed map; fan-out to components is per-segment, *not* "re-derive every span's Set on every event."
+
+**Rejected alternative (owner proposal, discussed and declined): "each segment component becomes its own event-bus listener"** — spawn a listener on segment-start, self-watch its own indicator until done, then stop. The *intuition* (localize per-segment work; the coordinator only spawns listeners) is correct and is what the target model delivers — but the *mechanism* is wrong:
+- It's **one multiplexed websocket**, not a channel-per-segment. Every component would filter the full stream → **O(events × components)** work — *more* total work than a single keyed ingest, not less.
+- **Lifecycle races** (a late `SEGMENT_SAVED` after unmount, reconnect/replay, out-of-order frames) are hard to handle in ephemeral per-component socket subscriptions and trivial in a store.
+- It **loses the single source of truth** and the contract-shaped testability (R3 tests publish one frame and assert store state; per-component listeners fragment that).
+- The same localized-efficiency win is achieved correctly by **normalized store + granular per-segment selectors**: route once, re-render only the changed segment's component.
+
+**Launch-trigger gotcha.** Do **not** key a segment's active/preparing state off the worker's `START_SEGMENT` — the **preparing / model-load window precedes `START_SEGMENT`** (the whole point of W-MIX-LA). The per-segment entry must flip `preparing` on the load signal → `rendering` on start → `done` on save. A component that only reacts to start would miss the pulse we built.
+
+**Cross-dependency on 003.** For this to have data, **task 003's `active_segments_map` entries must carry the per-segment lifecycle phase (incl. preparing/`indeterminate`)**, not only progress — i.e. 003 generalizes the W-MIX-LA single-segment load attribution to per-segment map entries. Confirm 003's emitted entry shape includes the preparing phase before finalizing the adapter here.
+
+**Companion cleanup.** Replace the Set-derivation in `useStudioChapter` (recomputing `preparing/rendering` Sets over all spans from one active id) with per-segment selection over the keyed map, so adding parallel segments doesn't re-derive all spans on every frame.
+
 ## Files to touch
 
 | File | Current anchor | Change |

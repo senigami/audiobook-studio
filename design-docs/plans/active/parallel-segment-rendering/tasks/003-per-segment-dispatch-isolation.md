@@ -14,6 +14,16 @@ job owns only fan-out coordination and aggregation. Ensure the progress/marker l
 **per-segment identity** on every concurrent event so downstream consumers (including 006's
 `active_segments_map`) can distinguish segments unambiguously.
 
+> **Forward note for 006 (captured 2026-06-26).** The `active_segments_map` entries this task emits
+> must carry the full **per-segment lifecycle phase**, not just a progress number — specifically the
+> **preparing / model-load phase** (`indeterminate`/`LOADING_MODEL`), generalizing the W-MIX-LA
+> single-segment load attribution to per-segment map entries. 006's frontend renders each segment's
+> preparing pulse *before* it renders progress, so a per-segment entry shaped only as `{progress}`
+> would drop the parallel preparing state. Emit `{phase: 'preparing'|'rendering'|'done', progress,
+> eta_seconds, reason_code?, indeterminate?}` per active segment. See the "Architecture decision"
+> section in [tasks/006](006-frontend-multi-active.md) for the full rationale (normalized segment-keyed
+> store + per-segment selectors; per-component socket listeners explicitly rejected).
+
 ## Why it matters
 
 Today `app/orchestration/scheduler/orchestrator_helpers.py` holds a single `_dispatch` method (L88)
