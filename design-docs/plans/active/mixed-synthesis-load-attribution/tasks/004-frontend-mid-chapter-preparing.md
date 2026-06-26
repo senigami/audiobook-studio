@@ -1,6 +1,6 @@
 # Task 004 — Frontend mid-chapter preparing render
 
-**Workstream:** W-MIX-LA · **Depends on:** 003 (emits the correctly-attributed frame) · **Blocks:** 007 · **Status:** Not started
+**Workstream:** W-MIX-LA · **Depends on:** 003 (emits the correctly-attributed frame) · **Blocks:** 007 · **Status:** DONE (2026-06-26) — carrier = `indeterminate` on the segment frame (`build_segment_progress_event` + service.py threading; `reason_code=LOADING_MODEL` is stripped from `segments.progress`, so `indeterminate` is the durable signal); `live-jobs.ts` scope-gate relaxed (R-C). Typecheck + 101 FE / 252 BE tests green.
 
 > Read [`../01-map.md`](../01-map.md) parts **P-E/P-F**, connection **C3**, invariants **INV-1/INV-6**, risk **R-C**. With 003 publishing the correct frame, this ensures the right span actually pulses.
 

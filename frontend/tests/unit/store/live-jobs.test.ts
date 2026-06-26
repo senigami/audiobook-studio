@@ -499,4 +499,115 @@ describe('LiveJobsStore', () => {
     expect(state2.eventsById['job1'].indeterminate).toBe(false);
     expect(state2.eventsById['job1'].loadingElapsedSeconds).toBeNull();
   });
+
+  // ── W-MIX-LA 004 — scope-gate fix (R-C semantics) ───────────────────────────
+  //
+  // applyEvent currently only updates active_segment_id when scope === 'segment'
+  // (lines 260-263).  The R-C fix: also update active_segment_id when the frame
+  // carries a CONCRETE active_segment_id together with a load signal
+  // (reason_code === 'LOADING_MODEL' or indeterminate === true), even when
+  // scope !== 'segment'.  Never from a stale/absent id; keep explicit-null clear.
+
+  it('[W-MIX-LA-004] scope-gate: chapter-scoped LOADING_MODEL frame with active_segment_id updates store overlay (R1 revert-check)', () => {
+    // R1 revert-check: on pre-004 code the scope gate at applyEvent line 262
+    // blocks active_segment_id from being set when scope !== 'segment'.
+    // Post-fix the gate is relaxed for LOADING_MODEL / indeterminate frames.
+    const store = createLiveJobsStore();
+
+    // Seed an initial state (scope=segment, sets active_segment_id=seg-1)
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      progress: 0.06,
+      updated_at: 1000,
+      scope: 'segment',
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.5,
+    } as any);
+
+    expect(store.getState().eventsById['job1'].active_segment_id).toBe('seg-1');
+
+    // Now a chapter-scoped LOADING_MODEL frame arrives carrying active_segment_id=seg-2
+    // (this is the R-C scenario: scope='chapter' but has a concrete active_segment_id
+    // and a load signal).  Pre-fix: scope gate drops the new id.  Post-fix: it is set.
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      progress: 0.06,
+      updated_at: 1100,
+      scope: 'chapter',
+      reason_code: 'LOADING_MODEL',
+      indeterminate: true,
+      active_segment_id: 'seg-2',
+    } as any);
+
+    // Post-fix: active_segment_id must be updated to seg-2
+    expect(store.getState().eventsById['job1'].active_segment_id).toBe('seg-2');
+    expect(store.getState().eventsById['job1'].indeterminate).toBe(true);
+  });
+
+  it('[W-MIX-LA-004] scope-gate: chapter-scoped frame WITHOUT load signal does NOT update active_segment_id (boundary preserved)', () => {
+    // Non-load chapter frames must NOT update active_segment_id — only the precise
+    // R-C semantics (LOADING_MODEL or indeterminate) unlock the relaxed gate.
+    const store = createLiveJobsStore();
+
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      progress: 0.3,
+      updated_at: 1000,
+      scope: 'segment',
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.3,
+    } as any);
+
+    expect(store.getState().eventsById['job1'].active_segment_id).toBe('seg-1');
+
+    // A chapter-scoped frame WITHOUT a load signal (normal chapter progress update)
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      progress: 0.4,
+      updated_at: 1100,
+      scope: 'chapter',
+      // No reason_code === 'LOADING_MODEL' and no indeterminate
+      active_segment_id: 'seg-new',  // should be ignored by the gate
+    } as any);
+
+    // active_segment_id must NOT change
+    expect(store.getState().eventsById['job1'].active_segment_id).toBe('seg-1');
+  });
+
+  it('[W-MIX-LA-004] scope-gate: explicit null always clears active_segment_id regardless of scope', () => {
+    // Keep the existing explicit-null clear behaviour (from any scope).
+    const store = createLiveJobsStore();
+
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      progress: 0.5,
+      updated_at: 1000,
+      scope: 'segment',
+      active_segment_id: 'seg-x',
+    } as any);
+
+    expect(store.getState().eventsById['job1'].active_segment_id).toBe('seg-x');
+
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      progress: 0.5,
+      updated_at: 1100,
+      scope: 'chapter',        // non-segment scope
+      active_segment_id: null, // explicit null — must clear
+    } as any);
+
+    expect(store.getState().eventsById['job1'].active_segment_id).toBeNull();
+  });
 });

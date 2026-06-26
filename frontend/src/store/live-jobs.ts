@@ -256,10 +256,20 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       nextDelta.active_render_batch_progress = event.active_render_batch_progress;
     }
     // Clearing (explicit null) applies regardless of scope so callers can reset
-    // the active segment; setting a concrete value only applies on segment scope.
+    // the active segment; setting a concrete value applies on segment scope OR
+    // when the frame carries a concrete active_segment_id together with a load
+    // signal (reason_code === 'LOADING_MODEL' or indeterminate === true) — the
+    // R-C relaxation for mid-chapter cold-load frames (W-MIX-LA 004).
+    // Never set from a stale/absent id; never from a regular chapter frame.
+    const isLoadSignal = event.reason_code === 'LOADING_MODEL' || event.indeterminate === true;
+    const hasConcreteSegmentId =
+      typeof event.active_segment_id === 'string' && event.active_segment_id.length > 0;
     if (event.active_segment_id === null) {
       nextDelta.active_segment_id = null;
-    } else if (event.scope === 'segment' && event.active_segment_id !== undefined) {
+    } else if (
+      (event.scope === 'segment' || (isLoadSignal && hasConcreteSegmentId)) &&
+      event.active_segment_id !== undefined
+    ) {
       nextDelta.active_segment_id = event.active_segment_id;
     }
     if (event.active_segment_progress === null) {

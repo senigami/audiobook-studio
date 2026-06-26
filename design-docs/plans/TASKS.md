@@ -70,7 +70,7 @@ W-MIX follow-up — **G0 visual check failed (2026-06-26)**. A mixed Voxtral→X
 - [x] **001** — Diagnostic: pin exact marker ordering *(DONE 2026-06-26 — [001-findings.md](active/mixed-synthesis-load-attribution/tasks/001-findings.md): root cause = XTTS cold-load line dropped at `engine.py` `relay_marker` (non-bracket → None), never reaches orchestrator; XTTS-first works via dispatch-time frame only)*
 - [x] **002** — Real-load marker *(DONE 2026-06-26)* — XTTS emits dedicated `[MODEL_LOAD_STARTED] {sid?} {task_id}` only on real cold load; watchdog extracts task_id; manifest + `behavior.py` pass-through
 - [x] **003** — Orchestrator identity-based attribution *(keystone — DONE 2026-06-26)* — `log_listener` fires the LOADING_MODEL/indeterminate frame on `MODEL_LOAD_STARTED` (clear_eta, attributed to marker sid / `active_seg_id`); warm/cloud silent by construction; adversarial CLEAN
-- [ ] **004** — Frontend mid-chapter preparing render (relax `live-jobs.ts:262` scope-gate; correct span pulses)
+- [x] **004** — Frontend mid-chapter preparing render *(DONE 2026-06-26)* — segment frame now carries `indeterminate` (`build_segment_progress_event` + service.py); `live-jobs.ts` scope-gate relaxed (R-C: load-signal + concrete sid). **ML-2 complete — ready for 👁 G0 re-render.**
 - [ ] **005** — *(optional)* Chapter/queue-level preparing (owner 👁 decision on semantics)
 - [ ] **006** — *(optional)* Load-aware ETA from `model_load_seconds` history
 - [ ] **007** — Spec reconciliation + 👁 **G0 re-check** (gates W-PAR resume)

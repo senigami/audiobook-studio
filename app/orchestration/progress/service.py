@@ -469,6 +469,12 @@ class ProgressService:
                     if payload.get("active_segment_eta_confidence") is not None
                     else payload.get("eta_confidence")
                 ),
+                # W-MIX-LA 004: thread the load-window signal into the segment frame so
+                # the frontend can drive the preparing pulse from a single atomic frame
+                # (active_segment_id + indeterminate together).  Only present when the
+                # orchestrator has set indeterminate=True (LOADING_MODEL window).
+                indeterminate=payload.get("indeterminate") if payload.get("indeterminate") else None,
+                loading_elapsed_seconds=payload.get("loading_elapsed_seconds"),
             )
             self.broadcaster(payload=seg_event, channel="jobs")
 
