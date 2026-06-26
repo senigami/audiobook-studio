@@ -2287,3 +2287,9 @@
 - Created a canonical persona catalog covering creative/editorial users, technical/operator users, accessibility and edge cases, support/recovery, privacy/security, release readiness, and large-catalog workflows.
 - Added review-panel shortcuts and prompt templates so future agents can apply persona lenses without re-deriving the taxonomy.
 - Verified with JSON Memory parse and `git diff --check`.
+
+# 2026-06-25 - Demo gap analysis doc added
+
+- Added `design-docs/plans/active/final_release/19_demo_gap_analysis.md` and linked it from `design-docs/plans/active/final_release/00_overview.md`.
+- The new doc summarizes current demo coverage, points back to the active UI/UX and release plan sources, lists the remaining demo-visible gaps, and orders the follow-up work for the next demo pass.
+- Verified with `git diff --check` and a full readback of the new doc.

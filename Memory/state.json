@@ -1,15 +1,15 @@
 {
-  "snapshot_version": 217,
-  "current_task": "Reusable persona review pack added",
-  "status": "persona_review_pack_added",
+  "snapshot_version": 218,
+  "current_task": "Demo gap analysis document added",
+  "status": "demo_gap_analysis_doc_added",
   "last_committed_milestone": {
-    "title": "Reusable persona review pack added",
+    "title": "Demo gap analysis document added",
     "commit": "uncommitted",
     "notes": [
-      "Added docs/personas as a reusable persona source for adversarial testing, design review, QA planning, and implementation prompts.",
-      "Persona coverage spans creative/editorial users, technical/operator users, accessibility and edge-case users, support/recovery users, release readiness, and local-first trust concerns.",
-      "Created a catalog, review-panel shortcuts, and copy-paste prompt templates so future agents can apply personas without re-deriving the taxonomy.",
-      "Verified as documentation-only work with JSON parse and git diff --check."
+      "Added design-docs/plans/active/final_release/19_demo_gap_analysis.md to reconcile current demo coverage against the active UX and release plans.",
+      "Updated the final_release overview index so the new demo gap analysis doc is discoverable alongside the existing release plan set.",
+      "The new doc keeps the public showcase, interactive demo, and UI/UX plan gaps separated and gives the next demo pass an ordered follow-up list.",
+      "Verified as documentation-only work with git diff --check and a full readback of the new doc."
     ]
   },
   "active_constraints": [
@@ -121,7 +121,7 @@
     "latest_lint_focus": "2026-06-08: ruff passed for app/api/routers/generation.py and tests/api/test_api_generation.py; commit hook also ran Ruff/ESLint auto-fix checks cleanly.",
     "latest_frontend_event_stream_focus": "2026-05-22: Live Output route renamed to /event-stream and consumer filter toggles implemented; focused Vitest passed, full frontend Vitest passed (580 tests), frontend build passed, frontend lint passed, and git diff --check passed.",
     "latest_frontend_live_output_ownership": "2026-05-22: Removed the false jobs-state ownership from tts.logs so the Live Output subscribers column now reflects actual consumer handling.",
-    "latest_diff_check": "2026-06-24: git diff --check passed after adding docs/personas reusable review pack.",
+    "latest_diff_check": "2026-06-25: git diff --check passed after adding the demo gap analysis doc and overview index entry.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."
@@ -133,6 +133,7 @@
     "memory": "Update Memory/state.json and Memory/session_logs.md after verified milestones; update .agent rules only for durable repo-level guidance."
   },
   "completed_followups": [
+    "2026-06-25: Added design-docs/plans/active/final_release/19_demo_gap_analysis.md and linked it from the final_release overview. The doc distills the current demo surface, the active UI/UX and release plan sources, the remaining gaps, and a recommended order for the next demo pass. Verified with git diff --check and a full readback of the new doc.",
     "2026-06-24: Added docs/personas as a reusable persona review pack. The pack includes a canonical persona catalog, task-specific review panels, and copy-paste prompt templates for adversarial testing, design review, QA planning, support triage, and release readiness. Verified with JSON Memory parse and git diff --check.",
     "2026-06-16: Fixed the private mock contextual book rail indentation. The expanded Library book hierarchy now left-aligns Manuscript/Casting/Studio/Review/Publish rows, reduces the nested outline offset, and applies lighter chapter indentation under Studio. Added focused demo coverage for the rail-stage alignment contract. Verified with npm -C frontend run test -- demoApp.test.tsx and git diff --check; skipped frontend build/build:demo per owner instruction and did not touch player-bar work.",
     "2026-06-24: Verified mixed-synthesis W1 marker/progress resolution. Script entries carry group engine ids, mixed handler emits explicit ENGINE_ACTIVITY_STARTED markers, timing-marker matching falls back to the mixed job manifest for generic markers, active-engine progress parsing switches per group, and live-events specs were bumped to 1.6.1. Verified with affected backend/plugin suite, Ruff, git diff --check, and three adversarial review rounds.",

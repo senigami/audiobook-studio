@@ -34,6 +34,7 @@ Phases 0–11 of the v2 conversion are complete; the app runs v2-only (TaskOrche
 | [16](16_pinokio_distribution.md) | Pinokio one-click install wrapper: audit, release blockers (torch backend, version pinning, public wrapper repo), demo bundle 2.0 refresh, first-run defaults (XTTS engine + Studio Voice) |
 | [17](17_test_quality_audit.md) | Test quality audit: classify/remove vacuous & mocked-out tests, rewrite real-scenario coverage for queue/segments/events; standing test rules |
 | [18](18_canonical_specs.md) | Canonical spec documents (`design-docs/specs/`): authoritative, versioned contracts for events, plugins, voices, queue/jobs, progress, text processing, install, testing — written as each area finalizes; conformance pass gates v2.0.0 |
+| [19](19_demo_gap_analysis.md) | Demo gap analysis: what the current demo already shows, what still needs to appear, and the follow-up order for UI/UX + showcase work |
 
 ## How to execute
 
