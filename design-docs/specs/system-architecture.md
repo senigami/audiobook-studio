@@ -1,7 +1,7 @@
 # SP9 — System Architecture Spec
 
 ```
-spec_version: 1.4.0
+spec_version: 1.5.0
 status: active
 created: 2026-06-10
 updated: 2026-06-26
@@ -9,7 +9,8 @@ sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
          app/engines/watchdog.py, app/engines/bridge.py,
          app/engines/bridge_remote.py, app/engines/tts_client.py,
          app/tts_server/plugin_loader.py, app/orchestration/scheduler/orchestrator.py,
-         app/orchestration/scheduler/resources.py, plugins/*/manifest.json
+         app/orchestration/scheduler/resources.py, plugins/*/manifest.json,
+         plugins/tts_xtts/plugin/core/warm_worker.py
 ```
 
 > **TL;DR:** Studio runs as two processes — a main FastAPI app and a managed TTS Server subprocess — with a strict ownership split between the orchestrator (job lifecycle), watchdog (server process lifecycle), and VoiceBridge (engine routing).
@@ -18,6 +19,7 @@ sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
 
 | Version | Date       | Summary                                                    |
 |---------|------------|------------------------------------------------------------|
+| 1.5.0   | 2026-06-26 | **W-PAR task 004 — TTS-server concurrent inference model.** The `/synthesize` endpoint is `async def` and wraps the engine call in `run_in_threadpool` (Starlette) so the ASGI event loop is never tied up during inference. Note: FastAPI already offloads sync handlers to anyio's threadpool, so this was not fixing a loop-blocking bug — it makes the offload explicit and is the idiomatic form. The **real** per-engine serialization point was the single XTTS warm-worker subprocess. `WarmWorkerManager` now holds a **bounded, lazy-spawned pool** of up to `cap` `WarmWorker` subprocess instances (free-list queue); `cap = behavior.max_concurrent_workers` from the engine manifest (task 001). Each subprocess handles one job at a time (pipe-safety); the pool's free-list is the concurrency bound. The N-th worker is spawned only on demand; on OOM/spawn failure the effective cap degrades to the live pool size (fail-safe, no crash). Cloud engines (Voxtral) have no warm worker and no serialization lock — concurrency is bounded only by the remote API rate limit. **Ships dark:** at cap=1 (default for all manifests today) behavior is byte-identical to the prior single-worker model. Complements the orchestrator-side per-engine semaphore (task 001, `resources.py`) — both enforcement points read the same manifest cap. Pool sizing is driven entirely by `manifest.behavior.max_concurrent_workers`; no engine-ID branching (INV-5). Residual: `WarmWorkerManager._acquire_worker` blocking `free_q.get()` can hang if all pooled workers die while a waiter holds — dormant at cap=1, deferred to task 005. |
 | 1.4.0   | 2026-06-26 | **W-PAR task 001 — per-engine-class counting semaphores.** Each engine manifest now declares `behavior.max_concurrent_workers` (xtts=1, voxtral=1, mixed=1 (all caps=1 in task-001; real caps + enable toggle land in task-007)). The orchestrator-side resource gate (`app/orchestration/scheduler/resources.py`) is replaced with `EngineClassSemaphore` counting semaphores, keyed by engine class derived from the manifest `resource` block (`"gpu"` / `"cpu_heavy"` / `"cloud"`), plus a global cap backstop (`MAX_GLOBAL_CONCURRENT_SYNTHESIS=8`). With all caps at default 1 behavior is byte-identical to today (INV-1 "ships dark"). No engine-ID string comparisons in `resources.py` (INV-5). `SynthesisTask` derives `ResourceClaim` from the manifest rather than an `engine_id == "mixed"` branch (W5 closed). See `queue-jobs.md §7` for the full contract. |
 | 1.3.0   | 2026-06-26 | §9 note: for mixed/multi-group renders the orchestrator resolves timing/progress markers per the **active render-group's declared engine** (via that engine's manifest), and the mixed handler emits a bracketed `[ENGINE_ACTIVITY_STARTED]` marker before each group's bridge call. This is manifest-driven resolution, NOT hardcoded engine-ID branching — the no-branch rule and the watchdog/VoiceBridge boundaries are preserved (watchdog/VoiceBridge stay ignorant of model-load semantics). Documents W-MIX W1. |
 | 1.2.0   | 2026-06-23 | Add invariant I13: boot MUST NOT host destructive/expensive reconciliation (re-runs on `--reload`); on-demand instead. See [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md) |
@@ -88,6 +90,57 @@ The TTS Server exposes:
 The TTS Server MUST NOT be started manually in production; it is always
 launched by the watchdog (§5).  Direct invocation is permitted only for
 isolated development or plugin testing.
+
+### 3.1 Concurrent Inference Model (W-PAR 004)
+
+The `/synthesize` endpoint is `async def` and wraps the blocking engine call
+via `await run_in_threadpool(plugin.engine.synthesize, req)` (Starlette's
+`starlette.concurrency.run_in_threadpool`).  This is the idiomatic explicit
+form — FastAPI already offloads synchronous route handlers to anyio's
+threadpool, so this is not fixing a loop-blocking bug, but it makes the
+offload visible and improves threadpool utilization under concurrent load.
+
+The **real** per-engine serialization point is the warm-worker subprocess
+pool.  `WarmWorkerManager` (XTTS plugin,
+`plugins/tts_xtts/plugin/core/warm_worker.py`) maintains a **bounded,
+lazy-spawned pool** of `WarmWorker` subprocess instances:
+
+- **Pool size:** up to `cap` instances, where `cap =
+  manifest.behavior.max_concurrent_workers` (declared by the engine manifest,
+  set by task 001).
+- **Free-list queue:** workers are checked out from an internal `queue.Queue`
+  (`free_q`).  Each subprocess handles exactly one job at a time (pipe-safety);
+  the free-list is the effective concurrency bound.
+- **Lazy spawn:** the first worker is started at `WarmWorkerManager` init; the
+  N-th is spawned only when a concurrent request arrives and all existing
+  workers are busy.  Workers are never pre-spawned up to `cap` at startup.
+- **OOM / spawn failure (fail-safe):** if spawning the N-th worker raises
+  `MemoryError` or the subprocess exits immediately, a warning is logged and
+  the effective cap degrades to the current live pool size.  The pending request
+  waits for a free worker; no render crash; no unhandled exception propagates.
+
+**Cloud engines (Voxtral)** have no warm worker and no serialization lock.
+Concurrency is bounded only by the remote API rate limit — the server endpoint
+imposes no additional serialization.
+
+**Ships dark:** at `cap=1` (today's default for all manifests) behavior is
+byte-identical to the prior single-worker model.  The warm-worker pool of
+size 1 with a free-list of 1 is equivalent to the previous `threading.Lock`.
+
+**Two enforcement points:** this server-side pool complements the
+orchestrator-side per-engine semaphore (task 001,
+`app/orchestration/scheduler/resources.py`).  Both read
+`manifest.behavior.max_concurrent_workers`.  The orchestrator throttles
+**dispatch** (how many segments are sent to the server concurrently); the
+server throttles **inference** (how many the server actually runs at once).
+
+**Residual (task 005):** `WarmWorkerManager._acquire_worker`'s blocking
+`free_q.get()` can hang if all pooled workers die while an acquirer waits.
+This is dormant at cap=1 (single-flight) and is owned by task 005's
+stuck-segment / cancel invariants.
+
+Pool/semaphore sizing is driven entirely by `manifest.behavior.max_concurrent_workers`
+— no engine-ID branching anywhere in the server or manager code (INV-5).
 
 ---
 

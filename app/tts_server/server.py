@@ -20,6 +20,7 @@ from typing import Any, Optional
 from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from app.core.config import PLUGINS_DIR
 from app.tts_server.performance_settings import (
@@ -543,7 +544,7 @@ def _engine_readiness_status(plugin) -> str:
 
 
 @app.post("/synthesize")
-def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
+async def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
     """Synthesize audio for a text request."""
     from app.engines.voice.sdk import TTSRequest  # noqa: PLC0415
     from app.engines.voice.sdk import TTSResult  # noqa: PLC0415
@@ -611,7 +612,10 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
         if not ok:
             raise HTTPException(status_code=422, detail=f"Request validation failed: {msg}")
 
-        result = plugin.engine.synthesize(req)
+        # Offload the blocking engine call to a threadpool so the ASGI event loop
+        # can service other requests concurrently.  Starlette's default anyio thread
+        # limiter (40 threads) comfortably exceeds any realistic per-engine cap (≤8).
+        result = await run_in_threadpool(plugin.engine.synthesize, req)
     finally:
         # Cleanup cancellation flag after synthesis attempt
         if body.task_id:

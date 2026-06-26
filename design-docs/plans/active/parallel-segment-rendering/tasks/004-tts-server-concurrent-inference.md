@@ -1,6 +1,6 @@
 # Task 004 — TTS-server concurrent inference
 
-**Workstream:** W-PAR  ·  **Depends on:** 001 (cap value)  ·  **Blocks:** none  ·  **Status:** Not started
+**Workstream:** W-PAR  ·  **Depends on:** 001 (cap value)  ·  **Blocks:** none  ·  **Status:** DONE (2026-06-26)
 
 > Read [`../01-map.md`](../01-map.md) (Part **E**, invariants **INV-1**, **INV-5**, **INV-10**,
 > risks **R-B**) and [`../00-overview.md`](../00-overview.md) (§Scope item 5) before starting.
@@ -193,26 +193,71 @@ ruff check plugins/tts_xtts/plugin/core/warm_worker.py app/tts_server/server.py 
 
 ## Acceptance criteria
 
-- [ ] With cap=1: behavior byte-identical to today — same XTTS inference serialization, same
+- [x] With cap=1: behavior byte-identical to today — same XTTS inference serialization, same
       endpoint response shape, same error handling. Existing XTTS plugin tests green (INV-1).
-- [ ] With cap=2: two concurrent `/synthesize` requests dispatch to two separate XTTS warm-worker
+- [x] With cap=2: two concurrent `/synthesize` requests dispatch to two separate XTTS warm-worker
       subprocess instances and run concurrently (confirmed by the barrier test, not just timing).
-- [ ] Worker-1 (and N-th worker generally) is **never pre-spawned** — only created when a second
+- [x] Worker-1 (and N-th worker generally) is **never pre-spawned** — only created when a second
       concurrent request actually arrives and all existing workers are busy (INV-10 lazy-spawn).
-- [ ] On OOM / spawn failure for the N-th worker: a warning is logged; the effective cap is reduced
+- [x] On OOM / spawn failure for the N-th worker: a warning is logged; the effective cap is reduced
       to the current live pool size; the pending request waits for a free worker; no render crash;
       no unhandled exception (INV-10 fail-safe).
-- [ ] The `/synthesize` endpoint is `async def` and uses `run_in_threadpool` (or equivalent) so the
+- [x] The `/synthesize` endpoint is `async def` and uses `run_in_threadpool` (or equivalent) so the
       uvicorn event loop is not blocked during inference.
-- [ ] Voxtral (remote API) engine: concurrent requests are not serialized by any `threading.Lock`
+- [x] Voxtral (remote API) engine: concurrent requests are not serialized by any `threading.Lock`
       in the plugin.
-- [ ] Pool/semaphore sizing is driven by `manifest.behavior.max_concurrent_workers` (from task 001)
+- [x] Pool/semaphore sizing is driven by `manifest.behavior.max_concurrent_workers` (from task 001)
       — no `if engine_id == "xtts"` branching (INV-5).
-- [ ] R1 revert-check: the concurrent-request test is demonstrably red on pre-semaphore code
+- [x] R1 revert-check: the concurrent-request test is demonstrably red on pre-semaphore code
       (lock serializes both requests; barrier deadlocks or times out).
-- [ ] `design-docs/specs/system-architecture.md` updated: TTS server concurrent inference model;
+- [x] `design-docs/specs/system-architecture.md` updated: TTS server concurrent inference model;
       version bump + changelog row.
-- [ ] `ruff check` clean on all touched files.
+- [x] `ruff check` clean on all touched files.
+
+## Implementation notes (2026-06-26)
+
+**(a) Premise correction — FastAPI threadpool vs loop blocking.**  The task's
+original framing identified "synchronous inline synthesis blocking the uvicorn
+event loop" as a bug to fix.  In practice, FastAPI already offloads sync route
+handlers to anyio's threadpool, so the pre-task `/synthesize` endpoint was
+*not* blocking the ASGI event loop.  The real serialization point was the
+single warm-worker subprocess (see b).  The `async def` + `run_in_threadpool`
+conversion was kept as the idiomatic explicit form — it makes the offload
+visible, plays well with anyio's threadpool accounting under load, and is the
+preferred shape for CPU-bound dispatch in ASGI apps.  It is not a bug-fix
+conversion.
+
+**(b) Warm-worker pool design.**  `WarmWorkerManager`
+(`plugins/tts_xtts/plugin/core/implementation.py`, constructed in
+`_get_warm_worker_manager`) now owns a `queue.Queue` free-list of
+`WarmWorker` subprocess instances (cap bounded by `manifest.behavior.max_concurrent_workers`).
+
+- The first worker is constructed at manager init; subsequent workers are
+  spawned lazily on demand only when all existing workers are checked out.
+- A caller acquires a worker by calling `_acquire_worker()`, which does a
+  non-blocking `free_q.get_nowait()` when workers are available; if none is
+  free and `len(pool) < cap`, it attempts a lazy spawn before blocking.
+- On job completion the worker is returned to the free-list via `free_q.put()`.
+- On OOM or subprocess exit during spawn: a `WARNING` is logged, the effective
+  cap is reduced to the current live pool size, and the pending caller waits
+  for a free worker — no crash, no exception to the chapter job.
+
+**(c) Cap wiring.**  The cap is read in
+`plugins/tts_xtts/plugin/core/implementation.py:_get_warm_worker_manager` via
+`max(1, int(_get_local_behavior().get("max_concurrent_workers", 1)))`, where
+`_get_local_behavior()` returns the `behavior` block of the plugin's own
+`manifest.json` (loaded by the `lru_cache`d `_load_local_manifest`).  Any read
+error falls back to `1`.  Default value: `1`.  No engine-ID branching anywhere
+in the server, manager, or plugin loader (INV-5).
+
+**(d) Residual deferred to task 005.**  `WarmWorkerManager._acquire_worker`'s
+blocking `free_q.get()` path can hang indefinitely if all pooled workers die
+(crash/OOM) while an acquirer is waiting with an empty free-list.  This is
+dormant at cap=1 single-flight (there is always exactly one worker or the
+caller is next in line) and is a known open edge case.  A code comment marks
+the site.  Fixing it properly — detecting dead workers and cancelling waiters
+or raising a retryable error — is owned by task 005's stuck-segment / cancel
+invariant work.
 
 ## Map links
 
