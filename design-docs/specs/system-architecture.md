@@ -1,7 +1,7 @@
 # SP9 — System Architecture Spec
 
 ```
-spec_version: 1.2.0
+spec_version: 1.3.0
 status: active
 created: 2026-06-10
 updated: 2026-06-23
@@ -17,6 +17,7 @@ sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
 
 | Version | Date       | Summary                                                    |
 |---------|------------|------------------------------------------------------------|
+| 1.3.0   | 2026-06-26 | §9 note: for mixed/multi-group renders the orchestrator resolves timing/progress markers per the **active render-group's declared engine** (via that engine's manifest), and the mixed handler emits a bracketed `[ENGINE_ACTIVITY_STARTED]` marker before each group's bridge call. This is manifest-driven resolution, NOT hardcoded engine-ID branching — the no-branch rule and the watchdog/VoiceBridge boundaries are preserved (watchdog/VoiceBridge stay ignorant of model-load semantics). Documents W-MIX W1. |
 | 1.2.0   | 2026-06-23 | Add invariant I13: boot MUST NOT host destructive/expensive reconciliation (re-runs on `--reload`); on-demand instead. See [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md) |
 | 1.1.0   | 2026-06-16 | §4 rewritten: `startup_event` orchestrates steps 1–9, `boot_studio()` handles migration + handler init + watchdog; clarify two `init_db`/`migrate_state_json_to_db` call sites; I7 corrected from `/health` to `/engines` |
 | 1.0.0   | 2026-06-10 | Initial spec documenting the Studio 2.0 two-process model |
@@ -227,6 +228,16 @@ Examples of violations (MUST NOT occur):
 - Orchestrator spawning or restarting the TTS Server process.
 - VoiceBridge making retry decisions that belong to the watchdog.
 - Queue/route code branching on engine IDs for core behavior.
+
+**Not a violation — manifest-driven marker resolution (W-MIX W1):** for a mixed /
+multi-group render the orchestrator resolves timing/progress markers from the
+**active render-group's declared engine** (`group["engine"]` → that engine's
+manifest markers, via `app/engines/behavior.match_timing_marker` /
+`parse_engine_progress`), and the mixed handler emits a bracketed
+`[ENGINE_ACTIVITY_STARTED]` marker before each group's bridge call. This reads
+the engine from data + manifest, not a hardcoded `if engine_id == ...` branch, so
+the no-branch rule holds. The watchdog and VoiceBridge remain ignorant of
+model-load semantics — no new ownership boundary is introduced.
 
 ---
 

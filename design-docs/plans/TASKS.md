@@ -52,12 +52,12 @@ Plan: [active/mixed-synthesis-fused-proposal/README.md](active/mixed-synthesis-f
 
 - [ ] **W5** — Mixed `ResourceClaim` *(deferred — owner-gated)*
 
-- [~] **W6** — Spec reconciliation — [task 005](active/mixed-synthesis-fused-proposal/tasks/005-spec-reconciliation.md) *(landed alongside W1/W2/W3 per joint-authority; two items remain)*
+- [x] **W6** — Spec reconciliation — [task 005](active/mixed-synthesis-fused-proposal/tasks/005-spec-reconciliation.md) *(all 5 specs landed alongside their behavior per joint-authority)*
   - [x] `live-events.md` → 1.7.1: mixed marker resolution (1.6.1, W1) + load-window frame contract + load-marker-gated suspension (1.7.0/1.7.1, W3)
-  - [ ] `progress-presentation.md` → 1.6.0: segment-granularity preparing tier, remove 120s lane, ETA suspend/resume — **coupled with W4** (frontend presentation); land it with W4
+  - [x] `progress-presentation.md` → 1.6.0: segment-granularity preparing tier (§2.7), 120s-lane suppression, ETA suspend/resume, load-marker-gated suspension (W4)
   - [x] `queue-jobs.md` → 1.5.1: per-group phase vs monotonic durable status (1.5.0/1.5.1, W3) + synthesis-only clock note (1.4.1, W2)
   - [x] `data-model.md` → 1.4.1: synthesis-only clock + orchestrator sole-writer contract (W2) *(landed as 1.4.1, not 1.5.0 — content complete)*
-  - [ ] `system-architecture.md` → 1.3.0: W1 did add the explicit `[ENGINE_ACTIVITY_STARTED]` handler marker, so the per-active-engine marker-resolution note is now warranted — owner/W6 decision to add it
+  - [x] `system-architecture.md` → 1.3.0: per-active-engine marker-resolution note (W1 added the explicit `[ENGINE_ACTIVITY_STARTED]` marker; documented as manifest-driven, not engine-ID branching)
 
 ---
 
