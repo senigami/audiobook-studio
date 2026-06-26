@@ -1,14 +1,15 @@
 # SP9 — System Architecture Spec
 
 ```
-spec_version: 1.3.0
+spec_version: 1.4.0
 status: active
 created: 2026-06-10
-updated: 2026-06-23
+updated: 2026-06-26
 sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
          app/engines/watchdog.py, app/engines/bridge.py,
          app/engines/bridge_remote.py, app/engines/tts_client.py,
-         app/tts_server/plugin_loader.py, app/orchestration/scheduler/orchestrator.py
+         app/tts_server/plugin_loader.py, app/orchestration/scheduler/orchestrator.py,
+         app/orchestration/scheduler/resources.py, plugins/*/manifest.json
 ```
 
 > **TL;DR:** Studio runs as two processes — a main FastAPI app and a managed TTS Server subprocess — with a strict ownership split between the orchestrator (job lifecycle), watchdog (server process lifecycle), and VoiceBridge (engine routing).
@@ -17,6 +18,7 @@ sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
 
 | Version | Date       | Summary                                                    |
 |---------|------------|------------------------------------------------------------|
+| 1.4.0   | 2026-06-26 | **W-PAR task 001 — per-engine-class counting semaphores.** Each engine manifest now declares `behavior.max_concurrent_workers` (xtts=1, voxtral=1, mixed=1 (all caps=1 in task-001; real caps + enable toggle land in task-007)). The orchestrator-side resource gate (`app/orchestration/scheduler/resources.py`) is replaced with `EngineClassSemaphore` counting semaphores, keyed by engine class derived from the manifest `resource` block (`"gpu"` / `"cpu_heavy"` / `"cloud"`), plus a global cap backstop (`MAX_GLOBAL_CONCURRENT_SYNTHESIS=8`). With all caps at default 1 behavior is byte-identical to today (INV-1 "ships dark"). No engine-ID string comparisons in `resources.py` (INV-5). `SynthesisTask` derives `ResourceClaim` from the manifest rather than an `engine_id == "mixed"` branch (W5 closed). See `queue-jobs.md §7` for the full contract. |
 | 1.3.0   | 2026-06-26 | §9 note: for mixed/multi-group renders the orchestrator resolves timing/progress markers per the **active render-group's declared engine** (via that engine's manifest), and the mixed handler emits a bracketed `[ENGINE_ACTIVITY_STARTED]` marker before each group's bridge call. This is manifest-driven resolution, NOT hardcoded engine-ID branching — the no-branch rule and the watchdog/VoiceBridge boundaries are preserved (watchdog/VoiceBridge stay ignorant of model-load semantics). Documents W-MIX W1. |
 | 1.2.0   | 2026-06-23 | Add invariant I13: boot MUST NOT host destructive/expensive reconciliation (re-runs on `--reload`); on-demand instead. See [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md) |
 | 1.1.0   | 2026-06-16 | §4 rewritten: `startup_event` orchestrates steps 1–9, `boot_studio()` handles migration + handler init + watchdog; clarify two `init_db`/`migrate_state_json_to_db` call sites; I7 corrected from `/health` to `/engines` |

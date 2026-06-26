@@ -13,6 +13,7 @@
     "synthesis"
   ],
   "behavior": {
+    "max_concurrent_workers": 1,
     "timing_markers": {
       "ENGINE_ACTIVITY_STARTED": [
         "[ENGINE_ACTIVITY_STARTED]"

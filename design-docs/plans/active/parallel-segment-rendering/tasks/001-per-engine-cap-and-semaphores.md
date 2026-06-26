@@ -1,6 +1,17 @@
 # Task 001 — Per-engine concurrency cap + scheduler semaphores
 
-**Workstream:** W-PAR  ·  **Depends on:** G0 prereq  ·  **Blocks:** 002, 004  ·  **Status:** Not started
+**Workstream:** W-PAR  ·  **Depends on:** G0 prereq  ·  **Blocks:** 002, 004  ·  **Status:** DONE (2026-06-26)
+
+> **Ships-dark mechanism (as built):** per-engine-class concurrency is gated behind the env flag
+> `ENGINE_CLASS_ADMISSION` (**default OFF**). While off, every `engine_class` claim is funnelled
+> through the single shared exclusive gate → exact pre-W-PAR single-flight (xtts/voxtral/mixed/api all
+> one-at-a-time), so 001 is genuinely byte-identical to today. The per-class counting-semaphore
+> machinery, manifest caps, `_claim_to_dict` propagation, and plugin validation are all in place and
+> dormant. **Task 007 surfaces this flag as a proper setting** (and must snapshot it into the claim at
+> reserve time so a mid-render toggle can't desync release). W5 is closed at runtime even in dark mode
+> (mixed takes the exclusive slot instead of bypassing admission). All manifest caps are 1 in 001;
+> real caps (e.g. voxtral) land with the toggle in 007. Adversarial-reviewed; 434 orchestration/queue
+> tests green.
 
 > Read [`../01-map.md`](../01-map.md) (Parts **A**, **B**; invariants **INV-1**, **INV-5**, **INV-10**)
 > and [`../00-overview.md`](../00-overview.md) before starting. This task is the foundation: every

@@ -26,6 +26,80 @@ from app.orchestration.tasks.base import StudioTask, TaskContext, TaskResult
 logger = logging.getLogger(__name__)
 
 
+def _manifest_resource_claim(engine_id: str) -> ResourceClaim:
+    """Derive a ``ResourceClaim`` from the engine manifest for ``engine_id``.
+
+    Reads ``behavior.max_concurrent_workers`` and the ``resource`` block from
+    the engine's ``manifest.json`` to construct a semaphore-backed claim.
+    No engine-ID string comparisons are used; the claim is entirely driven by
+    the manifest resource declarations (INV-5).
+
+    Engine-class mapping (from manifest ``resource`` block):
+    - ``resource.gpu = true``       → engine_class = ``"gpu"``
+    - ``resource.cpu_heavy = true`` → engine_class = ``"cpu_heavy"``
+    - otherwise                     → engine_class = ``"cloud"``
+
+    Falls back to a cap=1 ``"cloud"`` semaphore if the manifest cannot be
+    read (fail-safe, INV-10).
+
+    Args:
+        engine_id: Target engine identifier (e.g. ``"xtts"``, ``"voxtral"``,
+            ``"mixed"``).
+
+    Returns:
+        ResourceClaim: Manifest-derived claim for the semaphore scheduler.
+    """
+    try:
+        from app.tts_server.plugin_loader import get_plugin_dir, get_manifest_max_concurrent_workers  # noqa: PLC0415
+        import json  # noqa: PLC0415
+
+        plugin_dir = get_plugin_dir(engine_id)
+        manifest_path = plugin_dir / "manifest.json"
+        if manifest_path.is_file():
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        else:
+            manifest = {}
+
+        resource = manifest.get("resource", {})
+        if not isinstance(resource, dict):
+            resource = {}
+
+        is_gpu = bool(resource.get("gpu", False))
+        is_cpu_heavy = bool(resource.get("cpu_heavy", False))
+        vram_mb = int(resource.get("vram_mb", 0))
+        cap = get_manifest_max_concurrent_workers(manifest)
+
+        if is_gpu:
+            engine_class = "gpu"
+        elif is_cpu_heavy:
+            engine_class = "cpu_heavy"
+        else:
+            engine_class = "cloud"
+
+        return ResourceClaim(
+            gpu=is_gpu,
+            vram_mb=vram_mb,
+            cpu_heavy=is_cpu_heavy,
+            exclusive=False,
+            engine_class=engine_class,
+            cap=cap,
+        )
+    except Exception:
+        logger.warning(
+            "Could not load manifest for engine %r — falling back to cap=1 cloud semaphore.",
+            engine_id,
+            exc_info=True,
+        )
+        return ResourceClaim(
+            gpu=False,
+            vram_mb=0,
+            cpu_heavy=False,
+            exclusive=False,
+            engine_class="cloud",
+            cap=1,
+        )
+
+
 class SynthesisTask(StudioTask):
     """Queueable synthesis task for one Studio render unit.
 
@@ -85,9 +159,7 @@ class SynthesisTask(StudioTask):
         self.voice_profile_id = voice_profile_id
         self.voice_ref = voice_ref
         self.language = language
-        self.resource_claim = resource_claim or (
-            ResourceClaim.none() if engine_id == "mixed" else ResourceClaim.exclusive_claim()
-        )
+        self.resource_claim = resource_claim or _manifest_resource_claim(engine_id)
         self.requested_revision = requested_revision or {}
         self.render_batch_id = render_batch_id
         self.is_bake = is_bake

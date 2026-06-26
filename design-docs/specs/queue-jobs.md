@@ -1,7 +1,7 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.5.1
+spec_version: 1.6.0
 status: active
 updated: 2026-06-26
 created: 2026-06-10
@@ -10,13 +10,15 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
          plugins/tts_xtts/plugin/studio/standard_handler.py,
          app/orchestration/progress/eta.py, app/core/boot.py, app/api/web.py,
          tests/db/test_state_rules.py, test_state_jobs_broadcast.py, test_db_reconcile.py,
-         tests/orchestration/test_recovery_db_integration.py
+         tests/orchestration/test_recovery_db_integration.py,
+         tests/orchestration/test_engine_semaphores.py
 ```
 
 ## Changelog
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.6.0   | 2026-06-26 | **W-PAR task 001 — per-engine-class counting semaphores (§7).** `GpuAdmissionGate` / `ExclusiveAdmissionGate` binary gates replaced by `EngineClassSemaphore` counting semaphores keyed by engine class (``"gpu"``, ``"cpu_heavy"``, ``"cloud"``). Each engine declares `behavior.max_concurrent_workers` in its manifest (default 1); the scheduler sizes the semaphore to that cap. Global cap backstop (`MAX_GLOBAL_CONCURRENT_SYNTHESIS`, default 8) checked first. Ships dark behind `ENGINE_CLASS_ADMISSION` (default OFF, §7.3a): until enabled (task 007) every synthesis-class claim routes through the single shared exclusive gate, preserving the pre-W-PAR invariant that xtts/voxtral/API synthesis all serialize against one another (INV-1). Closes W5: `SynthesisTask` for `mixed` engine no longer uses `ResourceClaim.none()` — claim is derived from the manifest resource block + cap. No engine-ID string comparisons remain in `resources.py` (INV-5). |
 | 1.5.1   | 2026-06-26 | §3.8 refinement: the per-group preparing phase's `indeterminate=true` / ETA suspension is carried on the `LOADING_MODEL` frame (fired only on a real model-load marker for the active group), not on the every-segment `SEGMENT_PENDING` announce — which stays ETA-neutral so warm renders don't flash. Matches `live-events.md` 1.7.1. |
 | 1.5.0   | 2026-06-26 | **Distinguish the per-group render PHASE (preparing/synthesizing, carried by `reason_code` on live frames) from the durable monotonic job-status lifecycle. A group's preparing phase during model load MUST NOT regress a running job's durable status to `preparing` (INV-1). Documents the W3 mixed model-load ETA-suspension backend signals. See §3.8.** |
 | 1.4.1   | 2026-06-25 | Clarify `synthesis_duration_seconds` is synthesis-only render time, derived from engine-confirmed group timing and excluding model-load windows; aligns mixed render timing with the orchestrator-owned sample path. |
@@ -457,31 +459,86 @@ paused, the task receives `admitted=False` with
 without dispatching (task stays in memory in a `waiting_for_resources` state —
 it is not re-queued).
 
-### 7.2 GPU gate (`GpuAdmissionGate`)
+### 7.2 Per-engine-class counting semaphores (`EngineClassSemaphore`) — W-PAR task 001
 
-One task at a time may hold the GPU slot.  `try_acquire` succeeds only if the
-slot is unoccupied.  `release` is always called after the task completes or is
-cancelled.  The gate is a module-level singleton (`_gpu_gate`).
+**Replaces the binary `GpuAdmissionGate` / `ExclusiveAdmissionGate` gates.**
 
-### 7.3 Exclusive gate (`ExclusiveAdmissionGate`)
+Each engine manifest declares `behavior.max_concurrent_workers` (integer ≥ 1;
+absent → 1).  `resources.py` exposes `get_engine_semaphore(engine_class, cap)`
+which returns a module-level `EngineClassSemaphore` singleton keyed by the
+engine-class string.  Engine class is derived from the manifest `resource`
+block: `"gpu"` if `resource.gpu`, `"cpu_heavy"` if `resource.cpu_heavy`, else
+`"cloud"`.
 
-Same single-flight semantics as the GPU gate, for tasks that must run
-one-at-a-time regardless of GPU needs (`ResourceClaim.exclusive=True`).
+With `max_concurrent_workers=1` (any engine): exactly one task of that class
+runs at a time — serial behavior identical to the prior binary gates (INV-1
+"ships dark").  With N ≥ 2: N tasks run concurrently; the N+1th waits.
+
+`GpuAdmissionGate` and `ExclusiveAdmissionGate` are deprecated thin wrappers
+around `get_engine_semaphore("gpu", 1)` / `get_engine_semaphore("exclusive", 1)`
+preserved for backward compatibility.
+
+### 7.3 Global cap backstop
+
+`_global_cap_gate` is an `EngineClassSemaphore` sized to
+`MAX_GLOBAL_CONCURRENT_SYNTHESIS` (default 8, overridable via env var).
+Checked before the per-engine semaphore when `engine_class` is present in the
+claim.  Prevents a misconfigured engine from saturating the host.
+
+### 7.3a Ships-dark gate (`ENGINE_CLASS_ADMISSION`) — INV-1
+
+Per-engine-class admission is **OFF by default** in task 001 and is enabled by
+the `ENGINE_CLASS_ADMISSION` env toggle (the full toggle/UI lands in task 007).
+
+This is required for true "ships dark": pre-W-PAR, **all** synthesis tasks
+(xtts, voxtral, and API synthesis) shared the *single* `_exclusive_gate`, so
+they serialized against one another. Routing each engine class to its own cap=1
+semaphore is **not** byte-identical — it admits an xtts (`"gpu"`) and a voxtral
+(`"cloud"`) task concurrently, and an API-xtts (`"exclusive"`) plus a Studio
+xtts (`"gpu"`) task concurrently on the *same GPU* — observable parallelism that
+must not leak in before task 004 (server-side serialization) and task 007.
+
+When the toggle is **off**, any claim with a non-empty `engine_class` is
+funnelled through the shared `_exclusive_gate` (single-flight across all
+synthesis), preserving the prior invariant. W5 stays closed because `mixed`
+(`engine_class="cloud"`) now passes through that gate too instead of bypassing
+admission via `ResourceClaim.none()`. `reserve`/`release` are symmetric on this
+path (only the exclusive gate is touched).
 
 ### 7.4 Admission order
 
 1. Pause gate checked first.
-2. Exclusive gate checked next (if claimed).
-3. GPU gate checked last (if claimed); if denied, exclusive gate is released.
+2. Ships-dark gate: if `engine_class` is set and `ENGINE_CLASS_ADMISSION` is
+   off (default), route through the shared exclusive gate and return.
+3. Global cap backstop checked (when `engine_class` is claimed and the toggle
+   is on).
+4. Per-engine-class semaphore checked (acquire one of N slots).
+   — Legacy path (no `engine_class`): exclusive gate, then GPU gate.
 
-### 7.5 `ResourceClaim` factories
+### 7.5 `ResourceClaim` fields (W-PAR additions)
 
-| Factory | GPU | Exclusive | Notes |
+| Field | Type | Default | Notes |
 |---|---|---|---|
-| `ResourceClaim.none()` | false | false | CPU-only tasks |
-| `ResourceClaim.exclusive_claim()` | false | true | Single-flight non-GPU |
-| `ResourceClaim.gpu_heavy(vram_mb=4000)` | true | false | Default VRAM 4000 MB |
+| `gpu` | bool | false | GPU resource needed |
+| `vram_mb` | int | 0 | Estimated VRAM usage |
+| `cpu_heavy` | bool | false | Sustained heavy CPU |
+| `exclusive` | bool | false | Legacy single-flight flag |
+| `engine_class` | str | `""` | Semaphore key; derived from manifest resource block |
+| `cap` | int | 1 | Semaphore capacity; from `behavior.max_concurrent_workers` |
+
+### 7.6 `ResourceClaim` factories
+
+| Factory | GPU | engine_class | Notes |
+|---|---|---|---|
+| `ResourceClaim.none()` | false | `""` | CPU-only tasks; no semaphore |
+| `ResourceClaim.exclusive_claim()` | false | `"exclusive"` | Single-flight (cap=1) |
+| `ResourceClaim.gpu_heavy(vram_mb=4000)` | true | `"gpu"` | Default VRAM 4000 MB |
 | `ResourceClaim.from_engine_manifest(manifest)` | from manifest | from manifest | |
+
+`SynthesisTask.__init__` calls `_manifest_resource_claim(engine_id)` which
+reads the engine manifest, resolves the engine class and cap, and returns a
+`ResourceClaim` with `engine_class` set.  No `if engine_id == "mixed"` branch
+remains (INV-5, W5 closed).
 
 ---
 

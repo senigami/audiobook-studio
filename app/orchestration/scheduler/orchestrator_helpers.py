@@ -1396,4 +1396,9 @@ def _claim_to_dict(claim: object | None) -> dict[str, object]:
         "vram_mb": getattr(claim, "vram_mb", 0),
         "cpu_heavy": getattr(claim, "cpu_heavy", False),
         "exclusive": getattr(claim, "exclusive", False),
+        # W-PAR task 001: propagate engine_class and cap so reserve_task_resources
+        # routes to the EngineClassSemaphore path (not the legacy gpu/exclusive gates).
+        # Without these the semaphore is never reached for real tasks.
+        "engine_class": getattr(claim, "engine_class", ""),
+        "cap": getattr(claim, "cap", 1),
     }
