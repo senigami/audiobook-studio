@@ -1,7 +1,7 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.5.0
+spec_version: 1.5.1
 status: active
 updated: 2026-06-26
 created: 2026-06-10
@@ -17,6 +17,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.5.1   | 2026-06-26 | §3.8 refinement: the per-group preparing phase's `indeterminate=true` / ETA suspension is carried on the `LOADING_MODEL` frame (fired only on a real model-load marker for the active group), not on the every-segment `SEGMENT_PENDING` announce — which stays ETA-neutral so warm renders don't flash. Matches `live-events.md` 1.7.1. |
 | 1.5.0   | 2026-06-26 | **Distinguish the per-group render PHASE (preparing/synthesizing, carried by `reason_code` on live frames) from the durable monotonic job-status lifecycle. A group's preparing phase during model load MUST NOT regress a running job's durable status to `preparing` (INV-1). Documents the W3 mixed model-load ETA-suspension backend signals. See §3.8.** |
 | 1.4.1   | 2026-06-25 | Clarify `synthesis_duration_seconds` is synthesis-only render time, derived from engine-confirmed group timing and excluding model-load windows; aligns mixed render timing with the orchestrator-owned sample path. |
 | 1.4.0   | 2026-06-19 | **Rebuild vs queue semantics documented (§3.7) + `force_rerender` field (§2) + I18.** The shipped behavior was previously undocumented: queue (`POST /processing_queue`, `force_rerender=False`) is additive — deletes nothing, reuses existing segment WAVs per-group and concatenates; rebuild (`POST /chapters/{id}/reset` then `force_rerender=True`) is destructive — deletes all segment WAVs, resets `audio_status`, and re-synthesizes every group. `force_rerender` guards reuse identically in all three render paths (xtts standard, xtts bake, voxtral bake). Backfills the spec for commits 3a834144 / 6373e9ad / 23a3b7d5. |
@@ -306,11 +307,14 @@ Within a running job, an individual render group may be in a **preparing phase**
 documented in `live-events.md` §"Model-load preparing window"). This per-group
 state is communicated exclusively through:
 
-- The live frame `reason_code` field (`"SEGMENT_PENDING"` on `[START_SEGMENT]`
-  announce, `"LOADING_MODEL"` during the wait) on `segments.progress` /
+- The live frame `reason_code` field (`"SEGMENT_PENDING"` on the `[START_SEGMENT]`
+  announce — ETA-neutral; `"LOADING_MODEL"` when a real model-load window is
+  actually detected for the active group) on `segments.progress` /
   `chapters.progress` frames.
-- `indeterminate: true` on those same frames, signalling the UI to display a
-  spinner rather than a paced bar.
+- `indeterminate: true` on the `LOADING_MODEL` frame (not the `SEGMENT_PENDING`
+  announce), signalling the UI to display a spinner rather than a paced bar. The
+  announce frame stays ETA-neutral so warm renders don't flash; see
+  `live-events.md` §"Model-load preparing window".
 
 These fields are per-frame properties on the WebSocket event stream. They do NOT
 correspond to a write of `status="preparing"` to `state.json`. The durable job

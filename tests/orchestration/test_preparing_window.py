@@ -1,13 +1,16 @@
-"""Tests for the preparing-window ETA suspension fix.
+"""Tests for the preparing-window ETA suspension refinement.
 
-During a mixed render's model-load window the SEGMENT_PENDING (announce) frame
-must NOT carry a positive eta_seconds — that stale value would animate the
-progress bar throughout the load window.
+The SEGMENT_PENDING (announce) frame must be ETA-neutral on every segment boundary
+(warm renders must not flash). The ETA suspension (clear_eta/indeterminate/force)
+now fires only when a REAL model-load marker is detected for the active segment,
+which is gated by the ENGINE_ACTIVITY_STARTED branch condition:
 
-Frame A (SEGMENT_PENDING): must carry eta_seconds=None, clear_eta=True,
-  indeterminate=True, force=True, and durable status="running" (INV-1).
-Frame B (LOADING_MODEL): must carry clear_eta=True, force=True (already
-  has indeterminate=True, status="preparing" from dispatch path).
+    matched_marker_engine == active_engine_id
+    AND _active_engine_has_specific_activity_marker(active_engine_id)
+
+This condition is TRUE for cold XTTS groups (whose marker "Loading XTTS model..."
+is specific) but FALSE for the mixed handler's generic [ENGINE_ACTIVITY_STARTED]
+placeholder (which resolves to the job engine, not the active group engine).
 
 Mock boundary (R2): harness patches _publish at the OrchestratorHelpersMixin
 boundary (external broadcast sink) and patches time.time (external clock).
@@ -25,24 +28,28 @@ from tests.orchestration.test_startup_eta import _make_listener_harness_for_grou
 
 
 # ---------------------------------------------------------------------------
-# Test: SEGMENT_PENDING frame suspends ETA during the model-load window
+# Test 1 — cold load suspends ETA only when a real model-load marker fires
 # ---------------------------------------------------------------------------
 
-def test_segment_pending_frame_suspends_eta_during_model_load_window(clean_db, monkeypatch):
-    """SEGMENT_PENDING frame must clear the ETA (not animate it) while the engine loads.
+def test_cold_load_suspends_eta_on_real_load_marker(clean_db, monkeypatch):
+    """A real model-load marker (e.g. 'Loading XTTS model...') must trigger
+    a per-group LOADING_MODEL suspension frame (clear_eta, indeterminate, force,
+    status='running') while the SEGMENT_PENDING announce frame stays ETA-neutral.
+    Pacing resumes after engine confirmation ([START_SYNTHESIS]).
 
     Assertions:
-    1. The SEGMENT_PENDING frame carries eta_seconds=None, clear_eta=True,
-       indeterminate=True, force=True, status="running", active_segment_eta_seconds=None.
-    2. No SEGMENT_PENDING frame regresses status to "preparing" (INV-1).
-    3. After engine confirmation ([START_SYNTHESIS]), a later frame carries a
-       fresh non-None active_segment_eta_seconds (pacing resumes).
+    1. SEGMENT_PENDING frame: clear_eta falsy, indeterminate falsy, eta_seconds None.
+    2. A LOADING_MODEL frame with status='running', clear_eta=True, indeterminate=True,
+       force=True, eta_seconds=None, active_segment_eta_seconds=None is present.
+       (NOT the dispatch-time frame which has status='preparing'.)
+    3. After [START_SYNTHESIS], a later START_SEGMENT frame carries a non-None
+       active_segment_eta_seconds (pacing resumed).
     """
-    job_id = "preparing-window-eta-test"
+    job_id = "cold-load-suspension-test"
     groups = [
         {
             "seg_id": "seg-1",
-            "save_path": "/tmp/seg-preparing-1.wav",
+            "save_path": "/tmp/seg-cold-1.wav",
             "engine": "xtts",
             "text": "The quick brown fox jumps over the lazy dog",
         },
@@ -57,7 +64,7 @@ def test_segment_pending_frame_suspends_eta_during_model_load_window(clean_db, m
         },
     }
 
-    listener_cb, jobs_db, published_events = _make_listener_harness_for_groups(
+    listener_cb, _jobs_db, published_events = _make_listener_harness_for_groups(
         monkeypatch,
         job_id=job_id,
         job_engine_id="mixed",
@@ -67,113 +74,156 @@ def test_segment_pending_frame_suspends_eta_during_model_load_window(clean_db, m
     listener = listener_cb[0]
     assert listener is not None, "Log listener must be registered by _dispatch"
 
-    # --- Feed the marker sequence ---
     # t=100: engine announces start of segment (triggers SEGMENT_PENDING frame)
     with patch("time.time", return_value=100.0):
         listener("[START_SEGMENT] seg-1")
 
-    # t=101: engine emits its XTTS cold-load marker (load window open)
+    # t=101: engine emits real XTTS cold-load marker (load window opens)
     with patch("time.time", return_value=101.0):
         listener("Loading XTTS model...")
 
-    # t=136: engine confirms it is actually synthesizing (load window closes)
-    with patch("time.time", return_value=136.0):
+    # t=140: engine confirms synthesis started (load window closes)
+    with patch("time.time", return_value=140.0):
         listener("[START_SYNTHESIS] seg-1")
 
-    # --- Assertion 1: SEGMENT_PENDING frame contract ---
+    # --- Assertion 1: SEGMENT_PENDING frame is ETA-neutral (no flash) ---
     pending_frames = [e for e in published_events if e.get("reason_code") == "SEGMENT_PENDING"]
     assert len(pending_frames) >= 1, "Expected at least one SEGMENT_PENDING frame"
 
     for frame in pending_frames:
+        assert not frame.get("clear_eta"), (
+            f"SEGMENT_PENDING must NOT set clear_eta (warm renders must not flash); "
+            f"got clear_eta={frame.get('clear_eta')!r}"
+        )
+        assert not frame.get("indeterminate"), (
+            f"SEGMENT_PENDING must NOT set indeterminate; "
+            f"got indeterminate={frame.get('indeterminate')!r}"
+        )
         assert frame.get("eta_seconds") is None, (
-            f"SEGMENT_PENDING must not carry a positive eta_seconds during model-load window; "
-            f"got {frame.get('eta_seconds')!r}"
-        )
-        assert frame.get("clear_eta") is True, (
-            "SEGMENT_PENDING must set clear_eta=True to suspend the displayed ETA"
-        )
-        assert frame.get("indeterminate") is True, (
-            "SEGMENT_PENDING must set indeterminate=True during the load window"
-        )
-        assert frame.get("force") is True, (
-            "SEGMENT_PENDING must set force=True to guarantee delivery"
-        )
-        assert frame.get("active_segment_eta_seconds") is None, (
-            "SEGMENT_PENDING must leave active_segment_eta_seconds=None "
-            "(pacing must not start before engine confirmation)"
+            f"SEGMENT_PENDING must carry eta_seconds=None; got {frame.get('eta_seconds')!r}"
         )
 
-    # --- Assertion 2: durable status stays "running" (INV-1) ---
-    for frame in pending_frames:
-        assert frame.get("status") == "running", (
-            f"SEGMENT_PENDING must not regress status to {frame.get('status')!r}; "
-            "durable status must remain 'running' (INV-1)"
+    # --- Assertion 2: per-group LOADING_MODEL suspension frame is emitted ---
+    # Must have status='running' (distinguishes from the dispatch-time 'preparing' frame).
+    loading_frames = [
+        e for e in published_events
+        if e.get("reason_code") == "LOADING_MODEL" and e.get("status") == "running"
+    ]
+    assert len(loading_frames) >= 1, (
+        "Expected a per-group LOADING_MODEL frame with status='running' after the real "
+        "model-load marker; none found. published reason_codes: "
+        + str([e.get("reason_code") for e in published_events])
+    )
+    for frame in loading_frames:
+        assert frame.get("clear_eta") is True, (
+            "Per-group LOADING_MODEL frame must set clear_eta=True"
+        )
+        assert frame.get("indeterminate") is True, (
+            "Per-group LOADING_MODEL frame must set indeterminate=True"
+        )
+        assert frame.get("force") is True, (
+            "Per-group LOADING_MODEL frame must set force=True"
+        )
+        assert frame.get("eta_seconds") is None, (
+            "Per-group LOADING_MODEL frame must carry eta_seconds=None"
+        )
+        assert frame.get("active_segment_eta_seconds") is None, (
+            "Per-group LOADING_MODEL frame must carry active_segment_eta_seconds=None"
         )
 
     # --- Assertion 3: pacing resumes after engine confirmation ---
-    # After [START_SYNTHESIS] there should be a START_SEGMENT or later frame
-    # with a fresh non-None active_segment_eta_seconds.
-    start_synth_frames = [
+    resume_frames = [
         e for e in published_events
         if e.get("reason_code") == "START_SEGMENT"
         and e.get("active_segment_eta_seconds") is not None
     ]
-    assert len(start_synth_frames) >= 1, (
-        "After [START_SYNTHESIS] a frame must carry a non-None active_segment_eta_seconds "
-        "to prove pacing has resumed from a fresh value (clear is temporary)"
+    assert len(resume_frames) >= 1, (
+        "After [START_SYNTHESIS] a START_SEGMENT frame must carry a non-None "
+        "active_segment_eta_seconds to prove pacing has resumed"
     )
 
 
 # ---------------------------------------------------------------------------
-# Test: LOADING_MODEL dispatch frame also clears ETA
+# Test 2 — warm group (generic placeholder) does NOT suspend or flash
 # ---------------------------------------------------------------------------
 
-def test_loading_model_dispatch_frame_clears_eta(clean_db, monkeypatch):
-    """The dispatch-time LOADING_MODEL frame must carry clear_eta=True, force=True.
+def test_warm_group_does_not_suspend_or_flash(clean_db, monkeypatch):
+    """A warm group (no real model-load marker) must not flash the ETA.
 
-    This is Frame B: the very first frame emitted when _dispatch() is called,
-    covering the cold model load before any [START_SEGMENT] marker arrives.
+    The mixed handler emits [ENGINE_ACTIVITY_STARTED] as a generic bracketed
+    placeholder before every group subprocess. This resolves to the JOB engine
+    ('mixed'), not the active group engine ('xtts'), so the gating condition
+    inside ENGINE_ACTIVITY_STARTED is false and no suspension publish fires.
+
+    Assertions:
+    1. SEGMENT_PENDING frame has falsy clear_eta and falsy indeterminate.
+    2. No LOADING_MODEL frame with status='running' was emitted (the generic
+       activity marker must NOT trigger per-group suspension).
     """
-    job_id = "loading-model-dispatch-eta-test"
+    job_id = "warm-group-no-flash-test"
     groups = [
         {
-            "seg_id": "seg-lm",
-            "save_path": "/tmp/seg-lm.wav",
+            "seg_id": "seg-1",
+            "save_path": "/tmp/seg-warm-1.wav",
             "engine": "xtts",
-            "text": "Hello loading model",
+            "text": "Warm render, model already loaded",
         },
     ]
+    # xtts has a specific marker but we will NOT emit it — instead we emit the
+    # generic [ENGINE_ACTIVITY_STARTED] placeholder as the mixed handler does.
     engine_behaviors = {
         "mixed": {},
         "xtts": {
             "timing_markers": {
                 "ENGINE_ACTIVITY_STARTED": "Loading XTTS model...",
+                "CHAPTER_SYNTHESIS_COMPLETE": "Successfully synthesized",
             },
         },
     }
 
-    _listener_cb, _jobs_db, published_events = _make_listener_harness_for_groups(
+    listener_cb, _jobs_db, published_events = _make_listener_harness_for_groups(
         monkeypatch,
         job_id=job_id,
         job_engine_id="mixed",
         groups=groups,
         engine_behaviors=engine_behaviors,
     )
+    listener = listener_cb[0]
+    assert listener is not None, "Log listener must be registered by _dispatch"
 
-    # The LOADING_MODEL frame is emitted during _dispatch() before any listener is fed.
-    loading_frames = [e for e in published_events if e.get("reason_code") == "LOADING_MODEL"]
-    assert len(loading_frames) >= 1, "Expected a LOADING_MODEL frame from _dispatch()"
+    # t=100: announce (SEGMENT_PENDING)
+    with patch("time.time", return_value=100.0):
+        listener("[START_SEGMENT] seg-1")
 
-    for frame in loading_frames:
-        assert frame.get("clear_eta") is True, (
-            "LOADING_MODEL dispatch frame must set clear_eta=True"
+    # t=101: the mixed handler's generic placeholder — NOT a real load marker.
+    # This resolves to the JOB engine ('mixed'), not the active engine ('xtts').
+    with patch("time.time", return_value=101.0):
+        listener("[ENGINE_ACTIVITY_STARTED] seg-1")
+
+    # t=102: synthesis starts immediately (warm — no load delay)
+    with patch("time.time", return_value=102.0):
+        listener("[START_SYNTHESIS] seg-1")
+
+    # --- Assertion 1: SEGMENT_PENDING frame is ETA-neutral (no flash) ---
+    pending_frames = [e for e in published_events if e.get("reason_code") == "SEGMENT_PENDING"]
+    assert len(pending_frames) >= 1, "Expected at least one SEGMENT_PENDING frame"
+
+    for frame in pending_frames:
+        assert not frame.get("clear_eta"), (
+            f"SEGMENT_PENDING must NOT set clear_eta on warm group; "
+            f"got clear_eta={frame.get('clear_eta')!r}"
         )
-        assert frame.get("force") is True, (
-            "LOADING_MODEL dispatch frame must set force=True"
+        assert not frame.get("indeterminate"), (
+            f"SEGMENT_PENDING must NOT set indeterminate on warm group; "
+            f"got indeterminate={frame.get('indeterminate')!r}"
         )
-        assert frame.get("indeterminate") is True, (
-            "LOADING_MODEL dispatch frame must set indeterminate=True (pre-existing)"
-        )
-        assert frame.get("status") == "preparing", (
-            "LOADING_MODEL dispatch frame must keep status='preparing' (forward path, not regression)"
-        )
+
+    # --- Assertion 2: no per-group LOADING_MODEL suspension was emitted ---
+    assert not any(
+        e.get("reason_code") == "LOADING_MODEL" and e.get("status") == "running"
+        for e in published_events
+    ), (
+        "Warm group (generic placeholder) must NOT emit a per-group LOADING_MODEL "
+        "suspension frame. The generic [ENGINE_ACTIVITY_STARTED] marker resolves to "
+        "the job engine, not the active engine, so the gating condition is false."
+    )

@@ -245,16 +245,18 @@ def test_started_at_marker_driven():
     assert running_event["started_at"] > 0
     assert running_event["eta_seconds"] == 25
 
-    # The SEGMENT_PENDING (announce) frame now carries eta_seconds=None + clear_eta=True
-    # to suspend the ETA display during the model-load window.  Assert the new correct contract.
+    # SEGMENT_PENDING (announce) frame: under the refined contract this frame is
+    # ETA-neutral — it preserves the prior chapter ETA rather than clearing it.
+    # Suspension only fires when a real model-load marker is detected (see
+    # ENGINE_ACTIVITY_STARTED branch). Assert the new correct contract.
     segment_pending_event = next(
         e for e in orc.published
         if e["status"] == "running" and e.get("active_segment_id") == "seg-1"
         and e.get("reason_code") == "SEGMENT_PENDING"
     )
     assert segment_pending_event["eta_seconds"] is None
-    assert segment_pending_event.get("clear_eta") is True
-    assert segment_pending_event.get("indeterminate") is True
+    assert not segment_pending_event.get("clear_eta")
+    assert not segment_pending_event.get("indeterminate")
     assert segment_pending_event["started_at"] is not None
 
 

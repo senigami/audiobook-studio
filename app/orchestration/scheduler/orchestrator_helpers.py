@@ -728,6 +728,32 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     and _active_engine_has_specific_activity_marker(active_engine_id)
                 ):
                     segment_load_observed.add(active_seg_id[0])
+                    # A real model-load window opened for the active segment — suspend the ETA
+                    # and flip to indeterminate for its duration (forced so the bar updates with
+                    # no progress delta). Warm groups never reach here (no specific load marker),
+                    # so they don't flash. Pacing resumes from a fresh ETA at engine confirmation.
+                    self._publish(
+                        context=context,
+                        status="running",
+                        progress=_get_grouped_progress(),
+                        eta_seconds=None,
+                        clear_eta=True,
+                        indeterminate=True,
+                        loading_elapsed_seconds=max(0.0, now_time - float(pending_engine_activity["started_at"])) if pending_engine_activity.get("started_at") else 0.0,
+                        active_segment_eta_seconds=None,
+                        reason_code="LOADING_MODEL",
+                        message="Loading voice model…",
+                        started_at=timing["render_started_at"],
+                        active_segment_id=active_seg_id[0],
+                        render_group_count=render_group_count,
+                        completed_render_groups=completed_group_count[0],
+                        active_render_group_index=active_render_group_index[0],
+                        total_render_weight=total_weight,
+                        completed_render_weight=completed_weight[0],
+                        active_render_group_weight=id_to_weight.get(active_seg_id[0], 0),
+                        grouped_progress=_get_grouped_progress(),
+                        force=True,
+                    )
 
             if matched_marker == "START_SYNTHESIS" or "[START_SYNTHESIS]" in line:
                 _close_pending_engine_activity_interval(
@@ -853,8 +879,10 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         line=line,
                     )
                     # Publish SEGMENT_PENDING (announce): engine has not confirmed yet.
-                    # eta_seconds=None + clear_eta=True suspends the displayed ETA so the
-                    # progress bar does not animate through the model-load window.
+                    # eta_seconds=None preserves the prior chapter ETA (no clear_eta, no
+                    # indeterminate, no force) so warm single-engine renders don't flash.
+                    # ETA suspension only fires when a real model-load marker is detected
+                    # (see ENGINE_ACTIVITY_STARTED branch below).
                     # active_segment_eta_seconds is None so the UI does not start pacing.
                     # The canonical START_SEGMENT frame is emitted at engine confirmation
                     # (START_SYNTHESIS or first PROGRESS line).
@@ -863,9 +891,6 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         status="running",
                         progress=_get_grouped_progress(),
                         eta_seconds=None,
-                        clear_eta=True,
-                        indeterminate=True,
-                        force=True,
                         active_segment_eta_seconds=None,
                         reason_code="SEGMENT_PENDING",
                         message=f"Preparing engine for segment {sid}...",
