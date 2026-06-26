@@ -4,7 +4,7 @@
 >
 > It **reorganizes the presentation** of workflows already specified in [`design-docs/plans/book_view_ia_proposal.md`](../../design-docs/plans/book_view_ia_proposal.md); it does not change the data model, the segment contract, or the bug-fix work in [`design-docs/plans/book_view_redesign/`](../../design-docs/plans/book_view_redesign/). See §14.
 >
-> **Owner decisions recorded 2026-06-26** — see §13 for resolutions. §16 catalogues future features. §17 defines the modular architecture.
+> **Owner decisions recorded 2026-06-26 (updated same day, session 2)** — Write mode added as Mode 4 (§7b, §13); emotion/variation palette architecture decided via 5-persona fusion panel (annotation gutter, Inspector drawer post-v2, segment extensibility — §13, §16); Book-level casting map and import annotation extractor catalogued (§16). See §13 for all resolved decisions.
 
 ---
 
@@ -81,14 +81,17 @@ Assign speaker to a span · drag-paint a run · load a character "brush" from th
 ### Read / Preview mode (the listening booth) — §6
 Play / pause / stop · seek · playback speed (0.5–2×) · prev/next segment · **tap a line to play from there** · karaoke highlight + scroll-follow · **flag a line** (non-destructive) · review flags. No assignment or edit affordances.
 
-### Edit Text mode — §7
-Edit the manuscript prose directly · commit (→ Resync Preview) · discard. Replaces today's separate "Source-Text" tab entirely.
+### Revise mode (in-place edit) — §7
+Edit one paragraph inline · commit (re-renders that segment only) · discard.
+
+### Write mode (full source editor) — §7b
+Edit the full chapter source · commit (→ Resync maps speaker assignments to new text) · discard. For blank chapters and large structural changes. Intentionally destructive to existing speaker assignments (labeled — the Resync preserves what it can). Always accessible, not just for new chapters.
 
 ### Panels (always consultable; pinnable)
 **Cast & Voices** (the palette — owned by Voices, read-only reference elsewhere) · **Lexicon** (pronunciation, mode-agnostic).
 
 ### Killed / merged (the de-clutter wins)
-- **Kill the Script / Source-Text *tab pair*** → there is one surface; Edit mode makes it editable. (Biggest single win.)
+- **Kill the Script / Source-Text *tab pair*** → there is one surface; Write mode (full edit) and Revise mode (in-place) replace both tabs. (Biggest single win.)
 - **Kill the dual assignment idiom + the confirm popover** → in Voices mode the brush is already loaded, so assignment-on-gesture is immediate; the mode *is* the safety.
 - **Kill the per-span inline voice dropdown** as an always-present control → it clutters the prose; moves to right-click / hover micro-toolbar.
 - **Kill scattered per-span Play buttons** → replaced by tap-line-to-play in Read mode.
@@ -102,9 +105,9 @@ Edit the manuscript prose directly · commit (→ Resync Preview) · discard. Re
 **Palette = a vertical left rail.** Unanimous across the panel, same rationale each time: the top bar is global chrome, the right side is the Cast panel, the bottom is playback — **the left is unclaimed and matches the reading axis** (tool on the left, effect on the prose to its right; the convention of Photoshop / Figma / Procreate / VS Code).
 
 - ~48px icon rail, label on hover (expandable to ~120px).
-- Modes: **Voices** (brush) · **Read** (headphones/▶) · **Edit** (pen). A scaffolded slot for future tools (AI, emotion, pacing marks).
+- Modes: **Cast** (microphone) · **Booth** (headphones) · **Write** (document) · **Revise** (pencil). A scaffolded slot for future tools (Script Supervisor, plugin slots).
 - **The current mode is impossible to miss:** filled rail highlight in the mode's color + a cursor-shape change + a two-word breadcrumb chip in the header ("VOICE MODE").
-- Switch: click, or single keys `V` / `R` / `E`. `Esc` returns to Voices (the "home" mode). **Always reopen the editor in Voices mode**, never in whatever mode you left (avoids "my clicks don't do anything" confusion).
+- Switch: click, or single keys `V` / `R` / `W` / `E`. `Esc` returns to Cast (the "home" mode). **Always reopen the editor in Cast mode**, never in whatever mode you left (avoids "my clicks don't do anything" confusion).
 - **Quasimode (the standout idea):** hold **`Space`** in Voices mode to *temporarily* drop into Read/seek ("let me hear what I just painted"); release to snap back to painting. The most common micro-switch there is. *(Disabled in Edit mode, where Space is a character.)*
 
 **Ambient render pill (top bar):** Idle → Queued → `Rendering 47% · ~3m` (arc) → Done (fades) → Error (sticks). Click for a non-modal segment-level popover. Visible from every mode — this is the answer to "how do I see render progress when I'm not in a render context."
@@ -120,7 +123,8 @@ The left rail and mode names use **authorship + recording studio** language, not
 | Left rail (mode switcher) | **Director's Console** | — |
 | Voices/paint mode | **Cast** | Microphone |
 | Read/preview mode | **Booth** | Headphones |
-| Edit text mode | **Revise** | Pencil |
+| Full-chapter source editor | **Write** | Document |
+| In-place paragraph editor | **Revise** | Pencil |
 | AI detect speakers action | **Casting Call** | Wand/stars |
 | AI manuscript analysis (future) | **Script Supervisor** | Clipboard |
 | Plugin tool slot (future) | *(plugin-defined)* | Plugin-defined |
@@ -143,7 +147,7 @@ The heart of the director's workflow. **The cast is the palette; assigning a spe
 - **Load the voice:** click a character swatch in the Cast palette → cursor becomes an assignment cursor, and a **"current voice" chip** shows the loaded character's color next to the mode label. (Empty state: *"Tap a character to begin assigning"* — solves the "I clicked and nothing happened" trap.)
 - **Assign:** hover a span → live tint *preview* → click to commit (a 150ms fill confirms the range). **Drag** across spans to assign a run.
 - **Brush size** (DECIDED): the assignment unit is a sizable control in the Cast palette — **Word · Sentence · Paragraph**. Never a raw segment (segments are engine units, not user-visible reading units). Default is Sentence. The user picks the size before clicking; it determines how much text lights up on hover and gets assigned on click.
-- **Variation = the emotional register.** A voice's variant (Urgent / Whisper / Warm) is a secondary property of the loaded voice. Re-assign the same speaker with a different variation to change only the emotional reading across a passage.
+- **Variation = the emotional register.** A voice's variant (**Natural / Whisper / Urgent**) is a secondary property of the loaded voice, shown as a **3-button inline toggle** in the Cast palette next to the "current voice" chip — always visible when a speaker is loaded, never in a drawer or expandable section. Available variations reflect what the voice library actually has recorded; unavailable options are visually disabled (not a silent fallback). Adjacent lines of the same speaker in different variations become separate render segments (different audio models). Variation assignments carry through into Booth mode via speaker tints and the annotation gutter — the user must not return to Cast mode to see what was assigned.
 - **Match Voice** (`Alt`/`Option`): sample an existing span's speaker+variation into the active voice — continue a voice from earlier in the chapter.
 - **Narrator** (eraser tool): unassigns the span, falling back to the chapter-default voice.
 - **The Cast panel** is the three-tier registry (in-chapter / chapter-scoped temps / everyone else) — the *palette*. Editing a character's details happens in a detail drawer.
@@ -190,9 +194,22 @@ On commit: only the edited segment's audio is invalidated and queued for re-rend
 3. If no sentence boundary exists near the midpoint and one half would fall below the floor, **do not split** — let the segment run slightly long and surface a passive indicator to the user (not a blocking error).
 4. Both split segments inherit the original speaker assignment.
 
-### Structural editing (escape hatch)
+**For large structural changes** (add/remove paragraphs, reorder content, cross-segment edits) — use **Write mode (§7b)**. Write mode is a first-class Director's Console mode that exposes the full chapter source as an editable document. It is always accessible, including after speaker assignments have been made.
 
-If the user needs to add/remove paragraphs, reorder content, or make changes that cross segment boundaries — this triggers the expensive full-chapter Resync (the existing Source-Text path). This is clearly labeled as a structural operation: *"Editing the full source will re-sync all assignments."* It is tucked away (accessible but not the default) to avoid accidental triggers.
+---
+
+## 7b. Mode 4 — Write (full source editor)
+
+The chapter's complete source text, fully editable. **Write mode is always accessible** — not just for blank chapters, but also after speaker assignments exist. When an author needs to move paragraphs, restructure scenes, or make changes that cross segment boundaries, Write is the right tool.
+
+- The full prose surface becomes editable as a single document with no per-segment lock.
+- Speaker tints **fade to very subtle** — assignments remain visible but non-intrusive; editing is the primary focus.
+- A persistent banner: *"Write mode — editing the full source. Assignments will be re-synced on exit."*
+- **On exit:** the Resync maps existing speaker assignments back to the new text at the nearest matching sentence boundary. It preserves what it can. **Assignments that cannot be recovered are cleared and flagged** — not silently lost. The user sees a summary diff before re-rendering: *"8 of 12 assignments recovered, 4 cleared — review before re-rendering."*
+- **Intentionally destructive** to assignments when structure changes significantly — this is correct behavior and must be clearly labeled. The author choosing Write mode for a large structural edit accepts this trade-off.
+- **Always accessible**: Write mode is not tucked away, not protected by an "advanced" gate, not hidden after assignments are made. Large revisions are a legitimate authoring workflow. "It will be destructive of the speakers, but that's a small price to pay when you really need to make an edit that's large." *(Owner decision 2026-06-26)*
+- **Blank chapter default:** a new chapter with no content opens in Write mode automatically (nothing to cast or listen to yet).
+- **Shortcut:** `W`. **Icon:** Document / typewriter.
 
 ---
 
@@ -300,6 +317,12 @@ All four open decisions from the original brainstorm have been resolved.
 | Terminology / metaphor | Recording studio + authorship. Cast / Booth / Revise / Director's Console / On Air (see §4 table). |
 | Left rail extensibility | Slotted list, not hardcoded to 3 items. Future tools register slots. Internal-only in v1. |
 | Demo mockability | Each tool slot has a demo placeholder; future tools show as "coming soon" in the demo. |
+| **Write mode (Mode 4)** | First-class Director's Console mode (shortcut `W`, document icon). Full chapter source editor — always accessible, not a tucked-away escape hatch. Intentionally destructive to assignments on structural changes; Resync recovers what it can and diffs what it clears. Blank chapters open in Write mode by default. |
+| **Variation picker UI** | Shown as a **3-button inline toggle** (Natural / Whisper / Urgent) in the Cast palette next to the "current voice" chip. Always visible when a speaker is loaded. Never in a drawer or expandable section. Unavailable variations (no recording in the voice library) are visually disabled — not a silent fallback. |
+| **Variation visibility across modes** | Variation assignments painted in Cast mode carry through into Booth mode via speaker tints + the annotation gutter. Mode-switching must never hide what was painted. |
+| **Annotation gutter** | A narrow left-edge gutter (~12–16 px) alongside the prose column carries passive visual signals: variation deviation from the speaker's default, presence of a director's note, session flag. Extends the already-planned Booth-mode margin pins (§6). No interaction required — purely a reading-axis signal layer, not a clickable panel. |
+| **Segment annotation bag** | The segment record carries an extensible `annotation` properties bag: `{ director_note?, performance_cues?, approval_state?, ... }` in addition to `speaker_id` and `variation`. Required before any Inspector or emotion feature is built. Annotations are **per-line**, not per-character defaults — emotion is context, not personality. |
+| **Inspector drawer (post-v2)** | When the per-line annotation system ships, it uses a non-modal **Inspector drawer** — deliberate click in Cast mode, dwell/long-press in Booth mode. Shows: speaker, variation, director's note, approval state, eventually structured emotion direction. The Cast panel **paints**; the Inspector **reads and annotates**. Separate surfaces, separate interaction models. |
 
 ---
 
@@ -338,6 +361,24 @@ Third-party or user-written tools that register a Director's Console icon, a pan
 
 The three-edge-chrome layout (left rail + right Cast + bottom transport) does not fit narrow viewports. The mode model is an advantage here — one focused surface per mode means less simultaneous chrome — but a responsive collapse strategy is not yet designed. Deferred.
 
+### Advanced emotion direction (AI-directed performance)
+
+Post-v2. Most models (including XTTS) do not accept style prompts for emotion direction today; the v1 variation system (Natural/Whisper/Urgent as separately recorded samples) is the correct first-class feature.
+
+When this ships, the **Inspector drawer** (per-line, non-modal — see §13) is the approved UX pattern. The segment annotation bag (§13) is the data layer.
+
+Specific future items in this space:
+
+| Item | Description |
+|---|---|
+| **Import annotation extractor** | A Write→Cast transition gate that parses tone cues from Fountain/screenplay source text (`[bitterly]`, `(quietly)`, action lines) — strips them from the spoken text field, writes them into the segment's structured annotation field. Confirm/adjust UI before proceeding. Round-trip contract: export to Fountain rehydrates annotations at original positions. |
+| **Emotion direction field** | A per-segment style prompt fed to models that support it (`"fearful"`, `"tender"`, `"urgent"`). Scoped to segments where no recorded variation covers the needed register. |
+| **Segment-level quick re-render (Booth)** | A "Re-render this segment" action triggerable in Booth mode without mode exit, using the current variation + annotation. Supports the hear → adjust → re-render iteration loop for high-volume producers. |
+
+### Book-level casting map
+
+A project-level view — not a chapter editor mode. A grid with characters on one axis and chapters on the other, showing speaker assignments, approval state, and variation clusters across the whole book. Needed by casting directors managing 60+ titles. Belongs in the Contents hub / project overview as a dedicated view, not in the chapter editor's Director's Console.
+
 ---
 
 ## 17. Modular architecture (implementation contract)
@@ -361,11 +402,16 @@ pages/ChapterEditor/
         KaraokeHighlight.tsx
         LineFlags.tsx         # Session-only margin pins
         BoothTool.test.tsx
-      ReviseTool/             # Revise/edit mode
+      ReviseTool/             # Revise/edit mode (in-place paragraph edit only)
         index.tsx
         InlineEditor.tsx      # Per-paragraph in-place editor
         SegmentSplitter.ts    # Balanced split logic (midpoint / sentence boundary / min floor)
         ReviseTool.test.tsx
+      WriteTool/              # Write mode (full source editor)
+        index.tsx
+        SourceEditor.tsx      # Full-chapter editable text surface
+        ResyncDiff.tsx        # Shows recovered vs. cleared assignments on mode exit
+        WriteTool.test.tsx
       # Future slots (demo placeholders exist from day one):
       # CastingCallTool/      # AI speaker detection (§8)
       # ScriptSupervisorTool/ # AI manuscript analysis (§16)
