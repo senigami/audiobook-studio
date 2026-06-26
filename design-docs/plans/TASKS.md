@@ -50,7 +50,7 @@ Plan: [active/mixed-synthesis-fused-proposal/README.md](active/mixed-synthesis-f
   > - Once synthesis starts: bar flips to "Working…" with a fresh ETA from zero — no stale-value snap
   > - A Voxtral-only render is unaffected (shows Working immediately, no preparing flash)
 
-- [ ] **W5** — Mixed `ResourceClaim` *(deferred — owner-gated)*
+- [ ] **W5** — Mixed `ResourceClaim` *(superseded — folded into W-PAR 001; per-engine semaphores replace the binary gate and close the mixed `none()` gap)*
 
 - [x] **W6** — Spec reconciliation — [task 005](active/mixed-synthesis-fused-proposal/tasks/005-spec-reconciliation.md) *(all 5 specs landed alongside their behavior per joint-authority)*
   - [x] `live-events.md` → 1.7.1: mixed marker resolution (1.6.1, W1) + load-window frame contract + load-marker-gated suspension (1.7.0/1.7.1, W3)
@@ -58,6 +58,32 @@ Plan: [active/mixed-synthesis-fused-proposal/README.md](active/mixed-synthesis-f
   - [x] `queue-jobs.md` → 1.5.1: per-group phase vs monotonic durable status (1.5.0/1.5.1, W3) + synthesis-only clock note (1.4.1, W2)
   - [x] `data-model.md` → 1.4.1: synthesis-only clock + orchestrator sole-writer contract (W2) *(landed as 1.4.1, not 1.5.0 — content complete)*
   - [x] `system-architecture.md` → 1.3.0: per-active-engine marker-resolution note (W1 added the explicit `[ENGINE_ACTIVITY_STARTED]` marker; documented as manifest-driven, not engine-ID branching)
+
+---
+
+## W-PAR — Parallel segment rendering *(active — planned, not started)*
+
+Plan: [active/parallel-segment-rendering/README.md](active/parallel-segment-rendering/README.md) · map: [01-map.md](active/parallel-segment-rendering/01-map.md) · roadmap: [02-roadmap.md](active/parallel-segment-rendering/02-roadmap.md)
+
+Render a chapter's segments **concurrently** across per-engine pools (GPU/CPU/cloud), capped per engine, off-by-default (cap=1). Phase 1 = backend parallelism + multi-active frontend (existing per-segment bars light up at once); Phase 2 = dedicated render monitor (fast-follow). **Subsumes W-MIX W5.** Designed via the 2026-06-26 fusion triage.
+
+- [ ] **G0 (prereq — owner):** verify the W-MIX `👁 VISUAL CHECK` on a live mixed render before starting (don't stack parallelism on an unverified core)
+- [ ] **001** — Per-engine cap declaration + scheduler semaphores — [task 001](active/parallel-segment-rendering/tasks/001-per-engine-cap-and-semaphores.md) *(manifest `max_concurrent_workers` + global cap; replace binary gates with per-engine counting semaphores; default 1 = ships dark; **closes W5**)*
+- [ ] **002** — Parent/child segment scheduling — [task 002](active/parallel-segment-rendering/tasks/002-parent-child-segment-scheduling.md) *(chapter parent job fans child segment units into a bounded pool; one job per chapter for UI/recovery)*
+- [ ] **003** — Per-segment dispatch isolation *(keystone, R-A)* — [task 003](active/parallel-segment-rendering/tasks/003-per-segment-dispatch-isolation.md) *(each concurrent segment gets its own timing/marker state; isolate the ~700-line `_dispatch` closure)*
+- [ ] **004** — TTS-server concurrent inference — [task 004](active/parallel-segment-rendering/tasks/004-tts-server-concurrent-inference.md) *(warm-worker semaphore + lazy VRAM-aware spawn + `run_in_threadpool`; cloud free)*
+- [ ] **005** — Correctness invariants under parallelism — [task 005](active/parallel-segment-rendering/tasks/005-correctness-invariants.md) *(stitch-order barrier, artifact-validated completion, cancel join-all, recovery K-of-N, SQLite per-segment writes, stuck-segment heartbeat — TDD)*
+- [ ] **006** — Frontend multi-active segments — [task 006](active/parallel-segment-rendering/tasks/006-frontend-multi-active.md) *(chapter-level `active_segments_map` threaded end-to-end via the W4 two-layer pattern; `useStudioChapter` set; rAF-coalesced; existing bars light up in parallel)*
+- [ ] **007** — ETA under parallelism + off-by-default toggle + spec reconciliation — [task 007](active/parallel-segment-rendering/tasks/007-eta-toggle-and-specs.md) *(bracketed throughput ETA; cap-default-1 toggle; bump queue-jobs/system-architecture/data-model/live-events/progress-presentation; final invariant gate)*
+- [ ] **Phase 2** — dedicated BitTorrent-style render monitor *(fast-follow; design captured)* — [10-phase2-render-monitor.md](active/parallel-segment-rendering/10-phase2-render-monitor.md)
+
+  > 👁 **VISUAL CHECK — W-PAR Phase 1 complete**
+  > Raise an engine's concurrency cap above 1, then render a multi-segment chapter:
+  > - Multiple segment bars (gray→black text + per-segment progress) advance **simultaneously**, not one at a time
+  > - Chapter finishes noticeably faster than at cap=1; the chapter WAV plays back correct and in order (no shuffled/garbled segments)
+  > - Cancel mid-render stops cleanly (no orphan audio, queue clears); re-render resumes only unfinished segments
+  > - With the cap back at 1, behavior is exactly as before (ships dark)
+  > - Overall progress + ETA stay coherent (ETA shown as a range / "estimating…", not a false precise countdown)
 
 ---
 
