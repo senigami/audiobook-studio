@@ -45,6 +45,7 @@ class OrchestratorPublishMixin:
         force: bool = False,
         indeterminate: bool | None = None,
         loading_elapsed_seconds: float | None = None,
+        clear_eta: bool = False,
     ) -> None:
         # Derive char_count once from context payload (chapter-total chars for chapter jobs,
         # script_text length for single-unit synthesis/api tasks).  A pre-stashed integer
@@ -236,6 +237,8 @@ class OrchestratorPublishMixin:
                 }
                 if eta_seconds is not None:
                     updates["eta_seconds"] = eta_seconds
+                elif clear_eta:
+                    updates["eta_seconds"] = None
                 if eta_confidence is not None:
                     updates["eta_confidence"] = eta_confidence
                 if started_at is not None:

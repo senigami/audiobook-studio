@@ -1,9 +1,9 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.4.1
+spec_version: 1.5.0
 status: active
-updated: 2026-06-25
+updated: 2026-06-26
 created: 2026-06-10
 sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
          app/orchestration/scheduler/{orchestrator,orchestrator_helpers,policies,resources,recovery}.py,
@@ -17,6 +17,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.5.0   | 2026-06-26 | **Distinguish the per-group render PHASE (preparing/synthesizing, carried by `reason_code` on live frames) from the durable monotonic job-status lifecycle. A group's preparing phase during model load MUST NOT regress a running job's durable status to `preparing` (INV-1). Documents the W3 mixed model-load ETA-suspension backend signals. See §3.8.** |
 | 1.4.1   | 2026-06-25 | Clarify `synthesis_duration_seconds` is synthesis-only render time, derived from engine-confirmed group timing and excluding model-load windows; aligns mixed render timing with the orchestrator-owned sample path. |
 | 1.4.0   | 2026-06-19 | **Rebuild vs queue semantics documented (§3.7) + `force_rerender` field (§2) + I18.** The shipped behavior was previously undocumented: queue (`POST /processing_queue`, `force_rerender=False`) is additive — deletes nothing, reuses existing segment WAVs per-group and concatenates; rebuild (`POST /chapters/{id}/reset` then `force_rerender=True`) is destructive — deletes all segment WAVs, resets `audio_status`, and re-synthesizes every group. `force_rerender` guards reuse identically in all three render paths (xtts standard, xtts bake, voxtral bake). Backfills the spec for commits 3a834144 / 6373e9ad / 23a3b7d5. |
 | 1.3.0   | 2026-06-19 | Cooperative-cancel lost-update fix (I17): `cancel()` synchronously detaches the task's engine-log listener (after `on_cancel()` sets the cancel flag), and both `[SEGMENT_SAVED]` `audio_status="done"` write sites — the orchestrator `log_listener` and the xtts handler's `chapter_on_output` — drop the write when the task is cancelled. Prevents a straggler save from the not-yet-stopped subprocess resurrecting segment state a chapter reset just cleared (which made the next render reuse stale audio). Prompt subprocess-stop remains a follow-up (G6). |
@@ -286,6 +287,50 @@ The flag guards reuse in **all three render paths** — xtts standard
 (`plugins/tts_xtts/plugin/studio/bake.py`), and voxtral bake
 (`plugins/tts_voxtral/plugin/studio/bake.py`) — so rebuild behaves identically
 regardless of engine. See invariant I18.
+
+---
+
+### 3.8 Per-group render phase vs. durable job status (INV-1)
+
+The durable `Job.status` lifecycle (`queued → preparing → running → done /
+failed / cancelled`) is **monotonic and regression-guarded** in `state_jobs.py`.
+`apply_status_regression_guard` (in `app/db/state_job_guards.py`) enforces this:
+once a job reaches `"running"`, any attempt to write `status="preparing"` or
+`status="queued"` is silently dropped unless it is an explicit terminal reset
+(new status `queued`/`preparing` entering from a terminal state) or
+`force_broadcast=True`. See §3.4 (Transition enforcement).
+
+**Per-group preparing phase is a UI/progress concept, not a status transition.**
+Within a running job, an individual render group may be in a **preparing phase**
+— loading its engine's model before synthesis can begin (the model-load window
+documented in `live-events.md` §"Model-load preparing window"). This per-group
+state is communicated exclusively through:
+
+- The live frame `reason_code` field (`"SEGMENT_PENDING"` on `[START_SEGMENT]`
+  announce, `"LOADING_MODEL"` during the wait) on `segments.progress` /
+  `chapters.progress` frames.
+- `indeterminate: true` on those same frames, signalling the UI to display a
+  spinner rather than a paced bar.
+
+These fields are per-frame properties on the WebSocket event stream. They do NOT
+correspond to a write of `status="preparing"` to `state.json`. The durable job
+status MUST remain `"running"` throughout the model-load window.
+
+**INV-1 (binding):** A job whose durable `status` has reached `"running"` MUST
+NOT have its durable status regressed to `"preparing"` by any code path — including
+the model-load preparing window, a `SEGMENT_PENDING` broadcast, or any per-group
+phase signal. The orchestrator MUST enforce this by not calling `update_job` with
+`status="preparing"` on a job that is already `"running"`.
+
+**Initial cold-load is not a regression.** Before the very first segment of the
+first render group, the job legitimately passes through `status="preparing"` (the
+forward path: `queued → preparing → running`). This is the normal TTS server
+warm-up path, not a regression. INV-1 prohibits only the backward transition after
+`running` has been reached.
+
+**Cross-reference:** `live-events.md` §"Model-load preparing window" documents the
+exact frame shape (`indeterminate`, null ETA clears, force-emit) that carries the
+per-group preparing phase to the frontend without touching the durable status.
 
 ---
 

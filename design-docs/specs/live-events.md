@@ -1,8 +1,9 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.6.1
+spec_version: 1.7.0
 status: active
+updated: 2026-06-26
 sources:
   - app/api/ws.py
   - app/api/contracts/events.py
@@ -18,6 +19,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.7.0   | 2026-06-26 | **Model-load preparing window: SEGMENT_PENDING / LOADING_MODEL frames CLEAR the persisted ETA (null + explicit clear, not merely omitted), carry `indeterminate=true` with cleared segment + chapter ETA, are force-emitted (below the ≥1% threshold), keep authoritative progress unchanged, and keep durable `status=running` — the preparing state is a per-group phase via `reason_code`, never a `running→preparing` regression (INV-1). Pacing resumes from a fresh ETA on engine confirmation. Backend signals for the mixed model-load fix (W3). See §Per-segment ETA clock semantics "Model-load preparing window".** |
 | 1.6.1   | 2026-06-24 | **Mixed renders resolve marker/progress parsing from the active render-group engine.** Chapter script entries now carry their resolved `engine`, the orchestrator uses that active-group engine for `match_timing_marker(...)` and `parse_engine_progress(...)`, and the mixed plugin emits a bracketed `[ENGINE_ACTIVITY_STARTED]` marker before each bridge render call. WebSocket/log attribution remains keyed to the original job engine. |
 | 1.6.0   | 2026-06-19 | **`segments.progress` carries per-segment confidence + a decayed segment ETA (Path A).** The `segment_progress` payload's `confidence` is now the **per-segment** `seg_confidence` (resets per `segment_id`; `1.0` on `SEGMENT_SAVED`), not the chapter-level `eta_confidence` that rose monotonically across the whole chapter. `etaSeconds` is now the §4A.10 confidence-gated decay-handoff blend (grounded baseline ↔ live observed, weighted by the baseline's historical confidence) rather than raw `remaining_from_update` extrapolation — fixing the per-segment bar's early surge/stall. Both are computed in `ProgressService.enrich()`; see `progress-presentation.md` §4A.10 / invariants B11, B12. Additive payload semantics — envelope `version` stays 1; Option-B direct broadcasts are unchanged. |
 | 1.5.6   | 2026-06-19 | **First segment synced to the real synthesis start; plugin emits a true 0% start.** (1) At `[START_SYNTHESIS]` (the real synthesis start, after model load) the orchestrator marks the first render group's leader active at 0% on the running frame, so the segment progress bar mounts in lockstep with the queue going `running` — fixing the queue appearing ~7s before the segment and a non-zero chapter percent showing before the segment's 0%. UI-mount only: it does not set the per-segment render-timing clock or the START_SEGMENT dedup set, so real marker timing is unaffected. (2) The XTTS plugin now emits `[PROGRESS] 0%` at each segment's true start (before the first sentence), so the first progress signal is 0%, not the first sentence's ~20%. Requires a full app restart so the long-lived warm worker respawns with current plugin code. |
@@ -410,6 +412,66 @@ running frame, UI-mount only — see 1.5.6), and **as a fallback at the first
 `[PROGRESS]`** (publishing the canonical `START_SEGMENT` frame) if synthesis began
 without a START_SYNTHESIS marker. `[START_SEGMENT]` is thus advisory for segment
 identity, not load-bearing.
+
+### Model-load preparing window (ETA suspension)
+
+During the gap between a group's `[START_SEGMENT]` announcement and its engine
+confirmation (`[START_SYNTHESIS]` or first `[PROGRESS]`), the orchestrator enters
+a **model-load preparing window** for that group. This window requires special ETA
+handling because the engine has not yet begun synthesis and no reliable throughput
+data is available.
+
+**ETA is suspended, not stale.** The `SEGMENT_PENDING` frame (emitted immediately
+on `[START_SEGMENT]`) and any `LOADING_MODEL` frame published during this window
+carry `eta_seconds: null` as an **explicit clear** — not merely an omission. The
+distinction matters: when `eta_seconds` is simply absent from a frame the frontend
+retains the last known positive ETA and the bar continues to animate; when an
+explicit null is delivered the frontend MUST clear the persisted chapter ETA and
+flip to indeterminate display immediately. Previous to this behavior, a stale
+positive ETA would stick through the entire model-load window and the progress bar
+would keep advancing toward a phantom finish time.
+
+**Frame shape during the window.** Both `SEGMENT_PENDING` and `LOADING_MODEL`
+frames carry:
+
+- `indeterminate: true` — signals the UI to render a spinner / indeterminate bar
+  rather than a paced progress arc.
+- `eta_seconds: null` (chapter ETA cleared) — explicit, not omitted.
+- `active_segment_eta_seconds: null` (segment ETA cleared) — explicit, not omitted.
+- These frames are **force-emitted** (broadcast even when the change in authoritative
+  progress is below the normal ≥ 1% advancement threshold), so the UI transitions
+  to preparing state immediately rather than waiting for the next real progress tick.
+
+**Authoritative progress is unchanged.** Only ETA is suspended. The `progress` and
+`grouped_progress` values on the frame reflect the actual synthesis progress
+accumulated so far (what was completed before this group's model load began). They
+are not zeroed, reset, or withheld during the window.
+
+**Durable job status stays `"running"` — no regression (INV-1).** The preparing
+window is a **per-group render phase**, not a durable status transition. It is
+carried on live frames via `reason_code` (`SEGMENT_PENDING` / `LOADING_MODEL`) plus
+`indeterminate: true`. The durable `Job.status` in `state.json` remains `"running"`
+throughout — the orchestrator MUST NOT write `status="preparing"` to a job that has
+already reached `"running"`. Such a write would violate the monotonic status
+lifecycle enforced by `apply_status_regression_guard` in `app/db/state_job_guards.py`
+(§3.4 of `queue-jobs.md`). See also `queue-jobs.md` §"Per-group render phase vs.
+durable job status" for the full invariant.
+
+Note: the initial cold-load before the very first segment legitimately uses
+`status="preparing"` — this is the normal forward path (`queued → preparing →
+running`). Only a regression *after* `running` is forbidden by INV-1.
+
+**This rule is consistent with the existing invariant:** "Never emit
+`indeterminate: true` together with a non-null `etaSeconds`" (see Invariants
+section). All frames emitted during the model-load window carry `indeterminate:
+true` paired with `eta_seconds: null` — the combination is valid and required.
+
+**ETA resumes fresh on confirmation.** When the engine emits `[START_SYNTHESIS]`
+or the first `[PROGRESS]` line (ending the model-load window), ETA pacing resumes
+from a **fresh anchor** — re-computed from 0 against the current progress and
+throughput, not snapped from the stale pre-load value. This avoids a discontinuous
+jump where the bar suddenly resumes from an ETA that was computed before a ~19s
+model-load gap inflated remaining time.
 
 ---
 

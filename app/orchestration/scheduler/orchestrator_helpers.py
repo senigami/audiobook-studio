@@ -440,7 +440,8 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             reason_code="LOADING_MODEL",
             indeterminate=True,
             loading_elapsed_seconds=_loading_elapsed,
-            force=False,
+            force=True,
+            clear_eta=True,
         )
 
         # If the task exposes a bridge request, route through the injected bridge.
@@ -851,16 +852,9 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         active_weight=id_to_weight.get(sid, 0),
                         line=line,
                     )
-                    remaining_fraction = (
-                        (total_weight - completed_weight[0]) / total_weight
-                        if total_weight > 0 else 1.0
-                    )
-                    remaining_eta = (
-                        int(round(expected_duration * remaining_fraction))
-                        if expected_duration is not None and expected_duration > 0
-                        else None
-                    )
                     # Publish SEGMENT_PENDING (announce): engine has not confirmed yet.
+                    # eta_seconds=None + clear_eta=True suspends the displayed ETA so the
+                    # progress bar does not animate through the model-load window.
                     # active_segment_eta_seconds is None so the UI does not start pacing.
                     # The canonical START_SEGMENT frame is emitted at engine confirmation
                     # (START_SYNTHESIS or first PROGRESS line).
@@ -868,7 +862,10 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         context=context,
                         status="running",
                         progress=_get_grouped_progress(),
-                        eta_seconds=self._duration_to_eta_seconds(remaining_eta),
+                        eta_seconds=None,
+                        clear_eta=True,
+                        indeterminate=True,
+                        force=True,
                         active_segment_eta_seconds=None,
                         reason_code="SEGMENT_PENDING",
                         message=f"Preparing engine for segment {sid}...",
