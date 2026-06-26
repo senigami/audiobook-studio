@@ -22,7 +22,7 @@ This is a genuine course-change. A prior (well-developed) spec had gone delibera
 
 The single most important idea in this whole exploration. Five of six panelists independently arrived at it. The current screen is confusing because it **conflates three different things** into one undifferentiated pile of controls. Separate them and the overload dissolves:
 
-| Concept | Definition | Examples | How you change it |
+| `Concept` | `Definition` | `Examples` | `How you change it` |
 |---|---|---|---|
 | **MODE** | Changes *what your gestures do* to the text. The tool in your hand. | Voices (paint) · Read (play) · Edit (type) | Left-rail palette; single key (`V`/`R`/`E`) |
 | **VIEW** | Changes *how the text looks* on the page. The lens you read through. **Orthogonal to mode** — you can paint or read in either view. | Book (prose) vs Script (play-format) | One persistent toggle in the header |
