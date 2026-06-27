@@ -48,6 +48,15 @@
     animation-duration: 1.2s, 3s !important;
     animation-iteration-count: infinite !important;
   }
+  /* The segment "preparing / loading voice model" pulse is the SOLE cue that a
+     segment is actively loading its engine (essential state, same reasoning as
+     the progress-bar barber-pole above) — survive reduced-motion as a calm
+     1.6s opacity breathe rather than freezing to a static dim. */
+  .script-line.is-preparing,
+  .script-render-group.is-preparing {
+    animation-duration: 1.6s !important;
+    animation-iteration-count: infinite !important;
+  }
 }
 
 * {
