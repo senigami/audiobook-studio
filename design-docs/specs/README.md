@@ -6,7 +6,7 @@ When a spec and the running code disagree, that is a bug in one or the other; th
 to update the spec (with a version bump and changelog note) or to correct the code. Silently
 accepting the divergence is not acceptable.
 
-Last updated: 2026-06-24
+Last updated: 2026-06-27
 
 ---
 
@@ -14,8 +14,8 @@ Last updated: 2026-06-24
 
 | File | Description | Version |
 |------|-------------|---------|
-| [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md) | Shared app shell, global chrome, routed book pipeline, Studio/Review stage detail, platform/manage split, frontend state ownership, legacy redirects, Library cover-size control | 1.5.0 |
-| [design-system.md](design-system.md) | Design tokens, theming (System/Light/Dark, no-flash), type scale, voice-pill tints, shared UI primitives, iconography (lucide canonical), responsive breakpoints, accessibility baseline | 1.2.0 |
+| [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md) | Shared app shell, global chrome, routed book pipeline, Studio Director's Console (3-panel: rail·text·console-right) + Book/Screenplay/Stage views + 4 Cast sub-tools (Select/Voice/Stage/Cue, S/V/G/C shortcuts), brush-size scope model, performance cue 3-axis model (Delivery=pitch/Speed=rate/Emotion=dropdown, independent), stage-direction conversion via Voice tool, rail collapse pill, chapter-list representation, Review stage, platform/manage split, frontend state ownership | 1.9.0 |
+| [design-system.md](design-system.md) | Design tokens, theming (System/Light/Dark, no-flash), type scale, voice-pill tints, shared UI primitives, iconography (lucide canonical), attribution encoding (§9.6 color=identity / variation=text / collision=flag), responsive breakpoints, accessibility baseline | 1.13.0 |
 | [audio-player.md](audio-player.md) | Global single-owner audio player: `playerBus` store, one `<audio>` in `PlayerBar`, full VCR transport (lucide icons). **Scope-agnostic** — no segment/chapter toggle; scrub representation is duration-driven; far-right `AudioLines` opens an expandable scrubbing-waveform **tape** (paged/moving motion, click+drag scrub, cover-slider zoom presets, minimap, m:ss ruler, fixed-grid rendering); peaks browser-decoded below a duration cap, server sidecar above. Visibility keys on playback state + persists across all routes; content-owned play affordances (§4.1). Tape realized in the mock; live port tracked by design-docs/plans/active/audio_player_waveform_scrubber/ | 1.6.0 |
 | [live-events.md](live-events.md) | WebSocket live event topics, envelope schema, reconnect/bootstrap contract | 1.6.1 |
 | [queue-jobs.md](queue-jobs.md) | Job statuses, allowed transitions, two-store model, terminal-reset semantics, rebuild-vs-queue reuse (§3.7), broadcast routing, presentation surfaces | 1.4.0 |
@@ -67,6 +67,8 @@ internet connection is required during synthesis.
 | Audio playback | Single-owner `playerBus` + one `<audio>` in the `PlayerBar`; all other players are adapters | [ADR-0010](../decisions/ADR-0010-single-owner-audio-player.md) |
 | Frontend state ownership | Canonical entities via API hydration; store owns only overlays/reconnect/notifications/drafts; `queue.items` is the sole row authority | [ADR-0011](../decisions/ADR-0011-frontend-state-ownership.md) |
 | Segment-artifact reconciliation | DB is truth (validated metadata, not file existence); orphan segment WAVs GC'd per-book on open, never library-wide at boot | [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md) |
+| Chapter editor layout | Director's Console: three-panel (rail · text · console-right) + Book/Screenplay/Stage views (one editor surface) | [ADR-0014](../decisions/ADR-0014-directors-console-layout.md) |
+| Dialogue attribution encoding | Color = character identity only (one per character); variation = text label; voice collision = ⚠ flag — never overload color | [ADR-0015](../decisions/ADR-0015-attribution-color-is-identity.md) |
 
 ---
 

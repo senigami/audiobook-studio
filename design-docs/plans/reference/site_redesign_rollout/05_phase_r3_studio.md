@@ -1,17 +1,15 @@
 # Phase R3 — Studio Stage
 
 *Read `00_execution_contract.md` first. Depends on R2 (Book routes, `useBookData`, rail chapter list,
-interim `StudioStage.tsx` wrapping the old `ChapterEditor`). Reference mock:
-`frontend/src/demo/stages/siteMockup/panes/studio.tsx`.*
+interim `StudioStage.tsx` wrapping the old `ChapterEditor`). Reference mocks:
+`frontend/src/demo/stages/siteMockup/panes/directorsConsole.tsx` (layout truth — three-panel, three views, Director's Console right column, attribution encoding) and `frontend/src/demo/stages/siteMockup/panes/studio.tsx` (analysis strip, render controls). See [ADR-0014](../../../../decisions/ADR-0014-directors-console-layout.md) and [ADR-0015](../../../../decisions/ADR-0015-attribution-color-is-identity.md).*
 
 ## Phase goal
 
-The Studio stage becomes the redesigned editor: **book view PRIMARY** (script view = secondary
-preview), right-hand **Cast palette** (paint-to-assign), **analysis strip** in the stage header,
-**commit/resync** reachable here, chapter nav + export in the stage header, and the render-controls
-strip at the bottom. This is a RE-HOME of `ChapterEditorPage.tsx` (944 lines) — the page's hooks and
-orchestration logic survive nearly verbatim; only the chrome moves. Chapter switching uses the R2
-rail chapter list (`?chapter=` param) — do NOT rebuild an in-page chapter rail.
+The Studio stage becomes the **Director's Console** — the validated North-Star chapter editor:
+**three views** (Book primary, Screenplay/Hollywood, Stage/BBC), **three-panel layout** (left nav rail · chapter text · right-hand Director's Console), **analysis strip** in the stage header, **commit/resync** reachable here, chapter nav + export in the stage header, and the render-controls strip at the bottom. This is a RE-HOME of `ChapterEditorPage.tsx` (944 lines) — the page's hooks and orchestration logic survive nearly verbatim; only the chrome moves. Chapter switching uses the R2 rail chapter list (`?chapter=` param) — do NOT rebuild an in-page chapter rail.
+
+The right-hand **Director's Console** (~220px) hosts mode-selector icons at the top and the active mode's contextual panel below (Cast is the primary mode; additional modes are future work). The manuscript reads in the **center** column — never walled between two tool columns. Attribution encoding follows §9.6 of design-system.md: color = character identity only; variation = text label; voice collision = ⚠ flag.
 
 ## Key existing internals (binding — reuse, don't rewrite)
 
@@ -54,12 +52,9 @@ rail chapter list (`?chapter=` param) — do NOT rebuild an in-page chapter rail
 - **Verify**: `npm -C frontend run test -- --run && npm -C frontend run lint && npm -C frontend run build`
 - **Out of scope**: any visual change.
 
-### R3-T2 — StudioStage shell: mount ScriptView with book view primary
-- **Goal**: Replace the interim StudioStage with the real layout: view-mode pills (Book view /
-  Script view, book default), safe-text + `#` toggles preserved, ScriptView filling the main column.
-- **Read first**: `ScriptView.tsx` (props at the `<ScriptView` callsite in ChapterEditorPage lines
-  830-866; internal `viewMode`/`showNumbers` state lines 248-260, toggle buttons lines 575-615),
-  mock `panes/studio.tsx` pills row.
+### R3-T2 — StudioStage shell: three-panel layout with three view modes
+- **Goal**: Replace the interim StudioStage with the real Director's Console layout: **three-panel** (rail auto-provided by shell · chapter text center · Director's Console right ~220px), **three view-mode pills** (Book / Screenplay / Stage, Book default), safe-text + `#` toggles preserved, ScriptView filling the center column.
+- **Read first**: `directorsConsole.tsx` mock (layout truth — three-panel flex, view mode switcher, right console aside); `ScriptView.tsx` (props at the `<ScriptView` callsite in ChapterEditorPage lines 830-866; internal `viewMode`/`showNumbers` state lines 248-260, toggle buttons lines 575-615); `panes/studio.tsx` analysis strip + pills row; [ADR-0014](../../../../decisions/ADR-0014-directors-console-layout.md).
 - **Create/Modify**: Modify `frontend/src/pages/Book/stages/StudioStage.tsx` to consume
   `useStudioChapter(chapterId)`; minor `ScriptView.tsx` change ONLY if the toggle row needs to
   render in the stage header instead of inside ScriptView — prefer lifting `viewMode`/`safeText`/
@@ -67,27 +62,18 @@ rail chapter list (`?chapter=` param) — do NOT rebuild an in-page chapter rail
   falling back to internal state so existing tests/consumers don't break).
 - **Steps**:
   1. StudioStage reads `?chapter=` (default: first chapter from `useBookData`), passes it to the hook.
-  2. Header row 1: view pills + safe-text + `#` toggles (token classes per mock); confirm book mode
-     is the default (it already is — assert in test, don't flip blindly).
-  3. Mount `ScriptView` with the exact prop set from the old callsite (generate/assign/play
-     callbacks from `useStudioChapter.actions`); keep `ScriptViewFallback` for the no-data case.
-  4. Keep the EditTab/source-edit path OUT of this stage body — source editing lives in Manuscript
-     (R2-T7); Studio's commit flow comes in T5.
-- **Capabilities re-homed**: script/book view toggle, safe-text + numbers toggles, per-span hover
-  controls (free — they live inside ScriptView spans).
-- **Tests**: StudioStage render test — book mode default, pill switch flips mode, `?chapter` selects
-  chapter; update any ScriptView test touched by the controlled-prop change (imports/props only).
+  2. Layout: flex-row with three regions — center `<main>` (flex: 1, min-width: 0) for ScriptView + analysis strip, right `<aside>` (~220px, flex-shrink: 0) for the Director's Console. The left rail is provided by the shell — do NOT add a second left column inside StudioStage.
+  3. Header row 1: **three** view-mode pills (Book / Screenplay / Stage, Book default) + safe-text + `#` toggles (token classes per mock). Add `'screenplay'` and `'stage'` to the `viewMode` type; ScriptView renders `renderScriptRow` / `renderPlayRow` when those modes are active (patterns from `directorsConsole.tsx` mock).
+  4. Mount `ScriptView` with the exact prop set from the old callsite (generate/assign/play callbacks from `useStudioChapter.actions`); keep `ScriptViewFallback` for the no-data case.
+  5. Keep the EditTab/source-edit path OUT of this stage body — source editing lives in Manuscript (R2-T7); Studio's commit flow comes in T5.
+- **Capabilities re-homed**: three-mode view toggle, safe-text + numbers toggles, per-span hover controls (free — they live inside ScriptView spans).
+- **Tests**: StudioStage render test — Book mode default, each pill switch changes the view mode, `?chapter` selects chapter; Screenplay pill renders centered character names (snapshot or text assertion); update any ScriptView test touched by the controlled-prop change.
 - **Verify**: standard trio.
-- **Out of scope**: palette (T3), analysis strip (T4), render controls (T6).
+- **Out of scope**: Director's Console right column (T3), analysis strip (T4), render controls (T6).
 
-### R3-T3 — Cast palette (right column)
-- **Goal**: Re-home `CharacterSidebar`'s character list as a slim right-hand paint palette (~180px):
-  swatch rows (color dot, avatar/name, per-character segment counts), click arms a character →
-  ScriptView paint flow assigns on span click (already wired via `activeCharacterId`); variant
-  sub-selects kept (expand row); chapter default-voice select stays in the palette header.
-- **Read first**: `CharacterSidebar.tsx` (props at ChapterEditorPage lines 884-896: selection state
-  pair, expandedCharacterId, color update, voice change + `availableVoices` + `defaultVoiceLabel`),
-  mock `panes/studio.tsx` CAST_SWATCHES column + "painting" chip.
+### R3-T3 — Director's Console right column (Cast mode)
+- **Goal**: Build the right-hand Director's Console (`~220px`): mode-selector icons at the top (Cast is the only implemented mode for R3; icon row is the hook for future modes), Cast mode panel below — swatch rows (color dot, name, per-character segment counts), click arms a character → ScriptView paint flow assigns on span click (`activeCharacterId`); variant sub-selects kept; chapter default-voice select in palette header; voice-collision ⚠ flag on cast rows and tier-header count badge. Attribution encoding: color = identity only (one per character, never per-voice/variation), variation = text label beneath name, collision = ⚠ flag. See [ADR-0015](../../../../decisions/ADR-0015-attribution-color-is-identity.md).
+- **Read first**: `directorsConsole.tsx` mock (`castPalette()`, `CastRow`, `TierHeader`, `variationLabelFor` — these are the layout-truth components); `CharacterSidebar.tsx` (props at ChapterEditorPage lines 884-896: selection state pair, expandedCharacterId, color update, voice change + `availableVoices` + `defaultVoiceLabel`); [ADR-0015](../../../../decisions/ADR-0015-attribution-color-is-identity.md).
 - **Create/Modify**: Create `frontend/src/pages/Book/studio/CastPalette.tsx` (new presentation,
   reusing CharacterSidebar's row internals — extract shared pieces into
   `frontend/src/pages/ChapterEditor/components/characterRow.tsx` if both need them; if after this
@@ -241,7 +227,7 @@ rail chapter list (`?chapter=` param) — do NOT rebuild an in-page chapter rail
 
 ## Acceptance checklist (phase boundary)
 
-- [x] Studio opens in BOOK view by default; Script view one click away; safe-text + `#` toggles work in both.
+- [x] Studio opens in BOOK view by default; Screenplay and Stage views one click away; safe-text + `#` toggles work in all three. Three-panel layout: center text, right Director's Console (~220px), no second left column.
 - [x] Painting: arm a cast swatch → click spans assigns; variant sub-select works; disarm works; floating paint chip shows.
 - [x] Chapter default-voice select in palette header changes the chapter voice (persisted).
 - [x] Analysis strip shows stats + est. runtime; badges expand; Edit jump lands in Manuscript.

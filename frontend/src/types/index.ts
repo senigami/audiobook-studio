@@ -333,6 +333,11 @@ export interface Job {
   segmentProgressUpdates?: any[];
   has_segment_support?: boolean;
   hasSegmentSupport?: boolean;
+  // Model-load / indeterminate telemetry (W-MIX-LA 004) — populated from the live
+  // event payload; mirrors ProcessingQueueItem. The progress bar honors these for
+  // the mid-chapter model-load window.
+  indeterminate?: boolean | null;
+  loadingElapsedSeconds?: number | null;
 }
 
 export interface SegmentProgress {

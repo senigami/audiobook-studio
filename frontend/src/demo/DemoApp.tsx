@@ -13,7 +13,6 @@
  */
 
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
-import { Moon, Sun } from 'lucide-react';
 import { loadThemePref, saveThemePref } from '@/utils/theme';
 import { DemoStage } from './DemoStage';
 import { demoTimeline } from './scenes';
@@ -66,14 +65,13 @@ export const DemoApp: React.FC = () => {
   const hash = useHash();
   const { page, stageId } = parseHash(hash);
 
-  const [theme, setTheme] = useState<'light' | 'dark'>(initTheme);
   const [toast, setToast] = useState<string | null>(null);
   const embed = isEmbedMode();
 
-  // Apply theme to root element via the shared theme utility.
+  // Apply the persisted theme preference on mount.
   useEffect(() => {
-    saveThemePref(theme);
-  }, [theme]);
+    saveThemePref(initTheme());
+  }, []);
 
   // Listen for demo-blocked-action events
   useEffect(() => {
@@ -92,8 +90,6 @@ export const DemoApp: React.FC = () => {
     };
   }, []);
 
-  const toggleTheme = () => setTheme(t => (t === 'light' ? 'dark' : 'light'));
-
   const activeStage =
     page === 'stage' ? demoStages.find(s => s.id === stageId) ?? null : null;
 
@@ -108,83 +104,101 @@ export const DemoApp: React.FC = () => {
         fontFamily: 'var(--font-sans, system-ui, sans-serif)',
       }}
     >
-      {/* Header — hidden when ?embed=1 */}
-      {!embed && (
+      {/* Minimal status strip — hidden when ?embed=1 or on a stage page (stage fills full height) */}
+      {!embed && page !== 'stage' && (
         <header
           className="demo-shell-header"
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 12,
-            padding: '12px 24px',
+            gap: 10,
+            padding: '6px 16px',
             borderBottom: '1px solid var(--border)',
             background: 'var(--surface)',
             position: 'sticky',
             top: 0,
             zIndex: 100,
+            minHeight: 36,
           }}
         >
           <a
             className="demo-shell-title"
             href="#/"
             style={{
-              fontWeight: 700,
-              fontSize: '1.1rem',
-              color: 'var(--text-primary)',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              color: 'var(--text-secondary)',
               textDecoration: 'none',
               flexShrink: 0,
             }}
           >
-            Audiobook Studio — Live Demo
+            Audiobook Studio
           </a>
-
           <span
             className="demo-shell-badge"
             style={{
               background: 'var(--accent)',
               color: '#fff',
-              fontSize: '0.65rem',
+              fontSize: '0.6rem',
               fontWeight: 700,
               letterSpacing: '0.07em',
               textTransform: 'uppercase',
-              padding: '2px 8px',
+              padding: '1px 6px',
               borderRadius: 20,
               flexShrink: 0,
             }}
           >
-            demo mode
+            live demo
           </span>
-
-          <div style={{ flex: 1 }} />
-
-          <button
-            className="demo-shell-theme"
-            type="button"
-            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
-            onClick={toggleTheme}
-            style={{
-              background: 'none',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              padding: '5px 12px',
-              fontSize: '0.8rem',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            {theme === 'light'
-              ? <Moon size={14} strokeWidth={2} aria-hidden="true" />
-              : <Sun size={14} strokeWidth={2} aria-hidden="true" />}
-            <span className="demo-shell-theme-label">{theme === 'light' ? 'Dark' : 'Light'}</span>
-          </button>
         </header>
       )}
 
+      {/* Thin stage label bar — shown on stage pages instead of the full header */}
+      {!embed && page === 'stage' && activeStage && (
+        <div
+          className="demo-stage-strip"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '0 12px',
+            height: 28,
+            borderBottom: '1px solid var(--hairline)',
+            background: 'var(--surface)',
+            flexShrink: 0,
+            zIndex: 100,
+          }}
+        >
+          <a
+            href="#/"
+            style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textDecoration: 'none', flexShrink: 0 }}
+          >
+            ← stages
+          </a>
+          <span style={{ fontSize: '0.7rem', color: 'var(--hairline)' }}>|</span>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {activeStage.title}
+          </span>
+          <span
+            style={{
+              background: 'var(--accent)',
+              color: '#fff',
+              fontSize: '0.55rem',
+              fontWeight: 700,
+              letterSpacing: '0.07em',
+              textTransform: 'uppercase',
+              padding: '1px 5px',
+              borderRadius: 20,
+              flexShrink: 0,
+            }}
+          >
+            demo
+          </span>
+        </div>
+      )}
+
       {/* Main content */}
-      <main style={{ flex: 1, minHeight: 0, padding: embed ? 0 : page === 'styleguide' ? 0 : '1.5rem 24px' }}>
+      <main style={{ flex: 1, minHeight: 0, padding: embed || page === 'stage' ? 0 : page === 'styleguide' ? 0 : '1.5rem 24px' }}>
         {page === 'index' && (
           <StageIndex />
         )}
@@ -192,7 +206,7 @@ export const DemoApp: React.FC = () => {
           <StyleguidePage />
         )}
         {page === 'stage' && activeStage && (
-          <div style={{ height: embed ? '100vh' : 'calc(100vh - 140px)' }}>
+          <div style={{ height: embed ? '100vh' : 'calc(100vh - 28px)' }}>
             <DemoStage
               timeline={demoTimeline}
               title={activeStage.title}

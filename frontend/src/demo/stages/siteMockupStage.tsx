@@ -45,6 +45,7 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   ArrowRight,
   ArrowLeft,
 } from 'lucide-react';
@@ -61,7 +62,8 @@ import type { ZoomPreset } from './siteMockup/MockTapeControls';
 import { Rail } from './siteMockup/rail';
 import { LibraryPane } from './siteMockup/panes/library';
 import { ContentsPane, CastingPane, BackupsPane } from './siteMockup/panes/book';
-import { STUDIO_FOLLOW_DURATION_SEC, StudioPane } from './siteMockup/panes/studio';
+import { STUDIO_FOLLOW_DURATION_SEC } from './siteMockup/panes/studio';
+import { DirectorsConsole } from './siteMockup/panes/directorsConsole';
 import { PublishPane } from './siteMockup/panes/publish';
 import { VoicesPane } from './siteMockup/panes/voices';
 import { ActivityPane } from './siteMockup/panes/activity';
@@ -411,6 +413,7 @@ const TopBar: React.FC<{
   activeBookTab?: BookTab;
   onSwitchToPublish?: () => void;
   onLogoClick?: () => void;
+  onExitBook?: () => void;
   queueCount: number;
   isMobile?: boolean;
   onToggleMobileMenu?: () => void;
@@ -421,6 +424,7 @@ const TopBar: React.FC<{
   inBook,
   onSwitchToPublish,
   onLogoClick,
+  onExitBook,
   queueCount,
   isMobile,
   onToggleMobileMenu,
@@ -474,7 +478,22 @@ const TopBar: React.FC<{
       </button>
       <span className="ns-topbar-separator" style={{ width: 1, height: 16, background: 'var(--border)', flexShrink: 0, margin: '0 4px' }} />
 
-      <span className="ns-topbar-library" style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flexShrink: 0 }}>Library</span>
+      {inBook && onExitBook ? (
+        <button
+          type="button"
+          className="ns-topbar-library"
+          onClick={onExitBook}
+          title="Back to Library"
+          style={{
+            border: 0, background: 'none', padding: 0, fontFamily: 'inherit', cursor: 'pointer',
+            fontSize: 'var(--type-caption)', color: 'var(--accent)', flexShrink: 0,
+          }}
+        >
+          Library
+        </button>
+      ) : (
+        <span className="ns-topbar-library" style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flexShrink: 0 }}>Library</span>
+      )}
       <ChevronRight className="ns-topbar-library" size={13} strokeWidth={2} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
 
       {inBook ? (
@@ -861,10 +880,140 @@ const PlayerBar: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
+// ChapterWorkspaceHeader — the single wayfinding row inside a chapter.
+// Collapses the old stack (← Library · dimmed tabs · ← Contents row) into one:
+//   ↩ Contents · Ch N · Title ▾ (mini-TOC switcher)  ‹ ›  (prev/next)
+
+const CHAPTER_STATUS_DOT: Record<string, string> = {
+  Published: 'var(--success)',
+  Review: 'var(--warning, #fbbf24)',
+  Studio: 'var(--accent)',
+  Drafting: 'var(--text-muted)',
+};
+
+const ChapterWorkspaceHeader: React.FC<{
+  openChapter: number;
+  onClose: () => void;
+  onOpen: (n: number) => void;
+}> = ({ openChapter, onClose, onOpen }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const idx = CHAPTERS.findIndex(c => c.n === openChapter);
+  const current = CHAPTERS[idx] ?? null;
+  const prev = idx > 0 ? CHAPTERS[idx - 1] : null;
+  const next = idx >= 0 && idx < CHAPTERS.length - 1 ? CHAPTERS[idx + 1] : null;
+
+  const stepBtn = (enabled: boolean): React.CSSProperties => ({
+    border: '1px solid var(--border)', background: 'var(--surface)',
+    borderRadius: 'var(--radius-button)', padding: '2px 5px',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    cursor: enabled ? 'pointer' : 'not-allowed', opacity: enabled ? 1 : 0.4,
+    color: 'var(--text-secondary)', fontFamily: 'inherit',
+  });
+
+  return (
+    <Row gap={8} style={{ alignItems: 'center', flexShrink: 0, marginBottom: 8, position: 'relative' }}>
+      {/* Single exit — up to the chapter list */}
+      <button
+        type="button"
+        onClick={onClose}
+        style={{
+          border: 0, background: 'transparent', padding: 0, fontFamily: 'inherit',
+          fontSize: 'var(--type-caption)', color: 'var(--accent)', cursor: 'pointer',
+          display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0,
+        }}
+      >
+        <ArrowLeft size={14} strokeWidth={2.2} aria-hidden="true" />
+        Contents
+      </button>
+
+      <span style={{ fontSize: 'var(--type-micro)', color: 'var(--hairline, var(--border))' }}>·</span>
+
+      {/* Chapter title doubles as the mini-TOC switcher */}
+      <button
+        type="button"
+        onClick={() => setMenuOpen(o => !o)}
+        aria-expanded={menuOpen}
+        aria-haspopup="listbox"
+        title="Switch chapter"
+        style={{
+          border: 0, background: 'transparent', padding: '2px 4px', margin: '-2px 0',
+          borderRadius: 'var(--radius-button)', fontFamily: 'inherit', cursor: 'pointer',
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)',
+        }}
+      >
+        Ch {current?.n} · {current?.title ?? `Chapter ${openChapter}`}
+        <ChevronDown size={13} strokeWidth={2.2} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />
+      </button>
+
+      {/* Sequential prev/next — hop without opening the menu */}
+      <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+        <button type="button" aria-label="Previous chapter" disabled={!prev}
+          onClick={() => prev && onOpen(prev.n)} style={stepBtn(!!prev)}>
+          <ChevronLeft size={14} strokeWidth={2.2} aria-hidden="true" />
+        </button>
+        <button type="button" aria-label="Next chapter" disabled={!next}
+          onClick={() => next && onOpen(next.n)} style={stepBtn(!!next)}>
+          <ChevronRight size={14} strokeWidth={2.2} aria-hidden="true" />
+        </button>
+      </div>
+
+      {/* Mini-TOC dropdown */}
+      {menuOpen && (
+        <>
+          <div
+            onClick={() => setMenuOpen(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 60 }}
+            aria-hidden="true"
+          />
+          <div
+            role="listbox"
+            style={{
+              position: 'absolute', top: 'calc(100% + 4px)', left: 86, zIndex: 70,
+              minWidth: 240, maxHeight: 320, overflowY: 'auto',
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-xl)', padding: 4,
+            }}
+          >
+            {CHAPTERS.map(c => {
+              const isCurrent = c.n === openChapter;
+              return (
+                <button
+                  key={c.n}
+                  type="button"
+                  role="option"
+                  aria-selected={isCurrent}
+                  onClick={() => { onOpen(c.n); setMenuOpen(false); }}
+                  style={{
+                    width: '100%', textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px',
+                    border: 0, borderRadius: 'var(--radius-button)',
+                    background: isCurrent ? 'var(--accent-tint-bg)' : 'transparent',
+                    color: isCurrent ? 'var(--accent)' : 'var(--text-secondary)',
+                    fontSize: 'var(--type-caption)', fontWeight: isCurrent ? 700 : 400,
+                  }}
+                >
+                  <span style={{
+                    width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                    background: CHAPTER_STATUS_DOT[c.status] ?? 'var(--text-muted)',
+                  }} />
+                  <span style={{ flexShrink: 0, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>Ch {c.n}</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span>
+                  <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>{c.status}</span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </Row>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // BookPane — assembles tab content from imported panes
 
 const BookPane: React.FC<{
-  onBack: () => void;
   activeTab: BookTab;
   setActiveTab: (t: BookTab) => void;
   activeTrack: TrackState | null;
@@ -876,108 +1025,53 @@ const BookPane: React.FC<{
   setActiveChapter: (n: number) => void;
   lastEditedSegmentByChapter: Record<number, string>;
   setLastEditedSegmentByChapter: React.Dispatch<React.SetStateAction<Record<number, string>>>;
-}> = ({ onBack, activeTab, setActiveTab, activeTrack, setActiveTrack, openChapter, onOpenChapter, onCloseChapter, activeChapter, setActiveChapter, lastEditedSegmentByChapter, setLastEditedSegmentByChapter }) => {
-  // Find the chapter title for the workspace header
-  const chapterData = openChapter != null
-    ? (CHAPTERS.find(c => c.n === openChapter) ?? null)
-    : null;
-
+}> = ({ activeTab, setActiveTab, activeTrack: _activeTrack, setActiveTrack: _setActiveTrack, openChapter, onOpenChapter, onCloseChapter, activeChapter: _activeChapter, setActiveChapter: _setActiveChapter, lastEditedSegmentByChapter: _lastEdited, setLastEditedSegmentByChapter: _setLastEdited }) => {
   return (
     <Col className="ns-book-pane" gap={0} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
-      <Row gap={6} style={{ alignItems: 'center', marginBottom: 6 }}>
-        <button
-          type="button"
-          onClick={onBack}
-          style={{
-            border: 0,
-            background: 'transparent',
-            padding: 0,
-            fontFamily: 'inherit',
-            fontSize: 'var(--type-caption)',
-            color: 'var(--accent)',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-          }}
-        >
-          <ArrowLeft size={14} strokeWidth={2.2} aria-hidden="true" />
-          Library
-        </button>
-      </Row>
-
-      <Row className="ns-book-tabs" gap={2} role="tablist" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 0, marginBottom: 0 }}>
-        {BOOK_TABS.map(t => (
-          <button
-            type="button"
-            key={t}
-            className="ns-book-tab"
-            role="tab"
-            aria-selected={activeTab === t && openChapter == null}
-            onClick={() => { onCloseChapter(); setActiveTab(t); }}
-            style={{
-              border: 0,
-              fontFamily: 'inherit',
-              fontSize: 'var(--type-callout)', fontWeight: (activeTab === t && openChapter == null) ? 700 : 400,
-              padding: '4px 12px', borderRadius: 'var(--radius-button) var(--radius-button) 0 0', cursor: 'pointer',
-              background: (activeTab === t && openChapter == null) ? 'var(--accent-tint-bg)' : 'transparent',
-              color: (activeTab === t && openChapter == null) ? 'var(--accent)' : 'var(--text-secondary)',
-              borderBottom: (activeTab === t && openChapter == null) ? '2px solid var(--accent)' : '2px solid transparent',
-            }}
-          >
-            {t}
-          </button>
-        ))}
-        <div style={{ flex: 1 }} />
-      </Row>
-
-      <div className="ns-book-workspace" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, paddingTop: 10 }}>
-        {/* Chapter workspace — shown when a chapter is opened from Contents */}
-        {openChapter != null ? (
-          <Col gap={8} className="ns-enter" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <Row gap={8} style={{ alignItems: 'center', flexShrink: 0 }}>
+      {openChapter != null ? (
+        /* STATE B — Chapter Workspace: one wayfinding row, book tabs retire */
+        <Col gap={0} className="ns-enter" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          <ChapterWorkspaceHeader openChapter={openChapter} onClose={onCloseChapter} onOpen={onOpenChapter} />
+          <div className="ns-book-workspace" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <DirectorsConsole />
+          </div>
+        </Col>
+      ) : (
+        /* STATE A — Contents hub: book tabs (TopBar breadcrumb carries the Library exit) */
+        <>
+          <Row className="ns-book-tabs" gap={2} role="tablist" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 0, marginBottom: 0 }}>
+            {BOOK_TABS.map(t => (
               <button
                 type="button"
-                onClick={onCloseChapter}
+                key={t}
+                className="ns-book-tab"
+                role="tab"
+                aria-selected={activeTab === t}
+                onClick={() => setActiveTab(t)}
                 style={{
                   border: 0,
-                  background: 'transparent',
-                  padding: 0,
                   fontFamily: 'inherit',
-                  fontSize: 'var(--type-caption)',
-                  color: 'var(--accent)',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
+                  fontSize: 'var(--type-callout)', fontWeight: activeTab === t ? 700 : 400,
+                  padding: '4px 12px', borderRadius: 'var(--radius-button) var(--radius-button) 0 0', cursor: 'pointer',
+                  background: activeTab === t ? 'var(--accent-tint-bg)' : 'transparent',
+                  color: activeTab === t ? 'var(--accent)' : 'var(--text-secondary)',
+                  borderBottom: activeTab === t ? '2px solid var(--accent)' : '2px solid transparent',
                 }}
               >
-                <ArrowLeft size={14} strokeWidth={2.2} aria-hidden="true" />
-                Contents
+                {t}
               </button>
-              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>·</span>
-              <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Ch {chapterData?.n} · {chapterData?.title ?? `Chapter ${openChapter}`}
-              </span>
-            </Row>
-            <StudioPane
-              activeTrack={activeTrack}
-              setActiveTrack={setActiveTrack}
-              activeChapter={activeChapter}
-              setActiveChapter={setActiveChapter}
-              lastEditedSegmentByChapter={lastEditedSegmentByChapter}
-              setLastEditedSegmentByChapter={setLastEditedSegmentByChapter}
-            />
-          </Col>
-        ) : (
-          <>
+            ))}
+            <div style={{ flex: 1 }} />
+          </Row>
+
+          <div className="ns-book-workspace" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, paddingTop: 10 }}>
             {activeTab === 'Contents' && <ContentsPane onSwitchToPublish={() => setActiveTab('Publish')} onOpenChapter={onOpenChapter} />}
             {activeTab === 'Cast' && <CastingPane />}
             {activeTab === 'Publish' && <PublishPane />}
             {activeTab === 'Backups' && <BackupsPane />}
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
     </Col>
   );
 };
@@ -1227,15 +1321,6 @@ const SiteMockup: React.FC = () => {
 
   return (
     <Col className="ns-root" onClick={handleGlobalClick} gap={0} style={{ height: '100%', position: 'relative' }}>
-      {/* Caption */}
-      <div className="ns-caption" style={{
-        fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic',
-        padding: '3px 10px', borderBottom: '1px solid var(--border)',
-        background: 'var(--surface)', flexShrink: 0,
-      }}>
-        Reviewable organization mockup. Queue drawer = check status from anywhere without losing your place. · v3.7 — modular split + Library/Manuscript/Publish/Studio feature additions
-      </div>
-
       <Col gap={0} style={{ flex: 1, overflow: 'hidden' }}>
         <TopBar
           breadcrumb={breadcrumb}
@@ -1245,6 +1330,7 @@ const SiteMockup: React.FC = () => {
           activeBookTab={activeBookTab}
           onSwitchToPublish={handleSwitchToPublish}
           onLogoClick={() => setShowSplash(true)}
+          onExitBook={() => setInBook(false)}
           queueCount={queueCount}
           isMobile={isMobile}
           onToggleMobileMenu={() => setMobileMenuOpen(o => !o)}
@@ -1328,7 +1414,6 @@ const SiteMockup: React.FC = () => {
                 )}
                 {activeRail === 'Library' && inBook && (
                   <BookPane
-                    onBack={() => setInBook(false)}
                     activeTab={activeBookTab}
                     setActiveTab={setActiveBookTab}
                     activeTrack={activeTrack}
@@ -1386,7 +1471,7 @@ const SiteMockupElement: React.FC = () => (
 
 export const siteMockupStage = {
   id: 'site-mockup',
-  title: 'Site Mockup — North Star',
+  title: 'Site Mockup — North Star · v3.7 — modular split + Library/Manuscript/Publish/Studio',
   description:
     'Medium-fidelity full-site layout mockup v3.7 — modular split into siteMockup/ submodules. Features: Library grid/list view toggle + ⋯ ActionMenu + New Book modal + Delete confirm; Manuscript "+ New chapter" modal; Publish Assemble selection mode + progress strip + backup row; Studio chapter-nav cluster + Export ▾ + Commit changes + Resync Preview modal + analysis strip (auto-fix badges + expandable ACTION REQUIRED) + hover sentence controls + Stop all. All settings surfaces preserved.',
   element: <SiteMockupElement />,

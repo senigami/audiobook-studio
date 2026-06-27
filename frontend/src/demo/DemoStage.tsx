@@ -22,7 +22,6 @@ const SPEEDS = [1, 2, 4] as const;
 
 export const DemoStage: React.FC<DemoStageProps> = ({
   timeline,
-  title,
   autoPlay = false,
   children,
 }) => {
@@ -48,50 +47,8 @@ export const DemoStage: React.FC<DemoStageProps> = ({
         border: '1px solid var(--border)',
       }}
     >
-      {/* Stage header */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-          padding: '12px 16px 8px',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--surface)',
-        }}
-      >
-        <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-primary)' }}>
-          {title}
-        </div>
-
-        {/* Caption with crossfade on scene change */}
-        <div style={{ position: 'relative', height: '1.3em', overflow: 'hidden' }}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={sceneIndex}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.25 }}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                fontSize: '0.85rem',
-                color: 'var(--text-muted)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {scene?.caption ?? ''}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </div>
-
       {/* Live component area */}
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '1rem' }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 0 }}>
         {children}
       </div>
 
@@ -226,6 +183,33 @@ export const DemoStage: React.FC<DemoStageProps> = ({
                 {sc.title}
               </button>
             ))}
+          </div>
+
+          {/* Animated scene caption — right-aligned */}
+          <div style={{ flex: 1, minWidth: 0, position: 'relative', height: '1.2em', overflow: 'hidden', marginLeft: 'auto' }}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={sceneIndex}
+                initial={{ opacity: 0, y: 3 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -3 }}
+                transition={{ duration: 0.2 }}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  fontSize: '0.72rem',
+                  color: 'var(--text-muted)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: '100%',
+                  textAlign: 'right',
+                }}
+              >
+                {scene?.caption ?? ''}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
       </div>

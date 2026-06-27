@@ -47,3 +47,13 @@ For rules-only documentation changes, run lightweight verification such as `git 
 ## Canonical specs
 
 Read `design-docs/specs/README.md` before changing behavior in any area — it routes to the binding spec for that domain. Specs and code are jointly authoritative; resolve drift explicitly in the same change, and bump the spec's version + changelog when shipped behavior changes. Architectural rationale lives in `design-docs/decisions/` (ADRs).
+
+## Planning docs
+
+The canonical plan home is `design-docs/plans/`. The master task list is `design-docs/plans/TASKS.md`. Plans for active work live under `design-docs/plans/active/<task-slug>/`; completed and archived plans move to `design-docs/plans/_archive/`. The index of all plans is `design-docs/plans/README.md`.
+
+When creating or updating a plan:
+- Place it in `design-docs/plans/active/<task-slug>/`, not outside the repo or in `docs/`.
+- Register every task in `TASKS.md` using its existing checkbox format (`[ ]`/`[~]`/`[x]`, indentation, `👁 VISUAL CHECK` markers) — never invent a parallel format.
+- Add a row to `design-docs/plans/README.md` under the correct bucket.
+- Keep both the per-plan task files and `TASKS.md` in sync in the same commit; drift between them is the most common planning failure.

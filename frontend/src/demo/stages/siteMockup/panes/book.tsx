@@ -1247,20 +1247,102 @@ export const CastingPane: React.FC = () => (
 );
 
 // ---------------------------------------------------------------------------
-// BackupsPane — stub surface (real functionality is out of scope for 005)
+// BackupsPane
 
-export const BackupsPane: React.FC = () => (
-  <Col gap={12} className="ns-enter" style={{ flex: 1 }}>
-    <Panel style={{ padding: 'var(--space-3)' }}>
-      <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-1)' }}>
-        Backups
-      </div>
-      <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', lineHeight: 'var(--leading-snug)' }}>
-        Versioned snapshots of this book. Restore any checkpoint to recover chapters, cast assignments, and render history.
-      </div>
-    </Panel>
-  </Col>
-);
+const BACKUP_ENTRIES = [
+  '2026-06-11 23:14 — auto (pre-assemble)',
+  '2026-06-10 18:30 — manual',
+  '2026-06-09 09:05 — auto',
+];
+
+export const BackupsPane: React.FC = () => {
+  const [backupDesc, setBackupDesc] = useState('');
+  const [includeAudio, setIncludeAudio] = useState(true);
+  const [restoringBackup, setRestoringBackup] = useState<string | null>(null);
+
+  return (
+    <Col gap={12} className="ns-enter" style={{ flex: 1 }}>
+      {/* Restore confirmation modal */}
+      {restoringBackup && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 300,
+          background: 'var(--overlay-backdrop)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Card style={{ maxWidth: 380, width: '90%', padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)' }}>Restore Backup?</div>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', lineHeight: 'var(--leading-snug)' }}>
+              Are you sure you want to restore the backup from <strong>{restoringBackup}</strong>?
+            </div>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--action-danger, #c0392b)', background: 'rgba(192,57,43,.07)', border: '1px solid rgba(192,57,43,.2)', borderRadius: 'var(--radius-button)', padding: 'var(--space-2) var(--space-3)', lineHeight: 'var(--leading-snug)' }}>
+              <strong>WARNING:</strong> Restoring this backup will overwrite all current chapters, audio files, and voice assignments. This action cannot be undone.
+            </div>
+            <Row gap={8} style={{ justifyContent: 'flex-end' }}>
+              <Btn small onClick={() => setRestoringBackup(null)}>Cancel</Btn>
+              <Btn primary small onClick={() => {
+                alert(`Restored backup: ${restoringBackup}`);
+                setRestoringBackup(null);
+              }}>Restore</Btn>
+            </Row>
+          </Card>
+        </div>
+      )}
+
+      <Card style={{ padding: 'var(--space-3) var(--space-4)', boxShadow: 'var(--shadow-md)' }}>
+        <div style={{
+          fontSize: 'var(--type-micro)', fontWeight: 700, letterSpacing: 'var(--tracking-wide)',
+          textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 'var(--space-2)',
+        }}>Saved backups</div>
+        <Col gap={4}>
+          {BACKUP_ENTRIES.map(b => (
+            <div key={b} style={{
+              fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', padding: 'var(--space-2) var(--space-3)',
+              background: 'var(--surface-alt)', border: '1px solid var(--hairline)',
+              borderRadius: 'var(--radius-button)', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <span>{b}</span>
+              <button
+                type="button"
+                style={{ border: 0, background: 'transparent', padding: 0, fontFamily: 'inherit', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--accent)', cursor: 'pointer' }}
+                onClick={() => setRestoringBackup(b)}
+              >Restore</button>
+            </div>
+          ))}
+          {/* Create backup */}
+          <div style={{ padding: 'var(--space-3)', background: 'var(--surface-alt)', border: '1px dashed var(--border)', borderRadius: 'var(--radius-button)', marginTop: 'var(--space-1)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+              <input
+                value={backupDesc}
+                onChange={e => setBackupDesc(e.target.value)}
+                placeholder="Backup description…"
+                style={{
+                  flex: 1, fontSize: 'var(--type-caption)', padding: 'var(--space-1) var(--space-2)',
+                  borderRadius: 'var(--radius-button)', border: '1px solid var(--border)',
+                  background: 'var(--surface)', color: 'var(--text-primary)', outline: 'none',
+                }}
+              />
+              <Btn primary small onClick={() => {
+                alert(`Backup saved: "${backupDesc}" (audio included: ${includeAudio ? 'yes' : 'no'})`);
+                setBackupDesc('');
+              }}>Save</Btn>
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={includeAudio}
+                onChange={e => setIncludeAudio(e.target.checked)}
+                style={{ cursor: 'pointer', width: 14, height: 14 }}
+              />
+              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>
+                Include rendered audio files in backup (increases file size)
+              </span>
+            </label>
+          </div>
+        </Col>
+      </Card>
+    </Col>
+  );
+};
 
 // Re-export shared primitives used by sibling modules that import from this barrel
 export { Label, ProgressBar };
