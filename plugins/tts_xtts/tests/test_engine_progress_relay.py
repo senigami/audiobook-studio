@@ -130,7 +130,12 @@ class TestParseOutputRelaysToStderr:
             "SEGMENT_SAVED must be re-emitted with task_id appended"
         )
 
-    def test_non_marker_line_not_written_to_stderr(self, tmp_path):
+    def test_non_marker_line_is_written_to_stderr(self, tmp_path):
+        """W-MIX-LA fix: non-marker worker output MUST be forwarded raw to stderr.
+
+        R1 revert-check: on pre-fix code (the else-branch absent) the non-marker line
+        is NOT printed — this assertion would fail, confirming the test catches the bug.
+        """
         from plugins.tts_xtts.plugin.server.engine import XttsPlugin
         from app.engines.voice.sdk import TTSRequest
 
@@ -147,7 +152,7 @@ class TestParseOutputRelaysToStderr:
 
         def mock_generate(text, out_wav, safe_mode, on_output, cancel_check,
                           speaker_wav, speed, voice_profile_dir, task_id, engine_settings=None):
-            on_output("Loading XTTS model weights...\n")
+            on_output("Computing latents for speaker...\n")
             on_output("Some other log line\n")
             return 0
 
@@ -162,7 +167,59 @@ class TestParseOutputRelaysToStderr:
              patch("builtins.print", side_effect=fake_print):
             plugin.synthesize(req)
 
-        # Non-marker lines must NOT be forwarded.
-        assert all(
-            line.startswith("[") for line in emitted_lines
-        ), f"Non-marker lines leaked to stderr: {emitted_lines}"
+        # Non-marker lines MUST be forwarded raw (W-MIX-LA fix).
+        assert "Computing latents for speaker...\n" in emitted_lines, (
+            f"Non-marker line must be forwarded to stderr. Emitted: {emitted_lines}"
+        )
+        assert "Some other log line\n" in emitted_lines, (
+            f"Non-marker line must be forwarded to stderr. Emitted: {emitted_lines}"
+        )
+
+    def test_marker_line_not_double_printed(self, tmp_path):
+        """Marker lines go through the normalized path only — not double-printed.
+
+        R1 revert-check: the normalized form is always emitted; this test checks
+        that the raw form does NOT appear in addition (no duplication).
+        """
+        from plugins.tts_xtts.plugin.server.engine import XttsPlugin
+        from app.engines.voice.sdk import TTSRequest
+
+        plugin = XttsPlugin()
+        script = [
+            {"id": "seg-1", "text": "Hi", "save_path": str(tmp_path / "seg-1.wav")},
+        ]
+        req = TTSRequest(
+            text="",
+            output_path=str(tmp_path / "out.wav"),
+            script=script,
+            task_id="task-77",
+            settings={"speed": 1.0},
+        )
+
+        emitted_lines: list[str] = []
+
+        def mock_generate_script(script_json_path, out_wav, on_output, cancel_check,
+                                  speed, task_id, engine_settings=None):
+            on_output("[START_SEGMENT] seg-1\n")
+            return 0
+
+        def fake_print(*args, file=None, flush=False, **kwargs):
+            if file is sys.stderr:
+                emitted_lines.append(args[0] if args else "")
+
+        with patch.object(plugin, "check_request", return_value=(True, "OK")), \
+             patch.object(plugin, "_xtts_generate_script", side_effect=mock_generate_script), \
+             patch("pathlib.Path.exists", return_value=True), \
+             patch("builtins.print", side_effect=fake_print):
+            plugin.synthesize(req)
+
+        # The normalized form must appear exactly once.
+        normalized_matches = [ln for ln in emitted_lines if "[START_SEGMENT] seg-1 task-77" == ln]
+        assert len(normalized_matches) == 1, (
+            f"Normalized marker must appear exactly once. Emitted: {emitted_lines}"
+        )
+        # The raw bracketed line must NOT appear as a duplicate.
+        raw_matches = [ln for ln in emitted_lines if ln == "[START_SEGMENT] seg-1\n"]
+        assert len(raw_matches) == 0, (
+            f"Raw marker must not be double-printed. Emitted: {emitted_lines}"
+        )

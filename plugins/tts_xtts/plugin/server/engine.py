@@ -408,6 +408,11 @@ class XttsPlugin(StudioTTSEngine):
                     normalized = relay_marker(line, req.task_id)
                     if normalized is not None:
                         print(normalized, file=sys.stderr, flush=True)
+                    else:
+                        # W-MIX-LA: forward raw non-marker worker output so the Engine
+                        # Diagnostics page shows the complete live log, and status/load
+                        # lines reach the orchestrator. Markers are forwarded normalized above.
+                        print(line, file=sys.stderr, flush=True)
                 except Exception:
                     pass
 

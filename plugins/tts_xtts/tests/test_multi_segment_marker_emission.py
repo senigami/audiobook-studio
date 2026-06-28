@@ -220,8 +220,12 @@ class TestMultiSegmentRelayOrdering:
             f"PROGRESS without task_id must pass through unchanged, got {result_no_tid!r}"
         )
 
-    def test_no_marker_lines_not_relayed(self, tmp_path):
-        """Non-marker model log lines must not be forwarded to stderr."""
+    def test_non_marker_lines_are_forwarded_raw(self, tmp_path):
+        """W-MIX-LA fix: non-marker worker log lines MUST be forwarded raw to stderr.
+
+        R1 revert-check: on pre-fix code (the else-branch absent) non-marker lines
+        are NOT printed — this assertion would fail, confirming the test catches the bug.
+        """
         script_lines = [
             "Loading XTTS model weights...\n",
             "[START_SYNTHESIS] task-multiseg\n",
@@ -232,9 +236,15 @@ class TestMultiSegmentRelayOrdering:
             "Finished segment 0.\n",
         ]
         emitted = self._run_synthesize_with_fake_generator(tmp_path, script_lines)
-        non_markers = [line for line in emitted if not line.startswith("[")]
-        assert not non_markers, (
-            f"Non-marker lines leaked to stderr: {non_markers}"
+        # Non-marker lines must now be forwarded raw (W-MIX-LA fix).
+        assert "Loading XTTS model weights...\n" in emitted, (
+            f"Expected raw non-marker line to be forwarded. Emitted: {emitted}"
+        )
+        assert "Encoding latents for speaker...\n" in emitted, (
+            f"Expected raw non-marker line to be forwarded. Emitted: {emitted}"
+        )
+        assert "Finished segment 0.\n" in emitted, (
+            f"Expected raw non-marker line to be forwarded. Emitted: {emitted}"
         )
 
 
