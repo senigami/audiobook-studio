@@ -260,6 +260,34 @@ export function useStudioChapter({
     return ids;
   }, [isChapterProcessing, pageHandoff.hasPending, generatingSegmentIds, liveSegmentJobIds, chapterRenderActiveSegmentId, chapterRenderActiveBatchSegmentIds, chapterRenderPreparingSegmentIds]);
 
+  // W-MIX-LA-DIAG: time-series of the DERIVED preparing/rendering classification.
+  // The `render` snapshot in the copy-debug payload is captured post-render (state already
+  // torn down), so it cannot show what the component computed DURING a mid-chapter cold
+  // model load. This records every change of the preparing inputs into the handoff ring so
+  // the dump's `handoffTransitions` reveals the order-dependent failure: whether
+  // `chapterRenderActiveSegmentId` (post-handoff, held) lags `rawActiveSegmentId`, or
+  // `reason_code`/`indeterminate` flipped out of a preparing code before the segment became
+  // the displayed one. Remove once the mixed-render pulse bug is resolved.
+  const _dbgReasonCode = (job as any)?.reason_code ?? null;
+  const _dbgIndeterminate = (job as any)?.indeterminate ?? null;
+  useEffect(() => {
+    recordExternalHandoffEvent('derived_preparing_state', {
+      isActiveJobPreparing,
+      reasonCode: _dbgReasonCode,
+      indeterminate: _dbgIndeterminate,
+      rawActiveSegmentId,
+      chapterRenderActiveSegmentId,
+      handoffDisplayedSegmentId: pageHandoff.displayedSegmentId,
+      handoffHasPending: pageHandoff.hasPending,
+      preparingIds: Array.from(chapterRenderPreparingSegmentIds),
+      renderingIds: Array.from(chapterRenderRenderingSegmentIds),
+    });
+  }, [
+    isActiveJobPreparing, _dbgReasonCode, _dbgIndeterminate, rawActiveSegmentId,
+    chapterRenderActiveSegmentId, pageHandoff.displayedSegmentId, pageHandoff.hasPending,
+    chapterRenderPreparingSegmentIds, chapterRenderRenderingSegmentIds,
+  ]);
+
   const chapterRenderQueuedSegmentIds = useMemo(() => {
     if (!job || !['queued', 'preparing', 'running'].includes(job.status)) return new Set<string>();
     const allIds = job.segment_ids || [];
@@ -740,6 +768,12 @@ export function useStudioChapter({
         },
         render: {
           chapterRenderActiveSegmentId,
+          // W-MIX-LA-DIAG: raw (pre-handoff) vs displayed (post-handoff) active id +
+          // handoff gate, so a snapshot taken mid-render shows whether the preparing set
+          // is anchored to the held/previous segment rather than the truly-active one.
+          rawActiveSegmentId,
+          handoffDisplayedSegmentId: pageHandoff.displayedSegmentId,
+          handoffHasPending: pageHandoff.hasPending,
           chapterRenderRenderingSegmentIds: Array.from(chapterRenderRenderingSegmentIds),
           chapterRenderQueuedSegmentIds: Array.from(chapterRenderQueuedSegmentIds),
           chapterRenderPendingSegmentIds: Array.from(chapterRenderPendingSegmentIds),
