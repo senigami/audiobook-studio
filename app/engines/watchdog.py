@@ -586,11 +586,6 @@ class TtsServerWatchdog:
                         sub_parts = parts[1].strip().split()
                         if sub_parts:
                             task_id = sub_parts[-1]
-                    logger.info(  # W-MIX-LA-DIAG
-                        "W-MIX-LA-DIAG watchdog drained MODEL_LOAD_STARTED line=%r extracted_task_id=%r",
-                        line,
-                        task_id,
-                    )
 
                 with self._lock:
                     self._log_buffer.append(f"[{name}] {line}")

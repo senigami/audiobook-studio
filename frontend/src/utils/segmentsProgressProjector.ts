@@ -127,9 +127,8 @@ export function buildSegmentsProgressProjection(
             progress: payload.progress ?? null,
             reasonCode: rawReasonCode || null,
             updatedAt: projectedUpdates.updated_at,
-            // W-MIX-LA-DIAG: expose indeterminate + loadingElapsedSeconds so the
-            // globalSegmentProgressUpdates capture in useJobs.ts records whether
-            // LOADING_MODEL/indeterminate frames actually arrive here.
+            // Surface the model-load signal (indeterminate + elapsed) on the projected
+            // update so the LOADING_MODEL window is represented in segment progress.
             indeterminate: projectedUpdates.indeterminate ?? null,
             loadingElapsedSeconds: getVal(payload, 'loadingElapsedSeconds', 'loading_elapsed_seconds') ?? null,
         },

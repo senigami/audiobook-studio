@@ -77,8 +77,8 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         reasonCode: prov.selectedFields?.reasonCode || null,
         updatedAt: prov.selectedFields?.updatedAt || null,
         renderedJobId: prov.rawEnvelope?.jobId || null,
-        // W-MIX-LA-DIAG: capture indeterminate + loadingElapsedSeconds so the debug
-        // snapshot shows whether LOADING_MODEL frames actually reach the store.
+        // Carry the model-load signal (indeterminate + elapsed) through to the
+        // segment progress history so the LOADING_MODEL window is represented.
         indeterminate: prov.selectedFields?.indeterminate ?? null,
         loadingElapsedSeconds: prov.selectedFields?.loadingElapsedSeconds ?? null,
       };

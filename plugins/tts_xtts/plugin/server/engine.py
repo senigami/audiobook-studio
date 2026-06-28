@@ -12,7 +12,6 @@ so that loading this module does not trigger model loading.
 from __future__ import annotations
 
 import json
-import logging
 import os
 import sys
 import tempfile
@@ -24,8 +23,6 @@ from typing import Any, Optional
 from app.engines.voice.sdk import TTSRequest, TTSResult, VerificationResult
 from app.engines.voice.base import StudioTTSEngine
 from app.engines.proc_utils import run_cmd_stream
-
-logger = logging.getLogger(__name__)  # W-MIX-LA-DIAG
 
 
 def relay_marker(line: str, task_id: str) -> Optional[str]:
@@ -336,15 +333,6 @@ class XttsPlugin(StudioTTSEngine):
                 cleaned = line.strip()
                 if not cleaned:
                     return
-                # W-MIX-LA-DIAG: log any line that looks like a model-load line so
-                # we can tell whether parse_output ever sees it.
-                if "loading model" in cleaned.lower() or "[MODEL_LOAD_STARTED]" in cleaned:
-                    logger.info(
-                        "W-MIX-LA-DIAG engine.parse_output saw load-ish line=%r task_id=%r active_segment_id=%r",
-                        cleaned,
-                        getattr(req, "task_id", None),
-                        active_segment_id,
-                    )
                 if cleaned.startswith("[START_SEGMENT]"):
                     parts = cleaned.split("[START_SEGMENT]", 1)
                     if len(parts) > 1:
@@ -435,7 +423,6 @@ class XttsPlugin(StudioTTSEngine):
                         else:
                             load_marker = f"[MODEL_LOAD_STARTED] {req.task_id}"
                         print(load_marker, file=sys.stderr, flush=True)
-                        logger.info("W-MIX-LA-DIAG engine emitted %r", load_marker)  # W-MIX-LA-DIAG
                 except Exception:
                     pass
 

@@ -7,9 +7,9 @@ import { useDeferredWhileHeld } from '@/hooks/useDeferredWhileHeld';
 import { useChapterStatus } from '@/pages/ChapterEditor/components/ChapterHeader';
 import { buildChunkGroups } from '@/utils/chunkGroups';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '@/utils/voiceProfiles';
-import { useEasedProgress } from '@/hooks/useEasedProgress';
+import { getRawActiveRenderProgress } from '@/utils/chapterRenderProgress';
 import { resolveVoiceEngineStatus, downloadBlob, formatExportFilename } from '@/utils/chapterEditorHelpers';
-import { useSegmentHandoffQueue, getHandoffTransitions, recordExternalHandoffEvent, recordDerivedPreparing, getDerivedPreparingTimeline } from '@/hooks/useSegmentHandoffQueue';
+import { useSegmentHandoffQueue, getHandoffTransitions, recordExternalHandoffEvent } from '@/hooks/useSegmentHandoffQueue';
 import type { Job, SegmentProgress, SpeakerProfile, TtsEngine } from '@/types';
 import type { ResyncPreviewData } from '@/pages/ChapterEditor/components/ResyncPreviewModal';
 import type { ChapterEditorTab } from '@/pages/ChapterEditor/components/EditorTabs';
@@ -210,17 +210,6 @@ export function useStudioChapter({
     setLiveBarSegmentProgress(0);
   }, [chapterRenderActiveSegmentId]);
 
-  // Ease the segment TEXT reveal toward each coarse engine datapoint over ~the
-  // inter-update interval, so XTTS's 0 → 0.33 → 0.66 → 1.0 steps render as a
-  // continuous fill instead of a ~750ms rush to each point. Target tracks the true
-  // datapoint (rawActiveSegmentProgress) max'd with the bar's smoothed value so it
-  // never lags behind real progress; the predictive bar itself is untouched.
-  const easedSegmentProgress = useEasedProgress(
-    Math.max(liveBarSegmentProgress, rawActiveSegmentProgress),
-    chapterRenderActiveSegmentId,
-    { timeConstantMs: 700 },
-  );
-
   const chapterRenderActiveBatchSegmentIds = useMemo(() => {
     if (!chapterRenderActiveSegmentId) return new Set<string>();
     const activeBatch = scriptViewData?.render_batches?.find((batch) =>
@@ -271,34 +260,6 @@ export function useStudioChapter({
     return ids;
   }, [isChapterProcessing, pageHandoff.hasPending, generatingSegmentIds, liveSegmentJobIds, chapterRenderActiveSegmentId, chapterRenderActiveBatchSegmentIds, chapterRenderPreparingSegmentIds]);
 
-  // W-MIX-LA-DIAG: time-series of the DERIVED preparing/rendering classification.
-  // The `render` snapshot in the copy-debug payload is captured post-render (state already
-  // torn down), so it cannot show what the component computed DURING a mid-chapter cold
-  // model load. This records every change of the preparing inputs into the handoff ring so
-  // the dump's `handoffTransitions` reveals the order-dependent failure: whether
-  // `chapterRenderActiveSegmentId` (post-handoff, held) lags `rawActiveSegmentId`, or
-  // `reason_code`/`indeterminate` flipped out of a preparing code before the segment became
-  // the displayed one. Remove once the mixed-render pulse bug is resolved.
-  const _dbgReasonCode = (job as any)?.reason_code ?? null;
-  const _dbgIndeterminate = (job as any)?.indeterminate ?? null;
-  useEffect(() => {
-    recordDerivedPreparing({
-      isActiveJobPreparing,
-      reasonCode: _dbgReasonCode,
-      indeterminate: _dbgIndeterminate,
-      rawActiveSegmentId,
-      chapterRenderActiveSegmentId,
-      handoffDisplayedSegmentId: pageHandoff.displayedSegmentId,
-      handoffHasPending: pageHandoff.hasPending,
-      preparingIds: Array.from(chapterRenderPreparingSegmentIds),
-      renderingIds: Array.from(chapterRenderRenderingSegmentIds),
-    });
-  }, [
-    isActiveJobPreparing, _dbgReasonCode, _dbgIndeterminate, rawActiveSegmentId,
-    chapterRenderActiveSegmentId, pageHandoff.displayedSegmentId, pageHandoff.hasPending,
-    chapterRenderPreparingSegmentIds, chapterRenderRenderingSegmentIds,
-  ]);
-
   const chapterRenderQueuedSegmentIds = useMemo(() => {
     if (!job || !['queued', 'preparing', 'running'].includes(job.status)) return new Set<string>();
     const allIds = job.segment_ids || [];
@@ -325,17 +286,20 @@ export function useStudioChapter({
 
   const chapterRenderRenderingBatchProgressById = useMemo(() => {
     const progressById: Record<string, number> = {};
+    const activeJob = generatingSegmentJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingSegmentJob.status)
+      ? generatingSegmentJob
+      : (job && ['queued', 'preparing', 'running', 'finalizing'].includes(job.status) ? job : null);
     const activeSpanId = chapterRenderActiveSegmentId;
     if (!activeSpanId || chapterRenderRenderingSegmentIds.size === 0) return progressById;
     const activeBatch = scriptViewData?.render_batches?.find((batch) =>
       batch.span_ids.includes(activeSpanId),
     );
     if (!activeBatch) return progressById;
-    // Eased value only — never fall back to the raw datapoint, which would snap the
-    // text forward then drop it back a frame later (the old "quick start" flicker).
-    progressById[activeBatch.id] = easedSegmentProgress;
+    const rawProgress = getRawActiveRenderProgress(activeJob, 0);
+    const effectiveProgress = liveBarSegmentProgress > 0 ? liveBarSegmentProgress : rawProgress;
+    progressById[activeBatch.id] = effectiveProgress;
     return progressById;
-  }, [chapterRenderRenderingSegmentIds, scriptViewData?.render_batches, easedSegmentProgress, chapterRenderActiveSegmentId]);
+  }, [chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans, liveBarSegmentProgress, chapterRenderActiveSegmentId]);
 
   const handleGenerateWithFallback = useCallback(
     async (segmentIds: string[]) => {
@@ -776,18 +740,11 @@ export function useStudioChapter({
         },
         render: {
           chapterRenderActiveSegmentId,
-          // W-MIX-LA-DIAG: raw (pre-handoff) vs displayed (post-handoff) active id +
-          // handoff gate, so a snapshot taken mid-render shows whether the preparing set
-          // is anchored to the held/previous segment rather than the truly-active one.
-          rawActiveSegmentId,
-          handoffDisplayedSegmentId: pageHandoff.displayedSegmentId,
-          handoffHasPending: pageHandoff.hasPending,
           chapterRenderRenderingSegmentIds: Array.from(chapterRenderRenderingSegmentIds),
           chapterRenderQueuedSegmentIds: Array.from(chapterRenderQueuedSegmentIds),
           chapterRenderPendingSegmentIds: Array.from(chapterRenderPendingSegmentIds),
           chapterRenderRenderingBatchProgressById,
-          // W-MIX-LA-DIAG: preparing state — tells whether the frontend computed
-          // a loading/indeterminate window for the active segment.
+          // Preparing state for the active segment (loading/indeterminate window).
           chapterRenderPreparingSegmentIds: Array.from(chapterRenderPreparingSegmentIds),
           isActiveJobPreparing,
         },
@@ -801,9 +758,6 @@ export function useStudioChapter({
           })),
       },
       handoffTransitions: getHandoffTransitions(),
-      // W-MIX-LA-DIAG: dedicated derived preparing/rendering timeline (survives the
-      // model-load window even when the handoff ring above is flooded by lane updates).
-      derivedPreparingTimeline: getDerivedPreparingTimeline(),
       handoffState: {
         displayedSegmentId: pageHandoff.displayedSegmentId,
         displayedProgress: pageHandoff.displayedProgress,

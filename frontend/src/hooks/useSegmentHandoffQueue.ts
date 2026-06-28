@@ -45,32 +45,6 @@ export function recordExternalHandoffEvent(event: string, detail?: Record<string
 }
 
 // ---------------------------------------------------------------------------
-// W-MIX-LA-DIAG: DEDICATED ring for the derived preparing/rendering classification.
-// Kept separate from the handoff ring above because lane_update/prop-sync events
-// flood that 200-entry ring during the busy render phase and evict the multi-second
-// model-load window — exactly the window we need to see. Derived snapshots fire only
-// on dependency change (tens per render), so 400 entries covers a long render with the
-// cold-load window intact. Remove once the mixed-render pulse bug is resolved.
-// ---------------------------------------------------------------------------
-const DERIVED_RING_MAX = 400;
-const _derivedRing: Array<{ t: number } & Record<string, unknown>> = [];
-
-export function recordDerivedPreparing(detail: Record<string, unknown>): void {
-    try {
-        if (_derivedRing.length >= DERIVED_RING_MAX) {
-            _derivedRing.shift();
-        }
-        _derivedRing.push({ t: Date.now(), ...detail });
-    } catch {
-        // never throw from instrumentation
-    }
-}
-
-export function getDerivedPreparingTimeline(): Array<{ t: number } & Record<string, unknown>> {
-    return [..._derivedRing];
-}
-
-// ---------------------------------------------------------------------------
 // display_progress throttle: track last bucket to avoid excessive entries.
 // Buckets: 0.25, 0.5, 0.75, 0.999
 // ---------------------------------------------------------------------------
