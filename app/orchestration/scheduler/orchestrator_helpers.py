@@ -710,6 +710,14 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 job_engine_id=engine_id or "",
                 line=line,
             )
+
+            # [MODEL_LOAD_STARTED] is a dedicated, engine-agnostic real-load marker (emitted
+            # only by the engine wrapper on an actual cold load). The per-engine manifest match
+            # above fails for mixed jobs (active engine resolves to "mixed", whose manifest has
+            # no MODEL_LOAD_STARTED), so recognize it directly regardless of engine resolution.
+            if matched_marker is None and "[MODEL_LOAD_STARTED]" in line:
+                matched_marker = "MODEL_LOAD_STARTED"
+
             now_time = time.time()
 
             # W-MIX-LA-DIAG: log whenever a model-load-relevant marker is matched

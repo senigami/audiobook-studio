@@ -510,3 +510,128 @@ class TestNoDoubleCount:
         assert len(loading_frames) == 1, (
             f"Expected exactly one LOADING_MODEL running frame, got {len(loading_frames)}: {loading_frames}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Test 5 — Engine-agnostic fallback: active engine "mixed" (no per-group engine key)
+# ---------------------------------------------------------------------------
+
+class MockMixedNoGroupEngineTask(StudioTask):
+    """2-group mixed script with NO per-group engine key.
+
+    This is the real-world failing case: _resolve_active_engine_for_matching()
+    finds no "engine" in the group entry and falls back to the job engine "mixed".
+    The "mixed" manifest has no MODEL_LOAD_STARTED pattern, so the manifest match
+    returns None — the engine-agnostic fallback is required.
+    """
+
+    def __init__(self, bridge):
+        self.bridge = bridge
+        self.script = [
+            {
+                "id": "seg-1",
+                "ids": ["seg-1"],
+                "text": "First segment text",
+                "save_path": "/tmp/seg-1.wav",
+                # no "engine" key — falls back to job engine "mixed"
+                "weight": 50,
+            },
+            {
+                "id": "seg-2",
+                "ids": ["seg-2"],
+                "text": "XTTS cold load segment",
+                "save_path": "/tmp/seg-2.wav",
+                # no "engine" key — falls back to job engine "mixed"
+                "weight": 50,
+            },
+        ]
+
+    def get_expected_duration(self, text: str, engine_id: str) -> float:
+        return 40.0
+
+    def describe(self):
+        return TaskContext(
+            task_id="job-mix-nokey",
+            task_type="synthesis",
+            payload={
+                "engine_id": "mixed",
+                "script_text": "First segment text XTTS cold load segment",
+            },
+            project_id="proj-mix",
+            chapter_id="ch-mix",
+        )
+
+    @property
+    def prefers_local_execution(self) -> bool:
+        return True
+
+    def run(self):
+        self.bridge.synthesize({"text": "test"})
+        return TaskResult(status="completed")
+
+
+class TestModelLoadStartedEngineAgnosticFallback:
+    """R1 revert-check: without the engine-agnostic fallback, matched_marker stays None
+    for a mixed job whose active engine resolves to "mixed" (no per-group engine key).
+    The manifest match for "mixed" returns None for MODEL_LOAD_STARTED (the mixed manifest
+    has no such pattern), so the LOADING_MODEL frame is never published — assertion fails.
+
+    With the fix (engine-agnostic check after manifest match), the frame IS published.
+    """
+
+    def test_loading_model_frame_published_when_active_engine_is_mixed(self, monkeypatch):
+        """[MODEL_LOAD_STARTED] from a mixed job with no per-group engine → LOADING_MODEL frame.
+
+        R1: pre-fix (no engine-agnostic fallback) → matched_marker is None → frame not published.
+        Post-fix: fallback fires → frame published.
+        """
+        _patch_db(monkeypatch)
+        _patch_ws(monkeypatch)
+        _patch_broadcast_segments(monkeypatch)
+
+        bridge = MagicMock()
+        orc = MockOrchestrator(voice_bridge=bridge)
+        task = MockMixedNoGroupEngineTask(bridge)
+        context = task.describe()
+        wd = TtsServerWatchdog()
+
+        with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+             patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None):
+
+            def side_effect(*args, **kwargs):
+                wd._drain_stream(None, "stderr", MockStream([
+                    "[START_SYNTHESIS] job-mix-nokey\n",
+                    "[START_SEGMENT] seg-2 job-mix-nokey\n",
+                    # Worker emits MODEL_LOAD_STARTED — active engine resolves to "mixed"
+                    # (no per-group engine key), whose manifest has no MODEL_LOAD_STARTED
+                    # pattern. The engine-agnostic fallback must fire here.
+                    "[MODEL_LOAD_STARTED] job-mix-nokey\n",
+                    "[START_SYNTHESIS] job-mix-nokey\n",
+                    "[PROGRESS] 50% job-mix-nokey\n",
+                    "[SEGMENT_SAVED] /tmp/seg-2.wav job-mix-nokey\n",
+                ]))
+                return {"status": "ok"}
+
+            bridge.synthesize.side_effect = side_effect
+            orc.progress_service = MagicMock()
+
+            orc._dispatch(task=task, context=context)
+
+        loading_frames = [
+            e for e in orc.published
+            if e.get("reason_code") == "LOADING_MODEL"
+            and e.get("indeterminate") is True
+            and e.get("status") == "running"
+        ]
+        assert loading_frames, (
+            "Expected LOADING_MODEL/indeterminate frame when active engine resolves to 'mixed' "
+            "and [MODEL_LOAD_STARTED] is present. Engine-agnostic fallback must fire. "
+            f"All published frames: {[e.get('reason_code') for e in orc.published]}"
+        )
+        frame = loading_frames[-1]
+        assert frame.get("indeterminate") is True
+        assert frame.get("clear_eta") is True
+        # active_segment_id must be seg-2 (set by the preceding [START_SEGMENT])
+        assert frame.get("active_segment_id") == "seg-2", (
+            f"Fall-back must attribute to active_seg_id 'seg-2', got {frame.get('active_segment_id')!r}"
+        )

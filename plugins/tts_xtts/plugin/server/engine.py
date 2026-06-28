@@ -403,18 +403,18 @@ class XttsPlugin(StudioTTSEngine):
             # "preparing" → "running" and emit per-segment highlights.
             # The worker's stderr is a separate captured PIPE; writing to sys.stderr
             # here writes to the server process's stderr — no recursion risk.
-            if req.task_id:
-                try:
-                    normalized = relay_marker(line, req.task_id)
-                    if normalized is not None:
-                        print(normalized, file=sys.stderr, flush=True)
-                    else:
-                        # W-MIX-LA: forward raw non-marker worker output so the Engine
-                        # Diagnostics page shows the complete live log, and status/load
-                        # lines reach the orchestrator. Markers are forwarded normalized above.
-                        print(line, file=sys.stderr, flush=True)
-                except Exception:
-                    pass
+            try:
+                normalized = relay_marker(line, req.task_id) if req.task_id else None
+                if normalized is not None:
+                    print(normalized, file=sys.stderr, flush=True)
+                else:
+                    # W-MIX-LA: forward raw non-marker worker output so the Engine
+                    # Diagnostics page shows the complete live log, and status/load
+                    # lines reach the orchestrator. Forwarded regardless of task_id so
+                    # internal run_test/verify calls (task_id=None) are never silently dropped.
+                    print(line, file=sys.stderr, flush=True)
+            except Exception:
+                pass
 
             # Emit a dedicated [MODEL_LOAD_STARTED] marker when the XTTS worker's
             # cold-load line is observed.  These bare text lines are dropped by

@@ -223,3 +223,51 @@ class TestParseOutputRelaysToStderr:
         assert len(raw_matches) == 0, (
             f"Raw marker must not be double-printed. Emitted: {emitted_lines}"
         )
+
+    def test_non_marker_line_forwarded_when_task_id_is_none(self, tmp_path):
+        """R1 revert-check (Fix 2): non-marker line must be forwarded to stderr even when
+        req.task_id is None (e.g. internal run_test/verify calls).
+
+        Pre-fix: the forward block is gated on ``if req.task_id:``, so lines are silently
+        dropped when task_id is absent — assertion fails.
+        Post-fix: non-marker lines are forwarded regardless of task_id.
+        """
+        from plugins.tts_xtts.plugin.server.engine import XttsPlugin
+        from app.engines.voice.sdk import TTSRequest
+
+        plugin = XttsPlugin()
+        req = TTSRequest(
+            text="Hello",
+            output_path=str(tmp_path / "out.wav"),
+            voice_ref=str(tmp_path / "ref.wav"),
+            task_id=None,  # no task_id — the gap this fix closes
+            settings={},
+        )
+
+        emitted_lines: list[str] = []
+
+        def mock_generate(text, out_wav, safe_mode, on_output, cancel_check,
+                          speaker_wav, speed, voice_profile_dir, task_id, engine_settings=None):
+            on_output("Worker output with no task_id\n")
+            on_output("Another log line\n")
+            return 0
+
+        def fake_print(*args, file=None, flush=False, **kwargs):
+            if file is sys.stderr:
+                emitted_lines.append(args[0] if args else "")
+
+        with patch.object(plugin, "check_request", return_value=(True, "OK")), \
+             patch.object(plugin, "_resolve_voice_inputs", return_value=("ref.wav", None)), \
+             patch.object(plugin, "_xtts_generate", side_effect=mock_generate), \
+             patch("pathlib.Path.exists", return_value=True), \
+             patch("builtins.print", side_effect=fake_print):
+            plugin.synthesize(req)
+
+        assert "Worker output with no task_id\n" in emitted_lines, (
+            f"Non-marker lines must be forwarded to stderr even when task_id is None. "
+            f"Emitted: {emitted_lines}"
+        )
+        assert "Another log line\n" in emitted_lines, (
+            f"Non-marker lines must be forwarded to stderr even when task_id is None. "
+            f"Emitted: {emitted_lines}"
+        )
