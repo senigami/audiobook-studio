@@ -9,7 +9,7 @@ import { buildChunkGroups } from '@/utils/chunkGroups';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '@/utils/voiceProfiles';
 import { getRawActiveRenderProgress } from '@/utils/chapterRenderProgress';
 import { resolveVoiceEngineStatus, downloadBlob, formatExportFilename } from '@/utils/chapterEditorHelpers';
-import { useSegmentHandoffQueue, getHandoffTransitions, recordExternalHandoffEvent } from '@/hooks/useSegmentHandoffQueue';
+import { useSegmentHandoffQueue, getHandoffTransitions, recordExternalHandoffEvent, recordDerivedPreparing, getDerivedPreparingTimeline } from '@/hooks/useSegmentHandoffQueue';
 import type { Job, SegmentProgress, SpeakerProfile, TtsEngine } from '@/types';
 import type { ResyncPreviewData } from '@/pages/ChapterEditor/components/ResyncPreviewModal';
 import type { ChapterEditorTab } from '@/pages/ChapterEditor/components/EditorTabs';
@@ -271,7 +271,7 @@ export function useStudioChapter({
   const _dbgReasonCode = (job as any)?.reason_code ?? null;
   const _dbgIndeterminate = (job as any)?.indeterminate ?? null;
   useEffect(() => {
-    recordExternalHandoffEvent('derived_preparing_state', {
+    recordDerivedPreparing({
       isActiveJobPreparing,
       reasonCode: _dbgReasonCode,
       indeterminate: _dbgIndeterminate,
@@ -793,6 +793,9 @@ export function useStudioChapter({
           })),
       },
       handoffTransitions: getHandoffTransitions(),
+      // W-MIX-LA-DIAG: dedicated derived preparing/rendering timeline (survives the
+      // model-load window even when the handoff ring above is flooded by lane updates).
+      derivedPreparingTimeline: getDerivedPreparingTimeline(),
       handoffState: {
         displayedSegmentId: pageHandoff.displayedSegmentId,
         displayedProgress: pageHandoff.displayedProgress,
