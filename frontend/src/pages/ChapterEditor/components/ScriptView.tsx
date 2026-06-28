@@ -435,7 +435,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   const batchHasRenderState = (batch: ScriptRenderBatch | undefined) => {
     if (!batch) return false;
     return batch.span_ids.some(spanId =>
-      renderingSpanIds.has(spanId) || queuedSpanIds.has(spanId) || pendingSpanIds.has(spanId)
+      preparingSpanIds.has(spanId) || renderingSpanIds.has(spanId) || queuedSpanIds.has(spanId) || pendingSpanIds.has(spanId)
     );
   };
 
@@ -596,13 +596,18 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       const lineIsPending = pendingSpanIds.has(span.id);
       const lineIsRendering = renderingSpanIds.has(span.id);
       const lineIsQueued = queuedSpanIds.has(span.id);
+      // Preparing (engine/model loading) takes precedence over the other states —
+      // script mode previously omitted it entirely, so a loading segment showed no
+      // block/pulse even though preparingSpanIds was correct. Precedence mirrors
+      // batchRenderClassName: preparing > rendering > queued > pending.
+      const lineIsPreparing = preparingSpanIds.has(span.id);
       const isFirstInRun = span.character_id !== lastCharId;
       lastCharId = span.character_id;
 
       return (
         <div
           key={span.id}
-          className={`script-line ${!isFirstInRun ? 'connected-top' : ''} ${lineIsRendering ? 'is-rendering' : ''} ${lineIsQueued ? 'is-queued' : ''} ${lineIsPending && !lineIsRendering && !lineIsQueued ? 'is-pending' : ''}`}
+          className={`script-line ${!isFirstInRun ? 'connected-top' : ''} ${lineIsPreparing ? 'is-preparing' : ''} ${lineIsRendering && !lineIsPreparing ? 'is-rendering' : ''} ${lineIsQueued && !lineIsPreparing && !lineIsRendering ? 'is-queued' : ''} ${lineIsPending && !lineIsPreparing && !lineIsRendering && !lineIsQueued ? 'is-pending' : ''}`}
           style={char ? ({ '--script-line-accent': char.color } as React.CSSProperties) : undefined}
         >
           <div className="script-line-speaker" style={char ? { color: char.color } : undefined}>
