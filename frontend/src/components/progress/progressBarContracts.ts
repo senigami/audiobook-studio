@@ -48,12 +48,16 @@ export const buildSegmentProgressBarProps = ({
     // SEGMENT_PENDING: engine not confirmed yet — keep null ETA so the bar is indeterminate.
     // Only seed the default 120s ETA when the engine has confirmed (START_SEGMENT or no code).
     const isSegmentPending = reasonCode === 'SEGMENT_PENDING';
-    // isLoadWindow: suppress the 120s fallback ETA and show "Loading voice model…" label.
+    // isLoadWindow: show the "Loading voice model…" label during the model-load window.
     // indeterminate:true from the overlay is also a load signal (W-MIX-LA 004).
     const isLoadWindow = isSegmentPending || reasonCode === 'LOADING_MODEL' || indeterminate === true;
-    const seededEtaSeconds = typeof etaSeconds === 'number'
-        ? etaSeconds
-        : (!isLoadWindow && segmentProgress === 0 && (status === 'running' || state === 'processing') ? 120 : undefined);
+    // Never fabricate an ETA. Earlier code seeded a default 120s ETA on the first
+    // running-at-0% frame so the bar wouldn't sit dead — but the real engine ETA
+    // arrives the very next frame, and the 120s→real collapse over the lane migration
+    // produced a velocity spike that made the bar jump to ~12% instead of easing from
+    // zero. With no fabricated ETA the bar simply holds at 0 (no countdown) until the
+    // engine reports, then coasts from 0 at the true pace. Only use a real ETA.
+    const seededEtaSeconds = typeof etaSeconds === 'number' ? etaSeconds : undefined;
     const seededEtaBasis = seededEtaSeconds != null ? (etaBasis ?? 'remaining_from_update') : undefined;
     return {
         key: identity,

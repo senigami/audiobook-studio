@@ -36,7 +36,11 @@ describe('progressBarContracts', () => {
     expect(props.onDebugSnapshot).toBe(onDebugSnapshot);
   });
 
-  it('seeds START_SEGMENT at zero with a default 120 second ETA when no explicit ETA is present', () => {
+  it('does NOT fabricate an ETA at zero progress when no explicit ETA is present', () => {
+    // Previously this seeded a default 120s ETA so the bar would not sit dead. But the
+    // real engine ETA arrives the next frame, and the 120s→real collapse over the lane
+    // migration spiked the displayed value to ~12% instead of easing from zero. We now
+    // hold at 0 (no countdown) until the engine reports a real ETA, then coast from 0.
     const props = buildSegmentProgressBarProps({
       jobId: 'job-1',
       segmentId: 'seg-2',
@@ -44,8 +48,8 @@ describe('progressBarContracts', () => {
       status: 'running',
     });
 
-    expect(props.etaSeconds).toBe(120);
-    expect(props.etaBasis).toBe('remaining_from_update');
+    expect(props.etaSeconds).toBeUndefined();
+    expect(props.etaBasis).toBeUndefined();
   });
 
   it('SEGMENT_PENDING at zero with null ETA does NOT seed the default 120s ETA', () => {
@@ -79,8 +83,9 @@ describe('progressBarContracts', () => {
     expect(props.updatedAt).toBe(1234);
   });
 
-  // Guard: no-reasonCode path must still seed 120s (existing behavior preserved).
-  it('[guard] buildSegmentProgressBarProps without reasonCode still seeds 120s ETA at zero progress', () => {
+  // Guard: the no-reasonCode path must NOT fabricate an ETA at zero progress — the bar
+  // holds at 0 until the engine reports a real ETA (no 120s seed → no collapse spike).
+  it('[guard] buildSegmentProgressBarProps without reasonCode does not fabricate an ETA at zero progress', () => {
     const props = buildSegmentProgressBarProps({
       jobId: 'job-guard',
       segmentId: 'seg-guard',
@@ -88,8 +93,7 @@ describe('progressBarContracts', () => {
       status: 'running',
     });
 
-    // This is a guard assertion — it must pass before and after the change.
-    expect(props.etaSeconds).toBe(120);
+    expect(props.etaSeconds).toBeUndefined();
   });
 
   // R1 revert-check: label must change from "Working..." to the preparing label.
