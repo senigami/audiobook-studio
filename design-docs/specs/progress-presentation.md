@@ -1,8 +1,8 @@
 # Progress Presentation Contract
 
 ```
-spec_version: 1.6.0
-updated: 2026-06-26
+spec_version: 1.7.0
+updated: 2026-06-28
 status: active
 sources:
   - frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx
@@ -12,11 +12,13 @@ sources:
   - frontend/src/hooks/useSegmentHandoffQueue.ts
   - frontend/src/store/live-jobs.ts
   - frontend/src/api/contracts/liveEvents.ts
+  - frontend/src/demo/stages/siteMockup/SegmentRenderStrip.tsx
   - app/orchestration/progress/service.py
   - app/orchestration/progress/eta.py
   - app/orchestration/progress/events.py
   - design-docs/specs/live-events.md
   - design-docs/specs/queue-jobs.md
+  - design-docs/plans/active/parallel-segment-rendering/10-phase2-render-monitor.md
 ```
 
 > **TL;DR:** `PredictiveProgressBar` renders server-authoritative progress augmented by a client-side ETA confidence model; every prop that gates backward motion or floors the bar MUST be passed explicitly by callers. **As of 1.4.2, the §4A contract is fully shipped:** confidence is ONE backend-authoritative numeric `eta_confidence ∈ [0,1]` computed by `ProgressService.enrich()` (the single RLock-guarded kernel) with a three-term formula (§4A.2), composed share-weighted from segment and chapter ETAs (§4A.3), crossfaded from calculated to observed (§4A.8), bounded by a mechanical ceiling (§4A.4), and emitted on every progress frame from both producers. `compute_progress_confidence` echo is deleted. §2.6 documents the LOADING_MODEL indeterminate window. §2.5 clarifies the two-layer monotonic floor (server enrich + client `progressMemory`).
@@ -25,6 +27,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.7.0   | 2026-06-28 | **Segment block-fill / render-monitor presentation (§7A).** Documents the additive per-segment block-fill that sits *beneath* the chapter aggregate bar — the "render monitor" (BitTorrent-style) whose full design lives in plan [10-phase2-render-monitor.md](../plans/active/parallel-segment-rendering/10-phase2-render-monitor.md) and which is validated by a demo reference mock (`frontend/src/demo/stages/siteMockup/SegmentRenderStrip.tsx`). Binding rules (new invariants **M1–M3**, §8): block widths are char-weighted (a manuscript map, not render-time); the aggregate % MUST be derived from the same char-weighted segment sum (done chars + partial rendering chars ÷ total chars), never an independent counter, so the two layers can't drift (M1, cross-refs **B9**); at most `cap` segments active at once (per-engine cap); in-progress reads as a **teal track with the blue fill advancing over it** (owner, 2026-06-28); failure MUST NOT be conveyed by hue alone — a pattern/icon is required for color-blind accessibility (M2); reduced-motion gates the animation at the **timer level**, not just CSS (M3); dual-layer a11y (decorative `aria-hidden` block field + milestone `aria-live` + a queryable segment table as the real keyboard surface); degrade-by-count thresholds. The interim Phase-1 surface remains the existing per-segment bars lighting up in parallel (W-PAR task 006). |
 | 1.6.0   | 2026-06-26 | **Segment-granularity preparing tier + per-group (running) load window (§2.7, W-MIX W4).** During a *running* mixed render a later group's model load is a per-group load window: durable `status` stays `running` (INV-1), the frame carries `reasonCode=LOADING_MODEL` + `indeterminate=true` + cleared ETA, force-emitted. Suspension fires only on the active engine's real load marker — the `SEGMENT_PENDING` announce is ETA-neutral, so warm renders don't flash. Frontend: the active segment renders a `preparing` tier (`data-render-status="preparing"`, precedence over rendering, no render cursor, excluded from the rendering set); the segment bar reads "Preparing… / Loading voice model…", is indeterminate, shows no countdown, and the synthetic 120 s lane is suppressed (reasonCode guard); generic indeterminate bars read "Preparing…". ETA suspends then resumes fresh at engine confirmation. No new wire field — threads `reason_code`/`indeterminate`/`loadingElapsedSeconds`. |
 | 1.5.0   | 2026-06-19 | **Segment ETA decay-handoff + per-segment confidence (§4A.10).** Two segment-track fixes in `enrich()`. (1) **Segment ETA decay (B11):** the per-segment ETA (`active_segment_eta_seconds`) was raw `remaining_from_update` — noisy early, making the per-segment bar surge then stall. It now blends a grounded baseline (`seg_chars × seconds_per_char`, where `seg_chars = active_render_group_weight`) with the live observed estimate on the implied-total axis, weighted `w_base = c_base × (1 − p)` per the owner's law; `c_base` is the baseline's historical maturity `min(engine_sample_count / N_MATURE, 1)`, fixed per segment. New pure helper `decay_segment_eta()`; new reader `app.db.performance.engine_sample_count`. Only the emitted segment ETA changes — the §4A.3 chapter composition still reads the raw observed value. (2) **Per-segment confidence (B12):** `segments.progress` frames carried the chapter-level `eta_confidence` (rose monotonically across the whole chapter, never reset). They now carry the per-segment `seg_confidence` (from the segment-keyed ring, surfaced via `active_segment_eta_confidence`), resetting per `segment_id`; a saved segment reports `confidence = 1.0`. Added §4A.10, invariants **B11/B12**. |
 | 1.4.5   | 2026-06-19 | **Segment bar honors backend status (fixes slow-start highlight).** The `segments.progress` projector (`frontend/src/utils/segmentsProgressProjector.ts`) previously rewrote the backend segment status `running`→`preparing` whenever `activeSegmentProgress <= 0 && reasonCode !== 'START_SEGMENT'` — an obsolete heuristic from when the backend emitted pre-synthesis `preparing`. That manufactured `preparing` made `resolveEndAtMs` return null (I10), so the segment progress bar + text-highlight could not build a predictive lane and didn't animate until progress first exceeded 0 (the "slow start"). The projector now **honors the backend status**, projecting `preparing` only for an explicit load window (`reasonCode === 'SEGMENT_PENDING'` or `indeterminate`); a true running 0% start (START_SEGMENT / `[PROGRESS] 0%` / the START_SYNTHESIS sync) keeps `running` and animates from the first frame. (The `predictive` prop is a no-op for animation — lane motion is gated by status + ETA, not that flag.) |
@@ -555,6 +558,39 @@ Rules:
 
 ---
 
+## 7A. Segment Block-Fill / Render Monitor Presentation
+
+A chapter that renders its segments in parallel (W-PAR) earns an **additive** per-segment visualization: a row of blocks, one per segment, sized to the manuscript and filling in as audio data arrives — the "render monitor" (BitTorrent-style). It sits **beneath** the chapter aggregate `PredictiveProgressBar`; it does **not** replace it. Full UX design (progressive disclosure, power controls, open questions) lives in the plan: [10-phase2-render-monitor.md](../plans/active/parallel-segment-rendering/10-phase2-render-monitor.md). This section is the binding *presentation contract* the production component must satisfy.
+
+**Status.** Target contract for the Phase-2 render monitor (not yet in the real app). The interim Phase-1 surface is the existing per-segment bars lighting up in parallel (W-PAR task 006). A demo **reference implementation** — `frontend/src/demo/stages/siteMockup/SegmentRenderStrip.tsx`, on the Activity queue screen — validates the encoding, the aggregate-derivation rule, the fail→retry state, and reduced-motion gating.
+
+### Block encoding
+
+- **Width = character count** (a manuscript map), clamped to a minimum (~6 px in production; the demo uses 3 px to keep slivers visible in its narrow panel). Blocks abut as one continuous strip (the container rounds + clips the outer ends; no per-block gaps). Width encodes *how much manuscript*, **not** render time — engines differ in chars/second, so this MUST be made clear (label/tooltip on first expand).
+- **State:**
+  - **queued** — recessive flat fill (`--surface-alt`), no animation.
+  - **preparing** (model-load / `LOADING_MODEL` window, §2.6–2.7) — indeterminate sweep, no determinate inner fill.
+  - **rendering** — a **teal track** with the **blue (`--accent`) fill advancing left-to-right** over it as the segment's `progress` rises, plus a subtle pulse so parallel workers read as alive. The teal/blue two-tone makes "working" instantly distinct from queued (grey) and done (solid blue). *(Owner decision, 2026-06-28.)*
+  - **done** (validated artifact) — solid `--accent`, static.
+  - **failed / retrying** — MUST be distinguishable **without relying on hue** (M2): a pattern (crosshatch) or icon overlay, because red/green is inaccessible to color-blind users. A danger-hued border MAY be a *secondary* cue but MUST NOT be the only one. *(The current demo mock uses a red inset border only — acceptable for the mock; production MUST add the pattern/icon.)*
+- **Engine is NOT a colour axis** — engine identity lives in the per-segment detail/popover, never as a second hue on the block.
+- **Concurrency** — at most `cap` blocks are in an active (preparing/rendering) state at once, where `cap` is the per-engine concurrency cap (W-PAR 001). The active blocks are the visible "parallel mini-queues".
+
+### Aggregate consistency (the load-bearing rule)
+
+The chapter % shown on the aggregate bar above the strip MUST be **derived from the same char-weighted segment set** that the blocks render from — `progress = (Σ done.chars + Σ rendering.chars × fill) / Σ total.chars` — and MUST NOT be an independently-maintained counter. This guarantees the two layers can never drift (e.g. the aggregate honestly *stalls* while segments sit in `preparing`, and *dips* when a segment fails and retries from zero). Cross-references the char-weighted progress rule **B9**.
+
+### Accessibility (dual-layer)
+
+The block field is a **decoration layer** (`aria-hidden`, or `role="img"` with one summary label such as "Rendering 6 of 50 segments, 4 in parallel"). Accessibility is delivered through a parallel surface: a milestone-only `aria-live` region (chapter start/complete + threshold counts — **never** per-segment chatter) and an always-present, keyboard-reachable **segment table** (index, state, engine, ETA) that is the real keyboard surface. The block field decorates; the table informs.
+
+### Motion & scale
+
+- **Reduced motion** — `prefers-reduced-motion: reduce` MUST gate the animation at the **timer level** (don't start the simulation/subscription interval), not merely via CSS, so there is no DOM churn for assistive tech. A static representative frame is still shown (reduced motion ≠ no information).
+- **Degrade by segment count** — `< 10`: omit the field (the aggregate bar suffices); `10 – ~60`: full block field; `> ~60` (exact threshold TBD, see plan): degrade to bar + count or virtualize; `> ~500`: a canvas escape hatch (the accessible table then becomes the sole keyboard surface). The real feature MUST NOT silently render hundreds of sub-pixel slivers as if legible.
+
+---
+
 ## 8. Conformance Invariants
 
 The following invariants are binding on all callers and on the bar implementation itself.
@@ -595,6 +631,12 @@ The following invariants are binding on all callers and on the bar implementatio
 - **B10 (1.4.0)** — The displayed ETA MUST crossfade from the **calculated** ETA (`remaining_chars × seconds_per_char`, dominant at start) to the **observed** ETA (dominant toward completion) via a progress ramp, both bounded by the §4A.4 ceiling and converging to 0 (§4A.8).
 - **B11 (1.5.0)** — The emitted per-segment ETA (`active_segment_eta_seconds`) MUST be the §4A.10 confidence-gated decay blend of the grounded baseline (`seg_chars × seconds_per_char`) and the live observed estimate, weighted `w_base = c_base × (1 − p)` on the implied-total axis, when a baseline is available; otherwise the raw observed value is kept. `c_base` is the engine's historical maturity, fixed per `segment_id`. The blend MUST NOT alter the §4A.3 chapter composition input (§4A.10).
 - **B12 (1.5.0)** — A `segments.progress` frame's `confidence` MUST be the per-segment `seg_confidence` (segment-keyed ring, resetting per `segment_id`), never the chapter-level `eta_confidence`; a finished segment (`SEGMENT_SAVED`) reports `1.0` (§4A.10).
+
+### Render monitor (§7A)
+
+- **M1 (1.7.0)** — **Aggregate derived from segments:** the chapter % shown above a segment block-fill MUST be the char-weighted sum over the same segment set (`(Σ done.chars + Σ rendering.chars × fill) / Σ total.chars`), never an independent counter, so the strip and the bar cannot diverge (§7A; cross-ref **B9**).
+- **M2 (1.7.0)** — **Failure not by hue alone:** a failed/retrying block MUST be distinguishable via a non-hue channel (pattern or icon); a danger colour MAY be a secondary cue only (§7A, accessibility).
+- **M3 (1.7.0)** — **Reduced-motion gates the timer:** under `prefers-reduced-motion: reduce` the animation driver (interval/subscription) MUST NOT run; a static representative frame is rendered instead. CSS-only suppression is insufficient (§7A).
 
 ---
 

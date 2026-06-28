@@ -747,6 +747,35 @@
   display: block;
 }
 
+/* --- Segment render strip (torrent-style block-fill) ------------------ */
+/* Active rendering block: a teal track (distinct from queued grey / done blue)
+   that the blue fill advances over, plus a subtle pulse so parallel workers
+   read as alive. */
+@keyframes ns-seg-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.72; }
+}
+.ns-seg-active {
+  background: rgba(20, 184, 166, 0.22);
+  animation: ns-seg-pulse 1.6s ease-in-out infinite;
+}
+[data-theme='dark'] .ns-seg-active {
+  background: rgba(45, 212, 191, 0.26);
+}
+/* Interior fill grows smoothly between sim ticks. */
+.ns-seg-fill { transition: width 140ms linear; }
+/* Preparing (model-load) block: indeterminate sweep, no determinate fill. */
+@keyframes ns-seg-prep {
+  0%   { background-position: -120% 0; }
+  100% { background-position: 220% 0; }
+}
+.ns-seg-prep {
+  background-image: linear-gradient(90deg, transparent 0%, var(--accent-tint-border) 50%, transparent 100%);
+  background-size: 60% 100%;
+  background-repeat: no-repeat;
+  animation: ns-seg-prep 1.1s linear infinite;
+}
+
 /* --- Respect reduced-motion ------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   .ns-card, .ns-lift, .ns-btn,
@@ -757,4 +786,6 @@
   }
   .ns-cover-play { transition: none !important; }
   .nsp-tape-region { transition: none !important; }
+  .ns-seg-active, .ns-seg-prep { animation: none !important; }
+  .ns-seg-fill { transition: none !important; }
 }

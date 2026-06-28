@@ -29,7 +29,7 @@ Last updated: 2026-06-27
 | [voice-bundles.md](voice-bundles.md) | Bundle directory structure, MP3/WAV format rules, voice attribute taxonomy, voice catalog + Voice Lab UI | 1.2.0 |
 | [interface-localization.md](interface-localization.md) | Interface localization, locale catalogs, first-run picker, settings selector, locale-aware formatting | 1.0.4 |
 | [voice-tone.md](voice-tone.md) | UI copy conventions: casing (Title Case CTAs / sentence case body), confirm-dialog defaults and verb-first labels, irreversibility messaging, the five UI states, loading/empty/success patterns, form-field label suffixes, ellipsis style, product naming | 1.0.0 |
-| [progress-presentation.md](progress-presentation.md) | `PredictiveProgressBar` contract, ETA trust model, broadcast thresholds, segment ETA decay-handoff (§4A.10) | 1.5.0 |
+| [progress-presentation.md](progress-presentation.md) | `PredictiveProgressBar` contract, ETA trust model, broadcast thresholds, segment ETA decay-handoff (§4A.10), segment block-fill / render-monitor presentation (§7A) | 1.7.0 |
 | [code-organization.md](code-organization.md) | Repo layout, module boundary rules, file-size norms, import constraints | 1.1.0 |
 | [security.md](security.md) | Path containment pattern, API key auth, input validation, CodeQL requirements | 1.2.1 |
 | [install-distribution.md](install-distribution.md) | `run.sh` behaviour, env var reference, Pinokio wrapper, first-run defaults | 1.2.0 |

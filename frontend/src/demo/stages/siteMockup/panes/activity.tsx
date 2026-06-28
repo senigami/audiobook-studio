@@ -3,7 +3,8 @@
  */
 import React, { useState } from 'react';
 import { PauseCircle, Check, X } from 'lucide-react';
-import { Row, Col, Label, SemanticChip, Btn, ProgressBar, IN_FLIGHT_JOBS, Card, Panel, PaneHeader } from '../shared';
+import { Row, Col, Label, SemanticChip, Btn, IN_FLIGHT_JOBS, Card, Panel, PaneHeader } from '../shared';
+import { SegmentRenderStrip } from '../SegmentRenderStrip';
 
 export const ActivityPane: React.FC = () => {
   const [historyFilter, setHistoryFilter] = useState<'All' | 'Renders' | 'Samples' | 'API'>('All');
@@ -54,11 +55,7 @@ export const ActivityPane: React.FC = () => {
                 <SemanticChip variant="neutral">{job.engine}</SemanticChip>
                 <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>{job.eta}</span>
               </Row>
-              <Row gap={6} style={{ alignItems: 'center', marginBottom: 3 }}>
-                <ProgressBar pct={job.pct} />
-                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', flexShrink: 0 }}>{job.pct}%</span>
-              </Row>
-              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>Segs {job.segs}</span>
+              <SegmentRenderStrip plan={job.plan} />
             </Card>
           ))}
 

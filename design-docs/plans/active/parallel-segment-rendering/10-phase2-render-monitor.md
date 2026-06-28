@@ -1,8 +1,26 @@
 # 10 — Phase 2: Render Monitor (BitTorrent-style)
 
-**Status: Phase 2 — design captured, not scheduled**
+**Status: Phase 2 — design captured + demo reference implementation built (2026-06-28); production build not scheduled**
 
-Fast-follow after Phase 1 (M-PAR-3). This document captures the design converged in the 2026-06-26 fusion panel so it is not lost. Build it once the Phase 1 parallel backend + frontend multi-active (tasks 001–007) are stable and the M-PAR-3 invariant suite is green.
+Fast-follow after Phase 1 (M-PAR-3). This document captures the design converged in the 2026-06-26 fusion panel so it is not lost, plus the refinements proven by the 2026-06-28 demo mock. Build the production monitor once the Phase 1 parallel backend + frontend multi-active (tasks 001–007) are stable and the M-PAR-3 invariant suite is green. The binding presentation contract is mirrored in `design-docs/specs/progress-presentation.md` §7A (invariants M1–M3).
+
+---
+
+## Reference implementation (demo mock — 2026-06-28)
+
+A working visual mock landed on the demo Activity ("queue") screen, validating the encoding, the animation, and the honesty rules below before any production work:
+
+- `frontend/src/demo/stages/siteMockup/SegmentRenderStrip.tsx` — the strip component + a self-contained simulation (it *plays the backend*: a `queued → preparing → rendering → done`/`failed→retry` state machine under a per-plan concurrency `cap`, deriving the aggregate from the segment set).
+- `frontend/src/demo/stages/siteMockup/shared.tsx` — `IN_FLIGHT_JOBS[].plan` (`chars[]`, `groups`, `cap`, `speed`, `doomed`) drives two contrasting examples: XTTS (20 larger segments, cap 3, slowed) and Voxtral (50 segments incl. slivers, cap 4, with a fail→retry).
+- `frontend/src/demo/stages/siteMockup/panes/activity.tsx` — host pane.
+- `frontend/src/demo/stages/siteMockup/mockup.css` — `ns-seg-*` keyframes (active pulse, preparing sweep) + the teal active-track + reduced-motion guards.
+
+**What it validates:** char-weighted variable-width blocks as a continuous strip; the aggregate derived from the same segment set (M1); ≤ `cap` active at once reading as parallel; the teal-track + blue-fill in-progress encoding; fail→retry; reduced-motion gating at the timer level (M3); the `role="img"` summary label.
+
+**Where the mock diverges from the production target (reconciled):**
+- **Failure colour (M2 gap):** the mock shows failure as a red inset border *only*. Production MUST additionally use a non-hue cue (crosshatch/icon) for color-blind accessibility — the red may stay as a secondary cue. See "Block encoding" below.
+- **Min block width:** the mock clamps to 3 px so slivers stay visible in its ~235 px panel; production targets ~6 px (see Block encoding) and the degrade-by-count rules.
+- **Simulation-only fields:** `speed` (a demo pacing multiplier) and the LCG-generated `chars[]` are mock conveniences; production reads real char counts and live `active_segments_map` progress.
 
 ---
 
@@ -34,11 +52,13 @@ Each segment in the chapter is represented by one block in the field.
 **State via fill brightness / animation:**
 - `idle` / not yet queued: dim fill, no animation.
 - `queued`: slightly brighter, no animation.
-- `rendering`: bright fill + a fill-progress animation that advances left-to-right as `progress` increases (matches the progress value from `active_segments_map`).
-- `done` (validated artifact): fully filled, static.
-- `stalled` / stuck heartbeat: same brightness as rendering but with a subtle pulse.
+- `rendering`: a **teal track** with the **blue (`--accent`) fill advancing left-to-right** over it as `progress` increases (matches the value from `active_segments_map`), plus a subtle pulse. *(Owner decision, 2026-06-28, proven in the demo mock.)* The teal/blue two-tone makes "working" instantly distinct from queued (grey) and done (solid blue), and is a clearer signal than brightness alone at small block widths. The teal is a **state** cue, not an engine axis (engine stays out of the colour dimension — see below). When productionized it should be tokenized in `design-system.md` rather than a raw rgba.
+- `done` (validated artifact): fully filled solid `--accent`, static.
+- `stalled` / stuck heartbeat: same as rendering but with a subtle pulse.
 
-**Failure via pattern/icon, NOT hue:** a failed/retrying segment uses a crosshatch pattern or small warning icon overlay — never a red fill or hue shift. Reason: hue encodes failure is a common pattern, but red/green distinctions are inaccessible to red-green color blind users (see Accessibility below), and the block field already uses brightness as the primary state axis.
+**Failure: a non-hue cue is required (spec M2).** A failed/retrying segment MUST be distinguishable without relying on hue — a crosshatch pattern or small warning-icon overlay — because red/green distinctions are inaccessible to red-green color-blind users, and the field already uses brightness/teal as state axes. A danger-hued border MAY be added as a *secondary* cue (the 2026-06-28 demo mock currently uses a red inset border *only*; production MUST add the pattern/icon).
+
+**Aggregate derived from the segment set (spec M1).** The chapter % shown on the aggregate bar above the field MUST be the char-weighted sum over the same segments (`(Σ done.chars + Σ rendering.chars × fill) / Σ total.chars`), never an independent counter — so the strip and the bar cannot drift (the aggregate honestly stalls during `preparing` and dips on a fail→retry). This mirrors the char-weighted progress rule (progress-presentation §4A.9 / B9).
 
 **Engine NOT encoded as a color axis.** Engine identity (XTTS, Voxtral, CPU) goes in the popover/detail table. Do not add a per-engine color dimension to the block fill — it would conflict with the brightness state encoding and force the user to track two simultaneous color axes.
 
