@@ -309,17 +309,18 @@ def test_log_listener_progress_is_monotonic():
     # Filter running events from orc.published
     running_events = [p for p in orc.published if p.get("status") == "running" and p.get("progress") is not None]
 
-    # Progress values published should be:
+    # Progress values published should be (true fraction, no ×0.90 scaling):
+    # segA weight=13, segB weight=13, total=26.
     # 1. 0.0 (from START_SYNTHESIS)
     # 2. 0.0 (from SEGMENT_PENDING announce at [START_SEGMENT])
     # 3. 0.0 (preparing downgrade republish)
-    # 4. 0.225 (canonical START_SEGMENT — confirmation inside the first PROGRESS branch,
-    #    grouped progress already includes the parsed 50%)
-    # 5. 0.225 (from 50% segment progress)
-    # 6. 0.45 (from 100% segment progress)
-    # 7. 0.45 (remains at 0.45 because of monotonicity clamp, NOT 0.09)
+    # 4. 0.25 (canonical START_SEGMENT — confirmation inside the first PROGRESS branch,
+    #    grouped progress already includes the parsed 50%; 13*0.5/26=0.25)
+    # 5. 0.25 (from 50% segment progress)
+    # 6. 0.5  (from 100% segment progress; 13/26=0.5)
+    # 7. 0.5  (remains at 0.5 because of monotonicity clamp, NOT 0.09)
     progress_values = [p["progress"] for p in running_events]
-    assert progress_values == [0.0, 0.0, 0.0, 0.225, 0.225, 0.45, 0.45]
+    assert progress_values == [0.0, 0.0, 0.0, 0.25, 0.25, 0.5, 0.5]
 
 
 def test_start_segment_eta_uses_active_block_chars():
@@ -381,7 +382,8 @@ def test_segment_eta_uses_active_block_progress_not_chapter_progress():
         and e.get("active_segment_id") == "segA"
         and e.get("active_segment_progress") == 1.0
     )
-    assert segment_complete["progress"] == 0.45
+    # segA=13 chars of 26 total → true fraction 0.5 (no ×0.90 scaling)
+    assert segment_complete["progress"] == 0.5
     assert segment_complete["eta_seconds"] is not None
     assert segment_complete["active_segment_eta_seconds"] == 0
 
@@ -424,7 +426,7 @@ class TwoGroupScriptTask(StudioTask):
     """
     2-group script using the production script format (id + ids + save_path).
     Group 1 weight=50 (segments seg-A, seg-B), group 2 weight=50 (segment seg-C).
-    Equal weights → completed-group fraction = 0.5 → grouped_progress = 0.5*0.9 = 0.45.
+    Equal weights → completed-group fraction = 0.5 (true fraction, no ×0.90 scaling).
     """
     def __init__(self, bridge):
         self.bridge = bridge
@@ -473,13 +475,13 @@ def test_b8_progress_advances_within_group2(monkeypatch):
 
     Assert:
       1. After SEGMENT_SAVED for group 1, grouped_progress = completed-group fraction
-         (0.45 for equal weights). This is the "frozen" value from the bug.
+         (0.5 for equal weights, true fraction). This is the "frozen" value from the bug.
       2. After each [PROGRESS] in group 2, grouped_progress STRICTLY exceeds the frozen
          value — i.e., progress advances within the group rather than staying frozen.
       3. active_segment_id is set to "seg-C" during the group-2 progress events.
 
     Revert-check: on pre-fix code where active_seg_id[0] is None or doesn't resolve a
-    weight, all three group-2 PROGRESS events publish the same frozen value (0.45).
+    weight, all three group-2 PROGRESS events publish the same frozen value (0.5).
     """
     bridge = MagicMock()
     orc = MockOrchestrator(voice_bridge=bridge)

@@ -867,25 +867,25 @@ class TestEnrichMethod:
 # ---------------------------------------------------------------------------
 
 class TestColdEtaCrossfade:
-    """003b: enrich() must emit non-null, bounded, converging eta_seconds on cold frames.
+    """003b (reversed): cold frames with no real calibration/observed data yield eta_seconds=None.
 
-    R1 revert-check: before 003b wiring, enrich() left eta_seconds=None when no
-    incoming eta_seconds was provided (cold/sparse frame).  The primary test
-    (test_cold_frame_emits_non_null_eta) would fail on pre-wiring code because
-    the result["eta_seconds"] would still be None.
+    The fabricated cold-ETA path (DEFAULT_BASELINE_ENGINE_CPS as fallback) has been
+    removed.  enrich() now returns eta_seconds=None when there is no incoming
+    eta_seconds and no observed ring throughput.
+
+    R1 revert-check: on the old fabricated code, result["eta_seconds"] was non-null
+    (computed from char_count / 16.7).  These tests are RED on the old code and
+    GREEN on the new honest contract.
     """
 
     def test_cold_frame_emits_non_null_eta(self):
-        """Cold frame: no incoming eta_seconds, char_count present, empty engine_cps.
+        """Cold frame: no incoming eta_seconds, char_count present, no calibration.
 
-        enrich() must produce a non-null eta_seconds using the calculated baseline.
-        R1 red: pre-003b, result["eta_seconds"] is None because there is no
-        incoming eta_seconds and no ring samples.  Post-003b it is non-null.
+        New honest contract: without a real calibrated CPS or observed throughput,
+        enrich() returns eta_seconds=None.
+        R1 red: pre-removal, result["eta_seconds"] was ~21s (fabricated baseline).
         """
         svc, _, _, _ = _make_service()
-        # char_count = 500; DEFAULT_BASELINE_ENGINE_CPS = 16.7
-        # spc = 1/16.7 ≈ 0.060s/char; remaining = 500 * (1 - 0.3) = 350 chars
-        # eta_calculated ≈ 350 * 0.060 ≈ 21s
         payload_in = {
             "status": "running",
             "progress": 0.3,
@@ -894,19 +894,18 @@ class TestColdEtaCrossfade:
             # deliberately no eta_seconds
         }
         result = svc.enrich("cold-job", payload_in)
-        assert result.get("eta_seconds") is not None, (
-            "Cold frame with char_count must produce non-null eta_seconds"
+        assert result.get("eta_seconds") is None, (
+            "Cold frame with no calibration/observed data must yield eta_seconds=None"
         )
-        assert result["eta_seconds"] >= 0, "eta_seconds must be non-negative"
 
     def test_cold_frame_eta_bounded_by_ceiling(self):
-        """Cold frame ETA must never exceed the §4A.4 mechanical ceiling.
+        """Cold frame with no calibration/observed data yields None (no ceiling needed).
 
-        With no ring samples, velocity=None so ceiling is skipped in crossfade.
-        The calculated path should still produce a reasonable number.
+        The fabricated baseline no longer runs, so there is no calculated value to
+        bound.  Assert None rather than a ceiling-bounded positive number.
+        R1 red: pre-removal, result["eta_seconds"] was ~150s (5000 chars / 16.7 cps).
         """
         svc, _, _, _ = _make_service()
-        # Large script: 5000 chars at 50% progress
         payload_in = {
             "status": "running",
             "progress": 0.5,
@@ -915,9 +914,9 @@ class TestColdEtaCrossfade:
         }
         result = svc.enrich("cold-ceil-job", payload_in)
         eta = result.get("eta_seconds")
-        assert eta is not None
-        # spc=1/16.7; remaining=2500 chars; eta_calc≈150s → reasonable bound
-        assert eta <= 1000, f"Cold ETA {eta} is unreasonably large"
+        assert eta is None, (
+            f"Cold frame with no calibration must yield eta_seconds=None, got {eta}"
+        )
 
     def test_cold_frame_terminal_still_null(self):
         """Terminal status must still yield null/0 eta, even with char_count present."""
@@ -969,14 +968,18 @@ class TestColdEtaCrossfade:
             "Without char_count or eta_seconds, eta should remain None"
         )
 
-    @pytest.mark.parametrize("progress,has_eta_seconds", [
-        (0.05, True),   # start phase: dominated by calculated
-        (0.5,  True),   # mid phase: blended
-        (0.8,  True),   # end phase: observed dominates (but no observed → calculated only)
-        (0.999, False), # near-complete → 0 (treated as False since 0 is falsy)
+    @pytest.mark.parametrize("progress,expected_eta", [
+        (0.05,  None),  # start phase: no calibration → None
+        (0.5,   None),  # mid phase: no calibration → None
+        (0.8,   None),  # end phase: no calibration → None
+        (0.999, 0),     # near-complete → 0 (unchanged)
     ])
-    def test_crossfade_phases_produce_expected_eta(self, progress, has_eta_seconds):
-        """Parametric: crossfade at each phase produces bounded, converging ETA."""
+    def test_crossfade_phases_produce_expected_eta(self, progress, expected_eta):
+        """Parametric: without calibration each phase yields None; near-complete yields 0.
+
+        R1 red: pre-removal, phases 0.05/0.5/0.8 yielded a fabricated non-null ETA
+        (chars/16.7); post-removal they yield None.  The near-complete→0 case is unchanged.
+        """
         svc, _, _, _ = _make_service()
         payload_in = {
             "status": "running",
@@ -989,9 +992,10 @@ class TestColdEtaCrossfade:
         if progress >= 0.999:
             assert eta == 0, f"Near-complete must yield 0, got {eta}"
         else:
-            # With only calculated (no ring), should be non-null
-            assert eta is not None, f"progress={progress} with char_count must yield non-null eta"
-            assert eta >= 0
+            # No calibration, no observed throughput → None
+            assert eta is None, (
+                f"progress={progress} with no calibration must yield None, got {eta}"
+            )
 
     def test_observed_eta_used_when_present(self):
         """When eta_seconds is provided (observed), it is used and crossfaded."""
@@ -1125,10 +1129,14 @@ class TestPreSynthesisEtaGate:
         assert result.get("indeterminate") is True
 
     def test_eta_appears_at_first_running_frame(self):
-        """The cold ETA must still appear at the first running frame (progress=0).
+        """Without a real calibration, the first running frame has no fabricated ETA.
 
-        Guards against over-suppression: the determinate ETA begins exactly at
-        START_SYNTHESIS (status=running), anchored to that frame.
+        The gate allows running frames through, but without calibration history or
+        an observed eta_seconds, enrich() returns None — no fabricated baseline ETA.
+        A real ETA only appears once observed throughput or an incoming eta_seconds
+        is present.
+
+        R1 red: pre-removal, the first running frame produced ~57s (962/16.7).
         """
         svc, _, _, _ = _make_service()
         payload_in = {
@@ -1136,12 +1144,12 @@ class TestPreSynthesisEtaGate:
             "progress": 0.0,
             "engine_id": "tts_xtts",
             "char_count": 962,
+            # no eta_seconds, no ring samples — cold with no calibration
         }
         result = svc.enrich("first-running-job", payload_in)
-        assert result.get("eta_seconds") is not None, (
-            "First running frame must produce the cold calculated ETA"
+        assert result.get("eta_seconds") is None, (
+            "First running frame without calibration/observed data must yield eta_seconds=None"
         )
-        assert result["eta_seconds"] > 0
 
 
 # ---------------------------------------------------------------------------
@@ -1149,57 +1157,46 @@ class TestPreSynthesisEtaGate:
 # ---------------------------------------------------------------------------
 
 class TestColdEtaViaPublish:
-    """Verify that the cold-ETA fix is wired through the full production path.
+    """Verify that the cold publish path (no fabrication) works through the full production path.
 
     publish() → _build_progress_payload() → enrich()
 
-    The blocker: enrich() only sees what _build_progress_payload puts in the
-    payload dict.  These tests confirm that char_count is threaded through so
-    the production path actually produces a non-null cold ETA.
+    With the fabricated baseline removed, cold publish() calls (char_count present
+    but no eta_seconds and no calibration) now yield eta_seconds=None.
 
-    R1 revert-check (verified):
-      - Pre-fix (before char_count param on publish/_build_progress_payload):
-        publish(..., char_count=500) ignores the value; enrich sees no char_count;
-        eta_seconds is None.  test_publish_cold_eta_non_null FAILS.
-      - Post-fix: char_count is written into the payload dict; enrich reads it;
-        eta_seconds is non-null.  test_publish_cold_eta_non_null PASSES.
+    R1 revert-check: on the old fabricated code, publish(..., char_count=500) would
+    return eta_seconds ≥ 1 (from char_count / 16.7).  These tests are RED on the
+    old code and GREEN on the new honest contract.
     """
 
     def test_publish_cold_eta_non_null(self):
-        """publish() with char_count and NO eta_seconds emits non-null eta_seconds.
+        """publish() with char_count but no eta_seconds and no calibration yields eta_seconds=None.
 
-        This is PI3: the production path (publish → _build_progress_payload →
-        enrich) must produce a cold ETA from char_count alone.
-
-        R1 red: on pre-fix code publish() has no char_count param; the call
-        raises TypeError, or if ignoring the kwarg, eta_seconds stays None.
-        R1 green: after fix, broadcaster receives payload with eta_seconds ≥ 1.
+        R1 red: pre-removal, publish() returned eta_seconds ≥ 1 (fabricated baseline).
+        R1 green: post-removal, eta_seconds is None (no real data available).
         """
         svc, events, _, _ = _make_service()
         emitted = svc.publish(
             job_id="pi3-cold-job",
             status="running",
             progress=0.3,
-            # NO eta_seconds — cold frame
+            # NO eta_seconds — cold frame, no calibration
             char_count=500,
             chapter_id="ch-pi3",
         )
         assert emitted is not None, "publish() must return the emitted payload"
         eta = emitted.get("eta_seconds")
-        assert eta is not None, (
-            "publish() with char_count=500 and no eta_seconds must produce "
-            "non-null eta_seconds via the cold-ETA path (PI3)"
+        assert eta is None, (
+            f"publish() with no calibration/observed data must yield eta_seconds=None, got {eta}"
         )
-        assert eta >= 1, f"Cold ETA must be at least 1s, got {eta}"
 
     def test_publish_cold_eta_broadcasted(self):
-        """The cold ETA produced via publish() reaches the broadcaster sink.
+        """Cold publish reaches the broadcaster with eta_seconds=None (no fabricated value).
 
         Verifies the full chain: publish → enrich → broadcaster.
-        The chapters.progress event payload in the broadcaster must have a
-        non-null etaSeconds (the camelCase field in the envelope).
-        We also check the returned internal payload directly as a belt-and-suspenders
-        assertion.
+        With no calibration, the chapters.progress envelope carries etaSeconds=null.
+
+        R1 red: pre-removal, etaSeconds was non-null (fabricated).
         """
         svc, events, _, _ = _make_service()
         emitted = svc.publish(
@@ -1209,22 +1206,22 @@ class TestColdEtaViaPublish:
             char_count=500,
             chapter_id="ch-pi3-b",
         )
-        # 1. Internal payload returned by publish() must have eta_seconds
+        # 1. Internal payload returned by publish() must have eta_seconds=None
         assert emitted is not None
-        assert emitted.get("eta_seconds") is not None, (
-            "publish() return value must carry non-null eta_seconds (PI3)"
+        assert emitted.get("eta_seconds") is None, (
+            "publish() with no calibration must yield eta_seconds=None (no fabrication)"
         )
 
         # 2. Broadcaster received at least one event (lifecycle + queue + chapter)
         assert events, "Broadcaster must have received at least one event"
 
-        # 3. The chapters.progress envelope carries etaSeconds from the enriched payload.
+        # 3. The chapters.progress envelope must also carry null etaSeconds.
         chap_events = [p for p, ch in events if p.get("topic") == "chapters.progress"]
         assert chap_events, "Expected at least one chapters.progress event in broadcaster"
         chap_payload = chap_events[-1].get("payload", {})
-        assert chap_payload.get("etaSeconds") is not None, (
-            "Broadcasted chapters.progress payload must have non-null etaSeconds "
-            "when char_count is provided (PI3 production path)"
+        assert chap_payload.get("etaSeconds") is None, (
+            "Broadcasted chapters.progress payload must have null etaSeconds "
+            "when no calibration/observed data is present (no fabrication)"
         )
 
     def test_publish_no_char_count_no_eta_seconds_emits_null_eta(self):
@@ -1372,15 +1369,15 @@ class TestSegmentPathCharCount:
         )
 
     def test_segment_path_cold_publish_emits_non_null_eta(self):
-        """Segment-path cold publish (no eta_seconds) must produce non-null eta_seconds.
+        """Segment-path cold publish (no eta_seconds, no calibration) yields eta_seconds=None.
 
         Simulates the orchestrator's _publish calling progress_service.publish()
-        with the context payload that now carries char_count from the chapter row.
+        with the context payload that carries char_count from the chapter row.
+        With the fabricated baseline removed, the publish yields None when there
+        is no real observed data.
 
-        R1 red: pre-fix → context.payload has no char_count; publish sees
-        char_count=None; enrich produces eta_seconds=None.
-        R1 green: post-fix → context.payload["char_count"]=962; enrich computes
-        eta_calculated and returns non-null eta_seconds.
+        R1 red: pre-removal → publish with char_count computed eta from 16.7 cps → non-null.
+        R1 green: post-removal → no calibration → eta_seconds=None.
         """
         from app.db.projects import create_project
         from app.db.chapters import create_chapter
@@ -1400,7 +1397,7 @@ class TestSegmentPathCharCount:
         )
         ctx = task.describe()
 
-        # Verify the context builder populated char_count (pre-condition).
+        # Verify the context builder populated char_count (pre-condition for plumbing).
         char_count = ctx.payload.get("char_count")
         assert isinstance(char_count, int) and char_count > 0, (
             f"Pre-condition failed: context.payload['char_count'] must be a "
@@ -1409,12 +1406,12 @@ class TestSegmentPathCharCount:
 
         svc, events, _, _ = self._make_service_with_sink()
 
-        # Cold publish: no incoming eta_seconds (mirrors the live segment-render path).
+        # Cold publish: no incoming eta_seconds, no calibration.
         emitted = svc.publish(
             job_id=ctx.task_id,
             status="running",
             progress=0.3,
-            # NO eta_seconds — cold/sparse frame
+            # NO eta_seconds — cold/sparse frame, no calibration history
             char_count=ctx.payload.get("char_count"),
             chapter_id=ctx.chapter_id,
             parent_job_id=ctx.project_id,
@@ -1422,10 +1419,7 @@ class TestSegmentPathCharCount:
 
         assert emitted is not None, "publish() must return the emitted payload"
         eta = emitted.get("eta_seconds")
-        assert eta is not None, (
-            "Segment-path cold publish must produce non-null eta_seconds "
-            f"(char_count={char_count}, render_group_count:2, chapter char_count 962)"
+        assert eta is None, (
+            f"Segment-path cold publish with no calibration must yield eta_seconds=None, "
+            f"got {eta} (char_count={char_count})"
         )
-        assert eta >= 1, f"Cold ETA must be at least 1s, got {eta}"
-        # Sanity-bound: 962 chars at baseline ~16.7 cps, remaining 70% → ~40s; cap at 1000s
-        assert eta <= 1000, f"Cold ETA {eta}s is unreasonably large for 962 chars"

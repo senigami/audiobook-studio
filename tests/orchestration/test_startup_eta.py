@@ -202,6 +202,7 @@ def test_live_chapter_remaining_eta_no_double_counting():
 
 
 def test_uncalibrated_model_suppresses_eta(tmp_path, monkeypatch):
+    """Without calibration history, get_expected_duration returns None (honest contract)."""
     from app.orchestration.tasks.base import StudioTask
     from app.tts_server.settings_store import save_settings
 
@@ -218,8 +219,8 @@ def test_uncalibrated_model_suppresses_eta(tmp_path, monkeypatch):
     )
 
     duration = StudioTask().get_expected_duration("x" * 1000, "engine-c")
-    from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
-    assert duration == 1000.0 / DEFAULT_BASELINE_ENGINE_CPS
+    # New honest contract: no calibration → None, not a fabricated baseline estimate.
+    assert duration is None
 
 
 def test_eta_behavior_unchanged_by_speed_multiplier_setting(tmp_path, monkeypatch):
@@ -393,8 +394,8 @@ def test_get_expected_duration_prefers_self_script(tmp_path, monkeypatch):
 
 
 def test_get_expected_duration_empty_history_cps_only_fallback(tmp_path, monkeypatch):
+    """Empty render history → get_expected_duration returns None (no fabricated baseline)."""
     from app.orchestration.tasks.base import StudioTask
-    from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
 
     # Mock performance metrics to return empty history
     monkeypatch.setattr(
@@ -404,17 +405,16 @@ def test_get_expected_duration_empty_history_cps_only_fallback(tmp_path, monkeyp
 
     duration = StudioTask().get_expected_duration("x" * 1000, "engine-cps-fallback")
 
-    # It should fall back to chars / DEFAULT_BASELINE_ENGINE_CPS
-    expected = 1000.0 / DEFAULT_BASELINE_ENGINE_CPS
-    assert duration == expected
+    # New honest contract: no calibration → None, not chars / DEFAULT_BASELINE_ENGINE_CPS.
+    assert duration is None
 
 
 def test_active_segment_eta_empty_history_cps_only_fallback(monkeypatch):
+    """No calibration and no observed throughput → _estimate_active_segment_eta_seconds returns None."""
     from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
-    from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
 
-    # Let's call _estimate_active_segment_eta_seconds with expected_duration=None, calibrated_cps=None
-    # This simulates startup before any calibration history is present
+    # Call with expected_duration=None, calibrated_cps=None, started_at=None
+    # (no ring samples either) — all fabrication paths disabled.
     eta = OrchestratorHelpersMixin._estimate_active_segment_eta_seconds(
         expected_duration=None,
         total_weight=1000,
@@ -424,11 +424,8 @@ def test_active_segment_eta_empty_history_cps_only_fallback(monkeypatch):
         calibrated_cps=None,
     )
 
-    # Remaining units is 200. baseline_cps = DEFAULT_BASELINE_ENGINE_CPS
-    # Expected remaining ETA = ceil(200 / DEFAULT_BASELINE_ENGINE_CPS)
-    from math import ceil
-    expected = int(ceil(200 / DEFAULT_BASELINE_ENGINE_CPS))
-    assert eta == expected
+    # New honest contract: no calibration, no observed throughput → None.
+    assert eta is None
 
 
 def test_plugin_log_contract_timing_markers(monkeypatch):

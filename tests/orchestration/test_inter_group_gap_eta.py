@@ -113,8 +113,14 @@ def test_segment_saved_eta_includes_inter_group_overhead():
 
 
 def test_segment_saved_eta_degrades_without_calibration():
-    """No calibration history → overhead 0 → ETA is the overhead-free synthesis estimate
-    (safe no-op), still non-None so the countdown re-anchors at the gap."""
+    """No calibration history → SEGMENT_SAVED re-anchor ETA is None (honest contract).
+
+    With the fabricated DEFAULT_BASELINE_ENGINE_CPS fallback removed, the SEGMENT_SAVED
+    path no longer synthesizes an ETA from char counts when there is no calibration.
+
+    R1 revert-check: on pre-removal code, eta_seconds was non-null (remaining chars /
+    16.7 cps).  Post-removal it is None.
+    """
     bridge = MagicMock()
     orc = MockOrchestrator()
     task = TwoGroupTask(bridge)
@@ -134,5 +140,8 @@ def test_segment_saved_eta_degrades_without_calibration():
 
     saved = [e for e in orc.published if e.get("reason_code") == "SEGMENT_SAVED"]
     g1_saved = saved[0]
-    # remaining 60 chars at DEFAULT_BASELINE_ENGINE_CPS, no overhead → finite, > 0.
-    assert g1_saved.get("eta_seconds") is not None and g1_saved["eta_seconds"] > 0
+    # No calibration → no fabricated ETA → None.
+    assert g1_saved.get("eta_seconds") is None, (
+        f"SEGMENT_SAVED without calibration must yield eta_seconds=None, "
+        f"got {g1_saved.get('eta_seconds')}"
+    )

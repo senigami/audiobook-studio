@@ -96,16 +96,10 @@ class OrchestratorPublishMixin:
         if state_progress is None:
             if state_status == "done":
                 state_progress = 1.0
-            elif context.task_type in {"sample_build", "sample_test"}:
-                # Provide synthetic progress fallbacks for voice tasks ONLY if no task-reported progress is available
-                progress_map = {
-                    "queued": 0.0,
-                    "preparing": 0.0,
-                    "running": 0.0,  # start at 0.0, real task will report progress via heartbeat
-                    "finalizing": 0.9,
-                }
-                state_progress = progress_map.get(state_status, 0.0)
             else:
+                # No task-reported progress yet: start at 0.0. Do not fabricate a
+                # "finalizing ≈ 90%" placeholder for voice sample tasks — the bar
+                # reflects real heartbeat progress or 0, never a made-up percentage.
                 state_progress = 0.0
         # Safety: Do not emit eta_seconds=0 for active jobs; it's better to show no ETA than a false zero.
         if eta_seconds == 0 and state_status not in {"done", "failed", "cancelled"}:

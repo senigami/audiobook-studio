@@ -240,9 +240,9 @@ def test_clean_marker_stream_advances_grouped_progress_monotonically():
     )
     floor_after_group1 = saved1["progress"]
 
-    # floor_after_group1 = completed_weight(40) / total_weight(100) * 0.9 = 0.36
-    assert pytest.approx(floor_after_group1, abs=0.01) == 0.36, (
-        f"Expected floor_after_group1 ≈ 0.36, got {floor_after_group1}"
+    # floor_after_group1 = completed_weight(40) / total_weight(100) = 0.4 (true fraction, no ×0.90)
+    assert pytest.approx(floor_after_group1, abs=0.01) == 0.4, (
+        f"Expected floor_after_group1 ≈ 0.4, got {floor_after_group1}"
     )
 
     # ------------------------------------------------------------------ #

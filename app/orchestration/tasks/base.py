@@ -149,8 +149,11 @@ class StudioTask:
 
             params = get_calibrated_model_params(history)
             if not params:
-                from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
-                return float(len(text)) / float(DEFAULT_BASELINE_ENGINE_CPS)
+                # No calibration history for this engine/model yet — return None
+                # (unknown expected duration) rather than fabricating one from a
+                # hardcoded default rate. The first ETA then comes from the real
+                # observed throughput once synthesis starts reporting progress.
+                return None
 
             calibrated_cps, calibrated_overhead = params
 

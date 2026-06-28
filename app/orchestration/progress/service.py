@@ -915,8 +915,10 @@ class ProgressService:
                 engine_id_str = str(engine_id) if engine_id else ""
                 try:
                     from app.db.state_performance import seconds_per_char as _spc  # noqa: PLC0415
-                    from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS  # noqa: PLC0415
-                    spc = _spc(engine_id_str, fallback_cps=DEFAULT_BASELINE_ENGINE_CPS)
+                    # No fabricated fallback rate: seconds_per_char returns None when the
+                    # engine has no recorded throughput, so eta_calculated stays None and
+                    # the crossfade relies on the real observed ETA instead of a made-up one.
+                    spc = _spc(engine_id_str)
                     if spc is not None and spc > 0:
                         remaining_chars = char_count * (1.0 - p)
                         eta_calculated = remaining_chars * spc

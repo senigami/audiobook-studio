@@ -508,9 +508,12 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             if total_weight <= 0:
                 return 0.0
             active_w = id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0
-            # Scale to 0.90 to leave room for stitching/finalizing
+            # Report the TRUE synthesis fraction. Clamp below 1.0 until terminal
+            # reconciliation forces 100% (so the bar never reads "done" mid-render),
+            # but do NOT scale it down by an arbitrary factor — that showed a
+            # fabricated percentage (e.g. 90% when synthesis was actually complete).
             raw = (completed_weight[0] + (active_seg_progress[0] * active_w)) / total_weight
-            val = round(min(0.99, raw * 0.90), 4)
+            val = round(min(0.99, raw), 4)
             if val > max_progress[0]:
                 max_progress[0] = val
             return max_progress[0]
@@ -1150,8 +1153,10 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         _saved_eta: int | None = None
                         try:
                             from app.orchestration.scheduler.eta import calculate_chapter_remaining_eta  # noqa: PLC0415
-                            from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS  # noqa: PLC0415
-                            _cps = calibrated_cps if (calibrated_cps and calibrated_cps > 0) else DEFAULT_BASELINE_ENGINE_CPS
+                            # Only re-anchor the ETA when we have a REAL calibrated rate.
+                            # No calibration → leave _saved_eta None (no ETA) rather than
+                            # fabricating a countdown from a hardcoded default rate.
+                            _cps = calibrated_cps if (calibrated_cps and calibrated_cps > 0) else None
                             _remaining_w = max(int(total_weight) - int(completed_weight[0]), 0)
                             _groups_remaining = max(render_group_count - completed_group_count[0], 0)
                             if _remaining_w > 0 and _cps and _cps > 0:
