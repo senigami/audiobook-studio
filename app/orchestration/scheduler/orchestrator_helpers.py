@@ -712,6 +712,19 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             )
             now_time = time.time()
 
+            # W-MIX-LA-DIAG: log whenever a model-load-relevant marker is matched
+            # OR the raw line contains [MODEL_LOAD_STARTED] (catchall for missed matches).
+            if matched_marker or "[MODEL_LOAD_STARTED]" in line:
+                logger.info(
+                    "W-MIX-LA-DIAG log_listener matched=%r matched_engine=%r"
+                    " active_engine=%r active_seg=%r line=%r",
+                    matched_marker,
+                    matched_marker_engine,
+                    active_engine_id,
+                    active_seg_id[0],
+                    line[:90],
+                )
+
             if matched_marker == "ENGINE_ACTIVITY_STARTED":
                 if timing.get("engine_activity_started_at") is None:
                     timing["engine_activity_started_at"] = now_time
@@ -756,6 +769,9 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     )
 
             if matched_marker == "MODEL_LOAD_STARTED":
+                logger.info(  # W-MIX-LA-DIAG
+                    "W-MIX-LA-DIAG MODEL_LOAD_STARTED branch entered, will publish for sid"
+                )
                 # Dedicated real-load marker emitted by the XTTS wrapper only when
                 # the worker's cold-load line is observed (never on warm reuse or Voxtral).
                 # Real-load-only by construction → INV-2 safe; no extra gate needed.

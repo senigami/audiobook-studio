@@ -127,6 +127,11 @@ export function buildSegmentsProgressProjection(
             progress: payload.progress ?? null,
             reasonCode: rawReasonCode || null,
             updatedAt: projectedUpdates.updated_at,
+            // W-MIX-LA-DIAG: expose indeterminate + loadingElapsedSeconds so the
+            // globalSegmentProgressUpdates capture in useJobs.ts records whether
+            // LOADING_MODEL/indeterminate frames actually arrive here.
+            indeterminate: projectedUpdates.indeterminate ?? null,
+            loadingElapsedSeconds: getVal(payload, 'loadingElapsedSeconds', 'loading_elapsed_seconds') ?? null,
         },
         ignoredFields: Object.keys(payload).filter(
             k => ![

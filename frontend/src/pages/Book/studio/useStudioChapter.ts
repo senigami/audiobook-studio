@@ -744,6 +744,10 @@ export function useStudioChapter({
           chapterRenderQueuedSegmentIds: Array.from(chapterRenderQueuedSegmentIds),
           chapterRenderPendingSegmentIds: Array.from(chapterRenderPendingSegmentIds),
           chapterRenderRenderingBatchProgressById,
+          // W-MIX-LA-DIAG: preparing state — tells whether the frontend computed
+          // a loading/indeterminate window for the active segment.
+          chapterRenderPreparingSegmentIds: Array.from(chapterRenderPreparingSegmentIds),
+          isActiveJobPreparing,
         },
         segmentProgressUpdates: uniqueUpdates
           .slice(0, 20)

@@ -77,6 +77,10 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         reasonCode: prov.selectedFields?.reasonCode || null,
         updatedAt: prov.selectedFields?.updatedAt || null,
         renderedJobId: prov.rawEnvelope?.jobId || null,
+        // W-MIX-LA-DIAG: capture indeterminate + loadingElapsedSeconds so the debug
+        // snapshot shows whether LOADING_MODEL frames actually reach the store.
+        indeterminate: prov.selectedFields?.indeterminate ?? null,
+        loadingElapsedSeconds: prov.selectedFields?.loadingElapsedSeconds ?? null,
       };
       globalSegmentProgressUpdates.push(entry);
       if (globalSegmentProgressUpdates.length > 20) globalSegmentProgressUpdates.shift();

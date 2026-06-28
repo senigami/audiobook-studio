@@ -7,6 +7,7 @@
 import type { ProcessingQueueItem, Job } from '@/types';
 import type { EtaSource } from './queueItemEtaSelection';
 import { getLiveEventAuditSnapshot } from '@/store/liveEventAuditStore';
+import type { TtsLogLiveEvent } from '@/api/contracts/liveEvents';
 
 export interface QueueItemDebugInputs {
     job: ProcessingQueueItem;
@@ -126,6 +127,26 @@ export function buildQueueItemDebugPayload(inputs: QueueItemDebugInputs): Record
                     },
                     reasonCode: p?.reasonCode,
                     source: ev.source,
+                };
+            }),
+        // W-MIX-LA-DIAG: last 80 tts.logs lines received over the socket for this job.
+        // Shape: { line, receivedAt, jobId, sequenceNumber }
+        // Decisive signal: shows whether XTTS load lines and [MODEL_LOAD_STARTED]
+        // actually arrive from the TTS server before reaching the frontend.
+        ttsLogLines: getLiveEventAuditSnapshot()
+            .filter(record => record.event.topic === 'tts.logs' && (
+                !record.event.jobId || record.event.jobId === job.id
+            ))
+            .slice(-80)
+            .map(record => {
+                const ev = record.event as TtsLogLiveEvent;
+                return {
+                    frameId: ev.frameId,
+                    receivedAt: ev.receivedAt,
+                    jobId: ev.jobId ?? ev.payload.jobId ?? null,
+                    line: ev.payload.line,
+                    sequence: ev.payload.sequence ?? null,
+                    pluginShortName: ev.payload.pluginShortName ?? null,
                 };
             }),
     };
