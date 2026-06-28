@@ -20,12 +20,12 @@ from collections import deque
 from pathlib import Path
 from typing import Any, Optional
 
-logger = logging.getLogger(__name__)  # W-MIX-LA-DIAG
-
 # SDK contract types — the only app.* import allowed in plugin code.
 from app.engines.voice.sdk import TTSRequest, TTSResult, VerificationResult
 from app.engines.voice.base import StudioTTSEngine
 from app.engines.proc_utils import run_cmd_stream
+
+logger = logging.getLogger(__name__)  # W-MIX-LA-DIAG
 
 
 def relay_marker(line: str, task_id: str) -> Optional[str]:
