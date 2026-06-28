@@ -26,6 +26,8 @@ vi.mock('@/hooks/useSegmentHandoffQueue', () => ({
   }),
   getHandoffTransitions: () => [],
   recordExternalHandoffEvent: vi.fn(),
+  recordDerivedPreparing: vi.fn(),
+  getDerivedPreparingTimeline: () => [],
 }));
 
 

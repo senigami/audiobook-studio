@@ -7,7 +7,7 @@ import { useDeferredWhileHeld } from '@/hooks/useDeferredWhileHeld';
 import { useChapterStatus } from '@/pages/ChapterEditor/components/ChapterHeader';
 import { buildChunkGroups } from '@/utils/chunkGroups';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '@/utils/voiceProfiles';
-import { getRawActiveRenderProgress } from '@/utils/chapterRenderProgress';
+import { useEasedProgress } from '@/hooks/useEasedProgress';
 import { resolveVoiceEngineStatus, downloadBlob, formatExportFilename } from '@/utils/chapterEditorHelpers';
 import { useSegmentHandoffQueue, getHandoffTransitions, recordExternalHandoffEvent, recordDerivedPreparing, getDerivedPreparingTimeline } from '@/hooks/useSegmentHandoffQueue';
 import type { Job, SegmentProgress, SpeakerProfile, TtsEngine } from '@/types';
@@ -210,6 +210,17 @@ export function useStudioChapter({
     setLiveBarSegmentProgress(0);
   }, [chapterRenderActiveSegmentId]);
 
+  // Ease the segment TEXT reveal toward each coarse engine datapoint over ~the
+  // inter-update interval, so XTTS's 0 → 0.33 → 0.66 → 1.0 steps render as a
+  // continuous fill instead of a ~750ms rush to each point. Target tracks the true
+  // datapoint (rawActiveSegmentProgress) max'd with the bar's smoothed value so it
+  // never lags behind real progress; the predictive bar itself is untouched.
+  const easedSegmentProgress = useEasedProgress(
+    Math.max(liveBarSegmentProgress, rawActiveSegmentProgress),
+    chapterRenderActiveSegmentId,
+    { timeConstantMs: 700 },
+  );
+
   const chapterRenderActiveBatchSegmentIds = useMemo(() => {
     if (!chapterRenderActiveSegmentId) return new Set<string>();
     const activeBatch = scriptViewData?.render_batches?.find((batch) =>
@@ -314,20 +325,17 @@ export function useStudioChapter({
 
   const chapterRenderRenderingBatchProgressById = useMemo(() => {
     const progressById: Record<string, number> = {};
-    const activeJob = generatingSegmentJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingSegmentJob.status)
-      ? generatingSegmentJob
-      : (job && ['queued', 'preparing', 'running', 'finalizing'].includes(job.status) ? job : null);
     const activeSpanId = chapterRenderActiveSegmentId;
     if (!activeSpanId || chapterRenderRenderingSegmentIds.size === 0) return progressById;
     const activeBatch = scriptViewData?.render_batches?.find((batch) =>
       batch.span_ids.includes(activeSpanId),
     );
     if (!activeBatch) return progressById;
-    const rawProgress = getRawActiveRenderProgress(activeJob, 0);
-    const effectiveProgress = liveBarSegmentProgress > 0 ? liveBarSegmentProgress : rawProgress;
-    progressById[activeBatch.id] = effectiveProgress;
+    // Eased value only — never fall back to the raw datapoint, which would snap the
+    // text forward then drop it back a frame later (the old "quick start" flicker).
+    progressById[activeBatch.id] = easedSegmentProgress;
     return progressById;
-  }, [chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans, liveBarSegmentProgress, chapterRenderActiveSegmentId]);
+  }, [chapterRenderRenderingSegmentIds, scriptViewData?.render_batches, easedSegmentProgress, chapterRenderActiveSegmentId]);
 
   const handleGenerateWithFallback = useCallback(
     async (segmentIds: string[]) => {
