@@ -59,13 +59,23 @@ export const buildSegmentProgressBarProps = ({
     // engine reports, then coasts from 0 at the true pace. Only use a real ETA.
     const seededEtaSeconds = typeof etaSeconds === 'number' ? etaSeconds : undefined;
     const seededEtaBasis = seededEtaSeconds != null ? (etaBasis ?? 'remaining_from_update') : undefined;
+    // SEGMENT_PENDING / LOADING_MODEL / indeterminate IS the load-or-announce window:
+    // force the bar into the 'preparing' (indeterminate) state regardless of the job-level
+    // status the caller passed. This is the explicit-trigger model — the segment is
+    // highlighted with no determinate progress — and, crucially, it makes the
+    // preparing→running phase handoff fire when synthesis actually starts, snapping the
+    // lane fresh to 0 so it animates from zero. (Without this a mid-chapter segment's load
+    // window never reads as 'preparing' — the job status stays 'running' — so the lane
+    // migrates from its stale mount-time anchor and jumps to ~elapsed/(elapsed+ETA).)
+    // Progress being zero is NEVER used to infer loading.
+    const effectiveState = isLoadWindow ? 'preparing' : state;
     return {
         key: identity,
         dataTestId,
         progress: segmentProgress,
         persistenceKey: identity,
         status,
-        state,
+        state: effectiveState,
         label,
         predictive: true,
         allowBackwardProgress: false,

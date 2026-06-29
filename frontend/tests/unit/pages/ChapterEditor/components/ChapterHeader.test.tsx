@@ -295,7 +295,6 @@ describe('ChapterHeader', () => {
       selectedEtaSource: 'none',
       selectedUpdatedAtSource: 'none',
       evidenceWeightFraction: 0,
-      isSegmentStartAtZero: false
     });
 
     // 2. Terminal complete job without segment provenance
@@ -568,7 +567,7 @@ describe('ChapterHeader', () => {
     expect(segmentConfidence).toBe(0.4);
   });
 
-  it('proves evidenceWeightFraction is 1.0 for segment_start at 0.0 progress', () => {
+  it('does NOT inflate evidenceWeightFraction at segment_start 0.0 progress (no zero-special hack)', () => {
     let capturedStatus: any = null;
     const TestComponent = () => {
       const mockJob = React.useMemo(() => ({
@@ -594,10 +593,12 @@ describe('ChapterHeader', () => {
     };
 
     render(<TestComponent />);
-    expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBe(1.0);
+    // Zero progress is no longer treated as special: evidence weight is derived from
+    // real progress (coverage × clamp01(progress)), so at 0% it is 0 — not a fabricated 1.0.
+    expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBe(0);
   });
 
-  it('proves evidenceWeightFraction is 1.0 for START_SYNTHESIS at 0.0 progress', () => {
+  it('does NOT inflate evidenceWeightFraction at START_SYNTHESIS 0.0 progress (no zero-special hack)', () => {
     let capturedStatus: any = null;
     const TestComponent = () => {
       const mockJob = React.useMemo(() => ({
@@ -623,7 +624,7 @@ describe('ChapterHeader', () => {
     };
 
     render(<TestComponent />);
-    expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBe(1.0);
+    expect(capturedStatus.segmentProgressBarSelection.evidenceWeightFraction).toBe(0);
   });
 
   it('promotes segment_start @ 0% to processing state for presentation in ChapterScriptToolbar', () => {

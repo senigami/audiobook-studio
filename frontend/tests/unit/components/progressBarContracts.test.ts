@@ -67,6 +67,33 @@ describe('progressBarContracts', () => {
     expect(props.etaBasis).toBeUndefined();
   });
 
+  it('forces state=preparing during the SEGMENT_PENDING window regardless of caller state', () => {
+    // Explicit-trigger model: SEGMENT_PENDING = highlight + indeterminate (no determinate
+    // bar), even though the chapter job status is 'running'. This makes the preparing→running
+    // phase handoff fire when synthesis starts, so the lane snaps fresh to 0 (no jump).
+    const props = buildSegmentProgressBarProps({
+      jobId: 'job-1', segmentId: 'seg-2', progress: 0, status: 'running', state: 'processing',
+      reasonCode: 'SEGMENT_PENDING',
+    });
+    expect(props.state).toBe('preparing');
+  });
+
+  it('forces state=preparing when indeterminate (model-load) regardless of caller state', () => {
+    const props = buildSegmentProgressBarProps({
+      jobId: 'job-1', segmentId: 'seg-2', progress: 0, status: 'running', state: 'running',
+      reasonCode: 'LOADING_MODEL', indeterminate: true,
+    });
+    expect(props.state).toBe('preparing');
+  });
+
+  it('passes caller state through when not in a load window (zero is not special)', () => {
+    const props = buildSegmentProgressBarProps({
+      jobId: 'job-1', segmentId: 'seg-2', progress: 0, status: 'running', state: 'processing',
+      reasonCode: 'START_SEGMENT',
+    });
+    expect(props.state).toBe('processing');
+  });
+
   it('uses explicit segment ETA fields when provided by the segment event', () => {
     const props = buildSegmentProgressBarProps({
       jobId: 'job-1',

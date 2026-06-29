@@ -146,14 +146,9 @@ export const useChapterStatus = (
   const block_char_count = activeRenderBatchWeight ?? 0;
   const progressVal = liveSegmentProgressValue;
   const coverageRatio = block_char_count > 0 ? clamp01(block_char_count / CHUNK_CHAR_LIMIT) : 1;
-  const isSegmentStartAtZero = hasSegmentSupport && (
-    selectedSegmentReasonCode === 'segment_start' ||
-    selectedSegmentReasonCode === 'START_SEGMENT' ||
-    selectedSegmentReasonCode === 'START_SYNTHESIS'
-  ) && progressVal === 0;
   const evidenceWeightFraction = typeof liveSegmentProgressJob?.confidence === 'number'
     ? liveSegmentProgressJob.confidence
-    : (isSegmentStartAtZero ? 1.0 : coverageRatio * clamp01(progressVal));
+    : coverageRatio * clamp01(progressVal);
   const selectedEtaSource = !liveSegmentProgressJob
     ? 'none'
     : hasActiveSegment
@@ -194,7 +189,6 @@ export const useChapterStatus = (
     selectedEtaSource,
     selectedUpdatedAtSource,
     evidenceWeightFraction,
-    isSegmentStartAtZero
   };
   return {
     queueStatus, heldQueueStatus, effectiveQueueLocked, isQueued,
@@ -568,8 +562,12 @@ export const ChapterScriptToolbar: React.FC<{
                             updatedAt: displayedUpdatedAt,
                             reasonCode: status.selectedSegmentReasonCode,
                             indeterminate: status.liveSegmentProgressJob?.indeterminate ?? null,
+                            // Non-load-window state is purely job-status-driven. The
+                            // SEGMENT_PENDING/indeterminate load window forces 'preparing'
+                            // inside buildSegmentProgressBarProps (the explicit-trigger model),
+                            // so zero progress is never used to infer the bar's phase here.
                             state: liveJobStatus === 'preparing'
-                                ? (status.segmentProgressBarSelection.isSegmentStartAtZero ? 'processing' : 'preparing')
+                                ? 'preparing'
                                 : liveJobStatus === 'finalizing'
                                     ? 'finalizing'
                                     : liveJobStatus === 'running'
