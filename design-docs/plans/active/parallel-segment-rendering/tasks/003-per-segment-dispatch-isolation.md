@@ -14,6 +14,17 @@ job owns only fan-out coordination and aggregation. Ensure the progress/marker l
 **per-segment identity** on every concurrent event so downstream consumers (including 006's
 `active_segments_map`) can distinguish segments unambiguously.
 
+> **Single-active emission rework (R-F, surfaced 2026-06-29).** Isolating `_dispatch` state is necessary
+> but NOT sufficient: the current wire is **single-active by construction**. The orchestrator tracks one
+> `active_segment_id`, and `app/api/ws.py` fires `SEGMENT_SAVED` for `prev_active_segment_id` on the
+> *transition* to a new active id (see live-events.md "per-segment render clock"). With N children active
+> at once there is no single prev→next handoff. This task MUST replace that transition-based emission so
+> **each concurrent child emits its own segment-scoped progress + its own `SEGMENT_SAVED` on its own
+> validated completion (INV-3)**, and the orchestrator assembles the chapter-event `active_segments_map`
+> snapshot from those independent per-segment states — never from one active slot. Leaving the single-active
+> handoff in place is the seam that silently drops/mis-attributes concurrent completions. See
+> [`../01-map.md`](../01-map.md) R-F + the resolved wire-shape note under Connection D.
+
 > **Forward note for 006 (captured 2026-06-26).** The `active_segments_map` entries this task emits
 > must carry the full **per-segment lifecycle phase**, not just a progress number — specifically the
 > **preparing / model-load phase** (`indeterminate`/`LOADING_MODEL`), generalizing the W-MIX-LA

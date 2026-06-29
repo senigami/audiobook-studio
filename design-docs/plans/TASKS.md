@@ -61,7 +61,7 @@ Plan: [active/mixed-synthesis-fused-proposal/README.md](active/mixed-synthesis-f
 
 ---
 
-## W-MIX-LA — Mixed-synthesis load attribution *(active — planned, not started)*
+## W-MIX-LA — Mixed-synthesis load attribution *(active — 001–004 done; 006–007 pending)*
 
 Plan: [active/mixed-synthesis-load-attribution/README.md](active/mixed-synthesis-load-attribution/README.md) · map: [01-map.md](active/mixed-synthesis-load-attribution/01-map.md) · roadmap: [02-roadmap.md](active/mixed-synthesis-load-attribution/02-roadmap.md)
 
@@ -88,10 +88,10 @@ Plan: [active/parallel-segment-rendering/README.md](active/parallel-segment-rend
 
 Render a chapter's segments **concurrently** across per-engine pools (GPU/CPU/cloud), capped per engine, off-by-default (cap=1). Phase 1 = backend parallelism + multi-active frontend (existing per-segment bars light up at once); Phase 2 = dedicated render monitor (fast-follow). **Subsumes W-MIX W5.** Designed via the 2026-06-26 fusion triage.
 
-- [ ] **G0 (prereq — owner):** verify the W-MIX `👁 VISUAL CHECK` on a live mixed render before starting (don't stack parallelism on an unverified core)
+- [~] **G0 (prereq — owner):** verify the W-MIX `👁 VISUAL CHECK` on a live mixed render before starting (don't stack parallelism on an unverified core) — *synthesis core owner-verified 2026-06-29 ("best it's ever done!"); remaining item = owner visual sign-off to actually enable parallelism (raise cap > 1)*
 - [x] **001** — Per-engine cap declaration + scheduler semaphores — [task 001](active/parallel-segment-rendering/tasks/001-per-engine-cap-and-semaphores.md) *(DONE 2026-06-26: per-engine counting semaphores + manifest caps + global cap; ships dark via `ENGINE_CLASS_ADMISSION` env flag default OFF → single-flight = today; **W5 closed at runtime**; adversarial-reviewed, 434 tests green. Real caps + the toggle-as-setting land in 007.)*
 - [ ] **002** — Parent/child segment scheduling — [task 002](active/parallel-segment-rendering/tasks/002-parent-child-segment-scheduling.md) *(chapter parent job fans child segment units into a bounded pool; one job per chapter for UI/recovery)*
-- [ ] **003** — Per-segment dispatch isolation *(keystone, R-A)* — [task 003](active/parallel-segment-rendering/tasks/003-per-segment-dispatch-isolation.md) *(each concurrent segment gets its own timing/marker state; isolate the ~700-line `_dispatch` closure)*
+- [ ] **003** — Per-segment dispatch isolation *(keystone, R-A)* — [task 003](active/parallel-segment-rendering/tasks/003-per-segment-dispatch-isolation.md) *(each concurrent segment gets its own timing/marker state; isolate the ~700-line `_dispatch` closure. **R-F added 2026-06-29:** must also rework single-active `SEGMENT_SAVED` emission — see task file + 01-map.md R-F)*
 - [x] **004** — TTS-server concurrent inference — [task 004](active/parallel-segment-rendering/tasks/004-tts-server-concurrent-inference.md) *(DONE 2026-06-26: async `/synthesize` + `run_in_threadpool`; `WarmWorkerManager` lazy-spawned free-list pool capped at `manifest.behavior.max_concurrent_workers`; OOM degrade fail-safe; Voxtral no lock; ships dark at cap=1. **M-PAR-1 complete** together with 001 — per-engine semaphores + server-side pool exist, default cap=1 = no behavior change. Residual: dead-worker waiter hang at cap>1 → task 005.)*
 - [ ] **005** — Correctness invariants under parallelism — [task 005](active/parallel-segment-rendering/tasks/005-correctness-invariants.md) *(stitch-order barrier, artifact-validated completion, cancel join-all, recovery K-of-N, SQLite per-segment writes, stuck-segment heartbeat — TDD)*
 - [ ] **006** — Frontend multi-active segments — [task 006](active/parallel-segment-rendering/tasks/006-frontend-multi-active.md) *(chapter-level `active_segments_map` threaded end-to-end via the W4 two-layer pattern; `useStudioChapter` set; rAF-coalesced; existing bars light up in parallel)*
