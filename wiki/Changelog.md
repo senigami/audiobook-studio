@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Progress honesty] - 2026-06-29
+
+### Mixed-render progress: no fabricated numbers, zero is not special (W-MIX-LA)
+
+Fixed the long-running mixed-render progress bugs (segment pulse missing, bar jumping to ~50%, fake early speed-up) by removing every place the UI invented a number or treated `progress == 0` as a signal.
+
+- **No fabricated ETA/progress.** Removed the hardcoded `DEFAULT_BASELINE_ENGINE_CPS = 16.7` cold-start ETA fallback everywhere it produced a user-facing countdown (active-segment ETA, task startup, the enrich() cold ETA, the SEGMENT_SAVED re-anchor): with no real calibration the bar now shows **no ETA** until real observed throughput exists, instead of a made-up one. Also removed the arbitrary `×0.90` "stitching reserve" scale on chapter `grouped_progress` (it reported the true synthesis fraction as 90%) and the placeholder `finalizing ≈ 0.9` progress on voice-sample tasks.
+- **Zero is not special.** Removed `isSegmentStartAtZero`, the confidence-forced-to-1.0-at-zero, the backend `running 0% → preparing` flip, and the reducer `preparing + zero → suppress status` guard. The bar's phase is now driven by explicit triggers: `SEGMENT_PENDING`/`indeterminate` → preparing (highlight, indeterminate, no determinate bar); `START_SEGMENT`/`running` → animate from 0; loading is the explicit `indeterminate` flag. (Kept the genuine divide-by-zero guard in the ETA math.)
+- **Mid-chapter segment jump fixed.** A segment that starts after a model load no longer jumps to ~50%: forcing the load/announce window to `preparing` makes the preparing→running handoff snap the predictive lane fresh to 0, so it animates from zero on the real datapoints.
+- **Engine logs fully forwarded.** All raw XTTS worker lines now reach `tts.logs` (engine diagnostics view) — nothing hidden.
+- **Script-view preparing render.** The per-segment "preparing" block + pulse now renders in script view (it previously only worked in book view).
+
+Spec `progress-presentation.md` → 1.7.1 (amends invariant B10). Backend orchestration + frontend progress/bar/contract suites green.
+
 ## [Cleanup] - 2026-06-20
 
 ### Foundation cleanup (master fix plan — Milestone 1, W1)
