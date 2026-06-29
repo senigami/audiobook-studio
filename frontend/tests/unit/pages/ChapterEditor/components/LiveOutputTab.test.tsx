@@ -97,7 +97,7 @@ describe('LiveOutputTab', () => {
     expect(screen.getAllByText('100%')).toHaveLength(2);
   });
 
-  it('renders confidence 100% for segment_start frame at 0% progress', () => {
+  it('does NOT fabricate 100% confidence for a segment_start frame at 0% progress', () => {
     publishEvent('segments.progress', 'segment_progress', {
       message: 'Starting segment...',
       progress: 0.0,
@@ -107,12 +107,13 @@ describe('LiveOutputTab', () => {
 
     render(<LiveOutputTab />);
 
-    // progress 0% should show '0%', and confidence should be 100%
+    // Zero is no longer special: confidence is derived from real progress (0 at 0%),
+    // not forced to 100%. Progress shows 0%; there is no fabricated 100% confidence.
     expect(screen.getByText('0%')).toBeInTheDocument();
-    expect(screen.getByText('100%')).toBeInTheDocument();
+    expect(screen.queryByText('100%')).not.toBeInTheDocument();
   });
 
-  it('renders confidence 100% for START_SYNTHESIS frame at 0% progress', () => {
+  it('does NOT fabricate 100% confidence for a START_SYNTHESIS frame at 0% progress', () => {
     publishEvent('jobs.lifecycle', 'job_lifecycle', {
       status: 'running',
       progress: 0.0,
@@ -123,7 +124,7 @@ describe('LiveOutputTab', () => {
     render(<LiveOutputTab />);
 
     expect(screen.getByText('0%')).toBeInTheDocument();
-    expect(screen.getByText('100%')).toBeInTheDocument();
+    expect(screen.queryByText('100%')).not.toBeInTheDocument();
   });
 
   it('renders distinct same-job studio_job_event frames as separate rows in insertion order', () => {
