@@ -103,13 +103,15 @@ describe('DemoStage', () => {
     };
   });
 
-  it('renders the stage title', () => {
+  it('renders the provided stage content', () => {
+    // The stage title is owned by the DemoApp stage strip (see routing tests), not by
+    // DemoStage itself — DemoStage wraps and presents the stage content + scene chrome.
     render(
       <DemoStage timeline={makeTimeline()} title="My Stage">
         <div>content</div>
       </DemoStage>,
     );
-    expect(screen.getByText('My Stage')).toBeInTheDocument();
+    expect(screen.getByText('content')).toBeInTheDocument();
   });
 
   it('renders the current scene caption', () => {
@@ -210,18 +212,20 @@ describe('DemoApp routing', () => {
     });
   });
 
-  it('stage hash with embedded query string still routes and hides the header', async () => {
+  it('stage hash with embedded query string routes (strips the query) and hides the chrome', async () => {
     // The showcase iframe uses src="demo/#/stage/<id>?embed=1" — the query
     // lives inside the hash, so routing must strip it and embed must be detected.
     window.location.hash = `#/stage/${demoStages[0].id}?embed=1`;
     render(<DemoApp />);
 
     await waitFor(() => {
-      expect(screen.getByText(demoStages[0].title)).toBeInTheDocument();
+      // Routing resolved the stage (NOT the not-found path) despite the ?embed=1 in the hash.
+      expect(screen.queryByText(/stage not found/i)).not.toBeInTheDocument();
     });
-    expect(screen.queryByText(/stage not found/i)).not.toBeInTheDocument();
-    // embed=1 → header (with the "demo mode" badge) is hidden
-    expect(screen.queryByText(/demo mode/i)).not.toBeInTheDocument();
+    // embed=1 hides ALL chrome — neither the index header badge ("live demo") nor the
+    // stage strip ("← stages") render.
+    expect(screen.queryByText('live demo')).not.toBeInTheDocument();
+    expect(screen.queryByText('← stages')).not.toBeInTheDocument();
   });
 
   it('unknown stage hash shows not-found message', async () => {
@@ -390,29 +394,23 @@ describe('DemoApp theme toggle', () => {
     localStorage.removeItem('studio-theme');
   });
 
-  it('toggle button flips data-theme on documentElement', async () => {
+  // The demo has no in-app theme toggle anymore (removed in #125) — it follows the
+  // shared studio theme preference, applying + persisting it on mount.
+  it('applies a theme to documentElement on mount', async () => {
     render(<DemoApp />);
 
-    // Initial theme applied on mount
     await waitFor(() => {
       expect(document.documentElement).toHaveAttribute('data-theme');
     });
-
-    const initial = document.documentElement.getAttribute('data-theme');
-    const toggleBtn = screen.getByRole('button', { name: /theme/i });
-    fireEvent.click(toggleBtn);
-
-    const flipped = document.documentElement.getAttribute('data-theme');
-    expect(flipped).not.toBe(initial);
+    expect(['light', 'dark']).toContain(document.documentElement.getAttribute('data-theme'));
   });
 
-  it('persists theme to localStorage under the shared studio-theme key', async () => {
+  it('persists the theme to localStorage under the shared studio-theme key on mount', async () => {
     render(<DemoApp />);
-    const toggleBtn = await screen.findByRole('button', { name: /theme/i });
-    fireEvent.click(toggleBtn);
 
-    const stored = localStorage.getItem('studio-theme');
-    expect(['light', 'dark']).toContain(stored);
+    await waitFor(() => {
+      expect(['light', 'dark']).toContain(localStorage.getItem('studio-theme'));
+    });
   });
 });
 
