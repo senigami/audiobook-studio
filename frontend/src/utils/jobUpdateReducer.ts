@@ -98,9 +98,6 @@ export function applySegmentFieldRules(
     }
 
     const isSegmentJob = isSegmentScopedJob(oldJob);
-    const isPreparingZeroProgress = oldJob.status === 'preparing' &&
-        (oldJob.active_segment_progress ?? 0) <= 0 &&
-        (oldJob.progress ?? 0) <= 0;
 
     if (isSegmentJob) {
         delete nextUpdates.classification;
@@ -109,10 +106,9 @@ export function applySegmentFieldRules(
         delete nextUpdates.eta_basis;
         delete nextUpdates.estimated_end_at;
     }
-
-    if ((oldJob.active_segment_id || isSegmentJob) && isPreparingZeroProgress) {
-        delete nextUpdates.status;
-    }
+    // Removed: the old "preparing + zero progress -> suppress status update" guard.
+    // Status is authoritative and never gated on progress being zero; loading/preparing
+    // is conveyed by explicit signals (SEGMENT_PENDING / indeterminate), not by progress 0.
 }
 
 /**

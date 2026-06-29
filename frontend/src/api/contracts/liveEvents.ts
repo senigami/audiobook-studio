@@ -414,12 +414,12 @@ export const computeProgressConfidence = (
   status?: string | null,
   progress?: number | null,
   activeRenderGroupWeight?: number | null,
-  reasonCode?: string | null
+  _reasonCode?: string | null
 ): number | null => {
   if (!status) return null;
-  if ((reasonCode === 'segment_start' || reasonCode === 'START_SEGMENT' || reasonCode === 'START_SYNTHESIS' || reasonCode === 'SEGMENT_PENDING') && progress === 0) {
-    return 1.0;
-  }
+  // No zero-special fabrication: confidence is NOT forced to 1.0 just because a segment
+  // is at the start with progress 0. It is derived from real progress below (and rises
+  // as progress accumulates); terminal states are fully confident.
   if (['done', 'failed', 'cancelled', 'finalizing'].includes(status)) {
     return 1.0;
   }

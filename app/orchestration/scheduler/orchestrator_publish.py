@@ -86,10 +86,9 @@ class OrchestratorPublishMixin:
             except Exception:
                 pass
 
-        if state_status == "running" and reason_code in ("synthesis_progress", "SEGMENT_PROGRESS") and (progress is None or progress == 0.0):
-            if not has_started:
-                state_status = "preparing"
-
+        # Zero progress is NOT used to infer "not started" — a running frame stays running
+        # even at 0%. Loading/preparing is conveyed by explicit signals (SEGMENT_PENDING /
+        # indeterminate), never by progress == 0.
         if has_started and state_status == "preparing":
             state_status = "running"
         state_progress = progress

@@ -1531,20 +1531,21 @@ describe('useJobs', () => {
     expect(result.current.jobs['job-prep-test']?.status).toBe('running');
   });
 
-  it('prevents queue.items/chapter updates at 0% from flipping a starting job out of preparing before the first segments.progress frame', async () => {
+  it('honors a running status update at 0% (status is authoritative; zero is not special)', async () => {
     const { result } = renderHook(() => useJobs());
 
     emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-early-prep', status: 'preparing', progress: 0, classification: 'segment' }] });
     expect(result.current.jobs['job-early-prep']?.status).toBe('preparing');
 
-    // Emit queue.items status running update before any segment progress frame has arrived (active_segment_id is not attached yet)
+    // A queue.items 'running' frame means the job is running. We no longer hold it at
+    // 'preparing' just because progress is 0 — the segment-bar 'preparing' highlight is
+    // driven separately by SEGMENT_PENDING/indeterminate, not by faking the job status.
     emitEvent('queue.items', 'queue_item_status', {
       status: 'running',
       progress: 0.0,
     }, { jobId: 'job-early-prep' });
 
-    // Job status should stay preparing
-    expect(result.current.jobs['job-early-prep']?.status).toBe('preparing');
+    expect(result.current.jobs['job-early-prep']?.status).toBe('running');
   });
 
   it('goes running on a running 0% segment frame (the real segment start signal)', async () => {
@@ -1590,26 +1591,25 @@ describe('useJobs', () => {
     expect(job?.has_segment_support).toBe(true);
   });
 
-  it('transitions segment-scoped job out of preparing normally on first non-zero segments.progress frame', async () => {
+  it('honors running status at 0% and through progress (no zero-gated preparing hold)', async () => {
     const { result } = renderHook(() => useJobs());
 
     emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-early-prep-3', status: 'preparing', progress: 0, classification: 'segment' }] });
 
-    // Emit queue.items status running update (stays preparing)
+    // A running update at 0% is honored immediately (status authoritative; zero not special).
     emitEvent('queue.items', 'queue_item_status', {
       status: 'running',
       progress: 0.0,
     }, { jobId: 'job-early-prep-3' });
-    expect(result.current.jobs['job-early-prep-3']?.status).toBe('preparing');
+    expect(result.current.jobs['job-early-prep-3']?.status).toBe('running');
 
-    // Emit segments.progress with non-zero progress
+    // Continued non-zero progress stays running.
     emitEvent('segments.progress', 'segment_progress', {
       status: 'running',
       progress: 0.12,
       activeSegmentProgress: 0.12,
     }, { jobId: 'job-early-prep-3', segmentId: 'seg-3' });
 
-    // Job status should transition to running
     expect(result.current.jobs['job-early-prep-3']?.status).toBe('running');
   });
 
