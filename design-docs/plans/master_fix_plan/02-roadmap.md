@@ -25,7 +25,7 @@ Legend: `✓` done · `◐` built-uncommitted / partial · `👁` owner visual g
 ║ [owner sign-off: raise cap > 1] ──► W-PAR 002 parent/child scheduling              ║
 ║      W-PAR 001 ✓ (semaphores, dark)   │                                            ║
 ║      W-PAR 004 ✓ (server pool, dark)  ▼                                            ║
-║                          W-PAR 003 dispatch isolation (KEYSTONE, ~1,435-line       ║
+║                          W-PAR 003 dispatch isolation (KEYSTONE, ~1,460-line       ║
 ║                              │        closure + R-F SEGMENT_SAVED rework)          ║
 ║                    ┌─────────┴─────────┐                                           ║
 ║                    ▼                   ▼                                           ║
@@ -82,8 +82,8 @@ Legend: `✓` done · `◐` built-uncommitted / partial · `👁` owner visual g
 |---|---|---|
 | `useStudioChapter.ts` (915 lines) | 004-W1/RST-8 (Lane 2) · 005 LF-1 split (Lane 3) · art-program (Lane 5) | RST-8 consumes its segment exports FIRST (INV-4), then LF-1 splits, then art-program builds on it |
 | `PlayerBar.tsx` / `playerBus.ts` | 004-W1 = RST-8 + scrubber W1 | one coordinated edit — do not run as two tasks |
-| `orchestrator_helpers.py` (1,539 lines) | W-PAR 003 (Lane 1) · any BE cleanup | W-PAR 003 owns it; Lane 3 BE items keep out until 003 lands |
-| `app/orchestration/progress/service.py` (1,458 lines) | 005 LF-6 split (Lane 3) · W-MIX-LA/W-PAR ETA work (Lane 1) | LF-6 waits until Lane 1's 007s (both) settle the file |
+| `orchestrator_helpers.py` (1,563 lines, verified 2026-07-02) | W-PAR 003 (Lane 1) · any BE cleanup | W-PAR 003 owns it; Lane 3 BE items keep out until 003 lands |
+| `app/orchestration/progress/service.py` (1,503 lines, verified 2026-07-02) | 005 LF-6 split (Lane 3) · W-MIX-LA/W-PAR ETA work (Lane 1) | LF-6 waits until Lane 1's 007s (both) settle the file |
 | `ChapterEditor/` + `ProjectDetail/` trees | DC-1b delete (Lane 3) · art-program (Lane 5) · 004 harvest (Lane 2) | harvest (Lane 2) → art-program decides what survives → DC-1b LAST, gate re-verified |
 | `plugins/` paths | 006 namespace rename (Lane 3) · 010 extraction | 005 PL-consolidation → 006 rename (alone) → 010 extraction |
 

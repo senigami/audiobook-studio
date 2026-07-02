@@ -148,12 +148,12 @@ Full detail (files, line refs, steps, verification) lives in each phase doc.
 | ST-2 | Add shared classes for repeated inline patterns (`.form-label` ×52, reuse `.input-field` ×8, +scan) | 2 | M | low |
 | ST-3 | Convert inline `style={{}}` → classes, hotspot-by-hotspot (top 15 files first) | 2 | L | low |
 | ST-4 | Spec bumps (`design-system` 1.3.0, `code-organization` 1.2.0) + optional stylelint guard | 2 | S | low |
-| LF-1 | Split `useStudioChapter.ts` (861) into focused sub-hooks | 3 | M | med |
+| LF-1 | Split `useStudioChapter.ts` (915, verified 2026-07-02) into focused sub-hooks | 3 | M | med |
 | LF-2 | Split `EngineCard.tsx` (792) into composition + sub-components | 3 | M | low |
 | LF-3 | Split `PredictiveProgressBar.tsx` (754) — extract status/eta/lane | 3 | M | med |
 | LF-4 | Split `MetadataEditorModal.tsx` (693) — extract 5 inline widgets | 3 | M | low |
 | LF-5 | Slim `App.tsx` (564) — extract `useToast`/`useStartupOverlay`/`useChapterRedirect` | 3 | M | low |
-| LF-6 | Split `progress/service.py` (1449) — emit-gate + enrich kernel | 3 | L | med |
+| LF-6 | Split `progress/service.py` (1503, verified 2026-07-02) — emit-gate + enrich kernel | 3 | L | med |
 | LF-7 | Split `tts_server/server.py` (1333) — extract plugin-staging module | 3 | L | med |
 | BE-1 | Remove backend dead code (web.py aliases/stub, dict-mode branch, `_should_emit` shim, `schema_data`) | 4 | S | low |
 | BE-2 | Replace dead `INTENDED_*/FORBIDDEN_*` constants with comments or an import-boundary test | 4 | S | low |

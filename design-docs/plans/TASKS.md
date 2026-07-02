@@ -8,6 +8,64 @@ Index: [README.md](README.md) · Master roadmap: [master_fix_plan/README.md](mas
 
 ---
 
+## Division of Labor / Parallelization Map *(verified against code 2026-07-02)*
+
+> How the checklist below splits across parallel agents/orchestrator dispatch. Verified against the
+> tree, not copied from planning docs (those have drifted before). Legend: **CP** = critical path ·
+> **prep** = safe to build dark now, integration-gated · **∥** = fully parallel-safe now.
+
+### Lane / dependency diagram
+
+```
+CP (serial):  W-MIX-LA 007 ──(spec+👁 G0)──► W-PAR 002 ─► 003 (keystone) ─┬─► 005 ─┐
+                  │ doc-only, dispatch NOW            │ cap>1 owner-gated │        ├─► 007
+                  │                                    └── 004 DONE(dark)  └─► 006 ─┘
+                                                                 │ prep buildable now
+∥ lanes (zero overlap w/ CP, run concurrently right now):
+  L-SIMP   M3/005 subsets: ST-1/2, LF-2/3/4/5, BE-2/3/5, PL-1/3/5   (frontend + plugin SDK)
+  L-TAX    M4/007 taxonomy: G1–G6 (language/style only; accent shipped)
+  L-DOC    W-MIX-LA 007 spec bumps · Stage-6 wiki/SP9 · doc-01 corrections
+  L-SEC    009 npm audit re-run (hygiene, release-gate)
+```
+
+### Contested surfaces — serialize these (line counts verified 2026-07-02)
+
+| File | Claimants | Required order |
+|---|---|---|
+| `app/orchestration/scheduler/orchestrator_helpers.py` (1,563 lines) | W-PAR 002/003 · 005 heartbeat · any BE cleanup | **003 owns it** — the `_dispatch` closure is L88→~L1548 (~1,460 lines, one single-active blob). 002 touches it lightly; 005 adds heartbeat *after* 003. No BE agent here until 003 lands. |
+| `app/orchestration/progress/service.py` (1,503 lines) | W-MIX-LA ETA fix (`4f78cc7b`/`291872bc`, this week) · W-PAR 002/006 aggregation · 005 LF-6 split | **⚠ active-edit hazard.** LF-6 split must not start until Lane-1 ETA work is fully quiescent — do not fire a splitter agent at this file while an ETA agent is live. |
+| `app/orchestration/tasks/synthesis.py` (415 lines) | W-PAR 002 (split into Chapter/Segment tasks) | 002 owns it. `_manifest_resource_claim` (L29-100) already derives the claim from the manifest — no other agent edits. |
+| `frontend/src/pages/Book/studio/useStudioChapter.ts` (915 lines) | 004-W1/RST-8 · W-PAR 006 (single→Set) · 005 LF-1 split · art-program | RST-8 exports first → **W-PAR 006 generalizes `chapterRenderActiveSegmentId`→Set** → LF-1 split → art-program. 006 and LF-1 must not run concurrently. |
+| `ChapterHeader.tsx` (615 lines) | W-PAR 006 (multi-active props) · 005 file-split (last oversized target) | 006 threads `activeSegmentsMap` first; defer the split until after. |
+| `app/api/ws.py` (L374-413) | W-PAR 003 (R-F rework) | 003 only. The single-active `SEGMENT_SAVED`-on-transition emission lives here; 003 reworks it so each child emits on its own validated completion. |
+| `plugins/` paths | 005 PL-consolidation · 006 rename · 010 extraction | PL-* → 006 rename (alone, widest blast radius) → 010. |
+
+### Ready to dispatch NOW
+
+**Zero blockers:**
+- **W-MIX-LA 007 spec reconciliation (doc half)** — bump `live-events.md` (`pre_load_eta` frame + positive eta on indeterminate frame), `queue-jobs.md` (`preparingWithEta`), `data-model.md` (`model_load_seconds` consumed), `wiki/Changelog.md`. Zero code dependency — only the 👁 G0 owner re-check (live cold-XTTS `pre_load_eta` countdown) is gated on the owner.
+- **L-SIMP** — behavior-preserving cleanup, no CP overlap: ST-1 `components.css` split, ST-2 shared classes, LF-2 `EngineCard`, LF-3 `PredictiveProgressBar`, LF-4 `MetadataEditorModal`, LF-5 `App.tsx`, BE-2/BE-3/BE-5, PL-1/PL-3/PL-5. Parallel-safe among themselves. **Excludes LF-1/LF-6 (contested above) and DC-1b (live tree, gate re-verify).**
+- **L-TAX** — 007 taxonomy G1–G6 (`language` multi + `style` multi only; `accent` already shipped). No CP overlap.
+- **L-SEC** — 009 `npm audit` re-run (currently 0 vulns; release hygiene).
+
+**Prep work (build dark now, integration-gated):**
+- **W-PAR 006 frontend multi-active** *(prep)* — the two-layer thread (`live-jobs.ts` `OverlayDelta.active_segments_map` → `jobEventAdapters.ts` → `queueOverlayFields.ts` → `hydration/index.ts` → `useStudioChapter` Set → `ScriptView`) can be built + unit-tested now with a byte-identical cap=1 fallback: if `active_segments_map` is absent, behave exactly as today's single `active_segment_id` path. **Integration point:** consumes the `active_segments_map` field W-PAR 003 will emit. 006's "depends on 003" is an *enable* dependency, not a *write* dependency.
+- **W-PAR 002 parent/child scheduling** *(partial prep)* — `SegmentSynthesisTask` + `_fan_out_chapter` can be written and unit-tested now (001's semaphores are live; `_manifest_resource_claim` already derives caps). Stays dark at cap=1 (fan-out of 1 = today). **Integration point:** enabling needs the owner cap>1 sign-off; the fan-out logic itself isn't gated.
+
+**No safe prep available (honest flags — don't manufacture busywork):**
+- **W-PAR 003 (keystone)** — this IS the risky part: isolating the ~1,460-line single-active `_dispatch` closure + the `ws.py` R-F `SEGMENT_SAVED` rework rewrites the live single-flight path itself. One focused agent, serialized, after 002.
+- **W-PAR 005 correctness invariants** — depends on 002+003 existing; nothing to build ahead.
+
+### Gate summary (the hard serialization points that matter)
+
+1. **W-MIX-LA 007 👁 G0 re-check** (owner sees a live cold-XTTS `pre_load_eta` frame) gates W-PAR 002/003 *execution*. The spec-recon doc half is dispatchable now regardless.
+2. **Owner cap>1 sign-off** gates *enabling* parallelism — not *writing* 002's fan-out or 006's frontend thread (both build dark under cap=1).
+3. **W-PAR 003 (keystone)** gates 005 and the *runtime* half of 006; runs alone on `orchestrator_helpers.py` + `ws.py`.
+4. **`progress/service.py` quiescence** gates LF-6 — never split it while an ETA agent is live.
+5. **004 RST-8** gates DC-1b; **006 namespace rename** runs alone; **011 release gating** is last, owner-run.
+
+---
+
 ## W-MIX — Mixed-engine model-load progress/ETA fix *(active)*
 
 Plan: [active/mixed-synthesis-fused-proposal/README.md](active/mixed-synthesis-fused-proposal/README.md)
@@ -74,7 +132,8 @@ W-MIX follow-up — **G0 visual check failed (2026-06-26)**. A mixed Voxtral→X
 - [x] **005** — Chapter-level preparing *(SUPERSEDED 2026-06-26)* — owner: "pausing doesn't make sense." Don't pause; ETA-add (006) instead.
 - [x] **006** — Load-aware ETA *(chosen approach)* — on `MODEL_LOAD_STARTED`, add DB `model_load_seconds` to the live ETA; clock counts down while the bar holds; account for the *extra* time only (parallel-aware); no pre-add, no pause. *(landed in `64a39c34` — implemented in `orchestrator_helpers.py` (proactive `pre_load_eta` at dispatch + reactive reconcile on `MODEL_LOAD_STARTED`) + `performance.py::expected_model_load_seconds`, NOT the originally-spec'd eta.py/orchestrator_eta.py; bundled with the §4A.3 chapter-ETA composition fix, spec 1.8.2)*
   - [x] **2026-07-02 follow-on fix** *(commits `4f78cc7b` / `291872bc`)* — same live mixed render (job-47213119) exposed two more bugs downstream of 006: the §4A.4 mechanical ceiling clipped a correct end-game ETA (flat `EtaSampleRing.mean()` → new recency-weighted `weighted_mean()`), and chapter `eta_confidence` bounced instead of ramping (→ monotone running-state floor in `service.py`). Frontend `clampSlope` also crawled instead of snapping after a stall (`MIN_SLOPE_CAP_BASE_MS`). Spec → 1.8.4; `wiki/Changelog.md` entry added. Owner-verified via live render ("ETA is looking good").
-- [ ] **007** — Spec reconciliation + 👁 **G0 re-check** (gates W-PAR resume) *(owes: live-events.md row for the `pre_load_eta` frame, queue-jobs.md for QueueItem `preparingWithEta`, data-model.md for `model_load_seconds` now consumed, wiki/Changelog entry; progress-presentation.md 1.8.2 already landed in-tree; owner 👁 must include seeing a real `pre_load_eta` frame on a cold XTTS render)*
+- [ ] **007a** — Spec reconciliation (doc-only — **dispatchable now, zero code dependency**) *(owes: live-events.md row for the `pre_load_eta` frame, queue-jobs.md for QueueItem `preparingWithEta`, data-model.md for `model_load_seconds` now consumed, wiki/Changelog entry; progress-presentation.md already at 1.8.4)*
+- [ ] **007b** — 👁 **G0 re-check** (owner-run; gates W-PAR 002/003 execution) — must include seeing a real `pre_load_eta` frame on a cold XTTS render
 
   > 👁 **VISUAL CHECK — ML-2 (mid-chapter preparing fixed)**
   > Re-run the mixed render: Voxtral→XTTS shows the preparing pulse on the XTTS segment (not frozen first letter); XTTS-first still pulses-then-animates; Voxtral-only + warm XTTS group show no preparing flash.
@@ -89,11 +148,11 @@ Render a chapter's segments **concurrently** across per-engine pools (GPU/CPU/cl
 
 - [~] **G0 (prereq — owner):** verify the W-MIX `👁 VISUAL CHECK` on a live mixed render before starting (don't stack parallelism on an unverified core) — *synthesis core owner-verified 2026-06-29 ("best it's ever done!"); remaining item = owner visual sign-off to actually enable parallelism (raise cap > 1)*
 - [x] **001** — Per-engine cap declaration + scheduler semaphores — [task 001](active/parallel-segment-rendering/tasks/001-per-engine-cap-and-semaphores.md) *(DONE 2026-06-26: per-engine counting semaphores + manifest caps + global cap; ships dark via `ENGINE_CLASS_ADMISSION` env flag default OFF → single-flight = today; **W5 closed at runtime**; adversarial-reviewed, 434 tests green. Real caps + the toggle-as-setting land in 007.)*
-- [ ] **002** — Parent/child segment scheduling — [task 002](active/parallel-segment-rendering/tasks/002-parent-child-segment-scheduling.md) *(chapter parent job fans child segment units into a bounded pool; one job per chapter for UI/recovery)*
-- [ ] **003** — Per-segment dispatch isolation *(keystone, R-A)* — [task 003](active/parallel-segment-rendering/tasks/003-per-segment-dispatch-isolation.md) *(each concurrent segment gets its own timing/marker state; isolate the `_dispatch` closure — now ~1,435 lines (L88→~L1524 of the 1,539-line file; audit 2026-07-01), more than 2× the original ~700-line estimate. **R-F added 2026-06-29:** must also rework single-active `SEGMENT_SAVED` emission — see task file + 01-map.md R-F)*
+- [ ] **002** — Parent/child segment scheduling *(prep-eligible — dispatchable now, see Division of Labor map)* — [task 002](active/parallel-segment-rendering/tasks/002-parent-child-segment-scheduling.md) *(chapter parent job fans child segment units into a bounded pool; one job per chapter for UI/recovery; fan-out logic can be built+tested dark at cap=1 now, only enabling needs the owner cap>1 sign-off)*
+- [ ] **003** — Per-segment dispatch isolation *(keystone, R-A — no safe prep, see Division of Labor map above)* — [task 003](active/parallel-segment-rendering/tasks/003-per-segment-dispatch-isolation.md) *(each concurrent segment gets its own timing/marker state; isolate the `_dispatch` closure — ~1,460 lines (L88→~L1548 of the 1,563-line file; verified 2026-07-02), more than 2× the original ~700-line estimate. **R-F added 2026-06-29:** must also rework single-active `SEGMENT_SAVED` emission — see task file + 01-map.md R-F)*
 - [x] **004** — TTS-server concurrent inference — [task 004](active/parallel-segment-rendering/tasks/004-tts-server-concurrent-inference.md) *(DONE 2026-06-26: async `/synthesize` + `run_in_threadpool`; `WarmWorkerManager` lazy-spawned free-list pool capped at `manifest.behavior.max_concurrent_workers`; OOM degrade fail-safe; Voxtral no lock; ships dark at cap=1. **M-PAR-1 complete** together with 001 — per-engine semaphores + server-side pool exist, default cap=1 = no behavior change. Residual: dead-worker waiter hang at cap>1 → task 005.)*
 - [ ] **005** — Correctness invariants under parallelism — [task 005](active/parallel-segment-rendering/tasks/005-correctness-invariants.md) *(stitch-order barrier, artifact-validated completion, cancel join-all, recovery K-of-N, SQLite per-segment writes, stuck-segment heartbeat — TDD)*
-- [ ] **006** — Frontend multi-active segments — [task 006](active/parallel-segment-rendering/tasks/006-frontend-multi-active.md) *(chapter-level `active_segments_map` threaded end-to-end via the W4 two-layer pattern; `useStudioChapter` set; rAF-coalesced; existing bars light up in parallel)*
+- [ ] **006** — Frontend multi-active segments *(prep-eligible — dispatchable now, see Division of Labor map)* — [task 006](active/parallel-segment-rendering/tasks/006-frontend-multi-active.md) *(chapter-level `active_segments_map` threaded end-to-end via the W4 two-layer pattern; `useStudioChapter` set; rAF-coalesced; existing bars light up in parallel; buildable now with a byte-identical cap=1 fallback — 003 gates only the field actually being non-empty)*
 - [ ] **007** — ETA under parallelism + off-by-default toggle + spec reconciliation — [task 007](active/parallel-segment-rendering/tasks/007-eta-toggle-and-specs.md) *(bracketed throughput ETA; cap-default-1 toggle; bump queue-jobs/system-architecture/data-model/live-events/progress-presentation; final invariant gate)*
 - [ ] **Phase 2** — dedicated BitTorrent-style render monitor *(fast-follow; design captured + demo reference mock built 2026-06-28)* — [10-phase2-render-monitor.md](active/parallel-segment-rendering/10-phase2-render-monitor.md) *(visual mock on the demo Activity screen: `SegmentRenderStrip.tsx` — char-weighted blocks, teal-track in-progress, cap-limited parallelism, fail→retry; binding presentation contract now in `progress-presentation.md` §7A / invariants M1–M3. Production build still gated behind M-PAR-3.)*
 

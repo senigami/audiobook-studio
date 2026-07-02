@@ -10,7 +10,7 @@
 
 ## Frontend
 
-### LF-1 — `useStudioChapter.ts` (861) → focused sub-hooks
+### LF-1 — `useStudioChapter.ts` (915, verified 2026-07-02) → focused sub-hooks
 **Conflates:** chapter load, assignment/paint, playback, render-group counting, status/queue-hold,
 commit/resync actions, deferred updates, handoff queue, debug instrumentation.
 **Split:**
@@ -54,7 +54,7 @@ stay. Drops under ~350 lines. **Effort:** M · **Risk:** low.
 
 ## Backend
 
-### LF-6 — `progress/service.py` (1449) → emit-gate + kernel
+### LF-6 — `progress/service.py` (1503, verified 2026-07-02) → emit-gate + kernel
 **Conflates (verified seams):** (1) `publish()` + `_build_progress_payload()` public API
 (~171–578); (2) `enrich()` §4A math kernel (~652–1054), also called from `ws.py` and the snapshot
 handler; (3) the emit rate-limit gate `_claim_emit_slot()`/`_should_emit_unlocked()` (~1178–1382).
