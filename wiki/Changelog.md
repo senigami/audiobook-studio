@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Fix] - 2026-07-02
+
+### Mixed-render end-game ETA clipping and confidence whipsaw (W-MIX-LA)
+
+Diagnosed from a live mixed 4-group render (job-47213119): the chapter ETA at the end of the render was being clipped low, and `eta_confidence` bounced up and down instead of climbing steadily.
+
+- **§4A.4 mechanical ceiling no longer clips a correct end-game ETA.** The ceiling was fed by `EtaSampleRing.mean()`, a flat historical average — early fast-engine samples kept dragging the mean up long after the engine switch, so the ceiling clipped a correct ~3s composed ETA down to ~2s. New `EtaSampleRing.weighted_mean()` (linear recency weighting, oldest=1…newest=n) feeds the ceiling instead; `cv()` deliberately keeps using flat statistics since it measures instability, not rate.
+- **Chapter `eta_confidence` floors monotonically within a running job.** Per-frame variance and segment-boundary handoffs were making the emitted confidence bounce (0.63→0.33→0.20 observed live) instead of ramping. It now floors at the previous running frame's value while `status == "running"`; queued/requeue and terminal transitions still reset as before. Per-segment confidence (B12, resets per `segment_id`) is unchanged.
+- **Frontend predictive bar snaps instead of crawling after a backend frame gap.** `clampSlope`'s upper bound was proportional to `prevDuration`, so once a stall let the countdown free-run a stale anchor down to ~1-2s, a correcting extension could only crawl back up a couple seconds per frame. New `MIN_SLOPE_CAP_BASE_MS = 2500` floors the cap base so the correction can snap to the true end time in one frame instead.
+
+Spec `progress-presentation.md` → 1.8.4. Backend orchestration suite (445 tests) + frontend confidence suite green; no backend heartbeat during engine stalls remains a known residual, tracked under W-MIX-LA task 007.
+
 ## [Progress honesty] - 2026-06-29
 
 ### Mixed-render progress: no fabricated numbers, zero is not special (W-MIX-LA)
