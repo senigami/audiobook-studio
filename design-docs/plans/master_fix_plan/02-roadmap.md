@@ -5,22 +5,19 @@ are in `tasks/`. Owner-decision gates are called out — three sequencing forks 
 before their workstream starts (see Open Questions in the map).
 
 > **2026-07-01 reconciliation:** the graph and lane plan below were rebuilt from a full
-> plan-vs-code audit (8 parallel audit passes). Statuses reflect the working tree on
-> `studio2/phase-12.5-style` including the uncommitted W-MIX-LA 006 work. The original
-> W1–W13 graph is kept below for provenance; the **Workflow tree** section is the current
-> execution truth.
+> plan-vs-code audit (8 parallel audit passes). The original W1–W13 graph is kept below for
+> provenance; the **Workflow tree** section is the current *ordering/dependency* truth —
+> **but not the status source.** `✓`/`◐`/done-ness markers in this file are a snapshot from
+> that audit and are **not maintained** going forward; they will drift. For what's actually
+> done vs. pending right now, check **[`../TASKS.md`](../TASKS.md)**. This file's job is to
+> answer "what depends on what and what can run in parallel," not "what's done."
 
-## Workflow tree (2026-07-01) — what runs in parallel, what serializes, what gates what
+## Workflow tree (2026-07-01 snapshot) — what runs in parallel, what serializes, what gates what
 
 Legend: `✓` done · `◐` built-uncommitted / partial · `👁` owner visual gate · `──►` hard dependency.
+**Status markers below are frozen at 2026-07-01 — for current status see [`../TASKS.md`](../TASKS.md).**
 
 ```
-STEP 0 (now): commit the working tree
-  ├─ W-MIX-LA 006 load-aware ETA ◐  (adversarial audit CLEAN — safe to commit)
-  ├─ §4A.3 chapter-ETA composition fix ◐  (spec 1.8.2 in-tree)
-  └─ voice taxonomy/schema path fix ◐  (repairs 27 red tests from the 06-25 docs reorg)
-        │
-        ▼
 ╔═══════════════ LANE 1 — Progress / parallel render (critical path) ═══════════════╗
 ║ W-MIX-LA 007  spec recon (live-events, queue-jobs, data-model, wiki) + TASKS sync  ║
 ║      │ 👁 G0 re-check: mixed render + REAL cold-load pre_load_eta frame           ║
@@ -125,6 +122,11 @@ W13 (localization, sub-sentence) ── deferred / needs decision ──► post
 ```
 
 ## Execution order
+
+> **Status snapshot, not live.** The done/partial/not-started labels below are frozen from the
+> 2026-07-01 audit and will drift — **[`../TASKS.md`](../TASKS.md) is the live checklist.** This
+> section's lasting value is the *ordering* (what precedes what) and the milestone → task-file
+> mapping, not the status words.
 
 ### Milestone 1 — Safe base (no behavior change) — **DONE (2026-06-20/21)**
 - **[001 Foundation cleanup](tasks/001-foundation-cleanup.md)** (W1) — dead deps, dead files,

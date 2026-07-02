@@ -5,9 +5,13 @@ clean and each plan's role is obvious. Old paths → new paths are in [MOVE_MAP.
 
 ## Start here
 
-- **[master_fix_plan/](master_fix_plan/README.md)** — **THE master plan.** The umbrella roadmap of
-  everything left to fix/finish for v2.0.0. It orders the workstreams and points each at its
-  authoritative sub-plan (in `active/`). **If you want to know what to work on, start here.**
+- **[TASKS.md](TASKS.md)** — **the live work order.** One line per task, checkbox status.
+  **If you want to know what to work on or what's already done, start here — it's the only
+  file in this folder where status is kept current.**
+- **[master_fix_plan/](master_fix_plan/README.md)** — the umbrella **map**: how the workstreams
+  connect, which sub-plan (in `active/`) is authoritative for each, and the invariants that hold
+  across all of them. Read it to understand *why* TASKS.md is ordered the way it is — its own
+  done/pending markers are point-in-time snapshots that go stale, so don't trust them for status.
 - **[COMPLETED_WORK_REPORT.md](COMPLETED_WORK_REPORT.md)** — the mirror: what's already shipped
   (v1→v2 narrative for wiki / changelog).
 
@@ -15,7 +19,8 @@ clean and each plan's role is obvious. Old paths → new paths are in [MOVE_MAP.
 
 | Folder | Meaning |
 |--------|---------|
-| `master_fix_plan/` | The master roadmap (entry point). |
+| `TASKS.md` | **Live status** — the one checklist to check or update; every other doc defers to it. |
+| `master_fix_plan/` | The structural map (workstream connections, invariants, sub-plan routing) — not a status source. |
 | `active/` | Plans with **open work**, each an authoritative data source the master points at. |
 | `reference/` | **Done/superseded** plans kept because a spec or active plan **cites them as provenance**. Not a to-do list. |
 | `proposals/` | **Undecided design drafts** awaiting a decision before they become work. |
@@ -28,13 +33,15 @@ Everything below is accounted for in exactly one bucket. The master plan covers 
 
 ## `active/` — open work (tracked by the master)
 
-| Plan | Status / remaining |
+Routing only — for current status/remaining work, check [TASKS.md](TASKS.md).
+
+| Plan | What it covers |
 |------|--------------------|
 | [final_release/](active/final_release/00_overview.md) | The v2.0.0 release plan (docs 00–18). Phases 0–11 done; Stage-1 owner render gate, standalone repos (05), taxonomy v2 Phase G (04), Pinokio (16), and the cosmetic/audit backlogs (09–12, 17, 18) remain. |
 | [simplification/](active/simplification/00_overview.md) | Dead-code/dup removal, large-file splits, CSS separation, **restore lost functionality (07)**. Master W2/W3 — not started. |
 | [audio_player_waveform_scrubber/](active/audio_player_waveform_scrubber/README.md) | Live-app port of the scrub-track + expandable tape. Mock + spec done; real-app tasks 005–012 open. Master W5. |
 | [mixed-synthesis-fused-proposal/](active/mixed-synthesis-fused-proposal/README.md) | **Mixed-engine model-load progress/ETA fix** (newly folded into the master). **DONE (W1–W4, W6; W5 superseded by W-PAR 001).** Kept active pending W-MIX-LA follow-up closure. |
-| [mixed-synthesis-load-attribution/](active/mixed-synthesis-load-attribution/README.md) | W-MIX follow-up: segment-tagged load attribution + load-aware ETA. 001–004 + 006 done (006 uncommitted 2026-07-01); 007 spec-reconciliation + 👁 G0 re-check pending — gates W-PAR resume. |
+| [mixed-synthesis-load-attribution/](active/mixed-synthesis-load-attribution/README.md) | W-MIX follow-up: segment-tagged load attribution + load-aware ETA. 007 spec-reconciliation + 👁 G0 re-check gates W-PAR resume. |
 | [parallel-segment-rendering/](active/parallel-segment-rendering/README.md) | W-PAR: per-engine concurrent segment rendering. 001+004 shipped dark (cap=1); 002/003/005/006/007 pending; resume gated on W-MIX-LA 007. Phase 2 render monitor designed. |
 | [master_agnostic_tasks.md](active/master_agnostic_tasks.md) | Namespace rename (`plugins/`→`tts_engines/`), MobileNav focus-trap, CONTRIBUTING. Master W6. |
 | [organizational_cleanup.md](active/organizational_cleanup.md) | `speakers.py` decomposition, router reorg finish. Master W6 (overlaps simplification). |
