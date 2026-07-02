@@ -1,14 +1,16 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.7.1
+spec_version: 1.8.0
 status: active
-updated: 2026-06-26
+updated: 2026-07-02
 sources:
   - app/api/ws.py
   - app/api/contracts/events.py
   - app/db/state_jobs.py
   - app/orchestration/progress/service.py
+  - app/orchestration/scheduler/orchestrator_helpers.py
+  - app/db/performance.py
   - frontend/src/api/contracts/liveEvents.ts
   - frontend/src/store/studioSocketBus.ts
   - frontend/src/hooks/useQueueSync.ts
@@ -19,6 +21,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.8.0   | 2026-07-02 | **`pre_load_eta` proactive frame (W-MIX-LA load-aware ETA); amends the "indeterminate + non-null etaSeconds forbidden" invariant.** Doc catch-up for behavior that shipped in `64a39c34` and has been described in `progress-presentation.md` since 1.8.0 — this spec (the wire contract) had not been updated to match. Two frames now carry a positive `eta_seconds` outside plain `running`, both keyed off `expected_model_load_seconds` DB history for the engine: **(1)** a `pre_load_eta` frame, `status="preparing"`, emitted once at dispatch start when the TTS-server `/health` response shows `model_warm=false` and load history exists — `eta_seconds = round(synthesis_expected + load_term)`, NOT indeterminate (this is a determinate preparing-phase countdown, distinct from the `LOADING_MODEL` frame below). **(2)** the `LOADING_MODEL` frame (§"Model-load preparing window") MAY now carry a positive reconciled `eta_seconds = synthesis_remaining + decaying_load_remainder` instead of always clearing to `null` — the 1.7.0/1.7.1 "always-null suspension" framing is superseded for this case; `indeterminate: true` and a positive `eta_seconds` together is now **allowed and expected** on this frame. If no load history exists at either point, `eta_seconds` stays `null` (unchanged fallback). The 1.5.3 invariant "a frame MUST NOT carry `indeterminate: true` together with a non-null `etaSeconds`" is **removed** — see the amended Invariants entry below. Mirrors `progress-presentation.md` I10 (amended 1.8.0). |
 | 1.7.1   | 2026-06-26 | **ETA suspension is load-marker-gated, not every-announce.** The `SEGMENT_PENDING` announce frame is now ETA-neutral (`eta_seconds: null`, no clear/indeterminate/force) so it preserves the prior ETA and warm single-engine renders don't flash at every segment boundary. The clear + `indeterminate=true` + force suspension fires only on a real model-load marker for the active render-group engine, via a `LOADING_MODEL` frame (the mixed handler's generic `[ENGINE_ACTIVITY_STARTED]` placeholder does not trigger it). Refines 1.7.0. |
 | 1.7.0   | 2026-06-26 | **Model-load preparing window: LOADING_MODEL frames CLEAR the persisted ETA (null + explicit clear, not merely omitted), carry `indeterminate=true` with cleared segment + chapter ETA, are force-emitted (below the ≥1% threshold), keep authoritative progress unchanged, and keep durable `status=running` — the preparing state is a per-group phase via `reason_code`, never a `running→preparing` regression (INV-1). Pacing resumes from a fresh ETA on engine confirmation. Backend signals for the mixed model-load fix (W3). See §Per-segment ETA clock semantics "Model-load preparing window".** |
 | 1.6.1   | 2026-06-24 | **Mixed renders resolve marker/progress parsing from the active render-group engine.** Chapter script entries now carry their resolved `engine`, the orchestrator uses that active-group engine for `match_timing_marker(...)` and `parse_engine_progress(...)`, and the mixed plugin emits a bracketed `[ENGINE_ACTIVITY_STARTED]` marker before each bridge render call. WebSocket/log attribution remains keyed to the original job engine. |
@@ -436,25 +439,44 @@ handler's generic `[ENGINE_ACTIVITY_STARTED]` placeholder, which resolves to the
 job engine, does **not** count). On that detection the orchestrator emits a
 `LOADING_MODEL` frame that suspends the ETA.
 
-**Frame shape — `LOADING_MODEL` (the suspension frame).** When a real load window
-opens for the active segment, the `LOADING_MODEL` frame carries:
+**Frame shape — `LOADING_MODEL` (the suspension frame; amended 1.8.0 for the
+load-aware case).** When a real load window opens for the active segment, the
+`LOADING_MODEL` frame carries:
 
-- `eta_seconds: null` as an **explicit clear** — not merely an omission. The
-  distinction matters: an omitted `eta_seconds` lets the frontend retain the last
-  positive ETA and keep animating; an explicit null instructs the frontend to clear
-  the persisted chapter ETA and flip to indeterminate immediately. Without this, a
-  stale positive ETA would stick through the whole load window and the bar would
-  advance toward a phantom finish time.
-- `indeterminate: true` — signals the UI to render a spinner / indeterminate bar
-  rather than a paced progress arc.
-- `active_segment_eta_seconds: null` (segment ETA cleared) — explicit, not omitted.
+- `eta_seconds` — **`null` as an explicit clear** when no `expected_model_load_seconds`
+  DB history exists for the engine (the original 1.7.0 behavior; the distinction
+  between explicit-null and omitted still matters: an omitted `eta_seconds` lets the
+  frontend retain the last positive ETA and keep animating, while an explicit null
+  instructs it to clear the persisted chapter ETA and flip to indeterminate
+  immediately). **OR**, when load history exists (W-MIX-LA load-aware ETA, 1.8.0), a
+  **positive reconciled value** — `eta_seconds = synthesis_remaining +
+  decaying_load_remainder` (the load term shrinks as elapsed time since the check is
+  subtracted, floored at 0, so the countdown keeps ticking instead of going blank).
+- `indeterminate: true` — signals the UI to render a spinner / indeterminate bar.
+  This is set **regardless of which `eta_seconds` case above applies** — the
+  `indeterminate: true` + positive `eta_seconds` combination is intentional on this
+  frame (see the amended Invariants entry).
+- `active_segment_eta_seconds: null` (segment ETA cleared) — explicit, not omitted,
+  in both cases; the load-aware reconciled ETA is chapter-level only.
 - **force-emitted** (broadcast even when authoritative progress changed less than
   the normal ≥ 1% threshold), so the UI transitions to preparing state immediately
   rather than waiting for the next real progress tick.
 
-The dispatch-time cold-load `LOADING_MODEL` frame (emitted once before the first
-segment, `status="preparing"`) follows the same ETA-suspension shape — it covers the
-initial model load before any segment has been announced.
+**Frame shape — `pre_load_eta` (the proactive dispatch-time frame, 1.8.0).** Before
+`LOADING_MODEL` fires reactively off a real load marker, the orchestrator may already
+know the engine is cold: at dispatch start it checks the TTS-server `/health`
+response for `model_warm=false` on the target engine, and if `expected_model_load_seconds`
+DB history exists for it, publishes a frame with `status="preparing"`,
+`reason_code="pre_load_eta"`, `eta_seconds = round(synthesis_expected + load_term)`.
+Unlike `LOADING_MODEL`, this frame is **not indeterminate** — it is a determinate
+preparing-phase countdown shown before any load marker has actually been observed.
+If the proactive check finds no `/health` cold signal or no load history, no
+`pre_load_eta` frame is emitted and the window is covered reactively by
+`LOADING_MODEL` alone (or not at all, if no history exists at either point). The load
+term set by whichever frame fires first is cleared at `[START_SYNTHESIS]` so
+subsequent frames carry only synthesis-remaining time (no double-count); this is
+**display-only** and never enters recorded `synthesis_duration_seconds`, `cps`, or
+`model_load_seconds` performance stats.
 
 **Authoritative progress is unchanged.** Only ETA is suspended. The `progress` and
 `grouped_progress` values on the frame reflect the actual synthesis progress
@@ -476,10 +498,13 @@ Note: the initial cold-load before the very first segment legitimately uses
 `status="preparing"` — this is the normal forward path (`queued → preparing →
 running`). Only a regression *after* `running` is forbidden by INV-1.
 
-**This rule is consistent with the existing invariant:** "Never emit
-`indeterminate: true` together with a non-null `etaSeconds`" (see Invariants
-section). All frames emitted during the model-load window carry `indeterminate:
-true` paired with `eta_seconds: null` — the combination is valid and required.
+**Superseded (1.8.0):** this section previously claimed all model-load-window frames
+carry `indeterminate: true` paired with `eta_seconds: null`, citing an invariant that
+forbade the opposite pairing. That invariant is **removed** — see the amended
+Invariants entry below. A `LOADING_MODEL` frame now legitimately carries
+`indeterminate: true` together with a **positive** `eta_seconds` when load history
+exists (the load-aware reconciled value above); the null-clear case still applies
+when no history exists.
 
 **ETA resumes fresh on confirmation.** When the engine emits `[START_SYNTHESIS]`
 or the first `[PROGRESS]` line (ending the model-load window), ETA pacing resumes
@@ -694,9 +719,14 @@ Rules:
   (only for terminal resets and explicit force-broadcast with non-terminal status).
 - Not broadcast a non-terminal frame for a job after its terminal frame, except
   via the `queued`/`preparing` re-entry (see "Terminal ordering guarantee").
-- Emit `etaSeconds: null` on any frame whose status is `queued` or `preparing`; a
-  determinate ETA appears only at `running` (progress-presentation §2.6 / I10).
-  Never emit `indeterminate: true` together with a non-null `etaSeconds`.
+- Emit `etaSeconds: null` on any frame whose status is `queued` (progress-presentation
+  §2.6 / I10, amended 1.8.0). A `preparing` or `running+indeterminate` frame MAY carry
+  a **positive** `etaSeconds` when the backend has load-aware history to justify it
+  (`reason_code="pre_load_eta"` at `preparing`; the reconciled `LOADING_MODEL` value
+  at `running+indeterminate`) — otherwise it stays `null`. **The 1.5.3 rule "never
+  emit `indeterminate: true` together with a non-null `etaSeconds`" is removed
+  (1.8.0)** — that combination is now intentional and expected on `LOADING_MODEL`
+  frames; see "Model-load preparing window" above.
 
 **Client MUST:**
 - Enforce the queue row-authority table above: only `queue.items` creates,

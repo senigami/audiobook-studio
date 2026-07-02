@@ -1,9 +1,9 @@
 # Data Model
 
 ```
-spec_version: 1.4.1
+spec_version: 1.5.0
 status: active
-updated: 2026-06-25
+updated: 2026-07-02
 sources:
   - app/db/state.py
   - app/db/state_jobs.py
@@ -16,6 +16,7 @@ sources:
   - app/utils/text/lexicon.py
   - app/db/segment_gc.py
   - app/db/chapters_cleanup.py
+  - app/db/performance.py
 ```
 
 > **TL;DR:** Studio 2.0 uses two complementary stores — volatile in-memory state.json for live job state and settings, and durable SQLite for project/chapter/queue history — with disk artifact state as the ultimate source of truth.
@@ -24,6 +25,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.5.0   | 2026-07-02 | **`model_load_seconds` is now consumed, not just recorded (W-MIX-LA load-aware ETA).** Doc catch-up for `app/db/performance.py::expected_model_load_seconds(engine, tts_model)`, which reads a trimmed mean of `render_performance_samples.model_load_seconds` (filtered to `>= 1.0`, treating smaller values as warm-reuse noise, and to matching `tts_model` when known) to produce the load term the orchestrator adds to the live chapter ETA during a cold-engine dispatch (`live-events.md` 1.8.0 `pre_load_eta` / `LOADING_MODEL` frames). Returns `None` on no cold-load history — callers must not inject a load term in that case (no-fabrication principle). See render_performance_samples below. |
 | 1.4.1   | 2026-06-25 | Clarify render-performance samples are orchestrator-owned and `synthesis_duration_seconds` is synthesis-only (engine-confirmed group time), excluding load windows and inter-group overhead; align the mixed render contract with the single-writer path |
 | 1.4.0   | 2026-06-23 | Sharpen source-of-truth invariant to *validated metadata, not raw file existence*; add § Segment audio artifacts & orphan reconciliation (group→filename fan-out, orphan GC keyed on referenced filenames, per-book on-open sweep); see [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md) |
 | 1.3.1   | 2026-06-21 | Correct lexicon application-point docs: xtts/voxtral apply it in per-plugin text-prep handlers, NOT in `SynthesisTask.to_bridge_request()` (api_synthesis path only) |
@@ -269,7 +271,7 @@ Stores per-render timing samples used for ETA prediction. (Lives in the separate
 | `duration_seconds` | REAL | Wall time |
 | `synthesis_duration_seconds` | REAL | Synthesis-only render duration; excludes model load and inter-group overhead |
 | `inter_group_overhead_seconds` | REAL | |
-| `model_load_seconds` | REAL | |
+| `model_load_seconds` | REAL | Consumed by `expected_model_load_seconds()` (trimmed mean of samples `>= 1.0`, per engine + `tts_model`) to compute the live load-aware ETA term (`live-events.md` 1.8.0 `pre_load_eta` / `LOADING_MODEL`); samples `< 1.0` are treated as warm reuse and excluded |
 | `sum_segment_render_seconds` | REAL | |
 | `cps` | REAL | Characters per second |
 | `seconds_per_segment` | REAL | |

@@ -14,6 +14,19 @@ Diagnosed from a live mixed 4-group render (job-47213119): the chapter ETA at th
 
 Spec `progress-presentation.md` → 1.8.4. Backend orchestration suite (445 tests) + frontend confidence suite green; no backend heartbeat during engine stalls remains a known residual, tracked under W-MIX-LA task 007.
 
+## [Feature] - 2026-07-02
+
+### Load-aware ETA: the chapter countdown now accounts for cold-engine model load (W-MIX-LA)
+
+Previously, `model_load_seconds` was recorded per render but never factored into the live ETA — a cold-engine dispatch showed a countdown as if the model load wouldn't happen, then the bar stalled through the load window with no honest signal.
+
+- **Proactive load term at dispatch.** When the TTS server reports an engine as cold (`model_warm=false`) and there's enough render history to estimate a typical load time (`app/db/performance.py::expected_model_load_seconds`, a trimmed mean of past cold-load samples for that engine/model), the chapter progress frame now carries a real `eta_seconds = synthesis_expected + load_term` from the very first frame (`reason_code="pre_load_eta"`) — a determinate countdown, not a blank "Preparing…".
+- **Reconciled at the real load marker.** When the engine actually confirms the load (`[MODEL_LOAD_STARTED]`), the ETA is reconciled to `synthesis_remaining + decaying_load_remainder` — the load term shrinks by elapsed time since the proactive estimate, so the countdown keeps ticking through the load instead of resetting or going blank.
+- **Display-only.** The load term never enters recorded `synthesis_duration_seconds`, `cps`, or `model_load_seconds` performance stats — those stay synthesis-only, so future ETA calibration isn't polluted by this display adjustment.
+- **Global queue row shows the countdown too.** The queue drawer previously suppressed any ETA while a row was `preparing`; it now retains and displays the countdown whenever a positive load-aware ETA is present.
+
+No fabricated numbers: if there's no load history for an engine yet, no load term is added and the bar shows the plain busy label until real data exists. Specs: `live-events.md` → 1.8.0, `queue-jobs.md` → 1.7.0, `data-model.md` → 1.5.0, `progress-presentation.md` (already at 1.8.0+ from prior entries in this series).
+
 ## [Progress honesty] - 2026-06-29
 
 ### Mixed-render progress: no fabricated numbers, zero is not special (W-MIX-LA)

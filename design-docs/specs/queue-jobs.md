@@ -1,14 +1,15 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.6.0
+spec_version: 1.7.0
 status: active
-updated: 2026-06-26
+updated: 2026-07-02
 created: 2026-06-10
 sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
          app/orchestration/scheduler/{orchestrator,orchestrator_helpers,policies,resources,recovery}.py,
          plugins/tts_xtts/plugin/studio/standard_handler.py,
          app/orchestration/progress/eta.py, app/core/boot.py, app/api/web.py,
+         app/db/performance.py, frontend/src/components/queue/QueueItem.tsx,
          tests/db/test_state_rules.py, test_state_jobs_broadcast.py, test_db_reconcile.py,
          tests/orchestration/test_recovery_db_integration.py,
          tests/orchestration/test_engine_semaphores.py
@@ -18,6 +19,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.7.0   | 2026-07-02 | **§3.9 — client retention for `pre_load_eta` (W-MIX-LA load-aware ETA).** Doc catch-up for behavior shipped in `64a39c34`: the global queue row (`QueueItem.tsx`) derives `preparingWithEta = displayStatus === 'preparing' && rawEtaSeconds > 0` and retains its active display params (started/eta/etaBasis) when true, so a cold-engine dispatch's proactive `pre_load_eta` frame (`live-events.md` 1.8.0) shows a countdown instead of being suppressed by the plain-`preparing` param-discard rule. Presentation-only; does not affect durable status (§3.8) or fabricate a value absent real ETA history. |
 | 1.6.0   | 2026-06-26 | **W-PAR task 001 — per-engine-class counting semaphores (§7).** `GpuAdmissionGate` / `ExclusiveAdmissionGate` binary gates replaced by `EngineClassSemaphore` counting semaphores keyed by engine class (``"gpu"``, ``"cpu_heavy"``, ``"cloud"``). Each engine declares `behavior.max_concurrent_workers` in its manifest (default 1); the scheduler sizes the semaphore to that cap. Global cap backstop (`MAX_GLOBAL_CONCURRENT_SYNTHESIS`, default 8) checked first. Ships dark behind `ENGINE_CLASS_ADMISSION` (default OFF, §7.3a): until enabled (task 007) every synthesis-class claim routes through the single shared exclusive gate, preserving the pre-W-PAR invariant that xtts/voxtral/API synthesis all serialize against one another (INV-1). Closes W5: `SynthesisTask` for `mixed` engine no longer uses `ResourceClaim.none()` — claim is derived from the manifest resource block + cap. No engine-ID string comparisons remain in `resources.py` (INV-5). |
 | 1.5.1   | 2026-06-26 | §3.8 refinement: the per-group preparing phase's `indeterminate=true` / ETA suspension is carried on the `LOADING_MODEL` frame (fired only on a real model-load marker for the active group), not on the every-segment `SEGMENT_PENDING` announce — which stays ETA-neutral so warm renders don't flash. Matches `live-events.md` 1.7.1. |
 | 1.5.0   | 2026-06-26 | **Distinguish the per-group render PHASE (preparing/synthesizing, carried by `reason_code` on live frames) from the durable monotonic job-status lifecycle. A group's preparing phase during model load MUST NOT regress a running job's durable status to `preparing` (INV-1). Documents the W3 mixed model-load ETA-suspension backend signals. See §3.8.** |
@@ -337,6 +339,38 @@ warm-up path, not a regression. INV-1 prohibits only the backward transition aft
 **Cross-reference:** `live-events.md` §"Model-load preparing window" documents the
 exact frame shape (`indeterminate`, null ETA clears, force-emit) that carries the
 per-group preparing phase to the frontend without touching the durable status.
+
+### 3.9 Client retention: `preparingWithEta` (`QueueItem.tsx`) — W-MIX-LA load-aware ETA
+
+The global queue row (`frontend/src/components/queue/QueueItem.tsx`) normally
+retains its "active" display params (started time, ETA, ETA basis) only while
+`displayStatus` is `running`/`processing`/`finalizing`, or during the brief
+done-transition/visually-pending windows. A plain `preparing` row has none of
+these — there is nothing to count down.
+
+**The `pre_load_eta` frame (`live-events.md` 1.8.0) breaks that assumption:** a
+cold-engine dispatch can emit a `preparing`-status frame carrying a real positive
+`eta_seconds` before any segment has started. Without a retention rule, the row's
+existing param-suppression logic would discard that ETA on every re-render (since
+`preparing` isn't in the retained-status list), and the queue row would flash
+"Preparing…" with no countdown even though the backend already knows how long the
+load will take.
+
+`preparingWithEta` is a derived boolean: `displayStatus === 'preparing' && (rawEtaSeconds ?? 0) > 0`.
+When true, it is OR'd into `shouldRetainActiveParams` alongside the
+running/processing/finalizing check, so the row retains `started`/`etaSeconds`/
+`etaBasis` exactly as it would for an active render. This is presentation-only —
+it does not touch `displayStatus`, does not imply the durable job status is
+anything other than `preparing`/`running` per §3.8, and does not fabricate a
+value: if `rawEtaSeconds` is absent or non-positive (no load history for the
+engine), `preparingWithEta` is `false` and the row falls back to the plain
+"Preparing…" label with no number (no-fabrication principle,
+`progress-presentation.md`).
+
+**Cross-reference:** `progress-presentation.md` §2.6 / I10 (amended 1.8.0) documents
+the backend-side rule that a positive `eta_seconds` on a `preparing` frame MUST be
+displayed, not suppressed; this section documents the specific client mechanism
+(`QueueItem.tsx`) that satisfies that rule for the global queue row.
 
 ---
 
