@@ -2,6 +2,14 @@
 
 **Status: NOT STARTED**
 
+*(PARTIAL as of 2026-07-01 audit: `app/infra/{subprocess,cache,events,db}` stub scaffold EXISTS as
+prescribed; `StorageManager`/`TRANSIENT_DIR` abstraction (organizational_cleanup §5) is built and
+consumed. Also: the `api/index.ts` error-handling item is a FALSE POSITIVE — all 6 named functions
+already route through `parseApiResponse` with `.ok` checks; drop it. `/progress-test` + `/event-stream`
+are frontend React Router routes registered unconditionally (not backend routes) — the gating item
+means `import.meta.env.DEV` guards in the router. `plugins/`→`tts_engines/` rename genuinely not
+started; router restructure not started; `speakers.py` decomposition not started.)*
+
 **Goal:** the structural rename `plugins/` → `tts_engines/` and the remaining code-org items not folded
 into 005.
 **Authoritative sources:** [`master_agnostic_tasks.md`](../../active/master_agnostic_tasks.md) (06-14,

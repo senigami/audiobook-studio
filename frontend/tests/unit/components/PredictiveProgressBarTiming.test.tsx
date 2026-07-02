@@ -692,44 +692,59 @@ describe('PredictiveProgressBar - Timing', () => {
         vi.useRealTimers()
     })
 
-    // I10 (progress-presentation §2.6): a determinate ETA countdown is valid
-    // only at status 'running'.  queued / preparing (model cold-load) must not
-    // resolve a determinate end time even if a frame carries etaSeconds — honoring
-    // it would anchor the countdown to queue time and make it jump at synthesis.
-    //
-    // We assert on snapshot.displayedRemaining (the value resolveEndAtMs feeds the
-    // lane) rather than the rendered "ETA:" text: the ETA text is independently
-    // hidden by terminalStatusText ("Queued") and busyStatusText ("Working..."),
-    // so a DOM-text assertion would pass even on pre-fix code and would NOT
-    // revert-check the resolveEndAtMs gate.  displayedRemaining IS controlled by
-    // the gate (null when suppressed, a number when honored).
-    it.each(['preparing', 'queued'] as const)(
-        'suppresses the determinate ETA countdown while %s',
-        (status) => {
-            const now = Date.now()
-            vi.spyOn(Date, 'now').mockReturnValue(now)
-            let snapshot: any = null
-            render(
-                <PredictiveProgressBar
-                    progress={0}
-                    startedAt={undefined}
-                    etaSeconds={57}
-                    etaBasis="remaining_from_update"
-                    updatedAt={now / 1000}
-                    label="Loading"
-                    status={status}
-                    onDebugSnapshot={(snap) => { snapshot = snap; }}
-                />
-            )
-            // No determinate end time is resolved for the lane → no countdown.
-            expect(snapshot.displayedRemaining).toBeNull()
-            // And no ETA text is shown either.
-            expect(screen.queryByText(/ETA:/i)).toBeNull()
-            vi.restoreAllMocks()
-        },
-    )
+    // I10 (progress-presentation §2.6 — parallel-render model v1.8.0):
+    // queued always suppresses the ETA countdown (no synthesis clock ever).
+    // preparing now HONORS a positive etaSeconds as a pre-factored cold-load ETA —
+    // this reverses the old serial-render rule (1.4.3) that suppressed preparing too.
+    // running+indeterminate (per-segment load window, §2.7) keeps suppressing via busyStatusText.
+    it('suppresses the determinate ETA countdown while queued (unchanged)', () => {
+        const now = Date.now()
+        vi.spyOn(Date, 'now').mockReturnValue(now)
+        let snapshot: any = null
+        render(
+            <PredictiveProgressBar
+                progress={0}
+                startedAt={undefined}
+                etaSeconds={57}
+                etaBasis="remaining_from_update"
+                updatedAt={now / 1000}
+                label="Loading"
+                status="queued"
+                onDebugSnapshot={(snap) => { snapshot = snap; }}
+            />
+        )
+        // queued always suppresses.
+        expect(snapshot.displayedRemaining).toBeNull()
+        expect(screen.queryByText(/ETA:/i)).toBeNull()
+        vi.restoreAllMocks()
+    })
 
-    it('shows the determinate ETA once the bar transitions to running', () => {
+    it('honors a positive ETA during preparing (parallel-render cold-load ETA)', () => {
+        // Parallel-render model: preparing + positive etaSeconds → countdown is shown.
+        // This is the pre-factored cold-load ETA published by the backend before synthesis.
+        const now = Date.now()
+        vi.spyOn(Date, 'now').mockReturnValue(now)
+        let snapshot: any = null
+        render(
+            <PredictiveProgressBar
+                progress={0}
+                startedAt={undefined}
+                etaSeconds={57}
+                etaBasis="remaining_from_update"
+                updatedAt={now / 1000}
+                label="Loading"
+                status="preparing"
+                onDebugSnapshot={(snap) => { snapshot = snap; }}
+            />
+        )
+        // Countdown is resolved (positive ETA honored during preparing).
+        expect(snapshot.displayedRemaining).toBe(57)
+        expect(screen.getByText(/ETA:/i)).toBeTruthy()
+        vi.restoreAllMocks()
+    })
+
+    it('shows the determinate ETA during preparing and keeps it at running', () => {
+        // Parallel-render model: ETA shows from preparing onward (not only at running).
         const now = Date.now()
         vi.spyOn(Date, 'now').mockReturnValue(now)
         let snapshot: any = null
@@ -744,10 +759,10 @@ describe('PredictiveProgressBar - Timing', () => {
                 onDebugSnapshot={(snap) => { snapshot = snap; }}
             />
         )
-        // No countdown resolved during preparing...
-        expect(snapshot.displayedRemaining).toBeNull()
-        expect(screen.queryByText(/ETA:/i)).toBeNull()
-        // ...then it appears at running (anchored to the running frame).
+        // Countdown visible during preparing.
+        expect(snapshot.displayedRemaining).toBe(57)
+        expect(screen.getByText(/ETA:/i)).toBeTruthy()
+        // ...still visible at running (anchored to the running frame).
         rerender(
             <PredictiveProgressBar
                 progress={0}

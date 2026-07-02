@@ -373,7 +373,7 @@ class ProgressService:
                 source=payload.get("source"),
                 has_segment_support=resolved_has_segment_support,
                 confidence=payload.get("eta_confidence"),
-                indeterminate=payload.get("indeterminate") if payload.get("indeterminate") else None,
+                indeterminate=payload.get("indeterminate") if isinstance(payload.get("indeterminate"), bool) else None,
                 loading_elapsed_seconds=payload.get("loading_elapsed_seconds"),
             )
             self.broadcaster(payload=queue_event, channel="jobs")
@@ -473,7 +473,7 @@ class ProgressService:
                 # the frontend can drive the preparing pulse from a single atomic frame
                 # (active_segment_id + indeterminate together).  Only present when the
                 # orchestrator has set indeterminate=True (LOADING_MODEL window).
-                indeterminate=payload.get("indeterminate") if payload.get("indeterminate") else None,
+                indeterminate=payload.get("indeterminate") if isinstance(payload.get("indeterminate"), bool) else None,
                 loading_elapsed_seconds=payload.get("loading_elapsed_seconds"),
             )
             self.broadcaster(payload=seg_event, channel="jobs")
@@ -573,7 +573,7 @@ class ProgressService:
                 has_segment_support=resolved_has_segment_support,
                 eta_updated_at=payload.get("eta_updated_at"),
                 confidence=payload.get("eta_confidence"),
-                indeterminate=payload.get("indeterminate") if payload.get("indeterminate") else None,
+                indeterminate=payload.get("indeterminate") if isinstance(payload.get("indeterminate"), bool) else None,
                 loading_elapsed_seconds=payload.get("loading_elapsed_seconds"),
             )
             self.broadcaster(payload=chap_event, channel="jobs")
@@ -689,6 +689,10 @@ class ProgressService:
         if is_terminal:
             payload["eta_seconds"] = None
             payload["eta_updated_at"] = None
+            # Explicitly clear the load-window flag: frontend overlay merges keep
+            # the last present value, so a terminal frame that merely OMITS
+            # `indeterminate` leaves a stale `true` from the load window behind.
+            payload["indeterminate"] = False
 
         # --- §4A progress rounding + clamp ------------------------------------
         raw_progress = payload.get("progress")
@@ -696,6 +700,24 @@ class ProgressService:
         if raw_progress is not None:
             normalized_progress = round(max(0.0, min(float(raw_progress), 1.0)), 2)
             payload["progress"] = normalized_progress
+
+        # --- §2.5 server-side monotonic floor (running → running) --------------
+        # Both producers funnel through this kernel, but they compute progress
+        # independently (orchestrator marker math vs the plugin SDK's own
+        # update_job_fields). A late plugin frame can carry a lower progress than
+        # the orchestrator already published (observed live: 0.91 after 0.99 just
+        # before done), which forces a visible backward correction on every bar.
+        # Clamp running-frame progress to the previous running frame's floor.
+        # Scope is deliberately narrow: only running→running (requeue/recovery
+        # transitions through queued/preparing keep their explicit reset paths).
+        if status == "running" and normalized_progress is not None:
+            with self._lock:
+                _prev_for_floor = self._last_payload_by_job.get(job_id)
+            if _prev_for_floor is not None and str(_prev_for_floor.get("status", "")) == "running":
+                _prev_progress = _prev_for_floor.get("progress")
+                if isinstance(_prev_progress, (int, float)) and normalized_progress < float(_prev_progress):
+                    normalized_progress = float(_prev_progress)
+                    payload["progress"] = normalized_progress
 
         # --- §4A eta_updated_at dedupe ----------------------------------------
         eta_seconds = payload.get("eta_seconds")
@@ -895,14 +917,14 @@ class ProgressService:
         else:
             p = float(normalized_progress) if normalized_progress is not None else 0.0
 
-            # §2.6 / I10: a determinate ETA is valid only once synthesis is
-            # actually running.  Before START_SYNTHESIS (queued / preparing /
-            # model cold-load) there is no synthesis clock — a calculated or
-            # observed ETA would anchor to queue time and drift across the load
-            # window, then re-anchor at START_SYNTHESIS and make the bar "jump".
-            # Suppress the observed input here; the calculated input is gated
-            # below; the trailing else then nulls all determinate ETA fields.
-            if status != "running":
+            # §2.6 / I10 (amended 1.8.0 — positive ETA always wins): queued still
+            # never carries a determinate ETA (no synthesis clock), but a REAL
+            # incoming observed ETA on a *preparing* frame survives — the
+            # pre-factored cold-load ETA (reason_code=pre_load_eta) and the
+            # LOADING_MODEL reconcile publish during the load window are honest
+            # observed inputs the queue bar must render as a countdown.  The
+            # calculated input stays running-gated below.
+            if status not in {"running", "preparing"}:
                 eta_observed = None
 
             # Compute eta_calculated from character count + engine baseline.
@@ -970,33 +992,34 @@ class ProgressService:
                     and completed_w is not None
                     and active_w is not None
                 ):
-                    remaining_w = max(float(total_w) - float(completed_w), 0.0)
-                    if remaining_w > 0:
-                        share = min(float(active_w) / remaining_w, 1.0)
+                    # §4A.3 share is the active segment's share of the TRUE remaining
+                    # work = its own *remaining* weight + the not-yet-started segments'
+                    # weight. The naive `active_w / (total − completed)` is wrong on two
+                    # counts at a segment boundary: (1) `completed_weight` lags until
+                    # SEGMENT_SAVED, so a finishing segment is still counted as "remaining"
+                    # at full weight; (2) a finishing segment's own remaining work is ~0.
+                    # Together those made a finishing NON-LAST segment (whose ETA → 0)
+                    # dominate the composition and collapse the chapter ETA toward 0 —
+                    # discounting the not-yet-started segments (the "stuck at 100% before
+                    # the last segment renders" bug). Using true-remaining keeps the
+                    # §4A.3 intent intact: when the active segment IS all remaining work
+                    # (not_started = 0), share → 1 and a confident segment still fully
+                    # dominates; when later segments remain, a finishing segment's share
+                    # → 0 and the chapter ETA holds the whole-remaining estimate.
+                    _asp = active_seg_p if active_seg_p is not None else 0.0
+                    _asp = min(max(float(_asp), 0.0), 1.0)
+                    active_remaining_w = max(float(active_w) * (1.0 - _asp), 0.0)
+                    not_started_w = max(float(total_w) - float(completed_w) - float(active_w), 0.0)
+                    true_remaining_w = active_remaining_w + not_started_w
+                    if true_remaining_w > 0:
+                        share = min(active_remaining_w / true_remaining_w, 1.0)
                         w_seg = seg_confidence * share
-                        # chapter_eta_excluding_active: per §4A.3, the residual represents
-                        # only the remaining work OUTSIDE the active segment.  When the
-                        # active segment covers all remaining work (share→1), the residual
-                        # must vanish so a mature high-confidence segment can fully
-                        # dominate the chapter ETA.
-                        #
-                        # Guard for cold-start (low seg_confidence): if we trust the
-                        # segment weakly, we still want the chapter-level baseline to
-                        # provide a fallback rather than collapsing to zero.  The residual
-                        # is therefore blended between the pure non-active fraction
-                        # (fully trusted segment) and the full chapter ETA (fully
-                        # untrusted segment), weighted by seg_confidence:
-                        #   non_active_fraction = (remaining_w - active_w) / remaining_w
-                        #   chapter_eta_excl = (non_active_fraction + share*(1-seg_confidence))
-                        #                      * bounded_eta
-                        # At seg_confidence=1: chapter_eta_excl = non_active_fraction * bounded_eta
-                        # At seg_confidence=0: chapter_eta_excl = (non_active_fraction + share) * bounded_eta
-                        #                    = 1.0 * bounded_eta  (full chapter ETA preserved)
-                        non_active_fraction = max(1.0 - share, 0.0)
-                        blended_residual_fraction = non_active_fraction + share * (1.0 - seg_confidence)
-                        chapter_eta_excl = blended_residual_fraction * float(bounded_eta)
-                        # eta_display = w_seg * seg_eta + (1 - w_seg) * chapter_eta_excluding_active
-                        composed_eta = w_seg * active_seg_eta + (1.0 - w_seg) * chapter_eta_excl
+                        # §4A.3: trust-weighted blend — w_seg is the trust placed in
+                        # the active-segment ETA; (1-w_seg) falls back to the whole-chapter
+                        # observed baseline.  Coefficients always sum to 1.0.
+                        #   seg_confidence=1, share=1 → composed = seg_eta (full trust)
+                        #   seg_confidence=0 or share=0 → composed = bounded_eta (no trust)
+                        composed_eta = w_seg * active_seg_eta + (1.0 - w_seg) * float(bounded_eta)
                         # Re-apply ceiling to the composed value.
                         composed_eta_bounded = apply_eta_ceiling(
                             eta_seconds=composed_eta,
@@ -1013,7 +1036,7 @@ class ProgressService:
                             payload["eta_confidence"] = conf_display
 
             if bounded_eta is not None:
-                sanitized_eta = max(0, int(bounded_eta))
+                sanitized_eta = max(0, round(bounded_eta))
                 # Determine eta_basis: "calculated" when no observed input, else "remaining_from_update"
                 eta_basis = "calculated" if eta_observed is None else "remaining_from_update"
                 payload["eta_seconds"] = sanitized_eta

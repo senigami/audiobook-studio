@@ -5,6 +5,15 @@
 > (decision §1 of the overview). High churn, low logic-risk — phased by hotspot, each file an
 > isolated, owner-verifiable task.
 
+> **AUDIT CORRECTION (2026-07-01):** Headline counts no longer reproduce: `form-label` as a literal
+> class = **0 hits repo-wide** (doc claimed 52×/21 files); `input-field` = **4 occurrences / 2
+> files** (doc claimed 8/3); `components.css` is now **3,772 lines** (doc said 2,956 — it grew by
+> ~800). All 5 QW-6 dead selectors (`.btn-home`, `.btn-menu-destructive`, `.action-menu-item`,
+> `.select-glass`, `.engine-chunk`) are still present. The `theme/components/` split directory does
+> not exist yet. **Executor instruction:** re-run the frequency scans fresh (e.g.
+> `grep -roh "style={{[^}]*}}" frontend/src | sort | uniq -c | sort -rn`) before ST-2/ST-3 — do not
+> trust the doc's cited counts.
+
 ---
 
 ## The strategy (read before touching anything)

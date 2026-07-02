@@ -10,13 +10,15 @@ Ordered workloads, the dependency graph, and milestones. Each task file in `task
 
 | Task | Title | Part(s) | Depends on | Gist |
 |---|---|---|---|---|
-| [001](tasks/001-per-engine-cap-and-semaphores.md) | Per-engine cap declaration + scheduler semaphores | A, B | G0 | Manifest `max_concurrent_workers` + global cap; replace binary gates with per-engine counting semaphores. Default 1 ⇒ no behavior change. **Subsumes W5.** |
+| [001](tasks/001-per-engine-cap-and-semaphores.md) | Per-engine cap declaration + scheduler semaphores | A, B | G0 | **DONE (2026-06-26).** Manifest `max_concurrent_workers` + global cap; replace binary gates with per-engine counting semaphores. Default 1 ⇒ no behavior change. **Subsumes W5.** |
 | [002](tasks/002-parent-child-segment-scheduling.md) | Parent/child segment scheduling | C | 001 | Chapter parent job fans child segment units into a bounded pool admitted under 001's semaphores; ResourceClaim derives from child engines. |
 | [003](tasks/003-per-segment-dispatch-isolation.md) | Per-segment dispatch isolation (keystone) | D | 002 | Give each concurrent segment its own timing/marker state; parent owns aggregation. The R-A refactor. |
-| [004](tasks/004-tts-server-concurrent-inference.md) | TTS-server concurrent inference | E | 001 (cap) | Warm-worker semaphore + lazy spawn (VRAM-aware) + `run_in_threadpool`; cloud concurrency free. |
+| [004](tasks/004-tts-server-concurrent-inference.md) | TTS-server concurrent inference | E | 001 (cap) | **DONE (2026-06-26).** Warm-worker semaphore + lazy spawn (VRAM-aware) + `run_in_threadpool`; cloud concurrency free. |
 | [005](tasks/005-correctness-invariants.md) | Correctness invariants under parallelism | F | 002, 003 | Stitch-order barrier, artifact-validated completion, cancel signal+join, recovery K-of-N, SQLite per-segment writes, stuck-segment heartbeat. TDD the invariants. |
 | [006](tasks/006-frontend-multi-active.md) | Frontend multi-active segments | G | 003 (emits multi-active) | `active_segments_map` end-to-end (extract→whitelist→merge→store→hook set→ScriptView); rAF-coalesce; existing bars light up in parallel. |
 | [007](tasks/007-eta-toggle-and-specs.md) | ETA under parallelism + off-by-default toggle + spec reconciliation | H, I | 003, 005, 006 | Throughput/bracketed ETA; cap-default-1 toggle/setting; spec bumps + changelog; final invariant test gate. |
+
+> **G0 softened (2026-06-29).** 001 and 004 above were already executed dark (default cap=1, no behavior change) ahead of a formal G0 re-check; the owner separately confirmed the synthesis core is now "best it's ever done" on 2026-06-29. The surviving gate before 002/003 is (a) W-MIX-LA task 007 closing (spec recon + its own G0 re-check) and (b) owner sign-off to raise cap > 1. See [`../mixed-synthesis-load-attribution/README.md`](../mixed-synthesis-load-attribution/README.md).
 
 ## Dependency graph
 

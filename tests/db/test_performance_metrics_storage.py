@@ -5,7 +5,7 @@ import uuid
 import json
 from pathlib import Path
 from app.db.core import init_db, get_connection
-from app.db.performance import record_render_sample, get_render_history, apply_performance_retention_policy
+from app.db.performance import record_render_sample, get_render_history, apply_performance_retention_policy, expected_model_load_seconds
 from app.db.state import get_performance_metrics, update_performance_metrics, _default_performance_metrics, _default_state
 
 @pytest.fixture
@@ -826,3 +826,78 @@ def test_historical_samples_without_explicit_model_still_calibrate(clean_db):
     filtered = filter_history_for_engine_model(history, "xtts", "v2")
     assert len(filtered) == 1
     assert filtered[0]["job_id"] == "historical-null-model-test"
+
+
+class TestExpectedModelLoadSeconds:
+    def test_cold_samples_return_trimmed_mean(self, clean_db):
+        """Cold samples (>= 1.0s) return a TRIMMED-mean estimate — outliers dropped.
+
+        7 samples trigger trimming (int(7 * 0.15) = 1 from each end): sorted
+        [22, 23, 24, 25, 26, 27, 90] -> effective [23, 24, 25, 26, 27] -> 25.0.
+        A regression to a plain mean would return round(237/7, 2) = 33.86 and fail.
+        """
+        for load_s in [23.0, 25.0, 27.0, 24.0, 90.0, 26.0, 22.0]:
+            record_render_sample(
+                engine="tts_xtts", chars=500, segment_count=2,
+                synthesis_duration_seconds=30.0,
+                sum_segment_render_seconds=30.0,
+                model_load_seconds=load_s,
+            )
+        result = expected_model_load_seconds("tts_xtts")
+        assert result is not None
+        assert result == pytest.approx(25.0), (
+            f"expected the trimmed mean 25.0 (outliers 22/90 dropped), got {result} — "
+            "a plain mean over all 7 samples gives 33.86"
+        )
+
+    def test_warm_samples_excluded(self, clean_db):
+        """Samples with load < 1.0 (warm reuse) are excluded; returns None."""
+        for load_s in [0.0, 0.2, 0.5]:
+            record_render_sample(
+                engine="tts_xtts", chars=500, segment_count=2,
+                synthesis_duration_seconds=30.0,
+                sum_segment_render_seconds=30.0,
+                model_load_seconds=load_s,
+            )
+        assert expected_model_load_seconds("tts_xtts") is None
+
+    def test_empty_history_returns_none(self, clean_db):
+        """No history returns None (fail-open: caller must not inject a term)."""
+        assert expected_model_load_seconds("tts_xtts") is None
+
+    def test_all_warm_returns_none(self, clean_db):
+        """All-warm history returns None."""
+        for _ in range(5):
+            record_render_sample(
+                engine="tts_xtts", chars=500, segment_count=2,
+                synthesis_duration_seconds=30.0,
+                sum_segment_render_seconds=30.0,
+                model_load_seconds=0.3,
+            )
+        assert expected_model_load_seconds("tts_xtts") is None
+
+    def test_model_filter_excludes_other_models(self, clean_db):
+        """tts_model filter excludes non-matching models' load times."""
+        record_render_sample(
+            engine="tts_xtts", chars=500, segment_count=2,
+            synthesis_duration_seconds=30.0, sum_segment_render_seconds=30.0,
+            tts_model="xtts_v2", model_load_seconds=25.0,
+        )
+        record_render_sample(
+            engine="tts_xtts", chars=500, segment_count=2,
+            synthesis_duration_seconds=30.0, sum_segment_render_seconds=30.0,
+            tts_model="other_model", model_load_seconds=200.0,
+        )
+        result = expected_model_load_seconds("tts_xtts", tts_model="xtts_v2")
+        assert result is not None
+        assert result < 50.0  # must not include 200.0 from other_model
+
+    def test_null_model_in_history_included_when_tts_model_given(self, clean_db):
+        """Samples with NULL tts_model are included when filtering by tts_model (legacy data)."""
+        record_render_sample(
+            engine="tts_xtts", chars=500, segment_count=2,
+            synthesis_duration_seconds=30.0, sum_segment_render_seconds=30.0,
+            tts_model=None, model_load_seconds=26.0,  # NULL model = any model
+        )
+        result = expected_model_load_seconds("tts_xtts", tts_model="xtts_v2")
+        assert result is not None  # NULL model row should be included

@@ -1,3 +1,11 @@
+> **RETIRED 2026-07-01 — folded into [simplification/04](simplification/04_large_file_splits.md).**
+> Audit found 3 of 5 ranked items already right-sized by unrelated work: `useJobs.ts` = 288 lines,
+> `useQueueSync.ts` = 196, `scriptViewProgress.ts` = 95 — no split needed. Still live:
+> **`ChapterHeader.tsx` (615 lines)** — the `segmentProgressSelection` extraction remains worthwhile
+> and is now tracked under simplification/04. `QueueItem.tsx` (556) is borderline and mid-edit by
+> W-MIX-LA. The doc's premise that splits must wait for the "in-flight P1–P6 perf agent" is long
+> resolved. Kept for provenance; do not execute from this file.
+
 # Purpose-driven file splits — ranked execution plan
 
 *From the 2026-06-11 read-only audit (full seam maps with line cites in the audit transcript; line numbers drift — re-grep before cutting). Owner motivation: "queue issues could be because things are doing too many things and it's hard to test them." Every split extracts data-derivation into pure, unit-testable modules; rendering stays where it is. Splits follow `.agent/rules/modular_architecture.md`: cohesive responsibilities along existing seams, never mechanical.*

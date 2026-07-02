@@ -52,14 +52,14 @@ Owner policy applies throughout: legacy code is deleted, not preserved (see `01_
 
 ## Dead code (delete — supplements doc 06)
 
-- [ ] **D1.** `frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarEngine.ts` — self-documented obsolete, `export {}` only.
+- [x] **D1.** `frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarEngine.ts` — self-documented obsolete, `export {}` only. *(already fixed — file deleted; verified 2026-07-01)*
 - [ ] **D2.** `frontend/src/hooks/useSegmentProgressLifecycle.ts` — exported, zero import sites.
-- [ ] **D3.** `app/engines/registry.py:282-284` `_load_plugin_engines` — unconditional `{}` stub (goes with the legacy-path deletion in doc 06).
+- [x] **D3.** `app/engines/registry.py:282-284` `_load_plugin_engines` — unconditional `{}` stub (goes with the legacy-path deletion in doc 06). *(already fixed — `_load_plugin_engines` stub no longer exists; verified 2026-07-01)*
 - [ ] **D4.** Already in doc 06: `api/client.ts`, `api/queries/index.ts`, `shared/*` stubs, `.burger` CSS — cross-check they're covered before closing this doc.
 
 ## Redundancy (consolidate — coordinate with docs 02/06)
 
-- [ ] **R1.** `_ensure_plugin_package_hierarchy` duplicated verbatim — `app/tts_server/plugin_loader.py:710-733` and `app/jobs/registry.py:197-214`. Extract to `app/utils/plugin_import.py`. (Also tracked in doc 02 migration step.)
+- [x] **R1.** `_ensure_plugin_package_hierarchy` duplicated verbatim — `app/tts_server/plugin_loader.py:710-733` and `app/jobs/registry.py:197-214`. Extract to `app/utils/plugin_import.py`. (Also tracked in doc 02 migration step.) *(already fixed — both callers import shared `ensure_plugin_package_hierarchy` from `studio_plugin_sdk`; verified 2026-07-01)*
 - [ ] **R2.** Four identical adapter helpers + MP3-conversion boilerplate duplicated — `plugins/tts_xtts/plugin/studio/app_adapter.py:420-458` vs `plugins/tts_voxtral/plugin/studio/app_adapter.py:396-436`. Resolve via the shared SDK base in doc 02 rather than a one-off base class.
 - [ ] **R3.** Voxtral `synthesize` vs `preview` duplicated staging/cleanup blocks — `plugins/tts_voxtral/plugin/studio/app_adapter.py:195-298,301-375`. Extract `_run_voxtral_generate(...)` helper/context manager.
 - [ ] **R4.** Input styling defined four ways — `frontend/src/theme/components.css:216-249,384-399` + `GlassInput.tsx:53-66` inline overrides. Owner confirmed `.form-input` + `GlassInput` as canonical on 2026-06-14; delete `.input-field`, `.input-group input`. (Owned by doc 06; listed for traceability.)
@@ -84,7 +84,7 @@ Owner policy applies throughout: legacy code is deleted, not preserved (see `01_
 
 ## Addendum 2 — production bugs surfaced by the full test audit (2026-06-10, doc 17 T3/T4)
 
-- [ ] **F14 (Bug). ScriptView crashes on undefined `data.paragraphs`** — `frontend/src/pages/ChapterEditor/components/ScriptView.tsx:460` calls `data.paragraphs.map(...)` without guarding `data`; the App.test.tsx chapter-route test logs the unhandled exception but still passes. **Fix:** null-guard `data`/`data.paragraphs` (render empty/loading state) or wrap in an error boundary; make the test assert no console error.
+- [ ] **F14 (Bug). ScriptView crashes on undefined `data.paragraphs`** — `frontend/src/pages/ChapterEditor/components/ScriptView.tsx:460` calls `data.paragraphs.map(...)` without guarding `data`; the App.test.tsx chapter-route test logs the unhandled exception but still passes. **Fix:** null-guard `data`/`data.paragraphs` (render empty/loading state) or wrap in an error boundary; make the test assert no console error. *(still valid; line citation drifted — file restructured; note: `ChapterEditor` is LIVE-ROUTED, the "maybe-dead tree" caveat does not apply)*
 - [ ] **F15 (Bug). `useInitialData` never signals fetch failure** — on rejection the hook only logs and stays `loading: true` forever → infinite spinner. **Fix:** add an `error` state, surface a retryable error UI in App.
 - [ ] **B14 (Test-env). `test_voice_bridge_describes_remote_registry_by_default` is environment-dependent** — passes only when a live TTS server is running; would fail in clean CI. Needs a mock TTS-server fixture (or skip-unless marker) — flagged in audits/test_audit_backend_misc.md.
 - [ ] **B15 (Coverage gap). `ETA_PROJECTION_SKIP_REASONS` suppression has no real test** — the deleted vacuous test named this contract (segment-boundary events must not project bad ETA) but only checked set membership. Write an end-to-end test through `update_job`.

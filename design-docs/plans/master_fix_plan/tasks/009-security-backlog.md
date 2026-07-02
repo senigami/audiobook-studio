@@ -46,6 +46,12 @@ app (no public multi-tenant surface), so their real-world exposure is low. Still
 `npm audit fix`, rebuild, re-run the suite; confirm Dependabot drops to zero after the default-branch
 scan. No production code change required.
 
+**Update 2026-07-01:** re-triaged against the committed lockfile — **all three items are now satisfied**,
+not just vite: `vite` **7.3.5** (>7.3.4 ✓), `@babel/core` **7.29.7** (>7.29.0 ✓ — not "at the boundary"),
+`js-yaml` **4.2.0** (>4.1.1 ✓ — not "still 4.1.1"; confirmed via `npm ls js-yaml @babel/core vite`, one
+resolved copy of each). `npm audit --audit-level=low` reports **0 vulnerabilities**. Re-run `npm audit`
+at release to reconfirm against Dependabot's live alert state before closing S12.
+
 **Map links:** W9. Feeds W12 release. Honors INV-1 (`security.md`). CodeQL must stay green (all 53
 prior alerts already addressed). S12 is a dependency-hygiene gate, not a runtime-contract change.
 **Dependencies:** independent; parallel-safe with 007/008.

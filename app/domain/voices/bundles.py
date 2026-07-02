@@ -29,7 +29,7 @@ MODEL_ASSET_NAMES = {"latent.pth"}
 
 # Path to the canonical bundle schema (voice.schema.json)
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_BUNDLE_SCHEMA_PATH = _REPO_ROOT / "docs" / "specs" / "voice.schema.json"
+_BUNDLE_SCHEMA_PATH = _REPO_ROOT / "design-docs" / "specs" / "voice.schema.json"
 
 # Fields that are runtime-operational and MUST NOT appear in exported voice.json
 _EXPORT_STRIP_FIELDS = {"version", "default_variant", "_untagged", "_taxonomy_version"}

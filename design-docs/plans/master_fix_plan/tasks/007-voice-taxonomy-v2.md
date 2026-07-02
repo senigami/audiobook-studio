@@ -2,6 +2,12 @@
 
 **Status: NOT STARTED**
 
+*(SCOPE NARROWED 2026-07-01: `accent` (single, one-optional, 20 values incl. "none") already exists
+in voice-taxonomy.json/voice.schema.json at version 1.0. Remaining: `language` (controlled
+multi-select — distinct from the existing top-level BCP-47 `languages` array) + `style` (multi).
+Note `VoiceProfileModel` (`app/domain/voices/models.py:22-26`) has NONE of the G1-G3 fields —
+taxonomy lives in the JSON bundle layer.)*
+
 **Goal:** extend the voice taxonomy with v2 attributes and the matching UI; it re-blocks the demo
 bundle refresh.
 **Authoritative source:** [`final_release/04_voice_metadata_and_tagging.md`](../../active/final_release/04_voice_metadata_and_tagging.md)

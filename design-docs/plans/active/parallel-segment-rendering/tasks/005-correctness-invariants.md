@@ -30,15 +30,26 @@ concurrently. Without the correctness harness in this task:
   rewrite model produce torn writes and corrupted state (R-C).
 - A segment that silently hangs causes the overall chapter progress bar to stall with no observable
   signal (stuck-segment heartbeat gap).
+- **Residual explicitly assigned by task 004 (dead-worker waiter hang).** `WarmWorkerManager._acquire_worker`
+  (`plugins/tts_xtts/plugin/core/warm_worker.py:470-476`) blocks on `self._free_q.get()` when the pool is
+  at cap and every pooled worker is busy. If a pooled worker **dies** without ever being returned to the
+  free-list, a caller blocked on that `get()` hangs forever — there is no timeout by design (the
+  in-code comment at that call site says "005 handles it holistically"). This is *dormant* under
+  ships-dark (cap=1 + single-flight dispatch means no second acquirer ever blocks there) and becomes
+  live the moment cap ≥ 2. This task must cover it: either the stuck-segment heartbeat (above) must be
+  able to detect a segment stuck inside `_acquire_worker` (not just inside a running synthesis call),
+  or the cancel-signal+join path must be able to unblock a waiter parked on `free_q.get()` when its
+  segment is cancelled. Do not add an ad-hoc timeout at the `warm_worker.py` call site — the note there
+  is explicit that 005 owns this holistically.
 
 ## Files to touch
 
 | File | Current anchor | Change |
 |------|----------------|--------|
 | `plugins/tts_mixed/handler.py` | group loop, `stitch_segments`, `_group_needs_render` | Enforce stitch barrier (INV-2): call `stitch_segments` only after **all** child futures have produced validated artifacts; build the concatenation list in `DB segment order`, not completion order. Confirm `_group_needs_render` checks artifact validity (non-zero size, duration-sane) rather than raw file existence (INV-3). |
-| `app/orchestration/scheduler/orchestrator.py` | cancel path (`cancel_job`, cooperative-cancel listener detach) | Cancel safety (INV-7): cancel sets a shared `threading.Event` stop signal, **signals all in-flight child futures** (via `Future.cancel()` + the stop event), then **joins every child thread/future** (`concurrent.futures.wait` with no timeout) before the terminal status write and resource release. Confirm the cooperative-cancel listener is detached after the join, not before (no straggler `SEGMENT_SAVED` writes can arrive post-join). |
-| `app/orchestration/scheduler/recovery.py` | `recover_jobs`, chapter-level dedup (`dedup by chapter_id`) | Recovery K-of-N (INV-8): on restart, identify segments that already have validated artifacts (`_group_needs_render` returns False) and exclude them from the recovered fan-out. The parent chapter job is the single recovery-visible unit (INV-4); dedup must remain one-job-per-chapter. |
-| `app/db/segments.py` + `app/db/state.py` | `update_segments_bulk` / `update_job`; full-file-rewrite path in `state.py` | Write contention (R-C): route per-segment status writes (`SEGMENT_SAVED`, segment progress) to the SQLite `segments` table (WAL mode; concurrent-safe under multiple writers). Reserve `state.json` writes for chapter-level status transitions only (not for every per-segment event). If `update_segments_bulk` already targets SQLite, confirm WAL is enabled and add a guard; if it still routes through `state.json`, redirect it. |
+| `app/orchestration/scheduler/orchestrator.py` | cancel path (**`cancel(task_id)` — orchestrator.py:386**, not `cancel_job`; cooperative-cancel listener detach) | Cancel safety (INV-7): cancel sets a shared `threading.Event` stop signal, **signals all in-flight child futures** (via `Future.cancel()` + the stop event), then **joins every child thread/future** (`concurrent.futures.wait` with no timeout) before the terminal status write and resource release. Confirm the cooperative-cancel listener is detached after the join, not before (no straggler `SEGMENT_SAVED` writes can arrive post-join). |
+| `app/orchestration/scheduler/orchestrator.py` + `recovery.py` | recovery entry (**`Orchestrator.recover()` — orchestrator.py:240**, not `recover_jobs`; `recovery.py` only exposes `load_recoverable_task_contexts`), chapter-level dedup (`dedup by chapter_id`) | Recovery K-of-N (INV-8): on restart, identify segments that already have validated artifacts (`_group_needs_render` returns False) and exclude them from the recovered fan-out. The parent chapter job is the single recovery-visible unit (INV-4); dedup must remain one-job-per-chapter. |
+| `app/db/segments.py` + `app/db/state.py` | `update_segments_bulk` / **`update_job` (lives in `app/db/state_jobs.py:135`; `state.py` is a facade over it)**; full-file-rewrite path in `state.py` | Write contention (R-C): route per-segment status writes (`SEGMENT_SAVED`, segment progress) to the SQLite `segments` table (WAL mode; concurrent-safe under multiple writers). Reserve `state.json` writes for chapter-level status transitions only (not for every per-segment event). If `update_segments_bulk` already targets SQLite, confirm WAL is enabled and add a guard; if it still routes through `state.json`, redirect it. |
 | `app/orchestration/scheduler/orchestrator_helpers.py` | per-segment `_dispatch` closure; child timing state (post-003) | Stuck-segment heartbeat: add a `last_heartbeat: float` timestamp to each child's isolated timing state (set on every progress tick or marker event); a parent-side monitor thread (or the aggregation loop) compares `time.monotonic() - last_heartbeat` against a configurable stall threshold (default: `SEGMENT_STALL_TIMEOUT_SECONDS`, suggested 60 s). When exceeded, set a `stalled` flag on the segment entry (surfaced in the chapter-level progress payload as `stalled_segments`). Do **not** auto-kill the segment — flag only; the cancel path (INV-7) remains the kill surface. |
 
 ## Target shape / contract
@@ -51,7 +62,8 @@ concurrently. Without the correctness harness in this task:
   has `os.path.getsize > 0`, and its duration (read via soundfile / the existing WAV header check)
   falls within a sane range (>0 s, <`MAX_SEGMENT_DURATION_SECONDS`). `_group_needs_render` is the
   single gate; exit code is not sufficient.
-- **Cancel safety (INV-7):** `cancel_job` flow: (1) set shared stop event; (2) signal + cancel all
+- **Cancel safety (INV-7):** `cancel(task_id)` flow (orchestrator.py:386 — **not** `cancel_job`,
+  which does not exist): (1) set shared stop event; (2) signal + cancel all
   child futures; (3) `concurrent.futures.wait(all_child_futures)` (join); (4) purge any orphan WAVs
   written by children that had already started before the signal; (5) detach cooperative listeners;
   (6) write terminal chapter status. No child writes can arrive after step 5.
@@ -75,11 +87,13 @@ concurrently. Without the correctness harness in this task:
    existence, (b) `getsize > 0`, (c) WAV duration > 0. Add the duration check if missing. Update all
    segment-done write sites to call through `_group_needs_render` before marking done — never mark on
    subprocess exit code alone.
-4. **Cancel safety (INV-7):** in `orchestrator.py` cancel path, thread a `threading.Event` stop signal
+4. **Cancel safety (INV-7):** in `orchestrator.py`'s `cancel(task_id)` path (orchestrator.py:386),
+   thread a `threading.Event` stop signal
    through to every child future. After signalling, call `concurrent.futures.wait(all_child_futures)`.
    Only after the wait completes: purge orphan WAVs for segments that started but did not produce a
    validated artifact; detach listeners; write terminal chapter status.
-5. **Recovery K-of-N (INV-8):** in `recovery.py`, when building the recovered fan-out list, filter out
+5. **Recovery K-of-N (INV-8):** in `Orchestrator.recover()` (orchestrator.py:240; `recovery.py` only
+   supplies `load_recoverable_task_contexts`), when building the recovered fan-out list, filter out
    segments whose validated artifact already exists (`_group_needs_render` returns False). Confirm the
    parent chapter job is the only unit submitted to the scheduler (one-job-per-chapter dedup intact).
 6. **Write contention (R-C):** confirm `update_segments_bulk` targets the `segments` SQLite table and
@@ -113,14 +127,15 @@ pre-fix code that gates on exit code, segment 2 is incorrectly marked done → r
 
 **Test C — cancel joins all in-flight (INV-7, R1):**
 Start a 3-segment fan-out; cancel mid-way (after 1 segment starts, before it finishes). Assert:
-(a) the cancel call blocks until all child threads are joined (no active futures remain after
-`cancel_job` returns); (b) no orphan WAVs remain for segments that started but did not validate;
-(c) no `SEGMENT_SAVED` writes arrive after `cancel_job` returns. On pre-fix code cancel does not
+(a) the `cancel(task_id)` call (orchestrator.py:386 — not `cancel_job`) blocks until all child threads are joined (no active futures remain after
+`cancel(task_id)` returns); (b) no orphan WAVs remain for segments that started but did not validate;
+(c) no `SEGMENT_SAVED` writes arrive after `cancel(task_id)` returns. On pre-fix code cancel does not
 join → assertion (a) fails → red. Use `threading.Event` synchronization in the stub, not sleep.
 
 **Test D — K-of-N recovery resumes only unfinished (INV-8, R1):**
 Simulate a 4-segment chapter where segments 1 and 3 already have validated WAV artifacts on disk.
-Call `recover_jobs` (or the recovery entry point from 002). Assert: (a) the recovered fan-out submits
+Call `Orchestrator.recover()` (orchestrator.py:240 — not `recover_jobs`, which does not exist; the
+recovery entry point from 002). Assert: (a) the recovered fan-out submits
 exactly segments 2 and 4; (b) only one chapter job appears in the scheduler (one-job-per-chapter,
 INV-4). On pre-fix code that rebuilds the full fan-out, segments 1 and 3 are re-submitted → red.
 
@@ -144,7 +159,7 @@ ruff check plugins/tts_mixed/handler.py app/orchestration/scheduler/orchestrator
       by test A.
 - [ ] A segment with a zero-byte or duration-invalid WAV is not marked done; the chapter is not
       completed until all segments have validated artifacts (INV-3); pinned by test B.
-- [ ] `cancel_job` joins all in-flight child threads before returning; no orphan WAVs or straggler
+- [ ] `cancel(task_id)` (orchestrator.py:386) joins all in-flight child threads before returning; no orphan WAVs or straggler
       `SEGMENT_SAVED` writes remain after cancel (INV-7); pinned by test C.
 - [ ] After a crash with K of N segments validated, restart re-renders only the N-K unfinished
       segments; one-job-per-chapter dedup is intact (INV-4, INV-8); pinned by test D.

@@ -1,6 +1,6 @@
 # Parallel Segment Rendering — plan folder
 
-**Status:** Not started · **Created:** 2026-06-26 · **Workstream tag:** W-PAR · **Master:** [TASKS.md](../../TASKS.md)
+**Status:** **M-PAR-1 shipped dark** (001 + 004 done 2026-06-26, cap=1 = no behavior change); 002/003/005/006/007 pending; **resume gated on W-MIX-LA 007** (spec recon + owner 👁). G0 softened 2026-06-29: synthesis core owner-verified ("best it's ever done"); remaining G0 item = owner sign-off to raise cap > 1. · **Created:** 2026-06-26 · **Workstream tag:** W-PAR · **Master:** [TASKS.md](../../TASKS.md)
 
 ## What this is
 

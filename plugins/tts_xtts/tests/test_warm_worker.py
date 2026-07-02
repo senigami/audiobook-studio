@@ -347,3 +347,46 @@ def test_engine_shutdown_calls_reset(tmp_path):
         plugin.shutdown()
 
     assert reset_called, "engine.shutdown() should have called _reset_warm_worker()"
+
+
+# ---------------------------------------------------------------------------
+# is_model_ready tracking
+# ---------------------------------------------------------------------------
+
+def test_is_model_ready_false_before_ready_line():
+    """WarmWorker.is_model_ready is False when the 'model ready' line has not appeared."""
+    mgr = _make_manager()
+    # Acquire a worker without running a job (so no model-ready line is emitted)
+    with mgr._lock:
+        worker = mgr._get_or_spawn()
+    assert not worker.is_model_ready
+
+
+def test_is_model_ready_true_after_model_ready_line():
+    """WarmWorker.is_model_ready becomes True when the worker emits 'model ready'."""
+    mgr = _make_manager(extra_env={"FAKE_WORKER_EMIT_MODEL_READY": "1"})
+    mgr.run_job({"task_id": "t1", "text": "hi"}, lambda _: None, lambda: False)
+    worker = mgr._worker
+    assert worker._model_ready.wait(timeout=2.0), "model-ready event never fired"
+    assert worker.is_model_ready
+
+
+def test_manager_is_model_ready_reflects_pool():
+    """WarmWorkerManager.is_model_ready() is True when any pool worker is warm."""
+    mgr = _make_manager(extra_env={"FAKE_WORKER_EMIT_MODEL_READY": "1"})
+    mgr.run_job({"task_id": "t1", "text": "hi"}, lambda _: None, lambda: False)
+    assert mgr._worker._model_ready.wait(timeout=2.0)
+    assert mgr.is_model_ready()
+
+
+def test_dead_worker_not_counted_as_model_ready():
+    """Removing a dead worker from the pool means manager.is_model_ready() goes False."""
+    mgr = _make_manager(extra_env={"FAKE_WORKER_EMIT_MODEL_READY": "1"})
+    mgr.run_job({"task_id": "t1", "text": "hi"}, lambda _: None, lambda: False)
+    worker = mgr._worker
+    assert worker._model_ready.wait(timeout=2.0)
+    assert mgr.is_model_ready()
+    # Remove the worker from the pool
+    with mgr._lock:
+        mgr._remove_dead_worker(worker)
+    assert not mgr.is_model_ready()

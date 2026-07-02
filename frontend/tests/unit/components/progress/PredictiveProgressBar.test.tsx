@@ -95,10 +95,10 @@ describe('PredictiveProgressBar — indeterminate prop honors mid-chapter model 
         )
         // Must show the preparing-pulse CSS class, NOT the breathe/running animation.
         expect(container.querySelector('.progress-bar-pending')).toBeTruthy()
-        // Must NOT show ETA countdown (indeterminate bars carry no lane).
-        // The ETA text should not appear; instead "Preparing…" busy label shows.
+        // A positive ETA wins over busyStatusText in all non-terminal states (I10 amended).
+        // Even while indeterminate, etaSeconds=51 → countdown IS shown (spec §2.6 v1.8.0).
         const barText = container.textContent ?? ''
-        expect(/ETA/.test(barText)).toBe(false)
+        expect(/ETA/.test(barText)).toBe(true)
     })
 
     it('does NOT render progress-bar-pending when status=running and indeterminate is absent', () => {

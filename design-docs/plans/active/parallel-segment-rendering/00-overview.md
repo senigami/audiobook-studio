@@ -32,6 +32,8 @@ Render the segments of a single chapter **concurrently** across per-engine worke
 
 The **W-MIX `👁 VISUAL CHECK`** (a live mixed XTTS+Voxtral render confirming preparing/ETA behavior) must be owner-verified before Phase-1 execution starts. Parallelism on an unverified sequential core compounds risk (R-E).
 
+> **Update (2026-06-29) — G0 softened, not removed.** Tasks 001 and 004 were already executed dark (default cap=1, no behavior change) before this gate was formally re-checked — the owner separately confirmed the synthesis core is now "best it's ever done" on 2026-06-29. The surviving gate before **002/003** (the tasks that actually enable concurrent execution) is two-part: (a) **W-MIX-LA task 007** closes (spec reconciliation + its own G0 re-check, including a live `pre_load_eta` render), and (b) **owner sign-off to raise cap > 1**. See [`../mixed-synthesis-load-attribution/README.md`](../mixed-synthesis-load-attribution/README.md).
+
 ## Success criteria (definition of done)
 
 - A chapter renders multiple segments concurrently up to each engine's declared cap; with cap=1 behavior is identical to today (ships dark).

@@ -137,6 +137,32 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
         except Exception:
             pass
 
+        # W-MIX-LA 006 — proactive warm-state check.
+        # If the TTS server reports this engine is cold, pre-compute the expected
+        # load term from DB history so we can publish an honest initial ETA before
+        # any synthesis output arrives. Fail-open: any exception → term stays None
+        # and the reactive MODEL_LOAD_STARTED path handles it if a load occurs.
+        load_state: dict = {"term": None, "checked_at": None}
+        try:
+            from app.engines.watchdog import get_server_health  # noqa: PLC0415
+            from app.db.performance import expected_model_load_seconds  # noqa: PLC0415
+            _health = get_server_health()
+            if _health is not None:
+                for _eng_info in _health.get("engines", []):
+                    if _eng_info.get("engine_id") == engine_id:
+                        if _eng_info.get("model_warm") is False:
+                            try:
+                                _tts_model_for_load = tts_model
+                            except NameError:
+                                _tts_model_for_load = None
+                            _load_secs = expected_model_load_seconds(engine_id, _tts_model_for_load)
+                            if _load_secs is not None and _load_secs > 0:
+                                load_state["term"] = _load_secs
+                                load_state["checked_at"] = time.time()
+                        break
+        except Exception:
+            pass
+
         def task_progress_reporter(progress: float, message: str | None, reason_code: str | None, status: str = "running"):
             # Non-marker tasks start when they first report running. Marker-driven
             # tasks should only fall back here for real positive progress if a
@@ -789,28 +815,76 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
 
                 if _mls_sid:
                     segment_load_observed.add(_mls_sid)
-                    self._publish(
-                        context=context,
-                        status="running",
-                        progress=_get_grouped_progress(),
-                        eta_seconds=None,
-                        clear_eta=True,
-                        indeterminate=True,
-                        loading_elapsed_seconds=max(0.0, now_time - float(pending_engine_activity["started_at"])) if pending_engine_activity.get("started_at") else 0.0,
-                        active_segment_eta_seconds=None,
-                        reason_code="LOADING_MODEL",
-                        message="Loading voice model…",
-                        started_at=timing["render_started_at"],
-                        active_segment_id=_mls_sid,
-                        render_group_count=render_group_count,
-                        completed_render_groups=completed_group_count[0],
-                        active_render_group_index=active_render_group_index[0],
-                        total_render_weight=total_weight,
-                        completed_render_weight=completed_weight[0],
-                        active_render_group_weight=id_to_weight.get(_mls_sid, 0),
-                        grouped_progress=_get_grouped_progress(),
-                        force=True,
-                    )
+
+                # Attribution fallback for the dispatch-time (job-level) cold load:
+                # the marker carries only the task_id and no segment has been
+                # announced yet, so _mls_sid is None. Skipping the publish here
+                # left the whole load window with NO loading signal at all — no
+                # indeterminate frame, no reconciled ETA, no segment for the text
+                # preparing pulse (owner-observed regression 2026-07-02). Attribute
+                # the frame to the first render group's leader (UI-attribution
+                # only — segment_load_observed / segment_starts are NOT touched,
+                # so render-timing and W2 stats stay driven by real markers).
+                _mls_attr_sid = _mls_sid
+                if _mls_attr_sid is None and script:
+                    _mls_eids0 = (script[0].get("ids") or []) if len(script) > 0 else []
+                    if _mls_eids0:
+                        _mls_attr_sid = _mls_eids0[0]
+
+                # W-MIX-LA 006 — reconcile or inject load term instead of clearing ETA.
+                if load_state["term"] is not None and load_state["checked_at"] is not None:
+                    _elapsed_since_check = max(0.0, now_time - load_state["checked_at"])
+                    _remaining_load = max(0.0, load_state["term"] - _elapsed_since_check)
+                    _synth_remaining = self._duration_to_eta_seconds(expected_duration) or 0
+                    _mls_eta: int | None = max(1, _synth_remaining + int(round(_remaining_load)))
+                    _mls_clear = False
+                else:
+                    try:
+                        from app.db.performance import expected_model_load_seconds  # noqa: PLC0415
+                        try:
+                            _fb_tts_model = tts_model
+                        except NameError:
+                            _fb_tts_model = None
+                        _fb_load = expected_model_load_seconds(engine_id, _fb_tts_model)
+                        if _fb_load is not None and _fb_load > 0:
+                            _synth_remaining = self._duration_to_eta_seconds(expected_duration) or 0
+                            _mls_eta = max(1, _synth_remaining + int(round(_fb_load)))
+                            load_state["term"] = _fb_load
+                            load_state["checked_at"] = now_time
+                            _mls_clear = False
+                        else:
+                            _mls_eta = None
+                            _mls_clear = True
+                    except Exception:
+                        _mls_eta = None
+                        _mls_clear = True
+                # Durable-status honesty: before START_SYNTHESIS the job is still
+                # 'preparing' (dispatch-time cold load); publishing 'running' here
+                # would flip the durable status early. Mid-chapter loads (a later
+                # group's cold load) keep INV-1 monotonic 'running'.
+                _mls_status = "running" if marker_state["start_synthesis_emitted"] else "preparing"
+                self._publish(
+                    context=context,
+                    status=_mls_status,
+                    progress=_get_grouped_progress(),
+                    eta_seconds=_mls_eta,
+                    clear_eta=_mls_clear,
+                    indeterminate=True,
+                    loading_elapsed_seconds=max(0.0, now_time - float(pending_engine_activity["started_at"])) if pending_engine_activity.get("started_at") else 0.0,
+                    active_segment_eta_seconds=None,
+                    reason_code="LOADING_MODEL",
+                    message="Loading voice model…",
+                    started_at=timing["render_started_at"],
+                    active_segment_id=_mls_attr_sid,
+                    render_group_count=render_group_count,
+                    completed_render_groups=completed_group_count[0],
+                    active_render_group_index=active_render_group_index[0],
+                    total_render_weight=total_weight,
+                    completed_render_weight=completed_weight[0],
+                    active_render_group_weight=id_to_weight.get(_mls_attr_sid, 0) if _mls_attr_sid else 0,
+                    grouped_progress=_get_grouped_progress(),
+                    force=True,
+                )
                 # Do NOT open a new pending_engine_activity interval here —
                 # the generic [ENGINE_ACTIVITY_STARTED] already opened it;
                 # this marker only emits the frame (avoids double model_load_seconds).
@@ -833,6 +907,10 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         _publish_segment_started(_pending_seg_id)
                     return
                 marker_state["start_synthesis_emitted"] = True
+                # W-MIX-LA 006 — load is complete; clear the load term so subsequent
+                # ETA frames show synthesis-only time.
+                load_state["term"] = None
+                load_state["checked_at"] = None
                 if timing["render_started_at"] is None:
                     timing["render_started_at"] = now_time
 
@@ -868,6 +946,9 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     eta_seconds=self._duration_to_eta_seconds(expected_duration),
                     started_at=timing["render_started_at"],
                     message="Synthesis in progress...",
+                    # Load window is over — explicitly clear the flag (overlay
+                    # merges retain the last present value; omission ≠ false).
+                    indeterminate=False,
                     active_segment_id=active_seg_id[0],
                     active_segment_progress=0.0 if active_seg_id[0] else None,
                     render_group_count=render_group_count,
@@ -1011,6 +1092,12 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     else:
                         p = raw_progress
 
+                    # Chapter ETA: observed-rate remaining (§4A.8). elapsed × (1-p)/p
+                    # self-corrects — a render slower than calibration grows the ETA
+                    # instead of flooring — and is whole-chapter (chapter render start
+                    # + grouped progress p), with an early blend toward expected_duration
+                    # for p < 0.15. This is the "observed" term enrich()'s §4A.8 crossfade
+                    # weights from calculated→observed as progress rises.
                     eta_seconds = self._observed_remaining_seconds(
                         started_at=timing["render_started_at"],
                         progress=p,
@@ -1250,6 +1337,16 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             # normal-completion path; double-unregister is a no-op.
             setattr(task, "_log_listener", log_listener)
             setattr(task, "_watchdog", wd)
+
+        # W-MIX-LA 006 — publish initial ETA with load term before synthesis starts.
+        if load_state["term"] is not None and expected_duration is not None:
+            self._publish(
+                context=context,
+                status="preparing",
+                eta_seconds=max(1, int(round(expected_duration + load_state["term"]))),
+                reason_code="pre_load_eta",
+                message="Preparing synthesis resources…",
+            )
 
         # 1. Try registry-based dispatch (Plugin handlers or generic kind handlers)
         reg = get_handler_registry()

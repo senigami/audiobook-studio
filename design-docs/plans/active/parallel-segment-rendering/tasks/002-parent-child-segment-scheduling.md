@@ -7,6 +7,15 @@
 > first — this task dispatches child segments under those semaphore slots. The R-A keystone refactor
 > (per-segment dispatch isolation) is task 003; this task only establishes the fan-out structure.
 
+> **Note (2026-07-01) — 001 already replaced the mixed `ResourceClaim` branch.** The "Files to touch"
+> table below cites `ResourceClaim` at `synthesis.py:88–90`; that anchor is stale. Task 001 landed
+> `_manifest_resource_claim(engine_id)` (`app/orchestration/tasks/synthesis.py:29-100`), which derives
+> the claim (`engine_class`, `cap`, etc.) from the engine's manifest rather than an `engine_id == "mixed"`
+> branch — the two `ResourceClaim(...)` constructions now sit at `synthesis.py:79` (manifest-derived) and
+> `synthesis.py:93` (fail-safe fallback), and it's used at `synthesis.py:162`. This task's "derive claim
+> from child engines" premise should **build on `_manifest_resource_claim`** (call it per child engine),
+> not reinvent manifest-reading logic that already exists.
+
 ## Goal
 
 Make a chapter render a **parent job** that fans out individual **child segment units** admitted under
@@ -31,7 +40,7 @@ under per-engine caps.
 | File | Current anchor (file:line) | Change |
 |------|---------------------------|--------|
 | `app/orchestration/scheduler/orchestrator.py` | `submit()` at top of class (≈ line 60+); `_dispatch_loop` / `_run_task` pattern; entire chapter render executes in one blocking thread | Add `_fan_out_chapter(parent_task, context)` method: decompose the chapter task into child segment units, dispatch each into the bounded thread pool, admit under 001's semaphores. Parent thread aggregates child futures for progress/completion. |
-| `app/orchestration/tasks/synthesis.py` | `SynthesisTask` (single class, handles both chapter and per-segment concerns); `ResourceClaim` at line 88–90 | Split into `ChapterSynthesisTask` (parent — owns fan-out, aggregation, durable status) and `SegmentSynthesisTask` (child — owns one chunk group's bridge call, admitted under per-engine semaphore). `SegmentSynthesisTask` carries `parent_task_id`. |
+| `app/orchestration/tasks/synthesis.py` | `SynthesisTask` (single class, handles both chapter and per-segment concerns); `ResourceClaim` at line 88–90 **(stale — see 2026-07-01 note above; now `_manifest_resource_claim` at L29-100, constructions at L79/L93, used at L162)** | Split into `ChapterSynthesisTask` (parent — owns fan-out, aggregation, durable status) and `SegmentSynthesisTask` (child — owns one chunk group's bridge call, admitted under per-engine semaphore). `SegmentSynthesisTask` carries `parent_task_id`. |
 | `app/domain/chunk_groups.py` | `build_chunk_groups` at line 41 — already produces per-segment work-list tagged with `engine`, `profile_name`, `segments`, `text_parts` | Reuse as the fan-out source: call once in the parent, iterate groups to construct child `SegmentSynthesisTask` instances. No change to this file required; document the reuse. |
 | `plugins/tts_mixed/handler.py` | `handle_mixed_job` group loop at line 289+; sequential `_render_segment` calls | The parent/child model makes the mixed handler's sequential group loop redundant for parallelism. In this task: route the mixed handler's groups through the same `_fan_out_chapter` dispatcher (standard XTTS chapters will follow in 003). The mixed handler becomes a thin adapter that emits groups; the orchestrator owns concurrency. |
 | `app/orchestration/scheduler/recovery.py` | `load_recoverable_task_contexts` — dedupes by `chapter_id`; restores one task per chapter | Must stay one durable job per chapter (INV-4). Children are transient (in-memory only); only the parent chapter job is persisted and recovered. Verify the dedup logic still holds after the split; add an assertion test. |

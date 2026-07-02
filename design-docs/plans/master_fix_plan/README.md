@@ -13,16 +13,19 @@ detail to the authoritative sub-plans it references.
 3. [02-roadmap.md](02-roadmap.md) — ordered milestones, dependency graph, and the 3 owner-decision forks.
 4. `tasks/001..012` — one consolidated task per workstream.
 
-## Status as of 2026-06-21
-- **Done:** 001 (foundation cleanup), 002 (WIRE-1/2/3), 009 (security S6/S7/S10/S11). All committed on `studio2/phase-12.5-style`.
-- **Substantially done:** 003 (IA port) — RST-1..7 + book Lexicon shipped; RST-8 + range-assignment deferred by owner; DC-1b gated.
-- **Partial:** 008 (UX/A11y/Perf) — A11y A4/A6/A7/A8/A10 + Perf P7/P8/P9 done; A5/A11/A12 + all UX U-items pending.
-- **Not started:** 004, 005, 006, 007, 010, 011 (012 is holding/deferred).
+## Status as of 2026-07-01
+- **Done:** 001 (foundation), 002 (WIRE-1/2/3), 009 (security, S12 hygiene residual). W-MIX (all), W-QS (minus owner-gated P5b rename).
+- **Substantially done:** 003 (IA port) — RST-1..7 + Lexicon shipped; both XTTS follow-ups RESOLVED (audit 2026-07-01); RST-8 deferred to 004.
+- **Partial:** 008 — A4/A6/A7/A8/A10/A11/A12 + P7-P10 + U16 done; A5 deferred; remaining U-items open. 010 — registry JSON + paste-URL install UI shipped; repo extraction open.
+- **Active workstreams:** W-MIX-LA — 001–004 + 006 done (006 built 2026-07-01, uncommitted); 007 gates W-PAR. W-PAR — 001+004 shipped dark (M-PAR-1); 002/003/005/006/007 pending.
+- **Not started:** 004 (player), 005/006 (simplification/namespace), 007 (taxonomy — narrowed to language+style), 011 (release). 012 deferred.
 - See `OVERNIGHT_LOG.md` for the running session-by-session detail.
 
 ## Newer workstreams folded in 2026-06-25 (postdate the original 001–012)
 These plans were created after this folder and are now tracked here so nothing falls outside the master:
-- **W-MIX — Mixed-engine model-load progress/ETA** → [`../active/mixed-synthesis-fused-proposal/`](../active/mixed-synthesis-fused-proposal/README.md). A residual bug the core Progress/ETA work (above) did **not** cover. **W1 done** (committed `studio2/phase-12.5-style`); W2–W4 + W6 spec reconciliation pending; W5 (mixed `ResourceClaim`) deferred.
+- **W-MIX — Mixed-engine model-load progress/ETA** → [`../active/mixed-synthesis-fused-proposal/`](../active/mixed-synthesis-fused-proposal/README.md). A residual bug the core Progress/ETA work (above) did **not** cover. **DONE** (W1–W4 + W6; W5 superseded by W-PAR 001).
+- **W-MIX-LA — Mixed-synthesis load attribution** → [`../active/mixed-synthesis-load-attribution/`](../active/mixed-synthesis-load-attribution/README.md). W-MIX follow-up from the failed 2026-06-26 G0 check. 001–004 + 006 done; 007 (spec reconciliation + 👁 G0 re-check) **gates W-PAR resume**.
+- **W-PAR — Parallel segment rendering** → [`../active/parallel-segment-rendering/`](../active/parallel-segment-rendering/README.md). Subsumes W-MIX W5. 001 (per-engine semaphores) + 004 (server concurrency) shipped dark at cap=1; keystone 003 + 002/005/006/007 pending.
 - **W-PERF — Per-span performance metadata / casting export** → [`../proposals/performance_script_model/`](../proposals/performance_script_model/README.md). **Design draft, not scheduled.** Shares the span/DB model with W13 sub-sentence assignment — the two must ship together or the DB migrates twice.
 - **W-QS — Quiet Studio visual redesign** → [`../reference/quiet_studio_migration/`](../reference/quiet_studio_migration/README.md). **Done** (06-24); only the owner-gated `--accent`→`--action-primary` 94-file rename is deferred (alias kept as a permanent compat pointer).
 
@@ -34,7 +37,7 @@ These plans were created after this folder and are now tracked here so nothing f
   - **INV-2 harvest-before-delete** (002 before 005's tree deletion),
   - **INV-4 preserve segment-playback logic** (004 needs it; 005 must not strip it),
   - **INV-5 the xtts adapter is live** (don't delete it).
-- See the **Status as of 2026-06-21** section above for what has been executed.
+- See the **Status as of 2026-07-01** section above for what has been executed.
 - **Owner forks RESOLVED 2026-06-20** (see [02-roadmap.md](02-roadmap.md)): (1) lost-feature
   restoration **folds into the IA port** (003) as a carried checklist; (2) the **two-level Book +
   Chapter workspace IA is the target**, replacing the broken 5-stage pipeline — **a pipeline design

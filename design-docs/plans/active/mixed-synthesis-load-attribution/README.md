@@ -1,6 +1,6 @@
 # W-MIX-LA — Mixed-synthesis load attribution (W-MIX follow-up)
 
-**Status:** planned, not started · **Created:** 2026-06-26 · **Owner gate:** re-run the G0 visual check after ML-2.
+**Status:** active · **Created:** 2026-06-26 · **Updated:** 2026-07-01 — 001–004 done, 005 superseded (owner: no pausing), 006 done 2026-07-01 (built in working tree, uncommitted), 007 pending (gates W-PAR resume). · **Owner gate:** re-run the G0 visual check after ML-2 (and again after 006/007 per task 007's scope, including a live `pre_load_eta` render).
 
 ## What this is
 

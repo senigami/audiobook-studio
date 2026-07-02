@@ -351,8 +351,13 @@ inter-dependencies and may run in parallel.
 
 ### Group 1 — Discovery infrastructure
 
+*(SHIPPED as in-tree MVP 2026-07-01 audit: `app/engines/official_registry.py` (hardcoded XTTS+Voxtral
+catalog) + registry route in `app/api/routers/engines.py` + `OfficialRegistryPanel.tsx` with working
+install-from-GitHub URL form + `preview_github_plugin` endpoint. Remaining: actual repo extraction
+X1-X6/V1-V3, trust-warning e2e §5.3, update-flow §5.2.)*
+
 - [ ] **1.1** Update `app/tts_server/plugin_loader.py`: add `BUILTIN_PLUGINS` allowlist (§4.4 / M1).
-- [ ] **1.2** Implement the official registry client used by the Studio engine browser.
+- [x] **1.2** Implement the official registry client used by the Studio engine browser.
   It should load the owner-controlled registry source, render registry cards/details, and hand
   selected `repo_url` values to the same installer path used by pasted GitHub URLs. Do not make
   broad GitHub topic search a release dependency.

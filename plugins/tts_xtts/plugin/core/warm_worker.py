@@ -67,6 +67,7 @@ class WarmWorker:
         # per-job readers corrupt subsequent jobs.
         self._stderr_q: queue.Queue[str | None] = queue.Queue()
         self._done_q: queue.Queue[dict | None] = queue.Queue()
+        self._model_ready = threading.Event()
         self._start()
 
     def _start(self) -> None:
@@ -131,6 +132,8 @@ class WarmWorker:
                     if ch in (b"\n", b"\r"):
                         line_str = buf.decode("utf-8", errors="replace").rstrip()
                         if line_str:
+                            if "XTTS serve mode: model ready" in line_str:
+                                self._model_ready.set()
                             self._stderr_q.put(line_str + "\n")
                         buf = b""
                     else:
@@ -146,6 +149,11 @@ class WarmWorker:
     @property
     def is_alive(self) -> bool:
         return self._proc is not None and self._proc.poll() is None
+
+    @property
+    def is_model_ready(self) -> bool:
+        """True if the warm worker has emitted 'model ready' (model is loaded in memory)."""
+        return self._model_ready.is_set()
 
     def run_job(
         self,
@@ -393,6 +401,11 @@ class WarmWorkerManager:
                 w.shutdown()
             except Exception:
                 pass
+
+    def is_model_ready(self) -> bool:
+        """Return True if any live pooled worker has its model loaded."""
+        with self._lock:
+            return any(w.is_model_ready for w in self._pool if w.is_alive)
 
     # ------------------------------------------------------------------
     # Private helpers

@@ -423,6 +423,63 @@ class TestOwnerAcceptance43Composition:
             f"is cold-start-penalised and doesn't dominate."
         )
 
+    def test_finishing_non_last_segment_does_not_collapse_chapter_eta(self):
+        """A FINISHING segment that is NOT the last one must NOT collapse the chapter ETA.
+
+        Real-world bug: a 3-group chapter at the seg2→seg3 boundary. seg2 is at
+        active_segment_progress≈1.0 (ETA→0) but seg3 (weight 17) has not started and is
+        NOT yet in completed_weight (which lags until SEGMENT_SAVED). The §4A.3 share must
+        reflect the active segment's share of the TRUE remaining work (its own remaining +
+        the not-yet-started segments), so a finishing non-last segment → share≈0 and the
+        chapter ETA holds the whole-remaining estimate instead of collapsing to ~0.
+
+        R1 revert-check: with the pre-fix `share = active_w / (total - completed)`, at this
+        tick share = 44/(100-39) = 0.72, so composed ≈ 0.28 * bounded_eta → ~1s ("stuck at
+        100% before the last segment renders"). After the fix, share = 0 → composed ≈
+        bounded_eta. Mocks nothing internal — drives the real enrich() kernel (R2).
+        """
+        svc, _, wall_now, _ = _make_service()
+        job_id = "finishing-nonlast-job"
+        seg_id = "seg2-finishing"
+
+        # Prime the chapter ring so bounded_eta is a meaningful ~10s whole-remaining.
+        for i in range(6):
+            wall_now["value"] += 2.0
+            svc.enrich(job_id, {
+                "status": "running",
+                "progress": 0.5 + i * 0.05,
+                "eta_seconds": 10,
+                "updated_at": wall_now["value"],
+            }, sample=True)
+
+        # Mature the segment ring as seg2 renders to completion (rising progress).
+        result = None
+        for seg_p, seg_eta in [(0.2, 8), (0.4, 6), (0.6, 4), (0.8, 2), (1.0, 0)]:
+            wall_now["value"] += 1.0
+            result = svc.enrich(job_id, {
+                "status": "running",
+                "progress": 0.83,                       # chapter grouped progress (2 of 3 groups)
+                "eta_seconds": 10,                       # chapter observed whole-remaining
+                "active_segment_id": seg_id,
+                "active_segment_progress": seg_p,
+                "active_segment_eta_seconds": seg_eta,
+                "total_render_weight": 100,
+                "completed_render_weight": 39,           # only seg1 saved; seg2 NOT yet saved
+                "active_render_group_weight": 44,        # seg2 (active); seg3=17 not started
+                "updated_at": wall_now["value"],
+            }, sample=True)
+
+        eta_final = result.get("eta_seconds")
+        assert eta_final is not None
+        # With seg3 (17% of work) not yet started, the chapter ETA must NOT collapse to ~0
+        # just because the active (non-last) segment is finishing. It must hold the
+        # whole-remaining estimate (~10s), well above the pre-fix ~1s.
+        assert eta_final >= 6, (
+            f"A finishing NON-LAST segment must not collapse the chapter ETA: "
+            f"expected ≥6s (whole-remaining ~10s), got {eta_final}s. "
+            f"R1: pre-fix share=active_w/(total-completed)=0.72 → composed ≈ 1s."
+        )
+
     def test_cold_first_seen_segment_does_not_over_dominate(self):
         """A FIRST-SEEN (cold-start) segment with only 1 ring sample must NOT
         collapse the chapter ETA to near-zero.
@@ -675,6 +732,72 @@ class TestOwnerAcceptance43Composition:
             assert eta < 200, (
                 f"Composition with ceiling must bound absurd ETAs, got {eta}s"
             )
+
+    def test_cold_start_last_segment_eta_does_not_drop_below_segment_eta(self):
+        """Near end of chapter: cold-start last segment's composed ETA must not
+        drop below the segment-level ETA due to coefficient undercount.
+
+        Reproduces the end-of-chapter ETA drop observed in job-11e210d4:
+        seg3 at 66% progress (active_seg_eta=3s), chapter bounded_eta≈2s (low
+        near the end), seg_confidence≈0.2 (first ring sample only).
+
+        With the WRONG §4A.3 formula (coefficients don't sum to 1):
+          blended_residual_fraction = 0 + 1.0*(1-0.2) = 0.8
+          chapter_eta_excl = 0.8 * 2 = 1.6
+          composed_eta = 0.2*3 + 0.8*1.6 = 0.6 + 1.28 = 1.88 → int(1.88) = 1s  ← WRONG
+
+        With the CORRECT formula (w_seg * seg_eta + (1-w_seg) * bounded_eta):
+          composed_eta = 0.2*3 + 0.8*2 = 0.6 + 1.6 = 2.2 → round(2.2) = 2s  ← CORRECT
+
+        R1 revert-check: with the pre-fix code, eta_seconds = 1 < 2, test fails.
+        Also exercises the int→round truncation fix: int(1.88)=1 but round(1.88)=2.
+        """
+        svc, _, wall_now, _ = _make_service()
+        job_id = "end-of-chapter-cold"
+        seg_id = "seg-last"
+
+        # Prime chapter ring with small ETA (near end), stable ~2s.
+        for i in range(6):
+            wall_now["value"] += 0.2
+            svc.enrich(job_id, {
+                "status": "running",
+                "progress": 0.88 + i * 0.01,
+                "eta_seconds": 2,
+                "updated_at": wall_now["value"],
+            }, sample=True)
+
+        # Single first-seen segment frame — ring has exactly 1 sample → seg_confidence≈0.2.
+        wall_now["value"] += 1.0
+        result = svc.enrich(job_id, {
+            "status": "running",
+            "progress": 0.94,
+            "eta_seconds": 2,
+            "active_segment_id": seg_id,
+            "active_segment_progress": 0.66,
+            "active_segment_eta_seconds": 3,
+            # Last segment: completed_weight + active_weight = total → not_started=0 → share=1.0
+            "total_render_weight": 100,
+            "completed_render_weight": 66,
+            "active_render_group_weight": 34,
+            "updated_at": wall_now["value"],
+        }, sample=True)
+
+        ring = svc._segment_eta_rings.get(seg_id)
+        n_samples = len(ring) if ring is not None else 0
+        assert n_samples == 1, (
+            f"Pre-condition: first-seen segment ring must have exactly 1 sample, got {n_samples}"
+        )
+
+        eta = result.get("eta_seconds")
+        assert eta is not None
+        # Cold-start (seg_confidence≈0.2) last segment (share=1.0): composed ETA must
+        # be at least as large as the rounded chapter baseline (bounded_eta=2).
+        # Wrong formula gives 1; correct formula gives 2.
+        assert eta >= 2, (
+            f"Cold-start last segment (share=1.0, bounded_eta=2, seg_eta=3) must produce "
+            f"eta_seconds >= 2, got {eta}. "
+            f"R1: wrong §4A.3 coefficients give composed=1.88 → int=1."
+        )
 
 
 # ---------------------------------------------------------------------------

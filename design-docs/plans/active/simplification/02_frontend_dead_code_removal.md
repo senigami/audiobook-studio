@@ -13,6 +13,18 @@
 > extraction prerequisites, (b) the genuinely-safe deletions, and (c) the final husk-deletion once
 > restoration is done.
 
+> **⚠ AUDIT CORRECTION (2026-07-01):** The core premise that the `ProjectDetail/` and
+> `ChapterEditor/` trees are safely deletable is **wrong as of today**. Route-level reachability
+> is via the documented dead stub (`app/routes/index.tsx` `createStudioRoutes()` — itself the DC-2
+> target; `App.tsx` `/chapter/:chapterId` still resolves to `<Navigate>` redirects), **but
+> components inside the trees are imported by live code and actively developed** (touched
+> 2026-06-28). `ProjectDetail/` = 1,735 LOC (matches plan); `ChapterEditor/` = 3,745 LOC (plan
+> undercounted at ~2,983). DC-1a's 4 shared symbols now have MORE live importers than listed
+> (`TempCharacterModal.tsx`, `CastPalette.tsx`, `useChapterText.ts` added since). Before DC-1b:
+> re-verify the harvest gate (07_restore_lost_functionality completion + RST-8) — the trees have
+> moved FURTHER from deletable, not closer. DC-2 stub routes and DC-3b targets
+> (`LiveOutputTab.tsx`, `ChapterEditorRoute.tsx`) still exist untouched.
+
 ---
 
 ## Background (verified)

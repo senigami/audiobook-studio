@@ -138,7 +138,7 @@ class TestExportStrictValidation:
 
         # Validate against the schema
         repo_root = Path(__file__).resolve().parents[2]
-        schema = json.loads((repo_root / "docs" / "specs" / "voice.schema.json").read_text())
+        schema = json.loads((repo_root / "design-docs" / "specs" / "voice.schema.json").read_text())
         voice_data = json.loads(files["voice.json"])
         jsonschema.validate(instance=voice_data, schema=schema)  # should not raise
 

@@ -1,6 +1,7 @@
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { recordLiveEventEnvelope, resetLiveEventAuditForTests } from '@/store/liveEventAuditStore';
+import { resetLiveEventAuditForTests } from '@/store/liveEventAuditStore';
+import { publishStudioSocketMessage, resetStudioSocketBusForTests } from '@/store/studioSocketBus';
 
 // Mock predictive progress bar
   vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () => ({
@@ -337,6 +338,10 @@ describe('Global Queue Components', () => {
         });
 
         it('preserves grouped progress evidence for mixed chapter jobs while keeping the preparing label', () => {
+            // Parallel-render model (§2.6 v1.8.0): a preparing job that carries a positive
+            // eta_seconds passes the ETA and started_at through to the bar so the global
+            // queue can show the determinate countdown.  The status label remains "preparing"
+            // and the bar is still in preparing/indeterminate fill mode.
             render(
                 <QueueItem
                     job={{ ...mockJob, engine: 'mixed', status: 'preparing', progress: 0 } as any}
@@ -368,8 +373,9 @@ describe('Global Queue Components', () => {
             expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-allow-backward', 'false');
             expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-persistence-key', 'job-1');
             expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-checkpoint-mode', 'queue');
-            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-started-at', '');
-            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-eta-seconds', '');
+            // Parallel-render: preparing + positive eta → eta and started_at flow through
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-started-at', '1000');
+            expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-eta-seconds', '30');
         });
 
         it('shows pause icon when paused', () => {
@@ -503,10 +509,11 @@ describe('Global Queue Components', () => {
                 clipboard: { writeText: writeTextSpy },
             });
 
-            recordLiveEventEnvelope({
-                frameId: 101,
-                receivedAt: '2026-05-25T00:00:00.000Z',
-                data: {
+            // R3: frames go through the real socket bus (which assigns frameId and
+            // records the audit envelope), not hand-rolled envelopes into the store.
+            resetStudioSocketBusForTests(); // deterministic frameIds from 1
+            act(() => {
+                publishStudioSocketMessage({
                     type: 'studio_event',
                     version: 1,
                     topic: 'queue.items',
@@ -518,13 +525,8 @@ describe('Global Queue Components', () => {
                         etaSeconds: 30,
                         etaBasis: 'remaining_from_update',
                     },
-                },
-            });
-
-            recordLiveEventEnvelope({
-                frameId: 102,
-                receivedAt: '2026-05-25T00:00:01.000Z',
-                data: {
+                });
+                publishStudioSocketMessage({
                     type: 'studio_event',
                     version: 1,
                     topic: 'tts.logs',
@@ -533,7 +535,7 @@ describe('Global Queue Components', () => {
                     payload: {
                         line: '[PROGRESS] 15%',
                     },
-                },
+                });
             });
 
             render(
@@ -562,10 +564,9 @@ describe('Global Queue Components', () => {
 
             fireEvent.click(debugBtn);
 
-            // Wait for copy operation
-            await new Promise(resolve => setTimeout(resolve, 50));
+            // R4: event-driven wait for the async clipboard write, no fixed sleep
+            await waitFor(() => expect(writeTextSpy).toHaveBeenCalled());
 
-            expect(writeTextSpy).toHaveBeenCalled();
             const copiedText = writeTextSpy.mock.calls[0][0];
             const parsed = JSON.parse(copiedText);
 
@@ -578,7 +579,8 @@ describe('Global Queue Components', () => {
             expect(parsed.checkpointMode).toBe('default');
             expect(parsed.transitionTickCount).toBe(8);
             expect(parsed.recentAuditFrames).toHaveLength(1);
-            expect(parsed.recentAuditFrames[0].frameId).toBe(101);
+            // First frame published after the bus reset → frameId 1 (tts.logs frame is 2, excluded)
+            expect(parsed.recentAuditFrames[0].frameId).toBe(1);
             expect(parsed.recentAuditFrames[0].payload.status).toBe('running');
         });
 
@@ -751,9 +753,9 @@ describe('Global Queue Components', () => {
             const debugBtn = screen.getByTitle('Copy Debug Info');
             fireEvent.click(debugBtn);
 
-            await new Promise(resolve => setTimeout(resolve, 50));
+            // R4: event-driven wait for the async clipboard write, no fixed sleep
+            await waitFor(() => expect(writeTextSpy).toHaveBeenCalled());
 
-            expect(writeTextSpy).toHaveBeenCalled();
             const copiedText = writeTextSpy.mock.calls[0][0];
             const parsed = JSON.parse(copiedText);
 

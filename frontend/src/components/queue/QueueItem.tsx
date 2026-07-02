@@ -251,7 +251,11 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     }, [rawEtaSeconds, displayStatus, updatedAt, etaBasis, liveJob, job.eta_seconds, job.updated_at, job.eta_updated_at, job.eta_basis, etaSource, isVisuallyPending, justTransitionedToDone]);
 
     // Original start and ETA values (may be undefined for non-active statuses, but retained during done-transition visual pending catch-up)
-    const shouldRetainActiveParams = ['running', 'processing', 'finalizing'].includes(displayStatus) || isVisuallyPending || justTransitionedToDone;
+    // Also retain when displayStatus === 'preparing' AND a positive ETA is present (parallel-render
+    // model: the backend publishes a pre-factored ETA during the cold-load window; the global queue
+    // should show the countdown rather than suppressing it with "Preparing…").
+    const preparingWithEta = displayStatus === 'preparing' && (rawEtaSeconds ?? 0) > 0;
+    const shouldRetainActiveParams = ['running', 'processing', 'finalizing'].includes(displayStatus) || isVisuallyPending || justTransitionedToDone || preparingWithEta;
     const started = shouldRetainActiveParams
         ? (stableStarted ?? rawStarted)
         : undefined;

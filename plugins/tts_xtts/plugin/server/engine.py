@@ -134,6 +134,18 @@ class XttsPlugin(StudioTTSEngine):
                 message=f"XTTS dependencies are present but the engine failed to load: {exc}"
             )
 
+    def model_warm(self) -> bool:
+        """Return True if the XTTS warm worker has already loaded the model in memory."""
+        try:
+            from ..core.implementation import _warm_worker_manager, _warm_worker_lock  # noqa: PLC0415
+            with _warm_worker_lock:
+                mgr = _warm_worker_manager
+            if mgr is None:
+                return False
+            return bool(mgr.is_model_ready())
+        except Exception:
+            return False
+
     def run_test(self) -> VerificationResult:
         """Run a self-contained synthesis test."""
         ok, msg = self.check_env()

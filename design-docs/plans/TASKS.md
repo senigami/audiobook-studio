@@ -61,7 +61,7 @@ Plan: [active/mixed-synthesis-fused-proposal/README.md](active/mixed-synthesis-f
 
 ---
 
-## W-MIX-LA — Mixed-synthesis load attribution *(active — 001–004 done; 006–007 pending)*
+## W-MIX-LA — Mixed-synthesis load attribution *(active — 001–004 + 006 done; 007 pending)*
 
 Plan: [active/mixed-synthesis-load-attribution/README.md](active/mixed-synthesis-load-attribution/README.md) · map: [01-map.md](active/mixed-synthesis-load-attribution/01-map.md) · roadmap: [02-roadmap.md](active/mixed-synthesis-load-attribution/02-roadmap.md)
 
@@ -72,17 +72,15 @@ W-MIX follow-up — **G0 visual check failed (2026-06-26)**. A mixed Voxtral→X
 - [x] **003** — Orchestrator identity-based attribution *(keystone — DONE 2026-06-26)* — `log_listener` fires the LOADING_MODEL/indeterminate frame on `MODEL_LOAD_STARTED` (clear_eta, attributed to marker sid / `active_seg_id`); warm/cloud silent by construction; adversarial CLEAN
 - [x] **004** — Frontend mid-chapter preparing render *(DONE 2026-06-26; refixed after live G0)* — (a) segment frame carries `indeterminate` (`build_segment_progress_event` + service.py) + `live-jobs.ts` scope-gate relaxed; (b) **bar now honors `indeterminate`** — `PredictiveProgressBar` pulses + suppresses the predictive lane (no 120s creep / jump-ahead) regardless of status, threaded via `progressBarContracts` + `ChapterHeader`. Pulse + no-jump confirmed by tests; **👁 owner re-render pending.**
 - [x] **005** — Chapter-level preparing *(SUPERSEDED 2026-06-26)* — owner: "pausing doesn't make sense." Don't pause; ETA-add (006) instead.
-- [ ] **006** — Load-aware ETA *(chosen approach)* — on `MODEL_LOAD_STARTED`, add DB `model_load_seconds` to the live ETA; clock counts down while the bar holds; account for the *extra* time only (parallel-aware); no pre-add, no pause.
-- [ ] **005** — *(optional)* Chapter/queue-level preparing (owner 👁 decision on semantics)
-- [ ] **006** — *(optional)* Load-aware ETA from `model_load_seconds` history
-- [ ] **007** — Spec reconciliation + 👁 **G0 re-check** (gates W-PAR resume)
+- [~] **006** — Load-aware ETA *(chosen approach)* — on `MODEL_LOAD_STARTED`, add DB `model_load_seconds` to the live ETA; clock counts down while the bar holds; account for the *extra* time only (parallel-aware); no pre-add, no pause. *(BUILT 2026-07-01 in working tree — implemented in `orchestrator_helpers.py` (proactive `pre_load_eta` at dispatch + reactive reconcile on `MODEL_LOAD_STARTED`) + `performance.py::expected_model_load_seconds`, NOT the originally-spec'd eta.py/orchestrator_eta.py; adversarial audit CLEAN, safe to commit; bundled with the §4A.3 chapter-ETA composition fix (spec 1.8.2); commit + owner 👁 pending)*
+- [ ] **007** — Spec reconciliation + 👁 **G0 re-check** (gates W-PAR resume) *(owes: live-events.md row for the `pre_load_eta` frame, queue-jobs.md for QueueItem `preparingWithEta`, data-model.md for `model_load_seconds` now consumed, wiki/Changelog entry; progress-presentation.md 1.8.2 already landed in-tree; owner 👁 must include seeing a real `pre_load_eta` frame on a cold XTTS render)*
 
   > 👁 **VISUAL CHECK — ML-2 (mid-chapter preparing fixed)**
   > Re-run the mixed render: Voxtral→XTTS shows the preparing pulse on the XTTS segment (not frozen first letter); XTTS-first still pulses-then-animates; Voxtral-only + warm XTTS group show no preparing flash.
 
 ---
 
-## W-PAR — Parallel segment rendering *(active — planned, not started)*
+## W-PAR — Parallel segment rendering *(active — 001+004 shipped dark; 002/003/005/006/007 pending; resume gated on W-MIX-LA 007)*
 
 Plan: [active/parallel-segment-rendering/README.md](active/parallel-segment-rendering/README.md) · map: [01-map.md](active/parallel-segment-rendering/01-map.md) · roadmap: [02-roadmap.md](active/parallel-segment-rendering/02-roadmap.md)
 
@@ -91,7 +89,7 @@ Render a chapter's segments **concurrently** across per-engine pools (GPU/CPU/cl
 - [~] **G0 (prereq — owner):** verify the W-MIX `👁 VISUAL CHECK` on a live mixed render before starting (don't stack parallelism on an unverified core) — *synthesis core owner-verified 2026-06-29 ("best it's ever done!"); remaining item = owner visual sign-off to actually enable parallelism (raise cap > 1)*
 - [x] **001** — Per-engine cap declaration + scheduler semaphores — [task 001](active/parallel-segment-rendering/tasks/001-per-engine-cap-and-semaphores.md) *(DONE 2026-06-26: per-engine counting semaphores + manifest caps + global cap; ships dark via `ENGINE_CLASS_ADMISSION` env flag default OFF → single-flight = today; **W5 closed at runtime**; adversarial-reviewed, 434 tests green. Real caps + the toggle-as-setting land in 007.)*
 - [ ] **002** — Parent/child segment scheduling — [task 002](active/parallel-segment-rendering/tasks/002-parent-child-segment-scheduling.md) *(chapter parent job fans child segment units into a bounded pool; one job per chapter for UI/recovery)*
-- [ ] **003** — Per-segment dispatch isolation *(keystone, R-A)* — [task 003](active/parallel-segment-rendering/tasks/003-per-segment-dispatch-isolation.md) *(each concurrent segment gets its own timing/marker state; isolate the ~700-line `_dispatch` closure. **R-F added 2026-06-29:** must also rework single-active `SEGMENT_SAVED` emission — see task file + 01-map.md R-F)*
+- [ ] **003** — Per-segment dispatch isolation *(keystone, R-A)* — [task 003](active/parallel-segment-rendering/tasks/003-per-segment-dispatch-isolation.md) *(each concurrent segment gets its own timing/marker state; isolate the `_dispatch` closure — now ~1,435 lines (L88→~L1524 of the 1,539-line file; audit 2026-07-01), more than 2× the original ~700-line estimate. **R-F added 2026-06-29:** must also rework single-active `SEGMENT_SAVED` emission — see task file + 01-map.md R-F)*
 - [x] **004** — TTS-server concurrent inference — [task 004](active/parallel-segment-rendering/tasks/004-tts-server-concurrent-inference.md) *(DONE 2026-06-26: async `/synthesize` + `run_in_threadpool`; `WarmWorkerManager` lazy-spawned free-list pool capped at `manifest.behavior.max_concurrent_workers`; OOM degrade fail-safe; Voxtral no lock; ships dark at cap=1. **M-PAR-1 complete** together with 001 — per-engine semaphores + server-side pool exist, default cap=1 = no behavior change. Residual: dead-worker waiter hang at cap>1 → task 005.)*
 - [ ] **005** — Correctness invariants under parallelism — [task 005](active/parallel-segment-rendering/tasks/005-correctness-invariants.md) *(stitch-order barrier, artifact-validated completion, cancel join-all, recovery K-of-N, SQLite per-segment writes, stuck-segment heartbeat — TDD)*
 - [ ] **006** — Frontend multi-active segments — [task 006](active/parallel-segment-rendering/tasks/006-frontend-multi-active.md) *(chapter-level `active_segments_map` threaded end-to-end via the W4 two-layer pattern; `useStudioChapter` set; rAF-coalesced; existing bars light up in parallel)*
@@ -135,7 +133,7 @@ Plan: [proposals/performance_script_model/README.md](proposals/performance_scrip
 Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_sdk_migration_plan.md)
 
 - [x] S1–S10: versioned plugin SDK + communication contract migration complete; `synthesis_mixed` → `tts_mixed` rename done
-- [ ] C-1 residue: `grep "from app\." plugins/` → zero — module-level imports cleared; function-body imports in bake/segments/standard_handler still pending ([final_release/01](active/final_release/01_discrepancies_and_corrections.md))
+- [ ] C-1 residue: `grep "from app\." plugins/` → zero — module-level imports cleared; function-body imports in bake/segments/standard_handler still pending ([final_release/01](active/final_release/01_discrepancies_and_corrections.md)) *(audit 2026-07-01: 41 function-body imports in bake/segments/standard_handler = the documented deferred residue; ALSO `app_adapter.py` in both engines has 11 module-level `from app.*` imports — a factual regression vs the plan's "zero module-level" claim, needs the same S9 ctx-injection treatment)*
 
 ---
 
@@ -182,8 +180,8 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
   - [ ] RST-8 segment-aware player *(→ task 004, deferred by owner)*
   - [ ] Per-span range assignment *(deferred by owner)*
   - [ ] DC-1b dead-tree deletion *(gated on RST-8)*
-  - [ ] Follow-up: fix the underlying XTTS synthesis failure surfaced by [task 015](reference/book_view_redesign/tasks/015-surface-xtts-worker-error-on-failure.md) (diagnostics shipped; root-cause fix still open)
-  - [ ] Follow-up: live-verify XTTS progress relay + segment highlights; check task_id mismatch if highlights don't fire ([task 019](reference/book_view_redesign/tasks/019-relay-xtts-progress-over-http.md))
+  - [x] Follow-up: fix the underlying XTTS synthesis failure surfaced by [task 015](reference/book_view_redesign/tasks/015-surface-xtts-worker-error-on-failure.md) (diagnostics shipped; root-cause fix still open) *(RESOLVED 2026-06-19 by commit `8b9ae90a` — warm-worker orphaned stderr reader corrupted 2nd+ render markers; revert-checked test `test_every_job_receives_its_own_markers`; closure confirmed by audit 2026-07-01)*
+  - [x] Follow-up: live-verify XTTS progress relay + segment highlights; check task_id mismatch if highlights don't fire ([task 019](reference/book_view_redesign/tasks/019-relay-xtts-progress-over-http.md)) *(RESOLVED — relay live + extended by the W-MIX-LA series; owner live-verified the synthesis core 2026-06-29)*
 
   > 👁 **VISUAL CHECK — 003 substantially done (RST-1..7)**
   > Open any book with multiple chapters and some rendered audio:
@@ -218,11 +216,11 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
 ## Milestone 3 — Simplification
 
 - [ ] **005** — Code simplification — [task file](master_fix_plan/tasks/005-code-simplification.md) · [simplification plan](active/simplification/00_overview.md)
-  - [ ] FE dead-code ([simplification/02](active/simplification/02_frontend_dead_code_removal.md)): DC-1a extract shared (`VoiceProfileSelect`/`useChapterStatus`/`ResyncPreviewData`/`ChapterEditorTab`), DC-1b dead-tree *(gated on 004)*, DC-2 stub-route infra, DC-3b safe independent deletions
+  - [ ] FE dead-code ([simplification/02](active/simplification/02_frontend_dead_code_removal.md)): DC-1a extract shared (`VoiceProfileSelect`/`useChapterStatus`/`ResyncPreviewData`/`ChapterEditorTab`), DC-1b dead-tree *(gated on 004)*, DC-2 stub-route infra, DC-3b safe independent deletions *(⚠ audit 2026-07-01: the `ChapterEditor`/`ProjectDetail` trees are LIVE-ROUTED and actively developed — coupling grew 4→7+ importers; DC-1b gate must be re-verified before any deletion)*
   - [ ] Styling separation ([simplification/03](active/simplification/03_styling_separation.md)): ST-1 (QW-6 dead CSS), ST-2 shared classes (`form-label` ×52 / `input-field` ×8), ST-3 inline-`style`→class in top-15 hotspots, ST-4 spec bumps (+ U3 type scale, U9 button/input, U10 z-index incl. `--z-drawer` from [final_release/10](active/final_release/10_ux_improvements.md))
   - [ ] Large-file splits ([simplification/04](active/simplification/04_large_file_splits.md)): LF-1 `useStudioChapter.ts`, LF-2 `EngineCard.tsx`, LF-3 `PredictiveProgressBar.tsx`, LF-4 `MetadataEditorModal.tsx`, LF-5 `App.tsx`, LF-6 `progress/service.py`, LF-7 `tts_server/server.py`
-  - [ ] Older split audit ([file_split_plan](active/file_split_plan.md), perf-gated): `QueueItem.tsx`, `useJobs.ts`, `ChapterHeader.tsx`, `useQueueSync.ts`, `scriptViewProgress.ts` — reconcile overlap with LF-*
-  - [ ] Backend cleanup ([simplification/05](active/simplification/05_backend_cleanup.md)): BE-1 dead code, BE-2 `INTENDED_*`/`FORBIDDEN_*` constants, BE-3 `events.py` command-set dedup, BE-4 duplicate segment-timing math, BE-5 per-request `_resolved_segment_profiles`, BE-6 rename/move `app/jobs` package
+  - [ ] Older split audit ([file_split_plan](active/file_split_plan.md), perf-gated): `QueueItem.tsx`, `useJobs.ts`, `ChapterHeader.tsx`, `useQueueSync.ts`, `scriptViewProgress.ts` — reconcile overlap with LF-* *(audit 2026-07-01: `useJobs.ts` 288, `useQueueSync.ts` 196, `scriptViewProgress.ts` 95 — already right-sized, struck; only `ChapterHeader.tsx` 615 remains live; file_split_plan.md retired into simplification/04)*
+  - [ ] Backend cleanup ([simplification/05](active/simplification/05_backend_cleanup.md)): BE-1 dead code, BE-2 `INTENDED_*`/`FORBIDDEN_*` constants, BE-3 `events.py` command-set dedup, BE-4 duplicate segment-timing math, BE-5 per-request `_resolved_segment_profiles`, BE-6 rename/move `app/jobs` package *(audit 2026-07-01: BE-1 `schema_data` claim is WRONG — those variables are live validation code, do not delete; BE-3 target is `app/api/contracts/events.py`; BE-2 scope grew to 12 modules incl. two new `app/infra/` stubs)*
   - [ ] Plugin consolidation ([simplification/06](active/simplification/06_plugin_consolidation.md)): PL-1 one SDK context factory, PL-2 shared segment-marker handler + `_group_needs_render`, PL-3 app-adapter helpers→`BaseVoiceEngine`, PL-4 shared XTTS synthesis loop, PL-5 remove ABC stubs *(PL-6: xtts adapter is LIVE — do NOT delete, INV-5)*
   - [ ] Logic-audit cleanup ([final_release/09](active/final_release/09_logic_audit.md)): D1/D2 dead FE files + D3 registry stub; R1 dup `_ensure_plugin_package_hierarchy`, R2/R3 adapter+Voxtral dedup, R6 unify queue/jobs overlay; F14 `ScriptView` `data.paragraphs` crash, F15 `useInitialData` fetch-failure signal; B14–B17 test-infra fixes; T5 coverage-honesty spot-check
   - [ ] Text-ops package ([organizational_cleanup §2](active/organizational_cleanup.md)): create `app/text/`, consolidate `textops_*`/`text_processing.py`
@@ -238,7 +236,7 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
   - [ ] Namespace block remainder ([master_agnostic](active/master_agnostic_tasks.md)): rename voice namespace, reserve `plugins/` for app-behavior extensions, move engine-owned tests/fixtures into bundles, `mixed.py`→`composite.py` decision
   - [ ] Finish `speakers.py` decomposition (if not done in 005)
   - [ ] API router sub-package restructure
-  - [ ] doc-06 cleanup ([final_release/06](active/final_release/06_code_organization_cleanup.md)): `transient/` consolidation, `app/infra/subprocess` implement-or-delete, `app/infra/{cache,events,db}` stub decision (C-3), gate dev-only routes (`/progress-test`, `/event-stream`) behind `import.meta.env.DEV`, split `App.tsx` (QueueDrawerHost/NotificationsHost/StartupGate) + `runtimeDebug.ts`, normalize API error handling (`api/index.ts`), unify input styles (`.input-field`→`.form-input`)
+  - [ ] doc-06 cleanup ([final_release/06](active/final_release/06_code_organization_cleanup.md)): `transient/` consolidation, `app/infra/subprocess` implement-or-delete, `app/infra/{cache,events,db}` stub decision (C-3), gate dev-only routes (`/progress-test`, `/event-stream`) behind `import.meta.env.DEV`, split `App.tsx` (QueueDrawerHost/NotificationsHost/StartupGate) + `runtimeDebug.ts`, normalize API error handling (`api/index.ts`), unify input styles (`.input-field`→`.form-input`) *(audit 2026-07-01: `app/infra/{subprocess,cache,events,db}` scaffold + `StorageManager`/`TRANSIENT_DIR` ALREADY BUILT; `api/index.ts` error-handling claim is a false positive — all 6 functions already route through `parseApiResponse`; `/progress-test` + `/event-stream` are frontend React Router routes, not backend)*
   - [ ] `JobHandlerRegistry` / plugin-driven reconciliation (`engine.check_output`) decision ([master_agnostic](active/master_agnostic_tasks.md) Phase 12)
   - [ ] Phase-12 owner decisions: generic plugin setup-loop (implement or defer), voice-settings placement, system-API surface for 3rd-party controllers, Settings→API tab honesty
   - [ ] `MobileNavDrawer` focus-trap fix (a11y — also tracked in 008)
@@ -256,7 +254,7 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
 ## Milestone 4 — Feature + polish backlog
 
 - [ ] **007** — Voice taxonomy v2 Phase G — [task file](master_fix_plan/tasks/007-voice-taxonomy-v2.md) · [detail](active/final_release/04_voice_metadata_and_tagging.md)
-  - [ ] G1–G3: add `language` (multi-select), `accent` (single), `style` (multi) attributes
+  - [ ] G1–G3: add `language` (multi-select), `accent` (single), `style` (multi) attributes *(audit 2026-07-01: `accent` already shipped in taxonomy 1.0 — remaining scope is `language` (multi) + `style` (multi) only)*
   - [ ] G4 UI: category-tinted pills + "+N" overflow (absorbs U8)
   - [ ] G5: HF bundle tag mappings (`as-language`/`as-accent`/`as-style`)
   - [ ] G6: bump `voice-taxonomy.json` + `voice.schema.json` + docs with changelog
@@ -271,15 +269,16 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
 
 - [~] **008** — UX / A11y / Perf backlog — [task file](master_fix_plan/tasks/008-ux-a11y-perf-backlog.md) · [UX detail](active/final_release/10_ux_improvements.md) · [A11y/Perf detail](active/final_release/11_accessibility_and_performance.md)
   - [x] A4 icon-button aria-labels · A6 live regions · A7 JsonSchemaForm labels · A8 StatusOrb `role=img` · A10 landmarks
-  - [x] P7 interval hygiene · P8 bundle chunking · P9 mega-payload debounce · P10 model warm-holding spike *(source doc 11 still shows these `[ ]` — sync the doc)*
+  - [x] P7 interval hygiene · P8 bundle chunking · P9 mega-payload debounce · P10 model warm-holding spike
   - [ ] A5 keyboard drag-reorder *(deferred — no Framer Motion public API)*
-  - [ ] A11 `--text-muted` contrast fix
-  - [ ] A12 `prefers-reduced-motion` guards
+  - [x] A11 --text-muted contrast fix *(done — tokens.css:35,266, AA-passing values both themes; audit 2026-07-01)*
+  - [x] A12 prefers-reduced-motion guards *(done — global CSS guard in base.css:1-16 with documented `.is-running` exemption; CSS-only approach, no useReducedMotion hook; audit 2026-07-01)*
   - [ ] U1 undo toasts · U2 focus management · U4 startup experience
   - [ ] U5 queue-drawer affordances · U6 guided failure recovery · U7 ActionMenu correctness
   - [ ] U11 resync→queue flow · U12 cancel single queued job
   - [ ] U13 first-run onboarding · U14 route transitions
-  - [ ] U15 navigation design review · U16 unified audio-player surface *(claimed delivered via the R1–R6 redesign; confirm, then tick doc 10)*
+  - [ ] U15 navigation design review
+  - [x] U16 unified audio-player surface *(CONFIRMED delivered — single PlayerBar + playerBus scope toggle, no competing surface; doc 10 ticked; audit 2026-07-01)*
   - [ ] R6-T7 responsive sweep — 1280/768/420px; CastPalette @420px, Voice Lab @390px ([master_agnostic](active/master_agnostic_tasks.md))
   - [ ] Stage-5 gate ([final_release/07 §4](active/final_release/07_frontend_themes_and_responsive.md)): viewport×theme Playwright snapshots + axe contrast scans; keyboard-only walkthrough; axe/visual baseline rollout decision (owner)
 
@@ -303,13 +302,13 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
 
 - [x] **009** — Security backlog — [task file](master_fix_plan/tasks/009-security-backlog.md)
   - [x] S6 WebSocket origin check · S7 rate-limiter docs · S10 secret-aware plugin settings · S11 ffmpeg quoting verified
-  - [ ] S12 dep bumps at release: `vite` >7.3.4, `@babel/core`, `js-yaml` *(hygiene — not blocking)*
+  - [x] S12 dep bumps: ALL SATISFIED as of 2026-07-01 — vite 7.3.5, @babel/core 7.29.7, js-yaml 4.2.0; `npm audit` = 0 vulnerabilities *(re-run `npm audit` at release as hygiene)*
 
 - [ ] **010** — Standalone plugin repos — [task file](master_fix_plan/tasks/010-standalone-plugin-repos.md) · [detail](active/final_release/05_standalone_plugin_repos.md)
   - [ ] Extract XTTS into standalone installable plugin repo
   - [ ] Extract Voxtral into standalone installable plugin repo
-  - [ ] Publish official registry JSON (catalog of installable engines)
-  - [ ] Paste-URL install UI (install a plugin from a git URL)
+  - [x] Publish official registry JSON (catalog of installable engines) *(shipped — `app/engines/official_registry.py` + `GET` route in `app/api/routers/engines.py`; audit 2026-07-01)*
+  - [x] Paste-URL install UI (install a plugin from a git URL) *(shipped — `OfficialRegistryPanel.tsx` install-from-GitHub form + `preview_github_plugin` endpoint; audit 2026-07-01)*
   - [ ] E2E acceptance test for the install flow + trust-warning test (5.3)
   - [ ] State/docs updates (6.1–6.3); update-flow test (5.2) *(post-v2)*
   - [ ] `synthesis_mixed` registration items (doc 05 §4.1 Group 4) *(M1 `tts_mixed` rename already done)*
@@ -329,7 +328,7 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
   - [ ] Stage 2: doc-06 cleanup checkpoint + Phase-11 closeout + doc-01 plan-file corrections (P-4 casting header, P-5 SDK directory-naming note, P-6 settings cross-ref)
   - [ ] Stage 4: voice metadata Phase G (→ 007) + standalone repos (→ 010) complete
   - [ ] Stage 5: perf P1–P6 confirmed; final broad `pytest` gate; axe baseline decision
-  - [ ] Stage 6: author missing specs SP2 `plugin-contract.md`, SP3 `voice-bundles.md`, SP5 `progress-presentation.md`, SP7 `install-distribution.md` ([final_release/18](active/final_release/18_canonical_specs.md)) — prereqs to SP9
+  - [ ] Stage 6: ~~author missing specs~~ SP2/SP3/SP5/SP7 ALL EXIST (plugin-contract 1.4.0, voice-bundles 1.2.0, progress-presentation 1.8.2, install-distribution 1.2.0 — stale claim corrected 2026-07-01); remaining work = SP9 conformance cross-check against them ([final_release/18](active/final_release/18_canonical_specs.md))
   - [ ] Stage 6: wiki — W1/W3/W4 (doc-01 items: WAV/MP3 callout, responsive/theming/plugin-distro pages, Mixed Generation concept) *(W5–W20 already done)*; refresh 12 stale wiki screenshots
   - [ ] Stage 6: demo/showcase + `v1.html` screenshot refresh to current 2.0 UI; R6-T10 dead-code retirement (supervised, full-suite run)
   - [ ] Stage 6: Pinokio PK3 (publish wrapper — owner) · PK7 (demo bundle refresh, needs 007) · PK8 (smoke test macOS+Windows) · PK5/PK6/PK9/PK10 (update-flow hardening, deep-reset, version-pinning, bash-only doc)

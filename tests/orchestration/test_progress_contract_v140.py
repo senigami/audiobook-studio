@@ -1090,19 +1090,39 @@ class TestPreSynthesisEtaGate:
         assert result.get("estimated_end_at") is None
         assert result.get("eta_updated_at") is None
 
-    @pytest.mark.parametrize("status", ["queued", "preparing"])
-    def test_no_observed_eta_before_running(self, status):
-        """An incoming observed ETA must also be suppressed pre-running."""
+    def test_no_observed_eta_when_queued(self):
+        """An incoming observed ETA is suppressed while queued (no synthesis clock).
+
+        Amended by progress-presentation 1.8.0 (positive ETA always wins): only
+        *queued* suppresses now — a real observed ETA on a *preparing* frame
+        (the pre-factored cold-load ETA, reason_code=pre_load_eta) survives so
+        the queue bar can render the countdown through the load window.
+        """
         svc, _, _, _ = _make_service()
         payload_in = {
-            "status": status,
+            "status": "queued",
             "progress": 0.0,
             "engine_id": "tts_xtts",
             "eta_seconds": 42,  # observed value present but synthesis not started
         }
-        result = svc.enrich(f"pre-obs-{status}", payload_in)
+        result = svc.enrich("pre-obs-queued", payload_in)
         assert result.get("eta_seconds") is None, (
-            f"{status} frame must suppress even an incoming observed eta_seconds, "
+            f"queued frame must suppress even an incoming observed eta_seconds, "
+            f"got {result.get('eta_seconds')}"
+        )
+
+    def test_preparing_frame_keeps_observed_eta(self):
+        """1.8.0 amendment: preparing frames KEEP a real incoming observed ETA."""
+        svc, _, _, _ = _make_service()
+        payload_in = {
+            "status": "preparing",
+            "progress": 0.0,
+            "engine_id": "tts_xtts",
+            "eta_seconds": 42,
+        }
+        result = svc.enrich("pre-obs-preparing", payload_in)
+        assert result.get("eta_seconds") == 42, (
+            f"preparing frame must keep a real observed eta_seconds (1.8.0), "
             f"got {result.get('eta_seconds')}"
         )
 

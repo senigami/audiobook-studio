@@ -7,6 +7,24 @@
 > final gate — it assumes 003 (per-segment dispatch isolation), 005 (correctness invariants), and 006
 > (frontend multi-active) have all landed.
 
+## Added scope (2026-07-01)
+
+- **Surface `ENGINE_CLASS_ADMISSION` as a real setting.** Task 001 (DONE 2026-06-26) ships the
+  per-engine-class semaphore machinery dark behind the env flag `ENGINE_CLASS_ADMISSION` (default
+  OFF) — while off, every synthesis claim still funnels through the single shared exclusive gate, so
+  001 is byte-identical to today. Task 001's as-built note is explicit that **this task (007) must
+  surface that flag as a proper setting** and **snapshot it into the claim at reserve time** so a
+  mid-render toggle flip can't desync a task's reserve/release pair (a task must release under the
+  same admission mode it reserved under). This is in addition to, not a replacement for, the
+  `TTS_PARALLEL_CAP` / `TTS_ENGINE_CAPS` toggle work already scoped below.
+- **Spec baselines to bump from (confirm before editing — avoid version collisions):**
+  `queue-jobs.md` 1.6.0, `system-architecture.md` 1.5.0, `live-events.md` 1.7.1,
+  `progress-presentation.md` 1.8.2. **Coordinate with W-MIX-LA task 007**
+  ([`../../mixed-synthesis-load-attribution/tasks/007-spec-reconciliation-and-g0.md`](../../mixed-synthesis-load-attribution/tasks/007-spec-reconciliation-and-g0.md)),
+  which is also expected to bump `live-events.md`, `queue-jobs.md`, and `data-model.md` around the
+  same time (`pre_load_eta` / `preparingWithEta` / `model_load_seconds` consumption) — if that lands
+  first, re-read the new baseline before bumping again rather than clobbering its changelog row.
+
 ## Goal
 
 Three coupled deliverables that ship together as Phase 1 completion:

@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 # Paths (relative to the repo root, resolved at import time)
 # ---------------------------------------------------------------------------
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_TAXONOMY_PATH = _REPO_ROOT / "docs" / "specs" / "voice-taxonomy.json"
-_SCHEMA_PATH = _REPO_ROOT / "docs" / "specs" / "voice.schema.json"
+_TAXONOMY_PATH = _REPO_ROOT / "design-docs" / "specs" / "voice-taxonomy.json"
+_SCHEMA_PATH = _REPO_ROOT / "design-docs" / "specs" / "voice.schema.json"
 
 # Required attribute fields (per voice.schema.json §attributes.required)
 REQUIRED_ATTRIBUTES = ("class", "gender", "age")

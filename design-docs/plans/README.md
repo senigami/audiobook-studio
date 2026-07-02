@@ -33,10 +33,12 @@ Everything below is accounted for in exactly one bucket. The master plan covers 
 | [final_release/](active/final_release/00_overview.md) | The v2.0.0 release plan (docs 00–18). Phases 0–11 done; Stage-1 owner render gate, standalone repos (05), taxonomy v2 Phase G (04), Pinokio (16), and the cosmetic/audit backlogs (09–12, 17, 18) remain. |
 | [simplification/](active/simplification/00_overview.md) | Dead-code/dup removal, large-file splits, CSS separation, **restore lost functionality (07)**. Master W2/W3 — not started. |
 | [audio_player_waveform_scrubber/](active/audio_player_waveform_scrubber/README.md) | Live-app port of the scrub-track + expandable tape. Mock + spec done; real-app tasks 005–012 open. Master W5. |
-| [mixed-synthesis-fused-proposal/](active/mixed-synthesis-fused-proposal/README.md) | **Mixed-engine model-load progress/ETA fix** (newly folded into the master). **W1 done**; W2–W4 + W6 spec pending; W5 deferred. |
+| [mixed-synthesis-fused-proposal/](active/mixed-synthesis-fused-proposal/README.md) | **Mixed-engine model-load progress/ETA fix** (newly folded into the master). **DONE (W1–W4, W6; W5 superseded by W-PAR 001).** Kept active pending W-MIX-LA follow-up closure. |
+| [mixed-synthesis-load-attribution/](active/mixed-synthesis-load-attribution/README.md) | W-MIX follow-up: segment-tagged load attribution + load-aware ETA. 001–004 + 006 done (006 uncommitted 2026-07-01); 007 spec-reconciliation + 👁 G0 re-check pending — gates W-PAR resume. |
+| [parallel-segment-rendering/](active/parallel-segment-rendering/README.md) | W-PAR: per-engine concurrent segment rendering. 001+004 shipped dark (cap=1); 002/003/005/006/007 pending; resume gated on W-MIX-LA 007. Phase 2 render monitor designed. |
 | [master_agnostic_tasks.md](active/master_agnostic_tasks.md) | Namespace rename (`plugins/`→`tts_engines/`), MobileNav focus-trap, CONTRIBUTING. Master W6. |
 | [organizational_cleanup.md](active/organizational_cleanup.md) | `speakers.py` decomposition, router reorg finish. Master W6 (overlaps simplification). |
-| [file_split_plan.md](active/file_split_plan.md) | Residual split #5 (`scriptViewProgress.ts`). Folded into simplification/04. |
+| [file_split_plan.md](active/file_split_plan.md) | Retired 2026-07-01 — 3 of 5 items already right-sized; residual (`ChapterHeader.tsx`) folded into simplification/04. |
 | [v2_phase_delivery_plan.md](active/v2_phase_delivery_plan.md) | Phase 12 active; Phase 13 (release docs) not started. |
 | [book_view_ia_proposal.md](active/book_view_ia_proposal.md) · [book_chapter_ia_proposal.md](active/book_chapter_ia_proposal.md) | Book + Chapter workspace IA. Live port substantially done (W4); design source kept active. |
 | [v2_huggingface_voice_interface.md](active/v2_huggingface_voice_interface.md) · [v2_voice_metadata_and_casting.md](active/v2_voice_metadata_and_casting.md) | HF browse/upload UI; AI casting suggestions; per-character casting UI. Open feature work. |

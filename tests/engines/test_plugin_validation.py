@@ -17,7 +17,7 @@ from app.tts_server.plugin_validation import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-TEMPLATE_PLUGIN_DIR = Path(__file__).parents[2] / "docs" / "plugin-template"
+TEMPLATE_PLUGIN_DIR = Path(__file__).parents[2] / "docs" / "plugin-sdk" / "plugin-template"
 
 
 def _make_studio_handler(tmp_path: Path, source: str) -> Path:

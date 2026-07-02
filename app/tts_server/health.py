@@ -134,6 +134,15 @@ def build_health_response(plugins: "list[LoadedPlugin]") -> dict[str, Any]:
         except Exception:
             current_settings = {}
         status = engine_status(plugin, current_settings=current_settings)
+        engine = getattr(plugin, "engine", None)
+        model_warm: bool | None = None
+        if engine is not None:
+            model_warm_fn = getattr(engine, "model_warm", None)
+            if callable(model_warm_fn):
+                try:
+                    model_warm = bool(model_warm_fn())
+                except Exception:
+                    model_warm = None
         engine_summaries.append(
             {
                 "engine_id": plugin.engine_id,
@@ -145,6 +154,7 @@ def build_health_response(plugins: "list[LoadedPlugin]") -> dict[str, Any]:
                 # the TTS server is a localhost-only subprocess — surfacing it
                 # to the local operator is the designed contract.
                 "verification_error": plugin.load_error or plugin.verification_error,  # lgtm[py/stack-trace-exposure]
+                "model_warm": model_warm,
             }
         )
 

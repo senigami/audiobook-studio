@@ -102,6 +102,12 @@ def get_watchdog() -> "TtsServerWatchdog | None":
     return _global_watchdog
 
 
+def get_server_health() -> "dict | None":
+    """Return TTS server /health payload, or None if watchdog is unavailable."""
+    wd = get_watchdog()
+    return wd.get_health() if wd is not None else None
+
+
 # Watchdog default configuration.
 _HEARTBEAT_INTERVAL   = 5.0   # seconds between /health polls
 _FAILURE_THRESHOLD    = 3     # consecutive failures before restart
@@ -249,6 +255,13 @@ class TtsServerWatchdog:
         """Return the captured stderr logs from the TTS Server."""
         with self._lock:
             return "\n".join(self._log_buffer)
+
+    def get_health(self) -> "dict | None":
+        """Return the TTS server /health payload, or None if unavailable."""
+        try:
+            return self._client.health()
+        except Exception:
+            return None
 
     def restart(self) -> None:
         """Manually restart the TTS Server and clear failure history."""

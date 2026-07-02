@@ -35,6 +35,17 @@ job owns only fan-out coordination and aggregation. Ensure the progress/marker l
 > section in [tasks/006](006-frontend-multi-active.md) for the full rationale (normalized segment-keyed
 > store + per-segment selectors; per-component socket listeners explicitly rejected).
 
+> **W-MIX-LA 006 diff landed on top of this file (2026-07-01).** Before this task starts its
+> extraction, `orchestrator_helpers.py` picked up ~77 new lines from the W-MIX-LA load-aware-ETA
+> work: a **proactive `pre_load_eta` block** (~L140-169, reads `tts_model`/`load_state` and publishes
+> the initial preparing-with-ETA frame at ~L1317-1325) and a **reactive `MODEL_LOAD_STARTED` reconcile**
+> (~L815-853, inside `log_listener`, also reads `load_state`/`tts_model` and clears the term at
+> `START_SYNTHESIS` ~L889-892). The extraction in this task **must carry both blocks into the isolated
+> per-segment scope** along with their closure variables — in particular `tts_model` (defined at L131,
+> read at L155 and again at L829 inside `log_listener`) and `load_state` (defined at L145, mutated in
+> both the proactive block and the reactive reconcile). Missing either turns the load-aware ETA into
+> shared cross-segment state under cap≥2 — the same class of bug this task exists to eliminate.
+
 ## Why it matters
 
 Today `app/orchestration/scheduler/orchestrator_helpers.py` holds a single `_dispatch` method (L88)
@@ -83,10 +94,13 @@ by `segment_id`. The per-segment function is independently testable. It also unl
 model for 005's stitch barrier (each child returns a `TaskResult`; parent joins all and stitches in
 DB order).
 
-**Cost:** substantial refactor of the most complex orchestration file (~1400 lines). The `log_listener`
-closure (which captures all the shared state at L587+) needs to become part of the per-segment
-function's scope. The existing single-segment path (cap=1) becomes the same code path with N=1 —
-no separate branch.
+**Cost:** substantial refactor of the most complex orchestration file. **Corrected size framing
+(2026-07-01, audit-verified):** the file is now **1,539 lines**, and `_dispatch` itself spans
+**~L88→L1524 (~1,435 lines — effectively the whole file)**, not the ~1,400-line-file /
+~700-line-closure estimate this section originally used. The `log_listener` closure (which captures
+all the shared state) starts at **L695** (not L587+ — shifted anchors below) and needs to become
+part of the per-segment function's scope. The existing single-segment path (cap=1) becomes the same
+code path with N=1 — no separate branch.
 
 ### Option (b) — Interim: key all per-segment state by `segment_id` (maps instead of scalars)
 
@@ -117,8 +131,8 @@ an interim (flagged in the PR), then follow immediately with (a) in the same mil
 
 | File | Current anchor (file:line) | Change |
 |------|---------------------------|--------|
-| `app/orchestration/scheduler/orchestrator_helpers.py` | `_dispatch` method L88; `timing` L92; `segment_starts` L104; `segment_load_observed` L106; `marker_state` L107; `pending_engine_activity` L111; `log_listener` closure L587+ | Extract per-segment state into an isolated `_dispatch_segment()` scope (option a) or key all mutable dicts by `segment_id` (option b). Ensure every event emitted from the listener carries `segment_id` in its payload. |
-| `app/orchestration/scheduler/orchestrator_helpers.py` | `_close_pending_engine_activity_interval` (L624), `run_job` inner loop, `_match_timing_marker_with_job_fallback` (L587) | These nested helpers capture the shared closure state — move them inside the per-segment scope (option a) or thread the correct keyed dict through (option b). |
+| `app/orchestration/scheduler/orchestrator_helpers.py` | `_dispatch` method L88; `timing` L92; `segment_starts` L104; `segment_load_observed` L106; `marker_state` L107; `pending_engine_activity` L111; `log_listener` closure **L695** (shifted — see corrected anchors below) | Extract per-segment state into an isolated `_dispatch_segment()` scope (option a) or key all mutable dicts by `segment_id` (option b). Ensure every event emitted from the listener carries `segment_id` in its payload. |
+| `app/orchestration/scheduler/orchestrator_helpers.py` | `_close_pending_engine_activity_interval` (**L653**), `run_job` inner loop, `_match_timing_marker_with_job_fallback` (**L616**) | These nested helpers capture the shared closure state — move them inside the per-segment scope (option a) or thread the correct keyed dict through (option b). |
 | `app/orchestration/scheduler/orchestrator.py` | `submit` / chapter job fan-out (added by task 002) | Accept per-segment `TaskResult` returns from `_dispatch_segment`; aggregate into chapter-level timing and `active_segments_map`. |
 | `app/orchestration/progress/` (broadcasting helpers) | Events emitted from `log_listener` that currently carry a single `active_seg_id` | Confirm every progress event carries `segment_id` explicitly; the parent aggregator builds `active_segments_map: dict[str, float]` (segment_id → progress 0–1) from the stream. |
 

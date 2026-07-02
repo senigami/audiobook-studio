@@ -143,13 +143,20 @@ const resolveEndAtMs = ({
     updatedAt?: number;
     presentationState?: string;
 }) => {
-    // I10 (progress-presentation §2.6): a determinate ETA countdown is valid only
-    // once synthesis is running.  queued / preparing (incl. the model cold-load
-    // window) have no synthesis clock — honoring an ETA there anchors the
-    // countdown to queue time and makes it "jump" when synthesis starts.
-    // Defense-in-depth: ignore any ETA on these statuses even if a frame carries one.
-    if (isQueuedStatus(presentationState) || isPreparingStatus(presentationState)) {
+    // I10 (progress-presentation §2.6 — parallel-render model v1.8.0):
+    // queued never shows a countdown (no synthesis clock).
+    // preparing: the backend may publish a pre-factored ETA during the cold-load window
+    // (reason_code=pre_load_eta); honor it when a positive etaSeconds is present.
+    // A preparing frame without a positive eta remains indeterminate (return null).
+    if (isQueuedStatus(presentationState)) {
         return null;
+    }
+    if (isPreparingStatus(presentationState)) {
+        // Only allow through when a positive eta is actually present.
+        if (typeof etaSeconds !== 'number' || !Number.isFinite(etaSeconds) || etaSeconds <= 0) {
+            return null;
+        }
+        // Fall through to the normal resolution path below.
     }
     // NaN-safety: a NaN etaSeconds is `typeof 'number'` and `NaN < 0` is false, so
     // every numeric branch must use Number.isFinite or NaN flows into endAtMs and
@@ -252,7 +259,13 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     const presentationState = state ?? status;
     const effectiveAllowBackward = allowBackwardProgress ?? !authoritativeFloor;
     const memoryKey = getProgressMemoryKey(persistenceKey, startedAt);
-    const preparingIndeterminate = isPreparingStatus(presentationState) || incomingIndeterminate === true;
+    // Queue bar with a positive ETA renders DETERMINATE even during preparing/indeterminate:
+    // the predictive fill starts at ETA-arrival and progresses continuously into running,
+    // eliminating the "hidden catch-up jump" at the START_SYNTHESIS transition.
+    // All other bars (segment, default) keep the existing indeterminate-pulse behavior.
+    const hasPositiveEta = typeof etaSeconds === 'number' && Number.isFinite(etaSeconds) && etaSeconds > 0;
+    const queueBarWithEta = checkpointMode === 'queue' && hasPositiveEta;
+    const preparingIndeterminate = !queueBarWithEta && (isPreparingStatus(presentationState) || incomingIndeterminate === true);
     const [tickState, forceUpdate] = useState(Date.now());
     const [currentLane, setCurrentLane] = useState<ProgressLane | null>(null);
     const [migration, setMigration] = useState<LaneMigration | null>(null);
@@ -507,7 +520,9 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         !doneTransitionRef.current ||
         (tickState - doneTransitionRef.current.startTimeMs >= doneTransitionRef.current.durationMs)
     );
-    const shouldTick = isLiveAnimatedStatus(presentationState) || (presentationState === 'done' && !isDoneAnimating);
+    // Queue bar with a positive ETA must tick even during 'preparing' so the
+    // determinate fill advances continuously from ETA-arrival.
+    const shouldTick = isLiveAnimatedStatus(presentationState) || (presentationState === 'done' && !isDoneAnimating) || queueBarWithEta;
     const now = shouldTick ? tickState : initialNow;
 
     const renderedStartAtMs = getRenderedStartAtMs(currentLane, migration, now);
@@ -562,9 +577,14 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             updatedAt,
             presentationState,
         });
-        // I10 extension: when the bar is indeterminate (mid-chapter model-load window),
-        // suppress the predictive lane end time so the bar holds still — no creep.
-        const nextEndAtMs = preparingIndeterminate ? null : resolvedEndAtMs;
+        // I10 extension (parallel-render update, §2.6 v1.8.0): when the bar is
+        // indeterminate the fill is width-locked (100% pulse or 35% sweep — never
+        // driven by the lane end time), so passing a real ETA through to the lane
+        // does NOT cause fill creep.  Passing it through is what populates
+        // renderedEndAtMs → displayedRemaining → the countdown number.
+        // Only suppress when there is no real ETA (null resolvedEndAtMs); suppress
+        // always for queued (resolveEndAtMs already returned null).
+        const nextEndAtMs = resolvedEndAtMs;
 
         const isTransitionAnimating = presentationState === 'done' && (
             !isDoneAnimating || prevPresentationStateRef.current !== 'done'
@@ -730,7 +750,12 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                         {showLabel && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>}
                     </div>
                     <div>
-                        {showEta && displayedRemaining !== null && !terminalStatusText && !busyStatusText ? (
+                        {showEta && displayedRemaining !== null && !terminalStatusText && (!busyStatusText || displayedRemaining > 0) ? (
+                            // Parallel-render model (§2.6 / I10 v1.8.0 amended): a real positive
+                            // ETA renders its countdown in EVERY non-terminal state, including
+                            // running+indeterminate (the model-load window).  The busy label
+                            // ("Preparing…" / "Loading voice model…") only shows when there is
+                            // no positive ETA (displayedRemaining null or ≤ 0).
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 {showPercent && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{Math.round(localProgress * 100)}%</span>}
                                 <span style={{ fontSize: '0.65rem', color: 'var(--accent)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>

@@ -4,6 +4,16 @@
 > mis-named-but-live `app/jobs` package. All behavior-preserving; `pytest -q` (incl. plugin suites)
 > green per task. The backend is broadly sound — this is targeted debt removal, not restructuring.
 
+> **AUDIT CORRECTION (2026-07-01):** (1) **BE-1's `schema_data` claim is WRONG** — those variables
+> are consumed by `isinstance(schema_data, dict)` validation checks; they are live code, not dead.
+> Do NOT delete. (2) **BE-3's target file** is `app/api/contracts/events.py` (not
+> `scheduler/events.py`); the duplication itself is still present. (3) **BE-2 scope grew** from ~10
+> to 12 modules: `app/infra/subprocess/__init__.py` and `app/infra/db/__init__.py` (created after
+> this plan) inherited the same dead `INTENDED_*`/`FORBIDDEN_*` constants pattern. (4) BE-4/BE-5
+> still valid (line anchors drifted, shape unchanged). (5) BE-6 still valid and still the
+> highest-risk item: `app/jobs/` unchanged, 97 live references across ~40 files. (6) `speakers.py`
+> still one 669-line file.
+
 ---
 
 ## BE-1 — Remove confirmed backend dead code
