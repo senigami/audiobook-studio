@@ -623,25 +623,36 @@ class TestOwnerAcceptance43Composition:
                 "updated_at": wall_now["value"],
             }, sample=True)
 
-        wall_now["value"] += 1.0
-        result = svc.enrich(job_id, {
-            "status": "running",
-            "progress": 0.8,
-            "eta_seconds": 30,
-            "active_segment_id": "seg-dom",
-            "active_segment_progress": 0.0,
-            "active_segment_eta_seconds": 4,
-            "total_render_weight": 100,
-            "completed_render_weight": 80,
-            "active_render_group_weight": 20,  # share=20/(100-80)=1.0
-            "updated_at": wall_now["value"],
-        }, sample=True)
+        # Mature the segment ring so seg_confidence is genuinely HIGH — the
+        # docstring's claim. (Updated 2026-07-02 / spec 1.8.4: the original
+        # single-frame version had seg_confidence ≈ 0.2 and only passed because
+        # the flat-mean ceiling happened to clip the composed value; with the
+        # recency-weighted ceiling velocity that accidental coupling is gone,
+        # so the test now exercises the composition it was written to prove.)
+        seg_evolve = [(0.1, 8), (0.25, 7), (0.4, 6), (0.6, 5), (0.8, 4), (0.9, 4)]
+        result = None
+        for seg_p, seg_eta in seg_evolve:
+            wall_now["value"] += 1.0
+            result = svc.enrich(job_id, {
+                "status": "running",
+                "progress": 0.8,
+                "eta_seconds": 30,
+                "active_segment_id": "seg-dom",
+                "active_segment_progress": seg_p,
+                "active_segment_eta_seconds": seg_eta,
+                "total_render_weight": 100,
+                "completed_render_weight": 80,
+                "active_render_group_weight": 20,  # share=1.0 (all remaining work)
+                "updated_at": wall_now["value"],
+            }, sample=True)
 
         eta = result.get("eta_seconds")
         assert eta is not None
-        # With share=1.0 and high seg_confidence, composition must pull < 15s.
-        assert eta < 15, (
-            f"High-share composition must pull chapter eta < 15s, got {eta}s"
+        # With share=1.0 and mature high seg_confidence, composition must pull
+        # the chapter eta strongly toward the segment estimate (< 10s per the
+        # docstring's own post-change claim).
+        assert eta < 10, (
+            f"High-share composition must pull chapter eta < 10s, got {eta}s"
         )
 
     def test_low_share_segment_does_not_override_chapter_eta(self):

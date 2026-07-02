@@ -286,6 +286,33 @@ describe('ETA Confidence pure helpers', () => {
             const result = clampSlope(proposedEndAtMs, prevEndAtMs, 0.3, nowMs, 0.5)
             expect(result).toBe(proposedEndAtMs)
         })
+
+        // Collapsed-anchor recovery (2026-07-02, owner run job-47213119): after a
+        // silent backend gap the countdown free-runs the stale anchor down to
+        // ~1-2s; the corrective extension must SNAP, not crawl at prevDuration×cap.
+        it('lets a big extension snap when the anchor has collapsed (floored cap base)', () => {
+            const nowMs = 100_000
+            const prevEndAtMs = nowMs + 1_500 // collapsed anchor: 1.5s remaining
+            const proposedEndAtMs = nowMs + 7_000 // backend correction: 7s remaining
+            // R1 revert-check: pre-fix maxDuration = 1_500 × 4 = 6_000 → crawls to 6s.
+            // Post-fix cap base = max(1_500, MIN_SLOPE_CAP_BASE_MS=2_500) × 4 = 10_000 ≥ 7_000.
+            const result = clampSlope(proposedEndAtMs, prevEndAtMs, 0.9, nowMs, 1.0)
+            expect(result).toBe(proposedEndAtMs)
+        })
+        it('keeps identical behavior for normal-size anchors (no regression)', () => {
+            const nowMs = 100_000
+            const prevEndAtMs = nowMs + 10_000 // ≥ MIN_SLOPE_CAP_BASE_MS → floor inert
+            const proposedEndAtMs = nowMs + 45_000 // beyond 10_000 × 4 = 40_000
+            const result = clampSlope(proposedEndAtMs, prevEndAtMs, 0.3, nowMs, 1.0)
+            expect(result).toBe(nowMs + 40_000) // unchanged pre-fix formula
+        })
+        it('does not inflate a shrink from a collapsed anchor (floor is upper-bound only)', () => {
+            const nowMs = 100_000
+            const prevEndAtMs = nowMs + 1_500
+            const proposedEndAtMs = nowMs + 800 // shorter — min bound 1_500/4 = 375
+            const result = clampSlope(proposedEndAtMs, prevEndAtMs, 0.9, nowMs, 1.0)
+            expect(result).toBe(proposedEndAtMs)
+        })
     })
 })
 

@@ -262,6 +262,29 @@ class EtaSampleRing:
         vals = list(self._samples)
         return sum(vals) / len(vals)
 
+    def weighted_mean(self) -> float | None:
+        """Return the recency-weighted mean of stored velocity samples.
+
+        Linear weights (oldest=1 … newest=n) so the velocity feeding the
+        §4A.4 mechanical ceiling tracks the CURRENT rate instead of a flat
+        historical average. In a mixed render the early fast-engine samples
+        otherwise inflate the mean long after the engine switch, shrinking
+        the ceiling below the honest composed ETA at the end of the chapter
+        (observed live 2026-07-02, job-47213119: flat mean ≈3.7× the true
+        recent rate clipped a correct 3s end-game ETA to 2s). ``cv()``
+        deliberately keeps flat statistics — it measures instability.
+
+        Returns ``None`` when no samples are available.
+        """
+        if not self._samples:
+            return None
+        acc = 0.0
+        total_w = 0.0
+        for i, v in enumerate(self._samples, start=1):
+            acc += i * v
+            total_w += i
+        return acc / total_w
+
     def cv(self) -> float:
         """Return the coefficient of variation of stored velocity samples.
 

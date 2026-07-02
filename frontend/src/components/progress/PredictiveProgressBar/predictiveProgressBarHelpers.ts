@@ -74,6 +74,14 @@ export const ETA_CONFIDENCE = {
     SLOPE_CAP_HIGH: 4.0,
     /** No-update stall duration before decaying w toward 0 (ms). */
     STALL_MS: 10_000,
+    /**
+     * Floor for the slope-cap base (ms). When the countdown has free-run a
+     * stale anchor down to ~1-2s during a backend frame gap, a corrective
+     * end-time EXTENSION must be able to snap rather than crawl: capping
+     * relative to the collapsed remaining strangled a +5-7s correction to
+     * ~4-8s over several frames (owner run 2026-07-02, job-47213119).
+     */
+    MIN_SLOPE_CAP_BASE_MS: 2_500,
 } as const;
 
 /**
@@ -139,8 +147,13 @@ export const clampSlope = (
     // velocity is proportional to 1/duration; clamp duration so velocity stays in [1/cap, cap] of prevVelocity
     // vPrev / SLOPE_CAP ≤ v ≤ vPrev * SLOPE_CAP
     // → prevDuration / SLOPE_CAP ≤ proposedDuration ≤ prevDuration * SLOPE_CAP  (inverted: larger duration = slower)
+    // Collapsed-anchor recovery (2026-07-02): the UPPER bound uses a floored cap
+    // base so an extension arriving after the countdown free-ran a stale anchor
+    // to ~1-2s can snap to the corrected end instead of crawling. The lower
+    // bound keeps the raw prevDuration — the floor must never inflate a
+    // legitimately-small ETA or slow a shrink.
     const minDuration = prevDuration / slopeCap;
-    const maxDuration = prevDuration * slopeCap;
+    const maxDuration = Math.max(prevDuration, ETA_CONFIDENCE.MIN_SLOPE_CAP_BASE_MS) * slopeCap;
     const clampedDuration = Math.max(minDuration, Math.min(maxDuration, proposedDuration));
     return nowMs + clampedDuration;
 };

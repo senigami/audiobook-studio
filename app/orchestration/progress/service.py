@@ -776,7 +776,8 @@ class ProgressService:
             if isinstance(eta_confidence, float):
                 # Caller pre-computed the numeric confidence — pass through.
                 # Still need ring_velocity for §4A.8 crossfade below (FIX 2).
-                ring_velocity = ring.mean() if ring is not None else None
+                # §4A.4 (1.8.4): recency-weighted — see EtaSampleRing.weighted_mean.
+                ring_velocity = ring.weighted_mean() if ring is not None else None
             else:
                 if ring is None:
                     ring = EtaSampleRing()  # ephemeral, not stored — sample=False path
@@ -816,7 +817,8 @@ class ProgressService:
                     )
                 payload["eta_confidence"] = numeric_conf
                 # FIX 2: capture ring velocity while still holding the lock.
-                ring_velocity = ring.mean()
+                # §4A.4 (1.8.4): recency-weighted — see EtaSampleRing.weighted_mean.
+                ring_velocity = ring.weighted_mean()
 
             # --- Task 006-A: per-segment EtaSampleRing sampling (inside same lock) ---
             seg_confidence: float | None = None
@@ -1034,6 +1036,27 @@ class ProgressService:
                         if isinstance(chapter_conf, float) and not (is_terminal or p >= 1.0):
                             conf_display = max(chapter_conf, seg_confidence * share)
                             payload["eta_confidence"] = conf_display
+
+            # --- §4A.2 monotone chapter-confidence floor (running → running) ----
+            # Owner design (2026-07-02): the chapter-level confidence is ONE steady
+            # estimation→live ramp across the whole chapter. The per-frame variance
+            # term (ring cv) and segment-boundary eta whipsaws made the emitted
+            # value bounce (0.63→0.33→0.20 observed live, job-47213119). Floor it
+            # at the previous running frame's value; queued/requeue and terminal
+            # paths keep their resets. Per-segment confidence (B12: resets per
+            # segment_id) is deliberately NOT floored.
+            if status == "running":
+                _conf_now = payload.get("eta_confidence")
+                if isinstance(_conf_now, float):
+                    with self._lock:
+                        _prev_conf_payload = self._last_payload_by_job.get(job_id)
+                    if (
+                        _prev_conf_payload is not None
+                        and str(_prev_conf_payload.get("status", "")) == "running"
+                    ):
+                        _prev_conf = _prev_conf_payload.get("eta_confidence")
+                        if isinstance(_prev_conf, (int, float)) and _conf_now < float(_prev_conf):
+                            payload["eta_confidence"] = float(_prev_conf)
 
             if bounded_eta is not None:
                 sanitized_eta = max(0, round(bounded_eta))

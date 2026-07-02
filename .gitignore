@@ -173,6 +173,9 @@ plugins/*/assets/last_test.json
 /Memory
 /debug
 
+# session memory (agent-local, not project history)
+/.memory/
+
 # SQLite backups produced by cleanup steps
 *.db.bak
 *.sqlite.bak

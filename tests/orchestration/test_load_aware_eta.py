@@ -590,3 +590,142 @@ class TestTerminalIndeterminateClear:
             "status": "done", "progress": 1.0, "updated_at": 100.0,
         }, sample=True)
         assert result.get("indeterminate") is False
+
+
+# ---------------------------------------------------------------------------
+# 2026-07-02 end-game ETA fixes (owner render job-47213119, mixed 4-group)
+# ---------------------------------------------------------------------------
+
+class TestRecencyWeightedCeilingVelocity:
+    def test_mixed_render_ceiling_does_not_clip_endgame_eta(self):
+        """§4A.4: the ceiling velocity must track the CURRENT rate, not a flat
+        historical mean contaminated by earlier fast-engine groups.
+
+        Reproduces job-47213119: two fast (Voxtral-rate ~0.09 progress/s)
+        samples followed by slow (XTTS-rate ~0.01-0.02) samples. At p=0.94
+        with an honest observed eta of 3s, the flat-mean velocity (~0.038)
+        yields ceiling = 1.3*0.06/0.038 ≈ 2.0 and clips the correct 3 to 2.
+        A recency-weighted velocity (~0.024) yields ceiling ≈ 3.2 → 3 survives.
+
+        R1 revert-check: pre-fix (flat ring.mean()) this gets 2, not 3.
+        Each enrich frame pushes velocity = (1-p)/eta into the job ring.
+        """
+        svc, wall = _make_progress_service()
+        job = "mixed-endgame-job"
+        frames = [
+            (0.05, 10.56),  # ≈0.090  fast group
+            (0.10, 10.0),   # 0.090   fast group
+            (0.40, 60),     # 0.010   slow group
+            (0.55, 45),     # 0.010
+            (0.70, 30),     # 0.010
+        ]
+        for p, eta in frames:
+            wall["value"] += 3.0
+            svc.enrich(job, {
+                "status": "running", "progress": p, "eta_seconds": eta,
+                "updated_at": wall["value"],
+            }, sample=True)
+        wall["value"] += 3.0
+        result = svc.enrich(job, {
+            "status": "running", "progress": 0.94, "eta_seconds": 3,
+            "updated_at": wall["value"],
+        }, sample=True)
+        assert result.get("eta_seconds") == 3, (
+            f"end-game eta must not be clipped by a stale flat-mean velocity "
+            f"ceiling; expected 3, got {result.get('eta_seconds')}"
+        )
+
+
+class TestMonotoneChapterConfidence:
+    def test_chapter_confidence_never_decreases_while_running(self):
+        """§4A.2 monotone contract ENFORCED (owner design 2026-07-02): the
+        chapter-level eta_confidence is one steady estimation→live ramp; a
+        variance spike (eta whipsaw) must not make the emitted value dip.
+
+        R1 revert-check: pre-fix, the whipsaw frame's cv spike drops the
+        computed confidence below the previous frame's value.
+        """
+        svc, wall = _make_progress_service()
+        job = "mono-conf-job"
+        confs: list[float] = []
+        # Steady cadence → cv≈0, confidence rises with progress.
+        for p, eta in [(0.60, 20), (0.70, 15), (0.80, 10)]:
+            wall["value"] += 3.0
+            out = svc.publish(
+                job_id=job, status="running", progress=p, eta_seconds=eta,
+                updated_at=wall["value"], force=True,
+            )
+            assert out is not None
+            confs.append(out["eta_confidence"])
+        # Whipsaw: eta jumps 4x → velocity sample craters → cv spikes.
+        wall["value"] += 3.0
+        out = svc.publish(
+            job_id=job, status="running", progress=0.85, eta_seconds=40,
+            updated_at=wall["value"], force=True,
+        )
+        assert out is not None
+        confs.append(out["eta_confidence"])
+        for earlier, later in zip(confs, confs[1:]):
+            assert later >= earlier, (
+                f"chapter eta_confidence dipped ({earlier:.3f} → {later:.3f}) "
+                f"across running frames; sequence: {[round(c, 3) for c in confs]}"
+            )
+
+    def test_requeue_clears_confidence_floor(self):
+        """A queued frame breaks the running→running chain: the next cycle may
+        start with low confidence again (explicit reset paths preserved)."""
+        svc, wall = _make_progress_service()
+        job = "requeue-conf-job"
+        out = None
+        for p, eta in [(0.60, 20), (0.70, 15), (0.80, 10)]:
+            wall["value"] += 3.0
+            out = svc.publish(
+                job_id=job, status="running", progress=p, eta_seconds=eta,
+                updated_at=wall["value"], force=True,
+            )
+        assert out is not None
+        high_conf = out["eta_confidence"]
+        assert high_conf > 0.4
+        wall["value"] += 1.0
+        svc.publish(job_id=job, status="queued", progress=0.0,
+                    updated_at=wall["value"], force=True,
+                    allow_progress_regression=True)
+        wall["value"] += 1.0
+        out2 = svc.publish(
+            job_id=job, status="running", progress=0.05, eta_seconds=60,
+            updated_at=wall["value"], force=True,
+        )
+        assert out2 is not None
+        assert out2["eta_confidence"] < high_conf, (
+            "confidence floor must clear across a requeue"
+        )
+
+    def test_segment_confidence_not_floored_by_chapter(self):
+        """B12: per-segment confidence resets per segment_id — the chapter
+        floor must not prop it up."""
+        svc, wall = _make_progress_service()
+        job = "seg-indep-job"
+        out = None
+        for p, eta in [(0.60, 20), (0.70, 15), (0.80, 10), (0.85, 8)]:
+            wall["value"] += 3.0
+            out = svc.publish(
+                job_id=job, status="running", progress=p, eta_seconds=eta,
+                updated_at=wall["value"], force=True,
+            )
+        assert out is not None
+        chapter_conf = out["eta_confidence"]
+        # First-ever frame for a NEW segment: its ring has 1 sample → cold.
+        wall["value"] += 1.0
+        out2 = svc.publish(
+            job_id=job, status="running", progress=0.86, eta_seconds=8,
+            active_segment_id="seg-new", active_segment_progress=0.1,
+            active_segment_eta_seconds=6,
+            updated_at=wall["value"], force=True,
+        )
+        assert out2 is not None
+        seg_conf = out2.get("active_segment_eta_confidence")
+        assert seg_conf is not None
+        assert seg_conf < max(chapter_conf, out2["eta_confidence"]), (
+            f"new segment's confidence must start cold (got {seg_conf}), "
+            f"independent of the floored chapter confidence"
+        )
