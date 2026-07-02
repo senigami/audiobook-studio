@@ -17,14 +17,14 @@ Index: [README.md](README.md) · Master roadmap: [master_fix_plan/README.md](mas
 ### Lane / dependency diagram
 
 ```
-CP (serial):  W-MIX-LA 007 ──(spec+👁 G0)──► W-PAR 002 ─► 003 (keystone) ─┬─► 005 ─┐
-                  │ doc-only, dispatch NOW            │ cap>1 owner-gated │        ├─► 007
-                  │                                    └── 004 DONE(dark)  └─► 006 ─┘
-                                                                 │ prep buildable now
+CP (serial):  W-MIX-LA 007 ✓ CLEARED ──► W-PAR 002 ─► 003 (keystone) ─┬─► 005 ─┐
+                  (007a+007b done 2026-07-02)   │ cap>1 owner-gated │        ├─► 007
+                                                 └── 004 DONE(dark)  └─► 006 ─┘
+                                                             │ prep buildable now
 ∥ lanes (zero overlap w/ CP, run concurrently right now):
   L-SIMP   M3/005 subsets: ST-1/2, LF-2/3/4/5, BE-2/3/5, PL-1/3/5   (frontend + plugin SDK)
   L-TAX    M4/007 taxonomy: G1–G6 (language/style only; accent shipped)
-  L-DOC    W-MIX-LA 007 spec bumps · Stage-6 wiki/SP9 · doc-01 corrections
+  L-DOC    Stage-6 wiki/SP9 · doc-01 corrections
   L-SEC    009 npm audit re-run (hygiene, release-gate)
 ```
 
@@ -43,7 +43,7 @@ CP (serial):  W-MIX-LA 007 ──(spec+👁 G0)──► W-PAR 002 ─► 003 (k
 ### Ready to dispatch NOW
 
 **Zero blockers:**
-- **W-MIX-LA 007 spec reconciliation (doc half)** — bump `live-events.md` (`pre_load_eta` frame + positive eta on indeterminate frame), `queue-jobs.md` (`preparingWithEta`), `data-model.md` (`model_load_seconds` consumed), `wiki/Changelog.md`. Zero code dependency — only the 👁 G0 owner re-check (live cold-XTTS `pre_load_eta` countdown) is gated on the owner.
+- ~~W-MIX-LA 007 spec reconciliation~~ — **done 2026-07-02** (007a doc work + 007b owner G0 re-check both complete; W-MIX-LA fully closed). W-PAR 002/003 execution is no longer gated on this — only the cap>1 owner sign-off (gate summary #2) remains.
 - **L-SIMP** — behavior-preserving cleanup, no CP overlap: ST-1 `components.css` split, ST-2 shared classes, LF-2 `EngineCard`, LF-3 `PredictiveProgressBar`, LF-4 `MetadataEditorModal`, LF-5 `App.tsx`, BE-2/BE-3/BE-5, PL-1/PL-3/PL-5. Parallel-safe among themselves. **Excludes LF-1/LF-6 (contested above) and DC-1b (live tree, gate re-verify).**
 - **L-TAX** — 007 taxonomy G1–G6 (`language` multi + `style` multi only; `accent` already shipped). No CP overlap.
 - **L-SEC** — 009 `npm audit` re-run (currently 0 vulns; release hygiene).
@@ -58,7 +58,7 @@ CP (serial):  W-MIX-LA 007 ──(spec+👁 G0)──► W-PAR 002 ─► 003 (k
 
 ### Gate summary (the hard serialization points that matter)
 
-1. **W-MIX-LA 007 👁 G0 re-check** (owner sees a live cold-XTTS `pre_load_eta` frame) gates W-PAR 002/003 *execution*. The spec-recon doc half is dispatchable now regardless.
+1. ~~W-MIX-LA 007 👁 G0 re-check gates W-PAR 002/003 execution~~ — **cleared 2026-07-02.**
 2. **Owner cap>1 sign-off** gates *enabling* parallelism — not *writing* 002's fan-out or 006's frontend thread (both build dark under cap=1).
 3. **W-PAR 003 (keystone)** gates 005 and the *runtime* half of 006; runs alone on `orchestrator_helpers.py` + `ws.py`.
 4. **`progress/service.py` quiescence** gates LF-6 — never split it while an ETA agent is live.
@@ -119,7 +119,7 @@ Plan: [active/mixed-synthesis-fused-proposal/README.md](active/mixed-synthesis-f
 
 ---
 
-## W-MIX-LA — Mixed-synthesis load attribution *(active — 001–004 + 006 done; 007 pending)*
+## W-MIX-LA — Mixed-synthesis load attribution *(done 2026-07-02 — 001–007 all complete)*
 
 Plan: [active/mixed-synthesis-load-attribution/README.md](active/mixed-synthesis-load-attribution/README.md) · map: [01-map.md](active/mixed-synthesis-load-attribution/01-map.md) · roadmap: [02-roadmap.md](active/mixed-synthesis-load-attribution/02-roadmap.md)
 
@@ -133,14 +133,14 @@ W-MIX follow-up — **G0 visual check failed (2026-06-26)**. A mixed Voxtral→X
 - [x] **006** — Load-aware ETA *(chosen approach)* — on `MODEL_LOAD_STARTED`, add DB `model_load_seconds` to the live ETA; clock counts down while the bar holds; account for the *extra* time only (parallel-aware); no pre-add, no pause. *(landed in `64a39c34` — implemented in `orchestrator_helpers.py` (proactive `pre_load_eta` at dispatch + reactive reconcile on `MODEL_LOAD_STARTED`) + `performance.py::expected_model_load_seconds`, NOT the originally-spec'd eta.py/orchestrator_eta.py; bundled with the §4A.3 chapter-ETA composition fix, spec 1.8.2)*
   - [x] **2026-07-02 follow-on fix** *(commits `4f78cc7b` / `291872bc`)* — same live mixed render (job-47213119) exposed two more bugs downstream of 006: the §4A.4 mechanical ceiling clipped a correct end-game ETA (flat `EtaSampleRing.mean()` → new recency-weighted `weighted_mean()`), and chapter `eta_confidence` bounced instead of ramping (→ monotone running-state floor in `service.py`). Frontend `clampSlope` also crawled instead of snapping after a stall (`MIN_SLOPE_CAP_BASE_MS`). Spec → 1.8.4; `wiki/Changelog.md` entry added. Owner-verified via live render ("ETA is looking good").
 - [x] **007a** — Spec reconciliation (doc-only) *(DONE 2026-07-02, via /flow-feature — Config C, no code changes)* — `live-events.md` → 1.8.0 (`pre_load_eta` frame shape + amended the 1.5.3 "no indeterminate+positive-eta" invariant, which progress-presentation.md had already superseded at 1.8.0 but this spec hadn't caught up to); `queue-jobs.md` → 1.7.0 (new §3.9, `QueueItem.tsx` `preparingWithEta` client retention); `data-model.md` → 1.5.0 (`model_load_seconds` now documented as consumed by `expected_model_load_seconds()`, not just recorded); `wiki/Changelog.md` — added the missing load-aware-ETA feature entry (006 itself had none; only the 2026-07-02 follow-on fix did). progress-presentation.md needed no changes (already at 1.8.4).
-- [ ] **007b** — 👁 **G0 re-check** (owner-run; gates W-PAR 002/003 execution) — must include seeing a real `pre_load_eta` frame on a cold XTTS render
+- [x] **007b** — 👁 **G0 re-check** *(DONE 2026-07-02 — owner confirmed the live `pre_load_eta` countdown was already showing correctly on real renders prior to 007a's doc work; 007a touched zero application code so it could not have affected the behavior. W-MIX-LA is now fully complete.)*
 
   > 👁 **VISUAL CHECK — ML-2 (mid-chapter preparing fixed)**
   > Re-run the mixed render: Voxtral→XTTS shows the preparing pulse on the XTTS segment (not frozen first letter); XTTS-first still pulses-then-animates; Voxtral-only + warm XTTS group show no preparing flash.
 
 ---
 
-## W-PAR — Parallel segment rendering *(active — 001+004 shipped dark; 002/003/005/006/007 pending; resume gated on W-MIX-LA 007)*
+## W-PAR — Parallel segment rendering *(active — 001+004 shipped dark; 002/003/005/006/007 pending; W-MIX-LA 007 gate CLEARED 2026-07-02 — remaining gate is the owner cap>1 sign-off below)*
 
 Plan: [active/parallel-segment-rendering/README.md](active/parallel-segment-rendering/README.md) · map: [01-map.md](active/parallel-segment-rendering/01-map.md) · roadmap: [02-roadmap.md](active/parallel-segment-rendering/02-roadmap.md)
 
