@@ -747,4 +747,41 @@ describe('ScriptView', () => {
     expect(renderGroup).toHaveClass('is-preparing');
     expect(renderGroup).not.toHaveClass('is-rendering');
   });
+
+  // ── W-PAR 006: multi-active segments — two batches rendering simultaneously ──
+  it('[W-PAR 006] two spans in different batches render simultaneously with independent progress', () => {
+    const multiActiveData: ScriptViewResponse = {
+      ...mockData,
+      render_batches: [
+        { id: 'b1', span_ids: ['s1'], status: 'draft', estimated_work_weight: 1 },
+        { id: 'b2', span_ids: ['s3'], status: 'draft', estimated_work_weight: 1 },
+      ],
+    };
+
+    render(
+      <ScriptView
+        data={multiActiveData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['s1', 's3'])}
+        renderingSpanIds={new Set(['s1', 's3'])}
+        renderingBatchProgressById={{ b1: 0.3, b2: 0.6 }}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    const span1 = screen.getByTestId('script-span-s1');
+    const span3 = screen.getByTestId('script-span-s3');
+
+    // Both spans must be simultaneously non-idle (rendering), not just the last-emitted one.
+    expect(span1).toHaveAttribute('data-render-status', 'rendering');
+    expect(span3).toHaveAttribute('data-render-status', 'rendering');
+
+    // Each span's progress bar reflects its OWN batch's progress independently.
+    const litLetters1 = span1.querySelectorAll('.script-progress-letter.is-lit');
+    const litLetters3 = span3.querySelectorAll('.script-progress-letter.is-lit');
+
+    expect(litLetters1.length).toBe(Math.floor('Sentence one.'.length * 0.3));
+    expect(litLetters3.length).toBe(Math.floor('Different paragraph.'.length * 0.6));
+  });
 });

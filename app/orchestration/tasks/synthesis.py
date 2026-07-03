@@ -413,3 +413,4 @@ class SynthesisTask(StudioTask):
         wd = get_watchdog()
         if wd:
             wd._broadcast_log(line, task_id=self.task_id)
+

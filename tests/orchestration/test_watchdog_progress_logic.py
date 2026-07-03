@@ -210,6 +210,7 @@ def test_started_at_marker_driven():
     task.get_expected_duration.return_value = 25.0
     task.is_marker_driven = True # Explicitly set for mock
     task.prefers_local_execution = False
+    task.is_chapter_fanout = False  # Explicitly set for mock (W-PAR 008 R4 dispatch branch)
     task.to_bridge_request.return_value = {"task_id": "job-1"}
     task.describe.return_value = TaskContext(task_id="job-1", task_type="synthesis")
     context = task.describe()

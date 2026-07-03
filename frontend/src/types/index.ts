@@ -2,6 +2,19 @@ export type Engine = string;
 export type VoiceEngine = string;
 export type JobClassification = 'job' | 'chapter' | 'segment';
 
+/**
+ * Per-segment lifecycle entry within an `active_segments_map` (W-PAR 006).
+ * Frozen contract (C2, design-docs/plans/active/parallel-segment-rendering):
+ * consumed verbatim from the chapter progress frame.
+ */
+export interface ActiveSegmentMapEntry {
+  phase: 'preparing' | 'rendering' | 'done';
+  progress: number;
+  eta_seconds: number | null;
+  reason_code?: string;
+  indeterminate?: boolean;
+}
+
 export interface TtsEngine {
   engine_id: string;
   display_name: string;
@@ -211,6 +224,7 @@ export interface ProcessingQueueItem {
   active_render_group_weight?: number;
   active_segment_id?: string | null;
   active_segment_progress?: number;
+  active_segments_map?: Record<string, ActiveSegmentMapEntry> | null;
   audio_length_seconds?: number;
   produced_audio_length?: number;
   produced_chars?: number;
@@ -321,6 +335,7 @@ export interface Job {
   active_segment_eta_seconds?: number | null;
   active_segment_eta_basis?: string | null;
   active_segment_updated_at?: number | null;
+  active_segments_map?: Record<string, ActiveSegmentMapEntry> | null;
   render_group_count?: number;
   completed_render_groups?: number;
   active_render_group_index?: number;

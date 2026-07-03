@@ -1295,10 +1295,15 @@ class TestB8DiagnosticLogging:
         # We trigger the actual log_listener by invoking it directly via _dispatch
         # with a mock task — but that requires too much wiring.
         # Instead, verify the logger name and message pattern exist in the module.
+        #
+        # W-PAR 003: the log_listener closure (and this diagnostic) moved from
+        # `_dispatch` into `_dispatch_segment` (per-segment isolated dispatch,
+        # INV-6). `_dispatch` is now a thin one-line fan-out driver that
+        # delegates to `_dispatch_segment` — check the new home of the closure.
         import inspect
-        source = inspect.getsource(OrchestratorHelpersMixin._dispatch)
+        source = inspect.getsource(OrchestratorHelpersMixin._dispatch_segment)
         assert "B8-diag" in source, (
-            "B8 diagnostic logging marker 'B8-diag' not found in _dispatch source"
+            "B8 diagnostic logging marker 'B8-diag' not found in _dispatch_segment source"
         )
         assert "in_id_to_weight" in source, (
             "B8 diagnostic must log 'in_id_to_weight' (weight-table membership)"

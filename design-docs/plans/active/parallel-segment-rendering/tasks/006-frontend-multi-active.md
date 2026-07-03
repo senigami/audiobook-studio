@@ -1,6 +1,6 @@
 # Task 006 — Frontend multi-active segments
 
-**Workstream:** W-PAR  ·  **Depends on:** 003 (emits per-segment multi-active signal)  ·  **Blocks:** 007  ·  **Status:** Not started
+**Workstream:** W-PAR  ·  **Depends on:** 003 (emits per-segment multi-active signal)  ·  **Blocks:** 007  ·  **Status:** Done (2026-07-02, frontend wire + hook only; consumes 003 when it lands)
 
 ## Goal
 

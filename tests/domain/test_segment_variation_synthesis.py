@@ -259,8 +259,8 @@ def test_build_script_for_chapter_uses_variant_voice_profile_dir(tmp_path):
          patch("app.db.segments.get_chapter_segments", return_value=segments), \
          patch("app.db.speakers.get_profile_wavs", return_value=None), \
          patch("app.db.speakers.get_profile_dir", side_effect=lambda name: profile_dirs.get(name, tmp_path / name)), \
-         patch("app.api.routers.generation.has_behavior", return_value=False), \
-         patch("app.api.routers.generation.get_text_split_target", return_value=450), \
+         patch("app.domain.chunk_groups.has_behavior", return_value=False), \
+         patch("app.domain.chunk_groups.get_text_split_target", return_value=450), \
          patch("app.core.config.get_chapter_dir", return_value=chapter_dir):
         script = _build_script_for_chapter("c1", "p1", "Aria", safe_mode=False)
 

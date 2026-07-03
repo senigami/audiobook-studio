@@ -390,3 +390,49 @@ def test_dead_worker_not_counted_as_model_ready():
     with mgr._lock:
         mgr._remove_dead_worker(worker)
     assert not mgr.is_model_ready()
+
+
+def test_all_waiters_unblock_when_every_pooled_worker_dies():
+    """W-PAR 008 review fix: when every pooled worker dies while MULTIPLE
+    acquirers wait on the free-list, EVERY waiter must give up (one-shot
+    fallback), not just the first.
+
+    The first waiter to detect total worker death clears ``_pool`` and
+    returns None; pre-fix, a second concurrent waiter then looped forever —
+    its all-dead check required a NON-empty pool (``self._pool and not
+    any(...)``), which could never again be true after the clear, so its job
+    hung permanently. (R1: pre-fix this test times out on the second
+    waiter's join.)
+
+    No real subprocesses needed — dead workers are simulated with stub
+    objects whose ``is_alive`` is False, exactly what ``_acquire_worker``
+    consults.
+    """
+    mgr = _make_manager()
+
+    class _DeadWorker:
+        is_alive = False
+
+    # Pool at cap, all workers dead, free-list empty — the exact state after
+    # a mid-render worker die-off with every worker checked out.
+    with mgr._lock:
+        mgr._pool = [_DeadWorker(), _DeadWorker()]
+        mgr._cap = 2
+
+    results: dict[int, object] = {}
+    done = [threading.Event(), threading.Event()]
+
+    def _wait(idx: int) -> None:
+        results[idx] = mgr._acquire_worker()
+        done[idx].set()
+
+    threads = [threading.Thread(target=_wait, args=(i,), daemon=True) for i in (0, 1)]
+    for t in threads:
+        t.start()
+
+    for i, evt in enumerate(done):
+        assert evt.wait(timeout=5), (
+            f"waiter {i} never unblocked after total worker death (pre-fix hang)"
+        )
+    assert results[0] is None and results[1] is None
+    assert mgr._pool == []

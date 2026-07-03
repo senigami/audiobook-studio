@@ -48,6 +48,10 @@ class TaskResult:
     message: str | None = None
     retriable: bool = False
     timing: dict[str, Any] | None = None
+    # W-PAR 005: validated output artifact path for a completed segment child
+    # (INV-2 stitch ordering, INV-3 artifact validation). Additive/optional —
+    # unset for non-segment task types.
+    output_path: str | None = None
 
 
 

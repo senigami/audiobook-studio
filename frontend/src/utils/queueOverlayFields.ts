@@ -37,6 +37,8 @@ export const QUEUE_OVERLAY_FIELDS = [
   'active_segment_eta_seconds',
   'active_segment_eta_basis',
   'active_segment_updated_at',
+  // Multi-active segments map (W-PAR 006) — chapter-level per-segment lifecycle
+  'active_segments_map',
   // Model-load / indeterminate telemetry
   'indeterminate',
   'loadingElapsedSeconds',

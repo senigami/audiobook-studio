@@ -18,6 +18,10 @@ from ...db.models import Job
 from ...db.state import put_job, update_job, get_settings, get_jobs
 from ...orchestration.scheduler.orchestrator import create_orchestrator
 from ...orchestration.tasks.synthesis import SynthesisTask
+from ...orchestration.tasks.segment_synthesis import (
+    ChapterSynthesisTask,
+    make_dispatch_segment_bridge_call,
+)
 from ...engines.voice_engines import resolve_profile_engine, resolve_tts_engine_for_profiles, normalize_tts_engine
 from ...engines.bridge import create_voice_bridge
 from ...engines.behavior import (
@@ -25,12 +29,8 @@ from ...engines.behavior import (
     supports_mixed_rendering,
     supports_standard_rendering,
     uses_segment_orchestration,
-    get_text_split_target,
-    has_behavior,
-    get_sanitize_categories,
 )
 from ...domain.chunk_groups import build_chunk_groups
-from ...utils.text.textops import sanitize_text, safe_split_long_sentences
 from ...core.config import (
     get_chapter_dir, resolve_chapter_asset_path
 )
@@ -167,57 +167,18 @@ def _validate_generation_engines(chapter_id: str, active_profile: Optional[str],
 def _build_script_for_chapter(chapter_id: str, project_id: str, default_profile: str, safe_mode: bool = True) -> list[dict[str, Any]]:
     """Build a structured script payload for segment-orchestrated engines."""
     from ...db.segments import get_chapter_segments
-    from ...db.speakers import get_profile_wavs, get_profile_dir
+    from ...domain.chunk_groups import build_script_entry_for_group
 
     segments = get_chapter_segments(chapter_id)
     groups = build_chunk_groups(segments, default_profile)
     chapter_dir = get_chapter_dir(project_id, chapter_id)
 
-    script = []
-    for group in groups:
-        first = group["segments"][0]
-        profile_name = group["profile_name"]
-        engine_id = group.get("engine") or resolve_profile_engine(profile_name, default_profile)
-
-        # Resolve voice details
-        try:
-            sw = get_profile_wavs(profile_name) if profile_name else None
-            # Standard single-sample resolution for bridge transport
-            if sw and "," in sw:
-                sw = sw.split(",")[0]
-        except Exception:
-            sw = None
-
-        vdir = None
-        if profile_name:
-            try:
-                vdir = str(get_profile_dir(profile_name))
-            except Exception:
-                vdir = None
-
-        processed = " ".join(group["text_parts"]).strip()
-        if safe_mode:
-            if has_behavior(engine_id, "sanitize_text"):
-                processed = sanitize_text(processed, get_sanitize_categories(engine_id))
-            processed = safe_split_long_sentences(processed, target=get_text_split_target(engine_id))
-
-        # V2 segment path: chapters/{chapter_id}/segments/{first_segment_id}.wav
-        # The orchestrator uses absolute paths for bridge transport
-        seg_out = chapter_dir / "segments" / f"{first['id']}.wav"
-
-        script_entry = {
-            "text": processed,
-            "speaker_wav": sw,
-            "id": first["id"],
-            "ids": [s["id"] for s in group["segments"]],
-            "save_path": str(seg_out.absolute()),
-            "weight": max(1, len(processed)), # Store weight for orchestrator progress tracking
-            "engine": engine_id,
-        }
-        if vdir:
-            script_entry["voice_profile_dir"] = vdir
-
-        script.append(script_entry)
+    script = [
+        build_script_entry_for_group(
+            group, chapter_dir, default_profile=default_profile, safe_mode=safe_mode,
+        )
+        for group in groups
+    ]
 
     trace(
         "generation.script_built",
@@ -242,6 +203,138 @@ def _build_script_for_chapter(chapter_id: str, project_id: str, default_profile:
     )
 
     return script
+
+
+def _build_chapter_synthesis_task(
+    *,
+    task_id: str,
+    engine_id: str,
+    chapter_id: str,
+    project_id: str,
+    output_path: str,
+    active_profile: Optional[str],
+    text_content: str,
+    voice_ref: Optional[str],
+    display_title: str,
+    is_bake: bool,
+    safe_mode: bool,
+    make_mp3: bool,
+    synthesis_settings: dict,
+    force_rerender: bool = False,
+):
+    """Construct the live chapter-render task (W-PAR 008 enable-gate).
+
+    For engines using segment orchestration, this is a ``ChapterSynthesisTask``
+    (concurrent fan-out via ``make_dispatch_segment_bridge_call`` — cap=1 by
+    default per the engine manifest's ``max_concurrent_workers``, so behavior
+    stays serial/byte-identical until a manifest actually raises it). Every
+    other engine keeps today's sequential ``SynthesisTask`` path unchanged.
+
+    ``is_bake`` mirrors ``handle_mixed_job``'s own semantics: when set, only
+    groups that fail ``_group_needs_render`` are fanned out (INV-8), and the
+    already-valid groups still reach the stitch barrier via
+    ``_group_ready_audio_path`` (the same W-PAR 008 bug-fix contract used by
+    recovery reconstruction). When unset, every group renders — matching
+    today's non-bake sequential behavior byte-for-byte (INV-1).
+    """
+    if not uses_segment_orchestration(engine_id):
+        return SynthesisTask(
+            task_id=task_id,
+            engine_id=engine_id,
+            script_text=text_content or "",
+            output_path=output_path,
+            project_id=project_id,
+            chapter_id=chapter_id,
+            voice_profile_id=active_profile,
+            voice_ref=voice_ref,
+            custom_title=display_title,
+            is_bake=is_bake,
+            force_rerender=force_rerender,
+            safe_mode=safe_mode,
+            make_mp3=make_mp3,
+            synthesis_settings=synthesis_settings,
+            script=None,
+        )
+
+    from ...db.segments import get_chapter_segments as _get_chapter_segments
+    from ...orchestration.tasks.synthesis import _manifest_resource_claim
+    from plugins.tts_mixed.handler import _group_needs_render, _group_ready_audio_path
+
+    chapter_dir = get_chapter_dir(project_id, chapter_id)
+    segments = _get_chapter_segments(chapter_id)
+
+    # The parent's own ThreadPoolExecutor bound must not be a SECOND cap
+    # below the engine's real concurrency limit — the per-engine-class
+    # semaphore (derived per-child from the SAME manifest) is the sole
+    # admission gate. Mirroring the child's own cap resolution here means
+    # raising a manifest's `max_concurrent_workers` alone is sufficient to
+    # enable visible parallelism (no separate chapter-level knob). Mixed
+    # chapters may mix engines per group; the parent pool bound is sized to
+    # the largest declared cap so no single engine is throttled below its
+    # own manifest limit by the parent's pool itself.
+    try:
+        groups = build_chunk_groups(segments, active_profile)
+        engine_ids = {group.get("engine") or engine_id for group in groups} or {engine_id}
+        max_concurrent_workers = max(
+            (_manifest_resource_claim(eid).cap for eid in engine_ids), default=1,
+        )
+    except Exception:
+        logger.warning("Chapter %s: failed to resolve manifest concurrency cap; defaulting to 1.", chapter_id, exc_info=True)
+        max_concurrent_workers = 1
+
+    needs_render_fn = None
+    resolve_existing_output_fn = None
+    if is_bake:
+        def needs_render_fn(group: dict) -> bool:  # noqa: F811
+            return _group_needs_render(group, chapter_dir)
+
+        def resolve_existing_output_fn(group: dict) -> Optional[str]:  # noqa: F811
+            existing = _group_ready_audio_path(group, chapter_dir)
+            return str(existing) if existing else None
+
+    def stitch_fn(paths: list[str]) -> None:
+        from plugins.tts_mixed.handler import stitch_segments, _persist_mixed_chapter_output
+        from ...db import get_connection as _get_connection, update_segments_status_bulk
+
+        out_wav = Path(output_path)
+        rc = stitch_segments(chapter_dir, [Path(p) for p in paths], out_wav, lambda _line: None, lambda: False)
+        if rc != 0 or not out_wav.exists():
+            # Raise-on-failure contract (review fix, W-PAR 008):
+            # ChapterSynthesisTask.run() converts this into a failed
+            # TaskResult so the orchestrator's terminal publish records the
+            # failure. Previously this swallowed the failure and returned,
+            # letting run() report "completed" — the terminal publish then
+            # overwrote the failed job status with "done" despite no chapter
+            # WAV existing on disk.
+            logger.warning("Chapter %s: stitch failed (rc=%s) for task %s.", chapter_id, rc, task_id)
+            raise RuntimeError(f"Stitching failed (rc={rc}).")
+
+        with _get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ?", (chapter_id,))
+            sids = [row["id"] for row in cursor.fetchall()]
+            update_segments_status_bulk(sids, chapter_id, "done")
+
+        _persist_mixed_chapter_output(task_id, chapter_id, out_wav)
+        update_job(task_id, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name)
+
+    task = ChapterSynthesisTask(
+        task_id=task_id,
+        engine_id=engine_id,
+        chapter_id=chapter_id,
+        project_id=project_id,
+        output_path=output_path,
+        script=segments,
+        voice_profile_id=active_profile,
+        max_concurrent_workers=max_concurrent_workers,
+        safe_mode=safe_mode,
+        needs_render_fn=needs_render_fn,
+        resolve_existing_output_fn=resolve_existing_output_fn,
+        stitch_fn=stitch_fn,
+    )
+    orchestrator = create_orchestrator()
+    task._bridge_call = make_dispatch_segment_bridge_call(orchestrator)
+    return task
 
 
 def _engines_for_profiles(profile_names: list[Optional[str]], fallback_engine: Optional[str]) -> list[str]:
@@ -404,22 +497,21 @@ def api_add_to_queue(
             output_path = str(canonical_chapter_dir / audio_filename)
 
             orchestrator = create_orchestrator()
-            task = SynthesisTask(
+            task = _build_chapter_synthesis_task(
                 task_id=qid,
                 engine_id=queue_engine,
-                script_text=text_content or "",  # Required for single-engine bridge synthesis
-                output_path=output_path,
-                project_id=project_id,
                 chapter_id=chapter_id,
-                voice_profile_id=active_profile,
+                project_id=project_id,
+                output_path=output_path,
+                active_profile=active_profile,
+                text_content=text_content or "",
                 voice_ref=voice_ref,
-                custom_title=display_title,
+                display_title=display_title,
                 is_bake=has_bakeable_segments,
-                force_rerender=force_rerender,
                 safe_mode=bool(settings.get("safe_mode", True)),
                 make_mp3=make_mp3,
                 synthesis_settings=synthesis_settings,
-                script=_build_script_for_chapter(chapter_id, project_id, active_profile, safe_mode=bool(settings.get("safe_mode", True))) if uses_segment_orchestration(queue_engine) else None
+                force_rerender=force_rerender,
             )
             trace(
                 "generation.enqueue_chapter",
@@ -541,20 +633,20 @@ def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
     output_path = str(canonical_chapter_dir / audio_filename)
 
     orchestrator = create_orchestrator()
-    task = SynthesisTask(
+    task = _build_chapter_synthesis_task(
         task_id=jid,
         engine_id=queue_engine,
-        script_text=text_content or "",
-        output_path=output_path,
-        project_id=project_id,
         chapter_id=chapter_id,
-        voice_profile_id=active_profile,
+        project_id=project_id,
+        output_path=output_path,
+        active_profile=active_profile,
+        text_content=text_content or "",
         voice_ref=voice_ref,
-        custom_title=display_title,
+        display_title=display_title,
         is_bake=True,
+        safe_mode=bool(settings.get("safe_mode", True)),
         make_mp3=make_mp3,
         synthesis_settings=synthesis_settings,
-        script=_build_script_for_chapter(chapter_id, project_id, active_profile, safe_mode=bool(settings.get("safe_mode", True))) if uses_segment_orchestration(queue_engine) else None
     )
     trace(
         "generation.bake_chapter",

@@ -1,6 +1,16 @@
 # Task 005 — Correctness invariants under parallelism
 
-**Workstream:** W-PAR  ·  **Depends on:** 002, 003  ·  **Blocks:** 007  ·  **Status:** Not started
+**Workstream:** W-PAR  ·  **Depends on:** 002, 003  ·  **Blocks:** 007  ·  **Status:** Done (2026-07-03)
+
+> **Scope note (2026-07-03):** `orchestrator.py`'s `submit()`/`recover()`/`cancel()` do not
+> reference the `ChapterSynthesisTask`/`SegmentSynthesisTask` parent/child model at all — it is
+> fully built and unit-tested (002/003) but not wired into the live dispatch path (that wiring is
+> task 008's job). The invariants below were implemented against the code that is actually live
+> (`plugins/tts_mixed/handler.py`) and actually concurrent (`ChapterSynthesisTask`'s
+> `ThreadPoolExecutor` fan-out) rather than against `orchestrator.py:386`/`:240` literally, since
+> those methods have no fan-out-aware code path yet to harden. See
+> `docs/code-map/queue/w-par-005-correctness-invariants.md` for the full breakdown and what is
+> explicitly deferred to 008.
 
 > Read [`../01-map.md`](../01-map.md) (Part F, invariants **INV-2**, **INV-3**, **INV-4**, **INV-7**,
 > **INV-8**, risk **R-C**) and [`../00-overview.md`](../00-overview.md) (Scope item 6) before starting.
@@ -155,20 +165,32 @@ ruff check plugins/tts_mixed/handler.py app/orchestration/scheduler/orchestrator
 
 ## Acceptance criteria
 
-- [ ] Stitch order is correct (manuscript order) regardless of child completion order (INV-2); pinned
+- [x] Stitch order is correct (manuscript order) regardless of child completion order (INV-2); pinned
       by test A.
-- [ ] A segment with a zero-byte or duration-invalid WAV is not marked done; the chapter is not
+- [x] A segment with a zero-byte or duration-invalid WAV is not marked done; the chapter is not
       completed until all segments have validated artifacts (INV-3); pinned by test B.
-- [ ] `cancel(task_id)` (orchestrator.py:386) joins all in-flight child threads before returning; no orphan WAVs or straggler
-      `SEGMENT_SAVED` writes remain after cancel (INV-7); pinned by test C.
-- [ ] After a crash with K of N segments validated, restart re-renders only the N-K unfinished
-      segments; one-job-per-chapter dedup is intact (INV-4, INV-8); pinned by test D.
-- [ ] Per-segment status writes route to SQLite (WAL); `state.json` sees only chapter-level writes;
-      concurrent per-segment writes do not corrupt state (R-C); pinned by test E.
-- [ ] A hung segment is detectable: a `stalled_segments` list appears in the chapter progress payload
-      after `SEGMENT_STALL_TIMEOUT_SECONDS` with no heartbeat.
-- [ ] All five tests are revert-checked red on pre-fix code (R1).
-- [ ] `ruff check` passes on all touched files.
+- [x] Cancel joins all in-flight child threads before returning (INV-7); pinned by test C. Implemented
+      as an explicit `concurrent.futures.wait(ALL_COMPLETED)` in `ChapterSynthesisTask.run()` (the
+      live cancel-safety unit) rather than literally inside `orchestrator.py:386`, which has no
+      fan-out to join yet — see scope note above.
+- [x] After a crash with K of N segments validated, restart re-renders only the N-K unfinished
+      segments; one-job-per-chapter dedup is intact (INV-4, INV-8); pinned by test D. Implemented as
+      an injectable `needs_render_fn` filter on `ChapterSynthesisTask._fan_out_chapter` — the real
+      predicate + `recovery.py` call site is 008's job (no live wiring exists to call it from yet).
+- [x] Per-segment status writes route to SQLite (WAL); `state.json` sees only chapter-level writes;
+      concurrent per-segment writes do not corrupt state (R-C); pinned by test E. Added
+      `PRAGMA journal_mode=WAL` at `get_connection()`; audited existing per-segment write paths
+      (already SQLite-only).
+- [x] A hung segment is detectable: `ChapterSynthesisTask.stalled_segments` surfaces past
+      `SEGMENT_STALL_TIMEOUT_SECONDS` with no heartbeat. Threading this onto the live chapter
+      progress payload (`stalled_segments` key, analogous to 003's `active_segments_map`) is
+      deferred to 008 — no kwarg exists yet on `ProgressService.publish`/`_publish` for it.
+- [x] Retry-once policy (owner directive 2026-07-03): a failed segment is requeued exactly once; a
+      second failure is permanent, does not block siblings, and skips stitch; pinned by test F.
+- [x] 004 residual: `WarmWorkerManager._acquire_worker` no longer hangs forever on a dead worker —
+      polls and gives up (one-shot fallback) instead, fixed inside `_acquire_worker` itself.
+- [x] All new tests (A–F + heartbeat, 10 total) are revert-checked red on pre-fix code (R1).
+- [x] `ruff check` passes on all touched files.
 
 ## Map links
 

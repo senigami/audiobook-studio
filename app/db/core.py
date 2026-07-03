@@ -61,6 +61,15 @@ def get_connection():
     _assert_safe_db_path_for_tests(db_path)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    # R-C (W-PAR 005): WAL mode allows concurrent per-segment status writers
+    # (one connection per write, per the app's connect-per-call pattern) to
+    # commit without blocking readers/other writers on the same DB file —
+    # required once multiple children write `chapter_segments` rows
+    # concurrently. A no-op (already WAL) on every call after the first.
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except sqlite3.Error:
+        logger.debug("Failed to set WAL journal mode for %s", db_path, exc_info=True)
     return conn
 
 def get_studio_connection():
@@ -68,6 +77,10 @@ def get_studio_connection():
     _assert_safe_db_path_for_tests(db_path)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except sqlite3.Error:
+        logger.debug("Failed to set WAL journal mode for %s", db_path, exc_info=True)
     return conn
 
 def verify_and_cleanup_legacy_tables(conn: sqlite3.Connection):

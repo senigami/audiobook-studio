@@ -56,6 +56,7 @@ def test_xtts_render_persists_true_chunk_count(clean_db):
     task.engine_id = "xtts"
     task.segment_ids = [f"s{i}" for i in range(1, 10)]
     task.prefers_local_execution = False
+    task.is_chapter_fanout = False  # explicit for MagicMock (W-PAR 008 R4 dispatch branch)
     task.to_bridge_request.return_value = {"task_id": "xtts-timing-test-1"}
 
     context = TaskContext(
@@ -117,6 +118,7 @@ def test_seconds_per_segment_derived_from_true_chunk_count(clean_db):
     task.engine_id = "xtts"
     task.segment_ids = [f"s{i}" for i in range(1, 10)]
     task.prefers_local_execution = False
+    task.is_chapter_fanout = False  # explicit for MagicMock (W-PAR 008 R4 dispatch branch)
     task.to_bridge_request.return_value = {"task_id": "xtts-timing-test-2"}
 
     context = TaskContext(
@@ -176,6 +178,7 @@ def test_fallback_paths_when_structured_timing_absent(clean_db):
     task.engine_id = "xtts"
     task.segment_ids = [f"s{i}" for i in range(1, 4)] # 3 segments
     task.prefers_local_execution = False
+    task.is_chapter_fanout = False  # explicit for MagicMock (W-PAR 008 R4 dispatch branch)
     task.to_bridge_request.return_value = {"task_id": "xtts-timing-test-3"}
     task.script = [
         {"id": "group1", "text": "Sentence 1. Sentence 2."},
@@ -226,6 +229,7 @@ def test_fallback_paths_when_structured_timing_absent(clean_db):
     task2.engine_id = "xtts"
     task2.segment_ids = [f"s{i}" for i in range(1, 4)]
     task2.prefers_local_execution = False
+    task2.is_chapter_fanout = False  # explicit for MagicMock (W-PAR 008 R4 dispatch branch)
     task2.to_bridge_request.return_value = {"task_id": "xtts-timing-test-4"}
     task2.script = None
 

@@ -366,6 +366,13 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                 from app.orchestration.tasks.api_synthesis import ApiSynthesisTask
                 return ApiSynthesisTask.from_task_context(context)
             elif task_type == "synthesis":
+                payload = context.payload or {}
+                engine_id = payload.get("engine_id") or payload.get("engine") or ""
+                from app.engines.behavior import uses_segment_orchestration
+                if context.chapter_id and uses_segment_orchestration(engine_id):
+                    chapter_task = self._reconstruct_chapter_task_from_context(context)
+                    if chapter_task is not None:
+                        return chapter_task
                 from app.orchestration.tasks.synthesis import SynthesisTask
                 return SynthesisTask.from_task_context(context)
             elif task_type == "assembly":
@@ -382,6 +389,137 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             logger.exception("Failed to reconstruct task of type %s", task_type)
 
         return None
+
+    def _reconstruct_chapter_task_from_context(self, context: TaskContext) -> StudioTask | None:
+        """Reconstruct a ``ChapterSynthesisTask`` from a recovered (bare)
+        ``TaskContext`` (W-PAR 008 — the enable-gate's recovery path).
+
+        The recovered payload is a raw ``processing_queue`` row (see
+        ``load_recoverable_task_contexts``) — it carries no ``script``, so the
+        chapter's chunk-group script is rebuilt fresh from the DB here (the
+        same way the live submission path builds it via
+        ``build_script_entry_for_group``), never trusted from the stale
+        payload. ``needs_render_fn``/``resolve_existing_output_fn`` wire
+        ``_group_needs_render``/its matching path resolver (INV-8) so only
+        the N-K unfinished segments are resubmitted and the K already-valid
+        segments still reach the stitch barrier (W-PAR 008 bug fix).
+
+        Returns ``None`` (falling back to the caller's ``SynthesisTask`` path)
+        on any resolution failure — fail-safe, never raises.
+        """
+        payload = context.payload or {}
+        chapter_id = context.chapter_id
+        project_id = context.project_id or payload.get("project_id")
+        engine_id = payload.get("engine_id") or payload.get("engine") or ""
+        if not chapter_id or not project_id or not engine_id:
+            return None
+        if payload.get("segment_ids"):
+            # Review fix (W-PAR 008): a segment-scoped render ("generate
+            # these specific segments") is NOT a chapter fan-out — recovering
+            # it as a ChapterSynthesisTask would re-render every unfinished
+            # group in the whole chapter AND stitch/overwrite the chapter WAV
+            # (handle_mixed_job's segment_ids path deliberately renders only
+            # the target groups and never stitches). Fall back to the
+            # sequential SynthesisTask recovery path, which preserves
+            # segment_ids semantics via from_task_context.
+            return None
+
+        try:
+            from app.core.config import get_chapter_dir
+            from app.db.chapters import get_chapter
+            from app.db.segments import get_chapter_segments
+            from app.orchestration.tasks.segment_synthesis import (
+                ChapterSynthesisTask,
+                make_dispatch_segment_bridge_call,
+            )
+            from plugins.tts_mixed.handler import _group_needs_render, _group_ready_audio_path
+
+            chapter_row = get_chapter(chapter_id) or {}
+            voice_profile_id = payload.get("voice_profile_id") or chapter_row.get("speaker_profile_name")
+            chapter_dir = get_chapter_dir(project_id, chapter_id)
+            segments = get_chapter_segments(chapter_id)
+
+            def needs_render_fn(group: dict) -> bool:
+                return _group_needs_render(group, chapter_dir)
+
+            def resolve_existing_output_fn(group: dict) -> str | None:
+                existing = _group_ready_audio_path(group, chapter_dir)
+                return str(existing) if existing else None
+
+            audio_filename = payload.get("chapter_file") or f"{chapter_id}.wav"
+            from pathlib import Path
+            output_path = str(chapter_dir / f"{Path(str(audio_filename)).stem}.wav")
+
+            chapter_task = ChapterSynthesisTask(
+                task_id=context.task_id,
+                engine_id=engine_id,
+                chapter_id=chapter_id,
+                project_id=project_id,
+                output_path=output_path,
+                script=segments,
+                voice_profile_id=voice_profile_id,
+                max_concurrent_workers=1,
+                safe_mode=bool(payload.get("safe_mode", True)),
+                needs_render_fn=needs_render_fn,
+                resolve_existing_output_fn=resolve_existing_output_fn,
+            )
+
+            def stitch_fn(paths: list[str]) -> None:
+                self._stitch_recovered_chapter(
+                    context=context,
+                    chapter_dir=chapter_dir,
+                    output_path=Path(output_path),
+                    segment_paths=[Path(p) for p in paths],
+                )
+
+            chapter_task._stitch_fn = stitch_fn
+            chapter_task._bridge_call = make_dispatch_segment_bridge_call(self)
+            return chapter_task
+        except Exception:
+            logger.exception(
+                "Recovery: failed to reconstruct ChapterSynthesisTask for chapter %s (task %s).",
+                chapter_id, context.task_id,
+            )
+            return None
+
+    def _stitch_recovered_chapter(self, *, context: TaskContext, chapter_dir, output_path, segment_paths) -> None:
+        """Stitch callback for a recovered ``ChapterSynthesisTask`` — mirrors
+        the sequential mixed handler's terminal stitch/persist block
+        (``handle_mixed_job`` L473-513), scoped to fire exactly once via the
+        parent's own INV-2 barrier rather than per-group.
+        """
+        from plugins.tts_mixed.handler import stitch_segments, _persist_mixed_chapter_output
+        from app.db.state import update_job
+
+        rc = stitch_segments(chapter_dir, segment_paths, output_path, lambda _line: None, lambda: False)
+        if rc != 0 or not output_path.exists():
+            # Raise-on-failure contract (review fix, W-PAR 008): the parent
+            # task converts this into a failed TaskResult — silently
+            # returning here let a recovered chapter finish as "completed"
+            # with no stitched chapter WAV on disk.
+            logger.warning(
+                "Recovery: stitch failed (rc=%s) for chapter %s (task %s).",
+                rc, context.chapter_id, context.task_id,
+            )
+            raise RuntimeError(f"Stitching failed (rc={rc}).")
+
+        if context.chapter_id:
+            try:
+                from app.db import get_connection, update_segments_status_bulk
+                with get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ?", (context.chapter_id,))
+                    sids = [row["id"] for row in cursor.fetchall()]
+                    update_segments_status_bulk(sids, context.chapter_id, "done")
+            except Exception:
+                logger.exception("Recovery: failed to mark segments done for chapter %s.", context.chapter_id)
+
+            _persist_mixed_chapter_output(context.task_id, context.chapter_id, output_path)
+
+        try:
+            update_job(context.task_id, status="done", finished_at=time.time(), progress=1.0, output_wav=output_path.name)
+        except Exception:
+            logger.exception("Recovery: failed to write terminal job status for task %s.", context.task_id)
 
     def cancel(self, task_id: str) -> bool:
         """Cancel a scheduled or running task.

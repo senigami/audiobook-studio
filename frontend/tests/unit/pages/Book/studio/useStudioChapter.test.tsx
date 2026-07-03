@@ -46,6 +46,8 @@ vi.mock('@/hooks/useChapterPlayback', () => ({
   }),
 }));
 
+const chapterEditorState = vi.hoisted(() => ({ scriptViewData: null as unknown }));
+
 vi.mock('@/hooks/useChapterEditor', () => ({
   useChapterEditor: () => ({
     chapter: {
@@ -72,7 +74,7 @@ vi.mock('@/hooks/useChapterEditor', () => ({
     localVoice: '',
     segments: [],
     characters: [],
-    scriptViewData: null,
+    get scriptViewData() { return chapterEditorState.scriptViewData; },
     scriptViewLoading: false,
     generatingSegmentIds: new Set<string>(),
     analysis: null,
@@ -269,6 +271,114 @@ describe('useStudioChapter', () => {
       );
 
       expect(result.current.chapterRenderPreparingSegmentIds.size).toBe(0);
+    });
+  });
+
+  describe('chapterRenderActiveSegmentsMap (W-PAR 006)', () => {
+    it('exposes both segments from active_segments_map and includes both in the rendering set', () => {
+      const job = makeJob({
+        status: 'running',
+        active_segments_map: {
+          S1: { phase: 'rendering', progress: 0.3, eta_seconds: 10 },
+          S2: { phase: 'rendering', progress: 0.6, eta_seconds: 5 },
+        },
+      });
+
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+          job,
+        }),
+      );
+
+      expect(result.current.chapterRenderActiveSegmentsMap?.S1).toMatchObject({ phase: 'rendering', progress: 0.3 });
+      expect(result.current.chapterRenderActiveSegmentsMap?.S2).toMatchObject({ phase: 'rendering', progress: 0.6 });
+      expect(result.current.chapterRenderRenderingSegmentIds.has('S1')).toBe(true);
+      expect(result.current.chapterRenderRenderingSegmentIds.has('S2')).toBe(true);
+    });
+
+    it('falls back to the single active_segment_id path when active_segments_map is absent (INV-1)', () => {
+      const job = makeJob({
+        status: 'running',
+        active_segment_id: 'S',
+        active_segment_progress: 0.4,
+      });
+
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+          job,
+        }),
+      );
+
+      expect(result.current.chapterRenderActiveSegmentsMap).toBeUndefined();
+      expect(result.current.chapterRenderRenderingSegmentIds.has('S')).toBe(true);
+    });
+
+    it('excludes done-phase entries from the rendering set (SEGMENT_SAVED must not stick as rendering)', () => {
+      const job = makeJob({
+        status: 'running',
+        active_segments_map: {
+          S1: { phase: 'done', progress: 1.0, eta_seconds: null },
+          S2: { phase: 'rendering', progress: 0.5, eta_seconds: 5 },
+        },
+      });
+
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+          job,
+        }),
+      );
+
+      expect(result.current.chapterRenderRenderingSegmentIds.has('S1')).toBe(false);
+      expect(result.current.chapterRenderRenderingSegmentIds.has('S2')).toBe(true);
+      expect(result.current.chapterRenderPreparingSegmentIds.has('S1')).toBe(false);
+    });
+
+    it('expands each map entry to its render-batch siblings, matching the legacy single-ID visual contract (INV-1)', () => {
+      chapterEditorState.scriptViewData = {
+        render_batches: [
+          { id: 'B1', span_ids: ['S1', 'S1b'] },
+          { id: 'B2', span_ids: ['S2'] },
+        ],
+        spans: [],
+      };
+      try {
+        const job = makeJob({
+          status: 'running',
+          active_segments_map: {
+            S1: { phase: 'rendering', progress: 0.3, eta_seconds: 10 },
+          },
+        });
+
+        const { result } = renderHook(() =>
+          useStudioChapter({
+            chapterId: 'chapter-1',
+            projectId: 'project-1',
+            speakerProfiles: [],
+            speakers: [],
+            job,
+          }),
+        );
+
+        // The whole batch lights up, not just the leader segment.
+        expect(result.current.chapterRenderRenderingSegmentIds.has('S1')).toBe(true);
+        expect(result.current.chapterRenderRenderingSegmentIds.has('S1b')).toBe(true);
+        expect(result.current.chapterRenderRenderingSegmentIds.has('S2')).toBe(false);
+        expect(result.current.chapterRenderRenderingBatchProgressById.B1).toBe(0.3);
+      } finally {
+        chapterEditorState.scriptViewData = null;
+      }
     });
   });
 });

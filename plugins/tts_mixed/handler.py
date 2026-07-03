@@ -1,9 +1,57 @@
 from __future__ import annotations
 import logging
 import time
+import wave
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# INV-3 (W-PAR 005): sane upper bound for a single rendered segment's
+# duration. A WAV whose header reports a duration outside (0, MAX] is
+# treated as an invalid artifact — never marked done on exit-code alone.
+MAX_SEGMENT_DURATION_SECONDS = 3600.0
+
+
+def _validated_wav_duration_seconds(path: Path) -> float | None:
+    """Return the WAV's duration in seconds via its header.
+
+    Returns ``None`` when the file cannot be opened as a WAV at all (e.g. it
+    is a non-WAV stub, as used by some engine-agnostic unit-test doubles) —
+    callers treat ``None`` as "duration unknown", not "invalid", so this
+    stays additive to the pre-existing existence/size check rather than
+    replacing it (INV-3 requires the duration check to be *added*, not that
+    every non-WAV stub become invalid).
+    """
+    try:
+        with wave.open(str(path), "rb") as wf:
+            frames = wf.getnframes()
+            rate = wf.getframerate()
+            if rate <= 0:
+                return None
+            return frames / float(rate)
+    except (OSError, wave.Error, EOFError):
+        return None
+
+
+def _is_valid_segment_artifact(path: Path) -> bool:
+    """INV-3: a segment artifact is valid iff it exists and has non-zero
+    size; when its bytes parse as a WAV, the header duration must also be
+    sane (0s < duration <= MAX_SEGMENT_DURATION_SECONDS). Exit code alone is
+    never sufficient to mark a segment done — this is the single gate.
+    """
+    try:
+        if not path.exists() or path.stat().st_size <= 0:
+            return False
+    except OSError:
+        return False
+
+    duration = _validated_wav_duration_seconds(path)
+    if duration is None:
+        # Not parseable as a WAV (e.g. a non-audio test double) — fall back
+        # to the pre-existing exists+non-empty check rather than failing
+        # closed on every non-WAV stand-in.
+        return True
+    return 0.0 < duration <= MAX_SEGMENT_DURATION_SECONDS
 
 
 _ctx_instance = None
@@ -242,8 +290,17 @@ def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav
 
 
 def _group_needs_render(group: dict, pdir: Path) -> bool:
+    """INV-3 (W-PAR 005): the single gate for "is this group's audio done".
+
+    A group needs (re)rendering unless its expected output WAV exists, has
+    a validated (non-zero, duration-sane) artifact per
+    ``_is_valid_segment_artifact``, and every one of its member segments is
+    marked ``audio_status == "done"`` pointing at that same file. Exit code
+    from the render call is never sufficient on its own — this is the only
+    function that may declare a group "does not need rendering".
+    """
     expected_path = _chunk_output_path(pdir, group)
-    if not expected_path.exists():
+    if not _is_valid_segment_artifact(expected_path):
         return True
 
     for segment in group["segments"]:
@@ -260,6 +317,138 @@ def _group_ready_audio_path(group: dict, pdir: Path) -> Path | None:
         return None
     candidate = pdir / "segments" / audio_path
     return candidate if candidate.exists() else None
+
+
+class RenderGroupResult:
+    """Outcome of a single chunk-group render (W-PAR 008, ``render_one_group``).
+
+    Deliberately NOT a ``TaskResult`` (that dataclass lives in
+    ``app.orchestration.tasks.base`` — the mixed-handler plugin must not
+    import orchestration internals). Callers (the sequential loop in
+    ``handle_mixed_job`` and the concurrent per-child ``bridge_call`` in
+    ``segment_synthesis.py``) adapt this to whatever result type they need.
+    """
+
+    __slots__ = ("status", "message", "output_path")
+
+    def __init__(self, *, status: str, message: str | None = None, output_path: Path | None = None) -> None:
+        self.status = status
+        self.message = message
+        self.output_path = output_path
+
+
+def render_one_group(
+    group: dict,
+    chapter_dir: Path,
+    on_output,
+    cancel_check,
+    task_id: str,
+    safe_mode: bool,
+    *,
+    chapter_id: str | None = None,
+    lexicon_entries: list | None = None,
+) -> RenderGroupResult:
+    """Render exactly ONE chunk group and persist its own segment state.
+
+    Extracted (W-PAR 008, R1) from ``handle_mixed_job``'s per-group loop body
+    (the pre-extraction L382-451 range). Does ONLY per-group work:
+    [START_SEGMENT]/[ENGINE_ACTIVITY_STARTED] markers, the engine render call,
+    INV-3 artifact validation, [SEGMENT_SAVED] marker emission, and
+    ``update_segments_bulk``/``clear_duplicate_segment_audio_paths`` for this
+    group's own member segments.
+
+    Explicitly does NOT do: chapter-terminal job-status writes, stitching, or
+    any chapter-wide DB rebuild. Callers own all of that — this function is
+    safe to invoke concurrently (once per group, from independent threads)
+    because it never touches shared/chapter-scoped state beyond this group's
+    own segment rows and audio file.
+
+    Args:
+        group: A ``build_chunk_groups`` chunk-group dict.
+        chapter_dir: The chapter's asset directory (``pdir`` in the
+            sequential caller).
+        chapter_id: Owning chapter id, used only for the segment-updated
+            broadcast/dedup calls (best-effort — omitted safely when unknown).
+        on_output: Marker/log sink — the caller's orchestrator listener.
+        cancel_check: Returns True if the render should abort.
+        task_id: The id attributed to emitted markers (``task_id=`` kwarg to
+            ``_render_segment``/``generate_via_bridge``) — the sequential
+            caller passes the parent job id; the concurrent per-child caller
+            passes its own synthetic child id (marker isolation, W-PAR 003).
+        safe_mode: Whether to sanitize/split text before synthesis.
+        lexicon_entries: Pre-loaded project lexicon entries (loaded once by
+            the caller — zero-impact when empty/``None``).
+
+    Returns:
+        RenderGroupResult: ``"completed"`` with ``output_path`` set on
+        success; ``"cancelled"`` or ``"failed"`` (with ``message``) otherwise.
+    """
+    EngineBridgeError = _get_engine_bridge_error()
+
+    if cancel_check():
+        return RenderGroupResult(status="cancelled", message="Cancelled.")
+
+    segment_id = group["segments"][0]["id"]
+    profile_name = group["profile_name"]
+    engine = group["engine"]
+    chunk_text = " ".join(group["text_parts"]).strip()
+
+    if lexicon_entries:
+        try:
+            chunk_text = apply_project_lexicon(chunk_text, lexicon_entries)
+        except Exception:
+            logger.warning("Lexicon substitution failed for segment %s; using original text.", segment_id, exc_info=True)
+
+    seg_out = _chunk_output_path(chapter_dir, group)
+
+    # The orchestrator's marker pipeline owns chapter-level progress:
+    # [START_SEGMENT] sets the active segment, [PROGRESS] lines drive weighted
+    # progress, and [SEGMENT_SAVED] accumulates the completed group weight.
+    on_output(f"[START_SEGMENT] {segment_id}\n")
+    for group_segment in group["segments"]:
+        update_segment(
+            group_segment["id"],
+            broadcast=False,
+            audio_status="processing",
+        )
+    if chapter_id:
+        try:
+            broadcast_segments_updated(chapter_id)
+        except Exception:
+            logger.warning("Failed to broadcast segment update for chapter %s", chapter_id, exc_info=True)
+
+    try:
+        on_output(f"[ENGINE_ACTIVITY_STARTED] {segment_id}\n")
+        # Forward engine output (including [PROGRESS] lines) untouched; the
+        # orchestrator parses them and computes weighted chapter progress.
+        rc = _render_segment(engine, chunk_text, profile_name, seg_out, safe_mode, on_output, cancel_check, task_id=task_id)
+    except EngineBridgeError as exc:
+        return RenderGroupResult(status="failed", message=str(exc))
+
+    # INV-3: never mark a group done on subprocess exit code alone — the
+    # output artifact must independently validate (exists, non-zero size,
+    # sane WAV duration) before we proceed to SEGMENT_SAVED.
+    if rc != 0 or not _is_valid_segment_artifact(seg_out):
+        msg = f"Failed to generate segment {segment_id} with {engine}."
+        return RenderGroupResult(status="failed", message=msg)
+
+    # Tell the orchestrator this group's output is saved so it can accumulate
+    # the completed weight. The path matches the task script's save_path
+    # (str(seg_out.absolute()) built from the same chapter dir + leader id).
+    on_output(f"[SEGMENT_SAVED] {seg_out.absolute()}\n")
+
+    generated_at = time.time()
+    group_sids = [gs["id"] for gs in group["segments"]]
+    update_segments_bulk(
+        group_sids,
+        audio_status="done",
+        audio_file_path=seg_out.name,
+        audio_generated_at=generated_at,
+    )
+    if chapter_id:
+        clear_duplicate_segment_audio_paths(chapter_id, group_sids, seg_out.name)
+
+    return RenderGroupResult(status="completed", output_path=seg_out)
 
 
 def _persist_mixed_chapter_output(jid: str, chapter_id: str, output_path: Path) -> None:
@@ -327,68 +516,34 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
             return "cancelled", "Cancelled."
 
-        segment_id = group["segments"][0]["id"]
-        profile_name = group["profile_name"]
-        engine = group["engine"]
-        chunk_text = " ".join(group["text_parts"]).strip()
+        # W-PAR 008 (R1): the per-group render body now lives in
+        # ``render_one_group`` so the concurrent per-child path can call the
+        # exact same logic without the chapter-terminal side effects below.
+        # No behavior change to this sequential loop.
+        result = render_one_group(
+            group,
+            pdir,
+            on_output,
+            cancel_check,
+            jid,
+            j.safe_mode,
+            chapter_id=j.chapter_id,
+            lexicon_entries=_lexicon_entries,
+        )
 
-        # Apply lexicon substitution before text reaches the engine.
-        if _lexicon_entries:
-            try:
-                chunk_text = apply_project_lexicon(chunk_text, _lexicon_entries)
-            except Exception:
-                logger.warning("Lexicon substitution failed for segment %s; using original text.", segment_id, exc_info=True)
-        seg_out = _chunk_output_path(pdir, group)
+        if result.status == "cancelled":
+            update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
+            return "cancelled", "Cancelled."
 
-        # The orchestrator's marker pipeline owns chapter-level progress:
-        # [START_SEGMENT] sets the active segment, [PROGRESS] lines drive weighted
-        # progress, and [SEGMENT_SAVED] accumulates the completed group weight.
-        on_output(f"[START_SEGMENT] {segment_id}\n")
-        for group_segment in group["segments"]:
-            update_segment(
-                group_segment["id"],
-                broadcast=False,
-                audio_status="processing",
-            )
-        try:
-            broadcast_segments_updated(j.chapter_id)
-        except Exception:
-            logger.warning("Failed to broadcast segment update for chapter %s", j.chapter_id, exc_info=True)
-
-        try:
-            on_output(f"[ENGINE_ACTIVITY_STARTED] {segment_id}\n")
-            # Forward engine output (including [PROGRESS] lines) untouched; the
-            # orchestrator parses them and computes weighted chapter progress.
-            rc = _render_segment(engine, chunk_text, profile_name, seg_out, j.safe_mode, on_output, cancel_check, task_id=jid)
-        except EngineBridgeError as exc:
-            update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=str(exc))
-            return "failed", str(exc)
-
-        if rc != 0 or not seg_out.exists():
-            msg = f"Failed to generate segment {segment_id} with {engine}."
+        if result.status != "completed":
             update_job(
                 jid,
                 status="failed",
                 finished_at=time.time(),
                 progress=1.0,
-                error=msg,
+                error=result.message,
             )
-            return "failed", msg
-
-        # Tell the orchestrator this group's output is saved so it can accumulate
-        # the completed weight. The path matches the task script's save_path
-        # (str(seg_out.absolute()) built from the same chapter dir + leader id).
-        on_output(f"[SEGMENT_SAVED] {seg_out.absolute()}\n")
-
-        generated_at = time.time()
-        group_sids = [gs["id"] for gs in group["segments"]]
-        update_segments_bulk(
-            group_sids,
-            audio_status="done",
-            audio_file_path=seg_out.name,
-            audio_generated_at=generated_at,
-        )
-        clear_duplicate_segment_audio_paths(j.chapter_id, group_sids, seg_out.name)
+            return "failed", result.message
 
     if j.segment_ids:
         try:
@@ -410,6 +565,14 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         )
         return "done", None
 
+    # INV-2 (W-PAR 005): stitch order must always be DB/manuscript segment
+    # order, never completion order. ``get_chapter_segments`` is
+    # ``ORDER BY segment_order ASC`` and ``build_chunk_groups`` preserves
+    # input order when merging adjacent same-character runs, so rebuilding
+    # ``fresh_groups`` from the DB here (rather than accumulating paths as
+    # groups complete in the render loop above) is itself the stitch
+    # barrier: it can only be reached after every group in the render loop
+    # has returned, and it reads the manuscript order fresh from SQLite.
     segment_paths = []
     fresh_groups = build_chunk_groups(get_chapter_segments(j.chapter_id), j.speaker_profile)
     for group in fresh_groups:

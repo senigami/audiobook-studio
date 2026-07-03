@@ -400,6 +400,17 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
         )
         broadcast_studio_event(lifecycle_event)
 
+    # W-PAR 003 (R-F): this block infers a single segment's completion from the
+    # active_segment_id TRANSITION (prev -> new). It is correct and remains the
+    # live emission path at cap=1/N=1 fan-out (INV-1) — the orchestrator only
+    # ever tracks one active segment per chapter task today, so "transition"
+    # and "this segment's own validated completion" are the same event. This
+    # is NOT sufficient once fan-out > 1 is wired (task 005/enable-gate): with
+    # N concurrent children there is no single prev->next handoff, and each
+    # child's own SEGMENT_SAVED must drive its own scoped event independently.
+    # Preserve exactly: failed/cancelled statuses map the segment's own status
+    # through (not force "done"); only a clean completion is inferred as
+    # SEGMENT_SAVED/"done".
     if prev_active_segment_id and prev_active_segment_id != new_active_segment_id:
         if not skip_studio_job_event:
             status = str(merged.get("status") or "running")
@@ -456,6 +467,10 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
             produced_segment_count=merged.get("produced_segment_count"),
             source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
             confidence=_enriched_confidence,
+            # W-PAR 003 (C2 contract): additive-only field (INV-1/INV-9) — absent
+            # unless the orchestrator actually published a concurrent-segment
+            # snapshot via `_publish(active_segments_map=...)`.
+            active_segments_map=merged.get("active_segments_map"),
         )
         broadcast_studio_event(q_event)
 

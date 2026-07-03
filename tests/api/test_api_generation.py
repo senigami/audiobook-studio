@@ -219,11 +219,10 @@ def test_build_script_uses_chunk_group_engine_for_safe_text(monkeypatch, tmp_pat
     monkeypatch.setattr("app.db.speakers.get_profile_wavs", lambda profile_name: None)
     monkeypatch.setattr("app.db.speakers.get_profile_dir", lambda profile_name: tmp_path / "voice")
     monkeypatch.setattr(
-        generation,
-        "resolve_profile_engine",
+        "app.domain.chunk_groups.resolve_profile_engine",
         lambda profile_name, fallback_engine=None: (_ for _ in ()).throw(AssertionError("engine was recomputed")),
     )
-    monkeypatch.setattr(generation, "has_behavior", lambda engine_id, behavior: engine_id == "manifest-engine")
+    monkeypatch.setattr("app.domain.chunk_groups.has_behavior", lambda engine_id, behavior: engine_id == "manifest-engine")
 
     seen_targets = []
 
@@ -231,9 +230,9 @@ def test_build_script_uses_chunk_group_engine_for_safe_text(monkeypatch, tmp_pat
         seen_targets.append(target)
         return text
 
-    monkeypatch.setattr(generation, "get_text_split_target", lambda engine_id: 321 if engine_id == "manifest-engine" else 999)
-    monkeypatch.setattr(generation, "sanitize_text", lambda text, categories=None: text)
-    monkeypatch.setattr(generation, "safe_split_long_sentences", fake_split)
+    monkeypatch.setattr("app.domain.chunk_groups.get_text_split_target", lambda engine_id: 321 if engine_id == "manifest-engine" else 999)
+    monkeypatch.setattr("app.utils.text.textops.sanitize_text", lambda text, categories=None: text)
+    monkeypatch.setattr("app.utils.text.textops.safe_split_long_sentences", fake_split)
 
     script = generation._build_script_for_chapter("chapter-1", "project-1", "Default Voice", safe_mode=True)
 
@@ -300,8 +299,8 @@ def test_build_script_for_chapter_propagates_group_engine(clean_db, monkeypatch)
         }],
     )
     monkeypatch.setattr(generation, "get_chapter_dir", lambda _project_id, _chapter_id: Path("/tmp/project/chapter"))
-    monkeypatch.setattr(generation, "has_behavior", lambda *_args, **_kwargs: False)
-    monkeypatch.setattr(generation, "resolve_profile_engine", lambda *_args, **_kwargs: "unexpected")
+    monkeypatch.setattr("app.domain.chunk_groups.has_behavior", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr("app.domain.chunk_groups.resolve_profile_engine", lambda *_args, **_kwargs: "unexpected")
     monkeypatch.setattr("app.db.speakers.get_profile_wavs", lambda _profile_name: "ref.wav")
     monkeypatch.setattr("app.db.speakers.get_profile_dir", lambda _profile_name: Path("/tmp/voice"))
 
@@ -784,7 +783,17 @@ def test_generation_orchestration_integration(clean_db, client, monkeypatch):
 
 
 def test_voice_profile_dir_propagation(clean_db, client, monkeypatch):
-    """Verifies that voice_profile_dir reaches the bridge via synthesis_settings."""
+    """Verifies that voice_profile_dir reaches the bridge for a segment-
+    orchestrated (xtts) chapter render.
+
+    W-PAR 008: xtts uses_segment_orchestration -> ChapterSynthesisTask. Its
+    children's bridge requests derive voice_profile_dir from
+    build_script_entry_for_group's OWN resolution (get_profile_dir), not from
+    generation.py's synthesis_settings/resolve_voice_preview_inputs path
+    (that path is SynthesisTask-specific, used only for non-segment-
+    orchestrated engines) — so the real profile-dir resolution is the correct
+    mock boundary here, matching what _build_script_for_chapter always did.
+    """
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.orchestration.scheduler.orchestrator import TaskOrchestrator
@@ -810,15 +819,12 @@ def test_voice_profile_dir_propagation(clean_db, client, monkeypatch):
     )
     monkeypatch.setattr("app.api.routers.generation.create_orchestrator", lambda: real_orchestrator)
 
-    # Mock voice resolution
-    mock_resolution = (None, Path("/tmp/dummy_voice_dir"))
-
     from app.jobs.registry import get_handler_registry
     get_handler_registry().clear()
 
     with patch("app.api.routers.generation.put_job"), \
          patch("app.api.routers.generation.update_job"), \
-         patch("app.engines.voice_engines.resolve_voice_preview_inputs", return_value=mock_resolution), \
+         patch("app.db.speakers.get_profile_dir", return_value=Path("/tmp/dummy_voice_dir")), \
          patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
          patch("app.orchestration.scheduler.orchestrator.release_task_resources"):
 
@@ -832,17 +838,21 @@ def test_voice_profile_dir_propagation(clean_db, client, monkeypatch):
     request = mock_bridge.synthesize.call_args.args[0]
 
     # Verify voice_profile_dir is at the top level of bridge request
-    # (because SynthesisTask spreads synthesis_settings)
     assert request.get("voice_profile_dir") == "/tmp/dummy_voice_dir"
     # Ensure it's NOT in requested_revision anymore
     assert "voice_profile_dir" not in request.get("requested_revision", {})
 
 
 def test_mixed_generation_orchestration_integration(clean_db, client, monkeypatch):
-    """Verifies that 'mixed' jobs bypass the bridge and call run() locally."""
+    """W-PAR 008: 'mixed' chapter renders now go through ChapterSynthesisTask's
+    concurrent fan-out — each group's real (per-segment-resolved) engine
+    renders via render_one_group directly when that engine is 'mixed'-routed
+    (NOT handle_mixed_job, which does chapter-terminal/stitch work that must
+    never fire per-child, per the owner's R1 ruling)."""
     from app.jobs.registry import initialize_default_handlers, get_handler_registry
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments
     from app.orchestration.scheduler.orchestrator import TaskOrchestrator
 
     get_handler_registry().clear()
@@ -850,6 +860,7 @@ def test_mixed_generation_orchestration_integration(clean_db, client, monkeypatc
 
     pid = create_project("MixedProject")
     cid = create_chapter(pid, "MixedChapter", "Mixed text.")
+    sync_chapter_segments(cid, "Mixed text.")
 
     mock_bridge = MagicMock()
     mock_progress = MagicMock()
@@ -865,14 +876,20 @@ def test_mixed_generation_orchestration_integration(clean_db, client, monkeypatc
     from app.jobs.registry import get_handler_registry
     get_handler_registry().clear()
 
-    # We need to mock handle_mixed_job because it's called by the registry
-    # when engine_id == 'mixed'.
+    # Force the single segment's OWN resolved engine (as build_chunk_groups
+    # sees it, independent of the queue-level "mixed" label) to "mixed" too —
+    # this is the scenario where a chunk group's engine IS the mixed handler
+    # (e.g. a Voxtral-backed profile still routed through tts_mixed).
     with patch("app.api.routers.generation.put_job"), \
          patch("app.api.routers.generation.update_job"), \
          patch("app.api.routers.generation.resolve_tts_engine_for_profiles", return_value=("xtts", ["xtts", "voxtral"])), \
-         patch("plugins.tts_mixed.handler.handle_mixed_job", return_value=("done", None)) as mock_mixed_handler, \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="mixed"), \
+         patch("plugins.tts_mixed.handler.handle_mixed_job") as mock_mixed_handler, \
+         patch("plugins.tts_mixed.handler.render_one_group") as mock_render_one_group, \
          patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
          patch("app.orchestration.scheduler.orchestrator.release_task_resources"):
+        from plugins.tts_mixed.handler import RenderGroupResult
+        mock_render_one_group.return_value = RenderGroupResult(status="completed", output_path=Path("/tmp/seg.wav"))
 
         response = client.post("/api/processing_queue", data={
             "project_id": pid,
@@ -885,14 +902,28 @@ def test_mixed_generation_orchestration_integration(clean_db, client, monkeypatc
     # (Individual segments might call it, but not the root task)
     assert not mock_bridge.synthesize.called
 
-    # 2. Verify handle_mixed_job WAS called
-    assert mock_mixed_handler.called
-    assert mock_mixed_handler.call_args.kwargs["jid"] is not None
-    assert mock_mixed_handler.call_args.kwargs["j"].engine == "mixed"
+    # 2. The old chapter-terminal handle_mixed_job is NEVER called from this
+    #    concurrent-fan-out path — only its extracted render_one_group is.
+    assert not mock_mixed_handler.called, (
+        "handle_mixed_job must not be invoked per-child (chapter-terminal/stitch "
+        "side effects would fire once per group instead of once per chapter)"
+    )
+    assert mock_render_one_group.called, "render_one_group must be invoked for each mixed-engine group"
 
 
 def test_queue_chapter_mixed_render_runs_end_to_end(clean_db, client, monkeypatch, tmp_path):
-    """Exercise the real mixed render path through the queue API."""
+    """Exercise the real mixed-engine chapter render path through the queue
+    API end to end (W-PAR 008: now a ChapterSynthesisTask concurrent fan-out).
+
+    Each of the 2 groups resolves to a DIFFERENT concrete engine (xtts,
+    voxtral) — neither is literally engine_id=="mixed" — so both children
+    route through _dispatch_segment's bridge path
+    (``orchestrator.voice_bridge.synthesize``), not ``render_one_group``
+    (which only fires for a group whose OWN resolved engine is "mixed").
+    Mock boundary (R2): the true engine boundary is ``voice_bridge.synthesize``
+    — it writes a real (valid) WAV per request, matching what the real bridge
+    would produce, so the stitch barrier has real artifacts to combine.
+    """
     from pathlib import Path
     import wave
 
@@ -901,6 +932,16 @@ def test_queue_chapter_mixed_render_runs_end_to_end(clean_db, client, monkeypatc
     from app.db.projects import create_project
     from app.db.segments import get_chapter_segments, sync_chapter_segments, update_segment
     from app.orchestration.scheduler.orchestrator import TaskOrchestrator
+
+    # Two DIFFERENT engines (xtts, voxtral) must be admitted concurrently —
+    # enable per-engine-class admission (matches the eventual live enable-gate;
+    # the legacy exclusive gate would otherwise serialize/collide them
+    # regardless of engine, since it predates per-engine-class semaphores).
+    monkeypatch.setenv("ENGINE_CLASS_ADMISSION", "1")
+    from app.orchestration.scheduler import resources as _res
+    for sem in list(_res._engine_semaphores.values()):
+        sem.reset()
+    _res._global_cap_gate.reset()
 
     pid = create_project("MixedProject")
     cid = create_chapter(pid, "MixedChapter", "Hello world. Goodbye world.")
@@ -912,15 +953,6 @@ def test_queue_chapter_mixed_render_runs_end_to_end(clean_db, client, monkeypatc
     mock_progress = MagicMock()
     mock_progress.reconcile.return_value = {"decision": "queue", "artifact_state": "missing"}
     mock_progress.publish.return_value = None
-    mock_bridge = MagicMock()
-    real_orchestrator = TaskOrchestrator(progress_service=mock_progress, voice_bridge=mock_bridge)
-    monkeypatch.setattr("app.api.routers.generation.create_orchestrator", lambda: real_orchestrator)
-
-    from app.jobs.registry import initialize_default_handlers, get_handler_registry
-    get_handler_registry().clear()
-    initialize_default_handlers()
-
-    chapter_dir = tmp_path / "chapters" / cid
 
     def _write_silence_wav(path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -930,10 +962,35 @@ def test_queue_chapter_mixed_render_runs_end_to_end(clean_db, client, monkeypatc
             wav_file.setframerate(22050)
             wav_file.writeframes(b"\x00\x00" * 22050)
 
-    def fake_generate_via_bridge(**kwargs):
-        out_wav = Path(kwargs["out_wav"])
-        _write_silence_wav(out_wav)
-        return 0
+    # The real bridge path's [SEGMENT_SAVED]/[START_SEGMENT] markers come
+    # from the TTS Server subprocess's own stdout (drained by the watchdog
+    # independently of when synthesize()'s HTTP call returns) — the mocked
+    # bridge call must emit them too so _dispatch_segment's marker-driven
+    # segment DB write (update_segments_bulk on [SEGMENT_SAVED]) actually
+    # fires, matching real production behavior. A real TtsServerWatchdog
+    # instance (never booted as a live process) is the marker-relay boundary.
+    from app.engines.watchdog import TtsServerWatchdog
+    test_watchdog = TtsServerWatchdog()
+
+    def fake_bridge_synthesize(request):
+        out_path = Path(request["output_path"])
+        _write_silence_wav(out_path)
+        task_id = request.get("task_id")
+        test_watchdog._broadcast_log(f"[START_SYNTHESIS] {task_id}\n", task_id=task_id)
+        test_watchdog._broadcast_log(f"[PROGRESS] 100% {task_id}\n", task_id=task_id)
+        test_watchdog._broadcast_log(f"[SEGMENT_SAVED] {out_path.absolute()} {task_id}\n", task_id=task_id)
+        return {"status": "ok"}
+
+    mock_bridge = MagicMock()
+    mock_bridge.synthesize.side_effect = fake_bridge_synthesize
+    real_orchestrator = TaskOrchestrator(progress_service=mock_progress, voice_bridge=mock_bridge)
+    monkeypatch.setattr("app.api.routers.generation.create_orchestrator", lambda: real_orchestrator)
+
+    from app.jobs.registry import initialize_default_handlers, get_handler_registry
+    get_handler_registry().clear()
+    initialize_default_handlers()
+
+    chapter_dir = tmp_path / "chapters" / cid
 
     def fake_stitch(_pdir, _segment_wavs, output_path, _on_output, _cancel_check):
         _write_silence_wav(output_path)
@@ -945,14 +1002,11 @@ def test_queue_chapter_mixed_render_runs_end_to_end(clean_db, client, monkeypatc
     with patch("app.api.routers.generation.get_chapter_dir", return_value=chapter_dir), \
          patch("app.core.config.get_chapter_dir", return_value=chapter_dir), \
          patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=chapter_dir), \
+         patch("app.engines.watchdog.get_watchdog", return_value=test_watchdog), \
          patch("app.api.routers.generation.resolve_tts_engine_for_profiles", return_value=("xtts", ["xtts", "voxtral"])), \
          patch("app.engines.voice_engines.resolve_profile_engine", side_effect=lambda name, fallback_engine=None, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
          patch("app.api.routers.generation.resolve_profile_engine", side_effect=lambda name, fallback_engine=None, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
-         patch("plugins.tts_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voice2" else {"speed": 1.0}), \
-         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
-         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
          patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
          patch("app.api.routers.generation.broadcast_queue_update"), \
          patch("app.api.routers.generation.broadcast_chapter_updated"), \
@@ -999,10 +1053,13 @@ def test_queue_chapter_mixed_engine_builds_weighted_script(clean_db, client):
     cid = create_chapter(pid, "C1", "Hello world. Goodbye world.")
     sync_chapter_segments(cid, "Hello world. Goodbye world.")
 
-    with patch("app.domain.chunk_groups.load_chunk_segments", return_value=[
+    segment_rows = [
         {"id": "s1", "speaker_profile_name": "SingleEngine Voice", "character_speaker_profile_name": None, "text_content": "Hello world.", "audio_status": "unprocessed", "audio_file_path": None},
         {"id": "s2", "speaker_profile_name": "Voxtral Voice", "character_speaker_profile_name": None, "text_content": "Goodbye world.", "audio_status": "unprocessed", "audio_file_path": None},
-    ]), \
+    ]
+
+    with patch("app.domain.chunk_groups.load_chunk_segments", return_value=segment_rows), \
+         patch("app.db.segments.get_chapter_segments", return_value=segment_rows), \
          patch("app.api.routers.generation.put_job"), \
          patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit") as mock_submit, \
          patch("app.db.speakers.get_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if "Voxtral" in (name or "") else "xtts"):
@@ -1010,8 +1067,22 @@ def test_queue_chapter_mixed_engine_builds_weighted_script(clean_db, client):
         assert response.status_code == 200
         task = mock_submit.call_args.args[0]
         assert task.engine_id == "mixed"
-        assert task.script, "mixed synthesis task must carry the weighted per-group script"
-        for entry in task.script:
+
+        # W-PAR 008: "mixed" also uses_segment_orchestration -> ChapterSynthesisTask.
+        # Its own .script is the raw segment rows; the weighted per-group
+        # script-entry contract now lives one layer down, in each concurrent
+        # child's synthetic script entry (built via build_script_entry_for_group
+        # from the SAME chunk groups this task will fan out).
+        assert task.script, "mixed chapter render task must carry non-empty .script (raw segment rows)"
+
+        from app.domain.chunk_groups import build_chunk_groups, build_script_entry_for_group
+        from app.core.config import get_chapter_dir
+
+        chapter_dir = get_chapter_dir(pid, cid)
+        groups = build_chunk_groups(task.script, task.voice_profile_id)
+        assert groups, "expected at least one chunk group"
+        for group in groups:
+            entry = build_script_entry_for_group(group, chapter_dir, default_profile=task.voice_profile_id)
             assert entry.get("ids"), entry
             assert entry.get("weight", 0) >= 1, entry
 
@@ -1073,16 +1144,27 @@ def test_queue_chapter_xtts_engine_builds_nonempty_script_with_worker_aligned_id
     # Engine must be xtts (not mixed, not empty string)
     assert task.engine_id == "xtts", f"expected xtts engine, got {task.engine_id!r}"
 
-    # script must be populated — this is the grouped-progress gate
+    # W-PAR 008: XTTS (a segment-orchestrated engine) now builds a
+    # ChapterSynthesisTask. Its own .script is the raw segment-row list
+    # (build_chunk_groups' input shape — needed internally by _fan_out_chapter/
+    # needs_render_fn), not the generation.py script-entry shape. The
+    # grouped-progress alignment gate this test protects (worker-aligned id +
+    # save_path + positive weight per group) now lives one layer down: each
+    # concurrent child's synthetic single-group script entry, built by
+    # app.domain.chunk_groups.build_script_entry_for_group — verify THAT
+    # directly for every chunk group derived from the same segment rows.
     assert task.script, (
-        "XTTS chapter render task must carry a non-empty .script; "
-        "without it total_weight=0 and the orchestrator falls back to raw per-segment "
-        "progress which resets toward 0 each segment (backwards bar)"
+        "XTTS chapter render task must carry a non-empty .script (raw segment rows) "
+        "so ChapterSynthesisTask can fan out chunk groups"
     )
 
-    # Alignment: each entry must have id + save_path matching the worker marker format
+    from app.domain.chunk_groups import build_chunk_groups, build_script_entry_for_group
+
     chapter_dir = get_chapter_dir(pid, cid)
-    for entry in task.script:
+    groups = build_chunk_groups(task.script, task.voice_profile_id)
+    assert groups, "expected at least one chunk group from the recorded segment rows"
+    for group in groups:
+        entry = build_script_entry_for_group(group, chapter_dir, default_profile=task.voice_profile_id)
         seg_id = entry.get("id")
         assert seg_id, f"script entry missing 'id': {entry}"
 

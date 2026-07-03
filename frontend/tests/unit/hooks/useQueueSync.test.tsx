@@ -1244,4 +1244,47 @@ describe('useQueueSync', () => {
       expect(job?.loadingElapsedSeconds).toBeNull();
     });
   });
+
+  // ── W-PAR 006: multi-active segments (active_segments_map four-point wire) ──
+
+  it('[W-PAR 006] chapters.progress frame with active_segments_map lands both segments in the store overlay', async () => {
+    // This exercises the REAL dispatch path (socket -> useQueueSync -> pickOverlayFields
+    // -> applyJobUpdated -> store) per the C7 wire-integrity rule. If the field is not
+    // extracted (jobEventAdapters.ts) AND whitelisted (queueOverlayFields.ts) AND merged
+    // (hydration/index.ts) it is dead at runtime and this test goes red.
+    const jobItem = {
+      id: 'job-multi-active',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'running',
+      progress: 0.2,
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.4,
+      groupedProgress: null,
+      etaSeconds: 20,
+      message: null,
+      reasonCode: null,
+      renderGroupCount: null,
+      completedRenderGroups: null,
+      active_segments_map: {
+        S1: { phase: 'rendering', progress: 0.3, eta_seconds: 10 },
+        S2: { phase: 'rendering', progress: 0.6, eta_seconds: 5 },
+      },
+    }, { jobId: 'job-multi-active', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'job-multi-active');
+      expect(job?.active_segments_map).toBeDefined();
+      expect(job?.active_segments_map?.S1).toMatchObject({ phase: 'rendering', progress: 0.3, eta_seconds: 10 });
+      expect(job?.active_segments_map?.S2).toMatchObject({ phase: 'rendering', progress: 0.6, eta_seconds: 5 });
+    });
+  });
 });

@@ -27,6 +27,20 @@ export interface OverlayDelta {
   active_render_batch_progress?: number | null;
   active_segment_id?: string | null;
   active_segment_progress?: number | null;
+  /**
+   * Chapter-level map of concurrently-active segments (W-PAR 006). Keyed by
+   * segment id; each entry carries the full per-segment lifecycle (phase,
+   * progress, ETA, optional reason_code/indeterminate). Frozen contract (C2):
+   * consumed verbatim. When absent, callers fall back to the singular
+   * active_segment_id/active_segment_progress scalars above (INV-1).
+   */
+  active_segments_map?: Record<string, {
+    phase: 'preparing' | 'rendering' | 'done';
+    progress: number;
+    eta_seconds: number | null;
+    reason_code?: string;
+    indeterminate?: boolean;
+  }> | null;
   render_group_count?: number | null;
   completed_render_groups?: number | null;
   active_render_group_index?: number | null;
@@ -277,6 +291,12 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     } else if (event.scope === 'segment' && event.active_segment_progress !== undefined) {
       nextDelta.active_segment_progress = event.active_segment_progress;
     }
+    // active_segments_map (W-PAR 006) — chapter-level, consumed verbatim (C2 contract).
+    // Not scope-gated like the single-segment scalars above: it rides the existing
+    // chapter progress frame regardless of scope (INV-9).
+    if (event.active_segments_map !== undefined) {
+      nextDelta.active_segments_map = event.active_segments_map;
+    }
     if (event.render_group_count !== undefined) {
       nextDelta.render_group_count = event.render_group_count;
     }
@@ -374,6 +394,7 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       active_render_batch_progress: jobUpdated.active_render_batch_progress,
       active_segment_id: jobUpdated.active_segment_id,
       active_segment_progress: jobUpdated.active_segment_progress,
+      active_segments_map: jobUpdated.active_segments_map,
       render_group_count: jobUpdated.render_group_count,
       completed_render_groups: jobUpdated.completed_render_groups,
       active_render_group_index: jobUpdated.active_render_group_index,

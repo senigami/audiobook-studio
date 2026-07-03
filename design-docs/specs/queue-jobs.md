@@ -1,9 +1,9 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.7.0
+spec_version: 1.9.0
 status: active
-updated: 2026-07-02
+updated: 2026-07-03
 created: 2026-06-10
 sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
          app/orchestration/scheduler/{orchestrator,orchestrator_helpers,policies,resources,recovery}.py,
@@ -19,6 +19,8 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.9.0   | 2026-07-03 | **§3.10 — live concurrent segment fan-out wired (W-PAR 008, the enable-gate).** `app/api/routers/generation.py`'s chapter-render/bake submission now constructs `ChapterSynthesisTask` (concurrent fan-out, `app/orchestration/tasks/segment_synthesis.py`) instead of the sequential `SynthesisTask` for engines using segment orchestration. `orchestrator_helpers._dispatch` bypasses `_dispatch_segment` for the PARENT (`is_chapter_fanout` flag) and calls `task.run()` directly; each child reuses `_dispatch_segment` via `make_dispatch_segment_bridge_call` (mixed-engine groups call the newly-extracted `render_one_group`, never the full chapter-terminal `handle_mixed_job`; other engines use the existing bridge path). Recovery reconstructs `ChapterSynthesisTask` from a bare context (`_reconstruct_chapter_task_from_context`) with K-of-N resume wired to `_group_needs_render`/`_group_ready_audio_path`. Fixed alongside: a stitch-barrier bug where a recovery-skipped (already-valid) group's existing audio never reached the final stitched paths. `active_segments_map` (`live-events.md` 1.9.2) now emits genuine multi-entry snapshots at cap > 1. At `max_concurrent_workers=1` (default; requires an explicit manifest cap raise to enable visible parallelism) behavior is byte-identical to the pre-008 sequential path, pinned by a dedicated old-vs-new event-sequence regression test. **Review-pass amendments (same change, 2026-07-03):** (1) the parent consumes each child future AS IT COMPLETES (`as_completed`, not an all-complete barrier) so chapter-level progress and `active_segments_map` advance mid-render; INV-7 is unaffected (all futures are still joined before stitch/terminal work). (2) `stitch_fn` is a RAISE-on-failure contract — `ChapterSynthesisTask.run()` converts a stitch raise into a failed `TaskResult`, so a failed stitch can never terminal-publish as done with no chapter WAV. (3) `active_segments_map` entries require a child that has STARTED and not resolved (queued-behind-the-pool children are excluded), and the parent writes an explicit empty map (`{}`, force-broadcast) at any terminal outcome so stale rendering entries never ride terminal frames. (4) Recovery reconstruction falls back to `SynthesisTask.from_task_context` for segment-scoped payloads (`segment_ids` present) — only whole-chapter renders reconstruct as chapter fan-outs. |
+| 1.8.0   | 2026-07-02 | **§3.10 — per-segment dispatch isolation (W-PAR 003) + `active_segments_map` (C2 contract).** `orchestrator_helpers.py`'s dispatch is now a thin `_dispatch(...)` fan-out driver over `_dispatch_segment(...)`, which owns fully isolated per-segment timing/marker/model-load state in its own local scope (closure isolation, not a shared dict keyed by `segment_id` — INV-6). At today's N=1 fan-out this is byte-identical to the pre-003 single-`_dispatch` path (INV-1) — one call, same event sequence. `_dispatch_segment` returns a `SegmentResult` (isolated `timing`/`marker_state`/`segment_load_observed`/`segment_starts`/`segment_announced`) so a future multi-child fan-out (task 005/enable-gate) can aggregate per-segment `SegmentResult`s without reaching into shared mutable state. The orchestrator additionally publishes an **additive** `active_segments_map` snapshot (`live-events.md` 1.9.0, C2 contract) alongside the existing single-active `active_segment_id` fields — absent unless the dispatch path has a concurrent-segment snapshot to report. `broadcast_job_updated`'s transition-based `segments.progress` emission (prev/new `active_segment_id`) is UNCHANGED in this version — correct as-is at N=1 (there is exactly one prev→next handoff per chapter today) — and is deferred to task 005/enable-gate for the per-child-completion rework once fan-out > 1 is wired into the live dispatch path. |
 | 1.7.0   | 2026-07-02 | **§3.9 — client retention for `pre_load_eta` (W-MIX-LA load-aware ETA).** Doc catch-up for behavior shipped in `64a39c34`: the global queue row (`QueueItem.tsx`) derives `preparingWithEta = displayStatus === 'preparing' && rawEtaSeconds > 0` and retains its active display params (started/eta/etaBasis) when true, so a cold-engine dispatch's proactive `pre_load_eta` frame (`live-events.md` 1.8.0) shows a countdown instead of being suppressed by the plain-`preparing` param-discard rule. Presentation-only; does not affect durable status (§3.8) or fabricate a value absent real ETA history. |
 | 1.6.0   | 2026-06-26 | **W-PAR task 001 — per-engine-class counting semaphores (§7).** `GpuAdmissionGate` / `ExclusiveAdmissionGate` binary gates replaced by `EngineClassSemaphore` counting semaphores keyed by engine class (``"gpu"``, ``"cpu_heavy"``, ``"cloud"``). Each engine declares `behavior.max_concurrent_workers` in its manifest (default 1); the scheduler sizes the semaphore to that cap. Global cap backstop (`MAX_GLOBAL_CONCURRENT_SYNTHESIS`, default 8) checked first. Ships dark behind `ENGINE_CLASS_ADMISSION` (default OFF, §7.3a): until enabled (task 007) every synthesis-class claim routes through the single shared exclusive gate, preserving the pre-W-PAR invariant that xtts/voxtral/API synthesis all serialize against one another (INV-1). Closes W5: `SynthesisTask` for `mixed` engine no longer uses `ResourceClaim.none()` — claim is derived from the manifest resource block + cap. No engine-ID string comparisons remain in `resources.py` (INV-5). |
 | 1.5.1   | 2026-06-26 | §3.8 refinement: the per-group preparing phase's `indeterminate=true` / ETA suspension is carried on the `LOADING_MODEL` frame (fired only on a real model-load marker for the active group), not on the every-segment `SEGMENT_PENDING` announce — which stays ETA-neutral so warm renders don't flash. Matches `live-events.md` 1.7.1. |
@@ -371,6 +373,103 @@ engine), `preparingWithEta` is `false` and the row falls back to the plain
 the backend-side rule that a positive `eta_seconds` on a `preparing` frame MUST be
 displayed, not suppressed; this section documents the specific client mechanism
 (`QueueItem.tsx`) that satisfies that rule for the global queue row.
+
+### 3.10 Per-segment dispatch isolation (W-PAR 003) + parent/child emission model
+
+**Dispatch shape.** `app/orchestration/scheduler/orchestrator_helpers.py`
+exposes two methods:
+
+- `_dispatch(self, *, task, context) -> TaskResult` — a thin fan-out driver.
+  At today's fan-out (N=1: one dispatch unit per chapter task) it calls
+  `_dispatch_segment` exactly once and returns its `TaskResult`. Byte-identical
+  to the pre-003 single-`_dispatch` path (INV-1: same event sequence, same
+  durable status transitions, same timing fields).
+- `_dispatch_segment(self, *, task, context) -> SegmentResult` — owns a fully
+  isolated per-call scope for the timing/marker/model-load state that was
+  previously shared `_dispatch` closure state: `timing`, `segment_starts`,
+  `segment_announced`, `segment_load_observed`, `marker_state`,
+  `pending_engine_activity`, `load_state` (W-MIX-LA proactive/reactive load
+  blocks), and the active-segment cells. Isolation is by **Python closure
+  scope**, not by keying a shared dict on `segment_id` — two concurrent
+  `_dispatch_segment` calls (once a multi-child fan-out is wired into the live
+  path) cannot observe or corrupt each other's state (INV-6). Returns a
+  `SegmentResult` dataclass carrying `task_result` plus the isolated
+  `timing`/`marker_state`/`segment_load_observed`/`segment_starts`/
+  `segment_announced` dicts, so a parent aggregator (task 005/enable-gate) can
+  combine multiple children's results into chapter-level stats without
+  reaching into shared mutable state.
+
+**Parent/child model — LIVE (W-PAR 008, the enable-gate).**
+`app/orchestration/tasks/segment_synthesis.py` defines `ChapterSynthesisTask`
+(the durable parent — the sole DB/UI/recovery-visible unit, INV-4) and
+`SegmentSynthesisTask` (an ephemeral child, never persisted). As of 008,
+`app/api/routers/generation.py`'s chapter-render submission
+(`_build_chapter_synthesis_task`) constructs a `ChapterSynthesisTask` instead
+of the sequential `SynthesisTask` for any engine using segment orchestration
+(`uses_segment_orchestration(engine_id)`), for both the normal chapter-render
+and bake queue endpoints. `ChapterSynthesisTask.is_chapter_fanout = True` is
+checked by `orchestrator_helpers._dispatch`: a chapter fan-out coordinator
+renders nothing itself, so `_dispatch` calls `task.run()` directly and
+bypasses `_dispatch_segment` for the PARENT (avoids an idle log_listener
+registration and a spurious "Loading voice model…" frame). Each
+`SegmentSynthesisTask` child renders via
+`make_dispatch_segment_bridge_call(orchestrator)`: it builds a synthetic
+single-group task + `TaskContext` and calls `orchestrator._dispatch_segment`
+once, reusing ALL of 003's per-segment timing/marker/load isolation. Routing
+inside that call: a group whose OWN resolved engine is `"mixed"` calls
+`render_one_group` (extracted from `plugins/tts_mixed/handler.py`'s
+`handle_mixed_job` — the per-group render body ONLY: markers, the engine
+call, INV-3 artifact validation, `[SEGMENT_SAVED]`, per-group segment DB
+writes; explicitly NO chapter-terminal job-status write, NO stitch, NO
+chapter-wide DB rebuild, so it is safe to call once per concurrent child);
+any other engine (e.g. `xtts`) routes through the existing bridge-dispatch
+branch (`orchestrator.voice_bridge.synthesize`). `handle_mixed_job` itself is
+UNCHANGED for any other caller (its sequential loop now calls
+`render_one_group` internally, same behavior). The stitch barrier
+(`ChapterSynthesisTask._stitch_fn`, `run()`) fires exactly once after ALL
+children join, with paths in manuscript (`segment_order`) order — including
+paths for any already-valid groups a recovery `needs_render_fn`/
+`resolve_existing_output_fn` pair excluded from the fan-out (a K-of-N
+recovery bug fixed in the same change: a skipped group's existing output
+previously never reached the stitch collection at all).
+
+At `max_concurrent_workers=1` (the default — a manifest must explicitly raise
+`behavior.max_concurrent_workers` above 1 to enable visible parallelism; the
+parent's own pool bound is derived from the SAME manifest cap so it is never
+a second, lower ceiling) this remains byte-identical to the pre-008 sequential
+path — pinned by a dedicated regression test comparing the old
+(`SynthesisTask`/`handle_mixed_job`) and new (`ChapterSynthesisTask`,
+cap=1) per-segment event sequences for an identical single-group chapter.
+
+**Recovery.** `TaskOrchestrator._reconstruct_chapter_task_from_context`
+(orchestrator.py) reconstructs a `ChapterSynthesisTask` from a bare recovered
+`TaskContext` for `task_type == "synthesis"` when the recovered job's engine
+uses segment orchestration — `needs_render_fn`/`resolve_existing_output_fn`
+wire `plugins/tts_mixed/handler.py`'s `_group_needs_render`/
+`_group_ready_audio_path` (INV-8) so only the N-K unfinished segments are
+resubmitted, and the K already-valid segments' known-good paths still reach
+the stitch barrier.
+
+**`active_segments_map` emission (C2 contract) — LIVE at genuine fan-out > 1.**
+Both `_dispatch_segment` (single dispatch unit processing multiple groups
+serially — one active segment at a time) AND `ChapterSynthesisTask`'s own
+`_current_active_segments_map` (genuine concurrent children) publish the
+additive `active_segments_map` snapshot (see `live-events.md` 1.9.2) — keyed
+by `segment_id` (the REAL segment/leader id, never the synthetic per-child
+task_id), each entry `{phase, progress, eta_seconds, reason_code?,
+indeterminate?}`. This rides the SAME `queue.items`/chapter progress frame the
+existing single-active fields use (INV-9: no new wire channel); at cap=1 the
+map still carries at most one entry, matching the pre-008 shape (INV-1).
+
+**`segments.progress` per-segment completion — unchanged in this version.**
+`app/api/ws.py`'s `broadcast_job_updated` infers a segment's completion from
+the **transition** of `active_segment_id` (previous → new) — unchanged by
+008. Each concurrent child's own `_dispatch_segment` call independently emits
+its own `SEGMENT_SAVED`/completion frame (scoped to that child's own
+synthetic `TaskContext`), so this per-call transition inference remains
+correct per-child even though multiple children now run concurrently; a
+chapter-level aggregation of these into one combined transition stream (if
+ever needed) remains a candidate fast-follow, not required by this version.
 
 ---
 

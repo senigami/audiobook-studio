@@ -1298,6 +1298,47 @@ def test_broadcast_job_updated_segment_completion(monkeypatch):
     assert messages[2]["payload"]["status"] == "running"
 
 
+def test_broadcast_job_updated_segment_completion_failed_status_preserved(monkeypatch):
+    """W-PAR 003 directive 2: the per-segment transition emission must preserve
+    the prior segment's failed/cancelled status rather than forcing 'done'.
+
+    Pins the `seg_status = status if status in ("failed", "cancelled") else "done"`
+    mapping in `broadcast_job_updated`'s transition block — this is the exact
+    semantics that must survive the W-PAR 003 rework (a bare "always done"
+    regression here would silently mark failed segments as completed).
+    """
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    # The job (and thus its previously-active segment) transitioned to "failed".
+    # active_segment_id also advances (seg-1 -> seg-2) so the transition block fires.
+    broadcast_job_updated(
+        "job-seg-failed",
+        {"status": "failed", "active_segment_id": "seg-2", "error": "synthesis error"},
+        current_job={
+            "status": "running",
+            "active_segment_id": "seg-1",
+            "active_segment_progress": 0.4,
+            "chapter_id": "chap-1",
+            "project_id": "proj-1",
+        },
+    )
+
+    seg1_events = [
+        m for m in messages
+        if m.get("topic") == "segments.progress" and m.get("ids", {}).get("segmentId") == "seg-1"
+    ]
+    assert seg1_events, "expected a segments.progress event for the prior active segment (seg-1)"
+    # Failed must be preserved verbatim — NOT forced to "done" (SEGMENT_SAVED).
+    assert seg1_events[0]["payload"]["status"] == "failed"
+    assert seg1_events[0]["payload"]["reasonCode"] != "SEGMENT_SAVED"
+
+
 def test_broadcast_job_updated_segment_handoff_preserves_segment_commands(monkeypatch):
     messages = []
 

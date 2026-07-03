@@ -38,6 +38,11 @@ from typing import Callable
 
 logger = logging.getLogger(__name__)
 
+# W-PAR 005 (004 residual): poll interval for `_acquire_worker`'s free-list
+# wait. Keeps the wait responsive to a dead pool without an ad-hoc timeout
+# at the `run_job` call site — this lives inside `_acquire_worker` itself.
+_ACQUIRE_POLL_INTERVAL_SECONDS = 0.5
+
 # Default idle timeout (seconds) before the worker is terminated.
 _DEFAULT_IDLE_SECONDS = 300
 
@@ -466,14 +471,43 @@ class WarmWorkerManager:
         if not self._pool:
             # Permanently empty — signal one-shot fallback.
             return None
-        # Block until a running job returns a worker to the free-list.
-        # NOTE (W-PAR): if every pooled worker dies while this acquirer waits,
-        # no worker is ever re-enqueued and this get() hangs.  This edge is
-        # *dormant under ships-dark* (cap=1 + single-flight dispatch means no
-        # second acquirer ever blocks here) and is owned by task 005
-        # (stuck-segment heartbeat / cancel-signal+join) when parallelism is
-        # enabled.  Do not add an ad-hoc timeout here — 005 handles it holistically.
-        return self._free_q.get()
+        # Block until a running job returns a worker to the free-list, but
+        # poll rather than block forever (W-PAR 005, 004 residual): if every
+        # pooled worker dies while this acquirer waits, nothing is ever
+        # re-enqueued to free_q and a bare `.get()` would hang forever. Each
+        # poll interval, re-check whether the pool is still capable of
+        # producing a live worker at all; if every entry has died, give up
+        # and return None (one-shot fallback) rather than hang. This is
+        # detection/unblock logic living inside `_acquire_worker` itself —
+        # not an ad-hoc timeout injected at the `run_job` call site.
+        while True:
+            try:
+                return self._free_q.get(timeout=_ACQUIRE_POLL_INTERVAL_SECONDS)
+            except queue.Empty:
+                with self._lock:
+                    if not self._pool:
+                        # Another concurrent acquirer already detected total
+                        # worker death and cleared the pool while we waited —
+                        # without this check a SECOND waiter would spin here
+                        # forever (the all-dead branch below requires a
+                        # non-empty pool). Permanently empty for us too.
+                        logger.warning(
+                            "WarmWorker: pool emptied while an acquirer "
+                            "waited; giving up (one-shot fallback)."
+                        )
+                        return None
+                    if not any(w.is_alive for w in self._pool):
+                        # Every pooled worker died without ever being
+                        # returned to the free-list — no future `put()` on
+                        # free_q can ever arrive. Unblock instead of hanging.
+                        logger.warning(
+                            "WarmWorker: all pooled workers died while an "
+                            "acquirer waited; giving up (one-shot fallback)."
+                        )
+                        self._pool.clear()
+                        self._worker = None
+                        return None
+                continue
 
     def _get_or_spawn(self) -> WarmWorker:
         """Backward-compat helper: return live worker or spawn a new one.

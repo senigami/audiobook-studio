@@ -8,6 +8,17 @@ This module composes OrchestratorHelpersMixin from three focused sub-modules:
 All names that tests patch via
   "app.orchestration.scheduler.orchestrator_helpers.<name>"
 remain importable from this module (re-export façade where needed).
+
+W-PAR task 003 (per-segment dispatch isolation, INV-6): ``_dispatch`` is a
+thin fan-out driver that calls ``_dispatch_segment`` once per script group.
+Today (cap=1 / N=1 fan-out) there is exactly one group's worth of dispatch
+work per chapter task, so this is behavior-neutral (INV-1, the ship-dark
+gate) — the per-segment timing/marker/load closure state that used to live
+directly in ``_dispatch`` now lives in ``_dispatch_segment``'s own local
+scope, isolated by Python closure semantics rather than shared mutable
+scalars. Wiring fan-out > 1 into the live dispatch path (tts_mixed/handler.py,
+orchestrator.submit()) is explicitly out of scope here — that integration is
+owned by task 005 / the enable-gate, not 003.
 """
 
 from __future__ import annotations
@@ -15,6 +26,7 @@ from __future__ import annotations
 import inspect
 import logging
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
@@ -32,14 +44,51 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# W-PAR: whether to emit the chapter-level ``active_segments_map`` on progress
+# frames. Was kept OFF (task 003/005) until task 008 wired genuine fan-out > 1
+# and a real parent-side multi-entry aggregation (see
+# ``ChapterSynthesisTask._current_active_segments_map`` in
+# ``app.orchestration.tasks.segment_synthesis``, imported by that module from
+# HERE so there is a single flag/source of truth). At cap=1 there is only ever
+# one active segment, fully conveyed by ``active_segment_id`` — this module's
+# own single-child ``_dispatch_segment`` call site (``_current_active_segments_map``
+# below) still returns ``None`` in that case by construction (never more than
+# one entry), so cap=1 stays byte-identical (INV-1). Flipped ON 2026-07-03
+# (W-PAR 008): the earlier cap=1 bug this flag guarded against (stale
+# ``preparing`` entries from the cold-start model-load window leaking into the
+# frontend's map-branch, "black all at once") only ever occurred from a
+# REDUNDANT single-entry map at cap=1 — genuine multi-entry maps from real
+# concurrent children are the intended, additive (INV-1/INV-9) C2 contract.
+_EMIT_ACTIVE_SEGMENTS_MAP = True
+
+
+@dataclass
+class SegmentResult:
+    """Per-segment dispatch outcome (W-PAR 003).
+
+    Returned by ``_dispatch_segment``; carries the isolated per-segment
+    timing/marker/load state so a thin parent ``_dispatch`` (or a future
+    multi-group fan-out, task 005) can aggregate chapter-level stats and
+    ``active_segments_map`` without reaching into shared mutable closure
+    scalars (INV-6).
+    """
+
+    task_result: TaskResult
+    timing: dict[str, Any]
+    marker_state: dict[str, Any]
+    segment_load_observed: set
+    segment_starts: dict[str, float]
+    segment_announced: dict[str, float]
+
 
 class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
     """Internal implementation details for TaskOrchestrator.
 
     Extracted to keep orchestrator.py focused on high-level workflows.
     Sub-behaviours live in orchestrator_eta.py and orchestrator_publish.py;
-    this module owns _reconcile_task and _dispatch (which carries a large
-    closure that tightly captures local timing state).
+    this module owns _reconcile_task, the thin _dispatch fan-out driver, and
+    _dispatch_segment (which carries the per-segment closure of timing/marker/
+    load state — W-PAR 003, INV-6).
     """
 
     def _reconcile_task(self, context: TaskContext) -> dict[str, Any]:
@@ -86,7 +135,42 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
         }
 
     def _dispatch(self, *, task: StudioTask, context: TaskContext) -> TaskResult:
-        """Dispatch the task to execution through the orchestrator-owned bridge."""
+        """Thin fan-out driver (W-PAR 003): dispatch one script group at a time.
+
+        W-PAR 008 (R4, owner ruling): a chapter fan-out coordinator
+        (``ChapterSynthesisTask``, marked via ``is_chapter_fanout = True``)
+        renders NOTHING itself — it only spawns concurrent
+        ``SegmentSynthesisTask`` children, each of which reuses
+        ``_dispatch_segment`` independently (via
+        ``make_dispatch_segment_bridge_call``). Routing the PARENT through
+        ``_dispatch_segment`` as well would register an idle log_listener for
+        a task that emits no engine markers and publish a confusing
+        "Loading voice model…" frame — so the parent bypasses
+        ``_dispatch_segment`` entirely and calls ``task.run()`` directly.
+
+        For every other task (including the per-child synthetic tasks, which
+        do NOT set ``is_chapter_fanout``), today's single dispatch unit still
+        delegates straight to ``_dispatch_segment`` and returns its
+        ``TaskResult``, byte-identical to the pre-003 single-``_dispatch``
+        path (INV-1).
+        """
+        if getattr(task, "is_chapter_fanout", False):
+            return task.run()
+        result = self._dispatch_segment(task=task, context=context)
+        return result.task_result
+
+    def _dispatch_segment(self, *, task: StudioTask, context: TaskContext) -> SegmentResult:
+        """Dispatch one segment/group's worth of work with fully isolated
+        per-segment timing/marker/load state (W-PAR 003, INV-6).
+
+        Every mutable scalar/dict/set below (``timing``, ``segment_starts``,
+        ``segment_announced``, ``segment_load_observed``, ``marker_state``,
+        ``pending_engine_activity``, ``load_state``, and the ``active_seg_*``
+        cells) lives in THIS call's local scope — isolated by Python closure
+        semantics, not by keying a shared dict on ``segment_id``. Two
+        concurrent invocations of this method (once fan-out > 1 is wired,
+        task 005) cannot observe or corrupt each other's state.
+        """
         # Render start is separate from preparation. Marker-driven tasks anchor this
         # on engine markers so model loading does not pollute render duration metrics.
         timing = {
@@ -544,6 +628,39 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 max_progress[0] = val
             return max_progress[0]
 
+        def _current_active_segments_map(*, phase: str, sid: str | None, progress: float | None, eta_seconds: int | None = None, reason_code: str | None = None, indeterminate: bool | None = None) -> dict[str, dict] | None:
+            """Build the C2 ``active_segments_map`` snapshot for THIS call's
+            active segment (W-PAR 003).
+
+            Today (N=1 fan-out) one ``_dispatch_segment`` call tracks exactly
+            one active segment at a time, so the map has at most one entry —
+            additive-only (INV-1): omitted entirely when there is no active
+            segment to report, so cap=1 frames with no segment context are
+            unaffected. Once fan-out > 1 is wired (task 005), the parent
+            aggregates one ``SegmentResult``-derived entry per concurrent
+            child into this same shape.
+
+            Deferred to task 008 (see ``_EMIT_ACTIVE_SEGMENTS_MAP``): at cap=1
+            the single active segment is fully conveyed by ``active_segment_id``,
+            and a redundant single-entry map leaked stale ``preparing`` state
+            into the frontend on cold starts. Returns ``None`` until fan-out > 1
+            is live.
+            """
+            if not _EMIT_ACTIVE_SEGMENTS_MAP:
+                return None
+            if not sid:
+                return None
+            entry: dict[str, object] = {
+                "phase": phase,
+                "progress": round(float(progress), 4) if progress is not None else 0.0,
+                "eta_seconds": eta_seconds,
+            }
+            if reason_code is not None:
+                entry["reason_code"] = reason_code
+            if indeterminate is not None:
+                entry["indeterminate"] = bool(indeterminate)
+            return {sid: entry}
+
         def _publish_segment_started(sid: str) -> None:
             """Publish the canonical START_SEGMENT frame for *sid* at engine-confirmation time.
 
@@ -585,6 +702,9 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 completed_render_weight=completed_weight[0],
                 active_render_group_weight=id_to_weight.get(sid, 0),
                 grouped_progress=_get_grouped_progress(),
+                active_segments_map=_current_active_segments_map(
+                    phase="rendering", sid=sid, progress=0.0, reason_code="START_SEGMENT",
+                ),
             )
 
         def _resolve_active_engine_for_matching() -> str:
@@ -790,6 +910,10 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         active_render_group_weight=id_to_weight.get(active_seg_id[0], 0),
                         grouped_progress=_get_grouped_progress(),
                         force=True,
+                        active_segments_map=_current_active_segments_map(
+                            phase="preparing", sid=active_seg_id[0], progress=0.0,
+                            reason_code="LOADING_MODEL", indeterminate=True,
+                        ),
                     )
 
             if matched_marker == "MODEL_LOAD_STARTED":
@@ -884,6 +1008,10 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     active_render_group_weight=id_to_weight.get(_mls_attr_sid, 0) if _mls_attr_sid else 0,
                     grouped_progress=_get_grouped_progress(),
                     force=True,
+                    active_segments_map=_current_active_segments_map(
+                        phase="preparing", sid=_mls_attr_sid, progress=0.0,
+                        eta_seconds=_mls_eta, reason_code="LOADING_MODEL", indeterminate=True,
+                    ),
                 )
                 # Do NOT open a new pending_engine_activity interval here —
                 # the generic [ENGINE_ACTIVITY_STARTED] already opened it;
@@ -959,6 +1087,9 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     active_render_group_weight=id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0,
                     grouped_progress=_get_grouped_progress(),
                     force=False,
+                    active_segments_map=_current_active_segments_map(
+                        phase="rendering", sid=active_seg_id[0], progress=0.0,
+                    ),
                 )
                 # If a segment was pending confirmation, now publish its canonical START_SEGMENT frame.
                 if _pending_seg_id:
@@ -1044,6 +1175,9 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         completed_render_weight=completed_weight[0],
                         active_render_group_weight=id_to_weight.get(sid, 0),
                         grouped_progress=_get_grouped_progress(),
+                        active_segments_map=_current_active_segments_map(
+                            phase="preparing", sid=sid, progress=0.0, reason_code="SEGMENT_PENDING",
+                        ),
                     )
                     # Never confirm at announce: a prior START_SYNTHESIS belongs to an
                     # earlier group's subprocess in mixed renders. Confirmation comes
@@ -1149,6 +1283,13 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         completed_render_weight=completed_weight[0],
                         active_render_group_weight=id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0,
                         grouped_progress=_get_grouped_progress(),
+                        active_segments_map=_current_active_segments_map(
+                            phase="rendering",
+                            sid=active_seg_id[0],
+                            progress=raw_progress if (total_weight > 0 and active_seg_id[0] is not None) else p,
+                            eta_seconds=eta_seconds,
+                            reason_code="SEGMENT_PROGRESS",
+                        ),
                     )
                 except Exception:
                     pass
@@ -1273,6 +1414,9 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                             completed_render_weight=completed_weight[0],
                             active_render_group_weight=0,
                             grouped_progress=_get_grouped_progress(),
+                            active_segments_map=_current_active_segments_map(
+                                phase="done", sid=leader_id, progress=1.0, reason_code="SEGMENT_SAVED",
+                            ),
                         )
                         # NOTE: intentionally do NOT discard leader_id from
                         # segment_load_observed here. It is a "load observed this
@@ -1326,6 +1470,21 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     )
                 except Exception:
                     pass
+
+        def _finish(result: TaskResult) -> SegmentResult:
+            """Wrap a TaskResult with this call's isolated per-segment state
+            (W-PAR 003). Every ``return`` below routes through this so callers
+            always get the full SegmentResult regardless of which dispatch
+            path (registry handler / local execution / bridge) produced it.
+            """
+            return SegmentResult(
+                task_result=result,
+                timing=timing,
+                marker_state=marker_state,
+                segment_load_observed=segment_load_observed,
+                segment_starts=segment_starts,
+                segment_announced=segment_announced,
+            )
 
         if wd:
             wd.register_log_listener(log_listener)
@@ -1440,7 +1599,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 record_render_stats_if_completed(result, raw_result=result_val)
                 if wd:
                     wd.unregister_log_listener(log_listener)
-                return result
+                return _finish(result)
             except Exception as e:
                 logger.exception("Task %s: registry handler raised.", context.task_id)
                 import traceback
@@ -1450,10 +1609,10 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 kind = getattr(context, "task_type", "unknown")
                 if wd:
                     wd.unregister_log_listener(log_listener)
-                return TaskResult(
+                return _finish(TaskResult(
                     status="failed",
                     message=f"Handler raised exception: {tb_summary} [Handler: {handler_name} | Engine: {engine_id} | Kind: {kind}]",
-                )
+                ))
 
         try:
             # 2. Local fallback if explicitly opted-out of bridge dispatch
@@ -1480,7 +1639,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         msg = f"{msg}{debug_info}"
                     result = TaskResult(status="failed", message=msg, retriable=result.retriable)
                 record_render_stats_if_completed(result)
-                return result
+                return _finish(result)
 
             # 3. Bridge-backed dispatch
             elif callable(bridge_request_fn):
@@ -1503,7 +1662,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                                 msg = f"{msg}{debug_info}"
                             task_result = TaskResult(status="failed", message=msg, retriable=task_result.retriable)
                         record_render_stats_if_completed(task_result, raw_result=result)
-                        return task_result
+                        return _finish(task_result)
                     except Exception as exc:
                         logger.exception("Task %s: bridge dispatch raised.", context.task_id)
                         from app.engines.errors import EngineUnavailableError
@@ -1512,35 +1671,35 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                         tb_summary = "".join(traceback.format_exception_only(type(exc), exc)).strip()
                         engine_id = getattr(j, "engine", "unknown")
                         kind = getattr(context, "task_type", "unknown")
-                        return TaskResult(
+                        return _finish(TaskResult(
                             status="failed",
                             message=f"Bridge raised exception: {tb_summary} [Engine: {engine_id} | Kind: {kind}]",
                             retriable=is_retriable
-                        )
+                        ))
                 else:
                     engine_id = getattr(j, "engine", "unknown")
                     kind = getattr(context, "task_type", "unknown")
-                    return TaskResult(
+                    return _finish(TaskResult(
                         status="failed",
                         message=f"Task requires a voice bridge but returned no request payload. [Engine: {engine_id} | Kind: {kind}]"
-                    )
+                    ))
 
             engine_id = getattr(j, "engine", "unknown")
             kind = getattr(context, "task_type", "unknown")
-            return TaskResult(
+            return _finish(TaskResult(
                 status="failed",
                 message=f"Task type {context.task_type} has no handler and no bridge fallback. [Engine: {engine_id} | Kind: {kind}]"
-            )
+            ))
         except Exception as exc:
             logger.exception("Task %s: dispatch raised an exception.", context.task_id)
             import traceback
             tb_summary = "".join(traceback.format_exception_only(type(exc), exc)).strip()
             engine_id = getattr(j, "engine", "unknown")
             kind = getattr(context, "task_type", "unknown")
-            return TaskResult(
+            return _finish(TaskResult(
                 status="failed",
                 message=f"Dispatch error: {tb_summary} [Engine: {engine_id} | Kind: {kind}]"
-            )
+            ))
         finally:
             if wd:
                 wd.unregister_log_listener(log_listener)

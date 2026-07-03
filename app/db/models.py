@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Optional, Literal, List
+from dataclasses import dataclass, field
+from typing import Optional, Literal, List, Dict, Any
 
 JobEngineId = str
 JobKind = Literal["synthesis", "assembly", "voice_build", "voice_test", "mixed", "generic"]
@@ -57,6 +57,11 @@ class Job:
     completed_render_weight: int = 0
     active_render_group_weight: int = 0
     grouped_progress: float = 0.0
+    # W-PAR 003 (C2 contract): chapter-level snapshot of independently-tracked
+    # concurrent segments, keyed by segment_id. Additive field (INV-1/INV-9):
+    # absent or None at cap=1 means "no concurrent segments to report" and the
+    # frontend falls back to the singular active_segment_id path byte-identically.
+    active_segments_map: Optional[Dict[str, Dict[str, Any]]] = None
     active_render_batch_id: Optional[str] = None
     active_render_batch_progress: Optional[float] = None
     active_segment_eta_seconds: Optional[int] = None

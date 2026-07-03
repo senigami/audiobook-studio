@@ -1,9 +1,9 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.8.0
+spec_version: 1.9.2
 status: active
-updated: 2026-07-02
+updated: 2026-07-03
 sources:
   - app/api/ws.py
   - app/api/contracts/events.py
@@ -21,6 +21,9 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.9.2   | 2026-07-03 | **`active_segments_map` live emission ENABLED (W-PAR 008, the enable-gate).** `_EMIT_ACTIVE_SEGMENTS_MAP` flipped `True` in `orchestrator_helpers.py`. The generation.py chapter-render path now constructs `ChapterSynthesisTask` (concurrent fan-out) for engines using segment orchestration instead of the sequential `SynthesisTask`; each `SegmentSynthesisTask` child renders via `make_dispatch_segment_bridge_call`, reusing `_dispatch_segment`'s existing per-segment isolation (mixed-engine children call `render_one_group` directly — extracted from `handle_mixed_job`, which itself is unchanged for any other caller — never the full chapter-terminal handler; non-mixed children route through the existing bridge path). At genuine cap > 1 the parent (`ChapterSynthesisTask._current_active_segments_map`) aggregates ONE entry per truly in-flight child, keyed by the child's real segment/leader id (never the synthetic per-child task_id) — the first time this spec's map has more than one entry outside a single `_dispatch_segment` call's own sequential single-entry-at-a-time emission (which remains correct and unchanged for a single dispatch unit processing multiple groups serially). At cap=1 (today's default; a manifest must explicitly raise `max_concurrent_workers` to enable visible parallelism) the map still emits single-entry frames identical in shape to 1.9.0/1.9.1 — INV-1 is preserved via a dedicated byte-identical event-sequence regression test comparing the old sequential path against the new fan-out path for an identical single-group chapter. **Also (R3, deliberate, not a regression):** render-performance samples (`record_render_sample`, INV-6 sole-writer) are now recorded per concurrently-rendered group (one sample per `SegmentSynthesisTask`/synthetic child) rather than once per whole chapter for segment-orchestrated engines — more granular calibration data; the orchestrator remains the sole writer regardless of granularity. **Review-pass amendments (same change, 2026-07-03):** a parent-map entry requires a child that has genuinely STARTED and not yet resolved (presence == in flight; queued children are excluded); the parent publishes progress/map updates per child completion (not in a terminal burst); and the parent emits an explicit EMPTY `active_segments_map` (`{}`) on any terminal outcome so the frontend's map-branch never keeps finished segments in a rendering state. |
+| 1.9.1   | 2026-07-03 | **`active_segments_map` live emission deferred to task 008 (fan-out > 1).** At cap=1 the single active segment is fully conveyed by `active_segment_id`; emitting a redundant single-entry map let stale `preparing` entries — created only during the cold-start model-load window — accumulate in the frontend overlay and override the correct single-active derivation, freezing completed segments gray until the job ended ("black all at once" on cold starts). The field remains defined (§ below) but is **not emitted** at cap=1: `_current_active_segments_map` returns `None` behind `_EMIT_ACTIVE_SEGMENTS_MAP = False` in `orchestrator_helpers.py`. Task 008's parent aggregation (genuine concurrent fan-out) flips the flag on and emits a real multi-entry map. Frontend consumption (W-PAR 006) is unchanged and dormant until then. INV-1 restored: cap=1 frames carry no map, identical to pre-003. |
+| 1.9.0   | 2026-07-02 | **`active_segments_map` (W-PAR 003, C2 contract) — additive field on `queue_item_status`.** A new, purely additive `active_segments_map?: Record<string, {phase: 'preparing'\|'rendering'\|'done', progress: number, eta_seconds: number\|null, reason_code?: string, indeterminate?: boolean}>` field may ride the `queue.items`/`queue_item_status` payload (snake_case on the wire — no camelCase variant, matching the frontend adapter). It is the chapter-level snapshot the orchestrator's per-segment dispatch (`_dispatch_segment`, `orchestrator_helpers.py`) publishes for whichever segment(s) are currently active; `phase`/`indeterminate` generalize the existing single-segment `LOADING_MODEL`/`SEGMENT_PENDING`/`SEGMENT_PROGRESS`/`SEGMENT_SAVED` reason-code lifecycle into a per-segment map entry. **Absent or omitted at cap=1** unless the dispatch path actually has an active segment to report — the existing single-active `active_segment_id`/`segments.progress` fields and event sequence are byte-identical (INV-1); this is additive-only (INV-9: no new wire channel, same `chapter progress`/`queue.items` frame). The per-segment `segments.progress` transition emission in `broadcast_job_updated` (§"per-segment render clock") is unchanged in this version — it remains correct at the current N=1 fan-out and will be reworked to emit from each concurrent child's own completion when fan-out > 1 is wired (task 005/enable-gate, not this version). |
 | 1.8.0   | 2026-07-02 | **`pre_load_eta` proactive frame (W-MIX-LA load-aware ETA); amends the "indeterminate + non-null etaSeconds forbidden" invariant.** Doc catch-up for behavior that shipped in `64a39c34` and has been described in `progress-presentation.md` since 1.8.0 — this spec (the wire contract) had not been updated to match. Two frames now carry a positive `eta_seconds` outside plain `running`, both keyed off `expected_model_load_seconds` DB history for the engine: **(1)** a `pre_load_eta` frame, `status="preparing"`, emitted once at dispatch start when the TTS-server `/health` response shows `model_warm=false` and load history exists — `eta_seconds = round(synthesis_expected + load_term)`, NOT indeterminate (this is a determinate preparing-phase countdown, distinct from the `LOADING_MODEL` frame below). **(2)** the `LOADING_MODEL` frame (§"Model-load preparing window") MAY now carry a positive reconciled `eta_seconds = synthesis_remaining + decaying_load_remainder` instead of always clearing to `null` — the 1.7.0/1.7.1 "always-null suspension" framing is superseded for this case; `indeterminate: true` and a positive `eta_seconds` together is now **allowed and expected** on this frame. If no load history exists at either point, `eta_seconds` stays `null` (unchanged fallback). The 1.5.3 invariant "a frame MUST NOT carry `indeterminate: true` together with a non-null `etaSeconds`" is **removed** — see the amended Invariants entry below. Mirrors `progress-presentation.md` I10 (amended 1.8.0). |
 | 1.7.1   | 2026-06-26 | **ETA suspension is load-marker-gated, not every-announce.** The `SEGMENT_PENDING` announce frame is now ETA-neutral (`eta_seconds: null`, no clear/indeterminate/force) so it preserves the prior ETA and warm single-engine renders don't flash at every segment boundary. The clear + `indeterminate=true` + force suspension fires only on a real model-load marker for the active render-group engine, via a `LOADING_MODEL` frame (the mixed handler's generic `[ENGINE_ACTIVITY_STARTED]` placeholder does not trigger it). Refines 1.7.0. |
 | 1.7.0   | 2026-06-26 | **Model-load preparing window: LOADING_MODEL frames CLEAR the persisted ETA (null + explicit clear, not merely omitted), carry `indeterminate=true` with cleared segment + chapter ETA, are force-emitted (below the ≥1% threshold), keep authoritative progress unchanged, and keep durable `status=running` — the preparing state is a per-group phase via `reason_code`, never a `running→preparing` regression (INV-1). Pacing resumes from a fresh ETA on engine confirmation. Backend signals for the mixed model-load fix (W3). See §Per-segment ETA clock semantics "Model-load preparing window".** |
@@ -174,8 +177,28 @@ interface QueueItemPayload {
   producedAudioLength?: number | null;
   producedChars?: number | null;
   producedSegmentCount?: number | null;
+  active_segments_map?: Record<string, {           // W-PAR 003, C2 contract (1.9.0)
+    phase: 'preparing' | 'rendering' | 'done';
+    progress: number;                              // 0.0–1.0
+    eta_seconds: number | null;
+    reason_code?: string;
+    indeterminate?: boolean;
+  }> | null;
 }
 ```
+
+`active_segments_map` (added 1.9.0, W-PAR 003) is **snake_case on the wire** —
+deliberately inconsistent with the rest of this camelCase payload — because
+the frontend adapter (`jobEventAdapters.ts`) reads it directly with no
+camelCase variant (see the C2 contract in
+`design-docs/plans/active/parallel-segment-rendering/tasks/003-per-segment-dispatch-isolation.md`).
+It is **additive and optional**: absent whenever the orchestrator has no
+concurrent-segment snapshot to publish (this includes today's cap=1 path,
+where `_dispatch_segment`'s single active-segment entry rides the map, but
+the field can be entirely omitted without changing any other behavior).
+`phase`/`indeterminate` are mandatory when an entry is present — `preparing`
+must be observable before `rendering` so the frontend's preparing/load pulse
+is not dropped (generalizes the W-MIX-LA single-segment load attribution).
 
 ### `chapters.progress` / `chapter_progress`
 

@@ -46,6 +46,7 @@ class OrchestratorPublishMixin:
         indeterminate: bool | None = None,
         loading_elapsed_seconds: float | None = None,
         clear_eta: bool = False,
+        active_segments_map: dict[str, dict] | None = None,
     ) -> None:
         # Derive char_count once from context payload (chapter-total chars for chapter jobs,
         # script_text length for single-unit synthesis/api tasks).  A pre-stashed integer
@@ -205,6 +206,7 @@ class OrchestratorPublishMixin:
                     active_render_group_weight=active_render_group_weight,
                     grouped_progress=grouped_progress,
                     has_segment_support=has_segment_support,
+                    active_segments_map=active_segments_map,
                 )
                 put_job(job)
             else:
@@ -228,6 +230,13 @@ class OrchestratorPublishMixin:
                     "grouped_progress": grouped_progress,
                     "has_segment_support": has_segment_support,
                 }
+                if active_segments_map is not None:
+                    # W-PAR 003 (C2 contract): additive field (INV-1/INV-9) —
+                    # only written when the caller actually has a concurrent-
+                    # segment snapshot to report. Absent at cap=1 unless the
+                    # caller opts in, so the existing single-active fields
+                    # above are unaffected either way.
+                    updates["active_segments_map"] = active_segments_map
                 if eta_seconds is not None:
                     updates["eta_seconds"] = eta_seconds
                 elif clear_eta:

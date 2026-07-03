@@ -421,6 +421,7 @@ def build_queue_item_status_event(
     confidence: float | None = None,
     indeterminate: bool | None = None,
     loading_elapsed_seconds: float | None = None,
+    active_segments_map: dict | None = None,
 ) -> dict:
     """Build a queue.items status envelope."""
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
@@ -456,6 +457,10 @@ def build_queue_item_status_event(
         payload["indeterminate"] = bool(indeterminate)
     if loading_elapsed_seconds is not None:
         payload["loadingElapsedSeconds"] = round(float(loading_elapsed_seconds), 1)
+    if active_segments_map is not None:
+        # W-PAR 003 (C2 contract): snake_case on the wire — no camelCase variant.
+        # The frontend adapter (jobEventAdapters.ts) reads this key directly.
+        payload["active_segments_map"] = active_segments_map
     resolved_source = source or _resolve_source_path()
     return build_studio_event(
         topic="queue.items",
