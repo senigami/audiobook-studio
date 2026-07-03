@@ -9,6 +9,11 @@ studio.db
 studio.db-journal
 db.sqlite3
 db.sqlite3-journal
+# WAL mode (W-PAR 005) writes -wal/-shm sidecar files next to every DB
+*.db-wal
+*.db-shm
+*.sqlite3-wal
+*.sqlite3-shm
 state.json
 /projects/
 /voices/
