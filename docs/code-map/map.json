@@ -1,6 +1,6 @@
 {
   "meta": {
-    "synced_commit": "821c0ca9d74e56269a65ea329de3e33269ff7839",
+    "synced_commit": "310b9a09ea362c020b1f7277e3bdc932b7bfec9c",
     "file_hashes": {
       "app/studio_plugin_sdk/__init__.py": "5da2a06a96e7600c",
       "app/studio_plugin_sdk/_import_utils.py": "e242aac00e0fd063",
@@ -19,7 +19,7 @@
       "app/db/state_helpers.py": "6719ec15f38a704f",
       "app/db/state_performance.py": "ce05ffaf47f96f82",
       "app/db/state_settings.py": "f0d89778e6b32080",
-      "app/db/models.py": "639c035b83086787",
+      "app/db/models.py": "d5490bbdd74440f3",
       "app/db/segment_gc.py": "9b85151bcbd2c1d0",
       "app/db/segments.py": "c25194fc589edb2a",
       "app/db/legacy_migration.py": "b37f5370c77eaa3d",
@@ -42,7 +42,7 @@
       "app/db/state.py": "7995a7b43fdf765c",
       "app/api/web.py": "1161d62f68b5eac9",
       "app/api/__init__.py": "e5c803401ba5b01e",
-      "app/api/ws.py": "64f3bbd6a7fd7cd6",
+      "app/api/ws.py": "a4d439948add5888",
       "app/api/tts_api.py": "71f7640cd6e5847e",
       "app/api/utils.py": "8e3951b1deafcbc9",
       "app/api/routers/chapters_production.py": "411bfea9d8ab404b",
@@ -53,7 +53,7 @@
       "app/api/routers/chapters_models.py": "10198aa990971051",
       "app/api/routers/projects_assembly.py": "0e7fe0d7c34f52f3",
       "app/api/routers/voices_management.py": "d35c99c358411b41",
-      "app/api/routers/voices_metadata.py": "8a0be4d2e31cb278",
+      "app/api/routers/voices_metadata.py": "79bfbf7882d91cf1",
       "app/api/routers/voices_actions.py": "6660e0e92f62a152",
       "app/api/routers/voices_helpers.py": "6cfc4af0e80da275",
       "app/api/routers/voices_characters.py": "b9269f53cbccd213",
@@ -62,13 +62,13 @@
       "app/api/routers/chapters_assets.py": "faaff92446e0af4b",
       "app/api/routers/projects_backups.py": "41fd3933ce535125",
       "app/api/routers/projects.py": "440182c2c46ed345",
-      "app/api/routers/generation.py": "b0e9796777727c24",
+      "app/api/routers/generation.py": "3a40d3b995adc4c1",
       "app/api/routers/system.py": "59ccdd76aaf1a404",
       "app/api/routers/analysis.py": "60cf76172658c1cb",
       "app/api/routers/engines.py": "b09ec84eb077b03e",
       "app/api/routers/migration.py": "a17d3801ee651383",
       "app/api/routers/__init__.py": "fdda29004d31c3ec",
-      "app/api/contracts/events.py": "2932050918106adf",
+      "app/api/contracts/events.py": "1f0d29f6a343c5cb",
       "app/api/contracts/__init__.py": "fe13f0574c50ea53",
       "app/engines/official_registry.py": "378b3a2e51866f40",
       "app/engines/enablement.py": "9d8476e2fb533f95",
@@ -93,16 +93,16 @@
       "app/domain/voices/preview.py": "90c1dd8c70d76dc0",
       "app/domain/voices/service.py": "85a08a4152c3a827",
       "app/domain/voices/compatibility.py": "d56dd76a62f12aca",
-      "app/domain/voices/metadata.py": "cc255ae1876c9221",
+      "app/domain/voices/metadata.py": "5b9bba6cbd05d8ff",
       "app/domain/voices/models.py": "0ed423d8674b8dc5",
       "app/domain/voices/manifest.py": "d7fd1802a048c17f",
       "app/domain/voices/bundles.py": "5f51135a8d7fc208",
       "app/domain/voices/__init__.py": "b28d34802b836e32",
-      "app/domain/voices/taxonomy.py": "bc725c771b160e96",
+      "app/domain/voices/taxonomy.py": "28a3dc7d30a6cf54",
       "app/domain/voices/repository.py": "191ccac8d6123e4c",
       "app/domain/voices/migration.py": "526ed0d02756b4db",
       "app/domain/voices/samples.py": "c4164cc3403ae726",
-      "app/domain/chunk_groups.py": "9f63b099ca550751",
+      "app/domain/chunk_groups.py": "f7a6a313396daf8b",
       "app/domain/__init__.py": "958cb0517b6dd775",
       "app/domain/demo_bundle.py": "8b39776c5afa8195",
       "app/domain/text/analysis.py": "e5072a897515be10",
@@ -141,8 +141,8 @@
       "app/domain/settings/repository.py": "a9066d4eef190928",
       "app/orchestration/__init__.py": "826dd61a6736d7d1",
       "app/orchestration/tasks/__init__.py": "58bbb52d9bf9a907",
-      "app/orchestration/tasks/base.py": "9dc3a386403bb397",
-      "app/orchestration/tasks/synthesis.py": "05abd921c1376fad",
+      "app/orchestration/tasks/base.py": "53d85255beec1319",
+      "app/orchestration/tasks/synthesis.py": "ea9c35aa97a50888",
       "app/orchestration/tasks/api_synthesis.py": "e5eeeda55f66fa56",
       "app/orchestration/tasks/assembly.py": "f381aaea9f5d6814",
       "app/orchestration/tasks/bake.py": "e107dd0a364e7af1",
@@ -150,10 +150,10 @@
       "app/orchestration/tasks/sample_build.py": "11da3342482ec119",
       "app/orchestration/tasks/sample_test.py": "098aedbd64526c7a",
       "app/orchestration/scheduler/__init__.py": "28b3e5b343333ad1",
-      "app/orchestration/scheduler/orchestrator.py": "f0cbcd7d8702d746",
-      "app/orchestration/scheduler/orchestrator_helpers.py": "0e6bdbbf06bbfefe",
+      "app/orchestration/scheduler/orchestrator.py": "abec94df87020280",
+      "app/orchestration/scheduler/orchestrator_helpers.py": "715e587e6d916ab9",
       "app/orchestration/scheduler/orchestrator_eta.py": "259b67369779bb28",
-      "app/orchestration/scheduler/orchestrator_publish.py": "a4219930ac15e041",
+      "app/orchestration/scheduler/orchestrator_publish.py": "fd1d656f6940a2e1",
       "app/orchestration/scheduler/resources.py": "7991cee7bb0037ab",
       "app/orchestration/scheduler/policies.py": "4a23d243516fe50b",
       "app/orchestration/scheduler/recovery.py": "202b9859df3d26fe",
@@ -202,7 +202,7 @@
       "frontend/src/store/bookmarks.ts": "847c540d15c72d77",
       "frontend/src/store/notifications.ts": "a2df6ed4bdc76077",
       "frontend/src/store/editor-session.ts": "d0e68bd07ad69515",
-      "frontend/src/store/live-jobs.ts": "a717981e35f51e8e",
+      "frontend/src/store/live-jobs.ts": "27da820f45aaf604",
       "frontend/src/store/playerBus.ts": "a5db63eb864a5958",
       "frontend/src/store/liveEventAuditStore.ts": "9bd9feb27b91f973",
       "frontend/src/components/CharactersTab.tsx": "7ea4398e3b25d515",
@@ -244,7 +244,7 @@
       "frontend/src/api/types.ts": "7ad12a1c0424c0a9",
       "frontend/src/api/client.ts": "1a32c98dcb4b793c",
       "frontend/src/api/index.ts": "906d18e1ef907dc8",
-      "frontend/src/api/hydration/index.ts": "5c22f7b280f98ac3",
+      "frontend/src/api/hydration/index.ts": "f3c32a9791eb949f",
       "frontend/src/api/contracts/liveEvents.ts": "3826ef429e236a39",
       "frontend/src/api/contracts/events.ts": "05be9e712857b0a4",
       "frontend/src/api/queries/index.ts": "e507b68ccb96122a",
@@ -262,7 +262,7 @@
       "frontend/src/pages/Book/studio/CastPalette.tsx": "4480c600524ed5bd",
       "frontend/src/pages/Book/studio/TempCharacterModal.tsx": "8eef636954496ef0",
       "frontend/src/pages/Book/studio/RenderControlsStrip.tsx": "c92f06be94accdcd",
-      "frontend/src/pages/Book/studio/useStudioChapter.ts": "9f99d8611bf35972",
+      "frontend/src/pages/Book/studio/useStudioChapter.ts": "6a347b15aa39892e",
       "frontend/src/pages/Book/studio/StudioHeaderActions.tsx": "a689df04abef0dfb",
       "frontend/src/pages/Book/studio/AnalysisStrip.tsx": "26d38f06dfb3a235",
       "frontend/src/pages/Book/stages/BackupsStage.tsx": "c621dc4f24f8de9d",
@@ -343,12 +343,12 @@
       "frontend/src/utils/queueLabels.ts": "0bf948b9cf526df9",
       "frontend/src/utils/segmentProgressSelection.ts": "6af0c5cc8a52fc60",
       "frontend/src/utils/runtimeDebug.ts": "2c970cca1a106149",
-      "frontend/src/utils/jobEventAdapters.ts": "c348a4bdea216d84",
+      "frontend/src/utils/jobEventAdapters.ts": "a0c934a0e652ae17",
       "frontend/src/utils/chunkGroups.ts": "d00700eb60f1083f",
       "frontend/src/utils/performanceTabHelpers.ts": "d7fbb554ad9eba6d",
       "frontend/src/utils/queueItemDebugPayload.ts": "081fcf72b6985261",
       "frontend/src/utils/devMode.ts": "41a63e90bd7a6f4b",
-      "frontend/src/utils/queueOverlayFields.ts": "eac5ed37ca57e670",
+      "frontend/src/utils/queueOverlayFields.ts": "40acb4a8e03d9ccb",
       "frontend/src/utils/format.ts": "8de06866c0734883",
       "frontend/src/utils/railState.ts": "9da57eead3d0278f",
       "frontend/src/utils/segmentsProgressProjector.ts": "b11ebdde4a376b59",
@@ -493,7 +493,7 @@
       "plugins/tts_voxtral/plugin/server/engine.py": "51a9eaf91b9065ca",
       "plugins/tts_mixed/__init__.py": "04cb5e010a8bcaaf",
       "plugins/tts_mixed/engine.py": "43cea6ae577f0629",
-      "plugins/tts_mixed/handler.py": "73d3b7d81307301a",
+      "plugins/tts_mixed/handler.py": "e79c91745c96f4c3",
       "app/api/routers/settings.py": "6b8ef3a3a6d6575e",
       "app/api/routers/voices.py": "c334c0a6b40d8b2c",
       "plugins/tts_xtts/__init__.py": "946a854181ea4126",
@@ -501,7 +501,11 @@
       "plugins/tts_xtts/plugin/core/__init__.py": "42396285e612540c",
       "plugins/tts_xtts/plugin/server/__init__.py": "02b06e7081f8c5c2",
       "plugins/tts_xtts/plugin/studio/__init__.py": "6cbef4cb5383d81c",
-      "frontend/src/pages/Voices/components/index.ts": "e2f8defc9e91616c"
+      "frontend/src/pages/Voices/components/index.ts": "e2f8defc9e91616c",
+      "app/orchestration/tasks/segment_synthesis.py": "2975ee2364116b73",
+      "app/domain/voices/huggingface.py": "f10ad0597eed5a07",
+      "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx": "456d0bf22e40e272",
+      "frontend/src/i18n/index.ts": "4036184f4e4c1935"
     },
     "shards": [],
     "unmapped": [
@@ -571,7 +575,7 @@
         "app/engines/audio_ops.py#stitch_segments",
         "app/api/ws.py#broadcast_job_updated (weighted grouped_progress)"
       ],
-      "carries": "one chapter split into groups by character/profile/engine; each group rendered through its own sub-engine via bridge; markers (START_SEGMENT/PROGRESS/SEGMENT_SAVED) drive weighted chapter-level progress across heterogeneous engine speeds; final stitch into one chapter WAV",
+      "carries": "one chapter split into groups by character/profile/engine; each group rendered through its own sub-engine via bridge; markers (START_SEGMENT/PROGRESS/SEGMENT_SAVED) drive weighted chapter-level progress across heterogeneous engine speeds; final stitch into one chapter WAV (this is the sequential path, still live at cap=1 or for non-segment-orchestrated callers; see parallel-segment-fanout for the concurrent path once a manifest raises max_concurrent_workers)",
       "invariant": "INV-6: the orchestrator/worker_metrics owns performance-sample writing; the mixed handler itself never records calibration metrics to avoid poisoning ETA history"
     },
     {
@@ -644,8 +648,23 @@
         "frontend/src/utils/queueOverlayFields.ts#pickOverlayFields",
         "frontend/src/components/queue/GlobalQueue.tsx"
       ],
-      "carries": "REST snapshot on load/reconnect is merged with live WebSocket overlays; events arriving before the first snapshot are buffered (F3) and replayed once hydrated; only queue.items may create/rewrite rows, everything else overlays a fixed field allowlist",
+      "carries": "REST snapshot on load/reconnect is merged with live WebSocket overlays; events arriving before the first snapshot are buffered (F3) and replayed once hydrated; only queue.items may create/rewrite rows, everything else overlays a fixed field allowlist; active_segments_map (W-PAR 006) rides the same queue.items frame as an additive overlay field",
       "invariant": "reconnect prunes overlays older than (hydratedAtSeconds - 5s); the poll/refresh path does NOT prune (server timestamps may lag wall-clock) \u2014 asymmetric on purpose"
+    },
+    {
+      "id": "parallel-segment-fanout",
+      "path": [
+        "app/api/routers/generation.py#_build_chapter_synthesis_task",
+        "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask.run",
+        "app/orchestration/scheduler/orchestrator_helpers.py#_dispatch (is_chapter_fanout branch -> task.run() directly)",
+        "app/orchestration/tasks/segment_synthesis.py#make_dispatch_segment_bridge_call -> _SyntheticSegmentTask",
+        "app/orchestration/scheduler/orchestrator_helpers.py#_dispatch_segment (reused per child, INV-6 isolation)",
+        "plugins/tts_mixed/handler.py#render_one_group (per-child, NOT handle_mixed_job)",
+        "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask.run (stitch barrier: futures.wait(ALL_COMPLETED) then sort by segment_order)",
+        "app/api/ws.py#broadcast_job_updated (active_segments_map, additive C2)"
+      ],
+      "carries": "a chapter render for a segment-orchestrated engine fans its chunk groups into concurrent children (bounded by the per-engine-class semaphore); each child reuses _dispatch_segment's per-segment isolation via a synthetic one-group task rather than calling handle_mixed_job directly; completed children join at an explicit ALL_COMPLETED barrier and stitch in manuscript order regardless of completion order",
+      "invariant": "cap=1 (today's default) is byte-identical to the pre-fanout sequential SynthesisTask/handle_mixed_job path (INV-1); the chapter-fanout PARENT itself must never flow through _dispatch_segment (would register a spurious idle log_listener); a concurrent child must never call handle_mixed_job directly (would re-trigger chapter-terminal stitch/DB-rebuild once per child instead of once per chapter)"
     }
   ],
   "invariants": [
@@ -1573,7 +1592,8 @@
       "notes": [
         "classification property: returns 'job'|'chapter'|'segment' based on chapter_id+segment_ids+active_segment_id",
         "finalizing is treated as running at runtime (never persists)",
-        "eta_basis, eta_confidence, reason_code, grouped_progress, active_segment_* fields support detailed progress tracking"
+        "eta_basis, eta_confidence, reason_code, grouped_progress, active_segment_* fields support detailed progress tracking",
+        "Job.active_segments_map: optional additive field, only written/broadcast when non-None"
       ]
     },
     "app/db/segment_gc.py": {
@@ -2702,7 +2722,8 @@
       "notes": [
         "broadcast_job_updated is central bottleneck: always enriches with \u00a74A confidence/ETA unless skip_studio_job_event",
         "terminal latch prevents post-terminal frame re-entry",
-        "FIX 5: enrich failure sets safe confidence floor"
+        "FIX 5: enrich failure sets safe confidence floor",
+        "_emit_queue_item_status_frame reads merged.get('active_segments_map') and passes it to build_queue_item_status_event (additive C2 field); transition-inferred SEGMENT_SAVED emission is unchanged, correct only while fan-out stays effectively N=1-active-at-a-time per chapter"
       ]
     },
     "app/api/tts_api.py": {
@@ -2961,7 +2982,9 @@
       "called_by": [
         "app/api/routers/voices.py"
       ],
-      "notes": []
+      "notes": [
+        "patch_voice_metadata accepts+persists provenance (whole-block replace, not merge \u2014 see voice-bundles.md sec8.1); RuntimeError from update_voice_metadata -> 500"
+      ]
     },
     "app/api/routers/voices_actions.py": {
       "purpose": "Voice profile action endpoints: test text, settings, build samples, test synthesis",
@@ -3162,6 +3185,11 @@
         {
           "name": "api_render_chapter",
           "kind": "function"
+        },
+        {
+          "name": "_build_chapter_synthesis_task",
+          "kind": "function",
+          "contract": "for uses_segment_orchestration(engine_id): constructs ChapterSynthesisTask with max_concurrent_workers from the per-engine manifest cap; used by api_add_to_queue and api_bake_chapter; the segment-scoped 'render these specific segments' endpoint is unchanged (still SynthesisTask)"
         }
       ],
       "calls": [
@@ -3171,7 +3199,9 @@
         "app/engines/voice_engines.py#*",
         "app/engines/bridge.py#create_voice_bridge",
         "app/engines/behavior.py#supports_bake_rendering,supports_mixed_rendering,supports_standard_rendering,uses_segment_orchestration",
-        "app/api/ws.py#broadcast_chapter_updated,broadcast_queue_update"
+        "app/api/ws.py#broadcast_chapter_updated,broadcast_queue_update",
+        "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask",
+        "app/domain/chunk_groups.py#build_script_entry_for_group"
       ],
       "called_by": [],
       "notes": [
@@ -3305,7 +3335,8 @@
         "app/api/ws.py"
       ],
       "notes": [
-        "topics: jobs.lifecycle, queue.items, chapters.progress, segments.progress each with allowed command set"
+        "topics: jobs.lifecycle, queue.items, chapters.progress, segments.progress each with allowed command set",
+        "build_queue_item_status_event gained an active_segments_map kwarg (additive C2 contract, live-events.md 1.9.0/1.9.1), snake_case wire key"
       ]
     },
     "app/api/contracts/__init__.py": {
@@ -4060,14 +4091,17 @@
       "calls": [
         "app/domain/voices/manifest.py#*",
         "app/domain/voices/taxonomy.py#validate_attributes_strict",
-        "app/utils/pathing.py#find_secure_file"
+        "app/utils/pathing.py#find_secure_file",
+        "app/domain/voices/taxonomy.py#validate_provenance_strict"
       ],
       "called_by": [
         "app/api/routers/voices_metadata.py"
       ],
       "notes": [
         "voice ID fallback: manifest id -> dirname slug",
-        "casting scoring: class/gender/age 0.25 each + tone/timbre/accent 0.05 each, fallback floor 0.1"
+        "casting scoring: class/gender/age 0.25 each + tone/timbre/accent 0.05 each, fallback floor 0.1",
+        "update_voice_metadata accepts an optional provenance kwarg (whole-block replace on write, not merge)",
+        "raises RuntimeError (mapped to 500 by the router) when save_voice_manifest returns False \u2014 previously silently served stale pre-write data under a 200"
       ]
     },
     "app/domain/voices/models.py": {
@@ -4149,6 +4183,11 @@
         {
           "name": "check_taxonomy_version, validate_and_degrade_attributes, validate_attributes_strict, get_valid_values",
           "kind": "function"
+        },
+        {
+          "name": "validate_provenance_strict",
+          "kind": "function",
+          "contract": "source must be one of recorded/cloned/imported/designed; free-form string fields (author, created_at) capped at 512 chars; unknown fields rejected (422), never demoted"
         }
       ],
       "calls": [],
@@ -4222,6 +4261,11 @@
         {
           "name": "load_chunk_segments, resolve_segment_profile_name, build_chunk_groups, get_chunk_group_indexes_for_segment_ids, format_chunk_group_label, build_chapter_queue_title, build_segment_job_title",
           "kind": "function"
+        },
+        {
+          "name": "build_script_entry_for_group",
+          "kind": "function",
+          "contract": "R2 extraction: per-group script-entry building (id/ids/save_path/weight/text/engine/speaker_wav/voice_profile_dir), shared by generation.py's chapter script builder and the per-child synthetic-task path"
         }
       ],
       "calls": [
@@ -4236,7 +4280,8 @@
         "app/jobs/worker_helpers.py",
         "app/orchestration/tasks/base.py",
         "app/studio_plugin_sdk/context.py",
-        "plugins/tts_mixed/handler.py"
+        "plugins/tts_mixed/handler.py",
+        "app/orchestration/tasks/segment_synthesis.py"
       ],
       "notes": [
         "groups coalesce adjacent segments with same character/profile/engine",
@@ -4914,7 +4959,8 @@
         "app/orchestration/scheduler/recovery.py"
       ],
       "notes": [
-        "get_expected_duration returns None (no hardcoded default) with no history"
+        "get_expected_duration returns None (no hardcoded default) with no history",
+        "TaskResult gained an additive output_path: str | None = None field so a concurrent child can report its validated artifact path to the parent's stitch barrier"
       ]
     },
     "app/orchestration/tasks/synthesis.py": {
@@ -4944,7 +4990,8 @@
       ],
       "notes": [
         "is_marker_driven=True suppresses generic running event",
-        "prefers_local_execution=True only for mixed engine"
+        "prefers_local_execution=True only for mixed engine",
+        "segment-orchestrated engines now route through segment_synthesis.py#ChapterSynthesisTask instead (see generation.py#_build_chapter_synthesis_task); this class remains the path for non-segment-orchestrated engines and the segment-scoped 'render these specific segment_ids' endpoint (unchanged, out of scope for W-PAR)"
       ]
     },
     "app/orchestration/tasks/api_synthesis.py": {
@@ -5094,7 +5141,8 @@
       ],
       "notes": [
         "forbidden: app.jobs.worker, app.jobs.core, app.db.queue direct import",
-        "submit flow: validate->publish queued->reconcile->reserve->dispatch->publish result"
+        "submit flow: validate->publish queued->reconcile->reserve->dispatch->publish result",
+        "_reconstruct_task branches on task_type=='synthesis' + uses_segment_orchestration -> _reconstruct_chapter_task_from_context (rebuilds chunk-group script from DB, wires needs_render_fn/resolve_existing_output_fn/stitch_fn for K-of-N recovery); falls back to SynthesisTask.from_task_context on any resolution failure"
       ]
     },
     "app/orchestration/scheduler/orchestrator_helpers.py": {
@@ -5107,6 +5155,16 @@
         {
           "name": "_claim_to_dict",
           "kind": "function"
+        },
+        {
+          "name": "_dispatch_segment",
+          "kind": "function",
+          "contract": "owns the full per-call isolated closure scope (timing/markers/model-load state); returns SegmentResult"
+        },
+        {
+          "name": "SegmentResult",
+          "kind": "class",
+          "contract": "dataclass: task_result, timing, marker_state, segment_load_observed, segment_starts, segment_announced"
         }
       ],
       "calls": [
@@ -5115,12 +5173,17 @@
         "app/orchestration/scheduler/orchestrator_publish.py#OrchestratorPublishMixin",
         "app/jobs/registry.py#get_handler_registry",
         "app/db/models.py#Job",
-        "app/utils/render_trace.py#trace"
+        "app/utils/render_trace.py#trace",
+        "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask.is_chapter_fanout (dispatch branch)"
       ],
       "called_by": [
         "app/orchestration/scheduler/orchestrator.py"
       ],
-      "notes": []
+      "notes": [
+        "_dispatch is now a 2-line thin fan-out driver delegating to _dispatch_segment (keystone INV-6, per-segment isolation for concurrency)",
+        "one-line is_chapter_fanout branch: if getattr(task, 'is_chapter_fanout', False): return task.run() \u2014 bypasses _dispatch_segment entirely for chapter-fan-out parents",
+        "_EMIT_ACTIVE_SEGMENTS_MAP module flag gates active_segments_map emission; flipped True once genuine multi-entry aggregation exists (W-PAR 008) \u2014 previously caused a cold-start regression (stale preparing-phase entries leaking into the frontend overlay at cap=1) before being gated off, then re-enabled once true multi-entry semantics existed"
+      ]
     },
     "app/orchestration/scheduler/orchestrator_eta.py": {
       "purpose": "ETA/duration estimation helpers for orchestrator dispatch",
@@ -5163,7 +5226,8 @@
       ],
       "notes": [
         "progress regression guard clamps decreasing progress at same status",
-        "0% not special-cased as 'not started'"
+        "0% not special-cased as 'not started'",
+        "active_segments_map (optional _publish kwarg) only written when non-None; stalled_segments has NO corresponding _publish kwarg yet (deferred, unlike active_segments_map which is fully wired end-to-end)"
       ]
     },
     "app/orchestration/scheduler/resources.py": {
@@ -6212,7 +6276,8 @@
         "frontend/src/pages/Queue/QueueRoute.tsx"
       ],
       "notes": [
-        "stale event rejection, status precedence, monotonic progress"
+        "stale event rejection, status precedence, monotonic progress",
+        "OverlayDelta threads active_segments_map (W-PAR 006, additive C2 contract) alongside StudioJobEvent"
       ]
     },
     "frontend/src/store/playerBus.ts": {
@@ -6848,7 +6913,8 @@
       ],
       "notes": [
         "FINALIZING_HOLD_ENGINES=['mixed']",
-        "terminal overlays held 30s before removal"
+        "terminal overlays held 30s before removal",
+        "merge path threads active_segments_map alongside existing overlay fields (W-PAR 006)"
       ]
     },
     "frontend/src/api/contracts/liveEvents.ts": {
@@ -7133,7 +7199,8 @@
         "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx"
       ],
       "notes": [
-        "handoff pattern defers refetches while animation in flight"
+        "handoff pattern defers refetches while animation in flight",
+        "generalized the single chapterRenderActiveSegmentId (scalar) into chapterRenderActiveSegmentsMap/RenderingSegmentIds/PreparingSegmentIds/RenderingBatchProgressById (Set/map-based, W-PAR 006); falls back byte-identically to the scalar path when the map is absent (INV-1); map branches expand each entry to render-batch siblings (expandToBatchSpanIds) and exclude done-phase entries from the rendering set"
       ]
     },
     "frontend/src/pages/Book/studio/StudioHeaderActions.tsx": {
@@ -8394,7 +8461,9 @@
         "frontend/src/types#Job"
       ],
       "called_by": [],
-      "notes": []
+      "notes": [
+        "adaptEventToJobUpdates extracts active_segments_map from event payloads (W-PAR 006)"
+      ]
     },
     "frontend/src/utils/chunkGroups.ts": {
       "purpose": "Group consecutive segments by character+profile+engine respecting text chunk limit",
@@ -8461,7 +8530,9 @@
       ],
       "calls": [],
       "called_by": [],
-      "notes": []
+      "notes": [
+        "QUEUE_OVERLAY_FIELDS whitelist now includes active_segments_map (W-PAR 006) \u2014 rides the queue.items frame per the queue-items-is-row-authority invariant"
+      ]
     },
     "frontend/src/utils/format.ts": {
       "purpose": "Format helpers for duration/file size/relative timestamps",
@@ -10668,6 +10739,16 @@
         {
           "name": "_get_ctx, set_ctx",
           "kind": "function"
+        },
+        {
+          "name": "render_one_group",
+          "kind": "function",
+          "contract": "R1 extraction of the per-group loop body: markers, render, artifact-validate, [SEGMENT_SAVED], per-group DB update. Zero chapter-terminal writes/stitch/DB rebuild \u2014 safe to call once per concurrent child."
+        },
+        {
+          "name": "_is_valid_segment_artifact, _validated_wav_duration_seconds",
+          "kind": "function",
+          "contract": "artifact validation gate: exists+non-zero size; WAV header duration must be 0<d<=3600s when parseable (stdlib wave, no ffprobe)"
         }
       ],
       "calls": [
@@ -10679,11 +10760,14 @@
         "app/domain/chunk_groups.py#build_chunk_groups,load_chunk_segments"
       ],
       "called_by": [
-        "app/orchestration/tasks/synthesis.py"
+        "app/orchestration/tasks/synthesis.py",
+        "app/orchestration/tasks/segment_synthesis.py (via render_one_group, concurrent per-child path)"
       ],
       "notes": [
         "marker protocol: START_SEGMENT/ENGINE_ACTIVITY_STARTED/PROGRESS/SEGMENT_SAVED drives weighted chapter progress across heterogeneous engines",
-        "INV-6: orchestrator owns performance-sample writing, handler never records metrics"
+        "INV-6: orchestrator owns performance-sample writing, handler never records metrics",
+        "handle_mixed_job unchanged in behavior: sequential loop now delegates per-group work to render_one_group but retains chapter-terminal ownership (stitch, _persist_mixed_chapter_output, final update_job)",
+        "never marks a segment done on exit code alone: rc!=0 or not _is_valid_segment_artifact(seg_out) gates completion"
       ]
     },
     "app/api/routers/settings.py": {
@@ -10781,6 +10865,129 @@
       "calls": [],
       "called_by": [],
       "notes": []
+    },
+    "app/orchestration/tasks/segment_synthesis.py": {
+      "purpose": "Parent/child concurrent chapter-segment fan-out: ChapterSynthesisTask (durable parent) fans SegmentSynthesisTask children across a bounded ThreadPoolExecutor",
+      "exports": [
+        {
+          "name": "ChapterSynthesisTask",
+          "kind": "class",
+          "contract": "is_chapter_fanout=True; run() fans chunk groups into children, joins via futures.wait(ALL_COMPLETED), stitches by segment_order"
+        },
+        {
+          "name": "SegmentSynthesisTask",
+          "kind": "class",
+          "contract": "ephemeral child: segment_order, attempt, last_heartbeat/stalled"
+        },
+        {
+          "name": "_SyntheticSegmentTask",
+          "kind": "class",
+          "contract": "one-group synthetic task reused ONLY to route a child through _dispatch_segment's isolation"
+        },
+        {
+          "name": "make_dispatch_segment_bridge_call",
+          "kind": "function",
+          "contract": "factory: builds synthetic task+context per child, calls orchestrator._dispatch_segment once"
+        }
+      ],
+      "calls": [
+        "app/domain/chunk_groups.py#build_chunk_groups,build_script_entry_for_group",
+        "app/orchestration/scheduler/orchestrator_helpers.py#_dispatch_segment (via bridge_call reuse)",
+        "plugins/tts_mixed/handler.py#render_one_group",
+        "app/orchestration/tasks/base.py#StudioTask,TaskResult"
+      ],
+      "called_by": [
+        "app/api/routers/generation.py",
+        "app/orchestration/scheduler/orchestrator.py (recovery reconstruction)",
+        "app/orchestration/scheduler/orchestrator_helpers.py (is_chapter_fanout dispatch branch)"
+      ],
+      "notes": [
+        "is_chapter_fanout=True signals orchestrator_helpers._dispatch to bypass _dispatch_segment for the parent and call task.run() directly",
+        "children reuse _dispatch_segment's isolation via a synthetic one-group task; NEVER call handle_mixed_job directly (would re-trigger chapter-terminal writes once per child instead of once per chapter)",
+        "INV-2 stitch barrier sorts (segment_order, output_path) after concurrent.futures.wait(ALL_COMPLETED), never completion order",
+        "retry-once policy: one fresh replacement child on failure; second failure recorded in permanently_failed_segment_ids without blocking siblings; chapter still resolves once every other child finishes",
+        "stuck-segment heartbeat: 1s-poll daemon flags child.stalled past SEGMENT_STALL_TIMEOUT_SECONDS (60s default); stalled_segments property exists but has no _publish kwarg yet (unlike active_segments_map)",
+        "cap=1 (today's manifest default for most engines) is byte-identical to the pre-fanout sequential path (INV-1, pinned by test_cap1_old_vs_new_path_equivalence.py)",
+        "self._children accessed under self._children_lock (retry swap, heartbeat monitor, active_segments_map aggregation all touch the same list concurrently)"
+      ]
+    },
+    "app/domain/voices/huggingface.py": {
+      "purpose": "HuggingFace Hub voice import/export flow \u2014 foundation scaffold, zero live callers",
+      "exports": [
+        {
+          "name": "HFToken",
+          "kind": "class",
+          "contract": "frozen dataclass; repr/str redacted (asdict/pickle NOT redacted \u2014 documented+tested limitation)"
+        },
+        {
+          "name": "HFVoiceCardMetadata, HFSearchResult, HFConsentDecision",
+          "kind": "class"
+        },
+        {
+          "name": "HFHubClientProtocol, HFHubClient",
+          "kind": "class",
+          "contract": "mockable network boundary; HFHubClient itself raises NotImplementedError (live-network stub)"
+        },
+        {
+          "name": "search_voices, inspect_card, check_consent, download_voice_files, build_voice_asset_from_download, annotate_from_card, export_hf_voice_bundle, upload_voice_to_hub",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/utils/pathing.py#safe_join_flat"
+      ],
+      "called_by": [],
+      "notes": [
+        "STATUS: not imported by any router/service/startup path \u2014 inert scaffold, reachable only from its own tests",
+        "deliberately does NOT define VoiceProvenance; uses its own local HFVoiceCardMetadata, decoupled from app/domain/voices/taxonomy.py#validate_provenance_strict pending a future integration pass",
+        "export_hf_voice_bundle uses safe_join_flat on bundle_name \u2014 rejects path-traversal from a Hub-derived/user-typed name",
+        "annotate_from_card's returned dict includes 'license', which update_voice_metadata does NOT accept \u2014 a future caller must route it separately"
+      ]
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx": {
+      "purpose": "Director's Console left-rail router: tool registry -> icon rail + active tool body. Foundation scaffold for the chapter-editor art-program (doc chapter-editor-modes.md sec17); not yet mounted into any route",
+      "exports": [
+        {
+          "name": "DirectorsConsole",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "./registry.ts#directorsConsoleTools (CastTool/BoothTool/ReviseTool/placeholders.tsx via ./types.ts#DirectorsTool)"
+      ],
+      "called_by": [],
+      "notes": [
+        "STATUS: not imported by any mounted route/page \u2014 reachable only from its own tests",
+        "registry.ts holds the ordered tool list; adding a tool means adding a registry entry, not touching the Console",
+        "each stub renders icon+label+'coming soon' via shared ToolStub.tsx",
+        "NAMING COLLISION (flagged by frontier review 2026-07-03): frontend/src/demo/stages/siteMockup/panes/directorsConsole.tsx already exports a live, mounted DirectorsConsole for the demo site stage \u2014 same exported name, zero cross-imports today, but the wiring pass should rename/retire one first"
+      ]
+    },
+    "frontend/src/i18n/index.ts": {
+      "purpose": "i18n foundation scaffold: lazy i18next instance, zero side effects on import. Not called from app root yet",
+      "exports": [
+        {
+          "name": "initI18n",
+          "kind": "function",
+          "contract": "explicit opt-in; creates+configures the i18next instance; idempotent (returns existing instance on repeat calls)"
+        },
+        {
+          "name": "getI18n",
+          "kind": "function",
+          "contract": "returns the instance or null if initI18n() has not been called"
+        },
+        {
+          "name": "resetI18nForTests, SOURCE_LOCALE, NAMESPACES",
+          "kind": "function/const"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "importing this module never creates an instance or loads a catalog (modular_architecture.md no-import-side-effects)",
+        "useTranslation.ts (sibling file) wraps getI18n() with a pure passthrough (raw key or explicit default) when uninitialized \u2014 never throws",
+        "one sample catalog only (locales/en-US/welcome.json, WelcomePage strings) \u2014 full string-extraction is future work"
+      ]
     }
   }
 }
