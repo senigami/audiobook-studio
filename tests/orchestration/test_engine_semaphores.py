@@ -602,6 +602,73 @@ class TestClaimToDictPreservesEngineClass:
         finally:
             release_task_resources(task_id="xtts-e2e-1", resource_claims=d1)
 
+    def test_xtts_cap2_admits_two_concurrent_via_real_path(self):
+        """Regression 2026-07-03: manifest cap=2 for a real 'gpu'-class engine
+        must actually admit 2 concurrent tasks when ENGINE_CLASS_ADMISSION is on.
+
+        Root cause fixed: GpuAdmissionGate/ExclusiveAdmissionGate used to call
+        get_engine_semaphore("gpu"/"exclusive", 1) in __init__, eagerly
+        registering into the SAME shared engine-class registry a real
+        manifest-derived engine_class="gpu" claim also uses. Because
+        get_engine_semaphore() caches by key and ignores cap for an existing
+        entry, and these gates are constructed at module import time
+        (_gpu_gate = GpuAdmissionGate()), they always won the race and
+        permanently capped every GPU-class engine at 1 concurrent task —
+        silently ignoring the manifest's max_concurrent_workers even with the
+        flag enabled. Live-observed: two separately-queued XTTS chapter
+        renders always ran strictly sequentially despite the manifest saying
+        max_concurrent_workers=2.
+
+        R1 revert-check: this test MUST FAIL (second task denied) on the
+        pre-fix GpuAdmissionGate/ExclusiveAdmissionGate.
+        """
+        import os  # noqa: PLC0415
+        from app.orchestration.scheduler.orchestrator_helpers import _claim_to_dict  # noqa: PLC0415
+        from app.orchestration.scheduler.resources import (  # noqa: PLC0415
+            reserve_task_resources,
+            release_task_resources,
+        )
+        from app.orchestration.tasks.synthesis import SynthesisTask  # noqa: PLC0415
+
+        with patch(
+            "app.tts_server.plugin_loader.get_manifest_max_concurrent_workers",
+            return_value=2,
+        ), patch.dict(os.environ, {"ENGINE_CLASS_ADMISSION": "1"}):
+            task1 = SynthesisTask(
+                task_id="xtts-cap2-1",
+                engine_id="xtts",
+                script_text="Hello",
+                output_path="/tmp/xtts_cap2_1.wav",
+            )
+            task2 = SynthesisTask(
+                task_id="xtts-cap2-2",
+                engine_id="xtts",
+                script_text="Hello",
+                output_path="/tmp/xtts_cap2_2.wav",
+            )
+            assert task1.resource_claim.cap == 2, "test setup: claim must report cap=2"
+
+            d1 = _claim_to_dict(task1.resource_claim)
+            d1["task_id"] = "xtts-cap2-1"
+            d2 = _claim_to_dict(task2.resource_claim)
+            d2["task_id"] = "xtts-cap2-2"
+
+            r1 = reserve_task_resources(task_type="synthesis", resource_claims=d1)
+            r2 = reserve_task_resources(task_type="synthesis", resource_claims=d2)
+
+            try:
+                assert r1["admitted"] is True, "First xtts task must be admitted"
+                assert r2["admitted"] is True, (
+                    "Second xtts task must ALSO be admitted at cap=2 — if this "
+                    "fails, the legacy GpuAdmissionGate/ExclusiveAdmissionGate "
+                    "singletons are poisoning the shared 'gpu' semaphore at "
+                    "cap=1 before this manifest-derived claim can register its "
+                    "real cap"
+                )
+            finally:
+                release_task_resources(task_id="xtts-cap2-1", resource_claims=d1)
+                release_task_resources(task_id="xtts-cap2-2", resource_claims=d2)
+
     def test_voxtral_serialized_at_cap1_through_real_path(self):
         """W5 + INV-1: voxtral (cap=1 in task-001) must also be serial via real path."""
         from app.orchestration.scheduler.orchestrator_helpers import _claim_to_dict  # noqa: PLC0415

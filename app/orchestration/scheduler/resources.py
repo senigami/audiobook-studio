@@ -229,6 +229,27 @@ class EngineClassSemaphore:
         with self._lock:
             self._active_ids.clear()
 
+    def ensure_min_cap(self, cap: int) -> None:
+        """Grow this semaphore's capacity to at least ``cap`` (never shrinks).
+
+        Fixed 2026-07-03: capacity used to be frozen forever at whichever
+        caller happened to create the singleton first — silently ignoring
+        every later, possibly more-authoritative, cap request. In practice
+        any caller that asked for a smaller cap before the real
+        manifest-derived claim ever ran (e.g. a deprecated legacy gate, or
+        an unrelated test resetting the same engine-class key) would
+        permanently lock out real concurrency for that engine class, with no
+        error or warning. Growing (never shrinking) makes the manifest's
+        intended cap self-healing regardless of call order, while never
+        surprising an in-flight caller with a sudden capacity *decrease*.
+        """
+        with self._lock:
+            if cap > self._cap:
+                logger.info(
+                    "Engine-class semaphore cap grew %d -> %d.", self._cap, cap
+                )
+                self._cap = cap
+
 
 # ===========================================================================
 # Module-level semaphore registry (keyed by engine_class string)
@@ -241,15 +262,18 @@ _semaphore_registry_lock = threading.Lock()
 def get_engine_semaphore(engine_class: str, cap: int = 1) -> EngineClassSemaphore:
     """Return the module-level semaphore for ``engine_class``.
 
-    Singletons are created lazily on the first call for a given class string.
-    Subsequent calls with the same ``engine_class`` return the existing
-    instance (cap is fixed at creation time).
+    Singletons are created lazily on the first call for a given class
+    string. Subsequent calls with the same ``engine_class`` return the
+    existing instance, growing its capacity to ``cap`` if ``cap`` is larger
+    than what it currently has (see ``EngineClassSemaphore.ensure_min_cap``).
+    Capacity never shrinks from a later call — only the first creation or a
+    larger request can change it.
 
     Args:
         engine_class: Engine-class string (``"gpu"``, ``"cpu_heavy"``,
             ``"cloud"``, ``"exclusive"``, or any custom string).
-        cap: Semaphore capacity when creating a new instance.  Ignored for
-            existing instances.
+        cap: Semaphore capacity. Used verbatim when creating a new instance;
+            for an existing instance, grows its cap if this is larger.
 
     Returns:
         EngineClassSemaphore: The singleton for this class.
@@ -260,6 +284,8 @@ def get_engine_semaphore(engine_class: str, cap: int = 1) -> EngineClassSemaphor
             logger.debug(
                 "Created EngineClassSemaphore(class=%r, cap=%d).", engine_class, cap
             )
+        else:
+            _engine_semaphores[engine_class].ensure_min_cap(max(1, cap))
         return _engine_semaphores[engine_class]
 
 
@@ -273,17 +299,23 @@ _global_cap_gate = EngineClassSemaphore(cap=MAX_GLOBAL_CONCURRENT_SYNTHESIS)
 
 
 class GpuAdmissionGate:
-    """Deprecated. Thin wrapper around get_engine_semaphore("gpu", 1).
+    """Deprecated. Legacy single-slot GPU gate for backward compatibility
+    with existing tests and the pre-W-PAR "exclusive across all engines" path.
 
-    Kept for backward compatibility with existing tests that import and call
-    this class directly.  New code should use ``get_engine_semaphore``.
+    Uses its own private ``EngineClassSemaphore(cap=1)`` — it must NOT be
+    backed by the shared ``get_engine_semaphore`` registry.  Bug fixed
+    2026-07-03: this gate used to call ``get_engine_semaphore("gpu", 1)``,
+    which *eagerly registers* into the same registry a manifest-derived
+    ``engine_class="gpu"`` claim also uses (``get_engine_semaphore`` caches
+    by key and ignores ``cap`` for an existing entry).  Because this gate is
+    constructed at module import time (``_gpu_gate = GpuAdmissionGate()``
+    below), it always won the race and permanently capped every GPU-class
+    engine at 1 concurrent task — silently ignoring the manifest's
+    ``max_concurrent_workers`` even with ``ENGINE_CLASS_ADMISSION`` enabled.
     """
 
-    # DEPRECATED: use get_engine_semaphore("gpu", 1) instead.
-
     def __init__(self) -> None:
-        # Always delegates to the module-level "gpu" semaphore so state is shared.
-        self._sem = get_engine_semaphore("gpu", 1)
+        self._sem = EngineClassSemaphore(cap=1)
 
     def try_acquire(self, task_id: str) -> tuple[bool, Optional[str]]:
         admitted, reason = self._sem.try_acquire(task_id)
@@ -306,15 +338,19 @@ class GpuAdmissionGate:
 
 
 class ExclusiveAdmissionGate:
-    """Deprecated. Thin wrapper around get_engine_semaphore("exclusive", 1).
+    """Deprecated. Legacy single-slot exclusive gate for backward
+    compatibility with existing tests and the pre-W-PAR "exclusive across
+    all engines" path.
 
-    Kept for backward compatibility with existing tests.
+    Uses its own private ``EngineClassSemaphore(cap=1)`` — see
+    ``GpuAdmissionGate`` for why this must not share the manifest-driven
+    registry (this class predates any real ``engine_class="exclusive"``
+    manifest value, so it happened not to cause an observable bug, but it
+    shared the same latent hazard and is fixed for the same reason).
     """
 
-    # DEPRECATED: use get_engine_semaphore("exclusive", 1) instead.
-
     def __init__(self) -> None:
-        self._sem = get_engine_semaphore("exclusive", 1)
+        self._sem = EngineClassSemaphore(cap=1)
 
     def try_acquire(self, task_id: str) -> tuple[bool, Optional[str]]:
         admitted, reason = self._sem.try_acquire(task_id)
@@ -336,9 +372,10 @@ class ExclusiveAdmissionGate:
         self._sem.reset()
 
 
-# Module-level singleton — one gate for the Studio process.
-# These singletons delegate to the engine semaphore registry, so
-# GpuAdmissionGate() and get_engine_semaphore("gpu", 1) share state.
+# Module-level singleton — one gate for the Studio process. Each has its own
+# PRIVATE semaphore (not the shared engine-class registry, see class
+# docstrings above) so real manifest-derived engine-class claims are never
+# capped by these legacy single-flight gates.
 _gpu_gate = GpuAdmissionGate()
 _exclusive_gate = ExclusiveAdmissionGate()
 

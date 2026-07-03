@@ -45,7 +45,7 @@
       "top_k",
       "top_p"
     ],
-    "max_concurrent_workers": 1,
+    "max_concurrent_workers": 2,
     "text_chunk_limit": 500,
     "text_split_target": 450,
     "sanitize_categories": ["quotes", "acronyms", "fractions", "dashes", "punct_spacing", "ascii", "terminal"],

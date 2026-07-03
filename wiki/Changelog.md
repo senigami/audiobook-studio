@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Fix] - 2026-07-03
+
+### Per-engine concurrency cap silently capped at 1 regardless of manifest (W-PAR)
+
+Raising an engine's `max_concurrent_workers` in its manifest (e.g. XTTS to 2) had no effect — two separately-queued jobs on the same engine always ran strictly sequentially even with the `ENGINE_CLASS_ADMISSION` parallelism flag enabled.
+
+- **Root cause.** The deprecated `GpuAdmissionGate`/`ExclusiveAdmissionGate` backward-compat wrapper classes called `get_engine_semaphore("gpu"/"exclusive", 1)` in their constructors — hardcoded cap 1. Since they're built as module-level singletons at import time, and the shared semaphore registry cached capacity at first creation while silently ignoring it on every later call, these wrappers always won the race and permanently locked the `"gpu"` engine-class slot at 1 before any real manifest-derived claim could register its intended cap. The same "first caller wins forever" design also meant *any* caller anywhere — including an unrelated test — could accidentally poison a shared engine-class slot for the rest of the process.
+- **Fix.** `GpuAdmissionGate`/`ExclusiveAdmissionGate` now use private, non-shared semaphores. `get_engine_semaphore`/`EngineClassSemaphore` are now self-healing: capacity grows to the largest value any caller legitimately requests instead of freezing at the first caller's value.
+- **Verified live:** two XTTS jobs queued at once actually overlap now. Regression test `test_xtts_cap2_admits_two_concurrent_via_real_path` added (R1 revert-checked — fails on the pre-fix code for the right reason).
+
 ## [Fix] - 2026-07-02
 
 ### Mixed-render end-game ETA clipping and confidence whipsaw (W-MIX-LA)
