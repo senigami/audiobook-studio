@@ -623,6 +623,7 @@ class TestClaimToDictPreservesEngineClass:
         pre-fix GpuAdmissionGate/ExclusiveAdmissionGate.
         """
         import os  # noqa: PLC0415
+        from app.orchestration.scheduler import resources as _res  # noqa: PLC0415
         from app.orchestration.scheduler.orchestrator_helpers import _claim_to_dict  # noqa: PLC0415
         from app.orchestration.scheduler.resources import (  # noqa: PLC0415
             reserve_task_resources,
@@ -668,6 +669,13 @@ class TestClaimToDictPreservesEngineClass:
             finally:
                 release_task_resources(task_id="xtts-cap2-1", resource_claims=d1)
                 release_task_resources(task_id="xtts-cap2-2", resource_claims=d2)
+                # Cap is grow-only by design (ensure_min_cap never shrinks) --
+                # drop the "gpu" registry entry entirely rather than leave it
+                # permanently at cap=2 for every test that runs after this one
+                # in the same process (fable-flagged: this exact class of
+                # cross-test state leak is what caused the second, deeper
+                # instance of the bug this test guards against).
+                _res._engine_semaphores.pop("gpu", None)
 
     def test_voxtral_serialized_at_cap1_through_real_path(self):
         """W5 + INV-1: voxtral (cap=1 in task-001) must also be serial via real path."""

@@ -249,6 +249,22 @@ class EngineClassSemaphore:
                     "Engine-class semaphore cap grew %d -> %d.", self._cap, cap
                 )
                 self._cap = cap
+            elif cap < self._cap:
+                # Mirror-image of the bug this method fixes: silently ignoring
+                # a *smaller* request is exactly as surprising as the old
+                # silently-frozen-forever behavior, just in the other
+                # direction (e.g. an operator lowers max_concurrent_workers
+                # after OOMs and expects the next task to respect it). Never
+                # shrink live (would risk violating an in-flight admission
+                # decision) — but make the mismatch visible instead of silent.
+                logger.warning(
+                    "Engine-class semaphore requested cap %d is smaller than "
+                    "the current cap %d — capacity does NOT shrink at "
+                    "runtime; restart the process for a lowered manifest cap "
+                    "to take effect.",
+                    cap,
+                    self._cap,
+                )
 
 
 # ===========================================================================
