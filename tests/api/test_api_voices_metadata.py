@@ -8,6 +8,8 @@ Covers acceptance criteria:
   C5 — POST /api/voices/{id}/icon saves icon.png, updates voice.json
   D7 — untagged voices readable without error
   strict/lenient boundary — read (lenient) vs write (strict)
+  provenance — read/write of the shared provenance field (voice.schema.json §provenance);
+    decoupled from any HF importer, which will populate it separately in future work
 """
 
 import io
@@ -415,6 +417,141 @@ class TestCastVoices:
 # ---------------------------------------------------------------------------
 # Strict vs lenient boundary
 # ---------------------------------------------------------------------------
+
+class TestProvenance:
+    """provenance is declared in voice.schema.json but was previously never read/written
+    through the live metadata endpoints. These tests confirm it is now genuinely
+    round-trippable via GET/PATCH, independent of any future HF importer."""
+
+    def test_get_returns_provenance_when_present(self, voices_root, client):
+        voices_root.mkdir(exist_ok=True)
+        manifest = _gravel_road_manifest()
+        manifest["provenance"] = {
+            "source": "recorded",
+            "author": "steven",
+            "consent_ack": True,
+            "created_at": "2026-05-29T00:00:00Z",
+        }
+        _make_voice(voices_root, "Gravel Road", manifest)
+
+        resp = client.get("/api/voices/gravel-road")
+        assert resp.status_code == 200
+        assert resp.json()["provenance"] == {
+            "source": "recorded",
+            "author": "steven",
+            "consent_ack": True,
+            "created_at": "2026-05-29T00:00:00Z",
+        }
+
+    def test_get_omits_provenance_when_absent(self, voices_root, client):
+        """A voice with no provenance block still loads without error (no fabricated default)."""
+        voices_root.mkdir(exist_ok=True)
+        _make_voice(voices_root, "Gravel Road", _gravel_road_manifest())
+
+        resp = client.get("/api/voices/gravel-road")
+        assert resp.status_code == 200
+        assert resp.json().get("provenance") is None
+
+    def test_list_voices_includes_provenance(self, voices_root, client):
+        voices_root.mkdir(exist_ok=True)
+        manifest = _gravel_road_manifest()
+        manifest["provenance"] = {"source": "cloned"}
+        _make_voice(voices_root, "Gravel Road", manifest)
+
+        resp = client.get("/api/voices/")
+        assert resp.status_code == 200
+        assert resp.json()[0]["provenance"] == {"source": "cloned"}
+
+    def test_search_result_includes_provenance(self, voices_root, client):
+        voices_root.mkdir(exist_ok=True)
+        manifest = _gravel_road_manifest()
+        manifest["provenance"] = {"source": "designed"}
+        _make_voice(voices_root, "Gravel Road", manifest)
+
+        resp = client.get("/api/voices/search?q=cowboy")
+        assert resp.status_code == 200
+        assert resp.json()[0]["provenance"] == {"source": "designed"}
+
+    def test_patch_valid_provenance_persists(self, voices_root, client):
+        voices_root.mkdir(exist_ok=True)
+        _make_voice(voices_root, "Gravel Road", _gravel_road_manifest())
+
+        resp = client.patch(
+            "/api/voices/gravel-road/metadata",
+            json={"provenance": {"source": "imported", "author": "hf:some-namespace", "consent_ack": True}},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["provenance"]["source"] == "imported"
+        assert data["provenance"]["author"] == "hf:some-namespace"
+        # persisted on disk?
+        raw = json.loads((voices_root / "Gravel Road" / "voice.json").read_text())
+        assert raw["provenance"]["source"] == "imported"
+
+    def test_patch_invalid_source_returns_422(self, voices_root, client):
+        voices_root.mkdir(exist_ok=True)
+        _make_voice(voices_root, "Gravel Road", _gravel_road_manifest())
+
+        resp = client.patch(
+            "/api/voices/gravel-road/metadata",
+            json={"provenance": {"source": "alien-abduction"}},
+        )
+        assert resp.status_code == 422
+        assert "alien-abduction" in json.dumps(resp.json())
+
+    def test_patch_unknown_provenance_field_returns_422(self, voices_root, client):
+        voices_root.mkdir(exist_ok=True)
+        _make_voice(voices_root, "Gravel Road", _gravel_road_manifest())
+
+        resp = client.patch(
+            "/api/voices/gravel-road/metadata",
+            json={"provenance": {"hf_repo_id": "someone/some-voice"}},
+        )
+        assert resp.status_code == 422
+        assert "hf_repo_id" in json.dumps(resp.json())
+
+    def test_patch_provenance_does_not_clobber_other_fields(self, voices_root, client):
+        voices_root.mkdir(exist_ok=True)
+        _make_voice(voices_root, "Gravel Road", _gravel_road_manifest())
+
+        resp = client.patch(
+            "/api/voices/gravel-road/metadata",
+            json={"provenance": {"source": "recorded"}},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["description"] == "A weathered, low Southern drawl."
+        assert data["attributes"]["class"] == "human"
+
+
+class TestPatchSaveFailure:
+    """A failed manifest write must not be reported as a 200 with stale data.
+
+    ``save_voice_manifest`` returns ``False`` (rather than raising) on disk
+    errors or a trusted-root violation. Before this fix, ``update_voice_metadata``
+    ignored that return value and re-served the pre-write manifest under a
+    success status.
+    """
+
+    def test_save_failure_returns_500_not_stale_200(self, voices_root, client, monkeypatch):
+        voices_root.mkdir(exist_ok=True)
+        _make_voice(voices_root, "Gravel Road", _gravel_road_manifest())
+
+        monkeypatch.setattr(
+            "app.domain.voices.manifest.save_voice_manifest",
+            lambda voice_dir, manifest: False,
+        )
+
+        resp = client.patch(
+            "/api/voices/gravel-road/metadata",
+            json={"provenance": {"source": "recorded"}},
+        )
+        assert resp.status_code == 500
+
+        # The on-disk manifest must be untouched by the failed write.
+        raw = json.loads((voices_root / "Gravel Road" / "voice.json").read_text())
+        assert "provenance" not in raw
+
 
 class TestStrictVsLenientBoundary:
     def test_read_with_invalid_enum_still_succeeds(self, voices_root, client):

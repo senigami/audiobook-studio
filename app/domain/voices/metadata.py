@@ -127,23 +127,37 @@ def update_voice_metadata(
     attributes: dict[str, Any] | None = None,
     tags: list[str] | None = None,
     languages: list[str] | None = None,
+    provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Strict-validated PATCH of voice metadata.
 
+    ``provenance`` records where a voice came from (recorded/cloned/imported/designed,
+    voice.schema.json §provenance). This function only validates and persists the
+    field the caller supplies — it does not populate provenance itself. A future
+    HuggingFace import module is expected to call this same path to record its own
+    provenance once it exists; that population logic is decoupled from this write path.
+
     Raises:
         KeyError: voice not found.
-        ValueError: attribute validation errors (caller maps to 422).
+        ValueError: attribute/provenance validation errors (caller maps to 422).
+        RuntimeError: the manifest write failed (disk error, or the target path
+            fell outside the trusted voices root) — never return 200 with the
+            stale pre-write manifest.
     """
     from .manifest import load_voice_manifest, save_voice_manifest
-    from .taxonomy import validate_attributes_strict
+    from .taxonomy import validate_attributes_strict, validate_provenance_strict
 
     voice_dir = find_voice_dir_by_id(voices_dir, voice_id)
     if voice_dir is None:
         raise KeyError(f"Voice not found: {voice_id!r}")
 
-    # Strict attribute validation before any mutation
+    # Strict validation before any mutation
     if attributes is not None:
         errors = validate_attributes_strict(attributes)
+        if errors:
+            raise ValueError(errors)
+    if provenance is not None:
+        errors = validate_provenance_strict(provenance)
         if errors:
             raise ValueError(errors)
 
@@ -160,8 +174,11 @@ def update_voice_metadata(
         raw["tags"] = _sanitize_tags(tags)
     if languages is not None:
         raw["languages"] = languages
+    if provenance is not None:
+        raw["provenance"] = provenance
 
-    save_voice_manifest(voice_dir, raw)
+    if not save_voice_manifest(voice_dir, raw):
+        raise RuntimeError(f"Failed to persist voice manifest for {voice_id!r}")
 
     # Return the validated public view
     manifest = _manifest_for(voice_dir)

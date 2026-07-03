@@ -1,7 +1,7 @@
 # Voice Bundle & Voice Directory Contract
 
 ```
-spec_version: 1.2.0
+spec_version: 1.3.0
 status: active
 sources:
   - app/domain/voices/manifest.py
@@ -24,6 +24,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.3.0   | 2026-07-03 | §8 documents `provenance` (voice.schema.json §provenance) as genuinely read/write through the live metadata endpoints: `GET /api/voices`, `GET /api/voices/{id}`, and `GET /api/voices/search` return it verbatim when present (no fabricated default when absent); `PATCH /api/voices/{id}/metadata` accepts and strictly validates it (`validate_provenance_strict` in `app/domain/voices/taxonomy.py` — unknown fields/values → 422, mirroring `validate_attributes_strict`; free-form string fields capped at 512 chars). No shape change to `voice.schema.json` (the field's shape was already declared there); this only wires the previously-unwired write path. Write is whole-block replace, not merge; no tamper-evidence on `source`/`consent_ack` (acceptable for the current single-user threat model). Population (e.g. by a future HuggingFace import module) is explicitly out of scope and decoupled from this change. |
 | 1.2.0   | 2026-06-16 | §8 taxonomy table replaced with actual facets/vocabularies from voice-taxonomy.json (added class/timbre/pace/use_case/quality; replaced age_range→age, corrected gender values, dropped style/emotion_range); §6.3 import validation restated to match code (validates against voice.schema.json, not integer version:2); §6.1/§6.3 WAV samples marked as opt-in (include_source_wavs), MP3 preview is the required per-variant audio asset; §6.1 bundle root contents updated (added bundle.json, README.md; noted .voice.zip extension); §5 get_profile_wavs signature and sort-order corrected (profile_name_or_id arg, lexicographic order); §11 Voice Lab status updated (page and all sections exist, TARGET label removed) |
 | 1.1.0   | 2026-06-13 | Added §11 "Voice catalog & Voice Lab UI" — presentation contract for the catalog card content set and the Voice Lab page (TARGET); cross-refs design-system.md for pill tints and §8 for taxonomy values |
 | 1.0.0   | 2026-06-10 | Initial canonical spec  |
@@ -236,6 +237,15 @@ A `tags` free-text array (pattern `^[a-z0-9][a-z0-9-]*$`) is also available for 
 - **Untagged voices MUST NOT produce an error.** Show a warning icon in the UI; do not block synthesis.
 - `class`, `gender`, and `age` become required when the user edits and saves a voice (required-on-edit), and are required for a valid distribution bundle (enforced by `voice.schema.json`).
 - Casting card recommendations use these attributes to score voice-to-character fit (see `design-docs/plans/active/final_release/04`).
+
+### 8.1 `provenance`
+
+`provenance` (`voice.schema.json` §provenance: `source`, `author`, `consent_ack`, `created_at`) records where a voice came from. It is read/write through the same live metadata endpoints as `attributes`/`tags`/`description`:
+
+- `GET /api/voices`, `GET /api/voices/{id}`, `GET /api/voices/search` return `provenance` verbatim when present; a voice with no `provenance` block omits the key rather than fabricating a default.
+- `PATCH /api/voices/{id}/metadata` accepts a `provenance` object and strictly validates it (`validate_provenance_strict` in `app/domain/voices/taxonomy.py`): `source` MUST be one of `recorded`/`cloned`/`imported`/`designed`; unknown fields or wrong types → 422, mirroring the `attributes` strict-validation pattern (§C2). Free-form string fields (`author`, `created_at`) are capped at 512 characters.
+- **The write is whole-block REPLACE, not merge.** `PATCH {"provenance": {"source": "recorded"}}` fully replaces any existing `provenance` block — a partial object silently drops fields not included in the request. Callers that want to update one field must resend the full block.
+- **This endpoint only persists what it is given — it does not populate `provenance` itself.** Population is owned by whichever caller sets it; a HuggingFace import module is expected to write through this same path in a future change, fully decoupled from the field definition and validation here. There is no tamper-evidence on `source`/`consent_ack` today — any client with PATCH access can assert an arbitrary provenance claim (e.g. mark a cloned voice `source: "recorded"`). Acceptable for the current single-user local-first threat model; revisit if `provenance` becomes load-bearing for a trust decision.
 
 ---
 

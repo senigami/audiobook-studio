@@ -430,7 +430,7 @@ These plans exist but need a design/owner call before they become schedulable wo
   - [x] Design decision: left rail → slotted/extensible; demo placeholders for all future tool slots from day one; internal-only
 
   **Ready to build (after WL1) — sequence matters: scaffold first, then fill:**
-  - [ ] **Step 1 — Scaffold (must land before any individual tool):** create the `DirectorsConsole/` folder structure and tool registration system as defined in doc §17; stub all three tools (CastTool, BoothTool, ReviseTool) + demo placeholder slots for future tools (Casting Call, Script Supervisor, plugin); wire the Console so it renders registered tools in order. Each stub renders its icon + label + "coming soon" body. No real functionality yet — this is the skeleton that all subsequent work slots into.
+  - [x] **Step 1 — Scaffold (must land before any individual tool):** create the `DirectorsConsole/` folder structure and tool registration system as defined in doc §17; stub all three tools (CastTool, BoothTool, ReviseTool) + demo placeholder slots for future tools (Casting Call, Script Supervisor, plugin); wire the Console so it renders registered tools in order. Each stub renders its icon + label + "coming soon" body. No real functionality yet — this is the skeleton that all subsequent work slots into. *(DONE 2026-07-03: built under `frontend/src/pages/ChapterEditor/components/DirectorsConsole/` — types, registry, ToolStub, Cast/Booth/Revise + three placeholder slots. Shipped dark: not yet imported by any mounted route/page — still gated on WL1 bug fixes B1-B4 before Cast mode work begins. **Naming collision flagged by frontier review (2026-07-03):** `frontend/src/demo/stages/siteMockup/panes/directorsConsole.tsx` already exports a live, mounted `DirectorsConsole` for the demo site stage — two same-named exported components in the app. No live conflict today (verified zero cross-imports), but the wiring pass should rename or retire the demo pane first so a future `import { DirectorsConsole }` doesn't grab the wrong one.)*
   - [ ] Cast mode: brush size selector (Word/Sentence/Paragraph), voice assignment gesture, mutation collector queue, Cast palette, Match Voice, Narrator eraser
   - [ ] Booth mode: karaoke highlight, tap-line-to-play, playback speed, session-only margin pins (line flags)
   - [ ] Revise mode: in-place paragraph editor per segment, balanced segment split, structural-edit escape hatch
@@ -456,14 +456,14 @@ These plans exist but need a design/owner call before they become schedulable wo
   > - **Revise mode:** click a paragraph → that paragraph's text becomes editable inline; commit re-renders only that segment
   > - Switch modes rapidly — scroll position, playback position, and assignments are all preserved
 
-- [ ] **HuggingFace voice browse + upload** — [plan](active/v2_huggingface_voice_interface.md)
-  - [ ] Import flow: search HF Hub → inspect card + license → consent gate → download → build voice asset → annotate metadata
+- [ ] **HuggingFace voice browse + upload** — [plan](active/v2_huggingface_voice_interface.md) *(foundation skeleton landed dark 2026-07-03 — see per-item notes below; no router/UI wired yet)*
+  - [~] Import flow: search HF Hub → inspect card + license → consent gate → download → build voice asset → annotate metadata *(stub functions + license-flagging + consent-gate logic landed in `app/domain/voices/huggingface.py`, tested against a fake client; real `huggingface_hub` network client still unimplemented)*
   - [ ] Browse/search UI: card UI filtered to `audiobook-studio-voice` tag
-  - [ ] Export: bundle generator → `.asvoice.zip` for manual upload
-  - [ ] Upload to HF: push loose files via user token; auto-set `as-*` tags
-  - [ ] Token handling: optional, stored as secret, never logged or bundled
+  - [~] Export: bundle generator → `.asvoice.zip` for manual upload *(`export_hf_voice_bundle` stub landed, writes `voice.json`+`samples/preview.mp3`; not yet reconciled with the existing `app.domain.voices.bundles.export_voice_bundle` on-disk exporter — decision needed on whether to unify)*
+  - [ ] Upload to HF: push loose files via user token; auto-set `as-*` tags *(stub landed, unwired — no settings-store entry for the token yet)*
+  - [ ] Token handling: optional, stored as secret, never logged or bundled *(`HFToken` wrapper landed with redacted repr/str; not yet sourced from the live settings store)*
   - [ ] Design decision: full in-app browse UI vs paste-a-Hub-ID/URL for the first version
-  - [ ] Shared `VoiceProvenance` data-model field + migration (also required by AI casting below)
+  - [x] Shared `VoiceProvenance` data-model field + migration (also required by AI casting below) *(DONE 2026-07-03 — see "AI casting + voice metadata UI" below; `provenance` is now genuinely read/write through `/api/voices/{id}/metadata`, `voice-bundles.md` bumped to 1.3.0. The HF module above deliberately does not populate it yet — a future pass maps `HFVoiceCardMetadata` → this field at the import boundary.)*
 
   > 👁 **VISUAL CHECK — HuggingFace voice UI complete**
   > - Voice Lab → "Browse Hugging Face" → search returns voice cards with name, author, license badge, and a sample preview
@@ -473,11 +473,12 @@ These plans exist but need a design/owner call before they become schedulable wo
   > - HF token (if entered) is **not visible** anywhere in settings after saving — stored as a secret
 
 - [ ] **AI casting + voice metadata UI** — [plan](active/v2_voice_metadata_and_casting.md)
-  - [ ] Extend `VoiceProfile`: `icon_path`, `description`, `attributes`, `tags`, `provenance`, `language_primary`
-  - [ ] `VoiceAttributes` controlled vocab: class, gender, age, accent, tone, timbre, pace, use_case, quality
-  - [ ] Casting card: machine-readable serialization of a voice for AI scoring
-  - [ ] Casting contract: ranked recommendation output with `reason` per pick (never auto-apply)
-  - [ ] Voice Lab UX: icon/chip card view, edit panel, "Suggest voices for this character" action
+  - [x] Extend `VoiceProfile`: `description`, `attributes`, `tags`, `provenance`, `language_primary` *(shipped in 1e475d5e — audited 2026-07-03, TASKS.md was stale; lives on the `voice.json` manifest via `app/domain/voices/manifest.py`/`metadata.py`, not the `VoiceProfileModel` dataclass; naming differs from the plan doc — schema uses `image`/`languages[0]` for `icon_path`/`language_primary`; `provenance` write-path wired 2026-07-03)*
+  - [x] `VoiceAttributes` controlled vocab: class, gender, age, accent, tone, timbre, pace, use_case, quality *(shipped in 1e475d5e — audited 2026-07-03, TASKS.md was stale; `design-docs/specs/voice-taxonomy.json` v1.0 + `app/domain/voices/taxonomy.py`)*
+  - [x] Casting card: machine-readable serialization of a voice for AI scoring *(shipped in 1e475d5e — audited 2026-07-03, TASKS.md was stale; `app/domain/voices/metadata.py` casting-card shape, spec'd in `voice-bundles.md` §9)*
+  - [x] Casting contract: ranked recommendation output with `reason` per pick (never auto-apply) *(shipped in 1e475d5e — audited 2026-07-03, TASKS.md was stale; `cast_voices()` in `app/domain/voices/metadata.py`, live at `POST /api/voices/cast`; returns ranked suggestions only, no auto-apply)*
+  - [x] Voice Lab UX: icon/chip card view, edit panel *(shipped — audited 2026-07-03, TASKS.md was stale; `frontend/src/pages/Voices/components/{VoiceCatalogCard,VoicePills,MetadataEditorModal}.tsx`, `frontend/src/pages/VoiceLab/`)*
+  - [ ] Voice Lab UX: "Suggest voices for this character" action *(still unbuilt — `POST /api/voices/cast` has no frontend caller yet; audited 2026-07-03)*
   - [ ] Design decision: per-character multi-language handling in v1?
   - [ ] Design decision: in-app casting at release or fast-follow?
 
@@ -493,7 +494,7 @@ These plans exist but need a design/owner call before they become schedulable wo
 ## Deferred / post-v2.0
 
 - [ ] **012** — Localization + sub-sentence assignment — [task file](master_fix_plan/tasks/012-deferred-and-open-questions.md)
-  - [ ] Localization: pick i18n library, implement `frontend/src/i18n/`, wire committed source catalogs *(post-v2)*
+  - [~] Localization: pick i18n library, implement `frontend/src/i18n/`, wire committed source catalogs *(post-v2)* *(foundation landed dark 2026-07-03: `i18next`/`react-i18next` chosen, `frontend/src/i18n/` scaffolded with a lazy `initI18n()`/`useTranslation` wrapper — zero side effects on import, not called from the app root yet — plus one sample catalog (`WelcomePage` strings). Repo-wide string extraction, provider wiring, and additional locale catalogs still outstanding.)*
   - [ ] Sub-sentence speaker assignment ([proposals/sub_sentence](proposals/sub_sentence_speaker_assignment.md)): segments→spans model, backend vs frontend split, undo — **must land before render-group/safe-text packing is finalized** (write the packing pipeline span-aware from day one); shares the DB model with W-PERF
   - [ ] Cross-ref: the HF voice + AI casting product backlog (Unscheduled, above) is the post-v2 product surface tracked here; north-star Phase D (Review waveform annotations→re-renders, loudness QA) is future work in [site_experience_north_star](reference/site_experience_north_star.md)
 

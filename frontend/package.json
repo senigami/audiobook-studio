@@ -26,9 +26,11 @@
     "@fontsource/source-serif-4": "^5.2.9",
     "@fontsource/space-grotesk": "^5.2.10",
     "framer-motion": "^12.29.2",
+    "i18next": "^26.3.4",
     "lucide-react": "^0.563.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-i18next": "^17.0.8",
     "react-router-dom": "^7.17.0",
     "wavesurfer.js": "^7.12.8"
   },

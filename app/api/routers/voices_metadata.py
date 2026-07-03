@@ -150,14 +150,19 @@ class MetadataPatchModel(BaseModel):
     attributes: dict[str, Any] | None = None
     tags: list[str] | None = None
     languages: list[str] | None = None
+    provenance: dict[str, Any] | None = None
 
 
 @router.patch("/{voice_id}/metadata")
 def patch_voice_metadata(voice_id: str, body: MetadataPatchModel):
     """Update voice metadata fields.
 
-    ``attributes`` values are strictly validated against the controlled vocabulary.
-    Unknown values → 422 with a list of valid values.
+    ``attributes`` and ``provenance`` values are strictly validated against their
+    controlled vocabularies. Unknown values → 422 with a list of valid values.
+    ``provenance`` is a shared field (voice.schema.json §provenance): this endpoint
+    only persists what it's given — it does not populate provenance itself. A future
+    HuggingFace import module will write it through this same path, decoupled from
+    this change.
     """
     try:
         updated = update_voice_metadata(
@@ -168,13 +173,16 @@ def patch_voice_metadata(voice_id: str, body: MetadataPatchModel):
             attributes=body.attributes,
             tags=body.tags,
             languages=body.languages,
+            provenance=body.provenance,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except ValueError as exc:
-        # exc.args[0] is the errors list from validate_attributes_strict
+        # exc.args[0] is the errors list from validate_attributes_strict/validate_provenance_strict
         errors = exc.args[0]
         raise HTTPException(status_code=422, detail=errors)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
     return updated
 
 

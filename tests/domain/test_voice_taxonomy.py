@@ -155,6 +155,69 @@ class TestStrictValidation:
         assert any("species" in e for e in errors)
 
 
+class TestValidateProvenanceStrict:
+    """Strict validation for the `provenance` field (voice.schema.json §provenance).
+
+    provenance = {source?, author?, consent_ack?, created_at?}; only `source` is a
+    controlled vocabulary (recorded/cloned/imported/designed). Decoupled from any
+    HF importer — this only validates the shape/vocabulary on the write path.
+    """
+
+    def test_valid_provenance_no_errors(self):
+        from app.domain.voices.taxonomy import validate_provenance_strict
+
+        errors = validate_provenance_strict({
+            "source": "imported",
+            "author": "hf:some-namespace",
+            "consent_ack": True,
+            "created_at": "2026-07-03T00:00:00Z",
+        })
+        assert errors == []
+
+    def test_empty_provenance_no_errors(self):
+        from app.domain.voices.taxonomy import validate_provenance_strict
+
+        assert validate_provenance_strict({}) == []
+
+    def test_invalid_source_returns_error(self):
+        from app.domain.voices.taxonomy import validate_provenance_strict
+
+        errors = validate_provenance_strict({"source": "alien-abduction"})
+        assert any("alien-abduction" in e for e in errors)
+
+    def test_unknown_field_returns_error(self):
+        from app.domain.voices.taxonomy import validate_provenance_strict
+
+        errors = validate_provenance_strict({"hf_repo_id": "someone/some-voice"})
+        assert any("hf_repo_id" in e for e in errors)
+
+    def test_wrong_type_for_consent_ack_returns_error(self):
+        from app.domain.voices.taxonomy import validate_provenance_strict
+
+        errors = validate_provenance_strict({"consent_ack": "yes"})
+        assert any("consent_ack" in e for e in errors)
+
+    def test_wrong_type_for_author_returns_error(self):
+        from app.domain.voices.taxonomy import validate_provenance_strict
+
+        errors = validate_provenance_strict({"author": 12345})
+        assert any("author" in e for e in errors)
+
+    def test_oversized_author_string_returns_error(self):
+        """Free-form string fields are capped so a malformed PATCH can't persist
+        a multi-MB string that gets replayed on every GET /api/voices."""
+        from app.domain.voices.taxonomy import validate_provenance_strict
+
+        errors = validate_provenance_strict({"author": "x" * 513})
+        assert any("author" in e and "512" in e for e in errors)
+
+    def test_author_at_max_length_is_valid(self):
+        from app.domain.voices.taxonomy import validate_provenance_strict
+
+        errors = validate_provenance_strict({"author": "x" * 512})
+        assert errors == []
+
+
 # ---------------------------------------------------------------------------
 # manifest loader integration tests
 # ---------------------------------------------------------------------------
