@@ -1128,123 +1128,300 @@ export const ManuscriptPane: React.FC<{ onSwitchToPublish: () => void; onOpenCha
 // ---------------------------------------------------------------------------
 // Casting pane
 
+interface VoiceAttrPillDef {
+  category: 'class' | 'gender' | 'age' | 'extended';
+  label: string;
+}
+
+/** Attribute pills for each character's currently-assigned voice (empty for Unassigned). */
+const VOICE_PILLS_BY_NAME: Record<string, VoiceAttrPillDef[]> = {
+  'Studio Voice': [
+    { category: 'class', label: 'Narrator' },
+    { category: 'gender', label: 'Female' },
+    { category: 'age', label: 'Adult' },
+    { category: 'extended', label: 'Warm' },
+  ],
+  'Marcus Reed': [
+    { category: 'class', label: 'Character' },
+    { category: 'gender', label: 'Male' },
+    { category: 'age', label: 'Adult' },
+    { category: 'extended', label: 'Deep' },
+  ],
+  'Old Tom': [
+    { category: 'class', label: 'Character' },
+    { category: 'gender', label: 'Male' },
+    { category: 'age', label: 'Senior' },
+    { category: 'extended', label: 'Gruff' },
+  ],
+};
+
 const CHARACTERS_NON_NARRATOR = [
-  { name: 'Maren', category: 'class' as const, lines: 142, voice: 'Studio Voice' },
-  { name: 'Dov', category: 'age' as const, lines: 88, voice: 'Marcus Reed' },
-  { name: 'The Warden', category: 'gender' as const, lines: 34, voice: 'Old Tom' },
-  { name: 'Sira', category: 'extended' as const, lines: 29, voice: 'Unassigned' },
+  { name: 'Maren', category: 'class' as const, lines: 142, voice: 'Studio Voice', description: 'A young herbalist traveling the vale, cautious but quietly determined.' },
+  { name: 'Dov', category: 'age' as const, lines: 88, voice: 'Marcus Reed', description: 'An older tracker, weathered and terse, rarely wastes a word.' },
+  { name: 'The Warden', category: 'gender' as const, lines: 34, voice: 'Old Tom', description: 'A gruff frontier lawman guarding the vale\'s border keep.' },
+  { name: 'Sira', category: 'extended' as const, lines: 29, voice: 'Unassigned', description: 'A minor character, an innkeeper\'s daughter with a handful of lines.' },
 ];
 
-export const CastingPane: React.FC = () => (
-  <Row gap={12} className="ns-enter ns-casting-grid" style={{ flex: 1, alignItems: 'stretch' }}>
-    {/* Character table */}
-    <Card style={{ flex: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      {/* Table header — eyebrow labels */}
-      <Row gap={0} style={{ padding: 'var(--space-1) var(--space-3)', borderBottom: 'var(--hairline)', background: 'var(--surface)' }}>
-        {['Character', 'Lines', 'Voice'].map(h => (
-          <div key={h} style={{
-            fontSize: 'var(--type-micro)',
-            fontWeight: 700,
-            color: 'var(--text-muted)',
-            textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', flex: 1,
-          }}>
-            {h}
-          </div>
-        ))}
+// ---------------------------------------------------------------------------
+// AI casting suggestions — matches the casting contract shape from
+// design-docs/plans/active/v2_voice_metadata_and_casting.md: ranked
+// recommendations with a numeric score and a one-line human-readable reason
+// per candidate. Recommend-only — no auto-assignment, ever.
+
+interface CastingSuggestion {
+  voiceName: string;
+  score: number;
+  reason: string;
+}
+
+const SUGGESTIONS_BY_CHARACTER: Record<string, CastingSuggestion[]> = {
+  Sira: [
+    { voiceName: 'Clara Bell', score: 0.88, reason: 'Bright young-adult female voice fits a minor supporting role with light dialogue.' },
+    { voiceName: 'Aria', score: 0.71, reason: 'Clear adult female narrator delivery — right age and gender, more neutral tone.' },
+    { voiceName: 'Studio Voice', score: 0.42, reason: 'Language and gender match, but already cast as book narrator — reuse not recommended.' },
+  ],
+  Maren: [
+    { voiceName: 'Clara Bell', score: 0.74, reason: 'Bright, youthful tone suits a cautious young herbalist.' },
+    { voiceName: 'Aria', score: 0.69, reason: 'Clear delivery, adult female, but reads slightly too formal for the character\'s warmth.' },
+  ],
+  Dov: [
+    { voiceName: 'Old Tom', score: 0.65, reason: 'Right age and gruffness, but already cast for The Warden — accent is UK rural, not neutral.' },
+    { voiceName: 'Marcus Reed', score: 0.93, reason: 'Deep, steady adult male voice matches a terse, weathered tracker.' },
+  ],
+  'The Warden': [
+    { voiceName: 'Old Tom', score: 0.91, reason: 'Gruff senior male with rough texture — matches a frontier lawman exactly.' },
+    { voiceName: 'Marcus Reed', score: 0.58, reason: 'Right gender and authority, but reads as adult rather than senior.' },
+  ],
+};
+
+const CastingSuggestPanel: React.FC<{
+  characterName: string;
+  onClose: () => void;
+}> = ({ characterName, onClose }) => {
+  const [status, setStatus] = useState<'running' | 'done'>('running');
+
+  React.useEffect(() => {
+    setStatus('running');
+    const t = setTimeout(() => setStatus('done'), 900);
+    return () => clearTimeout(t);
+  }, [characterName]);
+
+  const suggestions = SUGGESTIONS_BY_CHARACTER[characterName] ?? [];
+
+  return (
+    <Panel style={{ padding: 'var(--space-3)' }}>
+      <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-1)' }}>
+        <Volume2 size={13} color="var(--accent)" aria-hidden="true" />
+        <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>
+          Suggestions for {characterName}
+        </div>
+        <button
+          type="button"
+          aria-label="Close suggestions"
+          onClick={onClose}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+        >
+          <X size={13} />
+        </button>
       </Row>
 
-      {/* Pinned Narrator row */}
-      <Row gap={0} style={{
-        padding: 'var(--space-2) var(--space-3)', borderBottom: 'var(--hairline)',
-        alignItems: 'center', background: 'var(--accent-tint-bg)',
-      }}>
-        <Row gap={8} style={{ flex: 1, alignItems: 'center' }}>
-          <Avatar size={20} />
-          <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--accent)' }}>
-            Narrator <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 'var(--type-micro)' }}>(default)</span>
+      {status === 'running' && (
+        <Col gap={8} style={{ alignItems: 'center', padding: 'var(--space-3) 0' }}>
+          <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>
+            Scoring voices against {characterName}'s profile…
           </span>
-        </Row>
-        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flex: 1 }}>—</div>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <Avatar size={16} />
-          <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)' }}>Elena Marsh</span>
-          <VoiceAttrPill category="tag">fallback</VoiceAttrPill>
-        </div>
-      </Row>
-
-      <div className="ns-stagger">
-        {CHARACTERS_NON_NARRATOR.map((ch, i) => (
-          <Row key={ch.name} gap={0} style={{
-            padding: 'var(--space-2) var(--space-3)',
-            borderBottom: i < CHARACTERS_NON_NARRATOR.length - 1 ? 'var(--hairline)' : 'none',
-            alignItems: 'center',
-            cursor: 'pointer',
-            transition: 'background var(--dur-fast) var(--ease-standard)',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-alt)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-          >
-            <Row gap={8} style={{ flex: 1, alignItems: 'center' }}>
-              {/* Larger color dot — 13px */}
-              <div style={{
-                width: 13, height: 13, borderRadius: 'var(--radius-round)',
-                background: `var(--pill-${ch.category}-text)`,
-                flexShrink: 0,
-                boxShadow: `0 0 0 2px var(--pill-${ch.category}-bg)`,
-              }} />
-              <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-primary)' }}>{ch.name}</span>
-            </Row>
-            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flex: 1 }}>{ch.lines}</div>
-            <div style={{ flex: 1 }}>
-              <span style={{
-                fontSize: 'var(--type-caption)',
-                color: ch.voice === 'Unassigned' ? 'var(--text-muted)' : 'var(--text-primary)',
-                fontStyle: ch.voice === 'Unassigned' ? 'italic' : 'normal',
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-              }}>
-                {ch.voice !== 'Unassigned' && <Avatar size={16} />}
-                {ch.voice}
-              </span>
-            </div>
-          </Row>
-        ))}
-      </div>
-    </Card>
-
-    {/* Right detail panel */}
-    <Col gap={12} style={{ flex: 1 }}>
-      <Panel style={{ padding: 'var(--space-3)' }}>
-        <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-2)' }}>
-          <Mic size={14} color="var(--accent)" aria-hidden="true" />
-          <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)' }}>Studio Voice</div>
-        </Row>
-        <Col gap={8}>
-          <Row gap={4} style={{ flexWrap: 'wrap' }}>
-            <VoiceAttrPill category="class">Narrator</VoiceAttrPill>
-            <VoiceAttrPill category="gender">Female</VoiceAttrPill>
-            <VoiceAttrPill category="age">Adult</VoiceAttrPill>
-            <VoiceAttrPill category="extended">Warm</VoiceAttrPill>
-          </Row>
-          <Btn small style={{ marginTop: 'var(--space-1)' }}>
-            <Play size={10} style={{ marginRight: 3 }} aria-hidden="true" />
-            Preview 15s
-          </Btn>
-          <Btn primary small>Assign to Maren</Btn>
+          <ProgressBar pct={64} height={4} shimmer />
         </Col>
-      </Panel>
-      <Panel style={{ padding: 'var(--space-3)' }}>
-        <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-1)' }}>
-          <Volume2 size={13} color="var(--accent)" aria-hidden="true" />
-          <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)' }}>Suggest cast (AI)</div>
-        </Row>
-        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginBottom: 'var(--space-2)', lineHeight: 'var(--leading-snug)' }}>
-          Recommends voices per character — never auto-assigns.
+      )}
+
+      {status === 'done' && suggestions.length === 0 && (
+        <div style={{
+          fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontStyle: 'italic',
+          padding: 'var(--space-2) 0',
+        }}>
+          Not enough character description to confidently recommend a voice — add a description in Manuscript to improve matches.
         </div>
-        <Btn primary small>Run suggestions</Btn>
-      </Panel>
-    </Col>
-  </Row>
-);
+      )}
+
+      {status === 'done' && suggestions.length > 0 && (
+        <Col gap={6}>
+          <span style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)' }}>
+            Concept — Illustrative Scoring
+          </span>
+          {suggestions.map((s, i) => {
+            const lowConfidence = s.score < 0.5;
+            return (
+              <div
+                key={s.voiceName}
+                style={{
+                  border: '1px solid var(--hairline)', borderRadius: 'var(--radius-card)',
+                  padding: 'var(--space-2) var(--space-3)',
+                  background: i === 0 ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+                  opacity: lowConfidence ? 0.75 : 1,
+                }}
+              >
+                <Row gap={8} style={{ alignItems: 'center', marginBottom: 3 }}>
+                  <Avatar size={18} />
+                  <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>{s.voiceName}</span>
+                  <SemanticChip variant={s.score >= 0.8 ? 'success' : s.score >= 0.5 ? 'accent' : 'warning'}>
+                    {Math.round(s.score * 100)}% match
+                  </SemanticChip>
+                </Row>
+                <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', lineHeight: 'var(--leading-snug)', marginBottom: 6 }}>
+                  {s.reason}
+                </div>
+                <Row gap={6}>
+                  <Btn small aria-label={`Preview ${s.voiceName}`}>
+                    <Row gap={3} style={{ alignItems: 'center' }}><Play size={9} /> Preview</Row>
+                  </Btn>
+                  <Btn small primary>Assign to {characterName}</Btn>
+                </Row>
+              </div>
+            );
+          })}
+          <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 2 }}>
+            Suggestions only — nothing is assigned until you confirm.
+          </div>
+        </Col>
+      )}
+    </Panel>
+  );
+};
+
+export const CastingPane: React.FC = () => {
+  const [selectedCharacter, setSelectedCharacter] = useState('Maren');
+  const [suggestFor, setSuggestFor] = useState<string | null>(null);
+  const selected = CHARACTERS_NON_NARRATOR.find(c => c.name === selectedCharacter) ?? CHARACTERS_NON_NARRATOR[0];
+
+  return (
+    <Row gap={12} className="ns-enter ns-casting-grid" style={{ flex: 1, alignItems: 'stretch' }}>
+      {/* Character table */}
+      <Card style={{ flex: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {/* Table header — eyebrow labels */}
+        <Row gap={0} style={{ padding: 'var(--space-1) var(--space-3)', borderBottom: 'var(--hairline)', background: 'var(--surface)' }}>
+          {['Character', 'Lines', 'Voice'].map(h => (
+            <div key={h} style={{
+              fontSize: 'var(--type-micro)',
+              fontWeight: 700,
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)', flex: 1,
+            }}>
+              {h}
+            </div>
+          ))}
+        </Row>
+
+        {/* Pinned Narrator row */}
+        <Row gap={0} style={{
+          padding: 'var(--space-2) var(--space-3)', borderBottom: 'var(--hairline)',
+          alignItems: 'center', background: 'var(--accent-tint-bg)',
+        }}>
+          <Row gap={8} style={{ flex: 1, alignItems: 'center' }}>
+            <Avatar size={20} />
+            <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--accent)' }}>
+              Narrator <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 'var(--type-micro)' }}>(default)</span>
+            </span>
+          </Row>
+          <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flex: 1 }}>—</div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <Avatar size={16} />
+            <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)' }}>Elena Marsh</span>
+            <VoiceAttrPill category="tag">fallback</VoiceAttrPill>
+          </div>
+        </Row>
+
+        <div className="ns-stagger">
+          {CHARACTERS_NON_NARRATOR.map((ch, i) => {
+            const isSelected = ch.name === selectedCharacter;
+            return (
+              <Row
+                key={ch.name}
+                gap={0}
+                onClick={() => { setSelectedCharacter(ch.name); setSuggestFor(null); }}
+                style={{
+                  padding: 'var(--space-2) var(--space-3)',
+                  borderBottom: i < CHARACTERS_NON_NARRATOR.length - 1 ? 'var(--hairline)' : 'none',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  background: isSelected ? 'var(--accent-tint-bg)' : 'transparent',
+                  borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
+                  transition: 'background var(--dur-fast) var(--ease-standard)',
+                }}
+                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--surface-alt)'; }}
+                onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              >
+                <Row gap={8} style={{ flex: 1, alignItems: 'center' }}>
+                  {/* Larger color dot — 13px */}
+                  <div style={{
+                    width: 13, height: 13, borderRadius: 'var(--radius-round)',
+                    background: `var(--pill-${ch.category}-text)`,
+                    flexShrink: 0,
+                    boxShadow: `0 0 0 2px var(--pill-${ch.category}-bg)`,
+                  }} />
+                  <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-primary)' }}>{ch.name}</span>
+                </Row>
+                <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', flex: 1 }}>{ch.lines}</div>
+                <div style={{ flex: 1 }}>
+                  <span style={{
+                    fontSize: 'var(--type-caption)',
+                    color: ch.voice === 'Unassigned' ? 'var(--text-muted)' : 'var(--text-primary)',
+                    fontStyle: ch.voice === 'Unassigned' ? 'italic' : 'normal',
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                  }}>
+                    {ch.voice !== 'Unassigned' && <Avatar size={16} />}
+                    {ch.voice}
+                  </span>
+                </div>
+              </Row>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* Right detail panel */}
+      <Col gap={12} style={{ flex: 1 }}>
+        <Panel style={{ padding: 'var(--space-3)' }}>
+          <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-2)' }}>
+            <Mic size={14} color="var(--accent)" aria-hidden="true" />
+            <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)' }}>{selected.voice === 'Unassigned' ? selected.name : selected.voice}</div>
+          </Row>
+          <Col gap={8}>
+            <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: 'var(--leading-snug)' }}>
+              {selected.description}
+            </div>
+            {selected.voice !== 'Unassigned' && (
+              <Row gap={4} style={{ flexWrap: 'wrap' }}>
+                {(VOICE_PILLS_BY_NAME[selected.voice] ?? []).map(p => (
+                  <VoiceAttrPill key={p.category} category={p.category}>{p.label}</VoiceAttrPill>
+                ))}
+              </Row>
+            )}
+            <Btn small style={{ marginTop: 'var(--space-1)' }}>
+              <Play size={10} style={{ marginRight: 3 }} aria-hidden="true" />
+              Preview 15s
+            </Btn>
+            <Btn primary small>Assign to {selected.name}</Btn>
+          </Col>
+        </Panel>
+
+        {suggestFor === selected.name ? (
+          <CastingSuggestPanel characterName={selected.name} onClose={() => setSuggestFor(null)} />
+        ) : (
+          <Panel style={{ padding: 'var(--space-3)' }}>
+            <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-1)' }}>
+              <Volume2 size={13} color="var(--accent)" aria-hidden="true" />
+              <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)' }}>Suggest cast (AI)</div>
+            </Row>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginBottom: 'var(--space-2)', lineHeight: 'var(--leading-snug)' }}>
+              Recommends voices for <strong>{selected.name}</strong> from your library — never auto-assigns.
+            </div>
+            <Btn primary small onClick={() => setSuggestFor(selected.name)}>Run suggestions</Btn>
+          </Panel>
+        )}
+      </Col>
+    </Row>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // BackupsPane

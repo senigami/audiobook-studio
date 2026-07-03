@@ -32,6 +32,7 @@ import {
 } from '../shared';
 import { VoiceProfileEditorPane } from './voiceEditor';
 import { VoicePortrait } from './voicePortrait';
+import { HuggingFaceDiscoverPane, UploadToHfModal } from './huggingFaceDiscover';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -213,58 +214,6 @@ const VOICE_CARDS: Voice[] = [
     ],
     cta: 'Edit voice',
     portrait: true,
-  },
-];
-
-const DISCOVER_CARDS: Voice[] = [
-  {
-    name: 'VoxNarrator-v2',
-    description: 'Verified male narrator preset with a balanced production profile.',
-    pills: [
-      { label: 'Narrator', category: 'class' },
-      { label: 'Male', category: 'gender' },
-      { label: 'Adult', category: 'age' },
-      { label: 'Deep', category: 'extended' },
-    ],
-    cta: 'Preview voice',
-    portrait: true,
-    portraitImage: '/demo-voice-raster/gruff-character.png',
-  },
-  {
-    name: 'EmberReader',
-    description: 'Warm female dialogue preset designed for expressive chapter samples.',
-    pills: [
-      { label: 'Dialogue', category: 'class' },
-      { label: 'Female', category: 'gender' },
-      { label: 'Adult', category: 'age' },
-      { label: 'Warm', category: 'extended' },
-    ],
-    cta: 'Preview voice',
-    portrait: true,
-  },
-  {
-    name: 'DeepCast-M',
-    description: 'Gruff senior character preset for low-register dramatic moments.',
-    pills: [
-      { label: 'Character', category: 'class' },
-      { label: 'Male', category: 'gender' },
-      { label: 'Senior', category: 'age' },
-      { label: 'Gruff', category: 'extended' },
-    ],
-    cta: 'Preview voice',
-    portrait: true,
-  },
-  {
-    name: 'ClearTone-F',
-    description: 'Clear narrator preset without generated portrait artwork.',
-    pills: [
-      { label: 'Narrator', category: 'class' },
-      { label: 'Female', category: 'gender' },
-      { label: 'Adult', category: 'age' },
-      { label: 'Clear', category: 'extended' },
-    ],
-    cta: 'Preview voice',
-    portrait: false,
   },
 ];
 
@@ -538,6 +487,7 @@ const VoiceLab: React.FC<{
   const phaseSteps = ['Samples', 'Build', 'Test', 'Ready'] as const;
   const [activeStep, setActiveStep] = useState<'Samples' | 'Build' | 'Test' | 'Ready'>('Samples');
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const [showHfUpload, setShowHfUpload] = useState(false);
 
   const SAMPLES = [
     { name: 'sample_01.mp3', dur: '0:12' },
@@ -836,6 +786,9 @@ const VoiceLab: React.FC<{
         {/* Ready / Export */}
         {activeStep === 'Ready' && (
           <Col gap={4}>
+            {showHfUpload && (
+              <UploadToHfModal voiceName={voice.name} onClose={() => setShowHfUpload(false)} />
+            )}
             <Label>Export</Label>
             <Row gap={8} style={{ alignItems: 'center' }}>
               <Btn small onClick={() => onExportBundle()}>
@@ -844,7 +797,7 @@ const VoiceLab: React.FC<{
                   Export bundle (.zip)
                 </Row>
               </Btn>
-              <Btn small>Publish to Hugging Face</Btn>
+              <Btn small onClick={() => setShowHfUpload(true)}>Publish to Hugging Face</Btn>
             </Row>
           </Col>
         )}
@@ -1883,63 +1836,7 @@ export const VoicesPane: React.FC = () => {
           </>
         )}
 
-        {voiceTab === 'discover' && (
-          <>
-            <Row gap={6} style={{ alignItems: 'center', marginBottom: 'var(--space-2)' }}>
-              <div style={{
-                flex: 1, display: 'flex', alignItems: 'center', gap: 6,
-                background: 'var(--surface-alt)', border: 'var(--hairline)',
-                borderRadius: 'var(--radius-card)', padding: 'var(--space-1) var(--space-3)',
-              }}>
-                <Search size={12} color="var(--text-muted)" />
-                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontStyle: 'italic' }}>Search voices…</span>
-              </div>
-            </Row>
-            <Row gap={6} style={{ flexWrap: 'wrap', marginBottom: 'var(--space-2)' }}>
-              <VoiceAttrPill category="class">Narrator</VoiceAttrPill>
-              <VoiceAttrPill category="gender">Male</VoiceAttrPill>
-              <VoiceAttrPill category="extended">English</VoiceAttrPill>
-              <Chip>+ Filter</Chip>
-            </Row>
-            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 'var(--space-3)' }}>
-              Community voices from Hugging Face — install to use locally.
-            </div>
-            <div
-              className="ns-stagger"
-              style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: 'var(--space-2)' }}
-            >
-              {DISCOVER_CARDS.map((v, idx) => (
-                <Card interactive key={v.name} style={{
-                  padding: 'var(--space-3) var(--space-3) var(--space-2)', textAlign: 'center',
-                  borderRadius: 'var(--radius-card)',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-2)' }}>
-                    <VoicePortrait voice={v} size={52} />
-                  </div>
-                  <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: 'var(--tracking-tight)' }}>{v.name}</div>
-                  <Row gap={3} style={{ marginTop: 'var(--space-1)', justifyContent: 'center', flexWrap: 'wrap' }}>
-                    {v.pills.map(p => (
-                      <VoiceAttrPill key={p.label} category={p.category}>{p.label}</VoiceAttrPill>
-                    ))}
-                  </Row>
-                  {idx === 1 ? (
-                    <Col gap={3} style={{ marginTop: 'var(--space-2)' }}>
-                      <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', fontStyle: 'italic' }}>installing… 64%</span>
-                      <ProgressBar pct={64} height={3} shimmer />
-                    </Col>
-                  ) : (
-                    <Btn small style={{ marginTop: 'var(--space-2)' }}>
-                      <Row gap={4} style={{ alignItems: 'center' }}>
-                        <Download size={10} />
-                        Install
-                      </Row>
-                    </Btn>
-                  )}
-                </Card>
-              ))}
-            </div>
-          </>
-        )}
+        {voiceTab === 'discover' && <HuggingFaceDiscoverPane />}
       </Col>
     </Col>
   );
