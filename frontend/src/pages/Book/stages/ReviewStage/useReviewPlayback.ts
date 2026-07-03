@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { usePlayerBus, loadAndPlay, play, pause, seek } from '@/store/playerBus';
 import type { ChapterSegment } from '@/types';
-import type { AltScope } from '@/store/playerBus';
 
 export interface UseReviewPlaybackOptions {
   chapterId: string | null;
@@ -60,18 +59,14 @@ export function useReviewPlayback({
   }, [isCurrentChapterPlaying, playerBus.position, playerBus.duration, segmentTimeRanges]);
 
   /**
-   * Load and play a chapter render.  When `segmentAltScope` is provided (a rendered
-   * segment audio URL is genuinely available) the scope toggle will appear in the bar.
-   * Best-effort: callers must only supply a real URL — never fabricate one.
+   * Load and play a chapter render. The player is scope-agnostic
+   * (audio-player.md 1.6.0) — there is no segment/chapter toggle to register.
    */
-  const playChapter = (audioUrl: string, title: string, segmentAltScope?: Pick<AltScope, 'audioUrl' | 'title' | 'subtitle'>) => {
+  const playChapter = (audioUrl: string, title: string) => {
     loadAndPlay({
       scope: 'chapter',
       title,
       audioUrl,
-      altScope: segmentAltScope
-        ? { scope: 'segment', ...segmentAltScope }
-        : undefined,
     });
   };
 

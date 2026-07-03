@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Play, Pause, SkipForward, SkipBack, Square, Rewind, FastForward, AudioLines } from 'lucide-react';
-import { usePlayerBus, seek, play, pause, stop, skip, switchScope, reportTime, notifyEnded, notifyError, notifyPrev, notifyNext } from '@/store/playerBus';
+import { usePlayerBus, seek, play, pause, stop, skip, reportTime, notifyEnded, notifyError, notifyPrev, notifyNext } from '@/store/playerBus';
 import { WaveformStrip } from './WaveformStrip';
 import { LAYERS } from './layering';
+import { fitsLegibly } from './playerRepresentation';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds === Infinity || seconds < 0) return '00:00';
@@ -34,17 +35,32 @@ export const PlayerBar: React.FC = () => {
     position,
     duration,
     queue,
-    scope,
     title,
     subtitle,
-    altScope,
   } = state;
 
-  // Scrub representation defaults to the scope type (segment → waveform, else →
-  // bar), but the far-right toggle lets the user flip it. The override resets to
-  // the scope default whenever a new source loads (requestId bumps).
+  // Scrub representation defaults to duration-driven fit (fitsLegibly), but the
+  // far-right toggle lets the user flip it. The override resets to the duration
+  // default whenever a new source loads (requestId bumps).
   const [forceWave, setForceWave] = useState<boolean | null>(null);
   useEffect(() => { setForceWave(null); }, [requestId]);
+
+  // Measures the scrub container's actual rendered width so fitsLegibly() can
+  // compare it against the clip duration. Starts at 0 (unmeasured) so the
+  // duration-only bootstrap threshold applies until the first observation.
+  const [measuredWidth, setMeasuredWidth] = useState<number>(0);
+  const scrubContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = scrubContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      setMeasuredWidth(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []); // empty deps — ref node is stable after mount
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -117,8 +133,9 @@ export const PlayerBar: React.FC = () => {
     }
   };
 
-  // Default representation follows scope; forceWave overrides when the user flips.
-  const showWave = forceWave ?? (scope === 'segment');
+  // Default representation is duration-driven (scope-blind); forceWave
+  // overrides when the user flips the AudioLines toggle.
+  const showWave = forceWave ?? fitsLegibly(duration, measuredWidth);
 
   return (
     <div className="player-bar" style={{ zIndex: LAYERS.PLAYER_BAR }}>
@@ -196,39 +213,18 @@ export const PlayerBar: React.FC = () => {
             <span className="player-title">{title}</span>
             {subtitle && <span className="player-subtitle">{subtitle}</span>}
           </div>
-          {scope && altScope ? (
-            <div className="player-scope-toggle" role="group" aria-label="Audio scope">
-              {/* Active pill — current scope */}
-              <button
-                type="button"
-                className="player-scope-pill player-scope-pill--active"
-                onClick={switchScope}
-                aria-pressed={true}
-                aria-label={`Playing ${scope}`}
-              >
-                {scope}
-              </button>
-              {/* Inactive pill — tap to switch */}
-              <button
-                type="button"
-                className="player-scope-pill"
-                onClick={switchScope}
-                aria-pressed={false}
-                aria-label={`Switch to ${altScope.scope}`}
-              >
-                {altScope.scope}
-              </button>
-            </div>
-          ) : (
-            scope && <span className="player-scope-badge">{scope}</span>
-          )}
         </div>
 
-        {/* Scrub track — representation defaults to scope (segment → inline
-            waveform / else → plain slider) and can be flipped via the far-right
-            toggle. When the waveform is shown it reflows above the controls on
-            narrow widths via the CSS container query (.player-scrub--wave). */}
-        <div className={`player-scrub${showWave ? ' player-scrub--wave' : ''}`}>
+        {/* Scrub track — representation is duration-driven (fitsLegibly):
+            a short clip renders an inline waveform, a long one a plain slider.
+            Scope-blind (audio-player.md 1.6.0) and can be flipped via the
+            far-right toggle. When the waveform is shown it reflows above the
+            controls on narrow widths via the CSS container query
+            (.player-scrub--wave). */}
+        <div
+          ref={scrubContainerRef}
+          className={`player-scrub${showWave ? ' player-scrub--wave' : ''}`}
+        >
           {showWave && audioEl ? (
             <div className="player-waveform-inline">
               <WaveformStrip audioEl={audioEl} audioUrl={audioUrl} />
@@ -250,7 +246,7 @@ export const PlayerBar: React.FC = () => {
           {formatTime(position)} / {formatTime(duration)}
         </span>
 
-        {/* Representation override — defaults to scope, flip waveform ↔ bar on demand */}
+        {/* Representation override — defaults to duration fit, flip waveform ↔ bar on demand */}
         <button
           type="button"
           className={`player-btn player-btn-wave${showWave ? ' player-btn-wave--on' : ''}`}

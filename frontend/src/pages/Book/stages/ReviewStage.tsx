@@ -129,21 +129,7 @@ export function ReviewStage() {
 
     const audioUrl = `/api/projects/${bookId}/chapters/${chapter.id}/assets/audio?filename=${encodeURIComponent(chapter.audio_file_path!)}`;
 
-    // Best-effort altScope: use the first rendered segment URL if one exists.
-    // Segments for the newly selected chapter may not be loaded yet; when they
-    // arrive the play state is already wired through playerBus, so this is fine.
-    const firstRenderedSeg = segments.find(
-      (s) => s.audio_status === 'done' && s.audio_file_path,
-    );
-    const segmentAltScope = firstRenderedSeg
-      ? {
-          audioUrl: `/api/projects/${bookId}/chapters/${chapter.id}/assets/audio?filename=${encodeURIComponent(firstRenderedSeg.audio_file_path!)}`,
-          title: `Segment ${firstRenderedSeg.segment_order + 1}`,
-          subtitle: chapter.title,
-        }
-      : undefined;
-
-    playChapter(audioUrl, chapter.title, segmentAltScope);
+    playChapter(audioUrl, chapter.title);
   };
 
   return (

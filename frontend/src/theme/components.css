@@ -2818,7 +2818,7 @@
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  /* Container for the U16 responsive rule: the segment waveform reflows above
+  /* Container for the U16 responsive rule: the inline waveform reflows above
      the controls when the bar itself is too narrow (NOT a viewport query). */
   container-type: inline-size;
 }
@@ -2944,77 +2944,9 @@
   text-overflow: ellipsis;
 }
 
-.player-scope-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.125rem 0.5rem;
-  border-radius: var(--radius-round);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  background: var(--accent-tint-bg);
-  color: var(--accent);
-  border: 1px solid var(--accent-tint-border);
-  flex-shrink: 0;
-}
-
-/* ---------------------------------------------------------------------------
- * Player bar — Scope pill toggle (R7-T2)
- * Two pills (Segment / Chapter) replace the passive badge when both sources
- * are available.  The active pill is highlighted; inactive is subdued.
- * --------------------------------------------------------------------------- */
-
-.player-scope-toggle {
-  display: inline-flex;
-  align-items: center;
-  border-radius: var(--radius-round);
-  border: 1px solid var(--accent-tint-border);
-  overflow: hidden;
-  flex-shrink: 0;
-  gap: 0;
-}
-
-.player-scope-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.125rem 0.5rem;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  background: var(--surface);
-  color: var(--text-muted);
-  border: none;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-  line-height: 1.6;
-}
-
-.player-scope-pill + .player-scope-pill {
-  border-left: 1px solid var(--accent-tint-border);
-}
-
-.player-scope-pill--active {
-  background: var(--accent-tint-bg);
-  color: var(--accent);
-  cursor: default;
-}
-
-.player-scope-pill:not(.player-scope-pill--active):hover {
-  background: var(--surface-alt);
-  color: var(--text-secondary);
-}
-
-@media (prefers-color-scheme: dark) {
-  .player-scope-pill {
-    background: var(--surface-alt);
-  }
-  .player-scope-pill--active {
-    background: var(--accent-tint-bg);
-  }
-}
-
-/* Scrub area — holds either the inline waveform (segment scope) or the plain
-   seek slider (chapter scope). Fills the available width like a scrub bar. */
+/* Scrub area — holds either the inline waveform (short clip) or the plain
+   seek slider (long clip); representation is duration-driven, not scope-driven
+   (audio-player.md 1.6.0). Fills the available width like a scrub bar. */
 .player-scrub {
   display: flex;
   align-items: center;
@@ -3023,16 +2955,17 @@
   min-width: 120px;
 }
 
-/* Inline waveform = the scrub track in segment scope. */
+/* Inline waveform = the scrub track when the clip fits legibly (fitsLegibly). */
 .player-waveform-inline {
   width: 100%;
   height: 32px;
 }
 
 /* U16 responsive exception: when the bar is too narrow to fit transport +
-   inline waveform + trailing controls on one row, the SEGMENT waveform reflows
-   ABOVE the controls (order:-1, full width) at reduced height. Chapter scope
-   uses .player-scrub WITHOUT --wave, so its slider never reflows above. */
+   inline waveform + trailing controls on one row, the waveform reflows
+   ABOVE the controls (order:-1, full width) at reduced height. The plain-bar
+   representation uses .player-scrub WITHOUT --wave, so its slider never
+   reflows above. */
 @container (max-width: 720px) {
   .player-scrub--wave {
     flex-basis: 100%;
@@ -3063,7 +2996,7 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Player bar — inline waveform (U16: scrub track in segment scope)
+ * Player bar — inline waveform (duration-driven scrub track, audio-player.md 1.6.0)
  * --------------------------------------------------------------------------- */
 
 /* Representation override toggle (far right) — flips waveform ↔ bar. Uses the
@@ -3768,5 +3701,58 @@ input[type="radio"] {
   height: 18px;
   flex-shrink: 0;
   cursor: pointer;
+}
+
+/* ==========================================================================
+   SegmentRenderMonitor — BitTorrent-style render monitor (W-PAR Phase 2,
+   design-docs/specs/progress-presentation.md §7A). Reduced-motion (M3) is
+   also gated at the component render level (no animation classes applied);
+   these @media rules are defense-in-depth for the CSS layer.
+   ========================================================================== */
+
+@keyframes segment-render-monitor-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.72; }
+}
+
+.segment-render-monitor__block--active {
+  background: rgba(20, 184, 166, 0.22);
+  animation: segment-render-monitor-pulse 1.6s ease-in-out infinite;
+}
+
+[data-theme='dark'] .segment-render-monitor__block--active {
+  background: rgba(45, 212, 191, 0.26);
+}
+
+@keyframes segment-render-monitor-prep {
+  0%   { background-position: -120% 0; }
+  100% { background-position: 220% 0; }
+}
+
+.segment-render-monitor__block--preparing {
+  background-image: linear-gradient(90deg, transparent 0%, var(--accent-tint-border) 50%, transparent 100%);
+  background-size: 60% 100%;
+  background-repeat: no-repeat;
+  animation: segment-render-monitor-prep 1.1s linear infinite;
+}
+
+/* M2 — failure cue that does not rely on hue alone: a diagonal crosshatch
+   pattern layered on top of the danger-tinted border. */
+.segment-render-monitor__crosshatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--action-danger) 0,
+    var(--action-danger) 1px,
+    transparent 1px,
+    transparent 6px
+  );
+  opacity: 0.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segment-render-monitor__block--active,
+  .segment-render-monitor__block--preparing {
+    animation: none !important;
+  }
 }
 

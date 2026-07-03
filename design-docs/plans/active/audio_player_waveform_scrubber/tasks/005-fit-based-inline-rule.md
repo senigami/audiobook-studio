@@ -1,6 +1,6 @@
 # 005 — Scope-agnostic live player
 
-status: todo
+status: done
 workload: W1 — Spec 1.6.0 + scope-agnostic live player
 blocked-by: 004
 blocks: 006

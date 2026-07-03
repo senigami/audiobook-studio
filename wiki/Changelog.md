@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Change] - 2026-07-03
+
+### Global player: scope toggle removed, scrub representation is now duration-driven (audio-player.md 1.6.0, W1)
+
+Closes the spec-ahead-of-code gap between `audio-player.md` 1.6.0 (rewritten 2026-06-16) and the live `PlayerBar`.
+
+- **The segment/chapter scope toggle is gone.** `altScope`/`switchScope`/`AltScope` are deleted from `playerBus.ts`; the pill-toggle/badge UI and its CSS are deleted from `PlayerBar.tsx`/`components.css`. The Review stage's chapter-play adapter no longer registers an alternate segment source.
+- **Waveform-vs-bar is decided by clip duration, not by scope.** New `frontend/src/app/layout/playerRepresentation.ts` exports `fitsLegibly(durationSec, barWidthPx)`: a clip renders as an inline waveform when it fits legibly at the measured scrub-bar width (≥ 3 px/sec), else falls back to a plain seek slider; before the bar width is measured it bootstraps off duration alone (≤ 120s → waveform). `PlayerBar.tsx` measures its scrub container via `ResizeObserver` and feeds it into the predicate. A short chapter clip and a short segment clip now render identically; only duration and width matter.
+- The far-right `AudioLines` override toggle is unchanged — it still flips the default representation on demand and resets on every new source.
+- No behavior change to transport, single-`<audio>`-owner, or `position/duration` time display (already scope-agnostic).
+
+Sets up task 006 (the live `WaveformTape` port) on a stable, scope-free foundation.
+
 ## [Fix] - 2026-07-03
 
 ### Per-engine concurrency cap silently capped at 1 regardless of manifest (W-PAR)
