@@ -1,6 +1,6 @@
 {
   "meta": {
-    "synced_commit": "310b9a09ea362c020b1f7277e3bdc932b7bfec9c",
+    "synced_commit": "048e255b3da51275464d6c3630875cf9e6a0e6de",
     "file_hashes": {
       "app/studio_plugin_sdk/__init__.py": "5da2a06a96e7600c",
       "app/studio_plugin_sdk/_import_utils.py": "e242aac00e0fd063",
@@ -18,7 +18,7 @@
       "app/db/queue.py": "4f1cc06c6677a3f7",
       "app/db/state_helpers.py": "6719ec15f38a704f",
       "app/db/state_performance.py": "ce05ffaf47f96f82",
-      "app/db/state_settings.py": "f0d89778e6b32080",
+      "app/db/state_settings.py": "8b91356f7eb8fd28",
       "app/db/models.py": "d5490bbdd74440f3",
       "app/db/segment_gc.py": "9b85151bcbd2c1d0",
       "app/db/segments.py": "c25194fc589edb2a",
@@ -53,7 +53,7 @@
       "app/api/routers/chapters_models.py": "10198aa990971051",
       "app/api/routers/projects_assembly.py": "0e7fe0d7c34f52f3",
       "app/api/routers/voices_management.py": "d35c99c358411b41",
-      "app/api/routers/voices_metadata.py": "79bfbf7882d91cf1",
+      "app/api/routers/voices_metadata.py": "3702d815b9ef51f2",
       "app/api/routers/voices_actions.py": "6660e0e92f62a152",
       "app/api/routers/voices_helpers.py": "6cfc4af0e80da275",
       "app/api/routers/voices_characters.py": "b9269f53cbccd213",
@@ -63,7 +63,7 @@
       "app/api/routers/projects_backups.py": "41fd3933ce535125",
       "app/api/routers/projects.py": "440182c2c46ed345",
       "app/api/routers/generation.py": "3a40d3b995adc4c1",
-      "app/api/routers/system.py": "59ccdd76aaf1a404",
+      "app/api/routers/system.py": "24dae7af84f06b28",
       "app/api/routers/analysis.py": "60cf76172658c1cb",
       "app/api/routers/engines.py": "b09ec84eb077b03e",
       "app/api/routers/migration.py": "a17d3801ee651383",
@@ -93,12 +93,12 @@
       "app/domain/voices/preview.py": "90c1dd8c70d76dc0",
       "app/domain/voices/service.py": "85a08a4152c3a827",
       "app/domain/voices/compatibility.py": "d56dd76a62f12aca",
-      "app/domain/voices/metadata.py": "5b9bba6cbd05d8ff",
+      "app/domain/voices/metadata.py": "93ac35a0ac336ba8",
       "app/domain/voices/models.py": "0ed423d8674b8dc5",
       "app/domain/voices/manifest.py": "d7fd1802a048c17f",
-      "app/domain/voices/bundles.py": "5f51135a8d7fc208",
+      "app/domain/voices/bundles.py": "9ced7f593b55df39",
       "app/domain/voices/__init__.py": "b28d34802b836e32",
-      "app/domain/voices/taxonomy.py": "28a3dc7d30a6cf54",
+      "app/domain/voices/taxonomy.py": "fddc982b457bda47",
       "app/domain/voices/repository.py": "191ccac8d6123e4c",
       "app/domain/voices/migration.py": "526ed0d02756b4db",
       "app/domain/voices/samples.py": "c4164cc3403ae726",
@@ -142,7 +142,7 @@
       "app/orchestration/__init__.py": "826dd61a6736d7d1",
       "app/orchestration/tasks/__init__.py": "58bbb52d9bf9a907",
       "app/orchestration/tasks/base.py": "53d85255beec1319",
-      "app/orchestration/tasks/synthesis.py": "ea9c35aa97a50888",
+      "app/orchestration/tasks/synthesis.py": "6474a61fe3af7758",
       "app/orchestration/tasks/api_synthesis.py": "e5eeeda55f66fa56",
       "app/orchestration/tasks/assembly.py": "f381aaea9f5d6814",
       "app/orchestration/tasks/bake.py": "e107dd0a364e7af1",
@@ -154,14 +154,14 @@
       "app/orchestration/scheduler/orchestrator_helpers.py": "715e587e6d916ab9",
       "app/orchestration/scheduler/orchestrator_eta.py": "259b67369779bb28",
       "app/orchestration/scheduler/orchestrator_publish.py": "fd1d656f6940a2e1",
-      "app/orchestration/scheduler/resources.py": "7991cee7bb0037ab",
+      "app/orchestration/scheduler/resources.py": "92194e0af7a9a0f2",
       "app/orchestration/scheduler/policies.py": "4a23d243516fe50b",
       "app/orchestration/scheduler/recovery.py": "202b9859df3d26fe",
       "app/orchestration/progress/__init__.py": "d60280c633d9ec6a",
       "app/orchestration/progress/service.py": "684326ec3ca3f8b1",
       "app/orchestration/progress/reconciliation.py": "720e433b84aade64",
       "app/orchestration/progress/broadcaster.py": "81e7dc4f023c79d1",
-      "app/orchestration/progress/eta.py": "1f32d58551269c36",
+      "app/orchestration/progress/eta.py": "dae573aff77a01e9",
       "app/orchestration/scheduler/eta.py": "7fab508abc46c7b3",
       "app/tts_server/plugin_loader.py": "c5e0f4985919c7d2",
       "app/tts_server/server.py": "4325adedeae2f32f",
@@ -203,7 +203,7 @@
       "frontend/src/store/notifications.ts": "a2df6ed4bdc76077",
       "frontend/src/store/editor-session.ts": "d0e68bd07ad69515",
       "frontend/src/store/live-jobs.ts": "27da820f45aaf604",
-      "frontend/src/store/playerBus.ts": "a5db63eb864a5958",
+      "frontend/src/store/playerBus.ts": "98d5404a9374422b",
       "frontend/src/store/liveEventAuditStore.ts": "9bd9feb27b91f973",
       "frontend/src/components/CharactersTab.tsx": "7ea4398e3b25d515",
       "frontend/src/components/VoicesModals.tsx": "29f59557a5bbd420",
@@ -399,7 +399,7 @@
       "frontend/src/pages/ChapterEditor/components/EditorTabs.tsx": "3ac3dac6c1134528",
       "frontend/src/pages/ChapterEditor/components/PlaybackControls.tsx": "fbf523f039837f00",
       "frontend/src/app/App.tsx": "0ff09708439c6075",
-      "frontend/src/app/layout/PlayerBar.tsx": "8e38b23d0ab84f50",
+      "frontend/src/app/layout/PlayerBar.tsx": "7c64c8adee272ab3",
       "frontend/src/app/layout/TopBar.tsx": "b61383c70f70c1b2",
       "frontend/src/app/layout/bookIdentityStore.ts": "cd64ce83fcf8deac",
       "frontend/src/app/layout/BookIdentityLine.tsx": "54cf8ba21a9672aa",
@@ -495,7 +495,7 @@
       "plugins/tts_mixed/engine.py": "43cea6ae577f0629",
       "plugins/tts_mixed/handler.py": "e79c91745c96f4c3",
       "app/api/routers/settings.py": "6b8ef3a3a6d6575e",
-      "app/api/routers/voices.py": "c334c0a6b40d8b2c",
+      "app/api/routers/voices.py": "146cfea677483c8f",
       "plugins/tts_xtts/__init__.py": "946a854181ea4126",
       "plugins/tts_xtts/plugin/__init__.py": "67246dcc6191c717",
       "plugins/tts_xtts/plugin/core/__init__.py": "42396285e612540c",
@@ -503,9 +503,16 @@
       "plugins/tts_xtts/plugin/studio/__init__.py": "6cbef4cb5383d81c",
       "frontend/src/pages/Voices/components/index.ts": "e2f8defc9e91616c",
       "app/orchestration/tasks/segment_synthesis.py": "2975ee2364116b73",
-      "app/domain/voices/huggingface.py": "f10ad0597eed5a07",
+      "app/domain/voices/huggingface.py": "032f933723e2b254",
       "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx": "456d0bf22e40e272",
-      "frontend/src/i18n/index.ts": "4036184f4e4c1935"
+      "frontend/src/i18n/index.ts": "4036184f4e4c1935",
+      "frontend/src/components/progress/SegmentRenderMonitor/SegmentRenderMonitor.tsx": "c38c254e94b0f849",
+      "frontend/src/app/layout/playerRepresentation.ts": "c3e76ee354ea6b2f",
+      "frontend/src/app/layout/WaveformTape.tsx": "a196223991800f3d",
+      "frontend/src/components/CastingSuggestionsModal.tsx": "88fb54b1e4743fb3",
+      "frontend/src/utils/voiceCasting.ts": "a51b560bee64bd65",
+      "app/orchestration/scheduler/cap_settings.py": "134b953e874a37ea",
+      "app/api/routers/voices_huggingface.py": "7e7f75bb361cb6bb"
     },
     "shards": [],
     "unmapped": [
@@ -1557,7 +1564,9 @@
         "enforces enabled_plugins as source of truth for plugin enablement",
         "disables plugins missing required_settings",
         "clears default_engine if it's no longer enabled",
-        "preserves original default_engine on disk only if explicitly updated (prevents inferred defaults persisting)"
+        "preserves original default_engine on disk only if explicitly updated (prevents inferred defaults persisting)",
+        "W-PAR 007: tts_parallel_cap (default 1) / tts_engine_caps (default {}) added to settings normalization",
+        "HF integration: huggingface_token added (same stripped-string pattern as tts_api_key)"
       ]
     },
     "app/db/models.py": {
@@ -2983,7 +2992,8 @@
         "app/api/routers/voices.py"
       ],
       "notes": [
-        "patch_voice_metadata accepts+persists provenance (whole-block replace, not merge \u2014 see voice-bundles.md sec8.1); RuntimeError from update_voice_metadata -> 500"
+        "patch_voice_metadata accepts+persists provenance (whole-block replace, not merge \u2014 see voice-bundles.md sec8.1); RuntimeError from update_voice_metadata -> 500",
+        "GET /api/voices/search gained ?language=/?style= query params (Phase G, 2026-07-04)"
       ]
     },
     "app/api/routers/voices_actions.py": {
@@ -3228,7 +3238,9 @@
       ],
       "called_by": [],
       "notes": [
-        "_redact_settings masks secrets with '***'"
+        "_redact_settings masks secrets with '***'",
+        "POST /api/settings accepts tts_parallel_cap/tts_engine_caps (W-PAR 007)",
+        "huggingface_token added to _SECRET_FIELDS -- reuses the existing generic redact-on-read/ignore-sentinel-on-write mechanism shared with tts_api_key"
       ]
     },
     "app/api/routers/analysis.py": {
@@ -4101,7 +4113,8 @@
         "voice ID fallback: manifest id -> dirname slug",
         "casting scoring: class/gender/age 0.25 each + tone/timbre/accent 0.05 each, fallback floor 0.1",
         "update_voice_metadata accepts an optional provenance kwarg (whole-block replace on write, not merge)",
-        "raises RuntimeError (mapped to 500 by the router) when save_voice_manifest returns False \u2014 previously silently served stale pre-write data under a 200"
+        "raises RuntimeError (mapped to 500 by the router) when save_voice_manifest returns False \u2014 previously silently served stale pre-write data under a 200",
+        "search_voices() gained language/style OR-within-field params (Phase G, 2026-07-04), same pattern as tone/timbre/use_case"
       ]
     },
     "app/domain/voices/models.py": {
@@ -4165,7 +4178,8 @@
       ],
       "notes": [
         "export drops operational fields (version/default_variant/_untagged/_taxonomy_version)",
-        "import uses staging dir to avoid partial extraction"
+        "import uses staging dir to avoid partial extraction",
+        "generate_readme_md()'s array_fields gained language/style -> as-language-*/as-style-* HF tags (Phase G, 2026-07-04)"
       ]
     },
     "app/domain/voices/__init__.py": {
@@ -4197,7 +4211,8 @@
       ],
       "notes": [
         "required: class/gender/age",
-        "unknown enum values demoted to tags with normalization"
+        "unknown enum values demoted to tags with normalization",
+        "Phase G (2026-07-04): SUPPORTED_TAXONOMY_VERSION bumped 1.0->2.0 for language/style many-optional attributes; no function-shape change (taxonomy.json-driven, flows through automatically)"
       ]
     },
     "app/domain/voices/repository.py": {
@@ -4977,13 +4992,14 @@
         }
       ],
       "calls": [
-        "app/orchestration/scheduler/resources.py#ResourceClaim",
+        "plugins/tts_mixed/handler.py#handle_mixed_job",
+        "app/orchestration/scheduler/cap_settings.py#resolve_effective_cap",
         "app/tts_server/plugin_loader.py#*",
-        "app/db/chapters.py#get_chapter",
-        "app/db/lexicon.py#get_lexicon",
+        "app/orchestration/scheduler/resources.py#ResourceClaim",
         "app/utils/text/lexicon.py#apply_lexicon",
         "app/engines/bridge.py#create_voice_bridge",
-        "plugins/tts_mixed/handler.py#handle_mixed_job"
+        "app/db/lexicon.py#get_lexicon",
+        "app/db/chapters.py#get_chapter"
       ],
       "called_by": [
         "app/api/routers/generation.py"
@@ -4991,7 +5007,8 @@
       "notes": [
         "is_marker_driven=True suppresses generic running event",
         "prefers_local_execution=True only for mixed engine",
-        "segment-orchestrated engines now route through segment_synthesis.py#ChapterSynthesisTask instead (see generation.py#_build_chapter_synthesis_task); this class remains the path for non-segment-orchestrated engines and the segment-scoped 'render these specific segment_ids' endpoint (unchanged, out of scope for W-PAR)"
+        "segment-orchestrated engines now route through segment_synthesis.py#ChapterSynthesisTask instead (see generation.py#_build_chapter_synthesis_task); this class remains the path for non-segment-orchestrated engines and the segment-scoped 'render these specific segment_ids' endpoint (unchanged, out of scope for W-PAR)",
+        "_manifest_resource_claim now resolves effective cap via cap_settings.resolve_effective_cap(engine_id, manifest_max) instead of using the raw manifest max directly -- default-unchanged unless an operator raises tts_parallel_cap/tts_engine_caps"
       ]
     },
     "app/orchestration/tasks/api_synthesis.py": {
@@ -5267,7 +5284,9 @@
       "notes": [
         "W-PAR ships dark: per-engine-class admission disabled by default, routes through single shared exclusive gate",
         "global cap MAX_GLOBAL_CONCURRENT_SYNTHESIS default 8",
-        "2026-07-03 fix (commit 7dd218aa): GpuAdmissionGate/ExclusiveAdmissionGate used to call get_engine_semaphore(\"gpu\"/\"exclusive\", 1) in __init__, which shares the SAME registry keyed by engine_class that manifest-derived claims use (e.g. xtts -> \"gpu\"); since they construct at import time and the registry cached cap at first creation, every GPU-class engine was silently capped at 1 regardless of manifest max_concurrent_workers. Fixed by giving the legacy gates private semaphores and making get_engine_semaphore/EngineClassSemaphore grow-only (ensure_min_cap)."
+        "2026-07-03 fix (commit 7dd218aa): GpuAdmissionGate/ExclusiveAdmissionGate used to call get_engine_semaphore(\"gpu\"/\"exclusive\", 1) in __init__, which shares the SAME registry keyed by engine_class that manifest-derived claims use (e.g. xtts -> \"gpu\"); since they construct at import time and the registry cached cap at first creation, every GPU-class engine was silently capped at 1 regardless of manifest max_concurrent_workers. Fixed by giving the legacy gates private semaphores and making get_engine_semaphore/EngineClassSemaphore grow-only (ensure_min_cap).",
+        "W-PAR 007 Fable-gate fix (2026-07-04): ResourceClaim gained engine_id; new independent get_engine_id_semaphore(engine_id, cap) registry checked ALONGSIDE (never instead of) the per-engine_class semaphore -- prevents one engine's cap from being inflated by a same-class sibling's larger request growing the shared class semaphore (opt-in via engine_id, backward compatible)",
+        "EngineClassSemaphore now hard-rejects constructing/growing the 'exclusive' class above cap=1 (ValueError) -- was previously safe by accident, now enforced"
       ]
     },
     "app/orchestration/scheduler/policies.py": {
@@ -5401,6 +5420,11 @@
           "name": "EtaSampleRing",
           "kind": "class",
           "contract": "fixed-size deque; cv(); mean_age_ms()"
+        },
+        {
+          "name": "BracketedEtaTracker, BracketedEtaResult",
+          "kind": "class",
+          "contract": "rolling-throughput/bottleneck-pool ETA model for N heterogeneous parallel workers; reduces to today's single-stream CPS at cap=1 (parity pinned by test)"
         }
       ],
       "calls": [],
@@ -5412,7 +5436,8 @@
       ],
       "notes": [
         "formula: c_var=1-K_VAR*cv, c_done=smoothstep, c_fresh=exp decay, c_mature=min(n/N_MATURE,1)",
-        "crossfade ramps calculated->observed via smoothstep"
+        "crossfade ramps calculated->observed via smoothstep",
+        "W-PAR 007 (2026-07-04): BracketedEtaTracker added but NOT wired into ProgressService.enrich() or any live event this pass -- documented as a known gap (live-events.md 1.9.3 \u00a77) rather than silently left undone or unsafely bolted on"
       ]
     },
     "app/orchestration/scheduler/eta.py": {
@@ -6293,7 +6318,8 @@
         "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx"
       ],
       "notes": [
-        "requestId increments on loadAndPlay"
+        "requestId increments on loadAndPlay",
+        "W1 (2026-07-03): AltScope type, altScope field, and switchScope() removed entirely -- scope is now purely informational, drives no bus behavior"
       ]
     },
     "frontend/src/store/liveEventAuditStore.ts": {
@@ -9303,12 +9329,14 @@
         }
       ],
       "calls": [
-        "frontend/src/app/layout/WaveformStrip#WaveformStrip",
-        "frontend/src/store/playerBus#*"
+        "frontend/src/app/layout/playerRepresentation.ts#fitsLegibly",
+        "frontend/src/store/playerBus#*",
+        "frontend/src/app/layout/WaveformStrip#WaveformStrip"
       ],
       "called_by": [],
       "notes": [
-        "audioCallbackRef pattern for React 19 render-time ref reads"
+        "audioCallbackRef pattern for React 19 render-time ref reads",
+        "W1 (2026-07-03): showWave predicate is now duration-driven (fitsLegibly + ResizeObserver-measured scrub width), not scope-driven; scope-toggle JSX/CSS removed"
       ]
     },
     "frontend/src/app/layout/TopBar.tsx": {
@@ -10805,13 +10833,14 @@
         }
       ],
       "calls": [
-        "app/api/routers/voices_bundles.py#router",
         "app/api/routers/voices_management.py#router,list_speaker_profiles",
-        "app/api/routers/voices_actions.py#router",
+        "app/api/routers/voices_huggingface.py#router",
         "app/api/routers/voices_characters.py#router",
-        "app/api/routers/voices_narrators.py#router",
+        "app/api/routers/voices_bundles.py#router",
+        "app/api/routers/voices_actions.py#router",
         "app/api/routers/voices_metadata.py#router",
-        "app/api/routers/voices_helpers.py#VOICES_DIR,_is_engine_active,delete_speaker_sample"
+        "app/api/routers/voices_helpers.py#VOICES_DIR,_is_engine_active,delete_speaker_sample",
+        "app/api/routers/voices_narrators.py#router"
       ],
       "called_by": [],
       "notes": [
@@ -10912,7 +10941,7 @@
       ]
     },
     "app/domain/voices/huggingface.py": {
-      "purpose": "HuggingFace Hub voice import/export flow \u2014 foundation scaffold, zero live callers",
+      "purpose": "HuggingFace Hub voice import/export flow -- LIVE, wired by voices_huggingface router (was: foundation scaffold, zero live callers)",
       "exports": [
         {
           "name": "HFToken",
@@ -10934,14 +10963,23 @@
         }
       ],
       "calls": [
-        "app/utils/pathing.py#safe_join_flat"
+        "app/utils/pathing.py#safe_basename",
+        "app/utils/pathing.py#safe_join_flat",
+        "huggingface_hub.HfApi",
+        "huggingface_hub.hf_hub_download",
+        "huggingface_hub.ModelCard"
       ],
-      "called_by": [],
+      "called_by": [
+        "app/api/routers/voices_huggingface.py"
+      ],
       "notes": [
-        "STATUS: not imported by any router/service/startup path \u2014 inert scaffold, reachable only from its own tests",
         "deliberately does NOT define VoiceProvenance; uses its own local HFVoiceCardMetadata, decoupled from app/domain/voices/taxonomy.py#validate_provenance_strict pending a future integration pass",
         "export_hf_voice_bundle uses safe_join_flat on bundle_name \u2014 rejects path-traversal from a Hub-derived/user-typed name",
-        "annotate_from_card's returned dict includes 'license', which update_voice_metadata does NOT accept \u2014 a future caller must route it separately"
+        "annotate_from_card's returned dict includes 'license', which update_voice_metadata does NOT accept \u2014 a future caller must route it separately",
+        "STATUS (2026-07-04): LIVE -- real HFHubClient implementation makes genuine HTTPS calls via huggingface_hub; validate_hub_id (strict regex, fullmatch) gates every call as an SSRF/path-injection guard",
+        "download_files hardening (2026-07-04): filters to an audio/manifest extension allowlist BEFORE download, caps at MAX_DOWNLOAD_FILES=20, independently validates every filename via safe_basename (not relying solely on the huggingface_hub library's own sanitization) -- accepted gap: no per-file/total byte-size cap yet",
+        "provenance populated on import as {source:'imported', author, consent_ack, created_at} -- correctly matches the REAL schema (not the pre-implementation plan's source='huggingface'/hub_id shape a sibling demo mockup mistakenly used)",
+        "does NOT call build_voice_asset (app/engines/bridge.py's build_voice_asset is a pre-existing NotImplementedError stub) -- import registers a new voice profile with raw samples; the user still uses the existing async Build job"
       ]
     },
     "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx": {
@@ -10987,6 +11025,179 @@
         "importing this module never creates an instance or loads a catalog (modular_architecture.md no-import-side-effects)",
         "useTranslation.ts (sibling file) wraps getI18n() with a pure passthrough (raw key or explicit default) when uninitialized \u2014 never throws",
         "one sample catalog only (locales/en-US/welcome.json, WelcomePage strings) \u2014 full string-extraction is future work"
+      ]
+    },
+    "frontend/src/components/progress/SegmentRenderMonitor/SegmentRenderMonitor.tsx": {
+      "purpose": "BitTorrent-style render monitor (W-PAR Phase 2): data-driven segment strip, M1 char-weighted aggregate, M2 non-hue failure cue, M3 reduced-motion gating, degrade-by-count",
+      "exports": [
+        {
+          "name": "SegmentRenderMonitor",
+          "kind": "component"
+        },
+        {
+          "name": "charWeightedProgress",
+          "kind": "function",
+          "contract": "pure M1 aggregate: sum(done+rendering*progress chars)/sum(total chars)"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Activity/ActivityPage.tsx (dev-gated via useDevMode)"
+      ],
+      "notes": [
+        "STATUS: dev-gated, fixture-fed (devSegmentRenderMonitorFixture.ts) -- no real per-segment char-count hydration path into Activity page yet",
+        "degrade-by-count: <10 omitted, 10-60 full block strip, >60 compact summary bar; always-present accessible <table> fallback",
+        "M2 FIX (2026-07-03): the >60 summary branch originally showed zero failure signal -- fixed to surface failedCount + the same .segment-render-monitor__crosshatch pattern as the full-strip view, folded into aria-label too",
+        "M3: useReducedMotion() reads matchMedia once at mount AND subscribes to live 'change' events -- reactive, not just mount-time"
+      ]
+    },
+    "frontend/src/app/layout/playerRepresentation.ts": {
+      "purpose": "Pure duration-driven scrub representation decision (audio-player.md 1.6.0): waveform vs plain bar",
+      "exports": [
+        {
+          "name": "fitsLegibly",
+          "kind": "function",
+          "contract": "(durationSec, barWidthPx) -> boolean; pure, no DOM/side effects"
+        },
+        {
+          "name": "PX_PER_SEC_FLOOR",
+          "kind": "const",
+          "contract": "3 -- legibility floor per spec"
+        },
+        {
+          "name": "DURATION_BOOTSTRAP",
+          "kind": "const",
+          "contract": "30 -- bootstrap threshold before bar width is known (FIXED 2026-07-04 from 120, which was 4x the spec value -- silent drift a test comment falsely called 'spec-defined')"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/layout/PlayerBar.tsx"
+      ],
+      "notes": [
+        "scope-blind by construction -- no scope parameter, replaces the retired playerBus.scope-driven decision"
+      ]
+    },
+    "frontend/src/app/layout/WaveformTape.tsx": {
+      "purpose": "Real WaveformTape renderer (004 task 006, W2): fixed-grid sampling, paged/moving motion, ported from the demo's MockWaveTape",
+      "exports": [
+        {
+          "name": "WaveformTape",
+          "kind": "component"
+        },
+        {
+          "name": "usePeaks",
+          "kind": "hook",
+          "contract": "(audioUrl, audioEl) -> number[] | null; decodes via fetch+AudioContext.decodeAudioData, downsamples to min(PEAKS_COUNT, rawSampleCount) buckets (FIXED 2026-07-04: previously always zero-padded to PEAKS_COUNT, flatlining the tail of any clip <4000 raw samples)"
+        },
+        {
+          "name": "TAPE_ZOOM_PRESETS_SEC",
+          "kind": "const",
+          "contract": "[8,15,30,60,120]"
+        },
+        {
+          "name": "PEAKS_COUNT",
+          "kind": "const",
+          "contract": "4000"
+        }
+      ],
+      "calls": [
+        "frontend/src/store/playerBus.ts#seek"
+      ],
+      "called_by": [],
+      "notes": [
+        "STATUS: not yet mounted into PlayerBar.tsx -- that's task 007 (zoom/minimap)/008 (PlayerBar integration)'s job; task 008's draft doc pseudocode is stale relative to this real interface (no peaks/onZoomChange prop, no WaveformTapeMinimap export) -- see the stale-draft warning added to that task file",
+        "usePeaks decoupled from the <audio> element (fetch+decode independent of audioEl.src) -- preserves ADR-0010 single-audio-owner; no <audio> or MediaElementSourceNode anywhere in this file (grep-confirmed)",
+        "fixed-grid sampling (audio-player.md 1.6.0 \u00a75.3): gridSec = windowSec/BAR_COUNT, alignedStart snapped -- prevents waveform crawl"
+      ]
+    },
+    "frontend/src/components/CastingSuggestionsModal.tsx": {
+      "purpose": "Ranked AI voice-casting suggestions modal -- the frontend caller for POST /api/voices/cast",
+      "exports": [
+        {
+          "name": "CastingSuggestionsModal",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts#api.castVoices",
+        "frontend/src/utils/voiceCasting.ts#buildCastingCatalog,characterToCastingBrief,resolveCastingVoiceIdToProfileName"
+      ],
+      "called_by": [
+        "frontend/src/components/CharactersTab.tsx"
+      ],
+      "notes": [
+        "never auto-assigns -- selecting a suggestion only calls the caller-supplied onAssign after explicit user confirm",
+        "handles needs_input (thin-brief empty state) and 422 (unknown contract/card version) verbatim"
+      ]
+    },
+    "frontend/src/utils/voiceCasting.ts": {
+      "purpose": "Pure helpers bridging the casting contract (voice-bundles.md \u00a79) to in-memory voice/character data",
+      "exports": [
+        {
+          "name": "voiceMetadataToCastingCard, buildCastingCatalog",
+          "kind": "function"
+        },
+        {
+          "name": "characterToCastingBrief",
+          "kind": "function",
+          "contract": "Character has no description/notes field today -- brief carries name only"
+        },
+        {
+          "name": "resolveCastingVoiceIdToProfileName",
+          "kind": "function",
+          "contract": "voice_id -> speaker_profile_name via VoiceMetadata.name -> Speaker.name -> SpeakerProfile; returns null when engines.length===0 (FIXED 2026-07-04: previously fell through to getDefaultVoiceProfileName's unfiltered branch, silently assigning a profile of unknown engine readiness -- fixed at this call site, not the shared utility, since other callers deliberately pass engines=undefined for a different legitimate use)"
+        }
+      ],
+      "calls": [
+        "frontend/src/utils/voiceProfiles.ts#getDefaultVoiceProfileName"
+      ],
+      "called_by": [
+        "frontend/src/components/CastingSuggestionsModal.tsx"
+      ],
+      "notes": [
+        "all pure functions, zero network/DOM dependency -- tested with plain fixture data"
+      ]
+    },
+    "app/orchestration/scheduler/cap_settings.py": {
+      "purpose": "Resolve the effective per-engine concurrency cap: min(operator setting/env override, manifest max)",
+      "exports": [
+        {
+          "name": "resolve_effective_cap",
+          "kind": "function",
+          "contract": "(engine_id, manifest_max, settings=None) -> int; settings-then-env precedence, same pattern as policies.get_priority_mode"
+        }
+      ],
+      "calls": [
+        "app.db.state.get_settings"
+      ],
+      "called_by": [
+        "app/orchestration/tasks/synthesis.py"
+      ],
+      "notes": [
+        "default tts_parallel_cap=1 preserves INV-1 ships-dark; engine_id used only as a dict key, no behavioral branching (INV-5)"
+      ]
+    },
+    "app/api/routers/voices_huggingface.py": {
+      "purpose": "Real HuggingFace voice browse/import/export endpoints",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const",
+          "contract": "GET /search,/inspect; POST /import,/export,/upload -- mounted at /api/voices/huggingface/*"
+        }
+      ],
+      "calls": [
+        "app/domain/voices/huggingface.py#HFHubClient,validate_hub_id,search_voices,inspect_card,check_consent,download_voice_files,annotate_from_card,export_hf_voice_bundle,upload_voice_to_hub",
+        "app/domain/voices/metadata.py#update_voice_metadata,find_voice_dir_by_id",
+        "app/db/state.py#get_settings"
+      ],
+      "called_by": [
+        "app/api/routers/voices.py"
+      ],
+      "notes": [
+        "import is synchronous (search->inspect->consent->download->register); not behind verify_api_key/rate_limit (that's the separate /api/v1/tts gateway) -- internal Studio feature",
+        "app is localhost-only by default (uvicorn binds 127.0.0.1, no --host flag in run.sh) -- security review treated the DoS-shaped findings (no timeout, no byte-size cap) as hardening nice-to-haves given this posture, not merge blockers"
       ]
     }
   }
