@@ -36,16 +36,11 @@ JOB_LIFECYCLE_COMMANDS = {
     JobLifecycleCommand.JOB_DONE,
     JobLifecycleCommand.JOB_FAILED,
     JobLifecycleCommand.QUEUE_INVALIDATED,
-    "JOB_QUEUED",
-    "JOB_PREPARING",
-    "START_SYNTHESIS",
-    "JOB_RESET_TO_ACTIVE",
-    "JOB_FINALIZING",
-    "JOB_DONE",
-    "JOB_FAILED",
-    "QUEUE_INVALIDATED",
 }
 
+# JobLifecycleCommand is a `str, Enum`, so its members already compare equal to
+# (and hash the same as) their raw string values — e.g. `"JOB_QUEUED" in
+# JOB_LIFECYCLE_COMMANDS` is True without listing the raw string separately.
 COMMAND_TOPIC_SCOPES = {
     "jobs.lifecycle": JOB_LIFECYCLE_COMMANDS,
     "queue.items": {
@@ -57,15 +52,6 @@ COMMAND_TOPIC_SCOPES = {
         JobLifecycleCommand.JOB_DONE,
         JobLifecycleCommand.JOB_FAILED,
         JobLifecycleCommand.QUEUE_INVALIDATED,
-        # Allow string versions
-        "JOB_QUEUED",
-        "JOB_PREPARING",
-        "START_SYNTHESIS",
-        "JOB_RESET_TO_ACTIVE",
-        "JOB_FINALIZING",
-        "JOB_DONE",
-        "JOB_FAILED",
-        "QUEUE_INVALIDATED",
     },
     "chapters.progress": {
         JobLifecycleCommand.JOB_PREPARING,
@@ -79,26 +65,12 @@ COMMAND_TOPIC_SCOPES = {
         JobLifecycleCommand.JOB_FINALIZING,
         JobLifecycleCommand.JOB_DONE,
         JobLifecycleCommand.JOB_FAILED,
-        # Allow string versions
-        "JOB_PREPARING",
-        "START_SYNTHESIS",
-        "START_SEGMENT",
-        "SEGMENT_PENDING",
-        "JOB_RESET_TO_ACTIVE",
-        "JOB_FINALIZING",
-        "JOB_DONE",
-        "JOB_FAILED",
     },
     "segments.progress": {
         JobLifecycleCommand.START_SEGMENT,
         JobLifecycleCommand.SEGMENT_PENDING,
         JobLifecycleCommand.SEGMENT_PROGRESS,
         JobLifecycleCommand.SEGMENT_SAVED,
-        # Allow string versions
-        "START_SEGMENT",
-        "SEGMENT_PENDING",
-        "SEGMENT_PROGRESS",
-        "SEGMENT_SAVED",
     },
 }
 
@@ -124,9 +96,8 @@ SEGMENT_SCOPED_COMMANDS = {
     JobLifecycleCommand.START_SEGMENT,
     JobLifecycleCommand.SEGMENT_PROGRESS,
     JobLifecycleCommand.SEGMENT_SAVED,
-    "START_SEGMENT",
-    "SEGMENT_PROGRESS",
-    "SEGMENT_SAVED",
+    # Legacy lowercase reason codes (pre-canonicalization) — not enum members,
+    # so these must remain listed explicitly.
     "segment_start",
     "synthesis_progress",
     "segment_saved",
