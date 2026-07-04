@@ -68,8 +68,4 @@ export const ProjectViewRoute: React.FC<ProjectViewRouteProps> = ({
   return <>{children({ shellState })}</>;
 };
 
-export const createProjectViewRoute = () => {
-  return null;
-};
-
 const consumeContractMarkers = (..._values: readonly unknown[]) => undefined;
