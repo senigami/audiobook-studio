@@ -1,7 +1,7 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.11.1
+spec_version: 1.11.2
 status: active
 updated: 2026-07-04
 created: 2026-06-10
@@ -19,6 +19,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.11.2  | 2026-07-04 | **§3.7 residual drift closed.** `_group_is_done` (xtts standard path, `plugins/tts_xtts/plugin/studio/standard_handler.py`) now gates reuse via the new `StudioPluginContext.is_valid_segment_artifact(path)` method (a thin public wrapper around the same `_is_valid_segment_artifact` check `group_needs_render` uses) instead of bare `chunk_path.exists()`. §3.7's "validated artifact metadata... never raw file existence alone" claim is now true for all three render paths (xtts bake, voxtral bake, mixed, and xtts standard); no known residual drift remains. Observable change: a zero-byte or duration-insane segment WAV on the standard (non-bake) xtts path is now healed to `unprocessed` and re-rendered instead of being wrongly treated as done. |
 | 1.11.1  | 2026-07-04 | **§3.7 reuse-gate realignment recorded (PL-2) + residual `_group_is_done` drift flagged.** §3.7's claim that per-group reuse is decided "against validated artifact metadata — never raw file existence alone" was written in the 1.4.0 spec reconcile while the xtts and voxtral bake `_group_needs_render` locals still used a bare `expected_path.exists()` check (only the mixed handler's INV-3 version matched the spec). PL-2 (`design-docs/plans/active/simplification/06_plugin_consolidation.md`) consolidated all three into `StudioPluginContext.group_needs_render` (`app/studio_plugin_sdk/context.py`), which standardizes on the validated-artifact logic (`_is_valid_segment_artifact`: exists, non-empty, and — when parseable as a WAV — a sane header duration `0 < d <= 3600s`) plus per-segment DB state — so the xtts/voxtral bake paths now actually match §3.7 (observable change: a zero-byte or duration-insane segment WAV is re-rendered instead of reused). **Residual drift, not yet resolved:** `_group_is_done` (xtts standard path, `plugins/tts_xtts/plugin/studio/standard_handler.py`) still gates reuse on bare `chunk_path.exists()` + DB status; §3.7's sentence now scopes its validated-metadata claim accordingly. Upgrading `_group_is_done` to `_is_valid_segment_artifact` is an open owner decision, not implied by this row. |
 | 1.11.0  | 2026-07-04 | **W-PAR enable-gate — ephemeral child fan-out tasks never create a durable Job row (Finding A) + size-weighted, order-independent chapter completion.** `TaskContext` gains an `ephemeral: bool = False` field; `_SyntheticSegmentTask.describe()` (the per-child task each `SegmentSynthesisTask` dispatches through `_dispatch_segment`) sets it `True`. For any `ephemeral` context, `orchestrator_publish.OrchestratorPublishMixin._publish` skips ALL durable job-state writes (`put_job`/`update_job`) and calls `ProgressService.publish(..., ephemeral=True)`, which suppresses the JOB-scoped emissions (`jobs.lifecycle`, `queue.items`, `chapters.progress`) while still emitting SEGMENT-scoped frames (`segments.progress` ticks + the prev→new `SEGMENT_SAVED` transition) — a chapter fan-out with N chunk groups now produces exactly ONE durable `Job` row (the parent, INV-4), not N+1 phantom `{parent}-seg-{index}` rows, and the live per-segment progress bar (frontend-keyed by real segment id) keeps working (review-ratchet fix, same change — the original all-frames early return killed it). Chapter-level visibility for concurrent children remains owned by the PARENT's own `active_segments_map` aggregation (`ChapterSynthesisTask._current_active_segments_map`/`_publish_progress`). Separately, `app.db.segments.chapter_completion_by_size(chapter_id) -> (done_chars, total_chars)` is a new reusable query helper (`LENGTH(text_content)`-weighted, `audio_status = 'done'` is the sole completion value) intended for resume/recompute call sites — **no caller is wired yet** (recorded explicitly per the 1.9.3 computed-but-not-wired convention; direct unit coverage lives in `tests/db/test_chapter_completion_by_size.py`); `ChapterSynthesisTask._publish_progress` now ALSO computes a size-weighted ratio from each child's in-memory `group["text_length"]` (order-independent — no dependency on mid-render DB status-write timing) and passes it through the existing `grouped_progress` kwarg, so `groupedProgress` (`live-events.md` 1.9.0) reflects completed manuscript-TEXT-size fraction, not segment count, regardless of which order unequal-size segments complete in. The count-based `progress` field is unchanged and still published alongside it. |
 | 1.10.0  | 2026-07-03 | **W-PAR task 007 — cap-default-1 toggle surfaced as a Studio setting (§7.3b) + per-engine-id admission ceiling (§7.4a, folded-in Fable merge-gate finding).** `tts_parallel_cap` (global, default 1) and `tts_engine_caps` (per-engine override dict) are now real settings (`GET/POST /api/settings`), falling back to `TTS_PARALLEL_CAP`/`TTS_ENGINE_CAPS` env vars — same settings-then-env precedence as `api_priority_mode`. `app.orchestration.scheduler.cap_settings.resolve_effective_cap(engine_id, manifest_max)` computes `min(requested_cap, manifest_max)` with no engine-ID branching (INV-5); the manifest is always the ceiling. Default stays byte-identical to pre-007 (`tts_parallel_cap=1`). Also closes the Fable-flagged latent gap in the grow-only class semaphore (commit `7dd218aa`): a new independent per-`engine_id` semaphore registry (`get_engine_id_semaphore`) is checked alongside the class-level gate whenever a claim declares `engine_id`, so one engine's declared cap can never be inflated by a same-class sibling's larger request. Not observable today (only XTTS resolves to `"gpu"`; additive/opt-in for callers that don't declare `engine_id`). `EngineClassSemaphore` also now hard-rejects growing the `"exclusive"` class above cap=1. |
@@ -277,15 +278,15 @@ distinction is binding.
 "render the missing parts" path: it deletes **nothing**. Engine handlers reuse
 every render group whose segment WAV already exists and is marked `done`, and
 synthesize only the missing/stale groups, then concatenate existing + new
-segment WAVs into the chapter output. The reuse decision is per-group. For the
-xtts bake, voxtral bake, and mixed paths it is made by the shared
-`StudioPluginContext.group_needs_render` (`app/studio_plugin_sdk/context.py`,
-PL-2 — replacing three near-identical `_group_needs_render` locals) against
-validated artifact metadata (`_is_valid_segment_artifact`) plus per-segment DB
-state — never raw file existence alone. **Known residual drift (1.11.1):**
-`_group_is_done` (xtts standard path, `standard_handler.py`) still checks bare
-`chunk_path.exists()` + DB status; it predates the validated-artifact standard
-and has not yet been upgraded.
+segment WAVs into the chapter output. The reuse decision is per-group, made
+against validated artifact metadata plus per-segment DB state — never raw
+file existence alone — on **all four render paths**: xtts bake, voxtral
+bake, and mixed via the shared `StudioPluginContext.group_needs_render`
+(`app/studio_plugin_sdk/context.py`, PL-2 — replacing three near-identical
+`_group_needs_render` locals), and xtts standard's `_group_is_done`
+(`standard_handler.py`) via the same context's `.is_valid_segment_artifact`
+method (1.11.2 — closes the residual drift recorded in 1.11.1, where this
+path still checked bare `chunk_path.exists()`).
 
 **Rebuild (destructive).** `POST /chapters/{id}/reset`
 (`app/api/routers/chapters.py`) followed by a queue submission with

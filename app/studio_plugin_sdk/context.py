@@ -363,6 +363,16 @@ class StudioPluginContext:
                 return True
         return False
 
+    def is_valid_segment_artifact(self, path: Path) -> bool:
+        """Public entry point for the validated-artifact check ``group_needs_render``
+        uses internally (exists, non-empty, and — when parseable as a WAV — a sane
+        header duration). Exposed as a method so callers outside this module (e.g.
+        ``standard_handler.py``'s ``_group_is_done``, xtts's non-bake render path)
+        can apply the same standard without importing the private module-level
+        helper directly.
+        """
+        return _is_valid_segment_artifact(path)
+
     # ------------------------------------------------------------------
     # §3.3.6 Bridge Synthesis Call
     # ------------------------------------------------------------------

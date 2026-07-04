@@ -159,6 +159,136 @@ class TestForceRerenderFlag:
         )
 
 
+class TestGroupIsDoneValidatedArtifact:
+    """_group_is_done (standard/non-bake xtts path) must gate reuse on validated
+    artifact metadata, not bare path existence — matching the shared
+    ``StudioPluginContext.group_needs_render`` standard (PL-2, 2026-07-04).
+
+    R1: before this fix, ``_group_is_done`` checked only ``chunk_path.exists()``,
+    so a zero-byte (truncated/corrupt) segment WAV on disk was wrongly treated as
+    a valid, reusable render — this test fails on that pre-fix code because
+    ``generate_via_bridge`` is called with an EMPTY script (segment wrongly
+    reused) instead of a non-empty one (segment correctly re-synthesized).
+    """
+
+    def test_zero_byte_segment_wav_is_not_reused(self, tmp_path: Path) -> None:
+        pdir = tmp_path / "chapter"
+        pdir.mkdir()
+        seg_dir = pdir / "segments"
+        seg_dir.mkdir()
+        # Zero-byte file: exists() is True, but it is not a valid rendered segment.
+        (seg_dir / "seg-001.wav").touch()
+
+        out_wav = pdir / "chapter.wav"
+        out_mp3 = pdir / "chapter.mp3"
+        j = _make_job(force_rerender=False)
+        captured_scripts: list = []
+
+        def capture_generate(**kwargs):
+            captured_scripts.append(kwargs.get("script", []))
+            return 0
+
+        with patch(
+            "plugins.tts_xtts.plugin.studio.handler.load_chunk_segments",
+            return_value=[_DONE_SEG],
+        ), patch(
+            "plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge",
+            side_effect=capture_generate,
+        ), patch(
+            "plugins.tts_xtts.plugin.studio.handler.update_job"
+        ), patch(
+            "plugins.tts_xtts.plugin.studio.handler.stitch_segments",
+            return_value=0,
+        ), patch(
+            "plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs",
+            return_value="spk.wav",
+        ), patch(
+            "app.db.segments.update_segment"
+        ) as mock_update_segment:
+            handle_xtts_job(
+                jid=j.id,
+                j=j,
+                start=time.time(),
+                on_output=MagicMock(),
+                cancel_check=lambda: False,
+                default_sw="default.wav",
+                speed=1.0,
+                pdir=pdir,
+                out_wav=out_wav,
+                out_mp3=out_mp3,
+                text="Hello world.",
+            )
+
+        assert captured_scripts, "generate_via_bridge must be called"
+        assert len(captured_scripts[0]) > 0, (
+            "script must be non-empty; a zero-byte segment wav must be treated as "
+            "needing re-render, not silently reused"
+        )
+        mock_update_segment.assert_any_call(
+            "seg-001",
+            broadcast=True,
+            audio_status="unprocessed",
+            audio_file_path=None,
+            audio_generated_at=None,
+        )
+
+    def test_valid_nonempty_segment_wav_is_still_reused(self, tmp_path: Path) -> None:
+        """Non-WAV-parseable-but-non-empty fixture bytes (the existing test
+        convention) must still count as valid — this pins the fallback branch so
+        the stricter check doesn't regress the ordinary reuse path."""
+        pdir = tmp_path / "chapter"
+        pdir.mkdir()
+        seg_dir = pdir / "segments"
+        seg_dir.mkdir()
+        (seg_dir / "seg-001.wav").write_bytes(b"fake-audio")
+
+        out_wav = pdir / "chapter.wav"
+        out_mp3 = pdir / "chapter.mp3"
+        j = _make_job(force_rerender=False)
+        captured_scripts: list = []
+
+        def capture_generate(**kwargs):
+            captured_scripts.append(kwargs.get("script", []))
+            return 0
+
+        with patch(
+            "plugins.tts_xtts.plugin.studio.handler.load_chunk_segments",
+            return_value=[_DONE_SEG],
+        ), patch(
+            "plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge",
+            side_effect=capture_generate,
+        ), patch(
+            "plugins.tts_xtts.plugin.studio.handler.update_job"
+        ), patch(
+            "plugins.tts_xtts.plugin.studio.handler.stitch_segments",
+            return_value=0,
+        ), patch(
+            "plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs",
+            return_value="spk.wav",
+        ), patch(
+            "app.db.update_segment"
+        ):
+            handle_xtts_job(
+                jid=j.id,
+                j=j,
+                start=time.time(),
+                on_output=MagicMock(),
+                cancel_check=lambda: False,
+                default_sw="default.wav",
+                speed=1.0,
+                pdir=pdir,
+                out_wav=out_wav,
+                out_mp3=out_mp3,
+                text="Hello world.",
+            )
+
+        assert captured_scripts, "generate_via_bridge should still be invoked"
+        assert captured_scripts[0] == [], (
+            "script must be empty; a non-empty (if non-WAV-parseable) segment "
+            "artifact must still be reused via the fallback branch"
+        )
+
+
 class TestForceRerenderBakePath:
     """handle_xtts_bake's _group_needs_render must respect force_rerender.
 

@@ -105,7 +105,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
 
                 first = g["segments"][0]
                 chunk_path = pdir / "segments" / f"{first['id']}.wav"
-                if chunk_path.exists():
+                if ctx.is_valid_segment_artifact(chunk_path):
                     return True
 
                 logger.warning("RESUME: Group %s claims done but %s is missing. Healing to unprocessed.", first["id"], chunk_path)
