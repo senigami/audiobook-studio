@@ -1,12 +1,12 @@
 # Agent Instructions
 
-Treat `.agent/rules.md` and the `Memory/` folder as the local source of truth for repository workflow, project state, and session continuity.
+Treat `.agent/rules.md` and the `.memory/` folder as the local source of truth for repository workflow, project state, and session continuity.
 
-At the start of substantial work, read the relevant Memory files first, especially `Memory/rules.md`, `Memory/state.json`, `Memory/active_context.md`, and any current handoff or plan files that match the task. If the work touches architecture, progress, queues, delegation, phase planning, or project organization, check the relevant memory and handoff docs before making assumptions.
+At the start of substantial work, read `.memory/HANDOFF.md` first (the current resume snapshot), then `.memory/state.json` and any current handoff or plan files that match the task. If the work touches architecture, progress, queues, delegation, phase planning, or project organization, check the relevant memory and handoff docs before making assumptions.
 
 Use `.agent/rules.md` as the router for normative repo guidance. Load the smallest matching rule set from `.agent/rules/`, and always include `.agent/rules/verification.md` before calling code work complete.
 
-Use `Memory/` to track durable project context, verified milestones, active risks, and next steps. After verified work lands, update `Memory/state.json` and append a concise note to `Memory/session_logs.md`. Treat Memory as shared agent memory, not runtime app state.
+Use `.memory/` to track durable project context, verified milestones, active risks, and next steps: `HANDOFF.md` (current snapshot, rewritten each checkpoint), `state.json` (machine-readable mirror), `log.md` (append-only dated history). Treat `.memory/` as shared agent memory, not runtime app state. (A legacy `Memory/` capital-M directory existed for an earlier Codex/Antigravity/Gemini workflow; it was retired and absorbed into `.memory/log.md` on 2026-07-04.)
 
 ## Collaboration
 
@@ -25,7 +25,7 @@ Use `Memory/` to track durable project context, verified milestones, active risk
 
 ## Work Style
 
-- If the repo rules, Memory, and current diff disagree, inspect the actual files and trust the repository state over assumptions.
+- If the repo rules, `.memory/`, and current diff disagree, inspect the actual files and trust the repository state over assumptions.
 - Check the repository before asking questions that the code can answer.
 - Keep local work small when the fix is surgical.
 - Avoid broad rewrites when a narrow patch will do.

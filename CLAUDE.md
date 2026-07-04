@@ -34,7 +34,7 @@ Authoritative spec: `design-docs/specs/testing-standards.md`.
   - **Importing a module must not start threads, register listeners, mutate global settings, or reconcile state.** All such side effects belong behind the explicit boot sequence (`app/core/boot.py`).
   - Engine-specific logic lives behind the engine registry + voice bridge. Queue code, routes, and UI must not branch on engine IDs for core behavior.
   - Completion/reuse/recovery decisions use validated artifact metadata, not raw file existence. Shared artifact cache entries are immutable.
-- **`Memory/`** is referenced by `AGENTS.md` for durable project context/handoffs but is gitignored (absent in fresh clones). Don't assume it exists; `design-docs/plans/` holds the committed roadmap and phase docs.
+- **`.memory/`** (see `AGENTS.md`) is gitignored session-continuity state — `HANDOFF.md`/`state.json`/`log.md` — absent in fresh clones. Don't assume it exists; `design-docs/plans/` holds the committed roadmap and phase docs. (A legacy `Memory/` capital-M directory from an earlier Codex/Antigravity/Gemini workflow was retired 2026-07-04.)
 - TDD is expected (`verification.md`): write the failing test first, confirm it fails for the right reason, then implement.
 
 ## Commands
