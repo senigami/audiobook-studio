@@ -183,6 +183,10 @@ describe('PlayerBar', () => {
       title: 'Skim Test',
       audioUrl: 'https://example.com/audio.mp3',
     });
+    // duration=120 is arbitrary here — transport controls render outside the
+    // scrub representation conditional (see PlayerBar.tsx), so this is
+    // deliberately not asserting wave-vs-bar; that boundary is covered by
+    // playerRepresentation.test.ts.
     playerBus.reportTime(30, 120);
 
     render(<PlayerBar />);
