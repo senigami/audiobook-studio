@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..core.config import (
-    VOICES_DIR, UPLOAD_DIR, REPORT_DIR, COVER_DIR, PROJECTS_DIR,
+    VOICES_DIR, COVER_DIR, PROJECTS_DIR,
     FRONTEND_DIST, get_project_cover_dir, get_project_m4b_dir,
 )
 from ..db import init_db
@@ -24,7 +24,6 @@ from .routers.analysis import AnalysisError
 # Compatibility for tests that monkeypatch these
 COVER_DIR = COVER_DIR
 PROJECTS_DIR = PROJECTS_DIR
-REPORT_DIR = REPORT_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +204,7 @@ def get_voice_preview_hardened(full_path: str):
 
 @app.get("/out/covers/{filename}")
 def get_legacy_cover_output(filename: str):
-    """Legacy route for shared covers in UPLOAD_DIR/covers."""
+    """Legacy route for shared covers in the shared upload directory's covers subfolder."""
     file_path = _contained_root_file(COVER_DIR, filename)
     if not file_path:
         raise HTTPException(status_code=404)
@@ -460,11 +459,6 @@ def shutdown_event():
     from ..engines.proc_utils import terminate_all_subprocesses
     configure_progress_broadcaster(None)
     terminate_all_subprocesses()
-
-async def tts_generate_stub(*args, **kwargs):
-    """Dummy for tests that patch app.web.tts_generate_stub"""
-    pass
-
 
 
 @app.middleware("http")
