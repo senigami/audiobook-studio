@@ -7,10 +7,8 @@ def _existing_project_audio_dir(path: Path):
     return lambda _project_id, dirname: Path(path) if dirname == "audio" else None
 
 @pytest.fixture
-def db_conn():
-    db_path = "/tmp/test_audiobook_db.db"
-    if os.path.exists(db_path):
-        os.unlink(db_path)
+def db_conn(tmp_path):
+    db_path = str(tmp_path / "test_audiobook_db.db")
 
     os.environ["DB_PATH"] = db_path
     import app.db.core
@@ -21,5 +19,3 @@ def db_conn():
     conn = get_connection()
     yield conn
     conn.close()
-    if os.path.exists(db_path):
-        os.unlink(db_path)

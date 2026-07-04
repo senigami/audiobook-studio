@@ -39,9 +39,7 @@ def client():
 @pytest.fixture
 def clean_db(tmp_path):
     from app.api.web import app as fastapi_app
-    db_path = "/tmp/test_api_voices.db"
-    if os.path.exists(db_path):
-        os.unlink(db_path)
+    db_path = str(tmp_path / "test_api_voices.db")
     os.environ["DB_PATH"] = db_path
     import app.db.core
     importlib.reload(app.db.core)
@@ -49,6 +47,4 @@ def clean_db(tmp_path):
 
     yield
 
-    if os.path.exists(db_path):
-        os.unlink(db_path)
     fastapi_app.dependency_overrides = {}
