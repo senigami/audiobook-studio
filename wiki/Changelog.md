@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Added] - 2026-07-03
+
+### Voice taxonomy v2: `language` and `style` attributes (007 Phase G1-G6)
+
+Closes out the last open scope of the voice taxonomy v2 plan (`accent` shipped earlier; this adds
+the two remaining new attributes).
+
+- **Two new controlled-vocabulary attributes**, both many-optional (a voice can carry several):
+  `language` (english/spanish/french/german/italian/portuguese/polish/turkish/russian/dutch/czech/arabic/chinese/japanese/korean/hindi/hungarian/other)
+  and `style` (conversational/narration/characters/social-media/educational/advertisement/entertainment).
+  `language` is a catalog-search facet distinct from the existing top-level BCP-47 `languages[]`
+  array, which continues to drive the AI casting hard-filter unchanged.
+- Wired through the same lenient/strict validation path as every other attribute
+  (`app/domain/voices/taxonomy.py`): unknown values demote to free tags on read, reject with 422 +
+  valid-values list on `PATCH /api/voices/{id}/metadata` write. `GET /api/voices/search` gained
+  `?language=` and `?style=` OR-within-field query params, matching `?tone=`/`?timbre=`.
+- Voice Lab's Edit Metadata modal gained Language/Style multi-select chip sections. Catalog pills
+  needed no code change — `voicePillsFromMetadata` already walks `attributes` generically, so the
+  new fields render as `extended`-hue pills automatically.
+- HF bundle README export now emits `as-language-*`/`as-style-*` tags when present.
+- `voice-taxonomy.json` → `taxonomy_version: "2.0"`; `voice.schema.json` `attributes` gained the two
+  optional array properties; `voice-bundles.md` → 1.4.0. Fully additive — a pre-existing
+  `voice.json` with no `language`/`style` fields loads, validates, and exports unchanged.
+
 ## [Change] - 2026-07-03
 
 ### Global player: scope toggle removed, scrub representation is now duration-driven (audio-player.md 1.6.0, W1)

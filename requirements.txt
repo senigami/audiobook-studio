@@ -14,3 +14,4 @@ pytest-cov
 psutil
 jsonschema>=4.0
 pillow
+huggingface_hub>=0.20

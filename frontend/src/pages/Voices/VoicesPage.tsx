@@ -9,7 +9,7 @@ import { useVoicesTabActions } from '@/hooks/useVoicesTabActions';
 import { VoicesTabHeader } from '@/pages/Voices/components/VoicesTabHeader';
 import type { VoicesTab as VoicesTabId } from '@/pages/Voices/components/VoicesTabHeader';
 import { VoicesTabContent } from '@/pages/Voices/components/VoicesTabContent';
-import { DiscoverPlaceholder } from '@/pages/Voices/components/DiscoverPlaceholder';
+import { HuggingFaceDiscover } from '@/pages/Voices/components/HuggingFaceDiscover';
 import { MetadataEditorModal } from '@/pages/Voices/components/MetadataEditorModal';
 import { getDefaultEngineId, isVoiceProfileSelectable } from '@/utils/voiceProfiles';
 import { api } from '@/api';
@@ -210,7 +210,16 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                     onNavigateToLab={(id) => navigate(`/voices/${id}`)}
                 />
             ) : (
-                <DiscoverPlaceholder />
+                <div style={{ flex: 1, overflowY: 'auto', padding: '2rem' }}>
+                    <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+                        <HuggingFaceDiscover
+                            onImported={() => {
+                                void onRefresh();
+                                void fetchMetadata();
+                            }}
+                        />
+                    </div>
+                </div>
             )}
 
             <VoicesModals

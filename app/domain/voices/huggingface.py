@@ -1,22 +1,24 @@
-"""Hugging Face voice import/export flow — FOUNDATION SCAFFOLD (inert).
+"""Hugging Face voice import/export flow.
 
-Implements the module skeleton described in
+Implements the module described in
 ``design-docs/plans/active/v2_huggingface_voice_interface.md``: browse/search the
 Hub, inspect a voice card, gate on explicit consent, download, build a voice
 asset from the downloaded files, annotate metadata, export to a portable
 ``.asvoice.zip`` bundle, and upload loose files back to the Hub.
 
-STATUS: this module has **zero live callers**. It is not imported by any
-FastAPI router, service, or startup path (see ``app/core/boot.py``,
-``app/api/web.py``). A future integration pass will wire it up — see the
-module docstring note near ``HFVoiceCardMetadata`` for the ``VoiceProvenance``
-handoff.
+STATUS: ``HFHubClient`` is a real, live implementation backed by the
+``huggingface_hub`` PyPI package — search/inspect/download/upload all make
+genuine outbound HTTPS calls to huggingface.co. It is wired up by
+``app.api.routers.voices_huggingface`` (mounted under ``/api/voices/huggingface``
+via ``app.api.routers.voices``). See that router module for the exact
+search -> inspect -> consent -> import -> export -> upload endpoint shapes.
 
 Design notes:
 - All real HTTP calls to the Hugging Face Hub API are routed through
   ``HFHubClient`` so tests can substitute a fake/mocked client (network is a
   valid mock boundary per ``design-docs/specs/testing-standards.md`` R2). No
-  function in this module performs a network call directly.
+  function in this module *other than* ``HFHubClient`` performs a network call
+  directly.
 - Exported bundles are MP3 for voice samples, per this repo's binding
   audio-format convention (voice bundles = MP3; only chapter/book render
   audio is WAV).
@@ -26,7 +28,11 @@ Design notes:
 - The HF token is modeled the same way ``app/core/security.py`` models other
   secrets: an opaque string compared/used at call time, never logged, never
   serialized into exported artifacts. This module does not read or write the
-  live settings store — callers decide how to source the token.
+  live settings store — callers (the router) decide how to source the token
+  (from ``app.db.state.get_settings()['huggingface_token']``).
+- A Hub repo id (``hub_id``) is untrusted input that reaches an outbound HTTPS
+  call and, via ``download_files``, local file paths. ``validate_hub_id``
+  enforces the strict ``namespace/repo-name`` shape before any such use.
 """
 
 from __future__ import annotations
@@ -34,13 +40,14 @@ from __future__ import annotations
 import io
 import json
 import logging
+import re
 import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional, Protocol
 
-from ...utils.pathing import safe_join_flat
+from ...utils.pathing import contained_path, safe_basename, safe_join_flat
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +67,51 @@ RESTRICTIVE_LICENSE_MARKERS = (
 
 ASVOICE_BUNDLE_SUFFIX = ".asvoice.zip"
 ASVOICE_MANIFEST_FILENAME = "voice.json"
+
+# Extensions ``download_files`` will pull from a Hub repo: reference audio
+# (matching the router's own audio allowlist in
+# app/api/routers/voices_huggingface.py's import handler) plus ``.json`` for
+# the voice manifest. Everything else (model weights, READMEs, arbitrary
+# repo contents) is filtered out before any download call is made — a
+# malicious or oversized repo must not be pulled synchronously into
+# TRANSIENT_DIR just because ``list_repo_files`` mentions it.
+DOWNLOAD_FILE_EXTENSIONS = frozenset({".wav", ".mp3", ".flac", ".ogg", ".json"})
+
+# Defense-in-depth cap on the number of files downloaded per import, even
+# after the extension allowlist above. A legitimate voice card is "one short
+# audio file plus a manifest" (see the router module docstring); 20 leaves
+# generous headroom for a repo with a handful of alternate takes/languages
+# while still bounding a repo that lists hundreds/thousands of matching
+# files. This does not cap per-file or total byte size — see the
+# ``download_files`` docstring for what remains unaddressed.
+MAX_DOWNLOAD_FILES = 20
+
+# A Hugging Face Hub repo id is "namespace/repo-name". Both segments are
+# restricted to alphanumerics, hyphen, underscore, and dot — strict enough to
+# rule out path-traversal segments ("..", "/"), URL-scheme smuggling, and
+# whitespace/control characters before the value ever reaches an outbound
+# HTTPS call or a local file path (SSRF-via-malformed-hub-id / path-injection
+# defense-in-depth; see the security note in the module docstring).
+_HUB_ID_SEGMENT = r"[A-Za-z0-9][A-Za-z0-9_.-]*"
+HUB_ID_RE = re.compile(rf"^{_HUB_ID_SEGMENT}/{_HUB_ID_SEGMENT}$")
+
+
+def validate_hub_id(hub_id: str) -> str:
+    """Strictly validate a Hub repo id (``namespace/repo-name``) before use.
+
+    Rejects anything that isn't exactly one ``/``-separated pair of
+    alphanumeric+``-``/``_``/``.`` segments — no leading ``.``/``..`` segment
+    tricks, no extra path segments, no whitespace, no URL scheme. Raises
+    ``ValueError`` on rejection; callers map this to a 4xx response.
+    """
+    if not isinstance(hub_id, str) or not HUB_ID_RE.fullmatch(hub_id):
+        raise ValueError(f"Invalid Hugging Face hub_id: {hub_id!r}")
+    # Belt-and-suspenders: explicitly reject dot-segment traversal tricks
+    # even though the character class above already can't produce "..".
+    for segment in hub_id.split("/"):
+        if segment in (".", ".."):
+            raise ValueError(f"Invalid Hugging Face hub_id: {hub_id!r}")
+    return hub_id
 
 
 # ---------------------------------------------------------------------------
@@ -190,24 +242,165 @@ class HFHubClientProtocol(Protocol):
         ...
 
 
-class HFHubClient:
-    """Default client — talks to the real Hugging Face Hub.
+def _hf_token_value(token: Optional[HFToken]) -> Optional[str]:
+    """Extract the raw token value at the last possible moment, for a single call-time use."""
+    if token is None:
+        return None
+    return token.value or None
 
-    Not exercised by unit tests (tests substitute a fake honoring
-    ``HFHubClientProtocol``). Left unimplemented on purpose: this is a
-    foundation scaffold, not a wired feature.
+
+class HFHubClient:
+    """Default client — talks to the real Hugging Face Hub via ``huggingface_hub``.
+
+    This is the one class in this module that performs real network I/O.
+    Every method validates ``hub_id`` with ``validate_hub_id`` before using it
+    in an outbound call (defense against SSRF-via-malformed-hub-id). Unit
+    tests never exercise this class directly — they substitute a fake
+    honoring ``HFHubClientProtocol`` (testing-standards.md R2: network is the
+    correct mock boundary). This class is instead covered by tests that mock
+    the ``huggingface_hub.HfApi`` boundary.
     """
 
+    def __init__(self) -> None:
+        # Imported lazily so importing this module never requires the
+        # dependency to be installed unless the live client is actually used
+        # (matches the "importing a module must not have side effects"
+        # constraint — no network client construction happens at import time).
+        from huggingface_hub import HfApi  # noqa: PLC0415
+
+        self._api = HfApi()
+
     def search_models(self, *, tag: str, query: Optional[str] = None) -> list[dict[str, Any]]:
-        raise NotImplementedError("HFHubClient is a live-network stub; inject a fake client in tests")
+        models = self._api.list_models(tags=[tag], search=query, cardData=False)
+        results: list[dict[str, Any]] = []
+        for model in models:
+            results.append(
+                {
+                    "id": model.id,
+                    "author": model.author,
+                    "tags": list(model.tags or []),
+                    "likes": model.likes or 0,
+                }
+            )
+        return results
 
     def get_model_card(self, hub_id: str, *, revision: Optional[str] = None) -> dict[str, Any]:
-        raise NotImplementedError("HFHubClient is a live-network stub; inject a fake client in tests")
+        validate_hub_id(hub_id)
+        info = self._api.model_info(hub_id, revision=revision, cardData=True)
+        card_data = info.card_data
+        license_id = None
+        languages: list[str] = []
+        if card_data is not None:
+            card_dict = card_data.to_dict() if hasattr(card_data, "to_dict") else dict(card_data)
+            license_id = card_dict.get("license")
+            raw_languages = card_dict.get("language") or card_dict.get("languages") or []
+            languages = [raw_languages] if isinstance(raw_languages, str) else list(raw_languages)
+
+        description = ""
+        try:
+            from huggingface_hub import ModelCard  # noqa: PLC0415
+
+            card = ModelCard.load(hub_id, ignore_metadata_errors=True)
+            description = (card.text or "").strip()
+        except Exception:  # pragma: no cover - README is optional/best-effort
+            logger.info("No README/model card body available for %s", hub_id)
+
+        sample_url = None
+        for sibling in info.siblings or []:
+            name = getattr(sibling, "rfilename", None)
+            if name and ("preview" in name.lower() or "sample" in name.lower()):
+                sample_url = f"https://huggingface.co/{hub_id}/resolve/main/{name}"
+                break
+
+        return {
+            "id": hub_id,
+            "sha": info.sha,
+            "license": license_id,
+            "languages": languages,
+            "tags": list(info.tags or []),
+            "author": info.author,
+            "description": description,
+            "sample_url": sample_url,
+        }
 
     def download_files(
         self, hub_id: str, *, revision: Optional[str] = None, token: Optional[HFToken] = None
     ) -> list[Path]:
-        raise NotImplementedError("HFHubClient is a live-network stub; inject a fake client in tests")
+        """Download the repo's allowlisted files to a local cache dir.
+
+        Hardening (independent of whatever ``huggingface_hub`` itself does
+        internally — see the module-level security note above
+        ``DOWNLOAD_FILE_EXTENSIONS``):
+
+        - Each ``filename`` returned by ``list_repo_files`` is repo-controlled,
+          untrusted input. Before it is ever handed to ``hf_hub_download``,
+          it must survive ``safe_basename`` (rejects path separators, ``..``,
+          and empty/dot-only results) — this module does not rely on the
+          installed ``huggingface_hub`` version's own filename sanitization.
+        - Filenames are filtered to ``DOWNLOAD_FILE_EXTENSIONS`` (reference
+          audio + the voice manifest) before any download call, and the
+          remaining list is capped at ``MAX_DOWNLOAD_FILES``.
+
+        NOT covered by this method (accepted, documented gap): there is no
+        per-file or total byte-size cap. A single oversized file that still
+        matches the extension allowlist (e.g. a many-hundred-MB ``.wav``)
+        can still be downloaded in full. ``huggingface_hub`` does not expose
+        a clean pre-download size check; enforcing a byte cap would require
+        streaming the download manually. Follow-up work, not done here.
+        """
+        validate_hub_id(hub_id)
+        from huggingface_hub import hf_hub_download  # noqa: PLC0415
+
+        from ...core.config import TRANSIENT_DIR  # noqa: PLC0415
+
+        raw_token = _hf_token_value(token)
+        filenames = self._api.list_repo_files(hub_id, revision=revision, token=raw_token)
+
+        safe_filenames: list[str] = []
+        for filename in filenames:
+            if Path(filename).suffix.lower() not in DOWNLOAD_FILE_EXTENSIONS:
+                continue
+            try:
+                # safe_basename is applied only to validate containment of
+                # the leaf name; the original (possibly-nested, e.g.
+                # "samples/preview.mp3") filename is what's passed to
+                # hf_hub_download, matching this method's existing repo-path
+                # semantics. A filename whose basename doesn't survive
+                # safe_basename (e.g. "..", "") is rejected outright.
+                safe_basename(Path(filename).name)
+            except ValueError:
+                logger.warning("Rejecting unsafe Hugging Face filename for %s: %r", hub_id, filename)
+                continue
+            if ".." in Path(filename).parts:
+                logger.warning("Rejecting path-traversal Hugging Face filename for %s: %r", hub_id, filename)
+                continue
+            safe_filenames.append(filename)
+
+        if len(safe_filenames) > MAX_DOWNLOAD_FILES:
+            logger.warning(
+                "Hugging Face repo %s listed %d allowlisted files, exceeding the cap of %d; truncating.",
+                hub_id,
+                len(safe_filenames),
+                MAX_DOWNLOAD_FILES,
+            )
+            safe_filenames = safe_filenames[:MAX_DOWNLOAD_FILES]
+
+        # Containment: downloads land under TRANSIENT_DIR/hf_downloads/<safe-name>,
+        # never at a path derived unchecked from hub_id.
+        dest_root = contained_path(TRANSIENT_DIR, "hf_downloads", hub_id.replace("/", "__"))
+        dest_root.mkdir(parents=True, exist_ok=True)
+
+        downloaded: list[Path] = []
+        for filename in safe_filenames:
+            local_path = hf_hub_download(
+                repo_id=hub_id,
+                filename=filename,
+                revision=revision,
+                token=raw_token,
+                local_dir=str(dest_root),
+            )
+            downloaded.append(Path(local_path))
+        return downloaded
 
     def upload_files(
         self,
@@ -217,7 +410,37 @@ class HFHubClient:
         tags: list[str],
         token: HFToken,
     ) -> str:
-        raise NotImplementedError("HFHubClient is a live-network stub; inject a fake client in tests")
+        validate_hub_id(hub_id)
+        raw_token = _hf_token_value(token)
+        if not raw_token:
+            raise ValueError("upload_files requires a non-empty HF token")
+
+        self._api.create_repo(hub_id, token=raw_token, exist_ok=True)
+
+        last_commit = None
+        for file_path in files:
+            commit_info = self._api.upload_file(
+                path_or_fileobj=str(file_path),
+                path_in_repo=Path(file_path).name,
+                repo_id=hub_id,
+                token=raw_token,
+                commit_message=f"Add/update {Path(file_path).name} via Audiobook Studio",
+            )
+            last_commit = commit_info
+
+        # Best-effort tag application: tags are declared via the model card's
+        # metadata rather than a dedicated "add tag" endpoint.
+        try:
+            from huggingface_hub import ModelCard, ModelCardData  # noqa: PLC0415
+
+            card_data = ModelCardData(tags=list(dict.fromkeys(tags)))
+            card = ModelCard.from_template(card_data, model_id=hub_id.split("/", 1)[-1])
+            card.push_to_hub(hub_id, token=raw_token)
+        except Exception:
+            logger.warning("Failed to push tag metadata card for %s (files were still uploaded)", hub_id)
+
+        commit_id = getattr(last_commit, "oid", None) or getattr(last_commit, "commit_url", None) or ""
+        return str(commit_id)
 
 
 # ---------------------------------------------------------------------------
