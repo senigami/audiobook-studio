@@ -93,6 +93,11 @@ class ResourceClaim:
             (legacy compat).
         cap: Maximum concurrent tasks of this engine class (from
             ``behavior.max_concurrent_workers``; default 1).
+        engine_id: Concrete engine identifier (e.g. ``"tts_xtts"``). Optional —
+            when set, admission also enforces a per-engine-id ceiling
+            independent of the shared ``engine_class`` semaphore (task 007,
+            folded-in Fable finding), so this engine's own declared cap can
+            never be inflated by a same-class sibling's larger request.
     """
 
     gpu: bool = False
@@ -101,6 +106,7 @@ class ResourceClaim:
     exclusive: bool = False
     engine_class: str = ""
     cap: int = 1
+    engine_id: str = ""
 
     @classmethod
     def none(cls) -> "ResourceClaim":
@@ -151,12 +157,24 @@ class EngineClassSemaphore:
 
     Args:
         cap: Maximum number of concurrent slots (≥ 1).
+        class_name: Optional engine-class key this semaphore was created for.
+            When set to ``"exclusive"`` the semaphore hard-pins cap to 1 and
+            rejects any attempt to construct or grow it past 1 (task 007,
+            folded-in Fable finding). Today only ``ResourceClaim.exclusive_claim()``
+            ever requests this class (always at cap=1) — this makes that
+            invariant an explicit, enforced contract instead of an accident.
     """
 
-    def __init__(self, cap: int = 1) -> None:
+    def __init__(self, cap: int = 1, *, class_name: str = "") -> None:
         if cap < 1:
             raise ValueError(f"cap must be ≥ 1, got {cap}")
+        if class_name == "exclusive" and cap > 1:
+            raise ValueError(
+                f"the 'exclusive' engine class must never be requested at cap > 1 (got {cap}) — "
+                "it is reserved for single-flight tasks."
+            )
         self._cap = cap
+        self._class_name = class_name
         self._lock = threading.Lock()
         self._active_ids: set[str] = set()
 
@@ -244,6 +262,10 @@ class EngineClassSemaphore:
         surprising an in-flight caller with a sudden capacity *decrease*.
         """
         with self._lock:
+            if self._class_name == "exclusive" and cap > 1:
+                raise ValueError(
+                    f"the 'exclusive' engine class must never grow past cap=1 (requested {cap})."
+                )
             if cap > self._cap:
                 logger.info(
                     "Engine-class semaphore cap grew %d -> %d.", self._cap, cap
@@ -296,7 +318,9 @@ def get_engine_semaphore(engine_class: str, cap: int = 1) -> EngineClassSemaphor
     """
     with _semaphore_registry_lock:
         if engine_class not in _engine_semaphores:
-            _engine_semaphores[engine_class] = EngineClassSemaphore(cap=max(1, cap))
+            _engine_semaphores[engine_class] = EngineClassSemaphore(
+                cap=max(1, cap), class_name=engine_class
+            )
             logger.debug(
                 "Created EngineClassSemaphore(class=%r, cap=%d).", engine_class, cap
             )
@@ -307,6 +331,62 @@ def get_engine_semaphore(engine_class: str, cap: int = 1) -> EngineClassSemaphor
 
 # Global cap backstop — checked before the per-engine semaphore.
 _global_cap_gate = EngineClassSemaphore(cap=MAX_GLOBAL_CONCURRENT_SYNTHESIS)
+
+
+# ===========================================================================
+# Per-engine-ID semaphore registry (Fable merge-gate finding, task 007)
+# ===========================================================================
+#
+# The class-level registry above is keyed by ``engine_class`` (e.g. "gpu",
+# "cloud"). Two DIFFERENT engine IDs that resolve to the SAME class (e.g. two
+# future GPU-class plugins) would otherwise share ONE semaphore whose capacity
+# is the growable maximum of whatever any of them requested (the grow-only
+# self-healing fix from commit 7dd218aa) — so an engine declaring
+# max_concurrent_workers=1 could silently be admitted for a second concurrent
+# task purely because a co-resident engine of the same class asked for a
+# larger cap first. Not live today (only XTTS resolves to "gpu"; voxtral and
+# mixed resolve to "cloud" at cap=1), but a real latent bug for the next
+# GPU-class or cpu_heavy-class plugin.
+#
+# Fix: an INDEPENDENT per-engine-id ceiling, checked alongside (never instead
+# of) the existing class-level gate. A claim only opts into this extra gate by
+# declaring ``engine_id`` in resource_claims — claims that omit it (all
+# existing callers/tests as of task 001-006) are governed by the class gate
+# alone, so this is purely additive and cannot make anything MORE restrictive
+# than before for callers that haven't opted in.
+_engine_id_semaphores: dict[str, EngineClassSemaphore] = {}
+_engine_id_semaphore_registry_lock = threading.Lock()
+
+
+def get_engine_id_semaphore(engine_id: str, cap: int = 1) -> EngineClassSemaphore:
+    """Return the module-level per-engine-id semaphore for ``engine_id``.
+
+    Mirrors ``get_engine_semaphore`` but keyed by the concrete engine ID
+    rather than its shared engine class, so one engine's declared cap can
+    never be inflated by a same-class sibling's larger request.
+
+    This is a registry (dict-key) lookup, not a behavioral branch on the
+    engine identity (INV-5) — the same code path runs for every key.
+
+    Args:
+        engine_id: Concrete engine identifier (e.g. ``"tts_xtts"``).
+        cap: Semaphore capacity. Used verbatim when creating a new instance;
+            for an existing instance, grows its cap if this is larger
+            (never shrinks — same contract as ``get_engine_semaphore``).
+
+    Returns:
+        EngineClassSemaphore: The singleton for this engine ID.
+    """
+    registry_key = engine_id
+    with _engine_id_semaphore_registry_lock:
+        if registry_key not in _engine_id_semaphores:
+            _engine_id_semaphores[registry_key] = EngineClassSemaphore(cap=max(1, cap))
+            logger.debug(
+                "Created per-engine-id semaphore(engine_id=%r, cap=%d).", engine_id, cap
+            )
+        else:
+            _engine_id_semaphores[registry_key].ensure_min_cap(max(1, cap))
+        return _engine_id_semaphores[registry_key]
 
 
 # ===========================================================================
@@ -487,6 +567,10 @@ def reserve_task_resources(
     exclusive = bool(resource_claims.get("exclusive", False))
     engine_class = str(resource_claims.get("engine_class", ""))
     cap = int(resource_claims.get("cap", 1))
+    # Task 007 (Fable finding): optional per-engine-id ceiling, independent of
+    # the shared class-level semaphore. Only claims that declare engine_id opt
+    # into this extra gate; absent engine_id is a no-op (backward compatible).
+    engine_id = str(resource_claims.get("engine_id", ""))
 
     waiting_reason: Optional[str] = None
 
@@ -552,6 +636,24 @@ def reserve_task_resources(
         # New semaphore-based path: derive semaphore from engine_class + cap.
         sem = get_engine_semaphore(engine_class, cap)
         admitted, waiting_reason = sem.try_acquire(task_id)
+        if admitted and engine_id:
+            # Task 007 (Fable finding): a secondary per-engine-id ceiling so
+            # this engine's OWN declared cap can never be inflated by a
+            # same-class sibling engine that requested a larger cap first
+            # (the class semaphore only ever grows — commit 7dd218aa).
+            id_sem = get_engine_id_semaphore(engine_id, cap)
+            id_admitted, id_reason = id_sem.try_acquire(task_id)
+            if not id_admitted:
+                sem.release(task_id)
+                if _used_global_cap:
+                    # Release here AND (harmlessly) again below: `release()`
+                    # is documented idempotent for a task_id no longer held
+                    # (crash-recovery / double-release safe), so falling
+                    # through to the shared `if not admitted` release just
+                    # below is a deliberate no-op, not a double-free.
+                    _global_cap_gate.release(task_id)
+                admitted = False
+                waiting_reason = id_reason
         if not admitted and _used_global_cap:
             _global_cap_gate.release(task_id)
     else:
@@ -612,6 +714,7 @@ def release_task_resources(*, task_id: str, resource_claims: dict[str, object]) 
     gpu = bool(resource_claims.get("gpu", False))
     exclusive = bool(resource_claims.get("exclusive", False))
     cap = int(resource_claims.get("cap", 1))
+    engine_id = str(resource_claims.get("engine_id", ""))
 
     # Ships-dark path: when per-engine-class admission is disabled, a synthesis
     # claim only ever acquired the shared exclusive gate (see reserve), so that
@@ -624,6 +727,8 @@ def release_task_resources(*, task_id: str, resource_claims: dict[str, object]) 
         # New semaphore path.
         sem = get_engine_semaphore(engine_class, cap)
         sem.release(task_id)
+        if engine_id:
+            get_engine_id_semaphore(engine_id, cap).release(task_id)
         _global_cap_gate.release(task_id)
     else:
         # Legacy path.

@@ -23,7 +23,7 @@ VOICES_DIR = config.VOICES_DIR
 logger = logging.getLogger(__name__)
 
 # Fields that hold secrets and must never be returned in plain text.
-_SECRET_FIELDS = {"tts_api_key"}
+_SECRET_FIELDS = {"tts_api_key", "huggingface_token"}
 # Sentinel returned to the client when a secret field is set.
 _REDACTED = "***"
 
@@ -207,6 +207,14 @@ async def save_settings(
                     updates["default_engine"] = str(body["default_engine"]).strip().lower()
                 if "enabled_plugins" in body and isinstance(body["enabled_plugins"], dict):
                     updates["enabled_plugins"] = body["enabled_plugins"]
+                # W-PAR task 007: cap-default-1 toggle surfaced as a real setting.
+                if "tts_parallel_cap" in body:
+                    try:
+                        updates["tts_parallel_cap"] = max(1, int(body["tts_parallel_cap"]))
+                    except (TypeError, ValueError):
+                        logger.warning("Ignoring invalid tts_parallel_cap value: %r", body["tts_parallel_cap"])
+                if "tts_engine_caps" in body and isinstance(body["tts_engine_caps"], dict):
+                    updates["tts_engine_caps"] = body["tts_engine_caps"]
                 # Accept secret-field updates but silently ignore round-tripped
                 # redacted sentinel values so the real key is never overwritten.
                 for field in _SECRET_FIELDS:

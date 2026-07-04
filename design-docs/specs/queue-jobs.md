@@ -1,7 +1,7 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.9.0
+spec_version: 1.10.0
 status: active
 updated: 2026-07-03
 created: 2026-06-10
@@ -19,6 +19,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.10.0  | 2026-07-03 | **W-PAR task 007 — cap-default-1 toggle surfaced as a Studio setting (§7.3b) + per-engine-id admission ceiling (§7.4a, folded-in Fable merge-gate finding).** `tts_parallel_cap` (global, default 1) and `tts_engine_caps` (per-engine override dict) are now real settings (`GET/POST /api/settings`), falling back to `TTS_PARALLEL_CAP`/`TTS_ENGINE_CAPS` env vars — same settings-then-env precedence as `api_priority_mode`. `app.orchestration.scheduler.cap_settings.resolve_effective_cap(engine_id, manifest_max)` computes `min(requested_cap, manifest_max)` with no engine-ID branching (INV-5); the manifest is always the ceiling. Default stays byte-identical to pre-007 (`tts_parallel_cap=1`). Also closes the Fable-flagged latent gap in the grow-only class semaphore (commit `7dd218aa`): a new independent per-`engine_id` semaphore registry (`get_engine_id_semaphore`) is checked alongside the class-level gate whenever a claim declares `engine_id`, so one engine's declared cap can never be inflated by a same-class sibling's larger request. Not observable today (only XTTS resolves to `"gpu"`; additive/opt-in for callers that don't declare `engine_id`). `EngineClassSemaphore` also now hard-rejects growing the `"exclusive"` class above cap=1. |
 | 1.9.0   | 2026-07-03 | **§3.10 — live concurrent segment fan-out wired (W-PAR 008, the enable-gate).** `app/api/routers/generation.py`'s chapter-render/bake submission now constructs `ChapterSynthesisTask` (concurrent fan-out, `app/orchestration/tasks/segment_synthesis.py`) instead of the sequential `SynthesisTask` for engines using segment orchestration. `orchestrator_helpers._dispatch` bypasses `_dispatch_segment` for the PARENT (`is_chapter_fanout` flag) and calls `task.run()` directly; each child reuses `_dispatch_segment` via `make_dispatch_segment_bridge_call` (mixed-engine groups call the newly-extracted `render_one_group`, never the full chapter-terminal `handle_mixed_job`; other engines use the existing bridge path). Recovery reconstructs `ChapterSynthesisTask` from a bare context (`_reconstruct_chapter_task_from_context`) with K-of-N resume wired to `_group_needs_render`/`_group_ready_audio_path`. Fixed alongside: a stitch-barrier bug where a recovery-skipped (already-valid) group's existing audio never reached the final stitched paths. `active_segments_map` (`live-events.md` 1.9.2) now emits genuine multi-entry snapshots at cap > 1. At `max_concurrent_workers=1` (default; requires an explicit manifest cap raise to enable visible parallelism) behavior is byte-identical to the pre-008 sequential path, pinned by a dedicated old-vs-new event-sequence regression test. **Review-pass amendments (same change, 2026-07-03):** (1) the parent consumes each child future AS IT COMPLETES (`as_completed`, not an all-complete barrier) so chapter-level progress and `active_segments_map` advance mid-render; INV-7 is unaffected (all futures are still joined before stitch/terminal work). (2) `stitch_fn` is a RAISE-on-failure contract — `ChapterSynthesisTask.run()` converts a stitch raise into a failed `TaskResult`, so a failed stitch can never terminal-publish as done with no chapter WAV. (3) `active_segments_map` entries require a child that has STARTED and not resolved (queued-behind-the-pool children are excluded), and the parent writes an explicit empty map (`{}`, force-broadcast) at any terminal outcome so stale rendering entries never ride terminal frames. (4) Recovery reconstruction falls back to `SynthesisTask.from_task_context` for segment-scoped payloads (`segment_ids` present) — only whole-chapter renders reconstruct as chapter fan-outs. |
 | 1.8.0   | 2026-07-02 | **§3.10 — per-segment dispatch isolation (W-PAR 003) + `active_segments_map` (C2 contract).** `orchestrator_helpers.py`'s dispatch is now a thin `_dispatch(...)` fan-out driver over `_dispatch_segment(...)`, which owns fully isolated per-segment timing/marker/model-load state in its own local scope (closure isolation, not a shared dict keyed by `segment_id` — INV-6). At today's N=1 fan-out this is byte-identical to the pre-003 single-`_dispatch` path (INV-1) — one call, same event sequence. `_dispatch_segment` returns a `SegmentResult` (isolated `timing`/`marker_state`/`segment_load_observed`/`segment_starts`/`segment_announced`) so a future multi-child fan-out (task 005/enable-gate) can aggregate per-segment `SegmentResult`s without reaching into shared mutable state. The orchestrator additionally publishes an **additive** `active_segments_map` snapshot (`live-events.md` 1.9.0, C2 contract) alongside the existing single-active `active_segment_id` fields — absent unless the dispatch path has a concurrent-segment snapshot to report. `broadcast_job_updated`'s transition-based `segments.progress` emission (prev/new `active_segment_id`) is UNCHANGED in this version — correct as-is at N=1 (there is exactly one prev→next handoff per chapter today) — and is deferred to task 005/enable-gate for the per-child-completion rework once fan-out > 1 is wired into the live dispatch path. |
 | 1.7.0   | 2026-07-02 | **§3.9 — client retention for `pre_load_eta` (W-MIX-LA load-aware ETA).** Doc catch-up for behavior shipped in `64a39c34`: the global queue row (`QueueItem.tsx`) derives `preparingWithEta = displayStatus === 'preparing' && rawEtaSeconds > 0` and retains its active display params (started/eta/etaBasis) when true, so a cold-engine dispatch's proactive `pre_load_eta` frame (`live-events.md` 1.8.0) shows a countdown instead of being suppressed by the plain-`preparing` param-discard rule. Presentation-only; does not affect durable status (§3.8) or fabricate a value absent real ETA history. |
@@ -638,6 +639,46 @@ synthesis), preserving the prior invariant. W5 stays closed because `mixed`
 admission via `ResourceClaim.none()`. `reserve`/`release` are symmetric on this
 path (only the exclusive gate is touched).
 
+### 7.3b Cap-default-1 toggle as a Studio setting — W-PAR task 007
+
+The per-engine concurrency cap is no longer manifest-only. Two settings (in
+`state.json` `settings`, surfaced via `GET /api/home` → `settings` and
+`POST /api/settings`) let an operator raise concurrency without editing a
+plugin manifest:
+
+| Setting | Type | Default | Notes |
+|---|---|---|---|
+| `tts_parallel_cap` | int | `1` | Global cap applied to any engine without a more specific override. |
+| `tts_engine_caps` | dict[str, int] | `{}` | Per-`engine_id` cap overrides; takes precedence over `tts_parallel_cap` for that engine. |
+
+Both settings fall back to the environment (`TTS_PARALLEL_CAP`,
+`TTS_ENGINE_CAPS` as a JSON dict) when absent from the settings store — the
+same settings-then-env precedence `policies.get_priority_mode` uses for
+`api_priority_mode` / `TTS_API_PRIORITY`. As with that precedent, `state.json`
+normalization always materializes a default value once it has run, so the env
+var is a true fallback only before first normalization (fresh installs); an
+operator raising the cap on a running Studio instance always goes through the
+Settings API, not the env var.
+
+`app/orchestration/scheduler/cap_settings.resolve_effective_cap(engine_id,
+manifest_max)` is the single resolution function (INV-5 — no engine-ID
+branching; `engine_id` is used only as a dict key):
+
+```
+requested_cap   = tts_engine_caps.get(engine_id, tts_parallel_cap)
+effective_cap   = min(requested_cap, manifest_max)
+```
+
+The manifest's `behavior.max_concurrent_workers` is always the ceiling — a
+Studio setting can only **lower** the effective cap, never raise it above what
+the plugin author declared safe. `_manifest_resource_claim` (synthesis.py)
+calls `resolve_effective_cap` when building each `ResourceClaim.cap`.
+Default `tts_parallel_cap=1` preserves INV-1 "ships dark": with no operator
+change, `effective_cap` is always 1 regardless of the manifest maximum,
+identical to pre-007 behavior once `ENGINE_CLASS_ADMISSION` is also enabled.
+Changing either setting takes effect on the **next job submission** — no
+restart required (each `SynthesisTask.__init__` re-resolves the claim).
+
 ### 7.4 Admission order
 
 1. Pause gate checked first.
@@ -646,7 +687,40 @@ path (only the exclusive gate is touched).
 3. Global cap backstop checked (when `engine_class` is claimed and the toggle
    is on).
 4. Per-engine-class semaphore checked (acquire one of N slots).
+5. Per-engine-id semaphore checked (§7.4a), only when the claim declares
+   `engine_id` — acquired *in addition to* step 4, never instead of it.
    — Legacy path (no `engine_class`): exclusive gate, then GPU gate.
+
+### 7.4a Per-engine-id admission ceiling — W-PAR task 007 (folded-in Fable finding)
+
+The class-level semaphore (§7.2) is keyed by `engine_class` (e.g. `"gpu"`,
+`"cloud"`), and its capacity is **grow-only** (`ensure_min_cap`, fixed in
+commit `7dd218aa`): once any caller requests a larger cap for that class, the
+shared semaphore permanently grows to that size. This means two *different*
+`engine_id`s that both resolve to the same `engine_class` (e.g. two future
+GPU-class plugins) would share one semaphore sized to whichever cap was
+requested **largest** — an engine declaring `max_concurrent_workers=1` could
+be admitted for a second concurrent task purely because a co-resident
+same-class engine asked for a larger cap first. **Not live today** (only XTTS
+resolves to `"gpu"`; Voxtral and mixed resolve to `"cloud"`, both at cap=1),
+but a real latent bug for the next GPU-class or `cpu_heavy`-class plugin.
+
+Fix: `get_engine_id_semaphore(engine_id, cap)` is an **independent** registry
+keyed by the concrete `engine_id`, checked *alongside* (never instead of) the
+class-level gate. A claim only opts in by declaring `engine_id` in
+`resource_claims` — claims that omit it (any caller predating task 007) are
+governed by the class gate alone, so this is purely additive: it can only
+make admission **more** restrictive for opted-in callers, never less
+restrictive, and changes nothing for callers that don't declare `engine_id`.
+`reserve_task_resources`/`release_task_resources` acquire/release both gates
+symmetrically; a per-engine-id denial releases the class-level slot it just
+acquired (and the global cap slot) before returning `admitted=False`.
+
+`EngineClassSemaphore` also hard-pins the `"exclusive"` class: constructing
+or growing (`ensure_min_cap`) a semaphore for `class_name="exclusive"` above
+cap=1 raises `ValueError`. Today only `ResourceClaim.exclusive_claim()` ever
+requests this class (always at cap=1) — this was safe by accident; the guard
+makes it an enforced contract.
 
 ### 7.5 `ResourceClaim` fields (W-PAR additions)
 
@@ -657,20 +731,22 @@ path (only the exclusive gate is touched).
 | `cpu_heavy` | bool | false | Sustained heavy CPU |
 | `exclusive` | bool | false | Legacy single-flight flag |
 | `engine_class` | str | `""` | Semaphore key; derived from manifest resource block |
-| `cap` | int | 1 | Semaphore capacity; from `behavior.max_concurrent_workers` |
+| `cap` | int | 1 | Semaphore capacity; from `resolve_effective_cap(engine_id, manifest_max)` (§7.3b) |
+| `engine_id` | str | `""` | Task 007: opts the claim into the per-engine-id ceiling (§7.4a); dict key only, no behavioral branch (INV-5) |
 
 ### 7.6 `ResourceClaim` factories
 
 | Factory | GPU | engine_class | Notes |
 |---|---|---|---|
 | `ResourceClaim.none()` | false | `""` | CPU-only tasks; no semaphore |
-| `ResourceClaim.exclusive_claim()` | false | `"exclusive"` | Single-flight (cap=1) |
+| `ResourceClaim.exclusive_claim()` | false | `"exclusive"` | Single-flight (cap=1); rejects growth above 1 (§7.4a) |
 | `ResourceClaim.gpu_heavy(vram_mb=4000)` | true | `"gpu"` | Default VRAM 4000 MB |
 | `ResourceClaim.from_engine_manifest(manifest)` | from manifest | from manifest | |
 
 `SynthesisTask.__init__` calls `_manifest_resource_claim(engine_id)` which
-reads the engine manifest, resolves the engine class and cap, and returns a
-`ResourceClaim` with `engine_class` set.  No `if engine_id == "mixed"` branch
+reads the engine manifest, resolves the engine class via
+`resolve_effective_cap` (§7.3b), and returns a `ResourceClaim` with
+`engine_class` and `engine_id` set. No `if engine_id == "mixed"` branch
 remains (INV-5, W5 closed).
 
 ---

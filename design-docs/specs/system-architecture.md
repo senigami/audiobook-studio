@@ -1,10 +1,10 @@
 # SP9 — System Architecture Spec
 
 ```
-spec_version: 1.5.0
+spec_version: 1.6.0
 status: active
 created: 2026-06-10
-updated: 2026-06-26
+updated: 2026-07-03
 sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
          app/engines/watchdog.py, app/engines/bridge.py,
          app/engines/bridge_remote.py, app/engines/tts_client.py,
@@ -19,6 +19,7 @@ sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
 
 | Version | Date       | Summary                                                    |
 |---------|------------|------------------------------------------------------------|
+| 1.6.0   | 2026-07-03 | **W-PAR task 007 — cap toggle as a Studio setting (§3.1a) + per-engine-id admission ceiling.** The orchestrator-side effective cap now comes from `cap_settings.resolve_effective_cap(engine_id, manifest_max)`, clamping the `tts_parallel_cap` / `tts_engine_caps` settings (env-fallback `TTS_PARALLEL_CAP` / `TTS_ENGINE_CAPS`) to the manifest ceiling — default stays 1 (ships dark). `resources.py` gained an independent per-`engine_id` semaphore checked alongside the per-`engine_class` gate whenever a claim declares `engine_id`, closing the latent "grow-only class semaphore shared by two same-class engine_ids" gap (folded-in Fable merge-gate finding; not observable today). No change to the orchestrator ↔ watchdog ↔ VoiceBridge ownership split or the server-side warm-worker pool (§3.1). |
 | 1.5.0   | 2026-06-26 | **W-PAR task 004 — TTS-server concurrent inference model.** The `/synthesize` endpoint is `async def` and wraps the engine call in `run_in_threadpool` (Starlette) so the ASGI event loop is never tied up during inference. Note: FastAPI already offloads sync handlers to anyio's threadpool, so this was not fixing a loop-blocking bug — it makes the offload explicit and is the idiomatic form. The **real** per-engine serialization point was the single XTTS warm-worker subprocess. `WarmWorkerManager` now holds a **bounded, lazy-spawned pool** of up to `cap` `WarmWorker` subprocess instances (free-list queue); `cap = behavior.max_concurrent_workers` from the engine manifest (task 001). Each subprocess handles one job at a time (pipe-safety); the pool's free-list is the concurrency bound. The N-th worker is spawned only on demand; on OOM/spawn failure the effective cap degrades to the live pool size (fail-safe, no crash). Cloud engines (Voxtral) have no warm worker and no serialization lock — concurrency is bounded only by the remote API rate limit. **Ships dark:** at cap=1 (default for all manifests today) behavior is byte-identical to the prior single-worker model. Complements the orchestrator-side per-engine semaphore (task 001, `resources.py`) — both enforcement points read the same manifest cap. Pool sizing is driven entirely by `manifest.behavior.max_concurrent_workers`; no engine-ID branching (INV-5). Residual: `WarmWorkerManager._acquire_worker` blocking `free_q.get()` can hang if all pooled workers die while a waiter holds — dormant at cap=1, deferred to task 005. |
 | 1.4.0   | 2026-06-26 | **W-PAR task 001 — per-engine-class counting semaphores.** Each engine manifest now declares `behavior.max_concurrent_workers` (xtts=1, voxtral=1, mixed=1 (all caps=1 in task-001; real caps + enable toggle land in task-007)). The orchestrator-side resource gate (`app/orchestration/scheduler/resources.py`) is replaced with `EngineClassSemaphore` counting semaphores, keyed by engine class derived from the manifest `resource` block (`"gpu"` / `"cpu_heavy"` / `"cloud"`), plus a global cap backstop (`MAX_GLOBAL_CONCURRENT_SYNTHESIS=8`). With all caps at default 1 behavior is byte-identical to today (INV-1 "ships dark"). No engine-ID string comparisons in `resources.py` (INV-5). `SynthesisTask` derives `ResourceClaim` from the manifest rather than an `engine_id == "mixed"` branch (W5 closed). See `queue-jobs.md §7` for the full contract. |
 | 1.3.0   | 2026-06-26 | §9 note: for mixed/multi-group renders the orchestrator resolves timing/progress markers per the **active render-group's declared engine** (via that engine's manifest), and the mixed handler emits a bracketed `[ENGINE_ACTIVITY_STARTED]` marker before each group's bridge call. This is manifest-driven resolution, NOT hardcoded engine-ID branching — the no-branch rule and the watchdog/VoiceBridge boundaries are preserved (watchdog/VoiceBridge stay ignorant of model-load semantics). Documents W-MIX W1. |
@@ -141,6 +142,29 @@ stuck-segment / cancel invariants.
 
 Pool/semaphore sizing is driven entirely by `manifest.behavior.max_concurrent_workers`
 — no engine-ID branching anywhere in the server or manager code (INV-5).
+
+### 3.1a Cap-default-1 toggle + per-engine-id ceiling (W-PAR task 007)
+
+The orchestrator-side cap fed to `resources.py`'s per-engine-class semaphore
+(§3.1's "two enforcement points") is no longer the raw manifest value — it is
+`app.orchestration.scheduler.cap_settings.resolve_effective_cap(engine_id,
+manifest_max)`, which clamps a real Studio setting (`tts_parallel_cap` /
+`tts_engine_caps`, env-fallback `TTS_PARALLEL_CAP` / `TTS_ENGINE_CAPS`) to the
+manifest ceiling. Default `tts_parallel_cap=1` keeps the ships-dark invariant;
+raising it is now an operator action (Settings API), not a manifest edit. The
+**server-side** warm-worker pool (this section) is unaffected — the two
+enforcement points still read the same effective number, they just get it via
+one more layer of settings resolution on the orchestrator side.
+
+`resources.py` also gained an **independent per-`engine_id` admission
+ceiling** (`get_engine_id_semaphore`), checked alongside the existing
+per-`engine_class` semaphore whenever a claim declares `engine_id`. This
+closes a latent gap in the class semaphore's grow-only sizing: two different
+`engine_id`s sharing one `engine_class` (not possible today — only XTTS is
+`"gpu"`-class) could otherwise silently share whichever cap was requested
+largest. See `queue-jobs.md §7.4a` for the full contract; this does not change
+the orchestrator ↔ watchdog ↔ VoiceBridge ownership split — admission is
+still entirely `resources.py`'s responsibility.
 
 ---
 

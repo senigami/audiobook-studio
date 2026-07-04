@@ -621,6 +621,19 @@ class TestClaimToDictPreservesEngineClass:
 
         R1 revert-check: this test MUST FAIL (second task denied) on the
         pre-fix GpuAdmissionGate/ExclusiveAdmissionGate.
+
+        Updated 2026-07-03 (W-PAR task 007): surfacing the cap toggle as a real
+        Studio setting means the effective cap is now
+        min(tts_parallel_cap setting, manifest_max) rather than the
+        manifest_max alone — tts_parallel_cap defaults to 1 (INV-1 ships dark)
+        so this test must explicitly raise the operator-facing setting to
+        exercise the manifest-cap=2 plumbing this regression covers. (The
+        TTS_PARALLEL_CAP env var is only a fallback for when the setting key
+        is entirely absent from state.json; get_settings() always materializes
+        a default value once normalization has run once, so an env var alone
+        cannot override an already-persisted default here — the real setting
+        must be written via update_settings, matching how an operator would
+        actually raise the cap through the Settings API.)
         """
         import os  # noqa: PLC0415
         from app.orchestration.scheduler import resources as _res  # noqa: PLC0415
@@ -630,7 +643,9 @@ class TestClaimToDictPreservesEngineClass:
             release_task_resources,
         )
         from app.orchestration.tasks.synthesis import SynthesisTask  # noqa: PLC0415
+        from app.db.state import update_settings  # noqa: PLC0415
 
+        update_settings({"tts_parallel_cap": 2})
         with patch(
             "app.tts_server.plugin_loader.get_manifest_max_concurrent_workers",
             return_value=2,
@@ -676,6 +691,10 @@ class TestClaimToDictPreservesEngineClass:
                 # cross-test state leak is what caused the second, deeper
                 # instance of the bug this test guards against).
                 _res._engine_semaphores.pop("gpu", None)
+                _res._engine_id_semaphores.pop("xtts", None)
+                # Restore the operator-facing setting so later tests in this
+                # module see the INV-1 default (cap=1) again.
+                update_settings({"tts_parallel_cap": 1})
 
     def test_voxtral_serialized_at_cap1_through_real_path(self):
         """W5 + INV-1: voxtral (cap=1 in task-001) must also be serial via real path."""

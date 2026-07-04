@@ -1,7 +1,7 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.9.2
+spec_version: 1.9.3
 status: active
 updated: 2026-07-03
 sources:
@@ -21,6 +21,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.9.3   | 2026-07-03 | **W-PAR task 007 — spec reconciliation gate; bracketed-ETA and `stalled_segments` documented as computed-but-not-yet-wired (Known gaps §7).** No wire-shape change in this version: `BracketedEtaTracker` (rolling-throughput / bottleneck-pool ETA model, `app/orchestration/progress/eta.py`) and `ChapterSynthesisTask.stalled_segments` (task 005) both exist and are unit-tested, but are not yet threaded onto any live event frame or consumed by any client type. Recorded explicitly per CLAUDE.md's "resolve drift explicitly, never silently" rather than either fabricating aspirational wire fields or silently deferring without a paper trail. `active_segments_map` (1.9.0–1.9.2) is unaffected and remains fully live-wired. |
 | 1.9.2   | 2026-07-03 | **`active_segments_map` live emission ENABLED (W-PAR 008, the enable-gate).** `_EMIT_ACTIVE_SEGMENTS_MAP` flipped `True` in `orchestrator_helpers.py`. The generation.py chapter-render path now constructs `ChapterSynthesisTask` (concurrent fan-out) for engines using segment orchestration instead of the sequential `SynthesisTask`; each `SegmentSynthesisTask` child renders via `make_dispatch_segment_bridge_call`, reusing `_dispatch_segment`'s existing per-segment isolation (mixed-engine children call `render_one_group` directly — extracted from `handle_mixed_job`, which itself is unchanged for any other caller — never the full chapter-terminal handler; non-mixed children route through the existing bridge path). At genuine cap > 1 the parent (`ChapterSynthesisTask._current_active_segments_map`) aggregates ONE entry per truly in-flight child, keyed by the child's real segment/leader id (never the synthetic per-child task_id) — the first time this spec's map has more than one entry outside a single `_dispatch_segment` call's own sequential single-entry-at-a-time emission (which remains correct and unchanged for a single dispatch unit processing multiple groups serially). At cap=1 (today's default; a manifest must explicitly raise `max_concurrent_workers` to enable visible parallelism) the map still emits single-entry frames identical in shape to 1.9.0/1.9.1 — INV-1 is preserved via a dedicated byte-identical event-sequence regression test comparing the old sequential path against the new fan-out path for an identical single-group chapter. **Also (R3, deliberate, not a regression):** render-performance samples (`record_render_sample`, INV-6 sole-writer) are now recorded per concurrently-rendered group (one sample per `SegmentSynthesisTask`/synthetic child) rather than once per whole chapter for segment-orchestrated engines — more granular calibration data; the orchestrator remains the sole writer regardless of granularity. **Review-pass amendments (same change, 2026-07-03):** a parent-map entry requires a child that has genuinely STARTED and not yet resolved (presence == in flight; queued children are excluded); the parent publishes progress/map updates per child completion (not in a terminal burst); and the parent emits an explicit EMPTY `active_segments_map` (`{}`) on any terminal outcome so the frontend's map-branch never keeps finished segments in a rendering state. |
 | 1.9.1   | 2026-07-03 | **`active_segments_map` live emission deferred to task 008 (fan-out > 1).** At cap=1 the single active segment is fully conveyed by `active_segment_id`; emitting a redundant single-entry map let stale `preparing` entries — created only during the cold-start model-load window — accumulate in the frontend overlay and override the correct single-active derivation, freezing completed segments gray until the job ended ("black all at once" on cold starts). The field remains defined (§ below) but is **not emitted** at cap=1: `_current_active_segments_map` returns `None` behind `_EMIT_ACTIVE_SEGMENTS_MAP = False` in `orchestrator_helpers.py`. Task 008's parent aggregation (genuine concurrent fan-out) flips the flag on and emits a real multi-entry map. Frontend consumption (W-PAR 006) is unchanged and dormant until then. INV-1 restored: cap=1 frames carry no map, identical to pre-003. |
 | 1.9.0   | 2026-07-02 | **`active_segments_map` (W-PAR 003, C2 contract) — additive field on `queue_item_status`.** A new, purely additive `active_segments_map?: Record<string, {phase: 'preparing'\|'rendering'\|'done', progress: number, eta_seconds: number\|null, reason_code?: string, indeterminate?: boolean}>` field may ride the `queue.items`/`queue_item_status` payload (snake_case on the wire — no camelCase variant, matching the frontend adapter). It is the chapter-level snapshot the orchestrator's per-segment dispatch (`_dispatch_segment`, `orchestrator_helpers.py`) publishes for whichever segment(s) are currently active; `phase`/`indeterminate` generalize the existing single-segment `LOADING_MODEL`/`SEGMENT_PENDING`/`SEGMENT_PROGRESS`/`SEGMENT_SAVED` reason-code lifecycle into a per-segment map entry. **Absent or omitted at cap=1** unless the dispatch path actually has an active segment to report — the existing single-active `active_segment_id`/`segments.progress` fields and event sequence are byte-identical (INV-1); this is additive-only (INV-9: no new wire channel, same `chapter progress`/`queue.items` frame). The per-segment `segments.progress` transition emission in `broadcast_job_updated` (§"per-segment render clock") is unchanged in this version — it remains correct at the current N=1 fan-out and will be reworked to emit from each concurrent child's own completion when fan-out > 1 is wired (task 005/enable-gate, not this version). |
@@ -819,3 +820,19 @@ Rules:
    snake_case variants of the same field (e.g. `etaSeconds`/`eta_seconds`) for
    backward compatibility. This is not yet normalized; clients should read whichever
    is present.
+
+7. **Bracketed ETA (`eta_low_seconds`/`eta_high_seconds`/`eta_display`) and
+   `stalled_segments` are computed but not yet on the wire (W-PAR task 007).**
+   `app.orchestration.progress.eta.BracketedEtaTracker` implements the rolling-
+   throughput / bottleneck-pool bracket model (reduces exactly to today's
+   single-stream CPS at cap=1) and `ChapterSynthesisTask.stalled_segments`
+   (task 005) computes the stalled-child list from the heartbeat monitor —
+   both are unit-tested and available to callers, but neither is threaded
+   through `ProgressService.enrich()` / the chapter-progress event builder
+   onto a live frame yet. No client type or UI currently expects these
+   fields. Wiring them into the live payload (and the corresponding
+   `progress-presentation.md` bracket-display UI) is left as explicit
+   follow-up work rather than bolted onto this task's already-large surface
+   area — flagging it here per the "resolve drift explicitly, never
+   silently" rule rather than documenting aspirational wire behavior that
+   isn't actually emitted.

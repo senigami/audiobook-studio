@@ -51,6 +51,7 @@ def _manifest_resource_claim(engine_id: str) -> ResourceClaim:
     """
     try:
         from app.tts_server.plugin_loader import get_plugin_dir, get_manifest_max_concurrent_workers  # noqa: PLC0415
+        from app.orchestration.scheduler.cap_settings import resolve_effective_cap  # noqa: PLC0415
         import json  # noqa: PLC0415
 
         plugin_dir = get_plugin_dir(engine_id)
@@ -67,7 +68,13 @@ def _manifest_resource_claim(engine_id: str) -> ResourceClaim:
         is_gpu = bool(resource.get("gpu", False))
         is_cpu_heavy = bool(resource.get("cpu_heavy", False))
         vram_mb = int(resource.get("vram_mb", 0))
-        cap = get_manifest_max_concurrent_workers(manifest)
+        manifest_max = get_manifest_max_concurrent_workers(manifest)
+        # W-PAR task 007: the effective cap is min(setting/env cap, manifest max)
+        # — the operator-facing toggle can only lower the cap below the
+        # manifest ceiling, never raise it above what the plugin author
+        # declared safe. Defaults to 1 when no setting/env override is present
+        # (INV-1 ships dark).
+        cap = resolve_effective_cap(engine_id=engine_id, manifest_max=manifest_max)
 
         if is_gpu:
             engine_class = "gpu"
@@ -83,6 +90,7 @@ def _manifest_resource_claim(engine_id: str) -> ResourceClaim:
             exclusive=False,
             engine_class=engine_class,
             cap=cap,
+            engine_id=engine_id,
         )
     except Exception:
         logger.warning(
@@ -97,6 +105,7 @@ def _manifest_resource_claim(engine_id: str) -> ResourceClaim:
             exclusive=False,
             engine_class="cloud",
             cap=1,
+            engine_id=engine_id,
         )
 
 

@@ -1,8 +1,8 @@
 # Progress Presentation Contract
 
 ```
-spec_version: 1.8.4
-updated: 2026-07-02
+spec_version: 1.9.0
+updated: 2026-07-03
 status: active
 sources:
   - frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx
@@ -30,6 +30,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.9.0   | 2026-07-03 | **§4A.11 — bracketed throughput ETA under parallelism documented (W-PAR task 007).** `BracketedEtaTracker` (rolling-throughput / bottleneck-pool model, cap=1 parity, `"estimating…"` no-fabrication guard) is implemented and unit-tested but explicitly marked **not yet wired** into `enrich()` or any live frame — see `live-events.md` 1.9.3 Known gaps §7 for the matching honest-gap note. Documents the target contract for the follow-up wiring task rather than describing aspirational live behavior. |
 | 1.8.4   | 2026-07-02 | **End-game ETA honesty (owner render job-47213119, mixed 4-group): three fixes so the chapter display "transitions from estimation to actual" all the way to the finish.** (1) **§4A.4 ceiling velocity is now recency-weighted** (`EtaSampleRing.weighted_mean()`, linear oldest=1…newest=n weights; `cv()` keeps flat statistics). The flat-mean ring still contained fast early-Voxtral samples after the engine switch (~3.7× the true recent rate), so the re-applied ceiling (1.3×remaining/velocity ≈ 2.1s) clipped the CORRECT §4A.3-composed end-game ETA (2.68–2.84 → would round to 3, matching the segment truth and reality) down to 2. The composition math was right; its input velocity was stale. Engine-agnostic — no engine-ID branching. (2) **§4A.2's "monotone-rising in progress" is now ENFORCED for the chapter-level `eta_confidence`** via a running→running per-job floor (mirrors the §2.5 progress floor; queued/requeue and terminal resets unchanged; per-segment confidence NOT floored per B12). Owner design 2026-07-02: chapter confidence is ONE steady estimation→live ramp across the whole chapter — segment boundaries and per-frame cv spikes must not make it bounce (observed live: 0.50→0.63→0.33→0.20 early, 0.98→0.94 dip at the last segment boundary). (3) **Frontend `clampSlope` collapsed-anchor recovery**: the countdown free-runs the last anchor between backend frames (no backend heartbeat exists — emission is engine-tick-driven); after a 6s silent gap the anchor collapsed to ~1-2s and the corrective +5-7s extension was capped at prevDuration×slopeCap (≤4×) — crawling for several frames while backend frames said 7-8s. The UPPER cap base is now floored at `MIN_SLOPE_CAP_BASE_MS`=2500ms so high-confidence extensions snap; the lower bound keeps raw prevDuration (shrinks unaffected, no minimum inflation). Known residual (documented, not fixed): no proactive heartbeat during engine stalls — a stalled segment tail still produces wire silence; tracked as a W-MIX-LA 007 note. |
 | 1.8.3   | 2026-07-02 | **Live G0 re-check fixes (owner render job-3ee72dea): four gaps between the 1.8.0 contract and the code.** (1) **enrich() preparing-ETA gate realigned to amended I10:** the kernel still nulled `eta_seconds` for every non-`running` status (1.4.3 behavior), so the orchestrator's proactive `pre_load_eta` frame reached the wire with `etaSeconds: null` while the plugin's Path-B frame kept its ETA — inconsistent producers. Now only `queued` suppresses; a real incoming observed ETA on `preparing` survives (calculated stays running-gated). (2) **Job-level (sid-less) `MODEL_LOAD_STARTED` no longer skips the LOADING_MODEL publish.** The dispatch-time cold load carries only the task_id and no segment is announced yet, so the `if sid` gate dropped the frame entirely — the whole ~25s load window had NO loading signal (no `indeterminate`, no reconciled ETA, no segment for the text preparing pulse; the owner-observed "text no longer pulses in preparing" regression). The frame is now always published, attributed (UI-only) to the first render group's leader, with `status="preparing"` before START_SYNTHESIS (durable-status honesty) and `"running"` after (INV-1 mid-chapter). Render-timing/stats attribution still requires a real marker sid. (3) **§2.5 server-side monotonic floor for running→running progress:** the plugin's completion-path update published progress 0.91 after the orchestrator's 0.99 (visible backward correction right before done); enrich() now clamps a running frame's progress to the previous running frame's floor (requeue/recovery reset paths unchanged). (4) **`indeterminate` is cleared explicitly, not by omission:** frontend overlay merges retain the last present value, so the flag stuck `true` after the load window (observed on the done job record). Terminal frames and the START_SYNTHESIS running frame now carry `indeterminate: false`; builders forward explicit `False`. |
 | 1.8.2   | 2026-06-29 | **§4A.3 formula coefficient fix + int→round truncation fix.** The §4A.3 composition formula in `ProgressService.enrich()` had a coefficient-sum bug: `composed_eta = w_seg × seg_eta + (1−w_seg) × (blended_residual_fraction × bounded_eta)` where `blended_residual_fraction = (1−share) + share×(1−c)`. When `share=1` and `c=0.2`, this gives coefficients `0.2 + 0.8×0.8 = 0.84 < 1` — the formula discounts the total ETA for intermediate confidence values, causing the chapter ETA to drop below the active-segment ETA near the end of a chapter (reproduced: p=0.94, bounded_eta=2, seg_eta=3, c=0.2 → displayed 1s instead of 2s). The correct formula is a pure trust-weighted blend with coefficients that always sum to 1.0: `composed_eta = w_seg × seg_eta + (1−w_seg) × bounded_eta`. Also fixed `int(bounded_eta)` truncation to `round(bounded_eta)` at the final sanitization step — `int(1.88)=1` but `round(1.88)=2`. Formula text updated at §4A.3. |
@@ -541,6 +542,38 @@ eta     = ( w_base · T_base + (1 - w_base) · T_obs ) × (1 - p)
   (`SEGMENT_SAVED`) reports `confidence = 1.0`. *(New invariant B12.)*
 - This blend only adjusts the **emitted segment ETA**; the §4A.3 chapter composition continues to
   read the raw observed segment ETA, so the chapter ETA path is unchanged.
+
+### 4A.11 Bracketed throughput ETA under parallelism (W-PAR task 007 — utility only, not yet wired)
+
+> **Status:** `app.orchestration.progress.eta.BracketedEtaTracker` implements this model and is
+> unit-tested (`tests/orchestration/test_eta_bracket_and_engine_cap.py`). It is **not** yet called
+> from `ProgressService.enrich()` or any live event builder — no frame on the wire today carries
+> `eta_low_seconds`/`eta_high_seconds`/`eta_display`. This subsection documents the target contract
+> the utility already satisfies, for the follow-up task that wires it into the live payload.
+
+§4A's single-value `eta_seconds` assumes one segment renders at a time (single-stream CPS). Under
+real parallelism (`cap > 1`, W-PAR toggle, `queue-jobs.md §7.3b`) a slow XTTS segment and a fast
+Voxtral segment can overlap — single-stream CPS double-counts throughput and produces an optimistic,
+misleading ETA. The bracket model instead reports a range:
+
+```
+pool_cps        = Σ chars_completed / Σ wall_seconds   over the last K=10 completions, per pool
+effective_cps   = min(pool_cps × pool_cap)             across pools with ≥1 completion (bottleneck)
+eta_low         = remaining_chars / (effective_cps × global_cap)   # optimistic: full concurrency
+eta_high        = remaining_chars / effective_cps                  # pessimistic: single-worker-equivalent
+eta_display     = "estimating…"          when fewer than 3 completions observed (no-fabrication guard)
+                = "~{eta_high} s"        when eta_low == eta_high (cap=1, or a single remaining pool)
+                = "~{eta_low}–{eta_high} s"  otherwise
+```
+
+- **No-fabrication guard:** `eta_display` is `"estimating…"` (no numeric ETA at all) until at least
+  3 segment completions have been observed in the current render — consistent with the project's
+  "never fabricate a number" progress principle.
+- **Cap=1 parity (INV-1):** with a single pool at `cap=1`, `eta_low == eta_high` and the bracket
+  collapses to a single `"~N s"` value, numerically identical to the pre-W-PAR `estimate_eta_seconds`
+  single-stream CPS output for the same throughput — pinned by a dedicated parity test.
+- **Display format:** `"~40–70 s"` (en dash, no space around it) for a real bracket; `"~40 s"`
+  (no dash) when the bracket collapses to one value.
 
 ---
 
