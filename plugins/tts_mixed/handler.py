@@ -1,57 +1,38 @@
 from __future__ import annotations
 import logging
 import time
-import wave
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# INV-3 (W-PAR 005): sane upper bound for a single rendered segment's
-# duration. A WAV whose header reports a duration outside (0, MAX] is
-# treated as an invalid artifact — never marked done on exit-code alone.
-MAX_SEGMENT_DURATION_SECONDS = 3600.0
+# ---------------------------------------------------------------------------
+# PL-2: validated-artifact helpers moved to app.studio_plugin_sdk.context
+# (this module had the only one of three ``_group_needs_render`` originals
+# that used validated-artifact-metadata logic instead of raw file existence;
+# the SDK now owns that logic for xtts/voxtral/mixed alike). Re-exported here
+# under their original names — ``MAX_SEGMENT_DURATION_SECONDS``,
+# ``_is_valid_segment_artifact``, and ``_group_needs_render`` are imported
+# directly by name from ``tests/orchestration/test_correctness_invariants.py``.
+# ---------------------------------------------------------------------------
 
+try:
+    from studio_plugin_sdk.context import (  # alias registered by plugin_loader
+        MAX_SEGMENT_DURATION_SECONDS,
+        _is_valid_segment_artifact,
+        _validated_wav_duration_seconds,
+    )
+except ImportError:
+    from app.studio_plugin_sdk.context import (  # fallback for test/direct import
+        MAX_SEGMENT_DURATION_SECONDS,
+        _is_valid_segment_artifact,
+        _validated_wav_duration_seconds,
+    )
 
-def _validated_wav_duration_seconds(path: Path) -> float | None:
-    """Return the WAV's duration in seconds via its header.
-
-    Returns ``None`` when the file cannot be opened as a WAV at all (e.g. it
-    is a non-WAV stub, as used by some engine-agnostic unit-test doubles) —
-    callers treat ``None`` as "duration unknown", not "invalid", so this
-    stays additive to the pre-existing existence/size check rather than
-    replacing it (INV-3 requires the duration check to be *added*, not that
-    every non-WAV stub become invalid).
-    """
-    try:
-        with wave.open(str(path), "rb") as wf:
-            frames = wf.getnframes()
-            rate = wf.getframerate()
-            if rate <= 0:
-                return None
-            return frames / float(rate)
-    except (OSError, wave.Error, EOFError):
-        return None
-
-
-def _is_valid_segment_artifact(path: Path) -> bool:
-    """INV-3: a segment artifact is valid iff it exists and has non-zero
-    size; when its bytes parse as a WAV, the header duration must also be
-    sane (0s < duration <= MAX_SEGMENT_DURATION_SECONDS). Exit code alone is
-    never sufficient to mark a segment done — this is the single gate.
-    """
-    try:
-        if not path.exists() or path.stat().st_size <= 0:
-            return False
-    except OSError:
-        return False
-
-    duration = _validated_wav_duration_seconds(path)
-    if duration is None:
-        # Not parseable as a WAV (e.g. a non-audio test double) — fall back
-        # to the pre-existing exists+non-empty check rather than failing
-        # closed on every non-WAV stand-in.
-        return True
-    return 0.0 < duration <= MAX_SEGMENT_DURATION_SECONDS
+__all_reexports__ = (
+    "MAX_SEGMENT_DURATION_SECONDS",
+    "_is_valid_segment_artifact",
+    "_validated_wav_duration_seconds",
+)
 
 
 _ctx_instance = None
@@ -298,23 +279,25 @@ def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav
 def _group_needs_render(group: dict, pdir: Path) -> bool:
     """INV-3 (W-PAR 005): the single gate for "is this group's audio done".
 
-    A group needs (re)rendering unless its expected output WAV exists, has
-    a validated (non-zero, duration-sane) artifact per
+    PL-2: delegates to ``StudioPluginContext.group_needs_render`` (the shared
+    definition replacing this function, xtts bake.py's, and voxtral bake.py's
+    near-identical locals). A group needs (re)rendering unless its expected
+    output WAV exists, has a validated (non-zero, duration-sane) artifact per
     ``_is_valid_segment_artifact``, and every one of its member segments is
     marked ``audio_status == "done"`` pointing at that same file. Exit code
     from the render call is never sufficient on its own — this is the only
     function that may declare a group "does not need rendering".
-    """
-    expected_path = _chunk_output_path(pdir, group)
-    if not _is_valid_segment_artifact(expected_path):
-        return True
 
-    for segment in group["segments"]:
-        if segment.get("audio_status") != "done":
-            return True
-        if segment.get("audio_file_path") != expected_path.name:
-            return True
-    return False
+    Kept as a thin module-level wrapper (rather than removed) because
+    ``tests/orchestration/test_correctness_invariants.py`` imports this name
+    directly, and because ``_chunk_output_path``'s ``mkdir`` side effect on
+    the ``segments/`` directory is preserved here exactly as before (the
+    shared SDK method computes the expected path without creating
+    directories, since its other two callers already ensure the directory
+    exists before checking).
+    """
+    _chunk_output_path(pdir, group)  # preserves the original's segments/ mkdir side effect
+    return _get_ctx().group_needs_render(group, pdir)
 
 
 def _group_ready_audio_path(group: dict, pdir: Path) -> Path | None:

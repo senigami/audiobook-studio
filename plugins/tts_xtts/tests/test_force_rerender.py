@@ -192,9 +192,16 @@ class TestForceRerenderBakePath:
         j = _make_job(force_rerender=force_rerender)
         j.is_bake = True
 
+        from app.studio_plugin_sdk.context import StudioPluginContext
+
+        real_ctx = StudioPluginContext("xtts")
         ctx = MagicMock()
         ctx.get_text_chunk_limit.return_value = 500
         ctx.build_chunk_groups.return_value = groups
+        # group_needs_render must run the real validated-artifact-metadata
+        # logic (PL-2) rather than a bare MagicMock truthy stub — otherwise
+        # this test can't distinguish force_rerender=True from False.
+        ctx.group_needs_render.side_effect = real_ctx.group_needs_render
 
         with patch("plugins.tts_xtts.plugin.studio.bake._get_ctx", return_value=ctx), \
              patch("plugins.tts_xtts.plugin.studio.bake.get_chapter_segments", side_effect=[segs, segs]), \
