@@ -1,7 +1,7 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.11.0
+spec_version: 1.11.1
 status: active
 updated: 2026-07-04
 created: 2026-06-10
@@ -19,6 +19,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.11.1  | 2026-07-04 | **§3.7 reuse-gate realignment recorded (PL-2) + residual `_group_is_done` drift flagged.** §3.7's claim that per-group reuse is decided "against validated artifact metadata — never raw file existence alone" was written in the 1.4.0 spec reconcile while the xtts and voxtral bake `_group_needs_render` locals still used a bare `expected_path.exists()` check (only the mixed handler's INV-3 version matched the spec). PL-2 (`design-docs/plans/active/simplification/06_plugin_consolidation.md`) consolidated all three into `StudioPluginContext.group_needs_render` (`app/studio_plugin_sdk/context.py`), which standardizes on the validated-artifact logic (`_is_valid_segment_artifact`: exists, non-empty, and — when parseable as a WAV — a sane header duration `0 < d <= 3600s`) plus per-segment DB state — so the xtts/voxtral bake paths now actually match §3.7 (observable change: a zero-byte or duration-insane segment WAV is re-rendered instead of reused). **Residual drift, not yet resolved:** `_group_is_done` (xtts standard path, `plugins/tts_xtts/plugin/studio/standard_handler.py`) still gates reuse on bare `chunk_path.exists()` + DB status; §3.7's sentence now scopes its validated-metadata claim accordingly. Upgrading `_group_is_done` to `_is_valid_segment_artifact` is an open owner decision, not implied by this row. |
 | 1.11.0  | 2026-07-04 | **W-PAR enable-gate — ephemeral child fan-out tasks never create a durable Job row (Finding A) + size-weighted, order-independent chapter completion.** `TaskContext` gains an `ephemeral: bool = False` field; `_SyntheticSegmentTask.describe()` (the per-child task each `SegmentSynthesisTask` dispatches through `_dispatch_segment`) sets it `True`. For any `ephemeral` context, `orchestrator_publish.OrchestratorPublishMixin._publish` skips ALL durable job-state writes (`put_job`/`update_job`) and calls `ProgressService.publish(..., ephemeral=True)`, which suppresses the JOB-scoped emissions (`jobs.lifecycle`, `queue.items`, `chapters.progress`) while still emitting SEGMENT-scoped frames (`segments.progress` ticks + the prev→new `SEGMENT_SAVED` transition) — a chapter fan-out with N chunk groups now produces exactly ONE durable `Job` row (the parent, INV-4), not N+1 phantom `{parent}-seg-{index}` rows, and the live per-segment progress bar (frontend-keyed by real segment id) keeps working (review-ratchet fix, same change — the original all-frames early return killed it). Chapter-level visibility for concurrent children remains owned by the PARENT's own `active_segments_map` aggregation (`ChapterSynthesisTask._current_active_segments_map`/`_publish_progress`). Separately, `app.db.segments.chapter_completion_by_size(chapter_id) -> (done_chars, total_chars)` is a new reusable query helper (`LENGTH(text_content)`-weighted, `audio_status = 'done'` is the sole completion value) intended for resume/recompute call sites — **no caller is wired yet** (recorded explicitly per the 1.9.3 computed-but-not-wired convention; direct unit coverage lives in `tests/db/test_chapter_completion_by_size.py`); `ChapterSynthesisTask._publish_progress` now ALSO computes a size-weighted ratio from each child's in-memory `group["text_length"]` (order-independent — no dependency on mid-render DB status-write timing) and passes it through the existing `grouped_progress` kwarg, so `groupedProgress` (`live-events.md` 1.9.0) reflects completed manuscript-TEXT-size fraction, not segment count, regardless of which order unequal-size segments complete in. The count-based `progress` field is unchanged and still published alongside it. |
 | 1.10.0  | 2026-07-03 | **W-PAR task 007 — cap-default-1 toggle surfaced as a Studio setting (§7.3b) + per-engine-id admission ceiling (§7.4a, folded-in Fable merge-gate finding).** `tts_parallel_cap` (global, default 1) and `tts_engine_caps` (per-engine override dict) are now real settings (`GET/POST /api/settings`), falling back to `TTS_PARALLEL_CAP`/`TTS_ENGINE_CAPS` env vars — same settings-then-env precedence as `api_priority_mode`. `app.orchestration.scheduler.cap_settings.resolve_effective_cap(engine_id, manifest_max)` computes `min(requested_cap, manifest_max)` with no engine-ID branching (INV-5); the manifest is always the ceiling. Default stays byte-identical to pre-007 (`tts_parallel_cap=1`). Also closes the Fable-flagged latent gap in the grow-only class semaphore (commit `7dd218aa`): a new independent per-`engine_id` semaphore registry (`get_engine_id_semaphore`) is checked alongside the class-level gate whenever a claim declares `engine_id`, so one engine's declared cap can never be inflated by a same-class sibling's larger request. Not observable today (only XTTS resolves to `"gpu"`; additive/opt-in for callers that don't declare `engine_id`). `EngineClassSemaphore` also now hard-rejects growing the `"exclusive"` class above cap=1. |
 | 1.9.0   | 2026-07-03 | **§3.10 — live concurrent segment fan-out wired (W-PAR 008, the enable-gate).** `app/api/routers/generation.py`'s chapter-render/bake submission now constructs `ChapterSynthesisTask` (concurrent fan-out, `app/orchestration/tasks/segment_synthesis.py`) instead of the sequential `SynthesisTask` for engines using segment orchestration. `orchestrator_helpers._dispatch` bypasses `_dispatch_segment` for the PARENT (`is_chapter_fanout` flag) and calls `task.run()` directly; each child reuses `_dispatch_segment` via `make_dispatch_segment_bridge_call` (mixed-engine groups call the newly-extracted `render_one_group`, never the full chapter-terminal `handle_mixed_job`; other engines use the existing bridge path). Recovery reconstructs `ChapterSynthesisTask` from a bare context (`_reconstruct_chapter_task_from_context`) with K-of-N resume wired to `_group_needs_render`/`_group_ready_audio_path`. Fixed alongside: a stitch-barrier bug where a recovery-skipped (already-valid) group's existing audio never reached the final stitched paths. `active_segments_map` (`live-events.md` 1.9.2) now emits genuine multi-entry snapshots at cap > 1. At `max_concurrent_workers=1` (default; requires an explicit manifest cap raise to enable visible parallelism) behavior is byte-identical to the pre-008 sequential path, pinned by a dedicated old-vs-new event-sequence regression test. **Review-pass amendments (same change, 2026-07-03):** (1) the parent consumes each child future AS IT COMPLETES (`as_completed`, not an all-complete barrier) so chapter-level progress and `active_segments_map` advance mid-render; INV-7 is unaffected (all futures are still joined before stitch/terminal work). (2) `stitch_fn` is a RAISE-on-failure contract — `ChapterSynthesisTask.run()` converts a stitch raise into a failed `TaskResult`, so a failed stitch can never terminal-publish as done with no chapter WAV. (3) `active_segments_map` entries require a child that has STARTED and not resolved (queued-behind-the-pool children are excluded), and the parent writes an explicit empty map (`{}`, force-broadcast) at any terminal outcome so stale rendering entries never ride terminal frames. (4) Recovery reconstruction falls back to `SynthesisTask.from_task_context` for segment-scoped payloads (`segment_ids` present) — only whole-chapter renders reconstruct as chapter fan-outs. |
@@ -276,10 +277,15 @@ distinction is binding.
 "render the missing parts" path: it deletes **nothing**. Engine handlers reuse
 every render group whose segment WAV already exists and is marked `done`, and
 synthesize only the missing/stale groups, then concatenate existing + new
-segment WAVs into the chapter output. The reuse decision is per-group, made by
-`_group_is_done` (xtts standard path) / `_group_needs_render` (xtts + voxtral
-bake paths) against validated artifact metadata — never raw file existence
-alone.
+segment WAVs into the chapter output. The reuse decision is per-group. For the
+xtts bake, voxtral bake, and mixed paths it is made by the shared
+`StudioPluginContext.group_needs_render` (`app/studio_plugin_sdk/context.py`,
+PL-2 — replacing three near-identical `_group_needs_render` locals) against
+validated artifact metadata (`_is_valid_segment_artifact`) plus per-segment DB
+state — never raw file existence alone. **Known residual drift (1.11.1):**
+`_group_is_done` (xtts standard path, `standard_handler.py`) still checks bare
+`chunk_path.exists()` + DB status; it predates the validated-artifact standard
+and has not yet been upgraded.
 
 **Rebuild (destructive).** `POST /chapters/{id}/reset`
 (`app/api/routers/chapters.py`) followed by a queue submission with
@@ -288,8 +294,8 @@ segment WAVs (`reset_chapter_audio` → `cleanup_chapter_audio_files`,
 `app/db/chapters.py`) and resets every segment `audio_status` to
 `unprocessed`. `force_rerender=True` then makes the handlers re-synthesize
 every group unconditionally (it short-circuits `_group_is_done` /
-`_group_needs_render` to "render"), so nothing is reused even if a stray WAV
-survived.
+`ctx.group_needs_render(..., force_rerender=True)` to "render"), so nothing is
+reused even if a stray WAV survived.
 
 The flag guards reuse in **all three render paths** — xtts standard
 (`plugins/tts_xtts/plugin/studio/standard_handler.py`), xtts bake
