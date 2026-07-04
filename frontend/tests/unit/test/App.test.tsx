@@ -1,7 +1,7 @@
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import App from '@/app/App'
 import { MemoryRouter, useLocation } from 'react-router-dom'
-import { vi, describe, it, expect, beforeEach } from 'vitest'
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { useEffect } from 'react'
 import { publishStudioSocketMessage } from '@/store/studioSocketBus'
 import { resetLiveEventAuditForTests } from '@/store/liveEventAuditStore'
@@ -32,6 +32,11 @@ vi.mock('@/hooks/useWebSocket', () => ({
 }));
 
 describe('App', () => {
+
+  afterEach(() => {
+    // Ensure fake timers are always restored to avoid cross-test leakage
+    vi.useRealTimers()
+  })
 
   beforeEach(() => {
     localStorage.clear()
@@ -133,7 +138,7 @@ describe('App', () => {
     })
   })
 
-  it('surfaces a retryable error banner when the initial data fetch fails (F15)', async () => {
+  it('surfaces a retryable error banner with accurate copy when the initial data fetch fails (F15)', async () => {
     let homeCallCount = 0
     global.fetch = vi.fn((url) => {
       if (url === '/api/home') {
@@ -163,12 +168,119 @@ describe('App', () => {
       expect(screen.getByTestId('startup-error-indicator')).toBeTruthy()
     })
     expect(screen.getByText(/Couldn't reach Audiobook Studio/)).toBeTruthy()
+    // Exact string, not a substring match — pins the dash rendering as a real
+    // "—" character rather than a literal "—" escape sequence (JSX text
+    // children do not process JS string escapes the way a JS string literal does).
+    expect(screen.getByText('network down — retrying automatically…')).toBeTruthy()
 
     fireEvent.click(screen.getByTestId('startup-retry-button'))
 
     await waitFor(() => {
       expect(screen.queryByTestId('startup-error-indicator')).toBeFalsy()
     }, { timeout: 2000 })
+  })
+
+  it('recovers from the manual retry button alone, before the 1s auto-poll would fire (F15)', async () => {
+    vi.useFakeTimers()
+    let homeCallCount = 0
+    global.fetch = vi.fn((url) => {
+      if (url === '/api/home') {
+        homeCallCount++
+        if (homeCallCount === 1) {
+          return Promise.reject(new Error('network down'))
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ projects: [], speaker_profiles: [], paused: false })
+        })
+      }
+      if (url === '/api/jobs') return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      if (url === '/api/processing_queue') return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      if (url === '/api/projects') return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      if (url === '/api/speakers') return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    }) as any
+
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
+    )
+
+    // Flush the initial (rejected) fetch — a direct call, not scheduled via a timer.
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(screen.getByTestId('startup-error-indicator')).toBeTruthy()
+    expect(homeCallCount).toBe(1)
+
+    fireEvent.click(screen.getByTestId('startup-retry-button'))
+
+    // Advance only past the 300ms manual-retry debounce — well short of the
+    // 1000ms auto-poll retry timer. A passing assertion here can only be
+    // explained by the button's own refetch, not the background poll (which
+    // a prior version of this test could not distinguish from — it advanced
+    // 2000ms and passed even with the button's onClick neutered).
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(310)
+    })
+
+    expect(homeCallCount).toBe(2)
+    expect(screen.queryByTestId('startup-error-indicator')).toBeFalsy()
+  })
+
+  it('does not claim an automatic retry is running when a post-startup refetch fails (F15)', async () => {
+    let homeCallCount = 0
+    global.fetch = vi.fn((url) => {
+      if (url === '/api/home') {
+        homeCallCount++
+        if (homeCallCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ projects: [], speaker_profiles: [], paused: false })
+          })
+        }
+        return Promise.reject(new Error('later failure'))
+      }
+      if (url === '/api/jobs') return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      if (url === '/api/processing_queue') return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      if (url === '/api/projects') return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      if (url === '/api/speakers') return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    }) as any
+
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('layout-root')).toBeTruthy()
+    })
+    expect(homeCallCount).toBe(1)
+
+    // queue.items/queue_paused is wired to refetchHome via useJobs' onPauseUpdate,
+    // giving us a real, contract-shaped way to trigger a POST-startup refetch
+    // (the one-shot startup poll loop has already exited by this point).
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'queue.items',
+        eventKind: 'queue_paused',
+        ids: {},
+        payload: { paused: true },
+      })
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('startup-error-indicator')).toBeTruthy()
+    })
+    expect(homeCallCount).toBe(2)
+    expect(screen.queryByText(/retrying automatically/i)).toBeFalsy()
   })
 
   it('proves only one websocket transport is mounted from App', async () => {

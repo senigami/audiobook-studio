@@ -26,6 +26,9 @@ export const useInitialData = () => {
   const fetchHome = useCallback(async () => {
     try {
       const res = await fetch('/api/home', { cache: 'no-store' });
+      if (!res.ok) {
+        throw new Error(`Failed to load application data (HTTP ${res.status})`);
+      }
       const json = await res.json();
       setData(json);
       setError(null);

@@ -16,6 +16,7 @@ describe('useInitialData', () => {
   it('fetches initial data on mount', async () => {
     const mockData = { projects: [], recent_jobs: [] };
     (global.fetch as any).mockResolvedValue({
+      ok: true,
       json: () => Promise.resolve(mockData),
     });
 
@@ -61,6 +62,7 @@ describe('useInitialData', () => {
     (global.fetch as any)
       .mockRejectedValueOnce(new Error('Fetch failed'))
       .mockResolvedValueOnce({
+        ok: true,
         json: () => Promise.resolve({ system_info: { startup_ready: true } }),
       });
 
@@ -80,6 +82,24 @@ describe('useInitialData', () => {
     expect(result.current.loading).toBe(false);
   });
 
+  // F15 follow-up (Fable review) — an HTTP error response (e.g. a 500) is valid,
+  // parseable JSON/HTML, not a network rejection. Without a res.ok check it was
+  // silently treated as a successful payload.
+  it('surfaces an error for a non-ok HTTP response instead of treating the body as data', async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ detail: 'internal error' }),
+    });
+
+    const { result } = renderHook(() => useInitialData());
+
+    await waitFor(() => {
+      expect(result.current.error).toBeTruthy();
+    });
+    expect(result.current.data).toBeNull();
+  });
+
   it('allows refetching data', async () => {
     vi.useFakeTimers();
 
@@ -88,9 +108,11 @@ describe('useInitialData', () => {
 
     (global.fetch as any)
       .mockResolvedValueOnce({
+        ok: true,
         json: () => Promise.resolve(mockData1),
       })
       .mockResolvedValueOnce({
+        ok: true,
         json: () => Promise.resolve(mockData2),
       });
 
@@ -125,9 +147,11 @@ describe('useInitialData', () => {
     const readyData = { system_info: { startup_ready: true } };
     (global.fetch as any)
       .mockResolvedValueOnce({
+        ok: true,
         json: () => Promise.resolve(pendingData),
       })
       .mockResolvedValueOnce({
+        ok: true,
         json: () => Promise.resolve(readyData),
       });
 
@@ -159,6 +183,7 @@ describe('useInitialData', () => {
     const mockData2 = { system_info: { startup_ready: true }, version: 2 };
 
     (global.fetch as any).mockResolvedValueOnce({
+      ok: true,
       json: () => Promise.resolve(mockData),
     });
 
@@ -175,6 +200,7 @@ describe('useInitialData', () => {
 
     // Queue the mock for the coalesced refetch
     (global.fetch as any).mockResolvedValueOnce({
+      ok: true,
       json: () => Promise.resolve(mockData2),
     });
 

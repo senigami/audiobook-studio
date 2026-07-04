@@ -462,7 +462,11 @@ function App() {
             }}
           >
             {initialError ? (
-              <>
+              <div
+                role="alert"
+                aria-live="assertive"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}
+              >
                 <div
                   data-testid="startup-error-indicator"
                   style={{
@@ -476,7 +480,13 @@ function App() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
                   <span>Couldn't reach Audiobook Studio</span>
                   <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                    {initialError} \u2014 retrying automatically&hellip;
+                    {/* The 1s startup poll only retries automatically before the first
+                        successful load (!initialData) - a later refetch failure (e.g. after
+                        a job-complete event) does not re-arm it, so that copy is omitted then.
+                        Note: the em dash/ellipsis below must stay inside a JS string literal
+                        (not bare JSX text) for the \uXXXX escapes to actually decode - see F15's
+                        original bug where a bare-JSX-text escape rendered literally. */}
+                    {initialError}{!initialData ? ' \u2014 retrying automatically\u2026' : ''}
                   </span>
                 </div>
                 <button
@@ -496,7 +506,7 @@ function App() {
                 >
                   Retry now
                 </button>
-              </>
+              </div>
             ) : (
               <>
                 <div

@@ -511,6 +511,8 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   };
 
   const renderBook = () => {
+    // data.paragraphs is typed as required, but a malformed/partial payload has crashed this
+    // render before (F14) — guard defensively even though the type contract says it can't happen.
     if (!data?.paragraphs) return null;
     return data.paragraphs.map(para => {
       const nodes: React.ReactNode[] = [];
@@ -590,6 +592,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   };
 
   const renderScript = () => {
+    // Same defensive guard as renderBook (F14) — data.spans is typed as required.
     if (!data?.spans) return null;
     let lastCharId: string | null | undefined = undefined;
 
