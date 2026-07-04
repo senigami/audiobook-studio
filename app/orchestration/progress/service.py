@@ -490,25 +490,11 @@ class ProgressService:
             existing_custom_title = None
             existing_engine = None
             if existing_job:
-                if hasattr(existing_job, "speaker_profile"):
-                    voice_name = existing_job.speaker_profile or "default"
-                elif isinstance(existing_job, dict) and existing_job.get("speaker_profile"):
-                    voice_name = existing_job["speaker_profile"]
-                if hasattr(existing_job, "started_at"):
-                    existing_started_at = existing_job.started_at
-                elif isinstance(existing_job, dict):
-                    existing_started_at = existing_job.get("started_at")
-                    existing_completed_at = existing_job.get("finished_at") or existing_job.get("completed_at")
-                if hasattr(existing_job, "finished_at"):
-                    existing_completed_at = existing_job.finished_at
-                if hasattr(existing_job, "custom_title"):
-                    existing_custom_title = existing_job.custom_title
-                elif isinstance(existing_job, dict):
-                    existing_custom_title = existing_job.get("custom_title")
-                if hasattr(existing_job, "engine"):
-                    existing_engine = existing_job.engine
-                elif isinstance(existing_job, dict):
-                    existing_engine = existing_job.get("engine")
+                voice_name = existing_job.speaker_profile or "default"
+                existing_started_at = existing_job.started_at
+                existing_completed_at = existing_job.finished_at
+                existing_custom_title = existing_job.custom_title
+                existing_engine = existing_job.engine
 
             resolved_custom_title = existing_custom_title or _voice_job_title(voice_name, action="Voice Test:", include_variant=False)
             resolved_engine = existing_engine or "voice_test"
@@ -540,7 +526,7 @@ class ProgressService:
                 voice_name=voice_name,
                 status=status,
                 progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
-                started_at=started_at or (existing_job.started_at if existing_job and hasattr(existing_job, "started_at") else None) or (existing_job.get("started_at") if existing_job and isinstance(existing_job, dict) else None) or time.time(),
+                started_at=started_at or (existing_job.started_at if existing_job else None) or time.time(),
                 job_id=job_id,
                 message=message,
                 source=payload.get("source"),
@@ -1388,26 +1374,6 @@ class ProgressService:
         if last_emit_tick is None:
             return True
         return (now - last_emit_tick) >= self.max_silence_seconds
-
-    def _should_emit(self, payload: dict[str, object], *, allow_progress_regression: bool = False) -> bool:
-        """Public shim kept for backward compatibility with test code.
-
-        The emit-gate logic has moved to ``_should_emit_unlocked`` (called
-        atomically from ``_claim_emit_slot``).  This shim acquires the lock,
-        snapshots state, then delegates — it does NOT commit the tick, so use
-        ``_claim_emit_slot`` for the production path.
-        """
-        job_id = str(payload["job_id"])
-        # D7 leaf-lock: snapshot per-job state — no state_jobs call inside.
-        with self._lock:
-            previous = self._last_payload_by_job.get(job_id)
-            last_emit_tick = self._last_emit_tick_by_job.get(job_id)
-        return self._should_emit_unlocked(
-            payload=payload,
-            previous=previous,
-            last_emit_tick=last_emit_tick,
-            allow_progress_regression=allow_progress_regression,
-        )
 
     def _apply_progress_regression_guard(
         self,
