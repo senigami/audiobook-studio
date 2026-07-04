@@ -82,8 +82,33 @@ boundaries: number of render groups = number of speaker runs.
    or frontend-local edit committed through the existing chapter-save path? (Must respect
    `frontend-state.md`: drafts must not blindly overwrite canonical server state.)
 3. How do existing per-sentence features (failed-span badges, resync preview, character
-   auto-detection) map onto spans?
-4. Undo story for an accidental assignment (pairs with doc 10 U1 undo-toast work).
+   auto-detection) map onto spans? See `research_speaker_assignment_prior_art.md` —
+   VoxNovel/Alexandria both treat auto-detection as one more producer into the same
+   editable attribution artifact users can review before synthesis; worth modeling
+   auto-detection as a span producer rather than a special case.
+4. Undo story for an accidental assignment (pairs with doc 10 U1 undo-toast work). See
+   `research_speaker_assignment_prior_art.md` — explicit manual tags (TTS-Story,
+   abogen-with-voicemarkers) are trivially undoable vs. reversing an automatic
+   multi-span split; may inform the undo affordance.
+
+## Prior art
+
+See `design-docs/plans/proposals/research_speaker_assignment_prior_art.md` for a survey
+of how open-source audiobook projects (VoxNovel/BookNLP, Alexandria-Audiobook, VibeVoice,
+TTS-Story, abogen-with-voicemarkers, AutoAudiobook) solve character-to-voice attribution.
+None solve our specific chunk-packing constraint, but the "attribution as a distinct,
+editable, pre-synthesis artifact" pattern is common and validates the span approach.
+
+See also `design-docs/plans/proposals/research_word_level_voice_assignment_academic.md`
+for the deeper academic-literature follow-up (BookNLP internals, ACL/NAACL quotation-
+attribution papers, LLM chain-of-thought attribution, Dia's turn-level speaker tags,
+Deep Dubbing's LLM-generated timbre casting). Headline finding: **nobody in the
+literature attributes or assigns voices per word** — every approach found (classical
+NLP, BERT-embedding scoring, extractive QA, LLM reasoning) operates at the
+quotation-span/dialogue-segment level, which is strong external validation of this
+doc's "spans, not words" direction. It also flags LLM chain-of-thought-over-chapter
+attribution as the strongest current method for the no-attribution-tail case (Open
+Question 3) once auto-suggestion is built.
 
 ## Sequencing
 
