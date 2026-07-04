@@ -1,6 +1,6 @@
 # 006 — WaveformTape renderer + browser peak provider
 
-status: todo
+status: done
 workload: W2 — Port the tape to the live PlayerBar (browser-decoded)
 blocked-by: 005
 blocks: 007, 008

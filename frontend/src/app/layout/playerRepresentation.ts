@@ -15,7 +15,7 @@ export const PX_PER_SEC_FLOOR = 3; // px/sec
  * (e.g. on first render). Below this threshold the waveform is shown; at or
  * above it the bar is shown until a real width measurement arrives.
  */
-export const DURATION_BOOTSTRAP = 120; // seconds
+export const DURATION_BOOTSTRAP = 30; // seconds
 
 /**
  * Returns true when the whole audio clip renders at or above the legibility floor

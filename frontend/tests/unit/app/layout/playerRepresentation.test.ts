@@ -80,8 +80,10 @@ describe('representation choice — integration (forceWave override)', () => {
 
 describe('PX_PER_SEC_FLOOR / DURATION_BOOTSTRAP constants', () => {
   it('are exported with the spec-defined values', () => {
+    // audio-player.md 1.6.0 §3: "legibility floor ≈ 3 px/sec; bootstrap
+    // threshold ≈ a clip that fits, ~≤ 30 s before bar width is known."
     expect(PX_PER_SEC_FLOOR).toBe(3);
-    expect(DURATION_BOOTSTRAP).toBe(120);
+    expect(DURATION_BOOTSTRAP).toBe(30);
   });
 });
 

@@ -1,0 +1,529 @@
+/**
+ * WaveformTape.test.tsx
+ *
+ * Tests for frontend/src/app/layout/WaveformTape.tsx — the ported tape
+ * renderer (audio-player.md 1.6.0 §5.2/§5.3). Task 006.
+ *
+ * Mocks (R2 — boundaries outside the unit): `fetch` + `AudioContext` (Web
+ * Audio decode, external browser API), `window.matchMedia` (external OS
+ * API), `playerBus.seek` (the bus is a separate module the tape calls
+ * through — the tape itself, and its fixed-grid math, are the unit under
+ * test and are never mocked).
+ */
+import React, { useEffect } from 'react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  WaveformTape,
+  usePeaks,
+  TAPE_ZOOM_PRESETS_SEC,
+  PEAKS_COUNT,
+} from '@/app/layout/WaveformTape';
+import * as playerBus from '@/store/playerBus';
+
+// ---------------------------------------------------------------------------
+// AudioContext mock — boundary mock (external Web Audio decode API)
+// ---------------------------------------------------------------------------
+
+function makeMockAudioBuffer(samples: number[], channels = 1): AudioBuffer {
+  return {
+    numberOfChannels: channels,
+    length: samples.length,
+    sampleRate: 44100,
+    duration: samples.length / 44100,
+    getChannelData: () => Float32Array.from(samples),
+  } as unknown as AudioBuffer;
+}
+
+let decodeAudioDataMock: ReturnType<typeof vi.fn>;
+let mockAudioContextCtor: ReturnType<typeof vi.fn>;
+
+function installAudioContextMock(audioBuffer: AudioBuffer | null, shouldReject = false) {
+  decodeAudioDataMock = vi.fn().mockImplementation(() => {
+    if (shouldReject) return Promise.reject(new Error('decode failed'));
+    return Promise.resolve(audioBuffer);
+  });
+  mockAudioContextCtor = vi.fn().mockImplementation(() => ({
+    decodeAudioData: decodeAudioDataMock,
+    close: vi.fn(),
+  }));
+  vi.stubGlobal('AudioContext', mockAudioContextCtor);
+}
+
+const originalMatchMedia = window.matchMedia;
+
+function mockMatchMedia(reduced: boolean) {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: reduced,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
+}
+
+function makeAudioEl(): HTMLAudioElement {
+  const el = document.createElement('audio');
+  Object.defineProperty(el, 'currentTime', { writable: true, value: 0 });
+  return el;
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockMatchMedia(false);
+  (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
+  });
+  vi.spyOn(playerBus, 'seek').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  window.matchMedia = originalMatchMedia;
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+// ---------------------------------------------------------------------------
+// usePeaks
+// ---------------------------------------------------------------------------
+
+describe('usePeaks', () => {
+  it('decodes via AudioContext and downsamples to PEAKS_COUNT buckets', async () => {
+    const samples = new Array(10000).fill(0).map((_, i) => (i % 2 === 0 ? 0.8 : -0.8));
+    installAudioContextMock(makeMockAudioBuffer(samples));
+
+    const captured: { current: number[] | null } = { current: null };
+    const Harness: React.FC = () => {
+      const peaks = usePeaks('https://example.com/a.mp3', makeAudioEl());
+      useEffect(() => {
+        captured.current = peaks;
+      }, [peaks]);
+      return null;
+    };
+    render(<Harness />);
+
+    await waitFor(() => expect(captured.current).not.toBeNull());
+    expect(captured.current).toHaveLength(PEAKS_COUNT);
+    expect(captured.current![0]).toBeCloseTo(0.8, 5);
+  });
+
+  it('returns an empty array on decode error (never throws)', async () => {
+    installAudioContextMock(null, true);
+
+    const captured: { current: number[] | null } = { current: null };
+    const Harness: React.FC = () => {
+      const peaks = usePeaks('https://example.com/bad.mp3', makeAudioEl());
+      useEffect(() => {
+        captured.current = peaks;
+      }, [peaks]);
+      return null;
+    };
+    render(<Harness />);
+
+    await waitFor(() => expect(captured.current).toEqual([]));
+  });
+
+  it('never creates an <audio> element or MediaElementSourceNode', async () => {
+    const samples = new Array(1000).fill(0.5);
+    installAudioContextMock(makeMockAudioBuffer(samples));
+
+    const createMediaElementSource = vi.fn();
+    mockAudioContextCtor.mockImplementation(() => ({
+      decodeAudioData: decodeAudioDataMock,
+      close: vi.fn(),
+      createMediaElementSource,
+    }));
+
+    const Harness: React.FC = () => {
+      usePeaks('https://example.com/a.mp3', makeAudioEl());
+      return null;
+    };
+    render(<Harness />);
+
+    await waitFor(() => expect(decodeAudioDataMock).toHaveBeenCalled());
+    expect(createMediaElementSource).not.toHaveBeenCalled();
+    expect(document.querySelectorAll('audio')).toHaveLength(0);
+  });
+
+  it('re-decodes when audioUrl changes', async () => {
+    installAudioContextMock(makeMockAudioBuffer(new Array(100).fill(0.5)));
+
+    const Harness: React.FC<{ url: string }> = ({ url }) => {
+      usePeaks(url, makeAudioEl());
+      return null;
+    };
+    const { rerender } = render(<Harness url="https://example.com/first.mp3" />);
+    await waitFor(() => expect(decodeAudioDataMock).toHaveBeenCalledTimes(1));
+
+    rerender(<Harness url="https://example.com/second.mp3" />);
+    await waitFor(() => expect(decodeAudioDataMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('short clip (fewer raw samples than PEAKS_COUNT): every raw sample is represented, no zero-padded tail', async () => {
+    // Raw sample count well under PEAKS_COUNT (4000). Every sample is loud
+    // (0.9) so a flatlined padded tail is trivially distinguishable from
+    // correct full-array coverage.
+    const rawSamples = new Array(100).fill(0.9);
+    installAudioContextMock(makeMockAudioBuffer(rawSamples));
+
+    const captured: { current: number[] | null } = { current: null };
+    const Harness: React.FC = () => {
+      const peaks = usePeaks('https://example.com/short.mp3', makeAudioEl());
+      useEffect(() => {
+        captured.current = peaks;
+      }, [peaks]);
+      return null;
+    };
+    render(<Harness />);
+
+    await waitFor(() => expect(captured.current).not.toBeNull());
+    // The old behavior zero-padded a PEAKS_COUNT-length array with only the
+    // first `rawSamples.length` buckets populated. The fix must not leave
+    // any trailing zero-padding: every bucket in the returned array reflects
+    // real (loud) audio data.
+    expect(captured.current!.length).toBeGreaterThan(0);
+    expect(captured.current!.every((v) => v > 0)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// WaveformTape rendering
+// ---------------------------------------------------------------------------
+
+describe('WaveformTape', () => {
+  beforeEach(() => {
+    // Varied (non-flat) peak fixture: shape-stability assertions need bar
+    // heights that actually differ across the window, otherwise a "crawl"
+    // bug (sampling relative to the moving window instead of a fixed grid)
+    // would be indistinguishable from correct behavior.
+    const varied = Array.from({ length: PEAKS_COUNT }, (_, i) => (i % 7) / 7);
+    installAudioContextMock(makeMockAudioBuffer(varied));
+  });
+
+  it('renders the tape region with slider role and single-owner-safe markup (no <audio>)', async () => {
+    const audioEl = makeAudioEl();
+    render(<WaveformTape audioEl={audioEl} audioUrl="https://example.com/a.mp3" duration={120} />);
+
+    expect(screen.getByRole('region', { name: 'Audio tape' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+    expect(document.querySelectorAll('audio')).toHaveLength(0);
+  });
+
+  it('exports TAPE_ZOOM_PRESETS_SEC as [8, 15, 30, 60, 120]', () => {
+    expect(TAPE_ZOOM_PRESETS_SEC).toEqual([8, 15, 30, 60, 120]);
+  });
+
+  it('exports PEAKS_COUNT as 4000', () => {
+    expect(PEAKS_COUNT).toBe(4000);
+  });
+
+  it('fixed-grid sampling: bar shape is stable as position advances within a page', async () => {
+    const audioEl = makeAudioEl();
+    audioEl.currentTime = 2;
+    const { container, rerender } = render(
+      <WaveformTape audioEl={audioEl} audioUrl="https://example.com/a.mp3" duration={120} windowSec={30} />,
+    );
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+
+    const barsAt2 = Array.from(container.querySelectorAll('rect')).map((r) => r.getAttribute('height'));
+
+    // Advance within the same page (page is [0, 30) at windowSec=30) — the
+    // fixed grid means bar heights (the sampled shape) must not change,
+    // only the playhead position/scrollOffset move.
+    act(() => {
+      audioEl.currentTime = 5;
+      audioEl.dispatchEvent(new Event('timeupdate'));
+    });
+    rerender(
+      <WaveformTape audioEl={audioEl} audioUrl="https://example.com/a.mp3" duration={120} windowSec={30} />,
+    );
+
+    const barsAt5 = Array.from(container.querySelectorAll('rect')).map((r) => r.getAttribute('height'));
+    expect(barsAt5).toEqual(barsAt2);
+  });
+
+  it('fixed-grid sampling: in moving mode, a small sub-grid position shift (e.g. one rAF tick) does not shift the sampled bar shape', async () => {
+    // This is the binding invariant of spec §5.3: bar i must sample
+    // `alignedStart + (i+0.5)*gridSec` (a fixed absolute-time grid snapped
+    // per bucket), never `viewStart + i/N*windowSec` (continuously resampled
+    // relative to the moving window). At windowSec=30, gridSec = 1/6s
+    // (~166ms) — much coarser than a single 60fps rAF tick (~16ms). A
+    // window-relative sampler drifts the sampled time (and therefore the bar
+    // heights) on every such sub-grid tick, which is the "crawl/shimmer" the
+    // spec calls out. The fixed-grid sampler holds the shape steady until
+    // position crosses into the next grid bucket.
+    const audioEl = makeAudioEl();
+    audioEl.currentTime = 20;
+    const { container } = render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        mode="moving"
+      />,
+    );
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+
+    const barsAt20 = Array.from(container.querySelectorAll('rect')).map((r) => r.getAttribute('height'));
+
+    // Advance by 50ms (well under one gridSec bucket of ~166ms) — a typical
+    // rAF-tick-sized move during playback. Moving mode polls
+    // audioEl.currentTime via a rAF loop (not `timeupdate`).
+    audioEl.currentTime = 20.05;
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+
+    const barsAfterSubGridTick = Array.from(container.querySelectorAll('rect')).map((r) =>
+      r.getAttribute('height'),
+    );
+
+    expect(barsAfterSubGridTick).toEqual(barsAt20);
+  });
+
+  it('paged mode: crossing a page boundary snaps viewStart to the next page (playhead resets near left edge, no continuous scroll)', async () => {
+    const SVG_W = 180 * (5 + 2); // BAR_COUNT * SLOT
+    const audioEl = makeAudioEl();
+    audioEl.currentTime = 29;
+    const { container } = render(
+      <WaveformTape audioEl={audioEl} audioUrl="https://example.com/a.mp3" duration={120} windowSec={30} />,
+    );
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+
+    let slider = screen.getByRole('slider');
+    expect(slider.getAttribute('aria-valuenow')).toBe('29');
+    // Near the right edge of the [0, 30) page: playhead x ≈ (29/30)*SVG_W.
+    let line = container.querySelector('svg.tape-canvas line');
+    expect(Number(line?.getAttribute('x1'))).toBeGreaterThan(SVG_W * 0.9);
+
+    act(() => {
+      audioEl.currentTime = 31; // crosses into the next 30s page ([30, 60))
+      audioEl.dispatchEvent(new Event('timeupdate'));
+    });
+
+    slider = screen.getByRole('slider');
+    expect(slider.getAttribute('aria-valuenow')).toBe('31');
+    // Paged mode has no continuous scroll: the window snaps to the new page
+    // (viewStart = floor(31/30)*30 = 30), so the playhead jumps back near the
+    // LEFT edge of the tape ((31-30)/30 ≈ 3%) instead of continuing past the
+    // right edge the way a moving/scrolling window would.
+    line = container.querySelector('svg.tape-canvas line');
+    expect(Number(line?.getAttribute('x1'))).toBeLessThan(SVG_W * 0.1);
+  });
+
+  it('click on the tape calls seek with a time inside the current window', async () => {
+    const audioEl = makeAudioEl();
+    audioEl.currentTime = 10;
+    const { container } = render(
+      <WaveformTape audioEl={audioEl} audioUrl="https://example.com/a.mp3" duration={120} windowSec={30} />,
+    );
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+
+    const svg = container.querySelector('svg.tape-canvas') as SVGSVGElement;
+    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      right: 1000,
+      bottom: 100,
+      width: 1000,
+      height: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => {},
+    });
+
+    fireEvent.mouseDown(svg, { clientX: 500 }); // 50% across the 30s page starting at 0
+
+    expect(playerBus.seek).toHaveBeenCalled();
+    const seekedTo = (playerBus.seek as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(seekedTo).toBeGreaterThanOrEqual(0);
+    expect(seekedTo).toBeLessThanOrEqual(30);
+  });
+
+  it('drag-to-scrub calls seek continuously while dragging', async () => {
+    const audioEl = makeAudioEl();
+    audioEl.currentTime = 0;
+    const { container } = render(
+      <WaveformTape audioEl={audioEl} audioUrl="https://example.com/a.mp3" duration={120} windowSec={30} />,
+    );
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+
+    const svg = container.querySelector('svg.tape-canvas') as SVGSVGElement;
+    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 1000, bottom: 100, width: 1000, height: 100, x: 0, y: 0, toJSON: () => {},
+    });
+
+    fireEvent.mouseDown(svg, { clientX: 100 });
+    const callsAfterDown = (playerBus.seek as ReturnType<typeof vi.fn>).mock.calls.length;
+
+    fireEvent.mouseMove(window, { clientX: 300 });
+    fireEvent.mouseMove(window, { clientX: 500 });
+
+    expect((playerBus.seek as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterDown);
+
+    fireEvent.mouseUp(window);
+  });
+
+  it('calls the onSeek prop in addition to bus.seek()', async () => {
+    const audioEl = makeAudioEl();
+    const onSeek = vi.fn();
+    const { container } = render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        onSeek={onSeek}
+      />,
+    );
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+
+    const svg = container.querySelector('svg.tape-canvas') as SVGSVGElement;
+    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 1000, bottom: 100, width: 1000, height: 100, x: 0, y: 0, toJSON: () => {},
+    });
+
+    fireEvent.mouseDown(svg, { clientX: 500 });
+
+    expect(onSeek).toHaveBeenCalled();
+  });
+
+  it('keyboard ArrowRight/ArrowLeft seeks position ± 5', async () => {
+    const audioEl = makeAudioEl();
+    audioEl.currentTime = 20;
+    render(
+      <WaveformTape audioEl={audioEl} audioUrl="https://example.com/a.mp3" duration={120} windowSec={30} />,
+    );
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+
+    const root = screen.getByRole('region', { name: 'Audio tape' });
+    fireEvent.keyDown(root, { key: 'ArrowRight' });
+    expect(playerBus.seek).toHaveBeenLastCalledWith(25);
+
+    fireEvent.keyDown(root, { key: 'ArrowLeft' });
+    expect(playerBus.seek).toHaveBeenLastCalledWith(15);
+  });
+
+  it('ruler renders m:ss ticks at a zoom-adaptive interval', async () => {
+    const audioEl = makeAudioEl();
+    audioEl.currentTime = 0;
+    const { container } = render(
+      <WaveformTape audioEl={audioEl} audioUrl="https://example.com/a.mp3" duration={120} windowSec={30} />,
+    );
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+
+    const ticks = container.querySelectorAll('.tape-tick');
+    expect(ticks.length).toBeGreaterThan(0);
+    // windowSec=30 → tickInterval picks the first NICE_INTERVALS entry >= 7.5 → 10
+    expect(ticks[0].textContent).toBe('0:10');
+  });
+
+  it('prefers-reduced-motion forces paged mode even when mode="moving" is passed', async () => {
+    // Use position=20 (windowSec=30): paged viewStart = floor(20/30)*30 = 0,
+    // so the playhead sits at 20/30 ≈ 67% of the page. Moving mode would
+    // instead fix the playhead at 50% regardless of position. These
+    // disagree, so this position disambiguates forced-paged from moving.
+    const SVG_W = 180 * (5 + 2); // BAR_COUNT * SLOT
+    mockMatchMedia(true);
+    const audioEl = makeAudioEl();
+    audioEl.currentTime = 20;
+    const { container } = render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        mode="moving"
+      />,
+    );
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+
+    const line = container.querySelector('svg.tape-canvas line');
+    // Forced-paged: playheadFrac = (20 - 0) / 30 ≈ 0.667 → x ≈ 0.667 * SVG_W.
+    // If reduced-motion were NOT honored (moving stayed active), x would sit
+    // at exactly SVG_W / 2 instead.
+    expect(Number(line?.getAttribute('x1'))).toBeCloseTo((20 / 30) * SVG_W, 0);
+    expect(Number(line?.getAttribute('x1'))).not.toBeCloseTo(SVG_W / 2, 0);
+  });
+
+  it('moving mode uses a rAF loop to poll audioEl.currentTime and cancels it on unmount', async () => {
+    const rafSpy = vi.spyOn(window, 'requestAnimationFrame');
+    const cafSpy = vi.spyOn(window, 'cancelAnimationFrame');
+    const audioEl = makeAudioEl();
+
+    const { unmount } = render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        mode="moving"
+      />,
+    );
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+
+    expect(rafSpy).toHaveBeenCalled();
+
+    unmount();
+    expect(cafSpy).toHaveBeenCalled();
+  });
+
+  it('moving mode: playhead stays fixed at 50% regardless of position', async () => {
+    const audioEl = makeAudioEl();
+    audioEl.currentTime = 47;
+    render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        mode="moving"
+      />,
+    );
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+
+    const slider = screen.getByRole('slider');
+    // aria-valuenow tracks absolute position, not the fixed-center frac, but
+    // we can confirm the playhead line sits at SVG_W/2 regardless of position.
+    expect(slider.getAttribute('aria-valuenow')).toBe('47');
+    const line = document.querySelector('svg.tape-canvas line');
+    const svgW = 180 * (5 + 2); // BAR_COUNT * SLOT
+    expect(Number(line?.getAttribute('x1'))).toBeCloseTo(svgW / 2, 0);
+  });
+
+  it('short clip (fewer raw samples than PEAKS_COUNT): real audio is represented across the ENTIRE visible window, no flatlined tail', async () => {
+    // A clip with far fewer raw samples than PEAKS_COUNT (4000). Loud (0.9)
+    // throughout, with the whole clip visible in one page (windowSec >=
+    // duration). The old bug stretched the real data into only the first
+    // `rawSampleCount / PEAKS_COUNT` fraction of the peaks array and left the
+    // rest zero — which, indexed proportionally over the full clip duration,
+    // renders as a flatlined tail even though the source audio is loud
+    // throughout. Every bar in view must reflect the loud source, not zero.
+    const rawSamples = new Array(50).fill(0.9);
+    installAudioContextMock(makeMockAudioBuffer(rawSamples));
+
+    const audioEl = makeAudioEl();
+    const duration = 2; // whole clip fits in one 30s+ page
+    const { container } = render(
+      <WaveformTape audioEl={audioEl} audioUrl="https://example.com/short.mp3" duration={duration} windowSec={30} />,
+    );
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+
+    // Only bars within [0, duration) map to real audio (bars beyond the
+    // clip's own duration are legitimately silent — that's not the bug).
+    const gridSec = 30 / 180; // windowSec / BAR_COUNT
+    const barsWithinClip = Array.from(container.querySelectorAll('rect')).filter((_, i) => {
+      const t = (i + 0.5) * gridSec;
+      return t < duration;
+    });
+    expect(barsWithinClip.length).toBeGreaterThan(0);
+    for (const bar of barsWithinClip) {
+      expect(Number(bar.getAttribute('height'))).toBeGreaterThan(2); // > the silent-floor height
+    }
+  });
+});
