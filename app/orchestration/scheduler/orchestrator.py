@@ -38,24 +38,10 @@ from .orchestrator_helpers import OrchestratorHelpersMixin, _claim_to_dict
 
 logger = logging.getLogger(__name__)
 
-INTENDED_UPSTREAM_CALLERS = (
-    "app.api.routers.queue",
-    "app.api.routers.projects",
-    "app.api.routers.chapters",
-)
-INTENDED_DOWNSTREAM_DEPENDENCIES = (
-    "app.orchestration.tasks.base.StudioTask",
-    "app.orchestration.progress.service.create_progress_service",
-    "app.orchestration.scheduler.resources.reserve_task_resources",
-    "app.orchestration.scheduler.recovery.load_recoverable_task_contexts",
-    "app.orchestration.scheduler.policies.choose_next_task",
-    "app.engines.bridge.create_voice_bridge",
-)
-FORBIDDEN_DIRECT_IMPORTS = (
-    "app.jobs.worker",
-    "app.jobs.core",
-    "app.db.queue",
-)
+# Boundary enforced by tests/orchestration/test_import_boundaries.py: this module must not
+# depend on the legacy app.jobs package (worker/core submodules) or app.db.queue directly.
+# Upstream callers are app.api.routers.{queue,projects,chapters}; downstream deps are
+# StudioTask, the progress service, scheduler resources/recovery/policies, and VoiceBridge.
 
 
 class TaskOrchestrator(OrchestratorHelpersMixin):

@@ -12,22 +12,9 @@ from .preview import preview_voice_profile
 from .repository import VoiceRepository
 from .samples import build_voice_sample_request
 
-INTENDED_UPSTREAM_CALLERS = (
-    "app.api.routers.voices",
-    "app.api.routers.projects",
-    "app.api.routers.chapters",
-)
-INTENDED_DOWNSTREAM_DEPENDENCIES = (
-    "app.domain.voices.repository.VoiceRepository",
-    "app.domain.voices.compatibility.validate_voice_compatibility",
-    "app.domain.voices.samples.build_voice_sample_request",
-    "app.domain.voices.preview.preview_voice_profile",
-)
-FORBIDDEN_DIRECT_IMPORTS = (
-    "app.db.speakers",
-    "app.jobs",
-    "app.engines.voice_engines",
-)
+# Upstream: app.api.routers.{voices,projects,chapters}. Downstream: VoiceRepository,
+# validate_voice_compatibility, build_voice_sample_request, preview_voice_profile. Must not
+# import app.db.speakers / app.jobs / app.engines.voice_engines directly.
 
 
 class VoiceService:

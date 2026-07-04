@@ -5,21 +5,10 @@ from typing import Any
 from app.engines.behavior import extract_engine_settings
 from app.engines.errors import EngineRequestError
 
-INTENDED_UPSTREAM_CALLERS = (
-    "app.domain.voices.preview",
-    "app.orchestration.scheduler.orchestrator",
-    "app.orchestration.tasks",
-)
-INTENDED_DOWNSTREAM_DEPENDENCIES = (
-    "app.engines.registry.load_engine_registry",
-    "app.engines.voice.base.BaseVoiceEngine",
-    "app.engines.tts_client.TtsClient",
-)
-FORBIDDEN_DIRECT_IMPORTS = (
-    "app.api.routers",
-    "app.db",
-    "app.jobs",
-)
+# Boundary enforced by tests/orchestration/test_import_boundaries.py: this module must not
+# import app.api.routers / app.db / app.jobs directly. Upstream callers are
+# app.domain.voices.preview and the orchestrator/tasks layer; downstream deps are the engine
+# registry, BaseVoiceEngine, and TtsClient.
 
 
 def extract_engine_id(request: dict[str, Any]) -> str:

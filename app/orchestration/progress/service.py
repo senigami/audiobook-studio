@@ -23,20 +23,11 @@ from .eta import (
 )
 from .reconciliation import reconcile_work_item
 
-INTENDED_UPSTREAM_CALLERS = (
-    "app.orchestration.scheduler.orchestrator",
-    "app.orchestration.tasks",
-)
-INTENDED_DOWNSTREAM_DEPENDENCIES = (
-    "app.orchestration.progress.reconciliation.reconcile_work_item",
-    "app.orchestration.progress.eta.estimate_eta_seconds",
-    "app.orchestration.progress.broadcaster.broadcast_progress",
-)
-FORBIDDEN_DIRECT_IMPORTS = (
-    "app.api.routers",
-    "app.engines",
-    "app.db.queue",
-)
+# Upstream: the orchestrator and orchestration.tasks. Downstream: reconciliation, eta, and the
+# broadcaster. Intent is to avoid app.api.routers/app.engines/app.db.queue direct imports, but
+# note this module already makes lazy, function-local imports of
+# app.api.routers.voices_helpers._voice_job_title and app.engines.behavior.DEFAULT_BASELINE_ENGINE_CPS
+# for voice-test title/CPS lookups (pre-existing drift, not enforced here — see BE-2).
 
 
 def _resolve_source(default: str, depth: int = 1) -> str:
