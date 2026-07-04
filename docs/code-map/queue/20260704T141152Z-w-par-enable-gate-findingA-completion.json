@@ -1,0 +1,71 @@
+{
+  "at": "20260704T141152Z",
+  "commit": "ef264ba136506215cab3ae6a77926e38ccc003b4",
+  "task": "w-par-enable-gate-findingA-completion",
+  "files": {
+    "app/orchestration/tasks/base.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "TaskContext gains an additive `ephemeral: bool = False` field marking a synthetic per-child fan-out task that must not create a durable Job row or queue.items broadcast.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "app/orchestration/tasks/segment_synthesis.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "_SyntheticSegmentTask.describe() sets ephemeral=True. ChapterSynthesisTask._publish_progress now also computes a size-weighted, order-independent grouped_progress ratio from each child's in-memory group[\"text_length\"] and threads it through the existing grouped_progress kwarg; run() tracks done_chars/total_chars across child completions.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "app/orchestration/scheduler/orchestrator_publish.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "_publish() early-returns before any durable job-state/broadcast work when context.ephemeral is True, so per-child fan-out contexts never create a phantom Job row or fire queue.items/jobs.lifecycle broadcasts.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "app/db/segments.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "New chapter_completion_by_size(chapter_id) -> (done_chars, total_chars) query helper, size-weighted via LENGTH(text_content), audio_status='done' as the completion value.",
+      "calls_added": ["app.db.segments.chapter_completion_by_size"],
+      "calls_removed": []
+    },
+    "tests/orchestration/test_ephemeral_child_no_durable_job.py": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New test: a chapter fan-out (cap=1 and cap=2) produces exactly one durable Job row (the parent), zero {parent}-seg-N phantom child rows.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "tests/orchestration/test_grouped_progress_size_weighted.py": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New test: a 900-char segment completing before a 100-char sibling reports grouped_progress ~= 0.9 (size-weighted, order-independent), not ~0.5 (count-based).",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "design-docs/specs/queue-jobs.md": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "spec_version 1.10.0 -> 1.11.0; documents ephemeral TaskContext suppression of durable child job rows and size-weighted grouped_progress.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "design-docs/specs/live-events.md": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "spec_version 1.9.3 -> 1.9.4; documents groupedProgress now being populated by the chapter fan-out and ephemeral contexts no longer emitting any frame via _publish.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "wiki/Changelog.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Dated 2026-07-04 Fix entry for the ephemeral child job-row suppression and size-weighted chapter completion.",
+      "calls_added": [],
+      "calls_removed": []
+    }
+  },
+  "flow_impact": "Chapter fan-out now produces exactly one durable Job row per chapter render (parent only) regardless of segment count or concurrency cap, and chapter-level completion percentage is weighted by rendered text size rather than segment count, correctly reflecting out-of-order completion of unequal-size segments."
+}

@@ -204,6 +204,7 @@ class ProgressService:
         char_count: int | None = None,
         indeterminate: bool | None = None,
         loading_elapsed_seconds: float | None = None,
+        ephemeral: bool = False,
     ) -> dict[str, object] | None:
         """Publish normalized progress updates for queue and chapter surfaces.
 
@@ -226,6 +227,13 @@ class ProgressService:
             allow_progress_regression: Allow an explicit recovery/reset event to
                 move progress backward instead of clamping to the previous floor.
             force: Emit even if the payload is unchanged.
+            ephemeral: Synthetic fan-out child context (W-PAR 008, Finding A):
+                suppress every JOB-scoped emission (jobs.lifecycle, queue.items,
+                chapters.progress) — those must come only from the durable
+                parent — while still emitting the SEGMENT-scoped frames
+                (segments.progress ticks and the prev→new SEGMENT_SAVED
+                transition), which are keyed by real segment ids and carry the
+                live per-segment progress bar.
 
         Returns:
             dict[str, object] | None: The emitted payload, or ``None`` when the
@@ -304,7 +312,7 @@ class ProgressService:
             else bool(has_segment_support)
         )
 
-        if status_changed or previous is None:
+        if (status_changed or previous is None) and not ephemeral:
             from app.api.contracts.events import build_job_lifecycle_event  # noqa: PLC0415
             lifecycle_event = build_job_lifecycle_event(
                 job_id=job_id,
@@ -343,7 +351,7 @@ class ProgressService:
             and isinstance(_curr_progress, (int, float))
             and abs(float(_curr_progress) - float(_prev_progress)) >= self.min_progress_delta
         )
-        if scope != "voice_test" and (_is_status_change or _progress_advanced):
+        if scope != "voice_test" and not ephemeral and (_is_status_change or _progress_advanced):
             from app.api.contracts.events import build_queue_item_status_event  # noqa: PLC0415
             queue_status = {"completed": "done", "cancelling": "cancelled"}.get(status, status)
             existing_title = None
@@ -553,7 +561,7 @@ class ProgressService:
         is_chapter_progress = (
             scope == "chapter"
             or (chapter_id is not None and scope != "segment")
-        )
+        ) and not ephemeral
         if is_chapter_progress:
             from app.api.contracts.events import build_chapter_progress_event  # noqa: PLC0415
             chap_event = build_chapter_progress_event(

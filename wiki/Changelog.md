@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Fix] - 2026-07-04
+
+### W-PAR enable-gate: ephemeral child fan-out no longer creates phantom job rows; chapter completion is size-weighted and order-independent
+
+- A chapter render's per-child fan-out tasks (`SegmentSynthesisTask` / the synthetic per-child task
+  each one dispatches through) are now marked `ephemeral` on their `TaskContext` and the orchestrator's
+  publish path skips creating a durable job row and skips the job-scoped broadcasts (job list, queue
+  rows, chapter progress) for them — a chapter with N chunk groups now produces exactly ONE durable
+  job (the parent), not N+1 phantom `{parent}-seg-{index}` rows. Per-segment live visibility is
+  preserved: children still emit their segment-scoped frames (the live per-segment progress bar is
+  keyed by real segment id, so those were load-bearing), and the parent continues to own the
+  `active_segments_map` aggregation.
+- Chapter completion percentage (`groupedProgress`) is now weighted by completed segment TEXT SIZE
+  (`LENGTH(text_content)`), not segment count, and is order-independent — a large segment completing
+  before smaller ones now correctly reports a large jump instead of a naive `1/N` count-based fraction.
+  A new `app.db.segments.chapter_completion_by_size(chapter_id)` helper is the DB-backed source of
+  truth for resume/recompute call sites; the live fan-out computes the same ratio from in-memory
+  segment sizes so it has no dependency on mid-render DB status-write timing.
+
 ## [Added] - 2026-07-03
 
 ### Voice taxonomy v2: `language` and `style` attributes (007 Phase G1-G6)

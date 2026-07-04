@@ -124,6 +124,26 @@ class OrchestratorPublishMixin:
             active_segment_progress=active_segment_progress,
             force=force,
         )
+        # Ephemeral fan-out children (W-PAR 008, Finding A) must never create a
+        # durable Job row or trigger the job-list (queue.items/jobs.lifecycle/
+        # chapters.progress) broadcasts — only the parent ChapterSynthesisTask
+        # is the externally visible unit (INV-4). Without this, every call for
+        # the same never-persisted synthetic task_id would keep hitting the
+        # "first-seen" put_job branch below (no existing_job is ever found),
+        # creating a fresh phantom row on every single progress tick.
+        #
+        # BUT: segment-scoped frames (segments.progress ticks + the prev→new
+        # SEGMENT_SAVED transition frame) are multiplexed through this same
+        # publish chokepoint and are keyed by the REAL segment id on the
+        # frontend (setSegmentProgress in useJobs.ts) — the phantom job id was
+        # never load-bearing for them. Suppressing the whole publish here
+        # (review-ratchet finding, 2026-07-04) killed the live per-segment
+        # progress bar for every fan-out chapter. So ephemeral contexts still
+        # route through ProgressService.publish, which suppresses only the
+        # job-scoped emissions (ephemeral=True), and we skip ALL durable
+        # job-state writes (put_job/update_job) after it.
+        ephemeral = bool(getattr(context, "ephemeral", False))
+
         try:
             # Sync with the persistent state.json for UI visibility and polling.
             # We import lazily to stay behind the state boundary.
@@ -131,7 +151,7 @@ class OrchestratorPublishMixin:
 
             # Anti-Regression: If this is an update to an existing job, don't allow progress to regress
             # unless the status itself has regressed (e.g. requeued).
-            existing_job = get_jobs().get(context.task_id)
+            existing_job = None if ephemeral else get_jobs().get(context.task_id)
             if existing_job and state_status == existing_job.status and state_progress is not None:
                 if state_progress < (existing_job.progress or 0.0):
                     state_progress = existing_job.progress
@@ -174,7 +194,13 @@ class OrchestratorPublishMixin:
                 char_count=_char_count,
                 indeterminate=indeterminate,
                 loading_elapsed_seconds=loading_elapsed_seconds,
+                ephemeral=ephemeral,
             )
+
+            if ephemeral:
+                # No durable job-state write for a synthetic fan-out child —
+                # the segment-scoped frames above are its only output.
+                return
 
             # Initialize job state if this is the first event (usually 'queued')
             if not existing_job:

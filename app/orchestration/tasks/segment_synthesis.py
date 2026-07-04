@@ -296,6 +296,7 @@ class _SyntheticSegmentTask(StudioTask):
             source=self.source,
             submitted_at=self.submitted_at,
             payload=payload,
+            ephemeral=True,
         )
 
     def run(self) -> TaskResult:
@@ -649,10 +650,35 @@ class ChapterSynthesisTask(StudioTask):
                 self.task_id, exc_info=True,
             )
 
-    def _publish_progress(self, *, completed: int, total: int, status: str = "running") -> None:
+    def _grouped_progress(self, *, done_chars: int, total_chars: int) -> float | None:
+        """Size-weighted, order-independent completion ratio (W-PAR
+        enable-gate) for the ``grouped_progress`` kwarg that already threads
+        through to the frontend's ``groupedProgress`` field (see
+        ``app.api.contracts.events`` / ``progress/service.py``).
+
+        Weighted from each child's in-memory ``group["text_length"]`` (set by
+        ``build_chunk_groups``) rather than a DB re-query, so it reflects
+        completed SIZE regardless of the order children resolve in — a large
+        segment finishing first correctly reports a large jump, and a small
+        segment finishing first correctly reports a small one. Returns
+        ``None`` when there is no size information to weight by (e.g. all
+        groups reported zero length), so callers fall back to the count-based
+        ``progress`` value only.
+        """
+        if total_chars <= 0:
+            return None
+        return round(done_chars / total_chars, 2)
+
+    def _publish_progress(
+        self, *, completed: int, total: int, status: str = "running",
+        done_chars: int | None = None, total_chars: int | None = None,
+    ) -> None:
         if total <= 0:
             return
         progress = round(completed / total, 2)
+        grouped_progress = None
+        if done_chars is not None and total_chars is not None:
+            grouped_progress = self._grouped_progress(done_chars=done_chars, total_chars=total_chars)
         service = self._resolve_progress_service()
         active_segments_map = self._current_active_segments_map()
         try:
@@ -662,6 +688,7 @@ class ChapterSynthesisTask(StudioTask):
                 chapter_id=self.chapter_id,
                 parent_job_id=self.project_id,
                 progress=progress,
+                grouped_progress=grouped_progress,
                 message=f"Rendered {completed}/{total} segment group(s).",
                 reason_code="segment_group_completed" if status == "running" else "synthesis_ok",
             )
@@ -908,6 +935,17 @@ class ChapterSynthesisTask(StudioTask):
         had_failure = False
         failure_message: str | None = None
 
+        # Size-weighted, order-independent completion (W-PAR enable-gate):
+        # each child's own in-memory `group["text_length"]` (set by
+        # build_chunk_groups) is the source of truth — no dependency on
+        # mid-render DB status-write timing, and correct regardless of which
+        # order children resolve in.
+        def _child_char_len(c: SegmentSynthesisTask) -> int:
+            return int((c.group or {}).get("text_length") or 0)
+
+        total_chars = sum(_child_char_len(c) for c in children)
+        done_chars = 0
+
         monitor_stop = self._start_heartbeat_monitor()
         try:
             with ThreadPoolExecutor(
@@ -946,9 +984,13 @@ class ChapterSynthesisTask(StudioTask):
                         continue
 
                     completed += 1
+                    done_chars += _child_char_len(final_child)
                     if result.output_path:
                         stitch_entries.append((final_child.segment_order, result.output_path))
-                    self._publish_progress(completed=completed, total=total, status="running")
+                    self._publish_progress(
+                        completed=completed, total=total, status="running",
+                        done_chars=done_chars, total_chars=total_chars,
+                    )
         finally:
             monitor_stop.set()
             # Terminal map hygiene (review fix, W-PAR 008): the last mid-render
@@ -983,7 +1025,10 @@ class ChapterSynthesisTask(StudioTask):
                 logger.exception("ChapterSynthesisTask %s: stitch failed.", self.task_id)
                 return TaskResult(status="failed", message=f"Stitching failed: {exc}")
 
-        self._publish_progress(completed=total, total=total, status="completed")
+        self._publish_progress(
+            completed=total, total=total, status="completed",
+            done_chars=total_chars, total_chars=total_chars,
+        )
         return TaskResult(status="completed", message="Chapter render completed.")
 
     def cancel(self) -> None:

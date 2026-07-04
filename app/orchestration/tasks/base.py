@@ -28,6 +28,8 @@ class TaskContext:
             ``"api"`` for external API tasks.  Used by priority policies.
         submitted_at: Monotonic timestamp set at submission time.  Used for
             FIFO tie-breaking within priority buckets.
+        ephemeral: Synthetic per-child fan-out task; must not create a
+            durable Job row or queue.items broadcast (W-PAR 008, Finding A).
     """
 
     task_id: str
@@ -38,6 +40,7 @@ class TaskContext:
     payload: dict[str, Any] = field(default_factory=dict)
     source: str = "ui"
     submitted_at: float = field(default_factory=time.monotonic)
+    ephemeral: bool = False
 
 
 @dataclass(frozen=True)
