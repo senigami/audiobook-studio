@@ -182,6 +182,16 @@ My Voices / 🤗 Discover tab pills (Discover = "planned" placeholder panel).
 2. Add tab pills row: "My Voices" / "🤗 Discover". Local tab = current content. Discover tab
    renders `DiscoverPlaceholder`: planned-chip panel ("Community voices from Hugging Face —
    planned") — NO HF fetching, no install logic (contract: do NOT build HF).
+
+   > **Superseded 2026-07-04:** the real HF browse/import/export feature was built (per
+   > `design-docs/plans/active/v2_huggingface_voice_interface.md`, an active/approved spec) —
+   > `app/api/routers/voices_huggingface.py`, `app/domain/voices/huggingface.py`,
+   > `frontend/src/pages/Voices/components/HuggingFaceDiscover.tsx` now replace
+   > `DiscoverPlaceholder` in the real (non-mock) Voices page. This "do NOT build HF" line was
+   > R5-scoped sequencing (this phase explicitly touched UI-only, no `app/`/`plugins/` changes —
+   > see this doc's top-level scope note), not a substantive decision against the feature ever
+   > shipping. No legal/licensing/abuse-vector reason to defer was ever recorded here or in the
+   > active spec. Left in place for historical context; do not treat as still-binding.
 3. Active-filter chips must use the same tint tokens as R5-T1 pills for class/gender/age.
 
 **Capabilities re-homed** All header controls survive in place (restyle only).

@@ -5,6 +5,22 @@ workload: W2 — Port the tape to the live PlayerBar (browser-decoded)
 blocked-by: 007
 blocks: 009
 
+> **⚠ STALE DRAFT WARNING (added 2026-07-04, before this task was executed):** this draft was
+> written before task 006 actually shipped `WaveformTape.tsx`, and an adversarial review found
+> the target shape below no longer matches the real component's interface:
+> - `WaveformTape`'s real props do **not** include `peaks` or `onZoomChange` — it calls `usePeaks`
+>   *internally* (see the real `WaveformTapeProps` in `frontend/src/app/layout/WaveformTape.tsx`),
+>   so the `usePeaks(...)` call + `peaks` prop threading described below is unnecessary/wrong.
+> - `WaveformTapeMinimap` as a separate importable component does **not** exist in the shipped
+>   file — the minimap (if still wanted) needs to be built as part of this task, not assumed as
+>   already-exported.
+> - `audioUrl` in `PlayerBar.tsx` is typed `string | null`; `WaveformTape`'s `audioUrl` prop is
+>   non-nullable `string` — the `audioUrl={audioUrl!}` non-null assertion below works but should
+>   be replaced with a proper guard (e.g. don't render `<WaveformTape>` at all when `audioUrl` is
+>   null) rather than asserting past a real null case.
+> **Before implementing, re-derive the integration from the actual shipped `WaveformTape.tsx` and
+> `playerRepresentation.ts` (both done, both real) rather than from the pseudocode below.**
+
 ## Goal
 
 Wire the task 006/007 components into `PlayerBar.tsx`:
