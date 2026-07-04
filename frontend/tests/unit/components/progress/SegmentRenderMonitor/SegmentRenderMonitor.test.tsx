@@ -55,6 +55,9 @@ describe('SegmentRenderMonitor — M1 aggregate math', () => {
 
   it('renders the same aggregate percentage in the DOM as the hand-computed value', () => {
     mockMatchMedia(false);
+    // 10 segments, all 100 chars except the rendering one (200 chars). Hand math:
+    // filled = 100*1 (seg 0, done) + 200*0.5 (seg 1, rendering) + 8*100*1 (segs 2-9, done)
+    //        = 100 + 100 + 800 = 1000; total = 100 + 200 + 8*100 = 1100 -> 1000/1100 = 90.9% -> 91%
     const segments = makeSegments(10, [
       { phase: 'done', progress: 1, charCount: 100 },
       { phase: 'rendering', progress: 0.5, charCount: 200 },
@@ -64,15 +67,9 @@ describe('SegmentRenderMonitor — M1 aggregate math', () => {
     const fixed: SegmentRenderMonitorSegment[] = segments.map((s, i) =>
       i < 2 ? s : { ...s, phase: 'done', progress: 1, charCount: 100 },
     );
-    const total = fixed.reduce((a, s) => a + s.charCount, 0);
-    const filled = fixed.reduce(
-      (a, s) => a + (s.phase === 'done' ? s.charCount : s.phase === 'rendering' ? s.charCount * s.progress : 0),
-      0,
-    );
-    const expectedPct = Math.round((filled / total) * 100);
 
     render(<SegmentRenderMonitor segments={fixed} cap={3} />);
-    expect(screen.getByText(`${expectedPct}%`)).toBeInTheDocument();
+    expect(screen.getByText('91%')).toBeInTheDocument();
   });
 });
 
@@ -145,5 +142,17 @@ describe('SegmentRenderMonitor — M2 failure cue is not hue-only', () => {
     const { container } = render(<SegmentRenderMonitor segments={segments} cap={3} />);
     const crosshatch = container.querySelector('.segment-render-monitor__crosshatch');
     expect(crosshatch).not.toBeNull();
+  });
+
+  it('still surfaces the crosshatch failure cue when degraded to the > 60 summary bar', () => {
+    mockMatchMedia(false);
+    const segments = makeSegments(65, [{ phase: 'failed', progress: 0.3 }]);
+    const { container } = render(<SegmentRenderMonitor segments={segments} cap={3} />);
+    // The visual strip has degraded to the summary bar, but the M2 invariant
+    // ("in every case") still requires a non-hue failure signal outside the
+    // collapsed accessible table.
+    const crosshatch = container.querySelector('.segment-render-monitor__crosshatch');
+    expect(crosshatch).not.toBeNull();
+    expect(screen.getByText(/1 failed/i)).toBeInTheDocument();
   });
 });

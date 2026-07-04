@@ -193,6 +193,7 @@ export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({ segm
   const total = segments.length;
   const doneCount = segments.filter((s) => s.phase === 'done').length;
   const activeCount = segments.filter((s) => s.phase === 'preparing' || s.phase === 'rendering' || s.phase === 'failed').length;
+  const failedCount = segments.filter((s) => s.phase === 'failed').length;
   const complete = doneCount === total;
   const pct = Math.round(charWeightedProgress(segments) * 100);
   const isSummary = total > SUMMARY_THRESHOLD;
@@ -214,13 +215,38 @@ export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({ segm
       </div>
 
       {isSummary ? (
-        // > ~60 segments: degrade to a compact "N of M done" summary bar.
+        // > ~60 segments: degrade to a compact "N of M done" summary bar. M2 still
+        // applies here ("in every case") — a failed segment must be distinguishable
+        // via a non-hue channel, so the same crosshatch pattern used on the full
+        // block strip is surfaced as a small badge next to the summary text.
         <div
           role="img"
-          aria-label={ariaLabel}
-          style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}
+          aria-label={failedCount > 0 ? `${ariaLabel}, ${failedCount} failed` : ariaLabel}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}
         >
-          {doneCount} of {total} segments done{!complete ? ` · ${activeCount} in parallel` : ''}
+          <span>
+            {doneCount} of {total} segments done{!complete ? ` · ${activeCount} in parallel` : ''}
+            {failedCount > 0 ? ` · ${failedCount} failed` : ''}
+          </span>
+          {failedCount > 0 && (
+            <span
+              aria-hidden="true"
+              title={`${failedCount} segment${failedCount === 1 ? '' : 's'} failed`}
+              style={{
+                position: 'relative',
+                display: 'inline-block',
+                width: 10,
+                height: 10,
+                borderRadius: 2,
+                flexShrink: 0,
+                background: 'var(--surface)',
+                boxShadow: 'inset 0 0 0 1px var(--action-danger)',
+                overflow: 'hidden',
+              }}
+            >
+              <span className="segment-render-monitor__crosshatch" style={{ display: 'block', width: '100%', height: '100%' }} />
+            </span>
+          )}
         </div>
       ) : (
         // 10 - ~60 segments: full block field.
