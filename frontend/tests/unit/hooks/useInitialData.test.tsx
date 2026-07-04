@@ -43,6 +43,43 @@ describe('useInitialData', () => {
     expect(result.current.data).toBeNull();
   });
 
+  // F15 — a rejected fetch must surface a retryable error, not just an
+  // infinite silent spinner.
+  it('surfaces an error state when the fetch rejects (F15)', async () => {
+    (global.fetch as any).mockRejectedValue(new Error('Fetch failed'));
+
+    const { result } = renderHook(() => useInitialData());
+
+    await waitFor(() => {
+      expect(result.current.error).toBeTruthy();
+    });
+  });
+
+  it('clears the error state once a retry succeeds (F15)', async () => {
+    vi.useFakeTimers();
+
+    (global.fetch as any)
+      .mockRejectedValueOnce(new Error('Fetch failed'))
+      .mockResolvedValueOnce({
+        json: () => Promise.resolve({ system_info: { startup_ready: true } }),
+      });
+
+    const { result } = renderHook(() => useInitialData());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.error).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1100);
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.loading).toBe(false);
+  });
+
   it('allows refetching data', async () => {
     vi.useFakeTimers();
 

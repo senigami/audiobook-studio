@@ -748,6 +748,28 @@ describe('ScriptView', () => {
     expect(renderGroup).not.toHaveClass('is-rendering');
   });
 
+  it('does not crash when data.paragraphs is missing (F14)', () => {
+    const malformedData = {
+      chapter_id: 'chap-1',
+      base_revision_id: 'rev-1',
+      spans: [],
+      render_batches: [],
+      audio_groups: [],
+    } as unknown as ScriptViewResponse;
+
+    expect(() =>
+      render(
+        <ScriptView
+          data={malformedData}
+          characters={mockCharacters}
+          onGenerateBatch={onGenerateBatch}
+          pendingSpanIds={new Set()}
+          onPlaySpan={onPlaySpan}
+        />
+      )
+    ).not.toThrow();
+  });
+
   // ── W-PAR 006: multi-active segments — two batches rendering simultaneously ──
   it('[W-PAR 006] two spans in different batches render simultaneously with independent progress', () => {
     const multiActiveData: ScriptViewResponse = {

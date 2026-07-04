@@ -133,6 +133,44 @@ describe('App', () => {
     })
   })
 
+  it('surfaces a retryable error banner when the initial data fetch fails (F15)', async () => {
+    let homeCallCount = 0
+    global.fetch = vi.fn((url) => {
+      if (url === '/api/home') {
+        homeCallCount++
+        if (homeCallCount === 1) {
+          return Promise.reject(new Error('network down'))
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ projects: [], speaker_profiles: [], paused: false })
+        })
+      }
+      if (url === '/api/jobs') return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      if (url === '/api/processing_queue') return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      if (url === '/api/projects') return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      if (url === '/api/speakers') return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    }) as any
+
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('startup-error-indicator')).toBeTruthy()
+    })
+    expect(screen.getByText(/Couldn't reach Audiobook Studio/)).toBeTruthy()
+
+    fireEvent.click(screen.getByTestId('startup-retry-button'))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('startup-error-indicator')).toBeFalsy()
+    }, { timeout: 2000 })
+  })
+
   it('proves only one websocket transport is mounted from App', async () => {
     mockUseWebSocket.mockClear()
     render(

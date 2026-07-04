@@ -11,6 +11,7 @@ const isStartupReady = (data: GlobalState | null) => data?.system_info?.startup_
 export const useInitialData = () => {
   const [data, setData] = useState<GlobalState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const retryTimerRef = useRef<number | null>(null);
   const cancelledRef = useRef(false);
   const debounceTimerRef = useRef<number | null>(null);
@@ -27,11 +28,13 @@ export const useInitialData = () => {
       const res = await fetch('/api/home', { cache: 'no-store' });
       const json = await res.json();
       setData(json);
+      setError(null);
       const ready = isStartupReady(json);
       setLoading(!ready);
       return ready;
     } catch (e) {
       console.error('Failed to fetch home data', e);
+      setError(e instanceof Error ? e.message : 'Failed to load application data');
       setLoading(true);
       return false;
     }
@@ -75,5 +78,5 @@ export const useInitialData = () => {
     };
   }, [fetchHome, clearRetryTimer]);
 
-  return { data, loading, refetch };
+  return { data, loading, error, refetch };
 };

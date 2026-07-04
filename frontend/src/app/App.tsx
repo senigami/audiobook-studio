@@ -147,7 +147,7 @@ function App() {
   const [chapterUpdate, setChapterUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
 
   const [segmentUpdate, setSegmentUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
-  const { data: initialData, loading: initialLoading, refetch: refetchHome } = useInitialData();
+  const { data: initialData, loading: initialLoading, error: initialError, refetch: refetchHome } = useInitialData();
   const [chapterRouteData, setChapterRouteData] = useState<Chapter | null>(null);
   const [chapterRouteLoading, setChapterRouteLoading] = useState(false);
   // Topic ownership for queue refresh:
@@ -461,23 +461,63 @@ function App() {
               fontWeight: 700,
             }}
           >
-            <div
-              className="animate-spin"
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: '50%',
-                border: '2px solid var(--accent-glow)',
-                borderTopColor: 'var(--accent)',
-              }}
-            />
-            {showStartupCopy && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', minHeight: '2.1rem' }}>
-                <span>{startupMessage}</span>
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', minHeight: '1.1rem' }}>
-                  {startupDetail || '\u00A0'}
-                </span>
-              </div>
+            {initialError ? (
+              <>
+                <div
+                  data-testid="startup-error-indicator"
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    border: '2px solid var(--danger, #d64545)',
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                  <span>Couldn't reach Audiobook Studio</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                    {initialError} \u2014 retrying automatically&hellip;
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => refetchHome()}
+                  data-testid="startup-retry-button"
+                  style={{
+                    marginLeft: '0.5rem',
+                    padding: '0.4rem 0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-hover, transparent)',
+                    color: 'var(--text-primary)',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Retry now
+                </button>
+              </>
+            ) : (
+              <>
+                <div
+                  className="animate-spin"
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    border: '2px solid var(--accent-glow)',
+                    borderTopColor: 'var(--accent)',
+                  }}
+                />
+                {showStartupCopy && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', minHeight: '2.1rem' }}>
+                    <span>{startupMessage}</span>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', minHeight: '1.1rem' }}>
+                      {startupDetail || '\u00A0'}
+                    </span>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

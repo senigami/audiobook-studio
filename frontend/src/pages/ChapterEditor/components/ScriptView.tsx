@@ -511,6 +511,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   };
 
   const renderBook = () => {
+    if (!data?.paragraphs) return null;
     return data.paragraphs.map(para => {
       const nodes: React.ReactNode[] = [];
       let groupBatch: ScriptRenderBatch | null = null;
@@ -589,6 +590,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   };
 
   const renderScript = () => {
+    if (!data?.spans) return null;
     let lastCharId: string | null | undefined = undefined;
 
     return data.spans.map(span => {

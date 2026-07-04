@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Fix] - 2026-07-04
 
+### ScriptView crash guard + startup fetch-failure error UI (logic-audit F14/F15)
+
+- `ScriptView`'s Book/Script render paths (`renderBook`/`renderScript`) now null-guard
+  `data.paragraphs`/`data.spans` instead of throwing a `TypeError` when the chapter editor is
+  handed a malformed or partial script-view payload.
+- `useInitialData` now tracks and exposes an `error` state on a rejected `/api/home` fetch
+  (cleared on the next successful fetch). Previously a rejection only logged to console and left
+  `loading: true` forever, so a backend outage on startup showed an infinite, unexplained spinner.
+  `App.tsx` now renders a retryable error banner ("Couldn't reach Audiobook Studio" + a manual
+  "Retry now" button) in place of the silent spinner while the error is set; the existing
+  1s auto-retry poll is unchanged.
+
+## [Fix] - 2026-07-04
+
 ### W-PAR enable-gate: ephemeral child fan-out no longer creates phantom job rows; chapter completion is size-weighted and order-independent
 
 - A chapter render's per-child fan-out tasks (`SegmentSynthesisTask` / the synthetic per-child task
