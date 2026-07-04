@@ -18,6 +18,7 @@ Use the smallest rule set that matches the task.
 1. For large-file refactors or files over the architecture thresholds, read [`modular_architecture.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/modular_architecture.md) plus the relevant frontend/backend rule files.
 1. For plan, rollout, or documentation changes, read [`workflow.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/workflow.md) and usually [`modular_architecture.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/modular_architecture.md).
 1. For code review, PR review, or review-comment triage, read [`code-review.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/code-review.md) plus the domain-specific frontend/backend rules for the changed files.
+1. Before and after every `fusion-reasoning` panel or `review-gate` (Fable) dispatch — regardless of size — read [`review-learning.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/review-learning.md) and load the matching `docs/checklists/*.md` file(s); every confirmed finding must feed a checklist update in the same change.
 
 ## What Matters Most
 
