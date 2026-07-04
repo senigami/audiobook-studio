@@ -1,6 +1,6 @@
 # 007 — Zoom slider + minimap + ruler (port MockTapeControls)
 
-status: todo
+status: done
 workload: W2 — Port the tape to the live PlayerBar (browser-decoded)
 blocked-by: 006
 blocks: 008

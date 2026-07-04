@@ -22,13 +22,26 @@
  */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { seek } from '@/store/playerBus';
+import { WaveformTapeZoom, snapZoom } from './WaveformTapeZoom';
+import { WaveformTapeMinimap } from './WaveformTapeMinimap';
+import { TAPE_ZOOM_PRESETS_SEC } from './waveformTapeZoomPresets';
+import type { TapeZoomPreset } from './waveformTapeZoomPresets';
 
 // ---------------------------------------------------------------------------
 // Exports shared with task 007 (zoom presets) and tests
-
-export const TAPE_ZOOM_PRESETS_SEC = [8, 15, 30, 60, 120] as const;
-export type TapeZoomPreset = (typeof TAPE_ZOOM_PRESETS_SEC)[number];
+//
+// TAPE_ZOOM_PRESETS_SEC/TapeZoomPreset live in ./waveformTapeZoomPresets.ts
+// (not defined here) to avoid an ES module import cycle: this file renders
+// <WaveformTapeZoom>, which itself needs these constants at module-eval
+// time. Re-exported here so existing call sites that import them from
+// './WaveformTape' (the task 006 contract) keep working unchanged.
+export { TAPE_ZOOM_PRESETS_SEC };
+export type { TapeZoomPreset };
 export const PEAKS_COUNT = 4000;
+
+// Re-export so PlayerBar (task 008) and tests can import snapZoom from
+// either WaveformTape or WaveformTapeZoom.
+export { snapZoom };
 
 // ---------------------------------------------------------------------------
 // usePeaks — browser peak provider (Web Audio decode → downsampled number[])
@@ -186,6 +199,19 @@ export interface WaveformTapeProps {
   onSeek?: (seconds: number) => void;
   /** Tape pixel height (canvas only, not including ruler). Default 96. */
   height?: number;
+  /**
+   * Called when the zoom preset changes (wheel, keyboard +/-, or the
+   * WaveformTapeZoom slider). Task 007 — the actual `windowSec` value is
+   * controlled by the parent (PlayerBar, task 008).
+   */
+  onZoomChange?: (preset: TapeZoomPreset) => void;
+  /**
+   * Peak array from usePeaks, passed down from the parent so the minimap can
+   * render the whole-clip shape without decoding independently. When
+   * omitted, this component falls back to its own internally-decoded
+   * `peakArray` (from `usePeaks(audioUrl, audioEl)` above) for the minimap.
+   */
+  peaks?: number[] | null;
 }
 
 export const WaveformTape: React.FC<WaveformTapeProps> = ({
@@ -196,8 +222,11 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
   mode = 'paged',
   onSeek,
   height = 96,
+  onZoomChange,
+  peaks,
 }) => {
   const peakArray = usePeaks(audioUrl, audioEl);
+  const minimapPeaks = peaks !== undefined ? peaks : peakArray;
   const reducedMotion = useReducedMotion();
   const effectiveMode: 'paged' | 'moving' = reducedMotion ? 'paged' : mode;
 
@@ -323,7 +352,44 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
     };
   }, [pointerToTime, commitSeek]);
 
-  // --- Keyboard scrub (±5s) -------------------------------------------------
+  // --- Zoom stepping (task 007) ---------------------------------------------
+  // windowSec is controlled externally; this component only ever proposes a
+  // new preset via onZoomChange (wheel / keyboard / WaveformTapeZoom slider).
+  const stepZoom = useCallback(
+    (direction: 'in' | 'out') => {
+      if (!onZoomChange) return;
+      const current = (TAPE_ZOOM_PRESETS_SEC as readonly number[]).includes(windowSec)
+        ? (windowSec as TapeZoomPreset)
+        : 30;
+      onZoomChange(snapZoom(current, direction));
+    },
+    [onZoomChange, windowSec],
+  );
+
+  // Container width for the zoom-in cap calc (peaks-per-pixel resolution).
+  const [containerWidthPx, setContainerWidthPx] = useState(0);
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    setContainerWidthPx(el.getBoundingClientRect().width || el.clientWidth || 0);
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setContainerWidthPx(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // --- Pinch/wheel zoom snap (spec §5.2): one detent = one preset step.
+  // Wheel-down (deltaY > 0) = zoom out (more seconds visible).
+  const handleWheel = (e: React.WheelEvent<SVGSVGElement>) => {
+    if (!onZoomChange || e.deltaY === 0) return;
+    e.preventDefault();
+    stepZoom(e.deltaY > 0 ? 'out' : 'in');
+  };
+
+  // --- Keyboard scrub (±5s) + zoom step (+/-) -------------------------------
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
@@ -331,6 +397,12 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
       commitSeek(Math.max(0, Math.min(duration, position + 5)));
+    } else if (e.key === '-' || e.key === '_') {
+      e.preventDefault();
+      stepZoom('out');
+    } else if (e.key === '+' || e.key === '=') {
+      e.preventDefault();
+      stepZoom('in');
     }
   };
 
@@ -343,6 +415,15 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
       tabIndex={0}
       onKeyDown={handleKeyDown}
     >
+      {onZoomChange && (
+        <WaveformTapeZoom
+          windowSec={(TAPE_ZOOM_PRESETS_SEC as readonly number[]).includes(windowSec) ? (windowSec as TapeZoomPreset) : 30}
+          onZoomChange={onZoomChange}
+          duration={duration}
+          availablePeaks={peakArray && peakArray.length > 0 ? peakArray.length : null}
+          containerWidthPx={containerWidthPx}
+        />
+      )}
       <svg
         ref={svgRef}
         className="tape-canvas"
@@ -351,6 +432,7 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
         viewBox={`0 0 ${SVG_W} ${svgH}`}
         preserveAspectRatio="none"
         onMouseDown={handleMouseDown}
+        onWheel={handleWheel}
         role="slider"
         aria-valuemin={0}
         aria-valuemax={duration}
@@ -396,6 +478,14 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
           </span>
         ))}
       </div>
+      <WaveformTapeMinimap
+        duration={duration}
+        currentTimeSec={position}
+        windowStartSec={viewStart}
+        windowSec={windowSec}
+        onSeek={commitSeek}
+        peaks={minimapPeaks}
+      />
     </div>
   );
 };

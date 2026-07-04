@@ -18,6 +18,7 @@ import {
   usePeaks,
   TAPE_ZOOM_PRESETS_SEC,
   PEAKS_COUNT,
+  snapZoom,
 } from '@/app/layout/WaveformTape';
 import * as playerBus from '@/store/playerBus';
 
@@ -525,5 +526,162 @@ describe('WaveformTape', () => {
     for (const bar of barsWithinClip) {
       expect(Number(bar.getAttribute('height'))).toBeGreaterThan(2); // > the silent-floor height
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 007 — zoom control + minimap wiring
+// ---------------------------------------------------------------------------
+
+describe('WaveformTape — zoom + minimap wiring (task 007)', () => {
+  beforeEach(() => {
+    const varied = Array.from({ length: PEAKS_COUNT }, (_, i) => (i % 7) / 7);
+    installAudioContextMock(makeMockAudioBuffer(varied));
+  });
+
+  it('re-exports snapZoom from WaveformTape', () => {
+    expect(snapZoom(30, 'out')).toBe(60);
+    expect(snapZoom(30, 'in')).toBe(15);
+  });
+
+  it('renders the WaveformTapeZoom control above the canvas', async () => {
+    const audioEl = makeAudioEl();
+    render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        peaks={null}
+        onZoomChange={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(screen.getByRole('slider', { name: 'Zoom level' })).toBeInTheDocument());
+  });
+
+  it('renders the WaveformTapeMinimap below the canvas', async () => {
+    const audioEl = makeAudioEl();
+    render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        peaks={null}
+        onZoomChange={vi.fn()}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('region', { name: 'Clip overview — drag to navigate' })).toBeInTheDocument(),
+    );
+  });
+
+  it('scrolling the wheel down over the tape canvas zooms out (calls onZoomChange with the next larger preset)', async () => {
+    const audioEl = makeAudioEl();
+    const onZoomChange = vi.fn();
+    const { container } = render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        peaks={null}
+        onZoomChange={onZoomChange}
+      />,
+    );
+    await waitFor(() => expect(container.querySelector('svg.tape-canvas')).toBeInTheDocument());
+
+    const svg = container.querySelector('svg.tape-canvas') as SVGSVGElement;
+    fireEvent.wheel(svg, { deltaY: 100 });
+
+    expect(onZoomChange).toHaveBeenCalledWith(60);
+  });
+
+  it('scrolling the wheel up over the tape canvas zooms in (calls onZoomChange with the next smaller preset)', async () => {
+    const audioEl = makeAudioEl();
+    const onZoomChange = vi.fn();
+    const { container } = render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        peaks={null}
+        onZoomChange={onZoomChange}
+      />,
+    );
+    await waitFor(() => expect(container.querySelector('svg.tape-canvas')).toBeInTheDocument());
+
+    const svg = container.querySelector('svg.tape-canvas') as SVGSVGElement;
+    fireEvent.wheel(svg, { deltaY: -100 });
+
+    expect(onZoomChange).toHaveBeenCalledWith(15);
+  });
+
+  it('keyboard "-" on the focused tape zooms out; "+" zooms in', async () => {
+    // windowSec is controlled by the parent (PlayerBar, task 008); this test
+    // double keeps the prop fixed at 30, so each keypress independently
+    // proposes a step from that same base via onZoomChange — it does not
+    // simulate the parent committing the new preset back down as a prop.
+    const audioEl = makeAudioEl();
+    const onZoomChange = vi.fn();
+    render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        peaks={null}
+        onZoomChange={onZoomChange}
+      />,
+    );
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Audio tape' })).toBeInTheDocument());
+
+    const root = screen.getByRole('region', { name: 'Audio tape' });
+    fireEvent.keyDown(root, { key: '-' });
+    expect(onZoomChange).toHaveBeenLastCalledWith(60); // step 'out' from 30
+
+    fireEvent.keyDown(root, { key: '+' });
+    expect(onZoomChange).toHaveBeenLastCalledWith(15); // step 'in' from 30 (prop unchanged)
+  });
+
+  it('existing ArrowLeft/ArrowRight scrub behavior is unaffected by the zoom keyboard extension', async () => {
+    const audioEl = makeAudioEl();
+    audioEl.currentTime = 20;
+    render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        peaks={null}
+        onZoomChange={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Audio tape' })).toBeInTheDocument());
+
+    const root = screen.getByRole('region', { name: 'Audio tape' });
+    fireEvent.keyDown(root, { key: 'ArrowRight' });
+    expect(playerBus.seek).toHaveBeenLastCalledWith(25);
+  });
+
+  it('passes the peaks prop through to the minimap so it reflects real audio shape', async () => {
+    const audioEl = makeAudioEl();
+    const peaks = Array.from({ length: 1000 }, (_, i) => i / 999);
+    const { container } = render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        peaks={peaks}
+        onZoomChange={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(container.querySelectorAll('rect.tape-minimap-bar').length).toBeGreaterThan(0));
+    const bars = Array.from(container.querySelectorAll('rect.tape-minimap-bar'));
+    const firstHeight = Number(bars[0].getAttribute('height'));
+    const lastHeight = Number(bars[bars.length - 1].getAttribute('height'));
+    expect(lastHeight).toBeGreaterThan(firstHeight);
   });
 });
