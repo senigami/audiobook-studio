@@ -11,7 +11,7 @@ routers/engines internals directly.
 
 from __future__ import annotations
 
-import re
+import ast
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parents[2]
@@ -37,18 +37,24 @@ GUARDED_MODULES: dict[str, tuple[str, ...]] = {
 # out of scope for BE-2 (documentation-cleanup only, no behavior change). Flagged as a comment in
 # the module itself instead of silently enforced/wrongly-enforced here.
 
-IMPORT_LINE_RE = re.compile(r"^\s*(?:from|import)\s+([\w.]+)")
-
-
 def _imported_modules(source: str) -> list[str]:
-    modules = []
-    for line in source.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("#"):
-            continue
-        match = IMPORT_LINE_RE.match(line)
-        if match:
-            modules.append(match.group(1))
+    """Every module path this source's imports could resolve a forbidden prefix against.
+
+    Uses ``ast`` rather than a per-line regex so multi-line/parenthesized imports, aliasing, and
+    comments are handled correctly by construction. Critically, for ``from pkg import name`` this
+    also emits ``pkg.name`` — the idiomatic way to import a forbidden *submodule*
+    (``from app.jobs import worker``) would otherwise only surface as the harmless-looking
+    ``app.jobs``, silently passing a prefix check aimed at ``app.jobs.worker``.
+    """
+    modules: list[str] = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Import):
+            modules.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.module is None:
+                continue  # relative "from . import x" — not a cross-package path here
+            modules.append(node.module)
+            modules.extend(f"{node.module}.{alias.name}" for alias in node.names)
     return modules
 
 
@@ -79,3 +85,20 @@ def test_guarded_modules_exist():
 
     for rel_path in GUARDED_MODULES:
         assert (REPO_ROOT / rel_path).is_file(), f"expected guarded module at {rel_path}"
+
+
+def test_imported_modules_catches_submodule_import_form():
+    """`from app.jobs import worker` is the idiomatic way to reach a forbidden submodule.
+
+    A checker that only records the ``from`` clause's module (``app.jobs``) would pass this
+    straight through, since ``app.jobs`` alone isn't one of orchestrator.py's forbidden prefixes
+    (only ``app.jobs.worker``/``app.jobs.core`` are) — the exact prefix this test's own boundary
+    check is supposed to catch. ``_imported_modules`` must also resolve the imported name onto the
+    module path, not just the ``from`` clause.
+    """
+    source = "from app.jobs import worker\nfrom app.db import queue\nimport os\n"
+    modules = _imported_modules(source)
+
+    assert "app.jobs.worker" in modules
+    assert "app.db.queue" in modules
+    assert "os" in modules
