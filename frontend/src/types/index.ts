@@ -266,17 +266,35 @@ export interface Speaker {
   updated_at: number;
 }
 
-/** Voice attributes — controlled vocabularies per design-docs/specs/voice-taxonomy.json v1.0 */
+/** Voice attributes — controlled vocabularies per design-docs/specs/voice-taxonomy.json v2.0 */
 export interface VoiceAttributes {
   class?: string;
   gender?: string;
   age?: string;
   accent?: string;
+  language?: string[];
+  style?: string[];
   tone?: string[];
   timbre?: string[];
   pace?: string;
   use_case?: string[];
   quality?: string[];
+}
+
+/** One ranked voice suggestion — an entry of CastingResponse.recommendations (voice-bundles.md §9). */
+export interface CastingRecommendation {
+  voice_id: string;
+  score: number;
+  reason: string;
+}
+
+/** Response shape of POST /api/voices/cast (casting contract, voice-bundles.md §9). */
+export interface CastingResponse {
+  contract_version: string;
+  character: string;
+  recommendations: CastingRecommendation[];
+  /** True when fewer than 2 catalog cards were eligible — brief/catalog too thin to rank meaningfully. */
+  needs_input: boolean;
 }
 
 /** Full metadata for a voice — returned by GET /api/voices/ and PATCH /api/voices/{id}/metadata */
@@ -290,6 +308,48 @@ export interface VoiceMetadata {
   tags?: string[];
   /** True when the attributes block is absent (voice has not been tagged yet) */
   is_untagged: boolean;
+  /** voice-bundles.md §8.1 — only present when the voice has recorded provenance. */
+  provenance?: {
+    source: 'recorded' | 'cloned' | 'imported' | 'designed';
+    author?: string;
+    consent_ack?: boolean;
+    created_at?: string;
+  };
+}
+
+// --- Hugging Face voice browse/import (GET/POST /api/voices/huggingface/*) ---
+
+/** One row of a Hub search result — GET /api/voices/huggingface/search */
+export interface HfSearchResult {
+  hub_id: string;
+  author?: string | null;
+  tags: string[];
+  likes: number;
+}
+
+/** Full parsed card — GET /api/voices/huggingface/inspect */
+export interface HfVoiceCard {
+  hub_id: string;
+  revision?: string | null;
+  license?: string | null;
+  is_restrictive_license: boolean;
+  languages: string[];
+  tags: string[];
+  author?: string | null;
+  description?: string | null;
+  sample_url?: string | null;
+}
+
+/** Response shape of POST /api/voices/huggingface/import */
+export interface HfImportResult {
+  status: string;
+  voice_id: string;
+  voice_name: string;
+  profile_name: string;
+  saved_samples: string[];
+  license?: string | null;
+  is_restrictive_license: boolean;
+  metadata: VoiceMetadata;
 }
 
 export interface Job {

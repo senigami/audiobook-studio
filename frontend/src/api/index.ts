@@ -539,4 +539,79 @@ export const api = {
     });
     return parseApiResponse(res);
   },
+  castVoices: async (params: {
+    character: { name: string; description?: string; notes?: string; inferred_gender?: string; inferred_age?: string; inferred_class?: string };
+    catalog: Array<Record<string, unknown>>;
+    projectLanguage?: string;
+    limit?: number;
+  }): Promise<import('@/types').CastingResponse> => {
+    const res = await fetch('/api/voices/cast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contract_version: '1.0',
+        character: params.character,
+        project_language: params.projectLanguage || '',
+        catalog: params.catalog,
+        limit: params.limit ?? 5,
+      }),
+    });
+    // Surface 422 (unknown contract_version/card_version major) verbatim — caller catches the thrown Error.message
+    return parseApiResponse(res);
+  },
+
+  // --- Hugging Face voice browse/import/export ---
+  searchHfVoices: async (query?: string): Promise<import('@/types').HfSearchResult[]> => {
+    const params = new URLSearchParams();
+    if (query) params.append('q', query);
+    const qs = params.toString();
+    const res = await fetch(`/api/voices/huggingface/search${qs ? `?${qs}` : ''}`);
+    return parseApiResponse(res);
+  },
+  inspectHfVoice: async (hubId: string, revision?: string): Promise<import('@/types').HfVoiceCard> => {
+    const params = new URLSearchParams({ hub_id: hubId });
+    if (revision) params.append('revision', revision);
+    const res = await fetch(`/api/voices/huggingface/inspect?${params.toString()}`);
+    return parseApiResponse(res);
+  },
+  importHfVoice: async (params: {
+    hubId: string;
+    revision?: string;
+    consent: boolean;
+    voiceName?: string;
+  }): Promise<import('@/types').HfImportResult> => {
+    const res = await fetch('/api/voices/huggingface/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        hub_id: params.hubId,
+        revision: params.revision,
+        consent: params.consent,
+        voice_name: params.voiceName,
+      }),
+    });
+    // Surface 422 (consent not granted, no usable audio, invalid hub_id) verbatim.
+    return parseApiResponse(res);
+  },
+  exportHfVoice: async (voiceId: string): Promise<{ status: string; bundle_path: string; bundle_name: string }> => {
+    const res = await fetch('/api/voices/huggingface/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voice_id: voiceId }),
+    });
+    return parseApiResponse(res);
+  },
+  uploadHfVoice: async (params: {
+    voiceId: string;
+    hubId: string;
+    extraTags?: string[];
+  }): Promise<{ status: string; hub_id: string; commit_id: string }> => {
+    const res = await fetch('/api/voices/huggingface/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voice_id: params.voiceId, hub_id: params.hubId, extra_tags: params.extraTags || [] }),
+    });
+    // Surface 422 (no token configured, invalid hub_id) verbatim.
+    return parseApiResponse(res);
+  },
 };
