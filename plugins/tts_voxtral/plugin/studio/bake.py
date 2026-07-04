@@ -1,13 +1,13 @@
 from __future__ import annotations
 import logging
 import shutil
-import time
-from pathlib import Path
 
 try:
     from studio_plugin_sdk.errors import BridgeError  # alias registered by plugin_loader
+    from studio_plugin_sdk.plugin_utils import make_segment_output_handler
 except ImportError:
     from app.studio_plugin_sdk.errors import BridgeError  # fallback for test/direct import
+    from app.studio_plugin_sdk.plugin_utils import make_segment_output_handler
 
 logger = logging.getLogger(__name__)
 
@@ -96,27 +96,6 @@ def _handler():
     return handler
 
 
-def _group_needs_render(group: dict, pdir: Path, force_rerender: bool = False) -> bool:
-    """Return True if the group's segment audio is missing or stale.
-
-    ``force_rerender`` (a rebuild) forces re-synthesis: cached segment audio is
-    never reused even when the segment is marked done on disk. Mirrors the xtts
-    bake/standard guard so the bake path can't silently reuse on a rebuild.
-    """
-    if force_rerender:
-        return True
-    expected_name = f"{group['segments'][0]['id']}.wav"
-    expected_path = pdir / "segments" / expected_name
-    if not expected_path.exists():
-        return True
-    for segment in group["segments"]:
-        if segment.get("audio_status") != "done":
-            return True
-        if segment.get("audio_file_path") != expected_name:
-            return True
-    return False
-
-
 def handle_voxtral_bake(jid, j, start, on_output, cancel_check, pdir, out_wav, voice_profile_dir, spk):
     """Bake a chapter: render only missing/stale groups, then stitch into out_wav."""
     ctx = _get_ctx()
@@ -133,7 +112,7 @@ def handle_voxtral_bake(jid, j, start, on_output, cancel_check, pdir, out_wav, v
     all_groups = ctx.build_chunk_groups(segs, default_profile=j.speaker_profile)
     missing_groups = [
         group for group in all_groups
-        if _group_needs_render(group, pdir, getattr(j, "force_rerender", False))
+        if ctx.group_needs_render(group, pdir, force_rerender=getattr(j, "force_rerender", False))
     ]
 
     total_groups = len(all_groups)
@@ -186,60 +165,29 @@ def handle_voxtral_bake(jid, j, start, on_output, cancel_check, pdir, out_wav, v
 
         completed_groups = [offset]
 
-        def bake_on_output(line):
-            on_output(line)
-            # A cancelled render must not write segment 'done' state: a chapter
-            # reset clears segments to 'unprocessed', and a straggler [SEGMENT_SAVED]
-            # from the not-yet-stopped engine would otherwise resurrect
-            # audio_status='done' and make the next render reuse stale audio.
-            # (Mirrors the standard_handler chapter_on_output guard / I17.)
-            if "[SEGMENT_SAVED]" in line and not cancel_check():
-                saved_path = line.split("[SEGMENT_SAVED]")[1].strip()
-                group_segs = path_to_group.get(saved_path)
-                if group_segs:
-                    seg_filename = Path(saved_path).name
-                    for s in group_segs:
-                        _update_seg(s["id"], audio_status="done", audio_file_path=seg_filename, audio_generated_at=time.time())
-                    completed_groups[0] += 1
-                    prog = round(min(completed_groups[0] / total_groups * 0.9, 0.9), 2) if total_groups else 0.9
-                    h.update_job(
-                        jid,
-                        progress=prog,
-                        active_segment_id=None,
-                        active_segment_progress=0.0,
-                        skip_studio_job_event=True,
-                        skip_job_updated=True,
-                    )
+        def _bake_progress_formula(completed, total, active_segment_progress, *, active_index):
+            # Linear (unweighted) curve, distinct from xtts's weighted formula.
+            # NOTE: the [SEGMENT_SAVED] call site historically had a
+            # zero-groups fallback of 0.9 while [START_SEGMENT]/[PROGRESS]
+            # fell back to 0.0 — both are unreachable in practice (a
+            # zero-group bake never enters the `if missing_groups:` block
+            # that constructs this closure), so a single formula covers all
+            # three call sites without changing observable behavior.
+            base = completed / total * 0.9 if total else 0.0
+            frac = active_segment_progress / total * 0.9 if total else 0.0
+            return {"progress": round(min(base + frac, 0.9), 2)}
 
-            if "[START_SEGMENT]" in line:
-                asid = line.split("[START_SEGMENT]")[1].strip()
-                prog = round(min(completed_groups[0] / total_groups * 0.9, 0.9), 2) if total_groups else 0.0
-                h.update_job(
-                    jid,
-                    force_broadcast=True,
-                    progress=prog,
-                    active_segment_id=asid,
-                    active_segment_progress=0.0,
-                    skip_studio_job_event=True,
-                    skip_job_updated=True,
-                )
-
-            if "[PROGRESS]" in line:
-                try:
-                    p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
-                    segment_progress = float(p_str) / 100.0
-                    base = completed_groups[0] / total_groups * 0.9 if total_groups else 0.0
-                    frac = segment_progress / total_groups * 0.9 if total_groups else 0.0
-                    h.update_job(
-                        jid,
-                        force_broadcast=True,
-                        progress=round(min(base + frac, 0.9), 2),
-                        active_segment_progress=segment_progress,
-                        skip_studio_job_event=True,
-                        skip_job_updated=True,
-                    )
-                except Exception:
-                    logger.warning("Failed to parse [PROGRESS] line: %r", line, exc_info=True)
+        bake_on_output = make_segment_output_handler(
+            on_output=on_output,
+            cancel_check=cancel_check,
+            path_to_group=path_to_group,
+            update_seg=_update_seg,
+            completed_groups=completed_groups,
+            total_groups=total_groups,
+            update_job_fn=h.update_job,
+            jid=jid,
+            progress_formula=_bake_progress_formula,
+        )
 
         scratch_wav = pdir / f"output_{j.id}.wav"
         try:

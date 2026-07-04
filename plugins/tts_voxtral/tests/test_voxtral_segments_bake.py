@@ -54,6 +54,21 @@ def _fake_groups(segs):
     ]
 
 
+def _wire_real_group_needs_render(ctx: MagicMock) -> None:
+    """Wire ``ctx.group_needs_render`` to the real PL-2 SDK implementation.
+
+    A bare ``MagicMock()`` for ``ctx.group_needs_render`` returns a truthy
+    MagicMock for every call regardless of args, which can't distinguish
+    force_rerender=True from False or "already done" from "missing" — tests
+    that assert on which groups got (re)rendered need the real validated-
+    artifact-metadata logic, not a stub that always says "needs render".
+    """
+    from app.studio_plugin_sdk.context import StudioPluginContext
+
+    real_ctx = StudioPluginContext("voxtral")
+    ctx.group_needs_render.side_effect = real_ctx.group_needs_render
+
+
 # ---------------------------------------------------------------------------
 # Segment-targeted tests
 # ---------------------------------------------------------------------------
@@ -301,6 +316,7 @@ class TestVoxtralBake:
             ctx = MagicMock()
             ctx.get_sanitize_categories.return_value = []
             ctx.build_chunk_groups.return_value = groups
+            _wire_real_group_needs_render(ctx)
             mock_ctx_factory.return_value = ctx
 
             h = MagicMock()
@@ -367,6 +383,7 @@ class TestVoxtralBake:
             ctx = MagicMock()
             ctx.get_sanitize_categories.return_value = []
             ctx.build_chunk_groups.return_value = groups
+            _wire_real_group_needs_render(ctx)
             mock_ctx_factory.return_value = ctx
             mock_handler_factory.return_value = MagicMock()
 
@@ -425,6 +442,7 @@ class TestVoxtralBake:
             ctx = MagicMock()
             ctx.get_sanitize_categories.return_value = []
             ctx.build_chunk_groups.return_value = groups
+            _wire_real_group_needs_render(ctx)
             mock_ctx_factory.return_value = ctx
             mock_handler_factory.return_value = MagicMock()
 

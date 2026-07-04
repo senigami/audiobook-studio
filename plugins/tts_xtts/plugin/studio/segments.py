@@ -1,12 +1,13 @@
 from __future__ import annotations
 import logging
 import time
-from pathlib import Path
 
 try:
     from studio_plugin_sdk.errors import BridgeError  # alias registered by plugin_loader
+    from studio_plugin_sdk.plugin_utils import make_segment_output_handler
 except ImportError:
     from app.studio_plugin_sdk.errors import BridgeError  # fallback for test/direct import
+    from app.studio_plugin_sdk.plugin_utils import make_segment_output_handler
 from .helpers import (
     _profile_inputs_for_segment,
     _segment_group_weight,
@@ -149,83 +150,38 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
         skip_job_updated=True,
     )
 
-    def gen_on_output(line):
-        on_output(line)
-        # A cancelled render must not write segment 'done' state: a chapter reset
-        # clears segments to 'unprocessed', and a straggler [SEGMENT_SAVED] from the
-        # not-yet-stopped engine would otherwise resurrect audio_status='done' and
-        # make the next render reuse stale audio. (Mirrors the standard_handler
-        # chapter_on_output guard / I17.)
-        if "[SEGMENT_SAVED]" in line and not cancel_check():
-            saved_path = line.split("[SEGMENT_SAVED]")[1].strip()
-            group = path_to_group.get(saved_path)
-            if group:
-                seg_filename = Path(saved_path).name
-                for s in group:
-                    _update_seg(s['id'], audio_status='done', audio_file_path=seg_filename, audio_generated_at=time.time())
-                completed_groups[0] += 1
-                j.completed_render_groups = completed_groups[0]
-                j.active_render_group_index = 0
-                prog = _group_job_progress(
-                    completed_groups[0],
-                    total_requested_groups,
-                    0.0,
-                    limit=1.0,
-                    group_weights=requested_group_weights,
-                )
-                h.update_job(
-                    jid,
-                    progress=prog,
-                    active_segment_id=None,
-                    active_segment_progress=0.0,
-                    **_group_display_updates(completed_groups[0], total_requested_groups, 0.0, limit=1.0, group_weights=requested_group_weights),
-                    skip_studio_job_event=True,
-                    skip_job_updated=True,
-                )
+    def _segments_progress_formula(completed, total, active_segment_progress, *, active_index):
+        return {
+            "progress": _group_job_progress(
+                completed, total, active_segment_progress,
+                limit=1.0, group_weights=requested_group_weights,
+            ),
+            **_group_display_updates(
+                completed, total, active_segment_progress,
+                limit=1.0, active_index=active_index, group_weights=requested_group_weights,
+            ),
+        }
 
-        if "[START_SEGMENT]" in line:
-            asid = line.split("[START_SEGMENT]")[1].strip()
-            j.active_render_group_index = min(completed_groups[0] + 1, total_requested_groups)
-            base_progress = _group_job_progress(
-                completed_groups[0],
-                total_requested_groups,
-                0.0,
-                limit=1.0,
-                group_weights=requested_group_weights,
-            )
-            h.update_job(
-                jid,
-                force_broadcast=True,
-                progress=base_progress,
-                active_segment_id=asid,
-                active_segment_progress=0.0,
-                **_group_display_updates(completed_groups[0], total_requested_groups, 0.0, limit=1.0, active_index=min(completed_groups[0] + 1, total_requested_groups), group_weights=requested_group_weights),
-                skip_studio_job_event=True,
-                skip_job_updated=True,
-            )
+    def _on_group_completed(new_completed):
+        j.completed_render_groups = new_completed
+        j.active_render_group_index = 0
 
-        if "[PROGRESS]" in line:
-            try:
-                p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
-                segment_progress = float(p_str) / 100.0
-                overall_progress = _group_job_progress(
-                    completed_groups[0],
-                    total_requested_groups,
-                    segment_progress,
-                    limit=1.0,
-                    group_weights=requested_group_weights,
-                )
-                h.update_job(
-                    jid,
-                    force_broadcast=True,
-                    progress=overall_progress,
-                    active_segment_progress=segment_progress,
-                    **_group_display_updates(completed_groups[0], total_requested_groups, segment_progress, limit=1.0, active_index=min(completed_groups[0] + 1, total_requested_groups), group_weights=requested_group_weights),
-                    skip_studio_job_event=True,
-                    skip_job_updated=True,
-                )
-            except Exception:
-                logger.warning("Failed to parse [PROGRESS] line: %r", line, exc_info=True)
+    def _on_group_started(active_index):
+        j.active_render_group_index = active_index
+
+    gen_on_output = make_segment_output_handler(
+        on_output=on_output,
+        cancel_check=cancel_check,
+        path_to_group=path_to_group,
+        update_seg=_update_seg,
+        completed_groups=completed_groups,
+        total_groups=total_requested_groups,
+        update_job_fn=h.update_job,
+        jid=jid,
+        progress_formula=_segments_progress_formula,
+        on_group_completed=_on_group_completed,
+        on_group_started=_on_group_started,
+    )
 
     try:
         rc = generate_via_bridge(

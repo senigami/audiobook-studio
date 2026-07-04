@@ -12,9 +12,69 @@ side effects — required by the no-import-side-effects rule in
 
 from __future__ import annotations
 
+import wave
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
+
+
+# ---------------------------------------------------------------------------
+# Validated-artifact helpers for group_needs_render (PL-2)
+# ---------------------------------------------------------------------------
+#
+# Moved here from ``plugins/tts_mixed/handler.py`` (INV-3 / W-PAR 005), which
+# had the only one of the three original ``_group_needs_render`` definitions
+# that checked validated artifact metadata rather than raw file existence.
+# xtts's and voxtral's originals used a bare ``path.exists()`` check; per
+# ``.agent/rules/modular_architecture.md`` ("raw file existence is
+# insufficient for completion, reuse, or recovery"), the shared method
+# standardizes on the stricter, already-shipped mixed-plugin logic instead of
+# the weaker one — this is a deliberate upgrade of xtts/voxtral's check to an
+# existing, already-tested invariant, not new behavior invented for this task.
+
+MAX_SEGMENT_DURATION_SECONDS = 3600.0
+
+
+def _validated_wav_duration_seconds(path: Path) -> float | None:
+    """Return the WAV's duration in seconds via its header.
+
+    Returns ``None`` when the file cannot be opened as a WAV at all (e.g. it
+    is a non-WAV stub, as used by some engine-agnostic unit-test doubles) —
+    callers treat ``None`` as "duration unknown", not "invalid", so this
+    stays additive to the pre-existing existence/size check rather than
+    replacing it (INV-3 requires the duration check to be *added*, not that
+    every non-WAV stub become invalid).
+    """
+    try:
+        with wave.open(str(path), "rb") as wf:
+            frames = wf.getnframes()
+            rate = wf.getframerate()
+            if rate <= 0:
+                return None
+            return frames / float(rate)
+    except (OSError, wave.Error, EOFError):
+        return None
+
+
+def _is_valid_segment_artifact(path: Path) -> bool:
+    """INV-3: a segment artifact is valid iff it exists and has non-zero
+    size; when its bytes parse as a WAV, the header duration must also be
+    sane (0s < duration <= MAX_SEGMENT_DURATION_SECONDS). Exit code alone is
+    never sufficient to mark a segment done — this is the single gate.
+    """
+    try:
+        if not path.exists() or path.stat().st_size <= 0:
+            return False
+    except OSError:
+        return False
+
+    duration = _validated_wav_duration_seconds(path)
+    if duration is None:
+        # Not parseable as a WAV (e.g. a non-audio test double) — fall back
+        # to the pre-existing exists+non-empty check rather than failing
+        # closed on every non-WAV stand-in.
+        return True
+    return 0.0 < duration <= MAX_SEGMENT_DURATION_SECONDS
 
 
 # ---------------------------------------------------------------------------
@@ -265,6 +325,43 @@ class StudioPluginContext:
         """Convenience: fetch segments then group them."""
         segments = self.get_chapter_segments(chapter_id)
         return self.build_chunk_groups(segments, char_limit)
+
+    def group_needs_render(
+        self,
+        group: dict[str, Any],
+        pdir: Path,
+        *,
+        force_rerender: bool = False,
+    ) -> bool:
+        """Return True if ``group``'s segment audio is missing, invalid, or stale.
+
+        PL-2: the single shared definition replacing three near-identical
+        ``_group_needs_render`` locals (xtts ``bake.py``, voxtral ``bake.py``,
+        mixed ``handler.py``). Per ``modular_architecture.md`` this is
+        validated-artifact-metadata logic, not raw file existence: the
+        expected output path must pass ``_is_valid_segment_artifact`` (exists,
+        non-empty, and — when parseable as a WAV — a sane header duration)
+        AND every member segment's DB row must already read
+        ``audio_status == "done"`` pointing at that same filename.
+
+        ``force_rerender`` (a rebuild) forces re-synthesis: cached segment
+        audio is never reused even when the segment is marked done on disk.
+        Defaults to False so callers that never passed it (mixed's original)
+        keep their exact prior behavior; xtts/voxtral's bake callers pass
+        ``j.force_rerender`` explicitly.
+        """
+        expected_name = f"{group['segments'][0]['id']}.wav"
+        expected_path = pdir / "segments" / expected_name
+        if force_rerender:
+            return True
+        if not _is_valid_segment_artifact(expected_path):
+            return True
+        for segment in group["segments"]:
+            if segment.get("audio_status") != "done":
+                return True
+            if segment.get("audio_file_path") != expected_name:
+                return True
+        return False
 
     # ------------------------------------------------------------------
     # §3.3.6 Bridge Synthesis Call
