@@ -417,7 +417,7 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
 
 These plans exist but need a design/owner call before they become schedulable work.
 
-- [ ] **Chapter editor art-program** — Director's Console (Cast/Booth/Revise) — [design doc](../workflows/chapter-editor-modes.md) *(design decisions resolved 2026-06-26 — ready to plan; gated on WL1 bug fixes B1–B4)*
+- [ ] **Chapter editor art-program** — Director's Console (Cast/Booth/Revise) — [design doc](../workflows/chapter-editor-modes.md) *(design decisions resolved 2026-06-26 — ready to plan; WL1 gate CLEARED — audited 2026-07-03, all four bugs B1-B4 in `design-docs/plans/reference/book_view_redesign/tasks/001-004` are marked done; TASKS.md's "gated on WL1" note was stale)*
 
   **Decisions resolved (see doc §13 for full detail):**
   - [x] Design decision: assignment granularity → Word / Sentence / Paragraph brush sizes; Sentence default; never raw segments
