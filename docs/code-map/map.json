@@ -1,6 +1,6 @@
 {
   "meta": {
-    "synced_commit": "65b8e66412a21c2aa2c60e41ffbcead37ec4c0da",
+    "synced_commit": "8097499e4d46ed7deb87229e03fc389166e3cd25",
     "file_hashes": {
       "app/studio_plugin_sdk/__init__.py": "5da2a06a96e7600c",
       "app/studio_plugin_sdk/_import_utils.py": "e242aac00e0fd063",
@@ -21,7 +21,6 @@
       "app/db/state_settings.py": "8b91356f7eb8fd28",
       "app/db/models.py": "d5490bbdd74440f3",
       "app/db/segment_gc.py": "9b85151bcbd2c1d0",
-      "app/db/segments.py": "c25194fc589edb2a",
       "app/db/legacy_migration.py": "b37f5370c77eaa3d",
       "app/db/state_jobs.py": "ce6bf8c12e1e9a8c",
       "app/db/__init__.py": "492dda2bde0a9b86",
@@ -68,7 +67,6 @@
       "app/api/routers/engines.py": "b09ec84eb077b03e",
       "app/api/routers/migration.py": "a17d3801ee651383",
       "app/api/routers/__init__.py": "fdda29004d31c3ec",
-      "app/api/contracts/events.py": "1f0d29f6a343c5cb",
       "app/api/contracts/__init__.py": "fe13f0574c50ea53",
       "app/engines/official_registry.py": "378b3a2e51866f40",
       "app/engines/enablement.py": "9d8476e2fb533f95",
@@ -141,7 +139,6 @@
       "app/domain/settings/repository.py": "a9066d4eef190928",
       "app/orchestration/__init__.py": "826dd61a6736d7d1",
       "app/orchestration/tasks/__init__.py": "58bbb52d9bf9a907",
-      "app/orchestration/tasks/base.py": "53d85255beec1319",
       "app/orchestration/tasks/synthesis.py": "6474a61fe3af7758",
       "app/orchestration/tasks/api_synthesis.py": "e5eeeda55f66fa56",
       "app/orchestration/tasks/assembly.py": "f381aaea9f5d6814",
@@ -153,12 +150,10 @@
       "app/orchestration/scheduler/orchestrator.py": "abec94df87020280",
       "app/orchestration/scheduler/orchestrator_helpers.py": "715e587e6d916ab9",
       "app/orchestration/scheduler/orchestrator_eta.py": "259b67369779bb28",
-      "app/orchestration/scheduler/orchestrator_publish.py": "fd1d656f6940a2e1",
       "app/orchestration/scheduler/resources.py": "92194e0af7a9a0f2",
       "app/orchestration/scheduler/policies.py": "4a23d243516fe50b",
       "app/orchestration/scheduler/recovery.py": "202b9859df3d26fe",
       "app/orchestration/progress/__init__.py": "d60280c633d9ec6a",
-      "app/orchestration/progress/service.py": "684326ec3ca3f8b1",
       "app/orchestration/progress/reconciliation.py": "720e433b84aade64",
       "app/orchestration/progress/broadcaster.py": "81e7dc4f023c79d1",
       "app/orchestration/progress/eta.py": "dae573aff77a01e9",
@@ -502,7 +497,6 @@
       "plugins/tts_xtts/plugin/server/__init__.py": "02b06e7081f8c5c2",
       "plugins/tts_xtts/plugin/studio/__init__.py": "6cbef4cb5383d81c",
       "frontend/src/pages/Voices/components/index.ts": "e2f8defc9e91616c",
-      "app/orchestration/tasks/segment_synthesis.py": "2975ee2364116b73",
       "app/domain/voices/huggingface.py": "032f933723e2b254",
       "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx": "456d0bf22e40e272",
       "frontend/src/i18n/index.ts": "4036184f4e4c1935",
@@ -671,7 +665,7 @@
         "app/api/ws.py#broadcast_job_updated (active_segments_map, additive C2)"
       ],
       "carries": "a chapter render for a segment-orchestrated engine fans its chunk groups into concurrent children (bounded by the per-engine-class semaphore); each child reuses _dispatch_segment's per-segment isolation via a synthetic one-group task rather than calling handle_mixed_job directly; completed children join at an explicit ALL_COMPLETED barrier and stitch in manuscript order regardless of completion order",
-      "invariant": "cap=1 (today's default) is byte-identical to the pre-fanout sequential SynthesisTask/handle_mixed_job path (INV-1); the chapter-fanout PARENT itself must never flow through _dispatch_segment (would register a spurious idle log_listener); a concurrent child must never call handle_mixed_job directly (would re-trigger chapter-terminal stitch/DB-rebuild once per child instead of once per chapter)"
+      "invariant": "cap=1 (today's default) is byte-identical to the pre-fanout sequential SynthesisTask/handle_mixed_job path (INV-1); the chapter-fanout PARENT itself must never flow through _dispatch_segment (would register a spurious idle log_listener); a concurrent child must never call handle_mixed_job directly (would re-trigger chapter-terminal stitch/DB-rebuild once per child instead of once per chapter); synthetic fan-out children emit segment-scoped frames but no durable job rows (ephemeral TaskContext routes through ProgressService.publish(ephemeral=True), suppressing only jobs.lifecycle/queue.items/chapters.progress); chapter progress is size-weighted (grouped_progress from child text-length sums) and order-independent"
     }
   ],
   "invariants": [
@@ -1681,6 +1675,11 @@
           "name": "sync_chapter_segments",
           "kind": "fn",
           "contract": "str, str, conn? \u2192 bool; splits text, preserves IDs/assignments, invalidates dropped text"
+        },
+        {
+          "name": "chapter_completion_by_size",
+          "kind": "fn",
+          "contract": "chapter_id: str -> tuple[int, int]; (done_chars, total_chars) via SUM(LENGTH(text_content)) gated on audio_status='done'"
         }
       ],
       "calls": [
@@ -1707,7 +1706,8 @@
         "sync_chapter_segments: can accept optional conn (caller owns transaction); otherwise acquires own lock",
         "update_segment triggers cascading invalidation (text/character/speaker changes invalidate audio)",
         "get_chapter_segments validates canonical names against current chunk groups",
-        "broadcast_segments_updated called outside lock to prevent deadlock"
+        "broadcast_segments_updated called outside lock to prevent deadlock",
+        "chapter_completion_by_size is computed-but-not-wired: no callers yet"
       ]
     },
     "app/db/legacy_migration.py": {
@@ -3348,7 +3348,8 @@
       ],
       "notes": [
         "topics: jobs.lifecycle, queue.items, chapters.progress, segments.progress each with allowed command set",
-        "build_queue_item_status_event gained an active_segments_map kwarg (additive C2 contract, live-events.md 1.9.0/1.9.1), snake_case wire key"
+        "build_queue_item_status_event gained an active_segments_map kwarg (additive C2 contract, live-events.md 1.9.0/1.9.1), snake_case wire key",
+        "command-set dedup: removed raw-string duplicates of enum members from JOB_LIFECYCLE_COMMANDS/COMMAND_TOPIC_SCOPES/SEGMENT_SCOPED_COMMANDS; membership-identical, no contract/wire/version change"
       ]
     },
     "app/api/contracts/__init__.py": {
@@ -4950,7 +4951,7 @@
         {
           "name": "TaskContext",
           "kind": "class",
-          "contract": "task_id,task_type,project_id,chapter_id,requested_by,payload,source,submitted_at"
+          "contract": "task_id,task_type,project_id,chapter_id,requested_by,payload,source,submitted_at,ephemeral"
         },
         {
           "name": "TaskResult",
@@ -4975,7 +4976,8 @@
       ],
       "notes": [
         "get_expected_duration returns None (no hardcoded default) with no history",
-        "TaskResult gained an additive output_path: str | None = None field so a concurrent child can report its validated artifact path to the parent's stitch barrier"
+        "TaskResult gained an additive output_path: str | None = None field so a concurrent child can report its validated artifact path to the parent's stitch barrier",
+        "ephemeral: bool = False marks a synthetic fan-out child TaskContext; suppresses durable job-row writes and job-scoped event emissions (routed through ProgressService.publish(ephemeral=True))"
       ]
     },
     "app/orchestration/tasks/synthesis.py": {
@@ -5244,7 +5246,8 @@
       "notes": [
         "progress regression guard clamps decreasing progress at same status",
         "0% not special-cased as 'not started'",
-        "active_segments_map (optional _publish kwarg) only written when non-None; stalled_segments has NO corresponding _publish kwarg yet (deferred, unlike active_segments_map which is fully wired end-to-end)"
+        "active_segments_map (optional _publish kwarg) only written when non-None; stalled_segments has NO corresponding _publish kwarg yet (deferred, unlike active_segments_map which is fully wired end-to-end)",
+        "_publish routes ephemeral contexts through ProgressService.publish(ephemeral=True) and skips put_job/update_job only, so synthetic {parent}-seg-N children create no durable Job row or queue.items broadcast (segment-scoped frames still flow)"
       ]
     },
     "app/orchestration/scheduler/resources.py": {
@@ -5345,7 +5348,7 @@
         {
           "name": "ProgressService",
           "kind": "class",
-          "contract": "reconcile/estimate_eta/publish"
+          "contract": "reconcile/estimate_eta/publish(ephemeral: bool = False)"
         },
         {
           "name": "create_progress_service, get_progress_service",
@@ -5366,7 +5369,8 @@
       ],
       "notes": [
         "D7: _lock is leaf lock, must not hold while calling state_jobs",
-        "min_progress_delta=0.01, max_silence_seconds=10.0"
+        "min_progress_delta=0.01, max_silence_seconds=10.0",
+        "publish(ephemeral=True) suppresses ONLY job-scoped emissions (jobs.lifecycle, queue.items, chapters.progress); segment-scoped progress frames (segments.progress ticks, SEGMENT_SAVED transitions) still flow"
       ]
     },
     "app/orchestration/progress/reconciliation.py": {
@@ -6663,7 +6667,9 @@
       ],
       "calls": [
         "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers#*",
-        "frontend/src/components/progress/PredictiveProgressBar/useEtaConfidence#*"
+        "frontend/src/components/progress/PredictiveProgressBar/useEtaConfidence#*",
+        "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarLane#*",
+        "frontend/src/components/progress/PredictiveProgressBar/ProgressStatusRow#*"
       ],
       "called_by": [
         "frontend/src/demo/stages/progressStage.tsx",
@@ -8811,7 +8817,13 @@
       ],
       "calls": [
         "hooks/useFocusTrap",
-        "api#patchVoiceMetadata,uploadVoiceIcon"
+        "api#patchVoiceMetadata,uploadVoiceIcon",
+        "frontend/src/pages/Voices/components/metadata/taxonomy#*",
+        "frontend/src/pages/Voices/components/metadata/chip#*",
+        "frontend/src/pages/Voices/components/metadata/OneSelect#*",
+        "frontend/src/pages/Voices/components/metadata/ManySelect#*",
+        "frontend/src/pages/Voices/components/metadata/TagsInput#*",
+        "frontend/src/pages/Voices/components/metadata/IconUpload#*"
       ],
       "called_by": [],
       "notes": [
@@ -9977,7 +9989,10 @@
         "frontend/src/pages/Settings/components/SettingsComponents.tsx#ToggleButton",
         "frontend/src/pages/Engines/components/EngineMetadataPanel.tsx#*",
         "frontend/src/pages/Engines/components/JsonSchemaForm.tsx#*",
-        "frontend/src/pages/Engines/components/EngineDevPanel.tsx#*"
+        "frontend/src/pages/Engines/components/EngineDevPanel.tsx#*",
+        "frontend/src/pages/Engines/components/EngineCalibrationSection.tsx#*",
+        "frontend/src/pages/Engines/components/EngineSettingsForm.tsx#*",
+        "frontend/src/pages/Engines/components/EngineTestSample.tsx#*"
       ],
       "called_by": [
         "frontend/src/pages/Engines/components/EnginesPanel.tsx"
@@ -10937,7 +10952,8 @@
         "retry-once policy: one fresh replacement child on failure; second failure recorded in permanently_failed_segment_ids without blocking siblings; chapter still resolves once every other child finishes",
         "stuck-segment heartbeat: 1s-poll daemon flags child.stalled past SEGMENT_STALL_TIMEOUT_SECONDS (60s default); stalled_segments property exists but has no _publish kwarg yet (unlike active_segments_map)",
         "cap=1 (today's manifest default for most engines) is byte-identical to the pre-fanout sequential path (INV-1, pinned by test_cap1_old_vs_new_path_equivalence.py)",
-        "self._children accessed under self._children_lock (retry swap, heartbeat monitor, active_segments_map aggregation all touch the same list concurrently)"
+        "self._children accessed under self._children_lock (retry swap, heartbeat monitor, active_segments_map aggregation all touch the same list concurrently)",
+        "_SyntheticSegmentTask.describe() sets ephemeral=True; ChapterSynthesisTask._publish_progress emits size-weighted, order-independent grouped_progress computed from in-memory child text sizes (count-based progress retained separately)"
       ]
     },
     "app/domain/voices/huggingface.py": {
@@ -11199,6 +11215,181 @@
         "import is synchronous (search->inspect->consent->download->register); not behind verify_api_key/rate_limit (that's the separate /api/v1/tts gateway) -- internal Studio feature",
         "app is localhost-only by default (uvicorn binds 127.0.0.1, no --host flag in run.sh) -- security review treated the DoS-shaped findings (no timeout, no byte-size cap) as hardening nice-to-haves given this posture, not merge blockers"
       ]
+    },
+    "frontend/src/pages/Engines/components/EngineCalibrationSection.tsx": {
+      "purpose": "Collapsed-header calibration chip and expanded 'Voice generation speed' summary block, split out of EngineCard",
+      "exports": [
+        {
+          "name": "EngineCalibrationChip",
+          "kind": "component"
+        },
+        {
+          "name": "EngineCalibrationSection",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Engines/components/EngineCard.tsx"
+      ],
+      "notes": []
+    },
+    "frontend/src/pages/Engines/components/EngineSettingsForm.tsx": {
+      "purpose": "Wraps EngineMetadataPanel + JsonSchemaForm with visibility gating (hide_settings_when_not_ready / hide_settings_when_unverified / hidden), split out of EngineCard",
+      "exports": [
+        {
+          "name": "EngineSettingsForm",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Engines/components/EngineMetadataPanel.tsx#*",
+        "frontend/src/pages/Engines/components/JsonSchemaForm.tsx#*"
+      ],
+      "called_by": [
+        "frontend/src/pages/Engines/components/EngineCard.tsx"
+      ],
+      "notes": []
+    },
+    "frontend/src/pages/Engines/components/EngineTestSample.tsx": {
+      "purpose": "'Latest Test Sample' playback block for an engine card, split out of EngineCard",
+      "exports": [
+        {
+          "name": "EngineTestSample",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/store/playerBus#*"
+      ],
+      "called_by": [
+        "frontend/src/pages/Engines/components/EngineCard.tsx"
+      ],
+      "notes": []
+    },
+    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarLane.ts": {
+      "purpose": "Pure lane-migration math for the predictive progress bar (ProgressLane/LaneMigration types, endAt/renderedStart/renderedEnd calculations), split out of PredictiveProgressBar",
+      "exports": [
+        {
+          "name": "ProgressLane, LaneMigration",
+          "kind": "type"
+        },
+        {
+          "name": "resolveEndAtMs, getLaneProgress, getRenderedStartAtMs, getRenderedEndAtMs, getRenderedStartProgress",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx"
+      ],
+      "notes": []
+    },
+    "frontend/src/components/progress/PredictiveProgressBar/ProgressStatusRow.tsx": {
+      "purpose": "Label/percent/ETA/status-text header row rendered above the progress fill track, split out of PredictiveProgressBar",
+      "exports": [
+        {
+          "name": "ProgressStatusRow",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx"
+      ],
+      "notes": []
+    },
+    "frontend/src/pages/Voices/components/metadata/taxonomy.ts": {
+      "purpose": "Voice metadata taxonomy vocabulary and section lookup, split out of MetadataEditorModal",
+      "exports": [
+        {
+          "name": "TaxonomySection",
+          "kind": "type"
+        },
+        {
+          "name": "taxonomy",
+          "kind": "const"
+        },
+        {
+          "name": "getSection",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Voices/components/MetadataEditorModal.tsx"
+      ],
+      "notes": []
+    },
+    "frontend/src/pages/Voices/components/metadata/chip.tsx": {
+      "purpose": "Chip render helper for voice metadata tag/attribute display, split out of MetadataEditorModal",
+      "exports": [
+        {
+          "name": "chip",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Voices/components/MetadataEditorModal.tsx"
+      ],
+      "notes": []
+    },
+    "frontend/src/pages/Voices/components/metadata/OneSelect.tsx": {
+      "purpose": "Single-select taxonomy field control, split out of MetadataEditorModal",
+      "exports": [
+        {
+          "name": "OneSelect",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Voices/components/MetadataEditorModal.tsx"
+      ],
+      "notes": []
+    },
+    "frontend/src/pages/Voices/components/metadata/ManySelect.tsx": {
+      "purpose": "Multi-select taxonomy field control, split out of MetadataEditorModal",
+      "exports": [
+        {
+          "name": "ManySelect",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Voices/components/MetadataEditorModal.tsx"
+      ],
+      "notes": []
+    },
+    "frontend/src/pages/Voices/components/metadata/TagsInput.tsx": {
+      "purpose": "Free-text tags input control for voice metadata, split out of MetadataEditorModal",
+      "exports": [
+        {
+          "name": "TagsInput",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Voices/components/MetadataEditorModal.tsx"
+      ],
+      "notes": []
+    },
+    "frontend/src/pages/Voices/components/metadata/IconUpload.tsx": {
+      "purpose": "Voice icon upload control, split out of MetadataEditorModal",
+      "exports": [
+        {
+          "name": "IconUpload",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Voices/components/MetadataEditorModal.tsx"
+      ],
+      "notes": []
     }
   }
 }
