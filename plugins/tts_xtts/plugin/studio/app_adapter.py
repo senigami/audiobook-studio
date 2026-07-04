@@ -86,19 +86,6 @@ def xtts_generate_script(
     )
 
 
-def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -> int:
-    """Invoke the shared audio conversion helper lazily."""
-
-    from app.engines.audio_ops import wav_to_mp3 as convert_wav_to_mp3
-
-    return convert_wav_to_mp3(
-        in_wav=in_wav,
-        out_mp3=out_mp3,
-        on_output=on_output,
-        cancel_check=cancel_check,
-    )
-
-
 class XttsVoiceEngine(BaseVoiceEngine):
     """Standard XTTS adapter placeholder."""
 
@@ -280,6 +267,8 @@ class XttsVoiceEngine(BaseVoiceEngine):
             raise EngineExecutionError("XTTS synthesis did not produce an audio file.")
 
         if output_format == "mp3":
+            from app.engines.audio_ops import wav_to_mp3
+
             conversion_rc = wav_to_mp3(
                 render_wav_path,
                 output_path,
