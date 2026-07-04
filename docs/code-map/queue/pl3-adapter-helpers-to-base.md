@@ -47,15 +47,23 @@ to `BaseVoiceEngine`, matching where their respective callers actually live.
     `"settings" in inspect.signature(check_env).parameters` check, which a new test caught as
     wrong (see "Bug caught by tests" below).
 - `app/studio_plugin_sdk/plugin_utils.py` — added `load_settings_schema(schema_path, *,
-  engine_name)`, extracted from the identical `_load_settings_schema()` duplicated in both
-  `studio/app_adapter.py` files. Cached per `schema_path` (dict keyed by path, so xtts and voxtral
-  never share a cache entry) and always logs a warning on failure (voxtral already did; xtts
-  previously failed silently — this is a strict improvement, not a behavior loss, since neither
-  plugin's success path changed). One intentional divergence from the two originals: this cache
-  only caches *successful* parses, not failures — xtts's old `@lru_cache(maxsize=1)` cached `{}`
-  forever on any failure (even a transient one), which was arguably a latent bug; the new version
-  will retry on the next call if the file was temporarily missing/malformed. No test depended on
-  the old cache-the-failure behavior.
+  engine_name, cache: bool = True)`, extracted from the identical-looking `_load_settings_schema()`
+  duplicated in both `studio/app_adapter.py` files. Cached per `schema_path` (dict keyed by path,
+  so xtts and voxtral never share a cache entry) and always logs a warning on failure (voxtral
+  already did; xtts previously failed silently — this is a strict improvement, not a behavior
+  loss, since neither plugin's success path changed). One intentional divergence from the two
+  originals: this cache only caches *successful* parses, not failures — xtts's old
+  `@lru_cache(maxsize=1)` cached `{}` forever on any failure (even a transient one), which was
+  arguably a latent bug; the new version will retry on the next call if the file was temporarily
+  missing/malformed. No test depended on the old cache-the-failure behavior.
+  **Correction (2026-07-04, review-ratchet fix `bc59f759`):** the paragraph above's "cached per
+  `schema_path`" claim understated a real divergence a Fable adversarial review caught — xtts's
+  original was `@lru_cache(maxsize=1)` (cache forever) but **voxtral's had no cache at all**
+  (always re-read, so schema edits took effect live without a restart). The initial merge
+  unconditionally cached both, silently taking voxtral's live-reload away. Added the `cache: bool
+  = True` parameter (shown in the signature above) so xtts's call site is unchanged (default) and
+  voxtral's call site explicitly passes `cache=False` to preserve its original behavior. See
+  `tests/engines/test_studio_plugin_sdk.py::TestLoadSettingsSchemaCaching` for the pinning tests.
 - `app/studio_plugin_sdk/__init__.py` — exports `load_settings_schema` alongside `get_plugin_ctx`.
 - `plugins/tts_xtts/plugin/studio/app_adapter.py` / `plugins/tts_voxtral/plugin/studio/app_adapter.py`
   — removed the four private helpers and `_load_settings_schema`; call sites now call

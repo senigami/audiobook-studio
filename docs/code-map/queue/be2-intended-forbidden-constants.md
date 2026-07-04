@@ -18,14 +18,18 @@ stated forbidden-import intent is actually true of the code today:
 - `app/engines/bridge_utils.py` — must not import `app.api.routers` / `app.db` / `app.jobs`.
 
 Both modules' real imports were verified clean against their forbidden lists before enforcing.
-The test parses `from`/`import` lines (ignoring comments) and asserts none match a forbidden
-prefix; a `test_guarded_modules_exist` sanity test fails loudly if a guarded path is renamed
-instead of silently no-op-ing. Detection logic was verified against a synthetic snippet
-containing `app.jobs.core`, `app.db.queue`, `app.jobs` imports (all three flagged) before wiring
-it to the real files — R1-equivalent revert-check without needing to break a real, imported
-module (a real forbidden import in `orchestrator.py` fails at collection with `ModuleNotFoundError`
-before the assertion even runs, so the synthetic-snippet check is the correct-shaped test of the
-regex logic itself).
+A `test_guarded_modules_exist` sanity test fails loudly if a guarded path is renamed instead of
+silently no-op-ing.
+
+**Correction (2026-07-04, review-ratchet fix `d7aa7ed7`):** the detection logic originally described
+here was a per-line regex (`^\s*(?:from|import)\s+([\w.]+)`) that only captured the `from`-clause's
+module token. A Fable adversarial review found this let the most idiomatic form of the forbidden
+imports through undetected: `from app.jobs import worker` resolved only to `app.jobs` (not itself
+forbidden), silently missing `app.jobs.worker` — one of orchestrator.py's actual forbidden
+prefixes. Replaced with `ast.parse`/`ast.walk`, which also resolves `from pkg import name` onto
+`pkg.name` so submodule-style forbidden imports are caught. Added
+`test_imported_modules_catches_submodule_import_form` as a direct regression test, revert-checked
+red against the old regex logic before landing.
 
 **`app/orchestration/progress/service.py` was deliberately excluded from (b)**: its former
 `FORBIDDEN_DIRECT_IMPORTS` claimed no `app.api.routers`/`app.engines` imports, but the module
