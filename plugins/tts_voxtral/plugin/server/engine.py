@@ -48,51 +48,11 @@ class VoxtralPlugin(StudioTTSEngine):
 
     def run_test(self, settings: dict[str, Any] | None = None) -> VerificationResult:
         """Run a self-contained synthesis test."""
-        settings = settings or {}
-        ok, msg = self.check_env(settings=settings)
-        if not ok:
-            return VerificationResult(ok=False, message=msg)
-
-        plugin_dir = Path(__file__).parents[2]
-        assets_dir = plugin_dir / "assets"
-        assets_dir.mkdir(exist_ok=True)
-
-        # 1. Resolve input asset
-        voice_ref = None
-        for name in ["voice.wav", "voice.mp3", "sample.wav", "sample.mp3"]:
-            cand = assets_dir / name
-            if cand.is_file():
-                voice_ref = str(cand)
-                break
-
-        if not voice_ref:
-            return VerificationResult(ok=False, message="No test assets found in assets/ folder.")
-
-        # 2. Setup output path inside plugin folder
-        output_path = assets_dir / "test_output.wav"
-
-        # 3. Create request
-        manifest_path = plugin_dir / "manifest.json"
-        test_text = "This is an internal Voxtral verification test."
-        try:
-            if manifest_path.exists():
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-                test_text = manifest.get("test_text") or test_text
-        except Exception:
-            pass
-
-        req = TTSRequest(
-            text=test_text,
-            output_path=str(output_path),
-            voice_ref=voice_ref,
-            settings=settings,
+        return super().run_test(
+            asset_search_order=["voice.wav", "voice.mp3", "sample.wav", "sample.mp3"],
+            default_text="This is an internal Voxtral verification test.",
+            settings=settings or {},
         )
-
-        # 4. Run synthesis
-        result = self.synthesize(req)
-        if result.ok:
-            return VerificationResult(ok=True, message=f"Test passed. Output: {output_path.name}")
-        return VerificationResult(ok=False, message=f"Test failed: {result.error}")
 
     def info(self) -> dict[str, Any]:
         """Return runtime metadata including detected model and available models."""

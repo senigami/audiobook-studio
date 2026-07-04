@@ -10,8 +10,6 @@ import json
 import os
 import tempfile
 import time
-from collections.abc import Callable
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +19,7 @@ from app.engines.voice.base import BaseVoiceEngine
 from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
 from app.infra.subprocess import run_managed_subprocess_async
 from app.engines.voice_engines import resolve_voice_preview_inputs
+from app.studio_plugin_sdk.plugin_utils import load_settings_schema
 
 # Local defaults for XTTS environment
 XTTS_ENV_DIR_DEFAULT = Path.home() / "xtts-env"
@@ -100,15 +99,6 @@ def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -
     )
 
 
-@lru_cache(maxsize=1)
-def _load_settings_schema() -> dict[str, object]:
-    schema_path = Path(__file__).parents[2] / "settings_schema.json"
-    try:
-        return json.loads(schema_path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
 class XttsVoiceEngine(BaseVoiceEngine):
     """Standard XTTS adapter placeholder."""
 
@@ -171,7 +161,8 @@ class XttsVoiceEngine(BaseVoiceEngine):
 
     def settings_schema(self) -> dict[str, object]:
         """Return the XTTS settings schema used by the Settings UI."""
-        schema = _load_settings_schema()
+        schema_path = Path(__file__).parents[2] / "settings_schema.json"
+        schema = load_settings_schema(schema_path, engine_name="XTTS")
         return dict(schema) if isinstance(schema, dict) else {}
 
     def validate_request(self, request: dict[str, object]) -> None:
@@ -186,7 +177,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
         if not str(request.get("script_text") or "").strip() and not request.get("script"):
             raise EngineRequestError("XTTS requests must include script_text.")
         is_synthesis_request = bool(str(request.get("output_path") or "").strip())
-        output_format = self._normalize_output_format(request, allow_mp3=is_synthesis_request)
+        output_format = self.normalize_output_format(request, engine_name="XTTS", allow_mp3=is_synthesis_request)
         reference_audio_path = str(request.get("reference_audio_path") or "").strip()
         if reference_audio_path:
             reference_path = Path(reference_audio_path)
@@ -208,14 +199,14 @@ class XttsVoiceEngine(BaseVoiceEngine):
 
         script_text = str(request["script_text"]).strip()
         voice_profile_id = str(request["voice_profile_id"]).strip()
-        output_format = self._normalize_output_format(request, allow_mp3=True)
-        output_path = self._resolve_output_path(request)
+        output_format = self.normalize_output_format(request, engine_name="XTTS", allow_mp3=True)
+        output_path = self.resolve_output_path(request, engine_name="XTTS")
         safe_mode = bool(request.get("safe_mode", True))
         speed = float(request.get("speed", 1.0) or 1.0)
         reference_audio_path = str(request.get("reference_audio_path") or "").strip() or None
         voice_asset_id = str(request.get("voice_asset_id") or "").strip() or None
-        on_output = self._resolve_on_output(request)
-        cancel_check = self._resolve_cancel_check(request)
+        on_output = self.resolve_on_output(request, engine_name="XTTS")
+        cancel_check = self.resolve_cancel_check(request, engine_name="XTTS")
 
         speaker_wav: str | None = None
         voice_profile_dir: Path | None = None
@@ -331,7 +322,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
 
         script_text = str(request["script_text"]).strip()
         voice_profile_id = str(request["voice_profile_id"]).strip()
-        output_format = self._normalize_output_format(request)
+        output_format = self.normalize_output_format(request, engine_name="XTTS")
         safe_mode = bool(request.get("safe_mode", True))
         speed = float(request.get("speed", 1.0) or 1.0)
         reference_audio_path = str(request.get("reference_audio_path") or "").strip() or None
@@ -397,46 +388,6 @@ class XttsVoiceEngine(BaseVoiceEngine):
                 "output_format": output_format,
             },
         }
-
-    def _normalize_output_format(
-        self,
-        request: dict[str, object],
-        *,
-        allow_mp3: bool = False,
-    ) -> str:
-        output_format = str(request.get("output_format") or "wav").strip().lower() or "wav"
-        allowed_formats = {"wav", "mp3"} if allow_mp3 else {"wav"}
-        if output_format not in allowed_formats:
-            if allow_mp3:
-                raise EngineRequestError(
-                    "XTTS bridge synthesis currently supports output_format='wav' or 'mp3' only."
-                )
-            raise EngineRequestError("XTTS bridge preview currently supports output_format='wav' only.")
-        return output_format
-
-    def _resolve_output_path(self, request: dict[str, object]) -> Path:
-        output_path = str(request.get("output_path") or "").strip()
-        if not output_path:
-            raise EngineRequestError("XTTS synthesis requests must include output_path.")
-        resolved = Path(output_path)
-        resolved.parent.mkdir(parents=True, exist_ok=True)
-        return resolved
-
-    def _resolve_on_output(self, request: dict[str, object]) -> Callable[[str], None]:
-        on_output = request.get("on_output")
-        if on_output is None:
-            return lambda _line: None
-        if not callable(on_output):
-            raise EngineRequestError("XTTS on_output callback must be callable.")
-        return on_output
-
-    def _resolve_cancel_check(self, request: dict[str, object]) -> Callable[[], bool]:
-        cancel_check = request.get("cancel_check")
-        if cancel_check is None:
-            return lambda: False
-        if not callable(cancel_check):
-            raise EngineRequestError("XTTS cancel_check callback must be callable.")
-        return cancel_check
 
 class XttsProcessingHooks(VoiceProcessingHooks):
     """XTTS-specific processing hooks for Studio 2.0."""

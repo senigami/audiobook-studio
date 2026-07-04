@@ -22,9 +22,16 @@ empty and instances are constructed only on first ``get_plugin_ctx`` call.
 
 from __future__ import annotations
 
+import json
+import logging
+from pathlib import Path
+
 from app.studio_plugin_sdk.context import StudioPluginContext
 
+logger = logging.getLogger(__name__)
+
 _ctx_cache: dict[str, StudioPluginContext] = {}
+_settings_schema_cache: dict[Path, dict[str, object]] = {}
 
 
 def get_plugin_ctx(engine_id: str) -> StudioPluginContext:
@@ -40,3 +47,24 @@ def get_plugin_ctx(engine_id: str) -> StudioPluginContext:
         ctx = StudioPluginContext(engine_id)
         _ctx_cache[engine_id] = ctx
     return ctx
+
+
+def load_settings_schema(schema_path: Path, *, engine_name: str) -> dict[str, object]:
+    """Load and cache an engine's ``settings_schema.json``.
+
+    Extracted from an identical ``_load_settings_schema()`` duplicated in
+    every plugin's ``studio/app_adapter.py`` (see PL-3). Cached per
+    ``schema_path`` so distinct engines never share a cache entry. Returns
+    an empty dict (rather than raising) when the file is missing or
+    malformed, logging a warning with ``engine_name`` for diagnostics.
+    """
+    cached = _settings_schema_cache.get(schema_path)
+    if cached is not None:
+        return cached
+    try:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logger.warning("Failed to load %s settings schema from %s: %s", engine_name, schema_path, exc)
+        return {}
+    _settings_schema_cache[schema_path] = schema
+    return schema

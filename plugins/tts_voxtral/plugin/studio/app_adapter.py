@@ -6,12 +6,10 @@ contract without leaking engine-specific request handling into orchestration.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import shutil
 import tempfile
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +18,7 @@ from app.engines.errors import EngineExecutionError, EngineRequestError
 from app.engines.voice.base import BaseVoiceEngine
 from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
 from app.engines.models import EngineHealthModel, EngineManifestModel
+from app.studio_plugin_sdk.plugin_utils import load_settings_schema
 
 logger = logging.getLogger(__name__)
 
@@ -54,15 +53,6 @@ def resolve_voxtral_model() -> str:
     from ..core.implementation import resolve_voxtral_model as resolver
 
     return resolver(settings=get_settings())
-
-
-def _load_settings_schema() -> dict[str, object]:
-    schema_path = Path(__file__).parents[2] / "settings_schema.json"
-    try:
-        return json.loads(schema_path.read_text(encoding="utf-8"))
-    except Exception as e:
-        logger.warning(f"Failed to load Voxtral settings schema from {schema_path}: {e}")
-        return {}
 
 
 def voxtral_generate(
@@ -129,7 +119,8 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
 
     def settings_schema(self) -> dict[str, object]:
         """Return the Voxtral settings schema used by the Settings UI."""
-        schema = _load_settings_schema()
+        schema_path = Path(__file__).parents[2] / "settings_schema.json"
+        schema = load_settings_schema(schema_path, engine_name="Voxtral")
         return dict(schema) if isinstance(schema, dict) else {}
 
     def current_settings(self) -> dict[str, object]:
@@ -155,7 +146,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
         if not str(request.get("script_text") or "").strip():
             raise EngineRequestError("Voxtral requests must include script_text.")
         is_synthesis_request = bool(str(request.get("output_path") or "").strip())
-        output_format = self._normalize_output_format(request, allow_mp3=is_synthesis_request)
+        output_format = self.normalize_output_format(request, engine_name="Voxtral", allow_mp3=is_synthesis_request)
         reference_audio_path = str(request.get("reference_audio_path") or "").strip()
         _ = str(request.get("reference_sample") or "").strip()
         if reference_audio_path:
@@ -185,13 +176,13 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
 
         script_text = str(request["script_text"]).strip()
         voice_profile_id = str(request["voice_profile_id"]).strip()
-        output_format = self._normalize_output_format(request, allow_mp3=True)
-        output_path = self._resolve_output_path(request)
+        output_format = self.normalize_output_format(request, engine_name="Voxtral", allow_mp3=True)
+        output_path = self.resolve_output_path(request, engine_name="Voxtral")
         voice_asset_id = str(request.get("voice_asset_id") or "").strip() or None
         reference_audio_path = str(request.get("reference_audio_path") or "").strip() or None
         reference_sample = str(request.get("reference_sample") or "").strip() or None
-        on_output = self._resolve_on_output(request)
-        cancel_check = self._resolve_cancel_check(request)
+        on_output = self.resolve_on_output(request, engine_name="Voxtral")
+        cancel_check = self.resolve_cancel_check(request, engine_name="Voxtral")
 
         cleanup_root: Path | None = None
         temp_wav: Path | None = None
@@ -291,7 +282,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
 
         script_text = str(request["script_text"]).strip()
         voice_profile_id = str(request["voice_profile_id"]).strip()
-        output_format = self._normalize_output_format(request)
+        output_format = self.normalize_output_format(request, engine_name="Voxtral")
         voice_asset_id = str(request.get("voice_asset_id") or "").strip() or None
         reference_audio_path = str(request.get("reference_audio_path") or "").strip() or None
 
@@ -374,48 +365,6 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
         staged_name = reference_audio_path.name
         shutil.copy2(reference_audio_path, cleanup_root / staged_name)
         return cleanup_root, profile_name, staged_name
-
-    def _normalize_output_format(
-        self,
-        request: dict[str, object],
-        *,
-        allow_mp3: bool = False,
-    ) -> str:
-        output_format = str(request.get("output_format") or "wav").strip().lower() or "wav"
-        allowed_formats = {"wav", "mp3"} if allow_mp3 else {"wav"}
-        if output_format not in allowed_formats:
-            if allow_mp3:
-                raise EngineRequestError(
-                    "Voxtral bridge synthesis currently supports output_format='wav' or 'mp3' only."
-                )
-            raise EngineRequestError(
-                "Voxtral bridge preview currently supports output_format='wav' only."
-            )
-        return output_format
-
-    def _resolve_output_path(self, request: dict[str, object]) -> Path:
-        output_path = str(request.get("output_path") or "").strip()
-        if not output_path:
-            raise EngineRequestError("Voxtral synthesis requests must include output_path.")
-        resolved = Path(output_path)
-        resolved.parent.mkdir(parents=True, exist_ok=True)
-        return resolved
-
-    def _resolve_on_output(self, request: dict[str, object]) -> Callable[[str], None]:
-        on_output = request.get("on_output")
-        if on_output is None:
-            return lambda _line: None
-        if not callable(on_output):
-            raise EngineRequestError("Voxtral on_output callback must be callable.")
-        return on_output
-
-    def _resolve_cancel_check(self, request: dict[str, object]) -> Callable[[], bool]:
-        cancel_check = request.get("cancel_check")
-        if cancel_check is None:
-            return lambda: False
-        if not callable(cancel_check):
-            raise EngineRequestError("Voxtral cancel_check callback must be callable.")
-        return cancel_check
 
 class VoxtralProcessingHooks(VoiceProcessingHooks):
     """Voxtral-specific processing hooks for Studio 2.0."""

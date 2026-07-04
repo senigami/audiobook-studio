@@ -35,7 +35,7 @@ from app.studio_plugin_sdk.context import (
     JobSpec,
     JobResult,
 )
-from app.studio_plugin_sdk.plugin_utils import get_plugin_ctx
+from app.studio_plugin_sdk.plugin_utils import get_plugin_ctx, load_settings_schema
 
 __all__ = [
     "__version__",
@@ -52,4 +52,5 @@ __all__ = [
     "JobSpec",
     "JobResult",
     "get_plugin_ctx",
+    "load_settings_schema",
 ]
