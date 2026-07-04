@@ -143,10 +143,6 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
             "voxtral_model": str(settings.get("voxtral_model") or ""),
         }
 
-    def validate_environment(self) -> None:
-        """Describe Voxtral environment validation."""
-        raise NotImplementedError
-
     def validate_request(self, request: dict[str, object]) -> None:
         """Describe Voxtral request validation."""
         if not isinstance(request, dict):
@@ -363,10 +359,6 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
                 "output_format": output_format,
             },
         }
-
-    def build_voice_asset(self, request: dict[str, object]) -> dict[str, object]:
-        """Describe Voxtral voice-asset build flow through the standard contract."""
-        raise NotImplementedError
 
     def _stage_reference_audio(
         self, *, voice_profile_id: str, reference_audio_path: Path

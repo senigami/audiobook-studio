@@ -174,10 +174,6 @@ class XttsVoiceEngine(BaseVoiceEngine):
         schema = _load_settings_schema()
         return dict(schema) if isinstance(schema, dict) else {}
 
-    def validate_environment(self) -> None:
-        """Describe XTTS environment validation."""
-        raise NotImplementedError
-
     def validate_request(self, request: dict[str, object]) -> None:
         """Describe XTTS request validation."""
         if not isinstance(request, dict):
@@ -401,11 +397,6 @@ class XttsVoiceEngine(BaseVoiceEngine):
                 "output_format": output_format,
             },
         }
-
-    def build_voice_asset(self, request: dict[str, object]) -> dict[str, object]:
-        """Describe XTTS voice-asset build flow through the standard contract."""
-        _ = run_managed_subprocess_async
-        raise NotImplementedError
 
     def _normalize_output_format(
         self,
