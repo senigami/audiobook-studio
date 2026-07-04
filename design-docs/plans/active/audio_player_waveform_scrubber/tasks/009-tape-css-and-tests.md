@@ -160,40 +160,24 @@ Append after the `.waveform-strip` rules under a new comment block. All new clas
   z-index: 3;
 }
 
-/* Zoom preset control — cover-slider style, reuses ns-size-* classes from Library.
-   Additional tape-specific overrides below. */
+/* Zoom preset control — cover-slider style.
+   CORRECTION (2026-07-04, review-ratchet): this block was drafted before task 007 shipped and is
+   STALE against the real interface — flagging per the "draft plan docs speculating about an
+   unbuilt dependency's interface" pattern (docs/checklists/code-review.md). Two things are wrong
+   below: (1) `ns-size-*` are NOT reused from a live "Library" — that component/stylesheet doesn't
+   exist outside the demo mock (`frontend/src/demo/stages/siteMockup/mockup.css`); those base rules
+   must be PORTED into the live stylesheet here, not assumed already present. (2) the shipped
+   `WaveformTapeZoom.tsx` does not render a `.tape-zoom-btn` class at all — its buttons are
+   `ns-size-glyph tape-zoom-glyph-hit`. Re-derive this block from the real component before
+   executing this task: style `.ns-size-control/.ns-size-slider-wrap/.ns-size-track/.ns-size-tick/
+   .ns-size-slider` (ported from mockup.css) plus the `.tape-zoom-glyph-hit`/`.tape-zoom-slider-hit`
+   hook classes for the 44×44 touch-target padding (the component deliberately left touch-target
+   sizing unstyled pending this task — see WaveformTapeZoom.tsx's inline comment). */
 .tape-zoom-control {
   display: flex;
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
-}
-
-/* Zoom ± buttons — minimum 44pt touch target (HIG). */
-.tape-zoom-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 1rem;
-}
-
-.tape-zoom-btn:hover:not(:disabled) {
-  background: var(--surface-alt);
-  color: var(--text-primary);
-}
-
-.tape-zoom-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
 }
 
 /* Active zoom tick dot — solid accent, not glass tint. */
