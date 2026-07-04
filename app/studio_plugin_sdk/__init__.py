@@ -35,6 +35,7 @@ from app.studio_plugin_sdk.context import (
     JobSpec,
     JobResult,
 )
+from app.studio_plugin_sdk.plugin_utils import get_plugin_ctx
 
 __all__ = [
     "__version__",
@@ -50,4 +51,5 @@ __all__ = [
     "StudioPluginContext",
     "JobSpec",
     "JobResult",
+    "get_plugin_ctx",
 ]

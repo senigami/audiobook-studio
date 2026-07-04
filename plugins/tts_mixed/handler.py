@@ -58,14 +58,20 @@ _ctx_instance = None
 
 
 def _get_ctx():
-    """Return a StudioPluginContext singleton (mirrors S4/S5 ctx factory pattern)."""
+    """Return a StudioPluginContext singleton.
+
+    Delegates to the shared PL-1 factory (app.studio_plugin_sdk.get_plugin_ctx)
+    for the default (un-injected) case, and caches the result on the module
+    global so ``_ctx_instance`` stays observable for tests and ``set_ctx``
+    can still override it with a dispatcher-owned instance before dispatch.
+    """
     global _ctx_instance  # noqa: PLW0603
     if _ctx_instance is None:
         import app.studio_plugin_sdk as _sdk  # noqa: PLC0415
         import sys  # noqa: PLC0415
         sys.modules.setdefault("studio_plugin_sdk", _sdk)
-        from app.studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
-        _ctx_instance = StudioPluginContext(engine_id="mixed")
+        from app.studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+        _ctx_instance = get_plugin_ctx("mixed")
     return _ctx_instance
 
 

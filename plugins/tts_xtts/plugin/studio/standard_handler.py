@@ -13,22 +13,19 @@ from .helpers import _segment_group_weight
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Module-level SDK context factory (lazy singleton)
+# Module-level SDK context accessor — delegates to the shared PL-1 factory
+# (app.studio_plugin_sdk.get_plugin_ctx), which owns the per-engine-id
+# lazy singleton cache. Kept as a local, patchable name because existing
+# tests patch ``<this module>._get_ctx`` directly.
 # ---------------------------------------------------------------------------
-
-_ctx_instance = None
-
 
 def _get_ctx():
     """Return the shared StudioPluginContext for the xtts engine."""
-    global _ctx_instance  # noqa: PLW0603
-    if _ctx_instance is None:
-        try:
-            from studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
-        except ImportError:
-            from app.studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
-        _ctx_instance = StudioPluginContext("xtts")
-    return _ctx_instance
+    try:
+        from studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    except ImportError:
+        from app.studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    return get_plugin_ctx("xtts")
 
 
 # ---------------------------------------------------------------------------

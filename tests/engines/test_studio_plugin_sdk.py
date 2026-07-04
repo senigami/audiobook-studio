@@ -93,6 +93,60 @@ class TestJobDataclasses:
 
 
 # ---------------------------------------------------------------------------
+# §2b — get_plugin_ctx shared factory (PL-1: kills 9 copies of _get_ctx())
+# ---------------------------------------------------------------------------
+
+class TestGetPluginCtxFactory:
+    """PL-1: one SDK context factory, keyed per engine_id.
+
+    Each of the 9 formerly-duplicated ``_get_ctx()`` blocks hardcoded a
+    single engine_id and expected a shared, lazily-built singleton for that
+    engine. ``get_plugin_ctx`` must preserve that exact semantic: same
+    engine_id -> same cached instance; different engine_id -> independent
+    instances (never collide).
+    """
+
+    def setup_method(self):
+        # The cache is process-lifetime module state; reset it around each
+        # test so tests don't leak instances into each other.
+        from app.studio_plugin_sdk import plugin_utils
+        plugin_utils._ctx_cache.clear()
+
+    def test_returns_studio_plugin_context(self):
+        from app.studio_plugin_sdk import get_plugin_ctx, StudioPluginContext
+        ctx = get_plugin_ctx("xtts")
+        assert isinstance(ctx, StudioPluginContext)
+
+    def test_same_engine_id_returns_same_cached_instance(self):
+        from app.studio_plugin_sdk import get_plugin_ctx
+        first = get_plugin_ctx("xtts")
+        second = get_plugin_ctx("xtts")
+        assert first is second
+
+    def test_different_engine_ids_do_not_collide(self):
+        from app.studio_plugin_sdk import get_plugin_ctx
+        xtts_ctx = get_plugin_ctx("xtts")
+        voxtral_ctx = get_plugin_ctx("voxtral")
+        mixed_ctx = get_plugin_ctx("mixed")
+        assert xtts_ctx is not voxtral_ctx
+        assert xtts_ctx is not mixed_ctx
+        assert voxtral_ctx is not mixed_ctx
+        # Re-fetching each still returns its own cached instance.
+        assert get_plugin_ctx("xtts") is xtts_ctx
+        assert get_plugin_ctx("voxtral") is voxtral_ctx
+        assert get_plugin_ctx("mixed") is mixed_ctx
+
+    def test_engine_id_recorded_on_context(self):
+        # StudioPluginContext stores engine_id privately (_engine_id) and
+        # uses it downstream (e.g. as the logger name / plugin dir lookup
+        # key) — verify the factory threads the exact engine_id through
+        # rather than a hardcoded default.
+        from app.studio_plugin_sdk import get_plugin_ctx
+        ctx = get_plugin_ctx("voxtral")
+        assert ctx._engine_id == "voxtral"
+
+
+# ---------------------------------------------------------------------------
 # §3 — StudioPluginContext service-group smoke tests (boundary mocks only)
 # ---------------------------------------------------------------------------
 
