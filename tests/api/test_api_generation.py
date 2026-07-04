@@ -1185,3 +1185,118 @@ def test_queue_chapter_xtts_engine_builds_nonempty_script_with_worker_aligned_id
 
         # Weight must be positive for the orchestrator's total_weight > 0 gate
         assert entry.get("weight", 0) >= 1, f"script entry weight must be >= 1: {entry}"
+
+
+# ---------------------------------------------------------------------------
+# BE-5: _resolved_segment_profiles must be resolved once per request, not
+# re-queried for every downstream consumer within the same endpoint call.
+# ---------------------------------------------------------------------------
+
+def test_add_to_queue_resolves_segment_profiles_once_per_request(clean_db, client):
+    """api_add_to_queue must call the underlying DB-backed segment loader
+    (app.domain.chunk_groups.load_chunk_segments) exactly once per request,
+    not once per downstream consumer (unassigned-check, engine validation,
+    engine resolution, engine-enablement check all reuse the same resolved
+    list)."""
+    import app.domain.chunk_groups as chunk_groups
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+
+    real_load = chunk_groups.load_chunk_segments
+    calls = []
+
+    def spy(chapter_id):
+        calls.append(chapter_id)
+        return real_load(chapter_id)
+
+    with timeout_after(5, "queue route should not hang"), \
+         patch.object(chunk_groups, "load_chunk_segments", side_effect=spy), \
+         patch("app.api.routers.generation.put_job"), \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid})
+
+    assert response.status_code == 200, response.json()
+    assert calls.count(cid) == 1, (
+        f"expected exactly 1 whole-chapter segment-profile resolution for {cid}, "
+        f"got {len(calls)} calls: {calls}"
+    )
+
+
+def test_generate_segments_resolves_segment_profiles_once_per_request(clean_db, client):
+    """api_generate_segments resolves profiles for a segment subset
+    (only_segment_ids=set(sids)) via ``_resolved_segment_profiles``; that
+    resolution must happen once per request, not once per downstream
+    consumer (unassigned-check, engine validation, engine resolution,
+    engine-enablement check all reuse the same resolved list).
+
+    Note: ``build_segment_job_title`` independently calls
+    ``get_chunk_group_indexes_for_segment_ids`` -> ``load_chunk_segments``
+    for chunk-group label indexing — a genuinely different consumer with a
+    different need (full segment rows, not just profile names) that is out
+    of scope for BE-5. So we spy one level up, directly on
+    ``_resolved_segment_profiles`` (the function BE-5 targets), which is
+    safe here because this test is asserting on the *caller's* call count
+    into it, not re-implementing its internals."""
+    import app.api.routers.generation as generation
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+    sync_chapter_segments(cid, "Hello world.")
+    segs = get_chapter_segments(cid)
+    sid = segs[0]["id"]
+
+    real_resolve = generation._resolved_segment_profiles
+    calls = []
+
+    def spy(chapter_id, only_segment_ids=None):
+        calls.append((chapter_id, frozenset(only_segment_ids) if only_segment_ids else None))
+        return real_resolve(chapter_id, only_segment_ids)
+
+    with timeout_after(5, "segment route should not hang"), \
+         patch.object(generation, "_resolved_segment_profiles", side_effect=spy), \
+         patch("app.api.routers.generation.put_job"), \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        response = client.post("/api/segments/generate", data={"segment_ids": sid})
+
+    assert response.status_code == 200, response.json()
+    expected_key = (cid, frozenset({sid}))
+    assert calls.count(expected_key) == 1, (
+        f"expected exactly 1 segment-subset profile resolution for {expected_key}, "
+        f"got {len(calls)} calls: {calls}"
+    )
+
+
+def test_bake_chapter_resolves_segment_profiles_once_per_request(clean_db, client):
+    """api_bake_chapter must call the underlying DB-backed segment loader
+    exactly once per request for the whole-chapter profile resolution."""
+    import app.domain.chunk_groups as chunk_groups
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+
+    real_load = chunk_groups.load_chunk_segments
+    calls = []
+
+    def spy(chapter_id):
+        calls.append(chapter_id)
+        return real_load(chapter_id)
+
+    with timeout_after(5, "bake route should not hang"), \
+         patch.object(chunk_groups, "load_chunk_segments", side_effect=spy), \
+         patch("app.api.routers.generation.put_job"), \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        response = client.post(f"/api/generation/bake/{cid}")
+
+    assert response.status_code == 200, response.json()
+    assert calls.count(cid) == 1, (
+        f"expected exactly 1 whole-chapter segment-profile resolution for {cid}, "
+        f"got {len(calls)} calls: {calls}"
+    )

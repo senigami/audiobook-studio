@@ -100,7 +100,15 @@ def _ensure_engines_enabled(engine_ids: list[str]) -> Optional[JSONResponse]:
     return None
 
 
-def _validate_generation_engines(chapter_id: str, active_profile: Optional[str], only_segment_ids: Optional[set[str]] = None) -> Optional[JSONResponse]:
+def _validate_generation_engines(
+    chapter_id: str,
+    active_profile: Optional[str],
+    seg_profiles: list[Optional[str]],
+) -> Optional[JSONResponse]:
+    """Validate that every engine implied by ``seg_profiles`` (plus
+    ``active_profile``) is usable. ``seg_profiles`` must be the caller's
+    already-resolved ``_resolved_segment_profiles(chapter_id, ...)`` result —
+    this function does not re-query it (BE-5: dedupe repeated resolution)."""
     from app.engines.voice_engines import resolve_profile_engine
     from app.engines.bridge import create_voice_bridge
 
@@ -108,7 +116,7 @@ def _validate_generation_engines(chapter_id: str, active_profile: Optional[str],
     profiles = set()
     if active_profile:
         profiles.add(active_profile)
-    for p in _resolved_segment_profiles(chapter_id, only_segment_ids):
+    for p in seg_profiles:
         if p:
             profiles.add(p)
 
@@ -384,7 +392,7 @@ def api_add_to_queue(
             return JSONResponse({"status": "error", "message": "No voice available — assign a speaker to this chapter's text or set a default voice in Settings."}, status_code=400)
         active_profile = effective_default or next((p for p in seg_profiles if p), None)
 
-        validation_error = _validate_generation_engines(chapter_id, active_profile)
+        validation_error = _validate_generation_engines(chapter_id, active_profile, seg_profiles)
         if validation_error:
             return validation_error
 
@@ -440,12 +448,12 @@ def api_add_to_queue(
             )
 
             resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
-                _resolved_segment_profiles(chapter_id),
+                seg_profiles,
                 default_profile=active_profile,
                 fallback_engine=settings.get("default_engine"),
             )
             engines_to_check = _engines_for_profiles(
-                _resolved_segment_profiles(chapter_id),
+                seg_profiles,
                 settings.get("default_engine"),
             ) or [resolved_engine]
             engine_error = _ensure_engines_enabled(engines_to_check)
@@ -572,16 +580,16 @@ def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
 
     segs = get_chapter_segments(chapter_id)
     resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
-        _resolved_segment_profiles(chapter_id),
+        seg_profiles,
         default_profile=active_profile,
         fallback_engine=settings.get("default_engine"),
     )
-    validation_error = _validate_generation_engines(chapter_id, active_profile)
+    validation_error = _validate_generation_engines(chapter_id, active_profile, seg_profiles)
     if validation_error:
         return validation_error
 
     engines_to_check = _engines_for_profiles(
-        _resolved_segment_profiles(chapter_id),
+        seg_profiles,
         settings.get("default_engine"),
     ) or [resolved_engine]
     engine_error = _ensure_engines_enabled(engines_to_check)
@@ -759,11 +767,11 @@ def api_generate_segments(
         return JSONResponse({"status": "error", "message": "No voice available — assign a speaker to this chapter's text or set a default voice in Settings."}, status_code=400)
     active_profile = effective_default or next((p for p in seg_profiles if p), None)
 
-    validation_error = _validate_generation_engines(chapter_id, active_profile, set(sids))
+    validation_error = _validate_generation_engines(chapter_id, active_profile, seg_profiles)
     if validation_error:
         return validation_error
 
-    segment_profiles = _resolved_segment_profiles(chapter_id, set(sids))
+    segment_profiles = seg_profiles
     resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
         segment_profiles,
         default_profile=active_profile,

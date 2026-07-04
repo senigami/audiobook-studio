@@ -1,0 +1,23 @@
+# BE-5 — Dedupe _resolved_segment_profiles calls (code-map queue entry)
+
+Task: `design-docs/plans/active/simplification/05_backend_cleanup.md` BE-5.
+
+Pure refactor, zero behavior change. `_validate_generation_engines`'s signature changed (third positional parameter is now the caller's already-resolved profile list instead of an `only_segment_ids` set) — it is a private, underscore-prefixed helper local to `app/api/routers/generation.py` with no external callers, so this is not a public-contract break. `_resolved_segment_profiles` itself, `resolve_tts_engine_for_profiles`, and `_engines_for_profiles` are unchanged.
+
+## Files changed
+- `app/api/routers/generation.py`:
+  - `_validate_generation_engines(chapter_id, active_profile, only_segment_ids=None)` → `_validate_generation_engines(chapter_id, active_profile, seg_profiles)`. It no longer calls `_resolved_segment_profiles` internally; it consumes the caller's already-resolved list directly.
+  - `api_add_to_queue`: computed `seg_profiles = _resolved_segment_profiles(chapter_id)` once (the pre-existing first call). The three later re-resolutions — the `_validate_generation_engines(...)` call, the `resolve_tts_engine_for_profiles(...)` call, and the `_engines_for_profiles(...)` call — now all reuse that same `seg_profiles` list instead of each calling `_resolved_segment_profiles(chapter_id)` again. Net: 4 resolutions → 1 per request.
+  - `api_bake_chapter`: same pattern — the pre-existing `seg_profiles = _resolved_segment_profiles(chapter_id)` is now reused by `resolve_tts_engine_for_profiles`, `_validate_generation_engines`, and `_engines_for_profiles`. Net: 4 resolutions → 1 per request.
+  - `api_generate_segments`: the pre-existing `seg_profiles = _resolved_segment_profiles(chapter_id, set(sids))` (segment-subset shape) is now reused by `_validate_generation_engines` and `resolve_tts_engine_for_profiles`/`_engines_for_profiles` (via a `segment_profiles = seg_profiles` alias, kept for local-name clarity at the downstream call sites). Net: 3 resolutions of the *same* subset → 1 per request. Note: this endpoint separately calls `build_segment_job_title` → `get_chunk_group_indexes_for_segment_ids`, which independently calls `load_chunk_segments` for full segment-row chunk-group indexing (a different consumer with a different data need — full rows, not just profile names). That call is untouched and out of scope for BE-5, which targets only `_validate_generation_engines`/`resolve_tts_engine_for_profiles`/`_engines_for_profiles`.
+  - No change to the whole-chapter vs segment-subset distinction: `only_segment_ids=None` and `only_segment_ids=set(sids)` call shapes are never conflated: each endpoint still calls `_resolved_segment_profiles` with exactly the shape it always used, just once instead of repeatedly.
+- `tests/api/test_api_generation.py` — added three regression tests that spy on the actual resolution call (not on internals of the function under test): `test_add_to_queue_resolves_segment_profiles_once_per_request`, `test_bake_chapter_resolves_segment_profiles_once_per_request` (spy on `app.domain.chunk_groups.load_chunk_segments`, the DB-backed access point `_resolved_segment_profiles` wraps), and `test_generate_segments_resolves_segment_profiles_once_per_request` (spies one level up, on `_resolved_segment_profiles` itself via `side_effect` that still executes the real function, since `load_chunk_segments` is also called by the unrelated `build_segment_job_title` path in the same request and a lower-level spy can't distinguish the two call sites).
+
+## Verification
+- New tests confirmed red pre-fix: `test_add_to_queue_...` and `test_bake_chapter_...` both showed 4 calls (expected 1) against the pre-fix code; `test_generate_segments_...` showed 3 calls (expected 1). All three confirmed green post-fix.
+- `./venv/bin/python -m pytest -q --no-cov`: 2180 passed, 3 skipped (full suite, zero regressions).
+- `./venv/bin/python -m ruff check app/api/routers/generation.py`: clean.
+- Revert-check (R1): temporarily restored the pre-fix `generation.py` (via a saved copy, since a concurrent lane held the repo-wide pytest session lock) and re-ran the standalone repro — confirmed the call-count assertions fail for the right reason (3-4 duplicate calls) before re-applying the fix and confirming green.
+
+## Flow impact
+None. Same request/response shapes on `/api/processing_queue`, `/api/generation/bake/{chapter_id}`, and `/api/segments/generate`; same DB rows read (`chapter_segments` join `characters`); same downstream engine-resolution/validation outcomes. The only observable change is fewer duplicate `load_chunk_segments` DB queries per request (4→1 for the two whole-chapter endpoints, 3→1 for the segment-subset endpoint).
