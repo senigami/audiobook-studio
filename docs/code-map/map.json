@@ -1,6 +1,6 @@
 {
   "meta": {
-    "synced_commit": "048e255b3da51275464d6c3630875cf9e6a0e6de",
+    "synced_commit": "65b8e66412a21c2aa2c60e41ffbcead37ec4c0da",
     "file_hashes": {
       "app/studio_plugin_sdk/__init__.py": "5da2a06a96e7600c",
       "app/studio_plugin_sdk/_import_utils.py": "e242aac00e0fd063",
