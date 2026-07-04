@@ -254,3 +254,62 @@ def test_concurrent_put_job_update_job_broadcast_consistency():
         f"Found {len(violations)} broadcast(s) where status_changed=True "
         f"but previous_status == new status: {violations[:3]}"
     )
+
+
+# ---------------------------------------------------------------------------
+# B15 — ETA_PROJECTION_SKIP_REASONS actually gates the observed-progress
+# projection inside update_job (not just a set-membership check).
+# ---------------------------------------------------------------------------
+
+def test_update_job_skip_reason_does_not_compute_eta_projection():
+    """A reason_code in ETA_PROJECTION_SKIP_REASONS must suppress the observed
+    progress projection: eta_seconds stays at its pre-call value (None here),
+    even though status/started_at/progress otherwise satisfy the projection
+    gate.
+    """
+    started_at = time.time() - 30.0
+    job = _make_job("job-b15-skip", status="running", started_at=started_at)
+    job.progress = 0.5
+    put_job(job)
+
+    update_job(
+        "job-b15-skip",
+        status="running",
+        progress=0.5,
+        reason_code="segment_start",
+        updated_at=time.time(),
+    )
+
+    stored = get_jobs().get("job-b15-skip")
+    assert stored is not None
+    assert stored.eta_seconds is None, (
+        f"skip reason_code must not trigger ETA projection, got eta_seconds={stored.eta_seconds!r}"
+    )
+
+
+def test_update_job_non_skip_reason_computes_eta_projection():
+    """The control case: same progress/started_at setup but a reason_code NOT
+    in ETA_PROJECTION_SKIP_REASONS must let the observed progress projection
+    run and set a non-None numeric eta_seconds.
+    """
+    started_at = time.time() - 30.0
+    job = _make_job("job-b15-control", status="running", started_at=started_at)
+    job.progress = 0.5
+    put_job(job)
+
+    update_job(
+        "job-b15-control",
+        status="running",
+        progress=0.5,
+        reason_code="SEGMENT_PROGRESS_OBSERVED",
+        updated_at=time.time(),
+    )
+
+    stored = get_jobs().get("job-b15-control")
+    assert stored is not None
+    assert stored.eta_seconds is not None, (
+        "non-skip reason_code should allow the observed progress projection to "
+        "compute eta_seconds"
+    )
+    assert isinstance(stored.eta_seconds, int)
+    assert stored.eta_seconds > 0
