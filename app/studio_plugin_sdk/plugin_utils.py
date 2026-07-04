@@ -49,22 +49,28 @@ def get_plugin_ctx(engine_id: str) -> StudioPluginContext:
     return ctx
 
 
-def load_settings_schema(schema_path: Path, *, engine_name: str) -> dict[str, object]:
-    """Load and cache an engine's ``settings_schema.json``.
+def load_settings_schema(schema_path: Path, *, engine_name: str, cache: bool = True) -> dict[str, object]:
+    """Load an engine's ``settings_schema.json``, optionally cached per ``schema_path``.
 
-    Extracted from an identical ``_load_settings_schema()`` duplicated in
-    every plugin's ``studio/app_adapter.py`` (see PL-3). Cached per
-    ``schema_path`` so distinct engines never share a cache entry. Returns
-    an empty dict (rather than raising) when the file is missing or
-    malformed, logging a warning with ``engine_name`` for diagnostics.
+    Extracted from an identical-looking ``_load_settings_schema()`` duplicated in every plugin's
+    ``studio/app_adapter.py`` (see PL-3) — but the two originals were NOT behaviorally identical:
+    xtts's was ``@lru_cache(maxsize=1)`` (loaded once, cached forever), voxtral's had no cache at
+    all (re-read on every call, so schema edits took effect live without a restart). ``cache``
+    defaults to ``True`` to preserve xtts's original behavior at its call site; voxtral's call site
+    passes ``cache=False`` to preserve its original live-reload behavior. Returns an empty dict
+    (rather than raising) when the file is missing or malformed, logging a warning with
+    ``engine_name`` for diagnostics — malformed reads are never cached, so a fixed file is picked
+    up on the next call either way.
     """
-    cached = _settings_schema_cache.get(schema_path)
-    if cached is not None:
-        return cached
+    if cache:
+        cached = _settings_schema_cache.get(schema_path)
+        if cached is not None:
+            return cached
     try:
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
     except Exception as exc:
         logger.warning("Failed to load %s settings schema from %s: %s", engine_name, schema_path, exc)
         return {}
-    _settings_schema_cache[schema_path] = schema
+    if cache:
+        _settings_schema_cache[schema_path] = schema
     return schema

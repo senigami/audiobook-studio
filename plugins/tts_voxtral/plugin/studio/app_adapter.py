@@ -120,7 +120,10 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
     def settings_schema(self) -> dict[str, object]:
         """Return the Voxtral settings schema used by the Settings UI."""
         schema_path = Path(__file__).parents[2] / "settings_schema.json"
-        schema = load_settings_schema(schema_path, engine_name="Voxtral")
+        # cache=False preserves this engine's pre-PL-3 behavior: voxtral's original
+        # _load_settings_schema() had no @lru_cache (unlike xtts's), so schema edits
+        # took effect live without a restart. See plugin_utils.load_settings_schema.
+        schema = load_settings_schema(schema_path, engine_name="Voxtral", cache=False)
         return dict(schema) if isinstance(schema, dict) else {}
 
     def current_settings(self) -> dict[str, object]:

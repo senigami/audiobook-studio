@@ -146,6 +146,47 @@ class TestGetPluginCtxFactory:
         assert ctx._engine_id == "voxtral"
 
 
+class TestLoadSettingsSchemaCaching:
+    """PL-3 merged xtts's ``@lru_cache(maxsize=1)`` and voxtral's uncached ``_load_settings_schema``.
+
+    The two originals were NOT behaviorally identical: xtts cached forever, voxtral re-read the
+    file on every call (schema edits took effect live, no restart needed). ``cache`` defaults to
+    True (xtts's call site, unchanged) but must be overridable to False (voxtral's call site) so
+    voxtral keeps its live-reload behavior instead of silently inheriting xtts's permanent cache.
+    """
+
+    def setup_method(self):
+        from app.studio_plugin_sdk import plugin_utils
+        plugin_utils._settings_schema_cache.clear()
+
+    def test_cache_true_returns_stale_content_after_file_changes(self, tmp_path):
+        from app.studio_plugin_sdk.plugin_utils import load_settings_schema
+        schema_path = tmp_path / "settings_schema.json"
+        schema_path.write_text(json.dumps({"version": 1}))
+        first = load_settings_schema(schema_path, engine_name="XTTS", cache=True)
+        schema_path.write_text(json.dumps({"version": 2}))
+        second = load_settings_schema(schema_path, engine_name="XTTS", cache=True)
+        assert first == {"version": 1}
+        assert second == {"version": 1}  # stale — cached, matching xtts's original lru_cache
+
+    def test_cache_false_reflects_file_changes_live(self, tmp_path):
+        from app.studio_plugin_sdk.plugin_utils import load_settings_schema
+        schema_path = tmp_path / "settings_schema.json"
+        schema_path.write_text(json.dumps({"version": 1}))
+        first = load_settings_schema(schema_path, engine_name="Voxtral", cache=False)
+        schema_path.write_text(json.dumps({"version": 2}))
+        second = load_settings_schema(schema_path, engine_name="Voxtral", cache=False)
+        assert first == {"version": 1}
+        assert second == {"version": 2}  # live — matching voxtral's original uncached behavior
+
+    def test_voxtral_call_site_passes_cache_false(self):
+        # Pins the actual call site, not just the helper's capability — a future edit that drops
+        # the cache=False kwarg would silently regress voxtral back to permanent caching.
+        repo_root = Path(__file__).parents[2]
+        source = (repo_root / "plugins/tts_voxtral/plugin/studio/app_adapter.py").read_text(encoding="utf-8")
+        assert 'load_settings_schema(schema_path, engine_name="Voxtral", cache=False)' in source
+
+
 # ---------------------------------------------------------------------------
 # §3 — StudioPluginContext service-group smoke tests (boundary mocks only)
 # ---------------------------------------------------------------------------
