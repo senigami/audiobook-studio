@@ -95,7 +95,7 @@ export const WaveformTapeZoom: React.FC<WaveformTapeZoomProps> = ({
         className="ns-size-glyph tape-zoom-glyph-hit"
         aria-label="Zoom out"
         title="Zoom out"
-        onClick={() => handleChange(LAST_IDX)}
+        onClick={() => handleChange(Math.min(idx + 1, LAST_IDX))}
       />
       <div className="ns-size-slider-wrap">
         <div className="ns-size-track" aria-hidden="true" />
@@ -143,7 +143,7 @@ export const WaveformTapeZoom: React.FC<WaveformTapeZoomProps> = ({
         className="ns-size-glyph tape-zoom-glyph-hit"
         aria-label="Zoom in"
         title="Zoom in"
-        onClick={() => handleChange(zoomInCapIdx)}
+        onClick={() => handleChange(Math.max(idx - 1, zoomInCapIdx))}
       />
     </div>
   );

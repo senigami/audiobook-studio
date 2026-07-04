@@ -124,6 +124,70 @@ describe('WaveformTapeZoom', () => {
     expect(onZoomChange).not.toHaveBeenCalledWith(8);
   });
 
+  it('the "Zoom out" button steps one preset toward more seconds, not jump-to-extreme', () => {
+    const onZoomChange = vi.fn();
+    render(
+      <WaveformTapeZoom
+        windowSec={30}
+        onZoomChange={onZoomChange}
+        duration={120}
+        availablePeaks={4000}
+        containerWidthPx={800}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Zoom out'));
+    expect(onZoomChange).toHaveBeenCalledWith(60); // one step from 30, not a jump to 120
+  });
+
+  it('the "Zoom in" button steps one preset toward fewer seconds, not jump-to-extreme', () => {
+    const onZoomChange = vi.fn();
+    render(
+      <WaveformTapeZoom
+        windowSec={30}
+        onZoomChange={onZoomChange}
+        duration={120}
+        // Deliberately uncapped (zoomInCapIdx=0): 100000 peaks / 120s far exceeds
+        // what an 8s-wide, 800px window needs, so this test isolates the
+        // step-by-one behavior from the separate zoom-in-cap clamp below.
+        availablePeaks={100000}
+        containerWidthPx={800}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Zoom in'));
+    expect(onZoomChange).toHaveBeenCalledWith(15); // one step from 30, not a jump to 8
+  });
+
+  it('the "Zoom out" button clamps at the widest preset (120s), it never overshoots', () => {
+    const onZoomChange = vi.fn();
+    render(
+      <WaveformTapeZoom
+        windowSec={120}
+        onZoomChange={onZoomChange}
+        duration={120}
+        availablePeaks={4000}
+        containerWidthPx={800}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Zoom out'));
+    expect(onZoomChange).toHaveBeenCalledWith(120);
+  });
+
+  it('the "Zoom in" button clamps at the zoom-in cap, not the raw index-0 floor', () => {
+    // Same fixture as the zoom-in-cap test above: the cap lands on index 2 (30s).
+    const onZoomChange = vi.fn();
+    render(
+      <WaveformTapeZoom
+        windowSec={30}
+        onZoomChange={onZoomChange}
+        duration={120}
+        availablePeaks={3600}
+        containerWidthPx={800}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Zoom in'));
+    expect(onZoomChange).toHaveBeenCalledWith(30); // already at the cap; must not select a disabled preset
+  });
+
   it('while peaks are still decoding (availablePeaks null) all presets are enabled', () => {
     render(
       <WaveformTapeZoom

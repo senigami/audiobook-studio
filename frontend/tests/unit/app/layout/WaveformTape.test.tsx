@@ -618,6 +618,35 @@ describe('WaveformTape — zoom + minimap wiring (task 007)', () => {
     expect(onZoomChange).toHaveBeenCalledWith(15);
   });
 
+  it('registers the wheel-zoom listener as native and non-passive, so preventDefault actually suppresses page scroll', async () => {
+    // React registers `wheel` at the document root as PASSIVE (React 17+), so
+    // e.preventDefault() inside a React onWheel prop is a silent no-op in a
+    // real browser — jsdom's fireEvent.wheel can't reproduce that restriction
+    // (see the two zoom tests above), so this structural check is what
+    // actually pins the fix: the listener must be attached via a real
+    // addEventListener('wheel', ..., { passive: false }) call, not the React
+    // onWheel prop.
+    const addEventListenerSpy = vi.spyOn(SVGElement.prototype, 'addEventListener');
+    const audioEl = makeAudioEl();
+    const { container } = render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        peaks={null}
+        onZoomChange={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(container.querySelector('svg.tape-canvas')).toBeInTheDocument());
+
+    const wheelRegistration = addEventListenerSpy.mock.calls.find(([type]) => type === 'wheel');
+    expect(wheelRegistration).toBeDefined();
+    expect(wheelRegistration?.[2]).toMatchObject({ passive: false });
+
+    addEventListenerSpy.mockRestore();
+  });
+
   it('keyboard "-" on the focused tape zooms out; "+" zooms in', async () => {
     // windowSec is controlled by the parent (PlayerBar, task 008); this test
     // double keeps the prop fixed at 30, so each keypress independently

@@ -383,11 +383,23 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
 
   // --- Pinch/wheel zoom snap (spec §5.2): one detent = one preset step.
   // Wheel-down (deltaY > 0) = zoom out (more seconds visible).
-  const handleWheel = (e: React.WheelEvent<SVGSVGElement>) => {
-    if (!onZoomChange || e.deltaY === 0) return;
-    e.preventDefault();
-    stepZoom(e.deltaY > 0 ? 'out' : 'in');
-  };
+  //
+  // React registers `wheel` at the document root as a PASSIVE listener
+  // (React 17+), so `e.preventDefault()` inside a React onWheel handler is a
+  // silent no-op in real browsers — the zoom would snap AND the page would
+  // scroll. A native, non-passive listener attached directly to the SVG node
+  // is required to actually suppress page scroll while zooming.
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el || !onZoomChange) return;
+    const onNativeWheel = (e: WheelEvent) => {
+      if (e.deltaY === 0) return;
+      e.preventDefault();
+      stepZoom(e.deltaY > 0 ? 'out' : 'in');
+    };
+    el.addEventListener('wheel', onNativeWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onNativeWheel);
+  }, [onZoomChange, stepZoom]);
 
   // --- Keyboard scrub (±5s) + zoom step (+/-) -------------------------------
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -432,7 +444,6 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
         viewBox={`0 0 ${SVG_W} ${svgH}`}
         preserveAspectRatio="none"
         onMouseDown={handleMouseDown}
-        onWheel={handleWheel}
         role="slider"
         aria-valuemin={0}
         aria-valuemax={duration}
