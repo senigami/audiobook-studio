@@ -121,7 +121,7 @@ def generate_readme_md(voice_manifest: Dict[str, Any]) -> str:
 
     # as-* namespaced attribute tags
     scalar_fields = ("class", "gender", "age", "accent", "pace")
-    array_fields = ("tone", "timbre", "use_case", "quality")
+    array_fields = ("language", "style", "tone", "timbre", "use_case", "quality")
 
     for field in scalar_fields:
         val = attributes.get(field)
@@ -187,6 +187,12 @@ def generate_readme_md(voice_manifest: Dict[str, Any]) -> str:
             attr_rows.append(("Age", attributes["age"].replace("-", " ").title()))
         if attributes.get("accent"):
             attr_rows.append(("Accent", attributes["accent"]))
+        if attributes.get("language"):
+            attr_rows.append(("Language", ", ".join(attributes["language"])))
+        if attributes.get("style"):
+            attr_rows.append(("Style", ", ".join(
+                s.replace("-", " ") for s in attributes["style"]
+            )))
         if attributes.get("tone"):
             attr_rows.append(("Tone", ", ".join(attributes["tone"])))
         if attributes.get("timbre"):

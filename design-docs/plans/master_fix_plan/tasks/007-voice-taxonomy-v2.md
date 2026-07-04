@@ -1,6 +1,6 @@
 # 007 — Voice taxonomy v2 (Phase G) (W6)
 
-**Status: NOT STARTED**
+**Status: G1-G6 DONE (2026-07-04); C6 (copyable icon prompt) tracked separately, not part of this pass.**
 
 *(SCOPE NARROWED 2026-07-01: `accent` (single, one-optional, 20 values incl. "none") already exists
 in voice-taxonomy.json/voice.schema.json at version 1.0. Remaining: `language` (controlled

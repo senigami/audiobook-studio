@@ -47,6 +47,19 @@
             "australian", "new-zealand", "canadian", "south-african", "indian", "caribbean",
             "european", "other"]
         },
+        "language": {
+          "type": "array",
+          "description": "Spoken-language attribute (taxonomy §language, v2.0). Distinct from the top-level BCP-47 `languages[]`, which drives casting hard-filters.",
+          "items": { "enum": ["english", "spanish", "french", "german", "italian", "portuguese",
+            "polish", "turkish", "russian", "dutch", "czech", "arabic", "chinese", "japanese",
+            "korean", "hindi", "hungarian", "other"] }
+        },
+        "style": {
+          "type": "array",
+          "description": "Delivery style attribute (taxonomy §style, v2.0).",
+          "items": { "enum": ["conversational", "narration", "characters", "social-media",
+            "educational", "advertisement", "entertainment"] }
+        },
         "tone": {
           "type": "array",
           "items": { "enum": ["warm", "friendly", "calm", "soothing", "cheerful", "upbeat", "energetic",

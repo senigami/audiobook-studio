@@ -193,6 +193,8 @@ def search_voices(
     gender: str | None = None,
     age: str | None = None,
     accent: str | None = None,
+    language: list[str] | None = None,
+    style: list[str] | None = None,
     tone: list[str] | None = None,
     timbre: list[str] | None = None,
     use_case: list[str] | None = None,
@@ -200,7 +202,7 @@ def search_voices(
 ) -> list[dict[str, Any]]:
     """Filter voices by free-text query and/or attribute facets.
 
-    OR-within multi-value params (tone, timbre, use_case, tag),
+    OR-within multi-value params (language, style, tone, timbre, use_case, tag),
     AND-across params.
     """
     voices = list_voices_with_metadata(voices_dir)
@@ -231,6 +233,8 @@ def search_voices(
 
         # Array attribute filters (OR-within, AND-across)
         for param_list, field in [
+            (language, "language"),
+            (style, "style"),
             (tone, "tone"),
             (timbre, "timbre"),
             (use_case, "use_case"),

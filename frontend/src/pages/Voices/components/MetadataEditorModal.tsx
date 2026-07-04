@@ -1,7 +1,7 @@
 /**
  * MetadataEditorModal — edit voice attributes, description, tags, languages, and icon.
  *
- * Attribute vocabulary sourced from design-docs/specs/voice-taxonomy.json (taxonomy_version 1.0).
+ * Attribute vocabulary sourced from design-docs/specs/voice-taxonomy.json (taxonomy_version 2.0).
  * Fetched at build time via a static import so the UI works offline; the import comment
  * ties the bundled data to the taxonomy_version for auditors.
  */
@@ -66,6 +66,29 @@ const taxonomy: { sections: TaxonomySection[] } = {
                 { id: 'canadian', label: 'Canadian' }, { id: 'south-african', label: 'South African' },
                 { id: 'indian', label: 'Indian' }, { id: 'caribbean', label: 'Caribbean' },
                 { id: 'european', label: 'Continental European' }, { id: 'other', label: 'Other' },
+            ],
+        },
+        {
+            key: 'language', label: 'Language', rule: 'many-optional',
+            values: [
+                { id: 'english', label: 'English' }, { id: 'spanish', label: 'Spanish' },
+                { id: 'french', label: 'French' }, { id: 'german', label: 'German' },
+                { id: 'italian', label: 'Italian' }, { id: 'portuguese', label: 'Portuguese' },
+                { id: 'polish', label: 'Polish' }, { id: 'turkish', label: 'Turkish' },
+                { id: 'russian', label: 'Russian' }, { id: 'dutch', label: 'Dutch' },
+                { id: 'czech', label: 'Czech' }, { id: 'arabic', label: 'Arabic' },
+                { id: 'chinese', label: 'Chinese' }, { id: 'japanese', label: 'Japanese' },
+                { id: 'korean', label: 'Korean' }, { id: 'hindi', label: 'Hindi' },
+                { id: 'hungarian', label: 'Hungarian' }, { id: 'other', label: 'Other' },
+            ],
+        },
+        {
+            key: 'style', label: 'Style', rule: 'many-optional',
+            values: [
+                { id: 'conversational', label: 'Conversational' }, { id: 'narration', label: 'Narration' },
+                { id: 'characters', label: 'Characters' }, { id: 'social-media', label: 'Social media' },
+                { id: 'educational', label: 'Educational' }, { id: 'advertisement', label: 'Advertisement' },
+                { id: 'entertainment', label: 'Entertainment' },
             ],
         },
         {
@@ -493,7 +516,7 @@ export const MetadataEditorModal: React.FC<MetadataEditorModalProps> = ({
     if (!voice) return null;
 
     const oneFields: Array<keyof VoiceAttributes> = ['class', 'gender', 'age', 'accent', 'pace'];
-    const manyFields: Array<keyof VoiceAttributes> = ['tone', 'timbre', 'use_case', 'quality'];
+    const manyFields: Array<keyof VoiceAttributes> = ['language', 'style', 'tone', 'timbre', 'use_case', 'quality'];
 
     return (
         <AnimatePresence>

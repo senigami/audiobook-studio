@@ -209,6 +209,51 @@ class TestPatchVoiceMetadata:
         assert resp.status_code == 422
         assert "species" in json.dumps(resp.json())
 
+    def test_valid_language_and_style_persist(self, voices_root, client):
+        """G3: PATCH with valid language/style values persists them."""
+        voices_root.mkdir(exist_ok=True)
+        _make_voice(voices_root, "Gravel Road", _gravel_road_manifest())
+
+        resp = client.patch(
+            "/api/voices/gravel-road/metadata",
+            json={"attributes": {
+                "class": "human", "gender": "masculine", "age": "senior",
+                "language": ["english", "spanish"], "style": ["narration"],
+            }},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["attributes"]["language"] == ["english", "spanish"]
+        assert data["attributes"]["style"] == ["narration"]
+
+    def test_invalid_language_returns_422_with_valid_values(self, voices_root, client):
+        """G3: PATCH with an unknown language value → 422 listing valid values."""
+        voices_root.mkdir(exist_ok=True)
+        _make_voice(voices_root, "Gravel Road", _gravel_road_manifest())
+
+        resp = client.patch(
+            "/api/voices/gravel-road/metadata",
+            json={"attributes": {"language": ["klingon"]}},
+        )
+        assert resp.status_code == 422
+        detail = json.dumps(resp.json())
+        assert "klingon" in detail
+        assert "english" in detail
+
+    def test_invalid_style_returns_422_with_valid_values(self, voices_root, client):
+        """G3: PATCH with an unknown style value → 422 listing valid values."""
+        voices_root.mkdir(exist_ok=True)
+        _make_voice(voices_root, "Gravel Road", _gravel_road_manifest())
+
+        resp = client.patch(
+            "/api/voices/gravel-road/metadata",
+            json={"attributes": {"style": ["underwater-basket-weaving"]}},
+        )
+        assert resp.status_code == 422
+        detail = json.dumps(resp.json())
+        assert "underwater-basket-weaving" in detail
+        assert "narration" in detail
+
 
 # ---------------------------------------------------------------------------
 # C3 — GET /api/voices/search
@@ -295,6 +340,56 @@ class TestSearchVoices:
         resp = client.get("/api/voices/search?class=synthetic")
         assert resp.status_code == 200
         assert resp.json() == []
+
+    def test_language_attribute_filter(self, voices_root, client):
+        """G3: ?language=spanish filters by the language attribute facet."""
+        voices_root.mkdir(exist_ok=True)
+        _make_voice(voices_root, "Gravel Road", {
+            **_gravel_road_manifest(),
+            "attributes": {**_gravel_road_manifest()["attributes"], "language": ["english"]},
+        })
+        _make_voice(voices_root, "Bilingual Voice", {
+            "spec_version": "1.0",
+            "id": "bilingual-voice",
+            "name": "Bilingual Voice",
+            "languages": ["en-US", "es-ES"],
+            "attributes": {
+                "class": "human",
+                "gender": "feminine",
+                "age": "adult",
+                "language": ["english", "spanish"],
+            },
+            "tags": [],
+        })
+
+        resp = client.get("/api/voices/search?language=spanish")
+        assert resp.status_code == 200
+        ids = [v["id"] for v in resp.json()]
+        assert "bilingual-voice" in ids
+        assert "gravel-road" not in ids
+
+    def test_style_attribute_filter(self, voices_root, client):
+        """G3: ?style=educational filters by the style attribute facet."""
+        voices_root.mkdir(exist_ok=True)
+        self._setup(voices_root)
+        _make_voice(voices_root, "Teacher Voice", {
+            "spec_version": "1.0",
+            "id": "teacher-voice",
+            "name": "Teacher Voice",
+            "languages": ["en-US"],
+            "attributes": {
+                "class": "human",
+                "gender": "feminine",
+                "age": "adult",
+                "style": ["educational"],
+            },
+            "tags": [],
+        })
+
+        resp = client.get("/api/voices/search?style=educational")
+        assert resp.status_code == 200
+        ids = [v["id"] for v in resp.json()]
+        assert ids == ["teacher-voice"]
 
 
 # ---------------------------------------------------------------------------

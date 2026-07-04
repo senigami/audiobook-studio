@@ -241,6 +241,29 @@ class TestReadmeGeneration:
         # The template shows a widget block with sample URL
         assert "samples/preview.mp3" in readme
 
+    def test_readme_frontmatter_has_language_and_style_as_tags(self, tmp_path):
+        """G5: README.md frontmatter includes as-language-*/as-style-* tags when present."""
+        voice_data = {
+            **_FULLY_TAGGED_VOICE_JSON,
+            "taxonomy_version": "2.0",
+            "attributes": {
+                **_FULLY_TAGGED_VOICE_JSON["attributes"],
+                "language": ["english", "spanish"],
+                "style": ["narration", "conversational"],
+            },
+        }
+        voices_root = tmp_path / "voices"
+        _write_voice(voices_root, "Gravel Road", voice_data, {
+            "Default": {"variant_name": "Default", "engine": "xtts"},
+        })
+        bundle = _export(voices_root, "Gravel Road")
+        readme = _zip_files(bundle)["README.md"].decode("utf-8")
+
+        assert "as-language-english" in readme
+        assert "as-language-spanish" in readme
+        assert "as-style-narration" in readme
+        assert "as-style-conversational" in readme
+
 
 # ---------------------------------------------------------------------------
 # E3 — Import validation and D8 state split

@@ -27,7 +27,7 @@ _SCHEMA_PATH = _REPO_ROOT / "design-docs" / "specs" / "voice.schema.json"
 REQUIRED_ATTRIBUTES = ("class", "gender", "age")
 
 # Taxonomy version this code was written against
-SUPPORTED_TAXONOMY_VERSION = "1.0"
+SUPPORTED_TAXONOMY_VERSION = "2.0"
 
 
 # ---------------------------------------------------------------------------

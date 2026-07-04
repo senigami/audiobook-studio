@@ -189,6 +189,55 @@ describe('MetadataEditorModal', () => {
         });
     });
 
+    it('includes language and style chips in the PATCH body when selected', async () => {
+        /* Phase G (taxonomy v2.0): language/style are many-optional chip fields, same
+         * pattern as tone/timbre. */
+        const { MetadataEditorModal } = await import('@/pages/Voices/components/MetadataEditorModal');
+
+        const updatedVoice = {
+            ...baseVoice,
+            is_untagged: false,
+            attributes: { class: 'human', gender: 'masculine', age: 'senior', language: ['english'], style: ['conversational'] },
+        };
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve(updatedVoice),
+        }) as any;
+
+        render(
+            <MetadataEditorModal
+                isOpen={true}
+                voice={baseVoice as any}
+                onClose={vi.fn()}
+                onSaved={vi.fn()}
+            />
+        );
+
+        fireEvent.click(screen.getByText('Human'));
+        fireEvent.click(screen.getByText('Masculine'));
+        fireEvent.click(screen.getByText('Senior / Elderly'));
+        fireEvent.click(screen.getByText('English'));
+        // "Conversational" is unique to the style section (unlike "Narration", which
+        // also appears under use_case)
+        fireEvent.click(screen.getByText('Conversational'));
+
+        fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+        await waitFor(() => {
+            expect(global.fetch).toHaveBeenCalledWith(
+                '/api/voices/gravel-road/metadata',
+                expect.objectContaining({
+                    method: 'PATCH',
+                    body: expect.stringContaining('"language":["english"]'),
+                })
+            );
+        });
+        expect(global.fetch).toHaveBeenCalledWith(
+            '/api/voices/gravel-road/metadata',
+            expect.objectContaining({ body: expect.stringContaining('"style":["conversational"]') })
+        );
+    });
+
     it('surfaces 422 error message verbatim when PATCH fails', async () => {
         const { MetadataEditorModal } = await import('@/pages/Voices/components/MetadataEditorModal');
 

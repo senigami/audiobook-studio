@@ -8,7 +8,7 @@ facet filtering, and the AI casting assistant that suggests voices for character
 
 ## Tag taxonomy
 
-Attributes come from a fixed taxonomy (`design-docs/specs/voice-taxonomy.json`, v1.0). The table
+Attributes come from a fixed taxonomy (`design-docs/specs/voice-taxonomy.json`, v2.0). The table
 below lists each field, its cardinality, and the accepted values.
 
 | Field | Cardinality | Accepted values |
@@ -17,11 +17,16 @@ below lists each field, its cardinality, and the accepted values.
 | `gender` | one, **required** | `feminine` `masculine` `neutral` `ambiguous` `not-applicable` |
 | `age` | one, **required** | `child` `teen` `young-adult` `adult` `middle-aged` `senior` `ageless` |
 | `accent` | one, optional | `none` `us-general` `us-southern` `us-nyc` `us-midwest` `us-african-american` `british-rp` `british-cockney` `british-northern` `scottish` `irish` `welsh` `australian` `new-zealand` `canadian` `south-african` `indian` `caribbean` `european` `other` |
+| `language[]` | many, optional | `english` `spanish` `french` `german` `italian` `portuguese` `polish` `turkish` `russian` `dutch` `czech` `arabic` `chinese` `japanese` `korean` `hindi` `hungarian` `other` |
+| `style[]` | many, optional | `conversational` `narration` `characters` `social-media` `educational` `advertisement` `entertainment` |
 | `tone[]` | many, optional | `warm` `friendly` `calm` `soothing` `cheerful` `upbeat` `energetic` `confident` `authoritative` `professional` `serious` `somber` `dramatic` `intense` `epic` `mysterious` `menacing` `sinister` `playful` `quirky` `sarcastic` `deadpan` `gentle` `wise` `sensual` `melancholic` `heroic` `villainous` |
 | `timbre[]` | many, optional | `deep` `low` `high-pitched` `bright` `rich` `resonant` `booming` `smooth` `velvety` `silky` `clear` `crisp` `soft` `breathy` `husky` `raspy` `gravelly` `gritty` `rough` `nasal` `thin` `light` `robotic` `distorted` |
 | `pace` | one, optional | `slow` `measured` `moderate` `brisk` `fast` `variable` |
 | `use_case[]` | many, optional | `audiobook` `narration` `character-dialogue` `storytelling` `documentary` `e-learning` `meditation` `news` `podcast` `advertising` `gaming` `animation` `assistant` `ivr` |
 | `quality[]` | many, optional | `studio-quality` `clean` `denoised` `hi-fi` `phone-quality` `vintage` `multilingual` `expressive` `fast-inference` |
+
+`language[]` is a catalog-search facet (e.g. "voices that can deliver Spanish") and is separate
+from the top-level `languages[]` array on `voice.json`, which drives the AI casting hard-filter.
 
 `class`, `gender`, and `age` are required for a voice to be considered fully tagged and
 to participate in AI casting with full confidence. A voice that is missing any of these

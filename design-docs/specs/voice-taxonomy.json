@@ -1,8 +1,12 @@
 {
-  "taxonomy_version": "1.0",
+  "taxonomy_version": "2.0",
   "description": "Machine-readable form of design-docs/plans/reference/v2_voice_tag_taxonomy.md. Drives the tagging UI and validation. 'rule' is cardinality + requiredness; values carry stable ids and display labels.",
   "hf_tag_prefix": "as-",
   "anchors": ["audiobook-studio-voice", "audiobook-studio-spec-v1"],
+  "changelog": [
+    { "version": "1.0", "date": "2026-06-12", "notes": "Initial taxonomy: class, gender, age, accent, tone, timbre, pace, use_case, quality." },
+    { "version": "2.0", "date": "2026-07-03", "notes": "Phase G: added `language` (many-optional, spoken languages beyond the top-level BCP-47 `languages[]`) and `style` (many-optional, delivery style e.g. conversational/narration)." }
+  ],
   "sections": [
     {
       "key": "class", "label": "Class", "rule": "one-required",
@@ -59,6 +63,41 @@
         { "id": "caribbean", "label": "Caribbean" },
         { "id": "european", "label": "Continental European" },
         { "id": "other", "label": "Other (+ Free tag)" }
+      ]
+    },
+    {
+      "key": "language", "label": "Language", "rule": "many-optional",
+      "values": [
+        { "id": "english", "label": "English" },
+        { "id": "spanish", "label": "Spanish" },
+        { "id": "french", "label": "French" },
+        { "id": "german", "label": "German" },
+        { "id": "italian", "label": "Italian" },
+        { "id": "portuguese", "label": "Portuguese" },
+        { "id": "polish", "label": "Polish" },
+        { "id": "turkish", "label": "Turkish" },
+        { "id": "russian", "label": "Russian" },
+        { "id": "dutch", "label": "Dutch" },
+        { "id": "czech", "label": "Czech" },
+        { "id": "arabic", "label": "Arabic" },
+        { "id": "chinese", "label": "Chinese" },
+        { "id": "japanese", "label": "Japanese" },
+        { "id": "korean", "label": "Korean" },
+        { "id": "hindi", "label": "Hindi" },
+        { "id": "hungarian", "label": "Hungarian" },
+        { "id": "other", "label": "Other (+ Free tag)" }
+      ]
+    },
+    {
+      "key": "style", "label": "Style", "rule": "many-optional",
+      "values": [
+        { "id": "conversational", "label": "Conversational" },
+        { "id": "narration", "label": "Narration" },
+        { "id": "characters", "label": "Characters" },
+        { "id": "social-media", "label": "Social media" },
+        { "id": "educational", "label": "Educational" },
+        { "id": "advertisement", "label": "Advertisement" },
+        { "id": "entertainment", "label": "Entertainment" }
       ]
     },
     {

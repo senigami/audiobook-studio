@@ -107,22 +107,94 @@ class TestValidateAndDegradeAttributes:
         assert tags.count("alien") == 1
 
 
+class TestLanguageAndStyleAttributes:
+    """Phase G (taxonomy v2.0): `language` (many-optional) and `style` (many-optional).
+
+    `accent` already shipped in v1.0; these two are the only new fields in scope here.
+    """
+
+    def test_valid_language_and_style_pass_through(self):
+        from app.domain.voices.taxonomy import validate_and_degrade_attributes
+
+        attrs = {
+            "class": "human",
+            "gender": "feminine",
+            "age": "adult",
+            "language": ["english", "spanish"],
+            "style": ["narration", "conversational"],
+        }
+        cleaned, tags, is_untagged = validate_and_degrade_attributes(attrs, [])
+
+        assert cleaned["language"] == ["english", "spanish"]
+        assert cleaned["style"] == ["narration", "conversational"]
+        assert is_untagged is False
+        assert tags == []
+
+    def test_invalid_language_item_demoted_to_tag(self):
+        from app.domain.voices.taxonomy import validate_and_degrade_attributes
+
+        attrs = {
+            "class": "human",
+            "gender": "masculine",
+            "age": "adult",
+            "language": ["english", "klingon"],
+        }
+        cleaned, tags, is_untagged = validate_and_degrade_attributes(attrs, [])
+
+        assert cleaned["language"] == ["english"]
+        assert "klingon" in tags
+        assert is_untagged is False
+
+    def test_invalid_style_item_demoted_to_tag(self):
+        from app.domain.voices.taxonomy import validate_and_degrade_attributes
+
+        attrs = {
+            "class": "human",
+            "gender": "masculine",
+            "age": "adult",
+            "style": ["narration", "underwater-basket-weaving"],
+        }
+        cleaned, tags, is_untagged = validate_and_degrade_attributes(attrs, [])
+
+        assert cleaned["style"] == ["narration"]
+        assert "underwater-basket-weaving" in tags
+        assert is_untagged is False
+
+    def test_missing_language_and_style_does_not_affect_untagged(self):
+        """Additive-only: a v1.0-shaped voice.json (no language/style) is unaffected."""
+        from app.domain.voices.taxonomy import validate_and_degrade_attributes
+
+        attrs = {"class": "human", "gender": "feminine", "age": "adult"}
+        cleaned, tags, is_untagged = validate_and_degrade_attributes(attrs, [])
+
+        assert "language" not in cleaned
+        assert "style" not in cleaned
+        assert is_untagged is False
+
+
 class TestTaxonomyVersionCheck:
     def test_supported_version_accepted_silently(self):
+        from app.domain.voices.taxonomy import check_taxonomy_version
+
+        result = check_taxonomy_version("2.0")
+        assert result is True
+
+    def test_older_major_version_accepted_silently(self):
+        """Pre-Phase-G voices declaring taxonomy_version 1.0 still load with no warning."""
         from app.domain.voices.taxonomy import check_taxonomy_version
 
         result = check_taxonomy_version("1.0")
         assert result is True
 
     def test_newer_major_version_warns_but_loads(self, caplog):
-        """A3: unknown major version (2.0) logs a warning; still returns True."""
+        """A3: unknown major version (3.0) logs a warning; still returns True."""
         from app.domain.voices.taxonomy import check_taxonomy_version
 
         with caplog.at_level(logging.WARNING, logger="app.domain.voices.taxonomy"):
-            result = check_taxonomy_version("2.0")
+            result = check_taxonomy_version("3.0")
 
         assert result is True
-        assert any("2.0" in r.message for r in caplog.records)
+        assert any("3.0" in r.message for r in caplog.records)
 
     def test_missing_taxonomy_version_accepted(self):
         from app.domain.voices.taxonomy import check_taxonomy_version
@@ -153,6 +225,30 @@ class TestStrictValidation:
 
         errors = validate_attributes_strict({"species": "elf"})
         assert any("species" in e for e in errors)
+
+    def test_valid_language_and_style_no_errors(self):
+        """G3: strict PATCH accepts valid language/style values."""
+        from app.domain.voices.taxonomy import validate_attributes_strict
+
+        errors = validate_attributes_strict({
+            "language": ["english", "french"],
+            "style": ["narration"],
+        })
+        assert errors == []
+
+    def test_invalid_language_value_returns_error_with_valid_values(self):
+        """G3: PATCH with an unknown language value → error listing valid values."""
+        from app.domain.voices.taxonomy import validate_attributes_strict
+
+        errors = validate_attributes_strict({"language": ["klingon"]})
+        assert any("klingon" in e and "english" in e for e in errors)
+
+    def test_invalid_style_value_returns_error_with_valid_values(self):
+        """G3: PATCH with an unknown style value → error listing valid values."""
+        from app.domain.voices.taxonomy import validate_attributes_strict
+
+        errors = validate_attributes_strict({"style": ["underwater-basket-weaving"]})
+        assert any("underwater-basket-weaving" in e and "narration" in e for e in errors)
 
 
 class TestValidateProvenanceStrict:

@@ -74,6 +74,8 @@ def search_voices_endpoint(
     gender: str | None = Query(default=None),
     age: str | None = Query(default=None),
     accent: str | None = Query(default=None),
+    language: list[str] = Query(default=[]),
+    style: list[str] = Query(default=[]),
     tone: list[str] = Query(default=[]),
     timbre: list[str] = Query(default=[]),
     use_case: list[str] = Query(default=[]),
@@ -81,8 +83,8 @@ def search_voices_endpoint(
 ):
     """Filter voices by any combination of attributes and free tags.
 
-    Multi-value params (tone, timbre, use_case, tag) are OR-within-field;
-    distinct params are AND-across-fields.
+    Multi-value params (language, style, tone, timbre, use_case, tag) are
+    OR-within-field; distinct params are AND-across-fields.
     """
     return search_voices(
         _voices_dir(),
@@ -91,6 +93,8 @@ def search_voices_endpoint(
         gender=gender,
         age=age,
         accent=accent,
+        language=language or None,
+        style=style or None,
         tone=tone or None,
         timbre=timbre or None,
         use_case=use_case or None,
