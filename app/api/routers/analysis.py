@@ -20,9 +20,6 @@ from ...utils.pathing import safe_basename, safe_join_flat
 
 logger = logging.getLogger(__name__)
 
-# Compatibility for tests that monkeypatch these
-REPORT_DIR = config.REPORT_DIR
-
 
 class AnalysisError(Exception):
     def __init__(self, message: str, status_code: int = 400):

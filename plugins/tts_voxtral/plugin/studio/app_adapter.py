@@ -190,18 +190,26 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
             temp_wav = Path(temp_wav_path)
             render_wav_path = temp_wav
 
-        rc = self._run_voxtral_generate(
-            script_text=script_text,
-            voice_profile_id=voice_profile_id,
-            voice_asset_id=voice_asset_id,
-            reference_audio_path=reference_audio_path,
-            reference_sample=reference_sample,
-            out_wav=render_wav_path,
-            request=request,
-            on_output=on_output,
-            cancel_check=cancel_check,
-            error_context="synthesis",
-        )
+        try:
+            rc = self._run_voxtral_generate(
+                script_text=script_text,
+                voice_profile_id=voice_profile_id,
+                voice_asset_id=voice_asset_id,
+                reference_audio_path=reference_audio_path,
+                reference_sample=reference_sample,
+                out_wav=render_wav_path,
+                request=request,
+                on_output=on_output,
+                cancel_check=cancel_check,
+                error_context="synthesis",
+            )
+        except Exception:
+            # temp_wav is created before _run_voxtral_generate stages reference audio
+            # (order inverted from pre-extraction code, which staged first) - clean it
+            # up here so a staging failure doesn't leak an empty temp .wav.
+            if temp_wav is not None:
+                temp_wav.unlink(missing_ok=True)
+            raise
 
         if rc != 0 or not render_wav_path.exists():
             raise EngineExecutionError("Voxtral synthesis did not produce an audio file.")
