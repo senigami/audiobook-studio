@@ -303,10 +303,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             if timing_payload is None and hasattr(result, "timing"):
                 timing_payload = getattr(result, "timing")
 
-            def get_val(obj, key):
-                if isinstance(obj, dict):
-                    return obj.get(key)
-                return getattr(obj, key, None)
+            from app.utils.render_timing import get_timing_val as get_val, derive_segment_timing_fields
 
             if timing_payload is not None:
                 engine_act_start = get_val(timing_payload, "engine_activity_started_at")
@@ -327,26 +324,37 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                             })
 
                 if chap_render_start is not None and chap_render_completed is not None:
+                    # model_load_seconds keeps its own 0.0-default derivation — it is
+                    # NOT read from timing_payload's precomputed value below, which
+                    # defaults to None instead (divergence predates this dedup; see
+                    # app/utils/render_timing.py's module docstring).
                     model_load_seconds = 0.0
                     if engine_act_start is not None:
                         model_load_seconds = chap_render_start - engine_act_start
 
-                    synthesis_duration_seconds = chap_render_completed - chap_render_start
-
-                    if segments:
-                        sum_segment_render_seconds = sum(
-                            max(0.0, s["render_completed_at"] - s["render_started_at"])
-                            for s in segments
+                    # Prefer the server's precomputed fields (same formula, computed
+                    # once in app.tts_server.server's /synthesize response) over
+                    # re-deriving; fall back to local derivation only for a payload
+                    # that predates/omits them (e.g. a raw-timestamps-only fixture).
+                    precomputed_synth = get_val(timing_payload, "synthesis_duration_seconds")
+                    precomputed_sum = get_val(timing_payload, "sum_segment_render_seconds")
+                    precomputed_overhead = get_val(timing_payload, "inter_group_overhead_seconds")
+                    if (
+                        precomputed_synth is not None
+                        and precomputed_sum is not None
+                        and precomputed_overhead is not None
+                    ):
+                        synthesis_duration_seconds = precomputed_synth
+                        sum_segment_render_seconds = precomputed_sum
+                        inter_group_overhead_seconds = precomputed_overhead
+                    else:
+                        synthesis_duration_seconds, sum_segment_render_seconds, inter_group_overhead_seconds = (
+                            derive_segment_timing_fields(
+                                chapter_render_started_at=chap_render_start,
+                                chapter_render_completed_at=chap_render_completed,
+                                segments=segments,
+                            )
                         )
-                    else:
-                        sum_segment_render_seconds = synthesis_duration_seconds
-
-                    if segments:
-                        first_segment_start = min(s["render_started_at"] for s in segments)
-                        last_segment_end = max(s["render_completed_at"] for s in segments)
-                        inter_group_overhead_seconds = max(0.0, (last_segment_end - first_segment_start) - sum_segment_render_seconds)
-                    else:
-                        inter_group_overhead_seconds = 0.0
 
                     duration_seconds = chap_render_completed - (engine_act_start or chap_render_start)
 

@@ -644,10 +644,7 @@ async def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
     timing_dict = None
     if getattr(result, "timing", None) is not None:
         t = result.timing
-        def get_val(obj, key):
-            if isinstance(obj, dict):
-                return obj.get(key)
-            return getattr(obj, key, None)
+        from app.utils.render_timing import get_timing_val as get_val, derive_segment_timing_fields
 
         segments_raw = get_val(t, "segments")
         segments_list = None
@@ -670,30 +667,20 @@ async def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
         inter_group_overhead_seconds = None
 
         if chapter_render_started_at is not None and chapter_render_completed_at is not None:
-            synthesis_duration_seconds = chapter_render_completed_at - chapter_render_started_at
             if engine_activity_started_at is not None:
                 model_load_seconds = chapter_render_started_at - engine_activity_started_at
 
-            if segments_list:
-                valid_segments = [
-                    s for s in segments_list
-                    if s.get("render_started_at") is not None and s.get("render_completed_at") is not None
-                ]
-                if valid_segments:
-                    sum_segment_render_seconds = sum(
-                        max(0.0, float(s["render_completed_at"]) - float(s["render_started_at"]))
-                        for s in valid_segments
-                    )
-                    first_segment_start = min(float(s["render_started_at"]) for s in valid_segments)
-                    last_segment_end = max(float(s["render_completed_at"]) for s in valid_segments)
-                    inter_group_overhead_seconds = max(
-                        0.0,
-                        (last_segment_end - first_segment_start) - sum_segment_render_seconds,
-                    )
-            if sum_segment_render_seconds is None:
-                sum_segment_render_seconds = synthesis_duration_seconds
-            if inter_group_overhead_seconds is None:
-                inter_group_overhead_seconds = 0.0
+            valid_segments = [
+                s for s in (segments_list or [])
+                if s.get("render_started_at") is not None and s.get("render_completed_at") is not None
+            ]
+            synthesis_duration_seconds, sum_segment_render_seconds, inter_group_overhead_seconds = (
+                derive_segment_timing_fields(
+                    chapter_render_started_at=chapter_render_started_at,
+                    chapter_render_completed_at=chapter_render_completed_at,
+                    segments=valid_segments,
+                )
+            )
 
         timing_dict = {
             "chapter_render_started_at": chapter_render_started_at,
