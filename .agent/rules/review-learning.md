@@ -8,7 +8,7 @@ Frontier-tier review (Fable) and multi-persona fusion panels catch bugs our own 
 
 ## The procedure (mandatory, every dispatch)
 
-1. **Before dispatching**, load the matching checklist(s) from `docs/checklists/` (see the `review-ratchet` skill) for the domain under review — `code-review.md`, `security-review.md`, `spec-drift-review.md`, or others as they're added — and include them in the reviewer's briefing as mandatory checks it must run, not just background reading.
+1. **Before dispatching**, load the matching checklist(s) from `docs/checklists/` (see the `review-ratchet` skill) for the domain under review — `code-review.md`, `security-review.md`, `spec-drift-review.md`, `verification-standards.md` (verification-METHODOLOGY escapes — declaring something unverifiable, or under-verifying, when a simulated check was achievable — distinct from code-review.md's correctness escapes), or others as they're added — and include them in the reviewer's briefing as mandatory checks it must run, not just background reading.
 2. **After the review returns, for every finding the review CONFIRMS as real** (not every finding raised — only ones verified true, per this repo's own R1-style discipline of not trusting a claim until checked):
    - If the review ran through a model/agent dispatch (fusion panel, Fable, a reviewer subagent), ask a same-turn follow-up to that reviewer, or a fresh same-model follow-up referencing the finding if the dispatch already ended: *"What check, test pattern, or process/rule change would have caught this before it shipped?"*
    - If the review was conducted inline (no separate dispatch — just reading the diff yourself), answer that same question yourself before moving on, with the same rigor as if a reviewer had answered it.
