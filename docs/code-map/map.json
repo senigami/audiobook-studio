@@ -1,6 +1,6 @@
 {
   "meta": {
-    "synced_commit": "9e6509cb5589cb0305e44657bb47be2a486411cb",
+    "synced_commit": "ce55b8173c251ea31ab308a3ebde810f850ca59f",
     "file_hashes": {
       "app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "app/api/__init__.py": "e5c803401ba5b01e486ce9e7a18e7ce433f999b1cd7d933badbcad52236243fb",
@@ -509,7 +509,7 @@
       "frontend/src/demo/stages/siteMockup/bookmarkStore.ts",
       "frontend/src/demo/stages/siteMockup/panes/*.tsx (14 files, condensed in siteMockupStage.tsx notes)"
     ],
-    "repo_checksum": "54a5fbb6ccba4dbff1ef1e5c5722b18d4b6f9b2d947f5c65617ce36c6223a417"
+    "repo_checksum": "f705f51fb732279edf408497adae2b9df20a1d16d18a4c4b36114339e3714908"
   },
   "flows": [
     {
