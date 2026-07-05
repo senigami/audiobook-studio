@@ -11,10 +11,15 @@ official-registry-JSON stack.
 
 ## Why this matters here
 
-Doc 05 already ships the shape of this problem: an owner-controlled registry JSON
+Doc 05 already ships part of this problem: an owner-controlled registry with entries of
 (`id`, `name`, `summary`, `trust_level`, `repo_url`, `homepage`, `docs_url`, `icon`,
-`tags`, `min_studio`, `compatibility`, `requirements`), a `distribution` block appended to
-`manifest.json`, and a working `OfficialRegistryPanel.tsx` + install-from-URL flow. The
+`tags`, `min_studio`, `compatibility`, `requirements`) — currently a hardcoded in-tree
+catalog (`app/engines/official_registry.py`, served by the engines `/registry` route,
+intended to become a remote JSON document later) — and a working
+`OfficialRegistryPanel.tsx` + install-from-URL flow. The `distribution` block for
+`manifest.json` is **specified but not yet built**: doc 05 §1.2 defines it, but no
+in-tree manifest carries it (steps X5/2.5/3.5 are unchecked) and
+`plugin_loader._validate_manifest` ignores it (doc 05 item 1.3). The
 open surface is (a) how much richer the catalog card/detail view should get — README
 rendering, inline audio sample preview, filter/facet browsing — and (b) whether the voice
 bundle side (Hugging-Face-hosted, MP3 samples) should borrow the same card/preview
@@ -101,6 +106,10 @@ HF's widget YAML schema draws a sharp, directly-relevant line for TTS specifical
   `samples/preview.mp3` (per the audio-format convention — voice samples/previews are
   MP3) alongside the manifest; a widget-style YAML/JSON block naming that relative path
   is enough for a catalog UI to know what to play, with zero extra upload/hosting step.
+  Note the **voice side already has exactly this block**: `design-docs/specs/voice.schema.json`
+  makes `samples[]` (array of `{path, text, primary}`) a *required* field of `voice.json`
+  — the gap is only on the engine manifest/registry side, where the closest field is
+  `test_sample` (a verification asset like `latent.pth`, not a preview).
 
 However, the interactive widget itself is **not powered by static files alone** — it's
 gated on Hugging Face's live "Inference Providers" network actually serving that model;
@@ -108,7 +117,10 @@ if no provider is deployed, the widget doesn't render
 (https://huggingface.co/docs/hub/models-widgets). HF's own escape hatch for this case is
 a manually-authored static `output.url` example pointing at a repo-relative audio file,
 explicitly so "the model page can still showcase how the model works" even with no live
-backend. **This is the pattern to copy, not the live-widget mechanism** — a fully local
+backend. **This is the pattern to copy, not the live-widget mechanism** — and the voice
+export path has in fact already copied it: `app/domain/voices/bundles.py`
+`generate_readme_md` emits a `widget: … output.url` front-matter block pointing at the
+bundle's primary sample when `samples[]` is populated. A fully local
 app has no equivalent to Inference Providers, so the engine/voice browser should always
 use the static-sample-file approach (a real MP3 shipped with the bundle, referenced by
 relative path) rather than trying to spin up live inference just to preview a catalog
@@ -255,10 +267,15 @@ it's plausible narrower tools exist that this pass didn't surface.
    `README.md` as the catalog detail-view body, with the manifest supplying only
    structured fields (name, tags, compatibility) — mirrors both HF model cards and VS
    Code Marketplace listings.
-2. **Add a declarative preview-sample block to the manifest/registry schema**, modeled on
-   HF's `widget: - src: <repo-relative-path>` shape, pointing at the existing
-   `samples/preview.mp3` / `sample.mp3` convention. This lets the catalog UI know what to
-   play without a separate lookup or convention-guessing, and keeps the "no live
+2. **Add a declarative preview-sample block to the *engine* manifest/registry schema**,
+   modeled on HF's `widget: - src: <repo-relative-path>` shape, pointing at the existing
+   `samples/preview.mp3` / `sample.mp3` convention. The voice-bundle side already has
+   this built (finding 3): `voice.schema.json` requires `samples[]` of
+   `{path, text, primary}` and `bundles.py` already emits the HF widget fallback — so
+   for voices the work is populating/consuming `samples[]`, not adding a schema field.
+   The engine manifest and registry entries have no equivalent (`test_sample` is a
+   verification asset, `icon` is the only card media). This lets the catalog UI know
+   what to play without a separate lookup or convention-guessing, and keeps the "no live
    inference backend" constraint (finding 3) — always a static shipped file, never a
    generate-on-demand widget, since this is a local-first app.
 3. **Let `capabilities`/`tags` double as both filter facets and preview-widget selection**
@@ -308,10 +325,12 @@ it's plausible narrower tools exist that this pass didn't surface.
 
 ## Open questions
 
-1. Should the voice-bundle manifest (doc 04, `04_voice_metadata_and_tagging.md`) adopt
-   the same `widget`-style declarative preview-sample block proposed here for engines, or
-   does its Hugging-Face-hosted distribution path make more sense to inherit HF's own
-   model-card widget schema directly (since the bundles already live on HF)?
+1. The voice-bundle side already has both halves of the preview mechanism —
+   `voice.schema.json` requires a `samples[]` block, and `bundles.py` emits HF's own
+   `widget: … output.url` front-matter on export. The residual question for doc 04
+   (`04_voice_metadata_and_tagging.md`) is therefore *population and consumption*: should
+   the in-app voice catalog UI render previews from `samples[]` directly, and what
+   backfills `samples[]` for current voices (today only the v1 migration writes it)?
 2. Does the official registry JSON (doc 05 §1.2) need a formal enum vocabulary for `tags`
    now, or is free-text tagging acceptable until the catalog UI actually needs faceted
    filtering (i.e., is finding 1's filter-facet pattern premature for the current
@@ -345,8 +364,9 @@ it's plausible narrower tools exist that this pass didn't surface.
   authoritative, in-progress plan for the official registry + install-from-URL flow this
   research feeds into (§1.2 registry schema, `OfficialRegistryPanel.tsx`).
 - `design-docs/plans/active/final_release/04_voice_metadata_and_tagging.md` — voice
-  bundle metadata/tagging work; candidate consumer of the declarative preview-sample
-  block idea (finding 3, open question 1).
+  bundle metadata/tagging work; already defines the voice-side `samples[]` preview block
+  (via `voice.schema.json`) — open question 1 is about populating and consuming it, not
+  adding it (finding 3).
 - `design-docs/specs/engines-and-plugins.md` — the current manifest/lifecycle spec;
   any manifest schema change from this research (e.g. a preview-sample block) needs a
   `spec_version` bump and changelog row here per CLAUDE.md's binding contract rule.

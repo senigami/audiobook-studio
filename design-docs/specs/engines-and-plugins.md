@@ -1,8 +1,8 @@
 # Engines and Plugin Lifecycle
 
 ```
-spec_version: 1.1.1
-updated: 2026-06-16
+spec_version: 1.1.2
+updated: 2026-07-04
 status: active
 sources:
   - app/tts_server/server.py
@@ -19,6 +19,7 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
+| 1.1.2   | 2026-07-04 | Added note distinguishing the runtime engine registry cache from the marketplace/catalog registry (doc 05 / `official_registry.py`), with a pointer to the marketplace-UI prior-art research doc; corrected the note's initial "in-process registry" wording (it is a Studio-side cache over the TTS Server's `GET /engines`; engine code never runs in Studio's process) |
 | 1.1.1   | 2026-06-16 | Corrected "Engine registry cache" section: `_load_local_registry()` returns `{}` unconditionally (`@lru_cache`); there is no local manifest parsing; the fallback is an empty registry, not a locally parsed manifest list; dropped the MUST-NOT-empty claim |
 | 1.1.0   | 2026-06-15 | Added official plugin registry and GitHub repository preview/staging flow |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
@@ -194,8 +195,10 @@ manage the TTS Server process. All lifecycle control flows through the watchdog.
 
 ## Engine registry cache (Studio side)
 
-> Note: this is the runtime in-process registry of *installed, running* engines, distinct
-> from the owner-controlled marketplace/catalog registry (browse/install of not-yet-installed
+> Note: this is the Studio-side runtime cache of *installed, running* engines (fetched
+> from the TTS Server's `GET /engines` — engine code never runs in Studio's process),
+> distinct from the owner-controlled marketplace/catalog registry
+> (`app/engines/official_registry.py`; browse/install of not-yet-installed
 > engine plugins) specified in
 > `design-docs/plans/active/final_release/05_standalone_plugin_repos.md`. Prior-art research
 > for the marketplace UI is at

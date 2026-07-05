@@ -6,8 +6,10 @@
 > Schema source of truth: `design-docs/specs/voice.schema.json`. HF bundle shape:
 > `design-docs/plans/v2_huggingface_voice_repo_spec.md`.
 > Related research: `design-docs/plans/proposals/research_voice_engine_marketplace_ui_prior_art.md`
-> (open question 1) — whether voice bundles should adopt a Hugging-Face-widget-style
-> declarative preview-sample block for catalog/card rendering.
+> (open question 1) — catalog/card preview patterns. Note the voice-side declarative
+> preview block already exists (§1.1 `samples[]`, required by `voice.schema.json`); the
+> open question is whether the catalog UI should consume it and how `samples[]` gets
+> populated for current voices, not whether to add the block.
 
 Voices in the app today carry only operational fields (`name`, `id`, `engine`, `speaker_id`,
 `speed`, etc.) — no structured attributes, no icon, no description, no tags. This plan adds
