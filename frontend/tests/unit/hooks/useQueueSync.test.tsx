@@ -221,6 +221,57 @@ describe('useQueueSync', () => {
     expect(observed?.subscribers.map(s => s.subscriber)).toContain('main-queue');
   });
 
+  it('T5 coverage gap: does not record a main-queue observation for a skipped overlay-only frame', async () => {
+    // CONTRACT: chapters.progress is overlay-only — dispatchQueueEvent returns
+    // {action: 'skipped'} for a job unknown to both the snapshot and the store
+    // (queue.items is row authority). useQueueSync's applyEvent must NOT record
+    // a main-queue subscriber observation in that case.
+    (api.getProcessingQueue as any).mockResolvedValue([]);
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.5,
+      groupedProgress: null,
+      etaSeconds: 25,
+      message: 'running',
+      reasonCode: null,
+      renderGroupCount: null,
+      completedRenderGroups: null,
+    }, { jobId: 'unknown-job', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    await waitFor(() => {
+      const records = getLiveEventAuditSnapshot();
+      expect(records.find(r => r.event.topic === 'chapters.progress')).toBeTruthy();
+    });
+
+    const records = getLiveEventAuditSnapshot();
+    const observed = records.find(r => r.event.topic === 'chapters.progress');
+    expect(observed?.subscribers.map(s => s.subscriber)).not.toContain('main-queue');
+  });
+
+  it('T5 coverage gap: does not record a main-queue observation for an unhandled frame', async () => {
+    // CONTRACT: a queue.items frame with no jobId and a non-invalidation
+    // eventKind falls through dispatchQueueEvent to {action: 'unhandled'}.
+    // useQueueSync's applyEvent must NOT record a main-queue observation.
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+    }, {});
+
+    await waitFor(() => {
+      const records = getLiveEventAuditSnapshot();
+      expect(records.find(r => r.event.topic === 'queue.items')).toBeTruthy();
+    });
+
+    const records = getLiveEventAuditSnapshot();
+    const observed = records.find(r => r.event.topic === 'queue.items');
+    expect(observed?.subscribers.map(s => s.subscriber)).not.toContain('main-queue');
+  });
+
   it('records queue consumer path for job_updated messages', async () => {
     const { result } = renderHook(() => useQueueSync());
     await waitFor(() => expect(result.current.loading).toBe(false));

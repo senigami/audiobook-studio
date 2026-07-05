@@ -75,6 +75,20 @@ def test_queue_lifecycle(db_conn):
     assert count == 1
     assert len(get_queue()) == 0
 
+def test_update_queue_item_failed_resets_chapter_to_unprocessed(db_conn):
+    """T5 coverage gap (17_test_quality_audit.md): a failed chapter-scoped job
+    must reset the chapter's audio_status back to 'unprocessed' so the UI
+    offers a retry rather than leaving it stuck at 'processing'."""
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1")
+    qid = add_to_queue(pid, cid)
+
+    update_queue_item(qid, "running")
+    assert get_chapter(cid)["audio_status"] == "processing"
+
+    update_queue_item(qid, "failed", error="synth crashed")
+    assert get_chapter(cid)["audio_status"] == "unprocessed"
+
 def test_upsert_queue_row(db_conn):
     upsert_queue_row("manual-job", status="running", custom_title="System Task")
     q = get_queue()
