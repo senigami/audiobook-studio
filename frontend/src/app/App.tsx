@@ -1,6 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation, useParams, useMatch } from 'react-router-dom';
-import { api } from '@/api';
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { AppShell } from '@/app/layout/AppShell';
 import { ProjectLibrary } from '@/pages/ProjectLibrary/ProjectLibraryPage';
 import { WelcomePage } from '@/pages/Welcome/WelcomePage';
@@ -9,6 +8,9 @@ import { useJobs } from '@/hooks/useJobs';
 import { useQueueSync } from '@/hooks/useQueueSync';
 import { useStudioSocketTransport } from '@/hooks/useStudioSocketTransport';
 import { useInitialData } from '@/hooks/useInitialData';
+import { useToast } from '@/hooks/useToast';
+import { useStartupOverlay } from '@/hooks/useStartupOverlay';
+import { useChapterRedirect } from '@/hooks/useChapterRedirect';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { createStudioShellState } from '@/app/layout/StudioShell';
 import { QueueRoute } from '@/pages/Queue/QueueRoute';
@@ -119,8 +121,7 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   useStudioSocketTransport();
-  const chapterMatch = useMatch('/chapter/:chapterId');
-  const chapterIdFromRoute = chapterMatch?.params.chapterId;
+  const { chapterIdFromRoute, chapterRouteData, chapterRouteLoading } = useChapterRedirect();
   const [queueRefreshTrigger, setQueueRefreshTrigger] = useState(0);
   const {
     queue: mergedQueue,
@@ -148,8 +149,6 @@ function App() {
 
   const [segmentUpdate, setSegmentUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
   const { data: initialData, loading: initialLoading, error: initialError, refetch: refetchHome } = useInitialData();
-  const [chapterRouteData, setChapterRouteData] = useState<Chapter | null>(null);
-  const [chapterRouteLoading, setChapterRouteLoading] = useState(false);
   // Topic ownership for queue refresh:
   //   - useQueueSync owns queue-visible live overlays from jobs.lifecycle,
   //     queue.items, chapters.lifecycle, chapters.progress, and voice.test.
@@ -182,40 +181,6 @@ function App() {
     handleSegmentsUpdate,
     handleChapterUpdate
   );
-  useEffect(() => {
-    let cancelled = false;
-    if (!chapterIdFromRoute) {
-      setChapterRouteData(null);
-      setChapterRouteLoading(false);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    setChapterRouteLoading(true);
-    api.fetchChapter(chapterIdFromRoute)
-      .then(chapter => {
-        if (!cancelled) {
-          setChapterRouteData(chapter);
-        }
-      })
-      .catch(err => {
-        if (!cancelled) {
-          console.error('Failed to load chapter route data', err);
-          setChapterRouteData(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setChapterRouteLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [chapterIdFromRoute]);
-
 
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
@@ -225,26 +190,7 @@ function App() {
     confirmText?: string;
   } | null>(null);
 
-  const [toast, setToast] = useState<{ message: string; visible: boolean; action?: { label: string; onClick: () => void } } | null>(null);
-  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const showToast = useCallback((message: string, action?: { label: string; onClick: () => void }) => {
-    // Clear any pending timeout before setting a new one
-    if (toastTimeoutRef.current !== null) {
-      clearTimeout(toastTimeoutRef.current);
-    }
-    setToast({ message, visible: true, action });
-    toastTimeoutRef.current = setTimeout(() => setToast(prev => prev ? { ...prev, visible: false } : null), 4000);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      // Clear any pending toast timeout on unmount
-      if (toastTimeoutRef.current !== null) {
-        clearTimeout(toastTimeoutRef.current);
-      }
-    };
-  }, []);
+  const { toast, showToast, dismissToast } = useToast();
 
   const [isQueueDrawerOpen, setIsQueueDrawerOpen] = useState(false);
   const prevPathRef = useRef(location.pathname);
@@ -279,23 +225,7 @@ function App() {
   }, [location.pathname, initialLoading, queueLoading, connected, isReconnecting, activeSource, refreshingSource]);
   const startupMessage = initialData?.system_info?.startup_message || 'Starting Audiobook Studio Services...';
   const startupDetail = initialData?.system_info?.startup_detail;
-  const [showStartupCopy, setShowStartupCopy] = useState(false);
-
-  useEffect(() => {
-    if (!initialLoading) {
-      setShowStartupCopy(false);
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setShowStartupCopy(true);
-    }, 180);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [initialLoading]);
-
+  const showStartupCopy = useStartupOverlay(initialLoading);
 
   return (
     <div className="app-container">
@@ -605,7 +535,7 @@ function App() {
               <button
                 onClick={() => {
                   toast.action?.onClick();
-                  setToast(null);
+                  dismissToast();
                 }}
                 style={{
                   background: 'var(--accent)',
