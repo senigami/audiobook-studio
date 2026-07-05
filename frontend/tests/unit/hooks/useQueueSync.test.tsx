@@ -255,6 +255,13 @@ describe('useQueueSync', () => {
     // CONTRACT: a queue.items frame with no jobId and a non-invalidation
     // eventKind falls through dispatchQueueEvent to {action: 'unhandled'}.
     // useQueueSync's applyEvent must NOT record a main-queue observation.
+    // NOTE (Fable/fusion review, 2026-07-05): every real backend queue.items
+    // frame carries a jobId (build_queue_item_status_event requires it) — the
+    // only jobId-less queue.items eventKinds are queue_item_invalidated/
+    // queue_paused, which are intercepted earlier by the invalidation branch
+    // and never reach 'unhandled'. This fixture is a defensive/malformed-input
+    // guard for the fallback branch, not a reproduction of an observed
+    // production frame shape.
     const { result } = renderHook(() => useQueueSync());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
