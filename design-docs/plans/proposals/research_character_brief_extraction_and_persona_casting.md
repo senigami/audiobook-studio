@@ -79,10 +79,13 @@ implementation path, since this repo would most naturally call Anthropic's API.
 
 ### 2. The proposal's rolling-registry chunking strategy is unvalidated either way; real systems use human-in-the-loop merging or hierarchical multi-agent pipelines instead
 
-`05-ai-extraction-agent-prompt.md`'s recommended workflow — analyze chapter 1, build a
-character registry, analyze chapter 2 with the registry as context, repeat, then a
-book-level reconciliation pass — resembles a "rolling context" pattern, but no research
-surfaced here validates that exact shape as best practice:
+The proposal's recommended workflow — analyze chapter 1, build a character registry,
+analyze chapter 2 with the registry as context, repeat chapter by chapter, then a
+book-level reconciliation pass — lives in `02-character-profiles-and-extraction-spec.md`
+§10 ("Recommended Agent Workflow"); the prompt in `05-ai-extraction-agent-prompt.md`
+carries the matching registry-as-context input slot ("Existing character registry, if
+any"). It resembles a "rolling context" pattern, but no research surfaced here validates
+that exact shape as best practice:
 
 - **Portrayal** (arXiv 2308.04056, DIS'23) processes book text chapter-by-chapter
   (coreference resolution per chapter, for tractability) but merges character identities
@@ -124,7 +127,9 @@ events dimension causes the largest accuracy drop (−9.21%) of any dimension. D
 relevant to this repo's target schema: the `personality_traits`/`speech_style` fields in
 `02-character-profiles-and-extraction-spec.md`'s character format are likely to extract
 more reliably than fields depending on event/plot continuity (e.g. `source_presence`,
-multi-chapter arc tracking) — a useful prior for calibrating which fields deserve tighter
+multi-chapter arc tracking) — and, per the research pass's own reading, than fine-grained
+evidence-quote fields (the schema's per-claim `evidence` arrays), which are
+event/source-derived — a useful prior for calibrating which fields deserve tighter
 human-review gating. Confidence: **high** (single primary source, but a direct,
 quantified, unambiguous finding).
 
@@ -198,8 +203,9 @@ Confidence: **high** (direct primary-source fetch).
    relevant table (see open questions) before choosing, not a design change based on this
    note alone.
 3. **Weight human-review gating by field, using finding 3**: personality/speech-style
-   fields are the more reliable extraction target; event/plot-continuity and multi-chapter
-   presence tracking fields deserve tighter review-flag defaults.
+   fields are the more reliable extraction target; event/plot-continuity fields,
+   multi-chapter presence tracking, and fine-grained evidence-quote (`evidence` array)
+   fields deserve tighter review-flag defaults.
 4. **Design the registry-context prompt to cross Anthropic's prompt-caching minimum-token
    threshold deliberately** (finding 4) — e.g. front-load a stable system/schema prefix
    so caching activates even in early chapters when the character registry itself is
@@ -251,8 +257,8 @@ Confidence: **high** (direct primary-source fetch).
    empirical test against this repo's actual chapter lengths rather than further
    literature search.
 3. Does a cheaper-model-first-pass-plus-stronger-model-reconciliation pattern (matching
-   `05-ai-extraction-agent-prompt.md`'s own "book-level reconciliation pass" step to a
-   stronger model, and per-chapter discovery to a cheaper one), or request batching,
+   `02-character-profiles-and-extraction-spec.md` §10's own "book-level reconciliation
+   pass" step to a stronger model, and per-chapter discovery to a cheaper one), or request batching,
    measurably reduce cost for this pipeline? Not addressed by any surviving claim.
 4. Given that the single-pass-vs-rolling-registry comparison from arXiv 2404.12726 failed
    adversarial verification in both directions, is the paper's underlying data simply

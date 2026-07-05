@@ -2,8 +2,10 @@
 
 > Related research:
 > `design-docs/plans/proposals/research_character_brief_extraction_and_persona_casting.md`
-> — API-mechanics evaluation of §5/§6's extraction pipeline and prompt (structured-output
-> reliability, chunking-strategy status, cost, persona-to-voice-casting prior art).
+> — API-mechanics evaluation of the extraction spec/workflow
+> (`02-character-profiles-and-extraction-spec.md`) and agent prompt
+> (`05-ai-extraction-agent-prompt.md`): structured-output reliability, chunking-strategy
+> status, cost, persona-to-voice-casting prior art.
 
 ## Problem
 

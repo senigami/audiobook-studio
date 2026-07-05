@@ -4,9 +4,9 @@
 
 **Related research:**
 `design-docs/plans/proposals/research_character_brief_extraction_and_persona_casting.md`
-— evaluates the API mechanics behind §5's AI extraction pipeline (structured-output
-reliability, chunking strategy, cost) and surveys persona-to-voice-casting prior art for
-the character-profile-to-voice-guidance mapping.
+— evaluates the API mechanics behind the AI extraction spec/workflow (doc 02) and agent
+prompt (doc 05): structured-output reliability, chunking strategy, cost — and surveys
+persona-to-voice-casting prior art for the character-profile-to-voice-guidance mapping.
 
 ## What this is
 
@@ -31,10 +31,10 @@ A plan for extending the Studio data model to support:
 |---|---|
 | `00-overview.md` | Problem, goal, scope, success criteria |
 | `01-canonical-json-format.md` | The sparse annotation model — the internal canonical format |
-| `02-character-profiles.md` | Rich character profile schema |
+| `02-character-profiles-and-extraction-spec.md` | Rich character profile schema + extraction spec (incl. §10 recommended chapter-by-chapter workflow) |
 | `03-db-schema-changes.md` | What changes in the existing DB vs the current schema |
 | `04-export-targets.md` | SSML, Azure, ElevenLabs, Polly — mapping from internal fields to engine formats |
-| `05-ai-extraction-pipeline.md` | Multi-pass AI analysis pipeline + agent prompt |
+| `05-ai-extraction-agent-prompt.md` | Copy-paste extraction agent prompt (the registry-as-context input slot lives here) |
 
 ## Source material
 
