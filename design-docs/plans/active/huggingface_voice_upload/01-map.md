@@ -30,7 +30,7 @@ repo spec's flat single-card layout; do not try to unify the zip-writing logic i
 | Part | File | Responsibility |
 |---|---|---|
 | `export_hf_voice_bundle()` | `app/domain/voices/huggingface.py:608` | Builds the flat HF-shaped `.asvoice.zip` (currently: `voice.json` + `samples/preview.mp3` only) |
-| `generate_readme_md()` | `app/domain/voices/bundles.py:98` | **Reused, not reimplemented.** Pure function: `voice_manifest dict -> README.md string` with YAML frontmatter (tags, license, `widget.output.url`). Already produces exactly the shape `v2_huggingface_voice_repo_spec.md` §7 describes. |
+| `generate_readme_md()` | `app/domain/voices/bundles.py:98` | **Reused, not reimplemented.** Pure function: `voice_manifest dict -> README.md string` with YAML frontmatter (tags, license, `widget.output.url`). Produces exactly the shape `v2_huggingface_voice_repo_spec.md` §7 describes **when the manifest carries a `samples[]` entry** — the `widget:` block (the thing that makes the Hub page playable) is emitted only if `voice_manifest["samples"]` is non-empty (`bundles.py:141,160`). Only the v1-schema migration (`migration.py:283-305`, from a variant's `preview_audio`) ever writes `samples[]` locally, and `final_release/04_voice_metadata_and_tagging.md` notes current voices have no `preview_audio` to migrate — so a typical local `voice.json` has **no** `samples[]` and would get a widget-less README. Task 002 must handle this (see its "Verified gap" note). <!-- qualified 2026-07-04, Fable accuracy review --> |
 | `HFHubClient.upload_files()` | `app/domain/voices/huggingface.py:405` | Pushes files to the Hub. **Currently**: N sequential `upload_file()` calls with `path_in_repo=Path(file_path).name` (flattens structure, non-atomic) + a separate generic `ModelCard.push_to_hub()` fallback for tags. **Target**: one `create_repo()` + one `upload_folder()` call. |
 | `upload_voice_to_hub()` | `app/domain/voices/huggingface.py:649` | Thin wrapper: `upload_hub_voice` router → this → `HFHubClient.upload_files`. Signature changes ripple through here. |
 | `export_hub_voice` / `upload_hub_voice` | `app/api/routers/voices_huggingface.py:289,332` | FastAPI endpoints. `/upload` currently calls `/export` internally, extracts the zip to `extract_dir`, then builds a flat `loose_files` list via `rglob("*")` before calling `upload_voice_to_hub`. |
@@ -78,7 +78,18 @@ shape must move together in the same change:
 - `tests/domain/test_voice_huggingface_client.py::TestHFHubClientUpload` — 4 tests assert the
   old per-file-loop behavior; they must assert `upload_folder` was called once instead.
 - `tests/api/test_api_voices_huggingface.py::TestUploadEndpoint::test_upload_pushes_extracted_bundle_files_and_never_returns_token`
-  — check what it currently asserts before changing (task 003's own file list).
+  — asserts more than call count: lines 323-328 check `call["files"]` basenames
+  (`voice.json`, `preview.mp3`) and `call["tags"]` — those assertions must be rewritten
+  against the extracted folder's contents, not just key-renamed. <!-- corrected 2026-07-04,
+  Fable accuracy review: previously described as "only asserts len(upload_calls) == 1" -->
+- `tests/domain/test_voice_huggingface.py` — its own `FakeHFHubClient.upload_files`
+  (line 56) and `TestTokenHandling::test_token_not_present_in_upload_log_output`
+  (calls `upload_voice_to_hub(client, ..., [sample_file], ...)` and serializes
+  `upload_calls[0]["files"]` at line 272) must move in the same change — note this is
+  the very test INV-HF-1 below names; "unmodified in intent" still requires the
+  mechanical signature update. <!-- added 2026-07-04, Fable accuracy review: this fake
+  was missing from the ripple list -->
+
 - Any fake implementing `HFHubClientProtocol` elsewhere in the test suite (grep for
   `HFHubClientProtocol` before starting task 003 — don't assume the list above is exhaustive).
 

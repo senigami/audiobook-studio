@@ -23,6 +23,12 @@ concurrently by two different agents/sessions, treat that router file as a seria
 (same convention as this repo's `.agent/rules/modular_architecture.md` contested-surface
 handling): land 002 first, then 003, rather than truly parallel edits to the same file.
 
+Note (added 2026-07-04, Fable accuracy review): "land 002 first" is not only about file
+contention — it's a soft correctness dependency. Task 003 deletes the
+`ModelCard.from_template(...).push_to_hub(...)` tag fallback, after which tags reach the Hub
+only via the generated `README.md`'s YAML frontmatter, which task 002 puts into the bundle. If
+003 shipped alone, uploads would lose tag propagation entirely until 002 landed.
+
 ## Workloads
 
 **Workload 1 — Doc correctness (no code)**

@@ -14,11 +14,18 @@ must snap independently, since it's reachable by any caller of
 ## Files
 
 - `app/domain/chapters/operations.py` — `_apply_range_assignment` (line 385)
-- New test file: `tests/domain/test_chapter_range_assignment.py` (no existing test file covers
-  `_apply_range_assignment`/`save_script_assignments` at all today — this is a genuine, pre-
-  existing test gap in the codebase, not something this task needs to fully close; add only the
-  tests needed to cover this task's own change, see Steps below. A full backfill of range-
-  assignment test coverage is flagged as a separate follow-up, not in scope here.)
+- New test file: `tests/domain/test_chapter_range_assignment.py` (**coverage claim corrected
+  2026-07-04 after adversarial fact-check**: the `range_assignments` path —
+  `_apply_range_assignment`/`_split_segment_at_offset` — genuinely has zero backend test coverage
+  today (no hits for `range_assignment`/`start_offset` anywhere in `tests/`). But
+  `save_script_assignments` itself is NOT untested: its whole-span `assignments` path is
+  exercised directly by `tests/db/test_segment_voice_invalidation.py` (3 tests), and the frontend
+  hook `handleScriptAssignRange` is covered by
+  `frontend/tests/unit/hooks/useChapterAssignments.test.tsx` (revision-id sequencing over the
+  range payload). The genuinely uncovered pieces are the backend range/split path and the
+  `ScriptView.tsx` drag-selection capture (`handleSelection`). Add only the tests needed to cover
+  this task's own change, see Steps below. A fuller backfill of range-path coverage is flagged as
+  a separate follow-up, not in scope here.)
 
 ## Current code (line 385-411, the start of `_apply_range_assignment`)
 
@@ -170,6 +177,6 @@ INV-SNAP-1 (this task IS that invariant), INV-SNAP-2, INV-SNAP-3.
 
 - Do not modify `_split_segment_at_offset` itself — it stays a pure raw-offset splitter; snapping
   happens in its caller so the offsets it receives are already correct.
-- Do not attempt a full test-coverage backfill for `_apply_range_assignment`/
-  `save_script_assignments` beyond what this task's own change needs — flagged separately as a
-  follow-up, not this task's job.
+- Do not attempt a full test-coverage backfill for the `_apply_range_assignment` range path
+  beyond what this task's own change needs — flagged separately as a follow-up, not this task's
+  job. (`save_script_assignments`' whole-span path already has coverage — see Files above.)

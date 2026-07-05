@@ -24,10 +24,16 @@ same commit — see the ripple list in `01-map.md`'s "Connections" section befor
 - `app/api/routers/voices_huggingface.py`:
   - `upload_hub_voice` (line 332-375)
 - `tests/domain/test_voice_huggingface_client.py`:
-  - `TestHFHubClientUpload` (line 304-358) — 4 tests
+  - `TestHFHubClientUpload` (line 304-359) — 4 tests
 - `tests/api/test_api_voices_huggingface.py`:
   - `FakeHFHubClient.upload_files` (line 53-55)
-  - `TestUploadEndpoint::test_upload_pushes_extracted_bundle_files_and_never_returns_token` (line 304-322)
+  - `TestUploadEndpoint::test_upload_pushes_extracted_bundle_files_and_never_returns_token` (line 304-328)
+- `tests/domain/test_voice_huggingface.py`:
+  - `FakeHFHubClient.upload_files` (line 56-60) and
+    `TestTokenHandling::test_token_not_present_in_upload_log_output` (line 247-275 — passes
+    `[sample_file]` to `upload_voice_to_hub` and serializes `upload_calls[0]["files"]`)
+    <!-- added 2026-07-04, Fable accuracy review: this fake/test was missing from the file list -->
+
 
 ## Current contract — Protocol (line 233-242)
 
@@ -233,11 +239,23 @@ Target — delete the `loose_files` line entirely, pass `extract_dir` directly:
 2. `tests/api/test_api_voices_huggingface.py`:
    - `FakeHFHubClient.upload_files(self, hub_id, folder_path, *, tags, token)` — rename the
      recorded dict key from `"files"` to `"folder_path"`.
-   - `test_upload_pushes_extracted_bundle_files_and_never_returns_token` — if it inspects
-     `fake.upload_calls[0]["files"]`, update to `fake.upload_calls[0]["folder_path"]`; re-read the
-     test body before assuming — it currently only asserts `len(fake.upload_calls) == 1` per the
-     excerpt above, so it may need no further change beyond the fixture rename propagating.
-3. Grep the whole test suite for `HFHubClientProtocol` and `upload_files(` before finishing, to
+   - `test_upload_pushes_extracted_bundle_files_and_never_returns_token` — it asserts MORE than
+     call count (corrected 2026-07-04, Fable accuracy review — this task previously claimed it
+     "only asserts `len(fake.upload_calls) == 1`"): lines 323-328 also assert
+     `call["hub_id"]`, the uploaded file **basenames** via
+     `{Path(p).name for p in call["files"]}` (`voice.json`, `preview.mp3` present), and
+     `"as-narrator" in call["tags"]`. After the signature change, rewrite the file-name
+     assertions against the recorded `folder_path`'s on-disk contents (e.g.
+     `{p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file()}` includes
+     `voice.json` and `samples/preview.mp3`) — don't drop the content coverage, and note the
+     nested `samples/preview.mp3` assertion is exactly what pins the structure-preservation goal.
+3. `tests/domain/test_voice_huggingface.py`:
+   - `FakeHFHubClient.upload_files` (line 56-60) — same `files` → `folder_path` rename.
+   - `TestTokenHandling::test_token_not_present_in_upload_log_output` — currently passes
+     `[sample_file]` to `upload_voice_to_hub` and serializes
+     `upload_calls[0]["files"]` (line 272); pass `tmp_path` (a dir) instead and serialize the
+     recorded `folder_path`. This is the test INV-HF-1 names — keep its intent identical.
+4. Grep the whole test suite for `HFHubClientProtocol` and `upload_files(` before finishing, to
    catch any fake/caller this list missed: `grep -rn "upload_files(" tests/ app/`.
 
 ## R1 revert-check

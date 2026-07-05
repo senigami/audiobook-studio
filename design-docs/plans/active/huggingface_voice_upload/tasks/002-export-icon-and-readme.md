@@ -110,10 +110,36 @@ Insert the `icon_bytes` block right before the existing `export_dir = ...` line,
 `icon_bytes=icon_bytes` to the `export_hf_voice_bundle(...)` call. `contained_path` is already
 imported in this router (used for `sample_bytes` right above).
 
+## Verified gap (added 2026-07-04, Fable accuracy review — read before implementing)
+
+`generate_readme_md` emits the `widget:` block — the exact mechanism this plan's success
+criterion 1 depends on for the playable Hub sample — **only when
+`voice_manifest["samples"]` is non-empty** (`bundles.py:141,160-165`). The only code that ever
+writes `samples[]` into a local `voice.json` is the v1-schema migration
+(`migration.py:283-305`, sourced from a variant's `preview_audio`), and
+`final_release/04_voice_metadata_and_tagging.md` records that current voices have no
+`preview_audio` to migrate. So a typical installed voice's manifest has **no** `samples[]`,
+and the target contract as written would produce a README with tags but **no widget** — while
+every test specified below still passes (the API test fixture `_make_voice_root` hand-writes a
+`samples[]` entry, hiding the gap).
+
+Required handling: when the export path has sample bytes (the router found
+`samples/preview.mp3`/`sample.mp3`) but the manifest lacks a `samples[]` entry, ensure the
+manifest handed to `generate_readme_md` — and written into the bundle's `voice.json`, so the
+on-Hub manifest and README agree — carries
+`{"path": "samples/preview.mp3", "primary": true}` (synthesize it; do not mutate the on-disk
+`voice.json`). Add a test asserting the generated README contains `url: samples/preview.mp3`
+inside a `widget:` block for a manifest **without** a pre-existing `samples[]` key — that test
+fails against the bare reuse-only implementation. Secondary, same class of bug:
+`generate_readme_md` defaults `image` to `"icon.png"` even when the bundle has no icon —
+acceptable (harmless broken `<img>`), but note it to the owner rather than silently shipping.
+
 ## Steps
 
 - [ ] Edit `export_hf_voice_bundle()` per the target contract above (add `icon_bytes` param,
       local import of `generate_readme_md`, two new `zf.writestr` calls).
+- [ ] Handle the no-`samples[]` manifest case per the "Verified gap" section above, with its
+      widget-asserting test.
 - [ ] Edit `export_hub_voice()` per the router change above.
 - [ ] Update `tests/domain/test_voice_huggingface.py::TestExportHFVoiceBundle::test_export_produces_expected_asvoice_zip_structure`:
       the current assertion `assert names == {"voice.json", "samples/preview.mp3"}` must become

@@ -7,9 +7,15 @@ Status: complete — 2026-07-04
 `design-docs/plans/reference/v2_huggingface_voice_repo_spec.md` documents `voice.json`'s primary
 sample as `samples/preview.wav`, but this repo's binding audio-format convention (CLAUDE.md:
 "voice samples/previews are MP3") and the actual shipped code
-(`app/domain/voices/huggingface.py:302`: `for candidate in ("samples/preview.mp3", "sample.mp3")`,
-and `bundles.py:27`: `PREVIEW_ASSET_NAMES = {"sample.mp3", "sample.wav"}` preferring mp3) both use
+(`app/api/routers/voices_huggingface.py:302`: `for candidate in ("samples/preview.mp3", "sample.mp3")`
+— mp3-first candidate order; `app/domain/voices/huggingface.py:638` writes `samples/preview.mp3`
+into the bundle; `bundles.py:27`'s `PREVIEW_ASSET_NAMES` includes `sample.mp3`) both use
 MP3. The doc is stale, not the code. Fix the doc.
+<!-- citation corrected 2026-07-04 (Fable accuracy review): the candidate loop lives in the
+     router (voices_huggingface.py:302), not the domain module — huggingface.py:302 is an
+     unrelated ModelCard import. -->
+
+
 
 ## Files
 

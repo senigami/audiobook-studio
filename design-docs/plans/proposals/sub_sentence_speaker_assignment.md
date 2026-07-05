@@ -21,7 +21,10 @@ handler and the backend split function use raw character offsets today, so a dra
 mid-word). Closing it — plus Script-mode scope (owner decided: Book-mode-only is fine for now) —
 is tracked in `design-docs/plans/active/span_word_boundary_snapping/`. Undo (Open Question 4
 below) remains genuinely unbuilt, deferred to the separate doc-10 U1 undo-toast work; character
-auto-detection (Open Question 3) remains genuinely unbuilt, deferred to future work.
+auto-detection (Open Question 3) remains genuinely unbuilt, deferred to future work. One
+additional known limitation (found in the 2026-07-04 adversarial fact-check, not tracked by the
+snapping plan): **sub-sentence spans do not survive a source-text resync** — see Open Question
+3's caveat below.
 
 The sections below describe the (already-built) design; read them as documentation of the
 shipped shape, not a proposal.
@@ -107,14 +110,20 @@ boundaries: number of render groups = number of speaker runs.
 2. ~~Where does span-splitting live — backend endpoint or frontend-local edit?~~ **RESOLVED:
    backend endpoint (`PUT /chapters/{id}/script-view/assignments` →
    `_apply_range_assignment()`), persisted immediately, not held as a local draft.** Matches
-   `frontend-state.md`'s rule — the frontend does an optimistic local update, fires the API call
-   right away, and the server's response becomes canonical on success (409 on conflict prompts a
-   reload).
+   `frontend-state.md`'s rule — the range path (`handleScriptAssignRange` in
+   `useChapterAssignments.ts`) fires the API call right away with **no** optimistic local update
+   (only the whole-span `handleScriptAssign` path does an optimistic update), and the server's
+   response becomes canonical on success (409 on conflict prompts a reload).
 3. How do existing per-sentence features (failed-span badges, resync preview, character
-   auto-detection) map onto spans? **Partially resolved**: `get_resync_preview()` already
-   operates on `chapter_segments` rows generically (matches by `text_content`), so it already
-   works correctly regardless of span granularity — no special-casing needed, confirming this
-   part of the question. No "failed-span badge" feature by that name was found in the codebase
+   auto-detection) map onto spans? **Partially resolved, with one material caveat**:
+   `get_resync_preview()` operates on `chapter_segments` rows generically, but it matches rows
+   *positionally by index* against a fresh sentence split (`split_into_sentences`) — and the
+   actual resync (`sync_chapter_segments` in `app/db/segments.py`) rebuilds the table the same
+   way, preserving a row only when its text equals the sentence at the same index. **Consequence:
+   sub-sentence spans do not survive a source-text resync** — the rebuild is sentence-granular,
+   so split spans (and their assignments) are discarded. The preview is *consistent* with this
+   (it correctly reports those assignments as lost), so the warning UX works, but "resync
+   preserves your span work" is not true today. No "failed-span badge" feature by that name was found in the codebase
    (may be `audio_status`-based styling under a different name — not audited). Character
    auto-detection genuinely does not exist yet (confirmed by grep — zero hits for
    auto-detect/auto-assign anywhere). See `research_speaker_assignment_prior_art.md` —

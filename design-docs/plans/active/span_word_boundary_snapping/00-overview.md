@@ -29,7 +29,7 @@ never does.
 - `frontend/src/pages/ChapterEditor/components/ScriptView.tsx` (`handleSelection`, line ~387) —
   snap the captured offsets before they reach `pendingSelection`/`onAssignRange`.
 - `app/domain/chapters/operations.py` (`_apply_range_assignment`, line 385, and/or
-  `_split_segment_at_offset`, line 439) — snap offsets before splitting, as the authoritative
+  `_split_segment_at_offset`, line 464) — snap offsets before splitting, as the authoritative
   enforcement point.
 - The two stale docs listed above.
 
