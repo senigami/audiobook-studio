@@ -90,6 +90,11 @@ the metadata proposal):
   to the user's HF repo via their token, setting the `audiobook-studio-voice` anchor and
   `as-*` tags automatically.
 - Both paths use the shape in `design-docs/plans/v2_huggingface_voice_repo_spec.md`.
+- Implementation-level detail (which `huggingface_hub` calls to use, whether `upload_folder`
+  can point straight at the local voice directory, LFS/Xet handling for the audio files, and
+  the paste-token vs OAuth device-code auth UX options) is researched separately in
+  `design-docs/plans/reference/v2_huggingface_upload_implementation.md` — read it before
+  building the upload button.
 
 > **Engines are not here.** TTS engine plugins are hosted on GitHub and installed/updated
 > through `design-docs/plans/v2_engine_bundle_github_distribution.md`.

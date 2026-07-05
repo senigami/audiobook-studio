@@ -6,6 +6,10 @@
 > Audiobook Studio after download. Tag values come from
 > `design-docs/plans/v2_voice_tag_taxonomy.md`. Engines are hosted separately on GitHub — see
 > `design-docs/plans/v2_engine_bundle_github_distribution.md`. Research sources at the bottom.
+> For the implementation-level "how" of pushing this layout to the Hub (concrete
+> `huggingface_hub` API calls, LFS/Xet gotchas, auth UX, and whether `upload_folder` can point
+> straight at the local bundle dir), see
+> `design-docs/plans/reference/v2_huggingface_upload_implementation.md`.
 
 ## 1. Goal
 
