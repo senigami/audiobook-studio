@@ -1,7 +1,30 @@
 # Sub-Sentence Speaker Assignment (v2.0 feature)
 
-Status: **design draft** — owner-requested 2026-06-11, targeted for the v2.0 release so the
-segment data model ships in its final shape and never needs legacy-format support.
+Status: **implemented, one known gap** — owner-requested 2026-06-11. **Corrected 2026-07-04**:
+this doc previously read "design draft," which was stale. Direct code inspection confirmed the
+feature is already built:
+
+- `chapter_segments` already **is** the span table described below — no separate table exists or
+  was needed; rows are the ownership unit exactly as the "Design direction" section specifies.
+- `app/domain/chapters/operations.py`'s `_apply_range_assignment()` already does the surgical
+  split-at-selection-boundaries described in "Goal / UX" and "Design direction" — lossless,
+  exactly as specified.
+- Book-mode drag-select in `frontend/src/pages/ChapterEditor/components/ScriptView.tsx` already
+  triggers this end-to-end, persisting immediately (not held as a local draft — Open Question 2
+  below is resolved: it's a backend-persisted-immediately model).
+- Render-group/chunk packing (`app/domain/chunk_groups.py`) already operates generically on
+  segment rows, so "Interaction with render-group packing" below was already satisfied with no
+  changes needed.
+
+**One confirmed, scoped gap remains**: no word-boundary snapping (both the frontend selection
+handler and the backend split function use raw character offsets today, so a drag can land
+mid-word). Closing it — plus Script-mode scope (owner decided: Book-mode-only is fine for now) —
+is tracked in `design-docs/plans/active/span_word_boundary_snapping/`. Undo (Open Question 4
+below) remains genuinely unbuilt, deferred to the separate doc-10 U1 undo-toast work; character
+auto-detection (Open Question 3) remains genuinely unbuilt, deferred to future work.
+
+The sections below describe the (already-built) design; read them as documentation of the
+shipped shape, not a proposal.
 
 ## Problem
 
@@ -76,13 +99,25 @@ boundaries: number of render groups = number of speaker runs.
 
 ## Open questions (resolve before implementation)
 
-1. Does the existing `segments` table become the span table, or do spans nest under it?
-   (Depends on how much of queue/progress references segment ids — audit first.)
-2. Where does span-splitting live — backend endpoint that returns the re-split chapter,
-   or frontend-local edit committed through the existing chapter-save path? (Must respect
-   `frontend-state.md`: drafts must not blindly overwrite canonical server state.)
+1. ~~Does the existing `segments` table become the span table, or do spans nest under it?~~
+   **RESOLVED (2026-07-04, confirmed by reading the code): `chapter_segments` is the span
+   table.** No separate table was needed — chunk grouping, progress tracking, queue
+   serialization, and frontend state all treat segments as opaque IDs with speaker metadata, so
+   finer granularity required no schema changes, only more rows.
+2. ~~Where does span-splitting live — backend endpoint or frontend-local edit?~~ **RESOLVED:
+   backend endpoint (`PUT /chapters/{id}/script-view/assignments` →
+   `_apply_range_assignment()`), persisted immediately, not held as a local draft.** Matches
+   `frontend-state.md`'s rule — the frontend does an optimistic local update, fires the API call
+   right away, and the server's response becomes canonical on success (409 on conflict prompts a
+   reload).
 3. How do existing per-sentence features (failed-span badges, resync preview, character
-   auto-detection) map onto spans? See `research_speaker_assignment_prior_art.md` —
+   auto-detection) map onto spans? **Partially resolved**: `get_resync_preview()` already
+   operates on `chapter_segments` rows generically (matches by `text_content`), so it already
+   works correctly regardless of span granularity — no special-casing needed, confirming this
+   part of the question. No "failed-span badge" feature by that name was found in the codebase
+   (may be `audio_status`-based styling under a different name — not audited). Character
+   auto-detection genuinely does not exist yet (confirmed by grep — zero hits for
+   auto-detect/auto-assign anywhere). See `research_speaker_assignment_prior_art.md` —
    VoxNovel/Alexandria both treat auto-detection as one more producer into the same
    editable attribution artifact users can review before synthesis; worth modeling
    auto-detection as a span producer rather than a special case.
@@ -109,6 +144,12 @@ quotation-span/dialogue-segment level, which is strong external validation of th
 doc's "spans, not words" direction. It also flags LLM chain-of-thought-over-chapter
 attribution as the strongest current method for the no-attribution-tail case (Open
 Question 3) once auto-suggestion is built.
+
+## Remaining gap
+
+See `design-docs/plans/active/span_word_boundary_snapping/` for the one confirmed, scoped gap
+(word-boundary snapping) and its execution plan — the rest of this document describes what's
+already shipped.
 
 ## Sequencing
 
