@@ -262,6 +262,11 @@ of the primary spoken language used for casting). A `tags` free-text array (patt
 
 A casting card is the recommendation payload returned by the casting API for matching a voice variant to a character.
 
+> Related research: `design-docs/plans/proposals/research_character_brief_extraction_and_persona_casting.md`
+> surveys persona-to-voice-casting prior art for the upstream stage that would produce
+> the `character` brief this contract's caller (`cast_voices()`) scores against — no
+> change to this contract's shape.
+
 | Field             | Type    | Description                                              |
 |-------------------|---------|----------------------------------------------------------|
 | `voice_id`        | string  | UUID from `voice.json`                                   |

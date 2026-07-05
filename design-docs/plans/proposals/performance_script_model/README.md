@@ -2,6 +2,12 @@
 
 **Status:** DESIGN DRAFT — not yet scheduled for implementation
 
+**Related research:**
+`design-docs/plans/proposals/research_character_brief_extraction_and_persona_casting.md`
+— evaluates the API mechanics behind §5's AI extraction pipeline (structured-output
+reliability, chunking strategy, cost) and surveys persona-to-voice-casting prior art for
+the character-profile-to-voice-guidance mapping.
+
 ## What this is
 
 A plan for extending the Studio data model to support:

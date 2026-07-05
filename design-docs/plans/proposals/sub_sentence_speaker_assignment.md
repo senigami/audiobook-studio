@@ -143,6 +143,11 @@ TTS-Story, abogen-with-voicemarkers, AutoAudiobook) solve character-to-voice att
 None solve our specific chunk-packing constraint, but the "attribution as a distinct,
 editable, pre-synthesis artifact" pattern is common and validates the span approach.
 
+See also `design-docs/plans/proposals/research_character_brief_extraction_and_persona_casting.md`
+for the API-mechanics/persona-casting follow-up — how to actually call an LLM to produce
+the character briefs auto-detection (Open Question 3) would need, and how casting-notes
+map to voice selection once a brief exists.
+
 See also `design-docs/plans/proposals/research_word_level_voice_assignment_academic.md`
 for the deeper academic-literature follow-up (BookNLP internals, ACL/NAACL quotation-
 attribution papers, LLM chain-of-thought attribution, Dia's turn-level speaker tags,

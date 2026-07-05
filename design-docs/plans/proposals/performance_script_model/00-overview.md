@@ -1,5 +1,10 @@
 # Performance Script Model — Overview
 
+> Related research:
+> `design-docs/plans/proposals/research_character_brief_extraction_and_persona_casting.md`
+> — API-mechanics evaluation of §5/§6's extraction pipeline and prompt (structured-output
+> reliability, chunking-strategy status, cost, persona-to-voice-casting prior art).
+
 ## Problem
 
 The current Studio data model stores segments at sentence granularity with a single
