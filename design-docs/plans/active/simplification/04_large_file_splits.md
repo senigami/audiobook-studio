@@ -66,7 +66,7 @@ discipline and event routing identical; lean on the existing progress test suite
 **Spec:** `progress-presentation.md` `sources:` only if paths change (no version bump for a pure
 split that preserves behavior).
 
-### LF-7 — `tts_server/server.py` (1333) → extract plugin-staging module
+### LF-7 — `tts_server/server.py` (1333) → extract plugin-staging module *(done 2026-07-04, `commit b00ed04e`; 1351→914 lines, new `plugin_staging.py` 493 lines; every containment/symlink check moved verbatim, zero behavior change; full suite 2221 passed/3 skipped identical to pre-change; security + zip-install + trust-boundary suites green)*
 **Conflates (verified seams):** core synthesis endpoints (`/synthesize`, `/preview`, `/plan`,
 ~531–815) vs. the plugin import/staging pipeline (zip upload, preview/staging, GitHub preview,
 confirm/cancel, `_sweep_orphaned_staging_dirs`, helpers `_normalize_github_repo_url`,

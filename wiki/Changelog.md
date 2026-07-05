@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Cleanup] - 2026-07-04
+
+### Backlog sweep: dead code, plugin-staging split, timing dedup, test-infra fixes
+
+Fusion-reasoning-triaged cleanup pass over the remaining `simplification/` and logic-audit (doc 09)
+backlog. Ten independent items landed, each its own commit, full backend suite green throughout
+(2221 passed, 3 skipped, unchanged from the pre-sweep baseline) and frontend suite green (1712
+passed, same 2 pre-existing unrelated failures confirmed present before this work started):
+
+- **Dead code removed:** `useSegmentProgressLifecycle.ts` hook (zero importers); a duplicate
+  `wav_to_mp3` wrapper in both the xtts and voxtral plugin adapters; dead `REPORT_DIR`/`UPLOAD_DIR`
+  import + a dead `tts_generate_stub` function in `app/api/web.py`; a dead dual-mode
+  `isinstance(dict)` job-access fallback and an orphaned `_should_emit()` shim in
+  `app/orchestration/progress/service.py` (both confirmed dead — `get_jobs()` always returns `Job`
+  dataclasses now); dead frontend route-stub infrastructure (`app/routes/index.tsx` and its
+  null-stub `createX()` exports across several page-route files — found and preserved a live
+  `VoiceModulesPanel` export that shared a file with one of the dead stubs).
+- **Voxtral plugin refactor:** extracted a shared `_run_voxtral_generate` helper from
+  `synthesize()`/`preview()`'s duplicated reference-audio-staging + cleanup-on-error logic,
+  preserving every genuine behavioral difference between the two callers via parameters.
+- **`app/tts_server/server.py` split (1351→914 lines):** moved the plugin import/staging pipeline
+  (zip upload, GitHub-repo preview, confirm/cancel, path containment, symlink rejection) to a new
+  `app/tts_server/plugin_staging.py` (493 lines) verbatim — every containment/security check
+  preserved exactly, route decorators stay in `server.py` as thin wrappers per its "sole HTTP
+  boundary" docstring.
+- **Segment-timing math deduped:** `server.py`'s `/synthesize` response and
+  `orchestrator_helpers.py`'s render-stats recorder each independently computed the same
+  duration/overhead formulas from raw timestamps. Extracted the shared math to
+  `app/utils/render_timing.py` (kept outside both `app.tts_server` and `app.orchestration` to
+  respect the two-process boundary); the recorder now prefers the server's precomputed values when
+  present. A real, pre-existing `model_load_seconds` None-vs-0.0 default divergence between the two
+  call sites was found and deliberately preserved, not silently unified.
+- **Test-infra:** added real behavioral coverage for the `ETA_PROJECTION_SKIP_REASONS` gate (the
+  prior test only checked set membership); migrated two hardcoded `/tmp/*.db` test fixture paths to
+  `tmp_path`. Investigated two previously-flagged test-quality items (an "environment-dependent"
+  test and a one-time flaky test) and found both were stale reports of issues already fixed by
+  earlier, unrelated commits — no changes needed. A coverage-honesty spot-check (10 lines across
+  `state_jobs.py`/`queue.py`/`useQueueSync.ts`) found an 80% real-mutation-sensitivity hit rate and
+  flagged two genuine coverage gaps for follow-up (not fixed in this pass).
+
+Deliberately deferred: `App.tsx`'s large-file split (touched twice today already, left to cool);
+`progress/service.py`'s large-file split (standing gate on ETA-work quiescence); the `app/jobs`
+package rename (plan doc explicitly calls for its own dedicated session, 97 references across ~40
+files); the styling-separation inline-`style`→class conversion (requires per-file owner visual
+sign-off, not something to self-certify).
+
 ## [Fix] - 2026-07-04
 
 ### ScriptView crash guard + startup fetch-failure error UI (logic-audit F14/F15)

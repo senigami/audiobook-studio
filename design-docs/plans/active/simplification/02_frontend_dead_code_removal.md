@@ -112,7 +112,7 @@ dirs); `wiki/Changelog.md`.
 
 ---
 
-## DC-2 — Delete stub route infrastructure
+## DC-2 — Delete stub route infrastructure *(done 2026-07-04, `commit 9d03e483`)*
 
 **Why:** never imported / never executed null-stubs left from an earlier routing scheme.
 
@@ -127,6 +127,8 @@ dirs); `wiki/Changelog.md`.
 **Verify:** `grep -rn "from.*app/routes\|createStudioRoutes\|createProjectLibraryRoute\|createVoiceModulesRoute" frontend/src` → empty; build + tests green.
 **Effort:** S · **Risk:** low. **Spec:** none.
 
+*(Executor note: `pages/VoiceModules/index.ts` re-exports BOTH the dead `createVoiceModulesRoute` stub AND the live `VoiceModulesPanel` (imported by `EnginesPage.tsx`) — the directory was NOT deleted wholesale; only the dead stub export + its unused imports were stripped from `VoiceModulesRoute.tsx`/`index.ts`, `VoiceModulesPanel` kept live. `ProjectDetail/index.ts` also re-exported only the dead `createProjectViewRoute` stub with no other content — retargeted its re-export to the live `ProjectViewRoute` component instead of deleting the file, to avoid a dangling reference.)*
+
 ---
 
 ## DC-3 — Dead components: RESOLVED by owner review (do NOT delete VoiceDropzone/SearchableSelect)
@@ -138,7 +140,7 @@ deleted:
 
 Their test files stay too. This task is therefore **removed** from the delete set.
 
-## DC-3b — Safe deletions (owner-confirmed not wanted / inert)
+## DC-3b — Safe deletions (owner-confirmed not wanted / inert) *(done 2026-07-04, `commit 9d03e483`, same commit as DC-2)*
 
 These have no restoration claim and are genuinely safe to delete:
 - `frontend/src/pages/ChapterEditor/components/LiveOutputTab.tsx` — owner did **not** want an

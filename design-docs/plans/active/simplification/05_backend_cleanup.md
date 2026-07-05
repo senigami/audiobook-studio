@@ -16,21 +16,23 @@
 
 ---
 
-## BE-1 — Remove confirmed backend dead code
+## BE-1 — Remove confirmed backend dead code *(done 2026-07-04 — 4 of 5 sub-items; the 5th is confirmed invalid, not attempted)*
 
 One commit; each item verified to have zero live callers.
 
 | Item | Location | Action |
 |------|----------|--------|
-| `REPORT_DIR`/`UPLOAD_DIR` import + `REPORT_DIR = REPORT_DIR` alias | `app/api/web.py:13,25` | Remove. `UPLOAD_DIR` only appears in a docstring; the endpoint uses `COVER_DIR`. Fix `tests/api/test_api_analysis_extended.py:65` to patch `app.api.routers.analysis.REPORT_DIR` (the web.py patch is a no-op today). |
-| `tts_generate_stub` | `app/api/web.py:412-414` | Delete. Docstring claims tests patch it; no such test exists (grep: only the declaration). |
-| Dead dual-mode (`isinstance(..., dict)`) job access | `app/orchestration/progress/service.py:487-538` | `get_jobs()` always returns `Job` dataclasses; replace the `hasattr/isinstance` ladder with direct attribute access (`existing_job.speaker_profile or "default"`, etc.). |
-| `_should_emit()` public shim | `app/orchestration/progress/service.py:1339-1357` | Delete. No test calls it (refs are comments/docstrings; tests assert via `publish()` return). **Do before LF-6.** |
-| Unused `schema_data` vars | `app/tts_server/server.py:892-900, 1045-1053, 1165-1173` | The parse is only a validation side-effect; replace with a `_validate_settings_schema_json()` helper that raises on bad JSON and returns nothing. |
+| `REPORT_DIR`/`UPLOAD_DIR` import + `REPORT_DIR = REPORT_DIR` alias | `app/api/web.py:13,25` | Remove. `UPLOAD_DIR` only appears in a docstring; the endpoint uses `COVER_DIR`. Fix `tests/api/test_api_analysis_extended.py:65` to patch `app.api.routers.analysis.REPORT_DIR` (the web.py patch is a no-op today). **DONE, `commit 2c0b6f83`** — the analysis test's patch-target fix landed too; flagged that `app.core.config.REPORT_DIR` (a third, pre-existing patch line in the same test) is what actually drives the tested behavior, so the fixed line is correct but still redundant — not expanded beyond the instructed change. |
+| `tts_generate_stub` | `app/api/web.py:412-414` | Delete. Docstring claims tests patch it; no such test exists (grep: only the declaration). **DONE, `commit 2c0b6f83`.** |
+| Dead dual-mode (`isinstance(..., dict)`) job access | `app/orchestration/progress/service.py:487-538` | `get_jobs()` always returns `Job` dataclasses; replace the `hasattr/isinstance` ladder with direct attribute access (`existing_job.speaker_profile or "default"`, etc.). **DONE, `commit bfbbdf02`** — both occurrences (the ladder + a second inline dead-pattern in the `voice_event` call) replaced; revert-checked against `tests/api/test_websocket_broadcast.py::test_voice_test_job_telemetry_isolation`. |
+| `_should_emit()` public shim | `app/orchestration/progress/service.py:1339-1357` | Delete. No test calls it (refs are comments/docstrings; tests assert via `publish()` return). **Do before LF-6.** **DONE, `commit bfbbdf02`** — zero real callers reconfirmed before deletion. |
+| Unused `schema_data` vars | `app/tts_server/server.py:892-900, 1045-1053, 1165-1173` | **INVALID (2026-07-01 audit correction) — do NOT delete; these are live validation code (`isinstance(schema_data, dict)` checks). Not attempted.** |
 
 **Verify:** `pytest -q`; revert-check the dict-mode removal by confirming an existing voice-test
 job path still publishes correctly. **Risk:** low (low-med for the service.py edits — covered by
 the progress suite). **Spec:** none.
+
+*(Full backend suite after both BE-1 commits: 2221 passed, 3 skipped — no change from baseline.)*
 
 ---
 
@@ -68,7 +70,7 @@ behavior change.
 
 ---
 
-## BE-4 — Remove duplicate segment-timing math
+## BE-4 — Remove duplicate segment-timing math *(done 2026-07-04, `commit 0cba74d8`)*
 
 **Why:** `app/tts_server/server.py:651-714` computes `model_load_seconds`,
 `synthesis_duration_seconds`, `sum_segment_render_seconds`, `inter_group_overhead_seconds` and ships
@@ -83,6 +85,16 @@ or a timing helper) imported by both — single source of truth.
 **Verify:** `pytest -q`; the timing/performance-sample tests must show identical recorded values
 (revert-check against a captured response fixture). **Effort:** M · **Risk:** med (touches recorded
 performance samples that feed ETA). **Spec:** none.
+
+*(Executor note: the shared formula landed in `app/utils/render_timing.py` — deliberately outside
+both `app.tts_server` and `app.orchestration`, since either side importing the other's internals
+would violate the two-process boundary in `system-architecture.md`. `_record_render_stats_inner`
+now prefers `timing_payload`'s precomputed `synthesis_duration_seconds`/`sum_segment_render_seconds`/
+`inter_group_overhead_seconds` when present, falling back to the shared derive function only when
+absent. `model_load_seconds` was deliberately NOT unified — a real, pre-existing divergence was
+found: server.py defaults it to `None` with no engine-activity timestamp, orchestrator_helpers has
+always defaulted it to `0.0`. Preserved exactly rather than silently merged. Full suite 2221
+passed/3 skipped, identical to pre-change; timing/ETA-specific suites green.)*
 
 ---
 
