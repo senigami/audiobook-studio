@@ -5,6 +5,9 @@
 > background reading). Taxonomy source of truth: `design-docs/plans/v2_voice_tag_taxonomy.md` v1.0.
 > Schema source of truth: `design-docs/specs/voice.schema.json`. HF bundle shape:
 > `design-docs/plans/v2_huggingface_voice_repo_spec.md`.
+> Related research: `design-docs/plans/proposals/research_voice_engine_marketplace_ui_prior_art.md`
+> (open question 1) — whether voice bundles should adopt a Hugging-Face-widget-style
+> declarative preview-sample block for catalog/card rendering.
 
 Voices in the app today carry only operational fields (`name`, `id`, `engine`, `speaker_id`,
 `speed`, etc.) — no structured attributes, no icon, no description, no tags. This plan adds

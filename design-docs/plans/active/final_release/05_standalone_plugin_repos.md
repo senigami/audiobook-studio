@@ -8,6 +8,10 @@
 > record and the step to mark that doc superseded.
 > Pre-requisite: sibling plans **02 (Plugin Communication Contract)** and **03 (Plugin
 > Interface Template)** must be complete before the extraction steps in §4 begin.
+> Related research: `design-docs/plans/proposals/research_voice_engine_marketplace_ui_prior_art.md`
+> surveys Hugging Face Hub, VS Code Marketplace, ComfyUI-Manager, and Ollama's registry for
+> catalog-card, inline-preview, and install/trust patterns applicable to the registry schema
+> and engine browser here.
 
 ---
 

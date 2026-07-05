@@ -194,6 +194,13 @@ manage the TTS Server process. All lifecycle control flows through the watchdog.
 
 ## Engine registry cache (Studio side)
 
+> Note: this is the runtime in-process registry of *installed, running* engines, distinct
+> from the owner-controlled marketplace/catalog registry (browse/install of not-yet-installed
+> engine plugins) specified in
+> `design-docs/plans/active/final_release/05_standalone_plugin_repos.md`. Prior-art research
+> for the marketplace UI is at
+> `design-docs/plans/proposals/research_voice_engine_marketplace_ui_prior_art.md`.
+
 `app/engines/registry.py` maintains a Studio-side cache of the engine list fetched
 from `GET /engines`.
 
