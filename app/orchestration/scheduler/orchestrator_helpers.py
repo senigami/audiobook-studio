@@ -1516,9 +1516,16 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             )
 
         # 1. Try registry-based dispatch (Plugin handlers or generic kind handlers)
+        #    — skipped for isolated fan-out children (W-PAR 008 R1,
+        #    `skip_registry_dispatch = True`, e.g. `_SyntheticSegmentTask`):
+        #    those carry their own prefers_local_execution/to_bridge_request
+        #    routing and must never fall through to a legacy per-engine
+        #    handler, which has no concept of "render only my one group" and
+        #    would silently redo a shared parent's remaining work (see
+        #    docs/checklists/code-review.md, "A shared utility/handler ...").
         reg = get_handler_registry()
         j = self._context_to_job(context)
-        handler = reg.get_handler(j)
+        handler = None if getattr(task, "skip_registry_dispatch", False) else reg.get_handler(j)
 
         if handler:
             if not marker_driven:

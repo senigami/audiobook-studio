@@ -166,6 +166,26 @@ Render a chapter's segments **concurrently** across per-engine pools (GPU/CPU/cl
   > - Cancel mid-render stops cleanly (no orphan audio, queue clears); re-render resumes only unfinished segments
   > - With the cap back at 1, behavior is exactly as before (ships dark)
   > - Overall progress + ETA stay coherent (ETA shown as a range / "estimating…", not a false precise countdown)
+  >
+  > **First attempt FAILED (2026-07-05, owner-run):** an XTTS chapter re-render at cap>1
+  > crashed with a `text must not be empty` 422 (attributed to the parent job); no
+  > per-segment bars ever advanced simultaneously, chapter status sat on "preparing"
+  > throughout. Root-caused via a 4-agent fusion-reasoning panel + Fable adversarial
+  > verification (see `queue-jobs.md` 1.11.3 changelog for the full mechanism):
+  > `_dispatch_segment`'s legacy per-engine registry lookup silently pre-empted the
+  > isolated per-group bridge routing W-PAR 008 built, for BOTH xtts and voxtral (only
+  > `mixed` was ever exercised, since its manifest has no legacy registration) — every
+  > fan-out child re-ran the whole chapter's remaining work instead of just its own
+  > group, and the last-dispatched child crashed on an empty payload with no guard.
+  > Fixed same-day: `_SyntheticSegmentTask.skip_registry_dispatch` bypass (routing) +
+  > `handle_xtts_standard` empty-script no-op guard (defense-in-depth). Also found:
+  > the "permanent partial completion showing errors" the owner separately saw in
+  > Activity/History is unrelated — it's the documented TEMPORARY `SegmentRenderMonitor`
+  > dev fixture (Phase 2 above), gated behind the `studio-dev-mode` localStorage flag,
+  > not live job data. **Owner needs to re-run this visual check** now that the crash
+  > is fixed — genuine simultaneous-parallelism behavior (criterion 1) was never
+  > actually observed even before the crash (timestamps show strictly serial
+  > execution for this run), so that criterion still needs a fresh live check.
 
 ---
 

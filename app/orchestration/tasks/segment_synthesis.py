@@ -218,10 +218,17 @@ class _SyntheticSegmentTask(StudioTask):
       and ``to_bridge_request()`` returns a bridge request built from the
       one-group script entry, so ``_dispatch_segment`` routes it through
       ``self.voice_bridge.synthesize()`` exactly like today's single-engine
-      chapters.
+      chapters. ``skip_registry_dispatch = True`` is what actually enforces
+      this: it makes ``_dispatch_segment`` skip its legacy per-engine
+      registry-handler lookup (step 1) so an engine that still has one
+      registered (xtts, voxtral) can't silently swallow this child before
+      the bridge routing ever runs — that registry handler has no concept of
+      "render only my one group" and would redo the whole chapter's
+      remaining work per child (escaped defect, fixed 2026-07-05).
     """
 
     source: str = "ui"
+    skip_registry_dispatch: bool = True
 
     def __init__(
         self,

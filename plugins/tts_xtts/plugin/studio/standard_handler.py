@@ -294,25 +294,35 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                     except Exception:
                         pass
 
-            scratch_wav = pdir / f"output_{j.id}.wav"
-            try:
-                rc = generate_via_bridge(
-                    engine="xtts",
-                    text=text or "",
-                    out_wav=scratch_wav,
-                    profile_name=j.speaker_profile,
-                    on_output=chapter_on_output,
-                    cancel_check=cancel_check,
-                    speed=speed,
-                    script=script,
-                    task_id=jid,
-                )
-            except BridgeError as exc:
-                logger.error("Bridge synthesis failed in xtts_standard: %s", exc)
-                return 1
-            finally:
-                if scratch_wav.exists():
-                    scratch_wav.unlink()
+            if script:
+                scratch_wav = pdir / f"output_{j.id}.wav"
+                try:
+                    rc = generate_via_bridge(
+                        engine="xtts",
+                        text=text or "",
+                        out_wav=scratch_wav,
+                        profile_name=j.speaker_profile,
+                        on_output=chapter_on_output,
+                        cancel_check=cancel_check,
+                        speed=speed,
+                        script=script,
+                        task_id=jid,
+                    )
+                except BridgeError as exc:
+                    logger.error("Bridge synthesis failed in xtts_standard: %s", exc)
+                    return 1
+                finally:
+                    if scratch_wav.exists():
+                        scratch_wav.unlink()
+            else:
+                # Every group in this chapter is already satisfied — e.g. a
+                # concurrent fan-out sibling (or an earlier run) already
+                # rendered them all. There is nothing to synthesize; calling
+                # the bridge with an empty text/script produced a real "text
+                # must not be empty" 422 here (escaped defect, fixed
+                # 2026-07-05). Treat it as success and fall through to the
+                # existing stitch/finalize block below.
+                rc = 0
 
             if rc == 0:
                 h.update_job(

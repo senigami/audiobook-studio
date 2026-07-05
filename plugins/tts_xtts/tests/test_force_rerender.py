@@ -104,7 +104,9 @@ class TestForceRerenderFlag:
 
     def test_force_rerender_false_reuses_done_segment(self, tmp_path: Path) -> None:
         """When force_rerender=False (default), a done segment with its wav present
-        must be reused — generate_via_bridge receives an empty script."""
+        must be reused — generate_via_bridge must NOT be called at all (an empty
+        script means nothing to synthesize; calling the bridge with it produced a
+        real 'text must not be empty' 422 in a concurrent fan-out — fixed 2026-07-05)."""
         pdir = tmp_path / "chapter"
         pdir.mkdir()
         seg_dir = pdir / "segments"
@@ -151,11 +153,14 @@ class TestForceRerenderFlag:
                 text="Hello world.",
             )
 
-        # generate_via_bridge is still called (handler always calls it) but
-        # the script list must be empty — the done group was reused.
-        assert captured_scripts, "generate_via_bridge should still be invoked"
-        assert captured_scripts[0] == [], (
-            "script must be empty when force_rerender=False and segment is already done"
+        # generate_via_bridge must NOT be called: the done group was reused,
+        # so there is nothing to synthesize. Calling the bridge with an empty
+        # script/text is what produced the real "text must not be empty" 422
+        # in a concurrent fan-out where a sibling child already rendered
+        # everything — the handler must treat "nothing left" as success.
+        assert captured_scripts == [], (
+            "generate_via_bridge must not be called when every group is already "
+            "done — there is nothing to synthesize"
         )
 
 
@@ -282,10 +287,10 @@ class TestGroupIsDoneValidatedArtifact:
                 text="Hello world.",
             )
 
-        assert captured_scripts, "generate_via_bridge should still be invoked"
-        assert captured_scripts[0] == [], (
-            "script must be empty; a non-empty (if non-WAV-parseable) segment "
-            "artifact must still be reused via the fallback branch"
+        assert captured_scripts == [], (
+            "generate_via_bridge must not be called; a non-empty (if "
+            "non-WAV-parseable) segment artifact must still be reused via the "
+            "fallback branch, leaving nothing to synthesize"
         )
 
 
