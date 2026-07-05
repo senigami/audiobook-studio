@@ -381,4 +381,72 @@ describe('useStudioChapter', () => {
       }
     });
   });
+
+  describe('segmentProgress fallback active-segments map (escaped defect fix, 2026-07-05)', () => {
+    it('builds a fallback map from segmentProgress when the backend has no active_segments_map at all', () => {
+      const job = makeJob({ status: 'running' });
+
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+          job,
+          segmentProgress: {
+            S1: { job_id: 'job-1', chapter_id: 'chapter-1', segment_id: 'S1', progress: 0.4, eta_seconds: 8, status: 'running' },
+          },
+        }),
+      );
+
+      expect(result.current.chapterRenderActiveSegmentsMap?.S1).toMatchObject({ phase: 'rendering', progress: 0.4, eta_seconds: 8 });
+      expect(result.current.chapterRenderRenderingSegmentIds.has('S1')).toBe(true);
+    });
+
+    it('does NOT use the fallback when the backend map is present but empty ({} means nothing rendering right now)', () => {
+      const job = makeJob({ status: 'running', active_segments_map: {} });
+
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+          job,
+          segmentProgress: {
+            S1: { job_id: 'job-1', chapter_id: 'chapter-1', segment_id: 'S1', progress: 0.4, eta_seconds: 8, status: 'running' },
+          },
+        }),
+      );
+
+      // Backend {} must win — a stale local segmentProgress entry from a
+      // prior render must never resurrect highlighting on a job the backend
+      // has explicitly said has nothing in flight.
+      expect(result.current.chapterRenderActiveSegmentsMap).toEqual({});
+    });
+
+    it('excludes segmentProgress entries for a different chapter, and terminal/complete entries', () => {
+      const job = makeJob({ status: 'running' });
+
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+          job,
+          segmentProgress: {
+            other: { job_id: 'job-2', chapter_id: 'chapter-OTHER', segment_id: 'other', progress: 0.5 },
+            done: { job_id: 'job-1', chapter_id: 'chapter-1', segment_id: 'done', progress: 1.0, status: 'done' },
+            failed: { job_id: 'job-1', chapter_id: 'chapter-1', segment_id: 'failed', progress: 0.5, status: 'failed' },
+            live: { job_id: 'job-1', chapter_id: 'chapter-1', segment_id: 'live', progress: 0.2, status: 'running' },
+          },
+        }),
+      );
+
+      expect(result.current.chapterRenderActiveSegmentsMap).toEqual({
+        live: { phase: 'rendering', progress: 0.2, eta_seconds: null },
+      });
+    });
+  });
 });

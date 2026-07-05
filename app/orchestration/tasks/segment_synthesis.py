@@ -243,6 +243,7 @@ class _SyntheticSegmentTask(StudioTask):
         voice_profile_id: str | None = None,
         lexicon_entries: list | None = None,
         stop_event: threading.Event | None = None,
+        on_segment_tick: Callable[..., None] | None = None,
     ) -> None:
         self.task_id = task_id
         self.engine_id = engine_id
@@ -253,6 +254,15 @@ class _SyntheticSegmentTask(StudioTask):
         self.safe_mode = safe_mode
         self.voice_profile_id = voice_profile_id
         self.lexicon_entries = lexicon_entries
+        # Event-driven live active_segments_map (2026-07-05, escaped defect
+        # fix): threaded from the parent ChapterSynthesisTask's
+        # _on_child_segment_tick via _parent_context so this child's own
+        # already-rate-limited progress ticks (published through
+        # _dispatch_segment -> orchestrator_publish._publish, which already
+        # ≥1%-gates via ProgressService) ALSO update the parent's live map —
+        # no new timer/thread/join lifecycle needed. None for any caller that
+        # doesn't wire it (e.g. direct tests), which is a silent no-op.
+        self.on_segment_tick = on_segment_tick
         self.script = [script_entry]
         self.output_path = script_entry.get("save_path", "")
         self.submitted_at = time.monotonic()
@@ -294,6 +304,7 @@ class _SyntheticSegmentTask(StudioTask):
             "voice_profile_id": self.voice_profile_id,
             "script": self.script,
             "scope": "job",
+            "on_segment_tick": self.on_segment_tick,
         }
         return TaskContext(
             task_id=self.task_id,
@@ -410,6 +421,7 @@ def make_dispatch_segment_bridge_call(orchestrator: Any) -> Callable[[SegmentSyn
         voice_profile_id = parent_ctx.get("voice_profile_id")
         safe_mode = parent_ctx.get("safe_mode", True)
         lexicon_entries = parent_ctx.get("lexicon_entries")
+        on_segment_tick = parent_ctx.get("on_segment_tick")
 
         chapter_dir = get_chapter_dir(project_id, chapter_id) if project_id and chapter_id else None
         script_entry = build_script_entry_for_group(
@@ -427,6 +439,7 @@ def make_dispatch_segment_bridge_call(orchestrator: Any) -> Callable[[SegmentSyn
             voice_profile_id=voice_profile_id,
             lexicon_entries=lexicon_entries,
             stop_event=child.stop_event,
+            on_segment_tick=on_segment_tick,
         )
         synthetic.group = child.group
 
@@ -557,6 +570,20 @@ class ChapterSynthesisTask(StudioTask):
         # Segment ids that failed twice (permanent failure) — recorded so
         # siblings/completion logic never resubmits them a third time.
         self.permanently_failed_segment_ids: list[str] = []
+        # Event-driven live active_segments_map (2026-07-05, escaped defect
+        # fix): the authoritative, continuously-updated source of truth for
+        # "what's genuinely rendering right now", keyed by REAL segment id.
+        # Updated incrementally by _on_child_segment_tick — called from each
+        # child's OWN dispatch thread at its existing per-tick publish site
+        # (already ≥1%-gated by ProgressService), guarded by the SAME
+        # _children_lock used elsewhere in this class. Replaces the previous
+        # approach of re-deriving "in-flight" from child.started/child.finished
+        # at completion-boundary call sites only, which was structurally
+        # always empty (the just-finished child is excluded, the next hasn't
+        # started) — this is exactly why segments never highlighted and
+        # progress never animated smoothly regardless of concurrency level.
+        self._live_segments_map: dict[str, dict] = {}
+        self._live_segments_map_last_published: dict[str, dict] | None = None
 
     # ------------------------------------------------------------------
     # StudioTask contract
@@ -601,35 +628,87 @@ class ChapterSynthesisTask(StudioTask):
         return get_progress_service()
 
     def _current_active_segments_map(self) -> dict[str, dict] | None:
-        """Build the C2 ``active_segments_map`` snapshot from THIS parent's
-        currently in-flight children (W-PAR 008 — genuine multi-entry
-        aggregation, now that real concurrent fan-out exists).
-
-        One entry per child that has started and not yet resolved, keyed by
-        the child's REAL segment/leader id (``group["segments"][0]["id"]``)
-        — never the synthetic per-child ``task_id`` — matching the C2
-        contract shape: ``{phase, progress, eta_seconds, reason_code?,
-        indeterminate?}``. Returns ``None`` when there is nothing in flight
-        (e.g. before any child starts, or after all have resolved) so a
+        """Return a snapshot of the C2 ``active_segments_map`` — real,
+        continuously-updated per-child progress (2026-07-05, escaped defect
+        fix), sourced from ``self._live_segments_map`` (maintained
+        incrementally by ``_on_child_segment_tick``), NOT re-derived from
+        ``child.started``/``child.finished`` at this call's own invocation
+        time. The old approach only ever sampled at group-completion
+        boundaries (inside the ``as_completed`` loop) — at that exact instant
+        the just-finished child was already excluded and the next hadn't
+        started, so it was structurally always empty regardless of
+        concurrency level. Returns ``None`` when nothing is in flight so a
         frame with no concurrent context stays additive-only (INV-1).
         """
         if not _EMIT_ACTIVE_SEGMENTS_MAP:
             return None
         with self._children_lock:
-            snapshot = list(self._children)
-        entries: dict[str, dict] = {}
-        for child in snapshot:
-            if not child.started or child.finished:
-                # Not yet admitted to the pool (queued) or already resolved —
-                # neither is "actively rendering" (review fix, W-PAR 008).
-                continue
-            leader_id = child.group["segments"][0]["id"] if child.group.get("segments") else child.task_id
-            entries[leader_id] = {
-                "phase": "rendering",
-                "progress": 0.0,
-                "eta_seconds": None,
-            }
-        return entries or None
+            return dict(self._live_segments_map) or None
+
+    def _on_child_segment_tick(
+        self, *, segment_id: str | None, status: str | None, progress: float | None, eta_seconds: int | None,
+    ) -> None:
+        """Update the live active_segments_map from a child's own progress
+        tick (2026-07-05, escaped defect fix) — the event-driven replacement
+        for a polling timer. Called from the CHILD's own dispatch thread, at
+        the exact point it already publishes its per-tick progress via
+        ``orchestrator_publish._publish`` (already ≥1%-gated by
+        ``ProgressService`` — see that gate's own emit discipline; this
+        callback adds no new flood risk, it rides an existing rate limit).
+
+        Thread-safe for N concurrent children at cap>1: the shared dict
+        mutation and diff computation happen under ``self._children_lock``
+        (the SAME lock already guarding ``self._children`` elsewhere in this
+        class); the ``update_job`` call itself happens OUTSIDE the lock (I/O
+        should never happen while holding a lock another thread needs) and
+        is naturally serialized by ``app.db.state``'s own internal
+        ``_STATE_LOCK``. A terminal status (done/completed/failed/cancelled)
+        REMOVES the entry — a finished/failed/cancelled segment must not
+        keep showing as "rendering" (this is also called explicitly from the
+        ``as_completed`` loop below for every terminal outcome, since not
+        every terminal transition necessarily arrives via a marker tick).
+        """
+        if not _EMIT_ACTIVE_SEGMENTS_MAP or not segment_id:
+            return
+        terminal = status in {"done", "completed", "failed", "cancelled"}
+        changed = False
+        with self._children_lock:
+            if terminal:
+                changed = self._live_segments_map.pop(segment_id, None) is not None
+            else:
+                # Quantize to 0.01 (matching ProgressService's own ≥1%
+                # convention, see min_progress_delta) so sub-1% engine ticks
+                # don't trigger a state.json rewrite on every call.
+                entry = {
+                    "phase": "rendering",
+                    "progress": round(progress or 0.0, 2),
+                    "eta_seconds": eta_seconds,
+                }
+                if self._live_segments_map.get(segment_id) != entry:
+                    self._live_segments_map[segment_id] = entry
+                    changed = True
+            if changed:
+                snapshot = dict(self._live_segments_map)
+                if snapshot == self._live_segments_map_last_published:
+                    changed = False
+                else:
+                    self._live_segments_map_last_published = snapshot
+        if not changed:
+            return
+        try:
+            from app.db.state import update_job  # noqa: PLC0415
+            # skip_job_updated=True: emits the chapters.progress frame
+            # (now carrying active_segments_map, live-events.md 1.9.x) but
+            # skips the queue.items frame AND the ETA-velocity sample
+            # (ws.py's `_enrich_sample = not skip_job_updated`) — a map-only
+            # tick must never corrupt the §4A confidence ring with a
+            # same-progress sample between real group completions.
+            update_job(self.task_id, active_segments_map=snapshot, skip_job_updated=True)
+        except Exception:
+            logger.warning(
+                "ChapterSynthesisTask %s: failed to publish live segment tick.",
+                self.task_id, exc_info=True,
+            )
 
     def _clear_active_segments_map(self) -> None:
         """Write an explicit EMPTY ``active_segments_map`` to job state.
@@ -644,6 +723,9 @@ class ChapterSynthesisTask(StudioTask):
         """
         if not _EMIT_ACTIVE_SEGMENTS_MAP:
             return
+        with self._children_lock:
+            self._live_segments_map.clear()
+            self._live_segments_map_last_published = {}
         try:
             from app.db.state import update_job  # noqa: PLC0415
             # force_broadcast: the stitch_fn may have already written the
@@ -781,6 +863,7 @@ class ChapterSynthesisTask(StudioTask):
                     "voice_profile_id": self.voice_profile_id,
                     "safe_mode": self.safe_mode,
                     "lexicon_entries": self._lexicon_entries,
+                    "on_segment_tick": self._on_child_segment_tick,
                 },
             )
             children.append(child)
@@ -950,6 +1033,10 @@ class ChapterSynthesisTask(StudioTask):
         def _child_char_len(c: SegmentSynthesisTask) -> int:
             return int((c.group or {}).get("text_length") or 0)
 
+        def _leader_id(c: SegmentSynthesisTask) -> str | None:
+            segs = (c.group or {}).get("segments") or []
+            return segs[0]["id"] if segs else None
+
         total_chars = sum(_child_char_len(c) for c in children)
         done_chars = 0
 
@@ -978,6 +1065,18 @@ class ChapterSynthesisTask(StudioTask):
                             "ChapterSynthesisTask %s: child raised unexpectedly.", self.task_id
                         )
                         final_child, result = futures[future], TaskResult(status="failed", message=str(exc))
+
+                    # Live map hygiene (2026-07-05, escaped defect fix): a
+                    # resolved child (any outcome) must stop showing as
+                    # "rendering" immediately — not every terminal transition
+                    # necessarily arrives via a marker tick (e.g. a bridge
+                    # exception with no final SEGMENT_PROGRESS line), so this
+                    # explicit pop is the authoritative removal, independent
+                    # of whatever _on_child_segment_tick calls happened during
+                    # the render.
+                    self._on_child_segment_tick(
+                        segment_id=_leader_id(final_child), status="done", progress=1.0, eta_seconds=None,
+                    )
 
                     if result.status == "cancelled" or self.stop_event.is_set():
                         # Cancellation observed — do not count this child as

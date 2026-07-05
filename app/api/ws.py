@@ -526,6 +526,13 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                 project_id=merged.get("project_id"),
                 source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
                 confidence=_enriched_confidence,
+                # W-PAR 008 (event-driven live map, 2026-07-05): the missing
+                # delivery leg — without this, a map-only mid-render update
+                # (skip_job_updated=True, no status change) never reached the
+                # frontend at all, since queue.items below is gated on
+                # status_changed/terminal_reset and chapters.progress was the
+                # only other frame for a chapter-classified job.
+                active_segments_map=merged.get("active_segments_map"),
             )
             broadcast_studio_event(event)
         if not skip_job_updated and (status_changed or terminal_reset):

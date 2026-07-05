@@ -504,6 +504,7 @@ def build_chapter_progress_event(
     confidence: float | None = None,
     indeterminate: bool | None = None,
     loading_elapsed_seconds: float | None = None,
+    active_segments_map: dict | None = None,
 ) -> dict:
     """Build a chapters.progress topic envelope."""
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
@@ -540,6 +541,15 @@ def build_chapter_progress_event(
         payload["indeterminate"] = bool(indeterminate)
     if loading_elapsed_seconds is not None:
         payload["loadingElapsedSeconds"] = round(float(loading_elapsed_seconds), 1)
+    if active_segments_map is not None:
+        # W-PAR 008 (event-driven live map, 2026-07-05): additive-only field
+        # (INV-1/INV-9), snake_case on the wire, matching
+        # build_queue_item_status_event's existing convention — no camelCase
+        # variant. This is the missing delivery leg: without it, no matter
+        # how often the backend writes active_segments_map to job state, a
+        # status-unchanged mid-render update never reaches the frontend at
+        # all (chapters.progress was the only frame that could carry it here).
+        payload["active_segments_map"] = active_segments_map
     if resolved_eta_updated_at is not None:
         payload["etaUpdatedAt"] = resolved_eta_updated_at
     if updated_at is not None:

@@ -200,6 +200,32 @@ class OrchestratorPublishMixin:
             if ephemeral:
                 # No durable job-state write for a synthetic fan-out child —
                 # the segment-scoped frames above are its only output.
+                #
+                # Event-driven live active_segments_map (2026-07-05, escaped
+                # defect fix): a fan-out child's own per-tick publish call
+                # (already ≥1%-gated by ProgressService above) is the single
+                # existing chokepoint every child's progress already flows
+                # through — piggybacking the parent's live-map update here
+                # needs no new timer/thread/join lifecycle. The callback is a
+                # plain opaque callable stashed in the ephemeral context's own
+                # payload by `_SyntheticSegmentTask.describe()` (never a new
+                # import/coupling into this module); duck-typed via
+                # `getattr`-equivalent `.get(...)` exactly like
+                # `skip_registry_dispatch`/`is_chapter_fanout` elsewhere in
+                # this codebase.
+                on_segment_tick = _payload.get("on_segment_tick")
+                if callable(on_segment_tick):
+                    try:
+                        on_segment_tick(
+                            segment_id=active_segment_id,
+                            status=state_status,
+                            progress=active_segment_progress if active_segment_progress is not None else state_progress,
+                            eta_seconds=eta_seconds,
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Task %s: on_segment_tick callback raised.", context.task_id, exc_info=True,
+                        )
                 return
 
             # Initialize job state if this is the first event (usually 'queued')

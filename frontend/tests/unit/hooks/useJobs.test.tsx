@@ -261,6 +261,9 @@ describe('useJobs', () => {
       chapter_id: 'chap-1',
       segment_id: 'seg-2',
       progress: 0.75,
+      eta_seconds: null,
+      status: undefined,
+      updated_at: expect.any(Number),
     });
   });
 
@@ -555,6 +558,9 @@ describe('useJobs', () => {
       chapter_id: 'chap-1',
       segment_id: 'seg-abc',
       progress: 0.85,
+      eta_seconds: null,
+      status: 'running',
+      updated_at: expect.any(Number),
     });
   });
 
@@ -586,6 +592,9 @@ describe('useJobs', () => {
       chapter_id: 'chap-1',
       segment_id: 'seg-abc',
       progress: 0.83,
+      eta_seconds: null,
+      status: 'running',
+      updated_at: expect.any(Number),
     });
 
     expect(result.current.jobs['job-seg']?.active_segment_progress).toBe(0.83);
@@ -819,6 +828,9 @@ describe('useJobs', () => {
       chapter_id: 'chap-1',
       segment_id: 'seg-abc',
       progress: 0.85,
+      eta_seconds: 15,
+      status: 'running',
+      updated_at: expect.any(Number),
     });
 
     // 2. Projected active segment metadata is placed on the chapter job

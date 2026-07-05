@@ -186,6 +186,32 @@ Render a chapter's segments **concurrently** across per-engine pools (GPU/CPU/cl
   > is fixed — genuine simultaneous-parallelism behavior (criterion 1) was never
   > actually observed even before the crash (timestamps show strictly serial
   > execution for this run), so that criterion still needs a fresh live check.
+  >
+  > **Second attempt FAILED differently (2026-07-05, owner-run):** the crash is
+  > confirmed fixed — the re-render completed successfully — but criterion 1
+  > (simultaneous segment highlighting) and ETA animation still did not appear.
+  > Root-caused via a Sonnet-only 4-agent fusion DESIGN panel (per owner directive:
+  > fusion Sonnet-only, Fable scoped to plan verification) + Fable plan review:
+  > `_current_active_segments_map` only ever sampled at group-COMPLETION
+  > boundaries (`_publish_progress`, called from the `as_completed` loop) — the
+  > just-finished child was already excluded and the next hadn't started at that
+  > exact call site, so the map was structurally always empty regardless of
+  > concurrency level. Separately, `build_chapter_progress_event` had no
+  > `active_segments_map` parameter at all (the "delivery leg") — even a
+  > correctly-populated map could never reach the frontend on a mid-render,
+  > status-unchanged tick. Fable's plan review caught a lifecycle-ordering bug in
+  > the panel's initial timer-based proposal and suggested a simpler event-driven
+  > alternative (owner-approved): each child's own already-rate-limited per-tick
+  > publish now also updates the parent's live map directly (`_on_child_segment_tick`,
+  > diff-gated, `skip_job_updated=True`) — no new timer/thread/join lifecycle at
+  > all. See `queue-jobs.md` 1.11.4 / `live-events.md` 1.9.5 for the full
+  > mechanism. Frontend companion fix (same change): `useStudioChapter.ts` was
+  > silently discarding an already-delivered `segmentProgress` prop (real live
+  > per-segment data) — now used as a fallback when the backend map is absent.
+  > **Owner needs to re-run this visual check again** — both fixes are unit- and
+  > integration-tested (backend: real per-tick dispatch through `_dispatch_segment`
+  > proves a non-empty map appears mid-render even at cap=1; frontend: fallback
+  > precedence tests) but have not yet been observed in a live render.
 
 ---
 

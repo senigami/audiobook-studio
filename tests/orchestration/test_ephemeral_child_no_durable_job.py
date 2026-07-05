@@ -275,3 +275,103 @@ def test_ephemeral_children_still_emit_segment_frames_but_no_job_scoped_frames(t
     # frontend's segment overlay consumes — never the synthetic task id.
     seg_ids = {(f.get("ids") or {}).get("segmentId") for f in child_seg_frames}
     assert seg_ids & {"seg-0", "seg-1"}, f"expected real segment ids on child frames; got {seg_ids}"
+
+
+def test_live_active_segments_map_populates_during_render_even_at_cap1(tmp_path):
+    """Escaped defect fix (2026-07-05): a real chapter fan-out render must
+    call update_job(..., active_segments_map=...) with a genuinely non-empty
+    ("rendering") entry DURING the render — not just an empty {} at the end.
+
+    R1: before this fix, ChapterSynthesisTask._publish_progress only sampled
+    active_segments_map at group-COMPLETION boundaries (inside as_completed),
+    at which instant the just-finished child was already excluded and the
+    next hadn't started — so the map was structurally always empty regardless
+    of concurrency level. Runs at cap=1 (the reported symptom: no
+    highlighting even on a real, successful, non-crashing render) —
+    concurrency is NOT required to expose this bug.
+
+    This tests the backend aggregation mechanism itself (the real bug's root
+    cause). The SEPARATE delivery-leg fix — active_segments_map actually
+    reaching a chapters.progress wire frame — is covered by
+    tests/api/test_events_contract.py's build_chapter_progress_event tests
+    and app/api/ws.py's threading of merged.get("active_segments_map"); this
+    test's harness has no app-boot job-listener registration (real
+    broadcast_job_updated is wired at app.core.boot, not in a bare unit
+    harness), so it asserts at the update_job call boundary instead of the
+    websocket boundary.
+    """
+    calls: list[dict] = []
+    from app.db.state import update_job as real_update_job
+
+    def _spy_update_job(job_id, *a, **kw):
+        if "active_segments_map" in kw:
+            calls.append({"job_id": job_id, **kw})
+        return real_update_job(job_id, *a, **kw)
+
+    # _on_child_segment_tick/_publish_progress/_clear_active_segments_map all
+    # do `from app.db.state import update_job` LAZILY inside the function —
+    # patching the true source (app.db.state.update_job) is what a call-time
+    # re-resolution intercepts; there's no module-level name to patch on
+    # segment_synthesis itself.
+    with patch("app.db.state.update_job", side_effect=_spy_update_job):
+        task_id = "chap-live-map"
+        result, _orc = _run_chapter_fanout(
+            tmp_path, task_id, "chapter-live-map", groups=3, cap=1,
+        )
+    assert result.status == "completed", f"expected completed, got {result}"
+
+    rendering_calls = [c for c in calls if c.get("active_segments_map")]
+    assert rendering_calls, (
+        "expected at least one update_job(active_segments_map=...) call with a "
+        f"non-empty map during the render; got calls: {calls}"
+    )
+    assert any(
+        entry.get("phase") == "rendering"
+        for c in rendering_calls
+        for entry in c["active_segments_map"].values()
+    ), f"expected at least one 'rendering' phase entry; got {rendering_calls}"
+
+
+def test_live_active_segments_map_pops_entry_on_child_completion():
+    """ChapterSynthesisTask._on_child_segment_tick: diff-gating and terminal
+    removal, in isolation (no full render harness needed).
+
+    R1: before this fix, _current_active_segments_map re-derived from
+    child.started/child.finished at each call and had no incremental
+    live-tick mechanism at all — this class of diff-gate/removal logic did
+    not exist.
+    """
+    from app.orchestration.tasks.segment_synthesis import ChapterSynthesisTask
+
+    task = ChapterSynthesisTask(
+        task_id="chap-tick-test", engine_id="mixed", chapter_id="chap-1", project_id="proj-1",
+    )
+
+    calls: list[dict] = []
+    with patch("app.db.state.update_job", side_effect=lambda *a, **kw: calls.append(kw)):
+        # First tick: populates the map, must publish.
+        task._on_child_segment_tick(segment_id="seg-A", status="running", progress=0.3, eta_seconds=10)
+        assert task._current_active_segments_map() == {
+            "seg-A": {"phase": "rendering", "progress": 0.3, "eta_seconds": 10}
+        }
+        assert len(calls) == 1
+        assert calls[0]["active_segments_map"] == {"seg-A": {"phase": "rendering", "progress": 0.3, "eta_seconds": 10}}
+        assert calls[0]["skip_job_updated"] is True
+
+        # Identical repeat tick (sub-1% engine chatter): diff-gate must skip the publish.
+        task._on_child_segment_tick(segment_id="seg-A", status="running", progress=0.301, eta_seconds=10)
+        assert len(calls) == 1, "an unchanged (post-quantization) tick must not trigger update_job"
+
+        # Genuine progress change: must publish again.
+        task._on_child_segment_tick(segment_id="seg-A", status="running", progress=0.6, eta_seconds=6)
+        assert len(calls) == 2
+
+        # Terminal tick: entry must be removed, map goes back to None (empty).
+        task._on_child_segment_tick(segment_id="seg-A", status="done", progress=1.0, eta_seconds=None)
+        assert task._current_active_segments_map() is None
+        assert len(calls) == 3
+        assert calls[2]["active_segments_map"] == {}
+
+        # A second terminal tick for an already-removed segment must not re-publish.
+        task._on_child_segment_tick(segment_id="seg-A", status="done", progress=1.0, eta_seconds=None)
+        assert len(calls) == 3, "popping an already-absent entry must not trigger a redundant publish"

@@ -44,6 +44,7 @@ export function useStudioChapter({
   engines = [],
   job: propJob,
   chapterJobs = [],
+  segmentProgress,
   selectedVoice: externalVoice,
   segmentUpdate,
   chapterUpdate,
@@ -151,7 +152,28 @@ export function useStudioChapter({
   // W-PAR 006: chapter-level map of concurrently-active segments (C2 contract,
   // consumed verbatim). Absent ⇒ fall back to the singular active_segment_id
   // path below unchanged (INV-1 — byte-identical at cap=1).
-  const chapterRenderActiveSegmentsMap = job?.active_segments_map ?? generatingSegmentJob?.active_segments_map ?? undefined;
+  const backendActiveSegmentsMap = job?.active_segments_map ?? generatingSegmentJob?.active_segments_map;
+  // Escaped defect fix (2026-07-05): a fallback derived from the per-segment
+  // segments.progress stream (already flowing via useJobs.ts's segmentProgress
+  // state — real progress/eta, previously accepted as a prop and silently
+  // ignored). Used ONLY when the backend hasn't supplied its OWN map AT ALL
+  // (undefined) — an explicit {} from the backend is a real "nothing
+  // rendering right now" signal and must win over any local fallback.
+  const fallbackActiveSegmentsMap = useMemo(() => {
+    if (backendActiveSegmentsMap !== undefined || !segmentProgress || !isChapterProcessing) return undefined;
+    const entries: Record<string, { phase: string; progress: number; eta_seconds: number | null }> = {};
+    for (const sp of Object.values(segmentProgress)) {
+      if (sp.chapter_id !== chapterId) continue;
+      if ((sp.progress ?? 0) >= 1 || sp.status === 'done' || sp.status === 'failed' || sp.status === 'cancelled') continue;
+      entries[sp.segment_id] = {
+        phase: 'rendering',
+        progress: sp.progress ?? 0,
+        eta_seconds: sp.eta_seconds ?? null,
+      };
+    }
+    return Object.keys(entries).length ? entries : undefined;
+  }, [backendActiveSegmentsMap, segmentProgress, isChapterProcessing, chapterId]);
+  const chapterRenderActiveSegmentsMap = backendActiveSegmentsMap ?? fallbackActiveSegmentsMap;
 
   const rawActiveSegmentId = job?.active_segment_id || generatingSegmentJob?.active_segment_id || null;
   const rawActiveSegmentProgress = rawActiveSegmentId && typeof job?.active_segment_progress === 'number'

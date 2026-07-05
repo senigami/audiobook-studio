@@ -420,6 +420,13 @@ export interface SegmentProgress {
   chapter_id?: string;
   segment_id: string;
   progress: number;
+  // Escaped defect fix (2026-07-05): captured from the same segments.progress
+  // wire frame that already carries `progress`, so useStudioChapter.ts can
+  // derive a usable active-segments fallback (phase/eta), not just a bare
+  // percentage, when the backend's own active_segments_map is absent.
+  eta_seconds?: number | null;
+  status?: string;
+  updated_at?: number;
 }
 
 export interface Settings {

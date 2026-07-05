@@ -1,7 +1,7 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.11.3
+spec_version: 1.11.4
 status: active
 updated: 2026-07-05
 created: 2026-06-10
@@ -19,6 +19,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.11.4  | 2026-07-05 | **§3.10 second escaped defect — the Phase 1 visual check's OTHER failure mode: `active_segments_map` never populated during a render, even after the routing crash (1.11.3) was fixed and a chapter rendered successfully at cap=1.** Root cause: `_current_active_segments_map` only ever ran inside `_publish_progress`, itself only called from the `as_completed` loop at group-COMPLETION boundaries — structurally always empty (the just-finished child excluded, the next not yet started), regardless of concurrency level. Separately, `build_chapter_progress_event` had no `active_segments_map` parameter at all, so even a correctly-populated map could never reach a `chapters.progress` frame (the delivery leg). Diagnosed via a 4-agent fusion design panel (Sonnet-only, per owner directive) + Fable plan verification, which caught both the missing delivery leg AND a lifecycle-ordering bug in the panel's initial timer-based proposal — leading to a simpler event-driven fix with no new timer/thread/join lifecycle at all (Fable's own suggested alternative). Fixed: `_on_child_segment_tick` (event-driven, diff-gated, `skip_job_updated=True`) replaces completion-boundary sampling; `build_chapter_progress_event` + `ws.py` gain the delivery leg. Frontend companion fix (same change): `useStudioChapter.ts` was silently discarding an already-delivered `segmentProgress` prop (real per-segment live data from the existing `segments.progress` stream) — now used as a fallback active-segments map when the backend hasn't supplied its own (backend `{}` always wins — a real "nothing rendering" signal must not be overridden by stale local data). |
 | 1.11.3  | 2026-07-05 | **§3.10 escaped defect fixed — fan-out children were silently routed through a legacy per-engine registry handler instead of the bridge, for any engine with one registered.** Found during the owner's W-PAR Phase 1 👁 visual check (a real cap>1 render of an xtts chapter failed with a `text must not be empty` 422). Root cause: `_dispatch_segment`'s step-1 registry lookup (`app.jobs.registry.JobHandlerRegistry.get_handler`, matches on engine name alone) ran unconditionally, ahead of `_SyntheticSegmentTask`'s intended `prefers_local_execution`/`to_bridge_request` routing (documented in 1.9.0 above) — so every xtts AND voxtral fan-out child (both still have legacy `engine_handlers` registrations; only `mixed` has none) actually executed the legacy whole-chapter handler (`handle_xtts_standard`), which re-derives ALL of the chapter's remaining groups from a live DB query with no per-child scoping. The first-dispatched child silently rendered every sibling's work too; every subsequent child then found nothing left and unconditionally called the bridge with an empty script/text (no guard existed), producing the 422. Fixed: (1) `_SyntheticSegmentTask.skip_registry_dispatch = True` makes `_dispatch_segment` skip the registry lookup for fan-out children (new opt-in `getattr` check, `False` for every other task — INV-1 unaffected); (2) `handle_xtts_standard` now treats an empty post-filter `script` as success (`rc = 0`, falls through to the existing stitch block) instead of calling the bridge with an empty payload — defense-in-depth for any future caller that reaches this legacy path with nothing left to render. Diagnosed via a 4-agent fusion-reasoning panel + Fable adversarial verification; captured in `docs/checklists/code-review.md` (per-engine routing coverage + pre-flight empty-payload guard + the "shared handler reused at a new call site" recurring pattern). |
 | 1.11.2  | 2026-07-04 | **§3.7 residual drift closed.** `_group_is_done` (xtts standard path, `plugins/tts_xtts/plugin/studio/standard_handler.py`) now gates reuse via the new `StudioPluginContext.is_valid_segment_artifact(path)` method (a thin public wrapper around the same `_is_valid_segment_artifact` check `group_needs_render` uses) instead of bare `chunk_path.exists()`. §3.7's "validated artifact metadata... never raw file existence alone" claim is now true for all three render paths (xtts bake, voxtral bake, mixed, and xtts standard); no known residual drift remains. Observable change: a zero-byte or duration-insane segment WAV on the standard (non-bake) xtts path is now healed to `unprocessed` and re-rendered instead of being wrongly treated as done. |
 | 1.11.1  | 2026-07-04 | **§3.7 reuse-gate realignment recorded (PL-2) + residual `_group_is_done` drift flagged.** §3.7's claim that per-group reuse is decided "against validated artifact metadata — never raw file existence alone" was written in the 1.4.0 spec reconcile while the xtts and voxtral bake `_group_needs_render` locals still used a bare `expected_path.exists()` check (only the mixed handler's INV-3 version matched the spec). PL-2 (`design-docs/plans/active/simplification/06_plugin_consolidation.md`) consolidated all three into `StudioPluginContext.group_needs_render` (`app/studio_plugin_sdk/context.py`), which standardizes on the validated-artifact logic (`_is_valid_segment_artifact`: exists, non-empty, and — when parseable as a WAV — a sane header duration `0 < d <= 3600s`) plus per-segment DB state — so the xtts/voxtral bake paths now actually match §3.7 (observable change: a zero-byte or duration-insane segment WAV is re-rendered instead of reused). **Residual drift, not yet resolved:** `_group_is_done` (xtts standard path, `plugins/tts_xtts/plugin/studio/standard_handler.py`) still gates reuse on bare `chunk_path.exists()` + DB status; §3.7's sentence now scopes its validated-metadata claim accordingly. Upgrading `_group_is_done` to `_is_valid_segment_artifact` is an open owner decision, not implied by this row. |
@@ -464,16 +465,44 @@ wire `plugins/tts_mixed/handler.py`'s `_group_needs_render`/
 resubmitted, and the K already-valid segments' known-good paths still reach
 the stitch barrier.
 
-**`active_segments_map` emission (C2 contract) — LIVE at genuine fan-out > 1.**
-Both `_dispatch_segment` (single dispatch unit processing multiple groups
-serially — one active segment at a time) AND `ChapterSynthesisTask`'s own
-`_current_active_segments_map` (genuine concurrent children) publish the
-additive `active_segments_map` snapshot (see `live-events.md` 1.9.2) — keyed
-by `segment_id` (the REAL segment/leader id, never the synthetic per-child
-task_id), each entry `{phase, progress, eta_seconds, reason_code?,
-indeterminate?}`. This rides the SAME `queue.items`/chapter progress frame the
-existing single-active fields use (INV-9: no new wire channel); at cap=1 the
-map still carries at most one entry, matching the pre-008 shape (INV-1).
+**`active_segments_map` emission (C2 contract) — event-driven, LIVE at any
+cap including cap=1 (fixed 2026-07-05; see 1.11.4 changelog for the
+escaped-defect writeup).** `ChapterSynthesisTask._current_active_segments_map`
+now returns a snapshot of `self._live_segments_map`, an in-memory dict
+maintained INCREMENTALLY by `_on_child_segment_tick` — called from each
+child's OWN dispatch thread at the exact point it already publishes its
+per-tick progress (`_dispatch_segment` → `orchestrator_publish._publish`,
+already ≥1%-gated by `ProgressService`; `_SyntheticSegmentTask.describe()`
+threads an `on_segment_tick` callback into its payload for `_publish` to
+invoke, duck-typed exactly like `skip_registry_dispatch`/`is_chapter_fanout`
+elsewhere — no new import/coupling). This replaced the prior
+completion-boundary-only sampling (`_publish_progress`, called solely inside
+the `as_completed` loop), which was structurally always empty regardless of
+concurrency level — the just-finished child was already excluded and the
+next hadn't started at that exact call site. Keyed by `segment_id` (the REAL
+segment/leader id, never the synthetic per-child task_id), each entry
+`{phase, progress, eta_seconds}`. Written via a diff-gated (0.01-quantized)
+`update_job(self.task_id, active_segments_map=snapshot, skip_job_updated=True)`
+call — `skip_job_updated=True` emits the chapters.progress frame (carrying
+the map) but skips the queue.items frame AND the §4A ETA-velocity sample, so
+a map-only tick never corrupts confidence tracking between real group
+completions. At cap=1 the map generally carries at most one entry; a
+transient two-entry N/N+1 handoff is possible for a few microseconds when
+the ThreadPoolExecutor's single worker thread picks up the next child before
+the main thread's `as_completed` loop pops the just-finished one — benign
+and self-correcting, invisible against real multi-second segment render
+times (see `tests/orchestration/test_correctness_invariants.py`'s
+`TestActiveSegmentsMapStartedGating`).
+
+**Delivery leg (fixed 2026-07-05).** `build_chapter_progress_event`
+(`app/api/contracts/events.py`) previously had NO `active_segments_map`
+parameter at all — the field could never reach a `chapters.progress` frame no
+matter how often the backend wrote it to job state, since a map-only update
+(no status change) never triggers the `queue.items` frame either (gated on
+`status_changed or terminal_reset`). `app/api/ws.py`'s
+`broadcast_job_updated` now threads `merged.get("active_segments_map")`
+through on every chapter-classified event, matching
+`build_queue_item_status_event`'s existing support for the same field.
 
 **`segments.progress` per-segment completion — unchanged in this version.**
 `app/api/ws.py`'s `broadcast_job_updated` infers a segment's completion from

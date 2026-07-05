@@ -232,6 +232,14 @@ class TestActiveSegmentsMapMultiEntryAggregation:
         in flight at the same instant (R4: no sleeps) before either resolves,
         so the aggregation is proven against real concurrency, not just
         sequential bookkeeping.
+
+        Updated 2026-07-05 (event-driven live map fix): the aggregation no
+        longer reads ``self.started``/``self._children`` at call time — it
+        reads ``self._live_segments_map``, populated incrementally by
+        ``_on_child_segment_tick`` (the same call a real dispatch makes at
+        its own per-tick publish site, already thread-safe for N concurrent
+        callers via ``_children_lock``). Each fake child run now issues that
+        tick itself before racing to the barrier.
         """
         from app.orchestration.tasks.segment_synthesis import SegmentSynthesisTask  # noqa: PLC0415
         from app.orchestration.tasks.base import TaskResult  # noqa: PLC0415
@@ -245,17 +253,17 @@ class TestActiveSegmentsMapMultiEntryAggregation:
                 return None
 
         def _fake_run(self):
-            # Mirror the real run()'s first action (review fix, W-PAR 008):
-            # the aggregation now requires `started and not finished`, so a
-            # child that never marks itself started is treated as still
-            # queued and excluded from the map.
-            self.started = True
+            leader_id = self.group["segments"][0]["id"]
+            parent_ref[0]._on_child_segment_tick(
+                segment_id=leader_id, status="running", progress=0.0, eta_seconds=None,
+            )
             try:
                 both_arrived.wait()
             except threading.BrokenBarrierError:
                 pass
             # Snapshot the parent's aggregation while BOTH children are
-            # still in flight (started, not yet `finished`).
+            # still in flight (ticked, not yet popped by run()'s
+            # as_completed loop).
             with observed_lock:
                 observed_maps.append(dict(parent_ref[0]._current_active_segments_map() or {}))
             return TaskResult(status="completed")
