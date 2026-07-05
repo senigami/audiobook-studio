@@ -95,6 +95,10 @@ the metadata proposal):
   the paste-token vs OAuth device-code auth UX options) is researched separately in
   `design-docs/plans/reference/v2_huggingface_upload_implementation.md` — read it before
   building the upload button.
+- The gap between this spec and the current shipped implementation (flattened directory
+  structure, no icon/README in the exported bundle, no engine-asset inclusion) is tracked in
+  `design-docs/plans/active/huggingface_voice_upload/` — read that plan's `01-map.md` before
+  changing `export_hf_voice_bundle` or `HFHubClient.upload_files`.
 
 > **Engines are not here.** TTS engine plugins are hosted on GitHub and installed/updated
 > through `design-docs/plans/v2_engine_bundle_github_distribution.md`.

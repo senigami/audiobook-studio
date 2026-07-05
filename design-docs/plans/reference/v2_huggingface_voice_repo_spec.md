@@ -9,7 +9,9 @@
 > For the implementation-level "how" of pushing this layout to the Hub (concrete
 > `huggingface_hub` API calls, LFS/Xet gotchas, auth UX, and whether `upload_folder` can point
 > straight at the local bundle dir), see
-> `design-docs/plans/reference/v2_huggingface_upload_implementation.md`.
+> `design-docs/plans/reference/v2_huggingface_upload_implementation.md`. The active plan closing
+> the gap between this spec and the shipped code is
+> `design-docs/plans/active/huggingface_voice_upload/`.
 
 ## 1. Goal
 
@@ -58,8 +60,8 @@ the app (auto-extracted).
 ├── voice.json           # CANONICAL spec Studio reads natively. Source of truth.
 ├── icon.png             # 1:1 voice image (512x512 recommended, 256 min).
 ├── samples/
-│   ├── preview.wav       # Primary sample: HF widget player + Studio preview.
-│   └── preview-*.wav      # Optional extra samples (emotions/languages).
+│   ├── preview.mp3       # Primary sample: HF widget player + Studio preview.
+│   └── preview-*.mp3      # Optional extra samples (emotions/languages).
 ├── assets/              # Optional precomputed engine assets (§6).
 │   └── <engine_id>/...
 └── LICENSE              # Optional explicit license text.
@@ -82,7 +84,7 @@ Attribute values are governed by `design-docs/plans/v2_voice_tag_taxonomy.md`.
   "description": "A weathered, low Southern drawl. Reads like an old ranch hand telling a hard story.",
   "image": "icon.png",
   "samples": [
-    { "path": "samples/preview.wav", "text": "The sun went down slow over the dry creek.", "primary": true }
+    { "path": "samples/preview.mp3", "text": "The sun went down slow over the dry creek.", "primary": true }
   ],
   "languages": ["en-US"],
   "attributes": {
@@ -151,7 +153,7 @@ widget:
   - text: "The sun went down slow over the dry creek."
     example_title: "Gravel Road — preview"
     output:
-      url: samples/preview.wav       # << playable sample on the HF page
+      url: samples/preview.mp3       # << playable sample on the HF page
 ---
 
 <img src="icon.png" alt="Gravel Road" width="256" height="256" />
@@ -209,7 +211,7 @@ before and after release.
 - Ship `voice.schema.json` + a template skeleton.
 - The Voices tab **Export** and **Upload to Hugging Face** actions both run the generator:
   given a Studio voice, it writes `voice.json`, `icon.png` (auto-cropped 1:1),
-  `samples/preview.wav`, and a `README.md` rendered from `voice.json`. Export zips it;
+  `samples/preview.mp3`, and a `README.md` rendered from `voice.json`. Export zips it;
   Upload pushes loose files via the user's HF token.
 - **Validation** before export/upload: required attributes present and within the taxonomy,
   `id` matches folder, image is 1:1, ≥1 sample, widget `output.url` resolves, schema
