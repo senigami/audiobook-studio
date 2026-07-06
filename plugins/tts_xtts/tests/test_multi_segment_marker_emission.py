@@ -99,14 +99,10 @@ class TestMultiSegmentRelayOrdering:
                 on_output(line)
             return 0
 
-        def fake_print(*args, file=None, flush=False, **kwargs):
-            if file is sys.stderr:
-                emitted_lines.append(args[0] if args else "")
-
         with patch.object(plugin, "check_request", return_value=(True, "OK")), \
              patch.object(plugin, "_xtts_generate_script", side_effect=mock_generate_script), \
              patch("pathlib.Path.exists", return_value=True), \
-             patch("builtins.print", side_effect=fake_print):
+             patch("plugins.tts_xtts.plugin.server.engine._emit_stderr_atomic", side_effect=emitted_lines.append):
             plugin.synthesize(req)
 
         return emitted_lines

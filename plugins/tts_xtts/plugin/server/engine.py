@@ -23,6 +23,18 @@ from typing import Any, Optional
 from app.engines.voice.sdk import TTSRequest, TTSResult, VerificationResult
 from app.engines.voice.base import StudioTTSEngine
 from app.engines.proc_utils import run_cmd_stream
+# Shared, process-wide stderr write lock (see diagnostics.py's own docstring
+# for why the lock must live in a leaf module every stderr writer imports,
+# not be redefined per-module — a separate lock per writer wouldn't
+# serialize writers against EACH OTHER, defeating the point).
+from ..core.diagnostics import emit_stderr_atomic as _emit_stderr_atomic_line
+
+
+def _emit_stderr_atomic(line: str) -> None:
+    """Write one complete marker/log line to ``sys.stderr`` as a single
+    locked write (appends the trailing newline ``print()`` used to add).
+    """
+    _emit_stderr_atomic_line(line + "\n")
 
 
 def relay_marker(line: str, task_id: str) -> Optional[str]:
@@ -367,13 +379,13 @@ class XttsPlugin(StudioTTSEngine):
             try:
                 normalized = relay_marker(line, req.task_id) if req.task_id else None
                 if normalized is not None:
-                    print(normalized, file=sys.stderr, flush=True)
+                    _emit_stderr_atomic(normalized)
                 else:
                     # W-MIX-LA: forward raw non-marker worker output so the Engine
                     # Diagnostics page shows the complete live log, and status/load
                     # lines reach the orchestrator. Forwarded regardless of task_id so
                     # internal run_test/verify calls (task_id=None) are never silently dropped.
-                    print(line, file=sys.stderr, flush=True)
+                    _emit_stderr_atomic(line)
             except Exception:
                 pass
 
@@ -395,7 +407,7 @@ class XttsPlugin(StudioTTSEngine):
                             load_marker = f"[MODEL_LOAD_STARTED] {active_segment_id} {req.task_id}"
                         else:
                             load_marker = f"[MODEL_LOAD_STARTED] {req.task_id}"
-                        print(load_marker, file=sys.stderr, flush=True)
+                        _emit_stderr_atomic(load_marker)
                 except Exception:
                     pass
 

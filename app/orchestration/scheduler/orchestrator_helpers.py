@@ -572,6 +572,16 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
         path_to_ids = {}  # type: dict[str, list[str]]
         id_to_weight = {}
         total_weight = 0
+        # Foreign-sid guard (2026-07-06): every real segment id this
+        # dispatch's own script could legitimately name — a START_SEGMENT
+        # marker claiming any OTHER id got to this listener via a bug
+        # upstream (e.g. a merged/corrupted stderr line from a concurrent
+        # sibling dispatch under real parallelism), not a valid marker for
+        # THIS task. Union of every script entry's full member-id list (not
+        # just leaders), so a multi-segment group's own real members are
+        # still accepted. Empty for marker-driven tasks with no script — the
+        # guard is then a no-op (nothing to validate against).
+        known_task_segment_ids: set[str] = set()
         if script:
             for entry in script:
                 eid = entry.get("id")
@@ -579,6 +589,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 # Grouped segments may share a save_path.
                 # If 'ids' is provided in the script entry, it's a group.
                 eids = entry.get("ids") or ([eid] if eid else [])
+                known_task_segment_ids.update(eids)
 
                 # Use length of text as weight if not provided
                 w = entry.get("weight") or max(1, len(entry.get("text", "")))
@@ -1120,6 +1131,42 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     # [START_SEGMENT] {segment_id}
                     if "[START_SEGMENT]" in line:
                         sid = line.split("[START_SEGMENT]")[1].strip().split()[0]
+                        # Foreign-sid guard (2026-07-06, escaped defect): a real
+                        # marker line naming a segment id that isn't among this
+                        # dispatch's own script entries did not originate from
+                        # this task's engine call — under real concurrency
+                        # (ENGINE_CLASS_ADMISSION on), a corrupted/merged raw
+                        # stderr line from a concurrent sibling dispatch can
+                        # embed a foreign sid alongside THIS task's own
+                        # correctly-tagged task_id (see
+                        # tests/orchestration/test_dispatch_isolation.py's
+                        # foreign-sid tests). Ignoring it prevents
+                        # active_seg_id from being poisoned — a single accepted
+                        # foreign sid would otherwise misattribute every
+                        # subsequent PROGRESS tick for this task (PROGRESS
+                        # lines carry no segment id of their own) until this
+                        # task's own next real START_SEGMENT arrives.
+                        #
+                        # Scoped to context.ephemeral (fan-out children only,
+                        # e.g. _SyntheticSegmentTask): only THERE is `script`
+                        # guaranteed to fully enumerate every segment this
+                        # dispatch will ever announce (one child = one
+                        # complete group, built once at fan-out time). The
+                        # older marker-driven multi-group SynthesisTask path
+                        # legitimately discovers later groups' real segment
+                        # ids via markers as it goes — its `script` may name
+                        # only the first group up front, so applying this
+                        # guard there would reject a later group's genuine
+                        # START_SEGMENT as "foreign".
+                        if context.ephemeral and known_task_segment_ids and sid not in known_task_segment_ids:
+                            logger.warning(
+                                "ChapterSynthesisTask %s: ignoring START_SEGMENT for "
+                                "foreign sid %r (not in this dispatch's own script: %r) — "
+                                "likely a merged/corrupted stderr line from a concurrent "
+                                "sibling dispatch.",
+                                context.task_id, sid, sorted(known_task_segment_ids),
+                            )
+                            return
                     else:
                         sid = active_seg_id[0] or (list(marker_state["start_segment_ids"])[-1] if marker_state["start_segment_ids"] else "unknown")
 

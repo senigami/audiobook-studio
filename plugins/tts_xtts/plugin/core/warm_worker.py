@@ -178,6 +178,22 @@ class WarmWorker:
         assert proc is not None
         assert proc.stdin is not None
 
+        # Discard any stderr lines still queued from the PREVIOUS job
+        # (2026-07-06 fix): _relay_trailing_stderr's fixed 0.3s grace window
+        # can be too short under load (two XTTS processes churning), leaving
+        # trailing marker lines from the prior job un-relayed in
+        # self._stderr_q when this worker is handed a new job. Without this
+        # discard, _relay_pending_stderr would relay those STALE lines to the
+        # NEW job's on_output, and relay_marker would stamp the NEW job's
+        # task_id onto a stale, un-task-id'd START_SEGMENT/SEGMENT_SAVED line
+        # — a second real channel (independent of the stderr-write race fixed
+        # in engine.py) for cross-attributing a segment id to the wrong task.
+        while True:
+            try:
+                self._stderr_q.get_nowait()
+            except queue.Empty:
+                break
+
         # Send job over stdin. The persistent readers (started at spawn) stream
         # this job's stderr markers into self._stderr_q and its stdout
         # done-sentinel into self._done_q. Jobs are serialised by the manager

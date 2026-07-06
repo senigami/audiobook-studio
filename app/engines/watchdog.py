@@ -39,6 +39,19 @@ from app.engines.tts_client import TtsClient
 
 logger = logging.getLogger(__name__)
 
+# Every bracketed marker token a plugin's stderr relay can emit — used only by
+# the merged-line tripwire in _drain_stream (a legitimate line names exactly
+# one of these once).
+_KNOWN_MARKER_TOKENS = (
+    "START_SYNTHESIS",
+    "PROGRESS",
+    "START_SEGMENT",
+    "SEGMENT_SAVED",
+    "MODEL_LOAD_STARTED",
+    "ENGINE_ACTIVITY_STARTED",
+    "CHAPTER_SYNTHESIS_COMPLETE",
+)
+
 # ---------------------------------------------------------------------------
 # Global singleton — used by the bridge when tts_client_factory is not set
 # ---------------------------------------------------------------------------
@@ -559,6 +572,25 @@ class TtsServerWatchdog:
                         except (ValueError, IndexError):
                             logger.warning("Failed to parse READY port from line: %r", line)
 
+
+                # Merged-line tripwire (2026-07-06, escaped defect): a physical
+                # line carrying more than one marker token can only arrive if
+                # two writers' unsynchronized stderr writes interleaved before
+                # either's trailing newline landed (see
+                # plugins/tts_xtts/plugin/server/engine.py's
+                # _emit_stderr_atomic, the fix for the write side of this).
+                # This is a cheap, always-on diagnostic for the read side: a
+                # hit here means a marker line got corrupted/merged and the
+                # per-marker parsing below only reliably attributes the FIRST
+                # embedded marker — surfacing it beats silently mis-parsing.
+                _marker_hits = sum(line.count(f"[{_marker}]") for _marker in _KNOWN_MARKER_TOKENS)
+                if _marker_hits > 1:
+                    logger.warning(
+                        "Watchdog: merged/corrupted marker line detected (%d marker "
+                        "tokens in one physical line) — likely two writers' "
+                        "unsynchronized stderr writes interleaved: %r",
+                        _marker_hits, line,
+                    )
 
                 # Try to extract task_id from markers for correlation
                 task_id = None

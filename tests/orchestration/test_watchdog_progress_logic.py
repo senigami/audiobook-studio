@@ -557,3 +557,44 @@ def test_b8_progress_advances_within_group2(monkeypatch):
             f"B8 violation: progress regressed from {group2_progress_values[i-1]} to "
             f"{group2_progress_values[i]} within group 2"
         )
+
+
+# ---------------------------------------------------------------------------
+# Merged-line tripwire (escaped defect, 2026-07-06): a physical line carrying
+# more than one marker token can only arrive via an unsynchronized-write
+# interleave — warn loudly rather than silently mis-parsing.
+# ---------------------------------------------------------------------------
+
+
+def test_merged_marker_line_logs_a_warning(caplog):
+    """A physical line embedding two distinct marker tokens (the exact shape
+    of two threads' unsynchronized stderr writes interleaving before either's
+    trailing newline lands) must trigger a WARNING — the read-side half of the
+    2026-07-06 fix (the write side is engine.py's _emit_stderr_atomic)."""
+    wd = TtsServerWatchdog()
+    received = []
+    wd.register_log_listener(lambda line, task_id=None: received.append((line, task_id)))
+
+    merged_line = "[START_SEGMENT] seg-foreign job-B[PROGRESS] 33% job-A\n"
+
+    with caplog.at_level("WARNING", logger="app.engines.watchdog"):
+        wd._drain_stream(None, "stdout", MockStream([merged_line]))
+
+    warnings = [r for r in caplog.records if "merged/corrupted marker line" in r.message]
+    assert warnings, f"Expected a merged-line warning; got log records: {[r.message for r in caplog.records]}"
+    # Still dispatches the line (best-effort forwarding) — the tripwire is a
+    # diagnostic, not a line-dropping filter.
+    assert len(received) == 1
+
+
+def test_clean_single_marker_line_does_not_warn(caplog):
+    """A normal, single-marker line must never trigger the tripwire — no
+    false positives on the golden path."""
+    wd = TtsServerWatchdog()
+    wd.register_log_listener(lambda line, task_id=None: None)
+
+    with caplog.at_level("WARNING", logger="app.engines.watchdog"):
+        wd._drain_stream(None, "stdout", MockStream(["[PROGRESS] 50% job-1\n"]))
+
+    warnings = [r for r in caplog.records if "merged/corrupted marker line" in r.message]
+    assert not warnings, f"Clean single-marker line must not trigger the tripwire: {[r.message for r in caplog.records]}"

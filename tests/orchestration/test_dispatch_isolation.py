@@ -68,7 +68,7 @@ class MockOrchestrator(OrchestratorHelpersMixin):
             self.published.append(kwargs)
 
 
-def _make_task(*, task_id: str, script: list[dict], engine_id: str = "mixed") -> StudioTask:
+def _make_task(*, task_id: str, script: list[dict], engine_id: str = "mixed", ephemeral: bool = False) -> StudioTask:
     class _ScriptedTask(StudioTask):
         def __init__(self) -> None:
             self.script = script
@@ -90,6 +90,7 @@ def _make_task(*, task_id: str, script: list[dict], engine_id: str = "mixed") ->
                     "engine_id": engine_id,
                     "script": script,
                 },
+                ephemeral=ephemeral,
             )
 
         @property
@@ -357,3 +358,96 @@ def test_cap1_golden_path_progress_and_status_unchanged():
     for e in orc.published:
         if "active_segments_map" in e and e["active_segments_map"] is not None:
             assert isinstance(e["active_segments_map"], dict)
+
+
+# ---------------------------------------------------------------------------
+# Test 4 — foreign-sid guard rejects a START_SEGMENT naming another task's
+# segment (escaped defect, 2026-07-06)
+# ---------------------------------------------------------------------------
+
+
+def test_start_segment_with_foreign_sid_is_ignored():
+    """A correctly-tagged (this task's own task_id) START_SEGMENT marker
+    naming a sid that isn't among this dispatch's own script entries must be
+    ignored, not adopted as active_seg_id.
+
+    R1 revert-check: this reproduces the exact shape of the 2026-07-06
+    escaped defect (owner-reported cross-attributed segment highlighting
+    once ENGINE_CLASS_ADMISSION defaulted on) — a concurrent sibling
+    dispatch's unsynchronized stderr write can interleave with this task's
+    own line such that the WATCHDOG's task_id extraction lands on THIS
+    task's own correctly-formed [PROGRESS]/[START_SYNTHESIS] segment of the
+    merged line while the [START_SEGMENT] segment embedded in the same
+    physical line names a FOREIGN sid belonging to the sibling. Without the
+    guard, `active_seg_id[0]` is poisoned to the foreign sid and every
+    subsequent (correctly-tagged, legitimate) PROGRESS tick for this task
+    publishes under the wrong segment id until this task's own next real
+    START_SEGMENT arrives — pre-fix, the assertion below fails because
+    `active_segment_id` for the PROGRESS frame is the foreign sid, not None.
+    """
+    orc = MockOrchestrator()
+    task = _make_task(task_id="job-cap1", script=_SINGLE_GROUP_SCRIPT, ephemeral=True)
+    wd = TtsServerWatchdog()
+
+    stream = [
+        "[START_SYNTHESIS] job-cap1\n",
+        # Foreign sid: not "seg-A" (this task's own script), simulating a
+        # merged line where the START_SEGMENT half named a sibling's segment.
+        "[START_SEGMENT] seg-FOREIGN job-cap1\n",
+        "[PROGRESS] 50% job-cap1\n",
+    ]
+
+    task.on_run = lambda: wd._drain_stream(None, "stdout", MockStream(stream[:]))
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
+         patch("app.db.update_segments_bulk", lambda *a, **kw: None), \
+         patch("app.api.ws.broadcast_segments_updated", lambda *a, **kw: None), \
+         patch("app.api.ws.broadcast_tts_log_line", lambda *a, **kw: None):
+        orc._dispatch(task=task, context=task.describe())
+
+    foreign_hits = [e for e in orc.published if e.get("active_segment_id") == "seg-FOREIGN"]
+    assert not foreign_hits, (
+        f"active_segment_id must never be poisoned by a foreign sid not in "
+        f"this task's own script. Published frames with foreign sid: {foreign_hits}"
+    )
+
+    progress_frames = [e for e in orc.published if e.get("reason_code") == "SEGMENT_PROGRESS"]
+    for frame in progress_frames:
+        assert frame.get("active_segment_id") != "seg-FOREIGN", (
+            f"PROGRESS frame incorrectly attributed to foreign sid: {frame}"
+        )
+
+
+def test_start_segment_with_own_group_member_sid_is_accepted():
+    """A multi-member group's OWN real member ids must still be accepted —
+    the foreign-sid guard checks against the union of every script entry's
+    full member-id list, not just the leader."""
+    orc = MockOrchestrator()
+    script = [
+        {"id": "seg-A", "ids": ["seg-A", "seg-A2"], "text": "Alpha.", "save_path": "/tmp/a.wav", "weight": 100},
+    ]
+    task = _make_task(task_id="job-multi", script=script, ephemeral=True)
+    wd = TtsServerWatchdog()
+
+    stream = [
+        "[START_SYNTHESIS] job-multi\n",
+        "[START_SEGMENT] seg-A job-multi\n",
+        "[SEGMENT_SAVED] /tmp/a.wav job-multi\n",
+        # Second real member of the SAME group — must be accepted, not
+        # treated as foreign.
+        "[START_SEGMENT] seg-A2 job-multi\n",
+        "[PROGRESS] 100% job-multi\n",
+    ]
+
+    task.on_run = lambda: wd._drain_stream(None, "stdout", MockStream(stream[:]))
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
+         patch("app.db.update_segments_bulk", lambda *a, **kw: None), \
+         patch("app.api.ws.broadcast_segments_updated", lambda *a, **kw: None), \
+         patch("app.api.ws.broadcast_tts_log_line", lambda *a, **kw: None):
+        orc._dispatch(task=task, context=task.describe())
+
+    seg_a2_hits = [e for e in orc.published if e.get("active_segment_id") == "seg-A2"]
+    assert seg_a2_hits, "seg-A2 (a real member of this task's own group) must be accepted, not rejected as foreign"
