@@ -1,7 +1,7 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.11.4
+spec_version: 1.11.5
 status: active
 updated: 2026-07-05
 created: 2026-06-10
@@ -19,6 +19,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.11.5  | 2026-07-05 | **§7.3b — parallel rendering is now the shipped default (owner directive, superseding the W-PAR task 007 "ships dark" cap=1 default).** `DEFAULT_GLOBAL_CAP` (`cap_settings.py`) and the `tts_parallel_cap` default materialized by `state_settings._default_state()`/`_normalize_settings` both raised `1 → 2`. Rationale: sequential rendering is just the cap=1 case of the same fan-out code path, not a mode worth maintaining separately, and the owner does not want the two behaviors treated as parallel product surfaces. Reachable in-app via a new "Parallel Segment Rendering" toggle on Settings → General → Core Synthesis Defaults (`GeneralSettingsPanel.tsx`, POSTs `{tts_parallel_cap}` as JSON) — no env var or config-file edit needed for a running install. `effective_cap = min(2, manifest_max)` still applies, so Voxtral/Mixed (`max_concurrent_workers: 1`) remain sequential by their own manifest ceiling; only XTTS (`max_concurrent_workers: 2`) is affected. INV-1's cap=1-parity guarantee is unchanged — only the default value moved, the byte-identical-at-cap=1 contract still holds and is still tested. Companion fix (same investigation, §2.6/§2.7 territory in `progress-presentation.md`): the Chapter Editor's pre-first-segment "cold start" status pill (`ChapterHeader.tsx`, shown before any `active_segment_id` exists so the animated `PredictiveProgressBar` hasn't mounted yet) now carries the shared `.is-running`/`calm-pulse` animation while `queueStatus === 'Preparing'`, instead of sitting static for the whole model-load window. |
 | 1.11.4  | 2026-07-05 | **§3.10 second escaped defect — the Phase 1 visual check's OTHER failure mode: `active_segments_map` never populated during a render, even after the routing crash (1.11.3) was fixed and a chapter rendered successfully at cap=1.** Root cause: `_current_active_segments_map` only ever ran inside `_publish_progress`, itself only called from the `as_completed` loop at group-COMPLETION boundaries — structurally always empty (the just-finished child excluded, the next not yet started), regardless of concurrency level. Separately, `build_chapter_progress_event` had no `active_segments_map` parameter at all, so even a correctly-populated map could never reach a `chapters.progress` frame (the delivery leg). Diagnosed via a 4-agent fusion design panel (Sonnet-only, per owner directive) + Fable plan verification, which caught both the missing delivery leg AND a lifecycle-ordering bug in the panel's initial timer-based proposal — leading to a simpler event-driven fix with no new timer/thread/join lifecycle at all (Fable's own suggested alternative). Fixed: `_on_child_segment_tick` (event-driven, diff-gated, `skip_job_updated=True`) replaces completion-boundary sampling; `build_chapter_progress_event` + `ws.py` gain the delivery leg. Frontend companion fix (same change): `useStudioChapter.ts` was silently discarding an already-delivered `segmentProgress` prop (real per-segment live data from the existing `segments.progress` stream) — now used as a fallback active-segments map when the backend hasn't supplied its own (backend `{}` always wins — a real "nothing rendering" signal must not be overridden by stale local data). |
 | 1.11.3  | 2026-07-05 | **§3.10 escaped defect fixed — fan-out children were silently routed through a legacy per-engine registry handler instead of the bridge, for any engine with one registered.** Found during the owner's W-PAR Phase 1 👁 visual check (a real cap>1 render of an xtts chapter failed with a `text must not be empty` 422). Root cause: `_dispatch_segment`'s step-1 registry lookup (`app.jobs.registry.JobHandlerRegistry.get_handler`, matches on engine name alone) ran unconditionally, ahead of `_SyntheticSegmentTask`'s intended `prefers_local_execution`/`to_bridge_request` routing (documented in 1.9.0 above) — so every xtts AND voxtral fan-out child (both still have legacy `engine_handlers` registrations; only `mixed` has none) actually executed the legacy whole-chapter handler (`handle_xtts_standard`), which re-derives ALL of the chapter's remaining groups from a live DB query with no per-child scoping. The first-dispatched child silently rendered every sibling's work too; every subsequent child then found nothing left and unconditionally called the bridge with an empty script/text (no guard existed), producing the 422. Fixed: (1) `_SyntheticSegmentTask.skip_registry_dispatch = True` makes `_dispatch_segment` skip the registry lookup for fan-out children (new opt-in `getattr` check, `False` for every other task — INV-1 unaffected); (2) `handle_xtts_standard` now treats an empty post-filter `script` as success (`rc = 0`, falls through to the existing stitch block) instead of calling the bridge with an empty payload — defense-in-depth for any future caller that reaches this legacy path with nothing left to render. Diagnosed via a 4-agent fusion-reasoning panel + Fable adversarial verification; captured in `docs/checklists/code-review.md` (per-engine routing coverage + pre-flight empty-payload guard + the "shared handler reused at a new call site" recurring pattern). |
 | 1.11.2  | 2026-07-04 | **§3.7 residual drift closed.** `_group_is_done` (xtts standard path, `plugins/tts_xtts/plugin/studio/standard_handler.py`) now gates reuse via the new `StudioPluginContext.is_valid_segment_artifact(path)` method (a thin public wrapper around the same `_is_valid_segment_artifact` check `group_needs_render` uses) instead of bare `chunk_path.exists()`. §3.7's "validated artifact metadata... never raw file existence alone" claim is now true for all three render paths (xtts bake, voxtral bake, mixed, and xtts standard); no known residual drift remains. Observable change: a zero-byte or duration-insane segment WAV on the standard (non-bake) xtts path is now healed to `unprocessed` and re-rendered instead of being wrongly treated as done. |
@@ -681,16 +682,20 @@ synthesis), preserving the prior invariant. W5 stays closed because `mixed`
 admission via `ResourceClaim.none()`. `reserve`/`release` are symmetric on this
 path (only the exclusive gate is touched).
 
-### 7.3b Cap-default-1 toggle as a Studio setting — W-PAR task 007
+### 7.3b Parallel-cap toggle as a Studio setting — W-PAR task 007
 
 The per-engine concurrency cap is no longer manifest-only. Two settings (in
 `state.json` `settings`, surfaced via `GET /api/home` → `settings` and
-`POST /api/settings`) let an operator raise concurrency without editing a
-plugin manifest:
+`POST /api/settings`) let an operator adjust concurrency without editing a
+plugin manifest, and a "Parallel Segment Rendering" toggle on the Settings
+page (General → Core Synthesis Defaults) exposes the common on/off case
+in-app (`frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx`) —
+raising or lowering the cap is a Studio setting, never a program-level/env-var
+concern for a running install:
 
 | Setting | Type | Default | Notes |
 |---|---|---|---|
-| `tts_parallel_cap` | int | `1` | Global cap applied to any engine without a more specific override. |
+| `tts_parallel_cap` | int | `2` (was `1` through 1.10.x) | Global cap applied to any engine without a more specific override. |
 | `tts_engine_caps` | dict[str, int] | `{}` | Per-`engine_id` cap overrides; takes precedence over `tts_parallel_cap` for that engine. |
 
 Both settings fall back to the environment (`TTS_PARALLEL_CAP`,
@@ -715,11 +720,21 @@ The manifest's `behavior.max_concurrent_workers` is always the ceiling — a
 Studio setting can only **lower** the effective cap, never raise it above what
 the plugin author declared safe. `_manifest_resource_claim` (synthesis.py)
 calls `resolve_effective_cap` when building each `ResourceClaim.cap`.
-Default `tts_parallel_cap=1` preserves INV-1 "ships dark": with no operator
-change, `effective_cap` is always 1 regardless of the manifest maximum,
-identical to pre-007 behavior once `ENGINE_CLASS_ADMISSION` is also enabled.
-Changing either setting takes effect on the **next job submission** — no
-restart required (each `SynthesisTask.__init__` re-resolves the claim).
+
+**Default raised to `tts_parallel_cap=2` (2026-07-05, superseding the 007
+"ships dark" default of 1).** Parallel rendering is the shipped default now —
+sequential is just the `cap=1` case of the same code path (still explicitly
+reachable via the Settings toggle above, or `{"tts_parallel_cap": 1}`), not a
+separately maintained mode. `effective_cap` for any given engine is still
+`min(2, manifest_max)`, so engines whose manifest declares a lower ceiling
+(Voxtral, Mixed — both `max_concurrent_workers: 1`) stay sequential
+regardless of this default; only XTTS (`max_concurrent_workers: 2`) is
+affected today. INV-1's narrower guarantee — that explicitly setting
+`tts_parallel_cap=1` reproduces pre-007 single-stream behavior byte-for-byte —
+is unchanged and still enforced by the cap=1 parity tests; only the *shipped
+default value* changed, not that contract. Changing either setting takes
+effect on the **next job submission** — no restart required (each
+`SynthesisTask.__init__` re-resolves the claim).
 
 ### 7.4 Admission order
 

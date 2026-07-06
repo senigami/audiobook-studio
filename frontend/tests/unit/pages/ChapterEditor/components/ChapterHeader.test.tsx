@@ -192,6 +192,65 @@ describe('ChapterHeader', () => {
     expect(screen.getByTitle('Already processing')).toBeDisabled();
   });
 
+  it('pulses the queue status pill during a genuine cold-start preparing window (no live segment job yet)', () => {
+    // Regression: before any segment has an active_segment_id (real model-load /
+    // cold start), the animated PredictiveProgressBar never mounts — only this
+    // static pill shows. It must visibly pulse (reuse the shared .is-running /
+    // calm-pulse class) instead of sitting frozen for the whole load window.
+    render(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        job={{ id: 'job-1', engine: 'xtts', status: 'preparing', progress: 0 } as any}
+        generatingSegmentIdsCount={0}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    const pill = screen.getByText('Preparing');
+    expect(pill.className).toContain('is-running');
+  });
+
+  it('does not pulse the queue status pill while merely queued (nothing active yet)', () => {
+    render(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={true}
+        generatingSegmentIdsCount={0}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    const pill = screen.getByText('Queued');
+    expect(pill.className).not.toContain('is-running');
+  });
+
   it('does not use active render-block progress for the segment-only Chapter Header bar', () => {
     const onSegmentDisplayProgress = vi.fn();
 

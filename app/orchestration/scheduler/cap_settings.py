@@ -1,14 +1,22 @@
 """Effective per-engine concurrency cap resolution (W-PAR task 007).
 
-Surfaces the cap-default-1 toggle as a real Studio setting rather than a
+Surfaces the parallel-cap toggle as a real Studio setting rather than a
 manifest-only field. Follows the same settings-then-env fallback pattern as
 ``app.orchestration.scheduler.policies.get_priority_mode``.
 
+Parallel rendering is the shipped default (2026-07-05): sequential
+single-stream behavior is just the cap=1 case of the same code path, not a
+separately maintained mode (INV-1's cap=1 byte-identical guarantee still
+holds for anyone who explicitly sets the cap back to 1) — so there is no
+reason to ship dark anymore.
+
 Settings
 --------
-``tts_parallel_cap`` (int, default 1)
+``tts_parallel_cap`` (int, default 2)
     Global concurrency cap applied to every engine that does not have a more
-    specific per-engine override.
+    specific per-engine override. Still clamped per-engine to that engine's
+    manifest ``max_concurrent_workers`` (e.g. Voxtral/Mixed declare 1, so they
+    stay sequential regardless of this default).
 
 ``tts_engine_caps`` (dict[str, int], default ``{}``)
     Per-engine cap overrides, keyed by ``engine_id``. Takes precedence over
@@ -45,7 +53,7 @@ import json
 import os
 from typing import Any, Mapping
 
-DEFAULT_GLOBAL_CAP = 1
+DEFAULT_GLOBAL_CAP = 2
 
 
 def _read_settings() -> dict[str, Any]:
@@ -58,7 +66,7 @@ def _read_settings() -> dict[str, Any]:
 
 
 def get_global_parallel_cap(settings: Mapping[str, Any] | None = None) -> int:
-    """Return the global ``TTS_PARALLEL_CAP`` (settings, then env, then default 1)."""
+    """Return the global ``TTS_PARALLEL_CAP`` (settings, then env, then ``DEFAULT_GLOBAL_CAP``)."""
     resolved_settings = dict(settings) if settings is not None else _read_settings()
 
     raw = resolved_settings.get("tts_parallel_cap")
@@ -120,7 +128,7 @@ def resolve_effective_cap(
     engine-ID branching on behavior; ``engine_id`` is used only as a dict key):
     1. Per-engine override (``tts_engine_caps[engine_id]``), if present.
     2. Otherwise the global cap (``tts_parallel_cap`` / ``TTS_PARALLEL_CAP``),
-       default 1.
+       default ``DEFAULT_GLOBAL_CAP`` (2).
     3. Clamped to ``manifest_max`` (``behavior.max_concurrent_workers``) —
        the manifest is always the ceiling; a Studio setting can only lower
        the effective cap, never raise it above what the plugin author

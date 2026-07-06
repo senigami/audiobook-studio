@@ -437,6 +437,8 @@ export interface Settings {
   enabled_plugins?: Record<string, boolean>;
   cloud_model?: string;
   mistral_api_key?: string;
+  tts_parallel_cap?: number;
+  tts_engine_caps?: Record<string, number>;
 }
 
 export interface Audiobook {

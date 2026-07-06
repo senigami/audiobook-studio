@@ -489,21 +489,28 @@ export const ChapterScriptToolbar: React.FC<{
         )}
 
         {!status.liveSegmentProgressJob && status.queueStatus && (
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                padding: '0.35rem 0.65rem',
-                borderRadius: '999px',
-                background: status.isQueued ? 'var(--accent)' : 'var(--accent-tint)',
-                color: status.isQueued ? 'white' : 'var(--accent)',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-                border: '1px solid var(--accent)',
-                boxShadow: status.isQueued ? '0 0 0 1px var(--accent-glow)' : 'none'
-            }}>
+            // Before any segment has an active_segment_id (real cold start / model
+            // load), the animated PredictiveProgressBar below never mounts — this
+            // static pill is the only load-window indicator, so it must pulse
+            // (shared .is-running/calm-pulse class) rather than sit frozen.
+            // Queued (nothing active yet) stays still on purpose.
+            <div
+                className={status.queueStatus === 'Preparing' ? 'is-running' : undefined}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    padding: '0.35rem 0.65rem',
+                    borderRadius: '999px',
+                    background: status.isQueued ? 'var(--accent)' : 'var(--accent-tint)',
+                    color: status.isQueued ? 'white' : 'var(--accent)',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    border: '1px solid var(--accent)',
+                    boxShadow: status.isQueued ? '0 0 0 1px var(--accent-glow)' : 'none'
+                }}>
                 {status.queueStatus}
             </div>
         )}

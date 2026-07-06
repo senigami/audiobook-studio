@@ -120,10 +120,27 @@ class TestBracketedEtaCap1Parity:
 class TestEffectiveCapResolution:
     """TTS_PARALLEL_CAP / TTS_ENGINE_CAPS settings, clamped by manifest max."""
 
-    def test_default_cap_is_one_regardless_of_manifest_max(self):
-        from app.orchestration.scheduler.cap_settings import resolve_effective_cap
+    def test_default_cap_is_two_clamped_by_manifest_max(self):
+        """2026-07-05: parallel rendering ships as the default (was cap=1 'ships dark')."""
+        from app.orchestration.scheduler.cap_settings import DEFAULT_GLOBAL_CAP, resolve_effective_cap
+
+        assert DEFAULT_GLOBAL_CAP == 2
 
         effective = resolve_effective_cap(engine_id="tts_xtts", manifest_max=8, settings={})
+        assert effective == 2
+
+        # A manifest ceiling below the new default (e.g. Voxtral/Mixed at 1)
+        # still wins — the default never overrides plugin-author safety limits.
+        effective_clamped = resolve_effective_cap(engine_id="tts_voxtral", manifest_max=1, settings={})
+        assert effective_clamped == 1
+
+    def test_explicit_cap_one_setting_still_overrides_the_new_default(self):
+        """An operator/test can still force sequential behavior via an explicit setting."""
+        from app.orchestration.scheduler.cap_settings import resolve_effective_cap
+
+        effective = resolve_effective_cap(
+            engine_id="tts_xtts", manifest_max=8, settings={"tts_parallel_cap": 1}
+        )
         assert effective == 1
 
     def test_global_parallel_cap_clamped_by_manifest_max(self):

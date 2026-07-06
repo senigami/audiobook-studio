@@ -72,8 +72,9 @@ def _manifest_resource_claim(engine_id: str) -> ResourceClaim:
         # W-PAR task 007: the effective cap is min(setting/env cap, manifest max)
         # — the operator-facing toggle can only lower the cap below the
         # manifest ceiling, never raise it above what the plugin author
-        # declared safe. Defaults to 1 when no setting/env override is present
-        # (INV-1 ships dark).
+        # declared safe. Defaults to DEFAULT_GLOBAL_CAP (2) when no
+        # setting/env override is present; engines with a lower manifest
+        # ceiling (e.g. Voxtral/Mixed at 1) stay sequential regardless.
         cap = resolve_effective_cap(engine_id=engine_id, manifest_max=manifest_max)
 
         if is_gpu:

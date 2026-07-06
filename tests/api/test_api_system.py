@@ -114,11 +114,11 @@ def test_settings_get_and_update(clean_db, client):
     assert data["default_engine"] == "xtts"
 
 def test_settings_get_returns_default_parallel_cap(clean_db, client):
-    """GET /api/home surfaces the effective TTS_PARALLEL_CAP setting (default 1)."""
+    """GET /api/home surfaces the effective TTS_PARALLEL_CAP setting (default 2, 2026-07-05)."""
     response = client.get("/api/home")
     assert response.status_code == 200
     settings = response.json()["settings"]
-    assert settings["tts_parallel_cap"] == 1
+    assert settings["tts_parallel_cap"] == 2
     assert settings["tts_engine_caps"] == {}
 
 

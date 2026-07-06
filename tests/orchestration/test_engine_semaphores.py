@@ -622,12 +622,12 @@ class TestClaimToDictPreservesEngineClass:
         R1 revert-check: this test MUST FAIL (second task denied) on the
         pre-fix GpuAdmissionGate/ExclusiveAdmissionGate.
 
-        Updated 2026-07-03 (W-PAR task 007): surfacing the cap toggle as a real
-        Studio setting means the effective cap is now
-        min(tts_parallel_cap setting, manifest_max) rather than the
-        manifest_max alone — tts_parallel_cap defaults to 1 (INV-1 ships dark)
-        so this test must explicitly raise the operator-facing setting to
-        exercise the manifest-cap=2 plumbing this regression covers. (The
+        Updated 2026-07-03 (W-PAR task 007), default raised 2026-07-05:
+        surfacing the cap toggle as a real Studio setting means the effective
+        cap is now min(tts_parallel_cap setting, manifest_max) rather than the
+        manifest_max alone. tts_parallel_cap now defaults to 2, but this test
+        still sets it explicitly so it exercises the manifest-cap=2 plumbing
+        deterministically regardless of the ambient default. (The
         TTS_PARALLEL_CAP env var is only a fallback for when the setting key
         is entirely absent from state.json; get_settings() always materializes
         a default value once normalization has run once, so an env var alone
@@ -693,8 +693,8 @@ class TestClaimToDictPreservesEngineClass:
                 _res._engine_semaphores.pop("gpu", None)
                 _res._engine_id_semaphores.pop("xtts", None)
                 # Restore the operator-facing setting so later tests in this
-                # module see the INV-1 default (cap=1) again.
-                update_settings({"tts_parallel_cap": 1})
+                # module see the shipped default (cap=2) again.
+                update_settings({"tts_parallel_cap": 2})
 
     def test_voxtral_serialized_at_cap1_through_real_path(self):
         """W5 + INV-1: voxtral (cap=1 in task-001) must also be serial via real path."""
