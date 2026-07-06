@@ -14,7 +14,29 @@ test('chapter segment rendering highlights correctly', async ({ page }) => {
         system_info: { startup_ready: true },
         projects: [{ id: projectId, name: 'Test Project' }],
         chapters: [{ id: chapterId, project_id: projectId, title: 'Test Chapter' }],
-        jobs: []
+        jobs: [],
+        // Without at least one enabled+ready engine, ScriptView's
+        // anyEnginesEnabled (scriptViewProgress.ts) is false and the
+        // "generate" button stays permanently disabled ("All engines
+        // disabled") — this mock was missing entirely, which is what made
+        // this test fail before it ever reached any websocket-driven
+        // assertion.
+        engines: [{
+          engine_id: 'xtts',
+          display_name: 'XTTS (Local)',
+          status: 'ready',
+          verified: true,
+          enabled: true,
+          version: '1.0.0',
+          local: true,
+          cloud: false,
+          network: false,
+          languages: ['en'],
+          capabilities: [],
+          resource: {},
+          author: '',
+          homepage: '',
+        }]
       })
     });
   });
@@ -28,6 +50,25 @@ test('chapter segment rendering highlights correctly', async ({ page }) => {
         project_id: projectId,
         title: 'Test Chapter',
         text_content: 'This is some text for s1. This is some text for s2. This is some text for s3.'
+      })
+    });
+  });
+
+  // handleGenerate (useChapterQueue.ts) filters its target ids against THIS
+  // segments array (never the script-view spans) to decide which ids are
+  // "fresh" (not already processing/pending) before it will optimistically
+  // mark anything as generating — without this mock `segments` stays empty
+  // and every generate click silently no-ops (freshIds.length === 0).
+  await page.route(`**/api/chapters/${chapterId}/segments`, async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        segments: [
+          { id: 's1', chapter_id: chapterId, segment_order: 0, text_content: 'Paragraph 1 segment 1.', character_id: null, speaker_profile_name: null, audio_file_path: null, audio_status: 'unprocessed', audio_generated_at: null },
+          { id: 's2', chapter_id: chapterId, segment_order: 1, text_content: 'Paragraph 1 segment 2.', character_id: null, speaker_profile_name: null, audio_file_path: null, audio_status: 'unprocessed', audio_generated_at: null },
+          { id: 's3', chapter_id: chapterId, segment_order: 2, text_content: 'Paragraph 2 segment 3.', character_id: null, speaker_profile_name: null, audio_file_path: null, audio_status: 'unprocessed', audio_generated_at: null },
+        ],
       })
     });
   });
@@ -82,6 +123,16 @@ test('chapter segment rendering highlights correctly', async ({ page }) => {
     });
   });
 
+  // NOTE: there is no handler anywhere in the current frontend for a raw
+  // `{type: 'job_updated', ...}` websocket message (grep confirms it) — this
+  // test previously simulated job progress with that dead message type. The
+  // only currently-live ways to update job state over the mocked socket are
+  // (a) a `jobs_snapshot` push (full replace, handled unconditionally by
+  // useJobs.ts) or (b) a `studio_event` on a real topic (chapters.progress /
+  // segments.progress / queue.items), which is gated on the job already
+  // being known. This test uses repeated `jobs_snapshot` pushes — matching
+  // the sibling W-PAR test's own documented precedent for "the only
+  // currently-live way to seed a job row over the mocked socket".
   let wsClient: any;
   await page.routeWebSocket('**/ws', ws => {
     wsClient = ws;
@@ -107,39 +158,54 @@ test('chapter segment rendering highlights correctly', async ({ page }) => {
   await s1.hover();
   await page.locator('[data-testid="generate-span-s1"]').click();
 
-  // Verify optimistic highlights
-  await expect(s1).toHaveAttribute('data-render-status', 'rendering');
-  await expect(s2).toHaveAttribute('data-render-status', 'rendering');
+  // Verify optimistic highlights. Before any server/websocket confirmation
+  // arrives, this is the client-side-only optimistic state (useChapterQueue's
+  // generatingSegmentIds) — "rendering" is reserved for a server-confirmed
+  // active segment (W-PAR 006's active_segments_map / active_segment_id),
+  // which doesn't exist yet at this point.
+  await expect(s1).toHaveAttribute('data-render-status', 'pending');
+  await expect(s2).toHaveAttribute('data-render-status', 'pending');
 
-  // Start the job
+  // Start the job: push a full jobs_snapshot introducing the now-running job
+  // with s1 as the active (server-confirmed) segment.
   await wsClient.send(JSON.stringify({
-    type: 'job_updated',
-    job_id: jobId,
-    updates: {
+    type: 'jobs_snapshot',
+    jobs: [{
+      id: jobId,
+      engine: 'xtts',
       status: 'running',
       project_id: projectId,
       chapter_id: chapterId,
       segment_ids: ['s1', 's2', 's3'],
       active_segment_id: 's1',
+      active_segments_map: { s1: { phase: 'rendering', progress: 0.1, eta_seconds: null } },
       progress: 0.1,
-      updated_at: Date.now()
-    }
+      created_at: Date.now() / 1000,
+      has_segment_support: true,
+    }],
   }));
 
   await expect(s1).toHaveAttribute('data-render-status', 'rendering');
   await expect(s2).toHaveAttribute('data-render-status', 'rendering');
   await expect(s3).toHaveAttribute('data-render-status', 'queued');
 
-  // Move to next segment (next batch)
+  // Move to next segment (next batch): a fresh jobs_snapshot push moving the
+  // active segment (and active_segments_map entry) from s1 to s3.
   await wsClient.send(JSON.stringify({
-    type: 'job_updated',
-    job_id: jobId,
-    updates: {
+    type: 'jobs_snapshot',
+    jobs: [{
+      id: jobId,
+      engine: 'xtts',
+      status: 'running',
       project_id: projectId,
+      chapter_id: chapterId,
+      segment_ids: ['s1', 's2', 's3'],
       active_segment_id: 's3',
+      active_segments_map: { s3: { phase: 'rendering', progress: 0.1, eta_seconds: null } },
       progress: 0.7,
-      updated_at: Date.now() + 1000
-    }
+      created_at: Date.now() / 1000,
+      has_segment_support: true,
+    }],
   }));
 
   // Regression check: s1 and s2 must lose highlights even if they were optimistically added
