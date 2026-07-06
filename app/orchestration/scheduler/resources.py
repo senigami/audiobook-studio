@@ -11,9 +11,11 @@ Per-engine-class counting semaphores (Studio 2.0 W-PAR task 001)
 ``EngineClassSemaphore`` is a counting semaphore keyed by engine class
 (``"gpu"``, ``"cpu_heavy"``, ``"cloud"``).  Each engine declares its safe
 concurrency via ``behavior.max_concurrent_workers`` in its manifest; the
-scheduler sizes the semaphore to that cap.  Default cap = 1, so with all
-engines at the default the behavior is byte-identical to today's binary gates
-(INV-1 "ships dark").
+scheduler sizes the semaphore to that cap.  Admission is on by default
+(``ENGINE_CLASS_ADMISSION``, see ``_engine_class_admission_enabled``) — an
+engine whose manifest cap is still 1 behaves byte-identically to the old
+binary gates (INV-1), but engines with a higher cap now actually admit that
+many concurrent tasks.
 
 No engine-ID string comparisons are permitted in this module (INV-5).
 Semaphore keys are engine-class strings derived from the manifest resource
@@ -47,19 +49,23 @@ MAX_GLOBAL_CONCURRENT_SYNTHESIS: int = int(
 def _engine_class_admission_enabled() -> bool:
     """Whether per-engine-class semaphore admission is active.
 
-    W-PAR ships dark (task 001): until the enable toggle lands (task 007) this
-    returns ``False`` so admission falls back to the single shared exclusive
-    gate — byte-identical to the pre-W-PAR behavior where xtts, voxtral and API
-    synthesis all serialized against one another (INV-1).
+    Default ON (2026-07-06, owner directive): parallel rendering is the
+    shipped default end-to-end now, so per-engine-class semaphore admission
+    is active unless explicitly disabled. W-PAR shipped this dark from task
+    001 through task 007 (default OFF, single shared exclusive gate,
+    byte-identical to pre-W-PAR behavior) while the settings/UI surface and
+    ETA math caught up — that transitional period is over.
 
-    When the per-class path is *disabled*, a claim's ``engine_class`` is ignored
-    and every synthesis-class task (anything that previously held the exclusive
+    When explicitly *disabled*, a claim's ``engine_class`` is ignored and
+    every synthesis-class task (anything that previously held the exclusive
     or GPU gate) routes through the legacy single-flight exclusive gate.
 
-    Override via env ``ENGINE_CLASS_ADMISSION`` (``"1"``/``"true"`` to enable).
+    Override via env ``ENGINE_CLASS_ADMISSION`` (``"0"``/``"false"``/``"no"``/
+    ``"off"`` to disable; any other value, including unset, enables it).
     Read per-call so tests can toggle it without re-importing the module.
     """
-    return os.environ.get("ENGINE_CLASS_ADMISSION", "").strip().lower() in {"1", "true", "yes", "on"}
+    raw = os.environ.get("ENGINE_CLASS_ADMISSION", "").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
 
 
 def is_paused() -> bool:

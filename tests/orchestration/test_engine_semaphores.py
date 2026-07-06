@@ -391,19 +391,16 @@ class TestNoEngineIdBranchingInResources:
 
 
 # ===========================================================================
-# Group 6b: INV-1 "ships dark" — per-class admission is OFF by default
+# Group 6b: per-class admission is ON by default (2026-07-06 owner directive)
 # ===========================================================================
 
 
-class TestShipsDarkCrossClassSerialization:
-    """INV-1: with the per-engine-class toggle OFF (default), DIFFERENT engine
-    classes must still serialize against ONE another — exactly as the pre-W-PAR
-    single shared exclusive gate did (xtts, voxtral, mixed, api all one-at-a-time).
-
-    Before the dark gate was added, an xtts ("gpu") task and a voxtral ("cloud")
-    task were admitted CONCURRENTLY because they keyed different semaphores —
-    real parallelism leaking in before task 004's server-side serialization and
-    before task 007's enable toggle.
+class TestPerClassAdmissionDefault:
+    """Per-engine-class semaphore admission is ON by default: DIFFERENT engine
+    classes admit CONCURRENTLY (each keyed to its own semaphore), and an
+    explicit ``ENGINE_CLASS_ADMISSION=0`` still falls back to the legacy
+    single shared exclusive gate (xtts, voxtral, mixed, api all
+    one-at-a-time) for anyone who needs to force the old behavior.
     """
 
     def setup_method(self):
@@ -415,9 +412,42 @@ class TestShipsDarkCrossClassSerialization:
         for _sem in list(_res._engine_semaphores.values()):
             _sem.reset()
 
-    def test_cross_class_serializes_when_toggle_off(self, monkeypatch):
-        """xtts ('gpu') admitted; voxtral ('cloud') DENIED while xtts holds."""
+    def test_cross_class_concurrent_by_default(self, monkeypatch):
+        """With ENGINE_CLASS_ADMISSION unset, distinct classes run concurrently."""
         monkeypatch.delenv("ENGINE_CLASS_ADMISSION", raising=False)
+        from app.orchestration.scheduler.resources import (  # noqa: PLC0415
+            reserve_task_resources, release_task_resources, get_engine_semaphore,
+        )
+        get_engine_semaphore("gpu", 1).reset()
+        get_engine_semaphore("cloud", 1).reset()
+        r_gpu = reserve_task_resources(
+            task_type="synthesis",
+            resource_claims={"task_id": "g1", "engine_class": "gpu", "gpu": True, "cap": 1},
+        )
+        r_cloud = reserve_task_resources(
+            task_type="synthesis",
+            resource_claims={"task_id": "c1", "engine_class": "cloud", "cap": 1},
+        )
+        try:
+            assert r_gpu["admitted"] is True
+            assert r_cloud["admitted"] is True, (
+                "Per-class admission is the default now — distinct engine "
+                "classes must run concurrently without setting the env var."
+            )
+        finally:
+            release_task_resources(
+                task_id="g1",
+                resource_claims={"task_id": "g1", "engine_class": "gpu", "gpu": True, "cap": 1},
+            )
+            release_task_resources(
+                task_id="c1",
+                resource_claims={"task_id": "c1", "engine_class": "cloud", "cap": 1},
+            )
+
+    def test_cross_class_serializes_when_explicitly_disabled(self, monkeypatch):
+        """xtts ('gpu') admitted; voxtral ('cloud') DENIED while xtts holds,
+        when an operator explicitly forces ``ENGINE_CLASS_ADMISSION=0``."""
+        monkeypatch.setenv("ENGINE_CLASS_ADMISSION", "0")
         from app.orchestration.scheduler.resources import (  # noqa: PLC0415
             reserve_task_resources, release_task_resources,
         )
@@ -432,8 +462,8 @@ class TestShipsDarkCrossClassSerialization:
         try:
             assert r_gpu["admitted"] is True
             assert r_cloud["admitted"] is False, (
-                "INV-1 violation: a 'cloud' task was admitted while a 'gpu' task "
-                "held a slot — cross-class parallelism leaked in before the toggle."
+                "Explicit ENGINE_CLASS_ADMISSION=0 must still force full "
+                "cross-class serialization via the legacy exclusive gate."
             )
         finally:
             release_task_resources(
@@ -448,7 +478,7 @@ class TestShipsDarkCrossClassSerialization:
         assert r_cloud2["admitted"] is True
 
     def test_cross_class_concurrent_when_toggle_on(self, monkeypatch):
-        """With ENGINE_CLASS_ADMISSION=1, distinct classes run concurrently."""
+        """With ENGINE_CLASS_ADMISSION=1 (explicit), distinct classes run concurrently."""
         monkeypatch.setenv("ENGINE_CLASS_ADMISSION", "1")
         from app.orchestration.scheduler.resources import (  # noqa: PLC0415
             reserve_task_resources, release_task_resources, get_engine_semaphore,
@@ -558,15 +588,24 @@ class TestClaimToDictPreservesEngineClass:
         assert "cap" in d, "_claim_to_dict dropped cap — semaphore size is lost"
         assert isinstance(d["cap"], int) and d["cap"] >= 1
 
-    def test_xtts_serialized_through_real_path(self):
-        """Two xtts tasks through the real _claim_to_dict → reserve path → second denied (cap=1)."""
+    def test_xtts_serialized_through_real_path(self, monkeypatch):
+        """Two xtts tasks through the real _claim_to_dict → reserve path → second
+        denied, when the effective cap is forced to 1 (via the ``tts_parallel_cap``
+        setting). Since the manifest cap and the global default are both 2 now
+        (parallel rendering is the shipped default), this explicitly clamps the
+        cap to exercise the cap=1 serialization path rather than relying on it
+        as an ambient default."""
         from app.orchestration.scheduler.orchestrator_helpers import _claim_to_dict  # noqa: PLC0415
         from app.orchestration.scheduler.resources import (  # noqa: PLC0415
             reserve_task_resources,
             release_task_resources,
             get_engine_semaphore,
+            _engine_id_semaphores,
         )
         from app.orchestration.tasks.synthesis import SynthesisTask  # noqa: PLC0415
+        from app.db.state import update_settings  # noqa: PLC0415
+
+        update_settings({"tts_parallel_cap": 1})
 
         task1 = SynthesisTask(
             task_id="xtts-e2e-1",
@@ -581,8 +620,12 @@ class TestClaimToDictPreservesEngineClass:
             output_path="/tmp/xtts_e2e_2.wav",
         )
 
-        # Reset the gpu semaphore so the test is isolated
+        # Reset the gpu semaphore and the per-engine-id "xtts" semaphore (the
+        # latter is grow-only, so a cap=2 entry left by another test would
+        # otherwise survive the cap=1 setting applied above) so the test is
+        # isolated.
         get_engine_semaphore("gpu", 1).reset()
+        _engine_id_semaphores.pop("xtts", None)
 
         d1 = _claim_to_dict(task1.resource_claim)
         d1["task_id"] = "xtts-e2e-1"
@@ -601,6 +644,8 @@ class TestClaimToDictPreservesEngineClass:
             )
         finally:
             release_task_resources(task_id="xtts-e2e-1", resource_claims=d1)
+            update_settings({"tts_parallel_cap": 2})
+            _engine_id_semaphores.pop("xtts", None)
 
     def test_xtts_cap2_admits_two_concurrent_via_real_path(self):
         """Regression 2026-07-03: manifest cap=2 for a real 'gpu'-class engine

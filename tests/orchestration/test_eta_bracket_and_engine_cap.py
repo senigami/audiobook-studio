@@ -371,11 +371,13 @@ class TestPerEngineIdAdmission:
             task_id="n2", resource_claims={"task_id": "n2", "engine_class": "no_engine_id_test_class", "cap": 2},
         )
 
-    def test_currently_live_engines_unaffected_toggle_off(self):
-        """With ENGINE_CLASS_ADMISSION off (default), the per-engine-id gate
-        must not change behavior at all — everything still funnels through the
-        single shared exclusive gate (INV-1 ships-dark).
+    def test_currently_live_engines_unaffected_toggle_off(self, monkeypatch):
+        """With ENGINE_CLASS_ADMISSION explicitly disabled, the per-engine-id
+        gate must not change behavior at all — everything still funnels
+        through the single shared exclusive gate (legacy fallback, still
+        available for an operator who forces the old behavior).
         """
+        monkeypatch.setenv("ENGINE_CLASS_ADMISSION", "0")
         from app.orchestration.scheduler import resources as _res  # noqa: PLC0415
         from app.orchestration.scheduler.resources import (  # noqa: PLC0415
             reserve_task_resources,

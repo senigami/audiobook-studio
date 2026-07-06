@@ -1,9 +1,9 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.11.5
+spec_version: 1.11.6
 status: active
-updated: 2026-07-05
+updated: 2026-07-06
 created: 2026-06-10
 sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
          app/orchestration/scheduler/{orchestrator,orchestrator_helpers,policies,resources,recovery}.py,
@@ -19,6 +19,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.11.6  | 2026-07-06 | **§7.3a/§7.4 — `ENGINE_CLASS_ADMISSION` now defaults ON (owner directive), closing the gap left by 1.11.5.** 1.11.5 raised `tts_parallel_cap`'s default 1→2 but left the admission gate that actually lets concurrent segments render (`_engine_class_admission_enabled` in `app/orchestration/scheduler/resources.py`) defaulting OFF — so every synthesis claim still funnelled through the legacy single-flight exclusive gate regardless of the cap setting, and chapter renders stayed genuinely sequential despite the setting/toggle suggesting otherwise. Found while root-causing an owner report of confusing, jumpy segment highlighting during a render — the highlighting behavior traced to real chunk-group batching + this dormant gate, not a rendering-layer bug. `_engine_class_admission_enabled()` now returns `True` unless `ENGINE_CLASS_ADMISSION` is explicitly set to `"0"`/`"false"`/`"no"`/`"off"` (previously: `True` only for `"1"`/`"true"`/`"yes"`/`"on"`, `False` otherwise). Companion test updates: `tests/orchestration/test_engine_semaphores.py`'s `TestShipsDarkCrossClassSerialization` renamed to `TestPerClassAdmissionDefault` (default-on cross-class concurrency test added; the old default-off assertion moved to an explicit `ENGINE_CLASS_ADMISSION=0` test) and `tests/orchestration/test_eta_bracket_and_engine_cap.py::test_currently_live_engines_unaffected_toggle_off` now forces the env var off explicitly rather than relying on it as an ambient default. |
 | 1.11.5  | 2026-07-05 | **§7.3b — parallel rendering is now the shipped default (owner directive, superseding the W-PAR task 007 "ships dark" cap=1 default).** `DEFAULT_GLOBAL_CAP` (`cap_settings.py`) and the `tts_parallel_cap` default materialized by `state_settings._default_state()`/`_normalize_settings` both raised `1 → 2`. Rationale: sequential rendering is just the cap=1 case of the same fan-out code path, not a mode worth maintaining separately, and the owner does not want the two behaviors treated as parallel product surfaces. Reachable in-app via a new "Parallel Segment Rendering" toggle on Settings → General → Core Synthesis Defaults (`GeneralSettingsPanel.tsx`, POSTs `{tts_parallel_cap}` as JSON) — no env var or config-file edit needed for a running install. `effective_cap = min(2, manifest_max)` still applies, so Voxtral/Mixed (`max_concurrent_workers: 1`) remain sequential by their own manifest ceiling; only XTTS (`max_concurrent_workers: 2`) is affected. INV-1's cap=1-parity guarantee is unchanged — only the default value moved, the byte-identical-at-cap=1 contract still holds and is still tested. Companion fix (same investigation, §2.6/§2.7 territory in `progress-presentation.md`): the Chapter Editor's pre-first-segment "cold start" status pill (`ChapterHeader.tsx`, shown before any `active_segment_id` exists so the animated `PredictiveProgressBar` hasn't mounted yet) now carries the shared `.is-running`/`calm-pulse` animation while `queueStatus === 'Preparing'`, instead of sitting static for the whole model-load window. |
 | 1.11.4  | 2026-07-05 | **§3.10 second escaped defect — the Phase 1 visual check's OTHER failure mode: `active_segments_map` never populated during a render, even after the routing crash (1.11.3) was fixed and a chapter rendered successfully at cap=1.** Root cause: `_current_active_segments_map` only ever ran inside `_publish_progress`, itself only called from the `as_completed` loop at group-COMPLETION boundaries — structurally always empty (the just-finished child excluded, the next not yet started), regardless of concurrency level. Separately, `build_chapter_progress_event` had no `active_segments_map` parameter at all, so even a correctly-populated map could never reach a `chapters.progress` frame (the delivery leg). Diagnosed via a 4-agent fusion design panel (Sonnet-only, per owner directive) + Fable plan verification, which caught both the missing delivery leg AND a lifecycle-ordering bug in the panel's initial timer-based proposal — leading to a simpler event-driven fix with no new timer/thread/join lifecycle at all (Fable's own suggested alternative). Fixed: `_on_child_segment_tick` (event-driven, diff-gated, `skip_job_updated=True`) replaces completion-boundary sampling; `build_chapter_progress_event` + `ws.py` gain the delivery leg. Frontend companion fix (same change): `useStudioChapter.ts` was silently discarding an already-delivered `segmentProgress` prop (real per-segment live data from the existing `segments.progress` stream) — now used as a fallback active-segments map when the backend hasn't supplied its own (backend `{}` always wins — a real "nothing rendering" signal must not be overridden by stale local data). |
 | 1.11.3  | 2026-07-05 | **§3.10 escaped defect fixed — fan-out children were silently routed through a legacy per-engine registry handler instead of the bridge, for any engine with one registered.** Found during the owner's W-PAR Phase 1 👁 visual check (a real cap>1 render of an xtts chapter failed with a `text must not be empty` 422). Root cause: `_dispatch_segment`'s step-1 registry lookup (`app.jobs.registry.JobHandlerRegistry.get_handler`, matches on engine name alone) ran unconditionally, ahead of `_SyntheticSegmentTask`'s intended `prefers_local_execution`/`to_bridge_request` routing (documented in 1.9.0 above) — so every xtts AND voxtral fan-out child (both still have legacy `engine_handlers` registrations; only `mixed` has none) actually executed the legacy whole-chapter handler (`handle_xtts_standard`), which re-derives ALL of the chapter's remaining groups from a live DB query with no per-child scoping. The first-dispatched child silently rendered every sibling's work too; every subsequent child then found nothing left and unconditionally called the bridge with an empty script/text (no guard existed), producing the 422. Fixed: (1) `_SyntheticSegmentTask.skip_registry_dispatch = True` makes `_dispatch_segment` skip the registry lookup for fan-out children (new opt-in `getattr` check, `False` for every other task — INV-1 unaffected); (2) `handle_xtts_standard` now treats an empty post-filter `script` as success (`rc = 0`, falls through to the existing stitch block) instead of calling the bridge with an empty payload — defense-in-depth for any future caller that reaches this legacy path with nothing left to render. Diagnosed via a 4-agent fusion-reasoning panel + Fable adversarial verification; captured in `docs/checklists/code-review.md` (per-engine routing coverage + pre-flight empty-payload guard + the "shared handler reused at a new call site" recurring pattern). |
@@ -662,25 +663,31 @@ preserved for backward compatibility.
 Checked before the per-engine semaphore when `engine_class` is present in the
 claim.  Prevents a misconfigured engine from saturating the host.
 
-### 7.3a Ships-dark gate (`ENGINE_CLASS_ADMISSION`) — INV-1
+### 7.3a Per-engine-class admission gate (`ENGINE_CLASS_ADMISSION`)
 
-Per-engine-class admission is **OFF by default** in task 001 and is enabled by
-the `ENGINE_CLASS_ADMISSION` env toggle (the full toggle/UI lands in task 007).
+**Default ON (2026-07-06, owner directive), superseding the task 001/007
+"ships dark" default of OFF.** Per-engine-class admission shipped dark
+(default OFF) from task 001 through task 007 while the settings/UI surface
+(§7.3b) and ETA math caught up with real concurrency — that transitional
+period is over: parallel rendering is the shipped default end-to-end now, not
+just at the cap-setting level, so the admission gate that actually lets more
+than one segment render concurrently defaults on to match.
 
-This is required for true "ships dark": pre-W-PAR, **all** synthesis tasks
-(xtts, voxtral, and API synthesis) shared the *single* `_exclusive_gate`, so
-they serialized against one another. Routing each engine class to its own cap=1
-semaphore is **not** byte-identical — it admits an xtts (`"gpu"`) and a voxtral
-(`"cloud"`) task concurrently, and an API-xtts (`"exclusive"`) plus a Studio
-xtts (`"gpu"`) task concurrently on the *same GPU* — observable parallelism that
-must not leak in before task 004 (server-side serialization) and task 007.
+Pre-W-PAR, **all** synthesis tasks (xtts, voxtral, and API synthesis) shared
+the *single* `_exclusive_gate`, so they serialized against one another.
+Routing each engine class to its own semaphore is **not** byte-identical at a
+cap above 1 — it admits an xtts (`"gpu"`) and a voxtral (`"cloud"`) task
+concurrently, and (at cap>1) two same-class tasks concurrently on the *same
+GPU*. That is now the intended, observable behavior.
 
-When the toggle is **off**, any claim with a non-empty `engine_class` is
-funnelled through the shared `_exclusive_gate` (single-flight across all
-synthesis), preserving the prior invariant. W5 stays closed because `mixed`
-(`engine_class="cloud"`) now passes through that gate too instead of bypassing
-admission via `ResourceClaim.none()`. `reserve`/`release` are symmetric on this
-path (only the exclusive gate is touched).
+An operator can still force the old single-flight behavior by setting
+`ENGINE_CLASS_ADMISSION` to `"0"`/`"false"`/`"no"`/`"off"` — any claim with a
+non-empty `engine_class` is then funnelled through the shared
+`_exclusive_gate` (single-flight across all synthesis), reproducing the
+pre-W-PAR invariant byte-for-byte. W5 stays closed either way because `mixed`
+(`engine_class="cloud"`) passes through the same admission path (per-class
+semaphore when enabled, exclusive gate when explicitly disabled) instead of
+bypassing admission via `ResourceClaim.none()`.
 
 ### 7.3b Parallel-cap toggle as a Studio setting — W-PAR task 007
 
@@ -739,10 +746,11 @@ effect on the **next job submission** — no restart required (each
 ### 7.4 Admission order
 
 1. Pause gate checked first.
-2. Ships-dark gate: if `engine_class` is set and `ENGINE_CLASS_ADMISSION` is
-   off (default), route through the shared exclusive gate and return.
-3. Global cap backstop checked (when `engine_class` is claimed and the toggle
-   is on).
+2. Legacy fallback: if `engine_class` is set and `ENGINE_CLASS_ADMISSION` is
+   explicitly disabled (§7.3a), route through the shared exclusive gate and
+   return.
+3. Global cap backstop checked (when `engine_class` is claimed and the gate
+   is enabled — the default).
 4. Per-engine-class semaphore checked (acquire one of N slots).
 5. Per-engine-id semaphore checked (§7.4a), only when the claim declares
    `engine_id` — acquired *in addition to* step 4, never instead of it.
