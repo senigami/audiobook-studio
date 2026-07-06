@@ -1,0 +1,23 @@
+{
+  "at": "2026-07-06T22:44:30Z",
+  "commit": "uncommitted",
+  "task": "Owner sent a fresh debug capture after the bc4b4899 queue-ETA + segment-animation fix, asking me to double-check rather than just trust it. Cross-referencing queue.txt's recentAuditFrames against the fix found a real, previously-invisible bug: the queue row's chapters.progress frames showed etaSeconds pinned at 57 for the entire ~42s preparing window (correct — bc4b4899 works), but etaUpdatedAt kept advancing on every _on_child_segment_tick map-only tick instead of staying anchored, which re-anchors the frontend's determinate-fill end-time forward on every tick and can look like the countdown never actually counts down (matches the owner's own \"there was a little bit of a pause\" observation).",
+  "files": {
+    "app/api/ws.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "broadcast_job_updated now extracts _enriched_eta_updated_at = _enrich_payload.get('eta_updated_at') from the ProgressService.enrich() call (previously only eta_seconds/eta_basis/estimated_end_at/grouped_progress/confidence were extracted -- eta_updated_at was computed by enrich()'s own §4A dedupe logic and then silently dropped) and threads it into the build_chapter_progress_event(...) call via a new eta_updated_at= kwarg (falls back to merged.get('eta_updated_at') if enrich failed). Without this, build_chapter_progress_event's own default (time.time() when both eta_updated_at and updated_at are omitted) fired on every single map-only tick, defeating the dedupe entirely at the wire even though the internal computation was correct."
+    },
+    "tests/api/test_websocket_broadcast.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added test_broadcast_job_updated_chapter_progress_dedupes_eta_updated_at_across_map_only_ticks: seeds ProgressService's dedupe cache via a real service.publish() call (mirroring the dispatch-time announce), then two broadcast_job_updated calls 16 real seconds apart (via an injected wall_clock) with unchanged eta_seconds/progress and skip_job_updated=True (the _on_child_segment_tick shape), asserting the outgoing chapters.progress frame's etaUpdatedAt is IDENTICAL both times. Revert-checked red on pre-fix ws.py (scoped git stash push/pop this time, not a blind stash pop)."
+    },
+    "design-docs/specs/progress-presentation.md": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "spec_version 1.10.0 -> 1.10.1: new changelog row documenting the dedupe-computed-but-dropped gap and the fix; added app/api/ws.py to the sources list (it is now load-bearing for the eta_updated_at contract, not just a passive relay)."
+    }
+  },
+  "flow_impact": "Same flow as the 1.10.0 entry (chapter-level dispatch ETA -> queue bar determinate fill), one hop further downstream: ProgressService.enrich() -> broadcast_job_updated -> build_chapter_progress_event -> chapters.progress wire frame -> PredictiveProgressBar's resolveEndAtMs/lane math (checkpointMode='queue'). This closes the gap between 'enrich() computes the right dedupe' and 'the wire frame actually carries it' -- the internal computation was never wrong, only the extraction at the ws.py boundary. Full backend suite green (2246 passed, 3 skipped) after the fix. Learned: a debug-capture cross-check against a just-shipped fix (rather than trusting a subagent's revert-checked, green-suite report as done) is what surfaced this -- the earlier fix's own tests only asserted the internal ProgressService.enrich() payload was correctly deduped in isolation; nothing asserted the value actually survived to the outgoing wire frame through app/api/ws.py, which is a separate hop with its own extraction step."
+}

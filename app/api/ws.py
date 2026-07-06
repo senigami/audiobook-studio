@@ -348,6 +348,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
     _enriched_eta_basis: str | None = None
     _enriched_estimated_end_at: float | None = None
     _enriched_grouped_progress: float | None = None
+    _enriched_eta_updated_at: float | None = None
     _enrich_sample = not skip_job_updated  # FIX 1: only push sample on Path B
     try:
         _ps = _get_progress_service()
@@ -358,6 +359,15 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
         _enriched_eta_basis = _enrich_payload.get("eta_basis")
         _enriched_estimated_end_at = _enrich_payload.get("estimated_end_at")
         _enriched_grouped_progress = _enrich_payload.get("grouped_progress")
+        # §4A eta_updated_at dedupe (service.py enrich()): reuses the previous
+        # anchor when eta_seconds/progress are unchanged from the last publish.
+        # Must be threaded through to build_chapter_progress_event below —
+        # omitting it silently falls back to time.time() on EVERY call,
+        # defeating the dedupe at the wire (2026-07-06 debug session: an
+        # unchanged eta=57 during a long preparing window re-anchored its
+        # end-time forward on every skip_job_updated=True map-only tick,
+        # visible as the queue bar's countdown never actually counting down).
+        _enriched_eta_updated_at = _enrich_payload.get("eta_updated_at")
     except Exception:
         # FIX 5: on enrich failure, set a safe floor so the fail-loud builder
         # contract holds.  Terminal frames get 1.0; live frames get BASE_FLOOR.
@@ -518,6 +528,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                 progress=merged.get("progress") or 0.0,
                 grouped_progress=_enriched_grouped_progress if _enriched_grouped_progress is not None else merged.get("grouped_progress"),
                 eta_seconds=_enriched_eta_seconds if _enriched_eta_seconds is not None else (updates.get("eta_seconds") or merged.get("eta_seconds")),
+                eta_updated_at=_enriched_eta_updated_at if _enriched_eta_updated_at is not None else merged.get("eta_updated_at"),
                 message=message,
                 reason_code=merged.get("reason_code"),
                 render_group_count=merged.get("render_group_count"),
