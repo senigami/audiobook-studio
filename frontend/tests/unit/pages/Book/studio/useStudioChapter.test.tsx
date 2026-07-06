@@ -382,6 +382,129 @@ describe('useStudioChapter', () => {
     });
   });
 
+  describe('animated per-segment interpolation (H5, concurrent map path — 2026-07-06)', () => {
+    // R1 anchor: before the fix, chapterRenderRenderingBatchProgressById fed
+    // each batch the RAW active_segments_map entry.progress verbatim — the
+    // value only stepped when a real websocket frame landed, so the text
+    // highlight jumped between percents (spec §7 H5 violation). These tests
+    // hold the incoming frame CONSTANT and prove the displayed value still
+    // advances at every 250 ms tick — i.e. real interpolation is happening,
+    // not just an eventually-correct end state.
+    const twoSegmentScriptView = {
+      render_batches: [
+        { id: 'B1', span_ids: ['S1'] },
+        { id: 'B2', span_ids: ['S2'] },
+      ],
+      spans: [],
+    };
+
+    it('advances every rendering segment smoothly between real frames (samples every 250ms over ~1s)', () => {
+      vi.useFakeTimers();
+      chapterEditorState.scriptViewData = twoSegmentScriptView;
+      try {
+        const job = makeJob({
+          status: 'running',
+          active_segments_map: {
+            S1: { phase: 'rendering', progress: 0.1, eta_seconds: 10 },
+            S2: { phase: 'rendering', progress: 0.5, eta_seconds: 4 },
+          },
+        });
+
+        const { result } = renderHook(() =>
+          useStudioChapter({
+            chapterId: 'chapter-1',
+            projectId: 'project-1',
+            speakerProfiles: [],
+            speakers: [],
+            job,
+          }),
+        );
+
+        const samplesB1: number[] = [result.current.chapterRenderRenderingBatchProgressById.B1];
+        const samplesB2: number[] = [result.current.chapterRenderRenderingBatchProgressById.B2];
+        for (let i = 0; i < 4; i += 1) {
+          act(() => {
+            vi.advanceTimersByTime(250);
+          });
+          samplesB1.push(result.current.chapterRenderRenderingBatchProgressById.B1);
+          samplesB2.push(result.current.chapterRenderRenderingBatchProgressById.B2);
+        }
+
+        // Backend floor holds at t=0…
+        expect(samplesB1[0]).toBeGreaterThanOrEqual(0.1);
+        expect(samplesB2[0]).toBeGreaterThanOrEqual(0.5);
+        // …and the value moved at EVERY intermediate sample with the frame
+        // held constant (several animation updates per second, per owner).
+        for (let i = 1; i < samplesB1.length; i += 1) {
+          expect(samplesB1[i]).toBeGreaterThan(samplesB1[i - 1]);
+          expect(samplesB2[i]).toBeGreaterThan(samplesB2[i - 1]);
+        }
+        // Interpolation stays honest: bounded by the lane target, never ≥ 1.
+        expect(samplesB1[samplesB1.length - 1]).toBeLessThan(0.995);
+        expect(samplesB2[samplesB2.length - 1]).toBeLessThan(0.995);
+      } finally {
+        chapterEditorState.scriptViewData = null;
+        vi.useRealTimers();
+      }
+    });
+
+    it('a frame for one segment id does not disturb a sibling segment\'s in-flight animation', () => {
+      vi.useFakeTimers();
+      chapterEditorState.scriptViewData = twoSegmentScriptView;
+      try {
+        const initialJob = makeJob({
+          status: 'running',
+          active_segments_map: {
+            S1: { phase: 'rendering', progress: 0.1, eta_seconds: 10 },
+            S2: { phase: 'rendering', progress: 0.5, eta_seconds: 4 },
+          },
+        });
+
+        const { result, rerender } = renderHook(
+          ({ job }: { job: Job }) =>
+            useStudioChapter({
+              chapterId: 'chapter-1',
+              projectId: 'project-1',
+              speakerProfiles: [],
+              speakers: [],
+              job,
+            }),
+          { initialProps: { job: initialJob } },
+        );
+
+        act(() => {
+          vi.advanceTimersByTime(500);
+        });
+        const s1BeforeSiblingFrame = result.current.chapterRenderRenderingBatchProgressById.B1;
+
+        // A real frame arrives for S2 ONLY (S1's entry is value-identical).
+        const nextJob = makeJob({
+          status: 'running',
+          active_segments_map: {
+            S1: { phase: 'rendering', progress: 0.1, eta_seconds: 10 },
+            S2: { phase: 'rendering', progress: 0.7, eta_seconds: 2 },
+          },
+        });
+        act(() => {
+          rerender({ job: nextJob });
+        });
+
+        // S2 snapped up to (at least) its new backend floor.
+        expect(result.current.chapterRenderRenderingBatchProgressById.B2).toBeGreaterThanOrEqual(0.7);
+        // S1 kept its animated position (no reset back to the raw 0.1) and
+        // keeps advancing on the next tick — independent per-id lanes.
+        expect(result.current.chapterRenderRenderingBatchProgressById.B1).toBeGreaterThanOrEqual(s1BeforeSiblingFrame);
+        act(() => {
+          vi.advanceTimersByTime(250);
+        });
+        expect(result.current.chapterRenderRenderingBatchProgressById.B1).toBeGreaterThan(s1BeforeSiblingFrame);
+      } finally {
+        chapterEditorState.scriptViewData = null;
+        vi.useRealTimers();
+      }
+    });
+  });
+
   describe('segmentProgress fallback active-segments map (escaped defect fix, 2026-07-05)', () => {
     it('builds a fallback map from segmentProgress when the backend has no active_segments_map at all', () => {
       const job = makeJob({ status: 'running' });

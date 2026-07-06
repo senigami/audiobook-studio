@@ -1,0 +1,46 @@
+{
+  "at": "2026-07-06T22:25:00Z",
+  "commit": "uncommitted",
+  "task": "Follow-up to the chapter-fanout preparing-stuck fix (owner re-report, 2026-07-06): three remaining symptoms after the prior pass — (1) segment text highlight jumped between percents instead of animating between websocket ticks, (2) the queue row's bar stayed on the indeterminate 'preparing' pulse instead of the spec'd determinate fill (preparing time was supposed to be baked into the queue ETA), (3) owner architectural framing: N concurrent segments each need their OWN independently-ticking animated component filtering the shared stream by its own id. Root causes: (a) the concurrent map path fed RAW active_segments_map entry.progress to ScriptView (spec §7 H5 violation — the legacy single-segment path fed the bar's animated onDisplayProgress feedback, which is single-lane by construction); (b) the fan-out parent (is_chapter_fanout) bypasses _dispatch_segment, which was the only emitter of the chapter-scope pre_load_eta frame — children's own pre_load_eta frames are ephemeral (segments.progress only, no durable job write, no active_segment_id so _on_child_segment_tick drops them), so the parent job's eta_seconds stayed null through preparing and the queue bar's I10 determinate fill never engaged.",
+  "files": {
+    "app/orchestration/scheduler/orchestrator_helpers.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "(1) _dispatch's is_chapter_fanout branch now calls new _publish_chapter_dispatch_eta(task, context) before task.run(): computes eta_seconds = calculate_chapter_startup_eta(total_group_chars, calibrated_cps, group_count, calibrated_overhead) + cold_load_term and publishes a durable status='preparing' reason_code='pre_load_eta' frame on the PARENT context (non-ephemeral → update_job writes eta_seconds). Load term added only when the TTS server reports the engine cold AND expected_model_load_seconds DB history exists; warm → synthesis-only ETA (owner design: warm preparing carries no load time). No calibration history → no frame (no-fabrication, B10/1.7.1). Char weights from the task's own _build_groups() text_length (B9, duck-typed via getattr). (2) Extracted two shared helpers from _dispatch_segment's inline blocks (behavior-neutral refactor, both paths now use one source of truth): _resolve_engine_calibration(engine_id) -> (cps|None, overhead, tts_model) and _expected_cold_load_seconds(engine_id, tts_model) -> float|None.",
+      "calls_added": ["OrchestratorHelpersMixin._dispatch -> OrchestratorHelpersMixin._publish_chapter_dispatch_eta", "OrchestratorHelpersMixin._publish_chapter_dispatch_eta -> app.orchestration.scheduler.eta.calculate_chapter_startup_eta", "OrchestratorHelpersMixin._dispatch_segment -> OrchestratorHelpersMixin._resolve_engine_calibration", "OrchestratorHelpersMixin._dispatch_segment -> OrchestratorHelpersMixin._expected_cold_load_seconds"],
+      "calls_removed": []
+    },
+    "frontend/src/hooks/useAnimatedSegmentProgress.ts": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New hook: per-segment-id interpolation lanes for the concurrent map path. For every rendering-phase entry of active_segments_map it maintains an independent ProgressLane (REUSING resolveEndAtMs/getLaneProgress from predictiveProgressBarLane.ts and the bar's 250ms tickMs cadence), anchored at the entry's latest real (progress, eta_seconds) and interpolated toward the ETA end-time between real frames. Backend value is the authoritative per-segment floor; no positive eta → lane holds (no fabricated motion); entries whose values didn't change are left untouched (per-id filtering — a frame for one segment never disturbs a sibling's in-flight animation); one shared setInterval keyed on a boolean so frame identity churn never resets the timer."
+    },
+    "frontend/src/pages/Book/studio/useStudioChapter.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "chapterRenderRenderingBatchProgressById's map branch now feeds ScriptView animatedSegmentProgress[segId] ?? entry.progress (from the new useAnimatedSegmentProgress(chapterRenderActiveSegmentsMap)) instead of raw entry.progress — restores spec §7 H5 (text fill follows ANIMATED display progress, never raw stepped event data) for N concurrent segments. Legacy single-active-segment path (liveBarSegmentProgress feedback) unchanged."
+    },
+    "tests/orchestration/test_chapter_fanout_dispatch_eta.py": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "Two tests through the real orc._dispatch → ChapterSynthesisTask.run() (RealPublishOrchestrator harness, R2: only health/DB-history/bridge/broadcaster mocked): (1) parent job gets a durable positive eta_seconds during the cold preparing window — asserts a preparing frame with positive etaSeconds + reason pre_load_eta precedes the first running frame AND the durable Job row carries eta_seconds ≥ load term; (2) no calibration history → no pre_load_eta frame, eta stays unset. Revert-checked red on pre-fix code (fan-out branch without the publish)."
+    },
+    "frontend/tests/unit/pages/Book/studio/useStudioChapter.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Two new fake-timer tests (vi.useFakeTimers + vi.advanceTimersByTime(250) × 4, R4-compliant): (1) with the incoming frame held constant, each rendering segment's batch progress strictly increases at EVERY 250ms sample over ~1s (proves interpolation, not an eventually-correct end state) and stays < 0.995; (2) a frame updating only segment S2 leaves S1's in-flight animation undisturbed and S2 snaps to its new backend floor. Both revert-checked red against the raw-value pre-fix code."
+    },
+    "frontend/tests/e2e/chapter-render.spec.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Extended the W-PAR concurrent fan-out e2e (real Chromium, real app bundle, mocked network/ws boundary only): after the active_segments_map frame is held constant with no further ws traffic, expect.poll (waitFor-style, no fixed sleeps) asserts each segment's .script-progress-letter.is-lit count advances TWICE — browser-real proof the per-id lanes tick several times per second between frames. Revert-checked: fails at the first poll on pre-fix dist (caution learned this session: playwright's webServer reused a stale `vite preview` on :4173 serving BUILT dist, so e2e revert-checks require a rebuild, not just a source edit)."
+    },
+    "design-docs/specs/progress-presentation.md": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "spec_version 1.9.0 → 1.10.0. Changelog row for both fixes; §2.6 gains a 'Fan-out parents (1.10.0)' bullet documenting the chapter-level dispatch ETA (including that the fan-out parent emits it even when warm — synthesis-only — unlike the single-dispatch path which still emits only when cold); §7 H5 rewritten to cover the concurrent map path (per-id lanes via useAnimatedSegmentProgress; per-segment floor; no positive eta → hold; sibling isolation). sources list gains useAnimatedSegmentProgress.ts and useStudioChapter.ts."
+    }
+  },
+  "flow_impact": "Chapter concurrent-render flow, two legs. Backend leg: orchestrator.submit → _dispatch (fan-out branch) now emits the dispatch-time chapter ETA → ProgressService.publish (queue.items/chapters.progress frames) + durable update_job(eta_seconds) → frontend live-jobs store ETA-stabilization retains it across later null-ETA frames → QueueItem's preparingWithEta/shouldRetainActiveParams → PredictiveProgressBar queueBarWithEta determinate fill through preparing→running (the frontend consumption side was already built and spec'd in 1.8.0 — the fan-out had severed only the backend feed). Frontend leg: active_segments_map → useAnimatedSegmentProgress (new) → chapterRenderRenderingBatchProgressById → ScriptView litCount, replacing raw stepped values with 250ms-interpolated per-id lanes. Verification: full backend suite 2245 passed/3 skipped; frontend vitest 1725 passed (2 pre-existing failures in demoApp.test.tsx and BookLayout.test.tsx confirmed present without these changes); npm run build clean; ruff clean; playwright chapter-render spec 2/2 green in real Chromium with red-on-revert confirmed for all new tests.",
+  "learned": "Ephemeral fan-out children can never write parent-job durable fields — any chapter-scope value the UI needs during a fan-out render must be published by the parent/orchestrator side (_dispatch or ChapterSynthesisTask), not bubbled from children. Playwright reuseExistingServer can silently attach to a stale `vite preview` of built dist: e2e revert-checks against source edits are meaningless without a rebuild."
+}

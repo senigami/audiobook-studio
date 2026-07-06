@@ -398,4 +398,42 @@ test('W-PAR concurrent fan-out: active_segments_map highlights multiple non-adja
   await expect(s1).toHaveAttribute('data-render-status', 'rendering');
   await expect(s2).toHaveAttribute('data-render-status', 'rendering'); // batch b1 sibling of s1
   await expect(s3).toHaveAttribute('data-render-status', 'rendering');
+
+  // ---------------------------------------------------------------------
+  // Animated per-segment text fill (H5, progress-presentation.md 1.10.0,
+  // owner report 2026-07-06): with the LAST frame above held constant (no
+  // further websocket traffic), each rendering segment's lit-letter fill
+  // must KEEP ADVANCING — the per-id interpolation lanes
+  // (useAnimatedSegmentProgress) tick at 250 ms between real frames. Before
+  // the fix, the fill fed raw map values and froze here until the next
+  // frame, then jumped ("jumping between percents, not animating").
+  //
+  // Real browser, real timers: expect.poll (waitFor-style, no fixed sleeps)
+  // samples the DOM until the count exceeds the previous sample — done
+  // TWICE per segment, so this proves repeated intermediate motion, not one
+  // eventually-correct end state.
+  // ---------------------------------------------------------------------
+  const litCount = (locator: ReturnType<typeof page.locator>) =>
+    locator.locator('.script-progress-letter.is-lit').count();
+
+  const s1Initial = await litCount(s1);
+  const s3Initial = await litCount(s3);
+
+  await expect
+    .poll(() => litCount(s1), { timeout: 5000, message: 's1 lit fill must advance with no new frames (interpolation tick 1)' })
+    .toBeGreaterThan(s1Initial);
+  const s1Mid = await litCount(s1);
+  await expect
+    .poll(() => litCount(s1), { timeout: 5000, message: 's1 lit fill must advance AGAIN with no new frames (interpolation tick 2)' })
+    .toBeGreaterThan(s1Mid);
+
+  // The sibling segment animates independently on its own lane (own id, own
+  // eta) — concurrently with s1, driven by the same held frame.
+  await expect
+    .poll(() => litCount(s3), { timeout: 5000, message: 's3 lit fill must advance independently of s1' })
+    .toBeGreaterThan(s3Initial);
+  const s3Mid = await litCount(s3);
+  await expect
+    .poll(() => litCount(s3), { timeout: 5000, message: 's3 lit fill must advance AGAIN with no new frames' })
+    .toBeGreaterThan(s3Mid);
 });

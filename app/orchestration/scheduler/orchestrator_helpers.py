@@ -155,9 +155,140 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
         path (INV-1).
         """
         if getattr(task, "is_chapter_fanout", False):
+            # Chapter-level dispatch ETA (W-MIX-LA parity restoration,
+            # 2026-07-06): before the fan-out, the parent itself went through
+            # `_dispatch_segment`, whose proactive `pre_load_eta` frame wrote
+            # a durable, positive `eta_seconds` on the PARENT job during the
+            # `preparing` window — the global queue bar's determinate fill
+            # (progress-presentation.md §2.6 / I10, `checkpointMode='queue'`)
+            # depends on that value. The fan-out bypass removed the only
+            # chapter-level emitter: children compute their own group-scoped
+            # `pre_load_eta`, but publish it EPHEMERALLY (segments.progress
+            # only; `orchestrator_publish._publish` skips all durable job
+            # writes, and the frame carries no `active_segment_id`, so
+            # `_on_child_segment_tick` drops it too). Result: the parent's
+            # `eta_seconds` stayed null through preparing and the queue bar
+            # fell back to the indeterminate pulse ("stuck on preparing").
+            self._publish_chapter_dispatch_eta(task=task, context=context)
             return task.run()
         result = self._dispatch_segment(task=task, context=context)
         return result.task_result
+
+    def _resolve_engine_calibration(self, engine_id: str) -> tuple[float | None, float, str | None]:
+        """Real calibrated throughput for an engine from recorded render history.
+
+        Returns ``(calibrated_cps, calibrated_overhead, tts_model)``.
+        ``calibrated_cps`` is ``None`` when no history exists — callers MUST
+        treat that as "no calculated ETA" (no fabricated baseline rate,
+        progress-presentation.md B10 / 1.7.1). Fail-open on any error.
+        """
+        calibrated_cps: float | None = None
+        calibrated_overhead = 0.0
+        tts_model: str | None = None
+        try:
+            from app.db.state import get_performance_metrics  # noqa: PLC0415
+            from app.orchestration.scheduler.eta import get_calibrated_model_params  # noqa: PLC0415
+            from app.tts_server.performance_settings import (  # noqa: PLC0415
+                filter_history_for_engine_model,
+                resolve_engine_settings_model,
+            )
+
+            perf = get_performance_metrics()
+            all_history = perf.get("render_history") or []
+            tts_model = resolve_engine_settings_model(engine_id)
+            history = filter_history_for_engine_model(all_history, engine_id, tts_model)
+            params = get_calibrated_model_params(history)
+            if params:
+                calibrated_cps = params[0]
+                calibrated_overhead = max(0.0, float(params[1]))
+        except Exception:
+            pass
+        return calibrated_cps, calibrated_overhead, tts_model
+
+    def _expected_cold_load_seconds(self, engine_id: str, tts_model: str | None) -> float | None:
+        """W-MIX-LA proactive warm-state check (§2.6).
+
+        Returns the expected model-load seconds when the TTS server reports
+        this engine cold (``model_warm is False``) AND DB load history exists;
+        ``None`` otherwise. Fail-open: any exception → ``None`` and the
+        reactive ``MODEL_LOAD_STARTED`` path handles a load if one occurs.
+        """
+        try:
+            from app.engines.watchdog import get_server_health  # noqa: PLC0415
+            from app.db.performance import expected_model_load_seconds  # noqa: PLC0415
+
+            _health = get_server_health()
+            if _health is None:
+                return None
+            for _eng_info in _health.get("engines", []):
+                if _eng_info.get("engine_id") == engine_id:
+                    if _eng_info.get("model_warm") is False:
+                        _load_secs = expected_model_load_seconds(engine_id, tts_model)
+                        if _load_secs is not None and _load_secs > 0:
+                            return float(_load_secs)
+                    break
+        except Exception:
+            pass
+        return None
+
+    def _publish_chapter_dispatch_eta(self, *, task: StudioTask, context: TaskContext) -> None:
+        """Publish the chapter-level dispatch ETA for a fan-out parent.
+
+        Emitted once, just before ``ChapterSynthesisTask.run()`` fans out its
+        children, while the parent's durable status is still ``preparing``:
+
+        ``eta_seconds = calculate_chapter_startup_eta(total_chars, cps,
+        group_count, overhead) + cold_load_term``
+
+        - The synthesis term requires a REAL calibrated ``cps`` from render
+          history — with no calibration there is NO frame (no fabricated
+          countdown, B10/1.7.1).
+        - The load term is added only when the TTS server reports the engine
+          cold AND ``expected_model_load_seconds`` DB history exists (W-MIX-LA
+          §2.6); a warm engine's ETA carries no preparing time (owner design).
+        - Char weights come from the parent's own chunk groups
+          (``group["text_length"]``), matching ``run()``'s size-weighted
+          progress source (B9).
+
+        The frame is durable (non-ephemeral context → ``update_job`` writes
+        ``eta_seconds``), so the queue bar's I10 determinate preparing fill
+        engages immediately and the frontend store's ETA-stabilization keeps
+        the anchor across the preparing → running boundary.
+        """
+        try:
+            payload = context.payload or {}
+            engine_id = str(payload.get("engine_id") or getattr(task, "engine_id", "") or "")
+            if not engine_id:
+                return
+            calibrated_cps, calibrated_overhead, tts_model = self._resolve_engine_calibration(engine_id)
+            if not calibrated_cps or calibrated_cps <= 0:
+                return
+            build_groups = getattr(task, "_build_groups", None)
+            groups = build_groups() if callable(build_groups) else None
+            if not groups:
+                return
+            total_chars = sum(int((group or {}).get("text_length") or 0) for group in groups)
+            if total_chars <= 0:
+                return
+            from app.orchestration.scheduler.eta import calculate_chapter_startup_eta  # noqa: PLC0415
+            expected_duration = calculate_chapter_startup_eta(
+                total_chars, calibrated_cps, len(groups), calibrated_overhead,
+            )
+            if expected_duration <= 0:
+                return
+            load_term = self._expected_cold_load_seconds(engine_id, tts_model) or 0.0
+            self._publish(
+                context=context,
+                status="preparing",
+                eta_seconds=max(1, int(round(expected_duration + load_term))),
+                reason_code="pre_load_eta",
+                message="Preparing synthesis resources…",
+            )
+        except Exception:
+            logger.debug(
+                "Task %s: chapter dispatch ETA computation failed (fail-open).",
+                context.task_id, exc_info=True,
+            )
 
     def _dispatch_segment(self, *, task: StudioTask, context: TaskContext) -> SegmentResult:
         """Dispatch one segment/group's worth of work with fully isolated
@@ -200,26 +331,9 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
         expected_duration = self._estimate_task_duration(task=task, context=context)
 
         engine_id = context.payload.get("engine_id") or getattr(task, "engine_id", "synthesis")
-        calibrated_cps = None
-        calibrated_overhead = 0.0  # inter-group (model-reload) overhead seconds; gap factoring
-        try:
-            from app.db.state import get_performance_metrics  # noqa: PLC0415
-            from app.orchestration.scheduler.eta import get_calibrated_model_params  # noqa: PLC0415
-            from app.tts_server.performance_settings import (  # noqa: PLC0415
-                filter_history_for_engine_model,
-                resolve_engine_settings_model,
-            )
-
-            perf = get_performance_metrics()
-            all_history = perf.get("render_history") or []
-            tts_model = resolve_engine_settings_model(engine_id)
-            history = filter_history_for_engine_model(all_history, engine_id, tts_model)
-            params = get_calibrated_model_params(history)
-            if params:
-                calibrated_cps = params[0]
-                calibrated_overhead = max(0.0, float(params[1]))
-        except Exception:
-            pass
+        # Calibrated throughput + inter-group (model-reload) overhead from render
+        # history — shared with the fan-out parent's dispatch-ETA path.
+        calibrated_cps, calibrated_overhead, tts_model = self._resolve_engine_calibration(engine_id)
 
         # W-MIX-LA 006 — proactive warm-state check.
         # If the TTS server reports this engine is cold, pre-compute the expected
@@ -227,25 +341,10 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
         # any synthesis output arrives. Fail-open: any exception → term stays None
         # and the reactive MODEL_LOAD_STARTED path handles it if a load occurs.
         load_state: dict = {"term": None, "checked_at": None}
-        try:
-            from app.engines.watchdog import get_server_health  # noqa: PLC0415
-            from app.db.performance import expected_model_load_seconds  # noqa: PLC0415
-            _health = get_server_health()
-            if _health is not None:
-                for _eng_info in _health.get("engines", []):
-                    if _eng_info.get("engine_id") == engine_id:
-                        if _eng_info.get("model_warm") is False:
-                            try:
-                                _tts_model_for_load = tts_model
-                            except NameError:
-                                _tts_model_for_load = None
-                            _load_secs = expected_model_load_seconds(engine_id, _tts_model_for_load)
-                            if _load_secs is not None and _load_secs > 0:
-                                load_state["term"] = _load_secs
-                                load_state["checked_at"] = time.time()
-                        break
-        except Exception:
-            pass
+        _load_secs = self._expected_cold_load_seconds(engine_id, tts_model)
+        if _load_secs is not None:
+            load_state["term"] = _load_secs
+            load_state["checked_at"] = time.time()
 
         def task_progress_reporter(progress: float, message: str | None, reason_code: str | None, status: str = "running"):
             # Non-marker tasks start when they first report running. Marker-driven

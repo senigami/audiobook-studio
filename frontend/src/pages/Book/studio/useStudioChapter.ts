@@ -10,6 +10,7 @@ import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } fr
 import { getRawActiveRenderProgress } from '@/utils/chapterRenderProgress';
 import { resolveVoiceEngineStatus, downloadBlob, formatExportFilename } from '@/utils/chapterEditorHelpers';
 import { useSegmentHandoffQueue, getHandoffTransitions, recordExternalHandoffEvent } from '@/hooks/useSegmentHandoffQueue';
+import { useAnimatedSegmentProgress } from '@/hooks/useAnimatedSegmentProgress';
 import type { Job, SegmentProgress, SpeakerProfile, TtsEngine } from '@/types';
 import type { ResyncPreviewData } from '@/pages/ChapterEditor/components/ResyncPreviewModal';
 import type { ChapterEditorTab } from '@/pages/ChapterEditor/components/EditorTabs';
@@ -350,6 +351,12 @@ export function useStudioChapter({
     return new Set(queuedBatchSpanIds.filter((id) => !chapterRenderRenderingSegmentIds.has(id)));
   }, [job, chapterRenderActiveSegmentId, chapterRenderRenderingSegmentIds, scriptViewData?.render_batches]);
 
+  // Per-segment interpolated display progress for the concurrent map path
+  // (progress-presentation.md §7 H5: the text fill follows ANIMATED display
+  // progress, never raw stepped event data). Each entry animates its own
+  // lane, keyed by its own segment id, on the shared 250 ms cadence.
+  const animatedSegmentProgress = useAnimatedSegmentProgress(chapterRenderActiveSegmentsMap);
+
   const chapterRenderRenderingBatchProgressById = useMemo(() => {
     const progressById: Record<string, number> = {};
     // W-PAR 006: when active_segments_map is present, populate each rendering
@@ -363,7 +370,9 @@ export function useStudioChapter({
           candidate.span_ids.includes(segId),
         );
         if (!batch) continue;
-        progressById[batch.id] = entry.progress;
+        // H5: prefer the segment's own animated lane value; the raw map value
+        // is the fallback for the very first render before the lane mounts.
+        progressById[batch.id] = animatedSegmentProgress[segId] ?? entry.progress;
       }
       return progressById;
     }
@@ -380,7 +389,7 @@ export function useStudioChapter({
     const effectiveProgress = liveBarSegmentProgress > 0 ? liveBarSegmentProgress : rawProgress;
     progressById[activeBatch.id] = effectiveProgress;
     return progressById;
-  }, [chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans, liveBarSegmentProgress, chapterRenderActiveSegmentId, chapterRenderActiveSegmentsMap]);
+  }, [chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans, liveBarSegmentProgress, chapterRenderActiveSegmentId, chapterRenderActiveSegmentsMap, animatedSegmentProgress]);
 
   const handleGenerateWithFallback = useCallback(
     async (segmentIds: string[]) => {
