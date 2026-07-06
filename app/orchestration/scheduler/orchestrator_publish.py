@@ -221,6 +221,7 @@ class OrchestratorPublishMixin:
                             status=state_status,
                             progress=active_segment_progress if active_segment_progress is not None else state_progress,
                             eta_seconds=eta_seconds,
+                            reason_code=reason_code,
                         )
                     except Exception:
                         logger.warning(

@@ -198,10 +198,20 @@ def test_grouped_progress_is_size_weighted_and_order_independent(tmp_path):
     running_calls = [c for c in published_calls if c.get("status") == "running"]
     assert running_calls, "expected at least one running progress publish"
 
-    first_running = running_calls[0]
-    assert first_running.get("grouped_progress") == pytest.approx(0.9), (
+    # The very first "running" call is now the dispatch-time announcement
+    # (escaped defect fix, 2026-07-06: the parent job must flip out of
+    # "preparing" as soon as the fan-out dispatches, not only once a group
+    # completes) — it reports progress 0.0 / grouped_progress 0.0 since
+    # nothing has completed yet. The first call reflecting an actual
+    # completion (the 900-char segment finishing) is the first with
+    # progress > 0.
+    completion_calls = [c for c in running_calls if (c.get("progress") or 0) > 0]
+    assert completion_calls, f"expected a running publish reflecting real completion; got {running_calls}"
+
+    first_completion = completion_calls[0]
+    assert first_completion.get("grouped_progress") == pytest.approx(0.9), (
         f"first completed child is the 900-char segment; grouped_progress must be "
-        f"~0.9 (size-weighted), not count-based (~0.5); got {first_running.get('grouped_progress')}"
+        f"~0.9 (size-weighted), not count-based (~0.5); got {first_completion.get('grouped_progress')}"
     )
     # Sanity: the count-based `progress` field is unchanged/still present.
-    assert first_running.get("progress") == pytest.approx(0.5)
+    assert first_completion.get("progress") == pytest.approx(0.5)

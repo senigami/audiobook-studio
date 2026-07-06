@@ -375,3 +375,166 @@ def test_live_active_segments_map_pops_entry_on_child_completion():
         # A second terminal tick for an already-removed segment must not re-publish.
         task._on_child_segment_tick(segment_id="seg-A", status="done", progress=1.0, eta_seconds=None)
         assert len(calls) == 3, "popping an already-absent entry must not trigger a redundant publish"
+
+
+def test_live_active_segments_map_preserves_preparing_phase():
+    """Regression (2026-07-06 debug session): before this fix,
+    ``_on_child_segment_tick`` hardcoded ``"phase": "rendering"`` for every
+    non-terminal tick regardless of the child's real status, collapsing
+    "preparing" (SEGMENT_PENDING / engine still loading) into "rendering".
+
+    Frontend impact: ``useStudioChapter.ts``'s
+    ``chapterRenderPreparingSegmentIds`` filters map entries on
+    ``entry.phase === 'preparing'`` — with every entry forced to
+    "rendering", that set was always empty during concurrent (map-driven)
+    rendering, so the "preparing" CSS pulse never applied to any segment and
+    ScriptView's lit-text treated a still-loading segment as if it were
+    already producing real progress (the "stuck on the first letter,
+    missing the pulse" symptom).
+
+    The sibling marker-parsing path (``orchestrator_helpers.py``) already
+    threads ``phase="preparing"`` for ``SEGMENT_PENDING`` — this test proves
+    ``_on_child_segment_tick`` does the same for the aggregate parent-level
+    map that ephemeral children actually reach.
+    """
+    task = ChapterSynthesisTask(
+        task_id="chap-phase-test", engine_id="mixed", chapter_id="chap-1", project_id="proj-1",
+    )
+
+    with patch("app.db.state.update_job", lambda *a, **kw: None):
+        # A child still in its own preparing/model-load sub-phase (status
+        # "preparing", the value _publish's has_started correction leaves
+        # alone until the child has genuinely started) must surface as
+        # phase "preparing", not "rendering".
+        task._on_child_segment_tick(segment_id="seg-A", status="preparing", progress=0.0, eta_seconds=None)
+        assert task._current_active_segments_map() == {
+            "seg-A": {"phase": "preparing", "progress": 0.0, "eta_seconds": None}
+        }
+
+        # The SEGMENT_PENDING announce (orchestrator_helpers.py) reports
+        # status="running" literally (engine warm, just not yet confirmed
+        # for THIS segment) — the "preparing" signal only exists in
+        # reason_code. Adversarial-review catch (2026-07-06): a status-only
+        # check silently misses this — the MORE common real-world preparing
+        # sub-phase per the actual bug report — and reads as fixed while
+        # still producing phase "rendering" for it.
+        task._on_child_segment_tick(
+            segment_id="seg-B", status="running", progress=0.0, eta_seconds=None,
+            reason_code="SEGMENT_PENDING",
+        )
+        assert task._current_active_segments_map()["seg-B"]["phase"] == "preparing", (
+            "SEGMENT_PENDING (status='running', reason_code='SEGMENT_PENDING') must "
+            "still surface as phase='preparing'"
+        )
+
+        # Once the same segment reports real running progress (no more
+        # SEGMENT_PENDING reason_code), it must switch to phase "rendering".
+        task._on_child_segment_tick(segment_id="seg-A", status="running", progress=0.3, eta_seconds=10)
+        assert task._current_active_segments_map()["seg-A"] == {
+            "phase": "rendering", "progress": 0.3, "eta_seconds": 10,
+        }
+
+
+def test_parent_job_status_running_before_any_child_completes(tmp_path):
+    """Regression (2026-07-06 debug session): before this fix,
+    ``ChapterSynthesisTask.run()`` only called ``_publish_progress(status=
+    "running", ...)`` inside the ``as_completed`` loop — i.e. only once a
+    whole chunk group FINISHED. Nothing published a "running" transition at
+    dispatch time, so the parent job's own ``status`` field stayed
+    "preparing" for the entire duration of the first group's render, even
+    though children were visibly producing real progress underneath (via
+    ``active_segments_map`` / ``segments.progress``).
+
+    The Chapter Editor header's "Preparing" cue reads ``job.status ===
+    'preparing'`` directly (``ChapterHeader.tsx``) — this is the "main cue
+    stayed on preparing until the first two segments were completed"
+    symptom.
+
+    All three children are held mid-render on ``release`` so this test
+    proves the "running" publish happens strictly BEFORE any child
+    completes, not merely eventually.
+    """
+    release = threading.Event()
+
+    def _fake_generate_via_bridge_held(**kwargs):
+        release.wait(timeout=10)
+        real_task_id = kwargs["task_id"]
+        out_wav = kwargs["out_wav"]
+        on_output = kwargs["on_output"]
+        wd = TtsServerWatchdog()
+        _write_tiny_wav(out_wav)
+        wd._drain_stream(None, "stdout", MockStream([
+            f"[START_SYNTHESIS] {real_task_id}\n",
+            f"[PROGRESS] 100% {real_task_id}\n",
+        ]))
+        on_output(f"[stub] wrote {out_wav}\n")
+        return 0
+
+    orc = RealPublishOrchestrator()
+    running_published = threading.Event()
+    task_id = "chap-early-running"
+    captured_frames: list[dict] = []
+
+    # ChapterSynthesisTask._resolve_progress_service() falls back to the
+    # module-level get_progress_service() singleton (self._progress_service
+    # is never wired from the orchestrator passed to
+    # make_dispatch_segment_bridge_call, and ProgressService.publish itself
+    # never writes durable job state — only its broadcaster observes the
+    # emitted chapters.progress frame) — spy at that seam, not on
+    # orc.progress_service (only the ephemeral CHILDREN's marker listener
+    # uses that one) and not on app.db.state.get_jobs (nothing here writes
+    # it without a boot-installed broadcaster wired to state persistence).
+    from app.orchestration.progress.service import (  # noqa: PLC0415
+        reset_progress_service,
+        set_progress_service,
+    )
+
+    def _capture(payload: dict, channel: str = "jobs") -> None:
+        captured_frames.append(payload)
+        ids = payload.get("ids") or {}
+        inner = payload.get("payload") or {}
+        if ids.get("jobId") == task_id and inner.get("status") == "running":
+            running_published.set()
+
+    set_progress_service(ProgressService(
+        reconcile_fn=reconcile_work_item, eta_fn=estimate_eta_seconds, broadcaster=_capture,
+    ))
+
+    bridge_call = make_dispatch_segment_bridge_call(orc)
+    task = ChapterSynthesisTask(
+        task_id=task_id,
+        engine_id="mixed",
+        chapter_id="chapter-early-running",
+        project_id="proj-1",
+        output_path=str(tmp_path / f"{task_id}.wav"),
+        script=_chapter_script(3),
+        max_concurrent_workers=3,
+        bridge_call=bridge_call,
+    )
+
+    with patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=_fake_generate_via_bridge_held), \
+         patch("app.engines.watchdog.get_watchdog", side_effect=lambda: TtsServerWatchdog()), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.build_script_entry_for_group", side_effect=_fake_script_entry), \
+         patch("app.db.speakers.get_speaker_settings", return_value={}), \
+         patch("app.engines.behavior.extract_engine_settings", return_value={}), \
+         patch("app.db.update_segment", lambda *a, **kw: None), \
+         patch("app.db.update_segments_bulk", lambda *a, **kw: None), \
+         patch("app.api.ws.broadcast_segments_updated", lambda *a, **kw: None), \
+         patch("app.api.ws.broadcast_tts_log_line", lambda *a, **kw: None), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
+         patch("app.orchestration.tasks.segment_synthesis._manifest_resource_claim", side_effect=_raised_cap_claim):
+        run_thread = threading.Thread(target=task.run)
+        run_thread.start()
+        try:
+            assert running_published.wait(timeout=5), (
+                'parent job never published a chapters.progress frame with '
+                'status="running" while all children were still held '
+                "mid-render (this is the bug: the header stays on "
+                '"Preparing" for the whole first group instead of flipping '
+                f"as soon as the fan-out starts); captured so far: {captured_frames}"
+            )
+        finally:
+            release.set()
+            run_thread.join(timeout=10)
+            reset_progress_service()

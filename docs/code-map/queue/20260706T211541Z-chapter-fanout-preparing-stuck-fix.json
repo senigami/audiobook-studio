@@ -1,0 +1,35 @@
+{
+  "at": "2026-07-06T21:15:41Z",
+  "commit": "uncommitted",
+  "task": "flow-debug session, re-run per owner report: Chapter Editor header stayed on \"Preparing\" until the first two segments completed, and segment progress rendered in blocky/discrete jumps with no \"preparing\" pulse. Root-caused via debug capture cross-reference (chapter-segment.txt handoffTransitions, event-stream.txt raw ws frames, queue.txt audit frames) to two gaps in ChapterSynthesisTask's concurrent chunk-group fan-out (ThreadPoolExecutor), both latent since the W-PAR 006/008 event-driven active_segments_map work and only made visible now that ENGINE_CLASS_ADMISSION defaults on. Fixed both; adversarial review (review-adversarial skill) caught that the first fix attempt for gap 2 was incomplete (checked only `status`, missed the more common `reason_code`-conveyed sub-phase) and it was corrected in the same pass.",
+  "files": {
+    "app/orchestration/tasks/segment_synthesis.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Two fixes in ChapterSynthesisTask. (1) run(): added an initial self._publish_progress(completed=0, total=total, status=\"running\", done_chars=0, total_chars=total_chars) call immediately after `futures = {pool.submit(...)}`, before the as_completed loop — previously _publish_progress(status=\"running\", ...) was only called INSIDE as_completed, i.e. only once a whole chunk group COMPLETED, so the parent job's own `status` field stayed \"preparing\" for the entire first group's render regardless of concurrency level. (2) _on_child_segment_tick(): added a `reason_code` kwarg (default None) and a new `_PREPARING_REASON_CODES = frozenset({\"SEGMENT_PENDING\", \"LOADING_MODEL\"})` class constant; the aggregate active_segments_map entry's phase is now `\"preparing\" if (status == \"preparing\" or reason_code in _PREPARING_REASON_CODES) else \"rendering\"` — previously hardcoded to \"rendering\" for every non-terminal tick, so a child in its LOADING_MODEL or SEGMENT_PENDING sub-phase never surfaced as phase=\"preparing\" in the map ephemeral children actually reach (the sibling per-child map built in orchestrator_helpers.py's marker listener already got this right, but that map is discarded for ephemeral children — this aggregate one is what survives).",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "app/orchestration/scheduler/orchestrator_publish.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "_publish()'s ephemeral branch now forwards `reason_code=reason_code` to the on_segment_tick(...) callback call, alongside the existing segment_id/status/progress/eta_seconds — required so ChapterSynthesisTask._on_child_segment_tick can distinguish the SEGMENT_PENDING sub-phase (status=\"running\" literally, reason_code=\"SEGMENT_PENDING\") from genuine rendering."
+    },
+    "tests/orchestration/test_ephemeral_child_no_durable_job.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added test_live_active_segments_map_preserves_preparing_phase (unit-level, calls _on_child_segment_tick directly: asserts phase=\"preparing\" for status=\"preparing\" AND for status=\"running\"+reason_code=\"SEGMENT_PENDING\", and phase=\"rendering\" once a real running tick with no preparing reason_code arrives) and test_parent_job_status_running_before_any_child_completes (integration-level through the real ChapterSynthesisTask.run() + ThreadPoolExecutor fan-out, all 3 children held on a threading.Event so they never complete; spies on a temporarily-installed global ProgressService via set_progress_service/reset_progress_service to capture the emitted chapters.progress frame and assert a status=\"running\" frame lands while zero children have completed). Both revert-checked red on pre-fix code."
+    },
+    "tests/orchestration/test_grouped_progress_size_weighted.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Updated test_grouped_progress_is_size_weighted_and_order_independent's assertion: the first \"running\" published call is now the new dispatch-time announcement (progress=0.0), not the first group-completion call — the test now filters running_calls for the first one with progress > 0 before checking the size-weighted grouped_progress value. Behavior under test (size-weighting) is unchanged; only the call-list indexing needed updating."
+    },
+    "docs/checklists/code-review.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "review-ratchet capture: two new checklist entries — \"Mirroring a Status/Phase Distinction That's Conveyed Through More Than One Field\" (the reason_code-vs-status gap review-adversarial caught) and \"Fan-Out Replacing a Sequential Call Needs Its Own Dispatch-Time Announce\" (the stuck-preparing root cause)."
+    }
+  },
+  "flow_impact": "Touches the chapter concurrent-render flow's progress-aggregation leg: ChapterSynthesisTask.run() -> _publish_progress/_on_child_segment_tick -> ProgressService.publish -> chapters.progress wire frame -> frontend useStudioChapter.ts (chapterRenderActiveSegmentsMap, chapterRenderPreparingSegmentIds) -> ChapterHeader \"Preparing\" cue + ScriptView per-span preparing pulse. No contract/schema version bump needed (active_segments_map's phase enum already documented as {preparing, rendering}; this fix makes production code honor the full enum rather than adding a new value). Frontend-side symptom (the header cue's job.status read, the ScriptView litCount-forced-to-0-until-rendering behavior) was traced and confirmed but NOT modified — the root cause was entirely on the backend emission side; no frontend change was needed once the backend correctly threads status/phase. Full backend suite (2243 passed, 3 skipped) and full tests/orchestration/ (517 passed) green after the fix."
+}

@@ -645,8 +645,14 @@ class ChapterSynthesisTask(StudioTask):
         with self._children_lock:
             return dict(self._live_segments_map) or None
 
+    # Reason codes that mean "not genuinely rendering yet" even though the
+    # child's own status already reads "running" — mirrors the frontend's own
+    # `isActiveJobPreparing` contract (useStudioChapter.ts).
+    _PREPARING_REASON_CODES = frozenset({"SEGMENT_PENDING", "LOADING_MODEL"})
+
     def _on_child_segment_tick(
         self, *, segment_id: str | None, status: str | None, progress: float | None, eta_seconds: int | None,
+        reason_code: str | None = None,
     ) -> None:
         """Update the live active_segments_map from a child's own progress
         tick (2026-07-05, escaped defect fix) — the event-driven replacement
@@ -679,8 +685,21 @@ class ChapterSynthesisTask(StudioTask):
                 # Quantize to 0.01 (matching ProgressService's own ≥1%
                 # convention, see min_progress_delta) so sub-1% engine ticks
                 # don't trigger a state.json rewrite on every call.
+                # Thread the child's real preparing-ness into phase so a
+                # segment still loading/announcing surfaces as "preparing"
+                # here too — mirrors orchestrator_helpers.py's marker-parsing
+                # path, which already does this for its own per-child
+                # active_segments_map kwarg (discarded for ephemeral
+                # children; this aggregate map is the one that survives).
+                # Two distinct sub-phases both count as "preparing": the
+                # LOADING_MODEL cold-load window (status genuinely
+                # "preparing") and the per-segment SEGMENT_PENDING announce
+                # (status is already "running" by then — engine warm, this
+                # segment just not yet engine-confirmed — conveyed only via
+                # reason_code, never status).
+                is_preparing = status == "preparing" or reason_code in self._PREPARING_REASON_CODES
                 entry = {
-                    "phase": "rendering",
+                    "phase": "preparing" if is_preparing else "rendering",
                     "progress": round(progress or 0.0, 2),
                     "eta_seconds": eta_seconds,
                 }
@@ -1047,6 +1066,19 @@ class ChapterSynthesisTask(StudioTask):
                 thread_name_prefix=f"chapter-{self.task_id}",
             ) as pool:
                 futures = {pool.submit(self._run_child_with_retry, child): child for child in children}
+
+                # Publish "running" as soon as the fan-out dispatches, not
+                # only once the first group COMPLETES (escaped defect,
+                # 2026-07-06 debug session): without this, the parent job's
+                # own `status` stayed "preparing" for the entire first
+                # group's render — the Chapter Editor header reads
+                # `job.status === 'preparing'` directly, so it showed
+                # "Preparing" the whole time even though children were
+                # visibly rendering underneath via active_segments_map.
+                self._publish_progress(
+                    completed=0, total=total, status="running",
+                    done_chars=0, total_chars=total_chars,
+                )
 
                 # Consume each child's result AS IT COMPLETES (review fix,
                 # W-PAR 008): the parent's chapter-level progress and
