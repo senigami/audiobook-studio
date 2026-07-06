@@ -1,10 +1,10 @@
 # SP9 — System Architecture Spec
 
 ```
-spec_version: 1.6.1
+spec_version: 1.6.2
 status: active
 created: 2026-06-10
-updated: 2026-07-05
+updated: 2026-07-06
 sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
          app/engines/watchdog.py, app/engines/bridge.py,
          app/engines/bridge_remote.py, app/engines/tts_client.py,
@@ -19,6 +19,7 @@ sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
 
 | Version | Date       | Summary                                                    |
 |---------|------------|------------------------------------------------------------|
+| 1.6.2   | 2026-07-06 | Doc-only fix: §3.1's "Ships dark: at `cap=1` (today's default for all manifests)" sentence was stale relative to the 1.6.1 changelog entry it sits below — the global default cap is 2 (`cap_settings.DEFAULT_GLOBAL_CAP`) and XTTS's manifest ceiling is 2, so XTTS already runs 2 concurrent warm workers by default; Voxtral/Mixed remain pinned to 1 via their own manifest `max_concurrent_workers`. No behavior change, drift-correction only. |
 | 1.6.1   | 2026-07-05 | **§3.1a — parallel-cap default raised `1 → 2` (owner directive, supersedes the 1.6.0 "ships dark" default).** `cap_settings.DEFAULT_GLOBAL_CAP` and the `tts_parallel_cap` default materialized by `state_settings.py` both moved from 1 to 2; `effective_cap = min(2, manifest_max)` per engine, so only XTTS (`max_concurrent_workers: 2`) is affected — Voxtral/Mixed stay sequential via their own manifest ceiling of 1. Full rationale and changelog in `queue-jobs.md` §7.3b / 1.11.5. |
 | 1.6.0   | 2026-07-03 | **W-PAR task 007 — cap toggle as a Studio setting (§3.1a) + per-engine-id admission ceiling.** The orchestrator-side effective cap now comes from `cap_settings.resolve_effective_cap(engine_id, manifest_max)`, clamping the `tts_parallel_cap` / `tts_engine_caps` settings (env-fallback `TTS_PARALLEL_CAP` / `TTS_ENGINE_CAPS`) to the manifest ceiling — default stays 1 (ships dark). `resources.py` gained an independent per-`engine_id` semaphore checked alongside the per-`engine_class` gate whenever a claim declares `engine_id`, closing the latent "grow-only class semaphore shared by two same-class engine_ids" gap (folded-in Fable merge-gate finding; not observable today). No change to the orchestrator ↔ watchdog ↔ VoiceBridge ownership split or the server-side warm-worker pool (§3.1). |
 | 1.5.0   | 2026-06-26 | **W-PAR task 004 — TTS-server concurrent inference model.** The `/synthesize` endpoint is `async def` and wraps the engine call in `run_in_threadpool` (Starlette) so the ASGI event loop is never tied up during inference. Note: FastAPI already offloads sync handlers to anyio's threadpool, so this was not fixing a loop-blocking bug — it makes the offload explicit and is the idiomatic form. The **real** per-engine serialization point was the single XTTS warm-worker subprocess. `WarmWorkerManager` now holds a **bounded, lazy-spawned pool** of up to `cap` `WarmWorker` subprocess instances (free-list queue); `cap = behavior.max_concurrent_workers` from the engine manifest (task 001). Each subprocess handles one job at a time (pipe-safety); the pool's free-list is the concurrency bound. The N-th worker is spawned only on demand; on OOM/spawn failure the effective cap degrades to the live pool size (fail-safe, no crash). Cloud engines (Voxtral) have no warm worker and no serialization lock — concurrency is bounded only by the remote API rate limit. **Ships dark:** at cap=1 (default for all manifests today) behavior is byte-identical to the prior single-worker model. Complements the orchestrator-side per-engine semaphore (task 001, `resources.py`) — both enforcement points read the same manifest cap. Pool sizing is driven entirely by `manifest.behavior.max_concurrent_workers`; no engine-ID branching (INV-5). Residual: `WarmWorkerManager._acquire_worker` blocking `free_q.get()` can hang if all pooled workers die while a waiter holds — dormant at cap=1, deferred to task 005. |
@@ -125,9 +126,14 @@ lazy-spawned pool** of `WarmWorker` subprocess instances:
 Concurrency is bounded only by the remote API rate limit — the server endpoint
 imposes no additional serialization.
 
-**Ships dark:** at `cap=1` (today's default for all manifests) behavior is
-byte-identical to the prior single-worker model.  The warm-worker pool of
-size 1 with a free-list of 1 is equivalent to the previous `threading.Lock`.
+**No longer ships dark for XTTS as of 1.6.1:** the global default cap is now 2
+(`cap_settings.DEFAULT_GLOBAL_CAP`), and the XTTS manifest declares
+`max_concurrent_workers: 2`, so `effective_cap = min(2, manifest_max) = 2` —
+the warm-worker pool actually runs 2 concurrent workers by default today.
+Voxtral and Mixed still declare `max_concurrent_workers: 1` in their own
+manifests, so they stay pinned to the prior single-worker/`threading.Lock`-
+equivalent behavior regardless of the global cap. See the 1.6.1 changelog
+entry above and `queue-jobs.md` §7.3b.
 
 **Two enforcement points:** this server-side pool complements the
 orchestrator-side per-engine semaphore (task 001,

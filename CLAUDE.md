@@ -4,6 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Audiobook Studio is a local-first FastAPI + React app that turns manuscripts into audiobooks using AI voice cloning. This branch is the **Studio 2.0** line: synthesis runs through a managed, plugin-based TTS Server subprocess, and background work flows through a task orchestrator rather than the legacy worker loop.
 
+## Lessons (auto-loaded, always-on)
+
+Read `docs/lessons/INDEX.md` at session start — a capped list of project-specific operational lessons (things that cost a real debugging round to learn). Its topic-pointer section names situations that warrant reading a full shard from `docs/lessons/topics/`.
+
 ## Owner directives (binding)
 
 - **Clean break (Studio 2.0):** legacy/v1 code is deleted, not preserved; only the v1→v2 data migration path survives. Compatibility obligations begin at the v2.0.0 release.
@@ -122,3 +126,11 @@ React 19 + TypeScript + Vite, React Router, Framer Motion. Standard shape under 
 - Files over 500 lines are candidates for splitting; over 600 should be refactored when touched for meaningful changes — along existing boundaries, not mechanically by line count (`modular_architecture.md`).
 - `docs/` is the public GitHub Pages site: `index.html`, `demo/`, `handbook/`, `user-guide/`, `assets/`, and the plugin SDK under `docs/plugin-sdk/` (`plugin-guide.md`, `plugin-submission-guidelines.md`, `plugin-template/`, `studio-as-tts-gateway.md`). `design-docs/plans/` holds the v2 conversion roadmap and phase delivery plans.
 - Update `wiki/` pages and add a dated `wiki/Changelog.md` entry when shipped behavior changes. CI (`.github/workflows/ci.yml`) runs ruff + pytest and eslint + vitest + build; `codeql.yml` runs security scanning.
+
+## Code map (docs/code-map/)
+
+This repo has a persistent code map. Before any cross-cutting task, load
+`docs/code-map/map.json`'s `meta`+`flows`+`invariants`+`modules`+`coupling`+`hotspots`,
+pulling `files`/`data` records on demand. **After any task that changes mapped code,
+append a changelog-queue entry to `docs/code-map/queue/` before declaring the task
+done — part of the definition of done, not optional.** See the `map-code` skill.
