@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
 import { api } from '@/api';
+import { ChapterImportBar } from '@/pages/Book/components/ChapterImportBar';
 import { AddChapterModal } from '@/pages/Book/components/AddChapterModal';
 import { ChapterTable } from '@/pages/Book/components/ChapterTable';
 import { ChapterTextPanel } from '@/pages/Book/components/ChapterTextPanel';
@@ -36,7 +37,6 @@ export function ContentsStage() {
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(chapters[0]?.id ?? null);
   const [showAddChapterModal, setShowAddChapterModal] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
-  const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!focusMode) return;
@@ -78,9 +78,6 @@ export function ContentsStage() {
     for (const [index, file] of validFiles.entries()) {
       await actions.handleCreateChapter(getChapterImportFileTitle(file), '', file, chapters.length + index);
     }
-    if (importInputRef.current) {
-      importInputRef.current.value = '';
-    }
   };
 
   /** Open the Chapter Workspace for the given chapter. */
@@ -105,6 +102,7 @@ export function ContentsStage() {
       )}
 
       <div className="manuscript-stage__actions">
+        <ChapterImportBar onImportFiles={handleImportFiles} submitting={actions.submitting} compact />
         <button
           type="button"
           className={focusMode ? 'btn-primary' : 'btn-ghost'}
@@ -163,41 +161,6 @@ export function ContentsStage() {
             anyEnginesEnabled={projectVoiceStatus.enabled}
             onOpenChapter={handleOpenChapter}
           />
-
-          <div className="manuscript-stage__import-row">
-            <div>
-              <strong>Import manuscript file</strong>
-              <span>.txt only</span>
-            </div>
-            <input
-              ref={importInputRef}
-              type="file"
-              multiple
-              accept=".txt"
-              className="sr-only"
-              aria-label="Import manuscript file"
-              onChange={(event) => void handleImportFiles(event.target.files)}
-            />
-            <button
-              type="button"
-              className="btn-ghost"
-              onClick={() => importInputRef.current?.click()}
-              disabled={actions.submitting}
-            >
-              Choose file
-            </button>
-            <div
-              role="button"
-              tabIndex={0}
-              aria-label="Drop manuscript files"
-              onDragOver={(event) => { event.preventDefault(); }}
-              onDrop={(event) => { event.preventDefault(); void handleImportFiles(event.dataTransfer.files); }}
-              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') importInputRef.current?.click(); }}
-              style={{ cursor: 'pointer' }}
-            >
-              Drop files here
-            </div>
-          </div>
         </div>
         )}
 

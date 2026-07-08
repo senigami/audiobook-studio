@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Music, Upload, Plus, ChevronUp, Play, Pause, X, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { SpeakerProfile } from '@/types';
+import { useDragDropHighlight } from '@/hooks/useDragDropHighlight';
 
 interface SampleManagerProps {
     profile: SpeakerProfile;
@@ -26,23 +27,12 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
     handlePlaySample,
     handleDeleteSample
 }) => {
-    const [isDragging, setIsDragging] = useState(false);
     const [hoveredSampleIdx, setHoveredSampleIdx] = useState<number | null>(null);
+    const { isDragging, dragDropProps } = useDragDropHighlight(uploadFiles);
 
     return (
         <div
-            onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={(e) => {
-                e.preventDefault();
-                setIsDragging(false);
-                if (e.dataTransfer.files?.length) {
-                    uploadFiles(e.dataTransfer.files);
-                }
-            }}
+            {...dragDropProps}
             style={{
                 display: 'flex',
                 flexDirection: 'column',

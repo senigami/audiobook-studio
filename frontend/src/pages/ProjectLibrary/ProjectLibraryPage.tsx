@@ -40,6 +40,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
         handleDrop,
         handleCreateProject,
         handleDeleteClick,
+        handleOpenProjectDetails,
         confirmDelete,
         viewMode,
         setViewMode,
@@ -284,6 +285,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                                     isHovered={hoveredProjectId === project.id}
                                     onHover={setHoveredProjectId}
                                     onClick={(id) => onSelectProject?.(id)}
+                                    onOpenDetails={handleOpenProjectDetails}
                                     onDelete={handleDeleteClick}
                                     formatDate={formatDate}
                                 />
@@ -293,6 +295,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                         <ProjectListView
                             projects={sortedProjects}
                             onSelect={(id) => onSelectProject?.(id)}
+                            onOpenDetails={handleOpenProjectDetails}
                             onDelete={handleDeleteClick}
                             formatDate={formatDate}
                         />

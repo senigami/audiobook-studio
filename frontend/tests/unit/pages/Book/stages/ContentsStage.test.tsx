@@ -92,6 +92,24 @@ describe('ContentsStage publish-readiness control', () => {
     expect(screen.queryByText(/of \d+ chapters? rendered/)).not.toBeInTheDocument();
   });
 
+  it('renders the import bar inline with the action buttons', () => {
+    vi.mocked(useBookDataContext).mockReturnValue({
+      ...vi.mocked(useBookDataContext)(),
+      chapters: [
+        makeChapter('ch-1', 'done'),
+      ],
+    } as any);
+
+    renderInRouter(<ContentsStage />);
+
+    const importBar = screen.getByRole('button', { name: 'Import manuscript, browse or drop files' });
+    const focusButton = screen.getByRole('button', { name: 'Focus' });
+    const cta = screen.getByRole('button', { name: /Book ready.*Publish/i });
+
+    expect(importBar.compareDocumentPosition(focusButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(importBar.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('Publish CTA navigates to the book publish route', () => {
     vi.mocked(useBookDataContext).mockReturnValue({
       ...vi.mocked(useBookDataContext)(),
@@ -167,5 +185,24 @@ describe('ContentsStage publish-readiness control', () => {
       expect(handleCreateChapter).toHaveBeenNthCalledWith(1, 'First', '', first, 1);
       expect(handleCreateChapter).toHaveBeenNthCalledWith(2, 'Second', '', second, 2);
     });
+  });
+
+  it('highlights the import dropzone while files are dragged over it', () => {
+    renderInRouter(<ContentsStage />);
+
+    const dropzone = screen.getByRole('button', { name: 'Import manuscript, browse or drop files' });
+    const dataTransfer = { types: ['Files'], files: [new File(['chapter text'], 'chapter.txt', { type: 'text/plain' })] };
+
+    fireEvent.dragEnter(dropzone, { dataTransfer });
+    fireEvent.dragOver(dropzone, { dataTransfer });
+
+    expect(dropzone.getAttribute('style')).toContain('border: 1px dashed var(--accent)');
+    expect(dropzone.getAttribute('style')).toContain('background: var(--accent-glow)');
+    expect(screen.getByText('Release to import')).toBeInTheDocument();
+
+    fireEvent.dragLeave(dropzone, { dataTransfer });
+
+    expect(dropzone.getAttribute('style')).toContain('border: 1px dashed var(--border)');
+    expect(screen.getByText('Import manuscript')).toBeInTheDocument();
   });
 });

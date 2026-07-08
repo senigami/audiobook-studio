@@ -15,6 +15,7 @@ import { useChapterRedirect } from '@/hooks/useChapterRedirect';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { createStudioShellState } from '@/app/layout/StudioShell';
 import { QueueRoute } from '@/pages/Queue/QueueRoute';
+import { ProjectViewRoute } from '@/pages/ProjectDetail/ProjectViewRoute';
 import type { Chapter } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from '@/pages/Voices/components/VoiceUtils';
@@ -23,6 +24,7 @@ const VoicesTab = lazy(() => import('@/pages/Voices/VoicesPage').then(m => ({ de
 const VoiceLabPage = lazy(() => import('@/pages/VoiceLab/VoiceLabPage').then(m => ({ default: m.VoiceLabPage })));
 const BookLayout = lazy(() => import('@/pages/Book').then(m => ({ default: m.BookLayout })));
 const BookIndexRedirect = lazy(() => import('@/pages/Book').then(m => ({ default: m.BookIndexRedirect })));
+const ProjectViewPage = lazy(() => import('@/pages/ProjectDetail/ProjectDetailPage').then(m => ({ default: m.ProjectView })));
 const EnginesPage = lazy(() => import('@/pages/Engines').then(m => ({ default: m.EnginesPage })));
 const IntegrationsPage = lazy(() => import('@/pages/Integrations').then(m => ({ default: m.IntegrationsPage })));
 const ActivityPage = lazy(() => import('@/pages/Activity/ActivityPage'));
@@ -290,6 +292,30 @@ function App() {
                 />
               } />
               <Route path="/project/:projectId" element={<ProjectRedirectRoute />} />
+              <Route path="/project/:projectId/details" element={
+                <ProjectViewRoute
+                  loading={initialLoading || queueLoading}
+                  connected={connected}
+                  isReconnecting={isReconnecting}
+                  refreshingSource={refreshingSource}
+                >
+                  {({ shellState }) => (
+                    <ProjectViewPage
+                      jobs={jobs}
+                      segmentProgress={segmentProgress}
+                      speakerProfiles={initialData?.speaker_profiles || []}
+                      speakers={initialData?.speakers || []}
+                      settings={initialData?.settings}
+                      engines={initialData?.engines || []}
+                      refreshTrigger={queueRefreshTrigger}
+                      segmentUpdate={segmentUpdate}
+                      chapterUpdate={chapterUpdate}
+                      shellState={shellState}
+                      onOpenQueue={() => setIsQueueDrawerOpen(true)}
+                    />
+                  )}
+                </ProjectViewRoute>
+              } />
               <Route path="/chapter/:chapterId" element={
                 <ChapterRedirectRoute
                   chapterId={chapterIdFromRoute || ''}

@@ -2345,9 +2345,13 @@
 
 .book-info-card__cover-button {
   display: flex;
+  position: relative;
+  width: 100%;
   align-items: center;
   justify-content: center;
   aspect-ratio: 2 / 3;
+  padding: 0;
+  line-height: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--surface-light);
@@ -2359,6 +2363,31 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
+}
+
+.book-info-card__cover-button--dragging {
+  filter: saturate(0.95);
+}
+
+.book-info-card__cover-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.book-info-card__cover-drop-overlay {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--accent);
+  border-radius: inherit;
+  background: rgba(var(--accent-rgb), 0.08);
+  pointer-events: none;
 }
 
 .book-info-card__fields {
@@ -3755,4 +3784,3 @@ input[type="radio"] {
     animation: none !important;
   }
 }
-

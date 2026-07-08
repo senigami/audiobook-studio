@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useProjectLibrary } from '@/hooks/useProjectLibrary';
 import { api } from '@/api';
 import { MemoryRouter } from 'react-router-dom';
+import * as toast from '@/utils/toast';
 
 // Mock the API
 vi.mock('@/api', () => ({
@@ -71,6 +72,28 @@ describe('useProjectLibrary', () => {
     });
     expect(onSelectProject).toHaveBeenCalledWith('new_id');
     expect(mockNavigate).toHaveBeenCalledWith('/project/new_id');
+  });
+
+  it('rejects invalid series positions before project creation', async () => {
+    (api.fetchProjects as any).mockResolvedValue([]);
+    const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
+
+    const onSelectProject = vi.fn();
+    const { result } = renderHook(() => useProjectLibrary(onSelectProject), { wrapper });
+
+    act(() => {
+      result.current.setTitle('New Project');
+      result.current.setSeriesPosition('NaN');
+    });
+
+    await act(async () => {
+      await result.current.handleCreateProject({ preventDefault: vi.fn() } as any);
+    });
+
+    expect(toastSpy).toHaveBeenCalledWith('Series position must be a whole number.');
+    expect(api.createProject).not.toHaveBeenCalled();
+    expect(onSelectProject).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('handles delete click and confirmation', async () => {

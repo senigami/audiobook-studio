@@ -52,7 +52,28 @@ describe('ManuscriptStage', () => {
   const handleCreateChapter = vi.fn();
 
   beforeEach(() => {
-    localStorage.clear();
+    if (typeof localStorage.clear === 'function') {
+      localStorage.clear();
+    } else {
+      const store = new Map<string, string>();
+      Object.defineProperty(window, 'localStorage', {
+        configurable: true,
+        value: {
+          clear: () => store.clear(),
+          getItem: (key: string) => store.get(key) ?? null,
+          setItem: (key: string, value: string) => {
+            store.set(key, value);
+          },
+          removeItem: (key: string) => {
+            store.delete(key);
+          },
+          key: (index: number) => Array.from(store.keys())[index] ?? null,
+          get length() {
+            return store.size;
+          },
+        },
+      });
+    }
     vi.clearAllMocks();
     vi.mocked(useBookDataContext).mockReturnValue({
       actions: {
@@ -120,5 +141,24 @@ describe('ManuscriptStage', () => {
       expect(handleCreateChapter).toHaveBeenNthCalledWith(1, 'Imported Chapter One', '', first, 1);
       expect(handleCreateChapter).toHaveBeenNthCalledWith(2, 'Imported Chapter Two', '', second, 2);
     });
+  });
+
+  it('highlights the import dropzone while files are dragged over it', () => {
+    render(<ManuscriptStage />);
+
+    const dropzone = screen.getByRole('button', { name: 'Import manuscript, browse or drop files' });
+    const dataTransfer = { types: ['Files'], files: [new File(['chapter text'], 'chapter.txt', { type: 'text/plain' })] };
+
+    fireEvent.dragEnter(dropzone, { dataTransfer });
+    fireEvent.dragOver(dropzone, { dataTransfer });
+
+    expect(dropzone.getAttribute('style')).toContain('border: 1px dashed var(--accent)');
+    expect(dropzone.getAttribute('style')).toContain('background: var(--accent-glow)');
+    expect(screen.getByText('Release to import')).toBeInTheDocument();
+
+    fireEvent.dragLeave(dropzone, { dataTransfer });
+
+    expect(dropzone.getAttribute('style')).toContain('border: 1px dashed var(--border)');
+    expect(screen.getByText('Import manuscript')).toBeInTheDocument();
   });
 });

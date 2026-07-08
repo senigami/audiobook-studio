@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Project } from '@/types';
 import { api } from '@/api';
+import { emitToast } from '@/utils/toast';
+import { parseSeriesPositionInput } from '@/utils/seriesPosition';
 
 export const useProjectLibrary = (onSelectProject?: (projectId: string) => void) => {
     const navigate = useNavigate();
@@ -142,12 +144,17 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
     const handleCreateProject = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!title) return;
+        const parsedSeriesPosition = parseSeriesPositionInput(seriesPosition);
+        if (parsedSeriesPosition.error) {
+            emitToast(parsedSeriesPosition.error);
+            return;
+        }
         setSubmitting(true);
         try {
             const res = await api.createProject({
                 name: title,
                 series,
-                series_position: seriesPosition ? Number(seriesPosition) : null,
+                series_position: parsedSeriesPosition.value,
                 author,
                 cover: coverFile || undefined
             });
@@ -179,6 +186,10 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
             projectId: id,
             projectName: name
         });
+    };
+
+    const handleOpenProjectDetails = (projectId: string) => {
+        navigate(`/project/${projectId}/details`);
     };
 
     const confirmDelete = async () => {
@@ -220,6 +231,7 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
         handleFileSelection,
         handleCreateProject,
         handleDeleteClick,
+        handleOpenProjectDetails,
         confirmDelete,
         handleDragOver,
         handleDragLeave,

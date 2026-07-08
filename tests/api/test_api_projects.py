@@ -54,6 +54,11 @@ def test_project_crud(clean_db, client):
     assert response.status_code == 200
     assert client.get(f"/api/projects/{pid}").json()["series_position"] is None
 
+    response = client.put(f"/api/projects/{pid}", data={"series_position": "NaN"})
+    assert response.status_code == 400
+    assert response.json()["message"] == "Invalid series position"
+    assert client.get(f"/api/projects/{pid}").json()["series_position"] is None
+
     response = client.put(f"/api/projects/{pid}", data={"speaker_profile_name": "__USE_DEFAULT__"})
     assert response.status_code == 200
     assert client.get(f"/api/projects/{pid}").json()["speaker_profile_name"] is None

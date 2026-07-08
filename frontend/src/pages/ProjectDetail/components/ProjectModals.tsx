@@ -2,6 +2,8 @@ import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Trash2, Image as ImageIcon } from 'lucide-react';
 import type { Project } from '@/types';
+import { emitToast } from '@/utils/toast';
+import { parseSeriesPositionInput } from '@/utils/seriesPosition';
 export { AddChapterModal } from '@/pages/Book/components/AddChapterModal';
 
 interface EditProjectModalProps {
@@ -33,11 +35,33 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({ isOpen, onCl
     reader.readAsDataURL(file);
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedSeriesPosition = parseSeriesPositionInput(data.series_position);
+    if (parsedSeriesPosition.error) {
+      emitToast(parsedSeriesPosition.error);
+      return;
+    }
+    onSubmit({ ...data, series_position: parsedSeriesPosition.value, cover });
+  };
+
+  const adjustSeriesPosition = (delta: 1 | -1) => {
+    const parsedSeriesPosition = parseSeriesPositionInput(data.series_position);
+    if (parsedSeriesPosition.error) {
+      return;
+    }
+    const nextValue = (parsedSeriesPosition.value ?? 0) + delta;
+    setData({
+      ...data,
+      series_position: nextValue > 0 ? String(nextValue) : '',
+    });
+  };
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--overlay-backdrop)', backdropFilter: 'blur(4px)' }}>
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel" style={{ width: '100%', maxWidth: '600px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid var(--border)' }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Edit Project Details</h3>
-            <form onSubmit={(e) => { e.preventDefault(); onSubmit({...data, series_position: data.series_position ? Number(data.series_position) : null, cover}); }} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 <div>
                     <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Project Name *</label>
                     <input autoFocus required value={data.name} onChange={e => setData({...data, name: e.target.value})} style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '0.75rem', borderRadius: '8px', width: '100%', outline: 'none' }} />
@@ -52,15 +76,21 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({ isOpen, onCl
                         <input value={data.author} onChange={e => setData({...data, author: e.target.value})} style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '0.75rem', borderRadius: '8px', width: '100%', outline: 'none' }} />
                     </div>
                 </div>
-                <div>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Series Position (Optional)</label>
-                    <input
-                        value={data.series_position}
-                        onChange={e => setData({...data, series_position: e.target.value})}
-                        inputMode="numeric"
-                        style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '0.75rem', borderRadius: '8px', width: '100%', outline: 'none' }}
-                    />
-                </div>
+                    <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Series Position (Optional)</label>
+                        <div style={{ display: 'flex', alignItems: 'stretch', gap: '0.5rem' }}>
+                            <button type="button" className="btn-ghost" onClick={() => adjustSeriesPosition(-1)} aria-label="Decrease series position" style={{ minWidth: '2.5rem' }}>-</button>
+                            <input
+                                type="text"
+                                value={data.series_position}
+                                onChange={e => setData({...data, series_position: e.target.value})}
+                                inputMode="numeric"
+                                placeholder="1"
+                                style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '0.75rem', borderRadius: '8px', width: '100%', outline: 'none', textAlign: 'center' }}
+                            />
+                            <button type="button" className="btn-ghost" onClick={() => adjustSeriesPosition(1)} aria-label="Increase series position" style={{ minWidth: '2.5rem' }}>+</button>
+                        </div>
+                    </div>
                 <div>
                     <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Update Cover Art (Optional)</label>
                     <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>

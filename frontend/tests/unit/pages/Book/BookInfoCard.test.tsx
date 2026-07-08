@@ -74,4 +74,36 @@ describe('BookInfoCard', () => {
       cover: file,
     });
   });
+
+  it('highlights the cover tile while dragging an image file over it', () => {
+    const onUpdateProject = vi.fn().mockResolvedValue(true);
+
+    render(
+      <BookInfoCard
+        project={project}
+        totalRuntime={0}
+        totalPredicted={null}
+        onUpdateProject={onUpdateProject}
+      />,
+    );
+
+    const coverTile = screen.getByRole('button', { name: 'View cover' });
+    const file = new File(['cover'], 'cover.png', { type: 'image/png' });
+    const dataTransfer = { types: ['Files'], files: [file] };
+
+    fireEvent.dragEnter(coverTile, { dataTransfer });
+    fireEvent.dragOver(coverTile, { dataTransfer });
+
+    expect(screen.getByAltText('Book cover')).toHaveStyle({ opacity: '0.35' });
+    expect(coverTile).toHaveClass('book-info-card__cover-button--dragging');
+
+    fireEvent.drop(coverTile, { dataTransfer });
+
+    expect(onUpdateProject).toHaveBeenCalledWith({
+      name: 'Book One',
+      series: 'Series One',
+      author: 'Author One',
+      cover: file,
+    });
+  });
 });

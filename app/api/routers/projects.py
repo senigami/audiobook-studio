@@ -117,7 +117,13 @@ async def api_update_project(
     if series is not None: updates["series"] = series
     form_data = await request.form()
     if "series_position" in form_data:
-        updates["series_position"] = None if series_position is None or series_position.strip() == "" else int(series_position)
+        if series_position is None or series_position.strip() == "":
+            updates["series_position"] = None
+        else:
+            try:
+                updates["series_position"] = int(series_position)
+            except (TypeError, ValueError):
+                return JSONResponse({"status": "error", "message": "Invalid series position"}, status_code=400)
     if author is not None: updates["author"] = author
     if speaker_profile_name is not None:
         normalized_profile_name = (speaker_profile_name.strip() or None)

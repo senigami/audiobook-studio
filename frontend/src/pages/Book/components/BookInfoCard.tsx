@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import { InlineEdit } from '@/components/forms/InlineEdit';
+import { useDragDropHighlight } from '@/hooks/useDragDropHighlight';
 import { CoverImageModal } from '@/pages/ProjectDetail/components/ProjectModals';
 import { formatLength } from '@/utils/format';
 import type { Project } from '@/types';
@@ -37,21 +38,32 @@ export function BookInfoCard({ project, totalRuntime, totalPredicted, onUpdatePr
     }
   };
 
+  const { isDragging, dragDropProps } = useDragDropHighlight((files) => handleCoverChange(files[0]));
+
   return (
     <section className="book-info-card" aria-label="Book info">
       <div className="book-info-card__cover">
         <button
           type="button"
-          className="book-info-card__cover-button"
+          className={`book-info-card__cover-button${isDragging ? ' book-info-card__cover-button--dragging' : ''}`}
           onClick={() => project.cover_image_path && setShowCover(true)}
           aria-label="View cover"
           disabled={!project.cover_image_path}
+          {...dragDropProps}
         >
           {project.cover_image_path ? (
-            <img src={project.cover_image_path} alt="Book cover" />
+            <img
+              src={project.cover_image_path}
+              alt="Book cover"
+              style={{ opacity: isDragging ? 0.35 : 1 }}
+            />
           ) : (
-            <ImageIcon size={32} aria-hidden="true" />
+            <div className="book-info-card__cover-placeholder">
+              <ImageIcon size={32} aria-hidden="true" />
+              <span>{isDragging ? 'Drop cover image' : 'New cover'}</span>
+            </div>
           )}
+          {isDragging && <span className="book-info-card__cover-drop-overlay" aria-hidden="true" />}
         </button>
         <input
           ref={coverInputRef}

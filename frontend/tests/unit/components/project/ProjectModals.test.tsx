@@ -115,6 +115,30 @@ describe('ProjectModals', () => {
       expect(screen.getByDisplayValue('Test Project')).toBeInTheDocument();
       expect(screen.getByDisplayValue('Test Series')).toBeInTheDocument();
       expect(screen.getByDisplayValue('Test Author')).toBeInTheDocument();
+      expect(screen.getByLabelText('Increase series position')).toBeInTheDocument();
+      expect(screen.getByLabelText('Decrease series position')).toBeInTheDocument();
+    });
+
+    it('rejects invalid series positions before submitting', () => {
+      const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
+      const onSubmit = vi.fn();
+
+      const { container } = render(
+        <EditProjectModal
+          isOpen={true}
+          onClose={vi.fn()}
+          project={mockProject}
+          onSubmit={onSubmit}
+          submitting={false}
+        />
+      );
+
+      const input = container.querySelector('input[inputmode="numeric"]') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '1.5' } });
+      fireEvent.click(screen.getByText('Save Changes'));
+
+      expect(toastSpy).toHaveBeenCalledWith('Series position must be a whole number.');
+      expect(onSubmit).not.toHaveBeenCalled();
     });
 
     it('handles cover image selection and preview', async () => {

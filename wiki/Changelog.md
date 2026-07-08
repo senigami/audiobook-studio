@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Fix] - 2026-07-08
+
+### Library project usability: series position storage and invalid-update handling
+
+- Projects now persist an optional `series_position` field in the durable SQLite schema, and the library/project edit flows round-trip it for sorting and display.
+- Project update requests now treat an invalid `series_position` value as a structured 400 response instead of allowing a backend `ValueError` to escape as a 500.
+
+### Book import dropzones now reuse drag-state highlight behavior
+
+- The manuscript and contents import dropzones now visually highlight during file drag-over, matching the reusable sample-upload drag/drop pattern.
+- The contents import bar now sits above the publish CTA, and the drop target exposes a compact mode so the bar can stay narrow instead of expanding into a large card.
+- The shared drag/drop state lives in `useDragDropHighlight`, so the book import dropzones and voice sample uploads now share the same drag-depth handling and reset behavior.
+
 ## [Cleanup] - 2026-07-04
 
 ### Backlog sweep: dead code, plugin-staging split, timing dedup, test-infra fixes
