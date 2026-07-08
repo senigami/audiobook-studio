@@ -49,6 +49,7 @@ Routing only — for current status/remaining work, check [TASKS.md](TASKS.md).
 | [v2_phase_delivery_plan.md](active/v2_phase_delivery_plan.md) | Phase 12 active; Phase 13 (release docs) not started. |
 | [book_view_ia_proposal.md](active/book_view_ia_proposal.md) · [book_chapter_ia_proposal.md](active/book_chapter_ia_proposal.md) | Book + Chapter workspace IA. Live port substantially done (W4); design source kept active. |
 | [v2_huggingface_voice_interface.md](active/v2_huggingface_voice_interface.md) · [v2_voice_metadata_and_casting.md](active/v2_voice_metadata_and_casting.md) | HF browse/upload UI; AI casting suggestions; per-character casting UI. Open feature work. |
+| [library_project_usability/](active/library_project_usability/README.md) | Project-create series combo box, optional series position, and multi-file chapter import drag-and-drop. |
 
 ## `reference/` — done/superseded, cited as data sources (don't treat as to-do)
 

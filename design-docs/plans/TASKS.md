@@ -40,6 +40,13 @@ CP (serial):  W-MIX-LA 007 ✓ CLEARED ──► W-PAR 002 ─► 003 (keystone)
 | `app/api/ws.py` (L374-413) | W-PAR 003 (done) → 005 (R-F rework, deferred) | 003 added the additive `active_segments_map` passthrough only and left the transition-based `SEGMENT_SAVED` emission unchanged (correct at N=1). 005/enable-gate owns replacing it with per-child completion emission once fan-out > 1 is wired. |
 | `plugins/` paths | 005 PL-consolidation · 006 rename · 010 extraction | PL-* → 006 rename (alone, widest blast radius) → 010. |
 
+### New usability lane — Library / chapter import
+
+- [ ] **L-LIB 001** — Project create series combo box, existing-series suggestions, and next-number hint — [plan](active/library_project_usability/README.md)
+- [ ] **L-LIB 002** — Optional series position field and series-aware sorting — [plan](active/library_project_usability/README.md)
+- [ ] **L-LIB 003** — Chapter import drag-and-drop with multi-file support for already-supported formats only — [plan](active/library_project_usability/README.md)
+- [ ] **L-LIB 004** — Spec updates, tests, and master task accounting — [plan](active/library_project_usability/README.md)
+
 ### Ready to dispatch NOW
 
 **Zero blockers:**
