@@ -103,18 +103,22 @@ describe('ManuscriptStage', () => {
     expect(screen.queryByText('Add New Chapter')).not.toBeInTheDocument();
   });
 
-  it('imports a file-only chapter with a filename-derived title', async () => {
+  it('imports multiple files in order with filename-derived titles', async () => {
     handleCreateChapter.mockResolvedValue(true);
 
     render(<ManuscriptStage />);
 
-    const file = new File(['chapter text'], 'Imported Chapter.docx', {
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    const first = new File(['chapter text'], 'Imported Chapter One.txt', {
+      type: 'text/plain',
     });
-    fireEvent.change(screen.getByLabelText('Import manuscript file'), { target: { files: [file] } });
+    const second = new File(['chapter text'], 'Imported Chapter Two.txt', {
+      type: 'text/plain',
+    });
+    fireEvent.change(screen.getByLabelText('Import manuscript file'), { target: { files: [first, second] } });
 
     await waitFor(() => {
-      expect(handleCreateChapter).toHaveBeenCalledWith('Imported Chapter', '', file, 1);
+      expect(handleCreateChapter).toHaveBeenNthCalledWith(1, 'Imported Chapter One', '', first, 1);
+      expect(handleCreateChapter).toHaveBeenNthCalledWith(2, 'Imported Chapter Two', '', second, 2);
     });
   });
 });

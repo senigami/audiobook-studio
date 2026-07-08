@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ContentsStage } from '@/pages/Book/stages/ContentsStage';
@@ -142,5 +142,30 @@ describe('ContentsStage publish-readiness control', () => {
     renderInRouter(<ContentsStage />);
 
     expect(screen.getByText('0 of 1 chapter rendered')).toBeInTheDocument();
+  });
+
+  it('imports multiple files in order with filename-derived titles', async () => {
+    const handleCreateChapter = vi.fn().mockResolvedValue(true);
+    vi.mocked(useBookDataContext).mockReturnValue({
+      ...vi.mocked(useBookDataContext)(),
+      actions: {
+        ...vi.mocked(useBookDataContext)().actions,
+        handleCreateChapter,
+      },
+      chapters: [makeChapter('ch-1', 'unprocessed')],
+    } as any);
+
+    const { container } = renderInRouter(<ContentsStage />);
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const first = new File(['chapter text'], 'First.txt', { type: 'text/plain' });
+    const second = new File(['chapter text'], 'Second.txt', { type: 'text/plain' });
+
+    fireEvent.change(input, { target: { files: [first, second] } });
+
+    await waitFor(() => {
+      expect(handleCreateChapter).toHaveBeenNthCalledWith(1, 'First', '', first, 1);
+      expect(handleCreateChapter).toHaveBeenNthCalledWith(2, 'Second', '', second, 2);
+    });
   });
 });

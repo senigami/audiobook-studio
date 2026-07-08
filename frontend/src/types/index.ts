@@ -66,6 +66,7 @@ export interface Project {
   id: string;
   name: string;
   series: string | null;
+  series_position: number | null;
   author: string | null;
   speaker_profile_name: string | null;
   cover_image_path: string | null;

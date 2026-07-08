@@ -4,8 +4,8 @@ import { LayoutGrid, List, SortAsc } from 'lucide-react';
 interface LibraryControlsProps {
     viewMode: 'grid' | 'list';
     onViewModeChange: (mode: 'grid' | 'list') => void;
-    sortOption: 'updated-desc' | 'created-desc' | 'title-asc' | 'title-desc';
-    onSortOptionChange: (option: 'updated-desc' | 'created-desc' | 'title-asc' | 'title-desc') => void;
+    sortOption: 'updated-desc' | 'created-desc' | 'series-asc' | 'title-asc' | 'title-desc';
+    onSortOptionChange: (option: 'updated-desc' | 'created-desc' | 'series-asc' | 'title-asc' | 'title-desc') => void;
 }
 
 export const LibraryControls: React.FC<LibraryControlsProps> = ({
@@ -88,6 +88,7 @@ export const LibraryControls: React.FC<LibraryControlsProps> = ({
                     >
                         <option value="updated-desc">Recently Updated</option>
                         <option value="created-desc">Newest First</option>
+                        <option value="series-asc">Series A-Z</option>
                         <option value="title-asc">Title A-Z</option>
                         <option value="title-desc">Title Z-A</option>
                     </select>

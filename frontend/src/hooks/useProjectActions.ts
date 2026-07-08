@@ -30,12 +30,13 @@ export function useProjectActions(
     }
   };
 
-  const handleUpdateProject = async (data: { name: string; series: string; author: string; cover?: File | null }) => {
+  const handleUpdateProject = async (data: { name: string; series: string; series_position?: number | null; author: string; cover?: File | null }) => {
     setSubmitting(true);
     try {
       await api.updateProject(projectId, {
         name: data.name,
         series: data.series,
+        series_position: data.series_position ?? null,
         author: data.author,
         cover: data.cover || undefined
       });

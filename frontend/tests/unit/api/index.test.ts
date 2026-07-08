@@ -24,6 +24,11 @@ describe('api methods', () => {
         await api.updateProject('1', { name: 'test2' })
         expect(global.fetch).toHaveBeenCalledWith('/api/projects/1', expect.anything())
 
+        await api.updateProject('1', { series_position: null })
+        const updateInit = (global.fetch as any).mock.calls.at(-1)[1]
+        const updateFormData = updateInit.body as FormData
+        expect(updateFormData.get('series_position')).toBe('')
+
         await api.deleteProject('1')
         expect(global.fetch).toHaveBeenCalledWith('/api/projects/1', { method: 'DELETE' })
 

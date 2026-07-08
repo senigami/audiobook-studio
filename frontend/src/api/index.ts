@@ -33,20 +33,24 @@ export const api = {
     const res = await fetch(`/api/projects/${id}`);
     return parseApiResponse(res);
   },
-  createProject: async (data: { name: string; series?: string; author?: string; speaker_profile_name?: string | null; cover?: File }): Promise<{ status: string; project_id: string }> => {
+  createProject: async (data: { name: string; series?: string; series_position?: number | null; author?: string; speaker_profile_name?: string | null; cover?: File }): Promise<{ status: string; project_id: string }> => {
     const formData = new FormData();
     formData.append('name', data.name);
     if (data.series) formData.append('series', data.series);
+    if (data.series_position !== undefined && data.series_position !== null) formData.append('series_position', String(data.series_position));
     if (data.author) formData.append('author', data.author);
     if (data.speaker_profile_name !== undefined) formData.append('speaker_profile_name', data.speaker_profile_name || DEFAULT_VOICE_SENTINEL);
     if (data.cover) formData.append('cover', data.cover);
     const res = await fetch('/api/projects', { method: 'POST', body: formData });
     return parseApiResponse(res);
   },
-  updateProject: async (id: string, data: { name?: string; series?: string; author?: string; speaker_profile_name?: string | null; cover?: File }): Promise<any> => {
+  updateProject: async (id: string, data: { name?: string; series?: string; series_position?: number | null; author?: string; speaker_profile_name?: string | null; cover?: File }): Promise<any> => {
     const formData = new FormData();
     if (data.name) formData.append('name', data.name);
     if (data.series) formData.append('series', data.series);
+    if (data.series_position !== undefined) {
+      formData.append('series_position', data.series_position === null ? '' : String(data.series_position));
+    }
     if (data.author) formData.append('author', data.author);
     if (data.speaker_profile_name !== undefined) formData.append('speaker_profile_name', data.speaker_profile_name || DEFAULT_VOICE_SENTINEL);
     if (data.cover) formData.append('cover', data.cover);

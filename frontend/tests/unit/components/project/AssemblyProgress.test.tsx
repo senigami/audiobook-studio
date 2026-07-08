@@ -8,6 +8,7 @@ describe('AssemblyProgress', () => {
     id: 'proj1',
     name: 'Test Project',
     series: 'Test Series',
+    series_position: null,
     author: 'Test Author',
     speaker_profile_name: null,
     cover_image_path: null,

@@ -9,6 +9,7 @@ import { useQueueSync } from '@/hooks/useQueueSync';
 import { useStudioSocketTransport } from '@/hooks/useStudioSocketTransport';
 import { useInitialData } from '@/hooks/useInitialData';
 import { useToast } from '@/hooks/useToast';
+import { APP_TOAST_EVENT } from '@/utils/toast';
 import { useStartupOverlay } from '@/hooks/useStartupOverlay';
 import { useChapterRedirect } from '@/hooks/useChapterRedirect';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
@@ -204,6 +205,17 @@ function App() {
       prevPathRef.current = location.pathname;
     }
   }, [location.pathname, navigate]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ message?: string }>).detail;
+      if (detail?.message) {
+        showToast(detail.message);
+      }
+    };
+    window.addEventListener(APP_TOAST_EVENT, handler);
+    return () => window.removeEventListener(APP_TOAST_EVENT, handler);
+  }, [showToast]);
 
   const handleRefresh = async () => {
     setRefreshingSource('refresh');

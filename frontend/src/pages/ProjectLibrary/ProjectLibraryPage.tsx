@@ -21,6 +21,9 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
         setTitle,
         series,
         setSeries,
+        seriesPosition,
+        setSeriesPosition,
+        setSeriesPositionTouched,
         author,
         setAuthor,
         coverPreview,
@@ -42,7 +45,8 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
         setViewMode,
         sortOption,
         setSortOption,
-        sortedProjects
+        sortedProjects,
+        existingSeries
     } = useProjectLibrary(onSelectProject);
 
     const formatDate = (timestamp: number) => {
@@ -167,7 +171,26 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                                         </div>
                                         <div>
                                             <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Series</label>
-                                            <input value={series} onChange={e => setSeries(e.target.value)} placeholder="Optional" style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '0.6rem 0.8rem', borderRadius: '6px', fontSize: '0.9rem', width: '100%' }} />
+                                            <input
+                                                value={series}
+                                                onChange={e => setSeries(e.target.value)}
+                                                list="project-series-suggestions"
+                                                placeholder="Optional"
+                                                style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '0.6rem 0.8rem', borderRadius: '6px', fontSize: '0.9rem', width: '100%' }}
+                                            />
+                                            <datalist id="project-series-suggestions">
+                                                {existingSeries.map((item) => <option key={item} value={item} />)}
+                                            </datalist>
+                                        </div>
+                                        <div>
+                                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Series position</label>
+                                            <input
+                                                value={seriesPosition}
+                                                onChange={e => { setSeriesPositionTouched(true); setSeriesPosition(e.target.value); }}
+                                                placeholder={series ? (seriesPosition ? `Suggested ${seriesPosition}` : 'Optional') : 'Optional'}
+                                                inputMode="numeric"
+                                                style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '0.6rem 0.8rem', borderRadius: '6px', fontSize: '0.9rem', width: '100%' }}
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -397,7 +420,30 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                                         <input
                                             value={series}
                                             onChange={e => setSeries(e.target.value)}
+                                            list="project-series-suggestions"
                                             placeholder="Optional"
+                                            style={{
+                                                background: 'var(--surface-light)',
+                                                border: '1px solid var(--border)',
+                                                color: 'var(--text-primary)',
+                                                padding: '0.6rem 0.8rem',
+                                                borderRadius: '6px',
+                                                outline: 'none',
+                                                fontSize: '0.9rem',
+                                                width: '100%'
+                                            }}
+                                        />
+                                        <datalist id="project-series-suggestions">
+                                            {existingSeries.map((item) => <option key={item} value={item} />)}
+                                        </datalist>
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Series position</label>
+                                        <input
+                                            value={seriesPosition}
+                                            onChange={e => { setSeriesPositionTouched(true); setSeriesPosition(e.target.value); }}
+                                            placeholder={series ? (seriesPosition ? `Suggested ${seriesPosition}` : 'Optional') : 'Optional'}
+                                            inputMode="numeric"
                                             style={{
                                                 background: 'var(--surface-light)',
                                                 border: '1px solid var(--border)',

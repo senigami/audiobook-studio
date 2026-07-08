@@ -65,6 +65,7 @@ describe('useProjectLibrary', () => {
     expect(api.createProject).toHaveBeenCalledWith({
       name: 'New Project',
       series: '',
+      series_position: null,
       author: '',
       cover: undefined,
     });
@@ -119,7 +120,7 @@ describe('useProjectLibrary', () => {
     });
   });
 
-  it('handles drag and drop', () => {
+  it('handles drag and drop', async () => {
     const { result } = renderHook(() => useProjectLibrary(), { wrapper });
     const preventDefault = vi.fn();
 
@@ -142,9 +143,34 @@ describe('useProjectLibrary', () => {
       }
     };
 
-    act(() => {
+    await act(async () => {
       result.current.handleDrop(dropEvent as any);
     });
-    expect(result.current.isDragging).toBe(false);
+
+    await waitFor(() => {
+      expect(result.current.isDragging).toBe(false);
+      expect(result.current.coverPreview).toBeDefined();
+    });
+  });
+
+  it('surfaces existing series and auto-suggests the next position', async () => {
+    (api.fetchProjects as any).mockResolvedValue([
+      { id: '1', name: 'Book One', series: 'Chronicles', series_position: 1, created_at: 1, updated_at: 1 },
+      { id: '2', name: 'Book Two', series: 'Chronicles', series_position: 2, created_at: 2, updated_at: 2 },
+      { id: '3', name: 'Standalone', series: null, series_position: null, created_at: 3, updated_at: 3 },
+    ]);
+
+    const { result } = renderHook(() => useProjectLibrary(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.existingSeries).toEqual(['Chronicles']);
+
+    act(() => {
+      result.current.setSeries('Chronicles');
+    });
+
+    await waitFor(() => {
+      expect(result.current.seriesPosition).toBe('3');
+    });
   });
 });

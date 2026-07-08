@@ -12,6 +12,8 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
     const [showModal, setShowModal] = useState(false);
     const [title, setTitle] = useState('');
     const [series, setSeries] = useState('');
+    const [seriesPosition, setSeriesPosition] = useState('');
+    const [seriesPositionTouched, setSeriesPositionTouched] = useState(false);
     const [author, setAuthor] = useState('');
     const [coverFile, setCoverFile] = useState<File | null>(null);
     const [coverPreview, setCoverPreview] = useState<string | null>(null);
@@ -21,7 +23,7 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
 
     // View and Sort state
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-    const [sortOption, setSortOption] = useState<'updated-desc' | 'created-desc' | 'title-asc' | 'title-desc'>('updated-desc');
+    const [sortOption, setSortOption] = useState<'updated-desc' | 'created-desc' | 'series-asc' | 'title-asc' | 'title-desc'>('updated-desc');
 
     // Hover state for cards
     const [hoveredProjectId, setHoveredProjectId] = useState<string | null>(null);
@@ -52,6 +54,31 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
         loadProjects();
     }, []);
 
+    const existingSeries = [...new Set(projects.map((project) => project.series).filter((series): series is string => !!series))].sort((a, b) => a.localeCompare(b));
+
+    const suggestedSeriesPosition = (() => {
+        const trimmedSeries = series.trim();
+        if (!trimmedSeries) return '';
+        const matchingProjects = projects.filter((project) => project.series === trimmedSeries);
+        const seriesPositions = matchingProjects
+            .map((project) => project.series_position)
+            .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+        if (seriesPositions.length > 0) {
+            return String(Math.max(...seriesPositions) + 1);
+        }
+        const titleSuffixes = matchingProjects
+            .map((project) => project.name.match(/(\d+)\s*$/)?.[1])
+            .filter((value): value is string => !!value)
+            .map((value) => Number(value))
+            .filter((value) => Number.isFinite(value));
+        return titleSuffixes.length > 0 ? String(Math.max(...titleSuffixes) + 1) : '';
+    })();
+
+    useEffect(() => {
+        if (seriesPositionTouched) return;
+        setSeriesPosition(suggestedSeriesPosition);
+    }, [series, seriesPositionTouched, suggestedSeriesPosition]);
+
     const sortedProjects = [...projects].sort((a, b) => {
         if (sortOption === 'updated-desc') {
             return (b.updated_at || 0) - (a.updated_at || 0);
@@ -64,6 +91,19 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
         }
         if (sortOption === 'title-desc') {
             return b.name.localeCompare(a.name);
+        }
+        if (sortOption === 'series-asc') {
+            const seriesA = a.series || '';
+            const seriesB = b.series || '';
+            if (seriesA !== seriesB) {
+                return seriesA.localeCompare(seriesB);
+            }
+            const posA = a.series_position ?? Number.POSITIVE_INFINITY;
+            const posB = b.series_position ?? Number.POSITIVE_INFINITY;
+            if (posA !== posB) {
+                return posA - posB;
+            }
+            return a.name.localeCompare(b.name);
         }
         return 0;
     });
@@ -104,11 +144,19 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
         if (!title) return;
         setSubmitting(true);
         try {
-            const res = await api.createProject({ name: title, series, author, cover: coverFile || undefined });
+            const res = await api.createProject({
+                name: title,
+                series,
+                series_position: seriesPosition ? Number(seriesPosition) : null,
+                author,
+                cover: coverFile || undefined
+            });
             if (res.status === 'ok' || res.status === 'success') {
                 // Clear state immediately
                 setTitle('');
                 setSeries('');
+                setSeriesPosition('');
+                setSeriesPositionTouched(false);
                 setAuthor('');
                 setCoverFile(null);
                 setCoverPreview(null);
@@ -154,6 +202,9 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
         setTitle,
         series,
         setSeries,
+        seriesPosition,
+        setSeriesPosition,
+        setSeriesPositionTouched,
         author,
         setAuthor,
         coverPreview,
@@ -178,6 +229,7 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
         setViewMode,
         sortOption,
         setSortOption,
-        sortedProjects
+        sortedProjects,
+        existingSeries
     };
 };

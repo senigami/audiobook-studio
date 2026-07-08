@@ -1,6 +1,8 @@
 import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Trash2 } from 'lucide-react';
+import { emitToast } from '@/utils/toast';
+import { getChapterImportError, isSupportedChapterImportFile } from '@/pages/Book/lib/chapterImport';
 
 interface AddChapterModalProps {
   isOpen: boolean;
@@ -14,6 +16,20 @@ export const AddChapterModal: React.FC<AddChapterModalProps> = ({ isOpen, onClos
   const [text, setText] = React.useState('');
   const [file, setFile] = React.useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (nextFile: File | null) => {
+    if (!nextFile) {
+      setFile(null);
+      return;
+    }
+    if (!isSupportedChapterImportFile(nextFile)) {
+      emitToast(getChapterImportError(nextFile));
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setFile(null);
+      return;
+    }
+    setFile(nextFile);
+  };
 
   if (!isOpen) return null;
 
@@ -29,8 +45,8 @@ export const AddChapterModal: React.FC<AddChapterModalProps> = ({ isOpen, onClos
                 <div>
                     <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Upload Manuscript (Optional)</label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <input type="file" ref={fileInputRef} onChange={e => setFile(e.target.files?.[0] || null)} accept=".txt,.docx,.epub" style={{ display: 'none' }} />
-                        <button type="button" onClick={() => fileInputRef.current?.click()} className="btn-ghost" style={{ border: '1px dashed var(--border)', padding: '0.75rem 1.5rem' }}>{file ? file.name : 'Choose .txt, .docx, or .epub File...'}</button>
+                        <input type="file" ref={fileInputRef} onChange={e => handleFileChange(e.target.files?.[0] || null)} accept=".txt" style={{ display: 'none' }} />
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className="btn-ghost" style={{ border: '1px dashed var(--border)', padding: '0.75rem 1.5rem' }}>{file ? file.name : 'Choose .txt File...'}</button>
                         {file && <button type="button" onClick={() => setFile(null)} className="btn-danger" style={{ padding: '0.5rem' }}><Trash2 size={16} /></button>}
                     </div>
                 </div>

@@ -159,6 +159,7 @@ def init_db():
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
                     series TEXT,
+                    series_position INTEGER,
                     author TEXT,
                     speaker_profile_name TEXT,
                     cover_image_path TEXT,
@@ -166,6 +167,10 @@ def init_db():
                     updated_at REAL
                 )
             """)
+            cursor.execute("PRAGMA table_info(projects)")
+            project_columns = {row[1] for row in cursor.fetchall()}
+            if "series_position" not in project_columns:
+                cursor.execute("ALTER TABLE projects ADD COLUMN series_position INTEGER")
 
             # Chapters table
             cursor.execute("""

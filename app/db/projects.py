@@ -14,6 +14,7 @@ def create_project(
     author: Optional[str] = None,
     cover_image_path: Optional[str] = None,
     speaker_profile_name: Optional[str] = None,
+    series_position: Optional[int] = None,
 ) -> str:
     from ..core import config
 
@@ -23,9 +24,9 @@ def create_project(
             project_id = str(uuid.uuid4())
             now = time.time()
             cursor.execute("""
-                INSERT INTO projects (id, name, series, author, speaker_profile_name, cover_image_path, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (project_id, name, series, author, speaker_profile_name, cover_image_path, now, now))
+                INSERT INTO projects (id, name, series, series_position, author, speaker_profile_name, cover_image_path, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (project_id, name, series, series_position, author, speaker_profile_name, cover_image_path, now, now))
             conn.commit()
 
             from ..storage.manager import get_storage_manager
@@ -40,6 +41,7 @@ def create_project(
                 "version": CURRENT_STORAGE_VERSION,
                 "title": name,
                 "series": series,
+                "series_position": series_position,
                 "author": author,
                 "created_at": now,
             }

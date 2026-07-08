@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { AddChapterModal } from '@/pages/Book/components/AddChapterModal';
 import { EditProjectModal, CoverImageModal } from '@/pages/ProjectDetail/components/ProjectModals';
 import type { Project } from '@/types';
+import * as toast from '@/utils/toast';
 
 // Mock framer-motion to avoid animation issues in tests
 vi.mock('framer-motion', () => ({
@@ -16,6 +17,7 @@ describe('ProjectModals', () => {
     id: 'proj1',
     name: 'Test Project',
     series: 'Test Series',
+    series_position: null,
     author: 'Test Author',
     speaker_profile_name: null,
     cover_image_path: null,
@@ -74,6 +76,28 @@ describe('ProjectModals', () => {
       // Clearing file
       fireEvent.click(screen.getByRole('button', { name: '' })); // The Trash2 button
       expect(screen.queryByText('hello.txt')).not.toBeInTheDocument();
+    });
+
+    it('rejects unsupported files with a toast and clears the selection', () => {
+      const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
+      const { container } = render(
+        <AddChapterModal
+          isOpen={true}
+          onClose={vi.fn()}
+          onSubmit={vi.fn()}
+          submitting={false}
+        />
+      );
+
+      const file = new File(['bad'], 'bad.docx', {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      });
+      const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+
+      fireEvent.change(input, { target: { files: [file] } });
+
+      expect(toastSpy).toHaveBeenCalledWith(expect.stringContaining('Unsupported chapter file'));
+      expect(screen.queryByText('bad.docx')).not.toBeInTheDocument();
     });
   });
 

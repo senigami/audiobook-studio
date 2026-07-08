@@ -8,12 +8,17 @@ interface EditProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
   project: Project;
-  onSubmit: (data: { name: string; series: string; author: string; cover?: File | null }) => void;
+  onSubmit: (data: { name: string; series: string; series_position: number | null; author: string; cover?: File | null }) => void;
   submitting: boolean;
 }
 
 export const EditProjectModal: React.FC<EditProjectModalProps> = ({ isOpen, onClose, project, onSubmit, submitting }) => {
-  const [data, setData] = React.useState({ name: project.name, series: project.series || '', author: project.author || '' });
+  const [data, setData] = React.useState({
+    name: project.name,
+    series: project.series || '',
+    series_position: project.series_position?.toString() || '',
+    author: project.author || '',
+  });
   const [cover, setCover] = React.useState<File | null>(null);
   const [coverPreview, setCoverPreview] = React.useState<string | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -32,7 +37,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({ isOpen, onCl
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--overlay-backdrop)', backdropFilter: 'blur(4px)' }}>
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel" style={{ width: '100%', maxWidth: '600px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid var(--border)' }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Edit Project Details</h3>
-            <form onSubmit={(e) => { e.preventDefault(); onSubmit({...data, cover}); }} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <form onSubmit={(e) => { e.preventDefault(); onSubmit({...data, series_position: data.series_position ? Number(data.series_position) : null, cover}); }} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 <div>
                     <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Project Name *</label>
                     <input autoFocus required value={data.name} onChange={e => setData({...data, name: e.target.value})} style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '0.75rem', borderRadius: '8px', width: '100%', outline: 'none' }} />
@@ -46,6 +51,15 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({ isOpen, onCl
                         <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Author (Optional)</label>
                         <input value={data.author} onChange={e => setData({...data, author: e.target.value})} style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '0.75rem', borderRadius: '8px', width: '100%', outline: 'none' }} />
                     </div>
+                </div>
+                <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Series Position (Optional)</label>
+                    <input
+                        value={data.series_position}
+                        onChange={e => setData({...data, series_position: e.target.value})}
+                        inputMode="numeric"
+                        style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '0.75rem', borderRadius: '8px', width: '100%', outline: 'none' }}
+                    />
                 </div>
                 <div>
                     <label style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Update Cover Art (Optional)</label>

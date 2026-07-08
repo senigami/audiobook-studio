@@ -52,13 +52,14 @@ describe('useProjectActions', () => {
 
     let success;
     await act(async () => {
-      success = await result.current.handleUpdateProject({ name: 'New Name', series: 'Series', author: 'Author' });
+      success = await result.current.handleUpdateProject({ name: 'New Name', series: 'Series', series_position: 2, author: 'Author' });
     });
 
     expect(success).toBe(true);
     expect(api.updateProject).toHaveBeenCalledWith(projectId, {
       name: 'New Name',
       series: 'Series',
+      series_position: 2,
       author: 'Author',
       cover: undefined
     });

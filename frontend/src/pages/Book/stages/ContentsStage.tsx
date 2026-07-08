@@ -7,7 +7,9 @@ import { ChapterTable } from '@/pages/Book/components/ChapterTable';
 import { ChapterTextPanel } from '@/pages/Book/components/ChapterTextPanel';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import { setLastChapter } from '@/pages/Book/lib/stages';
+import { emitToast } from '@/utils/toast';
 import { requestRailAutoCollapse } from '@/utils/railState';
+import { getChapterImportError, getChapterImportFileTitle, isSupportedChapterImportFile } from '@/pages/Book/lib/chapterImport';
 import type { Chapter } from '@/types';
 
 function usePublishReadiness(chapters: Chapter[]) {
@@ -17,10 +19,6 @@ function usePublishReadiness(chapters: Chapter[]) {
     const allReady = total > 0 && rendered === total;
     return { total, rendered, allReady };
   }, [chapters]);
-}
-
-function chapterTitleFromFile(file: File): string {
-  return file.name.replace(/\.[^/.]+$/, '') || 'Imported chapter';
 }
 
 export function ContentsStage() {
@@ -71,9 +69,15 @@ export function ContentsStage() {
     }
   };
 
-  const handleImportFile = async (file: File | undefined) => {
-    if (!file) return;
-    await actions.handleCreateChapter(chapterTitleFromFile(file), '', file, chapters.length);
+  const handleImportFiles = async (files: FileList | File[] | null | undefined) => {
+    const fileList = files ? Array.from(files) : [];
+    if (fileList.length === 0) return;
+    const validFiles = fileList.filter(isSupportedChapterImportFile);
+    const invalidFiles = fileList.filter((file) => !isSupportedChapterImportFile(file));
+    invalidFiles.forEach((file) => emitToast(getChapterImportError(file)));
+    for (const [index, file] of validFiles.entries()) {
+      await actions.handleCreateChapter(getChapterImportFileTitle(file), '', file, chapters.length + index);
+    }
     if (importInputRef.current) {
       importInputRef.current.value = '';
     }
@@ -163,15 +167,16 @@ export function ContentsStage() {
           <div className="manuscript-stage__import-row">
             <div>
               <strong>Import manuscript file</strong>
-              <span>.txt, .docx, or .epub</span>
+              <span>.txt only</span>
             </div>
             <input
               ref={importInputRef}
               type="file"
-              accept=".txt,.docx,.epub"
+              multiple
+              accept=".txt"
               className="sr-only"
               aria-label="Import manuscript file"
-              onChange={(event) => void handleImportFile(event.target.files?.[0])}
+              onChange={(event) => void handleImportFiles(event.target.files)}
             />
             <button
               type="button"
@@ -181,6 +186,17 @@ export function ContentsStage() {
             >
               Choose file
             </button>
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Drop manuscript files"
+              onDragOver={(event) => { event.preventDefault(); }}
+              onDrop={(event) => { event.preventDefault(); void handleImportFiles(event.dataTransfer.files); }}
+              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') importInputRef.current?.click(); }}
+              style={{ cursor: 'pointer' }}
+            >
+              Drop files here
+            </div>
           </div>
         </div>
         )}

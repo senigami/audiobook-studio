@@ -14,6 +14,7 @@
 ## Reused Utilities at New Call Sites
 
 - [ ] Before calling an existing shared utility from a new call site, enumerate its edge-case branches (empty/undefined/null inputs especially) and confirm each one is still the RIGHT behavior for the new caller — don't assume behavior tuned for existing callers transfers. <!-- added 2026-07-04, source: self-caught (fusion review) — getDefaultVoiceProfileName's engines=[] fallthrough was fine for display-only callers but let the new AI-casting caller silently assign a voice with unchecked engine readiness -->
+- [ ] When expanding a single-item import/create path into a multi-item loop, check every argument derived from the pre-loop collection state (`length`, insertion index, sequence number, default name) and prove it changes per item when order matters — reusing one stale value for every iteration silently creates duplicate positions while tests with only one item still pass. <!-- added 2026-07-08, source: adversarial review — ManuscriptStage/ContentsStage multi-file import passed the same `chapters.length` sort_order for every selected file, so multiple imported chapters were created with duplicate ordering; the tests only covered one imported file -->
 
 ## Spec/Doc-Value Provenance
 

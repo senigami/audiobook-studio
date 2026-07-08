@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Form, File, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Form, File, UploadFile, Request
 from fastapi.responses import JSONResponse
 
 from ...db import (
@@ -84,12 +84,13 @@ def api_get_project(project_id: str, background_tasks: BackgroundTasks):
 async def api_create_project(
     name: str = Form(...),
     series: Optional[str] = Form(None),
+    series_position: Optional[int] = Form(None),
     author: Optional[str] = Form(None),
     speaker_profile_name: Optional[str] = Form(None),
     cover: Optional[UploadFile] = File(None)
 ):
     normalized_profile_name = (speaker_profile_name or "").strip() or None
-    pid = create_project(name, series, author, None, normalized_profile_name)
+    pid = create_project(name, series, author, None, normalized_profile_name, series_position=series_position)
     if cover:
         cover_path = await _store_project_cover(pid, cover)
         update_project(pid, cover_image_path=cover_path)
@@ -99,8 +100,10 @@ async def api_create_project(
 @router.put("/{project_id}")
 async def api_update_project(
     project_id: str,
+    request: Request,
     name: Optional[str] = Form(None),
     series: Optional[str] = Form(None),
+    series_position: Optional[str] = Form(None),
     author: Optional[str] = Form(None),
     speaker_profile_name: Optional[str] = Form(None),
     cover: Optional[UploadFile] = File(None)
@@ -112,6 +115,9 @@ async def api_update_project(
     updates = {}
     if name is not None: updates["name"] = name
     if series is not None: updates["series"] = series
+    form_data = await request.form()
+    if "series_position" in form_data:
+        updates["series_position"] = None if series_position is None or series_position.strip() == "" else int(series_position)
     if author is not None: updates["author"] = author
     if speaker_profile_name is not None:
         normalized_profile_name = (speaker_profile_name.strip() or None)

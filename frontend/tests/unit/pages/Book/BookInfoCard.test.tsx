@@ -14,6 +14,7 @@ const project: Project = {
   id: 'book-1',
   name: 'Book One',
   series: 'Series One',
+  series_position: null,
   author: 'Author One',
   speaker_profile_name: null,
   cover_image_path: '/cover.png',

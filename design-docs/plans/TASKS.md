@@ -42,10 +42,10 @@ CP (serial):  W-MIX-LA 007 ✓ CLEARED ──► W-PAR 002 ─► 003 (keystone)
 
 ### New usability lane — Library / chapter import
 
-- [ ] **L-LIB 001** — Project create series combo box, existing-series suggestions, and next-number hint — [plan](active/library_project_usability/README.md)
-- [ ] **L-LIB 002** — Optional series position field and series-aware sorting — [plan](active/library_project_usability/README.md)
-- [ ] **L-LIB 003** — Chapter import drag-and-drop with multi-file support for already-supported formats only — [plan](active/library_project_usability/README.md)
-- [ ] **L-LIB 004** — Spec updates, tests, and master task accounting — [plan](active/library_project_usability/README.md)
+- [~] **L-LIB 001** — Project create series combo box, existing-series suggestions, and next-number hint — [plan](active/library_project_usability/README.md)
+- [~] **L-LIB 002** — Optional series position field and series-aware sorting — [plan](active/library_project_usability/README.md)
+- [~] **L-LIB 003** — Chapter import drag-and-drop with multi-file support for already-supported formats only — [plan](active/library_project_usability/README.md)
+- [~] **L-LIB 004** — Spec updates, tests, and master task accounting — [plan](active/library_project_usability/README.md)
 
 ### Ready to dispatch NOW
 

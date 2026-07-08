@@ -27,7 +27,7 @@ def clean_db():
 
 def test_project_crud(clean_db, client):
     # Create
-    response = client.post("/api/projects", data={"name": "New Project", "speaker_profile_name": "Woman - New Zealand"})
+    response = client.post("/api/projects", data={"name": "New Project", "speaker_profile_name": "Woman - New Zealand", "series_position": "4"})
     assert response.status_code == 200
     pid = response.json()["project_id"]
 
@@ -41,12 +41,18 @@ def test_project_crud(clean_db, client):
     assert response.status_code == 200
     assert response.json()["name"] == "New Project"
     assert response.json()["speaker_profile_name"] == "Woman - New Zealand"
+    assert response.json()["series_position"] == 4
 
     # Update
-    response = client.put(f"/api/projects/{pid}", data={"name": "Updated Project", "speaker_profile_name": "Test"})
+    response = client.put(f"/api/projects/{pid}", data={"name": "Updated Project", "speaker_profile_name": "Test", "series_position": "6"})
     assert response.status_code == 200
     assert client.get(f"/api/projects/{pid}").json()["name"] == "Updated Project"
     assert client.get(f"/api/projects/{pid}").json()["speaker_profile_name"] == "Test"
+    assert client.get(f"/api/projects/{pid}").json()["series_position"] == 6
+
+    response = client.put(f"/api/projects/{pid}", data={"series_position": ""})
+    assert response.status_code == 200
+    assert client.get(f"/api/projects/{pid}").json()["series_position"] is None
 
     response = client.put(f"/api/projects/{pid}", data={"speaker_profile_name": "__USE_DEFAULT__"})
     assert response.status_code == 200
