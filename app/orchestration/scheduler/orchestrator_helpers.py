@@ -277,10 +277,19 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             if expected_duration <= 0:
                 return
             load_term = self._expected_cold_load_seconds(engine_id, tts_model) or 0.0
+            dispatch_eta_seconds = max(1, int(round(expected_duration + load_term)))
+            # Stashed for _publish_progress (2026-07-07 fix, duck-typed —
+            # ChapterSynthesisTask declares this attribute itself, no import
+            # back into this module): the ONLY calibrated estimate for this
+            # render: _publish_progress decays it by real completed work
+            # instead of the chapter ETA staying frozen at this dispatch-time
+            # value for the whole render.
+            if hasattr(task, "_dispatch_eta_seconds"):
+                task._dispatch_eta_seconds = dispatch_eta_seconds
             self._publish(
                 context=context,
                 status="preparing",
-                eta_seconds=max(1, int(round(expected_duration + load_term))),
+                eta_seconds=dispatch_eta_seconds,
                 reason_code="pre_load_eta",
                 message="Preparing synthesis resources…",
             )

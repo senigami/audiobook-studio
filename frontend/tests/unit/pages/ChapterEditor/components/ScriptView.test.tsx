@@ -618,6 +618,46 @@ describe('ScriptView', () => {
     expect(rebuildButtons?.length).toBe(1);
   });
 
+  it('keeps a just-completed segment lit via liveDoneSpanIds even before the DB refetch catches up', () => {
+    // Owner report, 2026-07-07: a segment's text went gray right after it
+    // finished rendering, instead of staying black — root cause was that
+    // ChapterSynthesisTask._on_child_segment_tick popped the segment from
+    // active_segments_map on completion with nothing else keeping it "ready"
+    // until the whole chapter's NEXT full details refetch (which does not
+    // happen mid-render), so it fell through to script-span-text-muted for
+    // the whole gap. `s2` here mirrors that gap: span.status is still
+    // 'draft' (DB hasn't caught up) AND it's still in pendingSpanIds (the
+    // stale "not yet processed" set), exactly the state a just-finished
+    // segment is in before this fix — liveDoneSpanIds must still force it
+    // ready/lit.
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['s2'])}
+        liveDoneSpanIds={new Set(['s2'])}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Script'));
+
+    const s2Text = screen.getByText('Sentence two.');
+    expect(s2Text).toHaveClass('script-span-text-ready');
+    expect(s2Text).not.toHaveClass('script-span-text-muted');
+    // Class presence alone is not enough: the pending/queued text classes sit
+    // LATER in ScriptView.css at equal specificity, so if one were also
+    // applied it would visually override text-ready and re-dim the span — the
+    // component must suppress pending/queued for a live-done span, not merely
+    // add the ready class alongside them. (Both mode variants asserted:
+    // renderSpan defaults to mode='book' even inside the script-line view.)
+    expect(s2Text).not.toHaveClass('script-span-text-pending');
+    expect(s2Text).not.toHaveClass('script-span-text-book-pending');
+    expect(s2Text).not.toHaveClass('script-span-text-queued');
+    expect(s2Text).not.toHaveClass('script-span-text-book-queued');
+  });
+
   it('shows Narrator label for all-null character_id spans in script mode', () => {
     const allNullData: ScriptViewResponse = {
       chapter_id: 'chap-null',

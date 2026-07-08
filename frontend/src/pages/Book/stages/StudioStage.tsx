@@ -90,7 +90,8 @@ export function StudioStage() {
     firstSpanGroupNumber,
     handleScriptAssign,
     handleScriptAssignRange,
-    effectivePendingSegmentIds,
+    chapterRenderPendingSegmentIds,
+    chapterRenderDoneSegmentIds,
     chapterRenderRenderingSegmentIds,
     chapterRenderQueuedSegmentIds,
     chapterRenderPreparingSegmentIds,
@@ -298,10 +299,11 @@ export function StudioStage() {
               speakers={speakers}
               onGenerateBatch={(spanIds) => void handleGenerateWithFallback(spanIds)}
               groupNumberForSpan={firstSpanGroupNumber}
-              pendingSpanIds={effectivePendingSegmentIds}
+              pendingSpanIds={chapterRenderPendingSegmentIds}
               renderingSpanIds={chapterRenderRenderingSegmentIds}
               queuedSpanIds={chapterRenderQueuedSegmentIds}
               preparingSpanIds={chapterRenderPreparingSegmentIds}
+              liveDoneSpanIds={chapterRenderDoneSegmentIds}
               renderingBatchProgressById={chapterRenderRenderingBatchProgressById}
               playingSpanId={playingSegmentId}
               playingSpanIds={playingSegmentIds}

@@ -32,6 +32,13 @@ interface ScriptViewProps {
   renderingSpanIds?: Set<string>;
   queuedSpanIds?: Set<string>;
   preparingSpanIds?: Set<string>;
+  /**
+   * Spans whose active_segments_map entry just transitioned to phase="done"
+   * (2026-07-07 fix) — a live signal that a segment finished THIS render,
+   * used to keep its text lit before the next full chapter/segment DB
+   * refetch catches up (which does not happen mid-render).
+   */
+  liveDoneSpanIds?: Set<string>;
   renderingBatchProgressById?: Record<string, number>;
   playingSpanId?: string | null;
   playingSpanIds?: Set<string>;
@@ -248,6 +255,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   renderingSpanIds = new Set<string>(),
   queuedSpanIds = new Set<string>(),
   preparingSpanIds = new Set<string>(),
+  liveDoneSpanIds = new Set<string>(),
   renderingBatchProgressById = {},
   playingSpanId = null,
   playingSpanIds,
@@ -458,15 +466,20 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     const char = span.character_id ? charMap.get(span.character_id) : null;
     const batch = batchMap.get(span.id);
     const audioGroup = audioGroupMap.get(span.id);
-    const isPending = pendingSpanIds.has(span.id);
+    // A live-done span (finished THIS render, DB not yet refetched) must not
+    // count as pending/queued: those classes sit later in ScriptView.css at
+    // equal specificity, so they would visually override text-ready and
+    // re-dim a just-finished span even while isReady is true.
+    const isLiveDone = liveDoneSpanIds.has(span.id);
+    const isPending = pendingSpanIds.has(span.id) && !isLiveDone;
     const isRendering = renderingSpanIds.has(span.id);
-    const isQueued = queuedSpanIds.has(span.id);
+    const isQueued = queuedSpanIds.has(span.id) && !isLiveDone;
     const isPreparing = preparingSpanIds.has(span.id);
     const renderingTextProgress = isRendering
       ? getRenderingTextProgress(batch, span)
       : { litCount: 0, showCursor: false };
     const isPlaying = isPlayingSpan(span.id);
-    const isReady = span.status === 'rendered' || !!(audioGroup && (audioGroup.status === 'rendered' || audioGroup.audio_file_path || audioGroup.asset_url));
+    const isReady = span.status === 'rendered' || !!(audioGroup && (audioGroup.status === 'rendered' || audioGroup.audio_file_path || audioGroup.asset_url)) || liveDoneSpanIds.has(span.id);
     const canPlay = span.status === 'rendered' || !!(audioGroup && (audioGroup.audio_file_path || audioGroup.asset_url));
     const displayText = getDisplayText(span);
     const batchStatus = batch ? batchEngineStatus(batch.span_ids) : { canGenerate: false, unavailableEngine: null as string | null };

@@ -209,7 +209,15 @@ def _run_fanout_through_dispatch(tmp_path: Path, task_id: str, chapter_id: str):
          patch("app.api.ws.broadcast_segments_updated", lambda *a, **kw: None), \
          patch("app.api.ws.broadcast_tts_log_line", lambda *a, **kw: None), \
          patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
-         patch("app.orchestration.tasks.segment_synthesis._manifest_resource_claim", side_effect=_raised_cap_claim):
+         patch("app.orchestration.tasks.segment_synthesis._manifest_resource_claim", side_effect=_raised_cap_claim), \
+         patch("app.orchestration.progress.service.get_progress_service", return_value=orc.progress_service):
+        # The last patch above matters: ChapterSynthesisTask._resolve_progress_service()
+        # falls back to the global ProgressService singleton whenever no
+        # progress_service was injected at construction (which this harness never
+        # does) — without redirecting that singleton to `orc.progress_service`,
+        # every `_publish_progress` frame (all "running"/"completed" chapter-level
+        # broadcasts) would silently land on the production singleton instead of
+        # `orc.captured_frames`, and tests asserting on those frames would see none.
         result = orc._dispatch(task=task, context=context)
 
     return result, orc
@@ -258,17 +266,32 @@ def test_parent_job_gets_positive_durable_eta_during_preparing_window(tmp_path):
             "(continuous queue-bar fill through the preparing→running boundary, §2.6)"
         )
 
-    # Durable: the parent Job row itself carries the positive ETA (queue
-    # hydration reads this, not just the live frame stream).
-    job = get_jobs().get(task_id)
-    assert job is not None, f"expected a durable parent job row; got {set(get_jobs())}"
-    assert isinstance(job.eta_seconds, int) and job.eta_seconds > 0, (
-        f"expected a positive durable eta_seconds on the parent job; got {job.eta_seconds!r}"
+    # Durable: the parent Job row carried the positive ETA AT dispatch time
+    # (queue hydration reads the row, not just the live frame stream) — check
+    # the dispatch-time frame's own payload rather than the row's state after
+    # `_dispatch()` returns. This harness runs synchronously to full chapter
+    # completion, and as of the 2026-07-07 live-decay fix the durable
+    # eta_seconds correctly reaches 0 once the render actually finishes (see
+    # test_chapter_eta_decays_as_groups_complete_instead_of_staying_frozen) —
+    # asserting "still positive after completion" here would be re-asserting
+    # the staleness bug this suite exists to catch, not the dispatch behavior
+    # this test is actually named for.
+    dispatch_frame_payload = _inner(frames[min(preparing_eta_indexes)])
+    dispatch_eta = dispatch_frame_payload.get("etaSeconds")
+    assert isinstance(dispatch_eta, int) and dispatch_eta > 0, (
+        f"expected a positive durable-bound eta_seconds on the dispatch frame; got {dispatch_eta!r}"
     )
     # Cold engine + 25s load history: the load term must be included
     # (synthesis for ~51 chars at ~47.5cps + 2 group boundaries ≈ 6s; +25s load).
-    assert job.eta_seconds >= 25, (
-        f"expected the cold-load term (25s) baked into the dispatch ETA; got {job.eta_seconds}"
+    assert dispatch_eta >= 25, (
+        f"expected the cold-load term (25s) baked into the dispatch ETA; got {dispatch_eta}"
+    )
+    job = get_jobs().get(task_id)
+    assert job is not None, f"expected a durable parent job row; got {set(get_jobs())}"
+    assert job.eta_seconds in (None, 0), (
+        f"expected the durable eta_seconds to have decayed to 0 once the chapter fully "
+        f"completed (2026-07-07 fix), not stay frozen at the dispatch-time value; "
+        f"got {job.eta_seconds!r}"
     )
 
 
@@ -311,4 +334,62 @@ def test_no_calibration_history_no_fabricated_dispatch_eta(tmp_path):
     job = get_jobs().get("chap-no-calib")
     assert job is None or job.eta_seconds in (None, 0), (
         f"parent eta_seconds must stay unset without calibration; got {getattr(job, 'eta_seconds', None)!r}"
+    )
+
+
+def test_chapter_eta_decays_as_groups_complete_instead_of_staying_frozen(tmp_path):
+    """Owner report, 2026-07-07: the chapter ETA never counted down through a
+    real render — it stayed pinned at the dispatch-time estimate (570s in the
+    captured debug session) from 0% all the way to 97% complete.
+
+    Root cause: ``_publish_progress``'s "running" frames never computed or
+    passed an ``eta_seconds`` at all (always ``None``), AND never durably
+    wrote status/progress/eta_seconds via ``update_job`` — so the persisted
+    job row stayed frozen at whatever ``_publish_chapter_dispatch_eta`` wrote
+    once, before rendering even started. Every later ``_on_child_segment_tick``
+    tick (which only ever writes ``active_segments_map``) merged against that
+    frozen row and re-broadcast the stale dispatch-time snapshot verbatim for
+    the rest of the render.
+
+    This asserts the ETA must actually decrease as groups complete (size-/
+    count-weighted decay of the dispatch estimate), not simply "be present."
+    """
+    from app.db.state import get_jobs  # noqa: PLC0415
+
+    task_id = "chap-live-eta"
+    result, orc = _run_fanout_through_dispatch(tmp_path, task_id, "chapter-live-eta")
+    assert result.status == "completed", f"expected completed, got {result}"
+
+    def _inner(frame: dict) -> dict:
+        return frame.get("payload") or {}
+
+    running_frames = [
+        f for f in _parent_frames(orc, task_id)
+        if f.get("topic") == "chapters.progress" and _inner(f).get("status") == "running"
+    ]
+    running_etas = [_inner(f).get("etaSeconds") for f in running_frames]
+    assert len(running_frames) >= 2, (
+        f"expected at least a dispatch-time announce plus one group-completion "
+        f"'running' frame; got {len(running_frames)}: {running_etas}"
+    )
+
+    first_eta, last_eta = running_etas[0], running_etas[-1]
+    assert isinstance(first_eta, (int, float)) and first_eta > 0, (
+        f"expected the FIRST running frame (dispatch-time announce, 0 groups done) "
+        f"to carry the full calibrated ETA; got {first_eta!r} across {running_etas}"
+    )
+    assert isinstance(last_eta, (int, float)) and last_eta < first_eta, (
+        f"expected the ETA to DECREASE as groups completed (not stay frozen at "
+        f"the dispatch-time value); running-frame etaSeconds sequence was {running_etas}"
+    )
+
+    # Durable: the job row itself must not be left holding the stale
+    # dispatch-time eta_seconds after the chapter has actually progressed —
+    # this is what every later _on_child_segment_tick tick would otherwise
+    # re-broadcast verbatim (the exact mechanism of the escaped defect).
+    job = get_jobs().get(task_id)
+    assert job is not None
+    assert job.eta_seconds in (None, 0) or job.eta_seconds < first_eta, (
+        f"expected the durable job row's eta_seconds to reflect completion, not the "
+        f"frozen dispatch-time value {first_eta}; got {job.eta_seconds!r}"
     )

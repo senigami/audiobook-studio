@@ -515,6 +515,12 @@ class ChapterSynthesisTask(StudioTask):
         self.submitted_at = time.monotonic()
         self.stop_event = threading.Event()
         self._progress_service: Any = None
+        # Stashed by orchestrator_helpers._publish_chapter_dispatch_eta (duck-typed,
+        # no import back into that module) before task.run() — the full calibrated
+        # chapter-wide ETA computed once at dispatch, used by _publish_progress to
+        # derive a decaying remaining-time estimate as groups complete (2026-07-07
+        # fix). None when no calibration existed at dispatch (no-fabrication).
+        self._dispatch_eta_seconds: int | None = None
         # Loaded once per chapter render (zero-impact when empty) and handed
         # to each child's real bridge_call via `_parent_context` — mirrors
         # the sequential mixed handler's single lexicon load per chapter.
@@ -668,18 +674,42 @@ class ChapterSynthesisTask(StudioTask):
         class); the ``update_job`` call itself happens OUTSIDE the lock (I/O
         should never happen while holding a lock another thread needs) and
         is naturally serialized by ``app.db.state``'s own internal
-        ``_STATE_LOCK``. A terminal status (done/completed/failed/cancelled)
-        REMOVES the entry — a finished/failed/cancelled segment must not
-        keep showing as "rendering" (this is also called explicitly from the
-        ``as_completed`` loop below for every terminal outcome, since not
-        every terminal transition necessarily arrives via a marker tick).
+        ``_STATE_LOCK``. A failed/cancelled status REMOVES the entry — a
+        segment that did not finish must not keep showing as "rendering"
+        (this is also called explicitly from the ``as_completed`` loop below
+        for every terminal outcome, since not every terminal transition
+        necessarily arrives via a marker tick). A successful (done/completed)
+        status instead LEAVES a transient ``phase="done"`` marker (2026-07-07
+        fix, escaped defect) — see the ``is_success`` branch below for why.
         """
         if not _EMIT_ACTIVE_SEGMENTS_MAP or not segment_id:
             return
-        terminal = status in {"done", "completed", "failed", "cancelled"}
+        is_success = status in {"done", "completed"}
+        terminal = is_success or status in {"failed", "cancelled"}
         changed = False
         with self._children_lock:
-            if terminal:
+            if is_success:
+                # Owner report, 2026-07-07: a just-completed segment's text
+                # went gray instead of staying lit. Root cause: popping the
+                # entry here removes the ONLY live signal that the segment
+                # finished; ScriptView's `isReady` (the class that keeps text
+                # lit) is driven purely by the DB-backed `span.status`, which
+                # the frontend only refetches on mount/queue-submit/terminal
+                # chapter events — never mid-render — so for the whole gap
+                # between "popped from this map" and "chapter fully done and
+                # refetched," the segment matched neither `isRendering` nor
+                # `isReady` and fell through to the default muted/gray class.
+                # A transient "done" entry (excluded from both the
+                # rendering-phase and preparing-phase derived sets already,
+                # since both filter on `entry.phase`) gives the frontend a
+                # live signal to treat it as ready without waiting on a
+                # refetch; `_clear_active_segments_map` wipes the whole map
+                # at the render's terminal outcome regardless.
+                entry = {"phase": "done", "progress": 1.0, "eta_seconds": 0}
+                if self._live_segments_map.get(segment_id) != entry:
+                    self._live_segments_map[segment_id] = entry
+                    changed = True
+            elif terminal:
                 changed = self._live_segments_map.pop(segment_id, None) is not None
             else:
                 # Quantize to 0.01 (matching ProgressService's own ≥1%
@@ -777,6 +807,36 @@ class ChapterSynthesisTask(StudioTask):
             return None
         return round(done_chars / total_chars, 2)
 
+    def _live_chapter_eta_seconds(self, *, status: str, decay_fraction: float | None) -> int | None:
+        """Decay the dispatch-time chapter ETA by real completed work.
+
+        Escaped defect (2026-07-07): the chapter ETA never counted down
+        through a real render — ``_publish_progress`` never computed or
+        passed an ``eta_seconds`` at all, so every "running" frame carried
+        ``eta_seconds=None`` while the durable job row stayed frozen at
+        whatever ``_publish_chapter_dispatch_eta`` wrote once, before
+        rendering even started; every later ``_on_child_segment_tick`` tick
+        then re-broadcast that stale snapshot verbatim for the rest of the
+        render (it only ever writes ``active_segments_map``, never refreshing
+        status/progress/eta_seconds).
+
+        Reuses the SAME calibrated dispatch-time estimate (no new calibration
+        lookup, no fabricated live throughput) and decays it by
+        ``decay_fraction`` — the size-weighted ``grouped_progress`` when
+        available, else the plain group-count ``progress`` — consistent with
+        the calibration-based, no-fabrication design (progress-presentation.md
+        B10/1.7.1): this is still "an honest historical estimate," now
+        correctly applied to the REMAINING work instead of the whole chapter
+        on every tick.
+        """
+        dispatch_eta = self._dispatch_eta_seconds
+        if dispatch_eta is None:
+            return None
+        if status in ("completed", "done", "failed", "cancelled"):
+            return 0
+        fraction = min(max(decay_fraction or 0.0, 0.0), 1.0)
+        return max(0, int(round(dispatch_eta * (1.0 - fraction))))
+
     def _publish_progress(
         self, *, completed: int, total: int, status: str = "running",
         done_chars: int | None = None, total_chars: int | None = None,
@@ -787,6 +847,9 @@ class ChapterSynthesisTask(StudioTask):
         grouped_progress = None
         if done_chars is not None and total_chars is not None:
             grouped_progress = self._grouped_progress(done_chars=done_chars, total_chars=total_chars)
+        eta_seconds = self._live_chapter_eta_seconds(
+            status=status, decay_fraction=grouped_progress if grouped_progress is not None else progress,
+        )
         service = self._resolve_progress_service()
         active_segments_map = self._current_active_segments_map()
         try:
@@ -797,6 +860,7 @@ class ChapterSynthesisTask(StudioTask):
                 parent_job_id=self.project_id,
                 progress=progress,
                 grouped_progress=grouped_progress,
+                eta_seconds=eta_seconds,
                 message=f"Rendered {completed}/{total} segment group(s).",
                 reason_code="segment_group_completed" if status == "running" else "synthesis_ok",
             )
@@ -805,19 +869,43 @@ class ChapterSynthesisTask(StudioTask):
                 "ChapterSynthesisTask %s: failed to publish progress.", self.task_id, exc_info=True
             )
 
-        if active_segments_map is not None:
-            # active_segments_map bypasses ProgressService.publish (which does
-            # not carry this field — see orchestrator_publish.py's own direct
-            # state write for the single-dispatch-unit case) and is written
-            # straight to job state, mirroring that same pattern.
-            try:
-                from app.db.state import update_job  # noqa: PLC0415
-                update_job(self.task_id, active_segments_map=active_segments_map)
-            except Exception:
-                logger.warning(
-                    "ChapterSynthesisTask %s: failed to write active_segments_map.",
-                    self.task_id, exc_info=True,
-                )
+        # Durable refresh (2026-07-07 fix): _on_child_segment_tick's frequent
+        # active_segments_map-only writes merge against whatever is CURRENTLY
+        # persisted on the job row (app/db/state_jobs.py#update_job only
+        # touches fields it's explicitly given). Without this write, the row
+        # stays frozen at _publish_chapter_dispatch_eta's one-time dispatch
+        # snapshot forever, and every one of those far-more-frequent ticks
+        # re-broadcasts that stale status/progress/eta_seconds verbatim.
+        # skip_job_updated=True: service.publish() above already emitted the
+        # authoritative chapters.progress/queue.items frames for this same
+        # tick — this call's only job is to keep the ROW current for later
+        # reads, not to broadcast a second time.
+        try:
+            from app.db.state import update_job  # noqa: PLC0415
+            update_kwargs: dict[str, Any] = {"status": status, "progress": progress}
+            if eta_seconds is not None:
+                # Only write a REAL decayed value. An explicit eta_seconds=None
+                # is not a no-op at the state layer: update_job treats it as
+                # "clear all ETA metadata" AND skips its own observed-progress
+                # projection for the call — so passing None here (the
+                # no-calibration case) would wipe the projection-derived ETA
+                # the state layer maintains from this task's real progress
+                # between group boundaries, making the countdown flicker out
+                # at every boundary frame. No dispatch calibration → simply
+                # don't touch the field (review fix, 2026-07-07).
+                update_kwargs["eta_seconds"] = eta_seconds
+            if active_segments_map is not None:
+                # active_segments_map bypasses ProgressService.publish (which does
+                # not carry this field — see orchestrator_publish.py's own direct
+                # state write for the single-dispatch-unit case) and is written
+                # straight to job state, mirroring that same pattern.
+                update_kwargs["active_segments_map"] = active_segments_map
+            update_job(self.task_id, skip_job_updated=True, **update_kwargs)
+        except Exception:
+            logger.warning(
+                "ChapterSynthesisTask %s: failed to refresh job state.",
+                self.task_id, exc_info=True,
+            )
 
     def _build_groups(self) -> list[dict[str, Any]]:
         """Build chunk groups from the parent's script (no DB access needed
@@ -1103,11 +1191,16 @@ class ChapterSynthesisTask(StudioTask):
                     # "rendering" immediately — not every terminal transition
                     # necessarily arrives via a marker tick (e.g. a bridge
                     # exception with no final SEGMENT_PROGRESS line), so this
-                    # explicit pop is the authoritative removal, independent
-                    # of whatever _on_child_segment_tick calls happened during
-                    # the render.
+                    # explicit terminal tick is authoritative, independent of
+                    # whatever _on_child_segment_tick calls happened during
+                    # the render. It MUST carry the child's REAL outcome
+                    # (review fix, 2026-07-07): a completed child leaves the
+                    # transient "done" marker, but a failed/cancelled child
+                    # pops — a hardcoded "done" here would light a
+                    # permanently-failed segment as successfully finished for
+                    # the rest of the render.
                     self._on_child_segment_tick(
-                        segment_id=_leader_id(final_child), status="done", progress=1.0, eta_seconds=None,
+                        segment_id=_leader_id(final_child), status=result.status, progress=1.0, eta_seconds=None,
                     )
 
                     if result.status == "cancelled" or self.stop_event.is_set():

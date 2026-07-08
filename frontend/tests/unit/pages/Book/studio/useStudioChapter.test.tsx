@@ -345,6 +345,70 @@ describe('useStudioChapter', () => {
       expect(result.current.chapterRenderPreparingSegmentIds.has('S1')).toBe(false);
     });
 
+    it('surfaces done-phase entries in chapterRenderDoneSegmentIds and excludes them from pending (2026-07-07 fix)', () => {
+      // Owner report: a just-completed segment's text went gray instead of
+      // staying black. _on_child_segment_tick used to POP a finished
+      // segment from active_segments_map entirely; it now leaves a
+      // transient phase="done" marker so the frontend has a live signal to
+      // treat it as ready without waiting on the next full DB refetch
+      // (which does not happen mid-render). chapterRenderPendingSegmentIds
+      // must never claim a done segment is still pending.
+      const job = makeJob({
+        status: 'running',
+        active_segments_map: {
+          S1: { phase: 'done', progress: 1.0, eta_seconds: 0 },
+          S2: { phase: 'rendering', progress: 0.5, eta_seconds: 5 },
+        },
+      });
+
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+          job,
+        }),
+      );
+
+      expect(result.current.chapterRenderDoneSegmentIds.has('S1')).toBe(true);
+      expect(result.current.chapterRenderDoneSegmentIds.has('S2')).toBe(false);
+      expect(result.current.chapterRenderPendingSegmentIds.has('S1')).toBe(false);
+    });
+
+    it('excludes a concurrently-completed (done) segment from the queued set even when it sits after the active id (2026-07-07 fix)', () => {
+      // Regression guard: under concurrent fan-out a segment can COMPLETE out
+      // of order at a higher segment_ids index than the single, lagging
+      // active_segment_id, so it falls into the "after the active one" queued
+      // slice. If it stays in chapterRenderQueuedSegmentIds, ScriptView applies
+      // BOTH script-span-text-queued and script-span-text-ready; text-queued is
+      // defined later in the stylesheet (equal specificity) and wins, re-dimming
+      // a just-finished span to opacity 0.58 — undoing the liveDoneSpanIds fix
+      // in exactly the concurrent scenario it targets.
+      const job = makeJob({
+        status: 'running',
+        active_segment_id: 'S0',
+        segment_ids: ['S0', 'S1', 'S2'],
+        active_segments_map: {
+          S0: { phase: 'rendering', progress: 0.3, eta_seconds: 8 },
+          S2: { phase: 'done', progress: 1.0, eta_seconds: 0 },
+        },
+      });
+
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+          job,
+        }),
+      );
+
+      expect(result.current.chapterRenderDoneSegmentIds.has('S2')).toBe(true);
+      expect(result.current.chapterRenderQueuedSegmentIds.has('S2')).toBe(false);
+    });
+
     it('expands each map entry to its render-batch siblings, matching the legacy single-ID visual contract (INV-1)', () => {
       chapterEditorState.scriptViewData = {
         render_batches: [

@@ -366,15 +366,34 @@ def test_live_active_segments_map_pops_entry_on_child_completion():
         task._on_child_segment_tick(segment_id="seg-A", status="running", progress=0.6, eta_seconds=6)
         assert len(calls) == 2
 
-        # Terminal tick: entry must be removed, map goes back to None (empty).
+        # Successful terminal tick (2026-07-07 fix): the entry is NOT removed —
+        # it's replaced with a transient "done" marker (the live signal that
+        # keeps a just-finished segment's text lit until the next DB refetch;
+        # the run()-level outcome contract is covered by
+        # test_correctness_invariants.py::TestActiveSegmentsMapStartedGating::
+        # test_permanently_failed_child_never_marked_done_in_map).
+        # Failed/cancelled terminals still pop; see below.
         task._on_child_segment_tick(segment_id="seg-A", status="done", progress=1.0, eta_seconds=None)
-        assert task._current_active_segments_map() is None
+        assert task._current_active_segments_map() == {
+            "seg-A": {"phase": "done", "progress": 1.0, "eta_seconds": 0}
+        }
         assert len(calls) == 3
-        assert calls[2]["active_segments_map"] == {}
+        assert calls[2]["active_segments_map"] == {"seg-A": {"phase": "done", "progress": 1.0, "eta_seconds": 0}}
 
-        # A second terminal tick for an already-removed segment must not re-publish.
+        # A repeat "done" tick for an already-marked-done segment must not re-publish.
         task._on_child_segment_tick(segment_id="seg-A", status="done", progress=1.0, eta_seconds=None)
-        assert len(calls) == 3, "popping an already-absent entry must not trigger a redundant publish"
+        assert len(calls) == 3, "an unchanged 'done' marker must not trigger a redundant publish"
+
+        # A failed/cancelled terminal, in contrast, still REMOVES the entry —
+        # a segment that did not finish must not keep showing as done/lit.
+        task._on_child_segment_tick(segment_id="seg-A", status="failed", progress=1.0, eta_seconds=None)
+        assert task._current_active_segments_map() is None
+        assert len(calls) == 4
+        assert calls[3]["active_segments_map"] == {}
+
+        # A second failed tick for an already-removed segment must not re-publish.
+        task._on_child_segment_tick(segment_id="seg-A", status="failed", progress=1.0, eta_seconds=None)
+        assert len(calls) == 4, "popping an already-absent entry must not trigger a redundant publish"
 
 
 def test_live_active_segments_map_preserves_preparing_phase():

@@ -1,0 +1,41 @@
+{
+  "at": "2026-07-07T05:42:34Z",
+  "commit": "uncommitted",
+  "task": "flow-debug session, owner report: (1) chapter ETA never counted down through a real render — pinned at the dispatch-time estimate from 0% to 97% complete; (2) segment text went gray right after finishing instead of staying black. Root-caused via a fresh debug capture (chapter-segment.txt/event-stream.txt/queue.txt) cross-referenced against source, not guesswork.",
+  "files": {
+    "app/orchestration/tasks/segment_synthesis.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Root cause 1: _publish_progress's 'running' frames never computed/passed eta_seconds at all (always None), and never durably persisted status/progress/eta_seconds via update_job — only ProgressService.publish() (a pure broadcaster, no DB write). Meanwhile _on_child_segment_tick's far-more-frequent active_segments_map-only update_job calls merged against whatever was CURRENTLY persisted, which was frozen at whatever _publish_chapter_dispatch_eta wrote once at dispatch (t=0) — so every later tick re-broadcast that stale snapshot verbatim for the whole render. Fix: new self._dispatch_eta_seconds instance attr (stashed by orchestrator_helpers.py before task.run()); new _live_chapter_eta_seconds(status, decay_fraction) decays the dispatch-time estimate by grouped_progress (or plain progress) — same calibrated number, no fabrication, now correctly applied to REMAINING work; _publish_progress passes this into service.publish() AND durably persists status/progress/eta_seconds+active_segments_map via a new update_job(..., skip_job_updated=True) call so the row itself never goes stale between group boundaries. Root cause 2: _on_child_segment_tick popped a segment from active_segments_map the instant it finished, which was the ONLY live signal keeping the frontend's just-finished-segment text lit (isReady is DB-backed only, and the frontend never refetches mid-render). Fix: a successful (done/completed) terminal tick now leaves a transient {phase:'done', progress:1.0, eta_seconds:0} marker instead of popping; failed/cancelled terminals still pop unchanged; _clear_active_segments_map (unchanged) wipes the whole map at the chapter's own terminal outcome.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "app/orchestration/scheduler/orchestrator_helpers.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "_publish_chapter_dispatch_eta now stashes the computed dispatch_eta_seconds onto task._dispatch_eta_seconds (duck-typed via hasattr, no import back into segment_synthesis.py) right before its existing self._publish(...) call, so _publish_progress has the calibrated baseline to decay."
+    },
+    "frontend/src/pages/Book/studio/useStudioChapter.ts": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "New chapterRenderDoneSegmentIds memo: scans chapterRenderActiveSegmentsMap for phase==='done' entries, expands to batch span ids via the existing expandToBatchSpanIds helper (moved earlier in the function body so this new memo can reference it — verified no other memo relied on the old declaration order). chapterRenderPendingSegmentIds now excludes anything in chapterRenderDoneSegmentIds from both its effectivePendingSegmentIds-seeded branch and its DB-fallback loop. chapterRenderDoneSegmentIds added to the hook's return object."
+    },
+    "frontend/src/pages/ChapterEditor/components/ScriptView.tsx": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "New optional prop liveDoneSpanIds (Set<string>, default empty). isReady per-span now also becomes true when liveDoneSpanIds.has(span.id) — the live signal that lets a just-finished segment's text stay black/lit ahead of the next full DB refetch. canPlay intentionally left DB-backed-only (out of scope for this bug: only the text-color complaint was reported)."
+    },
+    "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "ScriptView's pendingSpanIds prop switched from the raw effectivePendingSegmentIds (never done-aware) to the new done-excluding chapterRenderPendingSegmentIds; added liveDoneSpanIds={chapterRenderDoneSegmentIds}."
+    },
+    "frontend/src/pages/Book/stages/StudioStage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Same swap as ChapterEditorPage.tsx: pendingSpanIds now chapterRenderPendingSegmentIds, added liveDoneSpanIds={chapterRenderDoneSegmentIds}."
+    }
+  },
+  "flow_impact": "parallel-segment-fanout flow: the chapter-level ETA leg now decays instead of staying frozen (dispatch-time estimate -> _publish_progress durable refresh -> _on_child_segment_tick ticks read fresh values instead of the t=0 snapshot), and the completion leg gained a phase='done' transient marker consumed by a new frontend chapterRenderDoneSegmentIds/liveDoneSpanIds path. progress-eta-pipeline flow: chapter-scope eta_seconds is now computed by _publish_progress itself (previously always None on that leg). Both flow entries and the parallel-segment-fanout invariant/failure_modes text need a consolidation pass to reflect this — not yet done in this entry. Tests: tests/orchestration/test_chapter_fanout_dispatch_eta.py (new decay test + a harness fix — the existing harness never wired orc.progress_service into ChapterSynthesisTask, so _publish_progress's own frames were invisible to test assertions even before this fix; now patches get_progress_service), tests/orchestration/test_ephemeral_child_no_durable_job.py (updated to assert the new done-marker-not-pop behavior, still asserts failed/cancelled still pop), tests/orchestration/test_correctness_invariants.py (TestActiveSegmentsMapStartedGating's blanket len<=2 assertion no longer holds now that done markers persist; rewritten to assert the test's actual original intent — no not-yet-started child ever leaks in — plus a phase-enum sanity check), frontend/tests/unit/pages/Book/studio/useStudioChapter.test.tsx + frontend/tests/unit/pages/ChapterEditor/components/ScriptView.test.tsx (new tests, both R1 revert-checked red-on-old-code). Full backend suite (2247 passed/3 skipped) and frontend vitest (1727 passed, the same 2 pre-existing unrelated failures as last session) green. An Opus-max adversarial review (Fable substitute) was dispatched for this change; the owner then confirmed Fable itself is available today, so a real Fable review is being dispatched — this queue entry predates that review's outcome and should be revisited at consolidation if it calls for further changes.",
+  "learned": "Test harnesses can silently test nothing: this session's new ETA-decay test initially showed '0 running frames captured' — not because the fix was wrong, but because the existing test harness (RealPublishOrchestrator) never injected its own progress_service into ChapterSynthesisTask, so _resolve_progress_service() fell back to the production global singleton and every _publish_progress frame was invisible to the test's captured_frames list. The two PRE-EXISTING tests in that file never caught this because they only asserted on the dispatch-time frame (built via a different code path, the orchestrator mixin's own self._publish, which WAS correctly wired). Always verify a new assertion actually observes the code path it claims to test, not just that it passes."
+}

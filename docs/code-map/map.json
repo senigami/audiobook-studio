@@ -1,6 +1,6 @@
 {
   "meta": {
-    "synced_commit": "92bbb443a269fb438ad709d0e916754e362b82c4",
+    "synced_commit": "cbaf2fc5ebfbd460a39a6cfe279a9f84b3179e8b",
     "file_hashes": {
       "app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "app/api/__init__.py": "e5c803401ba5b01e486ce9e7a18e7ce433f999b1cd7d933badbcad52236243fb",
@@ -33,7 +33,7 @@
       "app/api/tts_api.py": "71f7640cd6e5847e611085091503ffc0365ffb92ac46b882c761d328fed31381",
       "app/api/utils.py": "8e3951b1deafcbc9dac5a74c5be266a29010ffa5313f8980cc5480c27ef3736a",
       "app/api/web.py": "819a321076059f8d6e7d6fb5e4a4fdcfa1fa806ddc160c2c273e81134ad74a04",
-      "app/api/ws.py": "0a32fc5acda9fa6f6e568698ce8464f53695f4094e3efb223e663ecc3abf4064",
+      "app/api/ws.py": "7b773e7805dbec4990be01ccda2db5c5aa1f841c220f3bfee950324447ecec2b",
       "app/core/__init__.py": "c9f62f50d73bc36826b05086f17d4e5bb05dbe3d86796c86b7c7dffb12baaac7",
       "app/core/boot.py": "bea09d430f21b343aef79f23209ef6e3010db28ad8449f37a3ee62df9d428734",
       "app/core/config.py": "b787fb16748504d70e318f5da14f480f18424756649addd478cb3232ea8094eb",
@@ -156,7 +156,7 @@
       "app/orchestration/scheduler/cap_settings.py": "166daf7087a124fdbd8fa1937a122f7d997ebca8ea388a96a7722b7236c83245",
       "app/orchestration/scheduler/eta.py": "7fab508abc46c7b381ab4e837070706088432000ca590c8a5f8555c2f0d37eb4",
       "app/orchestration/scheduler/orchestrator_eta.py": "259b67369779bb28c75f23dc9a731eb246d03cf3a0f73b60fe87a68742ad2051",
-      "app/orchestration/scheduler/orchestrator_helpers.py": "48203e59f1ffa748f411c111f477cf85a83935b72ceb14c4a8c9241c2ee3c9cc",
+      "app/orchestration/scheduler/orchestrator_helpers.py": "4fdcf7f883335904f61424bf3b0ec8fe2f3bd8a64b4f755b541e414cd7eee0bd",
       "app/orchestration/scheduler/policies.py": "4a23d243516fe50be846d87b7892744409ed448cd72d3a6c751200e0c599f524",
       "app/orchestration/scheduler/recovery.py": "202b9859df3d26fe14513d59471fbc2f5edbe72f52f7e3e8e6b2af7b6dbb0336",
       "app/orchestration/scheduler/resources.py": "92194e0af7a9a0f26022ee41016ef0fac02cbc0290e37eb3d38955e2562dfb28",
@@ -337,7 +337,7 @@
       "frontend/src/pages/Book/studio/RenderControlsStrip.tsx": "c92f06be94accdcd1f6dba6f8947356fbe8e3746b2976f569b25e1acb4d5c146",
       "frontend/src/pages/Book/studio/StudioHeaderActions.tsx": "a689df04abef0dfb2ae727817e70df132790b1c380b42e35a34eaf120447a2e8",
       "frontend/src/pages/Book/studio/TempCharacterModal.tsx": "8eef636954496ef090650d27abeb3cb065166bf477cbea38341012fe33411a2f",
-      "frontend/src/pages/Book/studio/useStudioChapter.ts": "50952db93a2f612454b1665e6191111cd6f43726934c481638f19c9565e376ff",
+      "frontend/src/pages/Book/studio/useStudioChapter.ts": "c4f5fa44fd8651901d61498c964d72f5bf3079c4f94ac3eb2c8f53c3a1162e46",
       "frontend/src/pages/Book/useBookData.ts": "8a416aa9148c4f603000705f346394f41cfa82ffb843778b8be93f57089066fc",
       "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx": "e748825a2d3cbf8eaf4ea4f505ebce2eda7cd52c60eaeba24317889e4aa98194",
       "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx": "e2eceeb69c4907c464af3670422a827b5a473df4d91e109f51720bb222daddf2",
@@ -487,8 +487,8 @@
       "app/orchestration/progress/service.py": "425f1f3d9da907a5e21fada2d1f7b4e85deae24998b64a945420ce1ffa89b465",
       "app/orchestration/progress/emit_gate.py": "38042210f576d5329356f4913b0591d0db10dbfb73aec3416d9e009d12e0340f",
       "app/api/contracts/events.py": "07ad256acf531e939b822647d08e24925e38d09cd521e61684801f62c8b03945",
-      "app/orchestration/scheduler/orchestrator_publish.py": "34cca2e5244f87994ccb9d8ad3718ee19a6428e9d8b6219d9b115d2b56efe336",
-      "app/orchestration/tasks/segment_synthesis.py": "37ca8b76a678608c80dc3a9faf09b1129e63f1a7e4cdb9438deac06f70350d9e",
+      "app/orchestration/scheduler/orchestrator_publish.py": "4f52c04887f970a514e20da1bd5da28ff32b3a62690109238f239d72678f2f06",
+      "app/orchestration/tasks/segment_synthesis.py": "c9039674533dd7edce0e8e843499ed21f6b089a63a0f4a7071a426ff128eecb7",
       "plugins/tts_xtts/plugin/studio/standard_handler.py": "03befc969cbf8d7b84527203170354c73bb320c3fb0bf2219fcdba4c0b9902b9",
       "app/api/routers/generation.py": "666617510cbf544d508accf016ef8870bb3f3bf54a7f3a89bb42342addd6db32",
       "app/db/segments.py": "230cbeb3a96f26a01dd33fd92103ebba29f651644edb67cdd7560cd68a901310",
@@ -526,7 +526,8 @@
       "plugins/tts_xtts/plugin/studio/bake.py": "b261605841431ddd3ae581f6d5bd921d018a7c2b2cee6853183d3c200419b1cf",
       "plugins/tts_xtts/plugin/studio/handler.py": "13fd39f498df4b76f200fe802ee9710a824206f28361c5c861ad4b87df38ede0",
       "plugins/tts_xtts/plugin/studio/segments.py": "f8271e155f729a016176a39ccea308a38a25c77df27fffdd62f994ab4a528a4b",
-      "plugins/tts_xtts/plugin/studio/voice_adapter.py": "eddcba55265cfad79c2795b2d639cd00ec8f6272bf69ad7660210605139e57e8"
+      "plugins/tts_xtts/plugin/studio/voice_adapter.py": "eddcba55265cfad79c2795b2d639cd00ec8f6272bf69ad7660210605139e57e8",
+      "frontend/src/hooks/useAnimatedSegmentProgress.ts": "487ee6c09ba89d3e215e3214772ce9b3d69ac99e022ac3a9d4ac3c31ef1dd196"
     },
     "shards": [],
     "unmapped": [
@@ -550,7 +551,7 @@
       "frontend/src/demo/stages/siteMockup/bookmarkStore.ts",
       "frontend/src/demo/stages/siteMockup/panes/*.tsx (14 files, condensed in siteMockupStage.tsx notes)"
     ],
-    "repo_checksum": "73b21d261c95024577c37ddd35796d223a31a3890fa8142d0e4503da6514b030",
+    "repo_checksum": "5f2e615f354227c866ecec7b979ac43d5972fed3413f29ebf0a2c2e40fb867dd",
     "edge_tool": "hybrid: madge --json --extensions ts,tsx src/ (v8.0.0, run from frontend/) for frontend import edges; a custom stdlib-ast import-graph script (docs/code-map/tools/py_import_graph.py) for backend/plugin import edges. `calls` entries confirmed by one of these tools are kept/added as tool-derived; prior model-written entries the tool could not confirm (dynamic dispatch, cross-language, or a dotted-module reference the tool didn't resolve) moved to `calls_inferred`. `called_by` is the mechanical inverse of `calls` across the whole map, recomputed from scratch by this merge (2026-07-06)."
   },
   "flows": [
@@ -614,10 +615,11 @@
         "frontend/src/hooks/useJobs.ts",
         "frontend/src/utils/jobUpdateReducer.ts#applyJobUpdated",
         "frontend/src/store/live-jobs.ts",
+        "frontend/src/hooks/useAnimatedSegmentProgress.ts (concurrent map path: per-segment-id interpolation lanes)",
         "frontend/src/components/progress/PredictiveProgressBar/*"
       ],
       "carries": "raw engine progress line -> velocity-ring sampling -> confidence-weighted ETA crossfade (calculated->observed) -> WebSocket frame -> frontend reducer with status-regression/progress-regression guards -> animated progress bar with its own client-side lane-migration smoothing",
-      "invariant": "confidence and ETA are never fabricated; frontend only trusts backend-computed confidence for \u00a74A frames (chapters.progress/jobs.lifecycle) and only falls back to computeProgressConfidence() for older non-enriched frames (segments.progress/voice.test)"
+      "invariant": "confidence and ETA are never fabricated; frontend only trusts backend-computed confidence for \u00a74A frames (chapters.progress/jobs.lifecycle) and only falls back to computeProgressConfidence() for older non-enriched frames (segments.progress/voice.test) ; eta_updated_at is deduped by ProgressService.enrich() but must be explicitly re-extracted and threaded through app/api/ws.py#broadcast_job_updated into build_chapter_progress_event -- that function's own default (time.time() when omitted) silently defeats the dedupe at the wire on every tick if the extraction is dropped (escaped defect, fixed 2026-07-06)"
     },
     {
       "id": "voice-lifecycle",
@@ -690,12 +692,14 @@
         "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask.run (stitch barrier: futures.wait(ALL_COMPLETED) then sort by segment_order)"
       ],
       "carries": "a chapter render for a segment-orchestrated engine fans its chunk groups into concurrent children (bounded by the per-engine-class semaphore); each child reuses _dispatch_segment's per-segment isolation via a synthetic one-group task rather than calling handle_mixed_job directly; completed children join at an explicit ALL_COMPLETED barrier and stitch in manuscript order regardless of completion order",
-      "invariant": "concurrency requires BOTH ENGINE_CLASS_ADMISSION truthy (default on, 2026-07-06) AND tts_parallel_cap>1 (default 2, 2026-07-05); disabling either restores the byte-identical sequential SynthesisTask/handle_mixed_job path (INV-1); the chapter-fanout PARENT itself must never flow through _dispatch_segment (would register a spurious idle log_listener); a concurrent child must never call handle_mixed_job directly (would re-trigger chapter-terminal stitch/DB-rebuild once per child instead of once per chapter) and must have skip_registry_dispatch=True (else falls through to the legacy per-engine registry handler and silently re-renders a sibling's remaining work \u2014 escaped defect, fixed 2026-07-05); synthetic fan-out children emit segment-scoped frames but no durable job rows (ephemeral TaskContext routes through ProgressService.publish(ephemeral=True), suppressing only jobs.lifecycle/queue.items/chapters.progress); chapter progress is size-weighted (grouped_progress from child text-length sums) and order-independent; an explicit backend active_segments_map={} ('nothing rendering') always wins over the frontend's segmentProgress-derived fallback (useStudioChapter.ts)",
+      "invariant": "concurrency requires BOTH ENGINE_CLASS_ADMISSION truthy (default on, 2026-07-06) AND tts_parallel_cap>1 (default 2, 2026-07-05); disabling either restores the byte-identical sequential SynthesisTask/handle_mixed_job path (INV-1); the chapter-fanout PARENT itself must never flow through _dispatch_segment (would register a spurious idle log_listener); a concurrent child must never call handle_mixed_job directly (would re-trigger chapter-terminal stitch/DB-rebuild once per child instead of once per chapter) and must have skip_registry_dispatch=True (else falls through to the legacy per-engine registry handler and silently re-renders a sibling's remaining work \u2014 escaped defect, fixed 2026-07-05); synthetic fan-out children emit segment-scoped frames but no durable job rows (ephemeral TaskContext routes through ProgressService.publish(ephemeral=True), suppressing only jobs.lifecycle/queue.items/chapters.progress); chapter progress is size-weighted (grouped_progress from child text-length sums) and order-independent; an explicit backend active_segments_map={} ('nothing rendering') always wins over the frontend's segmentProgress-derived fallback (useStudioChapter.ts) ; the parent's own _publish_progress(status=\"running\", completed=0, ...) must fire immediately after futures submission (not only inside as_completed) or the parent job's status field sticks on \"preparing\" for the whole first chunk group (fixed 2026-07-06); a child tick's SEGMENT_PENDING/LOADING_MODEL sub-phase is conveyed via reason_code, not status -- _on_child_segment_tick must check both or the preparing pulse is lost (fixed 2026-07-06)",
       "failure_modes": [
         "skip_registry_dispatch missing/False on a fan-out child task -> registry handler re-renders all remaining chapter groups per child, and the first-dispatched child silently does every sibling's work too (fixed 41c9d84c)",
         "on_segment_tick callback never wired/raises -> self._live_segments_map never updates -> active_segments_map stays structurally empty regardless of concurrency level, frontend map-branch highlighting never engages (fixed 2d80df6c)",
         "build_chapter_progress_event/broadcast_job_updated missing the active_segments_map kwarg -> even a correctly-populated live map never reaches the frontend at all (the delivery-leg half of 2d80df6c)",
-        "a fan-out child dispatched with an empty script (every group already satisfied by a sibling or a prior run) calling generate_via_bridge with empty text -> 422 'text must not be empty' (fixed in plugins/tts_xtts/plugin/studio/standard_handler.py, same defect arc)"
+        "a fan-out child dispatched with an empty script (every group already satisfied by a sibling or a prior run) calling generate_via_bridge with empty text -> 422 'text must not be empty' (fixed in plugins/tts_xtts/plugin/studio/standard_handler.py, same defect arc)",
+        "ChapterSynthesisTask.run() only calls _publish_progress(status=\"running\") inside the as_completed loop -> parent job status stays \"preparing\" until the first chunk group fully completes, regardless of concurrency (fixed 2026-07-06, dispatch-time announce added before the as_completed loop)",
+        "the fan-out parent bypasses _dispatch_segment (the only prior emitter of the chapter-scope pre_load_eta ETA frame) -> parent job's eta_seconds stays null through the whole preparing window -> queue bar's determinate fill never engages (fixed 2026-07-06, _publish_chapter_dispatch_eta added to the is_chapter_fanout dispatch branch)"
       ],
       "verified_by": "frontend/tests/e2e/chapter-render.spec.ts (W-PAR concurrent fan-out test, added 09608333, its own websocket-simulation bug fixed c00ea3f4) + tests/orchestration/test_engine_semaphores.py \u2014 NOTE: the e2e test exercises the mixed-engine leg only (engine_id='mixed' routes through render_one_group's LOCAL execution, bypassing the xtts marker-relay/stderr-write path entirely); no test exercised concurrent xtts marker relay before 2026-07-06's escaped defect (fixed same day, see tts-server-marker-relay flow)."
     },
@@ -834,7 +838,7 @@
         "plugins/*/plugin/server/**",
         "plugins/*/plugin/core/diagnostics.py"
       ],
-      "check": "grep -rnE 'print\\(.*file=sys\\.std(err|out)|sys\\.std(err|out)\\.write\\(' plugins/*/plugin/server plugins/*/plugin/core/diagnostics.py | grep -v 'emit_stderr_atomic' | grep -v 'canonical-locked-write' # any output = a bare unsynchronized stream write outside the locked emitter. Scoped to server-context code only (files that run on the TTS Server's per-request threadpool) -- deliberately EXCLUDES plugin/core/xtts_inference.py and other warm-worker-SUBPROCESS-side code, which is single-threaded per-process by design and not part of this hazard class; also excludes proc_utils.py's one-shot-fallback stdout debug write (different stream, rarely-exercised fallback path, not yet audited)."
+      "check": "grep -rnE 'print\\(.*file=sys\\.std(err|out)|sys\\.std(err|out)\\.write\\(' plugins/*/plugin/server plugins/*/plugin/core/diagnostics.py | grep -v 'emit_stderr_atomic' | grep -v 'canonical-locked-write' # any output = a bare unsynchronized stream write outside the locked emitter. Scoped to server-context code only (files that run on the TTS Server's per-request threadpool) -- deliberately EXCLUDES plugin/core/xtts_inference.py and other warm-worker-SUBPROCESS-side code, which is single-threaded per-process by design and not part of this hazard class; also excludes proc_utils.py's one-shot-fallback stdout debug write (different stream, rarely-exercised fallback path, not yet audited). NOTE: as of 2026-07-06 this also false-positives on diagnostics.py:9,25-26's docstring/comment prose describing the pattern in prose -- read any hit before treating it as a real violation."
     }
   ],
   "modules": {
@@ -3004,7 +3008,8 @@
         "terminal latch prevents post-terminal frame re-entry",
         "FIX 5: enrich failure sets safe confidence floor",
         "_emit_queue_item_status_frame reads merged.get('active_segments_map') and passes it to build_queue_item_status_event (additive C2 field); transition-inferred SEGMENT_SAVED emission is unchanged, correct only while fan-out stays effectively N=1-active-at-a-time per chapter",
-        "broadcast_job_updated() now threads active_segments_map=merged.get('active_segments_map') into build_chapter_progress_event (2026-07-05 delivery-leg fix) \u2014 previously the field was written to job state but never reached this wire frame"
+        "broadcast_job_updated() now threads active_segments_map=merged.get('active_segments_map') into build_chapter_progress_event (2026-07-05 delivery-leg fix) \u2014 previously the field was written to job state but never reached this wire frame",
+        "broadcast_job_updated now extracts eta_updated_at from ProgressService.enrich()'s payload and threads it into build_chapter_progress_event(...) (2026-07-06 fix) -- enrich()'s own \u00a74A dedupe logic computed this field correctly, but it was previously dropped before reaching build_chapter_progress_event, whose own default (time.time() when omitted) fired on every map-only tick and defeated the dedupe at the wire even though the internal computation was right."
       ]
     },
     "app/api/tts_api.py": {
@@ -5725,7 +5730,8 @@
         "app/tts_server/performance_settings.py",
         "app/utils/render_timing.py#get_timing_val,derive_segment_timing_fields",
         "app/utils/render_trace.py#trace",
-        "app/utils/subprocess_utils.py"
+        "app/utils/subprocess_utils.py",
+        "app/orchestration/scheduler/eta.py#calculate_chapter_startup_eta"
       ],
       "called_by": [
         "app/orchestration/scheduler/orchestrator.py",
@@ -5736,7 +5742,8 @@
         "one-line is_chapter_fanout branch: if getattr(task, 'is_chapter_fanout', False): return task.run() \u2014 bypasses _dispatch_segment entirely for chapter-fan-out parents",
         "_EMIT_ACTIVE_SEGMENTS_MAP module flag gates active_segments_map emission; flipped True once genuine multi-entry aggregation exists (W-PAR 008) \u2014 previously caused a cold-start regression (stale preparing-phase entries leaking into the frontend overlay at cap=1) before being gated off, then re-enabled once true multi-entry semantics existed",
         "BE-4 (2026-07-04): _record_render_stats_inner now prefers the server's precomputed synthesis_duration_seconds/sum_segment_render_seconds/inter_group_overhead_seconds from the timing payload when present (mathematically identical, pure redundant-work elimination), falling back to app/utils/render_timing.py's derive_segment_timing_fields only when absent; model_load_seconds keeps its own local 0.0-default derivation, deliberately not unified with server.py's None-default",
-        "_dispatch_segment's step-1 registry lookup is now skipped when task.skip_registry_dispatch is True (e.g. _SyntheticSegmentTask, W-PAR fan-out children) \u2014 fixed an escaped defect (2026-07-05) where every fan-out child fell through to a legacy whole-chapter handler and silently re-rendered a sibling's remaining work"
+        "_dispatch_segment's step-1 registry lookup is now skipped when task.skip_registry_dispatch is True (e.g. _SyntheticSegmentTask, W-PAR fan-out children) \u2014 fixed an escaped defect (2026-07-05) where every fan-out child fell through to a legacy whole-chapter handler and silently re-rendered a sibling's remaining work",
+        "_dispatch's is_chapter_fanout branch now calls new _publish_chapter_dispatch_eta(task, context) before task.run() (2026-07-06 fix) -- publishes a durable status=\"preparing\" reason_code=\"pre_load_eta\" frame on the PARENT context (chapter fan-out bypasses _dispatch_segment, which was the only prior emitter of this ETA frame, so the parent job's eta_seconds stayed null through the whole preparing window and the queue bar's determinate fill never engaged). Cold-load term added only when the server reports the engine cold AND expected_model_load_seconds history exists; warm -> synthesis-only ETA. No calibration history -> no frame (no-fabrication). _resolve_engine_calibration(engine_id) and _expected_cold_load_seconds(engine_id, tts_model) extracted from _dispatch_segment's inline blocks as shared helpers used by both paths."
       ],
       "calls_inferred": [
         "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask.is_chapter_fanout (dispatch branch)"
@@ -5790,7 +5797,8 @@
         "0% not special-cased as 'not started'",
         "active_segments_map (optional _publish kwarg) only written when non-None; stalled_segments has NO corresponding _publish kwarg yet (deferred, unlike active_segments_map which is fully wired end-to-end)",
         "_publish routes ephemeral contexts through ProgressService.publish(ephemeral=True) and skips put_job/update_job only, so synthetic {parent}-seg-N children create no durable Job row or queue.items broadcast (segment-scoped frames still flow)",
-        "_publish()'s ephemeral branch now invokes an optional on_segment_tick(segment_id, status, progress, eta_seconds) callback stashed in the TaskContext payload before returning (2026-07-05) \u2014 the event-driven delivery mechanism for ChapterSynthesisTask._on_child_segment_tick, piggybacking the existing \u22651%-gated per-child publish call rather than adding a new timer/thread"
+        "_publish()'s ephemeral branch now invokes an optional on_segment_tick(segment_id, status, progress, eta_seconds) callback stashed in the TaskContext payload before returning (2026-07-05) \u2014 the event-driven delivery mechanism for ChapterSynthesisTask._on_child_segment_tick, piggybacking the existing \u22651%-gated per-child publish call rather than adding a new timer/thread",
+        "_publish()'s ephemeral branch now forwards reason_code=reason_code into the on_segment_tick(...) callback alongside segment_id/status/progress/eta_seconds (2026-07-06) -- required so ChapterSynthesisTask._on_child_segment_tick can distinguish the SEGMENT_PENDING sub-phase (status=\"running\" literally, reason_code=\"SEGMENT_PENDING\") from genuine rendering."
       ]
     },
     "app/orchestration/scheduler/resources.py": {
@@ -8459,7 +8467,8 @@
         "frontend/src/utils/chapterEditorHelpers.ts",
         "frontend/src/utils/chapterRenderProgress.ts",
         "frontend/src/utils/chunkGroups.ts",
-        "frontend/src/utils/voiceProfiles.ts"
+        "frontend/src/utils/voiceProfiles.ts",
+        "frontend/src/hooks/useAnimatedSegmentProgress.ts#useAnimatedSegmentProgress"
       ],
       "called_by": [
         "frontend/src/pages/Book/stages/StudioStage.tsx",
@@ -8468,7 +8477,8 @@
       "notes": [
         "handoff pattern defers refetches while animation in flight",
         "generalized the single chapterRenderActiveSegmentId (scalar) into chapterRenderActiveSegmentsMap/RenderingSegmentIds/PreparingSegmentIds/RenderingBatchProgressById (Set/map-based, W-PAR 006); falls back byte-identically to the scalar path when the map is absent (INV-1); map branches expand each entry to render-batch siblings (expandToBatchSpanIds) and exclude done-phase entries from the rendering set",
-        "gained a segmentProgress prop + fallbackActiveSegmentsMap (2026-07-05 escaped-defect fix): when the backend hasn't supplied its own active_segments_map at ALL (undefined, not an explicit {}), derives one from the already-flowing per-segment segmentProgress stream so the map-branch highlighting works even before the backend delivery leg existed; an explicit backend {} ('nothing rendering') still always wins"
+        "gained a segmentProgress prop + fallbackActiveSegmentsMap (2026-07-05 escaped-defect fix): when the backend hasn't supplied its own active_segments_map at ALL (undefined, not an explicit {}), derives one from the already-flowing per-segment segmentProgress stream so the map-branch highlighting works even before the backend delivery leg existed; an explicit backend {} ('nothing rendering') still always wins",
+        "chapterRenderRenderingBatchProgressById's map branch now feeds ScriptView animatedSegmentProgress[segId] ?? entry.progress (from useAnimatedSegmentProgress, new 2026-07-06) instead of raw entry.progress -- fixes the concurrent map path feeding un-interpolated stepped values straight to the text highlight. Legacy single-active-segment path (liveBarSegmentProgress feedback) unchanged."
       ],
       "calls_inferred": [
         "@/api",
@@ -13481,7 +13491,9 @@
         "cap=1 (today's manifest default for most engines) is byte-identical to the pre-fanout sequential path (INV-1, pinned by test_cap1_old_vs_new_path_equivalence.py)",
         "self._children accessed under self._children_lock (retry swap, heartbeat monitor, active_segments_map aggregation all touch the same list concurrently)",
         "_SyntheticSegmentTask.describe() sets ephemeral=True; ChapterSynthesisTask._publish_progress emits size-weighted, order-independent grouped_progress computed from in-memory child text sizes (count-based progress retained separately)",
-        "ChapterSynthesisTask gained an event-driven self._live_segments_map (2026-07-05 escaped-defect fix): _on_child_segment_tick updates it incrementally from each child's own per-tick publish (via the on_segment_tick callback in orchestrator_publish.py), replacing the old completion-boundary sampling that was structurally always empty; _clear_active_segments_map() force-writes an explicit {} at any terminal outcome so a stale mid-render snapshot never rides a terminal frame"
+        "ChapterSynthesisTask gained an event-driven self._live_segments_map (2026-07-05 escaped-defect fix): _on_child_segment_tick updates it incrementally from each child's own per-tick publish (via the on_segment_tick callback in orchestrator_publish.py), replacing the old completion-boundary sampling that was structurally always empty; _clear_active_segments_map() force-writes an explicit {} at any terminal outcome so a stale mid-render snapshot never rides a terminal frame",
+        "ChapterSynthesisTask.run() now calls self._publish_progress(status=\"running\", completed=0, ...) immediately after submitting the ThreadPoolExecutor futures, before the as_completed loop (2026-07-06 fix) -- previously the parent job's own `status` field stayed \"preparing\" for the ENTIRE first chunk group's render (status only flipped inside as_completed, i.e. only once a whole group COMPLETED).",
+        "_on_child_segment_tick(reason_code=None) now derives active_segments_map phase as \"preparing\" if status==\"preparing\" OR reason_code in {SEGMENT_PENDING, LOADING_MODEL} else \"rendering\" (2026-07-06 fix) -- previously hardcoded to \"rendering\" for every non-terminal tick, so a child's SEGMENT_PENDING/LOADING_MODEL sub-phase (conveyed via reason_code, not status) never surfaced in the map."
       ]
     },
     "app/domain/voices/huggingface.py": {
@@ -14205,6 +14217,26 @@
       "notes": [
         "LF-6 partial (2026-07-05): extracted from ProgressService (service.py 1503->1283 lines); same self._lock instance shared via mixin inheritance, no new lock, no lock-ordering change (D7 leaf-lock: never calls get_jobs()/state_jobs while holding self._lock)",
         "Fable review flag: 6 undeclared host-attribute dependencies (no Protocol/ABC) -- info-level, not a defect; only ever mixed into ProgressService"
+      ]
+    },
+    "frontend/src/hooks/useAnimatedSegmentProgress.ts": {
+      "purpose": "Per-segment-id animated interpolation lanes for the concurrent chapter-fanout map path",
+      "exports": [
+        {
+          "name": "useAnimatedSegmentProgress",
+          "kind": "hook",
+          "contract": "activeSegmentsMap -> Record<segmentId, animatedProgress>; one independent ProgressLane per rendering-phase entry, anchored at each entry's latest real (progress, eta_seconds) and interpolated toward the ETA end-time between real frames; no positive eta -> lane holds (no fabricated motion); untouched entries left alone so a sibling's in-flight animation is never disturbed by another segment's frame"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarLane.ts#resolveEndAtMs,getLaneProgress"
+      ],
+      "calls_inferred": [],
+      "called_by": [
+        "frontend/src/pages/Book/studio/useStudioChapter.ts"
+      ],
+      "notes": [
+        "Added 2026-07-06 to restore progress-presentation.md spec \u00a77 H5 (text fill follows ANIMATED display progress, never raw stepped event data) for N concurrently-rendering segments -- reuses the bar's existing lane math and 250ms tickMs cadence rather than inventing new interpolation logic. One shared setInterval keyed on a boolean so frame-identity churn never resets the timer."
       ]
     }
   },

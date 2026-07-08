@@ -247,18 +247,6 @@ export function useStudioChapter({
     return new Set(activeBatch.span_ids);
   }, [chapterRenderActiveSegmentId, scriptViewData?.render_batches]);
 
-  const chapterRenderPendingSegmentIds = useMemo(() => {
-    const ids = new Set<string>(effectivePendingSegmentIds);
-    if (!isChapterProcessing) return ids;
-    if (ids.size === 0) {
-      for (const segment of segments) {
-        if (segment.audio_status === 'done' || segment.audio_file_path) continue;
-        ids.add(segment.id);
-      }
-    }
-    return ids;
-  }, [effectivePendingSegmentIds, isChapterProcessing, segments]);
-
   const isActiveJobPreparing =
     (job as any)?.reason_code === 'SEGMENT_PENDING' ||
     (job as any)?.reason_code === 'LOADING_MODEL' ||
@@ -278,6 +266,34 @@ export function useStudioChapter({
     }
     for (const id of batch.span_ids) into.add(id);
   }, [scriptViewData?.render_batches]);
+
+  // W-PAR: map entries whose phase just transitioned to "done" (2026-07-07
+  // fix) — a live signal that a segment finished THIS render, ahead of the
+  // next full chapter/segment DB refetch (which does not happen mid-render).
+  // Expanded to batch span ids like preparing/rendering already are, so a
+  // multi-span render batch's whole leader-driven group lights up together.
+  const chapterRenderDoneSegmentIds = useMemo(() => {
+    if (!chapterRenderActiveSegmentsMap) return new Set<string>();
+    const ids = new Set<string>();
+    for (const [segId, entry] of Object.entries(chapterRenderActiveSegmentsMap)) {
+      if (entry.phase === 'done') expandToBatchSpanIds(segId, ids);
+    }
+    return ids;
+  }, [chapterRenderActiveSegmentsMap, expandToBatchSpanIds]);
+
+  const chapterRenderPendingSegmentIds = useMemo(() => {
+    const ids = new Set<string>(effectivePendingSegmentIds);
+    if (!isChapterProcessing) return ids;
+    if (ids.size === 0) {
+      for (const segment of segments) {
+        if (segment.audio_status === 'done' || segment.audio_file_path) continue;
+        if (chapterRenderDoneSegmentIds.has(segment.id)) continue;
+        ids.add(segment.id);
+      }
+    }
+    for (const id of chapterRenderDoneSegmentIds) ids.delete(id);
+    return ids;
+  }, [effectivePendingSegmentIds, isChapterProcessing, segments, chapterRenderDoneSegmentIds]);
 
   const chapterRenderPreparingSegmentIds = useMemo(() => {
     // W-PAR 006: with a map present, each entry's own `phase` decides preparing
@@ -334,13 +350,21 @@ export function useStudioChapter({
       const activeIdx = allIds.indexOf(chapterRenderActiveSegmentId || '');
       const result = new Set(activeIdx === -1 ? allIds : allIds.slice(activeIdx + 1));
       for (const id of chapterRenderRenderingSegmentIds) result.delete(id);
+      // 2026-07-07 fix: under concurrent fan-out a segment can COMPLETE out of
+      // order at a higher segment_ids index than the (single, lagging)
+      // active_segment_id, so it lands in this "after the active one" slice.
+      // A phase="done" segment must never re-dim as "queued" — that would
+      // undo liveDoneSpanIds (both text-queued and text-ready get applied and
+      // the later CSS rule, text-queued, wins), regressing exactly the
+      // stays-lit behavior this map marker exists to provide.
+      for (const id of chapterRenderDoneSegmentIds) result.delete(id);
       return result;
     }
     const renderBatchesForQueue = scriptViewData?.render_batches ?? [];
     const renderBatchSpanIds = renderBatchesForQueue.flatMap((batch) => batch.span_ids);
     if (renderBatchSpanIds.length === 0) return new Set<string>();
     if (!chapterRenderActiveSegmentId) {
-      return new Set(renderBatchSpanIds.filter((id) => !chapterRenderRenderingSegmentIds.has(id)));
+      return new Set(renderBatchSpanIds.filter((id) => !chapterRenderRenderingSegmentIds.has(id) && !chapterRenderDoneSegmentIds.has(id)));
     }
     const activeBatchIndex = renderBatchesForQueue.findIndex((batch) =>
       batch.span_ids.includes(chapterRenderActiveSegmentId),
@@ -348,8 +372,8 @@ export function useStudioChapter({
     const queuedBatchSpanIds = activeBatchIndex >= 0
       ? renderBatchesForQueue.slice(activeBatchIndex + 1).flatMap((batch) => batch.span_ids)
       : renderBatchSpanIds;
-    return new Set(queuedBatchSpanIds.filter((id) => !chapterRenderRenderingSegmentIds.has(id)));
-  }, [job, chapterRenderActiveSegmentId, chapterRenderRenderingSegmentIds, scriptViewData?.render_batches]);
+    return new Set(queuedBatchSpanIds.filter((id) => !chapterRenderRenderingSegmentIds.has(id) && !chapterRenderDoneSegmentIds.has(id)));
+  }, [job, chapterRenderActiveSegmentId, chapterRenderRenderingSegmentIds, chapterRenderDoneSegmentIds, scriptViewData?.render_batches]);
 
   // Per-segment interpolated display progress for the concurrent map path
   // (progress-presentation.md §7 H5: the text fill follows ANIMATED display
@@ -962,6 +986,7 @@ export function useStudioChapter({
     chapterRenderRenderingSegmentIds,
     chapterRenderQueuedSegmentIds,
     chapterRenderPendingSegmentIds,
+    chapterRenderDoneSegmentIds,
     chapterRenderRenderingBatchProgressById,
     playingSegmentId,
     playingSegmentIds,

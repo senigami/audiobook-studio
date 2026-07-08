@@ -130,7 +130,10 @@ React 19 + TypeScript + Vite, React Router, Framer Motion. Standard shape under 
 ## Code map (docs/code-map/)
 
 This repo has a persistent code map. Before any cross-cutting task, load
-`docs/code-map/map.json`'s `meta`+`flows`+`invariants`+`modules`+`coupling`+`hotspots`,
-pulling `files`/`data` records on demand. **After any task that changes mapped code,
-append a changelog-queue entry to `docs/code-map/queue/` before declaring the task
-done — part of the definition of done, not optional.** See the `map-code` skill.
+`docs/code-map/map.json`'s `meta`+`flows`+`invariants`+`modules` (+`coupling`+`hotspots`),
+pulling `files`/`data` records on demand. When debugging or changing a function's
+signature, run the map's **symbol trace** on it (callers/callees with sites) instead of
+exploring by hand; for "what can be simplified", request the simplification report.
+**After any task that changes mapped code, append a changelog-queue entry to
+`docs/code-map/queue/` before declaring the task done — part of the definition of
+done, not optional.** See the `map-code` skill.

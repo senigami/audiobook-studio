@@ -1,0 +1,36 @@
+{
+  "at": "2026-07-07T06:05:00Z",
+  "commit": "uncommitted",
+  "task": "Fable adversarial review of the chapter-eta-decay + done-marker fix (queue entry 20260707T054234Z). Three real defects found in the change under review and fixed in place; the rest of the change verified sound (thread-safety of the dual update_job writers, decay math, map-consumer phase-filtering, memo reordering, guard interplay with state_job_guards).",
+  "files": {
+    "app/orchestration/tasks/segment_synthesis.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Review fix 1 (real bug): run()'s as_completed loop called _on_child_segment_tick(status=\"done\") for EVERY resolved child regardless of result.status — correct under the old pop-all-terminals semantics, but under the new done-marker semantics it stamped a permanently-FAILED (or cancelled) child with a phase='done' success marker, lighting its text as successfully finished for the rest of the render and excluding it from pending/queued. Now passes status=result.status (completed -> done marker; failed/cancelled -> pop). Review fix 2: _publish_progress no longer passes eta_seconds=None to update_job when no dispatch calibration exists — an explicit None is not a no-op at the state layer (update_job clears eta_seconds/eta_basis/estimated_end_at AND skips its own observed-progress projection for the call), so every group boundary would have wiped the projection-derived ETA that ticks (map-only writes, no eta key) legitimately maintain, making the countdown flicker out at each boundary for uncalibrated engines. The field is now simply omitted when None.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "frontend/src/pages/ChapterEditor/components/ScriptView.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Review fix 3: isReady-via-liveDoneSpanIds alone was insufficient — script-span-text-pending/-book-pending/-queued/-book-queued sit LATER in ScriptView.css at equal specificity, so a span in both a pending/queued set AND liveDoneSpanIds rendered dim despite carrying the ready class. renderSpan now suppresses isPending/isQueued for live-done spans, making the component robust regardless of caller set hygiene. (Note discovered en route: renderSpan defaults to mode='book' even inside the script-line view, so the script view actually applies the -book-* class variants.)"
+    },
+    "tests/orchestration/test_correctness_invariants.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "New TestActiveSegmentsMapStartedGating::test_permanently_failed_child_never_marked_done_in_map — R1 revert-checked: red on the pre-review code (captured a {'phase':'done'} map write for a permanently-failed child), green after review fix 1, and correctly green on pre-diff HEAD (the defect was introduced by the diff's intermediate state)."
+    },
+    "tests/orchestration/test_ephemeral_child_no_durable_job.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Fixed a dangling comment reference to a nonexistent test (test_live_active_segments_map_marks_done_instead_of_popping); now points at the real run()-level coverage in test_correctness_invariants.py."
+    },
+    "frontend/tests/unit/pages/ChapterEditor/components/ScriptView.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Strengthened the liveDoneSpanIds test: it previously asserted only toHaveClass('script-span-text-ready'), which passed even when the later-in-stylesheet pending class was ALSO applied (i.e. the span was visually dim — the test passed for the wrong reason). Now also asserts the pending/queued classes (both mode variants, since renderSpan defaults to book mode inside the script view) are absent. R1 revert-checked red against the unsuppressed component."
+    }
+  },
+  "flow_impact": "parallel-segment-fanout flow: the done-marker leg now carries the child's real outcome (failed/cancelled children pop, never marked done); the durable-refresh leg no longer clears state-layer projected ETA for uncalibrated engines. Verification: tests/orchestration full package 521 passed; frontend tests/unit/pages/ChapterEditor + tests/unit/pages/Book 303/304 passed (the 1 failure, BookLayout listVoicesWithMetadata, reproduced on clean HEAD — pre-existing, unrelated); ruff + eslint + tsc -b clean.",
+  "learned": "When a terminal-handling call site hardcodes a status (here as_completed's tick always saying 'done'), any change that makes terminal statuses semantically DIVERGE (done=marker vs failed=pop) silently breaks the hardcoded site — grep every producer of the status value when splitting a formerly-uniform terminal branch. Also: toHaveClass assertions cannot catch equal-specificity CSS override bugs; when a fix's correctness depends on a class being ABSENT, assert the absence explicitly."
+}

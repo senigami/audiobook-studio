@@ -1034,19 +1034,83 @@ class TestActiveSegmentsMapStartedGating:
         assert list(maps[0].keys()) == ["chap-startgate-seg-0"], (
             f"first in-flight snapshot must contain ONLY the started child; got {list(maps[0].keys())}"
         )
-        for snapshot in maps:
-            # <= 2, not == 1: at cap=1 the SAME worker thread that just
-            # finished child N immediately picks up child N+1 from the
-            # ThreadPoolExecutor's internal queue and ticks it "running" —
-            # this can happen before the main thread's as_completed loop
-            # gets scheduled to pop child N's now-stale entry. This is a
-            # benign, self-correcting microsecond-scale handoff race (the
-            # decoupled tick/pop sites trade perfect synchronity for no new
-            # timer/lock), invisible against real multi-second segment
-            # render times; a snapshot of 3+ WOULD indicate a real leak.
-            assert len(snapshot) <= 2, (
-                f"at cap=1 no snapshot may report more than a transient N/N+1 handoff pair; got {snapshot}"
+        all_leader_ids = ["chap-startgate-seg-0", "chap-startgate-seg-1", "chap-startgate-seg-2"]
+        for i, snapshot in enumerate(maps):
+            # The core invariant this test exists for: a child whose run()
+            # has NOT been entered yet must never appear, at any snapshot.
+            not_yet_started = set(all_leader_ids[i + 1:])
+            leaked = not_yet_started & snapshot.keys()
+            assert not leaked, (
+                f"snapshot {i} reports {leaked} as active, but that child's run() "
+                f"has not started yet; got {snapshot}"
             )
+            # A completed child's entry now PERSISTS as phase="done" (2026-07-07
+            # fix, escaped defect: popping it on completion was the ONLY live
+            # signal keeping the frontend's just-finished-segment text lit, and
+            # nothing else refreshes it mid-render) — so snapshot size grows
+            # with completed children instead of staying <= 2. Every entry for
+            # an ALREADY-STARTED child must be either the transient N/N+1
+            # rendering handoff pair or a "done" marker; never anything else.
+            for seg_id, entry in snapshot.items():
+                assert entry["phase"] in ("rendering", "preparing", "done"), (
+                    f"unexpected phase for {seg_id} in snapshot {i}: {entry}"
+                )
+
+    def test_permanently_failed_child_never_marked_done_in_map(self):
+        """A child that resolves FAILED (retry exhausted) must never surface a
+        ``phase="done"`` success marker in ``active_segments_map`` — the
+        frontend treats "done" as "keep this segment's text lit as ready" and
+        excludes it from the pending/queued sets, so a false marker shows a
+        failed segment as successfully finished for the rest of the render.
+
+        R1: on the first cut of the 2026-07-07 done-marker fix, ``run()``'s
+        ``as_completed`` loop called ``_on_child_segment_tick(status="done")``
+        for EVERY resolved child regardless of ``result.status`` (the hardcoded
+        "done" was correct back when every terminal status popped the entry) —
+        this test fails there because the failed child's map write carries a
+        ``phase="done"`` entry.
+        """
+        task_holder: list = []
+
+        def _bridge_call(child):
+            leader_id = child.group["segments"][0]["id"]
+            task_holder[0]._on_child_segment_tick(
+                segment_id=leader_id, status="running", progress=0.5, eta_seconds=None,
+            )
+            return TaskResult(status="failed", message="persistent engine error")
+
+        task = _make_chapter_task(
+            "chap-failmark", "chapter-failmark", groups_count=1,
+            bridge_call=_bridge_call, max_concurrent_workers=1,
+        )
+        task_holder.append(task)
+
+        map_writes: list[dict] = []
+        from app.db.state import update_job as real_update_job  # noqa: PLC0415
+
+        def _spy_update_job(job_id, *a, **kw):
+            if "active_segments_map" in kw:
+                map_writes.append(dict(kw["active_segments_map"] or {}))
+            return real_update_job(job_id, *a, **kw)
+
+        with patch("app.db.state.update_job", side_effect=_spy_update_job):
+            result = task.run()
+
+        assert result.status == "failed"
+        leader_id = "chap-failmark-seg-0"
+        done_marked = [
+            snapshot for snapshot in map_writes
+            if (snapshot.get(leader_id) or {}).get("phase") == "done"
+        ]
+        assert not done_marked, (
+            f"a permanently-failed child must never be marked phase='done' in "
+            f"active_segments_map; captured done-marked writes: {done_marked}"
+        )
+        # The failed child's entry is removed (popped), and the terminal clear
+        # leaves an explicitly empty map.
+        assert map_writes and map_writes[-1] == {}, (
+            f"expected the terminal clear to leave an empty map; writes: {map_writes}"
+        )
 
 
 class TestIncrementalParentProgress:
