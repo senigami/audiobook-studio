@@ -106,6 +106,7 @@ async def api_update_project(
     series_position: Optional[str] = Form(None),
     author: Optional[str] = Form(None),
     speaker_profile_name: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
     cover: Optional[UploadFile] = File(None)
 ):
     p = get_project(project_id)
@@ -125,6 +126,15 @@ async def api_update_project(
             except (TypeError, ValueError):
                 return JSONResponse({"status": "error", "message": "Invalid series position"}, status_code=400)
     if author is not None: updates["author"] = author
+    if description is not None:
+        updates["description"] = description
+    elif "description" in form_data:
+        # FastAPI's Form(None) parsing coerces an empty-string form value to
+        # None (indistinguishable from "field omitted"), so the "is not None"
+        # check above can never observe a clear-to-empty-string request. Fall
+        # back to the raw form value (same idiom as the series_position check
+        # above) so an explicit empty string still clears the description.
+        updates["description"] = form_data.get("description") or ""
     if speaker_profile_name is not None:
         normalized_profile_name = (speaker_profile_name.strip() or None)
         if normalized_profile_name == DEFAULT_VOICE_SENTINEL:

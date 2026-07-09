@@ -21,7 +21,7 @@ export function getBookStageStorageKey(bookId: string): string {
 
 export function getLastStage(bookId: string): BookStage {
   if (typeof window === 'undefined') {
-    return 'contents';
+    return 'book';
   }
 
   try {
@@ -31,9 +31,9 @@ export function getLastStage(bookId: string): BookStage {
       return storedStage;
     }
 
-    return 'contents';
+    return 'book';
   } catch {
-    return 'contents';
+    return 'book';
   }
 }
 

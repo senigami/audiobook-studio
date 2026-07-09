@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import { InlineEdit } from '@/components/forms/InlineEdit';
+import { ContinueListeningCard } from '@/pages/Book/components/ContinueListeningCard';
 import { useDragDropHighlight } from '@/hooks/useDragDropHighlight';
 import { CoverImageModal } from '@/pages/ProjectDetail/components/ProjectModals';
 import { formatLength } from '@/utils/format';
-import type { Project } from '@/types';
+import type { Audiobook, Project } from '@/types';
 
 interface BookInfoCardProps {
   project: Project;
@@ -12,7 +13,8 @@ interface BookInfoCardProps {
   totalPredicted: number | null;
   hasRendered: boolean;
   hasUnrendered: boolean;
-  onUpdateProject: (data: { name: string; series: string; series_position?: number | null; author: string; cover?: File | null }) => Promise<boolean>;
+  audiobooks?: Audiobook[];
+  onUpdateProject: (data: { name: string; series: string; series_position?: number | null; author: string; description?: string; cover?: File | null }) => Promise<boolean>;
 }
 
 export function BookInfoCard({
@@ -21,6 +23,7 @@ export function BookInfoCard({
   totalPredicted,
   hasRendered,
   hasUnrendered,
+  audiobooks = [],
   onUpdateProject,
 }: BookInfoCardProps) {
   const [showCover, setShowCover] = useState(false);
@@ -39,6 +42,16 @@ export function BookInfoCard({
       series: field === 'series' ? value : project.series || '',
       author: field === 'author' ? value : project.author || '',
       series_position: project.series_position,
+    });
+  };
+
+  const updateDescription = (value: string) => {
+    void onUpdateProject({
+      name: project.name,
+      series: project.series || '',
+      author: project.author || '',
+      series_position: project.series_position,
+      description: value.trim(),
     });
   };
 
@@ -124,7 +137,7 @@ export function BookInfoCard({
       ? { label: 'Rendered', tone: 'success' as const }
       : null,
     { label: `Created ${new Date(project.created_at * 1000).toLocaleDateString()}`, tone: 'muted' as const },
-  ].filter(Boolean) as Array<string | { label: string; tone: 'success' | 'info' | 'muted' }>;
+  ].filter(Boolean) as Array<{ label: string; tone: 'success' | 'info' | 'muted' }>;
   const titleTypography = {
     fontSize: 'var(--book-info-title-size)',
     lineHeight: 1.04,
@@ -261,9 +274,8 @@ export function BookInfoCard({
                 borderRadius: 0,
                 background: 'transparent',
                 minHeight: 'auto',
-                color: 'var(--text-subtle)',
+                color: 'var(--text-muted)',
                 fontStyle: 'italic',
-                opacity: 0.8,
               }}
               inputStyle={{ ...metadataInlineTextInputStyle, ...emptyAuthorTypography }}
               inputAriaLabel="Author"
@@ -281,7 +293,7 @@ export function BookInfoCard({
                 borderRadius: 0,
                 background: 'transparent',
                 minHeight: 'auto',
-                ...(project.series ? undefined : { color: 'var(--text-subtle)', fontStyle: 'italic', opacity: 0.8 }),
+                ...(project.series ? undefined : { color: 'var(--text-muted)', fontStyle: 'italic' }),
               }}
               inputStyle={{ ...metadataInlineTextInputStyle, ...seriesTypography }}
               inputAriaLabel="Series name"
@@ -343,6 +355,17 @@ export function BookInfoCard({
             )}
           </div>
         </div>
+
+        <InlineEdit
+          value={project.description || ''}
+          placeholder="Add a description to give readers and listeners a sense of the story before they dive in."
+          className="book-info-card__description"
+          multiline
+          onSave={updateDescription}
+          inputAriaLabel="Book description"
+        />
+
+        <ContinueListeningCard audiobooks={audiobooks} coverImagePath={project.cover_image_path} />
 
         <div className="book-info-card__chips" aria-label="Book metadata">
           {metadataPills.map((pill) => (

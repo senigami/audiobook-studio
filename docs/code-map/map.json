@@ -1,6 +1,6 @@
 {
   "meta": {
-    "synced_commit": "f0b49bc5753f92f194466236117055dad9752553",
+    "synced_commit": "70ed5c54dd656a031cc40a4c4ddc69fb80146da9",
     "file_hashes": {
       "app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "app/api/__init__.py": "e5c803401ba5b01e486ce9e7a18e7ce433f999b1cd7d933badbcad52236243fb",
@@ -13,7 +13,7 @@
       "app/api/routers/chapters_production.py": "411bfea9d8ab404b776d98d579dea57ca5df13fe0459c365f08828e4f1cc35ad",
       "app/api/routers/engines.py": "b09ec84eb077b03e440128a7eba8a6aab60a01e80da825582b703819baf96288",
       "app/api/routers/migration.py": "a17d3801ee65138353a9390afbef1a7119dd376b562f2fa5c1f971addfdf3c97",
-      "app/api/routers/projects.py": "e4baf5c0f6ac477af8532a2455b903aed4cac16d6b2be26378a876c240ddc046",
+      "app/api/routers/projects.py": "a50e3abc114f8eedbf47c21b5cc744ae8b63e3c3b767e5c522595b20d119a3b5",
       "app/api/routers/projects_assembly.py": "0e7fe0d7c34f52f3c7fe0bae4843041cc15ae5f16e00128e63d90af04ffdd018",
       "app/api/routers/projects_backups.py": "41fd3933ce535125b1b0aef11191aff59ccd81a0f25bebee59aa526b91743c4d",
       "app/api/routers/projects_helpers.py": "5780a2697d086f283d40b1b0bec13a801a411d721c28bfb43b8a7c1d0aaebb69",
@@ -46,7 +46,7 @@
       "app/db/chapters_cleanup.py": "9d44db2614a43653cb44e422f4b53207039d626252a6364e05d7bba25ce9a458",
       "app/db/chapters_helpers.py": "26eb5c64ffcd999c9d5050f2efc58f7ceb3ca4033b976f5b75ed0e0ee15f1335",
       "app/db/characters.py": "b5d505d1c5f52b187d58fede9ce8671c887775e76b0b5bdd0c891dfb328df24b",
-      "app/db/core.py": "5cfb336d54b0611511641dbeb62057eb794e03e5e42b5c1682df0b29c30ca99e",
+      "app/db/core.py": "49e9e8d4169451b1c64b91a270871bad5da2cf72d63e0b9bad67b00d74e4d0d2",
       "app/db/legacy_migration.py": "b37f5370c77eaa3dadf2b5757ecdd6341b335e24bdfa583cb53bce038b167b6f",
       "app/db/lexicon.py": "55d1f6b6d4798fd7bc88cb0fb5445a242771687541bf8b1a96bc3f2bd268bed8",
       "app/db/migration.py": "759cc9c1232e909fad5d9744479b754fcb325532aeb7bf3325b9d164afcc2dae",
@@ -195,7 +195,7 @@
       "frontend/src/api/contracts/events.ts": "918f0a083ffcfb445f1bf4d816bda81735e92d6302da6301a8da86364fa8e4cd",
       "frontend/src/api/contracts/liveEvents.ts": "97a77e6e41b9856e4df872c0a6cbf8ca18703ac85d79b6afee06308719196000",
       "frontend/src/api/hydration/index.ts": "f3c32a9791eb949fe4538d06a1d785c092bf375ea179de58a00529723708420a",
-      "frontend/src/api/index.ts": "38768f631085ddb6720f7bdf6c4fd326408e93fea4bcb13edc25dfc6c7bb6e02",
+      "frontend/src/api/index.ts": "41c164b3a4b9a82a01e515cbf54cce33fb1ebb8b429f9688f4dec5f0ecff8c31",
       "frontend/src/api/queries/index.ts": "e507b68ccb96122ad8d5df60314ca02e7b298bcf9bb3442c36bcb0c3f66085b7",
       "frontend/src/api/types.ts": "7ad12a1c0424c0a9cac7e92a979dc4bd36204a75b36c7124953400284edee545",
       "frontend/src/app/App.tsx": "fd7263d7c82bf9178f510cbe75978e8e6c493e1bec67e9df64386aa63ed7bb6b",
@@ -287,7 +287,7 @@
       "frontend/src/hooks/useLiveTtsLogLines.ts": "de59a38b2f1431fa8e0670c28655e4b673bf7bd9f413798d2928de4f65fcd0a5",
       "frontend/src/hooks/useNow.ts": "7fd63508c3c2a5011b55cdf3a20e3d8739f67be9188849336afc220b0582e2b2",
       "frontend/src/hooks/useProgressBarTest.ts": "eeb132e9ab23a0d57c9bb253060082049f6173a6349cd03414d55e423f2eceec",
-      "frontend/src/hooks/useProjectActions.ts": "5f928354786e6c79487b403b7676bf077b832c36050a09f1898fd16dc20c99df",
+      "frontend/src/hooks/useProjectActions.ts": "1fd8011cced2a37afea51ebfc6465aa3052ec4c1870cdb87bc5ffab0d1187b26",
       "frontend/src/hooks/useProjectLibrary.ts": "c5d68eb1ae0ed481306fea838b909c71288c925d05d089c9c27e5a90d3396bd0",
       "frontend/src/hooks/useQueueStatusHoldTimer.ts": "1a15e60b0986ff63471b8a20a7ed87ed91346081f8a7976573dfe7e50bb6a257",
       "frontend/src/hooks/useQueueSync.ts": "f1dfaa0a1be405a9814e578720befc90763753866cb42912dadf4b9ca975f149",
@@ -311,7 +311,7 @@
       "frontend/src/pages/Book/BookLayout.tsx": "a5a85dd782f0efaf1093410801526afcaabfbbb4a9f21ddfdaa6eeb45eef0b34",
       "frontend/src/pages/Book/components/AddChapterModal.tsx": "81b19ba1efe57699df0a4a8cdd85d8040569402cf43e601c476c2d8655adb5a0",
       "frontend/src/pages/Book/components/AssemblyChapterPicker.tsx": "4c8807c4d233f820d236129c9b0960887018c9144a9e270586fd6b119ca598cf",
-      "frontend/src/pages/Book/components/BookInfoCard.tsx": "9bb4e5560c9cb8d148bddafec55ea6fe762dd4c0adcf5dd0abe4593ba48f9998",
+      "frontend/src/pages/Book/components/BookInfoCard.tsx": "c0898d82b003d7d50d24d0c45c474a5ff059ace2264115d9f646bb80620429c4",
       "frontend/src/pages/Book/components/ChapterTable.tsx": "1d296a9a8740ed9669a63950679f71cfedc8427379c1bcb266b4c10cde67efac",
       "frontend/src/pages/Book/components/ChapterTextPanel.tsx": "1e452c91e59d79f12ad2aac1fe433bc591cb03bfb18b6fc6a29b78bb5c6f8b53",
       "frontend/src/pages/Book/components/ChapterWorkspaceHeader.tsx": "ba7a7a9560b94d65f2941fe6472a3c4754338ea7e2c62ade76b2b08510755fe5",
@@ -319,14 +319,14 @@
       "frontend/src/pages/Book/index.ts": "0f1952d1e3c845b579e3df5357c574fe06d271e471edf19b5b1ce2e71970c3c2",
       "frontend/src/pages/Book/lib/chapterJobs.ts": "3995d799930568c674f70bd9bd4f38468396a29ef43313d0bc595c4bae2c2e22",
       "frontend/src/pages/Book/lib/chapterLifecycle.ts": "8ab01ac79c15e9ca368313e516e37d346a08ade436f0d97797894540542f6efd",
-      "frontend/src/pages/Book/lib/stages.ts": "75b403e90e112b513d2f388a9b97a110e82164f913eebfcc3cfdc96936aa6966",
+      "frontend/src/pages/Book/lib/stages.ts": "8b54fe870e6887898c7f70f72edca7592dce7514be8d3135c487da23a25cd5b1",
       "frontend/src/pages/Book/lib/useChapterText.ts": "95ebfdf55ad6fa4493a2889676368d17c6721369592d539cb4d8695a14dc8f5c",
       "frontend/src/pages/Book/stages/BackupsStage.tsx": "c621dc4f24f8de9d1c713ea1b5366fe011abeb890c346d698913339fda4ae2a6",
       "frontend/src/pages/Book/stages/CastingStage.tsx": "c526fac07c0ab2fa5b254ec3d2f1952fd42c6774fa59b1e3555dd418dd150f59",
       "frontend/src/pages/Book/stages/ContentsStage.tsx": "f5a843b6e2cefe17fc7ef2663431785495f3472cceb074c035f2503cb4d528df",
       "frontend/src/pages/Book/stages/LexiconStage.tsx": "83422db6f200d2d596869629f0116d152487587c13901a82547cecc74255b34c",
       "frontend/src/pages/Book/stages/ManuscriptStage.tsx": "e66c42728fe5809989028002fc9a8adcdb84e7354f5cd54155f18102da67bc96",
-      "frontend/src/pages/Book/stages/PublishStage.tsx": "3ebd63ac36c0e85d77e2a51d7e6d61fcda32f225b495f5eabefbed0d4fdf9367",
+      "frontend/src/pages/Book/stages/PublishStage.tsx": "97eb9c09bc4147ea4530fa3d6225abb038591936aa0216f12490d7bad446c57d",
       "frontend/src/pages/Book/stages/ReviewStage.tsx": "a0ad1523c4f8cc9d129f18a2f7b28089bad8b887636d954f23f56d0855cfd45d",
       "frontend/src/pages/Book/stages/ReviewStage/AnnotationsPanel.tsx": "a7d29694098a0821376d18ca1a43b3834f6ccc690adb3064003f8a9927a2a31c",
       "frontend/src/pages/Book/stages/ReviewStage/FollowAlongPanel.tsx": "4ef9046453589e159089a4957b6d113565af0a7e6d8d71a6cc4ee5aeba93aa59",
@@ -428,9 +428,9 @@
       "frontend/src/store/live-jobs.ts": "27da820f45aaf6041aaf4b547e62c58b71e9e90fc7040f6cf27534706a51269e",
       "frontend/src/store/liveEventAuditStore.ts": "9bd9feb27b91f973955b0d8f5c8dd2175441010a186e4d4afbbb69283119fc25",
       "frontend/src/store/notifications.ts": "a2df6ed4bdc7607727659463ab62cbcf4df594fe066df4120251793de7bb862d",
-      "frontend/src/store/playerBus.ts": "98d5404a9374422bf65a223f00ee731abab81508513a3e9f9c693f60ea71968a",
+      "frontend/src/store/playerBus.ts": "156ea68e26243b8999d2685828fa2b597d3e50bfc33d8c6001a1cc6198ca1986",
       "frontend/src/store/studioSocketBus.ts": "0c792634e67f69eab716a613a0defb5d409db4ea18b609c42d98b866e2302e9c",
-      "frontend/src/types/index.ts": "41f53674513f3e2475bc6f5402fcdd540dbc47941ddff18b12fa026c9b84f036",
+      "frontend/src/types/index.ts": "1aa4b248c1092e150f12fa2f70e15954defbee659e548601434b7001165c2074",
       "frontend/src/utils/chapterEditorHelpers.ts": "9f968520de2e62a19efd7ea9daeb0ebb38e0d3ecc6ae7aacddc9facfa2863046",
       "frontend/src/utils/chapterRenderProgress.ts": "92570c1eddee3ee1cead0f5a738e420868ab5b8ffb693c68f8503a2c9b3f3b63",
       "frontend/src/utils/chunkGroups.ts": "d00700eb60f1083faf51f3e961671088f173e33b713eb25a16df30424f41671c",
@@ -529,11 +529,15 @@
       "plugins/tts_xtts/plugin/studio/voice_adapter.py": "eddcba55265cfad79c2795b2d639cd00ec8f6272bf69ad7660210605139e57e8",
       "frontend/src/hooks/useAnimatedSegmentProgress.ts": "487ee6c09ba89d3e215e3214772ce9b3d69ac99e022ac3a9d4ac3c31ef1dd196",
       "frontend/src/hooks/useDragDropHighlight.ts": "2df45e7fc63e388846b4e9939d3e0003fcebf6a813a303b439d9e0107b4ca6de",
-      "frontend/src/pages/Book/components/ChapterImportBar.tsx": "df2f7b785ee60094e1f8291f926bbcfdfb8a25b776d7bfe9120bfc5a1e5f7a4e",
+      "frontend/src/pages/Book/components/ChapterImportBar.tsx": "f5983094e74ebd425eb178f609dfb8fdd59d7d7575324007fd795920ae23a72e",
       "frontend/src/pages/Book/lib/chapterImport.ts": "324bb638de4a83cd2b9392dcb631f9d1c7918e8c9199e14e29ff5484118bb09c",
-      "frontend/src/pages/Book/stages/BookStage.tsx": "be856f48be8543d5a3c67022f65292c68830e479f153a3c36020d7251496a0f8",
+      "frontend/src/pages/Book/stages/BookStage.tsx": "77916738755dab02fdebb9762ed322a21105dd9207022de2abd71350900ccb94",
       "frontend/src/utils/seriesPosition.ts": "76a9bc6dd753f6ee7b5b7fc4790b18fdc0205fcb57024250b38577b0327781bc",
-      "frontend/src/utils/toast.ts": "db42ba4faf7e9305f0a5aeb3c96281a53f906b604a6ecfc2717334a35384772f"
+      "frontend/src/utils/toast.ts": "db42ba4faf7e9305f0a5aeb3c96281a53f906b604a6ecfc2717334a35384772f",
+      "frontend/src/pages/Book/components/BookIdentityStrip.tsx": "e6d11de8e40d0f5bddfd383f4e170576435d90915d1a9813e0cd600e95a8c57b",
+      "frontend/src/pages/Book/components/ContinueListeningCard.tsx": "1c84efc9bb6c3de91901dca214f2112fcd4a89cc64ba0686ae814bc685a5db7a",
+      "frontend/src/theme/components.css": "62be5a369003f5bf90bc685ad991e484a98f0fc2ee530d35f51555669cc5f743",
+      "frontend/src/theme/tokens.css": "b47f5ec1304428cf3e5c455a4899429b085b0afdba3015aa8de8aa7edb880bc0"
     },
     "shards": [],
     "unmapped": [
@@ -557,7 +561,7 @@
       "frontend/src/demo/stages/siteMockup/bookmarkStore.ts",
       "frontend/src/demo/stages/siteMockup/panes/*.tsx (14 files, condensed in siteMockupStage.tsx notes)"
     ],
-    "repo_checksum": "073f08074b1a09087a9bbea89c0cd7a495610f4b9ca812b5a1939b706ef2390e",
+    "repo_checksum": "7ec82ae79cf7a2effec81ddb42a70e904bb2847072a6d4b86f23da6275aeb945",
     "edge_tool": "hybrid: madge --json --extensions ts,tsx src/ (v8.0.0, run from frontend/) for frontend import edges; a custom stdlib-ast import-graph script (docs/code-map/tools/py_import_graph.py) for backend/plugin import edges. `calls` entries confirmed by one of these tools are kept/added as tool-derived; prior model-written entries the tool could not confirm (dynamic dispatch, cross-language, or a dotted-module reference the tool didn't resolve) moved to `calls_inferred`. `called_by` is the mechanical inverse of `calls` across the whole map, recomputed from scratch by this merge (2026-07-06)."
   },
   "flows": [
@@ -1074,11 +1078,12 @@
       ]
     },
     "frontend/src/pages/Book": {
-      "purpose": "v3.7 IA: BookLayout + 5 stages (Contents/Cast/Studio/Review/Publish/Lexicon) sharing BookDataContext; Studio stage hosts the chapter editing workspace (CastPalette + ScriptView)",
+      "purpose": "v3.7 IA: BookLayout + 6 stages (Book/Contents/Cast/Studio/Review/Publish/Lexicon -- 'Book' added 2026-07-09 as the new front door, first in stage order and the default landing tab via lib/stages.ts's getLastStage()) sharing BookDataContext; Studio stage hosts the chapter editing workspace (CastPalette + ScriptView); Book stage hosts the front-door hero (BookInfoCard: identity + inline-editable description + Continue Listening + demoted metadata).",
       "depends_on": [
         "frontend/src/pages/ChapterEditor/components",
         "frontend/src/hooks",
-        "frontend/src/api"
+        "frontend/src/api",
+        "frontend/src/store"
       ],
       "depended_by": [
         "frontend/src/app/App.tsx routes"
@@ -2191,7 +2196,8 @@
         "init_db: idempotent; adds columns if missing, migrates legacy structure",
         "verify_and_cleanup_legacy_tables: ATTACH studio_db, migrates data, drops legacy tables from user DB",
         "test safety: refuses non-test paths during pytest (checks temp/ dirs)",
-        "2026-07-08: init_db now adds a projects.series_position INTEGER column alongside the CREATE TABLE default, via an idempotent PRAGMA table_info(projects) presence check + ALTER TABLE for pre-existing DBs."
+        "2026-07-08: init_db now adds a projects.series_position INTEGER column alongside the CREATE TABLE default, via an idempotent PRAGMA table_info(projects) presence check + ALTER TABLE for pre-existing DBs.",
+        "2026-07-09: init_db()'s projects CREATE TABLE now declares a `description TEXT` column for fresh DBs, plus a guarded `ALTER TABLE projects ADD COLUMN description TEXT` for existing DBs (idempotent, same idiom as the series_position migration guard immediately above it)."
       ]
     },
     "app/db/chapters_helpers.py": {
@@ -3516,7 +3522,7 @@
         {
           "name": "api_list_projects, api_get_project, api_create_project, api_update_project, api_reorder_chapters_route",
           "kind": "function",
-          "contract": "api_create_project accepts optional series_position (Form int); api_update_project accepts series_position as a Form string so an empty submission is distinguishable from omission (reads request.form() directly to detect presence and clear the field to None)"
+          "contract": "api_create_project accepts optional series_position (Form int); api_update_project accepts series_position as a Form string so an empty submission is distinguishable from omission (reads request.form() directly to detect presence and clear the field to None); api_update_project also accepts an optional `description` (Form str, 2026-07-09) -- `if description is not None` handles the normal set case, with an `elif \"description\" in form_data` fallback (reads the raw form value) because FastAPI's Form(None) coerces an empty-string submission to None, indistinguishable from omission, same latent gap as author/series/name."
         }
       ],
       "calls": [
@@ -3531,7 +3537,8 @@
       "called_by": [],
       "notes": [
         "_schedule_segment_gc runs as BackgroundTask",
-        "2026-07-08: api_create_project threads series_position into create_project(); api_update_project inspects request.form() for a submitted (possibly empty-string) series_position field so clearing the value round-trips to None rather than being ignored -- a non-empty value that fails int() parsing returns 400 {status:'error', message:'Invalid series position'}."
+        "2026-07-08: api_create_project threads series_position into create_project(); api_update_project inspects request.form() for a submitted (possibly empty-string) series_position field so clearing the value round-trips to None rather than being ignored -- a non-empty value that fails int() parsing returns 400 {status:'error', message:'Invalid series position'}.",
+        "2026-07-09T21:07Z (Task 003): api_update_project gains `description: Optional[str] = Form(None)`. api_get_project needed no change -- it already returns dict(row) with no field allowlisting, so the new column round-trips automatically."
       ]
     },
     "app/api/routers/generation.py": {
@@ -7012,7 +7019,8 @@
       "exports": [
         {
           "name": "PlayerScope, AltScope, PlayerBusState, loadAndPlay, switchScope, play, pause, stop, seek, skip, reportTime, notifyEnded, notifyError, notifyPrev, notifyNext, usePlayerBus",
-          "kind": "type/fn/hook"
+          "kind": "type/fn/hook",
+          "contract": "PlayerScope = 'segment' | 'chapter' | 'preview' | 'book' (2026-07-09T21:03Z, Task 001: added 'book' for the Continue Listening card's full-audiobook playback; purely additive, no scope-branching logic anywhere in this file, PlayerBar.tsx, or playerRepresentation.ts)"
         }
       ],
       "calls": [],
@@ -7022,7 +7030,9 @@
         "frontend/src/app/layout/WaveformTape.tsx",
         "frontend/src/hooks/useChapterPlayback.ts",
         "frontend/src/hooks/useVariantActions.ts",
+        "frontend/src/pages/Book/components/BookInfoCard.tsx",
         "frontend/src/pages/Book/components/ChapterTable.tsx",
+        "frontend/src/pages/Book/components/ContinueListeningCard.tsx",
         "frontend/src/pages/Book/stages/ReviewStage/useReviewPlayback.ts",
         "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx",
         "frontend/src/pages/Engines/components/EngineTestSample.tsx",
@@ -7032,7 +7042,8 @@
       ],
       "notes": [
         "requestId increments on loadAndPlay",
-        "W1 (2026-07-03): AltScope type, altScope field, and switchScope() removed entirely -- scope is now purely informational, drives no bus behavior"
+        "W1 (2026-07-03): AltScope type, altScope field, and switchScope() removed entirely -- scope is now purely informational, drives no bus behavior",
+        "2026-07-09T21:03Z: PlayerScope extended with 'book' (Task 001 of book_tab_front_door) so ContinueListeningCard.tsx can loadAndPlay() an assembled audiobook into the existing global player bar."
       ]
     },
     "frontend/src/store/liveEventAuditStore.ts": {
@@ -7935,7 +7946,8 @@
       "notes": [
         "script-view endpoints use cache:'no-store'",
         "409 responses carry expected_base_revision_id",
-        "2026-07-08: createProject/updateProject data param gained series_position?: number|null; updateProject appends an explicit '' when the value is null (clearing) rather than omitting the field, so the clear round-trips through FormData instead of being silently dropped (createProject only appends the field when defined/non-null, matching optional-create semantics)."
+        "2026-07-08: createProject/updateProject data param gained series_position?: number|null; updateProject appends an explicit '' when the value is null (clearing) rather than omitting the field, so the clear round-trips through FormData instead of being silently dropped (createProject only appends the field when defined/non-null, matching optional-create semantics).",
+        "2026-07-09 (Task 004): updateProject()'s data param gained an optional `description?: string`, appended to the outgoing FormData with an explicit `data.description !== undefined` check (not truthy-only) so an empty-string clear round-trips, mirroring the series_position precedent."
       ],
       "calls_inferred": [
         "@/api/types#RenderGroupsResponse",
@@ -8177,7 +8189,8 @@
         "no internal deps, pure type definitions",
         "voice taxonomy per design-docs/specs/voice-taxonomy.json v1.0",
         "Settings gained optional tts_parallel_cap?: number and tts_engine_caps?: Record<string, number> (2026-07-06)",
-        "Project gained series_position: number | null (2026-07-08) -- round-trips through library create/edit and the book overview header."
+        "Project gained series_position: number | null (2026-07-08) -- round-trips through library create/edit and the book overview header.",
+        "Project gained description: string | null (2026-07-09, book_tab_front_door Task 004), matching the backend's nullable TEXT column (Task 002)."
       ]
     },
     "frontend/src/constants/audio.ts": {
@@ -8604,7 +8617,7 @@
         "frontend/src/components/ProjectBackupsPanel.tsx",
         "frontend/src/pages/Book/BookDataContext.tsx",
         "frontend/src/pages/Book/components/AssemblyChapterPicker.tsx",
-        "frontend/src/pages/Book/components/BookInfoCard.tsx",
+        "frontend/src/pages/Book/components/BookIdentityStrip.tsx#BookIdentityStrip",
         "frontend/src/pages/Book/lib/chapterLifecycle.ts",
         "frontend/src/pages/ProjectDetail/components/AssemblyPanel.tsx",
         "frontend/src/pages/ProjectDetail/components/AssemblyProgress.tsx",
@@ -8615,7 +8628,7 @@
         "frontend/src/pages/Book/BookLayout.tsx"
       ],
       "notes": [
-        "2026-07-09: BookInfoCard now also receives hasRendered/hasUnrendered (lifecycle-aware metadata pills) alongside totalRuntime/totalPredicted, matching the overview-stage rework; layout kept narrow/aligned with the rest of the shared book surface after the Book-tab reshuffle."
+        "2026-07-09T21:03Z (Task 005, DC-006): sidebar swapped from the full editable <BookInfoCard> to the new read-only <BookIdentityStrip project> (cover thumbnail + title + author only, no InlineEdit, no cover-change control, no series stepper). Removed the now-unused BookInfoCard import and the totalRuntime/totalPredicted/hasRendered/hasUnrendered destructuring from useBookDataContext() (confirmed unused elsewhere in this file). Publish's sidebar is no longer an edit surface for project identity fields -- the Book tab (BookInfoCard) is now the only place to edit title/author/series/series-position/description."
       ],
       "calls_inferred": [
         "@/components/ProjectBackupsPanel",
@@ -8901,30 +8914,33 @@
       ]
     },
     "frontend/src/pages/Book/components/BookInfoCard.tsx": {
-      "purpose": "Book overview hero card: blurred-bleed cover with drag-drop upload, inline-editable title/author/series header, contextual series-position stepper, and lifecycle-aware metadata pills",
+      "purpose": "Book tab hero: single bordered region combining cover+identity, inline-editable title/author/series header with series-position stepper, an inline-editable description, the Continue Listening card, and demoted (footer-style) metadata pills -- the Book-tab front door (2026-07-09 restructure).",
       "exports": [
         {
           "name": "BookInfoCard",
           "kind": "component",
-          "contract": "props: project, totalRuntime, totalPredicted (number|null), hasRendered, hasUnrendered, onUpdateProject(data) => Promise<boolean>; onUpdateProject's data now includes series_position?: number|null"
+          "contract": "props: project, totalRuntime, totalPredicted (number|null), hasRendered, hasUnrendered, audiobooks?: Audiobook[] (default []), onUpdateProject(data) => Promise<boolean> where data now includes an optional description field alongside name/series/author/series_position/cover."
         }
       ],
       "calls": [
         "frontend/src/components/forms/InlineEdit.tsx",
         "frontend/src/hooks/useDragDropHighlight.ts#useDragDropHighlight",
+        "frontend/src/pages/Book/components/ContinueListeningCard.tsx#ContinueListeningCard",
         "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx#CoverImageModal",
         "frontend/src/types/index.ts",
         "frontend/src/utils/format.ts#formatLength"
       ],
       "called_by": [
-        "frontend/src/pages/Book/stages/PublishStage.tsx",
         "frontend/src/pages/Book/stages/BookStage.tsx"
       ],
       "notes": [
-        "2026-07-09 rewrite: title, author, and series are all edited via InlineEdit's native click-to-edit (no separate boxed 'edit mode') rather than the earlier custom text-field toggles; empty author/series render as italic, 0.8-opacity var(--text-subtle) placeholders ('Add author'/'Add series') so unset optional fields recede without competing with populated metadata -- populated values stay upright/full-opacity.",
-        "Series-position stepper block (an explicit -/input/+ control reading 'Book N') only renders once hasSeriesPosition is true or the user starts editing (isSeriesNumberEditing); otherwise a quiet 'Add book number' ghost button is shown. seriesPositionDraft is local text state synced from project.series_position via useEffect, parsed/clamped (integer, >0 else null) on commit (Enter, blur outside the editor block, or +/- click).",
-        "metadataPills computed from hasRendered/hasUnrendered/totalPredicted: 'Runtime <formatLength>' (success) when hasRendered, 'Predicted <formatLength>' (info) when hasUnrendered and totalPredicted is known, 'No segments yet' (muted) when nothing rendered yet and more remains, 'Rendered' (success) when everything is rendered, plus an always-present 'Created <date>' (muted) pill -- replaces the older single runtime/ETA chip pair.",
-        "Cover upload drag-and-drop now goes through the shared useDragDropHighlight hook (drop calls handleCoverChange(files[0])); cover renders a blurred full-bleed background image plus a sharp foreground image (restores the library page's bleed treatment)."
+        "2026-07-09 rewrite: title, author, and series are all edited via InlineEdit's native click-to-edit (no separate boxed 'edit mode') rather than the earlier custom text-field toggles; empty author/series placeholders ('Add author'/'Add series') use var(--text-muted) with no opacity override (fixed 2026-07-09T14:55Z: the prior var(--text-subtle)+opacity:0.8 combo was a WCAG SC 1.4.3 contrast failure and violated design-system.md's rule that --text-subtle must not carry body text) so unset optional fields still recede without competing with populated metadata.",
+        "Series-position stepper block (an explicit -/input/+ control reading 'Book N') only renders once hasSeriesPosition is true or the user starts editing (isSeriesNumberEditing); otherwise a quiet 'Add book number' ghost button is shown. Stepper buttons grew to 1.5rem (24px) to meet WCAG SC 2.5.8 target size (fixed 2026-07-09T14:55Z, was 1.12rem/17.9px).",
+        "2026-07-09T22:30Z (Task 008, hero-layout-restructure): folded the description InlineEdit (multiline, bound to project.description, saved via new updateDescription handler using the same 'spread current fields, override one' convention as updateField) and <ContinueListeningCard audiobooks coverImagePath> into this component's own .book-info-card__content column, replacing what used to be two separate bordered sibling boxes rendered by BookStage.tsx below this card. .book-info-card__content children now order as title-block -> description -> ContinueListeningCard -> metadata chips.",
+        "metadataPills computed from hasRendered/hasUnrendered/totalPredicted: 'Runtime <formatLength>' (success) when hasRendered, 'Predicted <formatLength>' (info) when hasUnrendered and totalPredicted is known, 'No segments yet' (muted) when nothing rendered yet and more remains, 'Rendered' (success) when everything is rendered, plus an always-present 'Created <date>' (muted) pill. As of the 2026-07-09T22:30Z restructure these are visually demoted: colored pill backgrounds/borders removed (all tones repaint to var(--text-muted)), rendered as a quiet '.'-separated footer line instead of colorful badges, so they no longer compete with the description/Continue-Listening CTA above them; the tone classes are kept for potential future use even though they're currently visually uniform.",
+        "Cover upload drag-and-drop goes through the shared useDragDropHighlight hook (drop calls handleCoverChange(files[0])); cover renders a blurred full-bleed background image plus a sharp foreground image (restores the library page's bleed treatment).",
+        "2026-07-09T23:00Z green-gate fix: metadataPills' filter(Boolean) result cast narrowed from a stale `Array<string | {label, tone}>` union (a tsc -b build failure -- .label/.tone access assumed the object shape only) to the correct `Array<{label, tone}>`.",
+        "Publish tab's sidebar no longer renders this component (see PublishStage.tsx / BookIdentityStrip.tsx, 2026-07-09T21:03Z) -- BookInfoCard on the Book tab is now the only edit surface for project identity fields and description."
       ],
       "calls_inferred": [
         "@/components/forms/InlineEdit"
@@ -8991,7 +9007,7 @@
       ],
       "notes": [
         "storage per-book, no cross-book state",
-        "2026-07-09: BOOK_STAGES gained a leading 'book' entry ('Book' label) before 'contents'; getLastStage's default fallback stays 'contents' (unchanged) so existing bookmarks/links keep landing on Contents."
+        "2026-07-09: BOOK_STAGES gained a leading 'book' entry ('Book' label) before 'contents'. getLastStage()'s no-stored-value/SSR/error fallback changed from 'contents' to 'book' (DC-001 fix, 2026-07-09T14:55Z queue entry) -- every book opened via /book/:bookId now lands on the Book tab by default; the earlier note claiming the fallback stayed 'contents' is superseded."
       ]
     },
     "frontend/src/pages/Book/lib/chapterJobs.ts": {
@@ -9591,7 +9607,8 @@
         "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
       ],
       "notes": [
-        "2026-07-08: handleUpdateProject's data param gained optional series_position?: number|null, forwarded to api.updateProject as series_position ?? null."
+        "2026-07-08: handleUpdateProject's data param gained optional series_position?: number|null, forwarded to api.updateProject as series_position ?? null.",
+        "2026-07-09 (Task 004): handleUpdateProject()'s parameter type gained `description?: string`, forwarded in the same call to api.updateProject(...)."
       ],
       "calls_inferred": [
         "frontend/src/api#*"
@@ -14397,7 +14414,8 @@
         "frontend/src/pages/Book/stages/ManuscriptStage.tsx"
       ],
       "notes": [
-        "added 2026-07-08. compact renders a small dashed-border pill (ContentsStage's action row); default renders the larger drop-zone card (ManuscriptStage); input accepts multiple .txt files; clears the file input value after each import so the same file can be re-selected."
+        "added 2026-07-08. compact renders a small dashed-border pill (ContentsStage's action row); default renders the larger drop-zone card (ManuscriptStage); input accepts multiple .txt files; clears the file input value after each import so the same file can be re-selected.",
+        "2026-07-09T23:00Z green-gate fix: removed a duplicate `width: '100%'` object-literal key (TS1117) in the import button's inline style object -- a real tsc -b build failure that a plain tsc -p --noEmit run had been missing; trivial, no behavior change."
       ]
     },
     "frontend/src/utils/seriesPosition.ts": {
@@ -14445,7 +14463,7 @@
       ]
     },
     "frontend/src/pages/Book/stages/BookStage.tsx": {
-      "purpose": "Dedicated Book overview stage: hero header + BookInfoCard + a reserved notes panel, first tab in the book stage order",
+      "purpose": "Book tab entry point / front door: thin data-to-props adapter rendering a single <BookInfoCard>, no owned markup of its own beyond the <section> wrapper and a loading placeholder.",
       "exports": [
         {
           "name": "BookStage",
@@ -14460,7 +14478,71 @@
         "frontend/src/pages/Book/BookLayout.tsx"
       ],
       "notes": [
-        "added 2026-07-09. Renders BookInfoCard with project/totalRuntime/totalPredicted/hasRendered/hasUnrendered/onUpdateProject from BookDataContext; a static 'Overview notes' aside panel is a placeholder reserved for a future description/synopsis field (no persistence yet)."
+        "added 2026-07-09 (first tab in the book stage order per lib/stages.ts's new leading 'book' entry; getLastStage() now defaults here).",
+        "History within this session: started as BookInfoCard + a static placeholder 'Overview notes' aside (renamed 'Description' 2026-07-09T14:55Z, honest reader-facing empty-state copy) -> Task 006 (22:05Z) added a sibling <ContinueListeningCard> beneath it -> Task 007 (22:15Z) replaced the static placeholder with a real InlineEdit bound to project.description -> Task 008 (22:30Z, hero-layout-restructure) removed the <aside> wrapper entirely, folding both the description edit and ContinueListeningCard into BookInfoCard.tsx's own content column. Net result: this file now only forwards project/totalRuntime/totalPredicted/hasRendered/hasUnrendered/availableAudiobooks (as the `audiobooks` prop) and actions.handleUpdateProject from useBookDataContext() into a single BookInfoCard."
+      ]
+    },
+    "frontend/src/pages/Book/components/BookIdentityStrip.tsx": {
+      "purpose": "Read-only compact identity display (cover thumbnail + title + author) for surfaces that reference the book but must not duplicate BookInfoCard's edit affordances -- currently Publish's sidebar.",
+      "exports": [
+        {
+          "name": "BookIdentityStrip",
+          "kind": "component",
+          "contract": "props: project: Project. No InlineEdit, no cover-change control, no series stepper -- purely presentational."
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/stages/PublishStage.tsx"
+      ],
+      "notes": [
+        "added 2026-07-09T21:03Z (Task 005, DC-006). Outer element is a <section aria-label=\"Book identity\"> landmark region, mirroring BookInfoCard's own aria-label convention. Styled via .book-identity-strip* rules in theme/components.css: compact flex row, 3rem-wide thumbnail cover (vs. Book tab's 10-12rem hero cover), text on --text-primary/--text-secondary (not --text-subtle, per INV-4)."
+      ]
+    },
+    "frontend/src/pages/Book/components/ContinueListeningCard.tsx": {
+      "purpose": "Continue Listening card: surfaces the most-recently-rendered assembled audiobook with Play (loads into the global player bar) and Download actions, or an honest empty state when nothing has been rendered yet.",
+      "exports": [
+        {
+          "name": "ContinueListeningCard",
+          "kind": "component",
+          "contract": "props: audiobooks: Audiobook[] (caller-supplied, already backend-sorted most-recent-first), coverImagePath: string | null. Renders latest = audiobooks[0]."
+        }
+      ],
+      "calls": [
+        "frontend/src/store/playerBus.ts#loadAndPlay",
+        "frontend/src/utils/format.ts#formatLength,formatFileSize,formatRelativeTime"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/components/BookInfoCard.tsx"
+      ],
+      "notes": [
+        "added 2026-07-09T22:05Z (Task 006, DC-003); folded into BookInfoCard.tsx's own content column by Task 008 (2026-07-09T22:30Z hero-layout-restructure) -- no longer a BookStage.tsx sibling.",
+        "Cover thumbnail comes from the caller-supplied coverImagePath prop, not Audiobook.cover_url (this endpoint always returns that field null).",
+        "Play button calls playerBus.loadAndPlay({scope: 'book', title, subtitle: 'Full audiobook', audioUrl}) -- the 'book' PlayerScope added in Task 001 (playerBus.ts, 2026-07-09T21:03Z) exists specifically for this caller.",
+        "Download button uses the existing document.createElement('a')/link.download/link.click() pattern copied from AssemblyPanel.tsx.",
+        "Both Play and Download are disabled (not hidden) when audiobook.url is absent. Empty state ('Nothing rendered yet -- head to Contents to start casting and rendering.') renders when audiobooks is empty.",
+        "In BookInfoCard.tsx's composed layout, an override in components.css strips this card's own border/box-shadow/padding and hides its cover thumbnail, so it renders as part of the single .book-info-card bordered region rather than a second nested card."
+      ]
+    },
+    "frontend/src/theme/components.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties) -- one stylesheet covering most page-owned component classes across the app (e.g. .book-info-card__*, .book-identity-strip*, .continue-listening-card*, .book-stage__*).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "Not previously tracked as a files record (frontend/src/theme/*.css were omitted from both `files` and `meta.unmapped`); added 2026-07-09 given how frequently this file is touched by UI work.",
+        "book_tab_front_door session (2026-07-09) changes: .book-info-card__* placeholder colors switched var(--text-subtle)->var(--text-muted) with opacity:0.8 removed (WCAG contrast fix); .book-info-card__stepper grown 1.12rem->1.5rem (WCAG target-size fix); new .book-identity-strip* rules (compact flex row, 3rem cover, text on --text-primary/--text-secondary); new .continue-listening-card* rules (cover thumbnail, body, title, meta line on --text-muted, actions row); .book-stage__notes given display:flex/column/gap (later made moot -- see below); .book-stage__panel p renamed to .book-stage__panel .book-stage__description (later made moot); final hero-layout-restructure (Task 008) added .book-info-card__description (var(--text-secondary), 46rem max-width), a `.book-info-card__content .continue-listening-card` override stripping the nested card's own border/shadow/padding and hiding its cover thumbnail (renders as part of one bordered .book-info-card region, not a second card), demoted `.book-info-card__chips`/`.book-info-card__chip` to a quiet uniform var(--text-muted) footer line with a '.' separator (::after) instead of colored pill backgrounds, and removed the now-dead `.book-stage__primary`/`.book-stage__notes`/`.book-stage__panel` rules (their only consumer, the old BookStage.tsx aside markup, no longer exists). Pre-existing unrelated dead `.book-stage__hero*`/`.book-stage__eyebrow`/`.book-stage__title`/`.book-stage__subtitle` rules were left untouched (out of scope for this session)."
+      ]
+    },
+    "frontend/src/theme/tokens.css": {
+      "purpose": "Design-token custom properties (colors, spacing, typography scale) -- the single source of truth for the Quiet Studio token system; component stylesheets (components.css) and inline component styles consume these via var(--token-name).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "Not previously tracked as a files record; added 2026-07-09. Touched during the 2026-07-09 book-layout session (already reflected in map.json content per that session's own consolidation) -- no further book_tab_front_door queue entry names a specific token change beyond what's already current on disk."
       ]
     }
   },

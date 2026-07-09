@@ -70,6 +70,7 @@ export interface Project {
   author: string | null;
   speaker_profile_name: string | null;
   cover_image_path: string | null;
+  description: string | null;
   created_at: number;
   updated_at: number;
   chapter_map?: Record<string, any>;

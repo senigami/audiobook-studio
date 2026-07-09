@@ -82,7 +82,7 @@ describe('BookInfoCard metadata', () => {
   it('does not render an awkward byline when author is missing', () => {
     renderCard({ project: { ...baseProject, author: null } });
 
-    expect(screen.getByText('Add author').closest('.inline-edit-trigger')).toHaveStyle({ opacity: '0.8' });
+    expect(screen.getByText('Add author').closest('.inline-edit-trigger')).toHaveStyle({ fontStyle: 'italic' });
     expect(screen.queryByText('by')).not.toBeInTheDocument();
   });
 
@@ -103,8 +103,8 @@ describe('BookInfoCard metadata', () => {
       />,
     );
 
-    expect(screen.getByText('Add author').closest('.inline-edit-trigger')).toHaveStyle({ fontStyle: 'italic', opacity: '0.8' });
-    expect(screen.getByText('Add series').closest('.inline-edit-trigger')).toHaveStyle({ fontStyle: 'italic', opacity: '0.8' });
+    expect(screen.getByText('Add author').closest('.inline-edit-trigger')).toHaveStyle({ fontStyle: 'italic' });
+    expect(screen.getByText('Add series').closest('.inline-edit-trigger')).toHaveStyle({ fontStyle: 'italic' });
   });
 
   it('allows the title to be edited in place', () => {

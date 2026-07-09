@@ -1,0 +1,22 @@
+{
+  "plan": "design-docs/plans/active/book_tab_front_door",
+  "updated": "2026-07-09T15:10:00Z",
+  "slices": {
+    "001-player-bus-book-scope": { "state": "accepted", "files": ["frontend/src/store/playerBus.ts"] },
+    "002-description-column-migration": { "state": "accepted", "files": ["app/db/core.py", "design-docs/specs/data-model.md", "tests/db/test_db_projects.py"] },
+    "005-book-identity-strip": { "state": "accepted", "files": ["frontend/src/pages/Book/components/BookIdentityStrip.tsx", "frontend/src/pages/Book/stages/PublishStage.tsx", "frontend/src/theme/components.css"], "note": "orchestrator applied a follow-up fix in BookLayout.test.tsx (stale 'Book info' aria-role assertion on the Publish route, missed by this task's own test update) after Task 006 flagged it" },
+    "003-description-api-param": { "state": "accepted", "files": ["app/api/routers/projects.py", "tests/api/test_api_projects.py"], "note": "revert-checked: form_data fallback for empty-string clear is genuinely required, confirmed via stash/re-run" },
+    "004-description-frontend-contract": { "state": "accepted", "files": ["frontend/src/types/index.ts", "frontend/src/api/index.ts", "frontend/src/hooks/useProjectActions.ts"] },
+    "006-continue-listening-card": { "state": "accepted", "files": ["frontend/src/pages/Book/components/ContinueListeningCard.tsx", "frontend/src/pages/Book/stages/BookStage.tsx", "frontend/src/theme/components.css", "frontend/tests/unit/pages/Book/components/ContinueListeningCard.test.tsx", "frontend/tests/unit/pages/Book/BookLayout.test.tsx"] },
+    "007-description-card-wiring": { "state": "accepted", "files": ["frontend/src/pages/Book/stages/BookStage.tsx", "frontend/src/theme/components.css", "frontend/tests/unit/pages/Book/stages/BookStage.test.tsx"] },
+    "008-hero-layout-restructure": { "state": "accepted", "files": ["frontend/src/pages/Book/components/BookInfoCard.tsx", "frontend/src/pages/Book/stages/BookStage.tsx", "frontend/src/theme/components.css", "frontend/tests/unit/pages/Book/stages/BookStage.test.tsx"] }
+  },
+  "green_gate": "passed",
+  "green_gate_note": "npm run build, tsc -b, npm run lint, pytest, ruff all green. One pre-existing unrelated vitest failure (tests/unit/demo/demoApp.test.tsx, demo voice portraits) confirmed unrelated. Orchestrator fixed two pre-existing, plan-unrelated build blockers found by the green-gate check: BookInfoCard.tsx metadataPills union-type cast (frontend/src/pages/Book/components/BookInfoCard.tsx) and a duplicate `width` key in ChapterImportBar.tsx (frontend/src/pages/Book/components/ChapterImportBar.tsx) — both predate this plan (already in HEAD/70ed5c54), confirmed via git diff/show before fixing.",
+  "review_rounds": [
+    { "round": 1, "blockers_found": 0, "blockers_fixed": 0, "note": "Top-tier adversarial review across correctness/regressions/security/invariants/test-quality found zero blockers; empirically re-verified the flagged empty-string-clear edge case in app/api/routers/projects.py via a live FastAPI probe. 4 nitpicks noted; orchestrator fixed the one worth fixing (dead .book-stage__hero* CSS left over from the Phase-1 header removal, ~50 lines across two blocks in frontend/src/theme/components.css) and left the other 3 (implicit CSS coupling comment, minor chip-spacing asymmetry, belt-and-suspenders guard) as accepted trade-offs, not defects." }
+  ],
+  "state": "completed",
+  "completed": "2026-07-09T23:10:00Z",
+  "live_verification_note": "Orchestrator ran a live dev-preview pass after the review round to close out the live-verification checkboxes several implementer agents had left unticked (no browser tool in their sessions): confirmed the North Star desktop hero layout, the Continue Listening Play button (network-proven 206 Partial Content on the real audio file), Publish's BookIdentityStrip sidebar, and clean 375px mobile reflow — all working as designed. One item stayed genuinely open: synthetic clicks on the description InlineEdit trigger did not reliably enter edit mode in this preview-tool session (a tool-level quirk — identical click patterns worked fine elsewhere in the same session), so the description save mechanism is confirmed via its passing unit test + backend/API round-trip tests but not re-confirmed by a live browser click. Flagged in tasks/007's checklist, not silently closed."
+}

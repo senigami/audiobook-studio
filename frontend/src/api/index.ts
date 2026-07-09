@@ -44,7 +44,7 @@ export const api = {
     const res = await fetch('/api/projects', { method: 'POST', body: formData });
     return parseApiResponse(res);
   },
-  updateProject: async (id: string, data: { name?: string; series?: string; series_position?: number | null; author?: string; speaker_profile_name?: string | null; cover?: File }): Promise<any> => {
+  updateProject: async (id: string, data: { name?: string; series?: string; series_position?: number | null; author?: string; speaker_profile_name?: string | null; description?: string; cover?: File }): Promise<any> => {
     const formData = new FormData();
     if (data.name) formData.append('name', data.name);
     if (data.series) formData.append('series', data.series);
@@ -53,6 +53,7 @@ export const api = {
     }
     if (data.author) formData.append('author', data.author);
     if (data.speaker_profile_name !== undefined) formData.append('speaker_profile_name', data.speaker_profile_name || DEFAULT_VOICE_SENTINEL);
+    if (data.description !== undefined) formData.append('description', data.description);
     if (data.cover) formData.append('cover', data.cover);
     const res = await fetch(`/api/projects/${id}`, { method: 'PUT', body: formData });
     return parseApiResponse(res);

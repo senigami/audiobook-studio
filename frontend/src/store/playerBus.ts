@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react';
 // Types
 // ---------------------------------------------------------------------------
 
-export type PlayerScope = 'segment' | 'chapter' | 'preview';
+export type PlayerScope = 'segment' | 'chapter' | 'preview' | 'book';
 
 export interface PlayerBusState {
   scope: PlayerScope | null;

@@ -69,6 +69,23 @@ def test_project_crud(clean_db, client):
     assert client.get(f"/api/projects/{pid}").status_code == 404
 
 
+def test_project_description_round_trip(clean_db, client):
+    # Create
+    response = client.post("/api/projects", data={"name": "Desc Project"})
+    assert response.status_code == 200
+    pid = response.json()["project_id"]
+
+    # Update with a description
+    response = client.put(f"/api/projects/{pid}", data={"description": "A tale of two cities."})
+    assert response.status_code == 200
+    assert client.get(f"/api/projects/{pid}").json()["description"] == "A tale of two cities."
+
+    # Clearing with an empty string
+    response = client.put(f"/api/projects/{pid}", data={"description": ""})
+    assert response.status_code == 200
+    assert client.get(f"/api/projects/{pid}").json()["description"] == ""
+
+
 def test_project_list_and_detail_do_not_migrate_on_read(clean_db, client):
     pid = client.post("/api/projects", data={"name": "Fast List Project"}).json()["project_id"]
 

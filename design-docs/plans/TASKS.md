@@ -47,6 +47,19 @@ CP (serial):  W-MIX-LA 007 ✓ CLEARED ──► W-PAR 002 ─► 003 (keystone)
 - [~] **L-LIB 003** — Chapter import drag-and-drop with multi-file support for already-supported formats only — [plan](active/library_project_usability/README.md)
 - [~] **L-LIB 004** — Spec updates, tests, and master task accounting — [plan](active/library_project_usability/README.md)
 
+### Book tab front door (design critique follow-through) — DONE 2026-07-09
+
+Phase 1 of the critique (default-tab fix, `--text-subtle` contrast fix, stepper target-size fix, copy cleanup) plus all 8 Big Bet tasks below are complete: build/typecheck/lint/pytest/ruff green, one adversarial review round (zero blockers), live dev-preview verification of the North Star hero layout, the Continue Listening play flow, the Publish identity strip, and mobile reflow. Archived — see [plan](_archive/book_tab_front_door/README.md) and its `status.json` for the full run log.
+
+- [x] **L-BOOK 001** — Add `'book'` scope to the player bus — [plan](_archive/book_tab_front_door/tasks/001-player-bus-book-scope.md)
+- [x] **L-BOOK 002** — Additive `description` column + spec update — [plan](_archive/book_tab_front_door/tasks/002-description-column-migration.md)
+- [x] **L-BOOK 003** — API param for `description` — [plan](_archive/book_tab_front_door/tasks/003-description-api-param.md)
+- [x] **L-BOOK 004** — Frontend contract for `description` (type/api/hook) — [plan](_archive/book_tab_front_door/tasks/004-description-frontend-contract.md)
+- [x] **L-BOOK 005** — Extract `BookIdentityStrip`, swap into Publish's sidebar — [plan](_archive/book_tab_front_door/tasks/005-book-identity-strip.md)
+- [x] **L-BOOK 006** — Continue Listening card (listen/resume affordance) — [plan](_archive/book_tab_front_door/tasks/006-continue-listening-card.md)
+- [x] **L-BOOK 007** — Wire real description field into `BookStage.tsx` — [plan](_archive/book_tab_front_door/tasks/007-description-card-wiring.md)
+- [x] **L-BOOK 008** — North Star hero layout restructuring — [plan](_archive/book_tab_front_door/tasks/008-hero-layout-restructure.md)
+
 ### Ready to dispatch NOW
 
 **Zero blockers:**

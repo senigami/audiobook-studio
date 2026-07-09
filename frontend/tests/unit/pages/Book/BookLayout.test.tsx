@@ -125,14 +125,14 @@ describe('BookLayout', () => {
     });
   });
 
-  it('redirects /book/:bookId to contents by default', async () => {
+  it('redirects /book/:bookId to book by default', async () => {
     renderBookRoute('/book/book-1');
 
     await waitFor(() => {
-      expect(screen.getByTestId('pathname')).toHaveTextContent('/book/book-1/contents');
+      expect(screen.getByTestId('pathname')).toHaveTextContent('/book/book-1/book');
     });
 
-    expect(screen.getByRole('region', { name: 'Contents' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Book info' })).toBeInTheDocument();
   });
 
   it('redirects /book/:bookId to the last visited stage when present', async () => {
@@ -145,7 +145,7 @@ describe('BookLayout', () => {
     });
 
     expect(screen.getByRole('region', { name: 'Publish' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Book info' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Book identity' })).toBeInTheDocument();
   });
 
   it('persists the selected stage when a stage tab is clicked', () => {
@@ -160,7 +160,7 @@ describe('BookLayout', () => {
     renderBookRoute('/book/book-1/unknown-stage');
 
     await waitFor(() => {
-      expect(screen.getByTestId('pathname')).toHaveTextContent('/book/book-1/contents');
+      expect(screen.getByTestId('pathname')).toHaveTextContent('/book/book-1/book');
     });
   });
 

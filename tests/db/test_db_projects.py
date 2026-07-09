@@ -63,6 +63,31 @@ def test_project_crud(db_conn, tmp_path):
 
     assert get_project(pid) is None
 
+def test_project_description_round_trip(db_conn):
+    pid = create_project("Description Project")
+
+    # Unset by default
+    project = get_project(pid)
+    assert project["description"] is None
+
+    # Set a description
+    success = update_project(pid, description="A gripping tale.")
+    assert success is True
+    project = get_project(pid)
+    assert project["description"] == "A gripping tale."
+
+    # Clear to empty string
+    success = update_project(pid, description="")
+    assert success is True
+    project = get_project(pid)
+    assert project["description"] == ""
+
+    # Set back to None
+    success = update_project(pid, description=None)
+    assert success is True
+    project = get_project(pid)
+    assert project["description"] is None
+
 def test_list_projects_order(db_conn):
     pid1 = create_project("P1")
     pid2 = create_project("P2")

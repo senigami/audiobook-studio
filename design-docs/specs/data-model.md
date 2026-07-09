@@ -1,9 +1,9 @@
 # Data Model
 
 ```
-spec_version: 1.7.0
+spec_version: 1.8.0
 status: active
-updated: 2026-07-08
+updated: 2026-07-09
 sources:
   - app/db/state.py
   - app/db/state_jobs.py
@@ -25,6 +25,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.8.0   | 2026-07-09 | **Book tab front door: `projects.description`.** Add the optional `description` column to the durable `projects` table (additive migration, same idiom as `series_position`) and document it as part of the canonical schema. `update_project()` round-trips the field with no special-casing (plain string, unlike `series_position`'s null-vs-empty handling); no manifest or legacy v1→v2 migration change is needed (write-once manifest, no legacy source data for a field that didn't exist in v1). |
 | 1.7.0   | 2026-07-08 | **Library project usability: `projects.series_position`.** Add the optional `series_position` column to the durable `projects` table and document it as part of the canonical schema. Project create/update flows now round-trip the field, and update requests reject invalid `series_position` values with a structured 400 instead of crashing the handler. |
 | 1.6.0   | 2026-07-03 | **W-PAR task 007 — `tts_parallel_cap` / `tts_engine_caps` settings fields.** New `settings` keys documenting the cap-default-1 toggle surfaced as a real Studio setting (see `queue-jobs.md §7.3b`). No storage schema change beyond the two new keys; existing `state.json` files without them fall back to the documented defaults via `_normalize_settings`. Parent/child job shape and validated-artifact completion fields are unchanged by task 007 (confirmed no drift — those were introduced by W-PAR tasks 002/003/005, already documented in prior versions of this spec). |
 | 1.5.0   | 2026-07-02 | **`model_load_seconds` is now consumed, not just recorded (W-MIX-LA load-aware ETA).** Doc catch-up for `app/db/performance.py::expected_model_load_seconds(engine, tts_model)`, which reads a trimmed mean of `render_performance_samples.model_load_seconds` (filtered to `>= 1.0`, treating smaller values as warm-reuse noise, and to matching `tts_model` when known) to produce the load term the orchestrator adds to the live chapter ETA during a cold-engine dispatch (`live-events.md` 1.8.0 `pre_load_eta` / `LOADING_MODEL` frames). Returns `None` on no cold-load history — callers must not inject a load term in that case (no-fabrication principle). See render_performance_samples below. |
@@ -134,6 +135,7 @@ Managed by `app/db/`. The DB MUST NOT auto-migrate on import — callers invoke 
 | `author` | TEXT | |
 | `speaker_profile_name` | TEXT | Default voice for the project |
 | `cover_image_path` | TEXT | Relative path to cover image |
+| `description` | TEXT | Optional book description/synopsis shown on the Book tab; NULL when unset |
 | `created_at` | REAL | Unix epoch seconds |
 | `updated_at` | REAL | Unix epoch seconds |
 

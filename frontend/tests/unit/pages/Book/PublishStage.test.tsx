@@ -116,7 +116,7 @@ describe('PublishStage', () => {
     expect(screen.getByText('Project Assemblies')).toBeInTheDocument();
     expect(screen.getByText('Book One Assembly')).toBeInTheDocument();
     expect(screen.getByText('Project Backups')).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Book info' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Book identity' })).toBeInTheDocument();
   });
 
   it('switches AssemblyPanel into rendered-only selection mode and confirms selected chapters', () => {

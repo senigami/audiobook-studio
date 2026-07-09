@@ -163,6 +163,7 @@ def init_db():
                     author TEXT,
                     speaker_profile_name TEXT,
                     cover_image_path TEXT,
+                    description TEXT,
                     created_at REAL,
                     updated_at REAL
                 )
@@ -171,6 +172,8 @@ def init_db():
             project_columns = {row[1] for row in cursor.fetchall()}
             if "series_position" not in project_columns:
                 cursor.execute("ALTER TABLE projects ADD COLUMN series_position INTEGER")
+            if "description" not in project_columns:
+                cursor.execute("ALTER TABLE projects ADD COLUMN description TEXT")
 
             # Chapters table
             cursor.execute("""

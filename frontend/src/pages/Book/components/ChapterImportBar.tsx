@@ -69,7 +69,6 @@ export function ChapterImportBar({
             gap: '0.65rem',
             textAlign: 'left',
             whiteSpace: 'nowrap',
-            width: '100%',
           }}
         >
           <Upload size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
