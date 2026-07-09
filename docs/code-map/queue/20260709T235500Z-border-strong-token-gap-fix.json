@@ -1,0 +1,13 @@
+{
+  "at": "2026-07-09T23:55:00Z",
+  "commit": "uncommitted",
+  "task": "Pre-rollout readiness check for the book_tab_front_door layout found --border-strong referenced twice in components.css (from the earlier 70ed5c54 book-layout commit) with no matching definition in tokens.css, silently rendering the series-position pill/stepper border as invisible/wrong-colored. Added the missing token in both themes.",
+  "files": {
+    "frontend/src/theme/tokens.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added --border-strong token (light: #c3cbdb, dark: #5a6480) next to --border/--border-muted, closing a gap where components.css referenced an undefined custom property for the series-position pill border and the stepper's hover border-color."
+    }
+  },
+  "flow_impact": "none"
+}
