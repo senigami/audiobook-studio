@@ -41,7 +41,10 @@ def api_create_lexicon_entry(
     p = get_project(project_id)
     if not p:
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
-    entry_id = add_lexicon_entry(project_id, word, replacement)
+    try:
+        entry_id = add_lexicon_entry(project_id, word, replacement)
+    except ValueError as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
     return JSONResponse({"status": "ok", "id": entry_id})
 
 

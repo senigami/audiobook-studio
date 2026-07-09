@@ -22,6 +22,9 @@ vi.mock('@/api', () => ({
   },
 }));
 
+const emitToastMock = vi.fn();
+vi.mock('@/utils/toast', () => ({ emitToast: (...args: unknown[]) => emitToastMock(...args) }));
+
 // ConfirmModal: render a simple dialog so we can click Confirm/Cancel
 vi.mock('@/components/overlays/ConfirmModal', () => ({
   ConfirmModal: ({ isOpen, title, message, onConfirm, onCancel }: any) =>
@@ -118,6 +121,50 @@ describe('LexiconPanel', () => {
     expect(screen.queryByLabelText('Add pronunciation entry')).not.toBeInTheDocument();
   });
 
+  // ---------- empty submit shows feedback instead of silently doing nothing --
+
+  it('shows a toast and does not call addLexiconEntry when submitting a blank word', async () => {
+    vi.mocked(api.fetchLexicon).mockResolvedValue([]);
+
+    render(<LexiconPanel projectId="book-1" />);
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /Add entry/i }));
+
+    const form = screen.getByLabelText('Add pronunciation entry');
+    // Leave "New word" blank, only fill the respelling.
+    fireEvent.change(within(form).getByLabelText('New respelling'), { target: { value: 'lohm' } });
+    fireEvent.keyDown(within(form).getByLabelText('New respelling'), { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(emitToastMock).toHaveBeenCalledWith(expect.stringMatching(/word/i));
+    });
+    expect(api.addLexiconEntry).not.toHaveBeenCalled();
+    // Form stays open so the user can fix the field.
+    expect(screen.getByLabelText('Add pronunciation entry')).toBeInTheDocument();
+  });
+
+  it('shows a toast with the server error and reopens the form on a duplicate word', async () => {
+    vi.mocked(api.fetchLexicon).mockResolvedValue([]);
+    const error = new Error('A lexicon entry for "loam" already exists.');
+    vi.mocked(api.addLexiconEntry).mockRejectedValue(error);
+
+    render(<LexiconPanel projectId="book-1" />);
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /Add entry/i }));
+    const form = screen.getByLabelText('Add pronunciation entry');
+    fireEvent.change(within(form).getByLabelText('New word'), { target: { value: 'loam' } });
+    fireEvent.change(within(form).getByLabelText('New respelling'), { target: { value: 'lohm' } });
+    fireEvent.click(within(form).getByRole('button', { name: /Add/i }));
+
+    await waitFor(() => {
+      expect(emitToastMock).toHaveBeenCalledWith('A lexicon entry for "loam" already exists.');
+    });
+    // The form stays open (and mounted) rather than throwing unhandled.
+    expect(screen.getByLabelText('Add pronunciation entry')).toBeInTheDocument();
+  });
+
   // ---------- edit calls updateLexiconEntry ----------------------------------
 
   it('edit calls updateLexiconEntry with updated values', async () => {
@@ -142,6 +189,25 @@ describe('LexiconPanel', () => {
     await waitFor(() => {
       expect(screen.getByText('ROE-an')).toBeInTheDocument();
     });
+  });
+
+  it('shows a toast and does not call updateLexiconEntry when saving a blank respelling', async () => {
+    vi.mocked(api.fetchLexicon).mockResolvedValue(ENTRIES);
+
+    render(<LexiconPanel projectId="book-1" />);
+    await waitFor(() => expect(screen.getByText('Rowan')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /Edit pronunciation for Rowan/i }));
+    const editRegion = screen.getByLabelText(/Edit entry for Rowan/);
+    fireEvent.change(within(editRegion).getByLabelText('Respelling'), { target: { value: '  ' } });
+    fireEvent.click(within(editRegion).getByRole('button', { name: /Save entry/i }));
+
+    await waitFor(() => {
+      expect(emitToastMock).toHaveBeenCalledWith(expect.stringMatching(/word/i));
+    });
+    expect(api.updateLexiconEntry).not.toHaveBeenCalled();
+    // Still in edit mode so the user can fix the field.
+    expect(screen.getByLabelText(/Edit entry for Rowan/)).toBeInTheDocument();
   });
 
   // ---------- delete calls deleteLexiconEntry --------------------------------

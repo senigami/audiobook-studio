@@ -56,13 +56,21 @@ export function ContentsStage() {
   };
 
   const handleExportSample = async (chapter: Chapter) => {
-    const result = await api.exportSample(chapter.id, chapter.project_id);
-    if (result.url) {
-      window.open(result.url, '_blank');
+    try {
+      const result = await api.exportSample(chapter.id, chapter.project_id);
+      if (result.url) {
+        window.open(result.url, '_blank');
+      } else {
+        emitToast("Couldn't export sample. Please try again.");
+      }
+    } catch (e) {
+      console.error("Failed to export sample", e);
+      emitToast("Couldn't export sample. Please try again.");
     }
   };
 
   const handleCreateChapter = async (title: string, text: string, file: File | null) => {
+    // Failure already surfaces a toast from useProjectActions.handleCreateChapter itself.
     const created = await actions.handleCreateChapter(title, text, file, chapters.length);
     if (created) {
       setShowAddChapterModal(false);
@@ -76,7 +84,10 @@ export function ContentsStage() {
     const invalidFiles = fileList.filter((file) => !isSupportedChapterImportFile(file));
     invalidFiles.forEach((file) => emitToast(getChapterImportError(file)));
     for (const [index, file] of validFiles.entries()) {
-      await actions.handleCreateChapter(getChapterImportFileTitle(file), '', file, chapters.length + index);
+      const created = await actions.handleCreateChapter(getChapterImportFileTitle(file), '', file, chapters.length + index);
+      if (!created) {
+        emitToast(`Couldn't import "${file.name}". Please try again.`);
+      }
     }
   };
 

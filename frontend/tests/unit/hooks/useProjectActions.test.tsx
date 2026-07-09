@@ -2,6 +2,7 @@ import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useProjectActions } from '@/hooks/useProjectActions';
 import { api } from '@/api';
+import * as toast from '@/utils/toast';
 
 // Mock API
 vi.mock('@/api', () => ({
@@ -44,6 +45,21 @@ describe('useProjectActions', () => {
       file: undefined
     });
     expect(onDataRefresh).toHaveBeenCalled();
+  });
+
+  it('shows a toast when createChapter fails', async () => {
+    const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
+    (api.createChapter as any).mockRejectedValue(new Error('network error'));
+    const { result } = renderHook(() => useProjectActions(projectId, onDataRefresh, navigate));
+
+    let success;
+    await act(async () => {
+      success = await result.current.handleCreateChapter('Title', 'Content', null, 0);
+    });
+
+    expect(success).toBe(false);
+    expect(toastSpy).toHaveBeenCalledWith("Couldn't create chapter. Please try again.");
+    expect(onDataRefresh).not.toHaveBeenCalled();
   });
 
   it('handles updateProject', async () => {

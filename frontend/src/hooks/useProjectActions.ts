@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { api } from '@/api';
+import { emitToast } from '@/utils/toast';
 import type { Chapter } from '@/types';
 
 export function useProjectActions(
@@ -24,6 +25,7 @@ export function useProjectActions(
       return true;
     } catch (e) {
       console.error("Failed to create chapter", e);
+      emitToast("Couldn't create chapter. Please try again.");
       return false;
     } finally {
       setSubmitting(false);

@@ -22,6 +22,16 @@ const character = {
   color: '#8b5cf6',
 };
 
+const tempCharacter = {
+  id: 'char-2',
+  project_id: 'proj-1',
+  name: 'Chapter Extra',
+  speaker_profile_name: null,
+  default_emotion: null,
+  color: '#8b5cf6',
+  chapter_id: 'chapter-1',
+};
+
 const voiceMetadataList: VoiceMetadata[] = [
   {
     id: 'gravel-road',
@@ -57,7 +67,10 @@ const engines: TtsEngine[] = [
 const mockApi = {
   fetchCharacters: vi.fn().mockResolvedValue([character]),
   listVoicesWithMetadata: vi.fn().mockResolvedValue(voiceMetadataList),
+  createCharacter: vi.fn().mockResolvedValue({ status: 'ok', character_id: 'char-new' }),
   updateCharacter: vi.fn().mockResolvedValue({ status: 'ok' }),
+  deleteCharacter: vi.fn().mockResolvedValue({ status: 'ok' }),
+  promoteCharacter: vi.fn().mockResolvedValue({ status: 'ok' }),
   castVoices: vi.fn().mockResolvedValue({
     contract_version: '1.0',
     character: 'Sheriff Boone',
@@ -66,6 +79,9 @@ const mockApi = {
   }),
 };
 
+const emitToastMock = vi.fn();
+vi.mock('@/utils/toast', () => ({ emitToast: (...args: unknown[]) => emitToastMock(...args) }));
+
 vi.mock('@/api', () => ({ api: mockApi }));
 
 describe('CharactersTab — Suggest voices action', () => {
@@ -73,7 +89,10 @@ describe('CharactersTab — Suggest voices action', () => {
     vi.clearAllMocks();
     mockApi.fetchCharacters.mockResolvedValue([character]);
     mockApi.listVoicesWithMetadata.mockResolvedValue(voiceMetadataList);
+    mockApi.createCharacter.mockResolvedValue({ status: 'ok', character_id: 'char-new' });
     mockApi.updateCharacter.mockResolvedValue({ status: 'ok' });
+    mockApi.deleteCharacter.mockResolvedValue({ status: 'ok' });
+    mockApi.promoteCharacter.mockResolvedValue({ status: 'ok' });
     mockApi.castVoices.mockResolvedValue({
       contract_version: '1.0',
       character: 'Sheriff Boone',
@@ -137,5 +156,111 @@ describe('CharactersTab — Suggest voices action', () => {
     await waitFor(() => {
       expect(mockApi.updateCharacter).toHaveBeenCalledWith('char-1', undefined, 'Gravel Road - Default');
     });
+  });
+
+  it('has an accessible label on the per-row rename input', async () => {
+    const { CharactersTab } = await import('@/components/CharactersTab');
+
+    render(
+      <CharactersTab
+        projectId="proj-1"
+        speakers={speakers}
+        speakerProfiles={speakerProfiles}
+        engines={engines}
+      />
+    );
+
+    expect(await screen.findByLabelText('Character name: Sheriff Boone')).toBeInTheDocument();
+  });
+
+  it('shows a toast when adding a character fails', async () => {
+    mockApi.createCharacter.mockRejectedValueOnce(new Error('create failed'));
+    const { CharactersTab } = await import('@/components/CharactersTab');
+
+    render(
+      <CharactersTab
+        projectId="proj-1"
+        speakers={speakers}
+        speakerProfiles={speakerProfiles}
+        engines={engines}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByDisplayValue('Sheriff Boone')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByPlaceholderText('e.g. Wizard, Captain...'), { target: { value: 'New Guy' } });
+    fireEvent.click(screen.getByTitle('Create Character'));
+
+    await waitFor(() => expect(emitToastMock).toHaveBeenCalled());
+  });
+
+  it('shows a toast and reverts the optimistic update when renaming a character fails', async () => {
+    mockApi.updateCharacter.mockRejectedValueOnce(new Error('rename failed'));
+    const { CharactersTab } = await import('@/components/CharactersTab');
+
+    render(
+      <CharactersTab
+        projectId="proj-1"
+        speakers={speakers}
+        speakerProfiles={speakerProfiles}
+        engines={engines}
+      />
+    );
+
+    const input = await screen.findByDisplayValue('Sheriff Boone');
+    fireEvent.change(input, { target: { value: 'Deputy Boone' } });
+    fireEvent.blur(input);
+
+    await waitFor(() => expect(emitToastMock).toHaveBeenCalled());
+    // Reverted: loadCharacters() re-fetches and the original name reappears.
+    await waitFor(() => expect(screen.getByDisplayValue('Sheriff Boone')).toBeInTheDocument());
+    expect(screen.queryByDisplayValue('Deputy Boone')).not.toBeInTheDocument();
+  });
+
+  it('shows a toast when deleting a character fails, and does not remove the row', async () => {
+    mockApi.deleteCharacter.mockRejectedValueOnce(new Error('delete failed'));
+    const { CharactersTab } = await import('@/components/CharactersTab');
+
+    render(
+      <CharactersTab
+        projectId="proj-1"
+        speakers={speakers}
+        speakerProfiles={speakerProfiles}
+        engines={engines}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByDisplayValue('Sheriff Boone')).toBeInTheDocument());
+    fireEvent.click(screen.getByTitle('Delete Character'));
+    await waitFor(() => screen.getByRole('dialog'));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => expect(emitToastMock).toHaveBeenCalled());
+    expect(screen.getByDisplayValue('Sheriff Boone')).toBeInTheDocument();
+  });
+
+  it('renders a Promote action only for chapter-scoped temp characters, and promotes via api.promoteCharacter', async () => {
+    mockApi.fetchCharacters.mockResolvedValue([character, tempCharacter]);
+    const { CharactersTab } = await import('@/components/CharactersTab');
+
+    render(
+      <CharactersTab
+        projectId="proj-1"
+        speakers={speakers}
+        speakerProfiles={speakerProfiles}
+        engines={engines}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByDisplayValue('Chapter Extra')).toBeInTheDocument());
+
+    // Only one temp badge / promote button, scoped to the chapter-scoped character.
+    expect(screen.getAllByTitle('Chapter-scoped temporary character')).toHaveLength(1);
+    const promoteButton = screen.getByTitle('Promote to a permanent book-level character');
+    expect(screen.getAllByTitle('Promote to a permanent book-level character')).toHaveLength(1);
+
+    fireEvent.click(promoteButton);
+
+    await waitFor(() => expect(mockApi.promoteCharacter).toHaveBeenCalledWith('char-2'));
   });
 });

@@ -62,6 +62,30 @@ def test_lexicon_isolated_per_project(clean_storage):
     assert len(_all_entries(pid2)) == 0
 
 
+def test_add_duplicate_word_case_insensitive_raises(clean_storage):
+    """Two entries for the same word (any case) would chain unpredictably in
+    apply_lexicon's sequential-substitution pass — reject the duplicate."""
+    pid = create_project("TestProject")
+    lexicon_mod.add_lexicon_entry(pid, "read", "red")
+    with pytest.raises(ValueError):
+        lexicon_mod.add_lexicon_entry(pid, "Read", "reed")
+    # No second entry was created.
+    entries = _all_entries(pid)
+    assert len(entries) == 1
+    assert entries[0]["word"] == "read"
+    assert entries[0]["replacement"] == "red"
+
+
+def test_add_duplicate_word_allowed_across_projects(clean_storage):
+    pid1 = create_project("Project1")
+    pid2 = create_project("Project2")
+    lexicon_mod.add_lexicon_entry(pid1, "cat", "kitten")
+    # Same word in a different project is not a duplicate.
+    eid = lexicon_mod.add_lexicon_entry(pid2, "cat", "feline")
+    assert eid is not None
+    assert len(_all_entries(pid2)) == 1
+
+
 # ---------------------------------------------------------------------------
 # update_lexicon_entry
 # ---------------------------------------------------------------------------

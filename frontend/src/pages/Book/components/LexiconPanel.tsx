@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, Plus, X } from 'lucide-react';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
+import { emitToast } from '@/utils/toast';
 import type { LexiconEntry } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -33,11 +34,16 @@ function EntryRow({ entry, onEdit, onDelete }: EntryRowProps) {
   const handleSave = async () => {
     const w = draftWord.trim();
     const r = draftReplacement.trim();
-    if (!w || !r) return;
+    if (!w || !r) {
+      emitToast('Enter a word and a respelling.');
+      return;
+    }
     setSaving(true);
     try {
       await onEdit(entry.id, w, r);
       setEditing(false);
+    } catch (e) {
+      emitToast((e as Error).message || 'Failed to save entry.');
     } finally {
       setSaving(false);
     }
@@ -146,10 +152,15 @@ function AddEntryForm({ onAdd, onCancel }: AddEntryFormProps) {
   const handleSubmit = async () => {
     const w = word.trim();
     const r = replacement.trim();
-    if (!w || !r) return;
+    if (!w || !r) {
+      emitToast('Enter a word and a respelling.');
+      return;
+    }
     setSaving(true);
     try {
       await onAdd(w, r);
+    } catch (e) {
+      emitToast((e as Error).message || 'Failed to add entry.');
     } finally {
       setSaving(false);
     }

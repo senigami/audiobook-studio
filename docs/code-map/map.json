@@ -1,6 +1,6 @@
 {
   "meta": {
-    "synced_commit": "02d6b9ab4649105dfb24ae16d25cad4b9573416a",
+    "synced_commit": "19d983879980857c3d2fd79f2cc763d6ced21168",
     "file_hashes": {
       "app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "app/api/__init__.py": "e5c803401ba5b01e486ce9e7a18e7ce433f999b1cd7d933badbcad52236243fb",
@@ -17,7 +17,7 @@
       "app/api/routers/projects_assembly.py": "0e7fe0d7c34f52f3c7fe0bae4843041cc15ae5f16e00128e63d90af04ffdd018",
       "app/api/routers/projects_backups.py": "41fd3933ce535125b1b0aef11191aff59ccd81a0f25bebee59aa526b91743c4d",
       "app/api/routers/projects_helpers.py": "5780a2697d086f283d40b1b0bec13a801a411d721c28bfb43b8a7c1d0aaebb69",
-      "app/api/routers/projects_lexicon.py": "7aa8b3062f0faff5cea0d122f5c6fc0e397772677d37ee9dd89fe9b8ad0460ba",
+      "app/api/routers/projects_lexicon.py": "07224c54a3a2a1853b924a9e9bd6d012bb01423357ba591b9de324a152f2b1e6",
       "app/api/routers/queue.py": "ce3d960358c8f554369e7af36f54a5f2393ca0da22f2124d8d4d40dd654c31cd",
       "app/api/routers/settings.py": "6b8ef3a3a6d6575ec2fde080d780aab9d14eaf7926b4241c4bb7eb362aed419a",
       "app/api/routers/system.py": "24dae7af84f06b2858e4eb8780e8a1e1f99ac1eb12f5612ea5ae0577d55c5f05",
@@ -48,7 +48,7 @@
       "app/db/characters.py": "b5d505d1c5f52b187d58fede9ce8671c887775e76b0b5bdd0c891dfb328df24b",
       "app/db/core.py": "49e9e8d4169451b1c64b91a270871bad5da2cf72d63e0b9bad67b00d74e4d0d2",
       "app/db/legacy_migration.py": "b37f5370c77eaa3dadf2b5757ecdd6341b335e24bdfa583cb53bce038b167b6f",
-      "app/db/lexicon.py": "55d1f6b6d4798fd7bc88cb0fb5445a242771687541bf8b1a96bc3f2bd268bed8",
+      "app/db/lexicon.py": "80ae5314b7c74504d6fc1d19e1f7dfc6260269f1d2676984ba498e68eb4ee118",
       "app/db/migration.py": "759cc9c1232e909fad5d9744479b754fcb325532aeb7bf3325b9d164afcc2dae",
       "app/db/models.py": "d5490bbdd74440f389e99fc4fca7452e21039dbade67ae90d88d793f4ea3c35c",
       "app/db/nlp.py": "1b4c6f5c9ea3c642b5cf1c2965f1d7a2058c5db23e47ed08d3882e2b03645a99",
@@ -217,7 +217,7 @@
       "frontend/src/app/navigation/project-subnav.ts": "9b2be9a901347befb71f891bba0731249ac9c5b906e573c26f5991b608ef4d6c",
       "frontend/src/app/providers/index.tsx": "4f443960954b503a10681d0e80549debd0dd8050f6b383994da3f553080873c4",
       "frontend/src/components/CastingSuggestionsModal.tsx": "88fb54b1e4743fb3c94c2d11763924a2b5dbe7866d3904c6d7e70e54841e9615",
-      "frontend/src/components/CharactersTab.tsx": "108be1484558a27cb6692cad25649f6a153415112bede42b31426595c8528eb8",
+      "frontend/src/components/CharactersTab.tsx": "7cc24a6184a1ffb6c4139cbbcbef34e01a76c737805ba461350778b3a753411f",
       "frontend/src/components/LiveOutputTable.tsx": "0f235ef55b7bca1c7512e53552ae889e2d63d8cf714043404a8a3ed6bc9aeaf8",
       "frontend/src/components/ProjectBackupsPanel.tsx": "d36d6ac2885aa6b1651944888c124d6168d0c6a05d5125f5dc62a089285600e6",
       "frontend/src/components/RecordingGuide.tsx": "beb2388a9d6a51d0f4f323382a6fe384ff3f163466494da07eca651b9c705e2c",
@@ -287,7 +287,7 @@
       "frontend/src/hooks/useLiveTtsLogLines.ts": "de59a38b2f1431fa8e0670c28655e4b673bf7bd9f413798d2928de4f65fcd0a5",
       "frontend/src/hooks/useNow.ts": "7fd63508c3c2a5011b55cdf3a20e3d8739f67be9188849336afc220b0582e2b2",
       "frontend/src/hooks/useProgressBarTest.ts": "eeb132e9ab23a0d57c9bb253060082049f6173a6349cd03414d55e423f2eceec",
-      "frontend/src/hooks/useProjectActions.ts": "1fd8011cced2a37afea51ebfc6465aa3052ec4c1870cdb87bc5ffab0d1187b26",
+      "frontend/src/hooks/useProjectActions.ts": "338e275628f74386ab21c88786c6af650b7be4d0096656fe95d5a720c5f3adbb",
       "frontend/src/hooks/useProjectLibrary.ts": "c5d68eb1ae0ed481306fea838b909c71288c925d05d089c9c27e5a90d3396bd0",
       "frontend/src/hooks/useQueueStatusHoldTimer.ts": "1a15e60b0986ff63471b8a20a7ed87ed91346081f8a7976573dfe7e50bb6a257",
       "frontend/src/hooks/useQueueSync.ts": "f1dfaa0a1be405a9814e578720befc90763753866cb42912dadf4b9ca975f149",
@@ -309,27 +309,27 @@
       "frontend/src/pages/Activity/index.ts": "1ada0fde0c75b622e75a8240bc8ed109f57374b3c573463ec68d54d9f47cf410",
       "frontend/src/pages/Book/BookDataContext.tsx": "aff829dc87803d6c31dc6f844fffd05b28b0fc341432039a9bfc4799ca692856",
       "frontend/src/pages/Book/BookLayout.tsx": "a5a85dd782f0efaf1093410801526afcaabfbbb4a9f21ddfdaa6eeb45eef0b34",
-      "frontend/src/pages/Book/components/AddChapterModal.tsx": "81b19ba1efe57699df0a4a8cdd85d8040569402cf43e601c476c2d8655adb5a0",
+      "frontend/src/pages/Book/components/AddChapterModal.tsx": "37cde9fcde0b0552128f1805f1225f1f9b9a56d22e553686386347029ef3b54d",
       "frontend/src/pages/Book/components/AssemblyChapterPicker.tsx": "4c8807c4d233f820d236129c9b0960887018c9144a9e270586fd6b119ca598cf",
       "frontend/src/pages/Book/components/BookInfoCard.tsx": "c0898d82b003d7d50d24d0c45c474a5ff059ace2264115d9f646bb80620429c4",
       "frontend/src/pages/Book/components/ChapterTable.tsx": "1d296a9a8740ed9669a63950679f71cfedc8427379c1bcb266b4c10cde67efac",
       "frontend/src/pages/Book/components/ChapterTextPanel.tsx": "1e452c91e59d79f12ad2aac1fe433bc591cb03bfb18b6fc6a29b78bb5c6f8b53",
       "frontend/src/pages/Book/components/ChapterWorkspaceHeader.tsx": "ba7a7a9560b94d65f2941fe6472a3c4754338ea7e2c62ade76b2b08510755fe5",
-      "frontend/src/pages/Book/components/LexiconPanel.tsx": "5a4147a7d23e7e0ba32ef767260ff6b26245e3d1d58d0949b9741b8b868fac4c",
+      "frontend/src/pages/Book/components/LexiconPanel.tsx": "db016236e86f35379fab6088e1f6ecd72b4130bcf9510a014670323b1bd444f8",
       "frontend/src/pages/Book/index.ts": "0f1952d1e3c845b579e3df5357c574fe06d271e471edf19b5b1ce2e71970c3c2",
       "frontend/src/pages/Book/lib/chapterJobs.ts": "3995d799930568c674f70bd9bd4f38468396a29ef43313d0bc595c4bae2c2e22",
-      "frontend/src/pages/Book/lib/chapterLifecycle.ts": "8ab01ac79c15e9ca368313e516e37d346a08ade436f0d97797894540542f6efd",
+      "frontend/src/pages/Book/lib/chapterLifecycle.ts": "c1c49502632d8386eb1610e9c78f4f897818eba66f4a196a239b802a877c7738",
       "frontend/src/pages/Book/lib/stages.ts": "8b54fe870e6887898c7f70f72edca7592dce7514be8d3135c487da23a25cd5b1",
-      "frontend/src/pages/Book/lib/useChapterText.ts": "95ebfdf55ad6fa4493a2889676368d17c6721369592d539cb4d8695a14dc8f5c",
+      "frontend/src/pages/Book/lib/useChapterText.ts": "3e31db215eaeabd6b7e9f60aa865ee7d1c9d7226fa8b86cc111e7b09b92a4a83",
       "frontend/src/pages/Book/stages/BackupsStage.tsx": "c621dc4f24f8de9d1c713ea1b5366fe011abeb890c346d698913339fda4ae2a6",
       "frontend/src/pages/Book/stages/CastingStage.tsx": "c526fac07c0ab2fa5b254ec3d2f1952fd42c6774fa59b1e3555dd418dd150f59",
-      "frontend/src/pages/Book/stages/ContentsStage.tsx": "f5a843b6e2cefe17fc7ef2663431785495f3472cceb074c035f2503cb4d528df",
+      "frontend/src/pages/Book/stages/ContentsStage.tsx": "a7955a5fe4a1b738e7f163bf88d696c930a78cba2829471fd18daa70ab3be96a",
       "frontend/src/pages/Book/stages/LexiconStage.tsx": "83422db6f200d2d596869629f0116d152487587c13901a82547cecc74255b34c",
       "frontend/src/pages/Book/stages/ManuscriptStage.tsx": "e66c42728fe5809989028002fc9a8adcdb84e7354f5cd54155f18102da67bc96",
       "frontend/src/pages/Book/stages/PublishStage.tsx": "97eb9c09bc4147ea4530fa3d6225abb038591936aa0216f12490d7bad446c57d",
       "frontend/src/pages/Book/stages/ReviewStage.tsx": "a0ad1523c4f8cc9d129f18a2f7b28089bad8b887636d954f23f56d0855cfd45d",
       "frontend/src/pages/Book/stages/ReviewStage/AnnotationsPanel.tsx": "a7d29694098a0821376d18ca1a43b3834f6ccc690adb3064003f8a9927a2a31c",
-      "frontend/src/pages/Book/stages/ReviewStage/FollowAlongPanel.tsx": "4ef9046453589e159089a4957b6d113565af0a7e6d8d71a6cc4ee5aeba93aa59",
+      "frontend/src/pages/Book/stages/ReviewStage/FollowAlongPanel.tsx": "122405e0be1585841884bd83e8df558b7cb37968eaef0f3b2e87cd5c4e521de7",
       "frontend/src/pages/Book/stages/ReviewStage/useReviewPlayback.ts": "40aa556f8fed0c20d8be0982d6fd976c77e8a60222820471aa69b098b61478be",
       "frontend/src/pages/Book/stages/StudioStage.tsx": "ea422d7dec9c35ec724cb302e5fd9b4fbcdc26f771478b972d34033ea9f3589a",
       "frontend/src/pages/Book/studio/AnalysisStrip.tsx": "26d38f06dfb3a235ec5adcbd7026a2d2fe0c6a6a62e1352f2f3b071478032dde",
@@ -338,7 +338,7 @@
       "frontend/src/pages/Book/studio/StudioHeaderActions.tsx": "a689df04abef0dfb2ae727817e70df132790b1c380b42e35a34eaf120447a2e8",
       "frontend/src/pages/Book/studio/TempCharacterModal.tsx": "8eef636954496ef090650d27abeb3cb065166bf477cbea38341012fe33411a2f",
       "frontend/src/pages/Book/studio/useStudioChapter.ts": "54b6c071447c657391ff3f47fc16f8d88d4cda351fc96c6d58de8531ad119b20",
-      "frontend/src/pages/Book/useBookData.ts": "c08b7277fd78a25c41f9c58b5ff4f93a91b8669d36f1faad314f791f52c63de2",
+      "frontend/src/pages/Book/useBookData.ts": "7f003014d55117a8493b1f531ddf7f3a379ea15da6cf897ef69a91e18d5a979b",
       "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx": "51f8867f35b7d10597c78a759c1e7422f49f2eb9e9e6fce456577916651fe78c",
       "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx": "e2eceeb69c4907c464af3670422a827b5a473df4d91e109f51720bb222daddf2",
       "frontend/src/pages/ChapterEditor/components/CharacterSidebar.tsx": "e6e6f830dadd807b610f53c95f8e1bd969e609d5cbcfdae510c3950924d0d4e4",
@@ -536,7 +536,7 @@
       "frontend/src/utils/toast.ts": "db42ba4faf7e9305f0a5aeb3c96281a53f906b604a6ecfc2717334a35384772f",
       "frontend/src/pages/Book/components/BookIdentityStrip.tsx": "e6d11de8e40d0f5bddfd383f4e170576435d90915d1a9813e0cd600e95a8c57b",
       "frontend/src/pages/Book/components/ContinueListeningCard.tsx": "1c84efc9bb6c3de91901dca214f2112fcd4a89cc64ba0686ae814bc685a5db7a",
-      "frontend/src/theme/components.css": "62be5a369003f5bf90bc685ad991e484a98f0fc2ee530d35f51555669cc5f743",
+      "frontend/src/theme/components.css": "d878d96fd187344366d420587fb22cad70d58c5dbea465abe9dec60ad83970af",
       "frontend/src/theme/tokens.css": "9272a37879b4143bcfd36bbdcbeb32682c7cbbe5da03ae0c5fa1a9e104698d45"
     },
     "shards": [],
@@ -561,7 +561,7 @@
       "frontend/src/demo/stages/siteMockup/bookmarkStore.ts",
       "frontend/src/demo/stages/siteMockup/panes/*.tsx (14 files, condensed in siteMockupStage.tsx notes)"
     ],
-    "repo_checksum": "f6edd6378d9f06dc2e8c6c3b438430ae88b067335e22ac25563f2a8cb0d56fe0",
+    "repo_checksum": "c030572af97349190bd04952a7de883a52c8b417fdff8500ac9496e35af8fa14",
     "edge_tool": "hybrid: madge --json --extensions ts,tsx src/ (v8.0.0, run from frontend/) for frontend import edges; a custom stdlib-ast import-graph script (docs/code-map/tools/py_import_graph.py) for backend/plugin import edges. `calls` entries confirmed by one of these tools are kept/added as tool-derived; prior model-written entries the tool could not confirm (dynamic dispatch, cross-language, or a dotted-module reference the tool didn't resolve) moved to `calls_inferred`. `called_by` is the mechanical inverse of `calls` across the whole map, recomputed from scratch by this merge (2026-07-06)."
   },
   "flows": [
@@ -2293,7 +2293,7 @@
         {
           "name": "add_lexicon_entry",
           "kind": "fn",
-          "contract": "str, str, str → str; inserts entry, returns UUID"
+          "contract": "str, str, str → str; inserts entry, returns UUID; raises ValueError if project_id already has an entry whose word case-insensitively matches (checked via SELECT ... LOWER(word)=LOWER(?) before INSERT)"
         },
         {
           "name": "update_lexicon_entry",
@@ -2324,7 +2324,8 @@
       ],
       "notes": [
         "all writes use _db_lock",
-        "all SQL parameterized"
+        "all SQL parameterized",
+        "2026-07-09: add_lexicon_entry now rejects case-insensitive duplicate words within the same project (ValueError), closing a gap where apply_lexicon's sequential substitution pass could silently chain through two colliding entries. update_lexicon_entry is intentionally left unguarded (editing a word in place does not re-check for collisions) per owner instruction."
       ]
     },
     "app/db/nlp.py": {
@@ -3455,7 +3456,9 @@
       "called_by": [
         "app/api/web.py"
       ],
-      "notes": []
+      "notes": [
+        "2026-07-09: api_create_lexicon_entry (POST /api/projects/{project_id}/lexicon) now catches ValueError from add_lexicon_entry (duplicate case-insensitive word) and returns 400 {\"status\":\"error\",\"message\":str(e)} instead of letting it propagate as a 500."
+      ]
     },
     "app/api/routers/chapters_assets.py": {
       "purpose": "Chapter audio export and preview endpoints",
@@ -7095,7 +7098,9 @@
         "frontend/src/pages/Book/stages/CastingStage.tsx",
         "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-09: handleAdd/handleUpdateName/handleUpdateVoice/handleUpdateColor/handleDelete now emitToast() on failure in addition to console.error. handleUpdateName now does the same optimistic-update + loadCharacters()-revert-on-failure pattern as handleUpdateVoice/handleUpdateColor (previously neither optimistic-revert nor a toast existed for a failed rename); rename <input> now keyed by `${char.id}-${char.name}` so a revert forces a remount to the server value (uncontrolled input via defaultValue), and carries aria-label=`Character name: ${char.name}`. New handlePromote(id) wires the pre-existing api.promoteCharacter(id) (app/db/characters.py#promote_character, POST /api/characters/{id}/promote, already covered by backend tests) with optimistic chapter_id:null + revert-on-failure, exposed via a new '\\''Promote'\\'' button shown next to the '\\''temp'\\'' badge only when char.chapter_id is set."
+      ],
       "calls_inferred": [
         "frontend/src/api#api.fetchCharacters,createCharacter,updateCharacter,deleteCharacter"
       ]
@@ -8326,7 +8331,8 @@
         "frontend/src/pages/Book/index.ts"
       ],
       "notes": [
-        "2026-07-09: context value gained hasRendered/hasUnrendered booleans; totalPredicted may now be null when no calibrated_cps is available (was previously always a number). totalRuntime/totalPredicted/hasRendered/hasUnrendered are all derived from a memoized chapterLifecycleMap (chapter.id -> deriveChapterLifecycle(chapter)) rather than ad hoc status checks -- totalRuntime sums Rendered/Cast chapters' audio_length_seconds; totalPredicted sums Rendered audio plus a char_count/calibratedCps estimate for Cast/Ready/Draft chapters."
+        "2026-07-09: context value gained hasRendered/hasUnrendered booleans; totalPredicted may now be null when no calibrated_cps is available (was previously always a number). totalRuntime/totalPredicted/hasRendered/hasUnrendered are all derived from a memoized chapterLifecycleMap (chapter.id -> deriveChapterLifecycle(chapter)) rather than ad hoc status checks -- totalRuntime sums Rendered/Cast chapters' audio_length_seconds; totalPredicted sums Rendered audio plus a char_count/calibratedCps estimate for Cast/Ready/Draft chapters.",
+        "2026-07-10 (Stale/Error lifecycle fix): totalRuntime/totalPredicted/hasRendered no longer key off a fixed list of lifecycle values (which would silently drop Stale/Error chapters to zero). Added hasRenderedAudioAsset(chapter) (audio_status==='\\''done'\\'' || has_wav || has_mp3 || has_m4a) used alongside the '\\''Cast'\\'' lifecycle check, so a chapter with a real audio asset still contributes its actual duration to the totals even when its lifecycle now reads Stale or Error; chapters with no audio asset fall back to the char-count estimate."
       ],
       "calls_inferred": [
         "@/api",
@@ -8722,7 +8728,8 @@
       ],
       "notes": [
         "publish CTA when all chapters rendered",
-        "2026-07-08: the inline file-input/import-row markup was replaced by <ChapterImportBar onImportFiles={handleImportFiles} submitting={actions.submitting} compact />, rendered in the stage's action row. handleImportFiles now accepts multiple files (FileList | File[]), filters through isSupportedChapterImportFile, emits a toast per rejected file, and creates chapters sequentially at chapters.length + index so a multi-file drop preserves sort order."
+        "2026-07-08: the inline file-input/import-row markup was replaced by <ChapterImportBar onImportFiles={handleImportFiles} submitting={actions.submitting} compact />, rendered in the stage's action row. handleImportFiles now accepts multiple files (FileList | File[]), filters through isSupportedChapterImportFile, emits a toast per rejected file, and creates chapters sequentially at chapters.length + index so a multi-file drop preserves sort order.",
+        "2026-07-09 (toast fixes): handleImportFiles now emits a per-file toast (`Couldn't import \"${file.name}\". Please try again.`) when a queued import create fails. handleExportSample is now wrapped in try/catch, emitting a toast both on a thrown error and on a success response with an empty/missing url (previously threw/failed silently with no user feedback). The modal-submit handleCreateChapter no longer emits its own toast on failure — a same-session follow-up removed that call as redundant once useProjectActions.handleCreateChapter itself started toasting on failure."
       ],
       "calls_inferred": [
         "@/pages/Book/components/*"
@@ -8790,7 +8797,8 @@
         "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx"
       ],
       "notes": [
-        "2026-07-08: file input now only accepts .txt (was .txt/.docx/.epub); handleFileChange rejects an unsupported selection via isSupportedChapterImportFile, toasts getChapterImportError(file), clears the input, and leaves file unset instead of silently accepting it."
+        "2026-07-08: file input now only accepts .txt (was .txt/.docx/.epub); handleFileChange rejects an unsupported selection via isSupportedChapterImportFile, toasts getChapterImportError(file), clears the input, and leaves file unset instead of silently accepting it.",
+        "2026-07-10: added a trimmedTitle derivation — the submit handler now no-ops on a whitespace-only title, the Add Chapter button'\\''s disabled state uses the trimmed value, and onSubmit is called with the trimmed title (not the raw untrimmed input), so a chapter can no longer be created with a blank-looking name."
       ]
     },
     "frontend/src/pages/Book/components/LexiconPanel.tsx": {
@@ -8810,7 +8818,9 @@
         "frontend/src/pages/Book/BookLayout.tsx",
         "frontend/src/pages/Book/stages/LexiconStage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-09: EntryRow.handleSave and AddEntryForm.handleSubmit now emitToast('\\''Enter a word and a respelling.'\\'') and return early (instead of silently no-op'\\''ing) on an empty trimmed word/replacement. Both handlers wrap their onEdit/onAdd call in try/catch and emitToast the caught error'\\''s message (falling back to a generic message) — this is what surfaces the backend'\\''s new 400 duplicate-word response as a toast, and keeps the row in edit mode / the add form open so the user can correct the field."
+      ],
       "calls_inferred": [
         "@/api",
         "@/components/overlays/ConfirmModal"
@@ -8947,11 +8957,12 @@
       ]
     },
     "frontend/src/pages/Book/lib/chapterLifecycle.ts": {
-      "purpose": "Chapter lifecycle state machine: Draft/Ready/Cast/Rendered classification",
+      "purpose": "Chapter lifecycle state machine: Draft/Ready/Cast/Rendered/Stale/Error classification",
       "exports": [
         {
           "name": "deriveChapterLifecycle, ChapterLifecycle",
-          "kind": "fn/type"
+          "kind": "fn/type",
+          "contract": "Chapter -> ChapterLifecycle. ChapterLifecycle union gained 'Stale' and 'Error'. deriveChapterLifecycle checks audio_status===\"error\"/\"failed\" first (-> Error), then text_last_modified > audio_generated_at (-> Stale), before falling into the Rendered/Cast/Ready/Draft chain — mirrors StatusOrb's isError/isStale priority so the lifecycle pill and the status orb never contradict each other for the same chapter."
         }
       ],
       "calls": [
@@ -8964,7 +8975,9 @@
         "frontend/src/pages/Book/stages/PublishStage.tsx",
         "frontend/src/pages/Book/useBookData.ts"
       ],
-      "notes": []
+      "notes": [
+        "2026-07-10: fixes a bug where a chapter row could show a Cast/Rendered text pill while its StatusOrb showed red-error or amber-stale for the same chapter. Every consumer (AssemblyChapterPicker, ChapterTable, useChapterText, PublishStage, useBookData) was updated for the two new states."
+      ]
     },
     "frontend/src/pages/Book/lib/useChapterText.ts": {
       "purpose": "Chapter text editor state: load, autosave, lifecycle, resync preview",
@@ -8983,7 +8996,9 @@
       "called_by": [
         "frontend/src/pages/Book/components/ChapterTextPanel.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-10 (Stale/Error lifecycle fix): isProduced (gates silent autosave vs. the explicit resync-preview flow) is now also true for '\\''Stale'\\'' and '\\''Error'\\'' lifecycles, not just '\\''Cast'\\''/'\\''Rendered'\\'' — a chapter that already has or attempted a production run must go through resync, matching the pre-existing intent."
+      ],
       "calls_inferred": [
         "@/api",
         "@/pages/Book/lib/chapterLifecycle#*"
@@ -9062,7 +9077,9 @@
       "called_by": [
         "frontend/src/pages/Book/stages/ReviewStage.tsx"
       ],
-      "notes": []
+      "notes": [
+        "2026-07-09: removed the raw \"ID: {activeSegmentId}\" debug line rendered under the segment counter (production debug-info leak, no dev-mode gating existed for it). activeSegmentId prop is still used internally (regenerate button, key) — just no longer rendered as visible text."
+      ]
     },
     "frontend/src/pages/Book/stages/ReviewStage/AnnotationsPanel.tsx": {
       "purpose": "Notes/annotations side drawer: per-segment notes, edit-in-place",
@@ -9608,7 +9625,8 @@
       ],
       "notes": [
         "2026-07-08: handleUpdateProject's data param gained optional series_position?: number|null, forwarded to api.updateProject as series_position ?? null.",
-        "2026-07-09 (Task 004): handleUpdateProject()'s parameter type gained `description?: string`, forwarded in the same call to api.updateProject(...)."
+        "2026-07-09 (Task 004): handleUpdateProject()'s parameter type gained `description?: string`, forwarded in the same call to api.updateProject(...).",
+        "2026-07-09: handleCreateChapter's catch block now also calls emitToast(\"Couldn't create chapter. Please try again.\") in addition to console.error, so any caller of this hook (ContentsStage, ManuscriptStage, ProjectDetailPage) gets user-visible feedback on API failure."
       ],
       "calls_inferred": [
         "frontend/src/api#*"
@@ -14535,7 +14553,8 @@
       "called_by": [],
       "notes": [
         "Not previously tracked as a files record (frontend/src/theme/*.css were omitted from both `files` and `meta.unmapped`); added 2026-07-09 given how frequently this file is touched by UI work.",
-        "book_tab_front_door session (2026-07-09) changes: .book-info-card__* placeholder colors switched var(--text-subtle)->var(--text-muted) with opacity:0.8 removed (WCAG contrast fix); .book-info-card__stepper grown 1.12rem->1.5rem (WCAG target-size fix); new .book-identity-strip* rules (compact flex row, 3rem cover, text on --text-primary/--text-secondary); new .continue-listening-card* rules (cover thumbnail, body, title, meta line on --text-muted, actions row); .book-stage__notes given display:flex/column/gap (later made moot -- see below); .book-stage__panel p renamed to .book-stage__panel .book-stage__description (later made moot); final hero-layout-restructure (Task 008) added .book-info-card__description (var(--text-secondary), 46rem max-width), a `.book-info-card__content .continue-listening-card` override stripping the nested card's own border/shadow/padding and hiding its cover thumbnail (renders as part of one bordered .book-info-card region, not a second card), demoted `.book-info-card__chips`/`.book-info-card__chip` to a quiet uniform var(--text-muted) footer line with a '.' separator (::after) instead of colored pill backgrounds, and removed the now-dead `.book-stage__primary`/`.book-stage__notes`/`.book-stage__panel` rules (their only consumer, the old BookStage.tsx aside markup, no longer exists). Pre-existing unrelated dead `.book-stage__hero*`/`.book-stage__eyebrow`/`.book-stage__title`/`.book-stage__subtitle` rules were left untouched (out of scope for this session)."
+        "book_tab_front_door session (2026-07-09) changes: .book-info-card__* placeholder colors switched var(--text-subtle)->var(--text-muted) with opacity:0.8 removed (WCAG contrast fix); .book-info-card__stepper grown 1.12rem->1.5rem (WCAG target-size fix); new .book-identity-strip* rules (compact flex row, 3rem cover, text on --text-primary/--text-secondary); new .continue-listening-card* rules (cover thumbnail, body, title, meta line on --text-muted, actions row); .book-stage__notes given display:flex/column/gap (later made moot -- see below); .book-stage__panel p renamed to .book-stage__panel .book-stage__description (later made moot); final hero-layout-restructure (Task 008) added .book-info-card__description (var(--text-secondary), 46rem max-width), a `.book-info-card__content .continue-listening-card` override stripping the nested card's own border/shadow/padding and hiding its cover thumbnail (renders as part of one bordered .book-info-card region, not a second card), demoted `.book-info-card__chips`/`.book-info-card__chip` to a quiet uniform var(--text-muted) footer line with a '.' separator (::after) instead of colored pill backgrounds, and removed the now-dead `.book-stage__primary`/`.book-stage__notes`/`.book-stage__panel` rules (their only consumer, the old BookStage.tsx aside markup, no longer exists). Pre-existing unrelated dead `.book-stage__hero*`/`.book-stage__eyebrow`/`.book-stage__title`/`.book-stage__subtitle` rules were left untouched (out of scope for this session).",
+        "2026-07-10 (chapter-lifecycle Stale/Error + pill contrast fix): added .chapter-table__pill--stale (background var(--warning-tint-bg), color var(--warning-text)) and .chapter-table__pill--error (background var(--error-tint-bg), color var(--error-text)) for ChapterTable'\\''s two new lifecycle pill states. In the same change, .chapter-table__pill--rendered'\\''s text color switched from the bare var(--success) to var(--success-text), matching the -text token pattern the new stale/error pills use (contrast fix — bare --success/--error are not guaranteed readable on the tint backgrounds)."
       ]
     },
     "frontend/src/theme/tokens.css": {

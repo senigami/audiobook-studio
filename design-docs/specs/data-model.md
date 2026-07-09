@@ -1,7 +1,7 @@
 # Data Model
 
 ```
-spec_version: 1.8.0
+spec_version: 1.9.0
 status: active
 updated: 2026-07-09
 sources:
@@ -25,6 +25,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.9.0   | 2026-07-09 | **`lexicon`: reject case-insensitive duplicate words on add.** `add_lexicon_entry()` now raises `ValueError` (surfaced by `POST /api/projects/{project_id}/lexicon` as a 400 `{"status": "error", "message": ...}`) when the project already has an entry whose `word` matches case-insensitively. Prevents two entries for the same word from silently chaining through `apply_lexicon`'s sequential-substitution pass (e.g. `read`→`red` then `red`→`reed` turning `read` into `reed`). Editing an existing entry's word (`update_lexicon_entry`) is unchanged — this only guards entry creation. |
 | 1.8.0   | 2026-07-09 | **Book tab front door: `projects.description`.** Add the optional `description` column to the durable `projects` table (additive migration, same idiom as `series_position`) and document it as part of the canonical schema. `update_project()` round-trips the field with no special-casing (plain string, unlike `series_position`'s null-vs-empty handling); no manifest or legacy v1→v2 migration change is needed (write-once manifest, no legacy source data for a field that didn't exist in v1). |
 | 1.7.0   | 2026-07-08 | **Library project usability: `projects.series_position`.** Add the optional `series_position` column to the durable `projects` table and document it as part of the canonical schema. Project create/update flows now round-trip the field, and update requests reject invalid `series_position` values with a structured 400 instead of crashing the handler. |
 | 1.6.0   | 2026-07-03 | **W-PAR task 007 — `tts_parallel_cap` / `tts_engine_caps` settings fields.** New `settings` keys documenting the cap-default-1 toggle surfaced as a real Studio setting (see `queue-jobs.md §7.3b`). No storage schema change beyond the two new keys; existing `state.json` files without them fall back to the documented defaults via `_normalize_settings`. Parent/child job shape and validated-artifact completion fields are unchanged by task 007 (confirmed no drift — those were introduced by W-PAR tasks 002/003/005, already documented in prior versions of this spec). |
@@ -244,7 +245,9 @@ Per-project pronunciation substitutions. Each entry maps a source word to a repl
 
 **Scope:** book/project only (no series/global). Plain-text substitution only (no IPA/SSML).
 
-API: `GET/POST /api/projects/{project_id}/lexicon`, `PUT/DELETE /api/projects/{project_id}/lexicon/{entry_id}`.
+**Duplicate-word rejection:** `add_lexicon_entry(project_id, word, replacement)` raises `ValueError` when *project_id* already has an entry whose `word` case-insensitively matches *word*. `apply_lexicon` applies entries as sequential substitutions over the same running string in insertion order, so two entries for the same word would otherwise chain unpredictably (e.g. `read`→`red` followed by `red`→`reed` silently turns `read` into `reed`). This guards entry *creation* only — `update_lexicon_entry` does not re-check for collisions when a word is edited in place; general substitution-chaining semantics across *different* words are out of scope.
+
+API: `GET/POST /api/projects/{project_id}/lexicon`, `PUT/DELETE /api/projects/{project_id}/lexicon/{entry_id}`. `POST` returns `400 {"status": "error", "message": "A lexicon entry for \"<word>\" already exists."}` on a duplicate word.
 
 ### speakers
 

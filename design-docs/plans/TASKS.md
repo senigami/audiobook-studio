@@ -68,6 +68,19 @@ Demo-only, no real-app changes; additive (the North Star demo is the aspirationa
 - [x] **L-DEMO 002** — Wire `Book` tab registration + default landing — [plan](_archive/demo_north_star_book_pane/tasks/002-wire-book-tab.md)
 - [x] **L-DEMO 003** — Rebuild + verify static demo output — [plan](_archive/demo_north_star_book_pane/tasks/003-rebuild-verify-demo.md)
 
+### Chapter tabs quick-fix batch — DONE 2026-07-10 (ad hoc, no plan folder)
+
+Found via a parallel survey of Contents/Cast/Lexicon (6 independent fixes, dispatched and verified directly, no formal plan folder since each was small/self-contained): Contents silent create/import/export failures now toast; Contents lifecycle pill no longer contradicts the StatusOrb (new Stale/Error states, `useBookData.ts` totals reworked to not double-count/drop chapters); Cast tab mutation failures now toast+revert consistently, a "Promote" action was wired up for chapter-scoped temp characters (backend already existed, unused), rename input got an aria-label; AddChapterModal rejects whitespace-only titles; a debug segment UUID was removed from FollowAlongPanel; Lexicon rejects duplicate words and no longer no-ops silently on empty submit. One `--border-strong`/pill-contrast token gap found and fixed along the way. Adversarial review: zero blockers; one real behavior-change finding (Stale/Error chapters now correctly excluded from Publish/Assembly even with a prior valid render) flagged to the owner, not silently accepted.
+
+### Chapter Workspace Merge — PLANNED, not yet executed
+
+Merges the Chapter Workspace's Studio/Review toggle (never actually unified per the accepted design doc) into one workspace with a Cast/Follow Along/Edit Text mode switcher, removes a duplicate chapter-picker rail in ReviewStage, and ports the app's own already-working full-text-edit pattern (`ChapterTextPanel`, live today only in Contents) into the workspace you actually land in when opening a chapter. See [plan](active/chapter_workspace_merge/02-roadmap.md) — 4 tasks, not yet dispatched.
+
+- [ ] **L-WORKSPACE 001** — Cast/Follow Along/Edit Text mode switcher shell — [plan](active/chapter_workspace_merge/tasks/001-mode-switcher-shell.md)
+- [ ] **L-WORKSPACE 002** — Remove duplicate chapter rail, dock Annotations — [plan](active/chapter_workspace_merge/tasks/002-remove-rail-dock-annotations.md)
+- [ ] **L-WORKSPACE 003** — Edit Text mode via ChapterTextPanel — [plan](active/chapter_workspace_merge/tasks/003-edit-text-mode.md)
+- [ ] **L-WORKSPACE 004** — Cleanup + full green gate — [plan](active/chapter_workspace_merge/tasks/004-cleanup-and-green-gate.md)
+
 ### Ready to dispatch NOW
 
 **Zero blockers:**

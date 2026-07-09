@@ -26,12 +26,27 @@ def get_lexicon(project_id: str) -> list[dict[str, Any]]:
 
 
 def add_lexicon_entry(project_id: str, word: str, replacement: str) -> str:
-    """Insert a new lexicon entry.  Returns the new entry's UUID."""
+    """Insert a new lexicon entry.  Returns the new entry's UUID.
+
+    Raises:
+        ValueError: if *project_id* already has an entry whose ``word``
+            case-insensitively matches *word*. ``apply_lexicon`` (see
+            ``app/utils/text/lexicon.py``) applies entries as sequential
+            substitutions over the same running string, so two entries for
+            the same word would silently chain in insertion order — reject
+            the duplicate up front instead.
+    """
     entry_id = str(uuid.uuid4())
     created_at = time.time()
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
+            cursor.execute(
+                "SELECT 1 FROM lexicon WHERE project_id = ? AND LOWER(word) = LOWER(?)",
+                (project_id, word),
+            )
+            if cursor.fetchone() is not None:
+                raise ValueError(f'A lexicon entry for "{word}" already exists.')
             cursor.execute(
                 """
                 INSERT INTO lexicon (id, project_id, word, replacement, created_at)

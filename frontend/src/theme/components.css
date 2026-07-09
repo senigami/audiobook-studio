@@ -1583,7 +1583,17 @@
 
 .chapter-table__pill--rendered {
   background: var(--success-tint-bg);
-  color: var(--success);
+  color: var(--success-text);
+}
+
+.chapter-table__pill--stale {
+  background: var(--warning-tint-bg);
+  color: var(--warning-text);
+}
+
+.chapter-table__pill--error {
+  background: var(--error-tint-bg);
+  color: var(--error-text);
 }
 
 .chapter-table__status {

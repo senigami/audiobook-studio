@@ -83,6 +83,27 @@ def test_create_entry_missing_replacement_returns_422(client, project_id):
     assert response.status_code == 422
 
 
+def test_create_duplicate_word_returns_400(client, project_id):
+    """apply_lexicon() chains entries as sequential substitutions, so two
+    entries for the same word (case-insensitive) can silently double-replace
+    text. Reject the duplicate at the API layer with a clear error."""
+    client.post(f"/api/projects/{project_id}/lexicon", data={"word": "read", "replacement": "red"})
+
+    response = client.post(
+        f"/api/projects/{project_id}/lexicon",
+        data={"word": "Read", "replacement": "reed"},
+    )
+    assert response.status_code == 400
+    data = response.json()
+    assert data["status"] == "error"
+    assert "already exists" in data["message"]
+
+    # No second entry was created.
+    entries = client.get(f"/api/projects/{project_id}/lexicon").json()["entries"]
+    assert len(entries) == 1
+    assert entries[0]["replacement"] == "red"
+
+
 # ---------------------------------------------------------------------------
 # PUT update
 # ---------------------------------------------------------------------------

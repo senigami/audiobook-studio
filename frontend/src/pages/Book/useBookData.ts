@@ -166,15 +166,25 @@ export function useBookData({
     [chapters],
   );
 
+  // A chapter has a real, playable audio asset regardless of whether its
+  // lifecycle pill currently reads Rendered, Stale, or Error (a stale/errored
+  // chapter can still have a prior render sitting on disk) — totals below key
+  // off this rather than a fixed list of lifecycle values so a newly added
+  // lifecycle state can't silently fall through and get miscounted.
+  const hasRenderedAudioAsset = React.useCallback(
+    (chapter: Chapter) => chapter.audio_status === 'done' || !!chapter.has_wav || !!chapter.has_mp3 || !!chapter.has_m4a,
+    [],
+  );
+
   const totalRuntime = React.useMemo(
     () => chapters.reduce((acc, chapter) => {
       const lifecycle = chapterLifecycleMap.get(chapter.id);
-      if (lifecycle === 'Rendered' || lifecycle === 'Cast') {
+      if (lifecycle === 'Cast' || hasRenderedAudioAsset(chapter)) {
         return acc + (chapter.audio_length_seconds || 0);
       }
       return acc;
     }, 0),
-    [chapterLifecycleMap, chapters],
+    [chapterLifecycleMap, chapters, hasRenderedAudioAsset],
   );
 
   const totalPredicted = React.useMemo(() => {
@@ -188,24 +198,23 @@ export function useBookData({
     }
 
     return chapters.reduce((acc, chapter) => {
-      const lifecycle = chapterLifecycleMap.get(chapter.id);
-      if (lifecycle === 'Rendered') {
+      if (hasRenderedAudioAsset(chapter)) {
         return acc + (chapter.audio_length_seconds || 0);
       }
-      if (lifecycle === 'Cast' || lifecycle === 'Ready' || lifecycle === 'Draft') {
-        return acc + chapter.char_count / calibratedCps;
-      }
-      return acc;
+      // Cast, Ready, Draft — and Stale/Error chapters that never actually
+      // produced audio — fall back to the character-count estimate so every
+      // chapter contributes something rather than silently dropping out.
+      return acc + chapter.char_count / calibratedCps;
     }, 0);
-  }, [chapterLifecycleMap, chapters, effectiveProjectVoice, engines, settings?.default_engine, speakerProfiles]);
+  }, [chapters, effectiveProjectVoice, engines, hasRenderedAudioAsset, settings?.default_engine, speakerProfiles]);
 
   const hasUnrendered = React.useMemo(
     () => chapters.some((chapter) => chapterLifecycleMap.get(chapter.id) !== 'Rendered'),
     [chapterLifecycleMap, chapters],
   );
   const hasRendered = React.useMemo(
-    () => chapters.some((chapter) => chapterLifecycleMap.get(chapter.id) === 'Rendered' || chapterLifecycleMap.get(chapter.id) === 'Cast'),
-    [chapterLifecycleMap, chapters],
+    () => chapters.some((chapter) => chapterLifecycleMap.get(chapter.id) === 'Cast' || hasRenderedAudioAsset(chapter)),
+    [chapterLifecycleMap, chapters, hasRenderedAudioAsset],
   );
 
   const actions = useProjectActions(bookId, () => reload(false), navigate, onOpenQueue);

@@ -7,6 +7,7 @@ import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { CastingSuggestionsModal } from '@/components/CastingSuggestionsModal';
 import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
 import { buildVoiceOptions } from '@/utils/voiceProfiles';
+import { emitToast } from '@/utils/toast';
 
 interface CharactersTabProps {
   projectId: string;
@@ -79,6 +80,7 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
       await loadCharacters();
     } catch (e) {
       console.error("Failed to create character", e);
+      emitToast('Failed to create character.');
     }
   };
 
@@ -89,6 +91,7 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
       await api.updateCharacter(id, undefined, newProfile || "");
     } catch (e) {
       console.error("Failed to update character voice", e);
+      emitToast('Failed to update character voice.');
       loadCharacters(); // Revert on failure
     }
   };
@@ -100,11 +103,16 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
   }, []);
 
   const handleUpdateName = async (id: string, newNameStr: string) => {
-      if (!newNameStr.trim()) return;
+      const trimmedName = newNameStr.trim();
+      if (!trimmedName) return;
       try {
-          await api.updateCharacter(id, newNameStr.trim());
+          // Optimistic update
+          setCharacters(prev => prev.map(c => c.id === id ? { ...c, name: trimmedName } : c));
+          await api.updateCharacter(id, trimmedName);
       } catch (e) {
           console.error("Failed to update character name", e);
+          emitToast('Failed to update character name.');
+          loadCharacters(); // Revert on failure
       }
   };
 
@@ -114,7 +122,19 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
       await api.updateCharacter(id, undefined, undefined, undefined, color);
     } catch (e) {
       console.error("Failed to update character color", e);
+      emitToast('Failed to update character color.');
       loadCharacters();
+    }
+  };
+
+  const handlePromote = async (id: string) => {
+    try {
+      setCharacters(prev => prev.map(c => c.id === id ? { ...c, chapter_id: null } : c));
+      await api.promoteCharacter(id);
+    } catch (e) {
+      console.error("Failed to promote character", e);
+      emitToast('Failed to promote character.');
+      loadCharacters(); // Revert on failure
     }
   };
 
@@ -129,6 +149,7 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
           setCharacters(prev => prev.filter(c => c.id !== id));
         } catch (e) {
           console.error("Failed to delete character", e);
+          emitToast('Failed to delete character.');
         }
       }
     });
@@ -210,27 +231,39 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
               <ColorSwatchPicker value={char.color || '#8b5cf6'} onChange={(color) => handleUpdateColor(char.id, color)} size="md" />
 
               {char.chapter_id && (
-                <span title="Chapter-scoped temporary character" style={{
-                  fontSize: '0.65rem',
-                  fontWeight: 600,
-                  padding: '1px 6px',
-                  borderRadius: 999,
-                  background: 'var(--warning-tint-bg)',
-                  border: '1px solid var(--warning-tint-border)',
-                  color: 'var(--warning-text)',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                }}>
-                  temp
-                </span>
+                <>
+                  <span title="Chapter-scoped temporary character" style={{
+                    fontSize: '0.65rem',
+                    fontWeight: 600,
+                    padding: '1px 6px',
+                    borderRadius: 999,
+                    background: 'var(--warning-tint-bg)',
+                    border: '1px solid var(--warning-tint-border)',
+                    color: 'var(--warning-text)',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}>
+                    temp
+                  </span>
+                  <button
+                    onClick={() => handlePromote(char.id)}
+                    className="btn-ghost"
+                    style={{ fontSize: '0.7rem', padding: '2px 8px', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}
+                    title="Promote to a permanent book-level character"
+                  >
+                    Promote
+                  </button>
+                </>
               )}
 
               <div style={{ flex: 3 }}>
                   <input
+                      key={`${char.id}-${char.name}`}
                       type="text"
                       defaultValue={char.name}
                       onBlur={(e) => { if (e.target.value !== char.name) handleUpdateName(char.id, e.target.value); }}
                       className="input-field"
+                      aria-label={`Character name: ${char.name}`}
                       style={{ background: 'transparent', border: 'none', padding: 0, fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)', boxShadow: 'none', width: '100%' }}
                   />
               </div>

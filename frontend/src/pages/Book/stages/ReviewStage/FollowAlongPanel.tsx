@@ -55,9 +55,6 @@ export function FollowAlongPanel({
           <div>
             <strong>Segment:</strong> {activeSegmentIndex + 1} / {totalSegments}
           </div>
-          <div style={{ fontSize: '0.65rem', fontStyle: 'italic', marginTop: '2px' }}>
-            ID: {activeSegmentId}
-          </div>
           {onReRenderSegment && (
             <button
               type="button"

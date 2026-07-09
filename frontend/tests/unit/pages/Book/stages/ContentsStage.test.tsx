@@ -3,14 +3,29 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ContentsStage } from '@/pages/Book/stages/ContentsStage';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
+import { api } from '@/api';
+import * as toast from '@/utils/toast';
 import type { Chapter } from '@/types';
 
 vi.mock('@/pages/Book/BookDataContext', () => ({
   useBookDataContext: vi.fn(),
 }));
 
+vi.mock('@/api', () => ({
+  api: {
+    updateChapter: vi.fn(),
+    exportSample: vi.fn(),
+  },
+}));
+
 vi.mock('@/pages/Book/components/ChapterTable', () => ({
-  ChapterTable: () => <section aria-label="Chapter table" />,
+  ChapterTable: (props: any) => (
+    <section aria-label="Chapter table">
+      <button type="button" onClick={() => props.onExportSample(props.chapters[0])}>
+        Export sample
+      </button>
+    </section>
+  ),
 }));
 
 vi.mock('@/pages/Book/components/ChapterTextPanel', () => ({
@@ -18,7 +33,12 @@ vi.mock('@/pages/Book/components/ChapterTextPanel', () => ({
 }));
 
 vi.mock('@/pages/Book/components/AddChapterModal', () => ({
-  AddChapterModal: () => null,
+  AddChapterModal: (props: any) =>
+    props.isOpen ? (
+      <button type="button" onClick={() => props.onSubmit('Title', 'Text', null)}>
+        Submit chapter
+      </button>
+    ) : null,
 }));
 
 function makeChapter(id: string, audioStatus: Chapter['audio_status']): Chapter {
@@ -204,5 +224,63 @@ describe('ContentsStage publish-readiness control', () => {
 
     expect(dropzone.getAttribute('style')).toContain('border: 1px dashed var(--border)');
     expect(screen.getByText('Import manuscript')).toBeInTheDocument();
+  });
+
+  it('shows a toast when importing a file fails', async () => {
+    const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
+    const handleCreateChapter = vi.fn().mockResolvedValue(false);
+    vi.mocked(useBookDataContext).mockReturnValue({
+      ...vi.mocked(useBookDataContext)(),
+      actions: {
+        ...vi.mocked(useBookDataContext)().actions,
+        handleCreateChapter,
+      },
+      chapters: [makeChapter('ch-1', 'unprocessed')],
+    } as any);
+
+    const { container } = renderInRouter(<ContentsStage />);
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['chapter text'], 'Failing.txt', { type: 'text/plain' });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(handleCreateChapter).toHaveBeenCalled();
+      expect(toastSpy).toHaveBeenCalledWith('Couldn\'t import "Failing.txt". Please try again.');
+    });
+  });
+
+  it('shows a toast when exporting a sample fails', async () => {
+    const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
+    (api.exportSample as any).mockRejectedValue(new Error('network error'));
+    vi.mocked(useBookDataContext).mockReturnValue({
+      ...vi.mocked(useBookDataContext)(),
+      chapters: [makeChapter('ch-1', 'done')],
+    } as any);
+
+    renderInRouter(<ContentsStage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export sample' }));
+
+    await waitFor(() => {
+      expect(toastSpy).toHaveBeenCalledWith("Couldn't export sample. Please try again.");
+    });
+  });
+
+  it('shows a toast when exporting a sample returns no url', async () => {
+    const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
+    (api.exportSample as any).mockResolvedValue({ url: '' });
+    vi.mocked(useBookDataContext).mockReturnValue({
+      ...vi.mocked(useBookDataContext)(),
+      chapters: [makeChapter('ch-1', 'done')],
+    } as any);
+
+    renderInRouter(<ContentsStage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export sample' }));
+
+    await waitFor(() => {
+      expect(toastSpy).toHaveBeenCalledWith("Couldn't export sample. Please try again.");
+    });
   });
 });
