@@ -191,6 +191,76 @@ const GlobalBookmarkPanel: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
+// BookPane — front-door hero: cover + identity, description, Continue Listening CTA, demoted metadata footer
+
+export const BookPane: React.FC = () => {
+  return (
+    <Col gap={16} className="ns-enter" style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <Card style={{ padding: 'var(--space-4)' }}>
+        <Row gap={20} style={{ alignItems: 'flex-start' }}>
+          {/* Hero cover — larger than ContentsPane's 40x54 thumbnail */}
+          <div style={{
+            width: 152, height: 205, borderRadius: 12, flexShrink: 0,
+            background: 'linear-gradient(135deg, var(--accent-tint-bg) 0%, var(--border) 100%)',
+            border: '1px solid var(--accent-tint-border)',
+            boxShadow: 'var(--shadow-md)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <BookOpen size={48} color="var(--accent)" aria-hidden="true" />
+          </div>
+
+          {/* Identity + description + CTA + footer */}
+          <Col gap={10} style={{ flex: 1, minWidth: 0 }}>
+            <div>
+              <div style={{
+                fontSize: 'var(--type-large-title)', fontWeight: 800,
+                color: 'var(--text-primary)', lineHeight: 1.05,
+              }}>
+                The Whispering Vale
+              </div>
+              <Row gap={8} style={{ alignItems: 'center', marginTop: 4 }}>
+                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                  R.E. Hartley
+                </span>
+                <span style={{ color: 'var(--text-muted)' }}>·</span>
+                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontWeight: 650 }}>
+                  The Vale Cycle #1
+                </span>
+              </Row>
+            </div>
+
+            <p style={{
+              margin: 0, maxWidth: '42rem', color: 'var(--text-secondary)',
+              fontSize: 'var(--type-caption)', lineHeight: 1.6,
+            }}>
+              A hollow road winds through the Vale, and something ancient walks it after dark.
+              When Mira Ashford inherits her grandmother's cottage at the forest's edge, she finds
+              a diary that says the walking things remember her name.
+            </p>
+
+            <Row gap={10} style={{ alignItems: 'center', marginTop: 4 }}>
+              <PlayButton label="Play book The Whispering Vale" tone="overlay" size={18} />
+              <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-primary)' }}>
+                Continue Listening
+              </span>
+              <Btn style={{ marginLeft: 8 }}>Download</Btn>
+            </Row>
+
+            <Row gap={0} style={{ alignItems: 'center', marginTop: 6 }}>
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>Runtime 6h 28m</span>
+              <span style={{ color: 'var(--text-muted)', margin: '0 6px', fontSize: 'var(--type-micro)' }}>·</span>
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>Rendered</span>
+              <span style={{ color: 'var(--text-muted)', margin: '0 6px', fontSize: 'var(--type-micro)' }}>·</span>
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>Created 2 days ago</span>
+            </Row>
+          </Col>
+        </Row>
+      </Card>
+    </Col>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // ContentsPane — book command center: slim header + chapter board + publish readiness
 
 export const ContentsPane: React.FC<{

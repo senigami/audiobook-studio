@@ -60,6 +60,14 @@ Phase 1 of the critique (default-tab fix, `--text-subtle` contrast fix, stepper 
 - [x] **L-BOOK 007** — Wire real description field into `BookStage.tsx` — [plan](_archive/book_tab_front_door/tasks/007-description-card-wiring.md)
 - [x] **L-BOOK 008** — North Star hero layout restructuring — [plan](_archive/book_tab_front_door/tasks/008-hero-layout-restructure.md)
 
+### Demo North Star book pane — DONE 2026-07-10
+
+Demo-only, no real-app changes; additive (the North Star demo is the aspirational direction, not a mirror trimmed to match production — nothing existing was removed). Live-verified: Book is the first/default tab, hero renders correctly, Contents unaffected, Continue Listening drives the demo's global player bar with zero console errors. Archived — see [plan](_archive/demo_north_star_book_pane/README.md).
+
+- [x] **L-DEMO 001** — Build `BookPane` component — [plan](_archive/demo_north_star_book_pane/tasks/001-build-book-pane.md)
+- [x] **L-DEMO 002** — Wire `Book` tab registration + default landing — [plan](_archive/demo_north_star_book_pane/tasks/002-wire-book-tab.md)
+- [x] **L-DEMO 003** — Rebuild + verify static demo output — [plan](_archive/demo_north_star_book_pane/tasks/003-rebuild-verify-demo.md)
+
 ### Ready to dispatch NOW
 
 **Zero blockers:**

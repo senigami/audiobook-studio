@@ -61,7 +61,7 @@ import { ZoomPresetControl, TapeMinimapStrip, snapZoom, InlineWave } from './sit
 import type { ZoomPreset } from './siteMockup/MockTapeControls';
 import { Rail } from './siteMockup/rail';
 import { LibraryPane } from './siteMockup/panes/library';
-import { ContentsPane, CastingPane, BackupsPane } from './siteMockup/panes/book';
+import { BookPane, ContentsPane, CastingPane, BackupsPane } from './siteMockup/panes/book';
 import { STUDIO_FOLLOW_DURATION_SEC } from './siteMockup/panes/studio';
 import { DirectorsConsole } from './siteMockup/panes/directorsConsole';
 import { PublishPane } from './siteMockup/panes/publish';
@@ -1011,9 +1011,11 @@ const ChapterWorkspaceHeader: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
-// BookPane — assembles tab content from imported panes
+// BookWorkspacePane — assembles tab content from imported panes (book-workspace shell:
+// tab strip + chapter workspace). Distinct from the imported `BookPane` (panes/book.tsx),
+// which is the front-door hero content rendered specifically for the "Book" tab.
 
-const BookPane: React.FC<{
+const BookWorkspacePane: React.FC<{
   activeTab: BookTab;
   setActiveTab: (t: BookTab) => void;
   activeTrack: TrackState | null;
@@ -1065,6 +1067,7 @@ const BookPane: React.FC<{
           </Row>
 
           <div className="ns-book-workspace" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, paddingTop: 10 }}>
+            {activeTab === 'Book' && <BookPane />}
             {activeTab === 'Contents' && <ContentsPane onSwitchToPublish={() => setActiveTab('Publish')} onOpenChapter={onOpenChapter} />}
             {activeTab === 'Cast' && <CastingPane />}
             {activeTab === 'Publish' && <PublishPane />}
@@ -1084,7 +1087,7 @@ const SiteMockup: React.FC = () => {
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [inBook, setInBook] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
-  const [activeBookTab, setActiveBookTab] = useState<BookTab>('Contents');
+  const [activeBookTab, setActiveBookTab] = useState<BookTab>('Book');
   const [activeChapter, setActiveChapter] = useState(4);
   const [openChapter, setOpenChapter] = useState<number | null>(null);
   const [lastEditedSegmentByChapter, setLastEditedSegmentByChapter] = useState<Record<number, string>>({});
@@ -1413,7 +1416,7 @@ const SiteMockup: React.FC = () => {
                   <LibraryPane onOpenBook={() => { setShowSplash(false); setInBook(true); }} />
                 )}
                 {activeRail === 'Library' && inBook && (
-                  <BookPane
+                  <BookWorkspacePane
                     activeTab={activeBookTab}
                     setActiveTab={setActiveBookTab}
                     activeTrack={activeTrack}

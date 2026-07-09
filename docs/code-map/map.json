@@ -1,6 +1,6 @@
 {
   "meta": {
-    "synced_commit": "70ed5c54dd656a031cc40a4c4ddc69fb80146da9",
+    "synced_commit": "02d6b9ab4649105dfb24ae16d25cad4b9573416a",
     "file_hashes": {
       "app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "app/api/__init__.py": "e5c803401ba5b01e486ce9e7a18e7ce433f999b1cd7d933badbcad52236243fb",
@@ -264,8 +264,8 @@
       "frontend/src/demo/stages/queueStage.tsx": "900618b15b01c064d5b7b0c24714a33b899c339b5bb481fae7ea8cdb098ab1b5",
       "frontend/src/demo/stages/siteMockup/MockTapeControls.tsx": "db67c713c0ad2c87a433a6ddf6a5d74ab7e11af9c1cbf2ebe1ae992c3fec42bd",
       "frontend/src/demo/stages/siteMockup/rail.tsx": "949162608dd054d7417e593f5f57a616195ea7f58ea9915229307ab883f59594",
-      "frontend/src/demo/stages/siteMockup/shared.tsx": "0e533dc66fed55158f8194b2deb8446f3d4829fbef92c02b58af19a4cf0a2323",
-      "frontend/src/demo/stages/siteMockupStage.tsx": "59085dc7caa8db171281ac8104d1ff7b6a9e09f7a14c124a53e87764755f2c3a",
+      "frontend/src/demo/stages/siteMockup/shared.tsx": "383543f0a492a5636d0e8f4ca28842004f8e583d140c4746e177b1e56c32e131",
+      "frontend/src/demo/stages/siteMockupStage.tsx": "6e70008f5c8f424320d039949b2b881bbf89fb0ff0937bd92c83f465ce19b0fc",
       "frontend/src/demo/stages/voiceLabStage.tsx": "16f2fe86b0e0e5e8e4f87806fc199df9c92d81faeabf1aebe5ba05a4c63dd695",
       "frontend/src/demo/styleguide/StyleguidePage.tsx": "f7f08f373c1cae24cb6c6554cf94967ec0e984d8f59fc70634ca9a46daa5c79f",
       "frontend/src/demo/styleguide/parseTokens.ts": "17ffbd4c0996ad17d69f5f8edb073940af5fdb60dfafb5a0e9fe20edff1b7a9a",
@@ -537,7 +537,7 @@
       "frontend/src/pages/Book/components/BookIdentityStrip.tsx": "e6d11de8e40d0f5bddfd383f4e170576435d90915d1a9813e0cd600e95a8c57b",
       "frontend/src/pages/Book/components/ContinueListeningCard.tsx": "1c84efc9bb6c3de91901dca214f2112fcd4a89cc64ba0686ae814bc685a5db7a",
       "frontend/src/theme/components.css": "62be5a369003f5bf90bc685ad991e484a98f0fc2ee530d35f51555669cc5f743",
-      "frontend/src/theme/tokens.css": "b47f5ec1304428cf3e5c455a4899429b085b0afdba3015aa8de8aa7edb880bc0"
+      "frontend/src/theme/tokens.css": "9272a37879b4143bcfd36bbdcbeb32682c7cbbe5da03ae0c5fa1a9e104698d45"
     },
     "shards": [],
     "unmapped": [
@@ -561,7 +561,7 @@
       "frontend/src/demo/stages/siteMockup/bookmarkStore.ts",
       "frontend/src/demo/stages/siteMockup/panes/*.tsx (14 files, condensed in siteMockupStage.tsx notes)"
     ],
-    "repo_checksum": "7ec82ae79cf7a2effec81ddb42a70e904bb2847072a6d4b86f23da6275aeb945",
+    "repo_checksum": "f6edd6378d9f06dc2e8c6c3b438430ae88b067335e22ac25563f2a8cb0d56fe0",
     "edge_tool": "hybrid: madge --json --extensions ts,tsx src/ (v8.0.0, run from frontend/) for frontend import edges; a custom stdlib-ast import-graph script (docs/code-map/tools/py_import_graph.py) for backend/plugin import edges. `calls` entries confirmed by one of these tools are kept/added as tool-derived; prior model-written entries the tool could not confirm (dynamic dispatch, cross-language, or a dotted-module reference the tool didn't resolve) moved to `calls_inferred`. `called_by` is the mechanical inverse of `calls` across the whole map, recomputed from scratch by this merge (2026-07-06)."
   },
   "flows": [
@@ -10106,7 +10106,8 @@
         "frontend/src/demo/stages/siteMockupStage.tsx"
       ],
       "notes": [
-        "all colors CSS-var driven"
+        "all colors CSS-var driven",
+        "BOOK_TABS now ['Book', 'Contents', 'Cast', 'Publish', 'Backups'] (2026-07-09, demo_north_star_book_pane Task 002) -- 'Book' added as the new first/default tab, mirroring the real app's DC-001 front-door fix; BOOK_STAGE_LINKS (separate array, used by rail.tsx) left unchanged."
       ]
     },
     "frontend/src/demo/stages/siteMockup/MockTapeControls.tsx": {
@@ -10174,7 +10175,8 @@
       ],
       "notes": [
         "demonstrates v3.7 IA: Library->Book->5 tabs->Chapter Workspace",
-        "many sub-pane files (panes/*) with minimal individual exports: settings, voiceEditor, book, platform, studio, castPanel, library, voicePortrait, activity, lexiconPanel, splash, publish, voices, directorsConsole"
+        "many sub-pane files (panes/*) with minimal individual exports: settings, voiceEditor, book, platform, studio, castPanel, library, voicePortrait, activity, lexiconPanel, splash, publish, voices, directorsConsole",
+        "demo_north_star_book_pane (2026-07-09, Tasks 001-003): panes/book.tsx gained a new exported `BookPane` front-door hero component (cover, identity, description, Continue Listening CTA) alongside its existing ContentsPane/ManuscriptPane/CastingPane/BackupsPane; wired in here as the new first/default tab (activeBookTab initial state 'Contents' -> 'Book'). This file's own pre-existing internal book-workspace-shell component was renamed BookPane -> BookWorkspacePane (all references incl. JSX usage ~line 1419) to resolve the name collision with the newly-imported panes/book.tsx BookPane, so the import stays a plain `BookPane` matching the ContentsPane/CastingPane/BackupsPane sibling convention. docs/demo/ static bundle rebuilt (Task 003) to ship this."
       ],
       "calls_inferred": [
         "frontend/src/demo/stages/siteMockup/*"
@@ -14542,7 +14544,8 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "Not previously tracked as a files record; added 2026-07-09. Touched during the 2026-07-09 book-layout session (already reflected in map.json content per that session's own consolidation) -- no further book_tab_front_door queue entry names a specific token change beyond what's already current on disk."
+        "Not previously tracked as a files record; added 2026-07-09. Touched during the 2026-07-09 book-layout session (already reflected in map.json content per that session's own consolidation).",
+        "2026-07-09 border-strong-token-gap-fix: added --border-strong (light: #c3cbdb, dark: #5a6480) next to --border/--border-muted -- closes a gap where components.css referenced this custom property (undefined until this fix) for the series-position pill border and the stepper's hover border-color."
       ]
     }
   },
