@@ -301,14 +301,16 @@ describe('DemoApp routing', () => {
     });
 
     const discoverPortraitImages = Array.from(container.querySelectorAll<HTMLImageElement>('.ns-voice-portrait img'));
+    // "Warden Baritone" (Gruff tone, Senior age) resolves via getVoicePortraitSrc's
+    // age-before-tone precedence to the senior silhouette, not a gruff-specific asset.
     expect(
       discoverPortraitImages.some((image) =>
-        image.getAttribute('src')?.includes('/demo-voice-raster/gruff-character.png'),
+        image.getAttribute('src')?.includes('/demo-voice-silhouettes/senior.svg'),
       ),
     ).toBe(true);
-    const clearToneCard = screen.getByText('ClearTone-F').closest('.ns-card');
-    expect(clearToneCard).not.toBeNull();
-    expect(clearToneCard?.querySelector('.ns-voice-portrait')).toBeNull();
+    const wardenCard = screen.getByText('Warden Baritone').closest('.ns-card');
+    expect(wardenCard).not.toBeNull();
+    expect(wardenCard?.querySelector('.ns-voice-portrait')).not.toBeNull();
   });
 
   it('site mockup voice profile editor generates the reusable image prompt', async () => {
